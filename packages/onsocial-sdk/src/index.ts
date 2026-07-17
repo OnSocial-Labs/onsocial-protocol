@@ -19,6 +19,7 @@ export {
   resolvePostMedia,
   buildPostSetData,
   buildProfileSetData,
+  profileMetaFromBio,
   buildReactionSetData,
   buildReactionRemoveData,
   buildReplySetData,
@@ -42,6 +43,7 @@ export type {
   EndorsementBuildInput,
   AttestationBuildInput,
   AttestationSignatureInput,
+  ProfileBioMeta,
 } from './modules/social.js';
 export { ScarcesModule } from './modules/scarces/index.js';
 export {

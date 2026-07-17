@@ -29,6 +29,7 @@ export function DiscoverOverlaySheet({
         ariaTitle="Discover"
         toolbar={<DiscoverSheetHeader />}
         scrollBodyRef={scrollRootRef}
+        showHeaderDivider={false}
       />
       <DiscoverPanelContent />
     </DiscoverPanelRoot>

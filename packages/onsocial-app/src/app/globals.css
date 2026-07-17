@@ -13,6 +13,12 @@
 @import '@onsocial/ui/search-field.css';
 @import './transaction-feedback-toast.css';
 
+/* Discover tabs close the header — never pair with the section hairline. */
+.overlay-header-portal:has(.discover-tab-bar) .glass-sheet-header-divider,
+.discover-sheet-header ~ .glass-sheet-header-divider {
+  display: none;
+}
+
 /* Content-sized glass sheets — unlayered so height beats imported glass-sheet.css. */
 .glass-sheet-panel.account-drawer-panel {
   height: auto;
@@ -6381,7 +6387,7 @@ a.os-surface-row {
   }
 
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control {
-    background: rgb(var(--fg-rgb) / 0.03);
+    background: var(--os-surface-row-hover);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -6391,7 +6397,42 @@ a.os-surface-row {
     .standing-list-toolbar
     .sheet-control:focus-within,
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control.is-open {
-    background: rgb(var(--fg-rgb) / 0.045);
+    background: var(--os-surface-fill-hover-soft);
+  }
+
+  /* Standing view trigger matches SearchField soft fill. */
+  .os-app-screen[data-tone='os'] .standing-list-toolbar .os-floating-panel-trigger,
+  .standing-page-screen[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger,
+  .glass-sheet-panel[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger {
+    background: var(--os-surface-fill-hover-soft);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
+
+  .os-app-screen[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger:hover,
+  .os-app-screen[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger.is-open,
+  .standing-page-screen[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger:hover,
+  .standing-page-screen[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger.is-open,
+  .glass-sheet-panel[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger:hover,
+  .glass-sheet-panel[data-tone='os']
+    .standing-list-toolbar
+    .os-floating-panel-trigger.is-open {
+    background: var(--os-surface-fill-hover);
   }
 
   .standing-page-screen-header {
@@ -6409,7 +6450,7 @@ a.os-surface-row {
   }
 
   .standing-page-screen[data-tone='os'] .standing-sheet-header .sheet-control {
-    background: rgb(var(--fg-rgb) / 0.03);
+    background: var(--os-surface-row-hover);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -6423,7 +6464,7 @@ a.os-surface-row {
   .standing-page-screen[data-tone='os']
     .standing-sheet-header
     .sheet-control.is-open {
-    background: rgb(var(--fg-rgb) / 0.045);
+    background: var(--os-surface-fill-hover-soft);
   }
 
   .discover-panel.standing-panel {
@@ -6555,7 +6596,7 @@ a.os-surface-row {
   .discover-trending-chip-count {
     font-size: 0.68rem;
     font-weight: 550;
-    color: rgb(var(--fg-rgb) / 0.45);
+    color: var(--os-surface-muted-strong);
   }
 
   .discover-trending-chip--ticker .discover-trending-chip-count {
@@ -6631,16 +6672,19 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
+  /* Text tabs — soft selected wash like menu rows; no underline / rail. */
   .discover-tab-bar {
-    margin: 0 0 0.75rem;
-    padding: 0.18rem;
-    border-radius: 999px;
-    background: rgb(var(--fg-rgb) / 0.04);
+    margin: 0 0 0.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .discover-tab-bar-scroller {
     display: flex;
-    gap: 0.25rem;
+    gap: 0.15rem;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -6654,30 +6698,41 @@ a.os-surface-row {
     flex: 0 0 auto;
     margin: 0;
     border: 0;
-    border-radius: 999px;
-    padding: 0.42rem 0.8rem;
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.625rem;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.55);
+    box-shadow: none;
+    color: var(--os-surface-muted);
     font: inherit;
-    font-size: 0.76rem;
-    font-weight: 600;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    text-decoration: none;
     white-space: nowrap;
     cursor: pointer;
     transition:
-      color 0.15s ease,
-      background 0.15s ease;
+      color 160ms ease,
+      background 160ms ease;
+  }
+
+  .discover-tab-bar button::before,
+  .discover-tab-bar button::after {
+    content: none;
   }
 
   .discover-tab-bar button:hover,
   .discover-tab-bar button:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
+    background: var(--os-surface-row-hover);
+    color: var(--os-surface-emphasis);
     outline: none;
   }
 
   .discover-tab-bar button.is-active {
-    background: rgb(var(--bg-rgb) / 0.94);
+    background: var(--os-surface-fill);
     color: rgb(var(--fg-rgb) / 0.94);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+    box-shadow: none;
+    text-decoration: none;
   }
 
   .discover-focus-list {
@@ -8313,9 +8368,9 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.58);
   }
 
-  /* OS standing overlay: flat glass controls (match search + close); menu stays solid. */
+  /* OS standing overlay: flat glass controls (match soft chrome ladder). */
   .glass-sheet-panel[data-tone='os'] .standing-sheet-header .sheet-control {
-    background: rgb(var(--fg-rgb) / 0.03);
+    background: var(--os-surface-row-hover);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -8329,7 +8384,7 @@ a.os-surface-row {
   .glass-sheet-panel[data-tone='os']
     .standing-sheet-header
     .sheet-control.is-open {
-    background: rgb(var(--fg-rgb) / 0.045);
+    background: var(--os-surface-fill-hover-soft);
   }
 
   @media (min-width: 768px) {
@@ -8595,7 +8650,7 @@ a.os-surface-row {
     padding: 0 0.7rem;
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
+    background: var(--os-surface-row-hover);
     color: rgb(var(--fg-rgb) / 0.78);
     font: inherit;
     font-size: 0.72rem;
@@ -8610,7 +8665,7 @@ a.os-surface-row {
   .standing-panel-empty-action:hover,
   .standing-panel-empty-action:focus-visible {
     border-color: rgb(var(--fg-rgb) / 0.16);
-    background: rgb(var(--fg-rgb) / 0.05);
+    background: var(--os-surface-fill-hover-soft);
     color: rgb(var(--fg-rgb) / 0.92);
     outline: none;
   }
@@ -8627,11 +8682,11 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  /* Shared OnPage glass control chrome (search, dropdown, close). */
+  /* Shared OnPage soft glass chrome (dropdowns, close — search owns its fill). */
   .sheet-control {
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
+    background: var(--os-surface-row-hover);
     color: rgb(var(--fg-rgb) / 0.72);
     transition:
       border-color 160ms ease,
@@ -8644,14 +8699,14 @@ a.os-surface-row {
   .sheet-control:focus-within,
   .sheet-control.is-open {
     border-color: rgb(var(--fg-rgb) / 0.16);
-    background: rgb(var(--fg-rgb) / 0.045);
+    background: var(--os-surface-fill-hover-soft);
     color: rgb(var(--fg-rgb) / 0.9);
   }
 
   button.sheet-control:focus-visible,
   a.sheet-control:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
+    box-shadow: 0 0 0 1px var(--os-surface-ring);
   }
 
   .sheet-control--icon {
@@ -8751,7 +8806,7 @@ a.os-surface-row {
     align-self: flex-start;
     border: 1px solid rgb(var(--fg-rgb) / 0.12);
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.04);
+    background: var(--os-surface-fill-quiet);
     color: rgb(var(--fg-rgb) / 0.82);
     cursor: pointer;
     font: inherit;
@@ -8766,7 +8821,7 @@ a.os-surface-row {
 
   .standing-panel-error-retry:hover,
   .standing-panel-error-retry:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.07);
+    background: var(--os-surface-fill-hover);
     border-color: rgb(var(--fg-rgb) / 0.18);
     outline: none;
   }
@@ -8827,7 +8882,7 @@ a.os-surface-row {
 
   .standing-row:hover,
   .standing-row:focus-within {
-    background: rgb(var(--fg-rgb) / 0.03);
+    background: var(--os-surface-row-hover);
   }
 
   .standing-row-main {
@@ -12033,7 +12088,7 @@ a.os-surface-row {
     width: 100%;
   }
 
-  /* Borderless like .os-floating-panel dropdowns — shadow carries elevation. */
+  /* Borderless elevated glass — matches .os-floating-panel menus. */
   .home-hashtag-suggest {
     position: absolute;
     top: calc(100% + 0.35rem);
@@ -12042,11 +12097,11 @@ a.os-surface-row {
     z-index: 5;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.4rem;
+    gap: 0.12rem;
+    padding: 0.35rem;
     border: 0;
     border-radius: 1rem;
-    background: rgb(var(--bg-rgb) / 0.96);
+    background: var(--os-surface-float);
     box-shadow:
       0 18px 40px -18px rgb(0 0 0 / 0.34),
       0 6px 16px -12px rgb(0 0 0 / 0.18);
@@ -12059,21 +12114,22 @@ a.os-surface-row {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    min-height: 2.35rem;
+    min-height: 2.25rem;
     margin: 0;
     border: 0;
     border-radius: 0.75rem;
-    padding: 0.4rem 0.65rem;
+    padding: 0.38rem 0.6rem;
     background: transparent;
     color: inherit;
     cursor: pointer;
     font: inherit;
     text-align: left;
+    transition: background 140ms ease;
   }
 
   .home-hashtag-suggest-item:hover,
   .home-hashtag-suggest-item:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.06);
+    background: var(--os-surface-row-hover);
     outline: none;
   }
 
@@ -12094,13 +12150,13 @@ a.os-surface-row {
     font-size: 0.68rem;
     font-weight: 550;
     letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: var(--os-surface-muted-strong);
   }
 
   .home-hashtag-suggest-count {
     font-size: 0.72rem;
     font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.45);
+    color: var(--os-surface-muted-strong);
   }
 
   .home-feed-lens-option {

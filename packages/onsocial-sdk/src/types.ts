@@ -256,7 +256,14 @@ export interface ProfileData {
    */
   banner?: string | Blob | File | null;
   links?: Record<string, string>;
+  /** Freeform tags for third-party apps; OnSocial prefers bio-derived tokens. */
   tags?: string[];
+  /** Lowercase hashtags from bio (`#near` → `near`). Written when `bio` updates. */
+  hashtags?: string[];
+  /** Lowercase tickers from bio (`$SOCIAL` → `social`). Written when `bio` updates. */
+  tickers?: string[];
+  /** Account ids from bio (`@alice.near`). Written when `bio` updates. */
+  mentions?: string[];
   /**
    * Custom profile fields are written under `profile/<key>`. File-like values
    * are uploaded by `os.profiles.update` and replaced with `ipfs://<cid>`.

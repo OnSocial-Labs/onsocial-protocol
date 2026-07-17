@@ -34,7 +34,6 @@ export async function GET(request: NextRequest) {
       bannerUrl: shell?.bannerUrl ?? null,
       bannerMedia: shell?.bannerMedia ?? null,
       links: shell?.links ?? null,
-      tags: shell?.tags ?? [],
     });
   } catch {
     return NextResponse.json(

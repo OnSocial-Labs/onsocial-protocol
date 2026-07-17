@@ -3,17 +3,13 @@ import {
   PROFILE_LINK_EDITOR_FIELDS,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import {
-  profileEditorTagsEqual,
-} from '@/lib/profile-tag-editor';
+
 export function isProfileEditorDirty(input: {
   snapshot: ProfileEditorSnapshot;
   linksFromSnapshot: ProfileLinksInput;
-  tagsFromSnapshot: string[];
   name: string;
   bio: string;
   links: ProfileLinksInput;
-  tags: string[];
   avatarFile: File | null;
   bannerFile: File | null;
   avatarRemoved: boolean;
@@ -36,10 +32,6 @@ export function isProfileEditorDirty(input: {
   }
 
   if (input.bio.trim() !== input.snapshot.bio.trim()) {
-    return true;
-  }
-
-  if (!profileEditorTagsEqual(input.tags, input.tagsFromSnapshot)) {
     return true;
   }
 

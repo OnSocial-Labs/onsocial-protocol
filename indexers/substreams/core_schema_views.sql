@@ -846,6 +846,93 @@ FROM post_tickers
 GROUP BY ticker;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 13d. profile_hashtags — hashtag-to-profile junction (bio-derived arrays)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW profile_hashtags AS
+SELECT
+  p.account_id,
+  lower(trim(ht.tag)) AS hashtag,
+  p.block_height,
+  p.block_timestamp
+FROM profiles_current p
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  CASE
+    WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+    ELSE NULL
+  END
+) AS ht(tag)
+WHERE p.field = 'hashtags'
+  AND p.value IS NOT NULL
+  AND p.value != ''
+  AND p.value ~ '^\[.*\]$'
+  AND jsonb_typeof(
+    CASE
+      WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+      ELSE NULL
+    END
+  ) = 'array'
+  AND length(trim(ht.tag)) > 0;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 13e. profile_tickers — ticker-to-profile junction (bio-derived arrays)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW profile_tickers AS
+SELECT
+  p.account_id,
+  lower(trim(tk.sym)) AS ticker,
+  p.block_height,
+  p.block_timestamp
+FROM profiles_current p
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  CASE
+    WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+    ELSE NULL
+  END
+) AS tk(sym)
+WHERE p.field = 'tickers'
+  AND p.value IS NOT NULL
+  AND p.value != ''
+  AND p.value ~ '^\[.*\]$'
+  AND jsonb_typeof(
+    CASE
+      WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+      ELSE NULL
+    END
+  ) = 'array'
+  AND length(trim(tk.sym)) > 0;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 13f. profile_mentions — mention-to-profile junction (bio-derived arrays)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW profile_mentions AS
+SELECT
+  p.account_id,
+  lower(trim(m.account)) AS mentioned_account_id,
+  p.block_height,
+  p.block_timestamp
+FROM profiles_current p
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  CASE
+    WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+    ELSE NULL
+  END
+) AS m(account)
+WHERE p.field = 'mentions'
+  AND p.value IS NOT NULL
+  AND p.value != ''
+  AND p.value ~ '^\[.*\]$'
+  AND jsonb_typeof(
+    CASE
+      WHEN p.value ~ '^\[.*\]$' THEN p.value::jsonb
+      ELSE NULL
+    END
+  ) = 'array'
+  AND length(trim(m.account)) > 0;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 14. saves_current — latest save state per (account, path)
 -- ────────────────────────────────────────────────────────────────────────────
 

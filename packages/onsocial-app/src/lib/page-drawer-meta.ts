@@ -163,6 +163,9 @@ const PROFILE_UPDATE_FIELDS = new Set([
   'banner',
   'links',
   'tags',
+  'hashtags',
+  'tickers',
+  'mentions',
 ]);
 
 const PROFILE_FIELD_LABELS: Record<string, string> = {
@@ -172,6 +175,9 @@ const PROFILE_FIELD_LABELS: Record<string, string> = {
   banner: 'Banner',
   links: 'Links',
   tags: 'Tags',
+  hashtags: 'Topics',
+  tickers: 'Tickers',
+  mentions: 'Mentions',
 };
 
 export interface ProfileFieldUpdateRow {

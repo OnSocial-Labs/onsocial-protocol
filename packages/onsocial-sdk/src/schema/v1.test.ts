@@ -44,7 +44,7 @@ describe('ProfileV1', () => {
     const p = profileV1({
       handle: 'alice_42',
       displayName: 'Alice',
-      bio: 'Building',
+      bio: 'Building #near $SOCIAL with @bob.testnet',
       avatar: {
         cid: 'bafy...',
         mime: 'image/webp',
@@ -54,10 +54,20 @@ describe('ProfileV1', () => {
       },
       links: [{ label: 'Site', url: 'https://x.test' }],
       tags: ['near', 'web3'],
+      hashtags: ['near'],
+      tickers: ['social'],
+      mentions: ['bob.testnet'],
       lang: 'en',
       x: { dating: { orientation: 'queer' } },
     });
     expect(validateProfileV1(p)).toBeNull();
+  });
+
+  it('rejects bad profile hashtags and tickers', () => {
+    expect(() => profileV1({ hashtags: ['BadTag'] as never })).toThrow(
+      /hashtags/
+    );
+    expect(() => profileV1({ tickers: ['100'] as never })).toThrow(/tickers/);
   });
 
   it('rejects bad handle', () => {

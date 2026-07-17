@@ -12,7 +12,11 @@ export interface AppProfileShell {
   avatarMedia: ResolvedProfileMedia | null;
   bannerMedia: ResolvedProfileMedia | null;
   links: MaterialisedProfile['links'];
+  /** Freeform tags kept for schema interop; app UI does not surface them. */
   tags: string[];
+  hashtags: string[];
+  tickers: string[];
+  mentions: string[];
 }
 
 export const loadProfileShell = cache(
@@ -34,6 +38,9 @@ export const loadProfileShell = cache(
         bannerMedia: os.profiles.bannerMedia(profile),
         links: profile.links,
         tags: profile.tags ?? [],
+        hashtags: profile.hashtags ?? [],
+        tickers: profile.tickers ?? [],
+        mentions: profile.mentions ?? [],
       };
     } catch {
       return null;

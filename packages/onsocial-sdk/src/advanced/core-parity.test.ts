@@ -49,7 +49,10 @@ describe('core contract parity suite', () => {
       action: {
         data: {
           'profile/bio': 'Builder',
+          'profile/hashtags': '[]',
+          'profile/mentions': '[]',
           'profile/name': 'Alice',
+          'profile/tickers': '[]',
           'profile/v': '1',
         },
         type: 'set',

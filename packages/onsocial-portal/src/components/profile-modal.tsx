@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { HeartHandshake, PenLine, User } from 'lucide-react';
 import { ProfileSocialLinkIcons } from '@/components/profile-link-icons';
+import { ProfileBioRichText } from '@/components/profile-bio-rich-text';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import type { PortalProfileShell } from '@/lib/portal-profile-server';
 import { useProfile } from '@/contexts/profile-context';
@@ -1617,9 +1618,10 @@ export function ProfileModal({
               </div>
 
               {bio ? (
-                <p className="portal-type-body leading-relaxed text-muted-foreground">
-                  {bio}
-                </p>
+                <ProfileBioRichText
+                  text={bio}
+                  className="portal-type-body leading-relaxed text-muted-foreground"
+                />
               ) : null}
 
               {joinedLabel ||

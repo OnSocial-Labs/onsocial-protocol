@@ -24,6 +24,9 @@ describe('advanced action helpers', () => {
         'profile/v': '1',
         'profile/name': 'Alice',
         'profile/bio': 'Builder',
+        'profile/hashtags': '[]',
+        'profile/tickers': '[]',
+        'profile/mentions': '[]',
       },
     });
 

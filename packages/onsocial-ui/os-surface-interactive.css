@@ -2,9 +2,22 @@
  * @onsocial/ui — borderless interactive surfaces (rows, tiles, chips, panels).
  *
  * Use inside glass sheets and OS chrome. No pill borders — hover = fill lift only.
- * Pair with protocol.css (--fg-rgb) and optional os-sheet-action tokens.
+ * Pair with protocol.css (--fg-rgb / --bg-rgb) and optional os-sheet-action tokens.
  *
- * Tiers:
+ * Fill ladder (quiet → soft → hover → strong):
+ *   --os-surface-row-hover        profile / menu / soft-chrome rest
+ *   --os-surface-fill-quiet       secondary rails / quiet ghost pills
+ *   --os-surface-fill-hover-soft  search rest / soft-chrome hover
+ *   --os-surface-fill             default interactive fill / selected menu row
+ *   --os-surface-fill-hover       search focus / soft pill hover lift
+ *   --os-surface-fill-strong      compact chips
+ *   --os-surface-elevated         active segmented pill
+ *   --os-surface-float            elevated dropdown / suggest card
+ *   --os-surface-ring             quiet focus / open ring
+ *   --os-surface-muted            normal muted text / placeholders
+ *   --os-surface-muted-strong     tiny metadata that needs more contrast
+ *
+ * Component tiers:
  *   os-surface-panel  — static inset card (wallet block, grouped metrics)
  *   os-surface-row    — full-width list row (Edit profile, customize options)
  *   os-surface-tile   — square icon cell (shortcut dock)
@@ -15,12 +28,18 @@
 
 @layer tokens {
   :root {
+    --os-surface-fill-quiet: rgb(var(--fg-rgb) / 0.035);
     --os-surface-fill: rgb(var(--fg-rgb) / 0.055);
+    --os-surface-row-hover: rgb(var(--fg-rgb) / 0.03);
     --os-surface-fill-strong: rgb(var(--fg-rgb) / 0.085);
     --os-surface-fill-hover: rgb(var(--fg-rgb) / 0.07);
     --os-surface-fill-hover-soft: rgb(var(--fg-rgb) / 0.05);
     --os-surface-fill-active: rgb(var(--fg-rgb) / 0.09);
+    --os-surface-elevated: rgb(var(--bg-rgb) / 0.92);
+    --os-surface-float: rgb(var(--bg-rgb) / 0.96);
+    --os-surface-ring: rgb(var(--fg-rgb) / 0.08);
     --os-surface-muted: rgb(var(--fg-rgb) / 0.55);
+    --os-surface-muted-strong: rgb(var(--fg-rgb) / 0.62);
     --os-surface-emphasis: rgb(var(--fg-rgb) / 0.88);
     --os-surface-radius-row: 0.85rem;
     --os-surface-radius-tile: 0.85rem;

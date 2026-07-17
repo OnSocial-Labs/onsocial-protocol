@@ -14,11 +14,14 @@ export function OverlayPanelChrome({
   title,
   toolbar,
   scrollBodyRef,
+  showHeaderDivider = true,
 }: {
   ariaTitle: string;
   title?: string;
   toolbar?: ReactNode;
   scrollBodyRef?: RefObject<HTMLDivElement | null>;
+  /** Section divider under header. Off when tabs already close the chrome. */
+  showHeaderDivider?: boolean;
 }) {
   const registerChrome = useOverlayChromeRegister();
   const headerPortal = useOverlayHeaderPortal();
@@ -58,7 +61,9 @@ export function OverlayPanelChrome({
   return createPortal(
     <>
       {headerContent}
-      <Divider variant="section" className="glass-sheet-header-divider" />
+      {showHeaderDivider ? (
+        <Divider variant="section" className="glass-sheet-header-divider" />
+      ) : null}
     </>,
     headerPortal
   );

@@ -20,7 +20,6 @@ import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
-import { ProfileTagsEditor } from '@/components/wallet/profile-tags-editor';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
@@ -42,7 +41,6 @@ import {
   profileLinkEditorFieldErrors,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import { normalizeProfileEditorTags } from '@/lib/profile-tag-editor';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { nearExplorerTxHref } from '@/lib/app-config';
@@ -102,7 +100,6 @@ interface ProfileEditorFormProps {
   editorOpen: boolean;
   snapshot: ProfileEditorSnapshot;
   linksFromSnapshot: ProfileLinksInput;
-  tagsFromSnapshot: string[];
   saving: boolean;
   hasSocialSession: boolean;
   isBootstrappingSession: boolean;
@@ -123,7 +120,6 @@ function ProfileEditorForm({
   editorOpen,
   snapshot,
   linksFromSnapshot,
-  tagsFromSnapshot,
   saving,
   hasSocialSession,
   isBootstrappingSession,
@@ -145,9 +141,6 @@ function ProfileEditorForm({
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const [name, setName] = useState(snapshot.name);
   const [bio, setBio] = useState(snapshot.bio);
-  const [tags, setTags] = useState(() =>
-    normalizeProfileEditorTags(snapshot.tags)
-  );
   const [links, setLinks] = useState(linksFromSnapshot);
   const [linkFieldErrors, setLinkFieldErrors] = useState<
     Partial<Record<keyof ProfileLinksInput, string>>
@@ -240,11 +233,9 @@ function ProfileEditorForm({
       isProfileEditorDirty({
         snapshot,
         linksFromSnapshot,
-        tagsFromSnapshot,
         name,
         bio,
         links,
-        tags,
         avatarFile,
         bannerFile,
         avatarRemoved,
@@ -260,8 +251,6 @@ function ProfileEditorForm({
       linksFromSnapshot,
       name,
       snapshot,
-      tags,
-      tagsFromSnapshot,
     ]
   );
   useEffect(() => {
@@ -363,8 +352,6 @@ function ProfileEditorForm({
         currentLinks: snapshot.links,
         hasCurrentLinks,
         hasLinkInput,
-        tags,
-        currentTags: tagsFromSnapshot,
       });
       onSaved(result);
       setTxResult({
@@ -559,7 +546,7 @@ function ProfileEditorForm({
                     value={bio}
                     maxLength={180}
                     rows={1}
-                    placeholder="Add a bio…"
+                    placeholder="Bio — use #topics, $tickers, @accounts…"
                     onFocus={scrollFieldIntoView}
                     onChange={(event) => {
                       setBio(event.target.value);
@@ -596,13 +583,6 @@ function ProfileEditorForm({
             onUpdateLink={updateLink}
             onClearFieldError={clearLinkFieldError}
             onSetFieldError={setLinkFieldError}
-          />
-
-          <ProfileTagsEditor
-            tags={tags}
-            onChange={(next) => {
-              setTags(next);
-            }}
           />
 
           {!hasSocialSession ? (
@@ -764,7 +744,6 @@ export function AppProfileEditorSheet({
     isBootstrappingSession,
     connect,
     linksFromSnapshot,
-    tagsFromSnapshot,
   } = useAppProfileEditor(accountId, sheetOpen);
   const { moodId: portfolioMoodId, style: portfolioMoodStyle } =
     usePortfolioMoodVars(pageAccountId, accountId, sheetOpen);
@@ -844,7 +823,6 @@ export function AppProfileEditorSheet({
             editorOpen={sheetOpen}
             snapshot={snapshot}
             linksFromSnapshot={linksFromSnapshot}
-            tagsFromSnapshot={tagsFromSnapshot}
             saving={saving}
             hasSocialSession={hasSocialSession}
             isBootstrappingSession={isBootstrappingSession}

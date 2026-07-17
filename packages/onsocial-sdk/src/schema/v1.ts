@@ -40,7 +40,17 @@ export interface ProfileV1 {
   avatar?: MediaRef;
   banner?: MediaRef;
   links?: ProfileLink[];
+  /**
+   * Freeform tags for third-party apps. OnSocial apps prefer bio tokens +
+   * `hashtags` / `tickers` / `mentions` (extracted from bio on save).
+   */
   tags?: string[];
+  /** Account ids mentioned in `bio` (`@alice.near`). No leading `@`. */
+  mentions?: string[];
+  /** Lowercase, no leading `#` — derived from bio `#topics`. */
+  hashtags?: string[];
+  /** Lowercase ticker symbols, no leading `$` — derived from bio `$tickers`. */
+  tickers?: string[];
   /** BCP-47 language tag, e.g. `en`, `pt-BR`. */
   lang?: string;
   /** Extension namespace; only `x.<appId>.<field>` is permitted. */
@@ -367,6 +377,27 @@ export function validateProfileV1(p: unknown): string | null {
   if (p.tags !== undefined) {
     if (!Array.isArray(p.tags) || !p.tags.every(isStr))
       return 'profile.tags must be string[]';
+  }
+  if (p.mentions !== undefined) {
+    if (!Array.isArray(p.mentions) || !p.mentions.every(isStr)) {
+      return 'profile.mentions must be string[]';
+    }
+  }
+  if (p.hashtags !== undefined) {
+    if (
+      !Array.isArray(p.hashtags) ||
+      !p.hashtags.every((t) => isStr(t) && HASHTAG_RE.test(t))
+    ) {
+      return 'profile.hashtags must be lowercase strings without #';
+    }
+  }
+  if (p.tickers !== undefined) {
+    if (
+      !Array.isArray(p.tickers) ||
+      !p.tickers.every((t) => isStr(t) && TICKER_RE.test(t))
+    ) {
+      return 'profile.tickers must be lowercase letter-led symbols without $';
+    }
   }
   if (p.lang !== undefined && (!isStr(p.lang) || !BCP47_RE.test(p.lang))) {
     return 'profile.lang must be a BCP-47 tag';

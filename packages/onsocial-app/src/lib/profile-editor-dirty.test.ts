@@ -15,7 +15,6 @@ function baseSnapshot(
     bannerUrl: 'https://cdn.example/banner.png',
     bannerMedia: { kind: 'image', url: 'https://cdn.example/banner.png' },
     links: {},
-    tags: [],
     ...overrides,
   };
 }
@@ -28,11 +27,9 @@ function dirtyInput(
   return {
     snapshot,
     linksFromSnapshot,
-    tagsFromSnapshot: snapshot.tags,
     name: snapshot.name,
     bio: snapshot.bio,
     links: linksFromSnapshot,
-    tags: snapshot.tags,
     avatarFile: null,
     bannerFile: null,
     avatarRemoved: false,
@@ -80,14 +77,10 @@ describe('isProfileEditorDirty', () => {
     ).toBe(false);
   });
 
-  it('ignores banner removal when no banner is saved', () => {
-    const snapshot = baseSnapshot({ bannerUrl: null });
+  it('is dirty when bio changes', () => {
+    const snapshot = baseSnapshot();
     expect(
-      isProfileEditorDirty(
-        dirtyInput(snapshot, {
-          bannerRemoved: true,
-        })
-      )
-    ).toBe(false);
+      isProfileEditorDirty(dirtyInput(snapshot, { bio: 'Building #near' }))
+    ).toBe(true);
   });
 });

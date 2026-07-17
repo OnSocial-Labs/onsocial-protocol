@@ -275,40 +275,40 @@
 
 .os-floating-panel-item:hover,
 .os-floating-panel-item:focus-visible {
-  background: var(--os-fp-neutral-bg);
+  background: var(--os-surface-row-hover, var(--os-fp-neutral-bg));
   color: var(--os-fp-fg);
   outline: none;
 }
 
 .os-floating-panel-item.is-selected {
-  background: var(--os-fp-neutral-frame-bg);
+  background: var(--os-surface-fill, var(--os-fp-neutral-frame-bg));
   color: var(--os-fp-fg);
   font-weight: 500;
 }
 
+/* Borderless soft fill — matches SearchField; elevation lives on the menu. */
 .os-floating-panel-trigger {
   display: inline-flex;
   max-width: 11.5rem;
-  height: 2rem;
+  min-height: 2rem;
   align-items: center;
   gap: 0.5rem;
-  padding: 0 0.75rem;
-  border: 1px solid var(--os-fp-trigger-border);
+  padding: 0.35rem 0.75rem;
+  border: 0;
   border-radius: 9999px;
   background: var(--os-fp-trigger-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--os-fp-trigger-shadow);
+  box-shadow: none;
   color: var(--os-fp-muted);
   font: inherit;
   font-size: 0.75rem;
-  line-height: 1;
+  line-height: 1.25;
   cursor: pointer;
   transition:
-    background 300ms ease,
-    border-color 300ms ease,
-    box-shadow 300ms ease,
-    color 300ms ease;
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
 }
 
 .os-floating-panel-trigger:hover {
@@ -318,7 +318,8 @@
 
 .os-floating-panel-trigger.is-open {
   background: var(--os-fp-trigger-bg-open);
-  box-shadow: var(--os-fp-trigger-shadow-open);
+  box-shadow: 0 0 0 1px
+    var(--os-surface-ring, rgb(var(--fg-rgb, 15 23 42) / 0.08));
   color: var(--os-fp-fg);
 }
 
@@ -327,6 +328,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.25;
   color: var(--os-fp-fg-soft);
 }
 

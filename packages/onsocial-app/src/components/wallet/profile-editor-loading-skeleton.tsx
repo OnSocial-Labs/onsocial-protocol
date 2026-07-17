@@ -56,11 +56,6 @@ export function ProfileEditorLoadingSkeleton({
           <div className="account-editor-shimmer account-editor-shimmer-link-chip" />
           <div className="account-editor-shimmer account-editor-shimmer-link-chip" />
         </div>
-        <div className="account-editor-skeleton-tags">
-          <div className="account-editor-shimmer account-editor-shimmer-tag" />
-          <div className="account-editor-shimmer account-editor-shimmer-tag" />
-          <div className="account-editor-shimmer account-editor-shimmer-tag" />
-        </div>
       </div>
 
       <div className="account-editor-footer account-editor-footer--skeleton">

@@ -77,6 +77,7 @@ import {
 
 export {
   buildProfileSetData,
+  profileMetaFromBio,
   buildPostSetData,
   buildReplySetData,
   buildQuoteSetData,
@@ -103,6 +104,7 @@ export type {
   EndorsementBuildInput,
   AttestationBuildInput,
   AttestationSignatureInput,
+  ProfileBioMeta,
 } from '../builders/index.js';
 
 // ── Module-private helpers ─────────────────────────────────────────────────

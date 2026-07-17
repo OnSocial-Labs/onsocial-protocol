@@ -1,11 +1,9 @@
 /**
  * @onsocial/ui — shared SearchField base styles.
  *
- * SearchField owns one consistent borderless filled surface. Chrome variants
- * may adjust inner colors, but not the search affordance itself.
- *
- * Uses the host `--fg-rgb` token. Rules live in `@layer components` so host
- * overrides declared later in the same layer win by source order.
+ * SearchField owns one consistent borderless filled surface for both chrome
+ * variants (`sheet-control` and `os-floating-panel-search`). Pair with
+ * `os-surface-interactive.css` for the fill / text ladder.
  */
 
 @layer components {
@@ -28,6 +26,11 @@
     height: 0.9375rem;
     flex-shrink: 0;
     opacity: 0.48;
+    transition: opacity 160ms ease;
+  }
+
+  .search-field:focus-within .search-field-icon {
+    opacity: 0.72;
   }
 
   .search-field-input {
@@ -36,14 +39,14 @@
     flex: 1;
     border: none;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: var(--os-surface-emphasis, rgb(var(--fg-rgb) / 0.88));
     font: inherit;
     font-size: 0.78rem;
     outline: none;
   }
 
   .search-field-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.42);
+    color: var(--os-surface-muted, rgb(var(--fg-rgb) / 0.55));
   }
 
   .search-field-clear-slot {
@@ -65,14 +68,14 @@
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.55);
+    color: var(--os-surface-muted, rgb(var(--fg-rgb) / 0.55));
     cursor: pointer;
     transition: color 160ms ease;
   }
 
   .search-field-clear:hover,
   .search-field-clear:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: var(--os-surface-emphasis, rgb(var(--fg-rgb) / 0.88));
     outline: none;
   }
 
@@ -89,18 +92,18 @@
 
 /*
  * Keep this unlayered so SearchField's surface wins over host `.sheet-control`
- * and standalone floating-panel primitive styles. Both supported chrome
- * variants intentionally look identical: quiet fill at rest, stronger on
- * hover/focus, and a subtle keyboard-visible focus ring.
+ * and standalone floating-panel primitive styles. Both chrome variants share the
+ * OS surface ladder — same fill, type, icon, and placeholder.
  */
 .search-field.sheet-control,
 .search-field.os-floating-panel-search {
   border: 0;
   border-radius: 9999px;
-  background: rgb(var(--fg-rgb) / 0.05);
+  background: var(--os-surface-fill-hover-soft);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  color: var(--os-surface-muted);
   transition:
     background 160ms ease,
     color 160ms ease,
@@ -112,11 +115,47 @@
 .search-field.os-floating-panel-search:hover,
 .search-field.os-floating-panel-search:focus-within {
   border: 0;
-  background: rgb(var(--fg-rgb) / 0.07);
+  background: var(--os-surface-fill-hover);
+  color: var(--os-surface-emphasis);
 }
 
 .search-field.sheet-control:focus-within,
 .search-field.os-floating-panel-search:focus-within {
   outline: none;
-  box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+  box-shadow: 0 0 0 1px var(--os-surface-ring);
+}
+
+/* Neutralize floating-panel nested overrides so SearchField stays one look. */
+.search-field.os-floating-panel-search .search-field-icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  opacity: 0.48;
+  color: inherit;
+}
+
+.search-field.os-floating-panel-search:focus-within .search-field-icon {
+  opacity: 0.72;
+}
+
+.search-field.sheet-control .search-field-input,
+.search-field.os-floating-panel-search .search-field-input {
+  color: var(--os-surface-emphasis);
+  font-size: 0.78rem;
+}
+
+.search-field.sheet-control .search-field-input::placeholder,
+.search-field.os-floating-panel-search .search-field-input::placeholder {
+  color: var(--os-surface-muted);
+}
+
+.search-field.sheet-control .search-field-clear,
+.search-field.os-floating-panel-search .search-field-clear {
+  color: var(--os-surface-muted);
+}
+
+.search-field.sheet-control .search-field-clear:hover,
+.search-field.sheet-control .search-field-clear:focus-visible,
+.search-field.os-floating-panel-search .search-field-clear:hover,
+.search-field.os-floating-panel-search .search-field-clear:focus-visible {
+  color: var(--os-surface-emphasis);
 }

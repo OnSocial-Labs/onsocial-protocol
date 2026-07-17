@@ -527,6 +527,23 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     columns: ['ticker', 'post_count', 'last_block'],
   },
   {
+    name: 'profile_hashtags',
+    columns: ['account_id', 'hashtag', 'block_height', 'block_timestamp'],
+  },
+  {
+    name: 'profile_tickers',
+    columns: ['account_id', 'ticker', 'block_height', 'block_timestamp'],
+  },
+  {
+    name: 'profile_mentions',
+    columns: [
+      'account_id',
+      'mentioned_account_id',
+      'block_height',
+      'block_timestamp',
+    ],
+  },
+  {
     name: 'token_events',
     columns: [
       'id',

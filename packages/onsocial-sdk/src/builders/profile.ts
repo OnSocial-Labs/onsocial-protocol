@@ -5,6 +5,7 @@
 import { SCHEMA_VERSION } from '../schema/v1.js';
 import type { ProfileData } from '../types.js';
 import type { SocialSetData } from './_shared.js';
+import { profileMetaFromBio } from './profile-meta.js';
 
 const PROFILE_RESERVED_FIELDS = [
   'name',
@@ -13,6 +14,9 @@ const PROFILE_RESERVED_FIELDS = [
   'banner',
   'links',
   'tags',
+  'hashtags',
+  'tickers',
+  'mentions',
 ];
 
 function encodeProfileField(value: unknown): string {
@@ -33,6 +37,30 @@ export function buildProfileSetData(profile: ProfileData): SocialSetData {
   }
   if (profile.tags !== undefined) {
     data['profile/tags'] = encodeProfileField(profile.tags);
+  }
+
+  // When bio is written, derive indexed token arrays (explicit overrides win).
+  if (profile.bio !== undefined) {
+    const derived = profileMetaFromBio(profile.bio);
+    data['profile/hashtags'] = encodeProfileField(
+      profile.hashtags !== undefined ? profile.hashtags : derived.hashtags
+    );
+    data['profile/tickers'] = encodeProfileField(
+      profile.tickers !== undefined ? profile.tickers : derived.tickers
+    );
+    data['profile/mentions'] = encodeProfileField(
+      profile.mentions !== undefined ? profile.mentions : derived.mentions
+    );
+  } else {
+    if (profile.hashtags !== undefined) {
+      data['profile/hashtags'] = encodeProfileField(profile.hashtags);
+    }
+    if (profile.tickers !== undefined) {
+      data['profile/tickers'] = encodeProfileField(profile.tickers);
+    }
+    if (profile.mentions !== undefined) {
+      data['profile/mentions'] = encodeProfileField(profile.mentions);
+    }
   }
 
   for (const [key, value] of Object.entries(profile)) {

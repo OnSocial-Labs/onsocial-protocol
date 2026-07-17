@@ -13,10 +13,6 @@ import {
   type ProfileLinksInput,
 } from '@/lib/profile-links';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-import {
-  normalizeProfileEditorTags,
-  profileEditorTagsEqual,
-} from '@/lib/profile-tag-editor';
 
 export interface ProfileEditorSnapshot {
   accountId: string;
@@ -27,7 +23,6 @@ export interface ProfileEditorSnapshot {
   bannerUrl: string | null;
   bannerMedia: ResolvedPageHero | null;
   links: MaterialisedProfile['links'];
-  tags: string[];
 }
 
 export interface ProfileEditorSaveInput {
@@ -41,8 +36,6 @@ export interface ProfileEditorSaveInput {
   currentLinks: MaterialisedProfile['links'];
   hasCurrentLinks: boolean;
   hasLinkInput: boolean;
-  tags: string[];
-  currentTags: string[];
 }
 
 export interface ProfileEditorSaveResult {
@@ -175,12 +168,7 @@ export function useAppProfileEditor(
           payload.links = normalizedLinks;
         }
 
-        const normalizedTags = normalizeProfileEditorTags(input.tags);
-        const snapshotTags = normalizeProfileEditorTags(input.currentTags);
-        if (!profileEditorTagsEqual(normalizedTags, snapshotTags)) {
-          payload.tags = normalizedTags;
-        }
-
+        // Bio save also writes hashtags/tickers/mentions via SDK extract-on-save.
         const response = await client.profiles.update(payload, { wait: true });
         if (session) {
           creditAppPlatformReward({
@@ -236,6 +224,5 @@ export function useAppProfileEditor(
     isBootstrappingSession,
     connect,
     linksFromSnapshot: profileLinksInputFromRecord(snapshot?.links),
-    tagsFromSnapshot: normalizeProfileEditorTags(snapshot?.tags ?? []),
   };
 }

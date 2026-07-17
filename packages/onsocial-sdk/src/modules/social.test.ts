@@ -26,7 +26,35 @@ describe('social set-data builders', () => {
       'profile/bio': 'Builder',
       'profile/links': JSON.stringify({ github: 'alice' }),
       'profile/tags': JSON.stringify(['near', 'social']),
+      'profile/hashtags': JSON.stringify([]),
+      'profile/tickers': JSON.stringify([]),
+      'profile/mentions': JSON.stringify([]),
       'profile/status': JSON.stringify({ mood: 'online' }),
+    });
+  });
+
+  it('derives hashtags tickers and mentions from bio', () => {
+    expect(
+      buildProfileSetData({
+        bio: 'Hi @bob.testnet #near $SOCIAL',
+      })
+    ).toEqual({
+      'profile/v': '1',
+      'profile/bio': 'Hi @bob.testnet #near $SOCIAL',
+      'profile/hashtags': JSON.stringify(['near']),
+      'profile/tickers': JSON.stringify(['social']),
+      'profile/mentions': JSON.stringify(['bob.testnet']),
+    });
+  });
+
+  it('allows explicit hashtag overrides when writing bio', () => {
+    expect(
+      buildProfileSetData({
+        bio: '#near',
+        hashtags: ['custom'],
+      })
+    ).toMatchObject({
+      'profile/hashtags': JSON.stringify(['custom']),
     });
   });
 

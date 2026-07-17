@@ -244,11 +244,6 @@ export function PageJoinedFactsSheet({
       />
     );
   }
-  if (meta.tags.length > 0) {
-    onSocialRows.push(
-      <FactRow key="tags" label="Tags" value={meta.tags.join(' · ')} />
-    );
-  }
 
   return (
     <GlassSheet

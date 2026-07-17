@@ -87,7 +87,7 @@ export default async function AccountPage({
   );
   const drawerMeta = await fetchPageDrawerMeta(accountId, {
     profileName: name,
-    profileTags: shell?.tags ?? [],
+    profileTags: [],
     guildCount: guilds.length,
     postCount,
   });

@@ -47,6 +47,12 @@ export interface MaterialisedProfile {
   banner?: string;
   links?: Record<string, string>;
   tags?: string[];
+  /** Lowercase hashtags derived from bio (no `#`). */
+  hashtags?: string[];
+  /** Lowercase tickers derived from bio (no `$`). */
+  tickers?: string[];
+  /** Account ids mentioned in bio (no `@`). */
+  mentions?: string[];
   /** Block height of the most-recently-written field. */
   lastUpdatedHeight?: number;
   /** Block timestamp (ns) of the most-recently-written field. */
@@ -56,7 +62,13 @@ export interface MaterialisedProfile {
 }
 
 const RESERVED = new Set(['v', 'name', 'bio', 'avatar', 'banner']);
-const JSON_FIELDS = new Set(['links', 'tags']);
+const JSON_FIELDS = new Set([
+  'links',
+  'tags',
+  'hashtags',
+  'tickers',
+  'mentions',
+]);
 
 function tryParseJson<T>(raw: string): T | undefined {
   try {
@@ -110,6 +122,12 @@ function rowsToProfile(
         out.links = parsed as Record<string, string>;
       } else if (f === 'tags' && Array.isArray(parsed)) {
         out.tags = parsed as string[];
+      } else if (f === 'hashtags' && Array.isArray(parsed)) {
+        out.hashtags = parsed as string[];
+      } else if (f === 'tickers' && Array.isArray(parsed)) {
+        out.tickers = parsed as string[];
+      } else if (f === 'mentions' && Array.isArray(parsed)) {
+        out.mentions = parsed as string[];
       } else {
         out.extra[f] = row.value;
       }

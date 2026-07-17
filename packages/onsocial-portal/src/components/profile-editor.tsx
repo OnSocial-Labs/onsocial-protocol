@@ -444,7 +444,8 @@ export function ProfileEditor({
                           }}
                           maxLength={180}
                           rows={2}
-                          className="w-full resize-none bg-transparent portal-type-body leading-relaxed text-muted-foreground outline-none"
+                          placeholder="Bio — use #topics, $tickers, @accounts…"
+                          className="w-full resize-none bg-transparent portal-type-body leading-relaxed text-muted-foreground outline-none placeholder:text-muted-foreground/40"
                         />
                         <p className="mt-0.5 portal-type-caption tabular-nums text-muted-foreground/45">
                           {characterCount}/180
