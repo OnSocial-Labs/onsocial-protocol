@@ -27,4 +27,12 @@ describe('buildDiscoverEmptyState', () => {
       showClearSearch: false,
     });
   });
+
+  it('guides topic drafts to Home instead of people search misses', () => {
+    expect(buildDiscoverEmptyState('#near')).toEqual({
+      primary: 'Press Enter or pick a suggestion to open this in Home.',
+      secondary: 'Topics and tickers live in the Home feed.',
+      showClearSearch: true,
+    });
+  });
 });

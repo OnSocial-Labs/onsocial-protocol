@@ -1,3 +1,5 @@
+import { isDiscoverTopicDraft } from '@/features/discover/discover-omni-search';
+
 export interface DiscoverPanelEmptyState {
   primary: string;
   secondary?: string;
@@ -14,6 +16,14 @@ export function buildDiscoverSearchEmptyPrimary(query: string): string {
 
 export function buildDiscoverEmptyState(query: string): DiscoverPanelEmptyState {
   const trimmedQuery = query.trim();
+
+  if (isDiscoverTopicDraft(trimmedQuery)) {
+    return {
+      primary: 'Press Enter or pick a suggestion to open this in Home.',
+      secondary: 'Topics and tickers live in the Home feed.',
+      showClearSearch: true,
+    };
+  }
 
   if (trimmedQuery) {
     return {

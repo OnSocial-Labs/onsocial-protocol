@@ -2,12 +2,11 @@
 
 import { SheetCloseButton } from '@onsocial/ui';
 import { useOverlayDismiss } from '@/contexts/overlay-dismiss-context';
-import { SearchField } from '@/components/ui/search-field';
+import { DiscoverOmniSearchField } from '@/features/discover/discover-omni-search-field';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
-import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 
 export function DiscoverSheetHeader() {
-  const { shellVariant, subtitle, query, setQuery } = useDiscoverPanel();
+  const { shellVariant, subtitle } = useDiscoverPanel();
   const close = useOverlayDismiss();
   const showClose = shellVariant === 'overlay';
 
@@ -28,16 +27,7 @@ export function DiscoverSheetHeader() {
       </div>
 
       <div className="glass-sheet-toolbar-row">
-        <SearchField
-          value={query}
-          onValueChange={setQuery}
-          placeholder="Search names or accounts"
-          maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
-          clearAriaLabel="Clear profile search"
-          ariaLabel="Search discover profiles"
-          chrome="floating-panel"
-          className="standing-list-toolbar-search"
-        />
+        <DiscoverOmniSearchField className="standing-list-toolbar-search" />
       </div>
     </div>
   );

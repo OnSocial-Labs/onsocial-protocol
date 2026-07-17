@@ -6477,6 +6477,96 @@ a.os-surface-row {
     outline: none;
   }
 
+  .discover-trending-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .discover-trending-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .discover-trending-heading {
+    margin: 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .discover-trending-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .discover-trending-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.6rem;
+    border-radius: 999px;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: rgb(var(--fg-rgb) / 0.82);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    transition:
+      background 120ms ease,
+      color 120ms ease;
+  }
+
+  .discover-trending-chip:hover,
+  .discover-trending-chip:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.09);
+    outline: none;
+  }
+
+  .discover-trending-chip--ticker {
+    color: var(--protocol-green);
+    letter-spacing: 0.02em;
+  }
+
+  .discover-omni-search {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    z-index: 2;
+  }
+
+  .discover-omni-search-form {
+    display: block;
+    min-width: 0;
+  }
+
+  .discover-omni-suggest {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    right: 0;
+  }
+
+  .discover-topic-draft-hint {
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .discover-people-heading {
+    margin: 0 0 0.45rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
   .app-wallet-icon-slot.is-loading {
     pointer-events: none;
     background: linear-gradient(

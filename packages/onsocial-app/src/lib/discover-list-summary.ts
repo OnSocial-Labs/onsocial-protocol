@@ -13,10 +13,10 @@ export function formatDiscoverSubtitle(
   discoverableTotal: number | null | undefined
 ): string {
   if (typeof discoverableTotal === 'number' && discoverableTotal > 0) {
-    return `Browse ${formatDiscoverCount(discoverableTotal)} identities on the graph.`;
+    return `Browse ${formatDiscoverCount(discoverableTotal)} identities · search #topics and $tickers.`;
   }
 
-  return 'Browse identities on the OnSocial graph.';
+  return 'Search people, #topics, and $tickers on the graph.';
 }
 
 export function buildDiscoverListSummary({

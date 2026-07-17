@@ -2,12 +2,11 @@
 
 import { useRef, type RefObject } from 'react';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { SearchField } from '@/components/ui/search-field';
 import { DiscoverPanelContent } from '@/features/discover/discover-panel-content';
+import { DiscoverOmniSearchField } from '@/features/discover/discover-omni-search-field';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
-import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 
 function DiscoverPageScreen({
   backFallbackHref,
@@ -16,7 +15,7 @@ function DiscoverPageScreen({
   backFallbackHref: string;
   scrollRootRef: RefObject<HTMLElement | null>;
 }) {
-  const { subtitle, query, setQuery } = useDiscoverPanel();
+  const { subtitle } = useDiscoverPanel();
 
   return (
     <OsAppScreen
@@ -24,18 +23,7 @@ function DiscoverPageScreen({
       subtitle={subtitle}
       backFallbackHref={backFallbackHref}
       scrollRootRef={scrollRootRef}
-      toolbar={
-        <SearchField
-          value={query}
-          onValueChange={setQuery}
-          placeholder="Search names or accounts"
-          maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
-          clearAriaLabel="Clear profile search"
-          ariaLabel="Search discover profiles"
-          chrome="floating-panel"
-          className="os-app-screen-search"
-        />
-      }
+      toolbar={<DiscoverOmniSearchField className="os-app-screen-search" />}
     >
       <DiscoverPanelContent />
     </OsAppScreen>

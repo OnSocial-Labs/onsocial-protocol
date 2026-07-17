@@ -14,6 +14,10 @@ import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel'
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { buildDiscoverEmptyState } from '@/lib/discover-empty-state';
 import {
+  discoverPeopleSearchQuery,
+  isDiscoverPeopleSearchActive,
+} from '@/features/discover/discover-omni-search';
+import {
   buildDiscoverListSummary,
   formatDiscoverSubtitle,
 } from '@/lib/discover-list-summary';
@@ -114,7 +118,7 @@ export function useDiscoverProfiles(
   const appendAbortRef = useRef<AbortController | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const normalizedQuery = normalizeProfileSearchQuery(query);
+  const normalizedQuery = discoverPeopleSearchQuery(query);
 
   const mergedPendingStandingIds = useMemo(() => {
     void standingSyncVersion;
@@ -439,7 +443,7 @@ export function useDiscoverProfiles(
     walletLoading ||
     (!listBootstrapReady && isLoading && !hasListRows) ||
     (!listBootstrapReady && !relationshipSynced && !hasListRows);
-  const isSearchEmpty = Boolean(normalizedQuery);
+  const isSearchEmpty = isDiscoverPeopleSearchActive(query);
   const listKey = normalizedQuery || '__all__';
 
   const clearSearch = useCallback(() => {

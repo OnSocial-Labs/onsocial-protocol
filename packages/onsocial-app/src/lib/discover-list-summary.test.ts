@@ -7,13 +7,13 @@ import {
 describe('formatDiscoverSubtitle', () => {
   it('uses graph total when available', () => {
     expect(formatDiscoverSubtitle(12_500)).toBe(
-      'Browse 12.5K identities on the graph.'
+      'Browse 12.5K identities · search #topics and $tickers.'
     );
   });
 
   it('falls back without total', () => {
     expect(formatDiscoverSubtitle(null)).toBe(
-      'Browse identities on the OnSocial graph.'
+      'Search people, #topics, and $tickers on the graph.'
     );
   });
 });

@@ -4,6 +4,11 @@ import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
+import {
+  isDiscoverTopicDraft,
+  showDiscoverTrendingStrip,
+} from '@/features/discover/discover-omni-search';
+import { DiscoverTrendingStrip } from '@/features/discover/discover-trending-strip';
 
 export function DiscoverPanelContent() {
   const {
@@ -16,6 +21,7 @@ export function DiscoverPanelContent() {
     actionError,
     emptyState,
     isSearchEmpty,
+    query,
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
@@ -30,8 +36,19 @@ export function DiscoverPanelContent() {
     handleUpdateStanding,
   } = useDiscoverPanel();
 
+  const isBrowseState = showDiscoverTrendingStrip(query);
+  const isTopicDraft = isDiscoverTopicDraft(query);
+
   return (
     <div className="standing-panel discover-panel">
+      {isBrowseState ? <DiscoverTrendingStrip /> : null}
+
+      {isTopicDraft ? (
+        <p className="discover-topic-draft-hint">
+          Press Enter or pick a suggestion to open this topic or ticker in Home.
+        </p>
+      ) : null}
+
       {showConnectHint ? (
         <p className="discover-connect-hint">
           <button
@@ -91,7 +108,11 @@ export function DiscoverPanelContent() {
             </div>
           </div>
         ) : (
-          <ProfileSocialList
+          <>
+            {isBrowseState && listAccounts.length > 0 ? (
+              <h2 className="discover-people-heading">People</h2>
+            ) : null}
+            <ProfileSocialList
             accounts={listAccounts}
             listKey={listKey}
             viewerAccountId={viewerAccountId}
@@ -118,6 +139,7 @@ export function DiscoverPanelContent() {
             isLoadingMore={isLoadingMore}
             showLoadMoreSentinel={showLoadMoreSentinel}
           />
+          </>
         )}
       </div>
     </div>
