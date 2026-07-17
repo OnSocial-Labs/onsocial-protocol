@@ -34,10 +34,11 @@ describe('discover-tabs', () => {
     expect(params.get('tab')).toBe('profiles');
   });
 
-  it('switches tab from # / $ drafts and bare text off trending', () => {
+  it('switches tab from # / $ drafts only', () => {
     expect(discoverTabForQueryDraft('#near', 'trending')).toBe('topics');
     expect(discoverTabForQueryDraft('$SOCIAL', 'trending')).toBe('tickers');
-    expect(discoverTabForQueryDraft('alice', 'trending')).toBe('profiles');
+    expect(discoverTabForQueryDraft('alice', 'trending')).toBe('trending');
+    expect(discoverTabForQueryDraft('alice', 'profiles')).toBe('profiles');
     expect(discoverTabForQueryDraft('alice', 'topics')).toBe('topics');
   });
 

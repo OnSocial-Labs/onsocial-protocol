@@ -10,6 +10,7 @@
 @import '@onsocial/ui/os-launcher.css';
 @import '@onsocial/ui/profile-editor-media.css';
 @import '@onsocial/ui/profile-avatar.css';
+@import '@onsocial/ui/search-field.css';
 @import './transaction-feedback-toast.css';
 
 /* Content-sized glass sheets — unlayered so height beats imported glass-sheet.css. */
@@ -6221,6 +6222,11 @@ a.os-surface-row {
     padding-top: 0;
   }
 
+  /* Discover search lives in the heading — allow the suggest panel to escape. */
+  .os-app-screen-heading:has(.discover-omni-search) {
+    overflow: visible;
+  }
+
   /* Title + subtitle stack — align to the back control top, then optical nudge. */
   .os-app-screen-nav-row:has(.os-app-screen-subtitle) {
     align-items: flex-start;
@@ -6372,33 +6378,6 @@ a.os-surface-row {
     --os-dock-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.1);
     backdrop-filter: blur(32px) saturate(1.6);
     -webkit-backdrop-filter: blur(32px) saturate(1.6);
-  }
-
-  .os-app-screen[data-tone='os'] .os-app-screen-search.sheet-control {
-    background: rgb(var(--fg-rgb) / 0.03);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .os-app-screen[data-tone='os'] .os-app-screen-search.sheet-control:hover,
-  .os-app-screen[data-tone='os']
-    .os-app-screen-search.sheet-control:focus-within {
-    background: rgb(var(--fg-rgb) / 0.045);
-  }
-
-  .os-app-screen[data-tone='os'] .home-feed-toolbar .os-floating-panel-search {
-    background: rgb(var(--fg-rgb) / 0.03);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .os-app-screen[data-tone='os']
-    .home-feed-toolbar
-    .os-floating-panel-search:hover,
-  .os-app-screen[data-tone='os']
-    .home-feed-toolbar
-    .os-floating-panel-search:focus-within {
-    background: rgb(var(--fg-rgb) / 0.045);
   }
 
   .os-app-screen[data-tone='os'] .standing-list-toolbar .sheet-control {
@@ -6587,7 +6566,41 @@ a.os-surface-row {
     position: relative;
     flex: 1;
     min-width: 0;
-    z-index: 2;
+    z-index: 6;
+  }
+
+  .discover-nav-search-field {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .os-app-screen-heading .discover-nav-search-field {
+    min-height: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .discover-sheet-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .discover-sheet-nav-row .discover-omni-search {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .os-app-screen-toolbar:has(.discover-tab-bar) {
+    margin-top: 0.5rem;
+  }
+
+  .discover-tab-bar--header {
+    margin: 0;
+  }
+
+  .discover-sheet-header .discover-tab-bar--header {
+    margin: 0;
   }
 
   .discover-omni-search-form {
@@ -6620,9 +6633,9 @@ a.os-surface-row {
 
   .discover-tab-bar {
     margin: 0 0 0.75rem;
-    padding: 0.2rem;
+    padding: 0.18rem;
     border-radius: 999px;
-    background: rgb(var(--fg-rgb) / 0.05);
+    background: rgb(var(--fg-rgb) / 0.04);
   }
 
   .discover-tab-bar-scroller {
@@ -6642,14 +6655,17 @@ a.os-surface-row {
     margin: 0;
     border: 0;
     border-radius: 999px;
-    padding: 0.45rem 0.85rem;
+    padding: 0.42rem 0.8rem;
     background: transparent;
-    color: rgb(var(--fg-rgb) / 0.58);
+    color: rgb(var(--fg-rgb) / 0.55);
     font: inherit;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
+    transition:
+      color 0.15s ease,
+      background 0.15s ease;
   }
 
   .discover-tab-bar button:hover,
@@ -6659,9 +6675,9 @@ a.os-surface-row {
   }
 
   .discover-tab-bar button.is-active {
-    background: rgb(var(--bg-rgb) / 0.92);
-    color: rgb(var(--fg-rgb) / 0.92);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+    background: rgb(var(--bg-rgb) / 0.94);
+    color: rgb(var(--fg-rgb) / 0.94);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
   }
 
   .discover-focus-list {
@@ -8633,8 +8649,7 @@ a.os-surface-row {
   }
 
   button.sheet-control:focus-visible,
-  a.sheet-control:focus-visible,
-  .search-field:focus-within {
+  a.sheet-control:focus-visible {
     outline: none;
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.06);
   }
@@ -8651,78 +8666,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .search-field-clear-slot {
-    display: flex;
-    width: 1.5rem;
-    height: 1.5rem;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .search-field-clear {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.55);
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .search-field-clear:hover,
-  .search-field-clear:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.88);
-    outline: none;
-  }
-
-  .search-field-clear-icon {
-    display: block;
-    width: 0.875rem;
-    height: 0.875rem;
-  }
-
-  .search-field-clear-icon path {
-    stroke-width: 2;
-  }
-
-  .search-field {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 2rem;
-    height: 2rem;
-    padding: 0 0.45rem 0 0.65rem;
-    cursor: text;
-  }
-
-  .search-field-icon {
-    width: 0.9375rem;
-    height: 0.9375rem;
-    flex-shrink: 0;
-    opacity: 0.48;
-  }
-
-  .search-field-input {
-    width: 100%;
-    min-width: 0;
-    flex: 1;
-    border: none;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.88);
-    font: inherit;
-    font-size: 0.78rem;
-    outline: none;
-  }
-
-  .search-field-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
+  /* Base .search-field styles live in @onsocial/ui/search-field.css. */
 
   .standing-view-menu {
     position: relative;
@@ -12089,6 +12033,7 @@ a.os-surface-row {
     width: 100%;
   }
 
+  /* Borderless like .os-floating-panel dropdowns — shadow carries elevation. */
   .home-hashtag-suggest {
     position: absolute;
     top: calc(100% + 0.35rem);
@@ -12099,7 +12044,7 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.15rem;
     padding: 0.4rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border: 0;
     border-radius: 1rem;
     background: rgb(var(--bg-rgb) / 0.96);
     box-shadow:

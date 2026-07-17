@@ -348,6 +348,7 @@
   transform: rotate(180deg);
 }
 
+/* Borderless filled search — matches the sheet-chrome search treatment. */
 .os-floating-panel-search {
   display: flex;
   align-items: center;
@@ -355,19 +356,17 @@
   min-width: 0;
   height: 2rem;
   padding: 0 0.625rem;
-  border: 1px solid var(--os-fp-trigger-border);
+  border: 1px solid transparent;
   border-radius: 9999px;
   background: var(--os-fp-search-bg);
   color: var(--os-fp-muted);
   cursor: text;
   transition:
     background 300ms ease,
-    border-color 300ms ease,
     color 300ms ease;
 }
 
 .os-floating-panel-search:focus-within {
-  border-color: var(--os-fp-search-border-focus);
   background: var(--os-fp-search-bg-focus);
   color: var(--os-fp-fg);
   outline: none;

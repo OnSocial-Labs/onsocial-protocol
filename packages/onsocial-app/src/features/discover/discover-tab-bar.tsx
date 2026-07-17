@@ -9,12 +9,18 @@ import {
 export function DiscoverTabBar({
   tab,
   onTabChange,
+  className,
 }: {
   tab: DiscoverTab;
   onTabChange: (tab: DiscoverTab) => void;
+  className?: string;
 }) {
   return (
-    <div className="discover-tab-bar" role="tablist" aria-label="Discover">
+    <div
+      className={['discover-tab-bar', className].filter(Boolean).join(' ')}
+      role="tablist"
+      aria-label="Discover"
+    >
       <div className="discover-tab-bar-scroller">
         {DISCOVER_TABS.map((option) => {
           const selected = option === tab;

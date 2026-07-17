@@ -2,6 +2,10 @@ import {
   isProfileSearchQuery,
   normalizeProfileSearchQuery,
 } from '@/lib/profile-account-search';
+import {
+  applyDiscoverTabParam,
+  type DiscoverTab,
+} from '@/features/discover/discover-tabs';
 
 export const OVERLAY_PANELS = [
   'discover',
@@ -24,16 +28,22 @@ export function overlayPath(accountId: string, panel: OverlayPanel): string {
   return `${portfolioPath(accountId)}/${panel}`;
 }
 
+/** Discover hub href. Contextual entries can deep-link a tab (e.g. Profiles). */
 export function discoverPath(
   accountId: string,
-  q?: string | null
+  options?: { q?: string | null; tab?: DiscoverTab }
 ): string {
   const base = overlayPath(accountId, 'discover');
-  const normalized = normalizeProfileSearchQuery(q);
-  if (isProfileSearchQuery(normalized)) {
-    return `${base}?q=${encodeURIComponent(normalized)}`;
+  const params = new URLSearchParams();
+  if (options?.tab) {
+    applyDiscoverTabParam(params, options.tab);
   }
-  return base;
+  const normalized = normalizeProfileSearchQuery(options?.q);
+  if (isProfileSearchQuery(normalized)) {
+    params.set('q', normalized);
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
 export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {

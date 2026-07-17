@@ -13,6 +13,8 @@ export interface OsAppScreenProps {
   backFallbackHref?: string;
   /** Icon actions pinned opposite the back button (e.g. settings). */
   actions?: ReactNode;
+  /** Replaces the default title/subtitle block (keep `title` for screen readers). */
+  heading?: ReactNode;
   /** Overlay the header on page media; pair with `headerElevated` on scroll. */
   immersiveHeader?: boolean;
   /** Visual state for an immersive header after content scrolls. */
@@ -29,6 +31,7 @@ export function OsAppScreen({
   subtitle,
   backFallbackHref = '/',
   actions,
+  heading,
   immersiveHeader = false,
   headerElevated = false,
   toolbar,
@@ -48,23 +51,32 @@ export function OsAppScreen({
           <div className="os-app-screen-nav-row">
             <ContextualBack fallbackHref={backFallbackHref} />
             <div className="os-app-screen-heading">
-              <h1 className="os-app-screen-title">
-                {titleHref ? (
-                  <Link
-                    href={titleHref}
-                    className="os-app-screen-title-link"
-                    title={title}
-                    scroll={false}
-                  >
-                    {title}
-                  </Link>
-                ) : (
-                  title
-                )}
-              </h1>
-              {subtitle ? (
-                <p className="os-app-screen-subtitle">{subtitle}</p>
-              ) : null}
+              {heading ? (
+                <>
+                  <h1 className="sr-only">{title}</h1>
+                  {heading}
+                </>
+              ) : (
+                <>
+                  <h1 className="os-app-screen-title">
+                    {titleHref ? (
+                      <Link
+                        href={titleHref}
+                        className="os-app-screen-title-link"
+                        title={title}
+                        scroll={false}
+                      >
+                        {title}
+                      </Link>
+                    ) : (
+                      title
+                    )}
+                  </h1>
+                  {subtitle ? (
+                    <p className="os-app-screen-subtitle">{subtitle}</p>
+                  ) : null}
+                </>
+              )}
             </div>
             {actions ? (
               <div className="os-app-screen-actions">{actions}</div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
-import { SearchField } from '@/components/ui/search-field';
+import { SearchField } from '@onsocial/ui';
 import {
   formatTickerDisplay,
   homeFeedFocusKey,

@@ -52,7 +52,7 @@ export function applyDiscoverTabParam(
 
 /**
  * When the user types `#` / `$`, switch to the matching tab.
- * Bare text on Trending jumps to Profiles for live people search.
+ * Bare text stays on the current tab (Trending keeps the mixed #/$ suggest).
  */
 export function discoverTabForQueryDraft(
   raw: string,
@@ -61,7 +61,6 @@ export function discoverTabForQueryDraft(
   const trimmed = raw.trim();
   if (trimmed.startsWith('$')) return 'tickers';
   if (trimmed.startsWith('#')) return 'topics';
-  if (trimmed.length > 0 && current === 'trending') return 'profiles';
   return current;
 }
 

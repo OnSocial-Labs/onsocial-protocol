@@ -1,0 +1,122 @@
+/**
+ * @onsocial/ui — shared SearchField base styles.
+ *
+ * SearchField owns one consistent borderless filled surface. Chrome variants
+ * may adjust inner colors, but not the search affordance itself.
+ *
+ * Uses the host `--fg-rgb` token. Rules live in `@layer components` so host
+ * overrides declared later in the same layer win by source order.
+ */
+
+@layer components {
+  .search-field {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2rem;
+    height: 2rem;
+    padding: 0 0.45rem 0 0.65rem;
+    cursor: text;
+  }
+
+  .search-field:focus-within {
+    outline: none;
+  }
+
+  .search-field-icon {
+    width: 0.9375rem;
+    height: 0.9375rem;
+    flex-shrink: 0;
+    opacity: 0.48;
+  }
+
+  .search-field-input {
+    width: 100%;
+    min-width: 0;
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.88);
+    font: inherit;
+    font-size: 0.78rem;
+    outline: none;
+  }
+
+  .search-field-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .search-field-clear-slot {
+    display: flex;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .search-field-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .search-field-clear:hover,
+  .search-field-clear:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .search-field-clear-icon {
+    display: block;
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .search-field-clear-icon path {
+    stroke-width: 2;
+  }
+}
+
+/*
+ * Keep this unlayered so SearchField's surface wins over host `.sheet-control`
+ * and standalone floating-panel primitive styles. Both supported chrome
+ * variants intentionally look identical: quiet fill at rest, stronger on
+ * hover/focus, and a subtle keyboard-visible focus ring.
+ */
+.search-field.sheet-control,
+.search-field.os-floating-panel-search {
+  border: 0;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.05);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.search-field.sheet-control:hover,
+.search-field.sheet-control:focus-within,
+.search-field.os-floating-panel-search:hover,
+.search-field.os-floating-panel-search:focus-within {
+  border: 0;
+  background: rgb(var(--fg-rgb) / 0.07);
+}
+
+.search-field.sheet-control:focus-within,
+.search-field.os-floating-panel-search:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+}

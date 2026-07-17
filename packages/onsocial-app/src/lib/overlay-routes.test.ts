@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  discoverPath,
   isFullPagePanelLayout,
   isOverlayInterceptActive,
   isPortfolioOverlayPath,
@@ -7,6 +8,24 @@ import {
   resolveOverlayPanelChrome,
   shouldOpenPortfolioGlassOverlay,
 } from './overlay-routes';
+
+describe('discoverPath', () => {
+  it('defaults to bare discover (Trending)', () => {
+    expect(discoverPath('alice.testnet')).toBe('/@alice.testnet/discover');
+  });
+
+  it('deep-links Profiles from Standings entry', () => {
+    expect(discoverPath('alice.testnet', { tab: 'profiles' })).toBe(
+      '/@alice.testnet/discover?tab=profiles'
+    );
+  });
+
+  it('combines tab and search query', () => {
+    expect(
+      discoverPath('alice.testnet', { tab: 'profiles', q: 'near' })
+    ).toBe('/@alice.testnet/discover?tab=profiles&q=near');
+  });
+});
 
 describe('parseOverlayPanelKey', () => {
   it('parses standing tab routes', () => {

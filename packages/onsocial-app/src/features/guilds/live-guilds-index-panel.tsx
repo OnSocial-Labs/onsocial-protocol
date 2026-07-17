@@ -2,9 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PlusIcon, osIconActionClassName } from '@onsocial/ui';
+import { PlusIcon, SearchField, osIconActionClassName } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { SearchField } from '@/components/ui/search-field';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {

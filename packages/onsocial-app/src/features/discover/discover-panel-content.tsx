@@ -5,7 +5,6 @@ import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { DiscoverFocusListPanel } from '@/features/discover/discover-focus-list-panel';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
-import { DiscoverTabBar } from '@/features/discover/discover-tab-bar';
 import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
 
 export function DiscoverPanelContent() {
@@ -38,8 +37,6 @@ export function DiscoverPanelContent() {
 
   return (
     <div className="standing-panel discover-panel">
-      <DiscoverTabBar tab={tab} onTabChange={setTab} />
-
       {tab === 'trending' ? (
         <DiscoverTrendingPanel onOpenTab={setTab} />
       ) : null}

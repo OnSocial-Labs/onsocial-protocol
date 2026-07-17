@@ -207,3 +207,8 @@ export {
   type ProfileAvatarProps,
   type ProfileAvatarSize,
 } from './profile-avatar.js';
+export {
+  SearchField,
+  searchFieldClassName,
+  type SearchFieldProps,
+} from './search-field.js';

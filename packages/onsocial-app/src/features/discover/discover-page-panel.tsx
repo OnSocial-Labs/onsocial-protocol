@@ -3,8 +3,10 @@
 import { useRef, type RefObject } from 'react';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoverPanelContent } from '@/features/discover/discover-panel-content';
-import { DiscoverOmniSearchField } from '@/features/discover/discover-omni-search-field';
-import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
+import {
+  DiscoverHeaderTabs,
+  DiscoverNavSearch,
+} from '@/features/discover/discover-screen-chrome';
 import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
 
@@ -15,15 +17,15 @@ function DiscoverPageScreen({
   backFallbackHref: string;
   scrollRootRef: RefObject<HTMLElement | null>;
 }) {
-  const { subtitle } = useDiscoverPanel();
-
   return (
     <OsAppScreen
       title="Discover"
-      subtitle={subtitle}
       backFallbackHref={backFallbackHref}
       scrollRootRef={scrollRootRef}
-      toolbar={<DiscoverOmniSearchField className="os-app-screen-search" />}
+      heading={
+        <DiscoverNavSearch className="discover-nav-search-field os-app-screen-search" />
+      }
+      toolbar={<DiscoverHeaderTabs />}
     >
       <DiscoverPanelContent />
     </OsAppScreen>

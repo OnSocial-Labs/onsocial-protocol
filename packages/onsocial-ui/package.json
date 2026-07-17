@@ -20,7 +20,8 @@
     "./floating-panel.css": "./floating-panel.css",
     "./os-launcher.css": "./os-launcher.css",
     "./profile-editor-media.css": "./profile-editor-media.css",
-    "./profile-avatar.css": "./profile-avatar.css"
+    "./profile-avatar.css": "./profile-avatar.css",
+    "./search-field.css": "./search-field.css"
   },
   "scripts": {
     "build": "tsc",
@@ -61,7 +62,8 @@
     "floating-panel.css",
     "os-launcher.css",
     "profile-editor-media.css",
-    "profile-avatar.css"
+    "profile-avatar.css",
+    "search-field.css"
   ],
   "license": "MIT",
   "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",

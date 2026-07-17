@@ -73,7 +73,7 @@ export function StandingDiscoverLink({
   closeOverlay?: boolean;
 }) {
   const { accountId, shellVariant } = useStandingPanel();
-  const href = discoverPath(accountId);
+  const href = discoverPath(accountId, { tab: 'profiles' });
   const fullPageNav = shellVariant === 'page';
 
   if (variant === 'chrome') {

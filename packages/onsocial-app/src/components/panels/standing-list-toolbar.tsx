@@ -13,9 +13,9 @@ import {
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
   osFloatingPanelTriggerMetaClassName,
+  SearchField,
   useDropdown,
 } from '@onsocial/ui';
-import { SearchField } from '@/components/ui/search-field';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
 import {
   formatProfileCount,

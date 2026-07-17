@@ -13,10 +13,10 @@ import {
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
   osFloatingPanelTriggerMetaClassName,
+  SearchField,
   useDropdown,
 } from '@onsocial/ui';
 import type { GroupMemberRow } from '@onsocial/sdk';
-import { SearchField } from '@/components/ui/search-field';
 import {
   countGuildMembersByRoleFilter,
   GUILD_MEMBER_ROLE_FILTERS,

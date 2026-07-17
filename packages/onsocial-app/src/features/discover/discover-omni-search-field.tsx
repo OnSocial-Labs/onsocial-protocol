@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { SearchField } from '@/components/ui/search-field';
+import { SearchField } from '@onsocial/ui';
 import {
   classifyDiscoverSearch,
   isDiscoverTopicDraft,
@@ -28,8 +28,10 @@ const SUGGEST_DEBOUNCE_MS = 220;
  */
 export function DiscoverOmniSearchField({
   className,
+  chrome = 'sheet',
 }: {
   className?: string;
+  chrome?: 'sheet' | 'floating-panel';
 }) {
   const router = useRouter();
   const { query, setQuery, tab } = useDiscoverPanel();
@@ -117,11 +119,11 @@ export function DiscoverOmniSearchField({
         <SearchField
           value={query}
           onValueChange={setQuery}
-          placeholder="Search people, #topics, $tickers"
+          placeholder="People, #topics, $tickers"
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
           clearAriaLabel="Clear search"
           ariaLabel="Search people, topics, and tickers"
-          chrome="floating-panel"
+          chrome={chrome}
           className={className}
           onFocus={() => setFocused(true)}
           onBlur={() => {
