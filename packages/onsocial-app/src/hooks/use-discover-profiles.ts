@@ -22,6 +22,7 @@ import {
   discoverTabForQueryDraft,
   discoverTopicFilterPrefix,
   DISCOVER_TAB_QUERY_KEY,
+  isDiscoverProfilesTab,
   parseDiscoverTab,
   type DiscoverTab,
 } from '@/features/discover/discover-tabs';
@@ -49,7 +50,9 @@ import {
 import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
 
 function discoverUrlQueryValue(query: string, tab: DiscoverTab): string {
-  if (tab === 'people') return discoverPeopleSearchQuery(query);
+  if (tab === 'profiles' || tab === 'trending') {
+    return discoverPeopleSearchQuery(query);
+  }
   return discoverTopicFilterPrefix(query, tab);
 }
 
@@ -320,7 +323,7 @@ export function useDiscoverProfiles(
       return;
     }
 
-    if (tab !== 'people') {
+    if (!isDiscoverProfilesTab(tab)) {
       pageAbortRef.current?.abort();
       setIsLoading(false);
       setIsListRefreshing(false);

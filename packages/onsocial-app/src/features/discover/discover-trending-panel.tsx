@@ -1,0 +1,226 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import type { HashtagCount, TickerCount } from '@onsocial/sdk';
+import { homeHashtagPath } from '@/features/home/home-hashtag-search';
+import {
+  formatTickerDisplay,
+  homeTickerPath,
+} from '@/features/home/home-ticker-search';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { fetchDiscoverProfiles } from '@/lib/discover-profiles';
+import { APP_GROUPS_PATH } from '@/lib/app-routes';
+import { portfolioPath } from '@/lib/overlay-routes';
+import type { DiscoverTab } from '@/features/discover/discover-tabs';
+
+const SECTION_LIMIT = 6;
+
+type TrendingGuild = {
+  groupId: string;
+  groupName: string | null;
+};
+
+type TrendingProfile = {
+  accountId: string;
+  name: string | null;
+  standingCount: number;
+};
+
+/**
+ * Default Discover landing: mixed trending sections. Entity tabs go deeper;
+ * rows hand off to Home focus, Profiles tab, or a guild page.
+ */
+export function DiscoverTrendingPanel({
+  onOpenTab,
+  viewerAccountId,
+}: {
+  onOpenTab: (tab: DiscoverTab) => void;
+  viewerAccountId: string | null;
+}) {
+  const [tickers, setTickers] = useState<TickerCount[]>([]);
+  const [topics, setTopics] = useState<HashtagCount[]>([]);
+  const [profiles, setProfiles] = useState<TrendingProfile[]>([]);
+  const [guilds, setGuilds] = useState<TrendingGuild[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const client = createReadOnlyOnSocialClient();
+
+    void (async () => {
+      setLoading(true);
+      const [tickerRows, topicRows, profilePage, guildPage] = await Promise.all([
+        client.query.tickers
+          .trending({ limit: SECTION_LIMIT })
+          .catch(() => [] as TickerCount[]),
+        client.query.hashtags
+          .trending({ limit: SECTION_LIMIT })
+          .catch(() => [] as HashtagCount[]),
+        fetchDiscoverProfiles('', viewerAccountId, 0).catch(() => null),
+        client.query.groups
+          .browse({ publicOnly: true, limit: SECTION_LIMIT })
+          .catch(() => ({ items: [] as Array<{ groupId: string; groupName: string | null }> })),
+      ]);
+
+      if (cancelled) return;
+
+      setTickers(tickerRows);
+      setTopics(topicRows);
+      setProfiles(
+        (profilePage?.profiles ?? []).slice(0, SECTION_LIMIT).map((p) => ({
+          accountId: p.accountId,
+          name: p.name,
+          standingCount: p.standingCount,
+        }))
+      );
+      setGuilds(
+        guildPage.items.map((g) => ({
+          groupId: g.groupId,
+          groupName: g.groupName,
+        }))
+      );
+      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerAccountId]);
+
+  const empty =
+    !loading &&
+    tickers.length === 0 &&
+    topics.length === 0 &&
+    profiles.length === 0 &&
+    guilds.length === 0;
+
+  return (
+    <div
+      id="discover-panel-trending"
+      className="discover-trending-panel"
+      role="tabpanel"
+      aria-labelledby="discover-tab-trending"
+    >
+      {loading ? <div className="home-feed-state">Loading…</div> : null}
+
+      {empty ? (
+        <div className="standing-panel-empty-state">
+          <p className="standing-panel-empty-primary">Nothing trending yet.</p>
+          <p className="standing-panel-empty-secondary">
+            Open Profiles, Topics, or Tickers to browse the graph.
+          </p>
+        </div>
+      ) : null}
+
+      {!loading && tickers.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Trending tickers</h2>
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('tickers')}
+            >
+              See all
+            </button>
+          </div>
+          <div className="discover-trending-chips">
+            {tickers.map((item) => (
+              <Link
+                key={`k-${item.ticker}`}
+                href={homeTickerPath(item.ticker)}
+                className="discover-trending-chip discover-trending-chip--ticker"
+              >
+                {formatTickerDisplay(item.ticker)}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && topics.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Trending topics</h2>
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('topics')}
+            >
+              See all
+            </button>
+          </div>
+          <div className="discover-trending-chips">
+            {topics.map((item) => (
+              <Link
+                key={`h-${item.hashtag}`}
+                href={homeHashtagPath(item.hashtag)}
+                className="discover-trending-chip"
+              >
+                #{item.hashtag}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {!loading && profiles.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Standing out</h2>
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('profiles')}
+            >
+              See all
+            </button>
+          </div>
+          <ul className="discover-focus-rows">
+            {profiles.map((profile) => (
+              <li key={profile.accountId}>
+                <Link
+                  href={portfolioPath(profile.accountId)}
+                  className="discover-focus-row"
+                >
+                  <span className="discover-focus-row-label">
+                    {profile.name?.trim() || profile.accountId}
+                  </span>
+                  <span className="discover-focus-row-meta">
+                    {profile.standingCount}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {!loading && guilds.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Guilds</h2>
+            <Link href={APP_GROUPS_PATH} className="discover-trending-see-all">
+              See all
+            </Link>
+          </div>
+          <ul className="discover-focus-rows">
+            {guilds.map((guild) => (
+              <li key={guild.groupId}>
+                <Link
+                  href={`${APP_GROUPS_PATH}/${encodeURIComponent(guild.groupId)}`}
+                  className="discover-focus-row"
+                >
+                  <span className="discover-focus-row-label">
+                    {guild.groupName?.trim() || guild.groupId}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </div>
+  );
+}

@@ -6,15 +6,11 @@ import {
 
 describe('formatDiscoverSubtitle', () => {
   it('uses graph total when available', () => {
-    expect(formatDiscoverSubtitle(12_500)).toBe(
-      'Browse 12.5K identities · search #topics and $tickers.'
-    );
+    expect(formatDiscoverSubtitle(12_500)).toBe('12.5K on the graph');
   });
 
   it('falls back without total', () => {
-    expect(formatDiscoverSubtitle(null)).toBe(
-      'Search people, #topics, and $tickers on the graph.'
-    );
+    expect(formatDiscoverSubtitle(null)).toBe('On the graph');
   });
 });
 

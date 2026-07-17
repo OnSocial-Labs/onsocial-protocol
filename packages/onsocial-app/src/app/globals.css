@@ -6484,6 +6484,26 @@ a.os-surface-row {
     margin-bottom: 0.65rem;
   }
 
+  .discover-trending-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    min-height: 8rem;
+  }
+
+  .discover-trending-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .discover-trending-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
   .discover-trending-group {
     display: flex;
     flex-direction: column;
@@ -6497,6 +6517,26 @@ a.os-surface-row {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .discover-trending-see-all {
+    flex-shrink: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: none;
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .discover-trending-see-all:hover,
+  .discover-trending-see-all:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
   }
 
   .discover-trending-chips {
@@ -6568,25 +6608,36 @@ a.os-surface-row {
   }
 
   .discover-tab-bar {
-    display: flex;
-    gap: 0.25rem;
     margin: 0 0 0.75rem;
     padding: 0.2rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
   }
 
+  .discover-tab-bar-scroller {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .discover-tab-bar-scroller::-webkit-scrollbar {
+    display: none;
+  }
+
   .discover-tab-bar button {
-    flex: 1;
+    flex: 0 0 auto;
     margin: 0;
     border: 0;
     border-radius: 999px;
-    padding: 0.45rem 0.65rem;
+    padding: 0.45rem 0.85rem;
     background: transparent;
     color: rgb(var(--fg-rgb) / 0.58);
     font: inherit;
     font-size: 0.78rem;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
   }
 
@@ -6604,6 +6655,10 @@ a.os-surface-row {
 
   .discover-focus-list {
     min-height: 8rem;
+  }
+
+  .discover-focus-list > .discover-trending-heading {
+    margin-bottom: 0.45rem;
   }
 
   .discover-focus-rows {

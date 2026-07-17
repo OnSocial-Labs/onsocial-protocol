@@ -82,6 +82,17 @@ export function DiscoverFocusListPanel({
       ? 'No trending tickers yet.'
       : 'No trending topics yet.';
 
+  const sectionHeading =
+    !filterPrefix && !loading && !error && rows.length > 0
+      ? kind === 'ticker'
+        ? 'Trending tickers'
+        : 'Trending topics'
+      : filterPrefix && !loading && !error && rows.length > 0
+        ? kind === 'ticker'
+          ? 'Matching tickers'
+          : 'Matching topics'
+        : null;
+
   return (
     <div
       id={tabId}
@@ -107,18 +118,40 @@ export function DiscoverFocusListPanel({
       ) : null}
 
       {!loading && !error && rows.length > 0 ? (
-        <ul className="discover-focus-rows">
-          {rows.map((row) => {
-            if (kind === 'ticker') {
-              const item = row as TickerCount;
+        <>
+          {sectionHeading ? (
+            <h2 className="discover-trending-heading">{sectionHeading}</h2>
+          ) : null}
+          <ul className="discover-focus-rows">
+            {rows.map((row) => {
+              if (kind === 'ticker') {
+                const item = row as TickerCount;
+                return (
+                  <li key={`t-${item.ticker}`}>
+                    <Link
+                      href={homeTickerPath(item.ticker)}
+                      className="discover-focus-row discover-focus-row--ticker"
+                    >
+                      <span className="discover-focus-row-label">
+                        {formatTickerDisplay(item.ticker)}
+                      </span>
+                      <span className="discover-focus-row-meta">
+                        {item.postCount}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              }
+
+              const item = row as HashtagCount;
               return (
-                <li key={`t-${item.ticker}`}>
+                <li key={`h-${item.hashtag}`}>
                   <Link
-                    href={homeTickerPath(item.ticker)}
-                    className="discover-focus-row discover-focus-row--ticker"
+                    href={homeHashtagPath(item.hashtag)}
+                    className="discover-focus-row"
                   >
                     <span className="discover-focus-row-label">
-                      {formatTickerDisplay(item.ticker)}
+                      #{item.hashtag}
                     </span>
                     <span className="discover-focus-row-meta">
                       {item.postCount}
@@ -126,26 +159,9 @@ export function DiscoverFocusListPanel({
                   </Link>
                 </li>
               );
-            }
-
-            const item = row as HashtagCount;
-            return (
-              <li key={`h-${item.hashtag}`}>
-                <Link
-                  href={homeHashtagPath(item.hashtag)}
-                  className="discover-focus-row"
-                >
-                  <span className="discover-focus-row-label">
-                    #{item.hashtag}
-                  </span>
-                  <span className="discover-focus-row-meta">
-                    {item.postCount}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+            })}
+          </ul>
+        </>
       ) : null}
     </div>
   );

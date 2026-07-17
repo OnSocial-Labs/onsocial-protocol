@@ -4,34 +4,40 @@ import {
   discoverTabForQueryDraft,
   discoverTabLabel,
   discoverTopicFilterPrefix,
+  isDiscoverProfilesTab,
   parseDiscoverTab,
 } from '@/features/discover/discover-tabs';
 
 describe('discover-tabs', () => {
-  it('parses tab query params with people default', () => {
-    expect(parseDiscoverTab(null)).toBe('people');
+  it('parses tab query params with trending default', () => {
+    expect(parseDiscoverTab(null)).toBe('trending');
+    expect(parseDiscoverTab('trending')).toBe('trending');
     expect(parseDiscoverTab('topics')).toBe('topics');
     expect(parseDiscoverTab('tickers')).toBe('tickers');
-    expect(parseDiscoverTab('nope')).toBe('people');
+    expect(parseDiscoverTab('profiles')).toBe('profiles');
+    expect(parseDiscoverTab('people')).toBe('profiles');
+    expect(parseDiscoverTab('nope')).toBe('trending');
   });
 
   it('labels tabs', () => {
-    expect(discoverTabLabel('people')).toBe('People');
+    expect(discoverTabLabel('trending')).toBe('Trending');
+    expect(discoverTabLabel('profiles')).toBe('Profiles');
     expect(discoverTabLabel('topics')).toBe('Topics');
     expect(discoverTabLabel('tickers')).toBe('Tickers');
   });
 
-  it('omits default people from URL params', () => {
+  it('omits default trending from URL params', () => {
     const params = new URLSearchParams('tab=topics&q=near');
-    applyDiscoverTabParam(params, 'people');
+    applyDiscoverTabParam(params, 'trending');
     expect(params.get('tab')).toBeNull();
-    applyDiscoverTabParam(params, 'tickers');
-    expect(params.get('tab')).toBe('tickers');
+    applyDiscoverTabParam(params, 'profiles');
+    expect(params.get('tab')).toBe('profiles');
   });
 
-  it('switches tab from # / $ drafts', () => {
-    expect(discoverTabForQueryDraft('#near', 'people')).toBe('topics');
-    expect(discoverTabForQueryDraft('$SOCIAL', 'people')).toBe('tickers');
+  it('switches tab from # / $ drafts and bare text off trending', () => {
+    expect(discoverTabForQueryDraft('#near', 'trending')).toBe('topics');
+    expect(discoverTabForQueryDraft('$SOCIAL', 'trending')).toBe('tickers');
+    expect(discoverTabForQueryDraft('alice', 'trending')).toBe('profiles');
     expect(discoverTabForQueryDraft('alice', 'topics')).toBe('topics');
   });
 
@@ -39,6 +45,11 @@ describe('discover-tabs', () => {
     expect(discoverTopicFilterPrefix('#NEAR', 'topics')).toBe('near');
     expect(discoverTopicFilterPrefix('$SOCIAL', 'tickers')).toBe('social');
     expect(discoverTopicFilterPrefix('social', 'tickers')).toBe('social');
-    expect(discoverTopicFilterPrefix('alice', 'people')).toBe('');
+    expect(discoverTopicFilterPrefix('alice', 'profiles')).toBe('');
+  });
+
+  it('identifies the profiles list tab', () => {
+    expect(isDiscoverProfilesTab('profiles')).toBe(true);
+    expect(isDiscoverProfilesTab('trending')).toBe(false);
   });
 });

@@ -44,7 +44,9 @@ export function DiscoverOmniSearchField({
     (isDiscoverTopicDraft(query) ||
       tab === 'topics' ||
       tab === 'tickers' ||
-      (tab === 'people' && query.trim().length >= 2 && !isDiscoverTopicDraft(query)));
+      ((tab === 'profiles' || tab === 'trending') &&
+        query.trim().length >= 2 &&
+        !isDiscoverTopicDraft(query)));
 
   useEffect(() => {
     if (!wantsTopicSuggest) return;

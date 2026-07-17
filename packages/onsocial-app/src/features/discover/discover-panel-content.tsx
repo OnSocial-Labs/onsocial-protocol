@@ -6,6 +6,7 @@ import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-li
 import { DiscoverFocusListPanel } from '@/features/discover/discover-focus-list-panel';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverTabBar } from '@/features/discover/discover-tab-bar';
+import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
 
 export function DiscoverPanelContent() {
   const {
@@ -39,7 +40,14 @@ export function DiscoverPanelContent() {
     <div className="standing-panel discover-panel">
       <DiscoverTabBar tab={tab} onTabChange={setTab} />
 
-      {tab === 'people' ? (
+      {tab === 'trending' ? (
+        <DiscoverTrendingPanel
+          onOpenTab={setTab}
+          viewerAccountId={viewerAccountId}
+        />
+      ) : null}
+
+      {tab === 'profiles' ? (
         <>
           {showConnectHint ? (
             <p className="discover-connect-hint">
@@ -65,9 +73,9 @@ export function DiscoverPanelContent() {
           ) : null}
 
           <div
-            id="discover-panel-people"
+            id="discover-panel-profiles"
             role="tabpanel"
-            aria-labelledby="discover-tab-people"
+            aria-labelledby="discover-tab-profiles"
             className={`standing-panel-body${
               isListRefreshing && !showListSkeleton ? ' is-refreshing' : ''
             }`}

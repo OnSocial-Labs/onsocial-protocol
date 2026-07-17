@@ -1,39 +1,49 @@
-/** Discover hub tabs — People stays default; topics/tickers browse in-hub. */
-export type DiscoverTab = 'people' | 'topics' | 'tickers';
+/** Discover hub tabs — Trending is the default mixed landing. */
+export type DiscoverTab = 'trending' | 'profiles' | 'topics' | 'tickers';
 
 export const DISCOVER_TABS: readonly DiscoverTab[] = [
-  'people',
+  'trending',
+  'profiles',
   'topics',
   'tickers',
 ] as const;
 
 export const DISCOVER_TAB_QUERY_KEY = 'tab';
 
+/**
+ * Parse `?tab=`. Defaults to trending.
+ * Legacy `people` maps to profiles.
+ */
 export function parseDiscoverTab(
   raw: string | null | undefined
 ): DiscoverTab {
   const value = (raw ?? '').trim().toLowerCase();
-  if (value === 'topics' || value === 'tickers') return value;
-  return 'people';
+  if (value === 'topics' || value === 'tickers' || value === 'trending') {
+    return value;
+  }
+  if (value === 'profiles' || value === 'people') return 'profiles';
+  return 'trending';
 }
 
 export function discoverTabLabel(tab: DiscoverTab): string {
   switch (tab) {
+    case 'trending':
+      return 'Trending';
     case 'topics':
       return 'Topics';
     case 'tickers':
       return 'Tickers';
     default:
-      return 'People';
+      return 'Profiles';
   }
 }
 
-/** Sync `?tab=` — omit when people (default) to keep URLs clean. */
+/** Sync `?tab=` — omit when trending (default) to keep URLs clean. */
 export function applyDiscoverTabParam(
   params: URLSearchParams,
   tab: DiscoverTab
 ): void {
-  if (tab === 'people') {
+  if (tab === 'trending') {
     params.delete(DISCOVER_TAB_QUERY_KEY);
   } else {
     params.set(DISCOVER_TAB_QUERY_KEY, tab);
@@ -42,7 +52,7 @@ export function applyDiscoverTabParam(
 
 /**
  * When the user types `#` / `$`, switch to the matching tab.
- * Bare text leaves the current tab alone.
+ * Bare text on Trending jumps to Profiles for live people search.
  */
 export function discoverTabForQueryDraft(
   raw: string,
@@ -51,6 +61,7 @@ export function discoverTabForQueryDraft(
   const trimmed = raw.trim();
   if (trimmed.startsWith('$')) return 'tickers';
   if (trimmed.startsWith('#')) return 'topics';
+  if (trimmed.length > 0 && current === 'trending') return 'profiles';
   return current;
 }
 
@@ -67,4 +78,9 @@ export function discoverTopicFilterPrefix(
     return trimmed.replace(/^#+/, '').toLowerCase();
   }
   return '';
+}
+
+/** People-list fetch only runs on Profiles. */
+export function isDiscoverProfilesTab(tab: DiscoverTab): boolean {
+  return tab === 'profiles';
 }
