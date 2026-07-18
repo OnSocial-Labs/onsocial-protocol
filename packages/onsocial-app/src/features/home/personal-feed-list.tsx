@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Divider } from '@onsocial/ui';
 import type { PostRow } from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
+import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { postKey } from '@/features/home/post-card';
 import {
   seedPostAuthorProfilesFromFeed,
@@ -16,12 +17,15 @@ import {
 import { usePostEngagement } from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
+import type { AmplifySuccessDetail } from '@/lib/amplify-heat';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
 
 interface PersonalFeedListProps {
   posts: PostRow[];
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
+  /** After amplify tx confirms — parent may optimistic Hot re-rank. */
+  onAmplified?: (post: PostRow, detail: AmplifySuccessDetail) => void;
   onEngagementError?: (message: string) => void;
   className?: string;
   /** Hashtag results include replies to other people. */
@@ -35,6 +39,7 @@ export function PersonalFeedList({
   posts,
   onReply,
   onQuote,
+  onAmplified,
   onEngagementError,
   className,
   includeForeignReplies = false,
@@ -71,12 +76,8 @@ export function PersonalFeedList({
 
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
-  const {
-    engagement,
-    toggleReaction,
-    isReactionPending,
-    confirmAmplify,
-  } = usePostEngagement(posts, { onError: onEngagementError });
+  const { engagement, toggleReaction, isReactionPending, confirmAmplify } =
+    usePostEngagement(posts, { onError: onEngagementError });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(posts, {
     onError: onEngagementError,
   });
@@ -87,9 +88,14 @@ export function PersonalFeedList({
     <div className={className ?? 'home-feed-list'}>
       {feedBlocks.map((block, blockIndex) => (
         <div key={postKey(block[0]!)}>
-          {blockIndex > 0 ? (
-            <Divider variant="item" className="post-row-divider" />
-          ) : null}
+          <Divider
+            variant="item"
+            className={
+              blockIndex > 0
+                ? 'post-row-divider'
+                : 'post-row-divider post-row-divider--leading-hidden'
+            }
+          />
           <FeedThreadBlock
             block={block}
             postAuthorProfiles={postAuthorProfiles}
@@ -97,7 +103,14 @@ export function PersonalFeedList({
             engagement={engagement}
             isReactionPending={isReactionPending}
             onToggleReaction={toggleReaction}
-            onAmplifyConfirmed={confirmAmplify}
+            onAmplifyConfirmed={(post, detail: PostAmplifySuccessDetail) => {
+              const previous = engagement[postKey(post)];
+              confirmAmplify(post);
+              onAmplified?.(post, {
+                ...detail,
+                isRepeatFromViewer: Boolean(previous?.viewerAmplified),
+              });
+            }}
             pollTallyFor={pollTallyFor}
             isPollVotePending={isPollVotePending}
             onPollVote={(post, optionIndex) => {

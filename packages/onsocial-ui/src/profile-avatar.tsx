@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from './cn.js';
 
 export type ProfileAvatarSize = 'sm' | 'md' | 'lg';
@@ -24,6 +24,13 @@ function imageReady(img: HTMLImageElement | null): boolean {
   return Boolean(img?.complete && img.naturalWidth > 0);
 }
 
+/** URLs that have painted once this session — skip shimmer on remount/re-rank. */
+const loadedAvatarSrcs = new Set<string>();
+
+function markAvatarSrcLoaded(src: string | null | undefined): void {
+  if (src) loadedAvatarSrcs.add(src);
+}
+
 export function ProfileAvatar({
   src = null,
   fallbackInitial,
@@ -32,16 +39,23 @@ export function ProfileAvatar({
   className,
 }: ProfileAvatarProps) {
   const imgRef = useRef<HTMLImageElement>(null);
-  const [mediaLoaded, setMediaLoaded] = useState(false);
+  const [mediaLoaded, setMediaLoaded] = useState(
+    () => Boolean(src && loadedAvatarSrcs.has(src))
+  );
   const [mediaError, setMediaError] = useState(false);
+  const prevSrcRef = useRef(src);
 
-  useEffect(() => {
-    setMediaLoaded(false);
-    setMediaError(false);
-  }, [src]);
-
+  // Only reset when the URL actually changes — remounts/reorders with the same
+  // cached src should not flash the shimmer (Hot amplify re-rank).
   useLayoutEffect(() => {
+    const srcChanged = prevSrcRef.current !== src;
+    prevSrcRef.current = src;
+    if (srcChanged) {
+      setMediaError(false);
+      setMediaLoaded(Boolean(src && loadedAvatarSrcs.has(src)));
+    }
     if (imageReady(imgRef.current)) {
+      markAvatarSrcLoaded(src);
       setMediaLoaded(true);
     }
   }, [src]);
@@ -75,7 +89,10 @@ export function ProfileAvatar({
           alt=""
           className="profile-avatar__img"
           decoding="async"
-          onLoad={() => setMediaLoaded(true)}
+          onLoad={() => {
+            markAvatarSrcLoaded(src);
+            setMediaLoaded(true);
+          }}
           onError={() => setMediaError(true)}
         />
       ) : null}

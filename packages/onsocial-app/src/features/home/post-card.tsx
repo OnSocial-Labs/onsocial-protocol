@@ -22,6 +22,7 @@ import {
 } from '@onsocial/ui';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
+import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildPath } from '@/features/guilds/guilds-data';
@@ -86,8 +87,11 @@ interface PostCardProps {
   engagement?: PostEngagement;
   reactionPending?: boolean;
   onToggleReaction?: (post: PostRow) => void;
-  /** Optimistic amplify count bump after a confirmed spend. */
-  onAmplifyConfirmed?: (post: PostRow) => void;
+  /** Optimistic amplify count / Hot heat after a confirmed spend. */
+  onAmplifyConfirmed?: (
+    post: PostRow,
+    detail: PostAmplifySuccessDetail
+  ) => void;
   /** Open a reply composer targeting this post. */
   onReply?: (post: PostRow) => void;
   /** Open a quote composer targeting this post. */
@@ -942,7 +946,9 @@ export function PostCard({
         post={amplifyOpen ? post : null}
         authorName={authorProfile?.displayName}
         onOpenChange={setAmplifyOpen}
-        onAmplified={(amplified) => onAmplifyConfirmed?.(amplified)}
+        onAmplified={(amplified, detail) =>
+          onAmplifyConfirmed?.(amplified, detail)
+        }
       />
     </article>
   );

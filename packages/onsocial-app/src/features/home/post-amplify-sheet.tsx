@@ -4,7 +4,10 @@ import { useCallback, useId, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
-import { PostAmplifyForm } from '@/features/home/post-amplify-form';
+import {
+  PostAmplifyForm,
+  type PostAmplifySuccessDetail,
+} from '@/features/home/post-amplify-form';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
@@ -13,7 +16,7 @@ interface PostAmplifySheetProps {
   post: PostRow | null;
   authorName?: string | null;
   onOpenChange: (open: boolean) => void;
-  onAmplified?: (post: PostRow) => void;
+  onAmplified?: (post: PostRow, detail: PostAmplifySuccessDetail) => void;
 }
 
 /** Money sheet for post Amplify — same family as profile Support. */
@@ -29,9 +32,7 @@ export function PostAmplifySheet({
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing && post != null;
-  const name = post
-    ? displayName(post.accountId, authorName ?? undefined)
-    : '';
+  const name = post ? displayName(post.accountId, authorName ?? undefined) : '';
   const handle = post ? fallbackLabel(post.accountId) : '';
 
   if (open !== wasOpen) {
@@ -82,8 +83,8 @@ export function PostAmplifySheet({
           key={`${formKey}:${post.accountId}:${post.postId}`}
           post={post}
           authorName={authorName}
-          onSuccess={() => {
-            onAmplified?.(post);
+          onSuccess={(detail) => {
+            onAmplified?.(post, detail);
             requestClose();
           }}
         />

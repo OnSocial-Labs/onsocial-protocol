@@ -12949,6 +12949,11 @@ a.os-surface-row {
     margin-right: 0.35rem;
   }
 
+  /* Keep leading divider mounted so feed re-rank does not remount post rows. */
+  .post-row-divider--leading-hidden {
+    display: none;
+  }
+
   .post-card--openable:hover,
   .post-card--openable:focus-within,
   .post-card-link:focus-visible,

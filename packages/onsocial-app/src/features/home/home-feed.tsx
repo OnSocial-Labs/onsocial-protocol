@@ -52,6 +52,13 @@ import {
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import {
+  applyOptimisticAmplifyHeat,
+  mergeAmplifyHeatFloors,
+  optimisticAmplifyHeatDelta,
+  type AmplifyHeatFloor,
+  type AmplifySuccessDetail,
+} from '@/lib/amplify-heat';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
@@ -195,6 +202,8 @@ export function HomePagePanel() {
   const standingSourcesRef = useRef<string[] | null>(null);
   const nextOffsetRef = useRef<number | undefined>(undefined);
   const postsLengthRef = useRef(0);
+  const amplifyReconcileTimerRef = useRef<number | null>(null);
+  const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
 
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
@@ -221,6 +230,49 @@ export function HomePagePanel() {
     setSort(next);
     writeHomeFeedSort(next);
   }, []);
+
+  const clearAmplifyReconcileTimer = useCallback(() => {
+    if (amplifyReconcileTimerRef.current != null) {
+      window.clearTimeout(amplifyReconcileTimerRef.current);
+      amplifyReconcileTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(
+    () => () => clearAmplifyReconcileTimer(),
+    [clearAmplifyReconcileTimer]
+  );
+
+  /**
+   * Hot: optimistic heat bump + in-memory re-sort for instant lift, then one
+   * soft reconcile refetch so indexer heat can replace the estimate.
+   */
+  const handleAmplified = useCallback(
+    (post: PostRow, detail: AmplifySuccessDetail) => {
+      if (sort !== 'hot' || activeFocus) return;
+
+      const key = postKey(post);
+      const delta = optimisticAmplifyHeatDelta(detail);
+      setPosts((current) => {
+        const row = current.find((item) => postKey(item) === key);
+        const nextHeat = (row?.amplifyHeat ?? post.amplifyHeat ?? 0) + delta;
+        if (delta > 0) {
+          amplifyHeatFloorsRef.current.set(key, {
+            heat: nextHeat,
+            untilMs: Date.now() + 15_000,
+          });
+        }
+        return applyOptimisticAmplifyHeat(current, post, detail);
+      });
+
+      clearAmplifyReconcileTimer();
+      amplifyReconcileTimerRef.current = window.setTimeout(() => {
+        amplifyReconcileTimerRef.current = null;
+        setReloadNonce((value) => value + 1);
+      }, 2_500);
+    },
+    [activeFocus, clearAmplifyReconcileTimer, sort]
+  );
 
   useEffect(() => {
     if (walletLoading || !lensReady) {
@@ -264,7 +316,11 @@ export function HomePagePanel() {
         const items = result.page.items;
         setPosts((current) => {
           revokeDroppedOptimisticMedia(current, items);
-          return items;
+          const ranked =
+            sort === 'hot' && !focus
+              ? mergeAmplifyHeatFloors(items, amplifyHeatFloorsRef.current)
+              : items;
+          return ranked;
         });
         setNextOffset(result.page.nextOffset);
         nextOffsetRef.current = result.page.nextOffset;
@@ -509,6 +565,7 @@ export function HomePagePanel() {
                 className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
                 onReply={replyHandler}
                 onQuote={quoteHandler}
+                onAmplified={handleAmplified}
                 onEngagementError={(message) => setEngagementError(message)}
               />
               <HomeFeedLoadMoreFooter

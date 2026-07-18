@@ -725,9 +725,14 @@ export function LivePersonalPostPanel({
               ) : quotes.length > 0 ? (
                 quotes.map((quote, index) => (
                   <div key={postKey(quote)}>
-                    {index > 0 ? (
-                      <Divider variant="item" className="post-row-divider" />
-                    ) : null}
+                    <Divider
+                      variant="item"
+                      className={
+                        index > 0
+                          ? 'post-row-divider'
+                          : 'post-row-divider post-row-divider--leading-hidden'
+                      }
+                    />
                     <PostCard
                       post={quote}
                       authorProfile={postAuthorProfiles[quote.accountId]}

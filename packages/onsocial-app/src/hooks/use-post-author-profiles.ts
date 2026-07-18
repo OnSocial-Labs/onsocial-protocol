@@ -35,14 +35,33 @@ function readCachedProfiles(
   return out;
 }
 
+function mergeProfileRecords(
+  base: Record<string, PostAuthorProfile>,
+  overlay: Record<string, PostAuthorProfile>
+): Record<string, PostAuthorProfile> {
+  const out: Record<string, PostAuthorProfile> = { ...base };
+  for (const [accountId, profile] of Object.entries(overlay)) {
+    const previous = out[accountId];
+    out[accountId] = {
+      accountId,
+      displayName: profile.displayName || previous?.displayName || '',
+      avatarUrl: profile.avatarUrl || previous?.avatarUrl || null,
+    };
+  }
+  return out;
+}
+
 export function seedPostAuthorProfile(profile: PostAuthorProfile): void {
   const displayName = profile.displayName.trim();
   const avatarUrl = profile.avatarUrl ?? null;
   if (!displayName && !avatarUrl) return;
+  const existing = profileCache.get(profile.accountId);
+  // Never downgrade — Hot re-sort / reconcile can reseed name-only rows
+  // and would wipe avatars that already loaded.
   profileCache.set(profile.accountId, {
     accountId: profile.accountId,
-    displayName,
-    avatarUrl,
+    displayName: displayName || existing?.displayName || '',
+    avatarUrl: avatarUrl || existing?.avatarUrl || null,
   });
 }
 
@@ -111,8 +130,13 @@ async function fetchPostAuthorProfilesBatch(
       const profile = row
         ? toPostAuthorProfile(accountId, row.name, row.avatar)
         : null;
-      profileCache.set(accountId, profile);
-      if (profile) next[accountId] = profile;
+      if (profile) {
+        seedPostAuthorProfile(profile);
+        const merged = profileCache.get(accountId);
+        if (merged) next[accountId] = merged;
+      } else if (!profileCache.has(accountId)) {
+        profileCache.set(accountId, null);
+      }
     }
 
     return next;
@@ -122,7 +146,7 @@ async function fetchPostAuthorProfilesBatch(
 
   batchInFlight.set(batchKey, request);
   const fetched = await request;
-  return { ...fromCache, ...fetched };
+  return mergeProfileRecords(fromCache, fetched);
 }
 
 export function usePostAuthorProfiles(
@@ -158,5 +182,5 @@ export function usePostAuthorProfiles(
   }
 
   const activeFetched = fetchedKey === accountIdsKey ? fetched : {};
-  return { ...fromCache, ...activeFetched };
+  return mergeProfileRecords(fromCache, activeFetched);
 }

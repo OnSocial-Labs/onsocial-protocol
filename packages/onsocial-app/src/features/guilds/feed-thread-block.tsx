@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
+import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { PostCard, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -31,7 +32,10 @@ interface FeedThreadBlockProps {
   engagement: Record<string, PostEngagement>;
   isReactionPending: (post: PostRow) => boolean;
   onToggleReaction: (post: PostRow) => void;
-  onAmplifyConfirmed?: (post: PostRow) => void;
+  onAmplifyConfirmed?: (
+    post: PostRow,
+    detail: PostAmplifySuccessDetail
+  ) => void;
   pollTallyFor?: (post: PostRow) => PollTally | undefined;
   isPollVotePending?: (post: PostRow) => boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;

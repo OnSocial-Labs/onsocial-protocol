@@ -1483,9 +1483,14 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 >
                   {feedBlocks.map((block, blockIndex) => (
                     <div key={postKey(block[0])}>
-                      {blockIndex > 0 ? (
-                        <Divider variant="item" className="post-row-divider" />
-                      ) : null}
+                      <Divider
+                        variant="item"
+                        className={
+                          blockIndex > 0
+                            ? 'post-row-divider'
+                            : 'post-row-divider post-row-divider--leading-hidden'
+                        }
+                      />
                       <FeedThreadBlock
                         block={block}
                         groupId={groupId}

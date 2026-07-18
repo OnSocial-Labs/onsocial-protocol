@@ -74,10 +74,15 @@ async function fetchWalletBalanceYocto(accountId: string): Promise<bigint> {
   return BigInt(body.balanceYocto);
 }
 
+export interface PostAmplifySuccessDetail {
+  amountYocto: bigint;
+  isSelf: boolean;
+}
+
 interface PostAmplifyFormProps {
   post: PostRow;
   authorName?: string | null;
-  onSuccess?: () => void;
+  onSuccess?: (detail: PostAmplifySuccessDetail) => void;
 }
 
 export function PostAmplifyForm({
@@ -189,8 +194,7 @@ export function PostAmplifyForm({
         amountError = 'Not enough SOCIAL in your wallet.';
       }
     } catch (cause) {
-      amountError =
-        cause instanceof Error ? cause.message : 'Invalid amount.';
+      amountError = cause instanceof Error ? cause.message : 'Invalid amount.';
     }
   }
 
@@ -284,7 +288,10 @@ export function PostAmplifyForm({
           () => null
         );
         if (balance != null) setWalletBalanceYocto(balance);
-        onSuccess?.();
+        onSuccess?.({
+          amountYocto,
+          isSelf: Boolean(accountIdsEqual(signingAccountId, post.accountId)),
+        });
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
