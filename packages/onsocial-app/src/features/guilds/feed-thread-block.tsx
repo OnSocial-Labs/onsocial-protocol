@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { PostCard, postKey } from '@/features/home/post-card';
+import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import type { PollTally } from '@/lib/poll-votes';
@@ -164,15 +165,11 @@ export function FeedThreadBlock({
     <div className="post-thread-block">
       {head.map(renderRow)}
       {collapsed ? (
-        <button
-          type="button"
-          className="post-thread-more"
-          onClick={() => setExpanded(true)}
-        >
+        <ThreadFoldButton onClick={() => setExpanded(true)}>
           {hiddenCount === 1
             ? 'Show 1 earlier post in thread'
             : `Show ${hiddenCount} earlier posts in thread`}
-        </button>
+        </ThreadFoldButton>
       ) : null}
       {tail.map(renderRow)}
     </div>

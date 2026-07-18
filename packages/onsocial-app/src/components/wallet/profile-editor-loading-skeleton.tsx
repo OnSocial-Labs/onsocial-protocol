@@ -16,14 +16,15 @@ export function ProfileEditorLoadingSkeleton({
     >
       <section className="account-editor-hero" aria-hidden>
         <div className="account-editor-cover-stage">
-          <div className="account-editor-banner-wrap profile-editor-media-banner-dock">
-            <div className="account-editor-banner-button account-editor-shimmer" />
-            <p
-              className="profile-editor-media-size-hint profile-editor-media-size-hint--dock account-editor-skeleton-hint"
-              aria-hidden
-            >
-              &nbsp;
-            </p>
+          <div className="account-editor-banner-wrap">
+            <div className="account-editor-banner-button account-editor-shimmer">
+              <p
+                className="profile-editor-media-size-hint profile-editor-media-size-hint--dock account-editor-skeleton-hint"
+                aria-hidden
+              >
+                &nbsp;
+              </p>
+            </div>
           </div>
 
           <AccountEditorChrome

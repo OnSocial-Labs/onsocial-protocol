@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
   type MutableRefObject,
 } from 'react';
@@ -24,6 +25,7 @@ import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   useAppProfileEditor,
   type ProfileEditorSaveResult,
@@ -49,6 +51,9 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
+
+const MOBILE_MAX_WIDTH_PX = 767;
+const EDITOR_PANEL_MAX_HEIGHT_PX = 44 * 16;
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
@@ -173,9 +178,16 @@ function ProfileEditorForm({
       return;
     }
 
+    // Mobile: let the user tap — autofocus fights keyboard + sheet settle.
+    if (
+      window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches
+    ) {
+      return;
+    }
+
     const focusTimer = window.setTimeout(() => {
       nameInputRef.current?.focus({ preventScroll: true });
-    }, 40);
+    }, 280);
 
     return () => {
       window.clearTimeout(focusTimer);
@@ -403,7 +415,7 @@ function ProfileEditorForm({
           <div
             className={`account-editor-cover-stage${displayBannerMedia ? ' has-media' : ''}`}
           >
-            <div className="account-editor-banner-wrap profile-editor-media-banner-dock">
+            <div className="account-editor-banner-wrap">
               <div
                 className={`account-editor-banner-button profile-editor-media-host${displayBannerMedia ? ' has-media' : ''}`}
               >
@@ -445,13 +457,13 @@ function ProfileEditorForm({
                   removeLabel={displayBannerMedia ? 'Remove banner' : undefined}
                   onRemove={displayBannerMedia ? handleRemoveBanner : undefined}
                 />
+                <p
+                  className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+                  aria-hidden
+                >
+                  1500&times;300 · photo or video
+                </p>
               </div>
-              <p
-                className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
-                aria-hidden
-              >
-                1500&times;300 · photo or video
-              </p>
             </div>
 
             <AccountEditorChrome
@@ -730,6 +742,7 @@ export function AppProfileEditorSheet({
   const pendingLeaveRef = useRef<LeaveAction | null>(null);
 
   const sheetOpen = open && !closing;
+  const viewport = useVisualViewportSheetMetrics(sheetOpen);
   const {
     snapshot,
     loading,
@@ -747,6 +760,30 @@ export function AppProfileEditorSheet({
   const pageMoodPanelClass = portfolioMoodId
     ? ' account-editor-panel--page-mood'
     : '';
+
+  const panelStyle = useMemo((): CSSProperties | undefined => {
+    const mood = portfolioMoodStyle;
+    if (!viewport.isMobile || viewport.height <= 0) {
+      return mood;
+    }
+
+    const height = Math.min(viewport.height, EDITOR_PANEL_MAX_HEIGHT_PX);
+    return {
+      ...mood,
+      height: `${height}px`,
+      maxHeight: `${height}px`,
+      ...(viewport.lift > 0
+        ? {
+            marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
+          }
+        : null),
+    };
+  }, [
+    portfolioMoodStyle,
+    viewport.height,
+    viewport.isMobile,
+    viewport.lift,
+  ]);
 
   useScrollLock(open || closing);
 
@@ -807,7 +844,7 @@ export function AppProfileEditorSheet({
         ariaLabelledBy="profile-editor-title"
         backdropLabel="Close editor"
         panelClassName={`account-editor-panel${pageMoodPanelClass}${portfolioMoodId ? ` account-editor-panel--${portfolioMoodId}` : ''}`}
-        panelStyle={portfolioMoodStyle}
+        panelStyle={panelStyle}
         bodyClassName="account-editor-body"
       >
         {loading && !snapshot ? (

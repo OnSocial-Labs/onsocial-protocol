@@ -352,8 +352,19 @@ export function QuotedPostInset({
   const collage = mediaItems.length > 1 ? mediaItems : null;
   const interactive = Boolean(href);
 
-  const open = (event: { preventDefault(): void; stopPropagation(): void }) => {
+  const open = (event: {
+    preventDefault(): void;
+    stopPropagation(): void;
+    target?: EventTarget | null;
+  }) => {
     if (!href) return;
+    // Let nested # / @ / $ / external links win over the inset navigate.
+    if (
+      event.target instanceof Element &&
+      event.target.closest('a[href], button')
+    ) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     router.push(href);

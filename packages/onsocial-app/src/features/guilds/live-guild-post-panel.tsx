@@ -9,6 +9,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
+import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import {
   GuildComposerSheet,
@@ -1098,10 +1099,8 @@ export function LiveGuildPostPanel({
                   replyRows.map((row, index) => {
                     if (row.kind === 'more') {
                       return (
-                        <button
+                        <ThreadFoldButton
                           key={`more-${row.branchKey}`}
-                          type="button"
-                          className="post-thread-more"
                           onClick={() =>
                             setExpandedBranches((current) =>
                               new Set(current).add(row.branchKey)
@@ -1111,7 +1110,7 @@ export function LiveGuildPostPanel({
                           {row.hiddenCount === 1
                             ? 'Show 1 more reply'
                             : `Show ${row.hiddenCount} more replies`}
-                        </button>
+                        </ThreadFoldButton>
                       );
                     }
 

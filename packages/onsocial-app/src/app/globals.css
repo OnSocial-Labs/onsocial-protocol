@@ -336,8 +336,9 @@
   --glass-sheet-body-opacity: 0.62;
 }
 
+/* Full detent even while skeleton loads (height:auto shrank to content). */
 .glass-sheet-panel.account-editor-panel {
-  height: auto;
+  height: min(96dvh, 44rem);
   max-height: min(96dvh, 44rem);
   --glass-sheet-body-opacity: 0.64;
   --glass-header-scrim-height: 0;
@@ -358,6 +359,87 @@
 
 .glass-sheet-panel.account-editor-panel .glass-sheet-body {
   border-radius: inherit;
+}
+
+/*
+ * Unlayered: imported profile-editor-media.css docks reserve 0.75rem under the
+ * tile. Editor hint lives on the banner host — kill that gap so 1500×300 sits
+ * on the media, not in the strip between banner and identity.
+ */
+.account-editor-banner-wrap.profile-editor-media-banner-dock,
+.account-editor-banner-wrap {
+  padding-bottom: 0;
+}
+
+.account-editor-banner-button .profile-editor-media-size-hint--dock {
+  z-index: 4;
+}
+
+/*
+ * Editor × over banner — glass chip like camera/bin (and guild immersive header).
+ * Unlayered so it beats glass-sheet flat transparent icons on light banners.
+ */
+.account-editor-hero-chrome .glass-sheet-icon-action {
+  box-sizing: border-box;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  max-width: 1.75rem;
+  max-height: 1.75rem;
+  padding: 0;
+  border-radius: 9999px;
+  background: color-mix(
+    in srgb,
+    rgb(var(--bg-rgb) / 0.72) 88%,
+    rgb(0 0 0 / 0.35)
+  );
+  color: rgb(var(--fg-rgb) / 0.9);
+  filter: none;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 4px 12px -6px rgb(0 0 0 / 0.35);
+}
+
+.account-editor-hero-chrome .glass-sheet-close-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.account-editor-hero-chrome .glass-sheet-icon-action:hover,
+.account-editor-hero-chrome .glass-sheet-icon-action:focus-visible {
+  background: color-mix(
+    in srgb,
+    rgb(var(--bg-rgb) / 0.82) 82%,
+    rgb(0 0 0 / 0.42)
+  );
+  color: rgb(var(--fg-rgb) / 0.96);
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 4px 12px -6px rgb(0 0 0 / 0.4);
+}
+
+.account-editor-cover-stage.has-media
+  .account-editor-hero-chrome
+  .glass-sheet-icon-action {
+  background: rgb(0 0 0 / 0.42);
+  color: rgb(255 255 255 / 0.94);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 4px 12px -6px rgb(0 0 0 / 0.35);
+}
+
+.account-editor-cover-stage.has-media
+  .account-editor-hero-chrome
+  .glass-sheet-icon-action:hover,
+.account-editor-cover-stage.has-media
+  .account-editor-hero-chrome
+  .glass-sheet-icon-action:focus-visible {
+  background: rgb(0 0 0 / 0.55);
+  color: rgb(255 255 255 / 1);
 }
 
 .glass-sheet-panel.customize-sheet-panel,
@@ -9034,6 +9116,7 @@ a.os-surface-row {
   }
 
   .standing-row-main {
+    position: relative;
     display: flex;
     min-width: 0;
     flex: 1;
@@ -9043,7 +9126,25 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  /* Row → portfolio; islands below re-enable # @ $ / links in bio. */
+  .standing-row-hit {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .standing-row-main:has(.standing-row-hit) > :not(.standing-row-hit) {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+
   .standing-row-aside {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-shrink: 0;
     flex-direction: column;
@@ -9436,6 +9537,17 @@ a.os-surface-row {
     font-size: 0.75rem;
     line-height: 1.45;
     color: hsl(var(--muted-foreground));
+  }
+
+  .standing-row-bio .os-hashtag,
+  .standing-row-bio .os-mention,
+  .standing-row-bio .os-ticker,
+  .standing-row-bio .os-link {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+    font-weight: 300;
+    cursor: pointer;
   }
 
   .standing-row--skeleton {
@@ -10823,6 +10935,10 @@ a.os-surface-row {
 
   .account-editor-body {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 0;
     overflow: hidden;
     border-radius: inherit;
@@ -10924,6 +11040,8 @@ a.os-surface-row {
   }
 
   .account-editor-skeleton-body {
+    flex: 1 1 auto;
+    min-height: 0;
     padding-bottom: 0.75rem;
   }
 
@@ -11057,17 +11175,16 @@ a.os-surface-row {
     border-radius: inherit;
   }
 
-  .account-editor-banner-wrap.profile-editor-media-banner-dock {
-    padding-bottom: 0;
-  }
-
-  .account-editor-banner-wrap .profile-editor-media-size-hint--dock {
-    z-index: 4;
+  .account-editor-banner-wrap .profile-editor-media-size-hint--dock,
+  .account-editor-banner-button .profile-editor-media-size-hint--dock {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
   .account-editor-cover-stage.has-media
     .account-editor-banner-wrap
+    .profile-editor-media-size-hint--dock,
+  .account-editor-cover-stage.has-media
+    .account-editor-banner-button
     .profile-editor-media-size-hint--dock {
     color: rgb(255 255 255 / 0.78);
     text-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
@@ -11293,35 +11410,6 @@ a.os-surface-row {
     position: relative;
     flex-shrink: 0;
     pointer-events: auto;
-  }
-
-  .account-editor-cover-stage.has-media
-    .account-editor-hero-chrome
-    .glass-sheet-icon-action,
-  .account-editor-cover-stage.has-media
-    .account-editor-hero-chrome
-    .sheet-control {
-    background: transparent;
-    color: rgb(255 255 255 / 0.94);
-    filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.5));
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .account-editor-cover-stage.has-media
-    .account-editor-hero-chrome
-    .glass-sheet-icon-action:hover,
-  .account-editor-cover-stage.has-media
-    .account-editor-hero-chrome
-    .glass-sheet-icon-action:focus-visible,
-  .account-editor-cover-stage.has-media
-    .account-editor-hero-chrome
-    .sheet-control:hover,
-  .account-editor-cover-stage.has-media
-    .account-editor-hero-chrome
-    .sheet-control:focus-visible {
-    background: rgb(0 0 0 / 0.12);
-    color: rgb(255 255 255 / 1);
   }
 
   .account-editor-banner-image,
@@ -12461,6 +12549,15 @@ a.os-surface-row {
     transition: opacity 160ms ease;
   }
 
+  .home-feed-load-more {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-feed-sentinel {
+    height: 1px;
+  }
+
   /* Match live feed spacing/dividers so skeleton → posts doesn’t nudge lines. */
   .post-row-skeleton-list {
     display: flex;
@@ -12614,8 +12711,18 @@ a.os-surface-row {
   .post-card--openable .os-hashtag,
   .post-card--openable .os-mention,
   .post-card--openable .os-ticker,
+  .post-card--openable .os-link,
   .post-card--openable .post-card-guild {
     pointer-events: auto;
+  }
+
+  /* External links — always above the open-hit / quote-inset click catchers. */
+  .post-card .os-link,
+  .post-card-quote-inset .os-link {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+    cursor: pointer;
   }
 
   /*
@@ -13010,57 +13117,62 @@ a.os-surface-row {
     align-items: flex-start;
     gap: 0.2rem;
     min-width: 0;
+    /* Shared type size for body + Show more (buttons inherit this). */
+    font-size: 0.92rem;
+    line-height: 1.5;
   }
 
   .post-card-body {
     margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.5;
+    font-size: inherit;
+    font-weight: 400;
+    line-height: inherit;
     white-space: pre-wrap;
     word-break: break-word;
   }
 
   /* Indexed #tags (blue) / @mentions (purple) / $tickers (green). */
   .post-card-body .os-hashtag,
-  .post-card-quote-inset-body .os-hashtag {
-    color: var(--protocol-blue);
-    font-weight: inherit;
+  .post-card-quote-inset-body .os-hashtag,
+  .post-card-body .os-mention,
+  .post-card-quote-inset-body .os-mention,
+  .post-card-body .os-ticker,
+  .post-card-quote-inset-body .os-ticker,
+  .post-card-body .os-link,
+  .post-card-quote-inset-body .os-link {
+    font-weight: 300;
     text-decoration: none;
     cursor: pointer;
+  }
+
+  .post-card-body .os-hashtag,
+  .post-card-quote-inset-body .os-hashtag {
+    color: var(--protocol-blue);
   }
 
   .post-card-body .os-mention,
   .post-card-quote-inset-body .os-mention {
     color: var(--protocol-purple);
-    font-weight: inherit;
-    text-decoration: none;
-    cursor: pointer;
   }
 
   .post-card-body .os-ticker,
   .post-card-quote-inset-body .os-ticker {
     color: var(--protocol-green);
-    font-weight: inherit;
-    text-decoration: none;
-    cursor: pointer;
   }
 
   .post-card-body .os-link,
   .post-card-quote-inset-body .os-link {
     color: var(--protocol-blue);
-    font-weight: inherit;
-    text-decoration: none;
-    cursor: pointer;
   }
 
   .post-card-body .os-hashtag.is-active,
   .post-card-quote-inset-body .os-hashtag.is-active {
-    font-weight: 600;
+    font-weight: 400;
   }
 
   .post-card-body .os-ticker.is-active,
   .post-card-quote-inset-body .os-ticker.is-active {
-    font-weight: 700;
+    font-weight: 400;
     letter-spacing: 0.01em;
   }
 
@@ -13112,24 +13224,32 @@ a.os-surface-row {
     color: var(--protocol-blue-hover);
   }
 
-  .post-card-show-more {
+  /* Expand chrome — same size as post body, lighter weight; no underline. */
+  .post-card-body-block > .post-card-show-more {
     margin: 0;
     padding: 0;
     border: 0;
     background: none;
-    color: rgb(var(--fg-rgb) / 0.52);
+    color: var(--protocol-blue);
     font: inherit;
-    font-size: 0.86rem;
-    font-weight: 600;
-    line-height: 1.3;
+    font-size: inherit;
+    font-weight: 300;
+    line-height: inherit;
+    letter-spacing: normal;
     cursor: pointer;
+    text-decoration: none !important;
+    text-decoration-line: none !important;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    transition: color 140ms ease;
   }
 
-  .post-card-show-more:hover,
-  .post-card-show-more:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.78);
+  .post-card-body-block > .post-card-show-more:hover,
+  .post-card-body-block > .post-card-show-more:focus-visible,
+  .post-card-body-block > .post-card-show-more:active {
+    color: var(--protocol-blue-hover);
+    text-decoration: none !important;
+    text-decoration-line: none !important;
     outline: none;
   }
 
@@ -15947,6 +16067,7 @@ a.os-surface-row {
     --thread-pad-top: 0.68rem;
     /* Breathing room between rail ends and the avatar circle. */
     --thread-rail-gap: 0.2rem;
+    --thread-rail-color: rgb(var(--fg-rgb) / 0.12);
   }
 
   .post-thread-item {
@@ -15965,7 +16086,7 @@ a.os-surface-row {
     left: var(--thread-rail-x);
     width: 2px;
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.12);
+    background: var(--thread-rail-color);
     pointer-events: none;
   }
 
@@ -15990,7 +16111,7 @@ a.os-surface-row {
     padding-top: 0.42rem;
   }
 
-  /* Dotted fold — hidden middle of the chain; solid rail resumes below. */
+  /* Fold — protocol blue; weight matches Show more; no underline. */
   .post-thread-more {
     position: relative;
     display: block;
@@ -16002,24 +16123,41 @@ a.os-surface-row {
     padding: 0.05rem 0.35rem 0.5rem 3rem;
     font-family: inherit;
     font-size: 0.72rem;
-    font-weight: 600;
+    font-weight: 300;
     line-height: 1.45;
-    color: color-mix(in srgb, var(--protocol-blue) 78%, rgb(var(--fg-rgb)));
+    color: var(--protocol-blue);
+    text-decoration: none !important;
+    text-decoration-line: none !important;
+    transition: color 140ms ease;
   }
 
   .post-thread-more:hover,
-  .post-thread-more:focus-visible {
-    text-decoration: underline;
+  .post-thread-more:focus-visible,
+  .post-thread-more:active {
+    color: var(--protocol-blue-hover);
+    text-decoration: none !important;
+    text-decoration-line: none !important;
     outline: none;
   }
 
-  .post-thread-more::before {
-    content: '';
+  /* Spring coil rail — CSS mask (white stroke, alpha). No SVG ids / patterns. */
+  .post-thread-more-coil {
     position: absolute;
-    left: var(--thread-rail-x);
-    top: 0;
-    bottom: 0;
-    border-left: 2px dotted rgb(var(--fg-rgb) / 0.28);
+    left: calc(var(--thread-rail-x) - 3px);
+    top: 0.08rem;
+    bottom: 0.18rem;
+    width: 8px;
+    pointer-events: none;
+    background: var(--thread-rail-color);
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='10' viewBox='0 0 8 10'%3E%3Cpath d='M4 0C6.8 1.5 6.8 3.5 4 5C1.2 6.5 1.2 8.5 4 10' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='10' viewBox='0 0 8 10'%3E%3Cpath d='M4 0C6.8 1.5 6.8 3.5 4 5C1.2 6.5 1.2 8.5 4 10' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+    -webkit-mask-repeat: repeat-y;
+    mask-repeat: repeat-y;
+    -webkit-mask-size: 8px 10px;
+    mask-size: 8px 10px;
+    -webkit-mask-position: center top;
+    mask-position: center top;
+    mask-mode: alpha;
   }
 
   .guild-thread-context {
@@ -16086,7 +16224,7 @@ a.os-surface-row {
     padding: 0.35rem 0;
   }
 
-  .guild-thread-root .post-card-body {
+  .guild-thread-root .post-card-body-block {
     font-size: 1.02rem;
     line-height: 1.55;
   }

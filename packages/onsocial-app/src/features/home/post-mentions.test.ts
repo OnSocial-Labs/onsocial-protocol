@@ -121,6 +121,18 @@ describe('post-mentions', () => {
     );
   });
 
+  it('autolinks www and bare domains in posts', () => {
+    expect(splitPostRichText('go www.onsocial.id now')).toEqual([
+      { type: 'text', value: 'go ' },
+      {
+        type: 'url',
+        value: 'www.onsocial.id',
+        href: 'https://www.onsocial.id',
+      },
+      { type: 'text', value: ' now' },
+    ]);
+  });
+
   it('highlights in-progress @query in composer even when incomplete', () => {
     expect(
       splitComposerRichText('hi @green', {

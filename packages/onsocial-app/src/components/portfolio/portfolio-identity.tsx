@@ -54,7 +54,7 @@ export function PortfolioIdentity({
         </p>
         {summary ? (
           <p className="portfolio-bio">
-            <PostRichText text={summary} emptyFallback="" />
+            <PostRichText text={summary} emptyFallback="" showLinkIcon />
           </p>
         ) : null}
         <PortfolioIdentityGestures

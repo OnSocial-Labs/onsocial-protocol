@@ -5,6 +5,7 @@ import { Divider, ProfileAvatar, ProtocolMotionArrow } from '@onsocial/ui';
 import { DiscoverMoodDot } from '@/components/moods/discover-mood-dot';
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
+import { PostRichText } from '@/features/home/post-rich-text';
 import { portfolioPath } from '@/lib/overlay-routes';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { isProfileListAccountDisplayReady } from '@/lib/profile-list-display';
@@ -235,11 +236,13 @@ export function ProfileSocialListRow({
 
   return (
     <div className="standing-row">
-      <Link
-        href={portfolioPath(account.accountId)}
-        className="standing-row-main"
-        scroll={false}
-      >
+      <div className="standing-row-main">
+        <Link
+          href={portfolioPath(account.accountId)}
+          className="standing-row-hit"
+          scroll={false}
+          aria-label={`View ${accountLabel(account)}'s profile`}
+        />
         <AccountAvatar avatarUrl={account.avatarUrl} />
         <div className="standing-row-copy">
           {showRelationshipSignals ? (
@@ -277,10 +280,14 @@ export function ProfileSocialListRow({
               <span className="standing-row-handle">@{account.accountId}</span>
             ) : null}
           </span>
-          {bio ? <span className="standing-row-bio">{bio}</span> : null}
+          {bio ? (
+            <span className="standing-row-bio">
+              <PostRichText text={bio} emptyFallback="" showLinkIcon />
+            </span>
+          ) : null}
           <ProfileRowMetrics account={account} />
         </div>
-      </Link>
+      </div>
 
       <div
         className={`standing-row-aside${

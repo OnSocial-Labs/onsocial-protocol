@@ -19,6 +19,7 @@ import {
 } from '@/features/guilds/guild-composer-sheet';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
+import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { usePostEngagement } from '@/hooks/use-post-engagement';
@@ -632,10 +633,8 @@ export function LivePersonalPostPanel({
                   replyRows.map((row, index) => {
                     if (row.kind === 'more') {
                       return (
-                        <button
+                        <ThreadFoldButton
                           key={`more-${row.branchKey}`}
-                          type="button"
-                          className="post-thread-more"
                           onClick={() =>
                             setExpandedBranches((current) =>
                               new Set(current).add(row.branchKey)
@@ -645,7 +644,7 @@ export function LivePersonalPostPanel({
                           {row.hiddenCount === 1
                             ? 'Show 1 more reply'
                             : `Show ${row.hiddenCount} more replies`}
-                        </button>
+                        </ThreadFoldButton>
                       );
                     }
 

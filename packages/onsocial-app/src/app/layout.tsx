@@ -15,6 +15,8 @@ const dmSans = DM_Sans({
   subsets: ['latin'],
   variable: '--font-dm-sans',
   display: 'swap',
+  // Include Light so post #/@/$ / links at weight 300 actually render lighter.
+  weight: ['300', '400', '500', '600', '700'],
 });
 
 const spaceGrotesk = Space_Grotesk({

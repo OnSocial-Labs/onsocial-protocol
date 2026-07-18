@@ -88,6 +88,7 @@ export function ProfileBioRichTextarea({
                 <OsAutolinkChip
                   key={`u-${index}`}
                   href={segment.href}
+                  text={segment.value}
                   variant="mirror"
                 />
               );

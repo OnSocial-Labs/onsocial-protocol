@@ -20,8 +20,8 @@ export type ThreadReplyRow =
  *   each post's own page shows them.
  * - Then each branch (someone else's reply), divider-separated: the branch
  *   post plus at most ONE reply from its conversation line (the root
- *   author's response when present). Longer exchanges fold behind a dotted
- *   `Show N more` row that expands in place.
+ *   author's response when present). Longer exchanges fold behind a spring
+ *   coil `Show N more` row that expands in place.
  */
 export function buildReplyRows(
   nodes: ThreadNode[],

@@ -18,6 +18,7 @@ export { buildProfileSetData } from './profile.js';
 export { profileMetaFromBio, type ProfileBioMeta } from './profile-meta.js';
 export {
   autolinkDisplayHost,
+  isAutolinkableHostname,
   normalizeAutolinkUrl,
   splitRichText,
   type RichTextSegment,

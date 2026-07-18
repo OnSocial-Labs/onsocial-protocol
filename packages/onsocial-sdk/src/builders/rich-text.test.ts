@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   autolinkDisplayHost,
+  isAutolinkableHostname,
   normalizeAutolinkUrl,
   splitRichText,
 } from './rich-text.js';
@@ -42,5 +43,59 @@ describe('splitRichText', () => {
     expect(normalizeAutolinkUrl('https://onsocial.id/.')).toBe(
       'https://onsocial.id/'
     );
+  });
+
+  it('autolinks www and bare domains with https href', () => {
+    expect(splitRichText('visit www.onsocial.id please')).toEqual([
+      { type: 'text', value: 'visit ' },
+      {
+        type: 'url',
+        value: 'www.onsocial.id',
+        href: 'https://www.onsocial.id',
+      },
+      { type: 'text', value: ' please' },
+    ]);
+    expect(splitRichText('see onsocial.id/docs.')).toEqual([
+      { type: 'text', value: 'see ' },
+      {
+        type: 'url',
+        value: 'onsocial.id/docs',
+        href: 'https://onsocial.id/docs',
+      },
+      { type: 'text', value: '.' },
+    ]);
+  });
+
+  it('does not autolink near account-like bare hosts', () => {
+    expect(splitRichText('talk to alice.near later')).toEqual([
+      { type: 'text', value: 'talk to alice.near later' },
+    ]);
+  });
+
+  it('waits for a 2+ letter TLD before coloring www / https hosts', () => {
+    expect(splitRichText('www.onsocial')).toEqual([
+      { type: 'text', value: 'www.onsocial' },
+    ]);
+    expect(splitRichText('www.onsocial.i')).toEqual([
+      { type: 'text', value: 'www.onsocial.i' },
+    ]);
+    expect(splitRichText('https://onsocial.i')).toEqual([
+      { type: 'text', value: 'https://onsocial.i' },
+    ]);
+    expect(splitRichText('www.onsocial.id')).toEqual([
+      {
+        type: 'url',
+        value: 'www.onsocial.id',
+        href: 'https://www.onsocial.id',
+      },
+    ]);
+  });
+});
+
+describe('isAutolinkableHostname', () => {
+  it('requires tld length >= 2', () => {
+    expect(isAutolinkableHostname('onsocial.i')).toBe(false);
+    expect(isAutolinkableHostname('onsocial.id')).toBe(true);
+    expect(isAutolinkableHostname('www.onsocial.co')).toBe(true);
   });
 });

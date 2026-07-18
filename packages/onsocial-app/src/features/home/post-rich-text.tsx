@@ -18,9 +18,12 @@ import { portfolioPath } from '@/lib/overlay-routes';
 export function PostRichText({
   text,
   emptyFallback = '…',
+  /** Bio / portfolio: Mage link icon. Posts: plain blue host label. */
+  showLinkIcon = false,
 }: {
   text: string;
   emptyFallback?: string;
+  showLinkIcon?: boolean;
 }) {
   const activeFocus = useHomeActiveFocus();
 
@@ -38,7 +41,9 @@ export function PostRichText({
             <OsAutolinkChip
               key={`u-${index}`}
               href={segment.href}
+              text={segment.value}
               as="a"
+              showIcon={showLinkIcon}
               onClick={(event) => {
                 event.stopPropagation();
               }}

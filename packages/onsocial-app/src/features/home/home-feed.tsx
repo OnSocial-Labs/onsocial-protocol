@@ -1,8 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { PostRow } from '@onsocial/sdk';
+import type { Paginated, PostRow } from '@onsocial/sdk';
+import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedLensMenu } from '@/features/home/home-feed-lens-menu';
@@ -30,44 +38,110 @@ import {
   PersonalFeedList,
   shouldPrependOptimisticFeedPost,
 } from '@/features/home/personal-feed-list';
+import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
-async function loadHomeFeed(
+const HOME_FEED_PAGE_SIZE = 24;
+
+function mergeFeedPosts(current: PostRow[], incoming: PostRow[]): PostRow[] {
+  if (incoming.length === 0) return current;
+
+  const seen = new Set(current.map(postKey));
+  const merged = [...current];
+
+  for (const post of incoming) {
+    const key = postKey(post);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(post);
+  }
+
+  return merged;
+}
+
+async function resolveStandingSources(
+  accountId: string
+): Promise<string[]> {
+  const client = createReadOnlyOnSocialClient();
+  const standing = await client.query.standings.outgoing(accountId, {
+    limit: 48,
+  });
+  return Array.from(new Set([accountId, ...standing]));
+}
+
+async function loadHomeFeedPage(
   lens: HomeFeedLens,
-  accountId: string | null
-): Promise<PostRow[]> {
+  accountId: string | null,
+  offset: number,
+  standingSources: string[] | null
+): Promise<{ page: Paginated<PostRow>; standingSources: string[] | null }> {
   const client = createReadOnlyOnSocialClient();
 
   if (lens === 'standing' && accountId) {
-    const standing = await client.query.standings.outgoing(accountId, {
-      limit: 48,
-    });
-    const sources = Array.from(new Set([accountId, ...standing]));
+    const sources =
+      standingSources ?? (await resolveStandingSources(accountId));
 
-    if (sources.length > 0) {
-      const page = await client.query.feed.fromAccounts({
-        accounts: sources,
-        limit: 24,
-      });
-      return page.items;
+    if (sources.length === 0) {
+      return { page: { items: [] }, standingSources: sources };
     }
 
-    return [];
+    const page = await client.query.feed.fromAccounts({
+      accounts: sources,
+      limit: HOME_FEED_PAGE_SIZE,
+      offset,
+    });
+    return { page, standingSources: sources };
   }
 
-  const page = await client.query.feed.recent({ limit: 24 });
-  return page.items;
+  const page = await client.query.feed.recent({
+    limit: HOME_FEED_PAGE_SIZE,
+    offset,
+  });
+  return { page, standingSources: null };
 }
 
-async function loadFocusedFeed(focus: HomeFeedFocus): Promise<PostRow[]> {
+async function loadFocusedFeedPage(
+  focus: HomeFeedFocus,
+  offset: number
+): Promise<Paginated<PostRow>> {
   const client = createReadOnlyOnSocialClient();
-  const page =
-    focus.kind === 'ticker'
-      ? await client.query.feed.byTicker(focus.value, { limit: 24 })
-      : await client.query.feed.byHashtag(focus.value, { limit: 24 });
-  return page.items;
+  return focus.kind === 'ticker'
+    ? client.query.feed.byTicker(focus.value, {
+        limit: HOME_FEED_PAGE_SIZE,
+        offset,
+      })
+    : client.query.feed.byHashtag(focus.value, {
+        limit: HOME_FEED_PAGE_SIZE,
+        offset,
+      });
+}
+
+function HomeFeedLoadMoreFooter({
+  loadMoreSentinelRef,
+  showSentinel,
+  isLoadingMore,
+}: {
+  loadMoreSentinelRef: RefObject<HTMLDivElement | null>;
+  showSentinel: boolean;
+  isLoadingMore: boolean;
+}) {
+  if (!showSentinel && !isLoadingMore) return null;
+
+  return (
+    <div className="home-feed-load-more">
+      {showSentinel ? (
+        <div
+          ref={loadMoreSentinelRef}
+          className="home-feed-sentinel"
+          aria-hidden
+        />
+      ) : null}
+      {isLoadingMore ? <PostRowSkeleton rows={2} /> : null}
+    </div>
+  );
 }
 
 export function HomePagePanel() {
@@ -79,8 +153,13 @@ export function HomePagePanel() {
     isLoading: walletLoading,
   } = useAppWallet();
   const [posts, setPosts] = useState<PostRow[]>([]);
+  const [nextOffset, setNextOffset] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [engagementError, setEngagementError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
   const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
@@ -93,6 +172,22 @@ export function HomePagePanel() {
   const [focusQuery, setFocusQuery] = useState(() =>
     homeFeedFocusQueryValue(activeFocus)
   );
+
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const loadIdRef = useRef(0);
+  const appendInFlightRef = useRef(false);
+  const standingSourcesRef = useRef<string[] | null>(null);
+  const nextOffsetRef = useRef<number | undefined>(undefined);
+  const postsLengthRef = useRef(0);
+
+  useEffect(() => {
+    nextOffsetRef.current = nextOffset;
+  }, [nextOffset]);
+
+  useEffect(() => {
+    postsLengthRef.current = posts.length;
+  }, [posts.length]);
 
   useEffect(() => {
     setFocusQuery(homeFeedFocusQueryValue(activeFocus));
@@ -111,47 +206,144 @@ export function HomePagePanel() {
       return;
     }
 
-    let cancelled = false;
+    const loadId = ++loadIdRef.current;
+    appendInFlightRef.current = false;
+    const previousStandingSources = standingSourcesRef.current;
+    const previousNextOffset = nextOffsetRef.current;
+    standingSourcesRef.current = null;
+    setNextOffset(undefined);
+    nextOffsetRef.current = undefined;
+    setEngagementError(null);
+    setLoadError(null);
+
+    const keepPrevious = postsLengthRef.current > 0;
+    if (keepPrevious) {
+      setIsRefreshing(true);
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+      setIsRefreshing(false);
+    }
+    setIsLoadingMore(false);
+
     const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
 
     void (async () => {
-      setIsLoading(true);
-      setError(null);
-
       try {
-        const items = focus
-          ? await loadFocusedFeed(focus)
-          : await loadHomeFeed(activeLens, accountId);
-        if (cancelled) return;
+        const result = focus
+          ? {
+              page: await loadFocusedFeedPage(focus, 0),
+              standingSources: null as string[] | null,
+            }
+          : await loadHomeFeedPage(activeLens, accountId, 0, null);
+
+        if (loadIdRef.current !== loadId) return;
+
+        standingSourcesRef.current = result.standingSources;
+        const items = result.page.items;
         setPosts((current) => {
           revokeDroppedOptimisticMedia(current, items);
           return items;
         });
+        setNextOffset(result.page.nextOffset);
+        nextOffsetRef.current = result.page.nextOffset;
       } catch (cause) {
-        if (cancelled) return;
+        if (loadIdRef.current !== loadId) return;
         const message =
           cause instanceof Error ? cause.message : 'Could not load feed.';
-        setError(message);
-        setPosts([]);
+        setLoadError(message);
+        if (keepPrevious) {
+          standingSourcesRef.current = previousStandingSources;
+          setNextOffset(previousNextOffset);
+          nextOffsetRef.current = previousNextOffset;
+        } else {
+          setPosts([]);
+          setNextOffset(undefined);
+          nextOffsetRef.current = undefined;
+        }
       } finally {
-        if (!cancelled) {
+        if (loadIdRef.current === loadId) {
           setIsLoading(false);
+          setIsRefreshing(false);
+          setIsLoadingMore(false);
         }
       }
     })();
 
     return () => {
-      cancelled = true;
+      loadIdRef.current += 1;
     };
   }, [
     accountId,
     activeFocusKey,
     activeLens,
     lensReady,
+    reloadNonce,
     tagParam,
     tickerParam,
     walletLoading,
   ]);
+
+  const loadMore = useCallback(() => {
+    if (appendInFlightRef.current) return;
+    const offset = nextOffsetRef.current;
+    if (offset === undefined) return;
+
+    const loadId = ++loadIdRef.current;
+    appendInFlightRef.current = true;
+    setIsLoadingMore(true);
+
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
+
+    void (async () => {
+      try {
+        const result = focus
+          ? {
+              page: await loadFocusedFeedPage(focus, offset),
+              standingSources: standingSourcesRef.current,
+            }
+          : await loadHomeFeedPage(
+              activeLens,
+              accountId,
+              offset,
+              standingSourcesRef.current
+            );
+
+        if (loadIdRef.current !== loadId) return;
+
+        if (result.standingSources) {
+          standingSourcesRef.current = result.standingSources;
+        }
+
+        setPosts((current) => mergeFeedPosts(current, result.page.items));
+        setNextOffset(result.page.nextOffset);
+        nextOffsetRef.current = result.page.nextOffset;
+      } catch {
+        // Keep the current list; the sentinel stays available to retry.
+        if (loadIdRef.current === loadId) {
+          // Restore offset so the next intersect can retry this page.
+          nextOffsetRef.current = offset;
+          setNextOffset(offset);
+        }
+      } finally {
+        if (loadIdRef.current === loadId) {
+          setIsLoadingMore(false);
+          appendInFlightRef.current = false;
+        }
+      }
+    })();
+  }, [accountId, activeLens, tagParam, tickerParam]);
+
+  const hasMore = nextOffset !== undefined;
+  const showLoadMoreSentinel = hasMore && posts.length > 0;
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled: showLoadMoreSentinel && !isLoading && !isLoadingMore,
+    onIntersect: loadMore,
+    rootMargin: '200px 0px',
+  });
 
   const clearFocusSearch = useCallback(() => {
     setFocusQuery('');
@@ -176,6 +368,10 @@ export function HomePagePanel() {
     [router]
   );
 
+  const retryLoad = useCallback(() => {
+    setReloadNonce((value) => value + 1);
+  }, []);
+
   const destinationLabel = useMemo(
     () => (accountId ? `@${accountId} · Public` : 'Public'),
     [accountId]
@@ -183,7 +379,11 @@ export function HomePagePanel() {
 
   const onConfirmed = useCallback((post: PostRow) => {
     if (!shouldPrependOptimisticFeedPost(post)) return;
-    setPosts((current) => [post, ...current]);
+    setPosts((current) => {
+      const key = postKey(post);
+      if (current.some((row) => postKey(row) === key)) return current;
+      return [post, ...current];
+    });
   }, []);
 
   const { openReply, openQuote, sheet } = usePersonalComposer({
@@ -199,11 +399,17 @@ export function HomePagePanel() {
     ? homeFeedFocusEmptyCopy(activeFocus)
     : homeFeedLensEmptyCopy(activeLens);
 
+  const showColdSkeleton = isLoading && posts.length === 0;
+  const showEmpty =
+    !isLoading && !isRefreshing && !loadError && posts.length === 0;
+  const showFeed = posts.length > 0;
+
   return (
     <HomeActiveFocusProvider focus={activeFocus}>
       <OsAppScreen
         title="Home"
         backFallbackHref="/"
+        scrollRootRef={scrollRootRef}
         toolbar={
           <div className="home-feed-toolbar">
             <HomeFeedLensMenu
@@ -228,27 +434,39 @@ export function HomePagePanel() {
             </section>
           ) : null}
 
-          {isLoading ? (
-            <div className="home-feed-state">Loading feed…</div>
+          {loadError ? (
+            <ListLoadError message={loadError} onRetry={retryLoad} />
           ) : null}
 
-          {!isLoading && error ? (
-            <div className="home-feed-state is-error">{error}</div>
+          {engagementError ? (
+            <p className="standing-panel-error" role="alert">
+              {engagementError}
+            </p>
           ) : null}
 
-          {!isLoading && !error && posts.length === 0 ? (
+          {showColdSkeleton ? <PostRowSkeleton rows={4} /> : null}
+
+          {showEmpty ? (
             <div className="home-feed-state">{emptyCopy}</div>
           ) : null}
 
-          {!isLoading && !error && posts.length > 0 ? (
-            <PersonalFeedList
-              posts={posts}
-              includeForeignReplies={Boolean(activeFocus)}
-              showGuildAttribution
-              onReply={replyHandler}
-              onQuote={quoteHandler}
-              onEngagementError={(message) => setError(message)}
-            />
+          {showFeed ? (
+            <>
+              <PersonalFeedList
+                posts={posts}
+                includeForeignReplies={Boolean(activeFocus)}
+                showGuildAttribution
+                className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
+                onReply={replyHandler}
+                onQuote={quoteHandler}
+                onEngagementError={(message) => setEngagementError(message)}
+              />
+              <HomeFeedLoadMoreFooter
+                loadMoreSentinelRef={loadMoreRef}
+                showSentinel={showLoadMoreSentinel}
+                isLoadingMore={isLoadingMore}
+              />
+            </>
           ) : null}
 
           {sheet}
