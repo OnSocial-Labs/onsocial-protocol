@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   MarkColor,
@@ -17,6 +17,11 @@ import {
   parsePostMedia,
   type PostMediaItem,
 } from '@/lib/post-media';
+
+
+const clientMountedSubscribe = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
 
 interface ScarcePostPreviewProps {
   post: PostRow;
@@ -58,17 +63,17 @@ export function ScarcePostPreview({
 }: ScarcePostPreviewProps) {
   const titleId = useId();
   const [expanded, setExpanded] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    clientMountedSubscribe,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot
+  );
   const cover = postScarceCoverImage(post);
   const title = previewTitle(post);
   const creatorLabel = displayName(
     post.accountId,
     creatorDisplayName ?? undefined
   );
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!expanded) return;
