@@ -6,7 +6,7 @@ import {
   normalizeMentionAccountId,
   postMetaFromText,
 } from '@/features/home/post-mentions';
-import { splitComposerRichText, splitPostRichText } from '@/features/home/post-rich-segments';
+import { splitComposerRichText, splitPostRichText, autolinkDisplayHost } from '@/features/home/post-rich-segments';
 
 describe('post-mentions', () => {
   it('normalizes account ids', () => {
@@ -75,7 +75,7 @@ describe('post-mentions', () => {
     });
   });
 
-  it('segments mentions, tickers, and hashtags for rich text', () => {
+  it('segments mentions, tickers, hashtags, and urls for rich text', () => {
     expect(splitPostRichText('hi @alice.testnet $SOCIAL #gm')).toEqual([
       { type: 'text', value: 'hi ' },
       {
@@ -88,6 +88,37 @@ describe('post-mentions', () => {
       { type: 'text', value: ' ' },
       { type: 'hashtag', value: '#gm' },
     ]);
+    expect(
+      splitPostRichText('build at https://onsocial.id/ with #near.')
+    ).toEqual([
+      { type: 'text', value: 'build at ' },
+      {
+        type: 'url',
+        value: 'https://onsocial.id/',
+        href: 'https://onsocial.id/',
+      },
+      { type: 'text', value: ' with ' },
+      { type: 'hashtag', value: '#near' },
+      { type: 'text', value: '.' },
+    ]);
+    expect(
+      splitPostRichText('see https://onsocial.id/#topics not a hashtag')
+    ).toEqual([
+      { type: 'text', value: 'see ' },
+      {
+        type: 'url',
+        value: 'https://onsocial.id/#topics',
+        href: 'https://onsocial.id/#topics',
+      },
+      { type: 'text', value: ' not a hashtag' },
+    ]);
+  });
+
+  it('formats autolink host labels', () => {
+    expect(autolinkDisplayHost('https://onsocial.id/')).toBe('onsocial.id');
+    expect(autolinkDisplayHost('https://www.onsocial.id/path')).toBe(
+      'onsocial.id'
+    );
   });
 
   it('highlights in-progress @query in composer even when incomplete', () => {

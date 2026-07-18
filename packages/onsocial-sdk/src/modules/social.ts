@@ -78,6 +78,9 @@ import {
 export {
   buildProfileSetData,
   profileMetaFromBio,
+  splitRichText,
+  normalizeAutolinkUrl,
+  autolinkDisplayHost,
   buildPostSetData,
   buildReplySetData,
   buildQuoteSetData,
@@ -105,6 +108,7 @@ export type {
   AttestationBuildInput,
   AttestationSignatureInput,
   ProfileBioMeta,
+  RichTextSegment,
 } from '../builders/index.js';
 
 // ── Module-private helpers ─────────────────────────────────────────────────

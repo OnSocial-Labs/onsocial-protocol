@@ -22,6 +22,7 @@ import {
   MENTION_SUGGEST_LIMIT,
   type MentionPriorityAccount,
 } from '@/features/home/post-mention-suggestions';
+import { OsAutolinkChip } from '@/features/home/os-autolink-chip';
 import { splitComposerRichText } from '@/features/home/post-rich-segments';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
@@ -205,6 +206,15 @@ export function ComposerHashtagTextarea({
                 <span key={`m-${index}`} className="os-mention">
                   {segment.value}
                 </span>
+              );
+            }
+            if (segment.type === 'url') {
+              return (
+                <OsAutolinkChip
+                  key={`u-${index}`}
+                  href={segment.href}
+                  variant="mirror"
+                />
               );
             }
             return <span key={`t-${index}`}>{segment.value}</span>;

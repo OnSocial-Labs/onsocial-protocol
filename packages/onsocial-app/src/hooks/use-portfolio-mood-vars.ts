@@ -18,6 +18,15 @@ const MOOD_CSS_VARS = [
   '--mood-display-weight',
   '--mood-display-tracking',
   '--glass-card-glint',
+  /* Bio tokens (# / @ / $ / links) — same signal hues as the live portfolio. */
+  '--mood-signal-standing',
+  '--mood-signal-solidarity',
+  '--mood-signal-endorse',
+  '--mood-signal-reputation',
+  '--signal-standing',
+  '--signal-solidarity',
+  '--signal-endorse',
+  '--signal-reputation',
 ] as const;
 
 export type PortfolioMoodVarsSnapshot = {

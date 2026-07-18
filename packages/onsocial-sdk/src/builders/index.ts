@@ -16,6 +16,12 @@ export { applyFeedMeta } from './_shared.js';
 
 export { buildProfileSetData } from './profile.js';
 export { profileMetaFromBio, type ProfileBioMeta } from './profile-meta.js';
+export {
+  autolinkDisplayHost,
+  normalizeAutolinkUrl,
+  splitRichText,
+  type RichTextSegment,
+} from './rich-text.js';
 
 export {
   buildPostSetData,

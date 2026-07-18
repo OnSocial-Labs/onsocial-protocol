@@ -19,6 +19,7 @@ import { OsNoticeCard } from '@/components/ui/os-notice-card';
 import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
+import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
@@ -539,18 +540,14 @@ function ProfileEditorForm({
                   <label htmlFor="profile-editor-bio" className="sr-only">
                     Bio
                   </label>
-                  <textarea
-                    ref={bioRef}
+                  <ProfileBioRichTextarea
+                    textareaRef={bioRef}
                     id="profile-editor-bio"
-                    className="account-editor-bio"
                     value={bio}
                     maxLength={180}
-                    rows={1}
-                    placeholder="Bio — use #topics, $tickers, @accounts…"
+                    placeholder="Bio — #topics, $tickers, @accounts, links…"
                     onFocus={scrollFieldIntoView}
-                    onChange={(event) => {
-                      setBio(event.target.value);
-                    }}
+                    onChange={setBio}
                     onBlur={() => {
                       const trimmed = bio.trim();
                       if (trimmed !== bio) {

@@ -594,9 +594,16 @@ function PostCardBody({
       {relationContext ? (
         <span className="post-card-relation">
           {relationContext.verb}{' '}
-          <span className="post-card-relation-handle">
+          <Link
+            href={portfolioPath(relationContext.handle)}
+            className="os-mention post-card-relation-handle"
+            scroll={false}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
             @{relationContext.handle}
-          </span>
+          </Link>
         </span>
       ) : null}
       {badges.length > 0 ? (

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { OsAutolinkChip } from '@/features/home/os-autolink-chip';
 import { useHomeActiveFocus } from '@/features/home/home-active-hashtag';
 import {
   homeHashtagPath,
@@ -13,7 +14,7 @@ import {
 import { splitPostRichText } from '@/features/home/post-rich-segments';
 import { portfolioPath } from '@/lib/overlay-routes';
 
-/** Post / quote body with hashtag + ticker + @mention highlights. */
+/** Post / quote / bio body with hashtag + ticker + @mention + url highlights. */
 export function PostRichText({
   text,
   emptyFallback = '…',
@@ -30,6 +31,19 @@ export function PostRichText({
       {splitPostRichText(text).map((segment, index) => {
         if (segment.type === 'text') {
           return <span key={`t-${index}`}>{segment.value}</span>;
+        }
+
+        if (segment.type === 'url') {
+          return (
+            <OsAutolinkChip
+              key={`u-${index}`}
+              href={segment.href}
+              as="a"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            />
+          );
         }
 
         if (segment.type === 'mention') {

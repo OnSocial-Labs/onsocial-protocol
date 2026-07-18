@@ -20,6 +20,9 @@ export {
   buildPostSetData,
   buildProfileSetData,
   profileMetaFromBio,
+  splitRichText,
+  normalizeAutolinkUrl,
+  autolinkDisplayHost,
   buildReactionSetData,
   buildReactionRemoveData,
   buildReplySetData,
@@ -44,6 +47,7 @@ export type {
   AttestationBuildInput,
   AttestationSignatureInput,
   ProfileBioMeta,
+  RichTextSegment,
 } from './modules/social.js';
 export { ScarcesModule } from './modules/scarces/index.js';
 export {

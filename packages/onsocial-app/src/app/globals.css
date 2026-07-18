@@ -1535,9 +1535,10 @@ a.os-surface-row {
     );
   }
 
-  /* Support sheet portals outside the frame — same light-tone remap. */
+  /* Support / editor sheets portal outside the frame — same light-tone remap. */
   :root[data-theme='light'] .profile-support-sheet-panel,
-  :root[data-theme='light'] .portfolio-support-collect-info-panel {
+  :root[data-theme='light'] .portfolio-support-collect-info-panel,
+  :root[data-theme='light'] .account-editor-panel--page-mood {
     --signal-standing: color-mix(
       in srgb,
       var(--mood-signal-standing) var(--mood-light-tone),
@@ -1596,7 +1597,8 @@ a.os-surface-row {
     }
 
     :root:not([data-theme='dark']) .profile-support-sheet-panel,
-    :root:not([data-theme='dark']) .portfolio-support-collect-info-panel {
+    :root:not([data-theme='dark']) .portfolio-support-collect-info-panel,
+    :root:not([data-theme='dark']) .account-editor-panel--page-mood {
       --signal-standing: color-mix(
         in srgb,
         var(--mood-signal-standing) var(--mood-light-tone),
@@ -11523,6 +11525,56 @@ a.os-surface-row {
     outline: none;
   }
 
+  .account-editor-bio-shell {
+    width: 100%;
+    max-width: min(100%, 20rem);
+    margin-inline: auto;
+  }
+
+  .account-editor-bio-field {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .account-editor-bio-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-align: center;
+    text-wrap: pretty;
+    pointer-events: none;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    font-weight: 500;
+    letter-spacing: normal;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .account-editor-bio.is-rich-overlay {
+    position: relative;
+    z-index: 1;
+    max-width: none;
+    color: transparent;
+    caret-color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .account-editor-bio.is-rich-overlay::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .account-editor-bio.is-rich-overlay:focus {
+    color: transparent;
+  }
+
   .account-editor-bio::placeholder {
     color: rgb(var(--fg-rgb) / 0.32);
   }
@@ -11963,6 +12015,14 @@ a.os-surface-row {
   .account-editor-panel--page-mood .account-editor-bio {
     margin-top: 0.35rem;
     line-height: 1.5;
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.55));
+  }
+
+  .account-editor-panel--page-mood .account-editor-bio.is-rich-overlay {
+    color: transparent;
+  }
+
+  .account-editor-panel--page-mood .account-editor-bio-backdrop {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.55));
   }
 
@@ -12812,10 +12872,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
-  .post-card-relation-handle {
-    color: var(--protocol-purple);
-  }
-
   .post-card-header {
     display: flex;
     min-width: 0;
@@ -12989,6 +13045,14 @@ a.os-surface-row {
     cursor: pointer;
   }
 
+  .post-card-body .os-link,
+  .post-card-quote-inset-body .os-link {
+    color: var(--protocol-blue);
+    font-weight: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
   .post-card-body .os-hashtag.is-active,
   .post-card-quote-inset-body .os-hashtag.is-active {
     font-weight: 600;
@@ -13006,15 +13070,46 @@ a.os-surface-row {
   .post-card-quote-inset-body .os-mention:hover,
   .post-card-body .os-ticker:hover,
   .post-card-quote-inset-body .os-ticker:hover,
+  .post-card-body .os-link:hover,
+  .post-card-quote-inset-body .os-link:hover,
   .post-card-body .os-hashtag:focus-visible,
   .post-card-quote-inset-body .os-hashtag:focus-visible,
   .post-card-body .os-mention:focus-visible,
   .post-card-quote-inset-body .os-mention:focus-visible,
   .post-card-body .os-ticker:focus-visible,
-  .post-card-quote-inset-body .os-ticker:focus-visible {
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
+  .post-card-quote-inset-body .os-ticker:focus-visible,
+  .post-card-body .os-link:focus-visible,
+  .post-card-quote-inset-body .os-link:focus-visible {
+    text-decoration: none;
     outline: none;
+  }
+
+  .post-card-body .os-hashtag:hover,
+  .post-card-quote-inset-body .os-hashtag:hover,
+  .post-card-body .os-hashtag:focus-visible,
+  .post-card-quote-inset-body .os-hashtag:focus-visible {
+    color: var(--protocol-blue-hover);
+  }
+
+  .post-card-body .os-mention:hover,
+  .post-card-quote-inset-body .os-mention:hover,
+  .post-card-body .os-mention:focus-visible,
+  .post-card-quote-inset-body .os-mention:focus-visible {
+    color: var(--protocol-purple-hover);
+  }
+
+  .post-card-body .os-ticker:hover,
+  .post-card-quote-inset-body .os-ticker:hover,
+  .post-card-body .os-ticker:focus-visible,
+  .post-card-quote-inset-body .os-ticker:focus-visible {
+    color: var(--protocol-green-hover);
+  }
+
+  .post-card-body .os-link:hover,
+  .post-card-quote-inset-body .os-link:hover,
+  .post-card-body .os-link:focus-visible,
+  .post-card-quote-inset-body .os-link:focus-visible {
+    color: var(--protocol-blue-hover);
   }
 
   .post-card-show-more {
@@ -16303,6 +16398,87 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .os-link {
+    display: inline;
+    color: var(--protocol-blue);
+    font-weight: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 140ms ease;
+  }
+
+  .os-hashtag,
+  .os-mention,
+  .os-ticker {
+    transition: color 140ms ease;
+  }
+
+  .os-hashtag:hover,
+  .os-hashtag:focus-visible {
+    color: var(--protocol-blue-hover);
+    text-decoration: none;
+    outline: none;
+  }
+
+  .os-mention:hover,
+  .os-mention:focus-visible {
+    color: var(--protocol-purple-hover);
+    text-decoration: none;
+    outline: none;
+  }
+
+  .os-ticker:hover,
+  .os-ticker:focus-visible {
+    color: var(--protocol-green-hover);
+    text-decoration: none;
+    outline: none;
+  }
+
+  .os-link:hover,
+  .os-link:focus-visible {
+    color: var(--protocol-blue-hover);
+    text-decoration: none;
+    outline: none;
+  }
+
+  .os-link-icon {
+    display: inline-block;
+    width: 0.78em;
+    height: 0.78em;
+    margin-right: 0.18em;
+    vertical-align: -0.08em;
+    flex-shrink: 0;
+  }
+
+  .os-link-label {
+    font-weight: inherit;
+  }
+
+  /*
+   * Textarea backdrop mirror — label is the full URL (caret-aligned).
+   * Icon is out of flow so it does not shift characters vs the textarea.
+   */
+  .os-link--mirror {
+    position: relative;
+    white-space: pre-wrap;
+  }
+
+  .os-link--mirror .os-link-icon {
+    position: absolute;
+    left: 0;
+    top: 0.12em;
+    width: 0.72em;
+    height: 0.72em;
+    margin: 0;
+    /* Hang before the URL so label glyphs stay 1:1 with the textarea. */
+    transform: translateX(calc(-100% - 0.12em));
+    pointer-events: none;
+  }
+
+  .os-link--mirror .os-link-label {
+    white-space: pre-wrap;
+  }
+
   .os-hashtag.is-active {
     font-weight: 600;
   }
@@ -16327,10 +16503,92 @@ a.os-surface-row {
     color: var(--signal-reputation);
   }
 
+  .portfolio-frame[data-mood] .os-hashtag:hover,
+  .portfolio-frame[data-mood] .os-hashtag:focus-visible,
+  .portfolio-os-layer[data-mood] .os-hashtag:hover,
+  .portfolio-os-layer[data-mood] .os-hashtag:focus-visible {
+    color: color-mix(in srgb, var(--signal-standing) 72%, white);
+  }
+
+  .portfolio-frame[data-mood] .os-mention:hover,
+  .portfolio-frame[data-mood] .os-mention:focus-visible,
+  .portfolio-os-layer[data-mood] .os-mention:hover,
+  .portfolio-os-layer[data-mood] .os-mention:focus-visible {
+    color: color-mix(in srgb, var(--signal-solidarity) 72%, white);
+  }
+
+  .portfolio-frame[data-mood] .os-ticker:hover,
+  .portfolio-frame[data-mood] .os-ticker:focus-visible,
+  .portfolio-os-layer[data-mood] .os-ticker:hover,
+  .portfolio-os-layer[data-mood] .os-ticker:focus-visible {
+    color: color-mix(in srgb, var(--signal-reputation) 72%, white);
+  }
+
+  /* External links — same standing tint as #tags (fewer bio colors). */
+  .portfolio-frame[data-mood] .os-link,
+  .portfolio-os-layer[data-mood] .os-link {
+    color: var(--signal-standing);
+  }
+
+  .portfolio-frame[data-mood] .os-link:hover,
+  .portfolio-frame[data-mood] .os-link:focus-visible,
+  .portfolio-os-layer[data-mood] .os-link:hover,
+  .portfolio-os-layer[data-mood] .os-link:focus-visible {
+    color: color-mix(in srgb, var(--signal-standing) 72%, white);
+  }
+
+  /* Profile editor bio — same mood signal tokens as the live portfolio face. */
+  .account-editor-panel--page-mood .os-hashtag,
+  .account-editor-panel--page-mood .os-link {
+    color: var(--signal-standing, var(--protocol-blue));
+  }
+
+  .account-editor-panel--page-mood .os-mention {
+    color: var(--signal-solidarity, var(--protocol-purple));
+  }
+
+  .account-editor-panel--page-mood .os-ticker {
+    color: var(--signal-reputation, var(--protocol-green));
+  }
+
+  .account-editor-panel--page-mood .os-hashtag:hover,
+  .account-editor-panel--page-mood .os-hashtag:focus-visible,
+  .account-editor-panel--page-mood .os-link:hover,
+  .account-editor-panel--page-mood .os-link:focus-visible {
+    color: color-mix(
+      in srgb,
+      var(--signal-standing, var(--protocol-blue)) 72%,
+      white
+    );
+  }
+
+  .account-editor-panel--page-mood .os-mention:hover,
+  .account-editor-panel--page-mood .os-mention:focus-visible {
+    color: color-mix(
+      in srgb,
+      var(--signal-solidarity, var(--protocol-purple)) 72%,
+      white
+    );
+  }
+
+  .account-editor-panel--page-mood .os-ticker:hover,
+  .account-editor-panel--page-mood .os-ticker:focus-visible {
+    color: color-mix(
+      in srgb,
+      var(--signal-reputation, var(--protocol-green)) 72%,
+      white
+    );
+  }
+
   /* Composer overlay: never bold tags — weight mismatch shifts the caret. */
   .guild-composer-input-backdrop .os-hashtag,
   .guild-composer-input-backdrop .os-mention,
-  .guild-composer-input-backdrop .os-ticker {
+  .guild-composer-input-backdrop .os-ticker,
+  .guild-composer-input-backdrop .os-link,
+  .account-editor-bio-backdrop .os-hashtag,
+  .account-editor-bio-backdrop .os-mention,
+  .account-editor-bio-backdrop .os-ticker,
+  .account-editor-bio-backdrop .os-link {
     font-weight: inherit;
   }
 
