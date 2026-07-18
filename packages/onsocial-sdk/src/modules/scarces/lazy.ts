@@ -35,10 +35,7 @@ export class ScarcesLazyApi {
     this._scarcesContract = resolveContractId(_http.network, 'scarces');
   }
 
-  private _relayOpts(opts?: {
-    confirmation?: boolean;
-    depositYocto?: string;
-  }) {
+  private _relayOpts(opts?: { confirmation?: boolean; depositYocto?: string }) {
     return scarcesRelayOptions(this._getBroadcast, opts);
   }
 

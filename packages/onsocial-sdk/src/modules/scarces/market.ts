@@ -19,10 +19,7 @@ export class ScarcesMarketApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _relayOpts(opts?: {
-    confirmation?: boolean;
-    depositYocto?: string;
-  }) {
+  private _relayOpts(opts?: { confirmation?: boolean; depositYocto?: string }) {
     return scarcesRelayOptions(this._getBroadcast, opts);
   }
 

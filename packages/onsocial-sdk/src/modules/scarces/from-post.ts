@@ -204,11 +204,7 @@ export function derivePostScarceStatus(
 
   // Indexer: LAZY_LISTING_UPDATE + created | price_updated | expiry_updated.
   // Legacy tests / older relays also used lazy_create / create_lazy_listing.
-  if (
-    lazyFamily ||
-    op === 'lazy_create' ||
-    op === 'create_lazy_listing'
-  ) {
+  if (lazyFamily || op === 'lazy_create' || op === 'create_lazy_listing') {
     return 'lazy_listing';
   }
 

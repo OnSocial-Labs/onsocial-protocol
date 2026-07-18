@@ -69,17 +69,17 @@ const os = new OnSocial({
 
 ### Configuration
 
-| Option             | Description                                                                                                                                   |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `network`          | `mainnet` or `testnet`. Defaults to `mainnet`.                                                                                                |
-| `gatewayUrl`       | Override the default gateway base URL.                                                                                                        |
-| `apiKey`           | Server-side OnAPI key for gateway auth.                                                                                                       |
-| `actorId`          | End-user account to write as when using API-key auth.                                                                                         |
-| `appId`            | Default app namespace for notifications.                                                                                                      |
-| `fetch`            | Custom fetch implementation.                                                                                                                  |
-| `session`          | `Session` instance used to sign NEP-366 delegate writes.                                                                                      |
+| Option             | Description                                                                                                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `network`          | `mainnet` or `testnet`. Defaults to `mainnet`.                                                                                                                                |
+| `gatewayUrl`       | Override the default gateway base URL.                                                                                                                                        |
+| `apiKey`           | Server-side OnAPI key for gateway auth.                                                                                                                                       |
+| `actorId`          | End-user account to write as when using API-key auth.                                                                                                                         |
+| `appId`            | Default app namespace for notifications.                                                                                                                                      |
+| `fetch`            | Custom fetch implementation.                                                                                                                                                  |
+| `session`          | `Session` instance used to sign NEP-366 delegate writes.                                                                                                                      |
 | `defaultBroadcast` | Write lane. Leave unset for gateway + session (social/`core`). Set `{ kind: 'wallet', signer }` for Scarces and other NEAR-paid calls. Relayer URL is for self-hosted setups. |
-| `storage`          | `StorageProvider` (defaults to gateway-hosted IPFS upload).                                                                                   |
+| `storage`          | `StorageProvider` (defaults to gateway-hosted IPFS upload).                                                                                                                   |
 
 **Two write lanes:** session/gateway for social data on `core`; wallet +
 `depositYocto` for paid Scarces on `scarces`. See
