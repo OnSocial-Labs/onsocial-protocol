@@ -1,10 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  autolinkDisplayHost,
-  splitRichText,
-} from '@onsocial/sdk';
+import { autolinkDisplayHost, splitRichText } from '@onsocial/sdk';
 import { LinkIcon } from '@onsocial/ui';
 import { getPortalProfileUrl } from '@/lib/portal-config';
 
