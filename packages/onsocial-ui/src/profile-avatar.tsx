@@ -39,8 +39,8 @@ export function ProfileAvatar({
   className,
 }: ProfileAvatarProps) {
   const imgRef = useRef<HTMLImageElement>(null);
-  const [mediaLoaded, setMediaLoaded] = useState(
-    () => Boolean(src && loadedAvatarSrcs.has(src))
+  const [mediaLoaded, setMediaLoaded] = useState(() =>
+    Boolean(src && loadedAvatarSrcs.has(src))
   );
   const [mediaError, setMediaError] = useState(false);
   const prevSrcRef = useRef(src);
