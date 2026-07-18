@@ -405,7 +405,7 @@ export function HeartIcon(props: MageStrokeIconProps) {
   );
 }
 
-/** Mage `fire-a` — amplify idle; pair with FireFillIcon when viewer amplified. */
+/** Mage `fire-a` — Hot sort idle; pair with FireFillIcon when Hot is selected. */
 export function FireIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>
@@ -419,6 +419,54 @@ export function FireIcon(props: MageStrokeIconProps) {
       />
       <path
         d="M8.01979 13.6936C7.59763 15.8631 9.3648 17.556 11.0445 17.8829"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `fire-b` — amplify idle; pair with FireBFillIcon when viewer amplified. */
+export function FireBIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M20.17 13.344c0-4.368-3.953-4.23-3.953-10.594C9.763 4.341 9.23 7.365 9.23 12.988c-1.463.149-2.797-2.273-3.637-3.597c-3.874 5.07-1.235 11.859 6.67 11.859a7.906 7.906 0 0 0 7.907-7.906"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M16.938 12.988a5.11 5.11 0 0 1-5.93 4.942"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `clock` / time — chronological / Recent feed sort (idle). */
+export function TimeIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="m15.172 15.172l-3.167-3.167V5.672"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        fill="none"
+      />
+      <path
+        d="M12 21.5a9.5 9.5 0 1 0 0-19a9.5 9.5 0 0 0 0 19"
         stroke="currentColor"
         strokeWidth={MAGE_STROKE}
         strokeLinecap="round"

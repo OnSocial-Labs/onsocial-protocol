@@ -7,8 +7,8 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   Divider,
   DotsVerticalIcon,
-  FireFillIcon,
-  FireIcon,
+  FireBFillIcon,
+  FireBIcon,
   FloatingPanelMenu,
   HeartFillIcon,
   HeartIcon,
@@ -510,7 +510,7 @@ function ReactIcon({ filled }: { filled: boolean }) {
 }
 
 function AmplifyIcon({ filled }: { filled: boolean }) {
-  return filled ? <FireFillIcon aria-hidden /> : <FireIcon aria-hidden />;
+  return filled ? <FireBFillIcon aria-hidden /> : <FireBIcon aria-hidden />;
 }
 
 function engagementStatClassName(

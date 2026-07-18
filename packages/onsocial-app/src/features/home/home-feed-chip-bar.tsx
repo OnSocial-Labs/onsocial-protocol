@@ -12,11 +12,6 @@ import {
   type HomeFeedFocus,
 } from '@/features/home/home-feed-focus';
 import {
-  HOME_FEED_SORTS,
-  homeFeedSortLabel,
-  type HomeFeedSort,
-} from '@/features/home/home-feed-sort';
-import {
   homeSavedFeedFocus,
   homeSavedFeedLabel,
   type HomeSavedFeed,
@@ -25,8 +20,6 @@ import {
 export function HomeFeedChipBar({
   lens,
   onLensChange,
-  sort,
-  onSortChange,
   standingAvailable,
   savedFeeds,
   activeFocus,
@@ -37,8 +30,6 @@ export function HomeFeedChipBar({
 }: {
   lens: HomeFeedLens;
   onLensChange: (lens: HomeFeedLens) => void;
-  sort: HomeFeedSort;
-  onSortChange: (sort: HomeFeedSort) => void;
   standingAvailable: boolean;
   savedFeeds: HomeSavedFeed[];
   activeFocus: HomeFeedFocus | null;
@@ -73,7 +64,7 @@ export function HomeFeedChipBar({
         block: 'nearest',
       });
     }
-  }, [activeFocusKey, lens, savedFeeds.length, sort]);
+  }, [activeFocusKey, lens, savedFeeds.length]);
 
   return (
     <div
@@ -104,24 +95,6 @@ export function HomeFeedChipBar({
             </button>
           );
         })}
-
-        {!activeFocus
-          ? HOME_FEED_SORTS.map((option) => {
-              const selected = option === sort;
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  className={selected ? 'is-active' : undefined}
-                  onClick={() => onSortChange(option)}
-                >
-                  {homeFeedSortLabel(option)}
-                </button>
-              );
-            })
-          : null}
 
         {savedFeeds.map((feed) => {
           const selected = activeSaved?.id === feed.id;

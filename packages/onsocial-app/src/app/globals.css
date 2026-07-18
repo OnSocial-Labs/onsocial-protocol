@@ -12364,6 +12364,78 @@ a.os-surface-row {
     margin-top: 0.5rem;
   }
 
+  .home-feed-nav-spacer {
+    display: block;
+    width: 0;
+    height: 0;
+  }
+
+  .home-feed-me-avatar {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .home-feed-me-avatar.is-connect {
+    border: 1px solid rgb(var(--fg-rgb) / 0.14);
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .home-feed-me-avatar:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.35);
+    outline-offset: 2px;
+  }
+
+  .home-feed-sort-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.1rem;
+  }
+
+  .home-feed-sort-btn {
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .home-feed-sort-btn:hover,
+  .home-feed-sort-btn:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  /* Selected sort — soft protocol tint (not amplify-button loud). */
+  .home-feed-sort-btn--hot.is-active {
+    color: color-mix(in srgb, var(--protocol-amber) 82%, rgb(var(--fg-rgb)));
+  }
+
+  .home-feed-sort-btn--hot.is-active:hover,
+  .home-feed-sort-btn--hot.is-active:focus-visible {
+    color: color-mix(in srgb, var(--protocol-amber) 92%, rgb(var(--fg-rgb)));
+  }
+
+  .home-feed-sort-btn--recent.is-active {
+    color: color-mix(in srgb, var(--protocol-blue) 72%, rgb(var(--fg-rgb)));
+  }
+
+  .home-feed-sort-btn--recent.is-active:hover,
+  .home-feed-sort-btn--recent.is-active:focus-visible {
+    color: color-mix(in srgb, var(--protocol-blue) 85%, rgb(var(--fg-rgb)));
+  }
+
+  .home-feed-sort-btn-icon {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
   .home-feed-chip-bar {
     margin: 0;
     min-width: 0;
@@ -12702,6 +12774,79 @@ a.os-surface-row {
   .home-feed-list.is-refreshing {
     opacity: 0.72;
     transition: opacity 160ms ease;
+  }
+
+  /* Soft catch-up control — above dock, below tx toast; never auto-jumps Hot. */
+  .home-feed-new-posts-anchor {
+    --home-feed-new-posts-bottom: calc(
+      var(
+          --portfolio-dock-clearance,
+          calc(4.75rem + env(safe-area-inset-bottom, 0px))
+        ) + 0.75rem
+    );
+
+    position: fixed;
+    z-index: 60;
+    left: calc(
+      var(--os-column-inset-inline, 0px) + var(--os-column-width, 100%) / 2
+    );
+    bottom: var(--home-feed-new-posts-bottom);
+    width: max-content;
+    max-width: min(calc(var(--os-column-width, 100%) - 1.5rem), 16rem);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  .home-feed-new-posts-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.55rem 1rem;
+    border: 0;
+    border-radius: 1.15rem;
+    background: rgb(var(--bg-rgb) / 0.92);
+    backdrop-filter: blur(32px) saturate(1.6);
+    -webkit-backdrop-filter: blur(32px) saturate(1.6);
+    box-shadow:
+      inset 0 1px 0 rgb(var(--fg-rgb) / 0.1),
+      0 14px 32px -16px rgb(0 0 0 / 0.34),
+      0 4px 12px -8px rgb(0 0 0 / 0.18);
+    color: rgb(var(--fg-rgb) / 0.92);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    pointer-events: auto;
+    animation: home-feed-new-posts-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .home-feed-new-posts-pill-arrow {
+    width: 0.95rem;
+    height: 0.95rem;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .home-feed-new-posts-pill:hover {
+    background: rgb(var(--bg-rgb) / 0.96);
+  }
+
+  .home-feed-new-posts-pill:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.35);
+    outline-offset: 2px;
+  }
+
+  @keyframes home-feed-new-posts-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .home-feed-load-more {

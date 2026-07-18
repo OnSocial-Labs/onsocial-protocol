@@ -5,6 +5,7 @@ import {
   CameraIcon,
   CheckIcon,
   ChevronDownIcon,
+  TimeIcon,
   ChevronRightIcon,
   CopyIcon,
   DotsCircleIcon,
@@ -13,6 +14,7 @@ import {
   EditIcon,
   EditPenIcon,
   ExternalLinkIcon,
+  FireBIcon,
   FireIcon,
   GiftIcon,
   GlobeIcon,
@@ -39,11 +41,13 @@ describe('mage stroke icons', () => {
     expect(typeof CameraIcon).toBe('function');
     expect(typeof CheckIcon).toBe('function');
     expect(typeof ChevronDownIcon).toBe('function');
+    expect(typeof TimeIcon).toBe('function');
     expect(typeof ChevronRightIcon).toBe('function');
     expect(typeof CopyIcon).toBe('function');
     expect(typeof EditIcon).toBe('function');
     expect(typeof EditPenIcon).toBe('function');
     expect(typeof ExternalLinkIcon).toBe('function');
+    expect(typeof FireBIcon).toBe('function');
     expect(typeof FireIcon).toBe('function');
     expect(typeof HeartIcon).toBe('function');
     expect(typeof LinkIcon).toBe('function');

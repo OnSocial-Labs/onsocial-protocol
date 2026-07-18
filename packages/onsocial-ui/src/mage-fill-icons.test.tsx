@@ -3,7 +3,9 @@ import {
   UserPlusFillIcon,
   InformationCircleFillIcon,
   DotsCircleFillIcon,
+  FireBFillIcon,
   FireFillIcon,
+  TimeFillIcon,
   ShopFillIcon,
   UsersFillIcon,
   HomeFillIcon,
@@ -21,7 +23,9 @@ describe('mage fill icons', () => {
     expect(typeof UserPlusFillIcon).toBe('function');
     expect(typeof InformationCircleFillIcon).toBe('function');
     expect(typeof DotsCircleFillIcon).toBe('function');
+    expect(typeof FireBFillIcon).toBe('function');
     expect(typeof FireFillIcon).toBe('function');
+    expect(typeof TimeFillIcon).toBe('function');
     expect(typeof ShopFillIcon).toBe('function');
     expect(typeof UsersFillIcon).toBe('function');
     expect(typeof HomeFillIcon).toBe('function');

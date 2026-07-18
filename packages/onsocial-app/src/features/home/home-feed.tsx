@@ -10,10 +10,13 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Paginated, PostRow } from '@onsocial/sdk';
+import { ProtocolMotionArrow } from '@onsocial/ui';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
+import { HomeFeedMeAvatar } from '@/features/home/home-feed-me-avatar';
+import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import {
   homeFeedLensEmptyCopy,
   readStoredHomeFeedLens,
@@ -60,6 +63,13 @@ import {
   type AmplifySuccessDetail,
 } from '@/lib/amplify-heat';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  countUnseenFeedPosts,
+  feedPostKeySet,
+  HOME_FEED_NEW_POLL_MS,
+  HOME_FEED_NEW_PROBE_SIZE,
+  homeFeedNewPostsLabel,
+} from '@/lib/home-feed-new-posts';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
 const HOME_FEED_PAGE_SIZE = 24;
@@ -93,7 +103,8 @@ async function loadHomeFeedPage(
   accountId: string | null,
   offset: number,
   standingSources: string[] | null,
-  sort: HomeFeedSort
+  sort: HomeFeedSort,
+  limit: number = HOME_FEED_PAGE_SIZE
 ): Promise<{ page: Paginated<PostRow>; standingSources: string[] | null }> {
   const client = createReadOnlyOnSocialClient();
 
@@ -107,7 +118,7 @@ async function loadHomeFeedPage(
 
     const page = await client.query.feed.fromAccounts({
       accounts: sources,
-      limit: HOME_FEED_PAGE_SIZE,
+      limit,
       offset,
       sort,
     });
@@ -115,7 +126,7 @@ async function loadHomeFeedPage(
   }
 
   const page = await client.query.feed.recent({
-    limit: HOME_FEED_PAGE_SIZE,
+    limit,
     offset,
     sort,
   });
@@ -124,16 +135,17 @@ async function loadHomeFeedPage(
 
 async function loadFocusedFeedPage(
   focus: HomeFeedFocus,
-  offset: number
+  offset: number,
+  limit: number = HOME_FEED_PAGE_SIZE
 ): Promise<Paginated<PostRow>> {
   const client = createReadOnlyOnSocialClient();
   return focus.kind === 'ticker'
     ? client.query.feed.byTicker(focus.value, {
-        limit: HOME_FEED_PAGE_SIZE,
+        limit,
         offset,
       })
     : client.query.feed.byHashtag(focus.value, {
-        limit: HOME_FEED_PAGE_SIZE,
+        limit,
         offset,
       });
 }
@@ -175,6 +187,7 @@ export function HomePagePanel() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [newPostCount, setNewPostCount] = useState(0);
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
   const [sort, setSort] = useState<HomeFeedSort>('hot');
@@ -204,6 +217,10 @@ export function HomePagePanel() {
   const postsLengthRef = useRef(0);
   const amplifyReconcileTimerRef = useRef<number | null>(null);
   const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
+  const seenPostKeysRef = useRef<Set<string>>(new Set());
+  const newPostsProbeInFlightRef = useRef(false);
+  const isRefreshingRef = useRef(false);
+  const isLoadingRef = useRef(true);
 
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
@@ -211,7 +228,16 @@ export function HomePagePanel() {
 
   useEffect(() => {
     postsLengthRef.current = posts.length;
-  }, [posts.length]);
+    seenPostKeysRef.current = feedPostKeySet(posts);
+  }, [posts]);
+
+  useEffect(() => {
+    isRefreshingRef.current = isRefreshing;
+  }, [isRefreshing]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   useEffect(() => {
     if (walletLoading) return;
@@ -288,6 +314,7 @@ export function HomePagePanel() {
     nextOffsetRef.current = undefined;
     setEngagementError(null);
     setLoadError(null);
+    setNewPostCount(0);
 
     const keepPrevious = postsLengthRef.current > 0;
     if (keepPrevious) {
@@ -479,6 +506,84 @@ export function HomePagePanel() {
     setReloadNonce((value) => value + 1);
   }, []);
 
+  const applyNewPosts = useCallback(() => {
+    setNewPostCount(0);
+    scrollRootRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    setReloadNonce((value) => value + 1);
+  }, []);
+
+  const probeNewPosts = useCallback(async () => {
+    if (
+      !lensReady ||
+      walletLoading ||
+      isLoadingRef.current ||
+      isRefreshingRef.current ||
+      newPostsProbeInFlightRef.current ||
+      postsLengthRef.current === 0 ||
+      (typeof document !== 'undefined' && document.visibilityState === 'hidden')
+    ) {
+      return;
+    }
+
+    newPostsProbeInFlightRef.current = true;
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
+
+    try {
+      // Always probe chronological head so “new” means newer content, not Hot churn.
+      const result = focus
+        ? {
+            page: await loadFocusedFeedPage(focus, 0, HOME_FEED_NEW_PROBE_SIZE),
+          }
+        : await loadHomeFeedPage(
+            activeLens,
+            accountId,
+            0,
+            standingSourcesRef.current,
+            'recent',
+            HOME_FEED_NEW_PROBE_SIZE
+          );
+
+      if (
+        isLoadingRef.current ||
+        isRefreshingRef.current ||
+        postsLengthRef.current === 0
+      ) {
+        return;
+      }
+
+      const unseen = countUnseenFeedPosts(
+        result.page.items,
+        seenPostKeysRef.current
+      );
+      setNewPostCount(unseen);
+    } catch {
+      // Quiet — pill is best-effort; list stays as-is.
+    } finally {
+      newPostsProbeInFlightRef.current = false;
+    }
+  }, [accountId, activeLens, lensReady, tagParam, tickerParam, walletLoading]);
+
+  useEffect(() => {
+    if (!lensReady || walletLoading) return;
+
+    const tick = () => {
+      void probeNewPosts();
+    };
+
+    const warmupId = window.setTimeout(tick, 12_000);
+    const intervalId = window.setInterval(tick, HOME_FEED_NEW_POLL_MS);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.clearTimeout(warmupId);
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [lensReady, probeNewPosts, walletLoading]);
+
   const destinationLabel = useMemo(
     () => (accountId ? `@${accountId} · Public` : 'Public'),
     [accountId]
@@ -510,19 +615,26 @@ export function HomePagePanel() {
   const showEmpty =
     !isLoading && !isRefreshing && !loadError && posts.length === 0;
   const showFeed = posts.length > 0;
+  const newPostsLabel = homeFeedNewPostsLabel(newPostCount);
+  const showNewPostsPill =
+    Boolean(newPostsLabel) && showFeed && !isRefreshing && !isLoading;
 
   return (
     <HomeActiveFocusProvider focus={activeFocus}>
       <OsAppScreen
         title="Home"
-        backFallbackHref="/"
         scrollRootRef={scrollRootRef}
+        leading={<HomeFeedMeAvatar />}
+        heading={<span className="home-feed-nav-spacer" aria-hidden />}
+        actions={
+          !activeFocus ? (
+            <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
+          ) : null
+        }
         toolbar={
           <HomeFeedChipBar
             lens={activeLens}
             onLensChange={handleLensChange}
-            sort={sort}
-            onSortChange={handleSortChange}
             standingAvailable={isConnected}
             savedFeeds={savedFeeds}
             activeFocus={activeFocus}
@@ -579,6 +691,22 @@ export function HomePagePanel() {
           {sheet}
         </div>
       </OsAppScreen>
+
+      {showNewPostsPill ? (
+        <div className="home-feed-new-posts-anchor" role="status">
+          <button
+            type="button"
+            className="home-feed-new-posts-pill"
+            onClick={applyNewPosts}
+          >
+            <ProtocolMotionArrow
+              static
+              className="home-feed-new-posts-pill-arrow"
+            />
+            <span>{newPostsLabel}</span>
+          </button>
+        </div>
+      ) : null}
 
       <HomeSavedFeedSheet
         open={savedFeedSheetOpen}
