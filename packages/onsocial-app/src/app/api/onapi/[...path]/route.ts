@@ -47,6 +47,21 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'GET', path: 'data/shared-pool', body: 'none' },
   // Indexed reads after profile save (`os.profiles.get`) and other SDK queries.
   { method: 'POST', path: 'graph/query', body: 'json' },
+
+  // Scarces Phase 1 — list / buy / cancel (lazy + fixed-price).
+  { method: 'POST', path: 'compose/prepare/lazy-list', body: 'form' },
+  { method: 'POST', path: 'compose/prepare/purchase-lazy-list', body: 'json' },
+  {
+    method: 'POST',
+    path: 'compose/prepare/purchase-native-scarce',
+    body: 'json',
+  },
+  { method: 'POST', path: 'compose/prepare/cancel-lazy-list', body: 'json' },
+  {
+    method: 'POST',
+    path: 'compose/prepare/delist-native-scarce',
+    body: 'json',
+  },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;

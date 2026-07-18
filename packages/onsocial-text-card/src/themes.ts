@@ -81,8 +81,9 @@ const EDITORIAL_FAMILY =
   "'Newsreader', 'Source Serif 4', 'Source Serif Pro', 'Charter', 'Iowan Old Style', Georgia, 'Times New Roman', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
 const MONO_FAMILY =
   "'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
+/** Signature byline — matches app/portal chrome (DM Sans), system fallbacks for wallets. */
 const SANS_BYLINE =
-  "'Inter', -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
+  "'DM Sans', Inter, -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
 
 interface VoiceSpec {
   label: string;
@@ -203,7 +204,8 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     bgTo: '#F2F1EC',
     bgAngle: 180,
     textPrimary: '#0B0B0F',
-    textMuted: '#6B7280',
+    // Warm stone — not cool gray-500 (reads as link-blue next to black).
+    textMuted: '#6F6E69',
   },
   night: {
     label: 'Night',
@@ -212,7 +214,8 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     bgTo: '#141A2B',
     bgAngle: 160,
     textPrimary: '#F5EFE6',
-    textMuted: '#8A93A6',
+    // Warm taupe muted to match primary — avoid blue-gray #8A93A6.
+    textMuted: '#9A948A',
   },
   noir: {
     label: 'Noir',
@@ -221,7 +224,7 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     bgTo: '#14141A',
     bgAngle: 180,
     textPrimary: '#FFFFFF',
-    textMuted: '#7A7A82',
+    textMuted: '#8A8A8A',
   },
   dusk: {
     label: 'Dusk',
@@ -230,7 +233,8 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     bgTo: '#232342',
     bgAngle: 160,
     textPrimary: '#EDEAF7',
-    textMuted: '#8B89A8',
+    // Soft lilac-gray, not saturated “link” blue-violet.
+    textMuted: '#9E9AAD',
   },
 };
 

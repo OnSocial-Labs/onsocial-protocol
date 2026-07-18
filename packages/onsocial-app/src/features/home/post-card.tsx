@@ -30,10 +30,30 @@ import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostRichText } from '@/features/home/post-rich-text';
+import {
+  canCancelPostScarce,
+  cancelPostScarceListing,
+} from '@/features/scarces/cancel-post-scarce';
+import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
+import {
+  postScarceKey,
+  setScarceEmbedOverride,
+} from '@/features/scarces/scarce-embed-ledger';
+import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
+import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
+import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
 import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   formatPostTimestamp,
   parsePostPollEmbed,
@@ -56,7 +76,6 @@ import {
 import { postThreadPath } from '@/lib/post-routes';
 import type { PollTally } from '@/lib/poll-votes';
 import { fallbackLabel } from '@/lib/profile-display';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 
@@ -116,10 +135,22 @@ function PostCardMenu({
   href,
   accountId,
   authorProfile,
+  canListScarce = false,
+  onListScarce,
+  canCancelScarce = false,
+  onCancelScarce,
+  cancelScarcePending = false,
+  onMenuOpen,
 }: {
   href?: string;
   accountId: string;
   authorProfile?: PostAuthorProfile;
+  canListScarce?: boolean;
+  onListScarce?: () => void;
+  canCancelScarce?: boolean;
+  onCancelScarce?: () => void;
+  cancelScarcePending?: boolean;
+  onMenuOpen?: () => void;
 }) {
   const router = useRouter();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
@@ -140,6 +171,9 @@ function PostCardMenu({
     Boolean(viewerAccountId) &&
     accountIdsEqual(viewerAccountId!, accountId);
   const showGestures = isConnected && !isSelf;
+  const showListScarce = isConnected && isSelf && canListScarce && onListScarce;
+  const showCancelScarce =
+    isConnected && isSelf && canCancelScarce && onCancelScarce;
   const pending = isStandingPendingForTarget(accountId);
   const profileHref = portfolioPath(accountId);
   const endorsementsHref = overlayPath(accountId, 'endorsements');
@@ -203,7 +237,10 @@ function PostCardMenu({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            if (!isOpen && showGestures) setGesturesArmed(true);
+            if (!isOpen) {
+              if (showGestures) setGesturesArmed(true);
+              onMenuOpen?.();
+            }
             toggle();
           }}
           aria-haspopup="menu"
@@ -265,6 +302,39 @@ function PostCardMenu({
                   <span>Endorse</span>
                 </button>
               </>
+            ) : null}
+            {showListScarce ? (
+              <button
+                type="button"
+                role="menuitem"
+                className={osFloatingPanelItemClassName}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  close();
+                  onListScarce();
+                }}
+              >
+                <span>List for sale</span>
+              </button>
+            ) : null}
+            {showCancelScarce ? (
+              <button
+                type="button"
+                role="menuitem"
+                className={osFloatingPanelItemClassName}
+                disabled={cancelScarcePending}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  close();
+                  onCancelScarce();
+                }}
+              >
+                <span>
+                  {cancelScarcePending ? 'Canceling…' : 'Cancel listing'}
+                </span>
+              </button>
             ) : null}
             <Link
               href={profileHref}
@@ -730,7 +800,73 @@ export function PostCard({
   detailLayout = false,
 }: PostCardProps) {
   const router = useRouter();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { getClient } = useAppOnSocialClient();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [amplifyOpen, setAmplifyOpen] = useState(false);
+  const [listScarceOpen, setListScarceOpen] = useState(false);
+  const [buyScarceOpen, setBuyScarceOpen] = useState(false);
+  const [menuForceEmbed, setMenuForceEmbed] = useState(false);
+  const [cancelScarcePending, setCancelScarcePending] = useState(false);
+  const isSelf =
+    Boolean(viewerAccountId) &&
+    accountIdsEqual(viewerAccountId!, post.accountId);
+  // Own posts: fetch embed immediately so ⋮ already knows list vs cancel.
+  const {
+    rootRef: scarceEmbedRef,
+    embed: scarceEmbed,
+    status: scarceEmbedStatus,
+    retry: retryScarceEmbed,
+  } = usePostScarceEmbed(post, { force: isSelf || menuForceEmbed });
+  const activelyListed =
+    scarceEmbed?.status === 'lazy_listing' ||
+    scarceEmbed?.status === 'listed' ||
+    scarceEmbed?.status === 'auction';
+  // Show List whenever nothing is actively for sale — including while embed
+  // is still loading, after cancel (`none`), and after a sale (`sold`).
+  const canListScarce = isConnected && isSelf && !activelyListed;
+  const canCancelScarce =
+    isConnected &&
+    isSelf &&
+    scarceEmbedStatus === 'ready' &&
+    canCancelPostScarce(scarceEmbed);
+
+  async function handleCancelScarce() {
+    if (!scarceEmbed || cancelScarcePending) return;
+    setCancelScarcePending(true);
+    try {
+      const { accountId, wallet } = await getClient();
+      const response = await cancelPostScarceListing(
+        accountId,
+        wallet,
+        scarceEmbed
+      );
+      const confirmed = await trackTransaction({
+        txHashes: collectRelayTxHashes(response),
+        submittedMessage: txToastConfirming.cancelingScarceListing,
+        successMessage: txToastSuccess.scarceListingCanceled,
+        failureMessage: txToastError.cancelScarceListingFailed,
+      });
+      if (!confirmed) return;
+      setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
+        status: 'none',
+        events: [],
+      });
+      retryScarceEmbed();
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          cause instanceof Error
+            ? cause.message
+            : txToastError.cancelScarceListingFailed,
+      });
+    } finally {
+      setCancelScarcePending(false);
+    }
+  }
+
   const text = parsePostText(post.value);
   const poll = parsePostPollEmbed(post.value);
   const mediaItems = parsePostMedia(post.value);
@@ -762,7 +898,7 @@ export function PostCard({
     .join(' ');
 
   return (
-    <article className={cardClassName}>
+    <article className={cardClassName} ref={scarceEmbedRef}>
       {actionHref ? (
         <Link
           href={actionHref}
@@ -815,6 +951,16 @@ export function PostCard({
                   href={actionHref ?? postThreadPath(post)}
                   accountId={post.accountId}
                   authorProfile={authorProfile}
+                  canListScarce={canListScarce}
+                  onListScarce={() => setListScarceOpen(true)}
+                  canCancelScarce={canCancelScarce}
+                  onCancelScarce={() => {
+                    void handleCancelScarce();
+                  }}
+                  cancelScarcePending={cancelScarcePending}
+                  onMenuOpen={() => {
+                    if (isSelf) setMenuForceEmbed(true);
+                  }}
                 />
               }
             />
@@ -873,6 +1019,13 @@ export function PostCard({
             post={quotedPost}
             authorProfile={quotedAuthorProfile}
             href={quotedHref}
+          />
+        ) : null}
+        {scarceEmbed ? (
+          <PostScarceCta
+            embed={scarceEmbed}
+            isAuthor={isSelf}
+            onBuy={() => setBuyScarceOpen(true)}
           />
         ) : null}
         {detailLayout ? (
@@ -949,6 +1102,21 @@ export function PostCard({
         onAmplified={(amplified, detail) =>
           onAmplifyConfirmed?.(amplified, detail)
         }
+      />
+      <ScarceListSheet
+        open={listScarceOpen}
+        post={listScarceOpen ? post : null}
+        authorName={authorProfile?.displayName}
+        onOpenChange={setListScarceOpen}
+        onListed={() => retryScarceEmbed()}
+      />
+      <ScarceBuySheet
+        open={buyScarceOpen}
+        post={buyScarceOpen ? post : null}
+        authorName={authorProfile?.displayName}
+        embed={scarceEmbed}
+        onOpenChange={setBuyScarceOpen}
+        onPurchased={() => retryScarceEmbed()}
       />
     </article>
   );

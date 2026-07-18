@@ -480,6 +480,26 @@ describe('composeAndSign — broadcast routing', () => {
     expect(firstCall[0].actions[0]?.deposit).toBe('100000000000000000000000');
   });
 
+  it('wallet target: per-call depositYocto wins over target.deposit default', async () => {
+    const http = makeHttp({
+      '/compose/prepare/purchase-lazy-list': {
+        action: { type: 'purchase_lazy_listing', listing_id: 'll:1' },
+        target_account: 'scarces.onsocial.testnet',
+      },
+    });
+    const signer = vi.fn(async () => ({ txHash: 'tx_buy' }));
+
+    await composeAndSign(http, null, 'purchase-lazy-list', {}, 'x', {
+      broadcast: { kind: 'wallet', signer, deposit: '0' },
+      depositYocto: '500000000000000000000000',
+    });
+
+    const firstCall = (
+      signer.mock.calls as unknown as [{ actions: { deposit: string }[] }][]
+    )[0]!;
+    expect(firstCall[0].actions[0]?.deposit).toBe('500000000000000000000000');
+  });
+
   it('relayer target: posts signed_delegate to external URL with X-Api-Key', async () => {
     const http = makeHttp({
       '/compose/prepare/set': {

@@ -99,7 +99,25 @@ describe('ScarcesFromPostApi.embed', () => {
     expect(r.status).toBe('minted');
   });
 
-  it("derives 'lazy_listing' from operation", async () => {
+  it("derives 'lazy_listing' from indexer created op", async () => {
+    const { api } = makeApi([
+      row({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'created',
+        listingId: 'll:1',
+        extraData: JSON.stringify({
+          sourcePost: { path: 'alice.near/post/42' },
+          priceNear: '5',
+        }),
+      }),
+    ]);
+    const r = await api.embed(POST);
+    expect(r.status).toBe('lazy_listing');
+    expect(r.listingId).toBe('ll:1');
+    expect(r.priceNear).toBe('5');
+  });
+
+  it("derives 'lazy_listing' from legacy lazy_create op", async () => {
     const { api } = makeApi([
       row({
         eventType: 'LAZY_LISTING',
@@ -115,6 +133,39 @@ describe('ScarcesFromPostApi.embed', () => {
     expect(r.status).toBe('lazy_listing');
     expect(r.listingId).toBe('l:1');
     expect(r.priceNear).toBe('5');
+  });
+
+  it("derives 'sold' for lazy purchased (not lazy_listing)", async () => {
+    const { api } = makeApi([
+      row({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'purchased',
+        listingId: 'll:1',
+        tokenId: 's:9',
+        extraData: JSON.stringify({
+          sourcePost: { path: 'alice.near/post/42' },
+          priceNear: '5',
+        }),
+      }),
+    ]);
+    const r = await api.embed(POST);
+    expect(r.status).toBe('sold');
+    expect(r.listingId).toBe('ll:1');
+    expect(r.tokenId).toBe('s:9');
+  });
+
+  it("derives 'none' for cancelled lazy listing without a token", async () => {
+    const { api } = makeApi([
+      row({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'cancelled',
+        listingId: 'll:1',
+        extraData: JSON.stringify({
+          sourcePost: { path: 'alice.near/post/42' },
+        }),
+      }),
+    ]);
+    expect((await api.embed(POST)).status).toBe('none');
   });
 
   it("derives 'auction' from eventType", async () => {

@@ -4,6 +4,7 @@ import {
   localStorageKeyStore,
   persistSessionFromKey,
   resolveContractId,
+  restoreEd25519Key,
   restoreSession,
   sessionId,
   type FunctionCallKeyLimits,
@@ -17,10 +18,16 @@ export const APP_SOCIAL_SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const FUNCTION_CALL_KEY_ALLOWANCE_YOCTO = '250000000000000000000000';
 const SESSION_KEY_ON_CHAIN_POLL_MS = 500;
 const SESSION_KEY_ON_CHAIN_TIMEOUT_MS = 15_000;
+const PENDING_SESSION_KEY_PREFIX = 'onsocial.app.session.pending.';
 
 export interface AppSessionPlan {
   sessionReady: boolean;
   pendingSessionKey?: GeneratedSessionKey;
+}
+
+interface StoredPendingSessionKey {
+  publicKey: string;
+  secretSeedB64u: string;
 }
 
 export function getAppSocialSessionPath(accountId: string): string {
@@ -33,6 +40,10 @@ export function getAppSocialSessionStore() {
 
 function appSessionStorageId(accountId: string): string {
   return sessionId(accountId, 'core', getAppSocialSessionPath(accountId));
+}
+
+function pendingSessionStorageKey(accountId: string): string {
+  return `${PENDING_SESSION_KEY_PREFIX}${accountId}`;
 }
 
 function appSessionFunctionCallKey(
@@ -79,6 +90,85 @@ function buildAddKeyConnectOptions(
       allowMethods: { anyMethod: false, methodNames: ['execute'] },
     },
   };
+}
+
+async function hydrateGeneratedSessionKey(
+  stored: StoredPendingSessionKey
+): Promise<GeneratedSessionKey> {
+  const restored = await restoreEd25519Key(
+    stored.secretSeedB64u,
+    stored.publicKey
+  );
+  return {
+    publicKey: restored.publicKey,
+    secretSeedB64u: stored.secretSeedB64u,
+    sign: restored.sign,
+  };
+}
+
+function readStoredPendingSessionKey(
+  accountId: string
+): StoredPendingSessionKey | null {
+  try {
+    const raw = window.localStorage.getItem(pendingSessionStorageKey(accountId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredPendingSessionKey>;
+    if (
+      typeof parsed.publicKey === 'string' &&
+      typeof parsed.secretSeedB64u === 'string'
+    ) {
+      return {
+        publicKey: parsed.publicKey,
+        secretSeedB64u: parsed.secretSeedB64u,
+      };
+    }
+  } catch {
+    // ignore corrupt pending key
+  }
+  return null;
+}
+
+function writeStoredPendingSessionKey(
+  accountId: string,
+  key: Pick<GeneratedSessionKey, 'publicKey' | 'secretSeedB64u'>
+): void {
+  try {
+    window.localStorage.setItem(
+      pendingSessionStorageKey(accountId),
+      JSON.stringify({
+        publicKey: key.publicKey,
+        secretSeedB64u: key.secretSeedB64u,
+      } satisfies StoredPendingSessionKey)
+    );
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function clearStoredPendingSessionKey(accountId: string): void {
+  try {
+    window.localStorage.removeItem(pendingSessionStorageKey(accountId));
+  } catch {
+    // ignore
+  }
+}
+
+/** Same pending key across resume attempts so AddKey can complete. */
+export async function loadOrCreatePendingSessionKey(
+  accountId: string
+): Promise<GeneratedSessionKey> {
+  const stored = readStoredPendingSessionKey(accountId);
+  if (stored) {
+    try {
+      return await hydrateGeneratedSessionKey(stored);
+    } catch {
+      clearStoredPendingSessionKey(accountId);
+    }
+  }
+
+  const generated = await generateEd25519Key();
+  writeStoredPendingSessionKey(accountId, generated);
+  return generated;
 }
 
 async function resolveOnChainSessionAllowanceYocto(
@@ -136,10 +226,18 @@ export async function restoreAppSocialSession(
     return null;
   }
 
-  const remainingAllowanceYocto = await resolveOnChainSessionAllowanceYocto(
-    accountId,
-    stored.publicKey
-  );
+  let remainingAllowanceYocto: string | null;
+  try {
+    remainingAllowanceYocto = await resolveOnChainSessionAllowanceYocto(
+      accountId,
+      stored.publicKey
+    );
+  } catch (error) {
+    // Transient RPC failures must not wipe a valid local session.
+    console.warn('OnSocial session key check failed', error);
+    throw error;
+  }
+
   if (remainingAllowanceYocto === null) {
     await clearAppSocialSession(accountId);
     return null;
@@ -168,7 +266,7 @@ export async function resolveAppSessionPlan(
 
   return {
     sessionReady: false,
-    pendingSessionKey: await generateEd25519Key(),
+    pendingSessionKey: await loadOrCreatePendingSessionKey(accountId),
   };
 }
 
@@ -186,13 +284,15 @@ async function persistAppSessionAfterSignIn(
     );
   }
 
-  return persistSessionFromKey({
+  const session = await persistSessionFromKey({
     ...appSessionBootstrapInput(
       accountId,
       appSessionFunctionCallKey(allowanceYocto)
     ),
     sessionKey,
   });
+  clearStoredPendingSessionKey(accountId);
+  return session;
 }
 
 export async function completeAppSessionAfterConnect(
@@ -200,6 +300,7 @@ export async function completeAppSessionAfterConnect(
   pendingSessionKey: GeneratedSessionKey
 ): Promise<void> {
   if (await restoreAppSocialSession(accountId)) {
+    clearStoredPendingSessionKey(accountId);
     return;
   }
 
@@ -214,22 +315,26 @@ export async function bootstrapAppSocialSession(
     options: NearConnector_ConnectOptions
   ) => Promise<unknown>
 ): Promise<boolean> {
-  const plan = await resolveAppSessionPlan(accountId);
-  if (plan.sessionReady) {
+  if (await restoreAppSocialSession(accountId)) {
+    clearStoredPendingSessionKey(accountId);
     return true;
   }
 
-  if (!plan.pendingSessionKey) {
-    return false;
+  const pendingSessionKey = await loadOrCreatePendingSessionKey(accountId);
+
+  // User may have approved AddKey earlier while local session metadata was lost.
+  if (await sessionKeyValidOnChain(accountId, pendingSessionKey.publicKey)) {
+    await persistAppSessionAfterSignIn(accountId, pendingSessionKey);
+    return true;
   }
 
-  const addKeyOptions = buildAddKeyConnectOptions(plan.pendingSessionKey);
+  const addKeyOptions = buildAddKeyConnectOptions(pendingSessionKey);
   if (!addKeyOptions) {
     return false;
   }
 
   await connectWithOptions(addKeyOptions);
-  await completeAppSessionAfterConnect(accountId, plan.pendingSessionKey);
+  await completeAppSessionAfterConnect(accountId, pendingSessionKey);
   return Boolean(await restoreAppSocialSession(accountId));
 }
 

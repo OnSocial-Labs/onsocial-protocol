@@ -32,6 +32,9 @@ export const txToastConfirming = {
   revokingGuildSpaceWriter: 'Confirming removal…',
   proposingGuildSpaceWriterRevoke: 'Confirming proposal…',
   amplifyingPost: 'Confirming amplify…',
+  listingScarce: 'Confirming listing…',
+  buyingScarce: 'Confirming purchase…',
+  cancelingScarceListing: 'Confirming cancel…',
 } as const;
 
 export const txToastPending = {
@@ -62,6 +65,9 @@ export const txToastPending = {
   revokingGuildSpaceWriter: 'Removing access…',
   proposingGuildSpaceWriterRevoke: 'Proposing removal…',
   amplifyingPost: 'Amplifying…',
+  listingScarce: 'Listing…',
+  buyingScarce: 'Collecting scarce…',
+  cancelingScarceListing: 'Canceling listing…',
 } as const;
 
 export const txToastSuccess = {
@@ -105,6 +111,9 @@ export const txToastSuccess = {
   supportSent: (name: string) => `Supported ${name}.`,
   supportCollected: 'Support SOCIAL collected.',
   postAmplified: 'Post amplified.',
+  scarceListed: 'Listed.',
+  scarcePurchased: 'Scarce collected.',
+  scarceListingCanceled: 'Listing canceled.',
 } as const;
 
 export const txToastError = {
@@ -135,4 +144,7 @@ export const txToastError = {
   supportFailed: 'Could not send support.',
   claimSupportFailed: 'Could not claim support.',
   amplifyFailed: 'Could not amplify post.',
+  listScarceFailed: 'Could not list scarce.',
+  buyScarceFailed: 'Could not buy scarce.',
+  cancelScarceListingFailed: 'Could not cancel listing.',
 } as const;

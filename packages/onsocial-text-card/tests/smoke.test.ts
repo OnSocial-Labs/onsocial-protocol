@@ -117,4 +117,62 @@ describe('generator smoke', () => {
     });
     expect(nonReceipt).not.toContain('<image');
   });
+
+  it('keeps the full unique account id in the byline', () => {
+    const longId = 'test05.onsocial.testnet';
+    const withName = generateTextCardSvg({
+      title: 'Hello.',
+      creator: { accountId: longId, displayName: 'Test' },
+      theme: { bg: 'serif-night' },
+    });
+    expect(withName).toContain(longId);
+    expect(withName).toContain('Test');
+    expect(withName).not.toContain(`@${longId}`);
+    // Must not ellipsis-truncate the unique id.
+    expect(withName).not.toMatch(/test05\.onsocial\.testne…/);
+
+    const solo = generateTextCardSvg({
+      title: 'Hello.',
+      creator: { accountId: longId },
+      theme: { bg: 'serif-night' },
+    });
+    expect(solo).toContain(longId);
+    expect(solo).not.toContain(`@${longId}`);
+    // No distinct name → single signature, not a duplicated bare id.
+    expect(solo).not.toContain('test05.onsocial ·');
+  });
+
+  it('prefixes id with ~ not @', () => {
+    const svg = generateTextCardSvg({
+      title: 'Hello.',
+      creator: { accountId: 'alice.near', displayName: 'Alice' },
+      theme: { bg: 'serif-night' },
+    });
+    expect(svg).toContain('~alice.near');
+    expect(svg).not.toContain('@alice.near');
+    expect(svg).not.toContain('~/alice.near');
+  });
+
+  it('always stacks name above signed id', () => {
+    const svg = generateTextCardSvg({
+      title: 'Hello.',
+      creator: { accountId: 'alice.near', displayName: 'Alice' },
+      theme: { bg: 'serif-night' },
+    });
+    expect(svg).toContain('Alice');
+    expect(svg).toContain('~alice.near');
+    // Two separate text nodes — name then handle.
+    const textOpens = svg.match(/<text /g) ?? [];
+    expect(textOpens.length).toBeGreaterThanOrEqual(3); // title + name + handle
+  });
+
+  it('uses DM Sans for the signature byline (app chrome parity)', () => {
+    const svg = generateTextCardSvg({
+      title: 'Hello.',
+      creator: { accountId: 'alice.near', displayName: 'Alice' },
+      theme: { bg: 'serif-night' },
+    });
+    expect(svg).toContain('DM Sans');
+    expect(MOODS['serif-night'].bylineFamily).toContain('DM Sans');
+  });
 });

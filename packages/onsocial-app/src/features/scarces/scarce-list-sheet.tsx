@@ -1,0 +1,93 @@
+'use client';
+
+import { useCallback, useId, useState } from 'react';
+import type { PostRow } from '@onsocial/sdk';
+import { Divider, GlassSheet } from '@onsocial/ui';
+import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import {
+  ScarceListForm,
+  type ScarceListSuccessDetail,
+} from '@/features/scarces/scarce-list-form';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
+
+interface ScarceListSheetProps {
+  open: boolean;
+  post: PostRow | null;
+  authorName?: string | null;
+  onOpenChange: (open: boolean) => void;
+  onListed?: (post: PostRow, detail: ScarceListSuccessDetail) => void;
+}
+
+/** Author sheet: lazy-list a post as a scarce (mint-on-purchase). */
+export function ScarceListSheet({
+  open,
+  post,
+  authorName = null,
+  onOpenChange,
+  onListed,
+}: ScarceListSheetProps) {
+  const titleId = useId();
+  const [closing, setClosing] = useState(false);
+  const [formKey, setFormKey] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  const sheetOpen = open && !closing && post != null;
+  const name = post ? displayName(post.accountId, authorName ?? undefined) : '';
+  const handle = post ? fallbackLabel(post.accountId) : '';
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setFormKey((key) => key + 1);
+  }
+
+  useScrollLock(open || closing);
+
+  const requestClose = useCallback(() => {
+    setClosing(true);
+  }, []);
+
+  const handleSheetClosed = useCallback(() => {
+    setClosing(false);
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  return (
+    <GlassSheet
+      open={sheetOpen}
+      onClose={requestClose}
+      onClosed={handleSheetClosed}
+      tone="os"
+      panelClassName="profile-support-sheet-panel"
+      zIndex={56}
+      ariaLabelledBy={titleId}
+      backdropLabel="Close list scarce"
+      bodyClassName="profile-support-sheet-body"
+      header={
+        <>
+          <GestureSheetHeader
+            titleId={titleId}
+            verb="List"
+            personName={name}
+            handle={handle}
+            signal="reputation"
+            closeAriaLabel="Close list scarce"
+            onClose={requestClose}
+          />
+          <Divider variant="section" className="glass-sheet-header-divider" />
+        </>
+      }
+    >
+      {post ? (
+        <ScarceListForm
+          key={`${formKey}:${post.accountId}:${post.postId}`}
+          post={post}
+          authorName={authorName}
+          onSuccess={(detail) => {
+            onListed?.(post, detail);
+            requestClose();
+          }}
+        />
+      ) : null}
+    </GlassSheet>
+  );
+}

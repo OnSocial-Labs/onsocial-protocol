@@ -441,7 +441,8 @@ async function broadcastViaWallet(
         methodName: opts?.methodName ?? 'execute',
         args: { request },
         gas: String(target.gas ?? DEFAULT_FUNCTION_CALL_GAS),
-        deposit: String(target.deposit ?? opts?.depositYocto ?? '0'),
+        // Per-call deposit wins over wallet-target default (often '0').
+        deposit: String(opts?.depositYocto ?? target.deposit ?? '0'),
       },
     ],
   });

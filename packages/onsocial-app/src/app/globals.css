@@ -14214,6 +14214,384 @@ a.os-surface-row {
     color: var(--protocol-amber);
   }
 
+  .post-card-scarce-cta {
+    display: flex;
+    align-items: center;
+    margin-top: 0.35rem;
+  }
+
+  .post-card-scarce-cta--sold,
+  .post-card-scarce-cta--muted {
+    color: rgb(var(--fg-rgb) / 0.42);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .post-card-scarce-buy {
+    border: 0;
+    background: transparent;
+    padding: 0.2rem 0;
+    margin: 0;
+    cursor: pointer;
+    color: var(--protocol-green);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.2;
+    transition: color 160ms ease;
+  }
+
+  .post-card-scarce-buy:hover:not(:disabled),
+  .post-card-scarce-buy:focus-visible {
+    color: color-mix(in srgb, var(--protocol-green) 72%, white);
+  }
+
+  .post-card-scarce-buy:disabled {
+    cursor: default;
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .post-card-scarce-buy:focus-visible {
+    outline: none;
+  }
+
+  /* Art only — no chrome under/around the card; sized for sheet open. */
+  .scarce-post-preview {
+    display: block;
+    margin: 0 auto 0.7rem;
+    width: min(100%, 11rem);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+    font: inherit;
+    color: inherit;
+  }
+
+  .scarce-post-preview:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+    outline-offset: 2px;
+    border-radius: 0.75rem;
+  }
+
+  .scarce-post-preview--card .scarce-post-preview-asset,
+  .scarce-post-preview--cover .scarce-post-preview-asset {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 0.75rem;
+  }
+
+  .scarce-card-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgb(0 0 0 / 0.58);
+    cursor: zoom-out;
+  }
+
+  .scarce-card-lightbox-asset {
+    display: block;
+    width: min(100%, 22rem);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 0.9rem;
+    cursor: default;
+  }
+
+  .scarce-mood-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .scarce-mood-picker-field--wide {
+    grid-column: 1 / -1;
+  }
+
+  .scarce-mood-picker-field {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .scarce-mood-picker-label {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .scarce-mood-select {
+    width: 100%;
+    appearance: none;
+    border: 1px solid rgb(var(--fg-rgb) / 0.09);
+    border-radius: 0.9rem;
+    background:
+      linear-gradient(45deg, transparent 50%, rgb(var(--fg-rgb) / 0.45) 50%)
+        calc(100% - 0.95rem) calc(50% - 0.18rem) / 0.35rem 0.35rem no-repeat,
+      linear-gradient(135deg, rgb(var(--fg-rgb) / 0.45) 50%, transparent 50%)
+        calc(100% - 0.7rem) calc(50% - 0.18rem) / 0.35rem 0.35rem no-repeat,
+      rgb(0 0 0 / 0.22);
+    padding: 0.7rem 1.85rem 0.7rem 0.85rem;
+    font-family: inherit;
+    font-size: 0.86rem;
+    font-weight: 550;
+    color: rgb(var(--fg-rgb) / 0.9);
+    cursor: pointer;
+    outline: none;
+  }
+
+  .scarce-mood-select:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .scarce-mood-select:focus,
+  .scarce-mood-select:focus-visible {
+    border-color: rgb(var(--fg-rgb) / 0.18);
+  }
+
+  .scarce-royalty-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0.15rem 0 0.65rem;
+  }
+
+  .scarce-royalty-hint {
+    margin: 0;
+  }
+
+  .scarce-buy-media {
+    margin: 0 auto 0.7rem;
+    width: min(100%, 11rem);
+  }
+
+  .scarce-buy-media img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 0.75rem;
+  }
+
+  .scarce-buy-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .scarce-buy-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 650;
+    line-height: 1.3;
+  }
+
+  .scarce-buy-price {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .market-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+    padding: 0.15rem 0 1.5rem;
+  }
+
+  .market-page-status,
+  .market-page-empty-copy {
+    margin: 0;
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .market-page-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+    min-height: 40vh;
+    justify-content: center;
+  }
+
+  .market-page-retry {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  .market-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .market-section-title {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .market-listing-list,
+  .market-sales-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .market-listing-row,
+  .market-sale-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.1rem;
+  }
+
+  .market-listing-thumb {
+    flex-shrink: 0;
+    width: 3.1rem;
+    height: 3.1rem;
+    border: 0;
+    border-radius: 0.55rem;
+    padding: 0;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.08);
+    cursor: pointer;
+  }
+
+  .market-listing-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .market-listing-thumb-fallback {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background:
+      linear-gradient(
+        145deg,
+        rgb(var(--fg-rgb) / 0.14),
+        rgb(var(--fg-rgb) / 0.05)
+      );
+  }
+
+  .market-listing-copy {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+  }
+
+  .market-listing-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.65rem;
+  }
+
+  .market-listing-title,
+  .market-sale-title {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .market-listing-price {
+    margin: 0;
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .market-listing-meta,
+  .market-sale-meta {
+    margin: 0;
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .market-listing-handle {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .market-listing-handle:hover {
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .market-listing-buy {
+    flex-shrink: 0;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 9999px;
+    background: transparent;
+    padding: 0.4rem 0.85rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 650;
+    color: var(--protocol-green);
+    cursor: pointer;
+  }
+
+  .market-listing-buy:hover {
+    border-color: color-mix(in srgb, var(--protocol-green) 40%, transparent);
+  }
+
+  .market-listing-buy--muted {
+    color: rgb(var(--fg-rgb) / 0.45);
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .market-listing-own {
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .market-sale-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+
   .post-card-amplify.is-active:hover:not(:disabled),
   .post-card-amplify.is-active:focus-visible {
     color: color-mix(in srgb, var(--protocol-amber) 72%, white);

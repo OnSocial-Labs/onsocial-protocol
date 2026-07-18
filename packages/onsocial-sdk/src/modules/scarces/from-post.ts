@@ -155,10 +155,73 @@ export interface PostScarceEmbed {
   auctionId?: string;
   /** Current asking / bid price in NEAR (string, decimal). */
   priceNear?: string;
+  /**
+   * Auto text-card mood key (`extra.theme.bg`) when the listing has no
+   * photo cover. Useful for client-side previews before media is fetched.
+   */
+  cardBg?: string;
   /** Latest event row used to derive `status` (for debugging / extra fields). */
   latest?: ScarcesEventRow;
   /** All matching events (most recent first), capped by `limit`. */
   events: ScarcesEventRow[];
+}
+
+/**
+ * Coarse trade status from the newest matching event.
+ * Order matters: sold / cancelled must win over the lazy event family, because
+ * indexer rows use `LAZY_LISTING_UPDATE` + `purchased` / `cancelled`.
+ */
+export function derivePostScarceStatus(
+  row: Pick<ScarcesEventRow, 'operation' | 'eventType' | 'tokenId'>
+): PostScarceEmbed['status'] {
+  const op = (row.operation ?? '').toLowerCase();
+  const et = (row.eventType ?? '').toLowerCase();
+  const lazyFamily = et.includes('lazy');
+
+  if (
+    op === 'purchased' ||
+    op === 'purchase' ||
+    op === 'buy' ||
+    op === 'sold_out' ||
+    op === 'offer_accepted'
+  ) {
+    return 'sold';
+  }
+
+  // Cancelled / expired lazy drop — treat as clear so the author can list again.
+  if (op === 'cancelled' || op === 'canceled' || op === 'expired') {
+    return row.tokenId ? 'minted' : 'none';
+  }
+
+  if (
+    et.includes('auction') ||
+    op.includes('bid') ||
+    op === 'auction_created' ||
+    op === 'auction_bid'
+  ) {
+    return 'auction';
+  }
+
+  // Indexer: LAZY_LISTING_UPDATE + created | price_updated | expiry_updated.
+  // Legacy tests / older relays also used lazy_create / create_lazy_listing.
+  if (
+    lazyFamily ||
+    op === 'lazy_create' ||
+    op === 'create_lazy_listing'
+  ) {
+    return 'lazy_listing';
+  }
+
+  if (
+    et.includes('listing') ||
+    op === 'list' ||
+    op === 'sell' ||
+    op === 'list_native'
+  ) {
+    return 'listed';
+  }
+
+  return 'minted';
 }
 
 export class ScarcesFromPostApi {
@@ -326,43 +389,30 @@ export class ScarcesFromPostApi {
 
     const latest = matched[0]!;
     const out: PostScarceEmbed = {
-      status: 'minted',
+      status: derivePostScarceStatus(latest),
       events: matched,
       latest,
     };
     if (latest.tokenId) out.tokenId = latest.tokenId;
     if (latest.listingId) out.listingId = latest.listingId;
 
-    // Derive a coarse status from the most recent event's type/operation.
-    // We deliberately keep this lossy & cheap; callers that need precise
-    // sub-states (e.g. partially-sold-out lazy listings) should use the
-    // dedicated ScarcesQuery helpers.
-    const op = (latest.operation ?? '').toLowerCase();
-    const et = (latest.eventType ?? '').toLowerCase();
-    if (et.includes('auction') || op.includes('bid')) {
-      out.status = 'auction';
-    } else if (
-      et.includes('lazy') ||
-      op === 'lazy_create' ||
-      op === 'create_lazy_listing'
-    ) {
-      out.status = 'lazy_listing';
-    } else if (et.includes('listing') || op === 'list' || op === 'sell') {
-      out.status = 'listed';
-    } else if (op === 'purchase' || op === 'buy' || op === 'sold_out') {
-      out.status = 'sold';
-    }
-    // Pull a price out of extraData if present (best-effort).
+    // Pull price / theme from extraData if present (best-effort).
     try {
       const extra = latest.extraData
         ? (JSON.parse(latest.extraData) as Record<string, unknown>)
         : null;
-      const p =
-        extra && typeof extra === 'object'
-          ? ((extra['priceNear'] as string | undefined) ??
-            (extra['price_near'] as string | undefined))
-          : undefined;
-      if (p) out.priceNear = p;
+      if (extra && typeof extra === 'object') {
+        const p =
+          (extra['priceNear'] as string | undefined) ??
+          (extra['price_near'] as string | undefined);
+        if (typeof p === 'string' && p) out.priceNear = p;
+
+        const theme = extra['theme'];
+        if (theme && typeof theme === 'object' && !Array.isArray(theme)) {
+          const bg = (theme as Record<string, unknown>)['bg'];
+          if (typeof bg === 'string' && bg) out.cardBg = bg;
+        }
+      }
     } catch {
       /* noop */
     }

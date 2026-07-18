@@ -26,6 +26,10 @@
 // Otherwise they use the gateway's `/compose/prepare/<verb>` flow
 // (zero-config — the gateway uploads via its own Lighthouse account), then
 // sign+relay the prepared action via `/relay/delegate`.
+//
+// Write lane: Scarces target `scarces.*`, not the core session key. Use
+// `defaultBroadcast: { kind: 'wallet', signer }` for list/buy. Paid buys need
+// `depositYocto` equal to the price — see docs/WRITE_LANES.md.
 // ---------------------------------------------------------------------------
 
 import type { HttpClient } from '../../internal/http.js';

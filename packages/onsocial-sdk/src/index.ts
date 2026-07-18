@@ -61,6 +61,7 @@ export {
   ScarcesAppsApi,
 } from './modules/scarces/index.js';
 export type { PostScarceEmbed } from './modules/scarces/from-post.js';
+export { derivePostScarceStatus } from './modules/scarces/from-post.js';
 export type {
   AppConfigInput,
   AllowlistEntry,

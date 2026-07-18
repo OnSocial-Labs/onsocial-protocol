@@ -3,7 +3,7 @@ import { MarketPagePanel } from '@/features/market/market-page-panel';
 
 export const metadata: Metadata = {
   title: 'Market • OnSocial',
-  description: 'Scarces marketplace on OnSocial — coming soon.',
+  description: 'Browse and buy Scarces on OnSocial.',
 };
 
 export default function MarketPage() {

@@ -114,6 +114,9 @@ importers:
       '@onsocial/sdk':
         specifier: workspace:*
         version: link:../onsocial-sdk
+      '@onsocial/text-card':
+        specifier: workspace:*
+        version: link:../onsocial-text-card
       '@onsocial/ui':
         specifier: workspace:*
         version: link:../onsocial-ui

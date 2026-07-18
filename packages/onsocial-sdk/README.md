@@ -40,6 +40,8 @@ Every module hangs off a single `OnSocial` instance. Use this table to find the 
 
 See [docs/CHEATSHEET.md](./docs/CHEATSHEET.md) for a one-page noun → method lookup.
 
+Session vs wallet (social vs paid Scarces): [docs/WRITE_LANES.md](./docs/WRITE_LANES.md).
+
 For discover, standing lists, mutuals, and endorsements at scale, see
 [docs/SOCIAL_GRAPH.md](./docs/SOCIAL_GRAPH.md).
 
@@ -76,14 +78,16 @@ const os = new OnSocial({
 | `appId`            | Default app namespace for notifications.                                                                                                      |
 | `fetch`            | Custom fetch implementation.                                                                                                                  |
 | `session`          | `Session` instance used to sign NEP-366 delegate writes.                                                                                      |
-| `defaultBroadcast` | Advanced override. Leave unset for the canonical gateway delegate path. Direct relayer and wallet modes are for self-hosted/admin flows only. |
+| `defaultBroadcast` | Write lane. Leave unset for gateway + session (social/`core`). Set `{ kind: 'wallet', signer }` for Scarces and other NEAR-paid calls. Relayer URL is for self-hosted setups. |
 | `storage`          | `StorageProvider` (defaults to gateway-hosted IPFS upload).                                                                                   |
 
-Per-call broadcast overrides are intentionally advanced. Regular apps should use
-the default gateway path and only pass a wallet signer for explicit wallet-paid
-or admin flows.
+**Two write lanes:** session/gateway for social data on `core`; wallet +
+`depositYocto` for paid Scarces on `scarces`. See
+[docs/WRITE_LANES.md](./docs/WRITE_LANES.md) for the full matrix and copy/paste
+examples. Do not use a core session key for buys — you will get
+`ReceiverMismatch` or `got 0` deposit.
 
-### Canonical write flow
+### Canonical write flow (social / session)
 
 ```ts
 import { OnSocial } from '@onsocial/sdk';
@@ -98,6 +102,22 @@ const os = new OnSocial({
 os.attachSession(session);
 
 await os.posts.create({ text: 'Hello OnSocial' });
+```
+
+### Paid Scarces buy (wallet + deposit)
+
+```ts
+import { OnSocial, nearToYocto } from '@onsocial/sdk';
+
+const scarces = new OnSocial({
+  network: 'testnet',
+  actorId: accountId,
+  defaultBroadcast: { kind: 'wallet', signer /* your wallet adapter */ },
+});
+
+await scarces.scarces.lazy.purchase(listingId, {
+  depositYocto: nearToYocto('0.5'), // must equal listing price
+});
 ```
 
 ## Authentication

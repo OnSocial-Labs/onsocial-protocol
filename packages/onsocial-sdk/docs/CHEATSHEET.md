@@ -11,13 +11,15 @@ import { OnSocial, Session } from '@onsocial/sdk';
 const os = new OnSocial({
   network: 'mainnet',
   jwt: userJwt,
-  session: await Session.fromStorage(), // for gasless writes
-  // defaultBroadcast: 'gateway' | { kind: 'relayer', url } | { kind: 'wallet', signer }
+  session: await Session.fromStorage(), // social / core writes
+  // Paid Scarces: use a second client with
+  // defaultBroadcast: { kind: 'wallet', signer }
 });
 ```
 
-Every write below honors `defaultBroadcast`. Override per-call with
-`os.withBroadcast(target).<module>.<method>(…)`.
+Social modules below use the **session / gateway** lane. Scarces **buys** (and
+other value payments) need a **wallet** client + `depositYocto` — see
+[WRITE_LANES.md](./WRITE_LANES.md).
 
 ## Profiles
 
@@ -140,20 +142,40 @@ Every write below honors `defaultBroadcast`. Override per-call with
 
 ## Scarces (NFTs)
 
+> **Lane:** use a wallet-broadcast client for Scarces (targets `scarces.*`, not
+> the core session). **Buys / bids / offers** must pass `depositYocto` (yoctoNEAR
+> price). Details: [WRITE_LANES.md](./WRITE_LANES.md).
+
 | Want to… | Call |
 | --- | --- |
 | Mint | `os.scarces.tokens.mint({ title, image, copies?, royalty? })` |
 | Transfer / burn | `os.scarces.tokens.transfer(...)` / `.burn(...)` |
 | Renew / redeem / revoke | `os.scarces.tokens.renew(...)` / `.redeem(...)` / `.revoke(...)` |
 | Create collection (drop) | `os.scarces.collections.create({ collectionId, totalSupply, … })` |
-| Mint from collection | `os.scarces.collections.mintFromCollection(...)` |
-| Buy from collection | `os.scarces.collections.purchaseFromCollection(...)` |
-| List on market | `os.scarces.market.list(tokenRef, priceNear)` |
-| Auction | `os.scarces.auctions.list(...)` / `.placeBid(...)` / `.settle(...)` |
+| Mint from collection | `os.scarces.collections.mintFrom(...)` |
+| Buy from collection | `os.scarces.collections.purchaseFrom(...)` *(wallet + value deposit)* |
+| List on market | `os.scarces.market.sell({ tokenId, priceNear })` |
+| Buy listed scarce | `os.scarces.market.purchase(tokenId, { depositYocto })` *(wallet)* |
+| Auction | `os.scarces.auctions.start(...)` / `.placeBid(...)` / `.settle(...)` |
 | Make / accept offer | `os.scarces.offers.make(...)` / `.accept(...)` |
-| Lazy listing (deferred mint) | `os.scarces.lazy.create(...)` / `.purchase(...)` |
+| Lazy list / buy | `os.scarces.lazy.create(...)` / `.purchase(id, { depositYocto })` *(wallet)* |
+| List from a post | `os.scarces.fromPost.list(post, priceNear)` *(wallet)* |
 | App pool / moderation | `os.scarces.apps.register(...)` / `.fundPool(...)` / `.addModerator(...)` |
 | Read scarces feeds | `os.query.scarces.*` |
+
+```ts
+import { OnSocial, nearToYocto } from '@onsocial/sdk';
+
+const scarces = new OnSocial({
+  network: 'testnet',
+  actorId,
+  defaultBroadcast: { kind: 'wallet', signer },
+});
+
+await scarces.scarces.lazy.purchase(listingId, {
+  depositYocto: nearToYocto('0.5'),
+});
+```
 
 ## Storage
 

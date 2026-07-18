@@ -44,7 +44,6 @@ export function gateOsApps(): OsAppLink[] {
       label: 'Market',
       kind: 'app',
       href: APP_MARKET_PATH,
-      soon: true,
     },
     {
       id: 'groups',
@@ -81,7 +80,6 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       label: 'Market',
       kind: 'app',
       href: APP_MARKET_PATH,
-      soon: true,
     },
     {
       id: 'groups',
@@ -115,7 +113,6 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       label: 'Market',
       kind: 'app',
       href: APP_MARKET_PATH,
-      soon: true,
     },
     {
       id: 'groups',

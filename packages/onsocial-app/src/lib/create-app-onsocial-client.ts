@@ -47,8 +47,8 @@ export function createAppOnSocialClient(
                   params: {
                     methodName: action.methodName,
                     args: action.args,
-                    gas: action.gas,
-                    deposit: action.deposit,
+                    gas: String(action.gas ?? '300000000000000'),
+                    deposit: String(action.deposit ?? '0'),
                   },
                 })),
               });

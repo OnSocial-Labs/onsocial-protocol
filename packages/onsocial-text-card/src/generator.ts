@@ -6,9 +6,11 @@
 //   - No avatar. The byline is type-only.
 //   - The author's deterministic colour lives in a small "mark" at the
 //     top-left — the only ornamentation, the author's signature.
-//   - Single-line byline "Name · @handle" — bold name, thin middle-dot,
-//     muted handle. Auto-shrinks the name and truncates the handle as
-//     needed to stay on one line.
+//   - Byline signature (always the same pattern):
+//       Name          ← DM Sans, medium, soft opacity of title ink
+//       ~accountId    ← tilde signature sign + full unique id
+//     No distinct name → `~accountId` alone. Title owns the voice fonts;
+//     the signature stays a calm UI sans (mono voice → mono).
 //   - No description on the card (stays in NFT metadata).
 //
 // Customisation (v0.3.1 — small, opinionated knobs):
@@ -56,8 +58,18 @@ const TITLE_FONT_SIZES = [44, 38, 32, 28] as const;
 const TITLE_LINE_HEIGHT_RATIO = 56 / 44; // ~1.27
 const TITLE_MAX_LINES = 6;
 
-// Byline (bottom band).
-const NAME_FONT_SIZES = [20, 18, 16, 14] as const;
+// Byline (bottom band) — one signature stamp, two opacities of the same ink.
+// Tight stack + shared hue so name and id feel embedded, not two labels.
+const BYLINE_NAME_SIZE = 17;
+const BYLINE_HANDLE_SIZE = 13;
+/** Only used when a very long account id won't fit at the default handle size. */
+const BYLINE_HANDLE_FLOOR = 12;
+const BYLINE_STACK_GAP = 5; // px between name baseline and handle baseline
+/** Light hang under the name — enough to feel signed, not stepped over. */
+const BYLINE_HANDLE_INDENT = 5;
+const BYLINE_NAME_OPACITY = 0.72;
+const BYLINE_HANDLE_OPACITY = 0.42;
+const BYLINE_SOLO_OPACITY = 0.55;
 
 // ── Receipt mood (v0.5) ─────────────────────────────────────────────────────
 // A short claim + a photo as proof. Different layout from every other
@@ -501,7 +513,7 @@ export interface TextCardOptions {
    */
   description?: string;
   /**
-   * Author of the thought. When provided, a two-line byline appears at
+   * Author of the thought. When provided, a signature byline appears at
    * the bottom and the author's deterministic colour is used for the
    * top-left mark (unless overridden via `theme.markColor`).
    */
@@ -549,6 +561,9 @@ function renderMark(shape: MarkShape, color: string): string {
       return `<rect x="${PADDING}" y="${PADDING}" width="${MARK_RULE_W}" height="${MARK_RULE_H}" rx="${MARK_RULE_H / 2}" fill="${color}"/>`;
   }
 }
+
+/** Byline signature sign — tilde, no slash. */
+const BYLINE_SIGNATURE_SIGN = '~';
 
 /** Generate a text-card SVG. Returns raw SVG markup (string). */
 export function generateTextCardSvg(opts: TextCardOptions): string {
@@ -652,17 +667,24 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   const photoX = PADDING;
   const photoY = HEIGHT - RECEIPT_PHOTO_BOTTOM_GAP - RECEIPT_PHOTO_SIZE;
 
-  // ── Byline (bottom): single line "Name · @handle" ──────────────────
-  // Bold name, thin middle-dot separator, muted handle. Auto-shrinks
-  // the name and truncates the handle as needed to stay on one line.
+  // ── Byline (bottom): one embedded signature ────────────────────────
+  // Name above, `~` + full accountId below — same ink at two opacities.
   let bylineBlock = '';
   if (creator) {
-    const accountId = creator.accountId;
-    const rawName =
-      creator.displayName?.trim() ||
-      accountId.replace(/\.(near|testnet)$/i, '');
-    const handle = `@${accountId}`;
-    const sep = ' · ';
+    const accountId = creator.accountId.trim();
+    const handle = `${BYLINE_SIGNATURE_SIGN}${accountId}`;
+    const rawName = creator.displayName?.trim() ?? '';
+    const nameNorm = rawName.toLowerCase();
+    const idNorm = accountId.toLowerCase();
+    // Distinct only when the caller passed a real name — not the account id
+    // itself (apps often pass the id as a displayName fallback).
+    const hasDistinctName =
+      Boolean(rawName) &&
+      nameNorm !== idNorm &&
+      nameNorm !== `@${idNorm}` &&
+      nameNorm !== `~${idNorm}` &&
+      nameNorm !== `~/${idNorm}` &&
+      nameNorm !== handle.toLowerCase();
 
     const isMono = mood.bylineFamily.toLowerCase().includes('mono');
     const nameKind: 'sans-bold' | 'mono' = isMono ? 'mono' : 'sans-bold';
@@ -670,55 +692,38 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       ? 'mono'
       : 'sans-regular';
 
-    // Pick the largest name size at which "Name · @handle" still fits.
-    const sizesByPref = NAME_FONT_SIZES; // 20, 18, 16, 14
-    let nameSize = sizesByPref[sizesByPref.length - 1];
-    let displayHandle = handle;
-    let displayName = rawName;
-    for (const size of sizesByPref) {
-      const nameW = estimateWidthPx(rawName, size, nameKind);
-      const sepW = estimateWidthPx(sep, size, 'sans-regular');
-      const handleW = estimateWidthPx(handle, size, handleKind);
-      if (nameW + sepW + handleW <= CONTENT_WIDTH) {
-        nameSize = size;
-        displayName = rawName;
-        displayHandle = handle;
-        break;
-      }
+    const handleY = HEIGHT - PADDING;
+    const ink = mood.textPrimary;
+    const handleBudget = hasDistinctName
+      ? CONTENT_WIDTH - BYLINE_HANDLE_INDENT
+      : CONTENT_WIDTH;
+
+    let handleSize = BYLINE_HANDLE_SIZE;
+    if (estimateWidthPx(handle, handleSize, handleKind) > handleBudget) {
+      handleSize = BYLINE_HANDLE_FLOOR;
     }
-    // Still doesn't fit at smallest size? Truncate the handle, then the name.
-    {
-      const size = nameSize;
-      const sepW = estimateWidthPx(sep, size, 'sans-regular');
-      const nameW = estimateWidthPx(displayName, size, nameKind);
-      let handleW = estimateWidthPx(displayHandle, size, handleKind);
-      if (nameW + sepW + handleW > CONTENT_WIDTH) {
-        const handleBudgetPx = Math.max(0, CONTENT_WIDTH - nameW - sepW);
-        const handleRatio =
-          handleKind === 'mono' ? MONO_CHAR_RATIO : SANS_CHAR_RATIO_REGULAR;
-        const handleCharBudget = Math.max(
-          4,
-          Math.floor(handleBudgetPx / (size * handleRatio))
-        );
-        displayHandle = truncateVisual(handle, handleCharBudget);
-        handleW = estimateWidthPx(displayHandle, size, handleKind);
-      }
-      if (nameW + sepW + handleW > CONTENT_WIDTH) {
-        const nameBudgetPx = Math.max(0, CONTENT_WIDTH - sepW - handleW);
+
+    if (!hasDistinctName) {
+      bylineBlock = `
+  <text x="${PADDING}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>`;
+    } else {
+      const nameSize = BYLINE_NAME_SIZE;
+      let displayName = rawName;
+      if (estimateWidthPx(displayName, nameSize, nameKind) > CONTENT_WIDTH) {
         const nameRatio =
           nameKind === 'mono' ? MONO_CHAR_RATIO : SANS_CHAR_RATIO_BOLD;
         const nameCharBudget = Math.max(
           4,
-          Math.floor(nameBudgetPx / (size * nameRatio))
+          Math.floor(CONTENT_WIDTH / (nameSize * nameRatio))
         );
         displayName = truncateVisual(displayName, nameCharBudget);
       }
+      const nameY = handleY - handleSize - BYLINE_STACK_GAP;
+      const handleX = PADDING + BYLINE_HANDLE_INDENT;
+      bylineBlock = `
+  <text x="${PADDING}" y="${nameY}" font-family="${mood.bylineFamily}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
+  <text x="${handleX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>`;
     }
-
-    const y = HEIGHT - PADDING;
-
-    bylineBlock = `
-  <text x="${PADDING}" y="${y}" font-family="${mood.bylineFamily}" font-size="${nameSize}" fill="${mood.textPrimary}"><tspan font-weight="600">${esc(displayName)}</tspan><tspan fill="${mood.textMuted}" font-weight="400">${esc(sep)}${esc(displayHandle)}</tspan></text>`;
   }
 
   const v = angleToVector(mood.bgAngle);

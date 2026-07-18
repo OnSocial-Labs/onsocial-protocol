@@ -12,7 +12,10 @@ import {
 import { NearConnector } from '@hot-labs/near-connect';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
-import { bootstrapAppSocialSession } from '@/lib/app-social-session';
+import {
+  bootstrapAppSocialSession,
+  restoreAppSocialSession,
+} from '@/lib/app-social-session';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -30,6 +33,8 @@ interface AppWalletContextType {
   hasSocialSession: boolean;
   isBootstrappingSession: boolean;
   connect: () => Promise<void>;
+  /** Re-run session bootstrap for the connected account (no wallet picker). */
+  resumeSocialSession: () => Promise<boolean>;
   switchWallet: () => Promise<void>;
   disconnect: () => Promise<void>;
   getSigningWallet: () => Promise<SigningWallet>;
@@ -85,6 +90,7 @@ const AppWalletContext = createContext<AppWalletContextType>({
   hasSocialSession: false,
   isBootstrappingSession: false,
   connect: async () => {},
+  resumeSocialSession: async () => false,
   switchWallet: async () => {},
   disconnect: async () => {},
   getSigningWallet: async () => {
@@ -104,27 +110,51 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   const [isBootstrappingSession, setIsBootstrappingSession] = useState(false);
   const connectorRef = useRef<NearConnector | null>(null);
   const connectPromiseRef = useRef<Promise<void> | null>(null);
+  /** One bootstrap at a time — AddKey must reuse the same pending key. */
+  const bootstrapPromiseRef = useRef<Promise<boolean> | null>(null);
+  const bootstrappingAccountRef = useRef<string | null>(null);
   const network = ACTIVE_NEAR_NETWORK;
 
   const ensureSocialSession = useCallback(
-    async (nextAccountId: string) => {
+    async (nextAccountId: string): Promise<boolean> => {
       const connector = connectorRef.current;
-      if (!connector) return;
+      if (!connector) return false;
 
-      setIsBootstrappingSession(true);
-      try {
-        const ready = await bootstrapAppSocialSession(nextAccountId, (options) =>
-          connector.connect(options)
-        );
-        setHasSocialSession(ready);
-        if (ready) {
-          invalidateAppSocialSessionCache();
-        }
-      } catch {
-        setHasSocialSession(false);
-      } finally {
-        setIsBootstrappingSession(false);
+      if (
+        bootstrapPromiseRef.current &&
+        bootstrappingAccountRef.current === nextAccountId
+      ) {
+        return bootstrapPromiseRef.current;
       }
+
+      const run = (async (): Promise<boolean> => {
+        setIsBootstrappingSession(true);
+        try {
+          const ready = await bootstrapAppSocialSession(
+            nextAccountId,
+            (options) => connector.connect(options)
+          );
+          setHasSocialSession(ready);
+          if (ready) {
+            invalidateAppSocialSessionCache();
+          }
+          return ready;
+        } catch (error) {
+          if (!isWalletUserCancellation(error)) {
+            console.warn('OnSocial session bootstrap failed', error);
+          }
+          setHasSocialSession(false);
+          return false;
+        } finally {
+          setIsBootstrappingSession(false);
+          bootstrapPromiseRef.current = null;
+          bootstrappingAccountRef.current = null;
+        }
+      })();
+
+      bootstrapPromiseRef.current = run;
+      bootstrappingAccountRef.current = nextAccountId;
+      return run;
     },
     []
   );
@@ -146,6 +176,8 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
       setAccountId(nextAccountId);
       writeStoredWalletAccountId(nextAccountId);
       if (nextAccountId) {
+        // Skip nested bootstrap while AddKey connect is already in flight.
+        if (bootstrappingAccountRef.current === nextAccountId) return;
         void ensureSocialSession(nextAccountId);
       } else {
         setHasSocialSession(false);
@@ -191,12 +223,50 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
     };
   }, [ensureSocialSession, network]);
 
+  const resumeSocialSession = useCallback(async (): Promise<boolean> => {
+    const nextAccountId = accountId ?? readStoredWalletAccountId();
+    if (!nextAccountId) return false;
+    try {
+      // Fast path: local session still valid — avoid reopening the wallet.
+      if (await restoreAppSocialSession(nextAccountId)) {
+        setHasSocialSession(true);
+        invalidateAppSocialSessionCache();
+        return true;
+      }
+    } catch (error) {
+      if (!isWalletUserCancellation(error)) {
+        console.warn('OnSocial session restore failed', error);
+      }
+      // Fall through to full bootstrap (AddKey) when restore cannot verify.
+    }
+    return ensureSocialSession(nextAccountId);
+  }, [accountId, ensureSocialSession]);
+
   const connect = useCallback(async () => {
     const connector = connectorRef.current;
     if (!connector) return;
     if (connectPromiseRef.current) {
       await connectPromiseRef.current;
       return;
+    }
+
+    // Already signed in — resume session instead of reopening the picker.
+    try {
+      const { wallet: connectedWallet, accounts } =
+        await connector.getConnectedWallet();
+      const nextAccountId = pickRestoredAccountId(
+        accounts,
+        accountId ?? readStoredWalletAccountId()
+      );
+      if (connectedWallet && nextAccountId) {
+        setWallet(connectedWallet);
+        setAccountId(nextAccountId);
+        writeStoredWalletAccountId(nextAccountId);
+        await ensureSocialSession(nextAccountId);
+        return;
+      }
+    } catch {
+      // fall through to fresh connect
     }
 
     const connectPromise = connector
@@ -220,7 +290,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [ensureSocialSession, network]);
+  }, [accountId, ensureSocialSession, network]);
 
   const switchWallet = useCallback(async () => {
     const connector = connectorRef.current;
@@ -334,6 +404,7 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
         hasSocialSession,
         isBootstrappingSession,
         connect,
+        resumeSocialSession,
         switchWallet,
         disconnect,
         getSigningWallet,

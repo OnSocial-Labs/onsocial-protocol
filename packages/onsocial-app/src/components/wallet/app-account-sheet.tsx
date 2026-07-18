@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import {
   AccountActionList,
@@ -50,7 +50,7 @@ export function AppAccountSheet({
     accountId,
     hasSocialSession,
     isBootstrappingSession,
-    connect,
+    resumeSocialSession,
     switchWallet,
     disconnect,
   } = useAppWallet();
@@ -67,9 +67,30 @@ export function AppAccountSheet({
     Record<string, IdentityOverride>
   >({});
   const pendingCustomizeRef = useRef(false);
+  const autoResumeAttemptedRef = useRef<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const sheetOpen = open && !closing;
+
+  // Re-attempt session restore when the drawer opens (same as page-load bootstrap).
+  useEffect(() => {
+    if (!sheetOpen || !accountId || hasSocialSession || isBootstrappingSession) {
+      return;
+    }
+    if (autoResumeAttemptedRef.current === accountId) return;
+    autoResumeAttemptedRef.current = accountId;
+    void resumeSocialSession();
+  }, [
+    sheetOpen,
+    accountId,
+    hasSocialSession,
+    isBootstrappingSession,
+    resumeSocialSession,
+  ]);
+
+  useEffect(() => {
+    if (!accountId) autoResumeAttemptedRef.current = null;
+  }, [accountId]);
   const editorSheetOpen = editorOpen && open;
   const storageSheetOpen = storageOpen && open;
   const platformStorage = usePlatformStorageSummary(
@@ -230,7 +251,7 @@ export function AppAccountSheet({
           {!hasSocialSession ? (
             <AccountSessionChip
               isBootstrapping={isBootstrappingSession}
-              onResume={() => void connect()}
+              onResume={() => void resumeSocialSession()}
             />
           ) : null}
 

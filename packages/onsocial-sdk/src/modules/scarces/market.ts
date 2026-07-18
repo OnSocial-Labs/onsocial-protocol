@@ -19,7 +19,10 @@ export class ScarcesMarketApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _relayOpts(opts?: { confirmation?: boolean }) {
+  private _relayOpts(opts?: {
+    confirmation?: boolean;
+    depositYocto?: string;
+  }) {
     return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
@@ -56,8 +59,14 @@ export class ScarcesMarketApi {
     );
   }
 
-  /** Purchase a listed scarce at its asking price. */
-  async purchase(tokenId: string): Promise<RelayResponse> {
+  /**
+   * Purchase a listed scarce at its asking price.
+   * Pass `depositYocto` for wallet broadcast (value payment).
+   */
+  async purchase(
+    tokenId: string,
+    opts: { depositYocto?: string } = {}
+  ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
       this._getSession(),
@@ -66,7 +75,11 @@ export class ScarcesMarketApi {
         tokenId,
       },
       'scarces.purchaseNativeScarce',
-      this._relayOpts()
+      this._relayOpts(
+        opts.depositYocto !== undefined
+          ? { depositYocto: opts.depositYocto }
+          : undefined
+      )
     );
   }
 

@@ -35,7 +35,10 @@ export class ScarcesLazyApi {
     this._scarcesContract = resolveContractId(_http.network, 'scarces');
   }
 
-  private _relayOpts(opts?: { confirmation?: boolean }) {
+  private _relayOpts(opts?: {
+    confirmation?: boolean;
+    depositYocto?: string;
+  }) {
     return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
@@ -111,8 +114,16 @@ export class ScarcesLazyApi {
     } as MintResponse;
   }
 
-  /** Purchase a lazy listing (mint-on-buy). */
-  async purchase(listingId: string): Promise<RelayResponse> {
+  /**
+   * Purchase a lazy listing (mint-on-buy).
+   * Attach `depositYocto` equal to the listing price (wallet broadcast) —
+   * session FunctionCall keys cannot pay value deposits, and the gateway
+   * relayer only allows 0 / 1 yocto.
+   */
+  async purchase(
+    listingId: string,
+    opts: { depositYocto?: string } = {}
+  ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
       this._getSession(),
@@ -121,7 +132,11 @@ export class ScarcesLazyApi {
         listingId,
       },
       'scarces.purchaseLazyList',
-      this._relayOpts()
+      this._relayOpts(
+        opts.depositYocto !== undefined
+          ? { depositYocto: opts.depositYocto }
+          : undefined
+      )
     );
   }
 
