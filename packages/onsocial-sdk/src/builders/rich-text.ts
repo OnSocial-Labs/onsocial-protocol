@@ -84,9 +84,7 @@ export function normalizeAutolinkUrl(raw: string): string | null {
   if (!value) return null;
 
   const hadScheme = /^https?:\/\//i.test(value);
-  const withScheme = hadScheme
-    ? value
-    : `https://${value.replace(/^\/+/, '')}`;
+  const withScheme = hadScheme ? value : `https://${value.replace(/^\/+/, '')}`;
 
   try {
     const parsed = new URL(withScheme);
