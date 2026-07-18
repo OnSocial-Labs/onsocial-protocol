@@ -54,7 +54,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
       apply_sql "$db" /work/leaderboard_schema_views.sql
       # Real amplify heat (replaces stub) when social-spend table is present.
       has_spend="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
-        SELECT to_regclass('public.social_spend_events') IS NOT NULL;
+        SELECT to_regclass('"'"'public.social_spend_events'"'"') IS NOT NULL;
       ")"
       if [ "$has_spend" = "t" ] && [ -f /work/social_spend_schema_views.sql ]; then
         apply_sql "$db" /work/social_spend_schema_views.sql
