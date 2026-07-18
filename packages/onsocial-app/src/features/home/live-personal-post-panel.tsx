@@ -22,7 +22,10 @@ import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { usePostEngagement } from '@/hooks/use-post-engagement';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  usePostEngagement,
+} from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -146,6 +149,10 @@ export function LivePersonalPostPanel({
   );
   const ancestorChain = useAncestorChain(conversation.root?.parentPath);
   const hasParent = ancestorChain.length > 0;
+  const engagementPosts = useMemo(
+    () => [...ancestorChain, ...threadPosts],
+    [ancestorChain, threadPosts]
+  );
   const quotedPostSources = useMemo(
     () => [...threadPosts, ...ancestorChain],
     [threadPosts, ancestorChain]
@@ -160,14 +167,16 @@ export function LivePersonalPostPanel({
     [threadPosts, quotedPosts, ancestorChain]
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
-  const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
-    threadPosts,
-    {
-      onError: (message) => setTxResult({ type: 'error', msg: message }),
-    }
-  );
+  const {
+    engagement,
+    toggleReaction,
+    isReactionPending,
+    confirmAmplify,
+  } = usePostEngagement(engagementPosts, {
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
+  });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
-    threadPosts,
+    engagementPosts,
     {
       onError: (message) => setTxResult({ type: 'error', msg: message }),
     }
@@ -503,6 +512,12 @@ export function LivePersonalPostPanel({
                         ? quotedPosts[ancestor.refPath]
                         : undefined
                     )}
+                    engagement={
+                      engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
+                    }
+                    reactionPending={isReactionPending(ancestor)}
+                    onToggleReaction={toggleReaction}
+                    onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
                     pollTally={pollTallyFor(ancestor)}
@@ -545,9 +560,13 @@ export function LivePersonalPostPanel({
                       ? quotedPosts[conversation.root.refPath]
                       : undefined
                   )}
-                  engagement={engagement[postKey(conversation.root)]}
+                  engagement={
+                    engagement[postKey(conversation.root)] ??
+                    EMPTY_POST_ENGAGEMENT
+                  }
                   reactionPending={isReactionPending(conversation.root)}
                   onToggleReaction={toggleReaction}
+                  onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
                   pollTally={pollTallyFor(conversation.root)}
@@ -687,6 +706,7 @@ export function LivePersonalPostPanel({
                             engagement={engagement[postKey(row.post)]}
                             reactionPending={isReactionPending(row.post)}
                             onToggleReaction={toggleReaction}
+                            onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
                             pollTally={pollTallyFor(row.post)}
@@ -722,6 +742,7 @@ export function LivePersonalPostPanel({
                       engagement={engagement[postKey(quote)]}
                       reactionPending={isReactionPending(quote)}
                       onToggleReaction={toggleReaction}
+                      onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}
                       pollTally={pollTallyFor(quote)}

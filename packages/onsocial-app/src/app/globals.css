@@ -6902,7 +6902,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
-  /* Text tabs — soft selected wash like menu rows; no underline / rail. */
+  /* Text tabs — pill chips (same language as SearchField); no underline / rail. */
   .discover-tab-bar {
     margin: 0 0 0.35rem;
     padding: 0;
@@ -6914,7 +6914,7 @@ a.os-surface-row {
 
   .discover-tab-bar-scroller {
     display: flex;
-    gap: 0.15rem;
+    gap: 0.2rem;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -6928,8 +6928,8 @@ a.os-surface-row {
     flex: 0 0 auto;
     margin: 0;
     border: 0;
-    border-radius: 0.5rem;
-    padding: 0.375rem 0.625rem;
+    border-radius: 9999px;
+    padding: 0.375rem 0.75rem;
     background: transparent;
     box-shadow: none;
     color: var(--os-surface-muted);
@@ -12359,11 +12359,101 @@ a.os-surface-row {
     gap: 1.25rem;
   }
 
-  .home-feed-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
+  /* Same toolbar offset as Discover tab rail. */
+  .os-app-screen-toolbar:has(.home-feed-chip-bar) {
+    margin-top: 0.5rem;
+  }
+
+  .home-feed-chip-bar {
+    margin: 0;
     min-width: 0;
+    width: 100%;
+  }
+
+  .home-feed-chip-bar .discover-tab-bar-scroller {
+    align-items: center;
+  }
+
+  /* Active #/$ chip + × — one pill wash, same as Discover tabs. */
+  .home-feed-chip-cluster {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    max-width: 100%;
+    border-radius: 9999px;
+  }
+
+  .home-feed-chip-cluster.is-active {
+    background: var(--os-surface-fill);
+  }
+
+  .home-feed-chip-cluster > button[role='tab'] {
+    min-width: 0;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .home-feed-chip-cluster.is-active > button[role='tab'].is-active {
+    background: transparent;
+    padding-right: 0.2rem;
+  }
+
+  .home-feed-chip-cluster.is-active > button[role='tab'].is-active:hover,
+  .home-feed-chip-cluster.is-active
+    > button[role='tab'].is-active:focus-visible {
+    background: transparent;
+  }
+
+  /* Beat .discover-tab-bar button padding / hover so × stays a tight control. */
+  .home-feed-chip-bar .home-feed-chip-remove {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    min-width: 1.35rem;
+    min-height: 1.35rem;
+    margin: 0 0.28rem 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    box-shadow: none;
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-size: 0;
+    line-height: 1;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+
+  .home-feed-chip-bar .home-feed-chip-remove:hover,
+  .home-feed-chip-bar .home-feed-chip-remove:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.84);
+    background: rgb(var(--fg-rgb) / 0.08);
+    outline: none;
+  }
+
+  .home-feed-chip-remove-icon {
+    width: 0.72rem;
+    height: 0.72rem;
+  }
+
+  /* Same vertical padding as Discover tabs; square + at the rail end. */
+  .home-feed-chip-bar .home-feed-chip-add {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.05rem;
+    min-width: 2.05rem;
+    padding: 0.375rem;
+  }
+
+  .home-feed-chip-add-icon {
+    width: 0.9rem;
+    height: 0.9rem;
   }
 
   .home-hashtag-search {
@@ -12455,25 +12545,90 @@ a.os-surface-row {
     color: var(--os-surface-muted-strong);
   }
 
-  .home-feed-lens-option {
+  /* Match guild add-room / facts sheets: header inset + body pad. */
+  .home-saved-feed-sheet-panel.glass-sheet-panel {
+    height: min(88dvh, 36rem);
+    max-height: min(88dvh, 36rem);
+  }
+
+  .home-saved-feed-sheet-header {
+    padding-bottom: 0.45rem;
+  }
+
+  .home-saved-feed-sheet-body {
     display: flex;
-    min-width: 0;
-    flex: 1;
     flex-direction: column;
-    align-items: flex-start;
+    min-height: 0;
+    padding: 0.2rem 1.15rem 1.25rem;
+    overflow: hidden;
+  }
+
+  .home-saved-feed-sheet {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-height: 0;
+  }
+
+  .home-saved-feed-sheet-search {
+    flex-shrink: 0;
+  }
+
+  /* Same pill search surface as Discover (not rectangular sheet chrome). */
+  .home-saved-feed-sheet-search-field.search-field {
+    border-radius: 9999px;
+  }
+
+  .home-saved-feed-sheet-section-label {
+    flex-shrink: 0;
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .home-saved-feed-sheet-state {
+    margin: 0;
+    padding: 0.55rem 0.05rem;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .home-saved-feed-sheet-list {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
     gap: 0.12rem;
+    min-height: 0;
+    margin: 0 -0.35rem;
+    padding: 0 0.35rem;
+    overflow-x: clip;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .home-saved-feed-sheet-list .home-hashtag-suggest-item {
+    width: 100%;
+    border: 0;
+    border-radius: 0.75rem;
+    background: transparent;
+    cursor: pointer;
     text-align: left;
   }
 
-  .home-feed-lens-option-label {
-    font-weight: 600;
+  .home-saved-feed-sheet-list .home-hashtag-suggest-item:hover,
+  .home-saved-feed-sheet-list .home-hashtag-suggest-item:focus-visible {
+    background: var(--os-surface-row-hover);
+    outline: none;
   }
 
-  .home-feed-lens-option-desc {
-    font-size: 0.72rem;
-    font-weight: 500;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.48);
+  .home-saved-feed-sheet-list .home-hashtag-suggest-item.is-saved {
+    background: var(--os-surface-fill);
   }
 
   .app-soon-copy {
@@ -12704,6 +12859,7 @@ a.os-surface-row {
   .post-card--openable .post-media-unmute-gate,
   .post-card--openable .post-card-stat-button,
   .post-card--openable .post-card-react,
+  .post-card--openable .post-card-amplify,
   .post-card--openable .post-card-menu,
   .post-card--openable .post-card-menu-panel,
   .post-card--openable .post-card-menu-panel *,
@@ -12714,6 +12870,22 @@ a.os-surface-row {
   .post-card--openable .os-link,
   .post-card--openable .post-card-guild {
     pointer-events: auto;
+  }
+
+  /*
+   * Engagement controls must sit above `.post-card-hit` (same pattern as
+   * `.os-link` / menu). Gaps between icons stay click-through to open the post.
+   */
+  .post-card--openable .post-card-engagement {
+    position: relative;
+    z-index: 2;
+  }
+
+  .post-card--openable .post-card-stat-button,
+  .post-card--openable .post-card-react,
+  .post-card--openable .post-card-amplify {
+    position: relative;
+    z-index: 2;
   }
 
   /* External links — always above the open-hit / quote-inset click catchers. */
@@ -13800,7 +13972,8 @@ a.os-surface-row {
   }
 
   .post-card-stat,
-  .post-card-react {
+  .post-card-react,
+  .post-card-amplify {
     display: inline-flex;
     align-items: center;
     gap: 0.32rem;
@@ -13820,7 +13993,8 @@ a.os-surface-row {
   }
 
   .post-card-stat svg,
-  .post-card-react svg {
+  .post-card-react svg,
+  .post-card-amplify svg {
     /* Same box for every Mage glyph; stroke icons carry extra viewBox padding. */
     width: 1.05rem;
     height: 1.05rem;
@@ -13829,7 +14003,8 @@ a.os-surface-row {
   }
 
   .post-card-stat-button,
-  .post-card-react {
+  .post-card-react,
+  .post-card-amplify {
     border: 0;
     background: transparent;
     /* Comfortable hit target; gaps between icons still open the post. */
@@ -13840,12 +14015,14 @@ a.os-surface-row {
   }
 
   .post-card-stat-button:disabled,
-  .post-card-react:disabled {
+  .post-card-react:disabled,
+  .post-card-amplify:disabled {
     cursor: default;
   }
 
   .post-card-stat-button:focus-visible,
-  .post-card-react:focus-visible {
+  .post-card-react:focus-visible,
+  .post-card-amplify:focus-visible {
     outline: none;
   }
 
@@ -13865,6 +14042,13 @@ a.os-surface-row {
     color: var(--protocol-red, #ef4444);
   }
 
+  .post-card-stat--amplify:hover:not(:disabled),
+  .post-card-stat--amplify:focus-visible,
+  .post-card-amplify:hover:not(:disabled),
+  .post-card-amplify:focus-visible {
+    color: var(--protocol-amber);
+  }
+
   /* Liked is persistent state: icon + count stay red. */
   .post-card-react.is-active {
     color: var(--protocol-red, #ef4444);
@@ -13874,6 +14058,15 @@ a.os-surface-row {
   .post-card-react.is-active:hover:not(:disabled),
   .post-card-react.is-active:focus-visible {
     color: color-mix(in srgb, var(--protocol-red, #ef4444) 72%, white);
+  }
+
+  .post-card-amplify.is-active {
+    color: var(--protocol-amber);
+  }
+
+  .post-card-amplify.is-active:hover:not(:disabled),
+  .post-card-amplify.is-active:focus-visible {
+    color: color-mix(in srgb, var(--protocol-amber) 72%, white);
   }
 
   .post-card-react.is-pending {

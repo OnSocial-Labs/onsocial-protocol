@@ -7,6 +7,8 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   Divider,
   DotsVerticalIcon,
+  FireFillIcon,
+  FireIcon,
   FloatingPanelMenu,
   HeartFillIcon,
   HeartIcon,
@@ -19,6 +21,7 @@ import {
   useDropdown,
 } from '@onsocial/ui';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
+import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildPath } from '@/features/guilds/guilds-data';
@@ -83,6 +86,8 @@ interface PostCardProps {
   engagement?: PostEngagement;
   reactionPending?: boolean;
   onToggleReaction?: (post: PostRow) => void;
+  /** Optimistic amplify count bump after a confirmed spend. */
+  onAmplifyConfirmed?: (post: PostRow) => void;
   /** Open a reply composer targeting this post. */
   onReply?: (post: PostRow) => void;
   /** Open a quote composer targeting this post. */
@@ -500,21 +505,27 @@ function ReactIcon({ filled }: { filled: boolean }) {
   return filled ? <HeartFillIcon aria-hidden /> : <HeartIcon aria-hidden />;
 }
 
+function AmplifyIcon({ filled }: { filled: boolean }) {
+  return filled ? <FireFillIcon aria-hidden /> : <FireIcon aria-hidden />;
+}
+
 function engagementStatClassName(
-  tone: 'reply' | 'quote' | undefined,
+  tone: 'reply' | 'quote' | 'amplify' | undefined,
   interactive: boolean,
   className?: string
 ) {
-  if (className) return className;
   const toneClass =
     tone === 'reply'
       ? ' post-card-stat--reply'
       : tone === 'quote'
         ? ' post-card-stat--quote'
-        : '';
-  return interactive
+        : tone === 'amplify'
+          ? ' post-card-stat--amplify'
+          : '';
+  const base = interactive
     ? `post-card-stat post-card-stat-button${toneClass}`
     : `post-card-stat${toneClass}`;
+  return className ? `${base} ${className}` : base;
 }
 
 function EngagementStat({
@@ -536,7 +547,7 @@ function EngagementStat({
   className?: string;
   disabled?: boolean;
   ariaPressed?: boolean;
-  tone?: 'reply' | 'quote';
+  tone?: 'reply' | 'quote' | 'amplify';
 }) {
   const countNode =
     count > 0 ? (
@@ -552,6 +563,9 @@ function EngagementStat({
         aria-pressed={ariaPressed}
         aria-label={actionLabel ?? label}
         title={actionLabel ?? label}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -700,6 +714,7 @@ export function PostCard({
   engagement,
   reactionPending,
   onToggleReaction,
+  onAmplifyConfirmed,
   onReply,
   onQuote,
   pollTally,
@@ -711,6 +726,7 @@ export function PostCard({
   detailLayout = false,
 }: PostCardProps) {
   const router = useRouter();
+  const [amplifyOpen, setAmplifyOpen] = useState(false);
   const text = parsePostText(post.value);
   const poll = parsePostPollEmbed(post.value);
   const mediaItems = parsePostMedia(post.value);
@@ -904,9 +920,30 @@ export function PostCard({
                 label="reactions"
               />
             )}
+            <EngagementStat
+              icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
+              count={engagement.amplifyCount}
+              label="amplifies"
+              tone="amplify"
+              className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
+              ariaPressed={engagement.viewerAmplified}
+              actionLabel={
+                engagement.viewerAmplified
+                  ? 'Amplify again'
+                  : 'Amplify this post'
+              }
+              onActivate={() => setAmplifyOpen(true)}
+            />
           </div>
         ) : null}
       </div>
+      <PostAmplifySheet
+        open={amplifyOpen}
+        post={amplifyOpen ? post : null}
+        authorName={authorProfile?.displayName}
+        onOpenChange={setAmplifyOpen}
+        onAmplified={(amplified) => onAmplifyConfirmed?.(amplified)}
+      />
     </article>
   );
 }

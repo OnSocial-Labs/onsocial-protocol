@@ -44,6 +44,11 @@ export interface PostRow {
   authorName?: string | null;
   authorAvatar?: string | null;
   groupName?: string | null;
+  /**
+   * Soft amplify ranking heat from `posts_feed.amplify_heat`
+   * (decaying; 0 when cold / unavailable).
+   */
+  amplifyHeat?: number | null;
   /** Present when client enrich hydrates quoted-author shells. */
   refAuthorName?: string | null;
   refAuthorAvatar?: string | null;
@@ -59,8 +64,17 @@ export const FEED_POST_ROW_FIELDS = `
   accountId postId value blockHeight blockTimestamp receiptId
   parentPath parentAuthor parentType refPath refAuthor refType channel kind audiences
   groupId isGroupContent
-  authorName authorAvatar groupName
+  authorName authorAvatar groupName amplifyHeat
 `;
+
+/** Home / list feed ranking. `hot` needs `posts_feed.amplify_heat`. */
+export type FeedSort = 'recent' | 'hot';
+
+export function feedOrderByClause(sort: FeedSort = 'recent'): string {
+  return sort === 'hot'
+    ? '[{amplifyHeat: DESC}, {blockHeight: DESC}]'
+    : '[{blockHeight: DESC}]';
+}
 
 export function accountFromContentPath(path: string): string {
   const [accountId] = path.split('/', 1);

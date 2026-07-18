@@ -10,10 +10,22 @@ import {
   GraphQLValidationError,
   POST_ROW_FIELDS,
   audienceLikeValue,
+  feedOrderByClause,
+  type FeedSort,
 } from './_shared.js';
+
+export type { FeedSort };
 
 /** Set when GraphQL rejects `postsFeed` (view not tracked yet). */
 let postsFeedUnavailable = false;
+
+/** Set when GraphQL rejects `amplifyHeat` (column not tracked yet). */
+let amplifyHeatUnavailable = false;
+
+const FEED_POST_ROW_FIELDS_NO_HEAT = FEED_POST_ROW_FIELDS.replace(
+  /\s*amplifyHeat\s*/,
+  ' '
+).trim();
 
 function isPostsFeedUnavailableError(err: unknown): boolean {
   if (!(err instanceof GraphQLValidationError)) return false;
@@ -25,6 +37,13 @@ function isPostsFeedUnavailableError(err: unknown): boolean {
     hay.includes('field "postsfeed"') ||
     hay.includes("field 'postsfeed'")
   );
+}
+
+function isAmplifyHeatUnavailableError(err: unknown): boolean {
+  if (!(err instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${err.message} ${err.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return hay.includes('amplifyheat') || hay.includes('amplify_heat');
 }
 
 export class FeedQuery {
@@ -83,15 +102,33 @@ export class FeedQuery {
     postsFeedQuery: string;
     postsCurrentQuery: string;
     variables: Record<string, unknown>;
+    /** Chrono-only postsFeed query when amplifyHeat is not tracked yet. */
+    postsFeedQueryNoHeat?: string;
   }): Promise<PostRow[]> {
     if (!postsFeedUnavailable) {
+      const feedQuery =
+        amplifyHeatUnavailable && args.postsFeedQueryNoHeat
+          ? args.postsFeedQueryNoHeat
+          : args.postsFeedQuery;
       try {
         const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
-          query: args.postsFeedQuery,
+          query: feedQuery,
           variables: args.variables,
         });
         return res.data?.postsFeed ?? [];
       } catch (err) {
+        if (
+          !amplifyHeatUnavailable &&
+          args.postsFeedQueryNoHeat &&
+          isAmplifyHeatUnavailableError(err)
+        ) {
+          amplifyHeatUnavailable = true;
+          const res = await this._q.graphql<{ postsFeed: PostRow[] }>({
+            query: args.postsFeedQueryNoHeat,
+            variables: args.variables,
+          });
+          return res.data?.postsFeed ?? [];
+        }
         if (!isPostsFeedUnavailableError(err)) throw err;
         postsFeedUnavailable = true;
       }
@@ -105,17 +142,28 @@ export class FeedQuery {
   }
 
   /**
-   * Recent posts, optionally filtered by author.
+   * Recent / hot posts, optionally filtered by author.
+   *
+   * `sort: 'hot'` orders by decaying amplify heat then block height
+   * (`posts_feed.amplify_heat`). Falls back to chronological when the
+   * enriched feed view is unavailable.
    *
    * ```ts
-   * const { items, nextOffset } = await os.query.feed.recent({ limit: 20 });
+   * const { items, nextOffset } = await os.query.feed.recent({ limit: 20, sort: 'hot' });
    * ```
    */
   async recent(
-    opts: { author?: string; limit?: number; offset?: number } = {}
+    opts: {
+      author?: string;
+      limit?: number;
+      offset?: number;
+      sort?: FeedSort;
+    } = {}
   ): Promise<Paginated<PostRow>> {
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
+    const sort = opts.sort ?? 'recent';
+    const orderBy = feedOrderByClause(sort);
     const hasAuthor = !!opts.author;
     const variables = {
       ...(hasAuthor ? { author: opts.author } : {}),
@@ -123,17 +171,29 @@ export class FeedQuery {
       offset,
     };
 
+    const chronoOrder = feedOrderByClause('recent');
     const rows = await this.queryFeedRows({
       variables,
       postsFeedQuery: hasAuthor
         ? `query Posts($author: String!, $limit: Int!, $offset: Int!) {
-            postsFeed(where: {accountId: {_eq: $author}}, limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
+            postsFeed(where: {accountId: {_eq: $author}}, limit: $limit, offset: $offset, orderBy: ${orderBy}) {
               ${FEED_POST_ROW_FIELDS}
             }
           }`
         : `query Posts($limit: Int!, $offset: Int!) {
-            postsFeed(limit: $limit, offset: $offset, orderBy: [{blockHeight: DESC}]) {
+            postsFeed(limit: $limit, offset: $offset, orderBy: ${orderBy}) {
               ${FEED_POST_ROW_FIELDS}
+            }
+          }`,
+      postsFeedQueryNoHeat: hasAuthor
+        ? `query Posts($author: String!, $limit: Int!, $offset: Int!) {
+            postsFeed(where: {accountId: {_eq: $author}}, limit: $limit, offset: $offset, orderBy: ${chronoOrder}) {
+              ${FEED_POST_ROW_FIELDS_NO_HEAT}
+            }
+          }`
+        : `query Posts($limit: Int!, $offset: Int!) {
+            postsFeed(limit: $limit, offset: $offset, orderBy: ${chronoOrder}) {
+              ${FEED_POST_ROW_FIELDS_NO_HEAT}
             }
           }`,
       postsCurrentQuery: hasAuthor
@@ -160,17 +220,21 @@ export class FeedQuery {
    *
    * ```ts
    * const accounts = await os.query.standings.outgoing('alice.near');
-   * const { items } = await os.query.feed.fromAccounts({ accounts, limit: 20 });
+   * const { items } = await os.query.feed.fromAccounts({ accounts, limit: 20, sort: 'hot' });
    * ```
    */
   async fromAccounts(opts: {
     accounts: string[];
     limit?: number;
     offset?: number;
+    sort?: FeedSort;
   }): Promise<Paginated<PostRow>> {
     if (opts.accounts.length === 0) return { items: [] };
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
+    const sort = opts.sort ?? 'recent';
+    const orderBy = feedOrderByClause(sort);
+    const chronoOrder = feedOrderByClause('recent');
     const variables = { accounts: opts.accounts, limit, offset };
 
     const rows = await this.queryFeedRows({
@@ -179,9 +243,18 @@ export class FeedQuery {
         postsFeed(
           where: {accountId: {_in: $accounts}},
           limit: $limit, offset: $offset,
-          orderBy: [{blockHeight: DESC}]
+          orderBy: ${orderBy}
         ) {
           ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+      postsFeedQueryNoHeat: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {
+        postsFeed(
+          where: {accountId: {_in: $accounts}},
+          limit: $limit, offset: $offset,
+          orderBy: ${chronoOrder}
+        ) {
+          ${FEED_POST_ROW_FIELDS_NO_HEAT}
         }
       }`,
       postsCurrentQuery: `query Feed($accounts: [String!]!, $limit: Int!, $offset: Int!) {

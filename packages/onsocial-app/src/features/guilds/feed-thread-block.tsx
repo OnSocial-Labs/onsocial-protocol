@@ -31,6 +31,7 @@ interface FeedThreadBlockProps {
   engagement: Record<string, PostEngagement>;
   isReactionPending: (post: PostRow) => boolean;
   onToggleReaction: (post: PostRow) => void;
+  onAmplifyConfirmed?: (post: PostRow) => void;
   pollTallyFor?: (post: PostRow) => PollTally | undefined;
   isPollVotePending?: (post: PostRow) => boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;
@@ -74,6 +75,7 @@ export function FeedThreadBlock({
   engagement,
   isReactionPending,
   onToggleReaction,
+  onAmplifyConfirmed,
   pollTallyFor,
   isPollVotePending,
   onPollVote,
@@ -151,6 +153,7 @@ export function FeedThreadBlock({
           engagement={stats}
           reactionPending={isReactionPending(post)}
           onToggleReaction={onToggleReaction}
+          onAmplifyConfirmed={onAmplifyConfirmed}
           pollTally={pollTallyFor?.(post)}
           pollVotePending={isPollVotePending?.(post)}
           onPollVote={onPollVote}

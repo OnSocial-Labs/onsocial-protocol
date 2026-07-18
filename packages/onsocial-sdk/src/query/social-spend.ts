@@ -263,6 +263,8 @@ export class SocialSpendQuery {
       action?: string | string[];
       targetType?: string;
       targetId?: string;
+      /** Batch filter — `_in` on `targetId` (e.g. amplify counts for a feed page). */
+      targetIds?: string[];
       seasonId?: string;
       recipientId?: string;
       success?: boolean;
@@ -317,7 +319,12 @@ export class SocialSpendQuery {
     }
     if (opts.targetType)
       addEq('targetType', 'targetType', opts.targetType, 'String!');
-    if (opts.targetId) addEq('targetId', 'targetId', opts.targetId, 'String!');
+    if (opts.targetIds !== undefined) {
+      if (opts.targetIds.length === 0) return [];
+      addIn('targetId', 'targetIds', opts.targetIds, 'String');
+    } else if (opts.targetId) {
+      addEq('targetId', 'targetId', opts.targetId, 'String!');
+    }
     if (opts.seasonId) addEq('seasonId', 'seasonId', opts.seasonId, 'String!');
     if (opts.recipientId)
       addEq('recipientId', 'recipientId', opts.recipientId, 'String!');
@@ -397,6 +404,49 @@ export class SocialSpendQuery {
       limit: opts.limit,
       offset: opts.offset,
     });
+  }
+
+  /**
+   * Amplify (`boost_post`) counts for a page of posts.
+   * `count` = successful spend events (matches on-chain target totals).
+   */
+  async amplifyCountsForPostPaths(
+    postPaths: string[],
+    opts: { viewer?: string; limit?: number } = {}
+  ): Promise<
+    Record<string, { amplifyCount: number; viewerAmplified: boolean }>
+  > {
+    const paths = Array.from(
+      new Set(postPaths.map((path) => path.trim()).filter(Boolean))
+    );
+    const empty: Record<
+      string,
+      { amplifyCount: number; viewerAmplified: boolean }
+    > = {};
+    for (const path of paths) {
+      empty[path] = { amplifyCount: 0, viewerAmplified: false };
+    }
+    if (paths.length === 0) return empty;
+
+    const rows = await this.events({
+      action: 'boost_post',
+      targetType: 'post',
+      targetIds: paths,
+      eventType: SOCIAL_SPEND_EVENT_TYPES.SOCIAL_SPENT,
+      success: true,
+      limit: opts.limit ?? Math.min(2_000, Math.max(200, paths.length * 40)),
+    });
+
+    const viewer = opts.viewer?.trim().toLowerCase() ?? '';
+    for (const row of rows) {
+      const path = row.targetId?.trim();
+      if (!path || !(path in empty)) continue;
+      empty[path]!.amplifyCount += 1;
+      if (viewer && row.spenderId?.trim().toLowerCase() === viewer) {
+        empty[path]!.viewerAmplified = true;
+      }
+    }
+    return empty;
   }
 
   async endorsementSupportSummary(

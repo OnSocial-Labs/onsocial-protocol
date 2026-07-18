@@ -643,6 +643,14 @@ describe('QueryModule', () => {
       expect(page.items).toHaveLength(1);
       expect(page.nextOffset).toBeUndefined();
     });
+
+    it('orders postsFeed by amplify heat when sort is hot', async () => {
+      const { os, fetch } = makeOs({ data: { postsFeed: [] } });
+      await os.query.feed.recent({ limit: 20, sort: 'hot' });
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('amplifyHeat: DESC');
+      expect(body.query).toContain('amplifyHeat');
+    });
   });
 
   describe('getFeed()', () => {

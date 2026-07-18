@@ -405,6 +405,30 @@ export function HeartIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Mage `fire-a` — amplify idle; pair with FireFillIcon when viewer amplified. */
+export function FireIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M4.21053 14.4342C4.21053 20.762 10.0526 21.25 12 21.25C13.9474 21.25 19.7895 20.762 19.7895 14.4342C19.7895 11.5651 16.9711 10.6621 15.8947 6.64474C9.07895 14.4342 10.0526 2.75 10.0526 2.75C10.0526 2.75 4.21053 8.59211 4.21053 14.4342Z"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M8.01979 13.6936C7.59763 15.8631 9.3648 17.556 11.0445 17.8829"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `edit-pen` — profile / inline edit affordance. */
 export function EditPenIcon(props: MageStrokeIconProps) {
   return (

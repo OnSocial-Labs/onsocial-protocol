@@ -538,7 +538,18 @@ WHERE p.name IS NOT NULL
    OR p.banner IS NOT NULL;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 6c. posts_feed — posts + author shell + optional guild name (Home/list UIs)
+-- 6c. post_amplify_heat — stub (0 heat). Real formula in
+--     social_spend_schema_views.sql when social_spend_events is present.
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW post_amplify_heat AS
+SELECT
+  NULL::text AS post_path,
+  0::double precision AS heat
+WHERE false;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 6d. posts_feed — posts + author shell + optional guild name + amplify heat
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW posts_feed AS
@@ -562,14 +573,21 @@ SELECT
   p.is_group_content,
   ps.name AS author_name,
   ps.avatar AS author_avatar,
-  g.group_name AS group_name
+  g.group_name AS group_name,
+  COALESCE(h.heat, 0)::double precision AS amplify_heat
 FROM posts_current p
 LEFT JOIN profile_search ps
   ON ps.account_id = p.account_id
 LEFT JOIN groups_current g
   ON g.group_id = p.group_id
  AND p.group_id IS NOT NULL
- AND p.group_id <> '';
+ AND p.group_id <> ''
+LEFT JOIN post_amplify_heat h
+  ON h.post_path = CASE
+    WHEN p.group_id IS NOT NULL AND p.group_id <> ''
+      THEN p.account_id || '/groups/' || p.group_id || '/content/post/' || p.post_id
+    ELSE p.account_id || '/post/' || p.post_id
+  END;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 7. thread_replies — posts that are replies

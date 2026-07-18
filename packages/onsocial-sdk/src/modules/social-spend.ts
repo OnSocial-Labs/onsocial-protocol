@@ -315,6 +315,65 @@ export class SocialSpendModule {
     );
   }
 
+  /**
+   * Amplify a post — SOCIAL spend (`boost_post`) with author as recipient.
+   * `postPath` is the indexed content path (`alice.near/post/1` or guild path).
+   */
+  boostPost(
+    input: {
+      postPath: string;
+      authorAccountId: string;
+      amount: SocialSpendAmount;
+    },
+    opts: SocialSpendSendOptions & {
+      appId?: string;
+      tag?: string;
+      metadata?: unknown;
+    } = {}
+  ): Promise<RelayResponse> {
+    return this.spend(
+      {
+        amount: input.amount,
+        appId: opts.appId,
+        action: 'boost_post',
+        targetType: 'post',
+        targetId: input.postPath,
+        recipientId: input.authorAccountId,
+        tag: opts.tag,
+        metadata: opts.metadata,
+      },
+      opts
+    );
+  }
+
+  buildBoostPostTransaction(
+    input: {
+      postPath: string;
+      authorAccountId: string;
+      amount: SocialSpendAmount;
+    },
+    opts: {
+      appId?: string;
+      tag?: string;
+      metadata?: unknown;
+      gas?: string | bigint;
+    } = {}
+  ): WalletTransaction {
+    return this.buildSpendTransaction(
+      {
+        amount: input.amount,
+        appId: opts.appId,
+        action: 'boost_post',
+        targetType: 'post',
+        targetId: input.postPath,
+        recipientId: input.authorAccountId,
+        tag: opts.tag,
+        metadata: opts.metadata,
+      },
+      { gas: opts.gas }
+    );
+  }
+
   unlockPageMood(
     moodId: string,
     amount: SocialSpendAmount,

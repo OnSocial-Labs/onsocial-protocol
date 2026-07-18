@@ -13,6 +13,7 @@ import {
   EditIcon,
   EditPenIcon,
   ExternalLinkIcon,
+  FireIcon,
   GiftIcon,
   GlobeIcon,
   HeartIcon,
@@ -43,6 +44,7 @@ describe('mage stroke icons', () => {
     expect(typeof EditIcon).toBe('function');
     expect(typeof EditPenIcon).toBe('function');
     expect(typeof ExternalLinkIcon).toBe('function');
+    expect(typeof FireIcon).toBe('function');
     expect(typeof HeartIcon).toBe('function');
     expect(typeof LinkIcon).toBe('function');
     expect(typeof MessageIcon).toBe('function');

@@ -180,6 +180,7 @@ export {
   aggregateEndorsementSupportRows,
   postContentPath,
 } from './query/index.js';
+export type { FeedSort } from './query/index.js';
 export type {
   EndorsementSupporterAggregate,
   EndorsementSupportGivenRow,

@@ -204,6 +204,27 @@ export async function fetchSupportProfileRouting(): Promise<SupportProfileRoutin
   }
 }
 
+/**
+ * Live `boost_post` (Amplify) routing from social-spend; null if unavailable.
+ * Same ActionConfig shape as support — DAO-set bps + min.
+ */
+export async function fetchBoostPostRouting(): Promise<SupportProfileRoutingDisclosure | null> {
+  try {
+    const config = await viewNearContract<unknown>(
+      SOCIAL_SPEND_CONTRACT,
+      'get_action_config',
+      { action_id: 'boost_post' }
+    );
+    return parseSupportProfileActionConfig(config);
+  } catch {
+    return null;
+  }
+}
+
+/** Fallback amplify min when chain config is unavailable (0.01 SOCIAL). */
+export const BOOST_POST_MIN_YOCTO = SUPPORT_PROFILE_MIN_YOCTO;
+export const BOOST_POST_PRESET_SOCIAL = SUPPORT_PROFILE_PRESET_SOCIAL;
+
 /** Unclaimed profile support balance (`get_target_balance`). */
 export async function fetchProfileSupportBalanceYocto(
   accountId: string,

@@ -73,6 +73,7 @@ export {
   EditIcon,
   EditPenIcon,
   ExternalLinkIcon,
+  FireIcon,
   GiftIcon,
   GlobeIcon,
   HeartIcon,

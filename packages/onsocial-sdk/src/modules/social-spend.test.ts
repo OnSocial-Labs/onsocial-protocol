@@ -82,6 +82,31 @@ describe('buildSocialSpendFtTransferCallArgs', () => {
   });
 });
 
+describe('buildBoostPostTransaction', () => {
+  it('builds boost_post spend with post path and author recipient', () => {
+    const module = new SocialSpendModule(http);
+    const tx = module.buildBoostPostTransaction(
+      {
+        postPath: 'alice.testnet/post/42',
+        authorAccountId: 'alice.testnet',
+        amount: '1000000000000000000',
+      },
+      { appId: 'onpage' }
+    );
+
+    expect(tx.receiverId).toBe('token.onsocial.testnet');
+    const args = tx.actions[0]?.args as { msg: string };
+    expect(JSON.parse(args.msg)).toEqual({
+      v: 1,
+      app_id: 'onpage',
+      action: 'boost_post',
+      target_type: 'post',
+      target_id: 'alice.testnet/post/42',
+      recipient_id: 'alice.testnet',
+    });
+  });
+});
+
 describe('buildUnlockPageMood spend', () => {
   const summerUnlockAmount = '100000000000000000000';
 

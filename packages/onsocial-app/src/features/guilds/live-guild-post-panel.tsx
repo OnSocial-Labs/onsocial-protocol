@@ -43,7 +43,10 @@ import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access'
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { usePostEngagement } from '@/hooks/use-post-engagement';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  usePostEngagement,
+} from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -219,6 +222,10 @@ export function LiveGuildPostPanel({
   // Full ancestor chain up to the conversation root, oldest first.
   const ancestorChain = useAncestorChain(conversation.root?.parentPath);
   const hasParent = ancestorChain.length > 0;
+  const engagementPosts = useMemo(
+    () => [...ancestorChain, ...threadPosts],
+    [ancestorChain, threadPosts]
+  );
   const quotedPostSources = useMemo(
     () => [...threadPosts, ...ancestorChain],
     [threadPosts, ancestorChain]
@@ -233,14 +240,16 @@ export function LiveGuildPostPanel({
     [threadPosts, quotedPosts, ancestorChain]
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
-  const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
-    threadPosts,
-    {
-      onError: (message) => setTxResult({ type: 'error', msg: message }),
-    }
-  );
+  const {
+    engagement,
+    toggleReaction,
+    isReactionPending,
+    confirmAmplify,
+  } = usePostEngagement(engagementPosts, {
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
+  });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
-    threadPosts,
+    engagementPosts,
     {
       onError: (message) => setTxResult({ type: 'error', msg: message }),
     }
@@ -958,6 +967,12 @@ export function LiveGuildPostPanel({
                         ? quotedPosts[ancestor.refPath]
                         : undefined
                     )}
+                    engagement={
+                      engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
+                    }
+                    reactionPending={isReactionPending(ancestor)}
+                    onToggleReaction={toggleReaction}
+                    onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
                     pollTally={pollTallyFor(ancestor)}
@@ -1009,9 +1024,13 @@ export function LiveGuildPostPanel({
                       ? quotedPosts[conversation.root.refPath]
                       : undefined
                   )}
-                  engagement={engagement[postKey(conversation.root)]}
+                  engagement={
+                    engagement[postKey(conversation.root)] ??
+                    EMPTY_POST_ENGAGEMENT
+                  }
                   reactionPending={isReactionPending(conversation.root)}
                   onToggleReaction={toggleReaction}
+                  onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
                   pollTally={pollTallyFor(conversation.root)}
@@ -1158,6 +1177,7 @@ export function LiveGuildPostPanel({
                             engagement={engagement[postKey(row.post)]}
                             reactionPending={isReactionPending(row.post)}
                             onToggleReaction={toggleReaction}
+                            onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
                             pollTally={pollTallyFor(row.post)}
@@ -1197,6 +1217,7 @@ export function LiveGuildPostPanel({
                       engagement={engagement[postKey(quote)]}
                       reactionPending={isReactionPending(quote)}
                       onToggleReaction={toggleReaction}
+                      onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}
                       pollTally={pollTallyFor(quote)}

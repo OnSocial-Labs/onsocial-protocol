@@ -369,12 +369,14 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     [feedPosts, quotedPosts, facepileIds]
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
-  const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
-    feedPosts,
-    {
-      onError: (message) => setTxResult({ type: 'error', msg: message }),
-    }
-  );
+  const {
+    engagement,
+    toggleReaction,
+    isReactionPending,
+    confirmAmplify,
+  } = usePostEngagement(feedPosts, {
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
+  });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(feedPosts, {
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
@@ -1494,6 +1496,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                         engagement={engagement}
                         isReactionPending={isReactionPending}
                         onToggleReaction={toggleReaction}
+                        onAmplifyConfirmed={confirmAmplify}
                         pollTallyFor={pollTallyFor}
                         isPollVotePending={isPollVotePending}
                         onPollVote={(post, optionIndex) => {

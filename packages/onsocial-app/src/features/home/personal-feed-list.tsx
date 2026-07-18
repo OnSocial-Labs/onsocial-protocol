@@ -71,10 +71,12 @@ export function PersonalFeedList({
 
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
-  const { engagement, toggleReaction, isReactionPending } = usePostEngagement(
-    posts,
-    { onError: onEngagementError }
-  );
+  const {
+    engagement,
+    toggleReaction,
+    isReactionPending,
+    confirmAmplify,
+  } = usePostEngagement(posts, { onError: onEngagementError });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(posts, {
     onError: onEngagementError,
   });
@@ -95,6 +97,7 @@ export function PersonalFeedList({
             engagement={engagement}
             isReactionPending={isReactionPending}
             onToggleReaction={toggleReaction}
+            onAmplifyConfirmed={confirmAmplify}
             pollTallyFor={pollTallyFor}
             isPollVotePending={isPollVotePending}
             onPollVote={(post, optionIndex) => {

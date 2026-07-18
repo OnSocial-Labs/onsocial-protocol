@@ -13,7 +13,7 @@ import type { Paginated, PostRow } from '@onsocial/sdk';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { HomeFeedLensMenu } from '@/features/home/home-feed-lens-menu';
+import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
 import {
   homeFeedLensEmptyCopy,
   readStoredHomeFeedLens,
@@ -21,19 +21,30 @@ import {
   writeStoredHomeFeedLens,
   type HomeFeedLens,
 } from '@/features/home/home-feed-lens';
+import {
+  readHomeFeedSort,
+  writeHomeFeedSort,
+  type HomeFeedSort,
+} from '@/features/home/home-feed-sort';
 import { HomeActiveFocusProvider } from '@/features/home/home-active-hashtag';
-import { HomeFeedFocusSearch } from '@/features/home/home-hashtag-search-field';
 import {
   homeFeedFocusClearPath,
   homeFeedFocusEmptyCopy,
   homeFeedFocusKey,
   homeFeedFocusPath,
-  homeFeedFocusQueryValue,
   HOME_HASHTAG_QUERY_KEY,
   HOME_TICKER_QUERY_KEY,
   parseHomeFeedFocus,
   type HomeFeedFocus,
 } from '@/features/home/home-feed-focus';
+import { HomeSavedFeedSheet } from '@/features/home/home-saved-feed-sheet';
+import {
+  addHomeSavedFeed,
+  homeSavedFeedFocus,
+  readHomeSavedFeeds,
+  removeHomeSavedFeed,
+  type HomeSavedFeed,
+} from '@/features/home/home-saved-feeds';
 import {
   PersonalFeedList,
   shouldPrependOptimisticFeedPost,
@@ -62,9 +73,7 @@ function mergeFeedPosts(current: PostRow[], incoming: PostRow[]): PostRow[] {
   return merged;
 }
 
-async function resolveStandingSources(
-  accountId: string
-): Promise<string[]> {
+async function resolveStandingSources(accountId: string): Promise<string[]> {
   const client = createReadOnlyOnSocialClient();
   const standing = await client.query.standings.outgoing(accountId, {
     limit: 48,
@@ -76,7 +85,8 @@ async function loadHomeFeedPage(
   lens: HomeFeedLens,
   accountId: string | null,
   offset: number,
-  standingSources: string[] | null
+  standingSources: string[] | null,
+  sort: HomeFeedSort
 ): Promise<{ page: Paginated<PostRow>; standingSources: string[] | null }> {
   const client = createReadOnlyOnSocialClient();
 
@@ -92,6 +102,7 @@ async function loadHomeFeedPage(
       accounts: sources,
       limit: HOME_FEED_PAGE_SIZE,
       offset,
+      sort,
     });
     return { page, standingSources: sources };
   }
@@ -99,6 +110,7 @@ async function loadHomeFeedPage(
   const page = await client.query.feed.recent({
     limit: HOME_FEED_PAGE_SIZE,
     offset,
+    sort,
   });
   return { page, standingSources: null };
 }
@@ -147,11 +159,7 @@ function HomeFeedLoadMoreFooter({
 export function HomePagePanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const {
-    accountId,
-    isConnected,
-    isLoading: walletLoading,
-  } = useAppWallet();
+  const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [nextOffset, setNextOffset] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -162,6 +170,9 @@ export function HomePagePanel() {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
+  const [sort, setSort] = useState<HomeFeedSort>('hot');
+  const [savedFeeds, setSavedFeeds] = useState<HomeSavedFeed[]>([]);
+  const [savedFeedSheetOpen, setSavedFeedSheetOpen] = useState(false);
   const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
   const tickerParam = searchParams.get(HOME_TICKER_QUERY_KEY);
   const activeFocus = useMemo(
@@ -169,8 +180,12 @@ export function HomePagePanel() {
     [tagParam, tickerParam]
   );
   const activeFocusKey = homeFeedFocusKey(activeFocus);
-  const [focusQuery, setFocusQuery] = useState(() =>
-    homeFeedFocusQueryValue(activeFocus)
+  const savedFocusKeys = useMemo(
+    () =>
+      new Set(
+        savedFeeds.map((feed) => homeFeedFocusKey(homeSavedFeedFocus(feed)))
+      ),
+    [savedFeeds]
   );
 
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -190,16 +205,22 @@ export function HomePagePanel() {
   }, [posts.length]);
 
   useEffect(() => {
-    setFocusQuery(homeFeedFocusQueryValue(activeFocus));
-  }, [tagParam, tickerParam, activeFocus]);
-
-  useEffect(() => {
     if (walletLoading) return;
     setLens(readStoredHomeFeedLens(isConnected));
+    setSort(readHomeFeedSort());
     setLensReady(true);
   }, [isConnected, walletLoading]);
 
+  useEffect(() => {
+    setSavedFeeds(readHomeSavedFeeds());
+  }, []);
+
   const activeLens = resolveHomeFeedLens(lens, isConnected);
+
+  const handleSortChange = useCallback((next: HomeFeedSort) => {
+    setSort(next);
+    writeHomeFeedSort(next);
+  }, []);
 
   useEffect(() => {
     if (walletLoading || !lensReady) {
@@ -235,7 +256,7 @@ export function HomePagePanel() {
               page: await loadFocusedFeedPage(focus, 0),
               standingSources: null as string[] | null,
             }
-          : await loadHomeFeedPage(activeLens, accountId, 0, null);
+          : await loadHomeFeedPage(activeLens, accountId, 0, null, sort);
 
         if (loadIdRef.current !== loadId) return;
 
@@ -279,6 +300,7 @@ export function HomePagePanel() {
     activeLens,
     lensReady,
     reloadNonce,
+    sort,
     tagParam,
     tickerParam,
     walletLoading,
@@ -306,7 +328,8 @@ export function HomePagePanel() {
               activeLens,
               accountId,
               offset,
-              standingSourcesRef.current
+              standingSourcesRef.current,
+              sort
             );
 
         if (loadIdRef.current !== loadId) return;
@@ -332,7 +355,7 @@ export function HomePagePanel() {
         }
       }
     })();
-  }, [accountId, activeLens, tagParam, tickerParam]);
+  }, [accountId, activeLens, sort, tagParam, tickerParam]);
 
   const hasMore = nextOffset !== undefined;
   const showLoadMoreSentinel = hasMore && posts.length > 0;
@@ -346,7 +369,6 @@ export function HomePagePanel() {
   });
 
   const clearFocusSearch = useCallback(() => {
-    setFocusQuery('');
     router.replace(homeFeedFocusClearPath(), { scroll: false });
   }, [router]);
 
@@ -362,10 +384,39 @@ export function HomePagePanel() {
 
   const handleCommitFocus = useCallback(
     (focus: HomeFeedFocus) => {
-      setFocusQuery(homeFeedFocusQueryValue(focus));
       router.replace(homeFeedFocusPath(focus), { scroll: false });
     },
     [router]
+  );
+
+  const handleAddSavedFeed = useCallback(
+    (focus: HomeFeedFocus) => {
+      setSavedFeeds(addHomeSavedFeed(focus));
+      handleCommitFocus(focus);
+    },
+    [handleCommitFocus]
+  );
+
+  const handleSelectSavedFeed = useCallback(
+    (feed: HomeSavedFeed) => {
+      handleCommitFocus(homeSavedFeedFocus(feed));
+    },
+    [handleCommitFocus]
+  );
+
+  const handleRemoveSavedFeed = useCallback(
+    (id: string) => {
+      const removed = savedFeeds.find((feed) => feed.id === id);
+      setSavedFeeds(removeHomeSavedFeed(id));
+      if (
+        removed &&
+        activeFocusKey &&
+        homeFeedFocusKey(homeSavedFeedFocus(removed)) === activeFocusKey
+      ) {
+        clearFocusSearch();
+      }
+    },
+    [activeFocusKey, clearFocusSearch, savedFeeds]
   );
 
   const retryLoad = useCallback(() => {
@@ -411,20 +462,19 @@ export function HomePagePanel() {
         backFallbackHref="/"
         scrollRootRef={scrollRootRef}
         toolbar={
-          <div className="home-feed-toolbar">
-            <HomeFeedLensMenu
-              lens={activeLens}
-              onLensChange={handleLensChange}
-              standingAvailable={isConnected}
-            />
-            <HomeFeedFocusSearch
-              query={focusQuery}
-              onQueryChange={setFocusQuery}
-              activeFocus={activeFocus}
-              onCommitFocus={handleCommitFocus}
-              onClear={clearFocusSearch}
-            />
-          </div>
+          <HomeFeedChipBar
+            lens={activeLens}
+            onLensChange={handleLensChange}
+            sort={sort}
+            onSortChange={handleSortChange}
+            standingAvailable={isConnected}
+            savedFeeds={savedFeeds}
+            activeFocus={activeFocus}
+            onSelectSavedFeed={handleSelectSavedFeed}
+            onRemoveSavedFeed={handleRemoveSavedFeed}
+            onClearFocus={clearFocusSearch}
+            onNewFeed={() => setSavedFeedSheetOpen(true)}
+          />
         }
       >
         <div className="home-feed">
@@ -472,6 +522,13 @@ export function HomePagePanel() {
           {sheet}
         </div>
       </OsAppScreen>
+
+      <HomeSavedFeedSheet
+        open={savedFeedSheetOpen}
+        onClose={() => setSavedFeedSheetOpen(false)}
+        onAddFocus={handleAddSavedFeed}
+        existingFocusKeys={savedFocusKeys}
+      />
     </HomeActiveFocusProvider>
   );
 }

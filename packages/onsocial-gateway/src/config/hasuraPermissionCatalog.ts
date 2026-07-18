@@ -268,7 +268,12 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'author_name',
       'author_avatar',
       'group_name',
+      'amplify_heat',
     ],
+  },
+  {
+    name: 'post_amplify_heat',
+    columns: ['post_path', 'heat'],
   },
   {
     name: 'standings_current',

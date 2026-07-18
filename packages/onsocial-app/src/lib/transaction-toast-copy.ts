@@ -31,6 +31,7 @@ export const txToastConfirming = {
   proposingGuildSpaceWriter: 'Confirming proposal…',
   revokingGuildSpaceWriter: 'Confirming removal…',
   proposingGuildSpaceWriterRevoke: 'Confirming proposal…',
+  amplifyingPost: 'Confirming amplify…',
 } as const;
 
 export const txToastPending = {
@@ -60,6 +61,7 @@ export const txToastPending = {
   proposingGuildSpaceWriter: 'Proposing access…',
   revokingGuildSpaceWriter: 'Removing access…',
   proposingGuildSpaceWriterRevoke: 'Proposing removal…',
+  amplifyingPost: 'Amplifying…',
 } as const;
 
 export const txToastSuccess = {
@@ -102,6 +104,7 @@ export const txToastSuccess = {
   endorsementSaved: (name: string) => `Endorsed ${name}.`,
   supportSent: (name: string) => `Supported ${name}.`,
   supportCollected: 'Support SOCIAL collected.',
+  postAmplified: 'Post amplified.',
 } as const;
 
 export const txToastError = {
@@ -131,4 +134,5 @@ export const txToastError = {
   endorsementFailed: 'Could not save endorsement.',
   supportFailed: 'Could not send support.',
   claimSupportFailed: 'Could not claim support.',
+  amplifyFailed: 'Could not amplify post.',
 } as const;

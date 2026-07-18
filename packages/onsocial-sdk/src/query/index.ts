@@ -87,6 +87,7 @@ export type {
   ThreadTreeOptions,
 } from './threads.js';
 export { postContentPath } from './threads.js';
+export type { FeedSort } from './feed.js';
 export type { PostReactionState, ReactionPostRef } from './reactions.js';
 export type { SaveRow } from './saves.js';
 export type { EndorsementRow } from './endorsements.js';

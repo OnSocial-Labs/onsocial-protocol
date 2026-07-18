@@ -15,16 +15,26 @@ export interface PostEngagement {
   quoteCount: number;
   reactionCount: number;
   viewerReacted: boolean;
+  amplifyCount: number;
+  viewerAmplified: boolean;
 }
 
 interface EngagementMap {
   [key: string]: PostEngagement;
 }
 
+export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
+  replyCount: 0,
+  quoteCount: 0,
+  reactionCount: 0,
+  viewerReacted: false,
+  amplifyCount: 0,
+  viewerAmplified: false,
+};
+
 /**
- * Batched engagement state (reply/quote/reaction counts + viewer reaction)
+ * Batched engagement state (reply/quote/reaction/amplify + viewer flags)
  * for a list of visible posts, plus an optimistic reaction toggle.
- * Reads stay canonical: two GraphQL round-trips per visible page.
  */
 export function usePostEngagement(
   posts: PostRow[],
@@ -58,20 +68,25 @@ export function usePostEngagement(
 
     const loadId = ++loadIdRef.current;
     const client = createReadOnlyOnSocialClient();
+    const paths = targets.map((t) => t.path);
 
     void Promise.allSettled([
-      client.query.threads.countsByPaths(targets.map((t) => t.path)),
+      client.query.threads.countsByPaths(paths),
       client.query.reactions.statesForPosts(
         targets.map((t) => ({ owner: t.owner, postId: t.postId })),
         accountId ? { viewer: accountId } : {}
       ),
-    ]).then(([threadResult, reactionResult]) => {
+      client.query.socialSpend.amplifyCountsForPostPaths(
+        paths,
+        accountId ? { viewer: accountId } : {}
+      ),
+    ]).then(([threadResult, reactionResult, amplifyResult]) => {
       if (loadIdRef.current !== loadId) return;
       if (
         threadResult.status === 'rejected' &&
-        reactionResult.status === 'rejected'
+        reactionResult.status === 'rejected' &&
+        amplifyResult.status === 'rejected'
       ) {
-        // Engagement is an enhancement layer; rows still render without it.
         return;
       }
 
@@ -79,16 +94,21 @@ export function usePostEngagement(
         threadResult.status === 'fulfilled' ? threadResult.value : {};
       const reactionStates =
         reactionResult.status === 'fulfilled' ? reactionResult.value : {};
+      const amplifyCounts =
+        amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
 
       const next: EngagementMap = {};
       for (const target of targets) {
         const counts = threadCounts[target.path];
         const reactions = reactionStates[`${target.owner}:${target.postId}`];
+        const amplify = amplifyCounts[target.path];
         next[target.key] = {
           replyCount: counts?.replyCount ?? 0,
           quoteCount: counts?.quoteCount ?? 0,
           reactionCount: reactions?.counts.total ?? 0,
           viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
+          amplifyCount: amplify?.amplifyCount ?? 0,
+          viewerAmplified: amplify?.viewerAmplified ?? false,
         };
       }
       setEngagement(next);
@@ -106,12 +126,7 @@ export function usePostEngagement(
         return;
       }
 
-      const previous = engagement[key] ?? {
-        replyCount: 0,
-        quoteCount: 0,
-        reactionCount: 0,
-        viewerReacted: false,
-      };
+      const previous = engagement[key] ?? EMPTY_POST_ENGAGEMENT;
       const applied = !previous.viewerReacted;
 
       setPendingKeys((current) => new Set(current).add(key));
@@ -154,10 +169,39 @@ export function usePostEngagement(
     [accountId, connect, engagement, getClient, isConnected, pendingKeys]
   );
 
+  const confirmAmplify = useCallback((post: PostRow) => {
+    const key = postKey(post);
+    setEngagement((current) => {
+      const previous = current[key] ?? EMPTY_POST_ENGAGEMENT;
+      if (previous.viewerAmplified) {
+        return {
+          ...current,
+          [key]: {
+            ...previous,
+            amplifyCount: previous.amplifyCount + 1,
+          },
+        };
+      }
+      return {
+        ...current,
+        [key]: {
+          ...previous,
+          viewerAmplified: true,
+          amplifyCount: previous.amplifyCount + 1,
+        },
+      };
+    });
+  }, []);
+
   const isReactionPending = useCallback(
     (post: PostRow) => pendingKeys.has(postKey(post)),
     [pendingKeys]
   );
 
-  return { engagement, toggleReaction, isReactionPending };
+  return {
+    engagement,
+    toggleReaction,
+    isReactionPending,
+    confirmAmplify,
+  };
 }
