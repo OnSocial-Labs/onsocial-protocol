@@ -759,9 +759,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   const ink = mood.textPrimary;
   const isMono = mood.bylineFamily.toLowerCase().includes('mono');
   const nameKind: 'sans-bold' | 'mono' = isMono ? 'mono' : 'sans-bold';
-  const handleKind: 'sans-regular' | 'mono' = isMono
-    ? 'mono'
-    : 'sans-regular';
+  const handleKind: 'sans-regular' | 'mono' = isMono ? 'mono' : 'sans-regular';
 
   let stackBottomY = HEIGHT - PADDING;
   if (provenanceLine) {

@@ -180,9 +180,7 @@ describe('generator smoke', () => {
 
   it('renders provenance with brand, when, and short post id', () => {
     expect(shortProvenancePostId('abc')).toBe('abc');
-    expect(shortProvenancePostId('verylongpostidentifier99')).toBe(
-      'very…er99'
-    );
+    expect(shortProvenancePostId('verylongpostidentifier99')).toBe('very…er99');
     expect(
       formatProvenanceLine({
         issuedAt: Date.UTC(2026, 6, 18, 21, 14),
