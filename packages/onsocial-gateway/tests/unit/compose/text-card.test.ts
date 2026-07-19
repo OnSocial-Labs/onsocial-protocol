@@ -64,23 +64,23 @@ describe('generateTextCardSvg', () => {
       title: 'My thought',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
     });
-    // v0.4: single-line byline "Name · @handle".
+    // Stacked signature: display name above ~accountId (tilde, not @).
     expect(svg).toContain('>Alice<');
-    expect(svg).toContain('@alice.near');
-    expect(svg).toContain(' · ');
+    expect(svg).toContain('~alice.near');
+    expect(svg).not.toContain('@alice.near');
     // v0.3 has NO avatar — the only decoration is the small coloured
     // mark at the top-left (a thin rule, height=3).
     expect(svg).not.toMatch(/<rect [^>]*rx="8"/);
     expect(svg).toMatch(/<rect [^>]*width="36"[^>]*height="3"/);
   });
 
-  it('falls back to accountId (without TLD) when displayName is omitted', () => {
+  it('falls back to signed accountId when displayName is omitted', () => {
     const svg = generateTextCardSvg({
       title: 'A thought',
       creator: { accountId: 'bob.testnet' },
     });
-    expect(svg).toContain('@bob.testnet');
-    expect(svg).toMatch(/>bob</);
+    expect(svg).toContain('~bob.testnet');
+    expect(svg).not.toContain('@bob.testnet');
   });
 
   it('escapes XML-unsafe characters in displayName and accountId', () => {
@@ -93,7 +93,7 @@ describe('generateTextCardSvg', () => {
     });
     expect(svg).not.toContain('<Hacker>');
     expect(svg).toContain('&lt;Hacker&gt;');
-    expect(svg).toContain('@a&amp;b.near');
+    expect(svg).toContain('~a&amp;b.near');
   });
 
   it('omits author byline AND mark when no creator is provided', () => {
@@ -120,23 +120,17 @@ describe('generateTextCardSvg', () => {
     expect(colorA).toBe(colorB);
   });
 
-  it('shrinks the byline name font for long names instead of truncating', () => {
-    // 45 chars — too wide at 20px (~44 char budget), fits at 18px.
+  it('keeps a long byline name stacked above the signed id', () => {
     const longName = 'Alexander Bartholomew Cunningham III Junior!!';
     expect(longName.length).toBe(45);
     const svg = generateTextCardSvg({
       title: 't',
       creator: { accountId: 'a.near', displayName: longName },
     });
-    // Full name rendered (no ellipsis), and the byline <text> font-size
-    // attr is one of the shrunk steps (< default 20).
-    expect(svg).toContain(longName);
-    // Byline structure (v0.4): <text ... font-size="N" ...><tspan font-weight="600">Name</tspan>...
-    const sizeMatch = svg.match(
-      new RegExp(`font-size="(\\d+)"[^<]*<tspan font-weight="600">${longName}<`)
-    );
-    expect(sizeMatch).toBeTruthy();
-    expect(Number(sizeMatch![1])).toBeLessThan(20);
+    // Fixed name size (17); name + ~id are separate text nodes.
+    expect(svg).toContain(`>${longName}<`);
+    expect(svg).toContain('~a.near');
+    expect(svg).toContain('font-size="17"');
   });
 
   // ── v0.3.1: customisation knobs ────────────────────────────────────────
