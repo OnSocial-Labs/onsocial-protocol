@@ -44,8 +44,10 @@ export function MarketListingRow({
   const handle = fallbackLabel(item.creatorId);
   const profileHref = portfolioPath(item.creatorId);
   const postHref = postHrefFromSourcePath(item.sourcePostPath);
-  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmListingId, setConfirmListingId] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
+  const confirmingCancel =
+    confirmListingId === item.listingId && isOwnListing && !cancelPending;
 
   useEffect(() => {
     return () => {
@@ -55,26 +57,21 @@ export function MarketListingRow({
     };
   }, []);
 
-  useEffect(() => {
-    if (!isOwnListing || cancelPending) return;
-    setConfirmingCancel(false);
-  }, [isOwnListing, cancelPending, item.listingId]);
-
   const clearConfirm = () => {
     if (confirmTimerRef.current !== null) {
       window.clearTimeout(confirmTimerRef.current);
       confirmTimerRef.current = null;
     }
-    setConfirmingCancel(false);
+    setConfirmListingId(null);
   };
 
   const handleOwnClick = () => {
     if (cancelPending || !onCancel) return;
     if (!confirmingCancel) {
-      setConfirmingCancel(true);
+      setConfirmListingId(item.listingId);
       confirmTimerRef.current = window.setTimeout(() => {
         confirmTimerRef.current = null;
-        setConfirmingCancel(false);
+        setConfirmListingId(null);
       }, CONFIRM_LEAVE_MS);
       return;
     }

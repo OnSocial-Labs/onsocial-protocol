@@ -63,6 +63,7 @@ export function ScarcePostPreview({
 }: ScarcePostPreviewProps) {
   const titleId = useId();
   const [expanded, setExpanded] = useState(false);
+  const [fallbackIssuedAt] = useState(() => Date.now());
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
@@ -99,7 +100,7 @@ export function ScarcePostPreview({
         titleAlign: cardTitleAlign,
       },
       provenance: {
-        issuedAt: post.blockTimestamp || Date.now(),
+        issuedAt: post.blockTimestamp || fallbackIssuedAt,
         postId: post.postId,
       },
     });
@@ -110,6 +111,7 @@ export function ScarcePostPreview({
     post.accountId,
     post.postId,
     post.blockTimestamp,
+    fallbackIssuedAt,
     creatorLabel,
     cardBg,
     cardMarkShape,
