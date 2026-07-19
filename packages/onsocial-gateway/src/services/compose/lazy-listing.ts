@@ -219,11 +219,21 @@ export async function buildLazyListAction(
         titleAlign: req.cardTitleAlign as TitleAlign,
       }),
     };
+    const sourcePost =
+      req.extra && typeof req.extra === 'object'
+        ? (req.extra as { sourcePost?: { postId?: string } }).sourcePost
+        : undefined;
     const svg = generateTextCardSvg({
       title: req.title,
       description: req.description,
       creator,
       theme: themeForCard,
+      provenance: {
+        issuedAt: Date.now(),
+        ...(typeof sourcePost?.postId === 'string' && sourcePost.postId
+          ? { postId: sourcePost.postId }
+          : {}),
+      },
     });
     // Inline the SVG as a data: URI directly in the on-chain `media`
     // field. Lazy listings have no photo, so the SVG is small (~800

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import {
   fetchMarketListings,
@@ -15,10 +17,21 @@ import {
   ScarceBuySheet,
   type ScarceBuyListing,
 } from '@/features/scarces/scarce-buy-sheet';
+import {
+  postScarceKey,
+  setScarceEmbedOverride,
+} from '@/features/scarces/scarce-embed-ledger';
+import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_HOME_PATH } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 
@@ -28,12 +41,23 @@ interface MarketPageData {
   sales: MarketSaleItem[];
 }
 
+function sourcePostCoords(
+  path: string | undefined
+): { author: string; postId: string } | null {
+  if (!path?.trim()) return null;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  return { author: match[1], postId: match[2] };
+}
+
 export function MarketPagePanel() {
-  const { accountId: viewerAccountId } = useAppWallet();
+  const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [retryKey, setRetryKey] = useState(0);
   const [data, setData] = useState<MarketPageData | null>(null);
   const [failedKey, setFailedKey] = useState<number | null>(null);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
+  const [cancelListingId, setCancelListingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +121,56 @@ export function MarketPagePanel() {
     setRetryKey((value) => value + 1);
   }, [buyListing?.listingId]);
 
+  const handleCancel = useCallback(
+    async (item: MarketListingItem) => {
+      if (!item.listingId || cancelListingId) return;
+      setCancelListingId(item.listingId);
+      try {
+        const { accountId, wallet } = await getSigningWallet();
+        const client = createAppScarcesWalletClient(accountId, wallet);
+        const response = await client.scarces.lazy.cancel(item.listingId);
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage: txToastConfirming.cancelingScarceListing,
+          successMessage: txToastSuccess.scarceListingCanceled,
+          failureMessage: txToastError.cancelScarceListingFailed,
+        });
+        if (!confirmed) return;
+
+        setData((current) =>
+          current
+            ? {
+                ...current,
+                listings: current.listings.filter(
+                  (row) => row.listingId !== item.listingId
+                ),
+              }
+            : current
+        );
+
+        const coords = sourcePostCoords(item.sourcePostPath);
+        if (coords) {
+          setScarceEmbedOverride(
+            postScarceKey(coords.author, coords.postId),
+            { status: 'none', events: [] }
+          );
+        }
+      } catch (cause) {
+        if (isWalletUserCancellation(cause)) return;
+        setTxResult({
+          type: 'error',
+          msg:
+            cause instanceof Error
+              ? cause.message
+              : txToastError.cancelScarceListingFailed,
+        });
+      } finally {
+        setCancelListingId(null);
+      }
+    },
+    [cancelListingId, getSigningWallet, setTxResult, trackTransaction]
+  );
+
   return (
     <OsAppScreen
       title="Market"
@@ -146,7 +220,11 @@ export function MarketPagePanel() {
                     Boolean(viewerAccountId) &&
                     accountIdsEqual(viewerAccountId!, item.creatorId)
                   }
+                  cancelPending={cancelListingId === item.listingId}
                   onBuy={handleBuy}
+                  onCancel={(row) => {
+                    void handleCancel(row);
+                  }}
                 />
               ))}
             </div>

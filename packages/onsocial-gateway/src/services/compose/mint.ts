@@ -263,12 +263,22 @@ export async function buildMintAction(
       const photoDataUri = req.cardPhotoCid
         ? await fetchImageAsDataUri(gatewayUrl(req.cardPhotoCid))
         : undefined;
+      const sourcePost =
+        req.extra && typeof req.extra === 'object'
+          ? (req.extra as { sourcePost?: { postId?: string } }).sourcePost
+          : undefined;
       const svg = generateTextCardSvg({
         title: req.title,
         description: req.description,
         creator,
         theme: themeForCard,
         ...(photoDataUri ? { photo: photoDataUri } : {}),
+        provenance: {
+          issuedAt: Date.now(),
+          ...(typeof sourcePost?.postId === 'string' && sourcePost.postId
+            ? { postId: sourcePost.postId }
+            : {}),
+        },
       });
       // Storage strategy splits by mood:
       //

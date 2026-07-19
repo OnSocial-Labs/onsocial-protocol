@@ -14,6 +14,8 @@ import {
   resolveTheme,
   THEME_MANIFEST,
   generateTextCardSvg,
+  formatProvenanceLine,
+  shortProvenancePostId,
 } from '../src/index.js';
 
 describe('themes catalog', () => {
@@ -174,5 +176,29 @@ describe('generator smoke', () => {
     });
     expect(svg).toContain('DM Sans');
     expect(MOODS['serif-night'].bylineFamily).toContain('DM Sans');
+  });
+
+  it('renders provenance with brand, when, and short post id', () => {
+    expect(shortProvenancePostId('abc')).toBe('abc');
+    expect(shortProvenancePostId('verylongpostidentifier99')).toBe(
+      'very…er99'
+    );
+    expect(
+      formatProvenanceLine({
+        issuedAt: Date.UTC(2026, 6, 18, 21, 14),
+        postId: 'p7',
+      })
+    ).toBe('OnSocial · 18 Jul 26 · 21:14 · p7');
+
+    const svg = generateTextCardSvg({
+      title: 'Hello.',
+      creator: { accountId: 'alice.near', displayName: 'Alice' },
+      theme: { bg: 'serif-night' },
+      provenance: {
+        issuedAt: Date.UTC(2026, 6, 18, 21, 14),
+        postId: 'post42',
+      },
+    });
+    expect(svg).toContain('OnSocial · 18 Jul 26 · 21:14 · post42');
   });
 });

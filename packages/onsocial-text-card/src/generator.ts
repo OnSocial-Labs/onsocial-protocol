@@ -9,6 +9,7 @@
 //   - Byline signature (always the same pattern):
 //       Name          ← DM Sans, medium, soft opacity of title ink
 //       ~accountId    ← tilde signature sign + full unique id
+//       OnSocial · 18 Jul 26 · 21:14 · postId  ← quiet provenance
 //     No distinct name → `~accountId` alone. Title owns the voice fonts;
 //     the signature stays a calm UI sans (mono voice → mono).
 //   - No description on the card (stays in NFT metadata).
@@ -70,6 +71,25 @@ const BYLINE_HANDLE_INDENT = 5;
 const BYLINE_NAME_OPACITY = 0.72;
 const BYLINE_HANDLE_OPACITY = 0.42;
 const BYLINE_SOLO_OPACITY = 0.55;
+const BYLINE_PROVENANCE_SIZE = 11;
+const BYLINE_PROVENANCE_OPACITY = 0.3;
+/** Extra air between ~id and the OnSocial · date line. */
+const BYLINE_PROVENANCE_GAP = 12;
+const BYLINE_PROVENANCE_BRAND = 'OnSocial';
+const PROVENANCE_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
 
 // ── Receipt mood (v0.5) ─────────────────────────────────────────────────────
 // A short claim + a photo as proof. Different layout from every other
@@ -82,7 +102,7 @@ const BYLINE_SOLO_OPACITY = 0.55;
 // keep the chrome quiet, let the evidence speak.
 const RECEIPT_PHOTO_SIZE = 220;
 const RECEIPT_PHOTO_RADIUS = 6;
-const RECEIPT_PHOTO_BOTTOM_GAP = 96; // space between photo and bottom edge
+const RECEIPT_PHOTO_BOTTOM_GAP = 120; // space for signature + provenance under photo
 const RECEIPT_TITLE_MAX_LINES = 2;
 // Hard cap on receipt title length. Past this point the format breaks
 // (the claim stops feeling like a headline and starts feeling like a
@@ -504,6 +524,19 @@ function angleToVector(degrees: number): {
   };
 }
 
+/** Quiet footer under the signature — brand, when, optional source post. */
+export interface TextCardProvenance {
+  /** Brand label. Defaults to `OnSocial`. */
+  brand?: string;
+  /**
+   * Instant the scarce was listed/minted (or the source post time).
+   * Accepts ms, seconds, or NEAR ns — normalised to UTC.
+   */
+  issuedAt?: number | Date;
+  /** Source post id — shown short when long. */
+  postId?: string;
+}
+
 export interface TextCardOptions {
   /** The thought — the hero of the card. */
   title: string;
@@ -545,6 +578,58 @@ export interface TextCardOptions {
    * stable gateway URL or data URI for offline / wallet rendering.
    */
   photo?: string;
+  /** Optional provenance line under the signature. */
+  provenance?: TextCardProvenance;
+}
+
+/** Normalise ms / sec / NEAR ns timestamps to UTC milliseconds. */
+export function provenanceTimeMs(raw: number | Date): number {
+  if (raw instanceof Date) return raw.getTime();
+  if (!Number.isFinite(raw) || raw <= 0) return Date.now();
+  if (raw > 1e15) return Math.floor(raw / 1e6); // ns → ms
+  if (raw > 1e12) return Math.floor(raw); // ms
+  return Math.floor(raw * 1000); // sec → ms
+}
+
+/** Shorten long post ids for the card footer; keep short ids intact. */
+export function shortProvenancePostId(postId: string): string {
+  const id = postId.trim();
+  if (!id) return '';
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 4)}…${id.slice(-4)}`;
+}
+
+/** UTC `18 Jul 26 · 21:14` for the provenance line. */
+export function formatProvenanceWhen(raw: number | Date): string {
+  const d = new Date(provenanceTimeMs(raw));
+  const day = d.getUTCDate();
+  const mon = PROVENANCE_MONTHS[d.getUTCMonth()] ?? 'Jan';
+  const yy = String(d.getUTCFullYear()).slice(-2);
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${day} ${mon} ${yy} · ${hh}:${mm}`;
+}
+
+/**
+ * Build the muted provenance string:
+ * `OnSocial · 18 Jul 26 · 21:14 · postId`
+ */
+export function formatProvenanceLine(
+  provenance: TextCardProvenance | undefined
+): string | null {
+  if (!provenance) return null;
+  const parts: string[] = [];
+  const brand = provenance.brand?.trim() || BYLINE_PROVENANCE_BRAND;
+  parts.push(brand);
+  if (provenance.issuedAt != null) {
+    parts.push(formatProvenanceWhen(provenance.issuedAt));
+  }
+  const postId = provenance.postId
+    ? shortProvenancePostId(provenance.postId)
+    : '';
+  if (postId) parts.push(postId);
+  if (parts.length <= 1 && !provenance.issuedAt && !postId) return null;
+  return parts.join(' · ');
 }
 
 /** Render a single mark shape at the top-left corner. */
@@ -667,9 +752,37 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   const photoX = PADDING;
   const photoY = HEIGHT - RECEIPT_PHOTO_BOTTOM_GAP - RECEIPT_PHOTO_SIZE;
 
-  // ── Byline (bottom): one embedded signature ────────────────────────
-  // Name above, `~` + full accountId below — same ink at two opacities.
+  // ── Byline (bottom): signature + quiet provenance ──────────────────
+  // Name / ~id above; optional `OnSocial · date · time · postId` under.
   let bylineBlock = '';
+  const provenanceLine = formatProvenanceLine(opts.provenance);
+  const ink = mood.textPrimary;
+  const isMono = mood.bylineFamily.toLowerCase().includes('mono');
+  const nameKind: 'sans-bold' | 'mono' = isMono ? 'mono' : 'sans-bold';
+  const handleKind: 'sans-regular' | 'mono' = isMono
+    ? 'mono'
+    : 'sans-regular';
+
+  let stackBottomY = HEIGHT - PADDING;
+  if (provenanceLine) {
+    let provLine = provenanceLine;
+    if (
+      estimateWidthPx(provLine, BYLINE_PROVENANCE_SIZE, handleKind) >
+      CONTENT_WIDTH
+    ) {
+      const ratio =
+        handleKind === 'mono' ? MONO_CHAR_RATIO : SANS_CHAR_RATIO_REGULAR;
+      const budget = Math.max(
+        8,
+        Math.floor(CONTENT_WIDTH / (BYLINE_PROVENANCE_SIZE * ratio))
+      );
+      provLine = truncateVisual(provLine, budget);
+    }
+    bylineBlock += `
+  <text x="${PADDING}" y="${stackBottomY}" font-family="${mood.bylineFamily}" font-size="${BYLINE_PROVENANCE_SIZE}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_PROVENANCE_OPACITY}">${esc(provLine)}</text>`;
+    stackBottomY -= BYLINE_PROVENANCE_SIZE + BYLINE_PROVENANCE_GAP;
+  }
+
   if (creator) {
     const accountId = creator.accountId.trim();
     const handle = `${BYLINE_SIGNATURE_SIGN}${accountId}`;
@@ -686,14 +799,6 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       nameNorm !== `~/${idNorm}` &&
       nameNorm !== handle.toLowerCase();
 
-    const isMono = mood.bylineFamily.toLowerCase().includes('mono');
-    const nameKind: 'sans-bold' | 'mono' = isMono ? 'mono' : 'sans-bold';
-    const handleKind: 'sans-regular' | 'mono' = isMono
-      ? 'mono'
-      : 'sans-regular';
-
-    const handleY = HEIGHT - PADDING;
-    const ink = mood.textPrimary;
     const handleBudget = hasDistinctName
       ? CONTENT_WIDTH - BYLINE_HANDLE_INDENT
       : CONTENT_WIDTH;
@@ -703,9 +808,13 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       handleSize = BYLINE_HANDLE_FLOOR;
     }
 
+    const handleY = stackBottomY;
+
     if (!hasDistinctName) {
-      bylineBlock = `
-  <text x="${PADDING}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>`;
+      bylineBlock =
+        `
+  <text x="${PADDING}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>` +
+        bylineBlock;
     } else {
       const nameSize = BYLINE_NAME_SIZE;
       let displayName = rawName;
@@ -720,9 +829,11 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       }
       const nameY = handleY - handleSize - BYLINE_STACK_GAP;
       const handleX = PADDING + BYLINE_HANDLE_INDENT;
-      bylineBlock = `
+      bylineBlock =
+        `
   <text x="${PADDING}" y="${nameY}" font-family="${mood.bylineFamily}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
-  <text x="${handleX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>`;
+  <text x="${handleX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>` +
+        bylineBlock;
     }
   }
 

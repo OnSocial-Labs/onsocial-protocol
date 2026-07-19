@@ -1,14 +1,22 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import {
+  OsSheetAction,
+  OsSheetActions,
+} from '@/components/ui/os-sheet-primary-action';
 import type { MarketListingItem } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { personalPostPath } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
 interface MarketListingRowProps {
   item: MarketListingItem;
   isOwnListing?: boolean;
+  cancelPending?: boolean;
   onBuy: (item: MarketListingItem) => void;
+  onCancel?: (item: MarketListingItem) => void;
 }
 
 function formatPriceNear(priceNear: string): string {
@@ -17,36 +25,112 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
+function postHrefFromSourcePath(path: string | undefined): string | null {
+  if (!path?.trim()) return null;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  return personalPostPath(match[1], match[2]);
+}
+
+const CONFIRM_LEAVE_MS = 4_000;
+
 export function MarketListingRow({
   item,
   isOwnListing = false,
+  cancelPending = false,
   onBuy,
+  onCancel,
 }: MarketListingRowProps) {
   const handle = fallbackLabel(item.creatorId);
   const profileHref = portfolioPath(item.creatorId);
+  const postHref = postHrefFromSourcePath(item.sourcePostPath);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const confirmTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current !== null) {
+        window.clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOwnListing || cancelPending) return;
+    setConfirmingCancel(false);
+  }, [isOwnListing, cancelPending, item.listingId]);
+
+  const clearConfirm = () => {
+    if (confirmTimerRef.current !== null) {
+      window.clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+    setConfirmingCancel(false);
+  };
+
+  const handleOwnClick = () => {
+    if (cancelPending || !onCancel) return;
+    if (!confirmingCancel) {
+      setConfirmingCancel(true);
+      confirmTimerRef.current = window.setTimeout(() => {
+        confirmTimerRef.current = null;
+        setConfirmingCancel(false);
+      }, CONFIRM_LEAVE_MS);
+      return;
+    }
+    clearConfirm();
+    onCancel(item);
+  };
+
+  const titleNode = postHref ? (
+    <Link
+      href={postHref}
+      scroll={false}
+      className="market-listing-title-link"
+    >
+      {item.title}
+    </Link>
+  ) : (
+    item.title
+  );
 
   return (
     <div className="market-listing-row">
-      <button
-        type="button"
-        className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
-        onClick={() => {
-          if (!isOwnListing) onBuy(item);
-        }}
-        disabled={isOwnListing}
-        aria-label={
-          isOwnListing ? `${item.title} (your listing)` : `Buy ${item.title}`
-        }
-      >
-        {item.mediaUrl ? (
-          <img src={item.mediaUrl} alt="" />
-        ) : (
-          <span className="market-listing-thumb-fallback" aria-hidden />
-        )}
-      </button>
+      {postHref ? (
+        <Link
+          href={postHref}
+          scroll={false}
+          className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
+          aria-label={`Open post for ${item.title}`}
+        >
+          {item.mediaUrl ? (
+            <img src={item.mediaUrl} alt="" />
+          ) : (
+            <span className="market-listing-thumb-fallback" aria-hidden />
+          )}
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
+          onClick={() => {
+            if (!isOwnListing) onBuy(item);
+          }}
+          disabled={isOwnListing}
+          aria-label={
+            isOwnListing ? `${item.title} (your listing)` : `Buy ${item.title}`
+          }
+        >
+          {item.mediaUrl ? (
+            <img src={item.mediaUrl} alt="" />
+          ) : (
+            <span className="market-listing-thumb-fallback" aria-hidden />
+          )}
+        </button>
+      )}
       <div className="market-listing-copy">
         <div className="market-listing-head">
-          <p className="market-listing-title">{item.title}</p>
+          <p className="market-listing-title">{titleNode}</p>
           <p className="market-listing-price">
             {formatPriceNear(item.priceNear)} NEAR
           </p>
@@ -64,19 +148,42 @@ export function MarketListingRow({
           ) : null}
         </p>
       </div>
-      {isOwnListing ? (
-        <span className="market-listing-buy market-listing-buy--muted">
-          Listed
-        </span>
-      ) : (
-        <button
-          type="button"
-          className="market-listing-buy"
-          onClick={() => onBuy(item)}
-        >
-          Buy
-        </button>
-      )}
+      <OsSheetActions
+        layout="row-compact"
+        tone="frosted-primary"
+        borderless
+        className="market-listing-action"
+      >
+        {isOwnListing ? (
+          <OsSheetAction
+            type="button"
+            variant={confirmingCancel ? 'danger' : 'primary'}
+            ready={!confirmingCancel}
+            pending={cancelPending}
+            pendingLabel="Canceling…"
+            aria-label={
+              cancelPending
+                ? 'Canceling listing'
+                : confirmingCancel
+                  ? 'Confirm cancel listing'
+                  : 'Cancel listing'
+            }
+            onClick={handleOwnClick}
+            onBlur={confirmingCancel ? clearConfirm : undefined}
+          >
+            {confirmingCancel ? 'Cancel?' : 'Listed'}
+          </OsSheetAction>
+        ) : (
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready
+            onClick={() => onBuy(item)}
+          >
+            Buy
+          </OsSheetAction>
+        )}
+      </OsSheetActions>
     </div>
   );
 }

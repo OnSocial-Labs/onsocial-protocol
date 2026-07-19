@@ -98,12 +98,18 @@ export function ScarcePostPreview({
         markColor: cardMarkColor,
         titleAlign: cardTitleAlign,
       },
+      provenance: {
+        issuedAt: post.blockTimestamp || Date.now(),
+        postId: post.postId,
+      },
     });
     return dataUri;
   }, [
     cover,
     title,
     post.accountId,
+    post.postId,
+    post.blockTimestamp,
     creatorLabel,
     cardBg,
     cardMarkShape,

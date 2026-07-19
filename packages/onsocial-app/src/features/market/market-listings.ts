@@ -152,13 +152,17 @@ function accountFromRow(
 function saleTitle(row: ScarcesEventRow): string {
   const extra = parseExtra(row.extraData);
   const titled =
-    stringField(extra, 'title') ?? stringField(extra, 'name') ?? null;
+    stringField(extra, 'title') ??
+    stringField(extra, 'name') ??
+    stringField(extra, 'tokenTitle') ??
+    null;
   if (titled) return titled;
   const tokenId = row.tokenId?.trim();
   if (!tokenId) return 'Scarce';
-  // Collection-style ids already read as names; keep short native ids readable.
+  // Named collections / editions (e.g. royalty-test:1) keep their id.
   if (tokenId.includes(':') && !tokenId.startsWith('s:')) return tokenId;
-  return `Scarce ${tokenId}`;
+  // Native token ids (s:319) — quiet label, not a raw id dump.
+  return 'Scarce';
 }
 
 function listingFromRecord(

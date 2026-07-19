@@ -1,7 +1,12 @@
 export {
   generateTextCardSvg,
   previewTextCard,
+  formatProvenanceLine,
+  formatProvenanceWhen,
+  provenanceTimeMs,
+  shortProvenancePostId,
   type TextCardOptions,
+  type TextCardProvenance,
 
   // v0.3.1 — per-card customisation
   MARK_COLORS,

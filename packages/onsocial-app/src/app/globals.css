@@ -164,6 +164,35 @@
   gap: 0;
 }
 
+/* Market row Buy / Listed — compact borderless pills (same family as guild Join). */
+.market-listing-action.os-sheet-actions--row-compact {
+  flex-shrink: 0;
+  width: auto;
+  min-width: 4.5rem;
+  gap: 0;
+}
+
+.market-listing-action.os-sheet-actions--row-compact .os-sheet-action,
+.market-listing-action.os-sheet-actions--row-compact
+  .os-sheet-action--primary,
+.market-listing-action.os-sheet-actions--row-compact
+  .os-sheet-action--danger {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 1.65rem;
+  padding: 0.28rem 0.72rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  border-radius: 9999px;
+  box-shadow: none;
+}
+
+.market-listing-action.os-sheet-actions--borderless
+  .os-sheet-action__shell {
+  min-height: 1.1rem;
+}
+
 .guild-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
@@ -14559,27 +14588,18 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.78);
   }
 
-  .market-listing-buy {
-    flex-shrink: 0;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 9999px;
-    background: transparent;
-    padding: 0.4rem 0.85rem;
-    font-family: inherit;
-    font-size: 0.75rem;
-    font-weight: 650;
-    color: var(--protocol-green);
-    cursor: pointer;
+  .market-listing-title-link {
+    color: inherit;
+    text-decoration: none;
   }
 
-  .market-listing-buy:hover {
-    border-color: color-mix(in srgb, var(--protocol-green) 40%, transparent);
+  .market-listing-title-link:hover {
+    color: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .market-listing-buy--muted {
-    color: rgb(var(--fg-rgb) / 0.45);
-    cursor: default;
-    pointer-events: none;
+  .market-listing-thumb:is(a) {
+    display: block;
+    text-decoration: none;
   }
 
   .market-listing-own {
