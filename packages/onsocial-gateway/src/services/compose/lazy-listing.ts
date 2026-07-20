@@ -304,7 +304,8 @@ export async function buildLazyListAction(
   // ── Build action ──────────────────────────────────────────────────
   // CreateLazyListing uses #[serde(flatten)] for ScarceOptions
   const maxPerPurchase =
-    typeof req.maxPerPurchase === 'number' && Number.isFinite(req.maxPerPurchase)
+    typeof req.maxPerPurchase === 'number' &&
+    Number.isFinite(req.maxPerPurchase)
       ? Math.min(10, Math.max(1, Math.floor(req.maxPerPurchase)))
       : undefined;
 
