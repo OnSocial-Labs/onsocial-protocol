@@ -247,6 +247,7 @@ describe('buildPurchaseLazyListingAction', () => {
     expect(result.action).toEqual({
       type: 'purchase_lazy_listing',
       listing_id: 'll:alice.testnet:1',
+      quantity: 1,
     });
     expect(result.targetAccount).toBe('scarces.onsocial.testnet');
   });
