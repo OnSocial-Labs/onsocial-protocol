@@ -206,6 +206,7 @@ fn resolve_base_uri_from_app_metadata() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -235,6 +236,7 @@ fn resolve_base_uri_none_when_no_uri() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
 

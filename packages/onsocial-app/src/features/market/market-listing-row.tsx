@@ -7,6 +7,10 @@ import {
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
 import type { MarketListingItem } from '@/features/market/market-listings';
+import {
+  postScarceKey,
+  setScarceEmbedOverride,
+} from '@/features/scarces/scarce-embed-ledger';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { personalPostPath } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -25,11 +29,31 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-function postHrefFromSourcePath(path: string | undefined): string | null {
+function sourcePostCoords(
+  path: string | undefined
+): { author: string; postId: string } | null {
   if (!path?.trim()) return null;
   const match = path.trim().match(/^(.+)\/post\/(.+)$/);
   if (!match?.[1] || !match[2]) return null;
-  return personalPostPath(match[1], match[2]);
+  return { author: match[1], postId: match[2] };
+}
+
+function postHrefFromSourcePath(path: string | undefined): string | null {
+  const coords = sourcePostCoords(path);
+  if (!coords) return null;
+  return personalPostPath(coords.author, coords.postId);
+}
+
+/** Seed post menu so Market → post shows Cancel, not List, before embed loads. */
+function seedListedEmbed(item: MarketListingItem) {
+  const coords = sourcePostCoords(item.sourcePostPath);
+  if (!coords || !item.listingId) return;
+  setScarceEmbedOverride(postScarceKey(coords.author, coords.postId), {
+    status: 'lazy_listing',
+    listingId: item.listingId,
+    priceNear: item.priceNear,
+    events: [],
+  });
 }
 
 const CONFIRM_LEAVE_MS = 4_000;
@@ -84,6 +108,7 @@ export function MarketListingRow({
       href={postHref}
       scroll={false}
       className="market-listing-title-link"
+      onClick={() => seedListedEmbed(item)}
     >
       {item.title}
     </Link>
@@ -99,6 +124,7 @@ export function MarketListingRow({
           scroll={false}
           className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
           aria-label={`Open post for ${item.title}`}
+          onClick={() => seedListedEmbed(item)}
         >
           {item.mediaUrl ? (
             <img src={item.mediaUrl} alt="" />
@@ -142,6 +168,14 @@ export function MarketListingRow({
           </Link>
           {isOwnListing ? (
             <span className="market-listing-own"> · Yours</span>
+          ) : null}
+          {item.copies != null && item.copies > 1 ? (
+            <span className="market-listing-own">
+              {' · '}
+              {item.remaining != null && item.remaining < item.copies
+                ? `${item.remaining} of ${item.copies} left`
+                : `${item.copies} copies`}
+            </span>
           ) : null}
         </p>
       </div>

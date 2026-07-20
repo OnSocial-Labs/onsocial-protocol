@@ -39,6 +39,7 @@ fn dutch_collection(floor: u128, start_price: u128, start: u64, end: u64) -> Laz
         banned: false,
         metadata: None,
         app_metadata: None,
+        max_per_purchase: MAX_BATCH_MINT,
     }
 }
 
@@ -76,6 +77,7 @@ fn fixed_collection(price: u128) -> LazyCollection {
         banned: false,
         metadata: None,
         app_metadata: None,
+        max_per_purchase: MAX_BATCH_MINT,
     }
 }
 

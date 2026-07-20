@@ -32,6 +32,7 @@ fn create_listing_with_expiry(contract: &mut Contract, expires_at: Option<u64>) 
             burnable: true,
         },
         expires_at,
+        max_per_purchase: 1,
     };
     let action = Action::CreateLazyListing { params };
     contract

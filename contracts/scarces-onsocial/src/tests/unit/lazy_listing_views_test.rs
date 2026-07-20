@@ -35,6 +35,7 @@ fn make_lazy_listing_params(price: u128) -> LazyListing {
             burnable: true,
         },
         expires_at: None,
+        max_per_purchase: 1,
     }
 }
 
@@ -76,6 +77,7 @@ fn create_listing_with_app(contract: &mut Contract) -> String {
             burnable: true,
         },
         expires_at: None,
+        max_per_purchase: 1,
     };
     let action = Action::CreateLazyListing { params };
     contract

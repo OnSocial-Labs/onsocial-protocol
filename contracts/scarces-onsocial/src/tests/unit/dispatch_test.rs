@@ -64,6 +64,7 @@ fn dispatch_create_collection() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     let action = Action::CreateCollection { params };
     let result = contract.dispatch_action(action, &creator()).unwrap();
@@ -213,6 +214,7 @@ fn dispatch_burn_scarce() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), params).unwrap();
     contract
@@ -257,6 +259,7 @@ fn dispatch_create_lazy_listing_returns_id() {
             burnable: true,
         },
         expires_at: None,
+        max_per_purchase: 1,
     };
     let action = Action::CreateLazyListing { params };
     let result = contract.dispatch_action(action, &creator()).unwrap();
@@ -290,6 +293,7 @@ fn dispatch_pause_and_resume_collection() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), params).unwrap();
 
@@ -505,6 +509,7 @@ fn execute_purchase_lazy_listing_happy() {
             burnable: true,
         },
         expires_at: None,
+        max_per_purchase: 1,
     };
     let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
 
@@ -512,6 +517,7 @@ fn execute_purchase_lazy_listing_happy() {
     let result = contract
         .execute(make_request(Action::PurchaseLazyListing {
             listing_id: listing_id.clone(),
+            quantity: 1,
         }))
         .unwrap();
 
@@ -520,6 +526,130 @@ fn execute_purchase_lazy_listing_happy() {
     let token = contract.scarces_by_id.get(token_id).unwrap();
     assert_eq!(token.owner_id, buyer());
     assert!(!contract.lazy_listings.contains_key(&listing_id));
+}
+
+#[test]
+fn execute_purchase_lazy_listing_multi_copy() {
+    let mut contract = setup_contract();
+    testing_env!(context(creator()).build());
+
+    let params = LazyListing {
+        metadata: scarce::types::TokenMetadata {
+            title: Some("Edition".into()),
+            description: None,
+            media: None,
+            media_hash: None,
+            copies: Some(3),
+            issued_at: None,
+            expires_at: None,
+            starts_at: None,
+            updated_at: None,
+            extra: None,
+            reference: None,
+            reference_hash: None,
+        },
+        price: U128(1_000),
+        options: scarce::types::ScarceOptions {
+            royalty: None,
+            app_id: None,
+            transferable: true,
+            burnable: true,
+        },
+        expires_at: None,
+        max_per_purchase: 1,
+    };
+    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+    let created = contract.lazy_listings.get(&listing_id).unwrap();
+    assert_eq!(created.minted_count, 0);
+    assert_eq!(crate::lazy_listing::remaining_editions(created), 3);
+
+    testing_env!(context_with_deposit(buyer(), 5_000).build());
+    contract
+        .execute(make_request(Action::PurchaseLazyListing {
+            listing_id: listing_id.clone(),
+            quantity: 1,
+        }))
+        .unwrap();
+    assert!(contract.lazy_listings.contains_key(&listing_id));
+    let after_one = contract.lazy_listings.get(&listing_id).unwrap();
+    assert_eq!(after_one.minted_count, 1);
+    assert_eq!(crate::lazy_listing::remaining_editions(after_one), 2);
+
+    testing_env!(context_with_deposit(buyer(), 5_000).build());
+    contract
+        .execute(make_request(Action::PurchaseLazyListing {
+            listing_id: listing_id.clone(),
+            quantity: 1,
+        }))
+        .unwrap();
+    let after_two = contract.lazy_listings.get(&listing_id).unwrap();
+    assert_eq!(after_two.minted_count, 2);
+    assert_eq!(crate::lazy_listing::remaining_editions(after_two), 1);
+
+    testing_env!(context_with_deposit(buyer(), 5_000).build());
+    contract
+        .execute(make_request(Action::PurchaseLazyListing {
+            listing_id: listing_id.clone(),
+            quantity: 1,
+        }))
+        .unwrap();
+    assert!(!contract.lazy_listings.contains_key(&listing_id));
+}
+
+#[test]
+fn execute_purchase_lazy_listing_batch() {
+    let mut contract = setup_contract();
+    testing_env!(context(creator()).build());
+
+    let params = LazyListing {
+        metadata: scarce::types::TokenMetadata {
+            title: Some("Pack".into()),
+            description: None,
+            media: None,
+            media_hash: None,
+            copies: Some(10),
+            issued_at: None,
+            expires_at: None,
+            starts_at: None,
+            updated_at: None,
+            extra: None,
+            reference: None,
+            reference_hash: None,
+        },
+        price: U128(1_000),
+        options: scarce::types::ScarceOptions {
+            royalty: None,
+            app_id: None,
+            transferable: true,
+            burnable: true,
+        },
+        expires_at: None,
+        max_per_purchase: 3,
+    };
+    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
+
+    testing_env!(context_with_deposit(buyer(), 10_000).build());
+    let result = contract
+        .execute(make_request(Action::PurchaseLazyListing {
+            listing_id: listing_id.clone(),
+            quantity: 3,
+        }))
+        .unwrap();
+    assert!(result.is_array());
+    assert_eq!(result.as_array().unwrap().len(), 3);
+    let after = contract.lazy_listings.get(&listing_id).unwrap();
+    assert_eq!(after.minted_count, 3);
+    assert_eq!(crate::lazy_listing::remaining_editions(after), 7);
+
+    // Exceeds max_per_purchase while supply remains.
+    testing_env!(context_with_deposit(buyer(), 10_000).build());
+    let err = contract
+        .execute(make_request(Action::PurchaseLazyListing {
+            listing_id: listing_id.clone(),
+            quantity: 4,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
 #[test]
@@ -600,6 +730,7 @@ fn execute_make_collection_offer_happy() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), params).unwrap();
 

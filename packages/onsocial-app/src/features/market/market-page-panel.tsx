@@ -99,27 +99,18 @@ export function MarketPagePanel() {
         title: item.title,
         mediaUrl: item.mediaUrl,
         creatorId: item.creatorId,
+        copies: item.copies,
+        remaining: item.remaining,
       });
     },
     [viewerAccountId]
   );
 
   const handlePurchased = useCallback(() => {
-    const listingId = buyListing?.listingId;
-    if (listingId) {
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              listings: current.listings.filter(
-                (item) => item.listingId !== listingId
-              ),
-            }
-          : current
-      );
-    }
+    // Refetch live listings — multi-copy may still be for sale.
+    setBuyListing(null);
     setRetryKey((value) => value + 1);
-  }, [buyListing?.listingId]);
+  }, []);
 
   const handleCancel = useCallback(
     async (item: MarketListingItem) => {

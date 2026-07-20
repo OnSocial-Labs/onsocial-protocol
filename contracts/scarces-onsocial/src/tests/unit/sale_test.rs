@@ -378,6 +378,7 @@ fn list_soulbound_token_fails() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
     testing_env!(context(creator()).build());
@@ -417,6 +418,7 @@ fn list_revoked_token_fails() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
     testing_env!(context(creator()).build());

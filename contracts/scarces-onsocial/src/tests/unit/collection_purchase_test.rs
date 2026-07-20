@@ -27,6 +27,7 @@ fn setup_contract_with_collection(price: u128) -> (Contract, String) {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
     (contract, "col".to_string())
@@ -102,6 +103,7 @@ fn purchase_creator_only_mode_fails() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
     testing_env!(context_with_deposit(buyer(), 100_000).build());
@@ -141,6 +143,7 @@ fn purchase_exceeds_supply_fails() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
     testing_env!(context_with_deposit(buyer(), 1_000_000).build());
@@ -180,6 +183,7 @@ fn purchase_exceeds_per_wallet_limit_fails() {
         max_per_wallet: Some(2),
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -327,6 +331,7 @@ fn purchase_before_start_without_allowlist_fails() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -367,6 +372,7 @@ fn purchase_before_start_with_allowlist_succeeds() {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -388,4 +394,42 @@ fn purchase_before_start_with_allowlist_succeeds() {
 
     let collection = contract.collections.get("al2").unwrap();
     assert_eq!(collection.minted_count, 1);
+}
+
+#[test]
+fn purchase_exceeds_max_per_purchase_fails() {
+    let mut contract = new_contract();
+    let config = CollectionConfig {
+        collection_id: "capped".to_string(),
+        total_supply: 100,
+        metadata_template: r#"{"title":"T"}"#.to_string(),
+        price_near: U128(1_000),
+        start_time: None,
+        end_time: None,
+        options: scarce::types::ScarceOptions {
+            royalty: None,
+            app_id: None,
+            transferable: true,
+            burnable: true,
+        },
+        renewable: false,
+        revocation_mode: RevocationMode::None,
+        max_redeems: None,
+        mint_mode: MintMode::Open,
+        metadata: None,
+        max_per_wallet: None,
+        start_price: None,
+        allowlist_price: None,
+        max_per_purchase: Some(2),
+    };
+    contract.create_collection(&creator(), config).unwrap();
+    testing_env!(context_with_deposit(buyer(), 100_000).build());
+    let err = contract
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "capped".to_string(),
+            quantity: 3,
+            max_price_per_token: U128(u128::MAX),
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }

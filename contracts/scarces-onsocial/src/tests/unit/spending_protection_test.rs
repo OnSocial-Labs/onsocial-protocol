@@ -58,6 +58,7 @@ fn setup_lazy_listing(contract: &mut Contract, price: u128) -> String {
             burnable: true,
         },
         expires_at: None,
+        max_per_purchase: 1,
     };
     contract.create_lazy_listing(&creator(), params).unwrap()
 }
@@ -84,6 +85,7 @@ fn setup_collection(contract: &mut Contract, price: u128) -> String {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     testing_env!(context(creator()).build());
     contract.create_collection(&creator(), config).unwrap();

@@ -47,6 +47,13 @@ export function PostScarceCta({
   }
 
   const price = formatPriceNear(embed.priceNear);
+  const editionHint =
+    embed.copies != null &&
+    embed.copies > 1 &&
+    embed.remaining != null &&
+    embed.remaining < embed.copies
+      ? `${embed.remaining}/${embed.copies}`
+      : null;
   const canBuy =
     !isAuthor &&
     ((embed.status === 'lazy_listing' && Boolean(embed.listingId)) ||
@@ -55,7 +62,10 @@ export function PostScarceCta({
   if (isAuthor) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
-        <span>{price ? `Yours · ${price} NEAR` : 'Yours'}</span>
+        <span>
+          {price ? `Yours · ${price} NEAR` : 'Yours'}
+          {editionHint ? ` · ${editionHint} left` : ''}
+        </span>
       </div>
     );
   }
@@ -68,7 +78,13 @@ export function PostScarceCta({
     );
   }
 
-  const label = price ? `Buy · ${price} NEAR` : 'Buy';
+  const label = price
+    ? editionHint
+      ? `Buy · ${price} NEAR · ${editionHint}`
+      : `Buy · ${price} NEAR`
+    : editionHint
+      ? `Buy · ${editionHint}`
+      : 'Buy';
 
   return (
     <div className="post-card-scarce-cta">

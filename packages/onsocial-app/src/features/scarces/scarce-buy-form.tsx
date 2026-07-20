@@ -9,6 +9,7 @@ import {
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { findLiveListingForPost } from '@/features/market/market-listings';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -46,6 +47,8 @@ interface ScarceBuyFormProps {
     mediaUrl?: string | null;
     creatorId?: string;
     cardBg?: string;
+    copies?: number;
+    remaining?: number;
   } | null;
   embed?: PostScarceEmbed | null;
   /** Profile display name for text-card preview byline. */
@@ -91,6 +94,8 @@ export function ScarceBuyForm({
   const listingId = listing?.listingId ?? embed?.listingId;
   const tokenId = listing?.tokenId ?? embed?.tokenId;
   const priceNear = listing?.priceNear ?? embed?.priceNear;
+  const copies = listing?.copies ?? embed?.copies;
+  const remaining = listing?.remaining ?? embed?.remaining;
   const title =
     listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const sellerId = listing?.creatorId ?? post?.accountId;
@@ -157,13 +162,36 @@ export function ScarceBuyForm({
       if (!confirmed) return;
 
       if (post) {
-        setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
-          status: 'sold',
-          ...(listingId ? { listingId } : {}),
-          ...(tokenId ? { tokenId } : {}),
-          ...(priceNear ? { priceNear } : {}),
-          events: [],
-        });
+        const key = postScarceKey(post.accountId, post.postId);
+        // Multi-copy: keep Buy live while the listing still has editions.
+        const live =
+          isLazyBuy && listingId
+            ? await findLiveListingForPost(
+                post.accountId,
+                post.accountId,
+                post.postId
+              )
+            : null;
+        if (live?.listingId) {
+          setScarceEmbedOverride(key, {
+            status: 'lazy_listing',
+            listingId: live.listingId,
+            ...(priceNear || live.priceNear
+              ? { priceNear: live.priceNear || priceNear }
+              : {}),
+            ...(live.copies != null ? { copies: live.copies } : {}),
+            ...(live.remaining != null ? { remaining: live.remaining } : {}),
+            events: [],
+          });
+        } else {
+          setScarceEmbedOverride(key, {
+            status: 'sold',
+            ...(listingId ? { listingId } : {}),
+            ...(tokenId ? { tokenId } : {}),
+            ...(priceNear ? { priceNear } : {}),
+            events: [],
+          });
+        }
       }
 
       onSuccess?.({ listingId, tokenId });
@@ -214,6 +242,13 @@ export function ScarceBuyForm({
       <div className="scarce-buy-summary">
         {!post ? <p className="scarce-buy-title">{title}</p> : null}
         <p className="scarce-buy-price">{formatPriceNear(priceNear)}</p>
+        {copies != null && copies > 1 ? (
+          <p className="profile-support-hint">
+            {remaining != null && remaining < copies
+              ? `${remaining} of ${copies} left`
+              : `${copies} editions`}
+          </p>
+        ) : null}
         <p className="profile-support-hint">
           {status === 'lazy_listing'
             ? 'Minted to you on purchase.'

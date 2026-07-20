@@ -30,6 +30,9 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
     ...(opts.appId ? { app_id: opts.appId } : {}),
     ...(opts.mintMode ? { mint_mode: opts.mintMode } : {}),
     ...(opts.maxPerWallet != null ? { max_per_wallet: opts.maxPerWallet } : {}),
+    ...(opts.maxPerPurchase != null
+      ? { max_per_purchase: opts.maxPerPurchase }
+      : {}),
     ...(opts.renewable != null ? { renewable: opts.renewable } : {}),
     ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
     ...(opts.burnable != null ? { burnable: opts.burnable } : {}),

@@ -20,6 +20,8 @@ export interface ScarceBuyListing {
   mediaUrl?: string | null;
   creatorId: string;
   creatorName?: string | null;
+  copies?: number;
+  remaining?: number;
 }
 
 interface ScarceBuySheetProps {
@@ -115,6 +117,8 @@ export function ScarceBuySheet({
                   title: listing.title,
                   mediaUrl: listing.mediaUrl,
                   creatorId: listing.creatorId,
+                  copies: listing.copies,
+                  remaining: listing.remaining,
                 }
               : null
           }

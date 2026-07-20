@@ -132,3 +132,48 @@ pub(crate) fn validate_metadata_json(json_str: &str) -> Result<(), MarketplaceEr
 pub fn default_true() -> bool {
     true
 }
+
+/// Default purchase quantity / social lazy max-per-purchase.
+pub fn default_one() -> u32 {
+    1
+}
+
+/// Pre-`max_per_purchase` collections behave like today's uncapped batch (up to MAX_BATCH_MINT).
+pub fn default_max_batch_mint() -> u32 {
+    crate::MAX_BATCH_MINT
+}
+
+/// Append-compatible Borsh read for trailing `u32` (EOF → `default`).
+pub fn deserialize_trailing_u32_or<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+    default: u32,
+) -> Result<u32, near_sdk::borsh::io::Error> {
+    let mut buf = [0u8; 4];
+    match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
+        0 => Ok(default),
+        4 => Ok(u32::from_le_bytes(buf)),
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing u32 length {n}"),
+        )),
+    }
+}
+
+pub fn deserialize_max_per_purchase_collection<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<u32, near_sdk::borsh::io::Error> {
+    deserialize_trailing_u32_or(reader, crate::MAX_BATCH_MINT)
+}
+
+pub fn deserialize_minted_count<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<u32, near_sdk::borsh::io::Error> {
+    deserialize_trailing_u32_or(reader, 0)
+}
+
+pub fn deserialize_max_per_purchase_listing<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<u32, near_sdk::borsh::io::Error> {
+    let v = deserialize_trailing_u32_or(reader, 1)?;
+    Ok(if v == 0 { 1 } else { v })
+}

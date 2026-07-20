@@ -25,6 +25,7 @@ fn mint_config(id: &str, supply: u32, mint_mode: MintMode) -> CollectionConfig {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     }
 }
 

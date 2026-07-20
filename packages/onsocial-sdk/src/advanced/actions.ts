@@ -270,7 +270,7 @@ export type ScarcesAction =
       quantity: number;
       max_price_per_token: string;
     }
-  | { type: 'purchase_lazy_listing'; listing_id: string }
+  | { type: 'purchase_lazy_listing'; listing_id: string; quantity?: number }
   | { type: 'purchase_native_scarce'; token_id: string }
   | { type: 'place_bid'; token_id: string; amount: string }
   // Offers

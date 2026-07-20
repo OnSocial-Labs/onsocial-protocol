@@ -327,10 +327,16 @@ describe('scarces builders — lazy', () => {
     });
   });
 
-  it('purchase_lazy_listing carries listing_id', () => {
+  it('purchase_lazy_listing carries listing_id and quantity', () => {
     expect(buildPurchaseLazyListingAction('abc')).toEqual({
       type: 'purchase_lazy_listing',
       listing_id: 'abc',
+      quantity: 1,
+    });
+    expect(buildPurchaseLazyListingAction('abc', 3)).toEqual({
+      type: 'purchase_lazy_listing',
+      listing_id: 'abc',
+      quantity: 3,
     });
   });
 });

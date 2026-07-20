@@ -34,6 +34,7 @@ fn create_refundable_collection(contract: &mut Contract) {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
 }

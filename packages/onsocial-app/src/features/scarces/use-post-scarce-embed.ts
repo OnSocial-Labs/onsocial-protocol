@@ -17,6 +17,15 @@ export type PostScarceEmbedStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 const RECONCILE_RETRY_MS = [2_000, 5_000] as const;
 
+function isActivelyListed(embed: PostScarceEmbed | null): boolean {
+  if (!embed) return false;
+  return (
+    embed.status === 'lazy_listing' ||
+    embed.status === 'listed' ||
+    embed.status === 'auction'
+  );
+}
+
 /**
  * Lazy-loads `os.scarces.fromPost.embed` when the card enters view (or when
  * `force` is set — e.g. author opens the ⋮ menu). Optimistic ledger overrides
@@ -75,10 +84,38 @@ export function usePostScarceEmbed(
     const postId = post.postId;
     void client.scarces.fromPost
       .embed({ author, postId })
-      .then((embed) => {
+      .then(async (embed) => {
+        // Indexer events omit sourcePost for lazy listings, so embed often
+        // returns `none` while Market still shows a live contract listing.
+        let resolved = embed;
+        if (!isActivelyListed(embed)) {
+          const live = await findLiveListingForPost(author, author, postId);
+          if (live?.listingId) {
+            resolved = {
+              ...embed,
+              status: 'lazy_listing',
+              listingId: live.listingId,
+              priceNear: live.priceNear,
+              ...(live.copies != null ? { copies: live.copies } : {}),
+              ...(live.remaining != null ? { remaining: live.remaining } : {}),
+            };
+          }
+        } else if (embed.status === 'lazy_listing') {
+          // Refresh remaining from live state after multi-copy purchases.
+          const live = await findLiveListingForPost(author, author, postId);
+          if (live?.listingId) {
+            resolved = {
+              ...embed,
+              listingId: live.listingId,
+              priceNear: live.priceNear ?? embed.priceNear,
+              ...(live.copies != null ? { copies: live.copies } : {}),
+              ...(live.remaining != null ? { remaining: live.remaining } : {}),
+            };
+          }
+        }
         if (cancelled) return;
-        reconcileScarceEmbedFromApi(key, embed);
-        setFetched(embed);
+        reconcileScarceEmbedFromApi(key, resolved);
+        setFetched(resolved);
         setFetchedKey(key);
       })
       .catch(() => {

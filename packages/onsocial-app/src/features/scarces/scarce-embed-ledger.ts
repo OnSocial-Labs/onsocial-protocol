@@ -62,9 +62,16 @@ export function reconcileScarceEmbedFromApi(
     }
   }
 
-  if (override.status === 'sold' && fetched.status === 'sold') {
-    clearScarceEmbedOverride(key);
-    return true;
+  if (override.status === 'sold') {
+    // Multi-copy: chain still has the listing — drop the premature sold hint.
+    if (fetched.status === 'lazy_listing' || fetched.status === 'listed') {
+      clearScarceEmbedOverride(key);
+      return true;
+    }
+    if (fetched.status === 'sold') {
+      clearScarceEmbedOverride(key);
+      return true;
+    }
   }
 
   // Cancel / delist — wait until indexer no longer shows an active listing.
@@ -112,8 +119,18 @@ export function resolveScarceEmbed(
       tokenId: override.tokenId ?? fetched.tokenId,
       priceNear: override.priceNear ?? fetched.priceNear,
       cardBg: override.cardBg ?? fetched.cardBg,
+      copies: override.copies ?? fetched.copies,
+      remaining: override.remaining ?? fetched.remaining,
       events: fetched.events.length > 0 ? fetched.events : override.events,
     };
+  }
+
+  // Optimistic sold must not hide a still-live multi-copy listing.
+  if (
+    override.status === 'sold' &&
+    (fetched.status === 'lazy_listing' || fetched.status === 'listed')
+  ) {
+    return fetched;
   }
 
   return override;

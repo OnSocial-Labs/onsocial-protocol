@@ -36,6 +36,8 @@ impl Contract {
             .as_return())
     }
 
+    /// Upgrade entrypoint. Rewrites lazy listings to seed `minted_count` from
+    /// legacy `extra.supplyRemaining` (append-compatible Borsh load + cleanup).
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
@@ -43,6 +45,17 @@ impl Contract {
         let old_version = contract.version.clone();
         contract.version = env!("CARGO_PKG_VERSION").to_string();
         contract.contract_metadata.spec = NFT_METADATA_SPEC.to_string();
+
+        let listings: Vec<(String, LazyListingRecord)> = contract
+            .lazy_listings
+            .iter()
+            .map(|(id, listing)| (id.clone(), listing.clone()))
+            .collect();
+        for (listing_id, mut listing) in listings {
+            if crate::lazy_listing::seed_minted_from_legacy_extra(&mut listing) {
+                contract.lazy_listings.insert(listing_id, listing);
+            }
+        }
 
         events::emit_contract_upgraded(&env::current_account_id(), &old_version, &contract.version);
 

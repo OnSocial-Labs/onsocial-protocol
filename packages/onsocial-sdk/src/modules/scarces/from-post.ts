@@ -155,6 +155,10 @@ export interface PostScarceEmbed {
   auctionId?: string;
   /** Current asking / bid price in NEAR (string, decimal). */
   priceNear?: string;
+  /** Edition size when known (NEP-177 copies). */
+  copies?: number;
+  /** Unsold editions still on the live lazy listing. */
+  remaining?: number;
   /**
    * Auto text-card mood key (`extra.theme.bg`) when the listing has no
    * photo cover. Useful for client-side previews before media is fetched.
@@ -166,13 +170,37 @@ export interface PostScarceEmbed {
   events: ScarcesEventRow[];
 }
 
+function remainingFromEventExtra(
+  extraData: string | null | undefined
+): number | undefined {
+  if (!extraData) return undefined;
+  try {
+    const extra = JSON.parse(extraData) as Record<string, unknown>;
+    const raw = extra.remaining ?? extra.remainingEditions;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return Math.max(0, Math.floor(raw));
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+      const n = Number.parseInt(raw, 10);
+      if (Number.isFinite(n)) return Math.max(0, n);
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+
 /**
  * Coarse trade status from the newest matching event.
  * Order matters: sold / cancelled must win over the lazy event family, because
  * indexer rows use `LAZY_LISTING_UPDATE` + `purchased` / `cancelled`.
+ * Lazy purchases with `remaining > 0` stay `lazy_listing` (multi-copy).
  */
 export function derivePostScarceStatus(
-  row: Pick<ScarcesEventRow, 'operation' | 'eventType' | 'tokenId'>
+  row: Pick<
+    ScarcesEventRow,
+    'operation' | 'eventType' | 'tokenId' | 'extraData'
+  >
 ): PostScarceEmbed['status'] {
   const op = (row.operation ?? '').toLowerCase();
   const et = (row.eventType ?? '').toLowerCase();
@@ -185,6 +213,10 @@ export function derivePostScarceStatus(
     op === 'sold_out' ||
     op === 'offer_accepted'
   ) {
+    if (lazyFamily && op !== 'sold_out') {
+      const remaining = remainingFromEventExtra(row.extraData);
+      if (remaining != null && remaining > 0) return 'lazy_listing';
+    }
     return 'sold';
   }
 
@@ -273,6 +305,7 @@ export class ScarcesFromPostApi {
       ...(base.description ? { description: base.description } : {}),
       ...(base.mediaCid ? { mediaCid: base.mediaCid } : {}),
       ...(base.image ? { image: base.image } : {}),
+      ...(base.copies != null ? { copies: base.copies } : {}),
       ...(base.royalty ? { royalty: base.royalty } : {}),
       ...(base.appId ? { appId: base.appId } : {}),
       ...(base.extra ? { extra: base.extra } : {}),
@@ -392,7 +425,7 @@ export class ScarcesFromPostApi {
     if (latest.tokenId) out.tokenId = latest.tokenId;
     if (latest.listingId) out.listingId = latest.listingId;
 
-    // Pull price / theme from extraData if present (best-effort).
+    // Pull price / theme / remaining from extraData if present (best-effort).
     try {
       const extra = latest.extraData
         ? (JSON.parse(latest.extraData) as Record<string, unknown>)
@@ -402,6 +435,14 @@ export class ScarcesFromPostApi {
           (extra['priceNear'] as string | undefined) ??
           (extra['price_near'] as string | undefined);
         if (typeof p === 'string' && p) out.priceNear = p;
+
+        const remaining = remainingFromEventExtra(latest.extraData);
+        if (remaining != null) out.remaining = remaining;
+
+        const copiesRaw = extra['copies'];
+        if (typeof copiesRaw === 'number' && Number.isFinite(copiesRaw)) {
+          out.copies = Math.max(0, Math.floor(copiesRaw));
+        }
 
         const theme = extra['theme'];
         if (theme && typeof theme === 'object' && !Array.isArray(theme)) {

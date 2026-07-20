@@ -22,6 +22,18 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
 
+        let max_per_purchase = if collection.max_per_purchase == 0 {
+            MAX_BATCH_MINT
+        } else {
+            collection.max_per_purchase.min(MAX_BATCH_MINT)
+        };
+        if quantity > max_per_purchase {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Quantity exceeds max_per_purchase ({})",
+                max_per_purchase
+            )));
+        }
+
         let now = env::block_timestamp();
         let is_before_start = collection.start_time.is_some_and(|s| now < s);
 

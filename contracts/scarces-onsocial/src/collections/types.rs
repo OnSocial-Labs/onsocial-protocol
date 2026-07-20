@@ -93,6 +93,10 @@ pub struct LazyCollection {
     pub metadata: Option<String>,
     #[serde(default)]
     pub app_metadata: Option<String>,
+    /// Max tokens per purchase call. Legacy collections default to MAX_BATCH_MINT.
+    #[serde(default = "crate::default_max_batch_mint")]
+    #[borsh(deserialize_with = "crate::deserialize_max_per_purchase_collection")]
+    pub max_per_purchase: u32,
 }
 
 #[near(serializers = [json])]
@@ -124,6 +128,9 @@ pub struct CollectionConfig {
     pub start_price: Option<U128>,
     #[serde(default)]
     pub allowlist_price: Option<U128>,
+    /// Max tokens per purchase call (1..=MAX_BATCH_MINT). None → MAX_BATCH_MINT.
+    #[serde(default)]
+    pub max_per_purchase: Option<u32>,
 }
 
 #[near(serializers = [json])]

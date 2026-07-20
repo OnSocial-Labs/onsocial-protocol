@@ -46,6 +46,10 @@ export interface ComposeLazyListRequest {
   description?: string;
   /** Fixed price in NEAR (e.g. "5") */
   priceNear: string;
+  /** Edition size (1–100). Each purchase mints one copy until sold out. */
+  copies?: number;
+  /** Max editions per purchase call (1–10). Default 1 when omitted on-chain. */
+  maxPerPurchase?: number;
   /** Optional: additional metadata fields (NEP-177 `extra`) */
   extra?: Record<string, unknown>;
   /** Existing IPFS CID to reuse (e.g. post image already on IPFS) */
@@ -258,11 +262,17 @@ export async function buildLazyListAction(
   // ── Build NEP-177 metadata ────────────────────────────────────────
   // Store the dedicated-gateway https URL on-chain (not `ipfs://...`) so
   // wallets render reliably without depending on the public IPFS DHT.
+  const copies =
+    typeof req.copies === 'number' && Number.isFinite(req.copies)
+      ? Math.min(100, Math.max(1, Math.floor(req.copies)))
+      : 1;
+
   const tokenMetadata: Record<string, unknown> = {
     title: req.title,
     ...(req.description && { description: req.description }),
     ...(media && { media: media.url }),
     ...(media?.hash && { media_hash: media.hash }),
+    copies,
     ...(req.extra && { extra: JSON.stringify(req.extra) }),
   };
 
@@ -293,6 +303,11 @@ export async function buildLazyListAction(
 
   // ── Build action ──────────────────────────────────────────────────
   // CreateLazyListing uses #[serde(flatten)] for ScarceOptions
+  const maxPerPurchase =
+    typeof req.maxPerPurchase === 'number' && Number.isFinite(req.maxPerPurchase)
+      ? Math.min(10, Math.max(1, Math.floor(req.maxPerPurchase)))
+      : undefined;
+
   const action: Record<string, unknown> = {
     type: 'create_lazy_listing',
     metadata: tokenMetadata,
@@ -302,6 +317,7 @@ export async function buildLazyListAction(
     ...(req.transferable != null && { transferable: req.transferable }),
     ...(req.burnable != null && { burnable: req.burnable }),
     ...(req.expiresAt != null && { expires_at: req.expiresAt }),
+    ...(maxPerPurchase != null && { max_per_purchase: maxPerPurchase }),
   };
 
   return {
@@ -366,11 +382,19 @@ export function buildUpdateLazyListingExpiryAction(
 /** Build a PurchaseLazyListing action. */
 export function buildPurchaseLazyListingAction(
   listingId: string,
-  targetAccount?: string
+  targetAccount?: string,
+  quantity = 1
 ): LazyListingSimpleResult {
   if (!listingId) throw new ComposeError(400, 'Missing listingId');
+  const qty = Number.isFinite(quantity)
+    ? Math.min(10, Math.max(1, Math.floor(quantity)))
+    : 1;
   return {
-    action: { type: 'purchase_lazy_listing', listing_id: listingId },
+    action: {
+      type: 'purchase_lazy_listing',
+      listing_id: listingId,
+      quantity: qty,
+    },
     targetAccount: resolveTarget(targetAccount),
   };
 }

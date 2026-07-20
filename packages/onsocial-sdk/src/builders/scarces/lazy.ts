@@ -21,12 +21,19 @@ export function buildCreateLazyListingAction(opts: LazyListingOptions) {
     ...(parseOptionalU64(opts.expiresAt) != null
       ? { expires_at: parseOptionalU64(opts.expiresAt) }
       : {}),
+    ...(opts.maxPerPurchase != null
+      ? { max_per_purchase: opts.maxPerPurchase }
+      : {}),
   };
 }
 
-export function buildPurchaseLazyListingAction(listingId: string) {
+export function buildPurchaseLazyListingAction(
+  listingId: string,
+  quantity = 1
+) {
   return {
     type: 'purchase_lazy_listing' as const,
     listing_id: listingId,
+    quantity,
   };
 }

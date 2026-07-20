@@ -7,7 +7,7 @@ impl Contract {
         params: LazyListing,
     ) -> Result<String, MarketplaceError> {
         let LazyListing {
-            metadata,
+            mut metadata,
             price,
             options:
                 crate::ScarceOptions {
@@ -17,9 +17,18 @@ impl Contract {
                     burnable,
                 },
             expires_at,
+            max_per_purchase,
         } = params;
         let price = price.0;
         crate::validation::validate_token_metadata(&metadata)?;
+
+        let copies = crate::lazy_listing::resolve_lazy_copies(&metadata)
+            .map_err(MarketplaceError::InvalidInput)?;
+        metadata.copies = Some(copies);
+        crate::lazy_listing::strip_legacy_supply_remaining(&mut metadata);
+        let max_per_purchase =
+            crate::lazy_listing::resolve_max_per_purchase_input(max_per_purchase)
+                .map_err(MarketplaceError::InvalidInput)?;
 
         let metadata_json = near_sdk::serde_json::to_string(&metadata)
             .map_err(|_| MarketplaceError::InternalError("Failed to serialize metadata".into()))?;
@@ -70,6 +79,8 @@ impl Contract {
             burnable,
             expires_at,
             created_at: env::block_timestamp(),
+            minted_count: 0,
+            max_per_purchase,
         };
 
         // Storage/accounting invariant: rollback listing insert if storage charge fails.
@@ -83,7 +94,7 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_lazy_listing_created(creator_id, &listing_id, price);
+        events::emit_lazy_listing_created(creator_id, &listing_id, price, copies, max_per_purchase);
         Ok(listing_id)
     }
 

@@ -77,6 +77,9 @@ export class ScarcesLazyApi {
     form.append('title', opts.title);
     form.append('priceNear', opts.priceNear);
     if (opts.description) form.append('description', opts.description);
+    if (opts.copies != null) form.append('copies', String(opts.copies));
+    if (opts.maxPerPurchase != null)
+      form.append('maxPerPurchase', String(opts.maxPerPurchase));
     if (opts.royalty) form.append('royalty', JSON.stringify(opts.royalty));
     if (opts.extra) form.append('extra', JSON.stringify(opts.extra));
     if (opts.appId) form.append('appId', opts.appId);
@@ -119,7 +122,7 @@ export class ScarcesLazyApi {
    */
   async purchase(
     listingId: string,
-    opts: { depositYocto?: string } = {}
+    opts: { depositYocto?: string; quantity?: number } = {}
   ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
@@ -127,6 +130,7 @@ export class ScarcesLazyApi {
       SCARCES_VERBS.PURCHASE_LAZY_LIST,
       {
         listingId,
+        quantity: opts.quantity ?? 1,
       },
       'scarces.purchaseLazyList',
       this._relayOpts(

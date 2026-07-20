@@ -441,6 +441,8 @@ export interface CollectionOptions {
   appId?: string;
   mintMode?: string;
   maxPerWallet?: number;
+  /** Max tokens per purchase call (1–10). Default: 10 (MAX_BATCH_MINT). */
+  maxPerPurchase?: number;
   renewable?: boolean;
   transferable?: boolean;
   burnable?: boolean;
@@ -468,6 +470,10 @@ export interface LazyListingOptions {
   /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
   description?: string;
+  /** Edition size (1–100). Each purchase mints one copy until sold out. */
+  copies?: number;
+  /** Max editions per purchase call (1–10). Default: 1 (social). */
+  maxPerPurchase?: number;
   royalty?: Record<string, number>;
   extra?: Record<string, unknown>;
   appId?: string;

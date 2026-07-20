@@ -23,10 +23,20 @@ impl Contract {
                 )?;
                 Ok(Value::Null)
             }
-            Action::PurchaseLazyListing { listing_id } => {
+            Action::PurchaseLazyListing {
+                listing_id,
+                quantity,
+            } => {
                 let deposit = core::mem::take(&mut self.pending_attached_balance);
-                let token_id = self.purchase_lazy_listing(actor_id, listing_id, deposit)?;
-                Ok(Value::String(token_id))
+                let token_ids =
+                    self.purchase_lazy_listing(actor_id, listing_id, quantity, deposit)?;
+                if token_ids.len() == 1 {
+                    Ok(Value::String(token_ids.into_iter().next().unwrap()))
+                } else {
+                    Ok(Value::Array(
+                        token_ids.into_iter().map(Value::String).collect(),
+                    ))
+                }
             }
             Action::PurchaseNativeScarce { token_id } => {
                 let deposit = core::mem::take(&mut self.pending_attached_balance);

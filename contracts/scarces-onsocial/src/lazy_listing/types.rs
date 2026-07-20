@@ -4,6 +4,8 @@ use near_sdk::near;
 
 use crate::{ScarceOptions, TokenMetadata};
 
+/// On-chain lazy listing. Edition size is NEP-177 `metadata.copies`;
+/// progress is first-class `minted_count` (collections-aligned).
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct LazyListingRecord {
@@ -21,6 +23,14 @@ pub struct LazyListingRecord {
     #[serde(default)]
     pub expires_at: Option<u64>,
     pub created_at: u64,
+    /// Editions already minted from this listing. Remaining = copies − minted_count.
+    #[serde(default)]
+    #[borsh(deserialize_with = "crate::deserialize_minted_count")]
+    pub minted_count: u32,
+    /// Max editions a buyer may purchase in one call. Default 1 (social).
+    #[serde(default = "crate::default_one")]
+    #[borsh(deserialize_with = "crate::deserialize_max_per_purchase_listing")]
+    pub max_per_purchase: u32,
 }
 
 #[near(serializers = [json])]
@@ -32,4 +42,7 @@ pub struct LazyListing {
     pub options: ScarceOptions,
     #[serde(default)]
     pub expires_at: Option<u64>,
+    /// Max editions per purchase call (1..=MAX_BATCH_MINT). Default 1.
+    #[serde(default = "crate::default_one")]
+    pub max_per_purchase: u32,
 }

@@ -155,11 +155,14 @@ fn test_decode_lazy_listing_created() {
 
 #[test]
 fn test_decode_lazy_listing_purchased() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"LAZY_LISTING_UPDATE","data":[{"operation":"purchased","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","listing_id":"ll-1","token_id":"t1","price":"3000","creator_payment":"2800","marketplace_fee":"100","app_pool_amount":"50","app_commission":"50","app_id":"app.near"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"LAZY_LISTING_UPDATE","data":[{"operation":"purchased","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","listing_id":"ll-1","token_id":"t1","quantity":2,"unit_price":"1500","total_price":"3000","price":"3000","creator_payment":"2800","marketplace_fee":"100","app_pool_amount":"50","app_commission":"50","app_id":"app.near","token_ids":["t1","t2"],"minted_count":2,"remaining":3}]}"#;
     let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
     assert_eq!(event.creator_payment, "2800");
     assert_eq!(event.token_id, "t1");
     assert_eq!(event.app_id, "app.near");
+    assert_eq!(event.quantity, 2);
+    assert_eq!(event.price, "3000");
+    assert!(event.token_ids.contains("t1"));
 }
 
 // ─── OFFER_UPDATE operations ───────────────────────────────────────

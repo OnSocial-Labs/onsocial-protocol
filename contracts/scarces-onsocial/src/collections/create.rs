@@ -29,6 +29,7 @@ impl Contract {
             max_per_wallet,
             start_price,
             allowlist_price,
+            max_per_purchase,
         } = params;
 
         if collection_id.is_empty() || collection_id.len() > 64 {
@@ -96,6 +97,17 @@ impl Contract {
                 ));
             }
         }
+
+        let max_per_purchase = match max_per_purchase {
+            None | Some(0) => MAX_BATCH_MINT,
+            Some(n) if n > MAX_BATCH_MINT => {
+                return Err(MarketplaceError::InvalidInput(format!(
+                    "max_per_purchase must be between 1 and {}",
+                    MAX_BATCH_MINT
+                )));
+            }
+            Some(n) => n,
+        };
 
         if let Some(sp) = &start_price {
             if sp.0 <= price_near.0 {
@@ -175,6 +187,7 @@ impl Contract {
             banned: false,
             metadata,
             app_metadata: None,
+            max_per_purchase,
         };
 
         let before = self.storage_usage_flushed();

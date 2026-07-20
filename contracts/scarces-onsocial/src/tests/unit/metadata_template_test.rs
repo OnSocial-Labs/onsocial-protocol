@@ -28,6 +28,7 @@ fn setup_contract_with_collection(template: &str) -> Contract {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     };
     contract.create_collection(&creator(), config).unwrap();
     contract

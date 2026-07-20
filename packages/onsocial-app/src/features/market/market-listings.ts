@@ -28,10 +28,13 @@ interface LazyListingRecord {
     title?: string | null;
     description?: string | null;
     media?: string | null;
+    copies?: number | string | null;
     extra?: string | null;
   };
   price?: string | { '0'?: string } | null;
   created_at?: number;
+  /** Editions already minted (collections-aligned). */
+  minted_count?: number | string | null;
 }
 
 export interface MarketListingItem {
@@ -42,6 +45,10 @@ export interface MarketListingItem {
   blockTimestamp: number;
   mediaUrl?: string | null;
   sourcePostPath?: string;
+  /** Total edition size (NEP-177 copies). */
+  copies?: number;
+  /** Unsold editions still on this listing. */
+  remaining?: number;
 }
 
 export interface MarketSaleItem {
@@ -165,6 +172,27 @@ function saleTitle(row: ScarcesEventRow): string {
   return 'Scarce';
 }
 
+function parseCount(raw: unknown): number | undefined {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return Math.max(0, Math.floor(raw));
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    const n = Number.parseInt(raw, 10);
+    if (Number.isFinite(n)) return Math.max(0, n);
+  }
+  return undefined;
+}
+
+/** Remaining editions = copies − minted_count (post-migrate contract model). */
+function remainingForListing(
+  record: LazyListingRecord,
+  copies: number | undefined
+): number | undefined {
+  if (copies == null) return undefined;
+  const minted = parseCount(record.minted_count) ?? 0;
+  return Math.max(0, copies - minted);
+}
+
 function listingFromRecord(
   listingId: string,
   record: LazyListingRecord
@@ -179,6 +207,10 @@ function listingFromRecord(
   // Contract timestamps are ns; feed/indexer use ms-ish seconds — normalize to ms for sort.
   const blockTimestamp =
     createdAt > 1e15 ? Math.floor(createdAt / 1e6) : createdAt;
+  const copiesSafe = parseCount(record.metadata?.copies);
+  const copies =
+    copiesSafe != null && copiesSafe > 0 ? copiesSafe : undefined;
+  const remaining = remainingForListing(record, copies);
 
   return {
     listingId,
@@ -188,31 +220,65 @@ function listingFromRecord(
     blockTimestamp,
     mediaUrl,
     sourcePostPath: sourcePostPathFromExtra(extra),
+    ...(copies != null ? { copies } : {}),
+    ...(remaining != null ? { remaining } : {}),
   };
+}
+
+/**
+ * Load one listing by id. Returns null when missing or when the view traps
+ * (corrupt historical rows must not blank the whole Market).
+ */
+export async function fetchLazyListingById(
+  listingId: string
+): Promise<MarketListingItem | null> {
+  try {
+    const record = await viewNearContract<LazyListingRecord | null>(
+      SCARCES_CONTRACT,
+      'get_lazy_listing',
+      { listing_id: listingId }
+    );
+    if (!record) return null;
+    return listingFromRecord(listingId, record);
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchLiveListingsForCreator(
   creatorId: string
 ): Promise<MarketListingItem[]> {
+  // Prefer per-id loads from indexer discovery. Full-map views
+  // (`get_lazy_listings_by_creator`) currently trap if any sibling row is
+  // corrupt, which would hide healthy listings for every creator.
   try {
-    const rows = await viewNearContract<Array<[string, LazyListingRecord]>>(
-      SCARCES_CONTRACT,
-      'get_lazy_listings_by_creator',
-      { creator_id: creatorId, from_index: 0, limit: 20 }
-    );
-    if (!Array.isArray(rows)) return [];
-    const items: MarketListingItem[] = [];
-    for (const entry of rows) {
-      if (!Array.isArray(entry) || entry.length < 2) continue;
-      const [listingId, record] = entry;
-      if (typeof listingId !== 'string' || !record) continue;
-      const item = listingFromRecord(listingId, record);
-      if (item) items.push(item);
+    const client = createReadOnlyOnSocialClient();
+    const created = await client.query.scarces.events({
+      eventType: 'LAZY_LISTING_UPDATE',
+      operation: 'created',
+      author: creatorId,
+      limit: 40,
+    });
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const row of created) {
+      const listingId = row.listingId?.trim();
+      if (!listingId || seen.has(listingId)) continue;
+      seen.add(listingId);
+      ids.push(listingId);
     }
-    return items;
+    const loaded = await Promise.all(ids.map((id) => fetchLazyListingById(id)));
+    return loaded.filter((item): item is MarketListingItem => {
+      if (!item) return false;
+      return accountIdsEqualSafe(item.creatorId, creatorId);
+    });
   } catch {
     return [];
   }
+}
+
+function accountIdsEqualSafe(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 /** Resolve a live lazy listing that points at a given source post. */
@@ -223,9 +289,7 @@ export async function findLiveListingForPost(
 ): Promise<MarketListingItem | null> {
   const wantPath = `${author}/post/${postId}`;
   const items = await fetchLiveListingsForCreator(creatorId);
-  const matches = items.filter(
-    (item) => item.sourcePostPath === wantPath
-  );
+  const matches = items.filter((item) => item.sourcePostPath === wantPath);
   if (matches.length === 0) return null;
   matches.sort((a, b) => b.blockTimestamp - a.blockTimestamp);
   return matches[0] ?? null;
@@ -233,8 +297,8 @@ export async function findLiveListingForPost(
 
 /**
  * Active listings from live contract state.
- * Indexer `created` events only discover recent creators — ghosts (cancelled /
- * purchased) are never shown because we read `get_lazy_listings_by_creator`.
+ * Indexer `created` events discover listing ids; each id is loaded with
+ * `get_lazy_listing` so one corrupt row cannot empty the Market.
  */
 export async function fetchMarketListings(opts: {
   limit?: number;
@@ -247,25 +311,23 @@ export async function fetchMarketListings(opts: {
     limit: Math.min(limit * 3, 120),
   });
 
-  const creators: string[] = [];
-  const seenCreators = new Set<string>();
+  const listingIds: string[] = [];
+  const seenIds = new Set<string>();
   for (const row of created) {
-    const creatorId = accountFromRow(row.creatorId, row.author);
-    if (!creatorId || seenCreators.has(creatorId)) continue;
-    seenCreators.add(creatorId);
-    creators.push(creatorId);
-    if (creators.length >= 24) break;
+    const listingId = row.listingId?.trim();
+    if (!listingId || seenIds.has(listingId)) continue;
+    seenIds.add(listingId);
+    listingIds.push(listingId);
+    if (listingIds.length >= limit * 2) break;
   }
 
-  const batches = await Promise.all(
-    creators.map((creatorId) => fetchLiveListingsForCreator(creatorId))
+  const loaded = await Promise.all(
+    listingIds.map((id) => fetchLazyListingById(id))
   );
 
   const byId = new Map<string, MarketListingItem>();
-  for (const batch of batches) {
-    for (const item of batch) {
-      byId.set(item.listingId, item);
-    }
+  for (const item of loaded) {
+    if (item) byId.set(item.listingId, item);
   }
 
   return [...byId.values()]

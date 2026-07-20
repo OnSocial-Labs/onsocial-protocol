@@ -52,6 +52,7 @@ fn create_collection(contract: &mut Contract, who: &AccountId, col_id: &str, sup
                 max_per_wallet: None,
                 start_price: None,
                 allowlist_price: None,
+                max_per_purchase: None,
             },
         }))
         .unwrap();
@@ -284,6 +285,7 @@ fn template_app_placeholders_empty_when_no_app() {
                 max_per_wallet: None,
                 start_price: None,
                 allowlist_price: None,
+                max_per_purchase: None,
             },
         }))
         .unwrap();

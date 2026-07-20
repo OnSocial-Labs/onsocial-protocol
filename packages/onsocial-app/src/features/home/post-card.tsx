@@ -822,9 +822,13 @@ export function PostCard({
     scarceEmbed?.status === 'lazy_listing' ||
     scarceEmbed?.status === 'listed' ||
     scarceEmbed?.status === 'auction';
-  // Show List whenever nothing is actively for sale — including while embed
-  // is still loading, after cancel (`none`), and after a sale (`sold`).
-  const canListScarce = isConnected && isSelf && !activelyListed;
+  // Wait until embed is ready (indexer + live listing fallback) so Market →
+  // post doesn't flash "List for sale" on an already-listed scarce.
+  const canListScarce =
+    isConnected &&
+    isSelf &&
+    scarceEmbedStatus === 'ready' &&
+    !activelyListed;
   const canCancelScarce =
     isConnected &&
     isSelf &&

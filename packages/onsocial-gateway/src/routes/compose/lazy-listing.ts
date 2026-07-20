@@ -48,6 +48,8 @@ lazyListingRouter.post(
         title,
         description,
         priceNear,
+        copies,
+        maxPerPurchase,
         extra,
         mediaCid,
         mediaHash,
@@ -108,6 +110,16 @@ lazyListingRouter.post(
           title,
           priceNear,
           ...(description && { description }),
+          ...(copies != null &&
+            copies !== '' &&
+            Number.isFinite(parseInt(String(copies), 10)) && {
+              copies: parseInt(String(copies), 10),
+            }),
+          ...(maxPerPurchase != null &&
+            maxPerPurchase !== '' &&
+            Number.isFinite(parseInt(String(maxPerPurchase), 10)) && {
+              maxPerPurchase: parseInt(String(maxPerPurchase), 10),
+            }),
           ...(parsedExtra && { extra: parsedExtra }),
           ...(mediaCid && { mediaCid }),
           ...(mediaHash && { mediaHash }),
@@ -297,13 +309,21 @@ lazyListingRouter.post(
   '/prepare/purchase-lazy-list',
   async (req: Request, res: Response) => {
     try {
-      const { listingId, targetAccount } = req.body;
+      const { listingId, targetAccount, quantity } = req.body;
       if (!listingId || typeof listingId !== 'string') {
         res.status(400).json({ error: 'Missing required field: listingId' });
         return;
       }
 
-      const built = buildPurchaseLazyListingAction(listingId, targetAccount);
+      const qty =
+        quantity != null && quantity !== ''
+          ? parseInt(String(quantity), 10)
+          : 1;
+      const built = buildPurchaseLazyListingAction(
+        listingId,
+        targetAccount,
+        Number.isFinite(qty) ? qty : 1
+      );
       res.status(200).json({
         action: built.action,
         target_account: built.targetAccount,

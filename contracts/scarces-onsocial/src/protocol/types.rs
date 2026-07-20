@@ -178,6 +178,9 @@ pub enum Action {
     },
     PurchaseLazyListing {
         listing_id: String,
+        /// Editions to buy in this call (default 1). Capped by listing max_per_purchase.
+        #[serde(default = "crate::default_one")]
+        quantity: u32,
     },
     PurchaseNativeScarce {
         token_id: String,

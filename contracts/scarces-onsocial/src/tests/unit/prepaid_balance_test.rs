@@ -162,6 +162,7 @@ fn uses_prepaid_balance_purchase_actions() {
     assert!(
         Action::PurchaseLazyListing {
             listing_id: "l:1".into(),
+            quantity: 1,
         }
         .uses_prepaid_balance()
     );

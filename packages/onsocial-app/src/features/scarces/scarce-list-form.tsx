@@ -46,6 +46,12 @@ const ROYALTY_PRESETS = [
 ] as const;
 const DEFAULT_ROYALTY_BPS = 1000;
 
+/** Edition size — one listing, N purchases until sold out. */
+const COPIES_PRESETS = [1, 5, 10, 25] as const;
+const MIN_COPIES = 1;
+const MAX_COPIES = 100;
+const DEFAULT_COPIES = 1;
+
 const DEFAULT_CARD_THEME: ScarceCardThemeOptions = {
   cardBg: DEFAULT_MOOD,
   cardMarkShape: 'rule',
@@ -87,6 +93,7 @@ export function ScarceListForm({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [amountInput, setAmountInput] = useState('1');
   const [royaltyBps, setRoyaltyBps] = useState(DEFAULT_ROYALTY_BPS);
+  const [copies, setCopies] = useState(DEFAULT_COPIES);
   const [cardTheme, setCardTheme] =
     useState<ScarceCardThemeOptions>(DEFAULT_CARD_THEME);
   const [pending, setPending] = useState(false);
@@ -144,7 +151,12 @@ export function ScarceListForm({
       const client = createAppScarcesWalletClient(accountId, wallet);
       // Photo posts reuse the post image. Text posts mint a gateway text-card
       // using the chosen @onsocial/text-card theme knobs.
+      const editionCount = Math.min(
+        MAX_COPIES,
+        Math.max(MIN_COPIES, Math.floor(copies))
+      );
       const response = await client.scarces.fromPost.list(post, priceNear, {
+        copies: editionCount,
         ...(royaltyBps > 0
           ? { royalty: { [post.accountId]: royaltyBps } }
           : {}),
@@ -179,6 +191,8 @@ export function ScarceListForm({
       setScarceEmbedOverride(key, {
         status: 'lazy_listing',
         priceNear,
+        copies: editionCount,
+        remaining: editionCount,
         ...(listingId ? { listingId } : {}),
         ...(!hasCoverImage ? { cardBg: cardTheme.cardBg as MoodKey } : {}),
         events: [],
@@ -270,6 +284,34 @@ export function ScarceListForm({
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="scarce-royalty-field">
+        <p className="scarce-mood-picker-label">Copies</p>
+        <div
+          className="app-storage-presets profile-support-presets"
+          role="group"
+          aria-label="Number of copies"
+        >
+          {COPIES_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              className={`app-storage-preset${
+                copies === preset ? ' is-selected' : ''
+              }`}
+              disabled={pending}
+              onClick={() => setCopies(preset)}
+            >
+              {preset === 1 ? '1' : String(preset)}
+            </button>
+          ))}
+        </div>
+        <p className="profile-support-hint scarce-royalty-hint">
+          {copies <= 1
+            ? 'One buyer gets the scarce.'
+            : `${copies} editions — listing stays up until sold out.`}
+        </p>
       </div>
 
       <div className="scarce-royalty-field">

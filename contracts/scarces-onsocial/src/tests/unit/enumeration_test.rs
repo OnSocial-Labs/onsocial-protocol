@@ -60,6 +60,7 @@ fn minimal_collection_config(id: &str) -> CollectionConfig {
         max_per_wallet: None,
         start_price: None,
         allowlist_price: None,
+        max_per_purchase: None,
     }
 }
 

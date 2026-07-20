@@ -101,7 +101,7 @@ fn scarces_collection_purchase_full_pipeline() {
 
 #[test]
 fn scarces_lazy_listing_full_pipeline() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"LAZY_LISTING_UPDATE","data":[{"operation":"purchased","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","listing_id":"ll-1","token_id":"t1","price":"3000","creator_payment":"2800","marketplace_fee":"100","app_pool_amount":"50","app_commission":"50"}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"LAZY_LISTING_UPDATE","data":[{"operation":"purchased","author":"buyer.near","buyer_id":"buyer.near","creator_id":"creator.near","listing_id":"ll-1","token_id":"t1","quantity":2,"total_price":"3000","price":"3000","creator_payment":"2800","marketplace_fee":"100","app_pool_amount":"50","app_commission":"50","token_ids":["t1","t2"]}]}"#;
     let block = MockBlockBuilder::new(100, 1000)
         .add_receipt(CONTRACT, &[1], vec![json])
         .build();
@@ -111,6 +111,8 @@ fn scarces_lazy_listing_full_pipeline() {
     assert_eq!(e.event_type, "LAZY_LISTING_UPDATE");
     assert_eq!(e.creator_payment, "2800");
     assert_eq!(e.listing_id, "ll-1");
+    assert_eq!(e.quantity, 2);
+    assert_eq!(e.price, "3000");
 }
 
 #[test]

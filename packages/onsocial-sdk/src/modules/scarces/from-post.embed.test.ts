@@ -135,7 +135,7 @@ describe('ScarcesFromPostApi.embed', () => {
     expect(r.priceNear).toBe('5');
   });
 
-  it("derives 'sold' for lazy purchased (not lazy_listing)", async () => {
+  it("derives 'sold' for lazy purchased when sold out / no remaining", async () => {
     const { api } = makeApi([
       row({
         eventType: 'LAZY_LISTING_UPDATE',
@@ -145,6 +145,7 @@ describe('ScarcesFromPostApi.embed', () => {
         extraData: JSON.stringify({
           sourcePost: { path: 'alice.near/post/42' },
           priceNear: '5',
+          remaining: 0,
         }),
       }),
     ]);
@@ -152,6 +153,28 @@ describe('ScarcesFromPostApi.embed', () => {
     expect(r.status).toBe('sold');
     expect(r.listingId).toBe('ll:1');
     expect(r.tokenId).toBe('s:9');
+  });
+
+  it("keeps 'lazy_listing' after purchase when remaining > 0", async () => {
+    const { api } = makeApi([
+      row({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'purchased',
+        listingId: 'll:1',
+        tokenId: 's:9',
+        extraData: JSON.stringify({
+          sourcePost: { path: 'alice.near/post/42' },
+          priceNear: '5',
+          remaining: 3,
+          copies: 5,
+        }),
+      }),
+    ]);
+    const r = await api.embed(POST);
+    expect(r.status).toBe('lazy_listing');
+    expect(r.listingId).toBe('ll:1');
+    expect(r.remaining).toBe(3);
+    expect(r.copies).toBe(5);
   });
 
   it("derives 'none' for cancelled lazy listing without a token", async () => {
