@@ -731,7 +731,7 @@ export function getScarcesParityCases(
     },
     {
       name: 'purchase lazy listing',
-      action: { type: 'purchase_lazy_listing', listing_id: 'l1' },
+      action: { type: 'purchase_lazy_listing', listing_id: 'l1', quantity: 1 },
       expectedAction: {
         type: 'purchase_lazy_listing',
         listing_id: 'l1',

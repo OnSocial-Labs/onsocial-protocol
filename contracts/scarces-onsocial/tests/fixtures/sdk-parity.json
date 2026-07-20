@@ -656,7 +656,8 @@
         "target_account": "scarces.onsocial.testnet",
         "action": {
           "type": "purchase_lazy_listing",
-          "listing_id": "l1"
+          "listing_id": "l1",
+          "quantity": 1
         }
       }
     },

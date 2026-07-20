@@ -429,7 +429,7 @@ describe('ScarcesModule.lazy', () => {
     const mod = new ScarcesModule(asHttp(http), getter);
     await mod.lazy.purchase('abc');
     expect(prepareBodyFor(http.post, SCARCES_VERBS.PURCHASE_LAZY_LIST)).toEqual(
-      { listingId: 'abc' }
+      { listingId: 'abc', quantity: 1 }
     );
   });
 
