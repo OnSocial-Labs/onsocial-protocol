@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { StandingToggle } from '@/components/ui/standing-toggle';
-import { PortfolioOwnerSupportCollect } from '@/components/portfolio/portfolio-owner-support-collect';
+import { PortfolioOwnerPayoutMarks } from '@/components/portfolio/portfolio-owner-payout-marks';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -27,8 +27,7 @@ interface PortfolioIdentityGesturesProps {
 /**
  * Face gesture slot under bio.
  * Connected visitor: Stand · Endorse · Support.
- * Owner: gift · amount · Collect when unclaimed target balance > 0.
- * Pre-connect: hidden.
+ * Owner: gift + shop payout marks (open drawers). Pre-connect: hidden.
  */
 export function PortfolioIdentityGestures({
   pageAccountId,
@@ -53,7 +52,7 @@ export function PortfolioIdentityGestures({
   }
 
   if (isSelf) {
-    return <PortfolioOwnerSupportCollect accountId={pageAccountId} />;
+    return <PortfolioOwnerPayoutMarks accountId={pageAccountId} />;
   }
 
   const pending = isStandingPendingForTarget(pageAccountId);

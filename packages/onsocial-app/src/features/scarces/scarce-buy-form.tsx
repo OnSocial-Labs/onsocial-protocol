@@ -251,8 +251,8 @@ export function ScarceBuyForm({
         ) : null}
         <p className="profile-support-hint">
           {status === 'lazy_listing'
-            ? 'Minted to you on purchase.'
-            : 'Transfer completes on confirmation.'}
+            ? 'Minted to you on purchase. Goes to the creator — small protocol fee.'
+            : 'Transfer completes on confirmation. Seller is paid — small protocol fee.'}
         </p>
       </div>
 

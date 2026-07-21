@@ -921,7 +921,7 @@
   }
 }
 
-/* Live mood preview — stronger catalog tint; inline vars from portfolioMoodShellStyle. */
+/* Live mood preview — same tint strength as saved; inline vars from portfolioMoodShellStyle. */
 .portfolio-frame[data-mood-preview='true'],
 .portfolio-os-layer[data-mood-preview='true'] {
   --mood-banner-active: var(--mood-banner);
@@ -4535,10 +4535,127 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
+  .portfolio-support-collect-cta {
+    margin: 0 0 1rem;
+  }
+
+  .portfolio-payout-sheet-eyebrow {
+    margin: 0 0 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .portfolio-payout-sheet-total {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.96);
+  }
+
+  .portfolio-payout-sheet-unit {
+    font-size: 0.72em;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .portfolio-payout-sheet-sub {
+    margin: 0.28rem 0 0;
+    max-width: 22rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .standing-sheet-actions--payout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .portfolio-scarce-earnings-market-header {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.45rem;
+    border-radius: 9999px;
+    color: var(--protocol-green);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 160ms ease, background 160ms ease;
+  }
+
+  .portfolio-scarce-earnings-market-header:hover,
+  .portfolio-scarce-earnings-market-header:focus-visible {
+    color: var(--protocol-green-hover);
+    background: var(--protocol-green-bg);
+    outline: none;
+  }
+
   /*
-   * Gift mark — same role as `.signal-group` + arrow on visitor gestures:
-   * sized container owns protocol green; SVG fills it via currentColor.
-   * Do not size off `--signals-arrow-size` — gift strokes need ~14px to read.
+   * Owner payouts — same pill rhythm as Stand · Endorse · Support.
+   * Colour from `.signal-group-*` (same as strip / mood glass overrides).
+   * Amount stays gesture text color; marks inherit the signal hue.
+   */
+  .portfolio-identity-gesture--payout {
+    --payout-mark-size: 1rem;
+    gap: 0.32rem;
+  }
+
+  /* Beat gesture text color so marks stay on the signal strip hues. */
+  .portfolio-identity-gesture--payout .signal-group-reputation {
+    color: var(--signal-reputation);
+  }
+
+  .portfolio-identity-gesture--payout .signal-group-endorse {
+    color: var(--signal-endorse);
+  }
+
+  .portfolio-payout-mark-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: var(--payout-mark-size);
+    height: var(--payout-mark-size);
+    color: inherit;
+    transform-origin: 50% 60%;
+    animation: portfolio-gift-nudge 11s ease-in-out infinite;
+  }
+
+  .portfolio-payout-mark-icon--shop {
+    animation-delay: 3.5s;
+  }
+
+  .portfolio-identity-gesture--payout:hover .portfolio-payout-mark-icon,
+  .portfolio-identity-gesture--payout:focus-visible .portfolio-payout-mark-icon {
+    animation: none;
+  }
+
+  .portfolio-payout-mark-svg {
+    display: block;
+    width: var(--payout-mark-size) !important;
+    height: var(--payout-mark-size) !important;
+    min-width: var(--payout-mark-size);
+    min-height: var(--payout-mark-size);
+    color: inherit;
+  }
+
+  .portfolio-payout-mark-amount {
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    color: inherit;
+  }
+
+  /*
+   * Legacy gift mark (kept for any residual collect chrome).
    */
   .portfolio-identity-gesture-gift-mark {
     display: inline-flex;
@@ -4547,7 +4664,7 @@ a.os-surface-row {
     justify-content: center;
     width: 0.875rem;
     height: 0.875rem;
-    color: #4ade80; /* protocol green — explicit so mood/fg never washes it out */
+    color: var(--protocol-green);
     transform-origin: 50% 60%;
     animation: portfolio-gift-nudge 11s ease-in-out infinite;
   }
@@ -4729,7 +4846,7 @@ a.os-surface-row {
   }
 
   .portfolio-identity-gesture-collect-dots {
-    color: #4ade80;
+    color: var(--protocol-green);
   }
 
   /* Rare soft wiggle — not a loop shake. */
@@ -12371,6 +12488,48 @@ a.os-surface-row {
   }
 
   /*
+   * TEMP trial — quiet tech air: black/white base (mirrored),
+   * one soft blue corner. No mesh / no dots.
+   */
+  .os-app-screen {
+    background-color: #000;
+    background-image: radial-gradient(
+      ellipse 48% 40% at 96% 94%,
+      rgb(96 165 250 / 0.05),
+      transparent 60%
+    );
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .os-app-screen::before {
+    opacity: 0.15;
+  }
+
+  html[data-theme='light'] .os-app-screen {
+    background-color: #fff;
+    background-image: radial-gradient(
+      ellipse 48% 40% at 96% 94%,
+      rgb(96 165 250 / 0.05),
+      transparent 60%
+    );
+  }
+
+  .os-app-screen .os-app-screen-column {
+    position: relative;
+    z-index: 1;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .os-app-screen .os-app-screen-header,
+  .os-app-screen .os-app-screen-body {
+    position: relative;
+    z-index: 1;
+  }
+
+  /*
    * Shared OsAppScreen body inset — Home, Market, Guilds, threads.
    * Discover/Standing use `.standing-panel` (list density) instead.
    */
@@ -13042,7 +13201,9 @@ a.os-surface-row {
   .post-card--openable .os-mention,
   .post-card--openable .os-ticker,
   .post-card--openable .os-link,
-  .post-card--openable .post-card-guild {
+  .post-card--openable .post-card-guild,
+  .post-card--openable .post-card-scarce-buy,
+  .post-card--openable .scarce-post-preview {
     pointer-events: auto;
   }
 
@@ -13482,7 +13643,7 @@ a.os-surface-row {
     word-break: break-word;
   }
 
-  /* Indexed #tags (blue) / @mentions (purple) / $tickers (green). */
+  /* TEMP trial: one green for # / @ / $ / links in the feed. */
   .post-card-body .os-hashtag,
   .post-card-quote-inset-body .os-hashtag,
   .post-card-body .os-mention,
@@ -13494,26 +13655,7 @@ a.os-surface-row {
     font-weight: 300;
     text-decoration: none;
     cursor: pointer;
-  }
-
-  .post-card-body .os-hashtag,
-  .post-card-quote-inset-body .os-hashtag {
-    color: var(--protocol-blue);
-  }
-
-  .post-card-body .os-mention,
-  .post-card-quote-inset-body .os-mention {
-    color: var(--protocol-purple);
-  }
-
-  .post-card-body .os-ticker,
-  .post-card-quote-inset-body .os-ticker {
     color: var(--protocol-green);
-  }
-
-  .post-card-body .os-link,
-  .post-card-quote-inset-body .os-link {
-    color: var(--protocol-blue);
   }
 
   .post-card-body .os-hashtag.is-active,
@@ -13550,29 +13692,20 @@ a.os-surface-row {
   .post-card-body .os-hashtag:hover,
   .post-card-quote-inset-body .os-hashtag:hover,
   .post-card-body .os-hashtag:focus-visible,
-  .post-card-quote-inset-body .os-hashtag:focus-visible {
-    color: var(--protocol-blue-hover);
-  }
-
+  .post-card-quote-inset-body .os-hashtag:focus-visible,
   .post-card-body .os-mention:hover,
   .post-card-quote-inset-body .os-mention:hover,
   .post-card-body .os-mention:focus-visible,
-  .post-card-quote-inset-body .os-mention:focus-visible {
-    color: var(--protocol-purple-hover);
-  }
-
+  .post-card-quote-inset-body .os-mention:focus-visible,
   .post-card-body .os-ticker:hover,
   .post-card-quote-inset-body .os-ticker:hover,
   .post-card-body .os-ticker:focus-visible,
-  .post-card-quote-inset-body .os-ticker:focus-visible {
-    color: var(--protocol-green-hover);
-  }
-
+  .post-card-quote-inset-body .os-ticker:focus-visible,
   .post-card-body .os-link:hover,
   .post-card-quote-inset-body .os-link:hover,
   .post-card-body .os-link:focus-visible,
   .post-card-quote-inset-body .os-link:focus-visible {
-    color: var(--protocol-blue-hover);
+    color: var(--protocol-green-hover);
   }
 
   /* Expand chrome — same size as post body, lighter weight; no underline. */
@@ -13581,7 +13714,7 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     background: none;
-    color: var(--protocol-blue);
+    color: var(--protocol-green);
     font: inherit;
     font-size: inherit;
     font-weight: 300;
@@ -13598,7 +13731,7 @@ a.os-surface-row {
   .post-card-body-block > .post-card-show-more:hover,
   .post-card-body-block > .post-card-show-more:focus-visible,
   .post-card-body-block > .post-card-show-more:active {
-    color: var(--protocol-blue-hover);
+    color: var(--protocol-green-hover);
     text-decoration: none !important;
     text-decoration-line: none !important;
     outline: none;
@@ -14245,7 +14378,9 @@ a.os-surface-row {
 
   .post-card-scarce-cta {
     display: flex;
-    align-items: center;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.35rem;
     margin-top: 0.35rem;
   }
 
@@ -14256,27 +14391,47 @@ a.os-surface-row {
     font-weight: 600;
   }
 
+  .post-card-scarce-cta-meta {
+    color: rgb(var(--fg-rgb) / 0.34);
+    font-weight: 500;
+  }
+
   .post-card-scarce-buy {
+    display: inline-flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.35rem;
     border: 0;
     background: transparent;
     padding: 0.2rem 0;
     margin: 0;
     cursor: pointer;
-    color: var(--protocol-green);
     font-family: inherit;
     font-size: 0.72rem;
-    font-weight: 700;
     line-height: 1.2;
+  }
+
+  .post-card-scarce-buy-main {
+    color: var(--protocol-green);
+    font-weight: 700;
     transition: color 160ms ease;
   }
 
-  .post-card-scarce-buy:hover:not(:disabled),
-  .post-card-scarce-buy:focus-visible {
+  .post-card-scarce-buy-meta {
+    color: rgb(var(--fg-rgb) / 0.38);
+    font-weight: 500;
+  }
+
+  .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
+  .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
     color: color-mix(in srgb, var(--protocol-green) 72%, white);
   }
 
   .post-card-scarce-buy:disabled {
     cursor: default;
+  }
+
+  .post-card-scarce-buy:disabled .post-card-scarce-buy-main {
     color: rgb(var(--fg-rgb) / 0.38);
   }
 
@@ -14295,6 +14450,12 @@ a.os-surface-row {
     cursor: zoom-in;
     font: inherit;
     color: inherit;
+  }
+
+  /* Feed: match single post-media tile width, not the sheet picker. */
+  .scarce-post-preview--feed {
+    margin: 0.45rem 0 0;
+    width: min(100%, 18rem);
   }
 
   .scarce-post-preview:focus-visible {
@@ -16852,7 +17013,7 @@ a.os-surface-row {
     padding-top: 0.42rem;
   }
 
-  /* Fold — protocol blue; weight matches Show more; no underline. */
+  /* Fold — TEMP trial: protocol green; weight matches Show more; no underline. */
   .post-thread-more {
     position: relative;
     display: block;
@@ -16866,7 +17027,7 @@ a.os-surface-row {
     font-size: 0.72rem;
     font-weight: 300;
     line-height: 1.45;
-    color: var(--protocol-blue);
+    color: var(--protocol-green);
     text-decoration: none !important;
     text-decoration-line: none !important;
     transition: color 140ms ease;
@@ -16875,7 +17036,7 @@ a.os-surface-row {
   .post-thread-more:hover,
   .post-thread-more:focus-visible,
   .post-thread-more:active {
-    color: var(--protocol-blue-hover);
+    color: var(--protocol-green-hover);
     text-decoration: none !important;
     text-decoration-line: none !important;
     outline: none;
@@ -17252,25 +17413,12 @@ a.os-surface-row {
   }
 
   /*
-   * Text tokens — protocol roles:
-   *   #hashtag → blue (standing / topics)
-   *   @mention → purple (solidarity / people)
-   *   $ticker  → green (reputation / value)
-   * On mooded profiles, remap to --signal-* (already mood-blended).
+   * Text tokens — TEMP trial: # / @ / $ / links share protocol green.
+   * Mooded profiles still remap via --signal-*.
    */
   .guild-composer-hashtag,
-  .os-hashtag {
-    color: var(--protocol-blue);
-    font-weight: inherit;
-    text-decoration: none;
-  }
-
-  .os-mention {
-    color: var(--protocol-purple);
-    font-weight: inherit;
-    text-decoration: none;
-  }
-
+  .os-hashtag,
+  .os-mention,
   .os-ticker {
     color: var(--protocol-green);
     font-weight: inherit;
@@ -17279,7 +17427,7 @@ a.os-surface-row {
 
   .os-link {
     display: inline;
-    color: var(--protocol-blue);
+    color: var(--protocol-green);
     font-weight: inherit;
     text-decoration: none;
     white-space: nowrap;
@@ -17293,29 +17441,16 @@ a.os-surface-row {
   }
 
   .os-hashtag:hover,
-  .os-hashtag:focus-visible {
-    color: var(--protocol-blue-hover);
-    text-decoration: none;
-    outline: none;
-  }
-
+  .os-hashtag:focus-visible,
   .os-mention:hover,
-  .os-mention:focus-visible {
-    color: var(--protocol-purple-hover);
-    text-decoration: none;
-    outline: none;
-  }
-
+  .os-mention:focus-visible,
   .os-ticker:hover,
-  .os-ticker:focus-visible {
-    color: var(--protocol-green-hover);
-    text-decoration: none;
-    outline: none;
-  }
-
+  .os-ticker:focus-visible,
+  .guild-composer-hashtag:hover,
+  .guild-composer-hashtag:focus-visible,
   .os-link:hover,
   .os-link:focus-visible {
-    color: var(--protocol-blue-hover);
+    color: var(--protocol-green-hover);
     text-decoration: none;
     outline: none;
   }
@@ -17419,7 +17554,7 @@ a.os-surface-row {
   /* Profile editor bio — same mood signal tokens as the live portfolio face. */
   .account-editor-panel--page-mood .os-hashtag,
   .account-editor-panel--page-mood .os-link {
-    color: var(--signal-standing, var(--protocol-blue));
+    color: var(--signal-standing, var(--protocol-green));
   }
 
   .account-editor-panel--page-mood .os-mention {
@@ -17436,7 +17571,7 @@ a.os-surface-row {
   .account-editor-panel--page-mood .os-link:focus-visible {
     color: color-mix(
       in srgb,
-      var(--signal-standing, var(--protocol-blue)) 72%,
+      var(--signal-standing, var(--protocol-green)) 72%,
       white
     );
   }

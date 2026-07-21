@@ -41,6 +41,10 @@ import {
 } from '@/features/scarces/scarce-embed-ledger';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
+import {
+  postScarceCoverImage,
+  ScarcePostPreview,
+} from '@/features/scarces/scarce-post-preview';
 import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -875,6 +879,14 @@ export function PostCard({
   const poll = parsePostPollEmbed(post.value);
   const mediaItems = parsePostMedia(post.value);
   const hasMedia = mediaItems.length > 0;
+  const photoCover = postScarceCoverImage(post);
+  const showScarceArt =
+    !photoCover &&
+    Boolean(scarceEmbed) &&
+    (scarceEmbed?.status === 'lazy_listing' ||
+      scarceEmbed?.status === 'listed' ||
+      scarceEmbed?.status === 'sold' ||
+      scarceEmbed?.status === 'auction');
   const fallback = fallbackLabel(post.accountId);
   const name = authorProfile?.displayName?.trim() || fallback;
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
@@ -1016,6 +1028,14 @@ export function PostCard({
                   }
                 : undefined
             }
+          />
+        ) : showScarceArt && scarceEmbed ? (
+          <ScarcePostPreview
+            post={post}
+            variant="feed"
+            mediaUrl={scarceEmbed.mediaUrl}
+            cardBg={scarceEmbed.cardBg}
+            creatorDisplayName={authorProfile?.displayName}
           />
         ) : null}
         {quotedPost ? (

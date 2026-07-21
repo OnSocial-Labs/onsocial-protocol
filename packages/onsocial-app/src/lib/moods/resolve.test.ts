@@ -243,7 +243,7 @@ describe('moodPresetPreviewVars', () => {
 
     expect(leadShell['--mood-accent']).toBe(MOOD_PRESETS.lead.theme.accent);
     expect(creativeShell['--mood-accent']).toBe(MOOD_PRESETS.creative.theme.accent);
-    expect(leadShell['--mood-bg-preset-mix']).toBe('72%');
+    expect(leadShell['--mood-bg-preset-mix']).toBeUndefined();
     expect(leadShell['--mood-banner-active']).toContain('gradient');
   });
 });

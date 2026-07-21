@@ -336,9 +336,10 @@ export function ScarceListForm({
           ))}
         </div>
         <p className="profile-support-hint scarce-royalty-hint">
+          Primary sales pay you (minus a small fee).
           {royaltyBps > 0
-            ? `You earn ${royaltyBps / 100}% when this scarce is resold.`
-            : 'No cut on future resales.'}
+            ? ` You earn ${royaltyBps / 100}% when this scarce is resold.`
+            : ' No cut on future resales.'}
         </p>
       </div>
 

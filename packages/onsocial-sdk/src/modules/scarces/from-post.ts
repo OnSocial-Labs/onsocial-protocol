@@ -164,6 +164,11 @@ export interface PostScarceEmbed {
    * photo cover. Useful for client-side previews before media is fetched.
    */
   cardBg?: string;
+  /**
+   * Resolved cover URL for in-feed / sheet art (IPFS gateway or https).
+   * Usually the listing's NEP-177 `metadata.media` (photo or text-card).
+   */
+  mediaUrl?: string;
   /** Latest event row used to derive `status` (for debugging / extra fields). */
   latest?: ScarcesEventRow;
   /** All matching events (most recent first), capped by `limit`. */

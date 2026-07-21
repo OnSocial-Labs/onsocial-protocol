@@ -209,7 +209,8 @@ export function moodSheetPanelStyle(
  */
 export function portfolioMoodShellStyle(
   cssVars: Record<string, string>,
-  options?: { preview?: boolean }
+  /** @deprecated Preview no longer boosts tint; kept for call-site compat. */
+  _options?: { preview?: boolean }
 ): Record<string, string> {
   const accent = cssVars['--mood-preset-accent'] ?? cssVars['--mood-accent'];
   const accentLight =
@@ -236,12 +237,6 @@ export function portfolioMoodShellStyle(
 
   if (banner) {
     style['--mood-banner-active'] = banner;
-  }
-
-  if (options?.preview) {
-    style['--mood-bg-preset-mix'] = '72%';
-    style['--mood-text-preset-mix'] = '42%';
-    style['--mood-muted-preset-mix'] = '38%';
   }
 
   return style;

@@ -175,6 +175,7 @@ export type {
   BoostEventRow,
   BoosterStateRow,
   BoostCreditPurchaseRow,
+  ScarcesEventRow,
 } from './query/index.js';
 export {
   parseLegacyEndorsementSpendTargetId,

@@ -119,6 +119,7 @@ export function resolveScarceEmbed(
       tokenId: override.tokenId ?? fetched.tokenId,
       priceNear: override.priceNear ?? fetched.priceNear,
       cardBg: override.cardBg ?? fetched.cardBg,
+      mediaUrl: override.mediaUrl ?? fetched.mediaUrl,
       copies: override.copies ?? fetched.copies,
       remaining: override.remaining ?? fetched.remaining,
       events: fetched.events.length > 0 ? fetched.events : override.events,

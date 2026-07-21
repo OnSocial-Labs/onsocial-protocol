@@ -45,6 +45,8 @@ export interface MarketListingItem {
   blockTimestamp: number;
   mediaUrl?: string | null;
   sourcePostPath?: string;
+  /** Text-card mood key from listing `extra.theme.bg`, when present. */
+  cardBg?: string;
   /** Total edition size (NEP-177 copies). */
   copies?: number;
   /** Unsold editions still on this listing. */
@@ -203,6 +205,8 @@ function listingFromRecord(
   const priceNear = priceNearFromYocto(record.price) ?? '—';
   const mediaUrl = resolveScarceMediaUrl(record.metadata?.media ?? null);
   const extra = parseExtra(record.metadata?.extra ?? null);
+  const theme = asRecord(extra?.theme ?? null);
+  const cardBg = stringField(theme, 'bg');
   const createdAt = Number(record.created_at) || 0;
   // Contract timestamps are ns; feed/indexer use ms-ish seconds — normalize to ms for sort.
   const blockTimestamp =
@@ -220,6 +224,7 @@ function listingFromRecord(
     blockTimestamp,
     mediaUrl,
     sourcePostPath: sourcePostPathFromExtra(extra),
+    ...(cardBg ? { cardBg } : {}),
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
   };

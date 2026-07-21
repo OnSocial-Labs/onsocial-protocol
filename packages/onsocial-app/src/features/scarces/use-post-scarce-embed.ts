@@ -96,6 +96,8 @@ export function usePostScarceEmbed(
               status: 'lazy_listing',
               listingId: live.listingId,
               priceNear: live.priceNear,
+              ...(live.mediaUrl ? { mediaUrl: live.mediaUrl } : {}),
+              ...(live.cardBg ? { cardBg: live.cardBg } : {}),
               ...(live.copies != null ? { copies: live.copies } : {}),
               ...(live.remaining != null ? { remaining: live.remaining } : {}),
             };
@@ -108,6 +110,8 @@ export function usePostScarceEmbed(
               ...embed,
               listingId: live.listingId,
               priceNear: live.priceNear ?? embed.priceNear,
+              ...(live.mediaUrl ? { mediaUrl: live.mediaUrl } : {}),
+              ...(live.cardBg ? { cardBg: live.cardBg } : {}),
               ...(live.copies != null ? { copies: live.copies } : {}),
               ...(live.remaining != null ? { remaining: live.remaining } : {}),
             };

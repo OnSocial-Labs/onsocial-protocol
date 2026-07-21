@@ -203,6 +203,8 @@ export class ScarcesQuery {
       ownerId?: string;
       buyerId?: string;
       sellerId?: string;
+      /** Token / listing creator (payouts, royalties). */
+      creatorId?: string;
       appId?: string;
       limit?: number;
       offset?: number;
@@ -253,6 +255,8 @@ export class ScarcesQuery {
     if (opts.ownerId) addEq('ownerId', 'ownerId', opts.ownerId, 'String!');
     if (opts.buyerId) addEq('buyerId', 'buyerId', opts.buyerId, 'String!');
     if (opts.sellerId) addEq('sellerId', 'sellerId', opts.sellerId, 'String!');
+    if (opts.creatorId)
+      addEq('creatorId', 'creatorId', opts.creatorId, 'String!');
     if (opts.appId) addEq('appId', 'appId', opts.appId, 'String!');
 
     const whereClause = wheres.length ? `where: { ${wheres.join(', ')} },` : '';
@@ -362,6 +366,29 @@ export class ScarcesQuery {
       buyerId: opts.buyerId,
       sellerId: opts.sellerId,
       limit: opts.limit,
+    });
+  }
+
+  /**
+   * Creator payout events — lazy / scarce / collection purchases and
+   * settlements where `creatorId` matches. Newest first. Prefer
+   * `creatorPayment` on each row when summing earnings.
+   */
+  async creatorEarnings(
+    creatorId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<ScarcesEventRow[]> {
+    return this.events({
+      creatorId,
+      operation: [
+        ...LAZY_PURCHASE_OPS,
+        ...PURCHASE_OPS,
+        ...COLLECTION_PURCHASE_OPS,
+        ...OFFER_ACCEPTED_OPS,
+        ...AUCTION_SETTLE_OPS,
+      ],
+      limit: opts.limit ?? 40,
+      offset: opts.offset,
     });
   }
 

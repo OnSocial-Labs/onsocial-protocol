@@ -32,6 +32,13 @@ interface ScarcePostPreviewProps {
   cardTitleAlign?: TitleAlign;
   /** Profile display name for text-card byline. */
   creatorDisplayName?: string | null;
+  /**
+   * Listing cover URL (IPFS text-card / photo). Wins over a generated
+   * preview when the post itself has no photo.
+   */
+  mediaUrl?: string | null;
+  /** Sheet picker vs in-feed media slot. */
+  variant?: 'sheet' | 'feed';
 }
 
 function previewTitle(post: PostRow): string {
@@ -60,6 +67,8 @@ export function ScarcePostPreview({
   cardMarkColor = 'auto',
   cardTitleAlign = 'left',
   creatorDisplayName = null,
+  mediaUrl = null,
+  variant = 'sheet',
 }: ScarcePostPreviewProps) {
   const titleId = useId();
   const [expanded, setExpanded] = useState(false);
@@ -70,6 +79,7 @@ export function ScarcePostPreview({
     getServerMountedSnapshot
   );
   const cover = postScarceCoverImage(post);
+  const listingCover = mediaUrl?.trim() || null;
   const title = previewTitle(post);
   const creatorLabel = displayName(
     post.accountId,
@@ -86,7 +96,7 @@ export function ScarcePostPreview({
   }, [expanded]);
 
   const textCardUri = useMemo(() => {
-    if (cover) return null;
+    if (cover || listingCover) return null;
     const { dataUri } = previewTextCard({
       title,
       creator: {
@@ -107,6 +117,7 @@ export function ScarcePostPreview({
     return dataUri;
   }, [
     cover,
+    listingCover,
     title,
     post.accountId,
     post.postId,
@@ -119,18 +130,31 @@ export function ScarcePostPreview({
     cardTitleAlign,
   ]);
 
-  const src = cover?.url ?? textCardUri;
+  const src = cover?.url ?? listingCover ?? textCardUri;
   if (!src) return null;
+  const isPhotoCover = Boolean(cover || listingCover);
 
   return (
     <>
       <button
         type="button"
-        className={`scarce-post-preview${cover ? ' scarce-post-preview--cover' : ' scarce-post-preview--card'}`}
+        className={[
+          'scarce-post-preview',
+          isPhotoCover
+            ? 'scarce-post-preview--cover'
+            : 'scarce-post-preview--card',
+          variant === 'feed' ? 'scarce-post-preview--feed' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         aria-label="Preview card"
         aria-haspopup="dialog"
         aria-expanded={expanded}
-        onClick={() => setExpanded(true)}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setExpanded(true);
+        }}
       >
         <img className="scarce-post-preview-asset" src={src} alt="" />
       </button>

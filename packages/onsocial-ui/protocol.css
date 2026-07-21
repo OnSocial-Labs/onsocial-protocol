@@ -5,8 +5,7 @@
  * TS literals:     @onsocial/sdk PROTOCOL_COLORS (keep hues in sync).
  * Portal legacy:    --portal-{hue}* aliases (stable for existing UI).
  * Signal semantics: --signal-{metric} for profile signal lines.
- * Text tokens:     #hashtag → blue (standing), @mention → purple (solidarity),
- *                   $ticker → green (reputation). Keep app CSS aligned.
+ * Text tokens:     TEMP trial — # / @ / $ / links → green. Keep app CSS aligned.
  *
  * Theme: Portal uses `.dark` on <html>; OnPage uses `data-theme="light|dark"`.
  */
@@ -14,12 +13,15 @@
 @layer tokens {
   /* Core hues — identical in light and dark */
   :root {
+    /* TEMP trial: soft blue — matches soft NEAR green energy */
     --protocol-blue: #60a5fa;
     --protocol-blue-hover: #93c5fd;
+    /* TEMP trial: soft purple — matches soft NEAR green energy */
     --protocol-purple: #c084fc;
     --protocol-purple-hover: #d8b4fe;
-    --protocol-green: #4ade80;
-    --protocol-green-hover: #86efac;
+    /* TEMP trial: mint green (system-wide) — revert to #4ade80 / #86efac */
+    --protocol-green: #02db99;
+    --protocol-green-hover: #36e5b0;
     --protocol-amber: #fbbf24;
     --protocol-pink: #ec4899;
     --protocol-red: #f87171;
@@ -46,13 +48,13 @@
     --protocol-purple-shadow: rgb(192 132 252 / 0.2);
     --protocol-purple-glow: rgb(192 132 252 / 0.16);
 
-    --protocol-green-border: rgb(74 222 128 / 0.4);
-    --protocol-green-border-strong: rgb(74 222 128 / 0.6);
-    --protocol-green-bg: rgb(74 222 128 / 0.06);
-    --protocol-green-frame-border: rgb(74 222 128 / 0.3);
-    --protocol-green-frame-bg: rgb(74 222 128 / 0.08);
-    --protocol-green-shadow: rgb(74 222 128 / 0.2);
-    --protocol-green-glow: rgb(74 222 128 / 0.14);
+    --protocol-green-border: rgb(2 219 153 / 0.4);
+    --protocol-green-border-strong: rgb(2 219 153 / 0.6);
+    --protocol-green-bg: rgb(2 219 153 / 0.06);
+    --protocol-green-frame-border: rgb(2 219 153 / 0.3);
+    --protocol-green-frame-bg: rgb(2 219 153 / 0.08);
+    --protocol-green-shadow: rgb(2 219 153 / 0.2);
+    --protocol-green-glow: rgb(2 219 153 / 0.14);
 
     --protocol-amber-border: rgb(251 191 36 / 0.48);
     --protocol-amber-border-strong: rgb(251 191 36 / 0.65);
@@ -108,13 +110,13 @@
     --protocol-purple-shadow: rgb(192 132 252 / 0.2);
     --protocol-purple-glow: rgb(192 132 252 / 0.16);
 
-    --protocol-green-border: rgb(74 222 128 / 0.4);
-    --protocol-green-border-strong: rgb(74 222 128 / 0.6);
-    --protocol-green-bg: rgb(74 222 128 / 0.06);
-    --protocol-green-frame-border: rgb(74 222 128 / 0.3);
-    --protocol-green-frame-bg: rgb(74 222 128 / 0.08);
-    --protocol-green-shadow: rgb(74 222 128 / 0.2);
-    --protocol-green-glow: rgb(74 222 128 / 0.14);
+    --protocol-green-border: rgb(2 219 153 / 0.4);
+    --protocol-green-border-strong: rgb(2 219 153 / 0.6);
+    --protocol-green-bg: rgb(2 219 153 / 0.06);
+    --protocol-green-frame-border: rgb(2 219 153 / 0.3);
+    --protocol-green-frame-bg: rgb(2 219 153 / 0.08);
+    --protocol-green-shadow: rgb(2 219 153 / 0.2);
+    --protocol-green-glow: rgb(2 219 153 / 0.14);
 
     --protocol-amber-border: rgb(251 191 36 / 0.48);
     --protocol-amber-border-strong: rgb(251 191 36 / 0.65);

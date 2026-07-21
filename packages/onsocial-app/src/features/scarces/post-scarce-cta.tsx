@@ -19,6 +19,14 @@ function formatPriceNear(priceNear: string | undefined): string | null {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
+function editionMeta(embed: PostScarceEmbed): string | null {
+  if (embed.copies == null || embed.copies <= 1) return null;
+  if (embed.remaining != null) {
+    return `${embed.remaining}/${embed.copies} left`;
+  }
+  return `${embed.copies} editions`;
+}
+
 /**
  * One-line commerce CTA under post media / above engagement.
  * Only renders when the post has an actionable or terminal scarce state.
@@ -47,13 +55,7 @@ export function PostScarceCta({
   }
 
   const price = formatPriceNear(embed.priceNear);
-  const editionHint =
-    embed.copies != null &&
-    embed.copies > 1 &&
-    embed.remaining != null &&
-    embed.remaining < embed.copies
-      ? `${embed.remaining}/${embed.copies}`
-      : null;
+  const edition = editionMeta(embed);
   const canBuy =
     !isAuthor &&
     ((embed.status === 'lazy_listing' && Boolean(embed.listingId)) ||
@@ -62,10 +64,12 @@ export function PostScarceCta({
   if (isAuthor) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
-        <span>
+        <span className="post-card-scarce-cta-main">
           {price ? `Yours · ${price} NEAR` : 'Yours'}
-          {editionHint ? ` · ${editionHint} left` : ''}
         </span>
+        {edition ? (
+          <span className="post-card-scarce-cta-meta">{edition}</span>
+        ) : null}
       </div>
     );
   }
@@ -73,18 +77,12 @@ export function PostScarceCta({
   if (!canBuy) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
-        <span>{price ? `Listing · ${price} NEAR…` : 'Listing…'}</span>
+        <span className="post-card-scarce-cta-main">
+          {price ? `Listing · ${price} NEAR…` : 'Listing…'}
+        </span>
       </div>
     );
   }
-
-  const label = price
-    ? editionHint
-      ? `Buy · ${price} NEAR · ${editionHint}`
-      : `Buy · ${price} NEAR`
-    : editionHint
-      ? `Buy · ${editionHint}`
-      : 'Buy';
 
   return (
     <div className="post-card-scarce-cta">
@@ -97,7 +95,12 @@ export function PostScarceCta({
           onBuy();
         }}
       >
-        {label}
+        <span className="post-card-scarce-buy-main">
+          {price ? `Buy · ${price} NEAR` : 'Buy'}
+        </span>
+        {edition ? (
+          <span className="post-card-scarce-buy-meta">{edition}</span>
+        ) : null}
       </button>
     </div>
   );

@@ -9,7 +9,14 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { Divider, GlassSheet, ProfileAvatar, SheetCloseButton } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  OsSheetAction,
+  OsSheetActions,
+  ProfileAvatar,
+  SheetCloseButton,
+} from '@onsocial/ui';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -17,11 +24,11 @@ import {
   type PostAuthorProfile,
 } from '@/hooks/use-post-author-profiles';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { APP_COLLECT_ACTION_LABEL } from '@/lib/app-reward-constants';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
-  SUPPORT_POT_LEGEND,
   supportPotActionLabel,
   type ProfileSupportReceivedHistoryPage,
   type ProfileSupportReceivedSummary,
@@ -32,6 +39,8 @@ interface PortfolioSupportCollectInfoSheetProps {
   open: boolean;
   accountId: string;
   claimableLabel: string;
+  collectPending?: boolean;
+  onCollect?: () => void;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -112,13 +121,14 @@ function SupportCreditList({
 }
 
 /**
- * Owner Collect info — pot legend, credits in the current claimable pot,
- * then earlier (already collected) support loaded on scroll.
+ * Owner support drawer — Collect CTA, current pot credits, earlier history.
  */
 export function PortfolioSupportCollectInfoSheet({
   open,
   accountId,
   claimableLabel,
+  collectPending = false,
+  onCollect,
   onOpenChange,
 }: PortfolioSupportCollectInfoSheetProps) {
   const titleId = useId();
@@ -281,7 +291,7 @@ export function PortfolioSupportCollectInfoSheet({
       initialDetent="full"
       zIndex={56}
       ariaLabelledBy={titleId}
-      backdropLabel="Close support pot"
+      backdropLabel="Close support"
       bodyClassName="portfolio-support-collect-info-body"
       bodyRef={bodyRef}
       panelClassName="portfolio-support-collect-info-panel"
@@ -292,18 +302,17 @@ export function PortfolioSupportCollectInfoSheet({
             <div className="standing-sheet-subject-row">
               <div className="standing-sheet-subject">
                 <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Support pot
+                  <p className="portfolio-payout-sheet-eyebrow">Support</p>
+                  <h2 id={titleId} className="portfolio-payout-sheet-total">
+                    {claimableLabel}{' '}
+                    <span className="portfolio-payout-sheet-unit">SOCIAL</span>
                   </h2>
-                  <p className="discover-sheet-subtitle">
-                    {claimableLabel} SOCIAL ready to collect
-                  </p>
                 </div>
               </div>
               <div className="standing-sheet-actions">
                 <SheetCloseButton
                   onClick={requestClose}
-                  ariaLabel="Close support pot"
+                  ariaLabel="Close support"
                 />
               </div>
             </div>
@@ -312,30 +321,31 @@ export function PortfolioSupportCollectInfoSheet({
         </>
       }
     >
-      <ul className="portfolio-support-collect-info-legend">
-        {SUPPORT_POT_LEGEND.map((row) => (
-          <li key={row.action}>
-            <span className="portfolio-support-collect-info-legend-label">
-              {row.label}
-            </span>
-            <span className="portfolio-support-collect-info-legend-detail">
-              {row.detail}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {onCollect ? (
+        <div className="portfolio-support-collect-cta">
+          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              ready={!collectPending}
+              pending={collectPending}
+              pendingLabel="Collecting…"
+              disabled={collectPending}
+              onClick={onCollect}
+            >
+              {APP_COLLECT_ACTION_LABEL}
+            </OsSheetAction>
+          </OsSheetActions>
+        </div>
+      ) : null}
 
       <section className="portfolio-support-collect-info-block">
-        <h3 className="portfolio-support-collect-info-section">
-          In this collect
-        </h3>
         {loadError ? (
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
         ) : current == null ? (
           <p className="portfolio-support-collect-info-empty">Loading…</p>
         ) : current.length === 0 ? (
           <p className="portfolio-support-collect-info-empty">
-            No indexed credits for this pot yet.
+            No credits in this pot yet.
           </p>
         ) : (
           <SupportCreditList items={current} profiles={profiles} />
@@ -344,9 +354,8 @@ export function PortfolioSupportCollectInfoSheet({
 
       {showEarlier ? (
         <section className="portfolio-support-collect-info-block">
-          <h3 className="portfolio-support-collect-info-section">Earlier</h3>
           <p className="portfolio-support-collect-info-section-note">
-            Already collected in a previous claim
+            Earlier — already collected
           </p>
           {history.length > 0 ? (
             <SupportCreditList items={history} profiles={profiles} />
