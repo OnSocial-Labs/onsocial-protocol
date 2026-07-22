@@ -33,15 +33,13 @@ impl Contract {
         Ok(result)
     }
 
-    // Token accounting invariant: seller_id is the payout sink for residual value.
-    pub(crate) fn compute_payout(
-        &self,
+    /// Royalty-only shares of `balance` (before seller residual). One entry per
+    /// recipient with a positive amount.
+    pub(crate) fn royalty_amounts(
         token: &Scarce,
-        seller_id: &AccountId,
         balance: u128,
-        max_len: Option<u32>,
-    ) -> Result<Payout, MarketplaceError> {
-        let mut payout_map = HashMap::new();
+    ) -> Result<Vec<(AccountId, u128)>, MarketplaceError> {
+        let mut shares = Vec::new();
         let mut total_royalty: u128 = 0;
 
         if let Some(royalty) = &token.royalty {
@@ -51,10 +49,10 @@ impl Contract {
                     / primitive_types::U256::from(10_000u32))
                 .as_u128();
                 if amount > 0 {
-                    payout_map.insert(account.clone(), U128(amount));
                     total_royalty = total_royalty.checked_add(amount).ok_or_else(|| {
                         MarketplaceError::InternalError("Royalty payout overflow".to_string())
                     })?;
+                    shares.push((account.clone(), amount));
                 }
             }
         }
@@ -63,6 +61,28 @@ impl Contract {
             return Err(MarketplaceError::InvalidInput(
                 "Royalty payout exceeds balance".to_string(),
             ));
+        }
+
+        Ok(shares)
+    }
+
+    // Token accounting invariant: seller_id is the payout sink for residual value.
+    pub(crate) fn compute_payout(
+        &self,
+        token: &Scarce,
+        seller_id: &AccountId,
+        balance: u128,
+        max_len: Option<u32>,
+    ) -> Result<Payout, MarketplaceError> {
+        let royalty_shares = Self::royalty_amounts(token, balance)?;
+        let mut payout_map = HashMap::new();
+        let mut total_royalty: u128 = 0;
+
+        for (account, amount) in royalty_shares {
+            payout_map.insert(account, U128(amount));
+            total_royalty = total_royalty.checked_add(amount).ok_or_else(|| {
+                MarketplaceError::InternalError("Royalty payout overflow".to_string())
+            })?;
         }
 
         let owner_amount = balance - total_royalty;

@@ -88,7 +88,8 @@ function EarningsList({
                     ) : null}
                   </span>
                   <span className="portfolio-support-collect-info-row-kind">
-                    {row.title}
+                    {row.kind === 'royalty' ? 'Royalty' : 'Sale'}
+                    {row.title ? ` · ${row.title}` : ''}
                     {when ? ` · ${when}` : ''}
                   </span>
                 </div>
@@ -233,8 +234,8 @@ export function PortfolioScarceEarningsSheet({
                     <span className="portfolio-payout-sheet-unit">NEAR</span>
                   </h2>
                   <p className="portfolio-payout-sheet-sub">
-                    Already in your wallet — no claim needed. Each sale pays you
-                    directly when the buyer confirms.
+                    Already in your wallet — no claim needed. Primary sales and
+                    resale royalties pay you directly when the buyer confirms.
                   </p>
                 </div>
               </div>

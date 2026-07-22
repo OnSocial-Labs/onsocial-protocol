@@ -187,6 +187,19 @@ impl Contract {
         let amount_after_fee = payout_context.payout_balance.0;
 
         if let Some(payout) = payout_option {
+            for (recipient_id, amount) in payout.payout.iter() {
+                if recipient_id != &seller_id && amount.0 > 0 {
+                    events::emit_royalty_paid(&events::RoyaltyPaid {
+                        recipient_id,
+                        buyer_id: &buyer_id,
+                        seller_id: &seller_id,
+                        scarce_contract_id: &scarce_contract_id,
+                        token_id: &token_id,
+                        sale_price: U128(payout_context.price.0),
+                        amount: *amount,
+                    });
+                }
+            }
             self.distribute_payout(&payout, amount_after_fee, &seller_id);
         } else if amount_after_fee > 0 {
             let _ = Promise::new(seller_id.clone())
@@ -309,7 +322,7 @@ impl Contract {
             Some("Purchased on OnSocial Marketplace".to_string()),
         )?;
 
-        let result = self.settle_secondary_sale(&token_id, price, &seller_id)?;
+        let result = self.settle_secondary_sale(&token_id, price, &seller_id, buyer_id)?;
 
         // Token accounting guarantee: credit overpayment to pending_attached_balance for final settlement.
         self.pending_attached_balance += deposit.saturating_sub(price);

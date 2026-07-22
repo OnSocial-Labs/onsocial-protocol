@@ -158,7 +158,7 @@ impl Contract {
             Some("Collection offer accepted on OnSocial Marketplace".to_string()),
         )?;
 
-        let result = self.settle_secondary_sale(token_id, amount, owner_id)?;
+        let result = self.settle_secondary_sale(token_id, amount, owner_id, buyer_id)?;
 
         events::emit_collection_offer_accepted(
             buyer_id,

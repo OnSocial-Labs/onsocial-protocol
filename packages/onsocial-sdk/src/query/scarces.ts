@@ -139,6 +139,7 @@ const LAZY_PURCHASE_OPS = ['purchased'] as const;
 const AUCTION_CREATE_OPS = ['auction_created'] as const;
 const AUCTION_BID_OPS = ['auction_bid'] as const;
 const AUCTION_SETTLE_OPS = ['auction_settled'] as const;
+const ROYALTY_PAID_OPS = ['royalty_paid'] as const;
 // OFFER_UPDATE family
 const OFFER_MADE_OPS = ['offer_made'] as const;
 const OFFER_ACCEPTED_OPS = ['offer_accepted'] as const;
@@ -161,6 +162,7 @@ export const SCARCES_OPERATIONS = {
   AUCTION_CREATE: AUCTION_CREATE_OPS,
   AUCTION_BID: AUCTION_BID_OPS,
   AUCTION_SETTLE: AUCTION_SETTLE_OPS,
+  ROYALTY_PAID: ROYALTY_PAID_OPS,
   OFFER_MADE: OFFER_MADE_OPS,
   OFFER_ACCEPTED: OFFER_ACCEPTED_OPS,
   APP_REGISTER: APP_REGISTER_OPS,
@@ -370,8 +372,8 @@ export class ScarcesQuery {
   }
 
   /**
-   * Creator payout events — lazy / scarce / collection purchases and
-   * settlements where `creatorId` matches. Newest first. Prefer
+   * Creator payout events — primary lazy/collection purchases plus secondary
+   * `royalty_paid` rows where `creatorId` matches. Newest first. Prefer
    * `creatorPayment` on each row when summing earnings.
    */
   async creatorEarnings(
@@ -382,10 +384,8 @@ export class ScarcesQuery {
       creatorId,
       operation: [
         ...LAZY_PURCHASE_OPS,
-        ...PURCHASE_OPS,
         ...COLLECTION_PURCHASE_OPS,
-        ...OFFER_ACCEPTED_OPS,
-        ...AUCTION_SETTLE_OPS,
+        ...ROYALTY_PAID_OPS,
       ],
       limit: opts.limit ?? 40,
       offset: opts.offset,

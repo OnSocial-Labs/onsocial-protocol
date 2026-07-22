@@ -156,7 +156,7 @@ impl Contract {
             Some("Offer accepted on OnSocial Marketplace".to_string()),
         )?;
 
-        let result = self.settle_secondary_sale(token_id, amount, owner_id)?;
+        let result = self.settle_secondary_sale(token_id, amount, owner_id, buyer_id)?;
 
         events::emit_offer_accepted(buyer_id, owner_id, token_id, amount, &result);
         Ok(())

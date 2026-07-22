@@ -48,7 +48,7 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   // Indexed reads after profile save (`os.profiles.get`) and other SDK queries.
   { method: 'POST', path: 'graph/query', body: 'json' },
 
-  // Scarces Phase 1 — list / buy / cancel (lazy + fixed-price).
+  // Scarces — list / buy / cancel (lazy + fixed-price + native resale).
   { method: 'POST', path: 'compose/prepare/lazy-list', body: 'form' },
   { method: 'POST', path: 'compose/prepare/purchase-lazy-list', body: 'json' },
   {
@@ -57,6 +57,11 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     body: 'json',
   },
   { method: 'POST', path: 'compose/prepare/cancel-lazy-list', body: 'json' },
+  {
+    method: 'POST',
+    path: 'compose/prepare/list-native-scarce',
+    body: 'json',
+  },
   {
     method: 'POST',
     path: 'compose/prepare/delist-native-scarce',

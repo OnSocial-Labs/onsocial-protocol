@@ -78,6 +78,31 @@ pub fn emit_scarce_purchase(e: &ScarcePurchase) {
         .emit();
 }
 
+/// One royalty transfer on a secondary settlement. Indexed via `creator_id` +
+/// `creator_payment` so `creatorEarnings` can sum without schema changes.
+pub struct RoyaltyPaid<'a> {
+    pub recipient_id: &'a AccountId,
+    pub buyer_id: &'a AccountId,
+    pub seller_id: &'a AccountId,
+    pub scarce_contract_id: &'a AccountId,
+    pub token_id: &'a str,
+    pub sale_price: U128,
+    pub amount: U128,
+}
+
+pub fn emit_royalty_paid(e: &RoyaltyPaid) {
+    EventBuilder::new(SCARCE, "royalty_paid", e.recipient_id)
+        .field("creator_id", e.recipient_id)
+        .field("creator_payment", e.amount)
+        .field("buyer_id", e.buyer_id)
+        .field("seller_id", e.seller_id)
+        .field("scarce_contract_id", e.scarce_contract_id)
+        .field("token_id", e.token_id)
+        .field("price", e.sale_price)
+        .field("amount", e.amount)
+        .emit();
+}
+
 pub fn emit_scarce_purchase_failed(
     buyer_id: &AccountId,
     seller_id: &AccountId,
@@ -286,10 +311,13 @@ pub fn emit_auction_settled(
 ) {
     EventBuilder::new(SCARCE, "auction_settled", winner_id)
         .field("winner_id", winner_id)
+        .field("buyer_id", winner_id)
         .field("seller_id", seller_id)
         .field("token_id", token_id)
         .field("winning_bid", winning_bid)
+        .field("price", winning_bid)
         .field("revenue", revenue)
+        .field("marketplace_fee", revenue)
         .field("app_pool_amount", app_pool_amount)
         .field_opt("app_id", app_id)
         .emit();

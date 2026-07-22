@@ -58,6 +58,7 @@ export const SCARCE_OPERATIONS = [
   'auction_settled',
   'auction_cancelled',
   'quick_mint',
+  'royalty_paid',
 ] as const;
 
 /** COLLECTION_UPDATE family operations. */

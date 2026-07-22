@@ -94,7 +94,8 @@
           "auction_bid",
           "auction_settled",
           "auction_cancelled",
-          "quick_mint"
+          "quick_mint",
+          "royalty_paid"
         ],
         "COLLECTION_UPDATE": [
           "create",

@@ -6,7 +6,10 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
-import type { MarketListingItem } from '@/features/market/market-listings';
+import {
+  marketListingRowKey,
+  type MarketListingItem,
+} from '@/features/market/market-listings';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -47,7 +50,7 @@ function postHrefFromSourcePath(path: string | undefined): string | null {
 /** Seed post menu so Market → post shows Cancel, not List, before embed loads. */
 function seedListedEmbed(item: MarketListingItem) {
   const coords = sourcePostCoords(item.sourcePostPath);
-  if (!coords || !item.listingId) return;
+  if (!coords || item.kind !== 'lazy' || !item.listingId) return;
   setScarceEmbedOverride(postScarceKey(coords.author, coords.postId), {
     status: 'lazy_listing',
     listingId: item.listingId,
@@ -65,13 +68,14 @@ export function MarketListingRow({
   onBuy,
   onCancel,
 }: MarketListingRowProps) {
+  const rowKey = marketListingRowKey(item);
   const handle = fallbackLabel(item.creatorId);
   const profileHref = portfolioPath(item.creatorId);
   const postHref = postHrefFromSourcePath(item.sourcePostPath);
-  const [confirmListingId, setConfirmListingId] = useState<string | null>(null);
+  const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
-    confirmListingId === item.listingId && isOwnListing && !cancelPending;
+    confirmRowKey === rowKey && isOwnListing && !cancelPending;
 
   useEffect(() => {
     return () => {
@@ -86,16 +90,16 @@ export function MarketListingRow({
       window.clearTimeout(confirmTimerRef.current);
       confirmTimerRef.current = null;
     }
-    setConfirmListingId(null);
+    setConfirmRowKey(null);
   };
 
   const handleOwnClick = () => {
     if (cancelPending || !onCancel) return;
     if (!confirmingCancel) {
-      setConfirmListingId(item.listingId);
+      setConfirmRowKey(rowKey);
       confirmTimerRef.current = window.setTimeout(() => {
         confirmTimerRef.current = null;
-        setConfirmListingId(null);
+        setConfirmRowKey(null);
       }, CONFIRM_LEAVE_MS);
       return;
     }
@@ -166,6 +170,9 @@ export function MarketListingRow({
           >
             @{handle}
           </Link>
+          {item.kind === 'native' ? (
+            <span className="market-listing-own"> · Resale</span>
+          ) : null}
           {isOwnListing ? (
             <span className="market-listing-own"> · Yours</span>
           ) : null}

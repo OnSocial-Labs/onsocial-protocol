@@ -172,7 +172,8 @@ impl Contract {
                 Some("Auction settled on OnSocial Marketplace".to_string()),
             )?;
 
-            let result = self.settle_secondary_sale(token_id, winning_bid, &seller_id)?;
+            let result =
+                self.settle_secondary_sale(token_id, winning_bid, &seller_id, &winner_id)?;
 
             events::emit_auction_settled(
                 &winner_id,

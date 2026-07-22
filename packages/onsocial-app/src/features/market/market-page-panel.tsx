@@ -10,9 +10,13 @@ import { MarketListingRow } from '@/features/market/market-listing-row';
 import {
   fetchMarketListings,
   fetchMarketSales,
+  fetchOwnedScarces,
+  marketListingRowKey,
   type MarketListingItem,
   type MarketSaleItem,
+  type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import { MarketOwnedRow } from '@/features/market/market-owned-row';
 import {
   ScarceBuySheet,
   type ScarceBuyListing,
@@ -21,6 +25,7 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_HOME_PATH } from '@/lib/app-routes';
@@ -39,6 +44,7 @@ interface MarketPageData {
   key: number;
   listings: MarketListingItem[];
   sales: MarketSaleItem[];
+  owned: OwnedScarceItem[];
 }
 
 function sourcePostCoords(
@@ -57,14 +63,22 @@ export function MarketPagePanel() {
   const [data, setData] = useState<MarketPageData | null>(null);
   const [failedKey, setFailedKey] = useState<number | null>(null);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
-  const [cancelListingId, setCancelListingId] = useState<string | null>(null);
+  const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
+  const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
+  const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([fetchMarketListings(), fetchMarketSales()])
-      .then(([listings, sales]) => {
+    void Promise.all([
+      fetchMarketListings(),
+      fetchMarketSales(),
+      viewerAccountId
+        ? fetchOwnedScarces(viewerAccountId)
+        : Promise.resolve([] as OwnedScarceItem[]),
+    ])
+      .then(([listings, sales, owned]) => {
         if (cancelled) return;
-        setData({ key: retryKey, listings, sales });
+        setData({ key: retryKey, listings, sales, owned });
       })
       .catch(() => {
         if (cancelled) return;
@@ -73,7 +87,7 @@ export function MarketPagePanel() {
     return () => {
       cancelled = true;
     };
-  }, [retryKey]);
+  }, [retryKey, viewerAccountId]);
 
   const status: LoadStatus =
     data?.key === retryKey
@@ -83,6 +97,7 @@ export function MarketPagePanel() {
         : 'loading';
   const listings = data?.key === retryKey ? data.listings : [];
   const sales = data?.key === retryKey ? data.sales : [];
+  const owned = data?.key === retryKey ? data.owned : [];
 
   const handleBuy = useCallback(
     (item: MarketListingItem) => {
@@ -92,6 +107,18 @@ export function MarketPagePanel() {
       ) {
         return;
       }
+      if (item.kind === 'native' && item.tokenId) {
+        setBuyListing({
+          tokenId: item.tokenId,
+          status: 'listed',
+          priceNear: item.priceNear,
+          title: item.title,
+          mediaUrl: item.mediaUrl,
+          creatorId: item.creatorId,
+        });
+        return;
+      }
+      if (!item.listingId) return;
       setBuyListing({
         listingId: item.listingId,
         status: 'lazy_listing',
@@ -107,19 +134,31 @@ export function MarketPagePanel() {
   );
 
   const handlePurchased = useCallback(() => {
-    // Refetch live listings — multi-copy may still be for sale.
     setBuyListing(null);
+    setRetryKey((value) => value + 1);
+  }, []);
+
+  const handleListed = useCallback(() => {
+    setSellItem(null);
     setRetryKey((value) => value + 1);
   }, []);
 
   const handleCancel = useCallback(
     async (item: MarketListingItem) => {
-      if (!item.listingId || cancelListingId) return;
-      setCancelListingId(item.listingId);
+      const rowKey = marketListingRowKey(item);
+      if (cancelRowKey) return;
+      setCancelRowKey(rowKey);
       try {
         const { accountId, wallet } = await getSigningWallet();
         const client = createAppScarcesWalletClient(accountId, wallet);
-        const response = await client.scarces.lazy.cancel(item.listingId);
+        const response =
+          item.kind === 'native' && item.tokenId
+            ? await client.scarces.market.delist(item.tokenId)
+            : item.listingId
+              ? await client.scarces.lazy.cancel(item.listingId)
+              : null;
+        if (!response) return;
+
         const confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
           submittedMessage: txToastConfirming.cancelingScarceListing,
@@ -133,14 +172,19 @@ export function MarketPagePanel() {
             ? {
                 ...current,
                 listings: current.listings.filter(
-                  (row) => row.listingId !== item.listingId
+                  (row) => marketListingRowKey(row) !== rowKey
+                ),
+                owned: current.owned.map((row) =>
+                  item.tokenId && row.tokenId === item.tokenId
+                    ? { ...row, listedPriceNear: null }
+                    : row
                 ),
               }
             : current
         );
 
         const coords = sourcePostCoords(item.sourcePostPath);
-        if (coords) {
+        if (coords && item.kind === 'lazy') {
           setScarceEmbedOverride(
             postScarceKey(coords.author, coords.postId),
             { status: 'none', events: [] }
@@ -156,11 +200,46 @@ export function MarketPagePanel() {
               : txToastError.cancelScarceListingFailed,
         });
       } finally {
-        setCancelListingId(null);
+        setCancelRowKey(null);
       }
     },
-    [cancelListingId, getSigningWallet, setTxResult, trackTransaction]
+    [cancelRowKey, getSigningWallet, setTxResult, trackTransaction]
   );
+
+  const handleDelistOwned = useCallback(
+    async (item: OwnedScarceItem) => {
+      if (delistTokenId) return;
+      setDelistTokenId(item.tokenId);
+      try {
+        const { accountId, wallet } = await getSigningWallet();
+        const client = createAppScarcesWalletClient(accountId, wallet);
+        const response = await client.scarces.market.delist(item.tokenId);
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage: txToastConfirming.cancelingScarceListing,
+          successMessage: txToastSuccess.scarceListingCanceled,
+          failureMessage: txToastError.cancelScarceListingFailed,
+        });
+        if (!confirmed) return;
+        setRetryKey((value) => value + 1);
+      } catch (cause) {
+        if (isWalletUserCancellation(cause)) return;
+        setTxResult({
+          type: 'error',
+          msg:
+            cause instanceof Error
+              ? cause.message
+              : txToastError.cancelScarceListingFailed,
+        });
+      } finally {
+        setDelistTokenId(null);
+      }
+    },
+    [delistTokenId, getSigningWallet, setTxResult, trackTransaction]
+  );
+
+  const showEmptyBrowse =
+    status === 'ready' && listings.length === 0 && owned.length === 0;
 
   return (
     <OsAppScreen
@@ -185,16 +264,37 @@ export function MarketPagePanel() {
           </p>
         ) : null}
 
-        {status === 'ready' && listings.length === 0 ? (
+        {showEmptyBrowse ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
-              No scarces listed yet. Open a post you wrote and choose List for
-              sale.
+              No scarces listed yet. List from a post you wrote, or buy one and
+              sell it here.
             </p>
             <Link className="app-soon-link" href={APP_HOME_PATH}>
               Back to Home
             </Link>
           </div>
+        ) : null}
+
+        {viewerAccountId && owned.length > 0 ? (
+          <section className="market-section" aria-labelledby="market-yours">
+            <h2 id="market-yours" className="market-section-title">
+              Yours
+            </h2>
+            <div className="market-listing-list">
+              {owned.map((item) => (
+                <MarketOwnedRow
+                  key={item.tokenId}
+                  item={item}
+                  delistPending={delistTokenId === item.tokenId}
+                  onSell={setSellItem}
+                  onDelist={(row) => {
+                    void handleDelistOwned(row);
+                  }}
+                />
+              ))}
+            </div>
+          </section>
         ) : null}
 
         {listings.length > 0 ? (
@@ -203,21 +303,24 @@ export function MarketPagePanel() {
               New listings
             </h2>
             <div className="market-listing-list">
-              {listings.map((item) => (
-                <MarketListingRow
-                  key={item.listingId}
-                  item={item}
-                  isOwnListing={
-                    Boolean(viewerAccountId) &&
-                    accountIdsEqual(viewerAccountId!, item.creatorId)
-                  }
-                  cancelPending={cancelListingId === item.listingId}
-                  onBuy={handleBuy}
-                  onCancel={(row) => {
-                    void handleCancel(row);
-                  }}
-                />
-              ))}
+              {listings.map((item) => {
+                const rowKey = marketListingRowKey(item);
+                return (
+                  <MarketListingRow
+                    key={rowKey}
+                    item={item}
+                    isOwnListing={
+                      Boolean(viewerAccountId) &&
+                      accountIdsEqual(viewerAccountId!, item.creatorId)
+                    }
+                    cancelPending={cancelRowKey === rowKey}
+                    onBuy={handleBuy}
+                    onCancel={(row) => {
+                      void handleCancel(row);
+                    }}
+                  />
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -230,9 +333,7 @@ export function MarketPagePanel() {
             <ul className="market-sales-list">
               {sales.map((sale, index) => {
                 const seller =
-                  sale.sellerId?.trim() ||
-                  sale.creatorId?.trim() ||
-                  '';
+                  sale.sellerId?.trim() || sale.creatorId?.trim() || '';
                 return (
                   <li
                     key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
@@ -269,6 +370,16 @@ export function MarketPagePanel() {
           if (!open) setBuyListing(null);
         }}
         onPurchased={handlePurchased}
+      />
+
+      <ScarceSellSheet
+        open={sellItem != null}
+        item={sellItem}
+        sellerAccountId={viewerAccountId}
+        onOpenChange={(open) => {
+          if (!open) setSellItem(null);
+        }}
+        onListed={handleListed}
       />
     </OsAppScreen>
   );

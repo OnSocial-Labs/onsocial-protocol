@@ -2,11 +2,15 @@ import type { ScarcesEventRow } from '@onsocial/sdk';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
+export type ScarceEarningKind = 'sale' | 'royalty';
+
 export interface ScarceCreatorEarningRow {
   key: string;
   buyerId: string;
   paymentYocto: string;
   title: string;
+  /** Primary sale vs secondary `royalty_paid`. */
+  kind: ScarceEarningKind;
   blockTimestamp: number;
   blockHeight: number;
   tokenId?: string;
@@ -24,10 +28,25 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/**
+ * Prefer explicit `creatorPayment`. When present (including `"0"`), never fall
+ * back to full sale `price` — that would mis-attribute secondary sales.
+ */
 function paymentYocto(row: ScarcesEventRow): string | null {
-  const raw = row.creatorPayment?.trim() || row.price?.trim() || null;
+  const payment = row.creatorPayment?.trim();
+  if (payment != null && payment !== '' && /^\d+$/.test(payment)) {
+    if (payment === '0') return null;
+    return payment;
+  }
+  const raw = row.price?.trim() || null;
   if (!raw || !/^\d+$/.test(raw) || raw === '0') return null;
   return raw;
+}
+
+/** Secondary royalty events vs primary creator sales. */
+export function earningKindFromRow(row: ScarcesEventRow): ScarceEarningKind {
+  if (row.operation === 'royalty_paid') return 'royalty';
+  return 'sale';
 }
 
 function saleTitleFromRow(row: ScarcesEventRow): string {
@@ -93,6 +112,7 @@ export async function fetchScarceCreatorEarnings(
       buyerId,
       paymentYocto: pay,
       title: saleTitleFromRow(row),
+      kind: earningKindFromRow(row),
       blockTimestamp: row.blockTimestamp,
       blockHeight: row.blockHeight,
       ...(row.tokenId?.trim() ? { tokenId: row.tokenId.trim() } : {}),

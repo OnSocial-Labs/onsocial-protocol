@@ -33,6 +33,7 @@ export const txToastConfirming = {
   proposingGuildSpaceWriterRevoke: 'Confirming proposal…',
   amplifyingPost: 'Confirming amplify…',
   listingScarce: 'Confirming listing…',
+  sellingScarce: 'Confirming listing…',
   buyingScarce: 'Confirming purchase…',
   cancelingScarceListing: 'Confirming cancel…',
 } as const;
@@ -66,6 +67,7 @@ export const txToastPending = {
   proposingGuildSpaceWriterRevoke: 'Proposing removal…',
   amplifyingPost: 'Amplifying…',
   listingScarce: 'Listing…',
+  sellingScarce: 'Listing for sale…',
   buyingScarce: 'Collecting scarce…',
   cancelingScarceListing: 'Canceling listing…',
 } as const;
@@ -112,6 +114,7 @@ export const txToastSuccess = {
   supportCollected: 'Support SOCIAL collected.',
   postAmplified: 'Post amplified.',
   scarceListed: 'Listed.',
+  scarceSoldListed: 'Listed for sale.',
   scarcePurchased: 'Scarce collected.',
   scarceListingCanceled: 'Listing canceled.',
 } as const;
@@ -145,6 +148,7 @@ export const txToastError = {
   claimSupportFailed: 'Could not claim support.',
   amplifyFailed: 'Could not amplify post.',
   listScarceFailed: 'Could not list scarce.',
+  sellScarceFailed: 'Could not list scarce for sale.',
   buyScarceFailed: 'Could not buy scarce.',
   cancelScarceListingFailed: 'Could not cancel listing.',
 } as const;

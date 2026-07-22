@@ -187,6 +187,19 @@ fn test_decode_offer_accepted() {
     assert_eq!(event.app_id, "app.near");
 }
 
+#[test]
+fn test_decode_royalty_paid() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"SCARCE_UPDATE","data":[{"operation":"royalty_paid","author":"creator.near","creator_id":"creator.near","creator_payment":"98000000000000000000000","buyer_id":"buyer.near","seller_id":"seller.near","scarce_contract_id":"scarces.near","token_id":"s:325","price":"1000000000000000000000000","amount":"98000000000000000000000"}]}"#;
+    let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
+    assert_eq!(event.event_type, "SCARCE_UPDATE");
+    assert_eq!(event.operation, "royalty_paid");
+    assert_eq!(event.creator_id, "creator.near");
+    assert_eq!(event.creator_payment, "98000000000000000000000");
+    assert_eq!(event.seller_id, "seller.near");
+    assert_eq!(event.buyer_id, "buyer.near");
+    assert_eq!(event.price, "1000000000000000000000000");
+}
+
 // ─── CONTRACT_UPDATE operations ────────────────────────────────────
 
 #[test]

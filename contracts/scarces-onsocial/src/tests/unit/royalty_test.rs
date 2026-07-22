@@ -1,5 +1,6 @@
 use crate::tests::test_utils::*;
 use crate::*;
+use near_sdk::testing_env;
 use std::collections::HashMap;
 
 #[test]
@@ -341,4 +342,78 @@ fn payout_large_balance_does_not_overflow() {
     assert_eq!(total, u128::MAX);
     assert!(payout.payout.get(&recipient).unwrap().0 > 0);
     assert!(payout.payout.get(&seller).unwrap().0 > 0);
+}
+
+#[test]
+fn settle_secondary_emits_royalty_paid() {
+    use near_sdk::test_utils::get_logs;
+
+    let mut contract = new_contract();
+    testing_env!(context(owner()).build());
+
+    let seller: AccountId = "seller.near".parse().unwrap();
+    let buyer: AccountId = "buyer.near".parse().unwrap();
+    let mut royalty = HashMap::new();
+    royalty.insert(creator(), 1000u32);
+
+    let mut token = make_token(Some(royalty));
+    token.owner_id = seller.clone();
+    contract.scarces_by_id.insert("s:1".into(), token);
+
+    let sale_price: u128 = 1_000_000_000_000_000_000_000_000; // 1 NEAR
+    let _ = contract
+        .settle_secondary_sale("s:1", sale_price, &seller, &buyer)
+        .unwrap();
+
+    let fee = sale_price * (DEFAULT_TOTAL_FEE_BPS as u128) / 10_000;
+    let after_fee = sale_price - fee;
+    let expected_royalty = after_fee * 1000 / 10_000;
+
+    let logs = get_logs();
+    let royalty_log = logs
+        .iter()
+        .find(|l| l.contains("royalty_paid"))
+        .expect("expected royalty_paid event");
+    let json = royalty_log
+        .strip_prefix("EVENT_JSON:")
+        .expect("EVENT_JSON prefix");
+    assert!(json.contains("\"operation\":\"royalty_paid\""));
+    assert!(json.contains(&format!("\"creator_payment\":\"{expected_royalty}\"")));
+    assert!(json.contains(&format!("\"creator_id\":\"{}\"", creator())));
+    assert!(
+        !json.contains(&format!("\"creator_payment\":\"{after_fee}\"")),
+        "royalty_paid must be royalty-only, not seller residual"
+    );
+}
+
+#[test]
+fn settle_secondary_creator_seller_still_emits_royalty_only() {
+    use near_sdk::test_utils::get_logs;
+
+    let mut contract = new_contract();
+    testing_env!(context(owner()).build());
+
+    let buyer: AccountId = "buyer.near".parse().unwrap();
+    let mut royalty = HashMap::new();
+    royalty.insert(creator(), 1000u32);
+
+    let mut token = make_token(Some(royalty));
+    token.owner_id = creator();
+    contract.scarces_by_id.insert("s:2".into(), token);
+
+    let sale_price: u128 = 1_000_000_000_000_000_000_000_000;
+    let _ = contract
+        .settle_secondary_sale("s:2", sale_price, &creator(), &buyer)
+        .unwrap();
+
+    let fee = sale_price * (DEFAULT_TOTAL_FEE_BPS as u128) / 10_000;
+    let after_fee = sale_price - fee;
+    let expected_royalty = after_fee * 1000 / 10_000;
+
+    let logs = get_logs();
+    let royalty_log = logs
+        .iter()
+        .find(|l| l.contains("royalty_paid"))
+        .expect("expected royalty_paid event");
+    assert!(royalty_log.contains(&format!("\"creator_payment\":\"{expected_royalty}\"")));
 }

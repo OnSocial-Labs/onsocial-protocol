@@ -38,7 +38,13 @@ interface LazyListingRecord {
 }
 
 export interface MarketListingItem {
-  listingId: string;
+  /** Primary mint-on-purchase vs secondary resale of an owned NFT. */
+  kind: 'lazy' | 'native';
+  /** Lazy listing id (`ll:…`). */
+  listingId?: string;
+  /** Native token id (`s:…`) for secondary listings. */
+  tokenId?: string;
+  /** Seller: creator for lazy, current owner for native. */
   creatorId: string;
   title: string;
   priceNear: string;
@@ -51,6 +57,37 @@ export interface MarketListingItem {
   copies?: number;
   /** Unsold editions still on this listing. */
   remaining?: number;
+}
+
+/** Wallet-owned scarce NFT for Market “Yours”. */
+export interface OwnedScarceItem {
+  tokenId: string;
+  title: string;
+  mediaUrl?: string | null;
+  ownerId: string;
+  /** Set when this token is already listed for resale. */
+  listedPriceNear?: string | null;
+}
+
+interface ContractSaleRecord {
+  owner_id?: string;
+  sale_conditions?: string | { '0'?: string } | null;
+  sale_type?:
+    | { NativeScarce?: { token_id?: string }; native_scarce?: { token_id?: string } }
+    | { External?: unknown; external?: unknown }
+    | string;
+  auction?: unknown;
+  expires_at?: number | null;
+}
+
+interface ContractTokenRecord {
+  token_id?: string;
+  owner_id?: string;
+  metadata?: {
+    title?: string | null;
+    media?: string | null;
+    extra?: string | null;
+  } | null;
 }
 
 export interface MarketSaleItem {
@@ -217,6 +254,7 @@ function listingFromRecord(
   const remaining = remainingForListing(record, copies);
 
   return {
+    kind: 'lazy',
     listingId,
     creatorId,
     title,
@@ -228,6 +266,183 @@ function listingFromRecord(
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
   };
+}
+
+function marketListingRowKey(item: MarketListingItem): string {
+  if (item.kind === 'native' && item.tokenId) return `native:${item.tokenId}`;
+  if (item.listingId) return `lazy:${item.listingId}`;
+  return `row:${item.creatorId}:${item.title}:${item.priceNear}`;
+}
+
+export { marketListingRowKey };
+
+function nativeTokenIdFromSale(sale: ContractSaleRecord): string | null {
+  const saleType = sale.sale_type;
+  if (!saleType || typeof saleType === 'string') return null;
+  const native =
+    ('NativeScarce' in saleType && saleType.NativeScarce) ||
+    ('native_scarce' in saleType && saleType.native_scarce) ||
+    null;
+  if (!native || typeof native !== 'object') return null;
+  const tokenId =
+    typeof native.token_id === 'string' ? native.token_id.trim() : '';
+  return tokenId || null;
+}
+
+function isFixedPriceNativeSale(sale: ContractSaleRecord): boolean {
+  if (sale.auction != null) return false;
+  return Boolean(nativeTokenIdFromSale(sale));
+}
+
+async function fetchTokenRecord(
+  tokenId: string
+): Promise<ContractTokenRecord | null> {
+  try {
+    return await viewNearContract<ContractTokenRecord | null>(
+      SCARCES_CONTRACT,
+      'nft_token',
+      { token_id: tokenId }
+    );
+  } catch {
+    return null;
+  }
+}
+
+function listingFromNativeSale(
+  sale: ContractSaleRecord,
+  token: ContractTokenRecord | null
+): MarketListingItem | null {
+  const tokenId = nativeTokenIdFromSale(sale);
+  const sellerId = sale.owner_id?.trim();
+  if (!tokenId || !sellerId) return null;
+  const priceNear = priceNearFromYocto(sale.sale_conditions);
+  if (!priceNear) return null;
+  const title =
+    token?.metadata?.title?.trim() ||
+    (tokenId.includes(':') && !tokenId.startsWith('s:')
+      ? tokenId
+      : 'Scarce');
+  const mediaUrl = resolveScarceMediaUrl(token?.metadata?.media ?? null);
+  const extra = parseExtra(token?.metadata?.extra ?? null);
+  return {
+    kind: 'native',
+    tokenId,
+    creatorId: sellerId,
+    title,
+    priceNear,
+    blockTimestamp: Date.now(),
+    mediaUrl,
+    sourcePostPath: sourcePostPathFromExtra(extra),
+  };
+}
+
+/**
+ * Active secondary (native NFT) fixed-price listings from contract state.
+ */
+export async function fetchNativeMarketListings(opts: {
+  limit?: number;
+} = {}): Promise<MarketListingItem[]> {
+  const limit = opts.limit ?? 40;
+  let sales: ContractSaleRecord[] = [];
+  try {
+    sales = await viewNearContract<ContractSaleRecord[]>(
+      SCARCES_CONTRACT,
+      'get_sales_by_scarce_contract_id',
+      {
+        scarce_contract_id: SCARCES_CONTRACT,
+        from_index: 0,
+        limit: Math.min(limit, 100),
+      }
+    );
+  } catch {
+    try {
+      sales = await viewNearContract<ContractSaleRecord[]>(
+        SCARCES_CONTRACT,
+        'get_sales',
+        { from_index: 0, limit: Math.min(limit, 100) }
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  const fixed = sales.filter(isFixedPriceNativeSale).slice(0, limit);
+  const tokens = await Promise.all(
+    fixed.map((sale) => {
+      const tokenId = nativeTokenIdFromSale(sale);
+      return tokenId ? fetchTokenRecord(tokenId) : Promise.resolve(null);
+    })
+  );
+
+  const items: MarketListingItem[] = [];
+  for (let i = 0; i < fixed.length; i += 1) {
+    const item = listingFromNativeSale(fixed[i]!, tokens[i] ?? null);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
+/**
+ * Scarces owned by `accountId`, with optional listed price when already for sale.
+ */
+export async function fetchOwnedScarces(
+  accountId: string
+): Promise<OwnedScarceItem[]> {
+  const owner = accountId.trim();
+  if (!owner) return [];
+
+  let tokens: ContractTokenRecord[] = [];
+  try {
+    tokens = await viewNearContract<ContractTokenRecord[]>(
+      SCARCES_CONTRACT,
+      'nft_tokens_for_owner',
+      {
+        account_id: owner,
+        from_index: '0',
+        limit: 50,
+      }
+    );
+  } catch {
+    return [];
+  }
+
+  let ownerSales: ContractSaleRecord[] = [];
+  try {
+    ownerSales = await viewNearContract<ContractSaleRecord[]>(
+      SCARCES_CONTRACT,
+      'get_sales_by_owner_id',
+      { account_id: owner, from_index: 0, limit: 50 }
+    );
+  } catch {
+    ownerSales = [];
+  }
+
+  const listedByToken = new Map<string, string>();
+  for (const sale of ownerSales) {
+    if (!isFixedPriceNativeSale(sale)) continue;
+    const tokenId = nativeTokenIdFromSale(sale);
+    const priceNear = priceNearFromYocto(sale.sale_conditions);
+    if (tokenId && priceNear) listedByToken.set(tokenId, priceNear);
+  }
+
+  return tokens
+    .map((token): OwnedScarceItem | null => {
+      const tokenId = token.token_id?.trim();
+      if (!tokenId) return null;
+      const title =
+        token.metadata?.title?.trim() ||
+        (tokenId.includes(':') && !tokenId.startsWith('s:')
+          ? tokenId
+          : 'Scarce');
+      return {
+        tokenId,
+        title,
+        mediaUrl: resolveScarceMediaUrl(token.metadata?.media ?? null),
+        ownerId: token.owner_id?.trim() || owner,
+        listedPriceNear: listedByToken.get(tokenId) ?? null,
+      };
+    })
+    .filter((item): item is OwnedScarceItem => item != null);
 }
 
 /**
@@ -301,8 +516,8 @@ export async function findLiveListingForPost(
 }
 
 /**
- * Active listings from live contract state.
- * Indexer `created` events discover listing ids; each id is loaded with
+ * Active listings from live contract state (primary lazy + secondary native).
+ * Indexer `created` events discover lazy ids; each id is loaded with
  * `get_lazy_listing` so one corrupt row cannot empty the Market.
  */
 export async function fetchMarketListings(opts: {
@@ -310,11 +525,14 @@ export async function fetchMarketListings(opts: {
 } = {}): Promise<MarketListingItem[]> {
   const limit = opts.limit ?? 40;
   const client = createReadOnlyOnSocialClient();
-  const created = await client.query.scarces.events({
-    eventType: 'LAZY_LISTING_UPDATE',
-    operation: 'created',
-    limit: Math.min(limit * 3, 120),
-  });
+  const [created, nativeListings] = await Promise.all([
+    client.query.scarces.events({
+      eventType: 'LAZY_LISTING_UPDATE',
+      operation: 'created',
+      limit: Math.min(limit * 3, 120),
+    }),
+    fetchNativeMarketListings({ limit }),
+  ]);
 
   const listingIds: string[] = [];
   const seenIds = new Set<string>();
@@ -330,12 +548,16 @@ export async function fetchMarketListings(opts: {
     listingIds.map((id) => fetchLazyListingById(id))
   );
 
-  const byId = new Map<string, MarketListingItem>();
+  const byKey = new Map<string, MarketListingItem>();
   for (const item of loaded) {
-    if (item) byId.set(item.listingId, item);
+    if (!item?.listingId) continue;
+    byKey.set(marketListingRowKey(item), item);
+  }
+  for (const item of nativeListings) {
+    byKey.set(marketListingRowKey(item), item);
   }
 
-  return [...byId.values()]
+  return [...byKey.values()]
     .sort((a, b) => b.blockTimestamp - a.blockTimestamp)
     .slice(0, limit);
 }

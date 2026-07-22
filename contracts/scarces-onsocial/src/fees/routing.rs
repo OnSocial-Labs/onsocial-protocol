@@ -65,6 +65,7 @@ impl Contract {
         token_id: &str,
         sale_price: u128,
         seller_id: &AccountId,
+        buyer_id: &AccountId,
     ) -> Result<PrimarySaleResult, MarketplaceError> {
         let token_clone = self.scarces_by_id.get(token_id).cloned();
         let app_id = self.resolve_token_app_id(
@@ -77,6 +78,20 @@ impl Contract {
         let amount_after_fee = sale_price.saturating_sub(total_fee);
 
         if let Some(ref token) = token_clone {
+            let royalty_shares = Self::royalty_amounts(token, amount_after_fee)?;
+            let current_contract = env::current_account_id();
+            for (recipient_id, amount) in &royalty_shares {
+                events::emit_royalty_paid(&events::RoyaltyPaid {
+                    recipient_id,
+                    buyer_id,
+                    seller_id,
+                    scarce_contract_id: &current_contract,
+                    token_id,
+                    sale_price: U128(sale_price),
+                    amount: U128(*amount),
+                });
+            }
+
             let payout = self.compute_payout(token, seller_id, amount_after_fee, Some(10))?;
             self.distribute_payout(&payout, amount_after_fee, seller_id);
         } else if amount_after_fee > 0 {
