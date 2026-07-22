@@ -39,6 +39,7 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceBidSheet } from '@/features/scarces/scarce-bid-sheet';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
 import {
@@ -810,6 +811,7 @@ export function PostCard({
   const [amplifyOpen, setAmplifyOpen] = useState(false);
   const [listScarceOpen, setListScarceOpen] = useState(false);
   const [buyScarceOpen, setBuyScarceOpen] = useState(false);
+  const [bidScarceOpen, setBidScarceOpen] = useState(false);
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -1050,6 +1052,7 @@ export function PostCard({
             embed={scarceEmbed}
             isAuthor={isSelf}
             onBuy={() => setBuyScarceOpen(true)}
+            onBid={() => setBidScarceOpen(true)}
           />
         ) : null}
         {detailLayout ? (
@@ -1141,6 +1144,14 @@ export function PostCard({
         embed={scarceEmbed}
         onOpenChange={setBuyScarceOpen}
         onPurchased={() => retryScarceEmbed()}
+      />
+      <ScarceBidSheet
+        open={bidScarceOpen}
+        post={bidScarceOpen ? post : null}
+        authorName={authorProfile?.displayName}
+        embed={scarceEmbed}
+        onOpenChange={setBidScarceOpen}
+        onBid={() => retryScarceEmbed()}
       />
     </article>
   );

@@ -4,6 +4,10 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { findLiveListingForPost } from '@/features/market/market-listings';
 import {
+  fetchScarceAuctionView,
+  minNextBidNear,
+} from '@/features/scarces/scarce-auction';
+import {
   getScarceEmbedOverride,
   postScarceKey,
   reconcileScarceEmbedFromApi,
@@ -114,6 +118,14 @@ export function usePostScarceEmbed(
               ...(live.cardBg ? { cardBg: live.cardBg } : {}),
               ...(live.copies != null ? { copies: live.copies } : {}),
               ...(live.remaining != null ? { remaining: live.remaining } : {}),
+            };
+          }
+        } else if (embed.status === 'auction' && embed.tokenId) {
+          const auction = await fetchScarceAuctionView(embed.tokenId);
+          if (auction && !auction.isEnded) {
+            resolved = {
+              ...embed,
+              priceNear: minNextBidNear(auction),
             };
           }
         }

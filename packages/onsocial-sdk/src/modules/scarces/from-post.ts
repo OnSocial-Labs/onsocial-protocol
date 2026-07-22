@@ -74,6 +74,7 @@ interface SourcePostLink {
   author?: string;
   postId?: string;
   path?: string;
+  groupId?: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -110,6 +111,7 @@ function sourcePostFromObject(
       author: stringField(nested, 'author'),
       postId: stringField(nested, 'postId'),
       path: stringField(nested, 'path'),
+      groupId: stringField(nested, 'groupId'),
     };
   }
 
@@ -280,7 +282,14 @@ export class ScarcesFromPostApi {
   ): Promise<MintResponse> {
     const { author, postId } = postCoords(post);
     const extracted = await this._readPost(post);
-    const mintOpts = this._buildMintOpts(author, postId, extracted, opts);
+    const groupId = isPostRow(post) ? post.groupId?.trim() || undefined : undefined;
+    const mintOpts = this._buildMintOpts(
+      author,
+      postId,
+      extracted,
+      opts,
+      groupId
+    );
     return this._tokens.mint(mintOpts);
   }
 
@@ -303,7 +312,14 @@ export class ScarcesFromPostApi {
   ): Promise<MintResponse> {
     const { author, postId } = postCoords(post);
     const extracted = await this._readPost(post);
-    const base = this._buildMintOpts(author, postId, extracted, opts);
+    const groupId = isPostRow(post) ? post.groupId?.trim() || undefined : undefined;
+    const base = this._buildMintOpts(
+      author,
+      postId,
+      extracted,
+      opts,
+      groupId
+    );
     const lazyOpts: LazyListingOptions = {
       title: base.title,
       priceNear,
@@ -383,12 +399,13 @@ export class ScarcesFromPostApi {
    *
    * Designed for in-feed rendering — call once per post when the card
    * mounts and switch on `embed.status` to decide which CTA to show
-   * (`Buy`, `Bid`, `Sold out`, `Mint`).
+   * (`Buy`, `Bid`, `Sold`, list).
    *
    * ```ts
    * const e = await os.scarces.fromPost.embed(post);
    * if (e.status === 'lazy_listing') showBuy(e.priceNear, e.listingId);
-   * else if (e.status === 'auction') showBid(e.auctionId, e.priceNear);
+   * else if (e.status === 'listed') showBuy(e.priceNear, e.tokenId);
+   * else if (e.status === 'auction') showBid(e.tokenId, e.priceNear);
    * else if (e.status === 'none') showMintCTA();
    * ```
    */
@@ -518,7 +535,8 @@ export class ScarcesFromPostApi {
     author: string,
     postId: string,
     extracted: ExtractedPost,
-    opts: MintFromPostOptions
+    opts: MintFromPostOptions,
+    groupId?: string
   ): MintOptions {
     const text = extracted.text;
     const title = opts.title ?? (deriveTitle(text) || `Post ${postId}`);
@@ -573,6 +591,7 @@ export class ScarcesFromPostApi {
           author,
           postId,
           path: `${author}/post/${postId}`,
+          ...(groupId ? { groupId } : {}),
         },
         mintedAt: Date.now(),
         ...(galleryExtra ?? {}),

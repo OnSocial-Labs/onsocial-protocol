@@ -52,7 +52,10 @@ impl Contract {
                     )));
                 }
                 self.pending_attached_balance -= bid_amount;
-                self.place_bid(actor_id, token_id, bid_amount)?;
+                if let Err(err) = self.place_bid(actor_id, token_id, bid_amount) {
+                    self.pending_attached_balance += bid_amount;
+                    return Err(err);
+                }
                 Ok(Value::Null)
             }
             Action::MakeOffer {
@@ -68,7 +71,10 @@ impl Contract {
                     )));
                 }
                 self.pending_attached_balance -= offer_amount;
-                self.make_offer(actor_id, &token_id, offer_amount, expires_at)?;
+                if let Err(err) = self.make_offer(actor_id, &token_id, offer_amount, expires_at) {
+                    self.pending_attached_balance += offer_amount;
+                    return Err(err);
+                }
                 Ok(Value::Null)
             }
             Action::MakeCollectionOffer {
@@ -84,7 +90,12 @@ impl Contract {
                     )));
                 }
                 self.pending_attached_balance -= offer_amount;
-                self.make_collection_offer(actor_id, &collection_id, offer_amount, expires_at)?;
+                if let Err(err) =
+                    self.make_collection_offer(actor_id, &collection_id, offer_amount, expires_at)
+                {
+                    self.pending_attached_balance += offer_amount;
+                    return Err(err);
+                }
                 Ok(Value::Null)
             }
             Action::CancelCollection {

@@ -4,9 +4,10 @@ import type { PostScarceEmbed } from '@onsocial/sdk';
 
 interface PostScarceCtaProps {
   embed: PostScarceEmbed;
-  /** Hide Buy when the viewer authored the post. */
+  /** Hide Buy / Bid when the viewer authored the post. */
   isAuthor?: boolean;
   onBuy: () => void;
+  onBid?: () => void;
 }
 
 function formatPriceNear(priceNear: string | undefined): string | null {
@@ -35,6 +36,7 @@ export function PostScarceCta({
   embed,
   isAuthor = false,
   onBuy,
+  onBid,
 }: PostScarceCtaProps) {
   if (embed.status === 'none' || embed.status === 'minted') return null;
 
@@ -46,16 +48,48 @@ export function PostScarceCta({
     );
   }
 
+  const price = formatPriceNear(embed.priceNear);
+  const edition = editionMeta(embed);
+
   if (embed.status === 'auction') {
+    const canBid = !isAuthor && Boolean(embed.tokenId) && Boolean(onBid);
+    if (isAuthor) {
+      return (
+        <div className="post-card-scarce-cta post-card-scarce-cta--muted">
+          <span className="post-card-scarce-cta-main">
+            {price ? `Auction · ${price} NEAR` : 'Your auction'}
+          </span>
+        </div>
+      );
+    }
+    if (!canBid) {
+      return (
+        <div className="post-card-scarce-cta post-card-scarce-cta--muted">
+          <span className="post-card-scarce-cta-main">
+            {price ? `Auction · ${price} NEAR…` : 'Auction…'}
+          </span>
+        </div>
+      );
+    }
     return (
-      <div className="post-card-scarce-cta post-card-scarce-cta--muted">
-        <span>Auction</span>
+      <div className="post-card-scarce-cta">
+        <button
+          type="button"
+          className="post-card-scarce-buy"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onBid?.();
+          }}
+        >
+          <span className="post-card-scarce-buy-main">
+            {price ? `Bid · ${price} NEAR` : 'Bid'}
+          </span>
+        </button>
       </div>
     );
   }
 
-  const price = formatPriceNear(embed.priceNear);
-  const edition = editionMeta(embed);
   const canBuy =
     !isAuthor &&
     ((embed.status === 'lazy_listing' && Boolean(embed.listingId)) ||

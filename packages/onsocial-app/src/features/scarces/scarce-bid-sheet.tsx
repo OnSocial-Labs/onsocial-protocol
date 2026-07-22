@@ -5,61 +5,56 @@ import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
-  ScarceBuyForm,
-  type ScarceBuySuccessDetail,
-} from '@/features/scarces/scarce-buy-form';
+  ScarceBidForm,
+  type ScarceBidSuccessDetail,
+} from '@/features/scarces/scarce-bid-form';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
-export interface ScarceBuyListing {
-  listingId?: string;
-  tokenId?: string;
-  status: PostScarceEmbed['status'];
-  priceNear?: string;
+export interface ScarceBidListing {
+  tokenId: string;
   title?: string;
   mediaUrl?: string | null;
-  creatorId: string;
-  creatorName?: string | null;
-  copies?: number;
-  remaining?: number;
+  sellerId: string;
+  sellerName?: string | null;
+  priceNear?: string;
 }
 
-interface ScarceBuySheetProps {
+interface ScarceBidSheetProps {
   open: boolean;
   post?: PostRow | null;
   authorName?: string | null;
   embed?: PostScarceEmbed | null;
-  listing?: ScarceBuyListing | null;
+  listing?: ScarceBidListing | null;
   onOpenChange: (open: boolean) => void;
-  onPurchased?: (detail: ScarceBuySuccessDetail) => void;
-  onMakeOffer?: () => void;
+  onBid?: (detail: ScarceBidSuccessDetail) => void;
 }
 
-/** Buyer sheet for lazy listing / fixed-price scarce purchase. */
-export function ScarceBuySheet({
+/** Buyer sheet for placing a bid on a native scarce auction. */
+export function ScarceBidSheet({
   open,
   post = null,
   authorName = null,
   embed = null,
   listing = null,
   onOpenChange,
-  onPurchased,
-  onMakeOffer,
-}: ScarceBuySheetProps) {
+  onBid,
+}: ScarceBidSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
-  const creatorId = listing?.creatorId ?? post?.accountId ?? '';
+  const sellerId = listing?.sellerId ?? post?.accountId ?? '';
   const sheetOpen =
-    open && !closing && (post != null || listing != null) && Boolean(creatorId);
-  const name = creatorId
-    ? displayName(
-        creatorId,
-        listing?.creatorName ?? authorName ?? undefined
-      )
+    open &&
+    !closing &&
+    (post != null || listing != null) &&
+    Boolean(sellerId) &&
+    Boolean(listing?.tokenId ?? embed?.tokenId);
+  const name = sellerId
+    ? displayName(sellerId, listing?.sellerName ?? authorName ?? undefined)
     : '';
-  const handle = creatorId ? fallbackLabel(creatorId) : '';
+  const handle = sellerId ? fallbackLabel(sellerId) : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -86,57 +81,45 @@ export function ScarceBuySheet({
       panelClassName="profile-support-sheet-panel"
       zIndex={56}
       ariaLabelledBy={titleId}
-      backdropLabel="Close buy scarce"
+      backdropLabel="Close bid scarce"
       bodyClassName="profile-support-sheet-body"
       header={
         <>
           <GestureSheetHeader
             titleId={titleId}
-            verb="Buy"
+            verb="Bid"
             personName={name}
             handle={handle}
             signal="reputation"
-            closeAriaLabel="Close buy scarce"
+            closeAriaLabel="Close bid scarce"
             onClose={requestClose}
-            whisper="Collect this scarce with NEAR."
+            whisper="Bid, buy now if listed, or settle when time’s up."
           />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
     >
       {sheetOpen ? (
-        <ScarceBuyForm
-          key={`${formKey}:${listing?.listingId ?? ''}:${post?.postId ?? ''}`}
+        <ScarceBidForm
+          key={`${formKey}:${listing?.tokenId ?? ''}:${post?.postId ?? ''}`}
           post={post}
-          authorName={listing?.creatorName ?? authorName}
+          authorName={listing?.sellerName ?? authorName}
           listing={
             listing
               ? {
-                  listingId: listing.listingId,
                   tokenId: listing.tokenId,
-                  status: listing.status,
-                  priceNear: listing.priceNear,
                   title: listing.title,
                   mediaUrl: listing.mediaUrl,
-                  creatorId: listing.creatorId,
-                  copies: listing.copies,
-                  remaining: listing.remaining,
+                  sellerId: listing.sellerId,
+                  priceNear: listing.priceNear,
                 }
               : null
           }
           embed={embed}
           onSuccess={(detail) => {
-            onPurchased?.(detail);
+            onBid?.(detail);
             requestClose();
           }}
-          onMakeOffer={
-            onMakeOffer
-              ? () => {
-                  onMakeOffer();
-                  requestClose();
-                }
-              : undefined
-          }
         />
       ) : null}
     </GlassSheet>

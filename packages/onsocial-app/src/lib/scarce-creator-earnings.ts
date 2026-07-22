@@ -1,6 +1,16 @@
 import type { ScarcesEventRow } from '@onsocial/sdk';
-import { yoctoToNear } from '@/lib/app-near-rpc';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import {
+  personalPostPath,
+  resolvePostThreadHrefFromSourcePath,
+} from '@/lib/post-routes';
+
+const SCARCES_CONTRACT =
+  ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'scarces.onsocial.near'
+    : 'scarces.onsocial.testnet';
 
 export type ScarceEarningKind = 'sale' | 'royalty';
 
@@ -11,6 +21,11 @@ export interface ScarceCreatorEarningRow {
   title: string;
   /** Primary sale vs secondary `royalty_paid`. */
   kind: ScarceEarningKind;
+  /** Gross sale price (yocto) when the event carries it — used for royalty context. */
+  salePriceYocto?: string;
+  sellerId?: string;
+  /** App route to the source post when metadata carries `sourcePost`. */
+  postHref?: string;
   blockTimestamp: number;
   blockHeight: number;
   tokenId?: string;
@@ -28,6 +43,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function stringField(
+  record: Record<string, unknown> | null | undefined,
+  key: string
+): string | null {
+  const value = record?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 /**
  * Prefer explicit `creatorPayment`. When present (including `"0"`), never fall
  * back to full sale `price` — that would mis-attribute secondary sales.
@@ -43,13 +66,45 @@ function paymentYocto(row: ScarcesEventRow): string | null {
   return raw;
 }
 
+function salePriceYocto(row: ScarcesEventRow): string | undefined {
+  const raw = row.price?.trim();
+  if (!raw || !/^\d+$/.test(raw) || raw === '0') return undefined;
+  return raw;
+}
+
 /** Secondary royalty events vs primary creator sales. */
 export function earningKindFromRow(row: ScarcesEventRow): ScarceEarningKind {
   if (row.operation === 'royalty_paid') return 'royalty';
   return 'sale';
 }
 
-function saleTitleFromRow(row: ScarcesEventRow): string {
+export function sourcePostPathFromExtra(
+  extra: Record<string, unknown> | null
+): string | undefined {
+  const nested = asRecord(extra?.sourcePost);
+  if (nested) {
+    const path = stringField(nested, 'path');
+    if (path) return path;
+    const author = stringField(nested, 'author');
+    const postId = stringField(nested, 'postId');
+    if (author && postId) return `${author}/post/${postId}`;
+  }
+  return (
+    stringField(extra, 'postPath') ??
+    stringField(extra, 'sourcePostPath') ??
+    undefined
+  );
+}
+
+/** Sync personal-only href — prefer `resolvePostThreadHrefFromSourcePath`. */
+export function postHrefFromSourcePath(path: string | undefined): string | null {
+  if (!path?.trim()) return null;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  return personalPostPath(match[1], match[2]);
+}
+
+export function saleTitleFromRow(row: ScarcesEventRow): string {
   let parsed: Record<string, unknown> | null = null;
   if (row.extraData) {
     try {
@@ -72,6 +127,77 @@ function saleTitleFromRow(row: ScarcesEventRow): string {
   return 'Scarce sale';
 }
 
+function isFallbackTitle(title: string, tokenId?: string): boolean {
+  if (!tokenId) return false;
+  return title === `Scarce · ${tokenId}` || title === 'Scarce sale';
+}
+
+async function fetchTokenMeta(tokenId: string): Promise<{
+  title: string | null;
+  postHref: string | null;
+}> {
+  try {
+    const token = await viewNearContract<{
+      metadata?: { title?: string | null; extra?: string | null };
+    } | null>(SCARCES_CONTRACT, 'nft_token', { token_id: tokenId });
+    const title = token?.metadata?.title?.trim() || null;
+    let extra: Record<string, unknown> | null = null;
+    if (token?.metadata?.extra) {
+      try {
+        extra = asRecord(JSON.parse(token.metadata.extra));
+      } catch {
+        extra = null;
+      }
+    }
+    const postHref = await resolvePostThreadHrefFromSourcePath(
+      sourcePostPathFromExtra(extra)
+    );
+    return { title, postHref };
+  } catch {
+    return { title: null, postHref: null };
+  }
+}
+
+/**
+ * Resolve placeholder titles + source-post links via on-chain `nft_token`.
+ */
+export async function enrichEarningRows(
+  items: ScarceCreatorEarningRow[]
+): Promise<ScarceCreatorEarningRow[]> {
+  const needFetch = new Map<string, number[]>();
+  items.forEach((item, index) => {
+    const tokenId = item.tokenId?.trim();
+    if (!tokenId) return;
+    if (!isFallbackTitle(item.title, tokenId) && item.postHref) return;
+    const idxs = needFetch.get(tokenId) ?? [];
+    idxs.push(index);
+    needFetch.set(tokenId, idxs);
+  });
+  if (needFetch.size === 0) return items;
+
+  const metas = await Promise.all(
+    [...needFetch.keys()].map(async (tokenId) => {
+      const meta = await fetchTokenMeta(tokenId);
+      return [tokenId, meta] as const;
+    })
+  );
+
+  const next = items.slice();
+  for (const [tokenId, meta] of metas) {
+    for (const index of needFetch.get(tokenId) ?? []) {
+      const cur = next[index];
+      next[index] = {
+        ...cur,
+        ...(meta.title && isFallbackTitle(cur.title, tokenId)
+          ? { title: meta.title }
+          : {}),
+        ...(meta.postHref && !cur.postHref ? { postHref: meta.postHref } : {}),
+      };
+    }
+  }
+  return next;
+}
+
 /** Compact NEAR — same 2dp rhythm as SOCIAL face amounts (`9.00` / `0.99`). */
 export function formatEarningsNearCompact(yocto: string): string {
   const near = yoctoToNear(yocto);
@@ -88,6 +214,29 @@ export function formatEarningsNearCompact(yocto: string): string {
 
 export function formatEarningsNear(yocto: string): string {
   return `${formatEarningsNearCompact(yocto)} NEAR`;
+}
+
+/** Trailing context after the title: ` · of 1.00 NEAR · 22 Jul`. */
+export function formatEarningKindSuffix(
+  row: ScarceCreatorEarningRow,
+  when: string
+): string {
+  const parts: string[] = [];
+  if (row.kind === 'royalty' && row.salePriceYocto) {
+    parts.push(`of ${formatEarningsNearCompact(row.salePriceYocto)} NEAR`);
+  }
+  if (when) parts.push(when);
+  return parts.length ? ` · ${parts.join(' · ')}` : '';
+}
+
+/** One-line kind copy (no link): `Royalty · Hello · of 1.00 NEAR · 22 Jul`. */
+export function formatEarningKindLine(
+  row: ScarceCreatorEarningRow,
+  when: string
+): string {
+  const kind = row.kind === 'royalty' ? 'Royalty' : 'Sale';
+  const title = row.title.trim();
+  return `${kind}${title ? ` · ${title}` : ''}${formatEarningKindSuffix(row, when)}`;
 }
 
 export async function fetchScarceCreatorEarnings(
@@ -107,12 +256,16 @@ export async function fetchScarceCreatorEarnings(
     if (!pay) continue;
     total += BigInt(pay);
     const buyerId = row.buyerId?.trim() || row.author?.trim() || 'unknown';
+    const price = salePriceYocto(row);
+    const sellerId = row.sellerId?.trim();
     items.push({
       key: `${row.blockHeight}:${row.listingId ?? ''}:${row.tokenId ?? ''}:${pay}:${buyerId}`,
       buyerId,
       paymentYocto: pay,
       title: saleTitleFromRow(row),
       kind: earningKindFromRow(row),
+      ...(price ? { salePriceYocto: price } : {}),
+      ...(sellerId ? { sellerId } : {}),
       blockTimestamp: row.blockTimestamp,
       blockHeight: row.blockHeight,
       ...(row.tokenId?.trim() ? { tokenId: row.tokenId.trim() } : {}),
@@ -120,5 +273,6 @@ export async function fetchScarceCreatorEarnings(
     });
   }
 
-  return { totalYocto: total.toString(), items };
+  const enriched = await enrichEarningRows(items);
+  return { totalYocto: total.toString(), items: enriched };
 }

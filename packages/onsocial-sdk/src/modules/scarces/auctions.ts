@@ -19,7 +19,7 @@ export class ScarcesAuctionsApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _relayOpts(opts?: { confirmation?: boolean }) {
+  private _relayOpts(opts?: { confirmation?: boolean; depositYocto?: string }) {
     return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
@@ -46,8 +46,15 @@ export class ScarcesAuctionsApi {
     );
   }
 
-  /** Place a bid on an auction. */
-  async placeBid(tokenId: string, amountNear: string): Promise<RelayResponse> {
+  /**
+   * Place a bid on an auction.
+   * Pass `depositYocto` for wallet broadcast (full bid amount).
+   */
+  async placeBid(
+    tokenId: string,
+    amountNear: string,
+    opts: { depositYocto?: string } = {}
+  ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
       this._getSession(),
@@ -57,7 +64,11 @@ export class ScarcesAuctionsApi {
         amountNear,
       },
       'scarces.placeBid',
-      this._relayOpts()
+      this._relayOpts(
+        opts.depositYocto !== undefined
+          ? { depositYocto: opts.depositYocto }
+          : undefined
+      )
     );
   }
 

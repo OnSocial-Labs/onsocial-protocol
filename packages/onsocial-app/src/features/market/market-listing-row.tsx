@@ -71,7 +71,8 @@ export function MarketListingRow({
   const rowKey = marketListingRowKey(item);
   const handle = fallbackLabel(item.creatorId);
   const profileHref = portfolioPath(item.creatorId);
-  const postHref = postHrefFromSourcePath(item.sourcePostPath);
+  const postHref =
+    item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
@@ -145,7 +146,11 @@ export function MarketListingRow({
           }}
           disabled={isOwnListing}
           aria-label={
-            isOwnListing ? `${item.title} (your listing)` : `Buy ${item.title}`
+            isOwnListing
+              ? `${item.title} (your listing)`
+              : item.kind === 'auction'
+                ? `Bid on ${item.title}`
+                : `Buy ${item.title}`
           }
         >
           {item.mediaUrl ? (
@@ -172,6 +177,9 @@ export function MarketListingRow({
           </Link>
           {item.kind === 'native' ? (
             <span className="market-listing-own"> · Resale</span>
+          ) : null}
+          {item.kind === 'auction' ? (
+            <span className="market-listing-own"> · Auction</span>
           ) : null}
           {isOwnListing ? (
             <span className="market-listing-own"> · Yours</span>
@@ -218,7 +226,7 @@ export function MarketListingRow({
             ready
             onClick={() => onBuy(item)}
           >
-            Buy
+            {item.kind === 'auction' ? 'Bid' : 'Buy'}
           </OsSheetAction>
         )}
       </OsSheetActions>

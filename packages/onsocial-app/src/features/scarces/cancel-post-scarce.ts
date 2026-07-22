@@ -7,10 +7,12 @@ export function canCancelPostScarce(embed: PostScarceEmbed | null): boolean {
   if (!embed) return false;
   if (embed.status === 'lazy_listing') return Boolean(embed.listingId);
   if (embed.status === 'listed') return Boolean(embed.tokenId);
+  // Auction cancel only when no bids (contract enforces).
+  if (embed.status === 'auction') return Boolean(embed.tokenId);
   return false;
 }
 
-/** Cancel a lazy listing or delist a fixed-price sale (wallet → scarces). */
+/** Cancel a lazy listing, fixed-price sale, or empty auction (wallet → scarces). */
 export async function cancelPostScarceListing(
   accountId: string,
   wallet: NearWalletBase,
@@ -22,6 +24,9 @@ export async function cancelPostScarceListing(
   }
   if (embed.status === 'listed' && embed.tokenId) {
     return client.scarces.market.delist(embed.tokenId);
+  }
+  if (embed.status === 'auction' && embed.tokenId) {
+    return client.scarces.auctions.cancel(embed.tokenId);
   }
   throw new Error('No active listing to cancel.');
 }

@@ -18,6 +18,10 @@ import {
 } from '@/features/market/market-listings';
 import { MarketOwnedRow } from '@/features/market/market-owned-row';
 import {
+  ScarceBidSheet,
+  type ScarceBidListing,
+} from '@/features/scarces/scarce-bid-sheet';
+import {
   ScarceBuySheet,
   type ScarceBuyListing,
 } from '@/features/scarces/scarce-buy-sheet';
@@ -25,6 +29,12 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import {
+  ScarceOfferSheet,
+  type ScarceOfferListing,
+} from '@/features/scarces/scarce-offer-sheet';
+import { fetchOffersForToken } from '@/features/scarces/scarce-offers';
+import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -39,6 +49,13 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
+type ListingFilter = 'all' | 'fixed' | 'auctions';
+
+const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'fixed', label: 'Fixed' },
+  { id: 'auctions', label: 'Auctions' },
+];
 
 interface MarketPageData {
   key: number;
@@ -63,9 +80,16 @@ export function MarketPagePanel() {
   const [data, setData] = useState<MarketPageData | null>(null);
   const [failedKey, setFailedKey] = useState<number | null>(null);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
+  const [bidListing, setBidListing] = useState<ScarceBidListing | null>(null);
+  const [offerListing, setOfferListing] = useState<ScarceOfferListing | null>(
+    null
+  );
   const [sellItem, setSellItem] = useState<OwnedScarceItem | null>(null);
+  const [offersItem, setOffersItem] = useState<OwnedScarceItem | null>(null);
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
   const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
+  const [listingFilter, setListingFilter] = useState<ListingFilter>('all');
+  const [offerCounts, setOfferCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -99,12 +123,52 @@ export function MarketPagePanel() {
   const sales = data?.key === retryKey ? data.sales : [];
   const owned = data?.key === retryKey ? data.owned : [];
 
+  const filteredListings =
+    listingFilter === 'auctions'
+      ? listings.filter((item) => item.kind === 'auction')
+      : listingFilter === 'fixed'
+        ? listings.filter((item) => item.kind !== 'auction')
+        : listings;
+
+  const ownedTokenIds = owned.map((item) => item.tokenId).join('\0');
+
+  useEffect(() => {
+    if (!viewerAccountId || !ownedTokenIds) {
+      setOfferCounts({});
+      return;
+    }
+    const tokenIds = ownedTokenIds.split('\0');
+    let cancelled = false;
+    void Promise.all(
+      tokenIds.map(async (tokenId) => {
+        const offers = await fetchOffersForToken(tokenId);
+        return [tokenId, offers.length] as const;
+      })
+    ).then((entries) => {
+      if (cancelled) return;
+      setOfferCounts(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewerAccountId, ownedTokenIds, retryKey]);
+
   const handleBuy = useCallback(
     (item: MarketListingItem) => {
       if (
         viewerAccountId &&
         accountIdsEqual(viewerAccountId, item.creatorId)
       ) {
+        return;
+      }
+      if (item.kind === 'auction' && item.tokenId) {
+        setBidListing({
+          tokenId: item.tokenId,
+          title: item.title,
+          mediaUrl: item.mediaUrl,
+          sellerId: item.creatorId,
+          priceNear: item.priceNear,
+        });
         return;
       }
       if (item.kind === 'native' && item.tokenId) {
@@ -138,6 +202,15 @@ export function MarketPagePanel() {
     setRetryKey((value) => value + 1);
   }, []);
 
+  const handleBid = useCallback(() => {
+    setBidListing(null);
+    setRetryKey((value) => value + 1);
+  }, []);
+
+  const handleOffered = useCallback(() => {
+    setOfferListing(null);
+  }, []);
+
   const handleListed = useCallback(() => {
     setSellItem(null);
     setRetryKey((value) => value + 1);
@@ -152,11 +225,13 @@ export function MarketPagePanel() {
         const { accountId, wallet } = await getSigningWallet();
         const client = createAppScarcesWalletClient(accountId, wallet);
         const response =
-          item.kind === 'native' && item.tokenId
-            ? await client.scarces.market.delist(item.tokenId)
-            : item.listingId
-              ? await client.scarces.lazy.cancel(item.listingId)
-              : null;
+          item.kind === 'auction' && item.tokenId
+            ? await client.scarces.auctions.cancel(item.tokenId)
+            : item.kind === 'native' && item.tokenId
+              ? await client.scarces.market.delist(item.tokenId)
+              : item.listingId
+                ? await client.scarces.lazy.cancel(item.listingId)
+                : null;
         if (!response) return;
 
         const confirmed = await trackTransaction({
@@ -240,6 +315,10 @@ export function MarketPagePanel() {
 
   const showEmptyBrowse =
     status === 'ready' && listings.length === 0 && owned.length === 0;
+  const showEmptyFilter =
+    status === 'ready' &&
+    listings.length > 0 &&
+    filteredListings.length === 0;
 
   return (
     <OsAppScreen
@@ -267,8 +346,8 @@ export function MarketPagePanel() {
         {showEmptyBrowse ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
-              No scarces listed yet. List from a post you wrote, or buy one and
-              sell it here.
+              Nothing listed yet. List a scarce from a post, or sell one you
+              own under Yours.
             </p>
             <Link className="app-soon-link" href={APP_HOME_PATH}>
               Back to Home
@@ -286,8 +365,10 @@ export function MarketPagePanel() {
                 <MarketOwnedRow
                   key={item.tokenId}
                   item={item}
+                  offerCount={offerCounts[item.tokenId] ?? 0}
                   delistPending={delistTokenId === item.tokenId}
                   onSell={setSellItem}
+                  onOffers={setOffersItem}
                   onDelist={(row) => {
                     void handleDelistOwned(row);
                   }}
@@ -297,13 +378,56 @@ export function MarketPagePanel() {
           </section>
         ) : null}
 
-        {listings.length > 0 ? (
+        {!showEmptyBrowse && status === 'ready' ? (
+          <div
+            className="discover-tab-bar market-listing-filters"
+            role="tablist"
+            aria-label="Listing type"
+          >
+            <div className="discover-tab-bar-scroller">
+              {LISTING_FILTERS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={listingFilter === tab.id}
+                  className={listingFilter === tab.id ? 'is-active' : undefined}
+                  onClick={() => setListingFilter(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {status === 'ready' &&
+        listings.length === 0 &&
+        sales.length > 0 &&
+        !showEmptyBrowse ? (
+          <p className="market-page-status">
+            No active listings — recent sales below.
+          </p>
+        ) : null}
+
+        {showEmptyFilter ? (
+          <p className="market-page-status">
+            Nothing in {listingFilter === 'auctions' ? 'Auctions' : 'Fixed'}{' '}
+            right now.
+          </p>
+        ) : null}
+
+        {filteredListings.length > 0 ? (
           <section className="market-section" aria-labelledby="market-new">
             <h2 id="market-new" className="market-section-title">
-              New listings
+              {listingFilter === 'auctions'
+                ? 'Auctions'
+                : listingFilter === 'fixed'
+                  ? 'Fixed price'
+                  : 'New listings'}
             </h2>
             <div className="market-listing-list">
-              {listings.map((item) => {
+              {filteredListings.map((item) => {
                 const rowKey = marketListingRowKey(item);
                 return (
                   <MarketListingRow
@@ -370,6 +494,39 @@ export function MarketPagePanel() {
           if (!open) setBuyListing(null);
         }}
         onPurchased={handlePurchased}
+        onMakeOffer={
+          buyListing?.status === 'listed' && buyListing.tokenId
+            ? () => {
+                const listing = buyListing;
+                setBuyListing(null);
+                setOfferListing({
+                  tokenId: listing.tokenId!,
+                  title: listing.title,
+                  mediaUrl: listing.mediaUrl,
+                  ownerId: listing.creatorId,
+                  askNear: listing.priceNear,
+                });
+              }
+            : undefined
+        }
+      />
+
+      <ScarceBidSheet
+        open={bidListing != null}
+        listing={bidListing}
+        onOpenChange={(open) => {
+          if (!open) setBidListing(null);
+        }}
+        onBid={handleBid}
+      />
+
+      <ScarceOfferSheet
+        open={offerListing != null}
+        listing={offerListing}
+        onOpenChange={(open) => {
+          if (!open) setOfferListing(null);
+        }}
+        onOffered={handleOffered}
       />
 
       <ScarceSellSheet
@@ -380,6 +537,24 @@ export function MarketPagePanel() {
           if (!open) setSellItem(null);
         }}
         onListed={handleListed}
+      />
+
+      <ScarceOffersSheet
+        open={offersItem != null}
+        item={offersItem}
+        onOpenChange={(open) => {
+          if (!open) setOffersItem(null);
+        }}
+        onAccepted={() => {
+          setOffersItem(null);
+          setOfferCounts((current) => {
+            if (!offersItem?.tokenId) return current;
+            const next = { ...current };
+            delete next[offersItem.tokenId];
+            return next;
+          });
+          setRetryKey((value) => value + 1);
+        }}
       />
     </OsAppScreen>
   );

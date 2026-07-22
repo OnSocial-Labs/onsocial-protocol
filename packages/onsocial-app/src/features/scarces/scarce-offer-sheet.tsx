@@ -3,38 +3,46 @@
 import { useCallback, useId, useState } from 'react';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
-import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
-  ScarceSellForm,
-  type ScarceSellSuccessDetail,
-} from '@/features/scarces/scarce-sell-form';
+  ScarceOfferForm,
+  type ScarceOfferSuccessDetail,
+} from '@/features/scarces/scarce-offer-form';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
-interface ScarceSellSheetProps {
-  open: boolean;
-  item: OwnedScarceItem | null;
-  sellerAccountId?: string | null;
-  onOpenChange: (open: boolean) => void;
-  onListed?: (detail: ScarceSellSuccessDetail) => void;
+export interface ScarceOfferListing {
+  tokenId: string;
+  title?: string;
+  mediaUrl?: string | null;
+  ownerId: string;
+  ownerName?: string | null;
+  askNear?: string;
 }
 
-/** Owner sheet: list an owned scarce for secondary sale. */
-export function ScarceSellSheet({
+interface ScarceOfferSheetProps {
+  open: boolean;
+  listing: ScarceOfferListing | null;
+  onOpenChange: (open: boolean) => void;
+  onOffered?: (detail: ScarceOfferSuccessDetail) => void;
+}
+
+/** Sheet for making a NEAR offer on a native scarce. */
+export function ScarceOfferSheet({
   open,
-  item,
-  sellerAccountId = null,
+  listing,
   onOpenChange,
-  onListed,
-}: ScarceSellSheetProps) {
+  onOffered,
+}: ScarceOfferSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
-  const sheetOpen = open && !closing && item != null;
-  const accountId = sellerAccountId?.trim() || item?.ownerId || '';
-  const name = accountId ? displayName(accountId) : '';
-  const handle = accountId ? fallbackLabel(accountId) : '';
+  const ownerId = listing?.ownerId ?? '';
+  const sheetOpen = open && !closing && listing != null && Boolean(ownerId);
+  const name = ownerId
+    ? displayName(ownerId, listing?.ownerName ?? undefined)
+    : '';
+  const handle = ownerId ? fallbackLabel(ownerId) : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -61,30 +69,36 @@ export function ScarceSellSheet({
       panelClassName="profile-support-sheet-panel"
       zIndex={56}
       ariaLabelledBy={titleId}
-      backdropLabel="Close sell scarce"
+      backdropLabel="Close offer scarce"
       bodyClassName="profile-support-sheet-body"
       header={
         <>
           <GestureSheetHeader
             titleId={titleId}
-            verb="Sell"
+            verb="Offer"
             personName={name}
             handle={handle}
             signal="reputation"
-            closeAriaLabel="Close sell scarce"
+            closeAriaLabel="Close offer scarce"
             onClose={requestClose}
-            whisper="List fixed-price or start an auction."
+            whisper="Offer NEAR for this scarce. Owner accepts when ready."
           />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
     >
-      {item ? (
-        <ScarceSellForm
-          key={`${formKey}:${item.tokenId}`}
-          item={item}
+      {sheetOpen && listing ? (
+        <ScarceOfferForm
+          key={`${formKey}:${listing.tokenId}`}
+          listing={{
+            tokenId: listing.tokenId,
+            title: listing.title,
+            mediaUrl: listing.mediaUrl,
+            ownerId: listing.ownerId,
+            askNear: listing.askNear,
+          }}
           onSuccess={(detail) => {
-            onListed?.(detail);
+            onOffered?.(detail);
             requestClose();
           }}
         />

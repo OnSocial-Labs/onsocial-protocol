@@ -22,10 +22,22 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 const NEAR_INPUT_DECIMALS = 5;
 const MIN_PRICE_NEAR = '0.01';
 const PRESETS = ['0.1', '1', '5', '10'] as const;
+const INCREMENT_PRESETS = ['0.01', '0.1', '0.5'] as const;
+
+const NS_PER_HOUR = 3_600_000_000_000;
+const DURATION_PRESETS = [
+  { label: '1h', ns: NS_PER_HOUR },
+  { label: '24h', ns: 24 * NS_PER_HOUR },
+  { label: '3d', ns: 72 * NS_PER_HOUR },
+  { label: '7d', ns: 168 * NS_PER_HOUR },
+] as const;
+
+type SellMode = 'fixed' | 'auction';
 
 export interface ScarceSellSuccessDetail {
   tokenId: string;
   priceNear: string;
+  mode: SellMode;
 }
 
 interface ScarceSellFormProps {
@@ -33,13 +45,17 @@ interface ScarceSellFormProps {
   onSuccess?: (detail: ScarceSellSuccessDetail) => void;
 }
 
-/** Secondary resale — list an owned scarce NFT at a fixed NEAR price. */
+/** Secondary resale — fixed price or auction for an owned scarce. */
 export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
   const { isConnected, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const [mode, setMode] = useState<SellMode>('fixed');
   const [amountInput, setAmountInput] = useState(
     item.listedPriceNear?.trim() || '1'
   );
+  const [incrementInput, setIncrementInput] = useState('0.1');
+  const [buyNowInput, setBuyNowInput] = useState('');
+  const [durationNs, setDurationNs] = useState<number>(24 * NS_PER_HOUR);
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
@@ -47,8 +63,24 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
     setAmountInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
   }, []);
 
+  const applyIncrementInput = useCallback((raw: string) => {
+    setIncrementInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
+  }, []);
+
+  const applyBuyNowInput = useCallback((raw: string) => {
+    setBuyNowInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
+  }, []);
+
   const normalizedAmount = finalizeAmountInput(
     amountInput,
+    NEAR_INPUT_DECIMALS
+  );
+  const normalizedIncrement = finalizeAmountInput(
+    incrementInput,
+    NEAR_INPUT_DECIMALS
+  );
+  const normalizedBuyNow = finalizeAmountInput(
+    buyNowInput,
     NEAR_INPUT_DECIMALS
   );
 
@@ -65,15 +97,45 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
     }
   }
 
+  let incrementError: string | null = null;
+  if (mode === 'auction' && normalizedIncrement) {
+    try {
+      if (BigInt(nearToYocto(normalizedIncrement)) <= 0n) {
+        incrementError = 'Increment must be greater than zero.';
+      }
+    } catch {
+      incrementError = 'Invalid increment.';
+    }
+  }
+
+  let buyNowError: string | null = null;
+  if (mode === 'auction' && normalizedBuyNow && normalizedAmount) {
+    try {
+      if (BigInt(nearToYocto(normalizedBuyNow)) <= BigInt(nearToYocto(normalizedAmount))) {
+        buyNowError = 'Buy now must be above reserve.';
+      }
+    } catch {
+      buyNowError = 'Invalid buy now price.';
+    }
+  }
+
   const canSubmit =
-    isConnected && !pending && Boolean(normalizedAmount) && !amountError;
+    isConnected &&
+    !pending &&
+    Boolean(normalizedAmount) &&
+    !amountError &&
+    (mode === 'fixed' ||
+      (Boolean(normalizedIncrement) &&
+        !incrementError &&
+        !buyNowError &&
+        durationNs > 0));
 
   async function handleSubmit() {
     setFieldError(null);
 
     const priceNear = finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS);
     if (!priceNear) {
-      setFieldError('Enter a price.');
+      setFieldError(mode === 'auction' ? 'Enter a reserve.' : 'Enter a price.');
       return;
     }
     try {
@@ -91,6 +153,39 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
     try {
       const { accountId, wallet } = await getSigningWallet();
       const client = createAppScarcesWalletClient(accountId, wallet);
+
+      if (mode === 'auction') {
+        const minBidIncrementNear = finalizeAmountInput(
+          incrementInput,
+          NEAR_INPUT_DECIMALS
+        );
+        if (!minBidIncrementNear) {
+          setFieldError('Enter a minimum bid increment.');
+          return;
+        }
+        const buyNowPriceNear = finalizeAmountInput(
+          buyNowInput,
+          NEAR_INPUT_DECIMALS
+        );
+        const response = await client.scarces.auctions.start({
+          tokenId: item.tokenId,
+          reservePriceNear: priceNear,
+          minBidIncrementNear,
+          auctionDurationNs: durationNs,
+          antiSnipeExtensionNs: 5 * 60 * 1_000_000_000, // 5 minutes
+          ...(buyNowPriceNear ? { buyNowPriceNear } : {}),
+        });
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage: txToastConfirming.sellingScarce,
+          successMessage: txToastSuccess.scarceAuctionListed,
+          failureMessage: txToastError.listScarceAuctionFailed,
+        });
+        if (!confirmed) return;
+        onSuccess?.({ tokenId: item.tokenId, priceNear, mode: 'auction' });
+        return;
+      }
+
       const response = await client.scarces.market.sell({
         tokenId: item.tokenId,
         priceNear,
@@ -102,7 +197,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         failureMessage: txToastError.sellScarceFailed,
       });
       if (!confirmed) return;
-      onSuccess?.({ tokenId: item.tokenId, priceNear });
+      onSuccess?.({ tokenId: item.tokenId, priceNear, mode: 'fixed' });
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -110,7 +205,9 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         msg:
           cause instanceof Error
             ? cause.message
-            : txToastError.sellScarceFailed,
+            : mode === 'auction'
+              ? txToastError.listScarceAuctionFailed
+              : txToastError.sellScarceFailed,
       });
     } finally {
       setPending(false);
@@ -141,6 +238,29 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         </div>
       </div>
 
+      <div
+        className="app-storage-presets profile-support-presets"
+        role="group"
+        aria-label="Listing type"
+      >
+        <button
+          type="button"
+          className={`app-storage-preset${mode === 'fixed' ? ' is-selected' : ''}`}
+          disabled={pending}
+          onClick={() => setMode('fixed')}
+        >
+          Fixed
+        </button>
+        <button
+          type="button"
+          className={`app-storage-preset${mode === 'auction' ? ' is-selected' : ''}`}
+          disabled={pending}
+          onClick={() => setMode('auction')}
+        >
+          Auction
+        </button>
+      </div>
+
       <div className="app-storage-amount-field profile-support-amount-field">
         <input
           type="text"
@@ -154,7 +274,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
             )
           }
           placeholder={MIN_PRICE_NEAR}
-          aria-label="Price in NEAR"
+          aria-label={mode === 'auction' ? 'Reserve in NEAR' : 'Price in NEAR'}
           aria-invalid={Boolean(amountError)}
           className="app-storage-amount-input"
           disabled={pending}
@@ -168,7 +288,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         <div
           className="app-storage-presets profile-support-presets"
           role="group"
-          aria-label="Quick prices"
+          aria-label={mode === 'auction' ? 'Quick reserves' : 'Quick prices'}
         >
           {PRESETS.map((preset) => (
             <button
@@ -186,14 +306,105 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         </div>
       </div>
 
-      <p className="profile-support-hint">
-        Lists this scarce for resale. Creator royalty from the original mint
-        still applies.
-      </p>
+      {mode === 'auction' ? (
+        <>
+          <p className="scarce-mood-picker-label">Min bid step</p>
+          <div className="app-storage-amount-field profile-support-amount-field">
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={incrementInput}
+              onChange={(event) => applyIncrementInput(event.target.value)}
+              onBlur={() =>
+                applyIncrementInput(
+                  finalizeAmountInput(incrementInput, NEAR_INPUT_DECIMALS)
+                )
+              }
+              placeholder="0.1"
+              aria-label="Minimum bid increment in NEAR"
+              className="app-storage-amount-input"
+              disabled={pending}
+            />
+            <span className="account-card-balance-unit profile-support-token-unit">
+              NEAR
+            </span>
+          </div>
+          <div
+            className="app-storage-presets profile-support-presets"
+            role="group"
+            aria-label="Quick increments"
+          >
+            {INCREMENT_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className={`app-storage-preset${
+                  normalizedIncrement === preset ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => applyIncrementInput(preset)}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
 
-      {amountError || fieldError ? (
+          <p className="scarce-mood-picker-label">Duration after first bid</p>
+          <div
+            className="app-storage-presets profile-support-presets"
+            role="group"
+            aria-label="Auction duration"
+          >
+            {DURATION_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className={`app-storage-preset${
+                  durationNs === preset.ns ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setDurationNs(preset.ns)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          <p className="scarce-mood-picker-label">Buy now (optional)</p>
+          <div className="app-storage-amount-field profile-support-amount-field">
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={buyNowInput}
+              onChange={(event) => applyBuyNowInput(event.target.value)}
+              onBlur={() =>
+                applyBuyNowInput(
+                  finalizeAmountInput(buyNowInput, NEAR_INPUT_DECIMALS)
+                )
+              }
+              placeholder="Above reserve"
+              aria-label="Buy now price in NEAR"
+              className="app-storage-amount-input"
+              disabled={pending}
+            />
+            <span className="account-card-balance-unit profile-support-token-unit">
+              NEAR
+            </span>
+          </div>
+        </>
+      ) : null}
+
+      {mode === 'auction' ? (
+        <p className="profile-support-hint">
+          Clock starts on the first bid · late bids extend 5m.
+        </p>
+      ) : null}
+
+      {amountError || incrementError || buyNowError || fieldError ? (
         <p className="app-error-text" role="alert">
-          {fieldError ?? amountError}
+          {fieldError ?? amountError ?? incrementError ?? buyNowError}
         </p>
       ) : null}
 
@@ -205,7 +416,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
           pending={pending}
           pendingLabel="Listing…"
         >
-          List for sale
+          {mode === 'auction' ? 'Start auction' : 'List for sale'}
         </OsSheetAction>
       </OsSheetActions>
     </form>

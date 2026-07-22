@@ -1,5 +1,6 @@
 import { portfolioPath } from '@/lib/overlay-routes';
 import { guildPostPath } from '@/features/guilds/guilds-data';
+import { fetchIndexedPost } from '@/lib/fetch-personal-post';
 
 /** App route for a personal post thread: `/@{author}/posts/{postId}`. */
 export function personalPostPath(author: string, postId: string): string {
@@ -24,4 +25,21 @@ export function postThreadPath(post: {
     return guildPostPath(post.groupId, post.accountId, post.postId);
   }
   return personalPostPath(post.accountId, post.postId);
+}
+
+/**
+ * Resolve the correct app thread href for an indexed `author/post/{id}` path.
+ * Guild posts must not use the personal `/posts/` route.
+ */
+export async function resolvePostThreadHrefFromSourcePath(
+  path: string | undefined
+): Promise<string | null> {
+  if (!path?.trim()) return null;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  const author = match[1];
+  const postId = match[2];
+  const row = await fetchIndexedPost({ author, postId });
+  if (!row) return null;
+  return postThreadPath(row);
 }

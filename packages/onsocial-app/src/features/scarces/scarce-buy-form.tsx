@@ -54,6 +54,8 @@ interface ScarceBuyFormProps {
   /** Profile display name for text-card preview byline. */
   authorName?: string | null;
   onSuccess?: (detail: ScarceBuySuccessDetail) => void;
+  /** Secondary path for fixed-price resales — opens offer sheet. */
+  onMakeOffer?: () => void;
 }
 
 function formatPriceNear(priceNear: string | undefined): string {
@@ -80,6 +82,7 @@ export function ScarceBuyForm({
   embed = null,
   authorName = null,
   onSuccess,
+  onMakeOffer,
 }: ScarceBuyFormProps) {
   const {
     accountId: viewerAccountId,
@@ -286,6 +289,17 @@ export function ScarceBuyForm({
           >
             {isConnected ? 'Buy' : 'Connect wallet'}
           </OsSheetAction>
+          {isMarketBuy && onMakeOffer && isConnected ? (
+            <OsSheetAction
+              type="button"
+              variant="ghost"
+              ready={!pending}
+              disabled={pending}
+              onClick={onMakeOffer}
+            >
+              Make an offer
+            </OsSheetAction>
+          ) : null}
         </OsSheetActions>
       ) : null}
     </form>

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ScarcesEventRow } from '@onsocial/sdk';
-import { earningKindFromRow } from '@/lib/scarce-creator-earnings';
+import {
+  earningKindFromRow,
+  formatEarningKindLine,
+  postHrefFromSourcePath,
+  saleTitleFromRow,
+  sourcePostPathFromExtra,
+  type ScarceCreatorEarningRow,
+} from '@/lib/scarce-creator-earnings';
 
 function row(partial: Partial<ScarcesEventRow>): ScarcesEventRow {
   return {
@@ -21,13 +28,13 @@ function row(partial: Partial<ScarcesEventRow>): ScarcesEventRow {
     appId: null,
     scarceContractId: null,
     amount: null,
-    price: '1000',
+    price: '1000000000000000000000000',
     oldPrice: null,
     newPrice: null,
     bidAmount: null,
     marketplaceFee: null,
     appPoolAmount: null,
-    creatorPayment: '985',
+    creatorPayment: '985000000000000000000000',
     quantity: null,
     totalSupply: null,
     reservePrice: null,
@@ -48,7 +55,7 @@ describe('earningKindFromRow', () => {
           eventType: 'SCARCE_UPDATE',
           operation: 'royalty_paid',
           sellerId: 'seller.near',
-          creatorPayment: '98',
+          creatorPayment: '98000000000000000000000',
         })
       )
     ).toBe('royalty');
@@ -57,16 +64,70 @@ describe('earningKindFromRow', () => {
   it('labels primary lazy purchase as sale', () => {
     expect(earningKindFromRow(row({}))).toBe('sale');
   });
+});
 
-  it('labels collection purchase as sale', () => {
+describe('saleTitleFromRow', () => {
+  it('reads title from extraData metadata', () => {
     expect(
-      earningKindFromRow(
+      saleTitleFromRow(
         row({
-          eventType: 'COLLECTION_UPDATE',
-          operation: 'purchase',
-          creatorPayment: null,
+          extraData: JSON.stringify({
+            metadata: { title: 'Hello' },
+          }),
         })
       )
-    ).toBe('sale');
+    ).toBe('Hello');
+  });
+
+  it('falls back to token id', () => {
+    expect(saleTitleFromRow(row({ tokenId: 's:326' }))).toBe('Scarce · s:326');
+  });
+});
+
+describe('formatEarningKindLine', () => {
+  const base: ScarceCreatorEarningRow = {
+    key: '1',
+    buyerId: 'buyer.near',
+    paymentYocto: '98000000000000000000000',
+    title: 'Hello',
+    kind: 'royalty',
+    salePriceYocto: '1000000000000000000000000',
+    blockTimestamp: 1,
+    blockHeight: 1,
+    tokenId: 's:326',
+  };
+
+  it('includes sale price context on royalty rows', () => {
+    expect(formatEarningKindLine(base, '22 Jul')).toBe(
+      'Royalty · Hello · of 1.00 NEAR · 22 Jul'
+    );
+  });
+
+  it('keeps sale rows title + date only', () => {
+    expect(
+      formatEarningKindLine(
+        { ...base, kind: 'sale', paymentYocto: '985000000000000000000000' },
+        '20 Jul'
+      )
+    ).toBe('Sale · Hello · 20 Jul');
+  });
+});
+
+describe('sourcePostPath / postHref', () => {
+  it('reads nested sourcePost from extra', () => {
+    expect(
+      sourcePostPathFromExtra({
+        sourcePost: {
+          author: 'alice.onsocial.testnet',
+          postId: '123',
+        },
+      })
+    ).toBe('alice.onsocial.testnet/post/123');
+  });
+
+  it('builds a personal post href', () => {
+    expect(
+      postHrefFromSourcePath('alice.onsocial.testnet/post/123')
+    ).toBe('/@alice.onsocial.testnet/posts/123');
   });
 });

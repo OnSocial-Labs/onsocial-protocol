@@ -34,3 +34,30 @@ export async function fetchPersonalPost(ref: {
   });
   return res.data?.postsCurrent?.[0] ?? null;
 }
+
+/** Indexed post by author + id — personal or guild. */
+export async function fetchIndexedPost(ref: {
+  author: string;
+  postId: string;
+}): Promise<PostRow | null> {
+  const client = createReadOnlyOnSocialClient();
+  const res = await client.query.graphql<{ postsCurrent: PostRow[] }>({
+    query: `query IndexedPost($accountId: String!, $postId: String!) {
+      postsCurrent(
+        where: {
+          accountId: {_eq: $accountId},
+          postId: {_eq: $postId}
+        },
+        limit: 1,
+        orderBy: [{blockHeight: DESC}]
+      ) {
+        ${POST_ROW_SELECTION}
+      }
+    }`,
+    variables: {
+      accountId: ref.author,
+      postId: ref.postId,
+    },
+  });
+  return res.data?.postsCurrent?.[0] ?? null;
+}

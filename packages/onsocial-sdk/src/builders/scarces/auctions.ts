@@ -17,6 +17,12 @@ export function buildListAuctionAction(opts: AuctionOptions) {
     ...(parseOptionalU64(opts.expiresAt) != null
       ? { expires_at: parseOptionalU64(opts.expiresAt) }
       : {}),
+    ...(opts.auctionDurationNs != null
+      ? { auction_duration_ns: opts.auctionDurationNs }
+      : {}),
+    ...(opts.antiSnipeExtensionNs != null
+      ? { anti_snipe_extension_ns: opts.antiSnipeExtensionNs }
+      : {}),
   };
 }
 

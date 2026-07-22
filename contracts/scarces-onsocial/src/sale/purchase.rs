@@ -224,12 +224,33 @@ impl Contract {
 }
 
 impl Contract {
+    /// Native fixed-price purchase. `deposit` is taken from `pending_attached_balance`
+    /// by the dispatcher; unused funds (full deposit on failure, overpay on success)
+    /// are always returned there for `execute` finalization.
     pub(crate) fn purchase_native_scarce(
         &mut self,
         buyer_id: &AccountId,
         token_id: String,
         deposit: u128,
     ) -> Result<(), MarketplaceError> {
+        match self.try_purchase_native_scarce(buyer_id, token_id, deposit) {
+            Ok(price) => {
+                self.pending_attached_balance += deposit.saturating_sub(price);
+                Ok(())
+            }
+            Err(err) => {
+                self.pending_attached_balance += deposit;
+                Err(err)
+            }
+        }
+    }
+
+    fn try_purchase_native_scarce(
+        &mut self,
+        buyer_id: &AccountId,
+        token_id: String,
+        deposit: u128,
+    ) -> Result<u128, MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), &token_id);
         let sale = self
             .sales
@@ -240,7 +261,6 @@ impl Contract {
         match &sale.sale_type {
             SaleType::NativeScarce { .. } => {}
             _ => {
-                self.pending_attached_balance += deposit;
                 return Err(MarketplaceError::InvalidInput(
                     "This is not a native scarce listing — use offer() for externals".into(),
                 ));
@@ -248,7 +268,6 @@ impl Contract {
         }
 
         if sale.auction.is_some() {
-            self.pending_attached_balance += deposit;
             return Err(MarketplaceError::InvalidInput(
                 "This is an auction listing — use place_bid() to bid or wait for settlement".into(),
             ));
@@ -256,7 +275,6 @@ impl Contract {
 
         if let Some(expiration) = sale.expires_at {
             if env::block_timestamp() > expiration {
-                self.pending_attached_balance += deposit;
                 return Err(MarketplaceError::InvalidState("Sale has expired".into()));
             }
         }
@@ -264,14 +282,12 @@ impl Contract {
         let price = sale.sale_conditions.0;
 
         if deposit < price {
-            self.pending_attached_balance += deposit;
             return Err(MarketplaceError::InsufficientDeposit(format!(
                 "Insufficient payment: required {}, got {}",
                 price, deposit
             )));
         }
         if buyer_id == &sale.owner_id {
-            self.pending_attached_balance += deposit;
             return Err(MarketplaceError::InvalidInput(
                 "Cannot purchase your own listing".into(),
             ));
@@ -279,15 +295,13 @@ impl Contract {
 
         let seller_id = sale.owner_id.clone();
 
-        // Security boundary: remove listing state before token transfer side effects.
-        let before_remove = self.storage_usage_flushed();
-        self.remove_sale(env::current_account_id(), token_id.clone())?;
-        let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
-
+        // Validate token state before delisting so failure leaves the listing intact
+        // and deposit restore (in the caller) cannot strand buyer funds.
         let token = self
             .scarces_by_id
             .get(&token_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Token no longer exists".into()))?;
+            .ok_or_else(|| MarketplaceError::NotFound("Token no longer exists".into()))?
+            .clone();
 
         if token.owner_id != seller_id {
             return Err(MarketplaceError::InvalidState(
@@ -299,7 +313,6 @@ impl Contract {
                 "Cannot purchase a revoked token".into(),
             ));
         }
-
         if let Some(expires_at) = token.metadata.expires_at {
             if env::block_timestamp() >= expires_at {
                 return Err(MarketplaceError::InvalidState(
@@ -307,25 +320,49 @@ impl Contract {
                 ));
             }
         }
+        self.check_transferable(&token, &token_id, "purchase")?;
 
-        let listing_app_id = {
-            let token_app_id = token.app_id.clone();
-            self.resolve_token_app_id(&token_id, token_app_id.as_ref())
-        };
-        self.release_storage_waterfall(&seller_id, bytes_freed, listing_app_id.as_ref());
+        // Preflight payout so settlement cannot fail after the token has moved.
+        let (total_fee, _, _, _) = self.calculate_fee_split(
+            price,
+            self.resolve_token_app_id(&token_id, token.app_id.as_ref())
+                .as_ref(),
+        );
+        let amount_after_fee = price.saturating_sub(total_fee);
+        let _ = self.compute_payout(&token, &seller_id, amount_after_fee, Some(10))?;
 
-        self.transfer(
+        let listing_app_id = self.resolve_token_app_id(&token_id, token.app_id.as_ref());
+
+        // Security boundary: remove listing before transfer side effects.
+        let before_remove = self.storage_usage_flushed();
+        self.remove_sale(env::current_account_id(), token_id.clone())?;
+        let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
+
+        if let Err(err) = self.transfer(
             &seller_id,
             buyer_id,
             &token_id,
             None,
             Some("Purchased on OnSocial Marketplace".to_string()),
-        )?;
+        ) {
+            // Defense in depth: restore listing if transfer fails after remove_sale.
+            self.add_sale(sale);
+            return Err(err);
+        }
 
-        let result = self.settle_secondary_sale(&token_id, price, &seller_id, buyer_id)?;
+        let result = match self.settle_secondary_sale(&token_id, price, &seller_id, buyer_id) {
+            Ok(result) => result,
+            Err(err) => {
+                // Token already transferred; deposit restore still happens in the caller.
+                // Preflight above makes this path unexpected.
+                env::log_str(&format!(
+                    "WARN: settle_secondary_sale failed after transfer for {token_id}: {err}"
+                ));
+                return Err(err);
+            }
+        };
 
-        // Token accounting guarantee: credit overpayment to pending_attached_balance for final settlement.
-        self.pending_attached_balance += deposit.saturating_sub(price);
+        self.release_storage_waterfall(&seller_id, bytes_freed, listing_app_id.as_ref());
 
         let current_contract = env::current_account_id();
         events::emit_scarce_purchase(&events::ScarcePurchase {
@@ -338,7 +375,7 @@ impl Contract {
             app_pool_amount: result.app_pool_amount,
             app_id: result.app_id.as_ref(),
         });
-        Ok(())
+        Ok(price)
     }
 }
 

@@ -66,6 +66,39 @@ fn make_offer_on_own_token_fails() {
 }
 
 #[test]
+fn make_offer_failure_restores_prepaid_balance() {
+    let mut contract = new_contract();
+    mint_for_offer(&mut contract, &owner(), "t1");
+
+    let prepaid = 5_000_000_000_000_000_000_000_000u128;
+    contract.user_storage.insert(
+        owner(),
+        UserStorageBalance {
+            balance: U128(prepaid),
+            used_bytes: 0,
+            tier2_used_bytes: 0,
+            spending_cap: None,
+        },
+    );
+
+    // No attached deposit → draws prepaid; offer on own token must fail and restore.
+    testing_env!(context(owner()).build());
+    let err = contract
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+    assert_eq!(
+        contract.user_storage.get(&owner()).unwrap().balance.0,
+        prepaid,
+        "failed offer must restore drawn prepaid balance"
+    );
+}
+
+#[test]
 fn make_offer_on_nonexistent_token_fails() {
     let mut contract = new_contract();
 

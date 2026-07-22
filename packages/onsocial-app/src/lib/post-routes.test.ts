@@ -46,4 +46,16 @@ describe('postThreadPath', () => {
       })
     ).toBe('/groups/dao/posts/alice.testnet/123');
   });
+
+  it('routes guild posts with nested group ids', () => {
+    expect(
+      postThreadPath({
+        accountId: 'test05.onsocial.testnet',
+        postId: '1783799687804',
+        groupId: 'grp_md_perm_1779813274071_ojf237',
+      })
+    ).toBe(
+      '/groups/grp_md_perm_1779813274071_ojf237/posts/test05.onsocial.testnet/1783799687804'
+    );
+  });
 });

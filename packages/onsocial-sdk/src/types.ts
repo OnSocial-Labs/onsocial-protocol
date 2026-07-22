@@ -458,7 +458,15 @@ export interface AuctionOptions {
   tokenId: string;
   reservePriceNear: string;
   minBidIncrementNear: string;
+  /** Absolute end time (ns since epoch), when set. */
   expiresAt?: string;
+  /**
+   * Relative duration in nanoseconds. When set without `expiresAt`, the
+   * auction clock starts on the first qualifying bid.
+   */
+  auctionDurationNs?: number;
+  /** Extend end time when bids land near expiry (ns). */
+  antiSnipeExtensionNs?: number;
   buyNowPriceNear?: string;
 }
 

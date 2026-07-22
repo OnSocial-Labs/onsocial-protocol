@@ -4805,6 +4805,17 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
+  .portfolio-scarce-earnings-post-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .portfolio-scarce-earnings-post-link:hover {
+    color: rgb(var(--fg-rgb) / 0.78);
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+  }
+
   .portfolio-support-collect-info-sentinel {
     height: 1px;
     width: 100%;
@@ -14578,6 +14589,39 @@ a.os-surface-row {
     border-radius: 0.75rem;
   }
 
+  .scarce-bid-history {
+    margin-top: 0.75rem;
+  }
+
+  .scarce-bid-history-list {
+    list-style: none;
+    margin: 0.35rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .scarce-bid-history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--os-ink-muted, rgba(0, 0, 0, 0.62));
+  }
+
+  .scarce-offer-row {
+    align-items: center;
+  }
+
+  .scarce-offer-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
   .scarce-buy-summary {
     display: flex;
     flex-direction: column;
@@ -14632,6 +14676,10 @@ a.os-surface-row {
     font: inherit;
     text-decoration: underline;
     cursor: pointer;
+  }
+
+  .market-listing-filters {
+    margin: 0 0 0.15rem;
   }
 
   .market-section {

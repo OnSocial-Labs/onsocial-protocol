@@ -436,3 +436,73 @@ fn list_revoked_token_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
+
+#[test]
+fn purchase_native_missing_sale_restores_deposit() {
+    let mut contract = new_contract();
+    testing_env!(context(buyer()).build());
+    contract.pending_attached_balance = 0;
+
+    let deposit = 5_000u128;
+    let err = contract
+        .purchase_native_scarce(&buyer(), "s:missing".into(), deposit)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::NotFound(_)));
+    assert_eq!(contract.pending_attached_balance, deposit);
+}
+
+#[test]
+fn purchase_native_stale_ownership_keeps_sale_and_restores_deposit() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    testing_env!(context(buyer()).build());
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .unwrap();
+
+    // Simulate ownership drift without auto-delist (stale listing).
+    let mut token = contract.scarces_by_id.get(&tid).unwrap().clone();
+    token.owner_id = creator();
+    contract.scarces_by_id.insert(tid.clone(), token);
+
+    testing_env!(context(creator()).build());
+    contract.pending_attached_balance = 0;
+    let deposit = 2_000u128;
+    let err = contract
+        .purchase_native_scarce(&creator(), tid.clone(), deposit)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+    assert_eq!(contract.pending_attached_balance, deposit);
+
+    let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
+    assert!(
+        contract.sales.contains_key(&sale_id),
+        "stale-sale validation must leave the listing intact"
+    );
+}
+
+#[test]
+fn purchase_native_happy_credits_overpay_only() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    testing_env!(context(buyer()).build());
+    let price = 1_000u128;
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(price), None)
+        .unwrap();
+
+    testing_env!(context(creator()).build());
+    contract.pending_attached_balance = 0;
+    let deposit = 2_500u128;
+    contract
+        .purchase_native_scarce(&creator(), tid.clone(), deposit)
+        .unwrap();
+
+    assert_eq!(contract.pending_attached_balance, deposit - price);
+    let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
+    assert!(!contract.sales.contains_key(&sale_id));
+    assert_eq!(
+        contract.scarces_by_id.get(&tid).unwrap().owner_id,
+        creator()
+    );
+}

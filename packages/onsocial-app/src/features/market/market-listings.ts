@@ -1,6 +1,7 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { resolvePostThreadHrefFromSourcePath } from '@/lib/post-routes';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 const SCARCES_CONTRACT =
@@ -38,19 +39,22 @@ interface LazyListingRecord {
 }
 
 export interface MarketListingItem {
-  /** Primary mint-on-purchase vs secondary resale of an owned NFT. */
-  kind: 'lazy' | 'native';
+  /** Primary mint-on-purchase, secondary resale, or native auction. */
+  kind: 'lazy' | 'native' | 'auction';
   /** Lazy listing id (`ll:…`). */
   listingId?: string;
-  /** Native token id (`s:…`) for secondary listings. */
+  /** Native token id (`s:…`) for secondary listings / auctions. */
   tokenId?: string;
-  /** Seller: creator for lazy, current owner for native. */
+  /** Seller: creator for lazy, current owner for native/auction. */
   creatorId: string;
   title: string;
+  /** Ask (fixed) or current high / reserve (auction). */
   priceNear: string;
   blockTimestamp: number;
   mediaUrl?: string | null;
   sourcePostPath?: string;
+  /** Resolved app thread href (personal or guild). */
+  postHref?: string;
   /** Text-card mood key from listing `extra.theme.bg`, when present. */
   cardBg?: string;
   /** Total edition size (NEP-177 copies). */
@@ -269,12 +273,30 @@ function listingFromRecord(
 }
 
 function marketListingRowKey(item: MarketListingItem): string {
-  if (item.kind === 'native' && item.tokenId) return `native:${item.tokenId}`;
+  if ((item.kind === 'native' || item.kind === 'auction') && item.tokenId) {
+    return `${item.kind}:${item.tokenId}`;
+  }
   if (item.listingId) return `lazy:${item.listingId}`;
   return `row:${item.creatorId}:${item.title}:${item.priceNear}`;
 }
 
 export { marketListingRowKey };
+
+async function withResolvedPostHref(
+  item: MarketListingItem
+): Promise<MarketListingItem> {
+  if (item.postHref || !item.sourcePostPath) return item;
+  const postHref = await resolvePostThreadHrefFromSourcePath(
+    item.sourcePostPath
+  );
+  return postHref ? { ...item, postHref } : item;
+}
+
+async function withResolvedPostHrefs(
+  items: MarketListingItem[]
+): Promise<MarketListingItem[]> {
+  return Promise.all(items.map((item) => withResolvedPostHref(item)));
+}
 
 function nativeTokenIdFromSale(sale: ContractSaleRecord): string | null {
   const saleType = sale.sale_type;
@@ -292,6 +314,25 @@ function nativeTokenIdFromSale(sale: ContractSaleRecord): string | null {
 function isFixedPriceNativeSale(sale: ContractSaleRecord): boolean {
   if (sale.auction != null) return false;
   return Boolean(nativeTokenIdFromSale(sale));
+}
+
+function isNativeAuctionSale(sale: ContractSaleRecord): boolean {
+  return sale.auction != null && Boolean(nativeTokenIdFromSale(sale));
+}
+
+interface ContractAuctionState {
+  reserve_price?: string | { '0'?: string } | null;
+  highest_bid?: string | { '0'?: string } | null;
+  min_bid_increment?: string | { '0'?: string } | null;
+  bid_count?: number;
+}
+
+function auctionDisplayPriceNear(sale: ContractSaleRecord): string | null {
+  const auction = asRecord(sale.auction) as ContractAuctionState | null;
+  if (!auction) return null;
+  const highest = priceNearFromYocto(auction.highest_bid);
+  if (highest && Number.parseFloat(highest) > 0) return highest;
+  return priceNearFromYocto(auction.reserve_price);
 }
 
 async function fetchTokenRecord(
@@ -315,7 +356,10 @@ function listingFromNativeSale(
   const tokenId = nativeTokenIdFromSale(sale);
   const sellerId = sale.owner_id?.trim();
   if (!tokenId || !sellerId) return null;
-  const priceNear = priceNearFromYocto(sale.sale_conditions);
+  const isAuction = isNativeAuctionSale(sale);
+  const priceNear = isAuction
+    ? auctionDisplayPriceNear(sale)
+    : priceNearFromYocto(sale.sale_conditions);
   if (!priceNear) return null;
   const title =
     token?.metadata?.title?.trim() ||
@@ -325,7 +369,7 @@ function listingFromNativeSale(
   const mediaUrl = resolveScarceMediaUrl(token?.metadata?.media ?? null);
   const extra = parseExtra(token?.metadata?.extra ?? null);
   return {
-    kind: 'native',
+    kind: isAuction ? 'auction' : 'native',
     tokenId,
     creatorId: sellerId,
     title,
@@ -337,7 +381,7 @@ function listingFromNativeSale(
 }
 
 /**
- * Active secondary (native NFT) fixed-price listings from contract state.
+ * Active secondary (native NFT) fixed-price + auction listings from contract state.
  */
 export async function fetchNativeMarketListings(opts: {
   limit?: number;
@@ -351,7 +395,7 @@ export async function fetchNativeMarketListings(opts: {
       {
         scarce_contract_id: SCARCES_CONTRACT,
         from_index: 0,
-        limit: Math.min(limit, 100),
+        limit: Math.min(limit * 2, 100),
       }
     );
   } catch {
@@ -359,24 +403,28 @@ export async function fetchNativeMarketListings(opts: {
       sales = await viewNearContract<ContractSaleRecord[]>(
         SCARCES_CONTRACT,
         'get_sales',
-        { from_index: 0, limit: Math.min(limit, 100) }
+        { from_index: 0, limit: Math.min(limit * 2, 100) }
       );
     } catch {
       return [];
     }
   }
 
-  const fixed = sales.filter(isFixedPriceNativeSale).slice(0, limit);
+  const nativeSales = sales
+    .filter(
+      (sale) => isFixedPriceNativeSale(sale) || isNativeAuctionSale(sale)
+    )
+    .slice(0, limit);
   const tokens = await Promise.all(
-    fixed.map((sale) => {
+    nativeSales.map((sale) => {
       const tokenId = nativeTokenIdFromSale(sale);
       return tokenId ? fetchTokenRecord(tokenId) : Promise.resolve(null);
     })
   );
 
   const items: MarketListingItem[] = [];
-  for (let i = 0; i < fixed.length; i += 1) {
-    const item = listingFromNativeSale(fixed[i]!, tokens[i] ?? null);
+  for (let i = 0; i < nativeSales.length; i += 1) {
+    const item = listingFromNativeSale(nativeSales[i]!, tokens[i] ?? null);
     if (item) items.push(item);
   }
   return items;
@@ -488,10 +536,11 @@ export async function fetchLiveListingsForCreator(
       ids.push(listingId);
     }
     const loaded = await Promise.all(ids.map((id) => fetchLazyListingById(id)));
-    return loaded.filter((item): item is MarketListingItem => {
+    const items = loaded.filter((item): item is MarketListingItem => {
       if (!item) return false;
       return accountIdsEqualSafe(item.creatorId, creatorId);
     });
+    return withResolvedPostHrefs(items);
   } catch {
     return [];
   }
@@ -557,9 +606,10 @@ export async function fetchMarketListings(opts: {
     byKey.set(marketListingRowKey(item), item);
   }
 
-  return [...byKey.values()]
+  const sorted = [...byKey.values()]
     .sort((a, b) => b.blockTimestamp - a.blockTimestamp)
     .slice(0, limit);
+  return withResolvedPostHrefs(sorted);
 }
 
 export async function fetchMarketSales(opts: {

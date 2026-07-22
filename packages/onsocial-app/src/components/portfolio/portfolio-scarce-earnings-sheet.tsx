@@ -22,6 +22,7 @@ import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   fetchScarceCreatorEarnings,
+  formatEarningKindSuffix,
   formatEarningsNear,
   type ScarceCreatorEarningRow,
 } from '@/lib/scarce-creator-earnings';
@@ -61,23 +62,31 @@ function EarningsList({
         const name = profile?.displayName?.trim() || null;
         const label = name || `@${row.buyerId}`;
         const when = formatSaleWhen(row.blockTimestamp);
+        const kindLabel = row.kind === 'royalty' ? 'Royalty' : 'Sale';
+        const title = row.title.trim();
         return (
           <div key={row.key}>
             {index > 0 ? <Divider variant="item" /> : null}
             <div className="standing-row portfolio-support-collect-info-row">
-              <Link
-                href={portfolioPath(row.buyerId)}
-                className="standing-row-main"
-                scroll={false}
-              >
-                <ProfileAvatar
-                  src={profile?.avatarUrl ?? null}
-                  fallbackInitial={name || row.buyerId}
-                  size="md"
+              <div className="standing-row-main">
+                <Link
+                  href={portfolioPath(row.buyerId)}
                   className="standing-row-avatar-slot"
-                />
+                  scroll={false}
+                  aria-label={label}
+                >
+                  <ProfileAvatar
+                    src={profile?.avatarUrl ?? null}
+                    fallbackInitial={name || row.buyerId}
+                    size="md"
+                  />
+                </Link>
                 <div className="standing-row-copy">
-                  <span className="standing-row-head">
+                  <Link
+                    href={portfolioPath(row.buyerId)}
+                    className="standing-row-head"
+                    scroll={false}
+                  >
                     <span className="standing-row-name-row">
                       <span className="standing-row-name">{label}</span>
                     </span>
@@ -86,14 +95,29 @@ function EarningsList({
                         @{row.buyerId}
                       </span>
                     ) : null}
-                  </span>
+                  </Link>
                   <span className="portfolio-support-collect-info-row-kind">
-                    {row.kind === 'royalty' ? 'Royalty' : 'Sale'}
-                    {row.title ? ` · ${row.title}` : ''}
-                    {when ? ` · ${when}` : ''}
+                    {kindLabel}
+                    {title ? (
+                      <>
+                        {' · '}
+                        {row.postHref ? (
+                          <Link
+                            href={row.postHref}
+                            scroll={false}
+                            className="portfolio-scarce-earnings-post-link"
+                          >
+                            {title}
+                          </Link>
+                        ) : (
+                          title
+                        )}
+                      </>
+                    ) : null}
+                    {formatEarningKindSuffix(row, when)}
                   </span>
                 </div>
-              </Link>
+              </div>
               <div className="standing-row-aside">
                 <span className="portfolio-support-collect-info-amount">
                   {formatEarningsNear(row.paymentYocto)}

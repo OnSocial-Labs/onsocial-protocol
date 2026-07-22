@@ -156,21 +156,50 @@ impl Contract {
         let seller_id = sale.owner_id.clone();
         let winning_bid = auction.highest_bid.0;
         let winner = auction.highest_bidder.clone();
+        let reserve_price = auction.reserve_price.0;
+        let meets_reserve = winning_bid >= reserve_price && winning_bid > 0;
+
+        // Validate winning settlement before delisting so failure leaves the auction intact.
+        let winner_id = if meets_reserve {
+            let winner_id = winner.clone().ok_or_else(|| {
+                MarketplaceError::InternalError("highest_bid > 0 but no bidder".into())
+            })?;
+            let token = self
+                .scarces_by_id
+                .get(token_id)
+                .ok_or_else(|| MarketplaceError::NotFound("Token no longer exists".into()))?
+                .clone();
+            if token.owner_id != seller_id {
+                return Err(MarketplaceError::InvalidState(
+                    "Token ownership changed — auction is stale".into(),
+                ));
+            }
+            self.check_transferable(&token, token_id, "auction settle")?;
+            let (total_fee, _, _, _) = self.calculate_fee_split(
+                winning_bid,
+                self.resolve_token_app_id(token_id, token.app_id.as_ref())
+                    .as_ref(),
+            );
+            let amount_after_fee = winning_bid.saturating_sub(total_fee);
+            let _ = self.compute_payout(&token, &seller_id, amount_after_fee, Some(10))?;
+            Some(winner_id)
+        } else {
+            None
+        };
 
         self.remove_sale(env::current_account_id(), token_id.to_string())?;
 
-        if winning_bid >= auction.reserve_price.0 && winning_bid > 0 {
-            let winner_id = winner.ok_or_else(|| {
-                MarketplaceError::InternalError("highest_bid > 0 but no bidder".into())
-            })?;
-
-            self.transfer(
+        if let Some(winner_id) = winner_id {
+            if let Err(err) = self.transfer(
                 &seller_id,
                 &winner_id,
                 token_id,
                 None,
                 Some("Auction settled on OnSocial Marketplace".to_string()),
-            )?;
+            ) {
+                self.add_sale(sale);
+                return Err(err);
+            }
 
             let result =
                 self.settle_secondary_sale(token_id, winning_bid, &seller_id, &winner_id)?;

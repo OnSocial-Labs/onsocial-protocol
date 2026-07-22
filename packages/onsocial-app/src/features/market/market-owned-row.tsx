@@ -8,9 +8,11 @@ import type { OwnedScarceItem } from '@/features/market/market-listings';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
+  offerCount?: number;
   delistPending?: boolean;
   onSell: (item: OwnedScarceItem) => void;
   onDelist: (item: OwnedScarceItem) => void;
+  onOffers?: (item: OwnedScarceItem) => void;
 }
 
 function formatPriceNear(priceNear: string): string {
@@ -19,14 +21,17 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-/** Owned scarce in Market “Yours” — Sell or Delist when already listed. */
+/** Owned scarce in Market “Yours” — Sell, Offers, or Delist when listed. */
 export function MarketOwnedRow({
   item,
+  offerCount = 0,
   delistPending = false,
   onSell,
   onDelist,
+  onOffers,
 }: MarketOwnedRowProps) {
   const listed = Boolean(item.listedPriceNear?.trim());
+  const showOffers = Boolean(onOffers) && offerCount > 0;
 
   return (
     <div className="market-listing-row">
@@ -51,10 +56,16 @@ export function MarketOwnedRow({
         </div>
         <p className="market-listing-meta">
           {listed ? (
-            <span className="market-listing-own">Listed for resale</span>
+            <span className="market-listing-own">Listed</span>
           ) : (
             <span className="market-listing-own">Ready to sell</span>
           )}
+          {offerCount > 0 ? (
+            <span className="market-listing-own">
+              {' · '}
+              {offerCount === 1 ? '1 offer' : `${offerCount} offers`}
+            </span>
+          ) : null}
         </p>
       </div>
       <OsSheetActions
@@ -63,10 +74,20 @@ export function MarketOwnedRow({
         borderless
         className="market-listing-action"
       >
-        {listed ? (
+        {showOffers ? (
           <OsSheetAction
             type="button"
             variant="primary"
+            ready
+            onClick={() => onOffers?.(item)}
+          >
+            {offerCount === 1 ? '1 offer' : `${offerCount} offers`}
+          </OsSheetAction>
+        ) : null}
+        {listed ? (
+          <OsSheetAction
+            type="button"
+            variant={showOffers ? 'ghost' : 'primary'}
             ready={!delistPending}
             pending={delistPending}
             pendingLabel="Delisting…"
@@ -77,7 +98,7 @@ export function MarketOwnedRow({
         ) : (
           <OsSheetAction
             type="button"
-            variant="primary"
+            variant={showOffers ? 'ghost' : 'primary'}
             ready
             onClick={() => onSell(item)}
           >

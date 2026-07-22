@@ -23,19 +23,29 @@ export class ScarcesOffersApi {
     private _getBroadcast?: BroadcastGetter
   ) {}
 
-  private _relayOpts(opts?: { confirmation?: boolean }) {
+  private _relayOpts(opts?: { confirmation?: boolean; depositYocto?: string }) {
     return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
-  /** Make an offer on a specific scarce. */
-  async make(opts: OfferOptions): Promise<RelayResponse> {
+  /**
+   * Make an offer on a specific scarce.
+   * Pass `depositYocto` for wallet broadcast (full offer amount).
+   */
+  async make(
+    opts: OfferOptions,
+    relay: { depositYocto?: string } = {}
+  ): Promise<RelayResponse> {
     return composeAndSign(
       this._http,
       this._getSession(),
       SCARCES_VERBS.MAKE_OFFER,
       opts,
       'scarces.makeOffer',
-      this._relayOpts()
+      this._relayOpts(
+        relay.depositYocto !== undefined
+          ? { depositYocto: relay.depositYocto }
+          : undefined
+      )
     );
   }
 

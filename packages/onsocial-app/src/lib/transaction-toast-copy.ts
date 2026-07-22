@@ -35,6 +35,12 @@ export const txToastConfirming = {
   listingScarce: 'Confirming listing…',
   sellingScarce: 'Confirming listing…',
   buyingScarce: 'Confirming purchase…',
+  biddingScarce: 'Confirming bid…',
+  buyingScarceNow: 'Confirming buy now…',
+  settlingScarceAuction: 'Confirming settle…',
+  makingScarceOffer: 'Confirming offer…',
+  acceptingScarceOffer: 'Confirming accept…',
+  cancelingScarceOffer: 'Confirming cancel…',
   cancelingScarceListing: 'Confirming cancel…',
 } as const;
 
@@ -69,6 +75,12 @@ export const txToastPending = {
   listingScarce: 'Listing…',
   sellingScarce: 'Listing for sale…',
   buyingScarce: 'Collecting scarce…',
+  biddingScarce: 'Placing bid…',
+  buyingScarceNow: 'Buying now…',
+  settlingScarceAuction: 'Settling auction…',
+  makingScarceOffer: 'Making offer…',
+  acceptingScarceOffer: 'Accepting offer…',
+  cancelingScarceOffer: 'Canceling offer…',
   cancelingScarceListing: 'Canceling listing…',
 } as const;
 
@@ -116,7 +128,14 @@ export const txToastSuccess = {
   scarceListed: 'Listed.',
   scarceSoldListed: 'Listed for sale.',
   scarcePurchased: 'Scarce collected.',
+  scarceBidPlaced: 'Bid placed.',
+  scarceBoughtNow: 'Bought now.',
+  scarceAuctionSettled: 'Auction settled.',
+  scarceOfferMade: 'Offer made.',
+  scarceOfferAccepted: 'Offer accepted.',
+  scarceOfferCanceled: 'Offer canceled.',
   scarceListingCanceled: 'Listing canceled.',
+  scarceAuctionListed: 'Auction listed.',
 } as const;
 
 export const txToastError = {
@@ -150,5 +169,12 @@ export const txToastError = {
   listScarceFailed: 'Could not list scarce.',
   sellScarceFailed: 'Could not list scarce for sale.',
   buyScarceFailed: 'Could not buy scarce.',
+  bidScarceFailed: 'Could not place bid.',
+  buyScarceNowFailed: 'Could not buy now.',
+  settleScarceAuctionFailed: 'Could not settle auction.',
+  makeScarceOfferFailed: 'Could not make offer.',
+  acceptScarceOfferFailed: 'Could not accept offer.',
+  cancelScarceOfferFailed: 'Could not cancel offer.',
   cancelScarceListingFailed: 'Could not cancel listing.',
+  listScarceAuctionFailed: 'Could not list auction.',
 } as const;
