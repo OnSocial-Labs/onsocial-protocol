@@ -282,7 +282,9 @@ export class ScarcesFromPostApi {
   ): Promise<MintResponse> {
     const { author, postId } = postCoords(post);
     const extracted = await this._readPost(post);
-    const groupId = isPostRow(post) ? post.groupId?.trim() || undefined : undefined;
+    const groupId = isPostRow(post)
+      ? post.groupId?.trim() || undefined
+      : undefined;
     const mintOpts = this._buildMintOpts(
       author,
       postId,
@@ -312,14 +314,10 @@ export class ScarcesFromPostApi {
   ): Promise<MintResponse> {
     const { author, postId } = postCoords(post);
     const extracted = await this._readPost(post);
-    const groupId = isPostRow(post) ? post.groupId?.trim() || undefined : undefined;
-    const base = this._buildMintOpts(
-      author,
-      postId,
-      extracted,
-      opts,
-      groupId
-    );
+    const groupId = isPostRow(post)
+      ? post.groupId?.trim() || undefined
+      : undefined;
+    const base = this._buildMintOpts(author, postId, extracted, opts, groupId);
     const lazyOpts: LazyListingOptions = {
       title: base.title,
       priceNear,
