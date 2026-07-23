@@ -493,9 +493,7 @@ export class ScarcesQuery {
     const limit = opts.limit ?? 40;
     const offset = opts.offset ?? 0;
     const variables: Record<string, unknown> = { limit, offset };
-    const kindFilter = opts.kind
-      ? `where: { kind: {_eq: $kind} },`
-      : '';
+    const kindFilter = opts.kind ? `where: { kind: {_eq: $kind} },` : '';
     if (opts.kind) variables.kind = opts.kind;
     const params = opts.kind
       ? '$limit: Int!, $offset: Int!, $kind: String!'

@@ -2990,9 +2990,7 @@ describe('QueryModule', () => {
         (fetch.mock.calls[0][1] as RequestInit).body as string
       );
       expect(body.query).toContain('scarcesActiveListings');
-      expect(body.query).toMatch(
-        /orderBy: \[\{listedBlockTimestamp: DESC\}\]/
-      );
+      expect(body.query).toMatch(/orderBy: \[\{listedBlockTimestamp: DESC\}\]/);
       expect(body.variables).toEqual({
         limit: 40,
         offset: 0,
