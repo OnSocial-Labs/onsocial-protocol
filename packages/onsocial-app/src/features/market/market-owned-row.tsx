@@ -38,13 +38,15 @@ export function MarketOwnedRow({
 }: MarketOwnedRowProps) {
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
-  const showOffers = Boolean(onOffers);
+  // Offers are open-book (no list-time opt-in). Only surface the control when
+  // the catalog shows at least one live offer — empty "Offers" next to Sell
+  // reads like a parallel primary action.
   const hasOffers = offerCount > 0 && Boolean(highestOfferNear?.trim());
-  const offersLabel = hasOffers
-    ? offerCount > 1
+  const showOffers = Boolean(onOffers) && hasOffers;
+  const offersLabel =
+    offerCount > 1
       ? `Offers · ${formatPriceNear(highestOfferNear!)}`
-      : `Offer · ${formatPriceNear(highestOfferNear!)}`
-    : 'Offers';
+      : `Offer · ${formatPriceNear(highestOfferNear!)}`;
   const [confirmTokenId, setConfirmTokenId] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingDelist =
@@ -110,7 +112,7 @@ export function MarketOwnedRow({
           ) : (
             <span className="market-listing-own">Ready to sell</span>
           )}
-          {hasOffers ? (
+          {showOffers ? (
             <span className="market-listing-own">
               {' · '}
               {offerCount === 1
