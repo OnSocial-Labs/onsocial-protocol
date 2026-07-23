@@ -8,16 +8,17 @@ import {
   useState,
   type RefObject,
 } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Paginated, PostRow } from '@onsocial/sdk';
-import { ProtocolMotionArrow } from '@onsocial/ui';
+import { OnSocialMark, ProtocolMotionArrow } from '@onsocial/ui';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
-import { HomeFeedMeAvatar } from '@/features/home/home-feed-me-avatar';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
+import { APP_DISCOVER_PATH } from '@/lib/app-routes';
 import {
   homeFeedLensEmptyCopy,
   readStoredHomeFeedLens,
@@ -137,18 +138,30 @@ async function loadHomeFeedPage(
 async function loadFocusedFeedPage(
   focus: HomeFeedFocus,
   offset: number,
-  limit: number = HOME_FEED_PAGE_SIZE
+  {
+    limit = HOME_FEED_PAGE_SIZE,
+    sort = 'recent',
+  }: { limit?: number; sort?: HomeFeedSort } = {}
 ): Promise<Paginated<PostRow>> {
   const client = createReadOnlyOnSocialClient();
-  return focus.kind === 'ticker'
-    ? client.query.feed.byTicker(focus.value, {
-        limit,
-        offset,
-      })
-    : client.query.feed.byHashtag(focus.value, {
-        limit,
-        offset,
-      });
+  const page =
+    focus.kind === 'ticker'
+      ? await client.query.feed.byTicker(focus.value, {
+          limit,
+          offset,
+        })
+      : await client.query.feed.byHashtag(focus.value, {
+          limit,
+          offset,
+        });
+  // Topic/ticker indexes are chronological; hot reorders each hydrated page.
+  if (sort !== 'hot') return page;
+  const items = [...page.items].sort((a, b) => {
+    const byHeat = (b.amplifyHeat ?? 0) - (a.amplifyHeat ?? 0);
+    if (byHeat !== 0) return byHeat;
+    return (b.blockHeight ?? 0) - (a.blockHeight ?? 0);
+  });
+  return { ...page, items };
 }
 
 function HomeFeedLoadMoreFooter({
@@ -333,7 +346,7 @@ export function HomePagePanel() {
       try {
         const result = focus
           ? {
-              page: await loadFocusedFeedPage(focus, 0),
+              page: await loadFocusedFeedPage(focus, 0, { sort }),
               standingSources: null as string[] | null,
             }
           : await loadHomeFeedPage(activeLens, accountId, 0, null, sort);
@@ -345,7 +358,7 @@ export function HomePagePanel() {
         setPosts((current) => {
           revokeDroppedOptimisticMedia(current, items);
           const ranked =
-            sort === 'hot' && !focus
+            sort === 'hot'
               ? mergeAmplifyHeatFloors(items, amplifyHeatFloorsRef.current)
               : items;
           return ranked;
@@ -405,7 +418,7 @@ export function HomePagePanel() {
       try {
         const result = focus
           ? {
-              page: await loadFocusedFeedPage(focus, offset),
+              page: await loadFocusedFeedPage(focus, offset, { sort }),
               standingSources: standingSourcesRef.current,
             }
           : await loadHomeFeedPage(
@@ -533,7 +546,9 @@ export function HomePagePanel() {
       // Always probe chronological head so “new” means newer content, not Hot churn.
       const result = focus
         ? {
-            page: await loadFocusedFeedPage(focus, 0, HOME_FEED_NEW_PROBE_SIZE),
+            page: await loadFocusedFeedPage(focus, 0, {
+              limit: HOME_FEED_NEW_PROBE_SIZE,
+            }),
           }
         : await loadHomeFeedPage(
             activeLens,
@@ -626,12 +641,19 @@ export function HomePagePanel() {
       <OsAppScreen
         title="Home"
         scrollRootRef={scrollRootRef}
-        leading={<HomeFeedMeAvatar />}
-        heading={<span className="home-feed-nav-spacer" aria-hidden />}
+        leading={
+          <Link
+            href={APP_DISCOVER_PATH}
+            className="home-feed-discover-link"
+            scroll={false}
+          >
+            <OnSocialMark className="home-feed-discover-mark" aria-hidden />
+            Discover
+          </Link>
+        }
+        heading={<span className="home-feed-nav-empty" aria-hidden />}
         actions={
-          !activeFocus ? (
-            <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
-          ) : null
+          <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
         }
         toolbar={
           <div

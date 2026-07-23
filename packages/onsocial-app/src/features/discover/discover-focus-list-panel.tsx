@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
+import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import {
   formatTickerDisplay,
@@ -74,6 +75,9 @@ export function DiscoverFocusListPanel({
     };
   }, [filterPrefix, kind]);
 
+  const showColdSkeleton = loading && rows.length === 0;
+  const isRefreshing = loading && rows.length > 0;
+
   const emptyPrimary = filterPrefix
     ? kind === 'ticker'
       ? `No tickers matching $${filterPrefix.toUpperCase()}.`
@@ -83,11 +87,11 @@ export function DiscoverFocusListPanel({
       : 'No trending topics yet.';
 
   const sectionHeading =
-    !filterPrefix && !loading && !error && rows.length > 0
+    !filterPrefix && !error && rows.length > 0
       ? kind === 'ticker'
         ? 'Trending tickers'
         : 'Trending topics'
-      : filterPrefix && !loading && !error && rows.length > 0
+      : filterPrefix && !error && rows.length > 0
         ? kind === 'ticker'
           ? 'Matching tickers'
           : 'Matching topics'
@@ -99,9 +103,15 @@ export function DiscoverFocusListPanel({
       className="discover-focus-list"
       role="tabpanel"
       aria-label={kind === 'ticker' ? 'Tickers' : 'Topics'}
+      aria-busy={loading || undefined}
     >
-      {loading ? (
-        <div className="home-feed-state">Loading…</div>
+      {showColdSkeleton ? (
+        <>
+          <p className="sr-only">
+            Loading {kind === 'ticker' ? 'tickers' : 'topics'}…
+          </p>
+          <DiscoverFocusListSkeleton />
+        </>
       ) : null}
 
       {!loading && error ? (
@@ -117,8 +127,12 @@ export function DiscoverFocusListPanel({
         </div>
       ) : null}
 
-      {!loading && !error && rows.length > 0 ? (
-        <>
+      {rows.length > 0 ? (
+        <div
+          className={`discover-focus-list-body${
+            isRefreshing ? ' is-refreshing' : ''
+          }`}
+        >
           {sectionHeading ? (
             <h2 className="discover-trending-heading">{sectionHeading}</h2>
           ) : null}
@@ -161,7 +175,7 @@ export function DiscoverFocusListPanel({
               );
             })}
           </ul>
-        </>
+        </div>
       ) : null}
     </div>
   );

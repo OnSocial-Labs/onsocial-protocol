@@ -8,6 +8,7 @@ import {
   SearchField,
   SheetCloseButton,
 } from '@onsocial/ui';
+import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   formatTickerDisplay,
   homeFeedFocusKey,
@@ -194,7 +195,10 @@ export function HomeSavedFeedSheet({
         </p>
 
         {loading && rows.length === 0 ? (
-          <p className="home-saved-feed-sheet-state">Loading…</p>
+          <>
+            <p className="sr-only">Loading topics and tickers…</p>
+            <DiscoverFocusListSkeleton rows={6} />
+          </>
         ) : null}
 
         {!loading && rows.length === 0 ? (
@@ -204,8 +208,11 @@ export function HomeSavedFeedSheet({
         ) : null}
 
         <div
-          className="home-saved-feed-sheet-list"
+          className={`home-saved-feed-sheet-list${
+            loading && rows.length > 0 ? ' is-refreshing' : ''
+          }`}
           role="listbox"
+          aria-busy={loading || undefined}
           aria-label="Topics and tickers"
         >
           {rows.map((row) => {

@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
+import {
+  DiscoverTrendingChipSectionSkeleton,
+  DiscoverTrendingGuildsSectionSkeleton,
+  DiscoverTrendingProfilesSectionSkeleton,
+} from '@/features/discover/discover-loading-skeleton';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
 import {
@@ -33,6 +38,7 @@ type TrendingGuild = {
 /**
  * Default Discover landing: mixed trending sections. Profiles use the same
  * social list rows as the Profiles tab (avatar, standing count, Stand).
+ * Sections paint independently as each query settles.
  */
 export function DiscoverTrendingPanel({
   onOpenTab,
@@ -47,11 +53,10 @@ export function DiscoverTrendingPanel({
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('discover');
 
-  const [tickers, setTickers] = useState<TickerCount[]>([]);
-  const [topics, setTopics] = useState<HashtagCount[]>([]);
-  const [profiles, setProfiles] = useState<ProfileListAccount[]>([]);
-  const [guilds, setGuilds] = useState<TrendingGuild[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tickers, setTickers] = useState<TickerCount[] | null>(null);
+  const [topics, setTopics] = useState<HashtagCount[] | null>(null);
+  const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(null);
+  const [guilds, setGuilds] = useState<TrendingGuild[] | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
     () => new Set()
@@ -63,40 +68,56 @@ export function DiscoverTrendingPanel({
     let cancelled = false;
     const client = createReadOnlyOnSocialClient();
 
-    void (async () => {
-      setLoading(true);
-      const [tickerRows, topicRows, profilePage, guildPage] = await Promise.all([
-        client.query.tickers
-          .trending({ limit: SECTION_LIMIT })
-          .catch(() => [] as TickerCount[]),
-        client.query.hashtags
-          .trending({ limit: SECTION_LIMIT })
-          .catch(() => [] as HashtagCount[]),
-        fetchDiscoverProfiles('', viewerKey, 0).catch(() => null),
-        client.query.groups
-          .browse({ publicOnly: true, limit: SECTION_LIMIT })
-          .catch(() => ({
-            items: [] as Array<{ groupId: string; groupName: string | null }>,
-          })),
-      ]);
+    setTickers(null);
+    setTopics(null);
+    setProfiles(null);
+    setGuilds(null);
 
-      if (cancelled) return;
+    void client.query.tickers
+      .trending({ limit: SECTION_LIMIT })
+      .then((rows) => {
+        if (!cancelled) setTickers(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setTickers([]);
+      });
 
-      setTickers(tickerRows);
-      setTopics(topicRows);
-      setProfiles(
-        (profilePage?.profiles ?? [])
-          .slice(0, SECTION_LIMIT)
-          .map(discoverProfileToProfileListAccount)
-      );
-      setGuilds(
-        guildPage.items.map((g) => ({
-          groupId: g.groupId,
-          groupName: g.groupName,
-        }))
-      );
-      setLoading(false);
-    })();
+    void client.query.hashtags
+      .trending({ limit: SECTION_LIMIT })
+      .then((rows) => {
+        if (!cancelled) setTopics(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setTopics([]);
+      });
+
+    void fetchDiscoverProfiles('', viewerKey, 0)
+      .then((page) => {
+        if (cancelled) return;
+        setProfiles(
+          (page?.profiles ?? [])
+            .slice(0, SECTION_LIMIT)
+            .map(discoverProfileToProfileListAccount)
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setProfiles([]);
+      });
+
+    void client.query.groups
+      .browse({ publicOnly: true, limit: SECTION_LIMIT })
+      .then((page) => {
+        if (cancelled) return;
+        setGuilds(
+          page.items.map((g) => ({
+            groupId: g.groupId,
+            groupName: g.groupName,
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setGuilds([]);
+      });
 
     return () => {
       cancelled = true;
@@ -123,7 +144,7 @@ export function DiscoverTrendingPanel({
           shouldStand
         );
         setProfiles((current) =>
-          current.map((profile) =>
+          (current ?? []).map((profile) =>
             profile.accountId === account.accountId
               ? {
                   ...profile,
@@ -164,12 +185,22 @@ export function DiscoverTrendingPanel({
     [isStandingPending, updateStanding]
   );
 
+  const allSettled =
+    tickers !== null &&
+    topics !== null &&
+    profiles !== null &&
+    guilds !== null;
   const empty =
-    !loading &&
+    allSettled &&
     tickers.length === 0 &&
     topics.length === 0 &&
     profiles.length === 0 &&
     guilds.length === 0;
+  const anyLoading =
+    tickers === null ||
+    topics === null ||
+    profiles === null ||
+    guilds === null;
 
   return (
     <div
@@ -177,8 +208,11 @@ export function DiscoverTrendingPanel({
       className="discover-trending-panel"
       role="tabpanel"
       aria-labelledby="discover-tab-trending"
+      aria-busy={anyLoading || undefined}
     >
-      {loading ? <div className="home-feed-state">Loading…</div> : null}
+      {anyLoading ? (
+        <p className="sr-only">Loading trending…</p>
+      ) : null}
 
       {empty ? (
         <div className="standing-panel-empty-state">
@@ -189,7 +223,9 @@ export function DiscoverTrendingPanel({
         </div>
       ) : null}
 
-      {!loading && tickers.length > 0 ? (
+      {tickers === null ? (
+        <DiscoverTrendingChipSectionSkeleton />
+      ) : tickers.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Trending tickers</h2>
@@ -218,7 +254,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {!loading && topics.length > 0 ? (
+      {topics === null ? (
+        <DiscoverTrendingChipSectionSkeleton />
+      ) : topics.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Trending topics</h2>
@@ -247,7 +285,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {!loading && profiles.length > 0 ? (
+      {profiles === null ? (
+        <DiscoverTrendingProfilesSectionSkeleton />
+      ) : profiles.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Standing out</h2>
@@ -305,7 +345,9 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
-      {!loading && guilds.length > 0 ? (
+      {guilds === null ? (
+        <DiscoverTrendingGuildsSectionSkeleton />
+      ) : guilds.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Guilds</h2>
