@@ -198,12 +198,8 @@ fn card_bg(data: &Value) -> Option<String> {
     json_str(theme, "bg")
 }
 
-fn set_updated(row: &mut substreams_database_change::tables::Row, e: &ScarcesEvent) {
-    row.set("updated_block_height", e.block_height);
-    row.set("updated_block_timestamp", e.block_timestamp);
-}
-
-fn set_browse_meta(row: &mut substreams_database_change::tables::Row, data: &Value) {
+fn set_browse_meta(tables: &mut Tables, key: &str, data: &Value) {
+    let row = tables.upsert_row("scarces_active_listings", key);
     if let Some(title) = json_str(data, "title") {
         row.set("title", title);
     }
@@ -219,6 +215,12 @@ fn set_browse_meta(row: &mut substreams_database_change::tables::Row, data: &Val
     if let Some(extra) = json_str(data, "extra") {
         row.set("extra_json", extra);
     }
+}
+
+fn set_updated(tables: &mut Tables, key: &str, e: &ScarcesEvent) {
+    let row = tables.upsert_row("scarces_active_listings", key);
+    row.set("updated_block_height", e.block_height);
+    row.set("updated_block_timestamp", e.block_timestamp);
 }
 
 pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
@@ -239,51 +241,57 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
             }
             let copies = json_u32(&data, "copies").unwrap_or(1);
             let key = lazy_key(listing_id);
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            row.set("kind", "lazy");
-            row.set("listing_id", listing_id);
-            row.set("seller_id", seller);
-            row.set("creator_id", seller);
-            if let Some(price) = non_empty(&e.price) {
-                row.set("price", price);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                row.set("kind", "lazy");
+                row.set("listing_id", listing_id);
+                row.set("seller_id", seller);
+                row.set("creator_id", seller);
+                if let Some(price) = non_empty(&e.price) {
+                    row.set("price", price);
+                }
+                row.set("copies", copies);
+                row.set("remaining", copies);
+                row.set("minted_count", 0u32);
+                if e.expires_at > 0 {
+                    row.set("expires_at", e.expires_at);
+                } else if let Some(exp) = json_u64(&data, "expires_at") {
+                    row.set("expires_at", exp);
+                }
+                row.set("listed_block_height", e.block_height);
+                row.set("listed_block_timestamp", e.block_timestamp);
             }
-            row.set("copies", copies);
-            row.set("remaining", copies);
-            row.set("minted_count", 0u32);
-            if e.expires_at > 0 {
-                row.set("expires_at", e.expires_at);
-            } else if let Some(exp) = json_u64(&data, "expires_at") {
-                row.set("expires_at", exp);
-            }
-            set_browse_meta(row, &data);
-            row.set("listed_block_height", e.block_height);
-            row.set("listed_block_timestamp", e.block_timestamp);
-            set_updated(row, e);
+            set_browse_meta(tables, &key, &data);
+            set_updated(tables, &key, e);
         }
         ("LAZY_LISTING_UPDATE", "price_updated") => {
             let Some(listing_id) = non_empty(&e.listing_id) else {
                 return;
             };
             let key = lazy_key(listing_id);
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            if let Some(price) = non_empty(&e.new_price).or_else(|| non_empty(&e.price)) {
-                row.set("price", price);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                if let Some(price) = non_empty(&e.new_price).or_else(|| non_empty(&e.price)) {
+                    row.set("price", price);
+                }
             }
-            set_updated(row, e);
+            set_updated(tables, &key, e);
         }
         ("LAZY_LISTING_UPDATE", "expiry_updated") => {
             let Some(listing_id) = non_empty(&e.listing_id) else {
                 return;
             };
             let key = lazy_key(listing_id);
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            if e.new_expires_at > 0 {
-                row.set("expires_at", e.new_expires_at);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                if e.new_expires_at > 0 {
+                    row.set("expires_at", e.new_expires_at);
+                }
             }
-            set_updated(row, e);
+            set_updated(tables, &key, e);
         }
         ("LAZY_LISTING_UPDATE", "purchased") => {
             let Some(listing_id) = non_empty(&e.listing_id) else {
@@ -295,13 +303,15 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 tables.delete_row("scarces_active_listings", &key);
                 return;
             }
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            row.set("remaining", remaining);
-            if let Some(minted) = json_u32(&data, "minted_count") {
-                row.set("minted_count", minted);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                row.set("remaining", remaining);
+                if let Some(minted) = json_u32(&data, "minted_count") {
+                    row.set("minted_count", minted);
+                }
             }
-            set_updated(row, e);
+            set_updated(tables, &key, e);
         }
         ("LAZY_LISTING_UPDATE", "cancelled" | "expired") => {
             if let Some(listing_id) = non_empty(&e.listing_id) {
@@ -319,23 +329,25 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 return;
             }
             let key = native_key(token_id);
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            row.set("kind", "native");
-            row.set("token_id", token_id);
-            row.set("seller_id", seller);
-            if let Some(price) = non_empty(&e.price) {
-                row.set("price", price);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                row.set("kind", "native");
+                row.set("token_id", token_id);
+                row.set("seller_id", seller);
+                if let Some(price) = non_empty(&e.price) {
+                    row.set("price", price);
+                }
+                if e.expires_at > 0 {
+                    row.set("expires_at", e.expires_at);
+                } else if let Some(exp) = json_u64(&data, "expires_at") {
+                    row.set("expires_at", exp);
+                }
+                row.set("listed_block_height", e.block_height);
+                row.set("listed_block_timestamp", e.block_timestamp);
             }
-            if e.expires_at > 0 {
-                row.set("expires_at", e.expires_at);
-            } else if let Some(exp) = json_u64(&data, "expires_at") {
-                row.set("expires_at", exp);
-            }
-            set_browse_meta(row, &data);
-            row.set("listed_block_height", e.block_height);
-            row.set("listed_block_timestamp", e.block_timestamp);
-            set_updated(row, e);
+            set_browse_meta(tables, &key, &data);
+            set_updated(tables, &key, e);
         }
         ("SCARCE_UPDATE", "auction_created") => {
             let Some(token_id) = non_empty(&e.token_id) else {
@@ -349,58 +361,64 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
             }
             let key = native_key(token_id);
             let reserve = non_empty(&e.reserve_price).unwrap_or("");
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            row.set("kind", "auction");
-            row.set("token_id", token_id);
-            row.set("seller_id", seller);
-            if !reserve.is_empty() {
-                row.set("reserve_price", reserve);
-                row.set("price", reserve);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                row.set("kind", "auction");
+                row.set("token_id", token_id);
+                row.set("seller_id", seller);
+                if !reserve.is_empty() {
+                    row.set("reserve_price", reserve);
+                    row.set("price", reserve);
+                }
+                if let Some(buy_now) = non_empty(&e.buy_now_price) {
+                    row.set("buy_now_price", buy_now);
+                }
+                row.set("highest_bid", "0");
+                row.set("bid_count", 0u32);
+                if e.expires_at > 0 {
+                    row.set("expires_at", e.expires_at);
+                }
+                row.set("listed_block_height", e.block_height);
+                row.set("listed_block_timestamp", e.block_timestamp);
             }
-            if let Some(buy_now) = non_empty(&e.buy_now_price) {
-                row.set("buy_now_price", buy_now);
-            }
-            row.set("highest_bid", "0");
-            row.set("bid_count", 0u32);
-            if e.expires_at > 0 {
-                row.set("expires_at", e.expires_at);
-            }
-            set_browse_meta(row, &data);
-            row.set("listed_block_height", e.block_height);
-            row.set("listed_block_timestamp", e.block_timestamp);
-            set_updated(row, e);
+            set_browse_meta(tables, &key, &data);
+            set_updated(tables, &key, e);
         }
         ("SCARCE_UPDATE", "auction_bid") => {
             let Some(token_id) = non_empty(&e.token_id) else {
                 return;
             };
             let key = native_key(token_id);
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            if let Some(bid) = non_empty(&e.bid_amount) {
-                row.set("highest_bid", bid);
-                row.set("price", bid);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                if let Some(bid) = non_empty(&e.bid_amount) {
+                    row.set("highest_bid", bid);
+                    row.set("price", bid);
+                }
+                if e.bid_count > 0 {
+                    row.set("bid_count", e.bid_count);
+                }
+                if e.new_expires_at > 0 {
+                    row.set("expires_at", e.new_expires_at);
+                }
             }
-            if e.bid_count > 0 {
-                row.set("bid_count", e.bid_count);
-            }
-            if e.new_expires_at > 0 {
-                row.set("expires_at", e.new_expires_at);
-            }
-            set_updated(row, e);
+            set_updated(tables, &key, e);
         }
         ("SCARCE_UPDATE", "update_price") => {
             let Some(token_id) = non_empty(&e.token_id) else {
                 return;
             };
             let key = native_key(token_id);
-            let row = tables.upsert_row("scarces_active_listings", &key);
-            row.set("listing_key", &key);
-            if let Some(price) = non_empty(&e.new_price) {
-                row.set("price", price);
+            {
+                let row = tables.upsert_row("scarces_active_listings", &key);
+                row.set("listing_key", &key);
+                if let Some(price) = non_empty(&e.new_price) {
+                    row.set("price", price);
+                }
             }
-            set_updated(row, e);
+            set_updated(tables, &key, e);
         }
         (
             "SCARCE_UPDATE",

@@ -497,6 +497,64 @@
     ]
   },
   {
+    "name": "scarces_lazy_listing_created_catalog",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000018,
+    "block_timestamp": 1776000001,
+    "receipt_seed": [104, 105],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "LAZY_LISTING_UPDATE",
+        "data": [
+          {
+            "operation": "created",
+            "author": "creator.onsocial.testnet",
+            "creator_id": "creator.onsocial.testnet",
+            "listing_id": "ll:catalog-1",
+            "price": "1000000000000000000000000",
+            "copies": 3,
+            "max_per_purchase": 1,
+            "title": "Catalog Drop",
+            "media": "ipfs://catalog",
+            "extra": "{\"sourcePost\":{\"path\":\"creator.onsocial.testnet/post/1\"},\"theme\":{\"bg\":\"dusk\"}}"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_active_listings": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_events",
+        "fields": {
+          "event_type": "LAZY_LISTING_UPDATE",
+          "operation": "created",
+          "author": "creator.onsocial.testnet",
+          "listing_id": "ll:catalog-1",
+          "price": "1000000000000000000000000"
+        }
+      },
+      {
+        "table": "scarces_active_listings",
+        "fields": {
+          "kind": "lazy",
+          "listing_id": "ll:catalog-1",
+          "seller_id": "creator.onsocial.testnet",
+          "title": "Catalog Drop",
+          "media": "ipfs://catalog",
+          "source_post_path": "creator.onsocial.testnet/post/1",
+          "card_bg": "dusk",
+          "remaining": "3"
+        }
+      }
+    ]
+  },
+  {
     "name": "scarces_quick_mint",
     "contract": "scarces",
     "receiver_id": "scarces.onsocial.testnet",

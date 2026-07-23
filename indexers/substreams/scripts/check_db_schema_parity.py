@@ -74,11 +74,18 @@ def parse_rust_writes(paths: list[Path]) -> dict[str, set[str]]:
         r"let\s+row\s*=\s*tables\.(?:create_row|upsert_row)\(\s*\"([^\"]+)\""
     )
     row_set = re.compile(r"\brow\.set\(\s*\"([^\"]+)\"")
+    fn_start = re.compile(
+        r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:crate\s+)?(?:async\s+)?fn\s+"
+    )
     writes: dict[str, set[str]] = defaultdict(set)
 
     for path in paths:
         current_table: str | None = None
         for line_number, line in enumerate(path.read_text().splitlines(), start=1):
+            # Do not leak table scope across helper / function boundaries.
+            if fn_start.search(line):
+                current_table = None
+
             table_match = table_for_row.search(line)
             if table_match:
                 current_table = table_match.group(1)
