@@ -1,4 +1,4 @@
-//! Database changes writer for scarces events + active listings catalog.
+//! Database changes writer for scarces events, active listings, and open offers.
 
 use crate::pb::scarces::v1::*;
 use serde_json::Value;
@@ -16,6 +16,7 @@ pub(crate) fn scarces_db_out_impl(output: ScarcesOutput) -> DatabaseChanges {
     for event in &output.events {
         write_scarces_event(&mut tables, event);
         apply_active_listing(&mut tables, event);
+        apply_active_offer(&mut tables, event);
     }
 
     tables.to_database_changes()
@@ -431,6 +432,127 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
             if let Some(token_id) = non_empty(&e.token_id) {
                 tables.delete_row("scarces_active_listings", native_key(token_id));
             }
+        }
+        _ => {}
+    }
+}
+
+fn token_offer_key(token_id: &str, buyer_id: &str) -> String {
+    format!("token:{token_id}:{buyer_id}")
+}
+
+fn collection_offer_key(collection_id: &str, buyer_id: &str) -> String {
+    format!("collection:{collection_id}:{buyer_id}")
+}
+
+fn set_offer_updated(tables: &mut Tables, key: &str, e: &ScarcesEvent) {
+    let row = tables.upsert_row("scarces_active_offers", key);
+    row.set("updated_block_height", e.block_height);
+    row.set("updated_block_timestamp", e.block_timestamp);
+}
+
+fn upsert_open_offer(
+    tables: &mut Tables,
+    key: &str,
+    kind: &str,
+    e: &ScarcesEvent,
+    token_id: Option<&str>,
+    collection_id: Option<&str>,
+    buyer_id: &str,
+    amount: &str,
+) {
+    {
+        let row = tables.upsert_row("scarces_active_offers", key);
+        row.set("offer_key", key);
+        row.set("kind", kind);
+        row.set("buyer_id", buyer_id);
+        row.set("amount", amount);
+        if let Some(token_id) = token_id {
+            row.set("token_id", token_id);
+        }
+        if let Some(collection_id) = collection_id {
+            row.set("collection_id", collection_id);
+        }
+        if e.expires_at > 0 {
+            row.set("expires_at", e.expires_at);
+        }
+        row.set("created_block_height", e.block_height);
+        row.set("created_block_timestamp", e.block_timestamp);
+    }
+    set_offer_updated(tables, key, e);
+}
+
+pub(crate) fn apply_active_offer(tables: &mut Tables, e: &ScarcesEvent) {
+    if e.event_type != "OFFER_UPDATE" {
+        return;
+    }
+
+    let buyer = non_empty(&e.buyer_id)
+        .or_else(|| non_empty(&e.author))
+        .unwrap_or("");
+    if buyer.is_empty() {
+        return;
+    }
+
+    match e.operation.as_str() {
+        "offer_made" => {
+            let Some(token_id) = non_empty(&e.token_id) else {
+                return;
+            };
+            let amount = non_empty(&e.amount)
+                .or_else(|| non_empty(&e.price))
+                .unwrap_or("");
+            if amount.is_empty() {
+                return;
+            }
+            let key = token_offer_key(token_id, buyer);
+            upsert_open_offer(
+                tables,
+                &key,
+                "token",
+                e,
+                Some(token_id),
+                None,
+                buyer,
+                amount,
+            );
+        }
+        "offer_cancelled" | "offer_accepted" => {
+            let Some(token_id) = non_empty(&e.token_id) else {
+                return;
+            };
+            tables.delete_row("scarces_active_offers", token_offer_key(token_id, buyer));
+        }
+        "collection_offer_made" => {
+            let Some(collection_id) = non_empty(&e.collection_id) else {
+                return;
+            };
+            let amount = non_empty(&e.amount)
+                .or_else(|| non_empty(&e.price))
+                .unwrap_or("");
+            if amount.is_empty() {
+                return;
+            }
+            let key = collection_offer_key(collection_id, buyer);
+            upsert_open_offer(
+                tables,
+                &key,
+                "collection",
+                e,
+                None,
+                Some(collection_id),
+                buyer,
+                amount,
+            );
+        }
+        "collection_offer_cancelled" | "collection_offer_accepted" => {
+            let Some(collection_id) = non_empty(&e.collection_id) else {
+                return;
+            };
+            tables.delete_row(
+                "scarces_active_offers",
+                collection_offer_key(collection_id, buyer),
+            );
         }
         _ => {}
     }

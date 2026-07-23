@@ -1,5 +1,7 @@
 use crate::pb::scarces::v1::*;
-use crate::scarces_db_out::{apply_active_listing, scarces_db_out_impl, write_scarces_event};
+use crate::scarces_db_out::{
+    apply_active_listing, apply_active_offer, scarces_db_out_impl, write_scarces_event,
+};
 use substreams_database_change::pb::database::table_change::Operation;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
@@ -491,4 +493,95 @@ fn active_listing_delist_deletes() {
                 .all(|tc| matches!(tc.operation(), Operation::Delete))
     );
     let _ = find_table_op(&changes, "scarces_active_listings");
+}
+
+#[test]
+fn active_offer_made_upserts_catalog() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-OFFER_UPDATE-offer_made".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "OFFER_UPDATE".into(),
+        operation: "offer_made".into(),
+        author: "buyer.near".into(),
+        buyer_id: "buyer.near".into(),
+        token_id: "s:9".into(),
+        amount: "2500000000000000000000000".into(),
+        expires_at: 999,
+        extra_data: r#"{"token_id":"s:9","buyer_id":"buyer.near","amount":"2500000000000000000000000"}"#
+            .into(),
+        ..Default::default()
+    };
+    apply_active_offer(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_active_offers"), 1);
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_offers",
+            "token:s:9:buyer.near",
+            "kind"
+        ),
+        Some("token")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_offers",
+            "token:s:9:buyer.near",
+            "amount"
+        ),
+        Some("2500000000000000000000000")
+    );
+}
+
+#[test]
+fn active_offer_accepted_deletes() {
+    let mut tables = Tables::new();
+    let made = ScarcesEvent {
+        id: "r-0-OFFER_UPDATE-offer_made".into(),
+        block_height: 1,
+        block_timestamp: 1,
+        receipt_id: "r0".into(),
+        event_type: "OFFER_UPDATE".into(),
+        operation: "offer_made".into(),
+        author: "buyer.near".into(),
+        buyer_id: "buyer.near".into(),
+        token_id: "s:9".into(),
+        amount: "100".into(),
+        extra_data: r#"{"token_id":"s:9","amount":"100"}"#.into(),
+        ..Default::default()
+    };
+    let accepted = ScarcesEvent {
+        id: "r-1-OFFER_UPDATE-offer_accepted".into(),
+        block_height: 2,
+        block_timestamp: 2,
+        receipt_id: "r1".into(),
+        event_type: "OFFER_UPDATE".into(),
+        operation: "offer_accepted".into(),
+        author: "buyer.near".into(),
+        buyer_id: "buyer.near".into(),
+        seller_id: "seller.near".into(),
+        token_id: "s:9".into(),
+        amount: "100".into(),
+        extra_data: r#"{"token_id":"s:9","amount":"100"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_offer(&mut tables, &made);
+    apply_active_offer(&mut tables, &accepted);
+    let changes = tables.to_database_changes();
+    let offers = changes
+        .table_changes
+        .iter()
+        .filter(|tc| tc.table == "scarces_active_offers")
+        .collect::<Vec<_>>();
+    assert!(
+        offers.is_empty()
+            || offers
+                .iter()
+                .all(|tc| matches!(tc.operation(), Operation::Delete))
+    );
 }

@@ -1,3 +1,4 @@
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 
@@ -33,6 +34,19 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function sortOffersByAmount(offers: ScarceTokenOffer[]): ScarceTokenOffer[] {
+  return [...offers].sort((a, b) => {
+    const diff = BigInt(b.amountYocto) - BigInt(a.amountYocto);
+    if (diff > 0n) return 1;
+    if (diff < 0n) return -1;
+    return b.createdAtNs - a.createdAtNs;
+  });
+}
+
+function isExpired(expiresAtNs: number | null, nowNs: number): boolean {
+  return expiresAtNs != null && expiresAtNs > 0 && expiresAtNs <= nowNs;
+}
+
 export async function fetchOfferFromBuyer(
   tokenId: string,
   buyerId: string
@@ -56,7 +70,7 @@ export async function fetchOfferFromBuyer(
             /^\d+$/.test(record.expires_at)
           ? Number(record.expires_at)
           : null;
-    if (expiresAtNs != null && expiresAtNs <= Date.now() * 1_000_000) {
+    if (isExpired(expiresAtNs, Date.now() * 1_000_000)) {
       return null;
     }
     const createdAtNs =
@@ -78,16 +92,41 @@ export async function fetchOfferFromBuyer(
   }
 }
 
-export async function fetchOffersForToken(
+async function fetchOffersForTokenViaCatalog(
+  tokenId: string
+): Promise<ScarceTokenOffer[] | null> {
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const rows = await client.query.scarces.activeOffers({
+      tokenId,
+      kind: 'token',
+      limit: 50,
+    });
+    const nowNs = Date.now() * 1_000_000;
+    const offers = rows
+      .filter((row) => row.buyerId?.trim() && row.amount?.trim())
+      .filter((row) => !isExpired(row.expiresAt, nowNs))
+      .map((row) => ({
+        buyerId: row.buyerId.trim(),
+        amountYocto: row.amount,
+        amountNear: yoctoToNear(row.amount),
+        expiresAtNs: row.expiresAt && row.expiresAt > 0 ? row.expiresAt : null,
+        createdAtNs: row.createdBlockTimestamp || 0,
+      }));
+    return sortOffersByAmount(offers);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchOffersForTokenViaRpc(
   tokenId: string
 ): Promise<ScarceTokenOffer[]> {
-  const id = tokenId.trim();
-  if (!id) return [];
   try {
     const rows = await viewNearContract<unknown[]>(
       SCARCES_CONTRACT,
       'get_offers_for_token',
-      { token_id: id, from_index: 0, limit: 50 }
+      { token_id: tokenId, from_index: 0, limit: 50 }
     );
     if (!Array.isArray(rows)) return [];
     const nowNs = Date.now() * 1_000_000;
@@ -106,7 +145,7 @@ export async function fetchOffersForToken(
               /^\d+$/.test(record.expires_at)
             ? Number(record.expires_at)
             : null;
-      if (expiresAtNs != null && expiresAtNs <= nowNs) continue;
+      if (isExpired(expiresAtNs, nowNs)) continue;
       const createdAtNs =
         typeof record.created_at === 'number'
           ? record.created_at
@@ -122,14 +161,25 @@ export async function fetchOffersForToken(
         createdAtNs,
       });
     }
-    offers.sort((a, b) => {
-      const diff = BigInt(b.amountYocto) - BigInt(a.amountYocto);
-      if (diff > 0n) return 1;
-      if (diff < 0n) return -1;
-      return b.createdAtNs - a.createdAtNs;
-    });
-    return offers;
+    return sortOffersByAmount(offers);
   } catch {
     return [];
   }
+}
+
+/**
+ * Open offers on a token — prefers sink `scarces_active_offers`, falls back
+ * to contract `get_offers_for_token`. Accept still verifies on-chain.
+ */
+export async function fetchOffersForToken(
+  tokenId: string
+): Promise<ScarceTokenOffer[]> {
+  const id = tokenId.trim();
+  if (!id) return [];
+
+  const catalog = await fetchOffersForTokenViaCatalog(id);
+  if (catalog != null) {
+    return catalog;
+  }
+  return fetchOffersForTokenViaRpc(id);
 }

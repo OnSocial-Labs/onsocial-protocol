@@ -9,6 +9,7 @@
 //
 // Historical activity: `events()` / helpers → `scarces_events`.
 // Live Market catalog: `activeListings()` → `scarces_active_listings`
+// Open offers: `activeOffers()` → `scarces_active_offers`
 // (sink-maintained). Buy/bid still verify against the scarces contract.
 // ---------------------------------------------------------------------------
 
@@ -123,6 +124,37 @@ const SCARCES_ACTIVE_LISTING_FIELDS = `
   extraJson
   listedBlockHeight
   listedBlockTimestamp
+  updatedBlockHeight
+  updatedBlockTimestamp
+`;
+
+/** Open offer row from sink-maintained `scarces_active_offers`. */
+export interface ScarcesActiveOfferRow {
+  offerKey: string;
+  kind: 'token' | 'collection' | string;
+  tokenId: string | null;
+  collectionId: string | null;
+  buyerId: string;
+  /** Offer amount in yoctoNEAR. */
+  amount: string;
+  /** Nanoseconds, when set. */
+  expiresAt: number | null;
+  createdBlockHeight: number;
+  createdBlockTimestamp: number;
+  updatedBlockHeight: number;
+  updatedBlockTimestamp: number;
+}
+
+const SCARCES_ACTIVE_OFFER_FIELDS = `
+  offerKey
+  kind
+  tokenId
+  collectionId
+  buyerId
+  amount
+  expiresAt
+  createdBlockHeight
+  createdBlockTimestamp
   updatedBlockHeight
   updatedBlockTimestamp
 `;
@@ -551,10 +583,74 @@ export class ScarcesQuery {
   }
 
   /**
-   * Offers placed on a single token, newest first.
+   * Open offers (live book), optionally filtered by token / buyer / kind.
+   * Backed by sink-maintained `scarces_active_offers` — not an event log.
+   * Callers should still filter expired `expiresAt` client-side.
    *
    * ```ts
-   * const offers = await os.query.scarces.offersOn('s:42');
+   * const open = await os.query.scarces.activeOffers({ tokenId: 's:42' });
+   * ```
+   */
+  async activeOffers(
+    opts: {
+      limit?: number;
+      offset?: number;
+      tokenId?: string;
+      tokenIds?: string[];
+      buyerId?: string;
+      kind?: 'token' | 'collection' | string;
+    } = {}
+  ): Promise<ScarcesActiveOfferRow[]> {
+    const limit = opts.limit ?? 50;
+    const offset = opts.offset ?? 0;
+    const variables: Record<string, unknown> = { limit, offset };
+    const where: string[] = [];
+    const params = ['$limit: Int!', '$offset: Int!'];
+
+    if (opts.tokenId) {
+      params.push('$tokenId: String!');
+      variables.tokenId = opts.tokenId;
+      where.push('tokenId: {_eq: $tokenId}');
+    } else if (opts.tokenIds?.length) {
+      params.push('$tokenIds: [String!]!');
+      variables.tokenIds = opts.tokenIds;
+      where.push('tokenId: {_in: $tokenIds}');
+    }
+    if (opts.buyerId) {
+      params.push('$buyerId: String!');
+      variables.buyerId = opts.buyerId;
+      where.push('buyerId: {_eq: $buyerId}');
+    }
+    if (opts.kind) {
+      params.push('$kind: String!');
+      variables.kind = opts.kind;
+      where.push('kind: {_eq: $kind}');
+    }
+
+    const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';
+
+    const res = await this._q.graphql<{
+      scarcesActiveOffers: ScarcesActiveOfferRow[];
+    }>({
+      query: `query ScarcesActiveOffers(${params.join(', ')}) {
+        scarcesActiveOffers(
+          ${whereClause}
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{updatedBlockTimestamp: DESC}]
+        ) { ${SCARCES_ACTIVE_OFFER_FIELDS} }
+      }`,
+      variables,
+    });
+    return res.data?.scarcesActiveOffers ?? [];
+  }
+
+  /**
+   * Historical `offer_made` events on a token (not the open book).
+   * Prefer {@link activeOffers} for live open offers.
+   *
+   * ```ts
+   * const history = await os.query.scarces.offersOn('s:42');
    * ```
    */
   async offersOn(

@@ -591,6 +591,56 @@
     ]
   },
   {
+    "name": "scarces_offer_made_catalog",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000019,
+    "block_timestamp": 1776000002,
+    "receipt_seed": [106, 107],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "OFFER_UPDATE",
+        "data": [
+          {
+            "operation": "offer_made",
+            "author": "buyer.onsocial.testnet",
+            "buyer_id": "buyer.onsocial.testnet",
+            "token_id": "s:99",
+            "amount": "2000000000000000000000000",
+            "expires_at": 1777000002000000000
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_active_offers": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_events",
+        "fields": {
+          "event_type": "OFFER_UPDATE",
+          "operation": "offer_made",
+          "author": "buyer.onsocial.testnet",
+          "token_id": "s:99",
+          "amount": "2000000000000000000000000"
+        }
+      },
+      {
+        "table": "scarces_active_offers",
+        "fields": {
+          "kind": "token",
+          "token_id": "s:99",
+          "buyer_id": "buyer.onsocial.testnet",
+          "amount": "2000000000000000000000000"
+        }
+      }
+    ]
+  },
+  {
     "name": "social_spend_join_rally",
     "contract": "social-spend",
     "receiver_id": "social-spend.onsocial.testnet",

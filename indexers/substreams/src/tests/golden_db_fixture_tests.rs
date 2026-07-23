@@ -298,6 +298,7 @@ fn golden_db_fixtures_cover_all_sink_tables() {
         "token_balances",
         "scarces_events",
         "scarces_active_listings",
+        "scarces_active_offers",
         "social_spend_events",
     ]);
 

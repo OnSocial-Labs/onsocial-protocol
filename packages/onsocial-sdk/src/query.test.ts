@@ -2998,6 +2998,24 @@ describe('QueryModule', () => {
       });
     });
 
+    it('activeOffers queries scarcesActiveOffers by tokenId', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesActiveOffers: [] } });
+      await os.query.scarces.activeOffers({ tokenId: 's:1', limit: 20 });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toContain('scarcesActiveOffers');
+      expect(body.query).toMatch(
+        /orderBy: \[\{updatedBlockTimestamp: DESC\}\]/
+      );
+      expect(body.variables).toEqual({
+        limit: 20,
+        offset: 0,
+        tokenId: 's:1',
+      });
+    });
+
     it('offersOn filters by tokenId + OFFER_UPDATE/offer_made', async () => {
       const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
       await os.query.scarces.offersOn('s:1');

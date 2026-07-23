@@ -778,6 +778,22 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'scarces_active_offers',
+    columns: [
+      'offer_key',
+      'kind',
+      'token_id',
+      'collection_id',
+      'buyer_id',
+      'amount',
+      'expires_at',
+      'created_block_height',
+      'created_block_timestamp',
+      'updated_block_height',
+      'updated_block_timestamp',
+    ],
+  },
+  {
     name: 'social_spend_events',
     columns: [
       'id',
