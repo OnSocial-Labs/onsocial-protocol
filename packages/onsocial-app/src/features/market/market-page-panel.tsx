@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SearchField, ShopFillIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  OsSheetAction,
+  OsSheetActions,
+} from '@/components/ui/os-sheet-primary-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -41,6 +45,12 @@ import {
   ScarceOfferSheet,
   type ScarceOfferListing,
 } from '@/features/scarces/scarce-offer-sheet';
+import {
+  fetchMyOpenTokenOffers,
+  fetchOfferSummariesByTokenIds,
+  type MyOpenTokenOffer,
+  type TokenOfferSummary,
+} from '@/features/scarces/scarce-offers';
 import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
@@ -57,12 +67,7 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 function listingMatchesQuery(item: MarketListingItem, query: string): boolean {
   if (!query) return true;
-  const haystack = [
-    item.title,
-    item.creatorId,
-    item.tokenId,
-    item.listingId,
-  ]
+  const haystack = [item.title, item.creatorId, item.tokenId, item.listingId]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
@@ -130,6 +135,11 @@ export function MarketPagePanel() {
   const [salesExpanded, setSalesExpanded] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [offerByToken, setOfferByToken] = useState<
+    Map<string, TokenOfferSummary>
+  >(() => new Map());
+  const [myOffers, setMyOffers] = useState<MyOpenTokenOffer[]>([]);
+  const [offersRevision, setOffersRevision] = useState(0);
   const toolbarHidden = useDockAutoHide(sortMenuOpen);
   const normalizedListingQuery = listingQuery.trim().toLowerCase();
   const searching = normalizedListingQuery.length > 0;
@@ -184,6 +194,28 @@ export function MarketPagePanel() {
   const owned = data?.key === retryKey ? data.owned : [];
   const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
   const browseListings = excludeOwnedNativeListings(listings, ownedTokenIdSet);
+
+  useEffect(() => {
+    if (status !== 'ready') return;
+    let cancelled = false;
+    const tokenIds = [
+      ...owned.map((item) => item.tokenId),
+      ...listings.map((item) => item.tokenId?.trim() ?? '').filter(Boolean),
+    ];
+    void Promise.all([
+      fetchOfferSummariesByTokenIds(tokenIds),
+      viewerAccountId
+        ? fetchMyOpenTokenOffers(viewerAccountId)
+        : Promise.resolve([] as MyOpenTokenOffer[]),
+    ]).then(([summaries, mine]) => {
+      if (cancelled) return;
+      setOfferByToken(summaries);
+      setMyOffers(mine);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [retryKey, viewerAccountId, offersRevision, status, owned, listings]);
 
   const typedListings =
     listingFilter === 'auctions'
@@ -305,6 +337,7 @@ export function MarketPagePanel() {
 
   const handleOffered = useCallback(() => {
     setOfferListing(null);
+    setOffersRevision((value) => value + 1);
   }, []);
 
   const handleListed = useCallback(() => {
@@ -427,7 +460,24 @@ export function MarketPagePanel() {
   const showListingToolbar = status !== 'error' && !showEmptyBrowse;
   const showOwnedSection =
     Boolean(viewerAccountId) && owned.length > 0 && !searching;
+  const showMyOffersSection =
+    Boolean(viewerAccountId) && myOffers.length > 0 && !searching;
   const showSalesSection = sales.length > 0 && !searching;
+
+  const titleForToken = useCallback(
+    (tokenId: string): { title: string; mediaUrl?: string | null } => {
+      const ownedHit = owned.find((row) => row.tokenId === tokenId);
+      if (ownedHit) {
+        return { title: ownedHit.title, mediaUrl: ownedHit.mediaUrl };
+      }
+      const listingHit = listings.find((row) => row.tokenId === tokenId);
+      if (listingHit) {
+        return { title: listingHit.title, mediaUrl: listingHit.mediaUrl };
+      }
+      return { title: `Scarce · ${tokenId}` };
+    },
+    [listings, owned]
+  );
 
   return (
     <OsAppScreen
@@ -441,7 +491,9 @@ export function MarketPagePanel() {
           clearAriaLabel="Clear search"
           ariaLabel="Search Market listings"
           className="discover-nav-search-field os-app-screen-search"
-          leadingIcon={<ShopFillIcon className="search-field-icon" aria-hidden />}
+          leadingIcon={
+            <ShopFillIcon className="search-field-icon" aria-hidden />
+          }
         />
       }
       toolbar={
@@ -553,11 +605,15 @@ export function MarketPagePanel() {
             <div className="market-listing-list" role="list">
               {filteredListings.map((item) => {
                 const rowKey = marketListingRowKey(item);
+                const offerSummary = item.tokenId
+                  ? offerByToken.get(item.tokenId)
+                  : undefined;
                 return (
                   <MarketListingRow
                     key={rowKey}
                     item={item}
                     nowMs={nowMs}
+                    highestOfferNear={offerSummary?.highestAmountNear ?? null}
                     isOwnListing={
                       Boolean(viewerAccountId) &&
                       item.kind === 'lazy' &&
@@ -581,18 +637,103 @@ export function MarketPagePanel() {
               Yours
             </h2>
             <div className="market-listing-list" role="list">
-              {owned.map((item) => (
-                <MarketOwnedRow
-                  key={item.tokenId}
-                  item={item}
-                  delistPending={delistTokenId === item.tokenId}
-                  onSell={setSellItem}
-                  onOffers={setOffersItem}
-                  onDelist={(row) => {
-                    void handleManageOwned(row);
-                  }}
-                />
-              ))}
+              {owned.map((item) => {
+                const offerSummary = offerByToken.get(item.tokenId);
+                return (
+                  <MarketOwnedRow
+                    key={item.tokenId}
+                    item={item}
+                    highestOfferNear={offerSummary?.highestAmountNear ?? null}
+                    offerCount={offerSummary?.offerCount ?? 0}
+                    delistPending={delistTokenId === item.tokenId}
+                    onSell={setSellItem}
+                    onOffers={setOffersItem}
+                    onDelist={(row) => {
+                      void handleManageOwned(row);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {showMyOffersSection ? (
+          <section
+            className="market-section"
+            aria-labelledby="market-my-offers"
+          >
+            <h2 id="market-my-offers" className="market-section-title">
+              Your offers
+            </h2>
+            <div className="market-listing-list" role="list">
+              {myOffers.map((offer) => {
+                const meta = titleForToken(offer.tokenId);
+                const priceLabel = Number.parseFloat(offer.amountNear);
+                const priceNear = Number.isFinite(priceLabel)
+                  ? priceLabel.toLocaleString('en-US', {
+                      maximumFractionDigits: 4,
+                    })
+                  : offer.amountNear;
+                return (
+                  <div
+                    key={`my-offer:${offer.tokenId}`}
+                    className="market-listing-row"
+                    role="listitem"
+                  >
+                    <div
+                      className={`market-listing-thumb${meta.mediaUrl ? ' has-media' : ''}`}
+                      aria-hidden
+                    >
+                      {meta.mediaUrl ? (
+                        <img src={meta.mediaUrl} alt="" />
+                      ) : (
+                        <span className="market-listing-thumb-fallback" />
+                      )}
+                    </div>
+                    <div className="market-listing-copy">
+                      <div className="market-listing-head">
+                        <p className="market-listing-title">{meta.title}</p>
+                        <p className="market-listing-price">
+                          Offer · {priceNear} NEAR
+                        </p>
+                      </div>
+                      <p className="market-listing-meta">
+                        <span className="market-listing-own">Open offer</span>
+                      </p>
+                    </div>
+                    <OsSheetActions
+                      layout="row-compact"
+                      tone="frosted-primary"
+                      borderless
+                      className="market-listing-action"
+                    >
+                      <OsSheetAction
+                        type="button"
+                        variant="primary"
+                        ready
+                        onClick={() => {
+                          const listingOwner =
+                            listings.find(
+                              (row) => row.tokenId === offer.tokenId
+                            )?.creatorId ?? '';
+                          setOfferListing({
+                            tokenId: offer.tokenId,
+                            title: meta.title,
+                            mediaUrl: meta.mediaUrl,
+                            ownerId: listingOwner || viewerAccountId || '',
+                            askNear: listings.find(
+                              (row) => row.tokenId === offer.tokenId
+                            )?.priceNear,
+                          });
+                        }}
+                      >
+                        Manage
+                      </OsSheetAction>
+                    </OsSheetActions>
+                  </div>
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -743,6 +884,7 @@ export function MarketPagePanel() {
         }}
         onAccepted={() => {
           setOffersItem(null);
+          setOffersRevision((value) => value + 1);
           setRetryKey((value) => value + 1);
         }}
       />

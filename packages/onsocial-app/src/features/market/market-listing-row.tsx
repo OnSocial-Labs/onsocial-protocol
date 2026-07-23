@@ -25,6 +25,8 @@ interface MarketListingRowProps {
   cancelPending?: boolean;
   /** Shared clock for auction countdowns (ms). */
   nowMs?: number;
+  /** Highest open offer (NEAR) on this native/auction token. */
+  highestOfferNear?: string | null;
   onBuy: (item: MarketListingItem) => void;
   onCancel?: (item: MarketListingItem) => void;
 }
@@ -69,6 +71,7 @@ export function MarketListingRow({
   isOwnListing = false,
   cancelPending = false,
   nowMs,
+  highestOfferNear = null,
   onBuy,
   onCancel,
 }: MarketListingRowProps) {
@@ -213,6 +216,13 @@ export function MarketListingRow({
             <span className="market-listing-own">
               {' · '}
               {bidCount === 1 ? '1 bid' : `${bidCount} bids`}
+            </span>
+          ) : null}
+          {highestOfferNear?.trim() &&
+          (item.kind === 'native' || item.kind === 'auction') ? (
+            <span className="market-listing-own">
+              {' · '}
+              Offer {formatPriceNear(highestOfferNear)} NEAR
             </span>
           ) : null}
           {auctionClockLabel ? (

@@ -10,6 +10,9 @@ import type { OwnedScarceItem } from '@/features/market/market-listings';
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
   delistPending?: boolean;
+  /** Highest open offer (NEAR), when known from the offers catalog. */
+  highestOfferNear?: string | null;
+  offerCount?: number;
   onSell: (item: OwnedScarceItem) => void;
   onDelist: (item: OwnedScarceItem) => void;
   onOffers?: (item: OwnedScarceItem) => void;
@@ -27,6 +30,8 @@ const CONFIRM_LEAVE_MS = 4_000;
 export function MarketOwnedRow({
   item,
   delistPending = false,
+  highestOfferNear = null,
+  offerCount = 0,
   onSell,
   onDelist,
   onOffers,
@@ -34,6 +39,12 @@ export function MarketOwnedRow({
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
   const showOffers = Boolean(onOffers);
+  const hasOffers = offerCount > 0 && Boolean(highestOfferNear?.trim());
+  const offersLabel = hasOffers
+    ? offerCount > 1
+      ? `Offers · ${formatPriceNear(highestOfferNear!)}`
+      : `Offer · ${formatPriceNear(highestOfferNear!)}`
+    : 'Offers';
   const [confirmTokenId, setConfirmTokenId] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingDelist =
@@ -99,6 +110,14 @@ export function MarketOwnedRow({
           ) : (
             <span className="market-listing-own">Ready to sell</span>
           )}
+          {hasOffers ? (
+            <span className="market-listing-own">
+              {' · '}
+              {offerCount === 1
+                ? `Offer ${formatPriceNear(highestOfferNear!)} NEAR`
+                : `${offerCount} offers · top ${formatPriceNear(highestOfferNear!)} NEAR`}
+            </span>
+          ) : null}
         </p>
       </div>
       <OsSheetActions
@@ -114,7 +133,7 @@ export function MarketOwnedRow({
             ready
             onClick={() => onOffers?.(item)}
           >
-            Offers
+            {offersLabel}
           </OsSheetAction>
         ) : null}
         {listed ? (

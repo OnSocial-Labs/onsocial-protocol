@@ -15,6 +15,22 @@ export interface ScarceTokenOffer {
   createdAtNs: number;
 }
 
+/** Per-token rollup from open offers catalog (or empty if none). */
+export interface TokenOfferSummary {
+  tokenId: string;
+  offerCount: number;
+  highestAmountYocto: string;
+  highestAmountNear: string;
+}
+
+/** Viewer’s open token offer for Market “Your offers”. */
+export interface MyOpenTokenOffer {
+  tokenId: string;
+  amountYocto: string;
+  amountNear: string;
+  expiresAtNs: number | null;
+}
+
 function u128Field(raw: unknown): string | null {
   if (typeof raw === 'string' && /^\d+$/.test(raw)) return raw;
   if (
@@ -182,4 +198,100 @@ export async function fetchOffersForToken(
     return catalog;
   }
   return fetchOffersForTokenViaRpc(id);
+}
+
+function summarizeOffersForToken(
+  tokenId: string,
+  offers: ScarceTokenOffer[]
+): TokenOfferSummary | null {
+  if (offers.length === 0) return null;
+  const sorted = sortOffersByAmount(offers);
+  const top = sorted[0]!;
+  return {
+    tokenId,
+    offerCount: offers.length,
+    highestAmountYocto: top.amountYocto,
+    highestAmountNear: top.amountNear,
+  };
+}
+
+/**
+ * Batch highest-offer / count for many tokens via one catalog query.
+ * Missing tokens simply omit a map entry. On catalog failure returns empty map
+ * (callers keep rendering without badges).
+ */
+export async function fetchOfferSummariesByTokenIds(
+  tokenIds: string[]
+): Promise<Map<string, TokenOfferSummary>> {
+  const unique = [...new Set(tokenIds.map((id) => id.trim()).filter(Boolean))];
+  const out = new Map<string, TokenOfferSummary>();
+  if (unique.length === 0) return out;
+
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const rows = await client.query.scarces.activeOffers({
+      tokenIds: unique,
+      kind: 'token',
+      limit: Math.min(500, unique.length * 20),
+    });
+    const nowNs = Date.now() * 1_000_000;
+    const byToken = new Map<string, ScarceTokenOffer[]>();
+    for (const row of rows) {
+      const tokenId = row.tokenId?.trim() ?? '';
+      const buyerId = row.buyerId?.trim() ?? '';
+      const amount = row.amount?.trim() ?? '';
+      if (!tokenId || !buyerId || !amount) continue;
+      if (isExpired(row.expiresAt, nowNs)) continue;
+      const list = byToken.get(tokenId) ?? [];
+      list.push({
+        buyerId,
+        amountYocto: amount,
+        amountNear: yoctoToNear(amount),
+        expiresAtNs: row.expiresAt && row.expiresAt > 0 ? row.expiresAt : null,
+        createdAtNs: row.createdBlockTimestamp || 0,
+      });
+      byToken.set(tokenId, list);
+    }
+    for (const [tokenId, offers] of byToken) {
+      const summary = summarizeOffersForToken(tokenId, offers);
+      if (summary) out.set(tokenId, summary);
+    }
+  } catch {
+    // Soft-fail — Market still works without offer badges.
+  }
+  return out;
+}
+
+/** Open token offers placed by the viewer (catalog). */
+export async function fetchMyOpenTokenOffers(
+  buyerId: string
+): Promise<MyOpenTokenOffer[]> {
+  const buyer = buyerId.trim();
+  if (!buyer) return [];
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const rows = await client.query.scarces.activeOffers({
+      buyerId: buyer,
+      kind: 'token',
+      limit: 50,
+    });
+    const nowNs = Date.now() * 1_000_000;
+    return rows
+      .filter((row) => row.tokenId?.trim() && row.amount?.trim())
+      .filter((row) => !isExpired(row.expiresAt, nowNs))
+      .map((row) => ({
+        tokenId: row.tokenId!.trim(),
+        amountYocto: row.amount,
+        amountNear: yoctoToNear(row.amount),
+        expiresAtNs: row.expiresAt && row.expiresAt > 0 ? row.expiresAt : null,
+      }))
+      .sort((a, b) => {
+        const diff = BigInt(b.amountYocto) - BigInt(a.amountYocto);
+        if (diff > 0n) return 1;
+        if (diff < 0n) return -1;
+        return 0;
+      });
+  } catch {
+    return [];
+  }
 }
