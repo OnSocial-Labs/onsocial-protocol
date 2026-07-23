@@ -168,10 +168,14 @@ jobs:
           echo "✅ Config files synced to server"
 
       - name: Deploy via SSH
+        # Keepalive: Hasura permission sync can run 4–8+ min with little stdout;
+        # without ServerAlive*, GH runners often hit Broken pipe (exit 255).
         run: |
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=120 \
             root@${{ env.DEPLOY_HOST }} 'bash -seu' <<'REMOTE_SCRIPT'
             set -euo pipefail
             cd /opt/onsocial
