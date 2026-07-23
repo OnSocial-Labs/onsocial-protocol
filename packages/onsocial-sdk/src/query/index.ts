@@ -118,7 +118,10 @@ export type { PermissionEventRow } from './permissions.js';
 export { PERMISSION_OPERATIONS } from './permissions.js';
 export type { GovernanceEventRow } from './governance.js';
 export { GOVERNANCE_OPERATIONS } from './governance.js';
-export type { ScarcesEventRow } from './scarces.js';
+export type {
+  ScarcesActiveListingRow,
+  ScarcesEventRow,
+} from './scarces.js';
 export { SCARCES_OPERATIONS } from './scarces.js';
 export {
   SCARCES_EVENT_TYPES,

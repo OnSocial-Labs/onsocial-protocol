@@ -208,6 +208,9 @@ impl Contract {
         self.check_transferable(token, token_id, "list for sale")?;
 
         let token_app_id = token.app_id.clone();
+        let title = token.metadata.title.clone();
+        let media = token.metadata.media.clone();
+        let extra = token.metadata.extra.clone();
 
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
         if self.sales.contains_key(&sale_id) {
@@ -247,7 +250,17 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_native_scarce_listed(owner_id, token_id, price);
+        events::emit_native_scarce_listed(
+            owner_id,
+            token_id,
+            price,
+            expires_at,
+            events::ListingBrowseMeta {
+                title: title.as_deref(),
+                media: media.as_deref(),
+                extra: extra.as_deref(),
+            },
+        );
         Ok(())
     }
 

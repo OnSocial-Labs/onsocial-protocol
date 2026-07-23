@@ -69,6 +69,10 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let listing_id = format!("ll:{id}");
 
+        let title = metadata.title.clone();
+        let media = metadata.media.clone();
+        let extra = metadata.extra.clone();
+
         let listing = LazyListingRecord {
             creator_id: creator_id.clone(),
             metadata,
@@ -94,7 +98,19 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_lazy_listing_created(creator_id, &listing_id, price, copies, max_per_purchase);
+        events::emit_lazy_listing_created(
+            creator_id,
+            &listing_id,
+            price,
+            copies,
+            max_per_purchase,
+            expires_at,
+            events::ListingBrowseMeta {
+                title: title.as_deref(),
+                media: media.as_deref(),
+                extra: extra.as_deref(),
+            },
+        );
         Ok(listing_id)
     }
 

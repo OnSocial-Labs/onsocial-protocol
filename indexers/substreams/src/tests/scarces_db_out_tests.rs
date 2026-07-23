@@ -1,5 +1,6 @@
 use crate::pb::scarces::v1::*;
-use crate::scarces_db_out::write_scarces_event;
+use crate::scarces_db_out::{apply_active_listing, scarces_db_out_impl, write_scarces_event};
+use substreams_database_change::pb::database::table_change::Operation;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 
@@ -268,4 +269,226 @@ fn test_write_scarces_event_empty_defaults() {
         find_field(&changes, "scarces_events", "expires_at"),
         Some("0")
     );
+}
+
+fn find_table_op(changes: &DatabaseChanges, table: &str) -> Option<Operation> {
+    changes
+        .table_changes
+        .iter()
+        .find(|tc| tc.table == table)
+        .map(|tc| tc.operation())
+}
+
+fn find_field_for_pk<'a>(
+    changes: &'a DatabaseChanges,
+    table: &str,
+    pk_contains: &str,
+    field_name: &str,
+) -> Option<&'a str> {
+    changes
+        .table_changes
+        .iter()
+        .find(|tc| {
+            tc.table == table
+                && format!("{:?}", tc.primary_key).contains(pk_contains)
+        })
+        .and_then(|tc| tc.fields.iter().find(|f| f.name == field_name))
+        .map(|f| f.new_value.as_str())
+}
+
+#[test]
+fn active_listing_lazy_create_upserts_catalog() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-LAZY_LISTING_UPDATE-created".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "LAZY_LISTING_UPDATE".into(),
+        operation: "created".into(),
+        author: "creator.near".into(),
+        listing_id: "ll:1".into(),
+        creator_id: "creator.near".into(),
+        price: "1000000000000000000000000".into(),
+        extra_data: r#"{"listing_id":"ll:1","creator_id":"creator.near","price":"1000000000000000000000000","copies":3,"title":"Drop","media":"ipfs://x","extra":"{\"sourcePost\":{\"path\":\"a.near/post/1\"},\"theme\":{\"bg\":\"dusk\"}}"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_active_listings"), 1);
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:1", "kind"),
+        Some("lazy")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:1", "remaining"),
+        Some("3")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:1", "title"),
+        Some("Drop")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "lazy:ll:1",
+            "source_post_path"
+        ),
+        Some("a.near/post/1")
+    );
+}
+
+#[test]
+fn active_listing_purchase_sold_out_deletes() {
+    let output = ScarcesOutput {
+        block_height: 1,
+        block_timestamp: 1,
+        block_hash: String::new(),
+        events: vec![
+            ScarcesEvent {
+                id: "r-0-LAZY_LISTING_UPDATE-created".into(),
+                block_height: 10,
+                block_timestamp: 100,
+                receipt_id: "r0".into(),
+                event_type: "LAZY_LISTING_UPDATE".into(),
+                operation: "created".into(),
+                author: "creator.near".into(),
+                listing_id: "ll:9".into(),
+                creator_id: "creator.near".into(),
+                price: "1".into(),
+                extra_data: r#"{"listing_id":"ll:9","copies":1,"price":"1"}"#.into(),
+                ..Default::default()
+            },
+            ScarcesEvent {
+                id: "r-1-LAZY_LISTING_UPDATE-purchased".into(),
+                block_height: 11,
+                block_timestamp: 110,
+                receipt_id: "r1".into(),
+                event_type: "LAZY_LISTING_UPDATE".into(),
+                operation: "purchased".into(),
+                author: "buyer.near".into(),
+                listing_id: "ll:9".into(),
+                extra_data: r#"{"listing_id":"ll:9","remaining":0,"minted_count":1}"#.into(),
+                ..Default::default()
+            },
+        ],
+    };
+    let changes = scarces_db_out_impl(output);
+    // Create+delete same key in one block → delete cancels create (Unspecified/skipped)
+    // or emits Delete after Upsert. Either way no live upsert of remaining=0.
+    let active = changes
+        .table_changes
+        .iter()
+        .filter(|tc| tc.table == "scarces_active_listings")
+        .collect::<Vec<_>>();
+    assert!(
+        active.is_empty()
+            || active
+                .iter()
+                .all(|tc| matches!(tc.operation(), Operation::Delete))
+    );
+}
+
+#[test]
+fn active_listing_auction_bid_updates_high() {
+    let mut tables = Tables::new();
+    let created = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-auction_created".into(),
+        block_height: 1,
+        block_timestamp: 1,
+        receipt_id: "r0".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "auction_created".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:7".into(),
+        reserve_price: "100".into(),
+        extra_data: r#"{"token_id":"s:7","owner_id":"seller.near","reserve_price":"100","title":"Bid me"}"#.into(),
+        ..Default::default()
+    };
+    let bid = ScarcesEvent {
+        id: "r-1-SCARCE_UPDATE-auction_bid".into(),
+        block_height: 2,
+        block_timestamp: 2,
+        receipt_id: "r1".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "auction_bid".into(),
+        author: "bidder.near".into(),
+        token_id: "s:7".into(),
+        bid_amount: "150".into(),
+        bid_count: 1,
+        new_expires_at: 999,
+        extra_data: r#"{"token_id":"s:7","bid_amount":"150","bid_count":1}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &created);
+    apply_active_listing(&mut tables, &bid);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "native:s:7", "kind"),
+        Some("auction")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:s:7",
+            "highest_bid"
+        ),
+        Some("150")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "native:s:7", "price"),
+        Some("150")
+    );
+}
+
+#[test]
+fn active_listing_delist_deletes() {
+    let mut tables = Tables::new();
+    let listed = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-list_native".into(),
+        block_height: 1,
+        block_timestamp: 1,
+        receipt_id: "r0".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "list_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:3".into(),
+        price: "5".into(),
+        extra_data: r#"{"token_id":"s:3","price":"5"}"#.into(),
+        ..Default::default()
+    };
+    let delist = ScarcesEvent {
+        id: "r-1-SCARCE_UPDATE-delist_native".into(),
+        block_height: 2,
+        block_timestamp: 2,
+        receipt_id: "r1".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "delist_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:3".into(),
+        extra_data: r#"{"token_id":"s:3"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &listed);
+    apply_active_listing(&mut tables, &delist);
+    let changes = tables.to_database_changes();
+    let active = changes
+        .table_changes
+        .iter()
+        .filter(|tc| tc.table == "scarces_active_listings")
+        .collect::<Vec<_>>();
+    assert!(
+        active.is_empty()
+            || active
+                .iter()
+                .all(|tc| matches!(tc.operation(), Operation::Delete))
+    );
+    let _ = find_table_op(&changes, "scarces_active_listings");
 }

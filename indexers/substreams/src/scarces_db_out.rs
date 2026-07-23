@@ -1,6 +1,7 @@
-//! Database changes writer for scarces events.
+//! Database changes writer for scarces events + active listings catalog.
 
 use crate::pb::scarces::v1::*;
+use serde_json::Value;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 
@@ -14,6 +15,7 @@ pub(crate) fn scarces_db_out_impl(output: ScarcesOutput) -> DatabaseChanges {
 
     for event in &output.events {
         write_scarces_event(&mut tables, event);
+        apply_active_listing(&mut tables, event);
     }
 
     tables.to_database_changes()
@@ -127,4 +129,291 @@ pub(crate) fn write_scarces_event(tables: &mut Tables, e: &ScarcesEvent) {
 
     // Full JSON catch-all
     row.set("extra_data", &e.extra_data);
+}
+
+fn lazy_key(listing_id: &str) -> String {
+    format!("lazy:{listing_id}")
+}
+
+fn native_key(token_id: &str) -> String {
+    format!("native:{token_id}")
+}
+
+fn non_empty(s: &str) -> Option<&str> {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
+fn json_str(data: &Value, key: &str) -> Option<String> {
+    data.get(key).and_then(|v| match v {
+        Value::String(s) if !s.is_empty() => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    })
+}
+
+fn json_u32(data: &Value, key: &str) -> Option<u32> {
+    data.get(key).and_then(|v| match v {
+        Value::Number(n) => n.as_u64().map(|n| n as u32),
+        Value::String(s) => s.parse().ok(),
+        _ => None,
+    })
+}
+
+fn json_u64(data: &Value, key: &str) -> Option<u64> {
+    data.get(key).and_then(|v| match v {
+        Value::Number(n) => n.as_u64(),
+        Value::String(s) => s.parse().ok(),
+        _ => None,
+    })
+}
+
+fn parse_extra_blob(data: &Value) -> Option<Value> {
+    let raw = json_str(data, "extra")?;
+    serde_json::from_str(&raw).ok()
+}
+
+fn source_post_path(data: &Value) -> Option<String> {
+    let extra = parse_extra_blob(data)?;
+    if let Some(path) = json_str(&extra, "postPath").or_else(|| json_str(&extra, "sourcePostPath"))
+    {
+        return Some(path);
+    }
+    let nested = extra.get("sourcePost")?;
+    if let Some(path) = json_str(nested, "path") {
+        return Some(path);
+    }
+    let author = json_str(nested, "author")?;
+    let post_id = json_str(nested, "postId")?;
+    Some(format!("{author}/post/{post_id}"))
+}
+
+fn card_bg(data: &Value) -> Option<String> {
+    let extra = parse_extra_blob(data)?;
+    let theme = extra.get("theme")?;
+    json_str(theme, "bg")
+}
+
+fn set_updated(row: &mut substreams_database_change::tables::Row, e: &ScarcesEvent) {
+    row.set("updated_block_height", e.block_height);
+    row.set("updated_block_timestamp", e.block_timestamp);
+}
+
+fn set_browse_meta(row: &mut substreams_database_change::tables::Row, data: &Value) {
+    if let Some(title) = json_str(data, "title") {
+        row.set("title", title);
+    }
+    if let Some(media) = json_str(data, "media") {
+        row.set("media", media);
+    }
+    if let Some(path) = source_post_path(data) {
+        row.set("source_post_path", path);
+    }
+    if let Some(bg) = card_bg(data) {
+        row.set("card_bg", bg);
+    }
+    if let Some(extra) = json_str(data, "extra") {
+        row.set("extra_json", extra);
+    }
+}
+
+pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
+    let event_type = e.event_type.as_str();
+    let operation = e.operation.as_str();
+    let data: Value = serde_json::from_str(&e.extra_data).unwrap_or(Value::Null);
+
+    match (event_type, operation) {
+        ("LAZY_LISTING_UPDATE", "created") => {
+            let Some(listing_id) = non_empty(&e.listing_id) else {
+                return;
+            };
+            let seller = non_empty(&e.creator_id)
+                .or_else(|| non_empty(&e.author))
+                .unwrap_or("");
+            if seller.is_empty() {
+                return;
+            }
+            let copies = json_u32(&data, "copies").unwrap_or(1);
+            let key = lazy_key(listing_id);
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            row.set("kind", "lazy");
+            row.set("listing_id", listing_id);
+            row.set("seller_id", seller);
+            row.set("creator_id", seller);
+            if let Some(price) = non_empty(&e.price) {
+                row.set("price", price);
+            }
+            row.set("copies", copies);
+            row.set("remaining", copies);
+            row.set("minted_count", 0u32);
+            if e.expires_at > 0 {
+                row.set("expires_at", e.expires_at);
+            } else if let Some(exp) = json_u64(&data, "expires_at") {
+                row.set("expires_at", exp);
+            }
+            set_browse_meta(row, &data);
+            row.set("listed_block_height", e.block_height);
+            row.set("listed_block_timestamp", e.block_timestamp);
+            set_updated(row, e);
+        }
+        ("LAZY_LISTING_UPDATE", "price_updated") => {
+            let Some(listing_id) = non_empty(&e.listing_id) else {
+                return;
+            };
+            let key = lazy_key(listing_id);
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            if let Some(price) = non_empty(&e.new_price).or_else(|| non_empty(&e.price)) {
+                row.set("price", price);
+            }
+            set_updated(row, e);
+        }
+        ("LAZY_LISTING_UPDATE", "expiry_updated") => {
+            let Some(listing_id) = non_empty(&e.listing_id) else {
+                return;
+            };
+            let key = lazy_key(listing_id);
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            if e.new_expires_at > 0 {
+                row.set("expires_at", e.new_expires_at);
+            }
+            set_updated(row, e);
+        }
+        ("LAZY_LISTING_UPDATE", "purchased") => {
+            let Some(listing_id) = non_empty(&e.listing_id) else {
+                return;
+            };
+            let remaining = json_u32(&data, "remaining").unwrap_or(0);
+            let key = lazy_key(listing_id);
+            if remaining == 0 {
+                tables.delete_row("scarces_active_listings", &key);
+                return;
+            }
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            row.set("remaining", remaining);
+            if let Some(minted) = json_u32(&data, "minted_count") {
+                row.set("minted_count", minted);
+            }
+            set_updated(row, e);
+        }
+        ("LAZY_LISTING_UPDATE", "cancelled" | "expired") => {
+            if let Some(listing_id) = non_empty(&e.listing_id) {
+                tables.delete_row("scarces_active_listings", lazy_key(listing_id));
+            }
+        }
+        ("SCARCE_UPDATE", "list_native") => {
+            let Some(token_id) = non_empty(&e.token_id) else {
+                return;
+            };
+            let seller = non_empty(&e.owner_id)
+                .or_else(|| non_empty(&e.author))
+                .unwrap_or("");
+            if seller.is_empty() {
+                return;
+            }
+            let key = native_key(token_id);
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            row.set("kind", "native");
+            row.set("token_id", token_id);
+            row.set("seller_id", seller);
+            if let Some(price) = non_empty(&e.price) {
+                row.set("price", price);
+            }
+            if e.expires_at > 0 {
+                row.set("expires_at", e.expires_at);
+            } else if let Some(exp) = json_u64(&data, "expires_at") {
+                row.set("expires_at", exp);
+            }
+            set_browse_meta(row, &data);
+            row.set("listed_block_height", e.block_height);
+            row.set("listed_block_timestamp", e.block_timestamp);
+            set_updated(row, e);
+        }
+        ("SCARCE_UPDATE", "auction_created") => {
+            let Some(token_id) = non_empty(&e.token_id) else {
+                return;
+            };
+            let seller = non_empty(&e.owner_id)
+                .or_else(|| non_empty(&e.author))
+                .unwrap_or("");
+            if seller.is_empty() {
+                return;
+            }
+            let key = native_key(token_id);
+            let reserve = non_empty(&e.reserve_price).unwrap_or("");
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            row.set("kind", "auction");
+            row.set("token_id", token_id);
+            row.set("seller_id", seller);
+            if !reserve.is_empty() {
+                row.set("reserve_price", reserve);
+                row.set("price", reserve);
+            }
+            if let Some(buy_now) = non_empty(&e.buy_now_price) {
+                row.set("buy_now_price", buy_now);
+            }
+            row.set("highest_bid", "0");
+            row.set("bid_count", 0u32);
+            if e.expires_at > 0 {
+                row.set("expires_at", e.expires_at);
+            }
+            set_browse_meta(row, &data);
+            row.set("listed_block_height", e.block_height);
+            row.set("listed_block_timestamp", e.block_timestamp);
+            set_updated(row, e);
+        }
+        ("SCARCE_UPDATE", "auction_bid") => {
+            let Some(token_id) = non_empty(&e.token_id) else {
+                return;
+            };
+            let key = native_key(token_id);
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            if let Some(bid) = non_empty(&e.bid_amount) {
+                row.set("highest_bid", bid);
+                row.set("price", bid);
+            }
+            if e.bid_count > 0 {
+                row.set("bid_count", e.bid_count);
+            }
+            if e.new_expires_at > 0 {
+                row.set("expires_at", e.new_expires_at);
+            }
+            set_updated(row, e);
+        }
+        ("SCARCE_UPDATE", "update_price") => {
+            let Some(token_id) = non_empty(&e.token_id) else {
+                return;
+            };
+            let key = native_key(token_id);
+            let row = tables.upsert_row("scarces_active_listings", &key);
+            row.set("listing_key", &key);
+            if let Some(price) = non_empty(&e.new_price) {
+                row.set("price", price);
+            }
+            set_updated(row, e);
+        }
+        (
+            "SCARCE_UPDATE",
+            "delist_native"
+            | "auto_delist"
+            | "purchase"
+            | "auction_settled"
+            | "auction_cancelled",
+        ) => {
+            if let Some(token_id) = non_empty(&e.token_id) {
+                tables.delete_row("scarces_active_listings", native_key(token_id));
+            }
+        }
+        _ => {}
+    }
 }

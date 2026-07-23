@@ -1,7 +1,8 @@
+import type { ScarcesActiveListingRow } from '@onsocial/sdk';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { resolvePostThreadHrefFromSourcePath } from '@/lib/post-routes';
+import { resolvePostThreadHrefsFromSourcePaths } from '@/lib/post-routes';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 const SCARCES_CONTRACT =
@@ -339,20 +340,51 @@ function marketListingRowKey(item: MarketListingItem): string {
 
 export { marketListingRowKey };
 
-async function withResolvedPostHref(
-  item: MarketListingItem
-): Promise<MarketListingItem> {
-  if (item.postHref || !item.sourcePostPath) return item;
-  const postHref = await resolvePostThreadHrefFromSourcePath(
-    item.sourcePostPath
-  );
-  return postHref ? { ...item, postHref } : item;
+function isLiveLazyListing(item: MarketListingItem): boolean {
+  return item.remaining == null || item.remaining > 0;
 }
 
 async function withResolvedPostHrefs(
   items: MarketListingItem[]
 ): Promise<MarketListingItem[]> {
-  return Promise.all(items.map((item) => withResolvedPostHref(item)));
+  const hrefByPath = await resolvePostThreadHrefsFromSourcePaths(
+    items.map((item) => item.sourcePostPath)
+  );
+  return items.map((item) => {
+    if (item.postHref || !item.sourcePostPath) return item;
+    const postHref = hrefByPath.get(item.sourcePostPath);
+    return postHref ? { ...item, postHref } : item;
+  });
+}
+
+async function withResolvedSalePostHrefs(
+  items: MarketSaleItem[]
+): Promise<MarketSaleItem[]> {
+  const hrefByPath = await resolvePostThreadHrefsFromSourcePaths(
+    items.map((item) => item.sourcePostPath)
+  );
+  return items.map((item) => {
+    if (item.postHref || !item.sourcePostPath) return item;
+    const postHref = hrefByPath.get(item.sourcePostPath);
+    return postHref ? { ...item, postHref } : item;
+  });
+}
+
+async function fetchSaleByTokenId(
+  tokenId: string
+): Promise<ContractSaleRecord | null> {
+  try {
+    return await viewNearContract<ContractSaleRecord | null>(
+      SCARCES_CONTRACT,
+      'get_sale',
+      {
+        scarce_contract_id: SCARCES_CONTRACT,
+        token_id: tokenId,
+      }
+    );
+  } catch {
+    return null;
+  }
 }
 
 function nativeTokenIdFromSale(sale: ContractSaleRecord): string | null {
@@ -533,14 +565,60 @@ function listingFromNativeSale(
 }
 
 /**
- * Active secondary (native NFT) fixed-price + auction listings from contract state.
+ * Discover native/auction candidates via indexer list events, then verify with
+ * `get_sale` so delisted/sold rows never appear. Falls back to RPC sales dump.
  */
-export async function fetchNativeMarketListings(
-  opts: {
-    limit?: number;
-  } = {}
+async function fetchNativeMarketListingsFromIndexer(
+  limit: number
 ): Promise<MarketListingItem[]> {
-  const limit = opts.limit ?? 40;
+  const client = createReadOnlyOnSocialClient();
+  const created = await client.query.scarces.events({
+    eventType: 'SCARCE_UPDATE',
+    operation: ['list_native', 'auction_created'],
+    limit: Math.min(limit * 3, 120),
+  });
+
+  const tokenIds: string[] = [];
+  const seen = new Set<string>();
+  for (const row of created) {
+    const tokenId = row.tokenId?.trim();
+    if (!tokenId || seen.has(tokenId)) continue;
+    seen.add(tokenId);
+    tokenIds.push(tokenId);
+    if (tokenIds.length >= limit * 2) break;
+  }
+  if (tokenIds.length === 0) return [];
+
+  const sales = await Promise.all(
+    tokenIds.map((tokenId) => fetchSaleByTokenId(tokenId))
+  );
+  const live: ContractSaleRecord[] = [];
+  for (let i = 0; i < tokenIds.length; i += 1) {
+    const sale = sales[i];
+    if (!sale) continue;
+    if (!isFixedPriceNativeSale(sale) && !isNativeAuctionSale(sale)) continue;
+    live.push(sale);
+    if (live.length >= limit) break;
+  }
+
+  const tokens = await Promise.all(
+    live.map((sale) => {
+      const tokenId = nativeTokenIdFromSale(sale);
+      return tokenId ? fetchTokenRecord(tokenId) : Promise.resolve(null);
+    })
+  );
+
+  const items: MarketListingItem[] = [];
+  for (let i = 0; i < live.length; i += 1) {
+    const item = listingFromNativeSale(live[i]!, tokens[i] ?? null);
+    if (item) items.push(item);
+  }
+  return items;
+}
+
+async function fetchNativeMarketListingsFromRpc(
+  limit: number
+): Promise<MarketListingItem[]> {
   let sales: ContractSaleRecord[] = [];
   try {
     sales = await viewNearContract<ContractSaleRecord[]>(
@@ -580,6 +658,25 @@ export async function fetchNativeMarketListings(
     if (item) items.push(item);
   }
   return items;
+}
+
+/**
+ * Active secondary (native NFT) fixed-price + auction listings.
+ * Prefers indexer discovery + RPC hydrate; RPC dump if indexer is empty/down.
+ */
+export async function fetchNativeMarketListings(
+  opts: {
+    limit?: number;
+  } = {}
+): Promise<MarketListingItem[]> {
+  const limit = opts.limit ?? 40;
+  try {
+    const fromIndexer = await fetchNativeMarketListingsFromIndexer(limit);
+    if (fromIndexer.length > 0) return fromIndexer;
+  } catch {
+    // Indexer/OnAPI unavailable — fall through to contract enumeration.
+  }
+  return fetchNativeMarketListingsFromRpc(limit);
 }
 
 const OWNED_PAGE_SIZE = 50;
@@ -723,7 +820,7 @@ export async function fetchLiveListingsForCreator(
     }
     const loaded = await Promise.all(ids.map((id) => fetchLazyListingById(id)));
     const items = loaded.filter((item): item is MarketListingItem => {
-      if (!item) return false;
+      if (!item || !isLiveLazyListing(item)) return false;
       return accountIdsEqualSafe(item.creatorId, creatorId);
     });
     return withResolvedPostHrefs(items);
@@ -750,19 +847,95 @@ export async function findLiveListingForPost(
   return matches[0] ?? null;
 }
 
+function listingFromActiveRow(
+  row: ScarcesActiveListingRow
+): MarketListingItem | null {
+  const kind =
+    row.kind === 'lazy' || row.kind === 'native' || row.kind === 'auction'
+      ? row.kind
+      : null;
+  if (!kind) return null;
+  const sellerId = row.sellerId?.trim() || row.creatorId?.trim();
+  if (!sellerId) return null;
+
+  const displayYocto =
+    kind === 'auction'
+      ? row.highestBid &&
+        /^\d+$/.test(row.highestBid) &&
+        BigInt(row.highestBid) > 0n
+        ? row.highestBid
+        : (row.reservePrice ?? row.price)
+      : row.price;
+  const priceNear = priceNearFromYocto(displayYocto) ?? '—';
+  const title =
+    row.title?.trim() ||
+    (row.tokenId &&
+    row.tokenId.includes(':') &&
+    !row.tokenId.startsWith('s:')
+      ? row.tokenId
+      : 'Scarce');
+  const blockTimestamp = timestampMs(row.listedBlockTimestamp);
+  const copies =
+    row.copies != null && Number.isFinite(row.copies) && row.copies > 0
+      ? Math.floor(row.copies)
+      : undefined;
+  const remaining =
+    row.remaining != null && Number.isFinite(row.remaining)
+      ? Math.max(0, Math.floor(row.remaining))
+      : undefined;
+  if (kind === 'lazy' && remaining === 0) return null;
+
+  const highest =
+    row.highestBid && /^\d+$/.test(row.highestBid)
+      ? BigInt(row.highestBid)
+      : 0n;
+  const priceLabel =
+    kind === 'auction'
+      ? highest > 0n
+        ? ('High bid' as const)
+        : ('Reserve' as const)
+      : kind === 'native'
+        ? ('Ask' as const)
+        : undefined;
+
+  return {
+    kind,
+    ...(kind === 'lazy' && row.listingId?.trim()
+      ? { listingId: row.listingId.trim() }
+      : {}),
+    ...(row.tokenId?.trim() ? { tokenId: row.tokenId.trim() } : {}),
+    creatorId: sellerId,
+    title: resolveTokenDisplayTitle(title, row.tokenId?.trim() || ''),
+    priceNear,
+    ...(priceLabel ? { priceLabel } : {}),
+    blockTimestamp,
+    mediaUrl: resolveScarceMediaUrl(row.media),
+    ...(row.sourcePostPath?.trim()
+      ? { sourcePostPath: row.sourcePostPath.trim() }
+      : {}),
+    ...(row.cardBg?.trim() ? { cardBg: row.cardBg.trim() } : {}),
+    ...(copies != null ? { copies } : {}),
+    ...(remaining != null ? { remaining } : {}),
+    ...(kind === 'auction'
+      ? {
+          expiresAtNs:
+            row.expiresAt != null && row.expiresAt > 0 ? row.expiresAt : null,
+          bidCount: row.bidCount ?? 0,
+          buyNowNear: priceNearFromYocto(row.buyNowPrice),
+        }
+      : row.expiresAt != null && row.expiresAt > 0
+        ? { expiresAtNs: row.expiresAt }
+        : {}),
+  };
+}
+
 /**
- * Active listings from live contract state (primary lazy + secondary native).
- * Indexer `created` events discover lazy ids; each id is loaded with
- * `get_lazy_listing` so one corrupt row cannot empty the Market.
+ * Degraded browse: indexer event discovery + RPC hydrate (pre-catalog path).
  */
-export async function fetchMarketListings(
-  opts: {
-    limit?: number;
-  } = {}
+async function fetchMarketListingsViaRpc(
+  limit: number
 ): Promise<MarketListingItem[]> {
-  const limit = opts.limit ?? 40;
   const client = createReadOnlyOnSocialClient();
-  // Keep Market up if indexer/OnAPI is down — native sales still load via RPC.
   const [createdResult, nativeResult] = await Promise.allSettled([
     client.query.scarces.events({
       eventType: 'LAZY_LISTING_UPDATE',
@@ -792,17 +965,44 @@ export async function fetchMarketListings(
 
   const byKey = new Map<string, MarketListingItem>();
   for (const item of loaded) {
-    if (!item?.listingId) continue;
+    if (!item?.listingId || !isLiveLazyListing(item)) continue;
     byKey.set(marketListingRowKey(item), item);
   }
   for (const item of nativeListings) {
     byKey.set(marketListingRowKey(item), item);
   }
 
-  const sorted = [...byKey.values()]
+  return [...byKey.values()]
     .sort((a, b) => b.blockTimestamp - a.blockTimestamp)
     .slice(0, limit);
-  return withResolvedPostHrefs(sorted);
+}
+
+/**
+ * Active Market catalog — prefers sink `scarces_active_listings`, falls back
+ * to event discovery + RPC hydrate when the catalog is empty/unavailable.
+ * Buy/bid/verify still use contract views at action time.
+ */
+export async function fetchMarketListings(
+  opts: {
+    limit?: number;
+  } = {}
+): Promise<MarketListingItem[]> {
+  const limit = opts.limit ?? 40;
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const rows = await client.query.scarces.activeListings({ limit });
+    const items = rows
+      .map((row) => listingFromActiveRow(row))
+      .filter((item): item is MarketListingItem => item != null);
+    if (items.length > 0) {
+      return withResolvedPostHrefs(items.slice(0, limit));
+    }
+  } catch {
+    // Catalog missing / Hasura not tracked yet — degrade to RPC hydrate.
+  }
+
+  const fallback = await fetchMarketListingsViaRpc(limit);
+  return withResolvedPostHrefs(fallback);
 }
 
 export async function fetchMarketSales(
@@ -818,7 +1018,11 @@ export async function fetchMarketSales(
       operation: 'purchased',
       limit,
     }),
-    client.query.scarces.sales({ limit }),
+    client.query.scarces.events({
+      eventType: 'SCARCE_UPDATE',
+      operation: ['purchase', 'auction_settled'],
+      limit,
+    }),
   ]);
   const lazyPurchased =
     lazyResult.status === 'fulfilled' ? lazyResult.value : [];
@@ -873,13 +1077,5 @@ export async function fetchMarketSales(
     };
   });
 
-  return Promise.all(
-    enriched.map(async (item) => {
-      if (!item.sourcePostPath) return item;
-      const postHref = await resolvePostThreadHrefFromSourcePath(
-        item.sourcePostPath
-      );
-      return postHref ? { ...item, postHref } : item;
-    })
-  );
+  return withResolvedSalePostHrefs(enriched);
 }

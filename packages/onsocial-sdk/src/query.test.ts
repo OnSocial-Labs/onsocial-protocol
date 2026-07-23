@@ -2982,6 +2982,24 @@ describe('QueryModule', () => {
       });
     });
 
+    it('activeListings queries scarcesActiveListings newest-first', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesActiveListings: [] } });
+      await os.query.scarces.activeListings({ limit: 40, kind: 'auction' });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toContain('scarcesActiveListings');
+      expect(body.query).toMatch(
+        /orderBy: \[\{listedBlockTimestamp: DESC\}\]/
+      );
+      expect(body.variables).toEqual({
+        limit: 40,
+        offset: 0,
+        kind: 'auction',
+      });
+    });
+
     it('offersOn filters by tokenId + OFFER_UPDATE/offer_made', async () => {
       const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
       await os.query.scarces.offersOn('s:1');

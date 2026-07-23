@@ -61,3 +61,52 @@ export async function fetchIndexedPost(ref: {
   });
   return res.data?.postsCurrent?.[0] ?? null;
 }
+
+function postRefKey(author: string, postId: string): string {
+  return `${author}\0${postId}`;
+}
+
+/**
+ * Batch-load indexed posts for many (author, postId) pairs in one GraphQL round-trip.
+ * Map keys are `${author}\\0${postId}`.
+ */
+export async function fetchIndexedPostsByRefs(
+  refs: Array<{ author: string; postId: string }>
+): Promise<Map<string, PostRow>> {
+  const unique = new Map<string, { author: string; postId: string }>();
+  for (const ref of refs) {
+    const author = ref.author.trim();
+    const postId = ref.postId.trim();
+    if (!author || !postId) continue;
+    unique.set(postRefKey(author, postId), { author, postId });
+  }
+  if (unique.size === 0) return new Map();
+
+  const list = [...unique.values()];
+  const client = createReadOnlyOnSocialClient();
+  const res = await client.query.graphql<{ postsCurrent: PostRow[] }>({
+    query: `query IndexedPostsByRefs($or: [PostsCurrentBoolExp!]!, $limit: Int!) {
+      postsCurrent(
+        where: { _or: $or },
+        limit: $limit,
+        orderBy: [{blockHeight: DESC}]
+      ) {
+        ${POST_ROW_SELECTION}
+      }
+    }`,
+    variables: {
+      or: list.map((ref) => ({
+        accountId: { _eq: ref.author },
+        postId: { _eq: ref.postId },
+      })),
+      limit: list.length,
+    },
+  });
+
+  const out = new Map<string, PostRow>();
+  for (const row of res.data?.postsCurrent ?? []) {
+    const key = postRefKey(row.accountId, row.postId);
+    if (!out.has(key)) out.set(key, row);
+  }
+  return out;
+}

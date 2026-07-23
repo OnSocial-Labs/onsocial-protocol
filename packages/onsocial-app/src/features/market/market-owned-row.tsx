@@ -9,7 +9,6 @@ import type { OwnedScarceItem } from '@/features/market/market-listings';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
-  offerCount?: number;
   delistPending?: boolean;
   onSell: (item: OwnedScarceItem) => void;
   onDelist: (item: OwnedScarceItem) => void;
@@ -27,7 +26,6 @@ const CONFIRM_LEAVE_MS = 4_000;
 /** Owned scarce in Market “Yours” — the canonical owner-management surface. */
 export function MarketOwnedRow({
   item,
-  offerCount = 0,
   delistPending = false,
   onSell,
   onDelist,
@@ -35,7 +33,7 @@ export function MarketOwnedRow({
 }: MarketOwnedRowProps) {
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
-  const showOffers = Boolean(onOffers) && offerCount > 0;
+  const showOffers = Boolean(onOffers);
   const [confirmTokenId, setConfirmTokenId] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingDelist =
@@ -116,7 +114,7 @@ export function MarketOwnedRow({
             ready
             onClick={() => onOffers?.(item)}
           >
-            {offerCount === 1 ? '1 offer' : `${offerCount} offers`}
+            Offers
           </OsSheetAction>
         ) : null}
         {listed ? (

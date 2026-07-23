@@ -175,6 +175,7 @@ export type {
   BoostEventRow,
   BoosterStateRow,
   BoostCreditPurchaseRow,
+  ScarcesActiveListingRow,
   ScarcesEventRow,
 } from './query/index.js';
 export {

@@ -5,12 +5,21 @@ use super::LAZY_LISTING;
 use super::builder::EventBuilder;
 use super::nep171;
 
+/// Optional browse fields for materialised Market catalog (indexer).
+pub struct ListingBrowseMeta<'a> {
+    pub title: Option<&'a str>,
+    pub media: Option<&'a str>,
+    pub extra: Option<&'a str>,
+}
+
 pub fn emit_lazy_listing_created(
     creator_id: &AccountId,
     listing_id: &str,
     price: u128,
     copies: u64,
     max_per_purchase: u32,
+    expires_at: Option<u64>,
+    browse: ListingBrowseMeta<'_>,
 ) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)
         .field("creator_id", creator_id)
@@ -18,6 +27,10 @@ pub fn emit_lazy_listing_created(
         .field("price", price)
         .field("copies", copies)
         .field("max_per_purchase", max_per_purchase)
+        .field_opt("title", browse.title)
+        .field_opt("media", browse.media)
+        .field_opt("extra", browse.extra)
+        .field_opt("expires_at", expires_at)
         .emit();
 }
 

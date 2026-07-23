@@ -7,9 +7,9 @@
 // `eventType` / `operation` combinations — so consumers should branch on
 // those when reading the result rows.
 //
-// For *current* on-chain state (a token's owner right now, a collection's
-// remaining supply, an active listing's price), the canonical source is the
-// scarces contract itself; this namespace returns historical events.
+// Historical activity: `events()` / helpers → `scarces_events`.
+// Live Market catalog: `activeListings()` → `scarces_active_listings`
+// (sink-maintained). Buy/bid still verify against the scarces contract.
 // ---------------------------------------------------------------------------
 
 import type { QueryModule } from './index.js';
@@ -69,6 +69,63 @@ export interface ScarcesEventRow {
   /** Full JSON catch-all — useful for forward-compat with new operations. */
   extraData: string | null;
 }
+
+/** Live Market row from sink-maintained `scarces_active_listings`. */
+export interface ScarcesActiveListingRow {
+  listingKey: string;
+  kind: 'lazy' | 'native' | 'auction' | string;
+  listingId: string | null;
+  tokenId: string | null;
+  sellerId: string;
+  creatorId: string | null;
+  /** Ask / display price in yoctoNEAR. */
+  price: string | null;
+  reservePrice: string | null;
+  buyNowPrice: string | null;
+  highestBid: string | null;
+  bidCount: number | null;
+  copies: number | null;
+  remaining: number | null;
+  mintedCount: number | null;
+  /** Nanoseconds, when known. */
+  expiresAt: number | null;
+  title: string | null;
+  media: string | null;
+  sourcePostPath: string | null;
+  cardBg: string | null;
+  extraJson: string | null;
+  listedBlockHeight: number;
+  listedBlockTimestamp: number;
+  updatedBlockHeight: number;
+  updatedBlockTimestamp: number;
+}
+
+const SCARCES_ACTIVE_LISTING_FIELDS = `
+  listingKey
+  kind
+  listingId
+  tokenId
+  sellerId
+  creatorId
+  price
+  reservePrice
+  buyNowPrice
+  highestBid
+  bidCount
+  copies
+  remaining
+  mintedCount
+  expiresAt
+  title
+  media
+  sourcePostPath
+  cardBg
+  extraJson
+  listedBlockHeight
+  listedBlockTimestamp
+  updatedBlockHeight
+  updatedBlockTimestamp
+`;
 
 const SCARCES_EVENT_FIELDS = `
   eventType
@@ -416,6 +473,48 @@ export class ScarcesQuery {
       variables: { tokenId, ops: AUCTION_BID_OPS, limit: opts.limit ?? 200 },
     });
     return res.data?.scarcesEvents ?? [];
+  }
+
+  /**
+   * Live Market catalog (lazy + native + auction), newest listed first.
+   * Backed by sink-maintained `scarces_active_listings` — not an event log.
+   *
+   * ```ts
+   * const live = await os.query.scarces.activeListings({ limit: 40 });
+   * ```
+   */
+  async activeListings(
+    opts: {
+      limit?: number;
+      offset?: number;
+      kind?: 'lazy' | 'native' | 'auction' | string;
+    } = {}
+  ): Promise<ScarcesActiveListingRow[]> {
+    const limit = opts.limit ?? 40;
+    const offset = opts.offset ?? 0;
+    const variables: Record<string, unknown> = { limit, offset };
+    const kindFilter = opts.kind
+      ? `where: { kind: {_eq: $kind} },`
+      : '';
+    if (opts.kind) variables.kind = opts.kind;
+    const params = opts.kind
+      ? '$limit: Int!, $offset: Int!, $kind: String!'
+      : '$limit: Int!, $offset: Int!';
+
+    const res = await this._q.graphql<{
+      scarcesActiveListings: ScarcesActiveListingRow[];
+    }>({
+      query: `query ScarcesActiveListings(${params}) {
+        scarcesActiveListings(
+          ${kindFilter}
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{listedBlockTimestamp: DESC}]
+        ) { ${SCARCES_ACTIVE_LISTING_FIELDS} }
+      }`,
+      variables,
+    });
+    return res.data?.scarcesActiveListings ?? [];
   }
 
   /**

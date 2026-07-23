@@ -44,6 +44,9 @@ impl Contract {
         self.check_transferable(token, token_id, "auction")?;
 
         let token_app_id = token.app_id.clone();
+        let title = token.metadata.title.clone();
+        let media = token.metadata.media.clone();
+        let extra = token.metadata.extra.clone();
 
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
         if self.sales.contains_key(&sale_id) {
@@ -83,7 +86,17 @@ impl Contract {
             buy_now_price: buy_now_price.map(U128),
         };
 
-        events::emit_auction_created(owner_id, token_id, &auction, expires_at);
+        events::emit_auction_created(
+            owner_id,
+            token_id,
+            &auction,
+            expires_at,
+            events::ListingBrowseMeta {
+                title: title.as_deref(),
+                media: media.as_deref(),
+                extra: extra.as_deref(),
+            },
+        );
 
         let sale = Sale {
             owner_id: owner_id.clone(),

@@ -41,7 +41,6 @@ import {
   ScarceOfferSheet,
   type ScarceOfferListing,
 } from '@/features/scarces/scarce-offer-sheet';
-import { fetchOffersForToken } from '@/features/scarces/scarce-offers';
 import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
@@ -128,7 +127,6 @@ export function MarketPagePanel() {
   const [listingFilter, setListingFilter] = useState<ListingFilter>('all');
   const [listingSort, setListingSort] = useState<MarketListingSort>('newest');
   const [listingQuery, setListingQuery] = useState('');
-  const [offerCounts, setOfferCounts] = useState<Record<string, number>>({});
   const [salesExpanded, setSalesExpanded] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -217,29 +215,6 @@ export function MarketPagePanel() {
       window.clearInterval(id);
     };
   }, [hasLiveAuctionClocks, status]);
-
-  const ownedTokenIds = owned.map((item) => item.tokenId).join('\0');
-
-  useEffect(() => {
-    if (!viewerAccountId || !ownedTokenIds) {
-      setOfferCounts({});
-      return;
-    }
-    const tokenIds = ownedTokenIds.split('\0');
-    let cancelled = false;
-    void Promise.all(
-      tokenIds.map(async (tokenId) => {
-        const offers = await fetchOffersForToken(tokenId);
-        return [tokenId, offers.length] as const;
-      })
-    ).then((entries) => {
-      if (cancelled) return;
-      setOfferCounts(Object.fromEntries(entries));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [viewerAccountId, ownedTokenIds, retryKey]);
 
   const handleBuy = useCallback(
     (item: MarketListingItem) => {
@@ -610,7 +585,6 @@ export function MarketPagePanel() {
                 <MarketOwnedRow
                   key={item.tokenId}
                   item={item}
-                  offerCount={offerCounts[item.tokenId] ?? 0}
                   delistPending={delistTokenId === item.tokenId}
                   onSell={setSellItem}
                   onOffers={setOffersItem}
@@ -769,12 +743,6 @@ export function MarketPagePanel() {
         }}
         onAccepted={() => {
           setOffersItem(null);
-          setOfferCounts((current) => {
-            if (!offersItem?.tokenId) return current;
-            const next = { ...current };
-            delete next[offersItem.tokenId];
-            return next;
-          });
           setRetryKey((value) => value + 1);
         }}
       />

@@ -149,11 +149,21 @@ pub fn emit_scarce_transfer(
         .emit();
 }
 
-pub fn emit_native_scarce_listed(owner_id: &AccountId, token_id: &str, price: U128) {
+pub fn emit_native_scarce_listed(
+    owner_id: &AccountId,
+    token_id: &str,
+    price: U128,
+    expires_at: Option<u64>,
+    browse: super::ListingBrowseMeta<'_>,
+) {
     EventBuilder::new(SCARCE, "list_native", owner_id)
         .field("owner_id", owner_id)
         .field("token_id", token_id)
         .field("price", price)
+        .field_opt("title", browse.title)
+        .field_opt("media", browse.media)
+        .field_opt("extra", browse.extra)
+        .field_opt("expires_at", expires_at)
         .emit();
 }
 
@@ -271,6 +281,7 @@ pub fn emit_auction_created(
     token_id: &str,
     auction: &crate::sale::AuctionState,
     expires_at: Option<u64>,
+    browse: super::ListingBrowseMeta<'_>,
 ) {
     EventBuilder::new(SCARCE, "auction_created", owner_id)
         .field("owner_id", owner_id)
@@ -281,6 +292,9 @@ pub fn emit_auction_created(
         .field_opt("auction_duration_ns", auction.auction_duration_ns)
         .field("min_bid_increment", auction.min_bid_increment)
         .field("anti_snipe_extension_ns", auction.anti_snipe_extension_ns)
+        .field_opt("title", browse.title)
+        .field_opt("media", browse.media)
+        .field_opt("extra", browse.extra)
         .emit();
 }
 
