@@ -8,7 +8,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   PenFillIcon,
   OnSocialMark,
@@ -43,7 +43,9 @@ import { OsDockPill } from '@/components/wallet/os-dock-pill';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   appShellOsApps,
+  isOsAppActive,
   ownerPortfolioOsApps,
+  resolveActiveOsAppId,
   visitorPortfolioOsApps,
   type OsAppLink,
 } from '@/lib/os-apps';
@@ -71,14 +73,19 @@ function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
 function LauncherAppTile({
   app,
   openingPage,
+  active,
   onActivate,
 }: {
   app: OsAppLink;
   openingPage: boolean;
+  active: boolean;
   onActivate: () => void;
 }) {
   const label = launcherAppLabel(app, openingPage);
   const accent = osAppAccent(app.id);
+  const tileClassName = `${osLauncherItemClassName}${
+    active ? ' is-current' : ''
+  }${app.soon ? ' is-soon' : ''}`;
   const tileBody = (
     <>
       <span
@@ -97,11 +104,12 @@ function LauncherAppTile({
   if (app.kind === 'external' && app.href) {
     return (
       <a
-        className={osLauncherItemClassName}
+        className={tileClassName}
         href={app.href}
         target="_blank"
         rel="noreferrer"
         aria-label={label}
+        aria-current={active ? 'page' : undefined}
         onClick={onActivate}
       >
         {tileBody}
@@ -112,9 +120,10 @@ function LauncherAppTile({
   return (
     <button
       type="button"
-      className={`${osLauncherItemClassName}${app.soon ? ' is-soon' : ''}`}
+      className={tileClassName}
       disabled={app.soon || (app.kind === 'open-page' && openingPage)}
       aria-label={label}
+      aria-current={active ? 'page' : undefined}
       onClick={onActivate}
     >
       {tileBody}
@@ -140,8 +149,10 @@ export function SummonLauncher({
   hideTrigger = false,
 }: SummonLauncherProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { accountId } = useAppWallet();
   const { navigate, openingPage } = useOsAppNavigate(pageAccountId);
+  const activeAppId = resolveActiveOsAppId(pathname, accountId);
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp ?? openInternal;
 
@@ -356,6 +367,7 @@ export function SummonLauncher({
                   <LauncherAppTile
                     app={app}
                     openingPage={openingPage}
+                    active={isOsAppActive(app.id, activeAppId)}
                     onActivate={() => {
                       if (app.kind === 'external') {
                         closeLauncher();
@@ -375,6 +387,7 @@ export function SummonLauncher({
                       kind: 'app',
                     }}
                     openingPage={false}
+                    active={isOsAppActive('my-page', activeAppId)}
                     onActivate={() => {
                       closeLauncher();
                       router.push(portfolioPath(accountId));

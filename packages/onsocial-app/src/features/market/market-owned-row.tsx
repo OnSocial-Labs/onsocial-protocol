@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -21,6 +22,8 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
+const CONFIRM_LEAVE_MS = 4_000;
+
 /** Owned scarce in Market “Yours” — the canonical owner-management surface. */
 export function MarketOwnedRow({
   item,
@@ -33,6 +36,40 @@ export function MarketOwnedRow({
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
   const showOffers = Boolean(onOffers) && offerCount > 0;
+  const [confirmTokenId, setConfirmTokenId] = useState<string | null>(null);
+  const confirmTimerRef = useRef<number | null>(null);
+  const confirmingDelist =
+    confirmTokenId === item.tokenId && listed && !delistPending;
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current !== null) {
+        window.clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
+
+  const clearConfirm = () => {
+    if (confirmTimerRef.current !== null) {
+      window.clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+    setConfirmTokenId(null);
+  };
+
+  const handleDelistClick = () => {
+    if (delistPending) return;
+    if (!confirmingDelist) {
+      setConfirmTokenId(item.tokenId);
+      confirmTimerRef.current = window.setTimeout(() => {
+        confirmTimerRef.current = null;
+        setConfirmTokenId(null);
+      }, CONFIRM_LEAVE_MS);
+      return;
+    }
+    clearConfirm();
+    onDelist(item);
+  };
 
   return (
     <div className="market-listing-row" role="listitem">
@@ -85,13 +122,35 @@ export function MarketOwnedRow({
         {listed ? (
           <OsSheetAction
             type="button"
-            variant={showOffers ? 'ghost' : 'primary'}
-            ready={!delistPending}
+            variant={
+              confirmingDelist ? 'danger' : showOffers ? 'ghost' : 'primary'
+            }
+            ready={!confirmingDelist && !delistPending}
             pending={delistPending}
             pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
-            onClick={() => onDelist(item)}
+            aria-label={
+              delistPending
+                ? auction
+                  ? 'Canceling auction'
+                  : 'Delisting'
+                : confirmingDelist
+                  ? auction
+                    ? 'Confirm cancel auction'
+                    : 'Confirm delist'
+                  : auction
+                    ? 'Cancel auction'
+                    : 'Delist'
+            }
+            onClick={handleDelistClick}
+            onBlur={confirmingDelist ? clearConfirm : undefined}
           >
-            {auction ? 'Cancel auction' : 'Delist'}
+            {confirmingDelist
+              ? auction
+                ? 'Cancel?'
+                : 'Delist?'
+              : auction
+                ? 'Cancel auction'
+                : 'Delist'}
           </OsSheetAction>
         ) : (
           <OsSheetAction

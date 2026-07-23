@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PlusIcon, SearchField, osIconActionClassName } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsAppScreenMark } from '@/components/app/os-app-screen-mark';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
@@ -16,7 +17,6 @@ import {
   type GuildSummaryCardModel,
 } from '@/features/guilds/guild-summary-card';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { APP_HOME_PATH } from '@/lib/app-routes';
 
 function mergeGuildCards(
   primary: GuildSummaryCardModel[],
@@ -179,7 +179,7 @@ export function LiveGuildsIndexPanel() {
     <OsAppScreen
       title="Guilds"
       subtitle="Your guilds and open communities on-chain."
-      backFallbackHref={APP_HOME_PATH}
+      leading={<OsAppScreenMark appId="groups" label="Guilds" />}
       actions={createAction}
       toolbar={toolbar}
     >

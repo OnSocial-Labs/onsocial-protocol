@@ -129,7 +129,7 @@ export const txToastSuccess = {
   scarceSoldListed: 'Listed for sale.',
   scarcePurchased: 'Scarce collected.',
   scarceBidPlaced: 'Bid placed.',
-  scarceBoughtNow: 'Bought now.',
+  scarceBoughtNow: 'You won — scarce is yours.',
   scarceAuctionSettled: 'Auction settled.',
   scarceOfferMade: 'Offer made.',
   scarceOfferAccepted: 'Offer accepted.',

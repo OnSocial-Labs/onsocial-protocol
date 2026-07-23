@@ -479,7 +479,7 @@ export function AppStorageSheet({
                           <button
                             key={preset}
                             type="button"
-                            className={`app-storage-preset${normalizedAmount === preset ? ' is-selected' : ''}`}
+                            className={`os-surface-chip${normalizedAmount === preset ? ' is-selected' : ''}`}
                             onClick={() => applyAmountInput(preset)}
                           >
                             {preset}
@@ -489,7 +489,7 @@ export function AppStorageSheet({
                     ) : canWithdraw ? (
                       <button
                         type="button"
-                        className="app-storage-preset app-storage-preset--action"
+                        className="os-surface-chip app-storage-preset--action"
                         onClick={() =>
                           applyAmountInput(
                             yoctoToNear(withdrawableYocto.toString())

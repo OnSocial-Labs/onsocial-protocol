@@ -1,3 +1,4 @@
+import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DISCOVER_PATH,
   APP_GROUPS_PATH,
@@ -16,6 +17,68 @@ export interface OsAppLink {
   href?: string;
   overlay?: OverlayPanel;
   soon?: boolean;
+}
+
+/**
+ * Which launcher app is "here" for the current route.
+ * External portals (Boost / Protocol) are never active in-app.
+ */
+export function resolveActiveOsAppId(
+  pathname: string,
+  viewerAccountId?: string | null
+): string | null {
+  const path = pathname.split(/[?#]/)[0] ?? pathname;
+
+  if (path === APP_HOME_PATH || path.startsWith(`${APP_HOME_PATH}/`)) {
+    return 'home';
+  }
+  if (path === APP_DISCOVER_PATH || path.startsWith(`${APP_DISCOVER_PATH}/`)) {
+    return 'discover';
+  }
+  if (path === APP_MARKET_PATH || path.startsWith(`${APP_MARKET_PATH}/`)) {
+    return 'market';
+  }
+  if (path === APP_GROUPS_PATH || path.startsWith(`${APP_GROUPS_PATH}/`)) {
+    return 'groups';
+  }
+
+  const portfolio = path.match(/^\/@([^/]+)(?:\/([^/]+))?/);
+  if (!portfolio?.[1]) return null;
+
+  const accountId = decodeURIComponent(portfolio[1]);
+  const panel = portfolio[2] ?? null;
+
+  if (panel === 'discover') return 'discover';
+  if (panel === 'feed') return 'home';
+
+  if (
+    viewerAccountId &&
+    accountIdsEqual(accountId, viewerAccountId) &&
+    (!panel ||
+      panel === 'standing' ||
+      panel === 'endorsements' ||
+      panel === 'reputation')
+  ) {
+    return 'page';
+  }
+
+  return null;
+}
+
+/** Match tile id to {@link resolveActiveOsAppId} (aliases: feed↔home, my-page↔page). */
+export function isOsAppActive(
+  appId: string,
+  activeId: string | null
+): boolean {
+  if (!activeId) return false;
+  if (appId === activeId) return true;
+  if (activeId === 'home' && (appId === 'home' || appId === 'feed')) {
+    return true;
+  }
+  if (activeId === 'page' && (appId === 'page' || appId === 'my-page')) {
+    return true;
+  }
+  return false;
 }
 
 const OS_EXTERNAL_LINKS: OsAppLink[] = [
@@ -99,6 +162,18 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       label: 'Discover',
       kind: 'overlay',
       overlay: 'discover',
+    },
+    {
+      id: 'market',
+      label: 'Market',
+      kind: 'app',
+      href: APP_MARKET_PATH,
+    },
+    {
+      id: 'groups',
+      label: 'Guilds',
+      kind: 'app',
+      href: APP_GROUPS_PATH,
     },
     ...OS_EXTERNAL_LINKS,
   ];

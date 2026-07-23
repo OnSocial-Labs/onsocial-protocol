@@ -1,11 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed, ScarcesEventRow } from '@onsocial/sdk';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -14,16 +10,22 @@ import {
   currentBidNear,
   fetchScarceAuctionView,
   formatAuctionCountdown,
+  minBidIncrementNear,
   minNextBidNear,
   minNextBidYocto,
   type ScarceAuctionView,
 } from '@/features/scarces/scarce-auction';
+import {
+  useSyncCommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
 import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
@@ -46,6 +48,7 @@ export interface ScarceBidSuccessDetail {
 }
 
 interface ScarceBidFormProps {
+  formId: string;
   post?: PostRow | null;
   embed?: PostScarceEmbed | null;
   listing?: {
@@ -57,6 +60,7 @@ interface ScarceBidFormProps {
   } | null;
   authorName?: string | null;
   onSuccess?: (detail: ScarceBidSuccessDetail) => void;
+  onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
 
 function titleFromPost(post: PostRow | null | undefined): string | null {
@@ -77,12 +81,40 @@ function formatNearLabel(near: string | null | undefined): string {
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} NEAR`;
 }
 
+/** Compact amount for meta chips (no repeated “NEAR” on every segment). */
+function formatNearShort(near: string | null | undefined): string {
+  if (!near?.trim()) return '—';
+  const n = Number.parseFloat(near);
+  if (!Number.isFinite(n)) return near.trim();
+  return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
+}
+
+function bidRowAmountNear(row: ScarcesEventRow): string | null {
+  let raw = row.bidAmount ?? row.amount ?? row.price;
+  if (!raw?.trim() && row.extraData?.trim()) {
+    try {
+      const extra = JSON.parse(row.extraData) as Record<string, unknown>;
+      const fromExtra = extra.bid_amount ?? extra.bidAmount ?? extra.amount;
+      if (typeof fromExtra === 'string' || typeof fromExtra === 'number') {
+        raw = String(fromExtra);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!raw?.trim()) return null;
+  if (/^\d+$/.test(raw.trim())) return yoctoToNear(raw.trim());
+  return raw.trim();
+}
+
 export function ScarceBidForm({
+  formId,
   post = null,
   embed = null,
   listing = null,
   authorName = null,
   onSuccess,
+  onFooterStateChange,
 }: ScarceBidFormProps) {
   const {
     accountId: viewerAccountId,
@@ -90,6 +122,7 @@ export function ScarceBidForm({
     getSigningWallet,
   } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const onAmountFocus = useMobileFieldFocusScroll<HTMLInputElement>();
   const [pending, setPending] = useState<'bid' | 'buyNow' | 'settle' | null>(
     null
   );
@@ -98,7 +131,8 @@ export function ScarceBidForm({
   const [auction, setAuction] = useState<ScarceAuctionView | null>(null);
   const [auctionLoading, setAuctionLoading] = useState(true);
   const [countdown, setCountdown] = useState<string | null>(null);
-  const [bidHistory, setBidHistory] = useState<ScarcesEventRow[]>([]);
+  /** Indexer bids for this token (all auctions), oldest → newest. */
+  const [tokenBidRows, setTokenBidRows] = useState<ScarcesEventRow[]>([]);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
   const sellerId = listing?.sellerId ?? auction?.sellerId ?? post?.accountId;
@@ -115,6 +149,14 @@ export function ScarceBidForm({
   const ended =
     Boolean(auction?.isEnded) || countdown === 'Ended';
   const buyNow = auction && !ended ? buyNowNear(auction) : null;
+
+  // Only this listing’s bids — last `bid_count` events match on-chain state.
+  const bidHistory = useMemo(() => {
+    const count = auction?.bidCount ?? 0;
+    if (count <= 0 || tokenBidRows.length === 0) return [];
+    const current = tokenBidRows.slice(-count);
+    return [...current].reverse();
+  }, [auction?.bidCount, tokenBidRows]);
 
   async function reloadAuction() {
     const view = await fetchScarceAuctionView(tokenId);
@@ -140,19 +182,19 @@ export function ScarceBidForm({
 
   useEffect(() => {
     if (!tokenId) {
-      setBidHistory([]);
+      setTokenBidRows([]);
       return;
     }
     let cancelled = false;
     const client = createReadOnlyOnSocialClient();
     void client.query.scarces
-      .bids(tokenId, { limit: 12 })
+      .bids(tokenId, { limit: 80 })
       .then((rows) => {
         if (cancelled) return;
-        setBidHistory([...rows].reverse().slice(0, 8));
+        setTokenBidRows(rows);
       })
       .catch(() => {
-        if (!cancelled) setBidHistory([]);
+        if (!cancelled) setTokenBidRows([]);
       });
     return () => {
       cancelled = true;
@@ -179,10 +221,40 @@ export function ScarceBidForm({
 
   const minNear = auction && !ended ? minNextBidNear(auction) : null;
   const highNear = auction ? currentBidNear(auction) : null;
+  const stepNear = auction ? minBidIncrementNear(auction) : null;
   const normalizedAmount = finalizeAmountInput(
     amountInput,
     NEAR_INPUT_DECIMALS
   );
+  const buyNowYocto = (() => {
+    if (!auction?.buyNowPriceYocto) return 0n;
+    try {
+      return BigInt(auction.buyNowPriceYocto);
+    } catch {
+      return 0n;
+    }
+  })();
+  const bidMeetsBuyNow = (() => {
+    if (buyNowYocto <= 0n || !normalizedAmount) return false;
+    try {
+      return BigInt(nearToYocto(normalizedAmount)) >= buyNowYocto;
+    } catch {
+      return false;
+    }
+  })();
+  const bidMeetsMin = (() => {
+    if (!auction || !normalizedAmount) return false;
+    try {
+      return BigInt(nearToYocto(normalizedAmount)) >= minNextBidYocto(auction);
+    } catch {
+      return false;
+    }
+  })();
+    // Next-bid floor already at/above Buy now → primary is Buy now.
+    const minMeetsBuyNow =
+    buyNowYocto > 0n &&
+    Boolean(auction) &&
+    minNextBidYocto(auction!) >= buyNowYocto;
   const canBid =
     isConnected &&
     !pending &&
@@ -191,7 +263,7 @@ export function ScarceBidForm({
     Boolean(auction) &&
     !ended &&
     !isOwnAuction &&
-    Boolean(normalizedAmount);
+    bidMeetsMin;
 
   function applyAmountInput(raw: string) {
     setAmountInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
@@ -210,12 +282,20 @@ export function ScarceBidForm({
       setFieldError('Enter a valid NEAR amount.');
       return;
     }
+    // Under-min is blocked in the CTA (disabled + label shows the floor).
     if (kind === 'bid' && BigInt(depositYocto) < minNextBidYocto(auction)) {
-      setFieldError(`Bid at least ${formatNearLabel(minNear)}.`);
       return;
     }
 
-    setPending(kind);
+    // Contract auto-settles when bid >= buy_now — mirror that in UX/toasts.
+    const buyNowYocto = auction.buyNowPriceYocto
+      ? BigInt(auction.buyNowPriceYocto)
+      : 0n;
+    const settlesImmediately =
+      kind === 'buyNow' ||
+      (buyNowYocto > 0n && BigInt(depositYocto) >= buyNowYocto);
+
+    setPending(settlesImmediately ? 'buyNow' : kind);
     try {
       const { accountId, wallet } = await getSigningWallet();
       const client = createAppScarcesWalletClient(accountId, wallet);
@@ -226,31 +306,32 @@ export function ScarceBidForm({
       );
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
-        submittedMessage:
-          kind === 'buyNow'
-            ? txToastConfirming.buyingScarceNow
-            : txToastConfirming.biddingScarce,
-        successMessage:
-          kind === 'buyNow'
-            ? txToastSuccess.scarceBoughtNow
-            : txToastSuccess.scarceBidPlaced,
-        failureMessage:
-          kind === 'buyNow'
-            ? txToastError.buyScarceNowFailed
-            : txToastError.bidScarceFailed,
+        submittedMessage: settlesImmediately
+          ? txToastConfirming.buyingScarceNow
+          : txToastConfirming.biddingScarce,
+        successMessage: settlesImmediately
+          ? txToastSuccess.scarceBoughtNow
+          : txToastSuccess.scarceBidPlaced,
+        failureMessage: settlesImmediately
+          ? txToastError.buyScarceNowFailed
+          : txToastError.bidScarceFailed,
       });
       if (!confirmed) return;
 
       if (post) {
         setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
-          status: kind === 'buyNow' ? 'sold' : 'auction',
+          status: settlesImmediately ? 'sold' : 'auction',
           tokenId,
           priceNear: amountNear,
           events: [],
         });
       }
 
-      onSuccess?.({ tokenId, amountNear, settled: kind === 'buyNow' });
+      onSuccess?.({
+        tokenId,
+        amountNear,
+        settled: settlesImmediately,
+      });
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -258,7 +339,7 @@ export function ScarceBidForm({
         msg:
           cause instanceof Error
             ? cause.message
-            : kind === 'buyNow'
+            : settlesImmediately
               ? txToastError.buyScarceNowFailed
               : txToastError.bidScarceFailed,
       });
@@ -282,7 +363,11 @@ export function ScarceBidForm({
       setFieldError('Enter a bid amount.');
       return;
     }
-    await placeBidAmount(amountNear, 'bid');
+    // Bidding at/above Buy now settles immediately on-chain — use that path.
+    await placeBidAmount(
+      amountNear,
+      bidMeetsBuyNow || minMeetsBuyNow ? 'buyNow' : 'bid'
+    );
   }
 
   async function handleBuyNow() {
@@ -338,8 +423,74 @@ export function ScarceBidForm({
     }
   }
 
+  const footerState = useMemo((): CommerceSheetFooterState | null => {
+    const visible = ended || (!isOwnAuction && Boolean(auction));
+    if (!visible) return null;
+
+    if (ended) {
+      return {
+        visible: true,
+        primaryType: 'button',
+        primaryLabel: isConnected ? 'Settle auction' : 'Connect wallet',
+        primaryPendingLabel: 'Settling…',
+        canSubmit: isConnected ? !pending : true,
+        pending: pending === 'settle',
+        disabled: Boolean(pending) || (isConnected && !tokenId),
+        onPrimaryClick: () => {
+          void handleSettle();
+        },
+      };
+    }
+
+    const buyNowPath = bidMeetsBuyNow || minMeetsBuyNow;
+    const bidAmountLabel = bidMeetsMin
+      ? formatNearLabel(normalizedAmount)
+      : formatNearLabel(minNear);
+    return {
+      visible: true,
+      primaryLabel: isConnected
+        ? buyNowPath
+          ? `Buy now · ${formatNearLabel(buyNow ?? normalizedAmount ?? minNear)}`
+          : `Bid · ${bidAmountLabel}`
+        : 'Connect wallet',
+      primaryPendingLabel: buyNowPath ? 'Buying…' : 'Bidding…',
+      canSubmit: isConnected ? canBid : true,
+      pending: pending === 'bid' || pending === 'buyNow',
+      disabled: Boolean(pending) || (isConnected && !canBid),
+      secondary:
+        buyNow && isConnected && !buyNowPath
+          ? {
+              label: `Buy now · ${formatNearLabel(buyNow)}`,
+              pending: pending === 'buyNow',
+              pendingLabel: 'Buying…',
+              disabled: Boolean(pending),
+              onClick: () => {
+                void handleBuyNow();
+              },
+            }
+          : null,
+    };
+  }, [
+    auction,
+    bidMeetsBuyNow,
+    bidMeetsMin,
+    buyNow,
+    canBid,
+    ended,
+    isConnected,
+    isOwnAuction,
+    minMeetsBuyNow,
+    minNear,
+    normalizedAmount,
+    pending,
+    tokenId,
+  ]);
+
+  useSyncCommerceSheetFooter(footerState, onFooterStateChange);
+
   return (
     <form
+      id={formId}
       className="profile-support-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -375,62 +526,89 @@ export function ScarceBidForm({
                   ? `Reserve · ${formatNearLabel(minNear)}`
                   : 'Auction'}
         </p>
-        {countdown && !ended ? (
-          <p className="profile-support-hint">Ends in {countdown}</p>
-        ) : auction && !ended && auction.expiresAtNs == null ? (
-          <p className="profile-support-hint">Starts on the first bid.</p>
+        {!ended && !auctionLoading ? (
+          <p className="profile-support-hint scarce-buy-meta">
+            {[
+              countdown
+                ? countdown === 'Ended'
+                  ? 'Ended'
+                  : `Ends ${countdown}`
+                : auction?.expiresAtNs == null
+                  ? 'Starts on first bid'
+                  : null,
+              stepNear ? `Step ${formatNearShort(stepNear)}` : null,
+              buyNow && !bidMeetsBuyNow && !minMeetsBuyNow
+                ? `Buy now ${formatNearShort(buyNow)}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            {stepNear || (buyNow && !bidMeetsBuyNow && !minMeetsBuyNow)
+              ? ' NEAR'
+              : ''}
+          </p>
         ) : null}
       </div>
 
       {bidHistory.length > 0 ? (
-        <div className="scarce-bid-history" aria-label="Recent bids">
-          <p className="scarce-mood-picker-label">Recent bids</p>
+        <div className="scarce-bid-history" aria-label="Bids this auction">
+          <p className="scarce-mood-picker-label">This auction</p>
           <ul className="scarce-bid-history-list">
             {bidHistory.map((row, index) => {
-              const amount =
-                row.amount && /^\d+$/.test(row.amount)
-                  ? formatNearLabel(yoctoToNear(row.amount))
-                  : '—';
-              const bidder = row.buyerId || row.author;
+              const amountNear = bidRowAmountNear(row);
+              const amount = amountNear
+                ? formatNearLabel(amountNear)
+                : '—';
+              const bidder = row.bidder || row.buyerId || row.author;
               return (
                 <li
                   key={`${row.blockTimestamp}:${bidder}:${index}`}
                   className="scarce-bid-history-row"
                 >
-                  <span>@{fallbackLabel(bidder)}</span>
-                  <span>{amount}</span>
+                  <span className="scarce-bid-history-bidder">
+                    @{fallbackLabel(bidder)}
+                  </span>
+                  <span className="scarce-bid-history-amount">{amount}</span>
                 </li>
               );
             })}
           </ul>
         </div>
       ) : !auctionLoading && !ended ? (
-        <p className="profile-support-hint">No bids yet.</p>
+        <p className="profile-support-hint">No bids yet this auction.</p>
       ) : null}
 
       {!isOwnAuction && auction && !ended ? (
-        <div className="app-storage-amount-field profile-support-amount-field">
-          <input
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            value={amountInput}
-            onChange={(event) => applyAmountInput(event.target.value)}
-            onBlur={() =>
-              applyAmountInput(
-                finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-              )
-            }
-            placeholder={minNear ?? '0'}
-            aria-label="Bid in NEAR"
-            aria-invalid={Boolean(fieldError)}
-            className="app-storage-amount-input"
-            disabled={Boolean(pending) || auctionLoading}
-          />
-          <span className="account-card-balance-unit profile-support-token-unit">
-            NEAR
-          </span>
-        </div>
+        <>
+          <div className="app-storage-amount-field profile-support-amount-field">
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={amountInput}
+              onChange={(event) => applyAmountInput(event.target.value)}
+              onFocus={onAmountFocus}
+              onBlur={() =>
+                applyAmountInput(
+                  finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
+                )
+              }
+              placeholder={minNear ?? '0'}
+              aria-label="Bid in NEAR"
+              aria-invalid={Boolean(fieldError)}
+              className="app-storage-amount-input"
+              disabled={Boolean(pending) || auctionLoading}
+            />
+            <span className="account-card-balance-unit profile-support-token-unit">
+              NEAR
+            </span>
+          </div>
+          {bidMeetsBuyNow && !minMeetsBuyNow ? (
+            <p className="profile-support-hint">
+              Meets Buy now — you win immediately.
+            </p>
+          ) : null}
+        </>
       ) : null}
 
       {fieldError ? (
@@ -441,50 +619,6 @@ export function ScarceBidForm({
         <p className="profile-support-hint">Your auction.</p>
       ) : !isConnected && !ended ? (
         <p className="profile-support-hint">Connect to bid.</p>
-      ) : null}
-
-      {ended ? (
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            ready={isConnected ? !pending : true}
-            pending={pending === 'settle'}
-            pendingLabel="Settling…"
-            disabled={Boolean(pending) || (isConnected && !tokenId)}
-            onClick={() => {
-              void handleSettle();
-            }}
-          >
-            {isConnected ? 'Settle auction' : 'Connect wallet'}
-          </OsSheetAction>
-        </OsSheetActions>
-      ) : !isOwnAuction && auction ? (
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="submit"
-            ready={isConnected ? canBid : true}
-            pending={pending === 'bid'}
-            pendingLabel="Bidding…"
-            disabled={Boolean(pending) || (isConnected && !canBid)}
-          >
-            {isConnected ? 'Place bid' : 'Connect wallet'}
-          </OsSheetAction>
-          {buyNow && isConnected ? (
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              ready={!pending}
-              pending={pending === 'buyNow'}
-              pendingLabel="Buying…"
-              disabled={Boolean(pending)}
-              onClick={() => {
-                void handleBuyNow();
-              }}
-            >
-              Buy now · {formatNearLabel(buyNow)}
-            </OsSheetAction>
-          ) : null}
-        </OsSheetActions>
       ) : null}
     </form>
   );

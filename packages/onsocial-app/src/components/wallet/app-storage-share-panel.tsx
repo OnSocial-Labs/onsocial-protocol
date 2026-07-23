@@ -678,7 +678,7 @@ export function AppStorageSharePanel({
                 <button
                   key={preset}
                   type="button"
-                  className={`app-storage-preset${normalizedFundAmount === preset ? ' is-selected' : ''}`}
+                  className={`os-surface-chip${normalizedFundAmount === preset ? ' is-selected' : ''}`}
                   onClick={() => applyFundAmountInput(preset)}
                 >
                   {preset}
@@ -768,7 +768,7 @@ export function AppStorageSharePanel({
                 <button
                   key={preset}
                   type="button"
-                  className={`app-storage-preset${sharePercent === preset ? ' is-selected' : ''}`}
+                  className={`os-surface-chip${sharePercent === preset ? ' is-selected' : ''}`}
                   onClick={() => setSharePercent(preset)}
                 >
                   {preset === 100 ? 'Max' : `${preset}%`}

@@ -19,6 +19,76 @@
   display: none;
 }
 
+/*
+ * Bid history rows — unlayered + explicit ink. Layered surface tokens were
+ * reading as near-invisible on frosted sheet glass (only selection revealed text).
+ */
+.scarce-bid-history-row,
+.scarce-bid-history-bidder {
+  color: rgb(var(--fg-rgb) / 0.78);
+  -webkit-text-fill-color: rgb(var(--fg-rgb) / 0.78);
+  opacity: 1;
+}
+
+.scarce-bid-history-amount {
+  flex-shrink: 0;
+  color: rgb(var(--fg-rgb) / 0.94);
+  -webkit-text-fill-color: rgb(var(--fg-rgb) / 0.94);
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
+}
+
+/* Market chrome in screen header — stay above listing body when sort opens. */
+.os-app-screen:has(.market-listing-toolbar) .os-app-screen-header {
+  z-index: 3;
+}
+
+/*
+ * App chrome rail (Market filters / Discover tabs) — unlayered so scroll-hide
+ * beats @layer components host overflow / margin rules.
+ */
+.os-app-chrome-rail {
+  transform: translateY(0);
+  opacity: 1;
+  max-height: 3rem;
+  transition:
+    transform 220ms ease,
+    opacity 180ms ease,
+    max-height 220ms ease,
+    margin 220ms ease;
+}
+
+.os-app-chrome-rail.is-scroll-hidden {
+  max-height: 0;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(-0.35rem);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.os-app-screen-toolbar:has(.os-app-chrome-rail.is-scroll-hidden) {
+  margin-top: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .os-app-chrome-rail {
+    transition: none;
+  }
+}
+
+.os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-header {
+  z-index: 40;
+}
+
+.os-app-screen:has(.market-listing-sort-menu-panel) .os-app-screen-body {
+  z-index: 0;
+}
+
+.market-listing-sort-menu-panel.os-floating-panel-menu {
+  z-index: 50;
+}
+
 /* Content-sized glass sheets — unlayered so height beats imported glass-sheet.css. */
 .glass-sheet-panel.account-drawer-panel {
   height: auto;
@@ -53,6 +123,33 @@
 
 .glass-sheet-panel.portfolio-support-collect-info-panel > .glass-sheet-body {
   flex: 0 1 auto;
+}
+
+/* Support / scarce commerce sheets — content-sized, scroll when tall (auction). */
+.glass-sheet-panel.profile-support-sheet-panel {
+  height: auto;
+  max-height: min(92dvh, 40rem);
+  --glass-header-scrim-height: min(5rem, 24%);
+  --glass-sheet-body-opacity: 0.64;
+  /* Defaults when opened outside a mood portfolio (e.g. Market Sell). */
+  --signal-reputation: var(
+    --mood-signal-reputation,
+    var(--protocol-blue, #60a5fa)
+  );
+  --signal-standing: var(--mood-signal-standing, #5ecf9a);
+  --signal-endorse: var(--mood-signal-endorse, #dab872);
+  --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
+}
+
+.glass-sheet-panel.profile-support-sheet-panel > .glass-sheet-body {
+  flex: 0 1 auto;
+}
+
+/* Keyboard open — fill visual viewport so body scrolls above pinned footer. */
+.glass-sheet-panel.profile-support-sheet-panel.is-keyboard-open
+  > .glass-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Page drawer — unlayered so these beat imported glass-sheet rules. */
@@ -1649,22 +1746,23 @@ a.os-surface-row {
   :root[data-theme='light'] .account-editor-panel--page-mood {
     --signal-standing: color-mix(
       in srgb,
-      var(--mood-signal-standing) var(--mood-light-tone),
+      var(--mood-signal-standing, #5ecf9a) var(--mood-light-tone),
       var(--mood-light-ink)
     );
     --signal-solidarity: color-mix(
       in srgb,
-      var(--mood-signal-solidarity) var(--mood-light-tone),
+      var(--mood-signal-solidarity, #38bdf8) var(--mood-light-tone),
       var(--mood-light-ink)
     );
     --signal-endorse: color-mix(
       in srgb,
-      var(--mood-signal-endorse) var(--mood-light-tone),
+      var(--mood-signal-endorse, #dab872) var(--mood-light-tone),
       var(--mood-light-ink)
     );
     --signal-reputation: color-mix(
       in srgb,
-      var(--mood-signal-reputation) var(--mood-light-tone),
+      var(--mood-signal-reputation, var(--protocol-blue, #60a5fa))
+        var(--mood-light-tone),
       var(--mood-light-ink)
     );
   }
@@ -1709,22 +1807,23 @@ a.os-surface-row {
     :root:not([data-theme='dark']) .account-editor-panel--page-mood {
       --signal-standing: color-mix(
         in srgb,
-        var(--mood-signal-standing) var(--mood-light-tone),
+        var(--mood-signal-standing, #5ecf9a) var(--mood-light-tone),
         var(--mood-light-ink)
       );
       --signal-solidarity: color-mix(
         in srgb,
-        var(--mood-signal-solidarity) var(--mood-light-tone),
+        var(--mood-signal-solidarity, #38bdf8) var(--mood-light-tone),
         var(--mood-light-ink)
       );
       --signal-endorse: color-mix(
         in srgb,
-        var(--mood-signal-endorse) var(--mood-light-tone),
+        var(--mood-signal-endorse, #dab872) var(--mood-light-tone),
         var(--mood-light-ink)
       );
       --signal-reputation: color-mix(
         in srgb,
-        var(--mood-signal-reputation) var(--mood-light-tone),
+        var(--mood-signal-reputation, var(--protocol-blue, #60a5fa))
+          var(--mood-light-tone),
         var(--mood-light-ink)
       );
     }
@@ -6601,6 +6700,18 @@ a.os-surface-row {
        row would cut off header dropdowns (guild manage / members menu). */
   }
 
+  /* Top-level section mark — same slot as back, not interactive. */
+  .os-app-screen-mark {
+    pointer-events: none;
+    cursor: default;
+  }
+
+  .os-app-screen-mark:hover,
+  .os-app-screen-mark:focus-visible {
+    background: transparent;
+    color: inherit;
+  }
+
   .os-app-screen-heading {
     min-width: 0;
     flex: 1 1 0;
@@ -7021,11 +7132,17 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .os-app-screen-toolbar:has(.discover-tab-bar) {
+  .os-app-screen-toolbar:has(.discover-tab-bar),
+  .os-app-screen-toolbar:has(.os-app-chrome-rail) {
     margin-top: 0.5rem;
   }
 
   .discover-tab-bar--header {
+    margin: 0;
+  }
+
+  .discover-header-toolbar {
+    min-width: 0;
     margin: 0;
   }
 
@@ -10670,24 +10787,7 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .app-storage-preset {
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.62);
-    font: inherit;
-    font-size: 0.62rem;
-    font-weight: 600;
-    padding: 0.2rem 0.55rem;
-    cursor: pointer;
-  }
-
-  .app-storage-preset.is-selected {
-    border-color: color-mix(in srgb, var(--protocol-blue) 45%, transparent);
-    background: color-mix(in srgb, var(--protocol-blue) 12%, transparent);
-    color: var(--protocol-blue);
-  }
-
+  /* Max / secondary chip action — tint only; base is os-surface-chip. */
   .app-storage-preset--action {
     color: var(--protocol-blue);
   }
@@ -12561,8 +12661,18 @@ a.os-surface-row {
   }
 
   /* Same toolbar offset as Discover tab rail. */
-  .os-app-screen-toolbar:has(.home-feed-chip-bar) {
+  .os-app-screen-toolbar:has(.home-feed-chip-bar),
+  .os-app-screen-toolbar:has(.home-feed-header-toolbar) {
     margin-top: 0.5rem;
+  }
+
+  .os-app-screen-header:has(.home-feed-header-toolbar) {
+    overflow: visible;
+  }
+
+  .home-feed-header-toolbar {
+    min-width: 0;
+    margin: 0;
   }
 
   .home-feed-nav-spacer {
@@ -14611,7 +14721,10 @@ a.os-surface-row {
     justify-content: space-between;
     gap: 0.75rem;
     font-size: 0.875rem;
-    color: var(--os-ink-muted, rgba(0, 0, 0, 0.62));
+  }
+
+  .scarce-bid-history-row > span:last-child {
+    flex-shrink: 0;
   }
 
   .scarce-offer-row {
@@ -14630,6 +14743,10 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.2rem;
     margin-bottom: 0.35rem;
+  }
+
+  .scarce-buy-meta {
+    margin: 0;
   }
 
   .scarce-buy-title {
@@ -14651,13 +14768,14 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 1.35rem;
-    padding: 0.15rem 0 1.5rem;
+    /* Match guilds / endorsements — align with os-app-screen header inset. */
+    padding: 0.15rem 1rem 1.5rem;
   }
 
   .market-page-status,
   .market-page-empty-copy {
     margin: 0;
-    color: rgb(var(--fg-rgb) / 0.62);
+    color: var(--os-surface-muted-strong);
     font-size: 0.88rem;
     line-height: 1.45;
   }
@@ -14675,14 +14793,62 @@ a.os-surface-row {
     border: 0;
     background: transparent;
     padding: 0;
-    color: inherit;
+    color: var(--os-surface-emphasis);
     font: inherit;
     text-decoration: underline;
+    text-underline-offset: 0.12em;
     cursor: pointer;
   }
 
+  .market-page-retry:hover,
+  .market-page-retry:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.94);
+    outline: none;
+  }
+
+  /* Filter/tab chrome under search — sort menu may escape. */
+  .os-app-screen-toolbar:has(.market-listing-toolbar) {
+    overflow: visible;
+  }
+
+  .os-app-screen-header:has(.market-listing-toolbar),
+  .os-app-screen-header:has(.discover-header-toolbar) {
+    overflow: visible;
+  }
+
+  .market-listing-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    margin: 0;
+    overflow: visible;
+  }
+
   .market-listing-filters {
-    margin: 0 0 0.15rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .market-listing-sort-menu {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .market-listing-sort-menu .os-floating-panel-trigger {
+    max-width: 7.5rem;
+  }
+
+  .market-listing-sort-menu-panel {
+    width: 11rem;
+  }
+
+  @media (max-width: 639px) {
+    .market-listing-sort-menu .os-floating-panel-trigger {
+      max-width: 6.5rem;
+    }
   }
 
   .market-section {
@@ -14697,14 +14863,14 @@ a.os-surface-row {
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.48);
+    color: var(--os-surface-muted);
   }
 
   .market-listing-list,
   .market-sales-list {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.2rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -14715,7 +14881,17 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.55rem 0.1rem;
+    margin: 0 -0.35rem;
+    padding: 0.55rem 0.35rem;
+    border-radius: 0.85rem;
+    transition: background 160ms ease;
+  }
+
+  .market-listing-row:hover,
+  .market-listing-row:focus-within,
+  .market-sale-row:hover,
+  .market-sale-row:focus-within {
+    background: var(--os-surface-row-hover);
   }
 
   .market-listing-thumb {
@@ -14787,7 +14963,7 @@ a.os-surface-row {
   .market-sale-meta {
     margin: 0;
     font-size: 0.72rem;
-    color: rgb(var(--fg-rgb) / 0.48);
+    color: var(--os-surface-muted);
   }
 
   .market-listing-handle {
@@ -14796,7 +14972,7 @@ a.os-surface-row {
   }
 
   .market-listing-handle:hover {
-    color: rgb(var(--fg-rgb) / 0.78);
+    color: var(--os-surface-emphasis);
   }
 
   .market-listing-handle:focus-visible,
@@ -14812,7 +14988,7 @@ a.os-surface-row {
   }
 
   .market-listing-title-link:hover {
-    color: rgb(var(--fg-rgb) / 0.82);
+    color: var(--os-surface-emphasis);
   }
 
   .market-listing-thumb:is(a) {
@@ -14821,11 +14997,67 @@ a.os-surface-row {
   }
 
   .market-listing-own {
-    color: rgb(var(--fg-rgb) / 0.45);
+    color: var(--os-surface-muted);
   }
 
-  .market-sale-row {
-    border-top: 1px solid rgb(var(--fg-rgb) / 0.06);
+  .market-listing-row--skeleton {
+    pointer-events: none;
+  }
+
+  .market-listing-thumb-shimmer {
+    flex-shrink: 0;
+    width: 3.1rem;
+    height: 3.1rem;
+    border-radius: 0.55rem;
+  }
+
+  .market-listing-shimmer-title {
+    width: 48%;
+    max-width: 9rem;
+  }
+
+  .market-listing-shimmer-price {
+    width: 3.5rem;
+    flex-shrink: 0;
+  }
+
+  .market-listing-shimmer-meta {
+    width: 38%;
+    max-width: 7rem;
+    height: 0.62rem;
+  }
+
+  .market-listing-shimmer-action {
+    flex-shrink: 0;
+    width: 3.6rem;
+    height: 1.85rem;
+    border-radius: 9999px;
+  }
+
+  .market-sales-more {
+    align-self: flex-start;
+    margin: 0.2rem 0 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    padding: 0.375rem 0.75rem;
+    color: var(--os-surface-muted);
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    cursor: pointer;
+    transition:
+      color 160ms ease,
+      background 160ms ease;
+  }
+
+  .market-sales-more:hover,
+  .market-sales-more:focus-visible {
+    background: var(--os-surface-row-hover);
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .post-card-amplify.is-active:hover:not(:disabled),
@@ -19064,7 +19296,29 @@ a.os-surface-row {
   /* ── Profile support sheet ──────────────────────────────── */
 
   .profile-support-sheet-body {
-    padding: 0.2rem 1.15rem 1.35rem;
+    padding: 0.2rem 1.15rem
+      calc(1.1rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .profile-support-sheet-panel:has(.profile-support-sheet-footer)
+    .profile-support-sheet-body {
+    padding-bottom: 1.1rem;
+  }
+
+  /*
+   * Commerce dock — pinned GlassSheet footer (composer keyboard pattern).
+   * Safe-area when keyboard closed; trim when panel is lifted.
+   */
+  .profile-support-sheet-footer {
+    padding: 0.45rem 1.15rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .profile-support-sheet-footer.is-keyboard-open {
+    padding-bottom: 0.45rem;
+  }
+
+  .profile-support-sheet-panel.is-keyboard-open .profile-support-sheet-body {
+    padding-bottom: 0.75rem;
   }
 
   /* ── Profile support (sheet body form) ──────────────────── */
@@ -19134,22 +19388,35 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.9);
   }
 
-  /* Support presets — page mood reputation (injected on the sheet panel). */
+  /* Support presets — reputation signal (mood when present, protocol blue fallback). */
   .profile-support-sheet-panel
     .profile-support-presets
-    .app-storage-preset.is-selected,
-  .profile-support-presets .app-storage-preset.is-selected {
-    border-color: color-mix(
-      in srgb,
-      var(--signal-reputation, var(--mood-signal-reputation)) 42%,
-      transparent
-    );
+    .os-surface-chip.is-selected,
+  .profile-support-presets .os-surface-chip.is-selected {
     background: color-mix(
       in srgb,
-      var(--signal-reputation, var(--mood-signal-reputation)) 12%,
+      var(--signal-reputation, var(--protocol-blue, #60a5fa)) 14%,
       transparent
     );
-    color: var(--signal-reputation, var(--mood-signal-reputation));
+    color: var(--signal-reputation, var(--protocol-blue, #60a5fa));
+  }
+
+  .profile-support-sheet-panel
+    .profile-support-presets
+    .os-surface-chip.is-selected:not(:disabled):hover,
+  .profile-support-sheet-panel
+    .profile-support-presets
+    .os-surface-chip.is-selected:not(:disabled):focus-visible,
+  .profile-support-presets
+    .os-surface-chip.is-selected:not(:disabled):hover,
+  .profile-support-presets
+    .os-surface-chip.is-selected:not(:disabled):focus-visible {
+    background: color-mix(
+      in srgb,
+      var(--signal-reputation, var(--protocol-blue, #60a5fa)) 20%,
+      transparent
+    );
+    color: var(--signal-reputation, var(--protocol-blue, #60a5fa));
   }
 
   .profile-support-token-unit {

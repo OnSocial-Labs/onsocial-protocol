@@ -3,6 +3,7 @@ import {
   excludeOwnedNativeListings,
   hasUnresolvedTitleTemplate,
   resolveTokenDisplayTitle,
+  sortMarketListings,
   type MarketListingItem,
 } from '@/features/market/market-listings';
 
@@ -60,5 +61,76 @@ describe('excludeOwnedNativeListings', () => {
     expect(
       excludeOwnedNativeListings(listings, new Set(['s:1', 's:2']))
     ).toEqual([listings[0], listings[3]]);
+  });
+});
+
+describe('sortMarketListings', () => {
+  const listings: MarketListingItem[] = [
+    {
+      ...baseListing,
+      kind: 'lazy',
+      listingId: 'll:old',
+      priceNear: '2',
+      blockTimestamp: 10,
+    },
+    {
+      ...baseListing,
+      kind: 'auction',
+      tokenId: 's:soon',
+      priceNear: '0.5',
+      blockTimestamp: 20,
+      expiresAtNs: 3_000_000_000_000_000,
+      bidCount: 2,
+    },
+    {
+      ...baseListing,
+      kind: 'native',
+      tokenId: 's:ask',
+      priceNear: '3',
+      blockTimestamp: 30,
+      priceLabel: 'Ask',
+    },
+    {
+      ...baseListing,
+      kind: 'auction',
+      tokenId: 's:later',
+      priceNear: '1',
+      blockTimestamp: 40,
+      expiresAtNs: 9_000_000_000_000_000,
+      bidCount: 0,
+    },
+  ];
+
+  it('sorts newest first by default key', () => {
+    expect(sortMarketListings(listings, 'newest').map((row) => row.tokenId ?? row.listingId)).toEqual([
+      's:later',
+      's:ask',
+      's:soon',
+      'll:old',
+    ]);
+  });
+
+  it('sorts by price ascending and descending', () => {
+    expect(sortMarketListings(listings, 'price-asc').map((row) => row.priceNear)).toEqual([
+      '0.5',
+      '1',
+      '2',
+      '3',
+    ]);
+    expect(sortMarketListings(listings, 'price-desc').map((row) => row.priceNear)).toEqual([
+      '3',
+      '2',
+      '1',
+      '0.5',
+    ]);
+  });
+
+  it('sorts ending auctions by soonest clock, then other auctions, then fixed', () => {
+    expect(sortMarketListings(listings, 'ending').map((row) => row.tokenId ?? row.listingId)).toEqual([
+      's:soon',
+      's:later',
+      's:ask',
+      'll:old',
+    ]);
   });
 });

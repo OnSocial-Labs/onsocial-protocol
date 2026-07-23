@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { SearchField } from '@onsocial/ui';
+import { OnSocialMark, SearchField } from '@onsocial/ui';
 import {
   classifyDiscoverSearch,
   isDiscoverTopicDraft,
@@ -125,6 +125,7 @@ export function DiscoverOmniSearchField({
           ariaLabel="Search people, topics, and tickers"
           chrome={chrome}
           className={className}
+          leadingIcon={<OnSocialMark className="search-field-icon" aria-hidden />}
           onFocus={() => setFocused(true)}
           onBlur={() => {
             window.setTimeout(() => {

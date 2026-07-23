@@ -21,7 +21,7 @@
  *   os-surface-panel  — static inset card (wallet block, grouped metrics)
  *   os-surface-row    — full-width list row (Edit profile, customize options)
  *   os-surface-tile   — square icon cell (shortcut dock)
- *   os-surface-chip   — compact inline action (Collect, Open)
+ *   os-surface-chip   — compact inline action / amount preset (Collect, Open, 1 / 5 / 10)
  *
  * Footer CTAs stay on os-sheet-action (primary / ghost / danger).
  */
@@ -190,6 +190,18 @@
 
 .os-surface-chip:not(:disabled):active {
   transform: scale(0.98);
+}
+
+/* Selected preset / segmented option — fill tint only, no border. */
+.os-surface-chip.is-selected {
+  background: color-mix(in srgb, var(--protocol-blue) 14%, transparent);
+  color: var(--protocol-blue);
+}
+
+.os-surface-chip.is-selected:not(:disabled):hover,
+.os-surface-chip.is-selected:not(:disabled):focus-visible {
+  background: color-mix(in srgb, var(--protocol-blue) 20%, transparent);
+  color: var(--protocol-blue);
 }
 
 .os-surface-chip.is-ready {

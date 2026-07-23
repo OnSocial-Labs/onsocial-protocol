@@ -67,6 +67,17 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     path: 'compose/prepare/delist-native-scarce',
     body: 'json',
   },
+
+  // Scarces — auctions (Market Sell / Bid / cancel / settle).
+  { method: 'POST', path: 'compose/prepare/list-auction', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/place-bid', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/settle-auction', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/cancel-auction', body: 'json' },
+
+  // Scarces — token offers (Make offer / cancel / accept).
+  { method: 'POST', path: 'compose/prepare/make-offer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/cancel-offer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/accept-offer', body: 'json' },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;

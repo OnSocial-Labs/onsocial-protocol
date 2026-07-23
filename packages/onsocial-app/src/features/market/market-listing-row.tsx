@@ -10,6 +10,7 @@ import {
   marketListingRowKey,
   type MarketListingItem,
 } from '@/features/market/market-listings';
+import { formatAuctionCountdown } from '@/features/scarces/scarce-auction';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -22,6 +23,8 @@ interface MarketListingRowProps {
   item: MarketListingItem;
   isOwnListing?: boolean;
   cancelPending?: boolean;
+  /** Shared clock for auction countdowns (ms). */
+  nowMs?: number;
   onBuy: (item: MarketListingItem) => void;
   onCancel?: (item: MarketListingItem) => void;
 }
@@ -65,6 +68,7 @@ export function MarketListingRow({
   item,
   isOwnListing = false,
   cancelPending = false,
+  nowMs,
   onBuy,
   onCancel,
 }: MarketListingRowProps) {
@@ -76,6 +80,24 @@ export function MarketListingRow({
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
     confirmRowKey === rowKey && isOwnListing && !cancelPending;
+  const auctionCountdown =
+    item.kind === 'auction' && typeof nowMs === 'number'
+      ? formatAuctionCountdown(item.expiresAtNs ?? null, nowMs)
+      : null;
+  const bidCount =
+    item.kind === 'auction' && item.bidCount != null && item.bidCount > 0
+      ? item.bidCount
+      : null;
+  const auctionClockLabel =
+    item.kind !== 'auction'
+      ? null
+      : auctionCountdown == null
+        ? item.expiresAtNs == null
+          ? 'Starts on first bid'
+          : null
+        : auctionCountdown === 'Ended'
+          ? 'Ended'
+          : `Ends in ${auctionCountdown}`;
 
   useEffect(() => {
     return () => {
@@ -180,6 +202,24 @@ export function MarketListingRow({
           ) : null}
           {item.kind === 'auction' ? (
             <span className="market-listing-own"> · Auction</span>
+          ) : null}
+          {item.kind === 'auction' && item.buyNowNear ? (
+            <span className="market-listing-own">
+              {' · '}
+              Buy now {formatPriceNear(item.buyNowNear)} NEAR
+            </span>
+          ) : null}
+          {bidCount != null ? (
+            <span className="market-listing-own">
+              {' · '}
+              {bidCount === 1 ? '1 bid' : `${bidCount} bids`}
+            </span>
+          ) : null}
+          {auctionClockLabel ? (
+            <span className="market-listing-own">
+              {' · '}
+              {auctionClockLabel}
+            </span>
           ) : null}
           {isOwnListing ? (
             <span className="market-listing-own"> · Yours</span>

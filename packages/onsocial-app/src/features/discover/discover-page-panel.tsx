@@ -11,16 +11,14 @@ import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
 
 function DiscoverPageScreen({
-  backFallbackHref,
   scrollRootRef,
 }: {
-  backFallbackHref: string;
   scrollRootRef: RefObject<HTMLElement | null>;
 }) {
   return (
     <OsAppScreen
       title="Discover"
-      backFallbackHref={backFallbackHref}
+      leading={null}
       scrollRootRef={scrollRootRef}
       heading={
         <DiscoverNavSearch className="discover-nav-search-field os-app-screen-search" />
@@ -33,9 +31,10 @@ function DiscoverPageScreen({
 }
 
 export function DiscoverPagePanel({
-  backFallbackHref = '/',
+  backFallbackHref: _backFallbackHref,
   initialPage = null,
 }: {
+  /** Ignored — Discover root uses section mark + launcher. */
   backFallbackHref?: string;
   initialPage?: DiscoverProfilesResponse | null;
 }) {
@@ -47,10 +46,7 @@ export function DiscoverPagePanel({
       scrollRootRef={scrollRootRef}
       initialPage={initialPage}
     >
-      <DiscoverPageScreen
-        backFallbackHref={backFallbackHref}
-        scrollRootRef={scrollRootRef}
-      />
+      <DiscoverPageScreen scrollRootRef={scrollRootRef} />
     </DiscoverPanelRoot>
   );
 }

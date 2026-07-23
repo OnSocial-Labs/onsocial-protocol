@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useRef, type FocusEventHandler } from 'react';
+import {
+  useCallback,
+  useRef,
+  type FocusEventHandler,
+  type ReactNode,
+} from 'react';
+import { Divider } from './divider.js';
 import { MultiplyIcon, SearchIcon } from './mage-stroke-icons.js';
 
 export const searchFieldClassName = 'search-field';
@@ -14,6 +20,12 @@ export interface SearchFieldProps {
   ariaLabel?: string;
   /** `sheet` — flat glass control; `floating-panel` — Portal filter-rail pill. */
   chrome?: 'sheet' | 'floating-panel';
+  /**
+   * Replaces the default magnifying glass (e.g. Market shop / Discover mark).
+   * Pass a single icon sized via `search-field-icon`. Shows a portal-style
+   * vertical divider after the glyph.
+   */
+  leadingIcon?: ReactNode;
   className?: string;
   onFocus?: FocusEventHandler<HTMLInputElement>;
   onBlur?: FocusEventHandler<HTMLInputElement>;
@@ -32,11 +44,13 @@ export function SearchField({
   clearAriaLabel = 'Clear search',
   ariaLabel,
   chrome = 'sheet',
+  leadingIcon,
   className = '',
   onFocus,
   onBlur,
 }: SearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const branded = Boolean(leadingIcon);
 
   const handleClear = useCallback(() => {
     onValueChange('');
@@ -48,9 +62,20 @@ export function SearchField({
 
   return (
     <label
-      className={`search-field ${chromeClass}${className ? ` ${className}` : ''}`}
+      className={`search-field${branded ? ' search-field--branded' : ''} ${chromeClass}${className ? ` ${className}` : ''}`}
     >
-      <SearchIcon className="search-field-icon" aria-hidden />
+      <span className="search-field-leading">
+        {leadingIcon ?? (
+          <SearchIcon className="search-field-icon" aria-hidden />
+        )}
+      </span>
+      {branded ? (
+        <Divider
+          orientation="vertical"
+          variant="detail"
+          className="search-field-divider"
+        />
+      ) : null}
       <input
         ref={inputRef}
         type="text"

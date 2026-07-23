@@ -5,6 +5,11 @@ import type { PostRow } from '@onsocial/sdk';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
+  CommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
+import {
   ScarceListForm,
   type ScarceListSuccessDetail,
 } from '@/features/scarces/scarce-list-form';
@@ -28,10 +33,14 @@ export function ScarceListSheet({
   onListed,
 }: ScarceListSheetProps) {
   const titleId = useId();
+  const formId = useId();
   const [closing, setClosing] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
+  const [footerState, setFooterState] =
+    useState<CommerceSheetFooterState | null>(null);
   const sheetOpen = open && !closing && post != null;
+  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
   const name = post ? displayName(post.accountId, authorName ?? undefined) : '';
   const handle = post ? fallbackLabel(post.accountId) : '';
 
@@ -51,13 +60,24 @@ export function ScarceListSheet({
     onOpenChange(false);
   }, [onOpenChange]);
 
+  const handleFooterStateChange = useCallback(
+    (state: CommerceSheetFooterState | null) => {
+      setFooterState(state);
+    },
+    []
+  );
+
   return (
     <GlassSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
-      panelClassName="profile-support-sheet-panel"
+      initialDetent="full"
+      panelClassName={`profile-support-sheet-panel${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+      panelStyle={panelStyle}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close list scarce"
@@ -76,12 +96,23 @@ export function ScarceListSheet({
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
+      footer={
+        footerState?.visible ? (
+          <CommerceSheetFooter
+            formId={formId}
+            keyboardOpen={keyboardOpen}
+            state={footerState}
+          />
+        ) : undefined
+      }
     >
       {post ? (
         <ScarceListForm
           key={`${formKey}:${post.accountId}:${post.postId}`}
+          formId={formId}
           post={post}
           authorName={authorName}
+          onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onListed?.(post, detail);
             requestClose();

@@ -67,6 +67,12 @@ export function buyNowNear(view: ScarceAuctionView): string | null {
   return yoctoToNear(view.buyNowPriceYocto);
 }
 
+export function minBidIncrementNear(view: ScarceAuctionView): string | null {
+  const step = BigInt(view.minBidIncrementYocto || '0');
+  if (step <= 0n) return null;
+  return yoctoToNear(view.minBidIncrementYocto);
+}
+
 /** Human countdown from auction `expires_at` (ns). Null when clock not started. */
 export function formatAuctionCountdown(
   expiresAtNs: number | null,

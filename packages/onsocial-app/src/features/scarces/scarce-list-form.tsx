@@ -1,12 +1,8 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { DEFAULT_MOOD, type MoodKey } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -16,6 +12,10 @@ import {
   type ScarceCardThemeOptions,
 } from '@/features/scarces/scarce-card-mood-picker';
 import {
+  useSyncCommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
@@ -24,6 +24,7 @@ import {
   postScarceCoverImage,
 } from '@/features/scarces/scarce-post-preview';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import {
@@ -80,17 +81,22 @@ export interface ScarceListSuccessDetail {
 
 interface ScarceListFormProps {
   post: PostRow;
+  formId: string;
   authorName?: string | null;
   onSuccess?: (detail: ScarceListSuccessDetail) => void;
+  onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
 
 export function ScarceListForm({
   post,
+  formId,
   authorName = null,
   onSuccess,
+  onFooterStateChange,
 }: ScarceListFormProps) {
   const { isConnected, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const onAmountFocus = useMobileFieldFocusScroll<HTMLInputElement>();
   const [amountInput, setAmountInput] = useState('1');
   const [royaltyBps, setRoyaltyBps] = useState(DEFAULT_ROYALTY_BPS);
   const [copies, setCopies] = useState(DEFAULT_COPIES);
@@ -125,6 +131,19 @@ export function ScarceListForm({
 
   const canSubmit =
     isConnected && !pending && Boolean(normalizedAmount) && !amountError;
+
+  const footerState = useMemo((): CommerceSheetFooterState => {
+    return {
+      visible: true,
+      primaryLabel: isConnected ? 'List for sale' : 'Connect wallet',
+      primaryPendingLabel: 'Listing…',
+      canSubmit: isConnected ? canSubmit : true,
+      pending,
+      disabled: pending || (isConnected && !canSubmit),
+    };
+  }, [canSubmit, isConnected, pending]);
+
+  useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
   async function handleSubmit() {
     setFieldError(null);
@@ -214,6 +233,7 @@ export function ScarceListForm({
 
   return (
     <form
+      id={formId}
       className="profile-support-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -248,6 +268,7 @@ export function ScarceListForm({
           autoComplete="off"
           value={amountInput}
           onChange={(event) => applyAmountInput(event.target.value)}
+          onFocus={onAmountFocus}
           onBlur={() =>
             applyAmountInput(
               finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
@@ -274,7 +295,7 @@ export function ScarceListForm({
             <button
               key={preset}
               type="button"
-              className={`app-storage-preset${
+              className={`os-surface-chip${
                 normalizedAmount === preset ? ' is-selected' : ''
               }`}
               disabled={pending}
@@ -297,7 +318,7 @@ export function ScarceListForm({
             <button
               key={preset}
               type="button"
-              className={`app-storage-preset${
+              className={`os-surface-chip${
                 copies === preset ? ' is-selected' : ''
               }`}
               disabled={pending}
@@ -325,7 +346,7 @@ export function ScarceListForm({
             <button
               key={preset.bps}
               type="button"
-              className={`app-storage-preset${
+              className={`os-surface-chip${
                 royaltyBps === preset.bps ? ' is-selected' : ''
               }`}
               disabled={pending}
@@ -350,18 +371,6 @@ export function ScarceListForm({
       ) : !isConnected ? (
         <p className="profile-support-hint">Connect to list this post.</p>
       ) : null}
-
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="submit"
-          ready={isConnected ? canSubmit : true}
-          pending={pending}
-          pendingLabel="Listing…"
-          disabled={pending || (isConnected && !canSubmit)}
-        >
-          {isConnected ? 'List for sale' : 'Connect wallet'}
-        </OsSheetAction>
-      </OsSheetActions>
     </form>
   );
 }

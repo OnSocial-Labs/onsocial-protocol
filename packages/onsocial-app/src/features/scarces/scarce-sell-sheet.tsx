@@ -5,6 +5,11 @@ import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
+  CommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
+import {
   ScarceSellForm,
   type ScarceSellSuccessDetail,
 } from '@/features/scarces/scarce-sell-form';
@@ -28,10 +33,14 @@ export function ScarceSellSheet({
   onListed,
 }: ScarceSellSheetProps) {
   const titleId = useId();
+  const formId = useId();
   const [closing, setClosing] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
+  const [footerState, setFooterState] =
+    useState<CommerceSheetFooterState | null>(null);
   const sheetOpen = open && !closing && item != null;
+  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
   const accountId = sellerAccountId?.trim() || item?.ownerId || '';
   const name = accountId ? displayName(accountId) : '';
   const handle = accountId ? fallbackLabel(accountId) : '';
@@ -52,13 +61,24 @@ export function ScarceSellSheet({
     onOpenChange(false);
   }, [onOpenChange]);
 
+  const handleFooterStateChange = useCallback(
+    (state: CommerceSheetFooterState | null) => {
+      setFooterState(state);
+    },
+    []
+  );
+
   return (
     <GlassSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
-      panelClassName="profile-support-sheet-panel"
+      initialDetent="full"
+      panelClassName={`profile-support-sheet-panel${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+      panelStyle={panelStyle}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close sell scarce"
@@ -78,11 +98,22 @@ export function ScarceSellSheet({
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
+      footer={
+        footerState?.visible ? (
+          <CommerceSheetFooter
+            formId={formId}
+            keyboardOpen={keyboardOpen}
+            state={footerState}
+          />
+        ) : undefined
+      }
     >
       {item ? (
         <ScarceSellForm
           key={`${formKey}:${item.tokenId}`}
+          formId={formId}
           item={item}
+          onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onListed?.(detail);
             requestClose();

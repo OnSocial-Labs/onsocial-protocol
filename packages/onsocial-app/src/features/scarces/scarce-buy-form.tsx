@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { findLiveListingForPost } from '@/features/market/market-listings';
+import {
+  useSyncCommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -36,6 +36,7 @@ export interface ScarceBuySuccessDetail {
 }
 
 interface ScarceBuyFormProps {
+  formId: string;
   post?: PostRow | null;
   /** Standalone market listing (no feed post). */
   listing?: {
@@ -56,6 +57,7 @@ interface ScarceBuyFormProps {
   onSuccess?: (detail: ScarceBuySuccessDetail) => void;
   /** Secondary path for fixed-price resales — opens offer sheet. */
   onMakeOffer?: () => void;
+  onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
 
 function formatPriceNear(priceNear: string | undefined): string {
@@ -77,12 +79,14 @@ function titleFromPost(post: PostRow | null | undefined): string | null {
 }
 
 export function ScarceBuyForm({
+  formId,
   post = null,
   listing = null,
   embed = null,
   authorName = null,
   onSuccess,
   onMakeOffer,
+  onFooterStateChange,
 }: ScarceBuyFormProps) {
   const {
     accountId: viewerAccountId,
@@ -112,6 +116,35 @@ export function ScarceBuyForm({
   const isBuyable = !isOwnListing && (isLazyBuy || isMarketBuy);
 
   const canSubmit = isConnected && !pending && isBuyable;
+
+  const footerState = useMemo((): CommerceSheetFooterState | null => {
+    if (isOwnListing) return null;
+    return {
+      visible: true,
+      primaryLabel: isConnected ? 'Buy' : 'Connect wallet',
+      primaryPendingLabel: 'Buying…',
+      canSubmit: isConnected ? canSubmit : true,
+      pending,
+      disabled: pending || (isConnected && !canSubmit),
+      secondary:
+        isMarketBuy && onMakeOffer && isConnected
+          ? {
+              label: 'Make an offer',
+              disabled: pending,
+              onClick: onMakeOffer,
+            }
+          : null,
+    };
+  }, [
+    canSubmit,
+    isConnected,
+    isMarketBuy,
+    isOwnListing,
+    onMakeOffer,
+    pending,
+  ]);
+
+  useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
   async function handleSubmit() {
     setFieldError(null);
@@ -222,6 +255,7 @@ export function ScarceBuyForm({
 
   return (
     <form
+      id={formId}
       className="profile-support-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -276,31 +310,6 @@ export function ScarceBuyForm({
             ? 'Listing isn’t ready yet…'
             : 'This scarce isn’t for sale.'}
         </p>
-      ) : null}
-
-      {!isOwnListing ? (
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="submit"
-            ready={isConnected ? canSubmit : true}
-            pending={pending}
-            pendingLabel="Buying…"
-            disabled={pending || (isConnected && !canSubmit)}
-          >
-            {isConnected ? 'Buy' : 'Connect wallet'}
-          </OsSheetAction>
-          {isMarketBuy && onMakeOffer && isConnected ? (
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              ready={!pending}
-              disabled={pending}
-              onClick={onMakeOffer}
-            >
-              Make an offer
-            </OsSheetAction>
-          ) : null}
-        </OsSheetActions>
       ) : null}
     </form>
   );

@@ -1,18 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import {
+  useSyncCommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
 import {
   fetchOfferFromBuyer,
   type ScarceTokenOffer,
 } from '@/features/scarces/scarce-offers';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto } from '@/lib/app-near-rpc';
@@ -33,6 +34,7 @@ export interface ScarceOfferSuccessDetail {
 }
 
 interface ScarceOfferFormProps {
+  formId: string;
   listing: {
     tokenId: string;
     title?: string;
@@ -42,6 +44,7 @@ interface ScarceOfferFormProps {
     askNear?: string;
   };
   onSuccess?: (detail: ScarceOfferSuccessDetail) => void;
+  onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
 
 function formatNearLabel(near: string | null | undefined): string {
@@ -51,13 +54,19 @@ function formatNearLabel(near: string | null | undefined): string {
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} NEAR`;
 }
 
-export function ScarceOfferForm({ listing, onSuccess }: ScarceOfferFormProps) {
+export function ScarceOfferForm({
+  formId,
+  listing,
+  onSuccess,
+  onFooterStateChange,
+}: ScarceOfferFormProps) {
   const {
     accountId: viewerAccountId,
     isConnected,
     getSigningWallet,
   } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const onAmountFocus = useMobileFieldFocusScroll<HTMLInputElement>();
   const [pending, setPending] = useState<'make' | 'cancel' | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [amountInput, setAmountInput] = useState(listing.askNear?.trim() || '');
@@ -192,8 +201,39 @@ export function ScarceOfferForm({ listing, onSuccess }: ScarceOfferFormProps) {
     }
   }
 
+  const footerState = useMemo((): CommerceSheetFooterState | null => {
+    if (isOwn) return null;
+    return {
+      visible: true,
+      primaryLabel: isConnected
+        ? existing
+          ? 'Update offer'
+          : 'Make offer'
+        : 'Connect wallet',
+      primaryPendingLabel: existing ? 'Updating…' : 'Offering…',
+      canSubmit: isConnected ? canSubmit : true,
+      pending: pending === 'make',
+      disabled: Boolean(pending) || (isConnected && !canSubmit),
+      secondary:
+        existing && isConnected
+          ? {
+              label: 'Cancel offer',
+              pending: pending === 'cancel',
+              pendingLabel: 'Canceling…',
+              disabled: Boolean(pending),
+              onClick: () => {
+                void handleCancel();
+              },
+            }
+          : null,
+    };
+  }, [canSubmit, existing, isConnected, isOwn, pending]);
+
+  useSyncCommerceSheetFooter(footerState, onFooterStateChange);
+
   return (
     <form
+      id={formId}
       className="profile-support-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -233,6 +273,7 @@ export function ScarceOfferForm({ listing, onSuccess }: ScarceOfferFormProps) {
               autoComplete="off"
               value={amountInput}
               onChange={(event) => applyAmountInput(event.target.value)}
+              onFocus={onAmountFocus}
               onBlur={() =>
                 applyAmountInput(
                   finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
@@ -258,7 +299,7 @@ export function ScarceOfferForm({ listing, onSuccess }: ScarceOfferFormProps) {
                 <button
                   key={preset}
                   type="button"
-                  className={`app-storage-preset${
+                  className={`os-surface-chip${
                     normalizedAmount === preset ? ' is-selected' : ''
                   }`}
                   disabled={Boolean(pending) || loadingOffer}
@@ -280,39 +321,6 @@ export function ScarceOfferForm({ listing, onSuccess }: ScarceOfferFormProps) {
         <p className="profile-support-hint">Your scarce.</p>
       ) : !isConnected ? (
         <p className="profile-support-hint">Connect to offer.</p>
-      ) : null}
-
-      {!isOwn ? (
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="submit"
-            ready={isConnected ? canSubmit : true}
-            pending={pending === 'make'}
-            pendingLabel={existing ? 'Updating…' : 'Offering…'}
-            disabled={Boolean(pending) || (isConnected && !canSubmit)}
-          >
-            {isConnected
-              ? existing
-                ? 'Update offer'
-                : 'Make offer'
-              : 'Connect wallet'}
-          </OsSheetAction>
-          {existing && isConnected ? (
-            <OsSheetAction
-              type="button"
-              variant="ghost"
-              ready={!pending}
-              pending={pending === 'cancel'}
-              pendingLabel="Canceling…"
-              disabled={Boolean(pending)}
-              onClick={() => {
-                void handleCancel();
-              }}
-            >
-              Cancel offer
-            </OsSheetAction>
-          ) : null}
-        </OsSheetActions>
       ) : null}
     </form>
   );

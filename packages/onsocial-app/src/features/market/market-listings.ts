@@ -63,7 +63,20 @@ export interface MarketListingItem {
   copies?: number;
   /** Unsold editions still on this listing. */
   remaining?: number;
+  /** Auction clock (`Sale.expires_at`, ns). Null until first bid when duration-based. */
+  expiresAtNs?: number | null;
+  /** Auction bid count from nested `sale.auction.bid_count`. */
+  bidCount?: number;
+  /** Optional auction buy-now ask (NEAR). Bid ≥ this settles immediately. */
+  buyNowNear?: string | null;
 }
+
+/** Browse sort for Market listings. */
+export type MarketListingSort =
+  | 'newest'
+  | 'price-asc'
+  | 'price-desc'
+  | 'ending';
 
 /** Wallet-owned scarce NFT for Market “Yours”. */
 export interface OwnedScarceItem {
@@ -368,6 +381,7 @@ interface ContractAuctionState {
   reserve_price?: string | { '0'?: string } | null;
   highest_bid?: string | { '0'?: string } | null;
   min_bid_increment?: string | { '0'?: string } | null;
+  buy_now_price?: string | { '0'?: string } | null;
   bid_count?: number;
 }
 
@@ -383,6 +397,87 @@ function auctionPriceLabel(sale: ContractSaleRecord): 'Reserve' | 'High bid' {
   const auction = asRecord(sale.auction) as ContractAuctionState | null;
   const highest = priceNearFromYocto(auction?.highest_bid);
   return highest && Number.parseFloat(highest) > 0 ? 'High bid' : 'Reserve';
+}
+
+function auctionBidCount(sale: ContractSaleRecord): number | undefined {
+  const auction = asRecord(sale.auction);
+  if (!auction) return undefined;
+  const raw = auction.bid_count ?? auction.bidCount;
+  const n =
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string'
+        ? Number(raw)
+        : Number.NaN;
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return Math.floor(n);
+}
+
+function auctionBuyNowNear(sale: ContractSaleRecord): string | null {
+  const auction = asRecord(sale.auction) as ContractAuctionState | null;
+  if (!auction) return null;
+  return priceNearFromYocto(auction.buy_now_price);
+}
+
+function saleExpiresAtNs(sale: ContractSaleRecord): number | null | undefined {
+  const raw = sale.expires_at;
+  if (raw == null) return null;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+function listingPriceValue(item: MarketListingItem): number {
+  const n = Number.parseFloat(item.priceNear);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Normalize auction `expires_at` to ms for sort / countdown helpers. */
+export function auctionExpiresAtMs(
+  expiresAtNs: number | null | undefined
+): number | null {
+  if (expiresAtNs == null || !Number.isFinite(expiresAtNs) || expiresAtNs <= 0) {
+    return null;
+  }
+  if (expiresAtNs > 1e15) return Math.floor(expiresAtNs / 1e6);
+  if (expiresAtNs > 1e12) return expiresAtNs;
+  return expiresAtNs * 1000;
+}
+
+export function sortMarketListings(
+  items: MarketListingItem[],
+  sort: MarketListingSort
+): MarketListingItem[] {
+  const copy = [...items];
+  if (sort === 'price-asc') {
+    return copy.sort(
+      (a, b) =>
+        listingPriceValue(a) - listingPriceValue(b) ||
+        b.blockTimestamp - a.blockTimestamp
+    );
+  }
+  if (sort === 'price-desc') {
+    return copy.sort(
+      (a, b) =>
+        listingPriceValue(b) - listingPriceValue(a) ||
+        b.blockTimestamp - a.blockTimestamp
+    );
+  }
+  if (sort === 'ending') {
+    return copy.sort((a, b) => {
+      const aMs = auctionExpiresAtMs(a.expiresAtNs);
+      const bMs = auctionExpiresAtMs(b.expiresAtNs);
+      const aLive = a.kind === 'auction' && aMs != null;
+      const bLive = b.kind === 'auction' && bMs != null;
+      if (aLive && bLive) return aMs! - bMs!;
+      if (aLive !== bLive) return aLive ? -1 : 1;
+      const aAuction = a.kind === 'auction';
+      const bAuction = b.kind === 'auction';
+      if (aAuction !== bAuction) return aAuction ? -1 : 1;
+      return b.blockTimestamp - a.blockTimestamp;
+    });
+  }
+  return copy.sort((a, b) => b.blockTimestamp - a.blockTimestamp);
 }
 
 async function fetchTokenRecord(
@@ -427,6 +522,13 @@ function listingFromNativeSale(
     blockTimestamp: timestampMs(sale.created_at),
     mediaUrl,
     sourcePostPath: sourcePostPathFromExtra(extra),
+    ...(isAuction
+      ? {
+          expiresAtNs: saleExpiresAtNs(sale),
+          bidCount: auctionBidCount(sale),
+          buyNowNear: auctionBuyNowNear(sale),
+        }
+      : {}),
   };
 }
 
@@ -480,8 +582,36 @@ export async function fetchNativeMarketListings(
   return items;
 }
 
+const OWNED_PAGE_SIZE = 50;
+/** Cap so a huge vault doesn’t stall Market; newest pages still load first. */
+const OWNED_MAX_TOKENS = 300;
+
+async function fetchOwnedTokenPages(
+  owner: string
+): Promise<ContractTokenRecord[]> {
+  const tokens: ContractTokenRecord[] = [];
+  let fromIndex = 0;
+  while (tokens.length < OWNED_MAX_TOKENS) {
+    const page = await viewNearContract<ContractTokenRecord[]>(
+      SCARCES_CONTRACT,
+      'nft_tokens_for_owner',
+      {
+        account_id: owner,
+        from_index: String(fromIndex),
+        limit: OWNED_PAGE_SIZE,
+      }
+    );
+    if (!Array.isArray(page) || page.length === 0) break;
+    tokens.push(...page);
+    if (page.length < OWNED_PAGE_SIZE) break;
+    fromIndex += page.length;
+  }
+  return tokens;
+}
+
 /**
  * Scarces owned by `accountId`, with optional listed price when already for sale.
+ * Newest first so recent wins/buys show under Yours without scrolling forever.
  */
 export async function fetchOwnedScarces(
   accountId: string
@@ -491,18 +621,13 @@ export async function fetchOwnedScarces(
 
   let tokens: ContractTokenRecord[] = [];
   try {
-    tokens = await viewNearContract<ContractTokenRecord[]>(
-      SCARCES_CONTRACT,
-      'nft_tokens_for_owner',
-      {
-        account_id: owner,
-        from_index: '0',
-        limit: 50,
-      }
-    );
+    tokens = await fetchOwnedTokenPages(owner);
   } catch {
     return [];
   }
+
+  // Contract enumeration is oldest→newest; flip for Market “Yours”.
+  tokens.reverse();
 
   let ownerSales: ContractSaleRecord[] = [];
   try {
@@ -544,7 +669,7 @@ export async function fetchOwnedScarces(
           : 'Scarce');
       return {
         tokenId,
-        title,
+        title: resolveTokenDisplayTitle(title, tokenId),
         mediaUrl: resolveScarceMediaUrl(token.metadata?.media ?? null),
         ownerId: token.owner_id?.trim() || owner,
         listingKind: listedByToken.get(tokenId)?.kind ?? null,
@@ -637,7 +762,8 @@ export async function fetchMarketListings(
 ): Promise<MarketListingItem[]> {
   const limit = opts.limit ?? 40;
   const client = createReadOnlyOnSocialClient();
-  const [created, nativeListings] = await Promise.all([
+  // Keep Market up if indexer/OnAPI is down — native sales still load via RPC.
+  const [createdResult, nativeResult] = await Promise.allSettled([
     client.query.scarces.events({
       eventType: 'LAZY_LISTING_UPDATE',
       operation: 'created',
@@ -645,6 +771,10 @@ export async function fetchMarketListings(
     }),
     fetchNativeMarketListings({ limit }),
   ]);
+  const created =
+    createdResult.status === 'fulfilled' ? createdResult.value : [];
+  const nativeListings =
+    nativeResult.status === 'fulfilled' ? nativeResult.value : [];
 
   const listingIds: string[] = [];
   const seenIds = new Set<string>();
@@ -682,7 +812,7 @@ export async function fetchMarketSales(
 ): Promise<MarketSaleItem[]> {
   const limit = opts.limit ?? 20;
   const client = createReadOnlyOnSocialClient();
-  const [lazyPurchased, nativeSales] = await Promise.all([
+  const [lazyResult, nativeResult] = await Promise.allSettled([
     client.query.scarces.events({
       eventType: 'LAZY_LISTING_UPDATE',
       operation: 'purchased',
@@ -690,6 +820,10 @@ export async function fetchMarketSales(
     }),
     client.query.scarces.sales({ limit }),
   ]);
+  const lazyPurchased =
+    lazyResult.status === 'fulfilled' ? lazyResult.value : [];
+  const nativeSales =
+    nativeResult.status === 'fulfilled' ? nativeResult.value : [];
 
   const merged = [...lazyPurchased, ...nativeSales].sort(
     (a, b) => b.blockTimestamp - a.blockTimestamp

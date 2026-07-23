@@ -5,6 +5,11 @@ import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
+  CommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
+import {
   ScarceBidForm,
   type ScarceBidSuccessDetail,
 } from '@/features/scarces/scarce-bid-form';
@@ -41,9 +46,12 @@ export function ScarceBidSheet({
   onBid,
 }: ScarceBidSheetProps) {
   const titleId = useId();
+  const formId = useId();
   const [closing, setClosing] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
+  const [footerState, setFooterState] =
+    useState<CommerceSheetFooterState | null>(null);
   const sellerId = listing?.sellerId ?? post?.accountId ?? '';
   const sheetOpen =
     open &&
@@ -51,6 +59,7 @@ export function ScarceBidSheet({
     (post != null || listing != null) &&
     Boolean(sellerId) &&
     Boolean(listing?.tokenId ?? embed?.tokenId);
+  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
   const name = sellerId
     ? displayName(sellerId, listing?.sellerName ?? authorName ?? undefined)
     : '';
@@ -72,13 +81,24 @@ export function ScarceBidSheet({
     onOpenChange(false);
   }, [onOpenChange]);
 
+  const handleFooterStateChange = useCallback(
+    (state: CommerceSheetFooterState | null) => {
+      setFooterState(state);
+    },
+    []
+  );
+
   return (
     <GlassSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
-      panelClassName="profile-support-sheet-panel"
+      initialDetent="full"
+      panelClassName={`profile-support-sheet-panel${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+      panelStyle={panelStyle}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close bid scarce"
@@ -98,10 +118,20 @@ export function ScarceBidSheet({
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
+      footer={
+        footerState?.visible ? (
+          <CommerceSheetFooter
+            formId={formId}
+            keyboardOpen={keyboardOpen}
+            state={footerState}
+          />
+        ) : undefined
+      }
     >
       {sheetOpen ? (
         <ScarceBidForm
           key={`${formKey}:${listing?.tokenId ?? ''}:${post?.postId ?? ''}`}
+          formId={formId}
           post={post}
           authorName={listing?.sellerName ?? authorName}
           listing={
@@ -116,6 +146,7 @@ export function ScarceBidSheet({
               : null
           }
           embed={embed}
+          onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onBid?.(detail);
             requestClose();

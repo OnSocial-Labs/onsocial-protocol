@@ -2,22 +2,29 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { SearchField, ShopFillIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
+import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
 import {
   fetchMarketListings,
   fetchMarketSales,
   fetchOwnedScarces,
   excludeOwnedNativeListings,
   marketListingRowKey,
+  sortMarketListings,
   type MarketListingItem,
+  type MarketListingSort,
   type MarketSaleItem,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { MarketOwnedRow } from '@/features/market/market-owned-row';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import type { ScarceBidSuccessDetail } from '@/features/scarces/scarce-bid-form';
 import {
   ScarceBidSheet,
   type ScarceBidListing,
@@ -49,6 +56,20 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+function listingMatchesQuery(item: MarketListingItem, query: string): boolean {
+  if (!query) return true;
+  const haystack = [
+    item.title,
+    item.creatorId,
+    item.tokenId,
+    item.listingId,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
 type LoadStatus = 'loading' | 'ready' | 'error';
 type ListingFilter = 'all' | 'fixed' | 'auctions';
 
@@ -57,6 +78,9 @@ const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
   { id: 'fixed', label: 'Fixed' },
   { id: 'auctions', label: 'Auctions' },
 ];
+
+/** Initial Recent sales rows; expand shows the rest of the fetched window. */
+const RECENT_SALES_PREVIEW = 8;
 
 interface MarketPageData {
   key: number;
@@ -102,25 +126,50 @@ export function MarketPagePanel() {
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
   const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
   const [listingFilter, setListingFilter] = useState<ListingFilter>('all');
+  const [listingSort, setListingSort] = useState<MarketListingSort>('newest');
+  const [listingQuery, setListingQuery] = useState('');
   const [offerCounts, setOfferCounts] = useState<Record<string, number>>({});
+  const [salesExpanded, setSalesExpanded] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const toolbarHidden = useDockAutoHide(sortMenuOpen);
+  const normalizedListingQuery = listingQuery.trim().toLowerCase();
+  const searching = normalizedListingQuery.length > 0;
+
+  const setFilter = useCallback((next: ListingFilter) => {
+    setListingFilter(next);
+    if (next === 'fixed') {
+      setListingSort((current) => (current === 'ending' ? 'newest' : current));
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([
+    setSalesExpanded(false);
+    void Promise.allSettled([
       fetchMarketListings(),
       fetchMarketSales(),
       viewerAccountId
         ? fetchOwnedScarces(viewerAccountId)
         : Promise.resolve([] as OwnedScarceItem[]),
-    ])
-      .then(([listings, sales, owned]) => {
-        if (cancelled) return;
-        setData({ key: retryKey, listings, sales, owned });
-      })
-      .catch(() => {
-        if (cancelled) return;
+    ]).then((results) => {
+      if (cancelled) return;
+      const listings =
+        results[0].status === 'fulfilled' ? results[0].value : null;
+      const sales = results[1].status === 'fulfilled' ? results[1].value : null;
+      const owned = results[2].status === 'fulfilled' ? results[2].value : null;
+      // Hard-fail only when every browse source fails.
+      if (listings == null && sales == null && owned == null) {
         setFailedKey(retryKey);
+        return;
+      }
+      setData({
+        key: retryKey,
+        listings: listings ?? [],
+        sales: sales ?? [],
+        owned: owned ?? [],
       });
+    });
     return () => {
       cancelled = true;
     };
@@ -138,12 +187,36 @@ export function MarketPagePanel() {
   const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
   const browseListings = excludeOwnedNativeListings(listings, ownedTokenIdSet);
 
-  const filteredListings =
+  const typedListings =
     listingFilter === 'auctions'
       ? browseListings.filter((item) => item.kind === 'auction')
       : listingFilter === 'fixed'
         ? browseListings.filter((item) => item.kind !== 'auction')
         : browseListings;
+  const queriedListings = searching
+    ? typedListings.filter((item) =>
+        listingMatchesQuery(item, normalizedListingQuery)
+      )
+    : typedListings;
+  const filteredListings = sortMarketListings(queriedListings, listingSort);
+
+  const hasLiveAuctionClocks = filteredListings.some(
+    (item) =>
+      item.kind === 'auction' &&
+      item.expiresAtNs != null &&
+      Number.isFinite(item.expiresAtNs) &&
+      item.expiresAtNs > 0
+  );
+
+  useEffect(() => {
+    if (!hasLiveAuctionClocks || status !== 'ready') return;
+    const id = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [hasLiveAuctionClocks, status]);
 
   const ownedTokenIds = owned.map((item) => item.tokenId).join('\0');
 
@@ -214,10 +287,46 @@ export function MarketPagePanel() {
     setRetryKey((value) => value + 1);
   }, []);
 
-  const handleBid = useCallback(() => {
-    setBidListing(null);
-    setRetryKey((value) => value + 1);
-  }, []);
+  const handleBid = useCallback(
+    (detail?: ScarceBidSuccessDetail) => {
+      const listing = bidListing;
+      setBidListing(null);
+      if (
+        detail?.settled &&
+        detail.tokenId &&
+        viewerAccountId &&
+        listing?.tokenId === detail.tokenId
+      ) {
+        setData((current) => {
+          if (!current) return current;
+          const alreadyOwned = current.owned.some(
+            (row) => row.tokenId === detail.tokenId
+          );
+          return {
+            ...current,
+            listings: current.listings.filter(
+              (row) => row.tokenId !== detail.tokenId
+            ),
+            owned: alreadyOwned
+              ? current.owned
+              : [
+                  {
+                    tokenId: detail.tokenId,
+                    title: listing.title?.trim() || 'Scarce',
+                    mediaUrl: listing.mediaUrl,
+                    ownerId: viewerAccountId,
+                    listingKind: null,
+                    listedPriceNear: null,
+                  },
+                  ...current.owned,
+                ],
+          };
+        });
+      }
+      setRetryKey((value) => value + 1);
+    },
+    [bidListing, viewerAccountId]
+  );
 
   const handleOffered = useCallback(() => {
     setOfferListing(null);
@@ -334,18 +443,79 @@ export function MarketPagePanel() {
     status === 'ready' &&
     browseListings.length > 0 &&
     filteredListings.length === 0;
+  const visibleSales =
+    salesExpanded || sales.length <= RECENT_SALES_PREVIEW
+      ? sales
+      : sales.slice(0, RECENT_SALES_PREVIEW);
+  const hiddenSalesCount = Math.max(0, sales.length - visibleSales.length);
+
+  const showListingToolbar = status !== 'error' && !showEmptyBrowse;
+  const showOwnedSection =
+    Boolean(viewerAccountId) && owned.length > 0 && !searching;
+  const showSalesSection = sales.length > 0 && !searching;
 
   return (
     <OsAppScreen
       title="Market"
-      subtitle="Scarces for sale"
-      backFallbackHref={APP_HOME_PATH}
+      leading={null}
+      heading={
+        <SearchField
+          value={listingQuery}
+          onValueChange={setListingQuery}
+          placeholder="Search listings"
+          clearAriaLabel="Clear search"
+          ariaLabel="Search Market listings"
+          className="discover-nav-search-field os-app-screen-search"
+          leadingIcon={<ShopFillIcon className="search-field-icon" aria-hidden />}
+        />
+      }
+      toolbar={
+        showListingToolbar ? (
+          <div
+            className={`os-app-chrome-rail market-listing-toolbar${
+              toolbarHidden ? ' is-scroll-hidden' : ''
+            }`}
+          >
+            <div
+              className="discover-tab-bar market-listing-filters"
+              role="tablist"
+              aria-label="Listing type"
+            >
+              <div className="discover-tab-bar-scroller">
+                {LISTING_FILTERS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    id={`market-listing-tab-${tab.id}`}
+                    aria-controls="market-listing-results"
+                    aria-selected={listingFilter === tab.id}
+                    className={
+                      listingFilter === tab.id ? 'is-active' : undefined
+                    }
+                    onClick={() => setFilter(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <MarketListingSortMenu
+              sort={listingSort}
+              onSortChange={setListingSort}
+              endingDisabled={listingFilter === 'fixed'}
+              onOpenChange={setSortMenuOpen}
+            />
+          </div>
+        ) : undefined
+      }
     >
       <div className="market-page">
         {status === 'loading' ? (
-          <p className="market-page-status" aria-live="polite">
-            Loading listings…
-          </p>
+          <div className="market-section" aria-busy="true" aria-live="polite">
+            <p className="sr-only">Loading listings…</p>
+            <MarketListSkeleton rows={5} />
+          </div>
         ) : null}
         {status === 'error' ? (
           <p className="market-page-status" role="alert">
@@ -372,31 +542,6 @@ export function MarketPagePanel() {
           </div>
         ) : null}
 
-        {!showEmptyBrowse && status === 'ready' ? (
-          <div
-            className="discover-tab-bar market-listing-filters"
-            role="tablist"
-            aria-label="Listing type"
-          >
-            <div className="discover-tab-bar-scroller">
-              {LISTING_FILTERS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  id={`market-listing-tab-${tab.id}`}
-                  aria-controls="market-listing-results"
-                  aria-selected={listingFilter === tab.id}
-                  className={listingFilter === tab.id ? 'is-active' : undefined}
-                  onClick={() => setListingFilter(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
         {status === 'ready' &&
         browseListings.length === 0 &&
         sales.length > 0 &&
@@ -408,8 +553,11 @@ export function MarketPagePanel() {
 
         {showEmptyFilter ? (
           <p className="market-page-status">
-            Nothing in {listingFilter === 'auctions' ? 'Auctions' : 'Fixed'}{' '}
-            right now.
+            {searching
+              ? `No listings match “${listingQuery.trim()}”.`
+              : `Nothing in ${
+                  listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
+                } right now.`}
           </p>
         ) : null}
 
@@ -420,7 +568,7 @@ export function MarketPagePanel() {
             aria-labelledby={`market-listing-tab-${listingFilter}`}
             className="market-section"
           >
-            <h2 id="market-new" className="market-section-title">
+            <h2 id="market-new" className="sr-only">
               {listingFilter === 'auctions'
                 ? 'Auctions'
                 : listingFilter === 'fixed'
@@ -434,6 +582,7 @@ export function MarketPagePanel() {
                   <MarketListingRow
                     key={rowKey}
                     item={item}
+                    nowMs={nowMs}
                     isOwnListing={
                       Boolean(viewerAccountId) &&
                       item.kind === 'lazy' &&
@@ -451,7 +600,7 @@ export function MarketPagePanel() {
           </section>
         ) : null}
 
-        {viewerAccountId && owned.length > 0 ? (
+        {showOwnedSection ? (
           <section className="market-section" aria-labelledby="market-yours">
             <h2 id="market-yours" className="market-section-title">
               Yours
@@ -474,13 +623,13 @@ export function MarketPagePanel() {
           </section>
         ) : null}
 
-        {sales.length > 0 ? (
+        {showSalesSection ? (
           <section className="market-section" aria-labelledby="market-sales">
             <h2 id="market-sales" className="market-section-title">
               Recent sales
             </h2>
             <ul className="market-sales-list">
-              {sales.map((sale, index) => {
+              {visibleSales.map((sale, index) => {
                 const seller =
                   sale.sellerId?.trim() || sale.creatorId?.trim() || '';
                 const saleTime = formatSaleTime(sale.blockTimestamp);
@@ -538,6 +687,24 @@ export function MarketPagePanel() {
                 );
               })}
             </ul>
+            {hiddenSalesCount > 0 ? (
+              <button
+                type="button"
+                className="market-sales-more"
+                onClick={() => setSalesExpanded(true)}
+              >
+                Show {hiddenSalesCount} more
+              </button>
+            ) : null}
+            {salesExpanded && sales.length > RECENT_SALES_PREVIEW ? (
+              <button
+                type="button"
+                className="market-sales-more"
+                onClick={() => setSalesExpanded(false)}
+              >
+                Show less
+              </button>
+            ) : null}
           </section>
         ) : null}
       </div>

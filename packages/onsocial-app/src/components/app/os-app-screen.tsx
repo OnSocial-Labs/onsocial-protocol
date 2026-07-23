@@ -12,10 +12,10 @@ export interface OsAppScreenProps {
   subtitle?: string;
   backFallbackHref?: string;
   /**
-   * Replaces the default back control (e.g. Home avatar).
-   * When set, `backFallbackHref` is unused.
+   * Leading control. `undefined` = contextual back; `null` = none (search roots).
+   * When set to a node, `backFallbackHref` is unused.
    */
-  leading?: ReactNode;
+  leading?: ReactNode | null;
   /** Icon actions pinned opposite the back button (e.g. settings). */
   actions?: ReactNode;
   /** Replaces the default title/subtitle block (keep `title` for screen readers). */
@@ -55,7 +55,11 @@ export function OsAppScreen({
           className={`os-app-screen-header${headerElevated ? ' is-elevated' : ''}`}
         >
           <div className="os-app-screen-nav-row">
-            {leading ?? <ContextualBack fallbackHref={backFallbackHref} />}
+            {leading !== undefined ? (
+              leading
+            ) : (
+              <ContextualBack fallbackHref={backFallbackHref} />
+            )}
             <div className="os-app-screen-heading">
               {heading ? (
                 <>

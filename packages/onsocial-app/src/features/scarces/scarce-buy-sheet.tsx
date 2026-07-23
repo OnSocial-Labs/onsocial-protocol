@@ -5,6 +5,11 @@ import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
+  CommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
+import {
   ScarceBuyForm,
   type ScarceBuySuccessDetail,
 } from '@/features/scarces/scarce-buy-form';
@@ -47,12 +52,16 @@ export function ScarceBuySheet({
   onMakeOffer,
 }: ScarceBuySheetProps) {
   const titleId = useId();
+  const formId = useId();
   const [closing, setClosing] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
+  const [footerState, setFooterState] =
+    useState<CommerceSheetFooterState | null>(null);
   const creatorId = listing?.creatorId ?? post?.accountId ?? '';
   const sheetOpen =
     open && !closing && (post != null || listing != null) && Boolean(creatorId);
+  const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
   const name = creatorId
     ? displayName(
         creatorId,
@@ -77,13 +86,24 @@ export function ScarceBuySheet({
     onOpenChange(false);
   }, [onOpenChange]);
 
+  const handleFooterStateChange = useCallback(
+    (state: CommerceSheetFooterState | null) => {
+      setFooterState(state);
+    },
+    []
+  );
+
   return (
     <GlassSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
-      panelClassName="profile-support-sheet-panel"
+      initialDetent="full"
+      panelClassName={`profile-support-sheet-panel${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
+      panelStyle={panelStyle}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close buy scarce"
@@ -103,10 +123,20 @@ export function ScarceBuySheet({
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
+      footer={
+        footerState?.visible ? (
+          <CommerceSheetFooter
+            formId={formId}
+            keyboardOpen={keyboardOpen}
+            state={footerState}
+          />
+        ) : undefined
+      }
     >
       {sheetOpen ? (
         <ScarceBuyForm
           key={`${formKey}:${listing?.listingId ?? ''}:${post?.postId ?? ''}`}
+          formId={formId}
           post={post}
           authorName={listing?.creatorName ?? authorName}
           listing={
@@ -125,6 +155,7 @@ export function ScarceBuySheet({
               : null
           }
           embed={embed}
+          onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onPurchased?.(detail);
             requestClose();

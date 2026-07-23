@@ -359,7 +359,7 @@ export function ProfileSupportForm({
             <button
               key={preset}
               type="button"
-              className={`app-storage-preset${
+              className={`os-surface-chip${
                 normalizedAmount === preset ? ' is-selected' : ''
               }`}
               disabled={pending}

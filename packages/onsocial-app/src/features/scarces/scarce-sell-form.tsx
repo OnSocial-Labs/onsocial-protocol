@@ -1,15 +1,16 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+import { useCallback, useMemo, useState } from 'react';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
+import {
+  useSyncCommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import {
@@ -42,13 +43,21 @@ export interface ScarceSellSuccessDetail {
 
 interface ScarceSellFormProps {
   item: OwnedScarceItem;
+  formId: string;
   onSuccess?: (detail: ScarceSellSuccessDetail) => void;
+  onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
 
 /** Secondary resale — fixed price or auction for an owned scarce. */
-export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
+export function ScarceSellForm({
+  item,
+  formId,
+  onSuccess,
+  onFooterStateChange,
+}: ScarceSellFormProps) {
   const { isConnected, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const onAmountFocus = useMobileFieldFocusScroll<HTMLInputElement>();
   const [mode, setMode] = useState<SellMode>('fixed');
   const [amountInput, setAmountInput] = useState(
     item.listedPriceNear?.trim() || '1'
@@ -129,6 +138,19 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         !incrementError &&
         !buyNowError &&
         durationNs > 0));
+
+  const footerState = useMemo((): CommerceSheetFooterState => {
+    return {
+      visible: true,
+      primaryLabel: mode === 'auction' ? 'Start auction' : 'List for sale',
+      primaryPendingLabel: 'Listing…',
+      canSubmit,
+      pending,
+      disabled: pending || !canSubmit,
+    };
+  }, [canSubmit, mode, pending]);
+
+  useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
   async function handleSubmit() {
     setFieldError(null);
@@ -216,6 +238,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
 
   return (
     <form
+      id={formId}
       className="profile-support-form"
       onSubmit={(event) => {
         event.preventDefault();
@@ -245,7 +268,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
       >
         <button
           type="button"
-          className={`app-storage-preset${mode === 'fixed' ? ' is-selected' : ''}`}
+          className={`os-surface-chip${mode === 'fixed' ? ' is-selected' : ''}`}
           disabled={pending}
           onClick={() => setMode('fixed')}
         >
@@ -253,7 +276,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         </button>
         <button
           type="button"
-          className={`app-storage-preset${mode === 'auction' ? ' is-selected' : ''}`}
+          className={`os-surface-chip${mode === 'auction' ? ' is-selected' : ''}`}
           disabled={pending}
           onClick={() => setMode('auction')}
         >
@@ -261,6 +284,11 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
         </button>
       </div>
 
+      {mode === 'auction' ? (
+        <p className="scarce-mood-picker-label">Reserve</p>
+      ) : (
+        <p className="scarce-mood-picker-label">Price</p>
+      )}
       <div className="app-storage-amount-field profile-support-amount-field">
         <input
           type="text"
@@ -268,6 +296,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
           autoComplete="off"
           value={amountInput}
           onChange={(event) => applyAmountInput(event.target.value)}
+          onFocus={onAmountFocus}
           onBlur={() =>
             applyAmountInput(
               finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
@@ -294,7 +323,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
             <button
               key={preset}
               type="button"
-              className={`app-storage-preset${
+              className={`os-surface-chip${
                 normalizedAmount === preset ? ' is-selected' : ''
               }`}
               disabled={pending}
@@ -316,6 +345,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
               autoComplete="off"
               value={incrementInput}
               onChange={(event) => applyIncrementInput(event.target.value)}
+              onFocus={onAmountFocus}
               onBlur={() =>
                 applyIncrementInput(
                   finalizeAmountInput(incrementInput, NEAR_INPUT_DECIMALS)
@@ -339,7 +369,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
               <button
                 key={preset}
                 type="button"
-                className={`app-storage-preset${
+                className={`os-surface-chip${
                   normalizedIncrement === preset ? ' is-selected' : ''
                 }`}
                 disabled={pending}
@@ -360,7 +390,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
               <button
                 key={preset.label}
                 type="button"
-                className={`app-storage-preset${
+                className={`os-surface-chip${
                   durationNs === preset.ns ? ' is-selected' : ''
                 }`}
                 disabled={pending}
@@ -379,6 +409,7 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
               autoComplete="off"
               value={buyNowInput}
               onChange={(event) => applyBuyNowInput(event.target.value)}
+              onFocus={onAmountFocus}
               onBlur={() =>
                 applyBuyNowInput(
                   finalizeAmountInput(buyNowInput, NEAR_INPUT_DECIMALS)
@@ -393,13 +424,13 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
               NEAR
             </span>
           </div>
+          <p className="profile-support-hint">
+            {normalizedBuyNow
+              ? `Bid ≥ ${normalizedBuyNow} NEAR wins immediately · `
+              : 'Optional — bid at Buy now wins immediately · '}
+            clock starts on first bid · late bids extend 5m.
+          </p>
         </>
-      ) : null}
-
-      {mode === 'auction' ? (
-        <p className="profile-support-hint">
-          Clock starts on the first bid · late bids extend 5m.
-        </p>
       ) : null}
 
       {amountError || incrementError || buyNowError || fieldError ? (
@@ -407,18 +438,6 @@ export function ScarceSellForm({ item, onSuccess }: ScarceSellFormProps) {
           {fieldError ?? amountError ?? incrementError ?? buyNowError}
         </p>
       ) : null}
-
-      <OsSheetActions layout="stack" tone="frosted-primary">
-        <OsSheetAction
-          type="submit"
-          variant="primary"
-          ready={canSubmit}
-          pending={pending}
-          pendingLabel="Listing…"
-        >
-          {mode === 'auction' ? 'Start auction' : 'List for sale'}
-        </OsSheetAction>
-      </OsSheetActions>
     </form>
   );
 }

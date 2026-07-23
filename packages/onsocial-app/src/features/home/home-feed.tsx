@@ -15,6 +15,7 @@ import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { HomeFeedChipBar } from '@/features/home/home-feed-chip-bar';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { HomeFeedMeAvatar } from '@/features/home/home-feed-me-avatar';
 import { HomeFeedSortToggle } from '@/features/home/home-feed-sort-toggle';
 import {
@@ -618,6 +619,7 @@ export function HomePagePanel() {
   const newPostsLabel = homeFeedNewPostsLabel(newPostCount);
   const showNewPostsPill =
     Boolean(newPostsLabel) && showFeed && !isRefreshing && !isLoading;
+  const toolbarHidden = useDockAutoHide(false, scrollRootRef);
 
   return (
     <HomeActiveFocusProvider focus={activeFocus}>
@@ -632,17 +634,23 @@ export function HomePagePanel() {
           ) : null
         }
         toolbar={
-          <HomeFeedChipBar
-            lens={activeLens}
-            onLensChange={handleLensChange}
-            standingAvailable={isConnected}
-            savedFeeds={savedFeeds}
-            activeFocus={activeFocus}
-            onSelectSavedFeed={handleSelectSavedFeed}
-            onRemoveSavedFeed={handleRemoveSavedFeed}
-            onClearFocus={clearFocusSearch}
-            onNewFeed={() => setSavedFeedSheetOpen(true)}
-          />
+          <div
+            className={`os-app-chrome-rail home-feed-header-toolbar${
+              toolbarHidden ? ' is-scroll-hidden' : ''
+            }`}
+          >
+            <HomeFeedChipBar
+              lens={activeLens}
+              onLensChange={handleLensChange}
+              standingAvailable={isConnected}
+              savedFeeds={savedFeeds}
+              activeFocus={activeFocus}
+              onSelectSavedFeed={handleSelectSavedFeed}
+              onRemoveSavedFeed={handleRemoveSavedFeed}
+              onClearFocus={clearFocusSearch}
+              onNewFeed={() => setSavedFeedSheetOpen(true)}
+            />
+          </div>
         }
       >
         <div className="home-feed">

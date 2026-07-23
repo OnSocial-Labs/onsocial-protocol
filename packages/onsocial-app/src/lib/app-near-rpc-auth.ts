@@ -53,8 +53,17 @@ export function getAppNearRpcAllowedOrigins(): ReadonlySet<string> {
 }
 
 export function isAppNearRpcRequestAuthorized(request: Request): boolean {
+  const allowedOrigins = new Set(getAppNearRpcAllowedOrigins());
+  // Local / WSL: allow the host the browser actually used (LAN IP, [::1], etc.).
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      allowedOrigins.add(new URL(request.url).origin);
+    } catch {
+      /* ignore */
+    }
+  }
   return isNearRpcBffAuthorized(request.headers, {
-    allowedOrigins: getAppNearRpcAllowedOrigins(),
+    allowedOrigins,
     internalSecret: process.env.INTERNAL_RPC_SECRET,
   });
 }

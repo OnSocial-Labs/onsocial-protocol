@@ -252,24 +252,37 @@
   transition: color 160ms ease;
 }
 
-/* iPhone-style — neutral tile, protocol hue on the glyph only. */
-.os-launcher-item-icon-shell[data-accent='blue'] .os-launcher-item-icon {
+/*
+ * Accents: muted at rest; protocol hue on current + hover/focus.
+ * `data-accent` stays on every tile so hover can reveal colour.
+ */
+.os-launcher-item.is-current
+  .os-launcher-item-icon-shell[data-accent='blue']
+  .os-launcher-item-icon {
   color: var(--protocol-blue);
 }
 
-.os-launcher-item-icon-shell[data-accent='purple'] .os-launcher-item-icon {
+.os-launcher-item.is-current
+  .os-launcher-item-icon-shell[data-accent='purple']
+  .os-launcher-item-icon {
   color: var(--protocol-purple);
 }
 
-.os-launcher-item-icon-shell[data-accent='gold'] .os-launcher-item-icon {
+.os-launcher-item.is-current
+  .os-launcher-item-icon-shell[data-accent='gold']
+  .os-launcher-item-icon {
   color: var(--protocol-gold);
 }
 
-.os-launcher-item-icon-shell[data-accent='green'] .os-launcher-item-icon {
+.os-launcher-item.is-current
+  .os-launcher-item-icon-shell[data-accent='green']
+  .os-launcher-item-icon {
   color: var(--protocol-green);
 }
 
-.os-launcher-item-icon-shell[data-accent='amber'] .os-launcher-item-icon {
+.os-launcher-item.is-current
+  .os-launcher-item-icon-shell[data-accent='amber']
+  .os-launcher-item-icon {
   color: var(--protocol-amber);
 }
 
@@ -344,6 +357,16 @@
 .os-launcher-item:hover .os-launcher-item-label,
 .os-launcher-item:focus-visible .os-launcher-item-label {
   color: rgb(var(--fg-rgb) / 0.84);
+}
+
+/* Current app — accent glyph only; rest of grid stays muted. */
+.os-launcher-item.is-current .os-launcher-item-icon-shell {
+  background: rgb(var(--fg-rgb) / 0.055);
+}
+
+.os-launcher-item.is-current .os-launcher-item-label {
+  color: rgb(var(--fg-rgb) / 0.9);
+  font-weight: 600;
 }
 
 .os-launcher-item:not(.is-soon):active .os-launcher-item-icon-shell {

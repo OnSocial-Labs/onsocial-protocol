@@ -13,6 +13,7 @@ export type DiscoverShellVariant = 'overlay' | 'page';
 
 type DiscoverPanelContextValue = ReturnType<typeof useDiscoverProfiles> & {
   shellVariant: DiscoverShellVariant;
+  scrollRootRef?: RefObject<Element | null>;
 };
 
 const DiscoverPanelContext = createContext<DiscoverPanelContextValue | null>(
@@ -33,7 +34,9 @@ export function DiscoverPanelProvider({
   const discover = useDiscoverProfiles(scrollRootRef, { initialPage });
 
   return (
-    <DiscoverPanelContext.Provider value={{ ...discover, shellVariant }}>
+    <DiscoverPanelContext.Provider
+      value={{ ...discover, shellVariant, scrollRootRef }}
+    >
       {children}
     </DiscoverPanelContext.Provider>
   );
