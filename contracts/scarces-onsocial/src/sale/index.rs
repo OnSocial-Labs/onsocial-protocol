@@ -1,8 +1,24 @@
 use crate::*;
+use near_sdk::store::LookupMap;
 
 impl Contract {
     pub(crate) fn make_sale_id(scarce_contract_id: &AccountId, token_id: &str) -> String {
         format!("{}{}{}", scarce_contract_id, DELIMETER, token_id)
+    }
+
+    fn sale_created_at_store() -> LookupMap<String, u64> {
+        LookupMap::new(StorageKey::SaleCreatedAt)
+    }
+
+    pub(crate) fn sale_created_at(&self, sale_id: &str) -> Option<u64> {
+        Self::sale_created_at_store()
+            .get(&sale_id.to_string())
+            .copied()
+    }
+
+    pub(crate) fn set_sale_created_at(&self, sale_id: &str, created_at: u64) {
+        let mut timestamps = Self::sale_created_at_store();
+        timestamps.insert(sale_id.to_string(), created_at);
     }
 
     pub(crate) fn remove_sale(
@@ -16,6 +32,8 @@ impl Contract {
             .sales
             .remove(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
+        let mut timestamps = Self::sale_created_at_store();
+        timestamps.remove(&sale_id);
 
         if let Some(mut owner_set) = self.by_owner_id.remove(&sale.owner_id) {
             owner_set.remove(&sale_id);
@@ -47,6 +65,7 @@ impl Contract {
 
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
         self.sales.insert(sale_id.clone(), sale.clone());
+        self.set_sale_created_at(&sale_id, env::block_timestamp());
 
         let mut by_owner_id = self.by_owner_id.remove(&sale.owner_id).unwrap_or_else(|| {
             IterableSet::new(StorageKey::ByOwnerIdInner {

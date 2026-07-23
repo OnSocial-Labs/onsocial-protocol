@@ -39,6 +39,33 @@ pub struct Sale {
     pub auction: Option<AuctionState>,
 }
 
+/// View-only sale shape. Timestamp storage is separate from legacy `Sale`
+/// bytes so upgrades never need to reinterpret persisted marketplace records.
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct SaleView {
+    pub owner_id: AccountId,
+    pub sale_conditions: U128,
+    pub sale_type: SaleType,
+    pub expires_at: Option<u64>,
+    pub auction: Option<AuctionState>,
+    /// `None` for sales that predate timestamp tracking.
+    pub created_at: Option<u64>,
+}
+
+impl SaleView {
+    pub fn from_sale(sale: &Sale, created_at: Option<u64>) -> Self {
+        Self {
+            owner_id: sale.owner_id.clone(),
+            sale_conditions: sale.sale_conditions,
+            sale_type: sale.sale_type.clone(),
+            expires_at: sale.expires_at,
+            auction: sale.auction.clone(),
+            created_at,
+        }
+    }
+}
+
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct AuctionListing {

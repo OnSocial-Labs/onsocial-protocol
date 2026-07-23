@@ -1,6 +1,7 @@
 use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::json_types::U128;
+use near_sdk::store::LookupMap;
 use near_sdk::testing_env;
 
 fn make_standalone_token(contract: &mut Contract, owner_account: &AccountId) -> String {
@@ -40,8 +41,43 @@ fn list_native_scarce_happy() {
         .list_native_scarce(&buyer(), &tid, U128(1_000), None)
         .unwrap();
 
-    let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
+    let sale_id = Contract::make_sale_id(&env::current_account_id(), &tid);
     assert!(contract.sales.contains_key(&sale_id));
+}
+
+#[test]
+fn list_native_scarce_records_created_at() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    let listed_at = 1_700_000_001_000_000_000;
+    testing_env!(context(buyer()).block_timestamp(listed_at).build());
+
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .unwrap();
+
+    let sales = contract.get_sales(None, None);
+    assert_eq!(sales[0].created_at, Some(listed_at));
+}
+
+#[test]
+fn migrate_preserves_legacy_sales_without_created_at() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    testing_env!(context(buyer()).build());
+    contract
+        .list_native_scarce(&buyer(), &tid, U128(1_000), None)
+        .unwrap();
+    let sale_id = Contract::make_sale_id(&env::current_account_id(), &tid);
+    let mut timestamps: LookupMap<String, u64> = LookupMap::new(StorageKey::SaleCreatedAt);
+    timestamps.remove(&sale_id);
+    drop(timestamps);
+    contract.storage_usage_flushed();
+
+    near_sdk::env::state_write(&contract);
+
+    let migrated = Contract::migrate();
+    assert_eq!(migrated.get_sales(None, None)[0].created_at, None);
 }
 
 #[test]

@@ -21,7 +21,7 @@ function formatPriceNear(priceNear: string): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-/** Owned scarce in Market “Yours” — Sell, Offers, or Delist when listed. */
+/** Owned scarce in Market “Yours” — the canonical owner-management surface. */
 export function MarketOwnedRow({
   item,
   offerCount = 0,
@@ -30,11 +30,12 @@ export function MarketOwnedRow({
   onDelist,
   onOffers,
 }: MarketOwnedRowProps) {
-  const listed = Boolean(item.listedPriceNear?.trim());
+  const listed = item.listingKind != null;
+  const auction = item.listingKind === 'auction';
   const showOffers = Boolean(onOffers) && offerCount > 0;
 
   return (
-    <div className="market-listing-row">
+    <div className="market-listing-row" role="listitem">
       <div
         className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
         aria-hidden
@@ -50,22 +51,19 @@ export function MarketOwnedRow({
           <p className="market-listing-title">{item.title}</p>
           {listed && item.listedPriceNear ? (
             <p className="market-listing-price">
+              {auction ? 'Reserve' : 'Ask'} ·{' '}
               {formatPriceNear(item.listedPriceNear)} NEAR
             </p>
           ) : null}
         </div>
         <p className="market-listing-meta">
-          {listed ? (
+          {auction ? (
+            <span className="market-listing-own">Auction live</span>
+          ) : listed ? (
             <span className="market-listing-own">Listed</span>
           ) : (
             <span className="market-listing-own">Ready to sell</span>
           )}
-          {offerCount > 0 ? (
-            <span className="market-listing-own">
-              {' · '}
-              {offerCount === 1 ? '1 offer' : `${offerCount} offers`}
-            </span>
-          ) : null}
         </p>
       </div>
       <OsSheetActions
@@ -90,10 +88,10 @@ export function MarketOwnedRow({
             variant={showOffers ? 'ghost' : 'primary'}
             ready={!delistPending}
             pending={delistPending}
-            pendingLabel="Delisting…"
+            pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
             onClick={() => onDelist(item)}
           >
-            Delist
+            {auction ? 'Cancel auction' : 'Delist'}
           </OsSheetAction>
         ) : (
           <OsSheetAction

@@ -154,6 +154,7 @@ impl Contract {
         }
 
         let seller_id = sale.owner_id.clone();
+        let created_at = self.sale_created_at(&sale_id);
         let winning_bid = auction.highest_bid.0;
         let winner = auction.highest_bidder.clone();
         let reserve_price = auction.reserve_price.0;
@@ -198,6 +199,9 @@ impl Contract {
                 Some("Auction settled on OnSocial Marketplace".to_string()),
             ) {
                 self.add_sale(sale);
+                if let Some(created_at) = created_at {
+                    self.set_sale_created_at(&sale_id, created_at);
+                }
                 return Err(err);
             }
 

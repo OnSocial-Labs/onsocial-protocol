@@ -49,6 +49,7 @@ pub use protocol::{Action, Options, Request};
 pub use royalties::Payout;
 pub use sale::{
     AuctionListing, AuctionState, AuctionView, GasOverrides, PurchasePayoutContext, Sale, SaleType,
+    SaleView,
 };
 pub use scarce::types::{
     MintContext, RedeemInfo, Scarce, ScarceOptions, ScarceOverrides, TokenMetadata, TokenStatus,

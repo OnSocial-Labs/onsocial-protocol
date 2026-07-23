@@ -11,6 +11,7 @@ import {
   fetchMarketListings,
   fetchMarketSales,
   fetchOwnedScarces,
+  excludeOwnedNativeListings,
   marketListingRowKey,
   type MarketListingItem,
   type MarketSaleItem,
@@ -73,6 +74,18 @@ function sourcePostCoords(
   return { author: match[1], postId: match[2] };
 }
 
+function formatSaleTime(timestamp: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+  const ms = timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
+  const elapsed = Math.max(0, Date.now() - ms);
+  const minutes = Math.floor(elapsed / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 export function MarketPagePanel() {
   const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -122,13 +135,15 @@ export function MarketPagePanel() {
   const listings = data?.key === retryKey ? data.listings : [];
   const sales = data?.key === retryKey ? data.sales : [];
   const owned = data?.key === retryKey ? data.owned : [];
+  const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
+  const browseListings = excludeOwnedNativeListings(listings, ownedTokenIdSet);
 
   const filteredListings =
     listingFilter === 'auctions'
-      ? listings.filter((item) => item.kind === 'auction')
+      ? browseListings.filter((item) => item.kind === 'auction')
       : listingFilter === 'fixed'
-        ? listings.filter((item) => item.kind !== 'auction')
-        : listings;
+        ? browseListings.filter((item) => item.kind !== 'auction')
+        : browseListings;
 
   const ownedTokenIds = owned.map((item) => item.tokenId).join('\0');
 
@@ -155,10 +170,7 @@ export function MarketPagePanel() {
 
   const handleBuy = useCallback(
     (item: MarketListingItem) => {
-      if (
-        viewerAccountId &&
-        accountIdsEqual(viewerAccountId, item.creatorId)
-      ) {
+      if (viewerAccountId && accountIdsEqual(viewerAccountId, item.creatorId)) {
         return;
       }
       if (item.kind === 'auction' && item.tokenId) {
@@ -251,7 +263,7 @@ export function MarketPagePanel() {
                 ),
                 owned: current.owned.map((row) =>
                   item.tokenId && row.tokenId === item.tokenId
-                    ? { ...row, listedPriceNear: null }
+                    ? { ...row, listingKind: null, listedPriceNear: null }
                     : row
                 ),
               }
@@ -260,10 +272,10 @@ export function MarketPagePanel() {
 
         const coords = sourcePostCoords(item.sourcePostPath);
         if (coords && item.kind === 'lazy') {
-          setScarceEmbedOverride(
-            postScarceKey(coords.author, coords.postId),
-            { status: 'none', events: [] }
-          );
+          setScarceEmbedOverride(postScarceKey(coords.author, coords.postId), {
+            status: 'none',
+            events: [],
+          });
         }
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
@@ -281,14 +293,17 @@ export function MarketPagePanel() {
     [cancelRowKey, getSigningWallet, setTxResult, trackTransaction]
   );
 
-  const handleDelistOwned = useCallback(
+  const handleManageOwned = useCallback(
     async (item: OwnedScarceItem) => {
       if (delistTokenId) return;
       setDelistTokenId(item.tokenId);
       try {
         const { accountId, wallet } = await getSigningWallet();
         const client = createAppScarcesWalletClient(accountId, wallet);
-        const response = await client.scarces.market.delist(item.tokenId);
+        const response =
+          item.listingKind === 'auction'
+            ? await client.scarces.auctions.cancel(item.tokenId)
+            : await client.scarces.market.delist(item.tokenId);
         const confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
           submittedMessage: txToastConfirming.cancelingScarceListing,
@@ -314,10 +329,10 @@ export function MarketPagePanel() {
   );
 
   const showEmptyBrowse =
-    status === 'ready' && listings.length === 0 && owned.length === 0;
+    status === 'ready' && browseListings.length === 0 && owned.length === 0;
   const showEmptyFilter =
     status === 'ready' &&
-    listings.length > 0 &&
+    browseListings.length > 0 &&
     filteredListings.length === 0;
 
   return (
@@ -328,10 +343,12 @@ export function MarketPagePanel() {
     >
       <div className="market-page">
         {status === 'loading' ? (
-          <p className="market-page-status">Loading listings…</p>
+          <p className="market-page-status" aria-live="polite">
+            Loading listings…
+          </p>
         ) : null}
         {status === 'error' ? (
-          <p className="market-page-status">
+          <p className="market-page-status" role="alert">
             Couldn’t load Market.{' '}
             <button
               type="button"
@@ -346,36 +363,13 @@ export function MarketPagePanel() {
         {showEmptyBrowse ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
-              Nothing listed yet. List a scarce from a post, or sell one you
-              own under Yours.
+              Nothing listed yet. List a scarce from a post, or sell one you own
+              under Yours.
             </p>
             <Link className="app-soon-link" href={APP_HOME_PATH}>
               Back to Home
             </Link>
           </div>
-        ) : null}
-
-        {viewerAccountId && owned.length > 0 ? (
-          <section className="market-section" aria-labelledby="market-yours">
-            <h2 id="market-yours" className="market-section-title">
-              Yours
-            </h2>
-            <div className="market-listing-list">
-              {owned.map((item) => (
-                <MarketOwnedRow
-                  key={item.tokenId}
-                  item={item}
-                  offerCount={offerCounts[item.tokenId] ?? 0}
-                  delistPending={delistTokenId === item.tokenId}
-                  onSell={setSellItem}
-                  onOffers={setOffersItem}
-                  onDelist={(row) => {
-                    void handleDelistOwned(row);
-                  }}
-                />
-              ))}
-            </div>
-          </section>
         ) : null}
 
         {!showEmptyBrowse && status === 'ready' ? (
@@ -390,6 +384,8 @@ export function MarketPagePanel() {
                   key={tab.id}
                   type="button"
                   role="tab"
+                  id={`market-listing-tab-${tab.id}`}
+                  aria-controls="market-listing-results"
                   aria-selected={listingFilter === tab.id}
                   className={listingFilter === tab.id ? 'is-active' : undefined}
                   onClick={() => setListingFilter(tab.id)}
@@ -402,7 +398,7 @@ export function MarketPagePanel() {
         ) : null}
 
         {status === 'ready' &&
-        listings.length === 0 &&
+        browseListings.length === 0 &&
         sales.length > 0 &&
         !showEmptyBrowse ? (
           <p className="market-page-status">
@@ -418,15 +414,20 @@ export function MarketPagePanel() {
         ) : null}
 
         {filteredListings.length > 0 ? (
-          <section className="market-section" aria-labelledby="market-new">
+          <section
+            id="market-listing-results"
+            role="tabpanel"
+            aria-labelledby={`market-listing-tab-${listingFilter}`}
+            className="market-section"
+          >
             <h2 id="market-new" className="market-section-title">
               {listingFilter === 'auctions'
                 ? 'Auctions'
                 : listingFilter === 'fixed'
                   ? 'Fixed price'
-                  : 'New listings'}
+                  : 'Listings'}
             </h2>
-            <div className="market-listing-list">
+            <div className="market-listing-list" role="list">
               {filteredListings.map((item) => {
                 const rowKey = marketListingRowKey(item);
                 return (
@@ -435,6 +436,7 @@ export function MarketPagePanel() {
                     item={item}
                     isOwnListing={
                       Boolean(viewerAccountId) &&
+                      item.kind === 'lazy' &&
                       accountIdsEqual(viewerAccountId!, item.creatorId)
                     }
                     cancelPending={cancelRowKey === rowKey}
@@ -449,6 +451,29 @@ export function MarketPagePanel() {
           </section>
         ) : null}
 
+        {viewerAccountId && owned.length > 0 ? (
+          <section className="market-section" aria-labelledby="market-yours">
+            <h2 id="market-yours" className="market-section-title">
+              Yours
+            </h2>
+            <div className="market-listing-list" role="list">
+              {owned.map((item) => (
+                <MarketOwnedRow
+                  key={item.tokenId}
+                  item={item}
+                  offerCount={offerCounts[item.tokenId] ?? 0}
+                  delistPending={delistTokenId === item.tokenId}
+                  onSell={setSellItem}
+                  onOffers={setOffersItem}
+                  onDelist={(row) => {
+                    void handleManageOwned(row);
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {sales.length > 0 ? (
           <section className="market-section" aria-labelledby="market-sales">
             <h2 id="market-sales" className="market-section-title">
@@ -458,17 +483,44 @@ export function MarketPagePanel() {
               {sales.map((sale, index) => {
                 const seller =
                   sale.sellerId?.trim() || sale.creatorId?.trim() || '';
+                const saleTime = formatSaleTime(sale.blockTimestamp);
+                const title = sale.postHref ? (
+                  <Link
+                    href={sale.postHref}
+                    scroll={false}
+                    className="market-listing-title-link"
+                  >
+                    {sale.title}
+                  </Link>
+                ) : (
+                  sale.title
+                );
                 return (
                   <li
                     key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
                     className="market-sale-row"
                   >
-                    <span className="market-sale-title">{sale.title}</span>
-                    <span className="market-sale-meta">
-                      {sale.priceNear} NEAR
-                      {seller ? (
-                        <>
-                          {' · '}
+                    <div
+                      className={`market-listing-thumb${
+                        sale.mediaUrl ? ' has-media' : ''
+                      }`}
+                      aria-hidden
+                    >
+                      {sale.mediaUrl ? (
+                        <img src={sale.mediaUrl} alt="" />
+                      ) : (
+                        <span className="market-listing-thumb-fallback" />
+                      )}
+                    </div>
+                    <div className="market-listing-copy">
+                      <div className="market-listing-head">
+                        <p className="market-sale-title">{title}</p>
+                        <p className="market-listing-price">
+                          {sale.priceNear} NEAR
+                        </p>
+                      </div>
+                      <p className="market-sale-meta">
+                        {seller ? (
                           <Link
                             href={portfolioPath(seller)}
                             scroll={false}
@@ -476,9 +528,12 @@ export function MarketPagePanel() {
                           >
                             @{fallbackLabel(seller)}
                           </Link>
-                        </>
-                      ) : null}
-                    </span>
+                        ) : (
+                          'Sale'
+                        )}
+                        {saleTime ? ` · ${saleTime}` : ''}
+                      </p>
+                    </div>
                   </li>
                 );
               })}

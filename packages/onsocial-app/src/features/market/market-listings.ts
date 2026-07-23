@@ -50,6 +50,8 @@ export interface MarketListingItem {
   title: string;
   /** Ask (fixed) or current high / reserve (auction). */
   priceNear: string;
+  /** Makes auction prices unambiguous without duplicating price values. */
+  priceLabel?: 'Ask' | 'Reserve' | 'High bid';
   blockTimestamp: number;
   mediaUrl?: string | null;
   sourcePostPath?: string;
@@ -69,7 +71,9 @@ export interface OwnedScarceItem {
   title: string;
   mediaUrl?: string | null;
   ownerId: string;
-  /** Set when this token is already listed for resale. */
+  /** Listing state for an owned native scarce. */
+  listingKind: 'fixed' | 'auction' | null;
+  /** Set when this token is already listed for resale or auction. */
   listedPriceNear?: string | null;
 }
 
@@ -77,11 +81,15 @@ interface ContractSaleRecord {
   owner_id?: string;
   sale_conditions?: string | { '0'?: string } | null;
   sale_type?:
-    | { NativeScarce?: { token_id?: string }; native_scarce?: { token_id?: string } }
+    | {
+        NativeScarce?: { token_id?: string };
+        native_scarce?: { token_id?: string };
+      }
     | { External?: unknown; external?: unknown }
     | string;
   auction?: unknown;
   expires_at?: number | null;
+  created_at?: number | string | null;
 }
 
 interface ContractTokenRecord {
@@ -103,6 +111,9 @@ export interface MarketSaleItem {
   title: string;
   priceNear: string;
   blockTimestamp: number;
+  mediaUrl?: string | null;
+  sourcePostPath?: string;
+  postHref?: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -133,11 +144,19 @@ function priceNearFromYocto(raw: unknown): string | null {
   const priceYocto =
     typeof raw === 'string'
       ? raw
-      : raw && typeof raw === 'object' && typeof (raw as { '0'?: string })['0'] === 'string'
+      : raw &&
+          typeof raw === 'object' &&
+          typeof (raw as { '0'?: string })['0'] === 'string'
         ? (raw as { '0': string })['0']
         : null;
   if (!priceYocto || !/^\d+$/.test(priceYocto)) return null;
   return yoctoToNear(priceYocto);
+}
+
+function timestampMs(raw: number | string | null | undefined): number {
+  const timestamp = typeof raw === 'string' ? Number(raw) : raw;
+  if (!Number.isFinite(timestamp) || !timestamp || timestamp <= 0) return 0;
+  return timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
 }
 
 function priceNearFromRow(row: ScarcesEventRow): string {
@@ -199,7 +218,33 @@ function accountFromRow(
   return undefined;
 }
 
-function saleTitle(row: ScarcesEventRow): string {
+export function hasUnresolvedTitleTemplate(title: string): boolean {
+  return /#\{[^}]+\}|\{[a-z_]+\}/i.test(title);
+}
+
+/** Make legacy `#{id}` edition titles readable when metadata stored them raw. */
+export function resolveTokenDisplayTitle(title: string, tokenId: string): string {
+  if (!hasUnresolvedTitleTemplate(title)) return title;
+  const edition = tokenId.includes(':') ? tokenId.split(':').at(-1) : tokenId;
+  return title.replace(/#\{id\}/gi, `#${edition}`).replace(/\{token_id\}/gi, tokenId);
+}
+
+/** Keep native inventory in the canonical owner-management surface. */
+export function excludeOwnedNativeListings(
+  listings: MarketListingItem[],
+  ownedTokenIds: ReadonlySet<string>
+): MarketListingItem[] {
+  return listings.filter(
+    (item) =>
+      !(
+        item.tokenId &&
+        (item.kind === 'native' || item.kind === 'auction') &&
+        ownedTokenIds.has(item.tokenId)
+      )
+  );
+}
+
+export function saleTitle(row: ScarcesEventRow): string {
   const extra = parseExtra(row.extraData);
   const titled =
     stringField(extra, 'title') ??
@@ -253,8 +298,7 @@ function listingFromRecord(
   const blockTimestamp =
     createdAt > 1e15 ? Math.floor(createdAt / 1e6) : createdAt;
   const copiesSafe = parseCount(record.metadata?.copies);
-  const copies =
-    copiesSafe != null && copiesSafe > 0 ? copiesSafe : undefined;
+  const copies = copiesSafe != null && copiesSafe > 0 ? copiesSafe : undefined;
   const remaining = remainingForListing(record, copies);
 
   return {
@@ -335,6 +379,12 @@ function auctionDisplayPriceNear(sale: ContractSaleRecord): string | null {
   return priceNearFromYocto(auction.reserve_price);
 }
 
+function auctionPriceLabel(sale: ContractSaleRecord): 'Reserve' | 'High bid' {
+  const auction = asRecord(sale.auction) as ContractAuctionState | null;
+  const highest = priceNearFromYocto(auction?.highest_bid);
+  return highest && Number.parseFloat(highest) > 0 ? 'High bid' : 'Reserve';
+}
+
 async function fetchTokenRecord(
   tokenId: string
 ): Promise<ContractTokenRecord | null> {
@@ -361,11 +411,10 @@ function listingFromNativeSale(
     ? auctionDisplayPriceNear(sale)
     : priceNearFromYocto(sale.sale_conditions);
   if (!priceNear) return null;
-  const title =
+  const rawTitle =
     token?.metadata?.title?.trim() ||
-    (tokenId.includes(':') && !tokenId.startsWith('s:')
-      ? tokenId
-      : 'Scarce');
+    (tokenId.includes(':') && !tokenId.startsWith('s:') ? tokenId : 'Scarce');
+  const title = resolveTokenDisplayTitle(rawTitle, tokenId);
   const mediaUrl = resolveScarceMediaUrl(token?.metadata?.media ?? null);
   const extra = parseExtra(token?.metadata?.extra ?? null);
   return {
@@ -374,7 +423,8 @@ function listingFromNativeSale(
     creatorId: sellerId,
     title,
     priceNear,
-    blockTimestamp: Date.now(),
+    priceLabel: isAuction ? auctionPriceLabel(sale) : 'Ask',
+    blockTimestamp: timestampMs(sale.created_at),
     mediaUrl,
     sourcePostPath: sourcePostPathFromExtra(extra),
   };
@@ -383,9 +433,11 @@ function listingFromNativeSale(
 /**
  * Active secondary (native NFT) fixed-price + auction listings from contract state.
  */
-export async function fetchNativeMarketListings(opts: {
-  limit?: number;
-} = {}): Promise<MarketListingItem[]> {
+export async function fetchNativeMarketListings(
+  opts: {
+    limit?: number;
+  } = {}
+): Promise<MarketListingItem[]> {
   const limit = opts.limit ?? 40;
   let sales: ContractSaleRecord[] = [];
   try {
@@ -411,9 +463,7 @@ export async function fetchNativeMarketListings(opts: {
   }
 
   const nativeSales = sales
-    .filter(
-      (sale) => isFixedPriceNativeSale(sale) || isNativeAuctionSale(sale)
-    )
+    .filter((sale) => isFixedPriceNativeSale(sale) || isNativeAuctionSale(sale))
     .slice(0, limit);
   const tokens = await Promise.all(
     nativeSales.map((sale) => {
@@ -465,12 +515,22 @@ export async function fetchOwnedScarces(
     ownerSales = [];
   }
 
-  const listedByToken = new Map<string, string>();
+  const listedByToken = new Map<
+    string,
+    { kind: 'fixed' | 'auction'; priceNear: string }
+  >();
   for (const sale of ownerSales) {
-    if (!isFixedPriceNativeSale(sale)) continue;
     const tokenId = nativeTokenIdFromSale(sale);
-    const priceNear = priceNearFromYocto(sale.sale_conditions);
-    if (tokenId && priceNear) listedByToken.set(tokenId, priceNear);
+    if (!tokenId) continue;
+    if (isFixedPriceNativeSale(sale)) {
+      const priceNear = priceNearFromYocto(sale.sale_conditions);
+      if (priceNear) listedByToken.set(tokenId, { kind: 'fixed', priceNear });
+      continue;
+    }
+    if (isNativeAuctionSale(sale)) {
+      const priceNear = auctionDisplayPriceNear(sale);
+      if (priceNear) listedByToken.set(tokenId, { kind: 'auction', priceNear });
+    }
   }
 
   return tokens
@@ -487,7 +547,8 @@ export async function fetchOwnedScarces(
         title,
         mediaUrl: resolveScarceMediaUrl(token.metadata?.media ?? null),
         ownerId: token.owner_id?.trim() || owner,
-        listedPriceNear: listedByToken.get(tokenId) ?? null,
+        listingKind: listedByToken.get(tokenId)?.kind ?? null,
+        listedPriceNear: listedByToken.get(tokenId)?.priceNear ?? null,
       };
     })
     .filter((item): item is OwnedScarceItem => item != null);
@@ -569,9 +630,11 @@ export async function findLiveListingForPost(
  * Indexer `created` events discover lazy ids; each id is loaded with
  * `get_lazy_listing` so one corrupt row cannot empty the Market.
  */
-export async function fetchMarketListings(opts: {
-  limit?: number;
-} = {}): Promise<MarketListingItem[]> {
+export async function fetchMarketListings(
+  opts: {
+    limit?: number;
+  } = {}
+): Promise<MarketListingItem[]> {
   const limit = opts.limit ?? 40;
   const client = createReadOnlyOnSocialClient();
   const [created, nativeListings] = await Promise.all([
@@ -612,9 +675,11 @@ export async function fetchMarketListings(opts: {
   return withResolvedPostHrefs(sorted);
 }
 
-export async function fetchMarketSales(opts: {
-  limit?: number;
-} = {}): Promise<MarketSaleItem[]> {
+export async function fetchMarketSales(
+  opts: {
+    limit?: number;
+  } = {}
+): Promise<MarketSaleItem[]> {
   const limit = opts.limit ?? 20;
   const client = createReadOnlyOnSocialClient();
   const [lazyPurchased, nativeSales] = await Promise.all([
@@ -630,7 +695,7 @@ export async function fetchMarketSales(opts: {
     (a, b) => b.blockTimestamp - a.blockTimestamp
   );
 
-  return merged.slice(0, limit).map((row) => ({
+  const items = merged.slice(0, limit).map((row) => ({
     listingId: row.listingId?.trim() || undefined,
     tokenId: row.tokenId?.trim() || undefined,
     buyerId: accountFromRow(row.buyerId),
@@ -640,4 +705,47 @@ export async function fetchMarketSales(opts: {
     priceNear: priceNearFromRow(row),
     blockTimestamp: row.blockTimestamp,
   }));
+  const tokenIds = [
+    ...new Set(
+      items
+        .map((item) => item.tokenId?.trim())
+        .filter((tokenId): tokenId is string => Boolean(tokenId))
+    ),
+  ];
+  const tokenMeta = new Map(
+    await Promise.all(
+      tokenIds.map(
+        async (tokenId) => [tokenId, await fetchTokenRecord(tokenId)] as const
+      )
+    )
+  );
+
+  const enriched = items.map((item) => {
+    const token = item.tokenId ? tokenMeta.get(item.tokenId) : null;
+    const tokenTitle = token?.metadata?.title?.trim();
+    const extra = parseExtra(token?.metadata?.extra ?? null);
+    return {
+      ...item,
+      ...(tokenTitle &&
+      (item.title === 'Scarce' || hasUnresolvedTitleTemplate(item.title))
+        ? { title: resolveTokenDisplayTitle(tokenTitle, item.tokenId!) }
+        : {}),
+      ...(token?.metadata?.media
+        ? { mediaUrl: resolveScarceMediaUrl(token.metadata.media) }
+        : {}),
+      ...(sourcePostPathFromExtra(extra)
+        ? { sourcePostPath: sourcePostPathFromExtra(extra) }
+        : {}),
+    };
+  });
+
+  return Promise.all(
+    enriched.map(async (item) => {
+      if (!item.sourcePostPath) return item;
+      const postHref = await resolvePostThreadHrefFromSourcePath(
+        item.sourcePostPath
+      );
+      return postHref ? { ...item, postHref } : item;
+    })
+  );
 }

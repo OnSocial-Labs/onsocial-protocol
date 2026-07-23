@@ -30,7 +30,7 @@ impl Contract {
         account_id: AccountId,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> Vec<Sale> {
+    ) -> Vec<SaleView> {
         let Some(sales) = self.by_owner_id.get(&account_id) else {
             return vec![];
         };
@@ -42,7 +42,11 @@ impl Contract {
             .iter()
             .skip(start as usize)
             .take(limit as usize)
-            .filter_map(|sale_id| self.sales.get(sale_id).cloned())
+            .filter_map(|sale_id| {
+                self.sales
+                    .get(sale_id)
+                    .map(|sale| SaleView::from_sale(sale, self.sale_created_at(sale_id)))
+            })
             .collect()
     }
 
@@ -51,7 +55,7 @@ impl Contract {
         scarce_contract_id: AccountId,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> Vec<Sale> {
+    ) -> Vec<SaleView> {
         let Some(sales) = self.by_scarce_contract_id.get(&scarce_contract_id) else {
             return vec![];
         };
@@ -63,11 +67,15 @@ impl Contract {
             .iter()
             .skip(start as usize)
             .take(limit as usize)
-            .filter_map(|sale_id| self.sales.get(sale_id).cloned())
+            .filter_map(|sale_id| {
+                self.sales
+                    .get(sale_id)
+                    .map(|sale| SaleView::from_sale(sale, self.sale_created_at(sale_id)))
+            })
             .collect()
     }
 
-    pub fn get_sales(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<Sale> {
+    pub fn get_sales(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<SaleView> {
         let start = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(50).min(100);
 
@@ -75,7 +83,7 @@ impl Contract {
             .iter()
             .skip(start as usize)
             .take(limit as usize)
-            .map(|(_, sale)| sale.clone())
+            .map(|(sale_id, sale)| SaleView::from_sale(sale, self.sale_created_at(sale_id)))
             .collect()
     }
 

@@ -124,5 +124,5 @@ impl Contract {
 #[near(serializers = [json])]
 pub struct SaleWithBasicInfo {
     pub sale_id: String,
-    pub sale: Sale,
+    pub sale: SaleView,
 }

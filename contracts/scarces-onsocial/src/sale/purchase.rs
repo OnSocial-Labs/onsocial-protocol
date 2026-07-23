@@ -294,6 +294,7 @@ impl Contract {
         }
 
         let seller_id = sale.owner_id.clone();
+        let created_at = self.sale_created_at(&sale_id);
 
         // Validate token state before delisting so failure leaves the listing intact
         // and deposit restore (in the caller) cannot strand buyer funds.
@@ -347,6 +348,9 @@ impl Contract {
         ) {
             // Defense in depth: restore listing if transfer fails after remove_sale.
             self.add_sale(sale);
+            if let Some(created_at) = created_at {
+                self.set_sale_created_at(&sale_id, created_at);
+            }
             return Err(err);
         }
 

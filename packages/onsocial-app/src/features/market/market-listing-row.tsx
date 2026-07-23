@@ -71,8 +71,7 @@ export function MarketListingRow({
   const rowKey = marketListingRowKey(item);
   const handle = fallbackLabel(item.creatorId);
   const profileHref = portfolioPath(item.creatorId);
-  const postHref =
-    item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
+  const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
@@ -122,7 +121,7 @@ export function MarketListingRow({
   );
 
   return (
-    <div className="market-listing-row">
+    <div className="market-listing-row" role="listitem">
       {postHref ? (
         <Link
           href={postHref}
@@ -164,6 +163,7 @@ export function MarketListingRow({
         <div className="market-listing-head">
           <p className="market-listing-title">{titleNode}</p>
           <p className="market-listing-price">
+            {item.priceLabel ? `${item.priceLabel} · ` : ''}
             {formatPriceNear(item.priceNear)} NEAR
           </p>
         </div>
@@ -224,6 +224,11 @@ export function MarketListingRow({
             type="button"
             variant="primary"
             ready
+            aria-label={
+              item.kind === 'auction'
+                ? `Bid on ${item.title}`
+                : `Buy ${item.title}`
+            }
             onClick={() => onBuy(item)}
           >
             {item.kind === 'auction' ? 'Bid' : 'Buy'}

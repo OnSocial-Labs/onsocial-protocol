@@ -39,6 +39,7 @@ pub enum StorageKey {
     CollectionOffers,
     LazyListings,
     ApprovedNftContracts,
+    SaleCreatedAt,
 }
 
 #[near(serializers = [borsh, json])]
