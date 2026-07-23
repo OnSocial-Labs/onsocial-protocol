@@ -24,10 +24,22 @@ export {
   type TitleFitStatus,
 } from './generator.js';
 export {
+  CARD_FORMATS,
+  CARD_FORMAT_REGISTRY,
+  DEFAULT_CARD_FORMAT,
+  isCardFormat,
+  resolveCardFormat,
+  moodForCardFormat,
+  isCardFormatPalette,
+  type CardFormat,
+  type CardFormatSpec,
+} from './formats.js';
+export {
   // v0.2 — moods
   MOODS,
   DEFAULT_MOOD,
   resolveMood,
+  canonicalizeMoodKey,
   isMoodKey,
   type Mood,
   type MoodKey,

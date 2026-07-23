@@ -1,12 +1,12 @@
 // ---------------------------------------------------------------------------
 // Theme catalog. The grid model:
 //
-//   6 voices  (typography personality)  ×  4 palettes  (finish / lighting)
-//   = 24 standard moods, plus 1 special  = 25 total.
+//   6 voices  (typography personality)  ×  11 palettes  (finish / lighting)
+//   = 66 standard moods, plus 1 special  = 67 total.
 //
 // Voice + palette are orthogonal in the picker but composed into one
 // stable mood key for storage. Keys: `${voice}-${palette}` (e.g.
-// `display-noir`). The single special is `mono-matrix` — green-on-black
+// `poster-noir`). The single special is `mono-matrix` — green-on-black
 // terminal classic that lives outside the grid because the colour is
 // part of its identity, not just a finish.
 //
@@ -60,25 +60,37 @@ export interface Mood {
 }
 
 // ── Voices ──────────────────────────────────────────────────────────────────
-// Six type voices. Each is one typographic personality; palette decides
-// the lighting. Adding a voice = one entry here + auto-generates 4 moods.
+// Keys match curated formats 1:1 (except Proof, which reuses Mono type).
 
 export const VOICES = [
-  'serif',
-  'display',
+  'thought',
+  'poster',
+  'letter',
   'journal',
-  'bold',
   'mono',
   'receipt',
 ] as const;
 export type Voice = (typeof VOICES)[number];
 
+/**
+ * Legacy voice prefixes still accepted from older minted `extra.theme.bg`.
+ * `journal-*` stays Journal/Newsreader (its original meaning). Erica lives
+ * under the new `letter-*` keys.
+ */
+const LEGACY_VOICE_ALIASES: Record<string, Voice> = {
+  bold: 'thought',
+  display: 'poster',
+  serif: 'journal',
+};
+
 const SERIF_FAMILY =
-  "Georgia, 'Times New Roman', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
+  "'Newsreader', 'Source Serif 4', 'Source Serif Pro', 'Charter', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
 const SANS_FAMILY =
-  "'Inter', 'Inter Display', -apple-system, 'SF Pro Display', 'Segoe UI Variable', 'Segoe UI', Roboto, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
-const EDITORIAL_FAMILY =
-  "'Newsreader', 'Source Serif 4', 'Source Serif Pro', 'Charter', 'Iowan Old Style', Georgia, 'Times New Roman', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
+  "'DM Sans', -apple-system, 'SF Pro Display', 'Segoe UI Variable', 'Segoe UI', Roboto, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
+const DISPLAY_FAMILY =
+  "'Space Grotesk', 'DM Sans', -apple-system, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
+const ERIKA_TYPE_FAMILY =
+  "'Erica Type', 'Erika Type', 'DM Sans', -apple-system, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
 const MONO_FAMILY =
   "'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
 /** Signature byline — matches app/portal chrome (DM Sans), system fallbacks for wallets. */
@@ -99,23 +111,21 @@ interface VoiceSpec {
 }
 
 const VOICE_SPECS: Record<Voice, VoiceSpec> = {
-  serif: {
-    label: 'Serif',
-    tagline: 'Classic Georgia. Quiet, considered, evergreen.',
-    titleFamily: SERIF_FAMILY,
-    titleWeight: 600,
+  thought: {
+    label: 'Thought',
+    tagline: 'DM Sans. Quiet, considered, sentence case.',
+    titleFamily: SANS_FAMILY,
+    titleWeight: 500,
     titleUppercase: false,
-    titleLetterSpacing: 0,
+    titleLetterSpacing: -0.2,
     bylineFamily: SANS_BYLINE,
-    // Georgia 600 renders a touch wider than sans — keep parity
-    // with the right-side padding by budgeting fewer chars per line.
     titleCharsPerLine: 20,
     bylineMaxChars: 36,
   },
-  display: {
-    label: 'Display',
-    tagline: 'Modern geometric sans. Clean, current, confident.',
-    titleFamily: SANS_FAMILY,
+  poster: {
+    label: 'Poster',
+    tagline: 'Space Grotesk. Crisp, geometric, built for posters.',
+    titleFamily: DISPLAY_FAMILY,
     titleWeight: 700,
     titleUppercase: false,
     titleLetterSpacing: -0.8,
@@ -123,30 +133,27 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleCharsPerLine: 20,
     bylineMaxChars: 36,
   },
-  journal: {
-    label: 'Journal',
-    tagline: 'Modern editorial serif. Premium magazine feel.',
-    titleFamily: EDITORIAL_FAMILY,
-    titleWeight: 500,
+  letter: {
+    label: 'Letter',
+    tagline: 'Erica Type. Expressive, distinctive, unmistakably OnSocial.',
+    titleFamily: ERIKA_TYPE_FAMILY,
+    titleWeight: 400,
     titleUppercase: false,
     titleLetterSpacing: -0.3,
     bylineFamily: SANS_BYLINE,
-    // Editorial serif at 500 — same right-padding-parity tightening
-    // as `serif`.
     titleCharsPerLine: 20,
     bylineMaxChars: 36,
   },
-  bold: {
-    label: 'Bold',
-    tagline: 'Sans 900 uppercase. For statements.',
-    titleFamily: SANS_FAMILY,
-    titleWeight: 900,
-    titleUppercase: true,
-    titleLetterSpacing: 1,
+  journal: {
+    label: 'Journal',
+    tagline: 'Newsreader. Quiet editorial serif.',
+    titleFamily: SERIF_FAMILY,
+    titleWeight: 500,
+    titleUppercase: false,
+    titleLetterSpacing: 0,
     bylineFamily: SANS_BYLINE,
-    // Bold uppercase 900-weight is ~30% wider than serif. Tighter budget.
-    titleCharsPerLine: 16,
-    bylineMaxChars: 30,
+    titleCharsPerLine: 20,
+    bylineMaxChars: 36,
   },
   mono: {
     label: 'Mono',
@@ -156,7 +163,6 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: 0,
     bylineFamily: MONO_FAMILY,
-    // Monospace glyphs are uniformly wide. Tighter budget.
     titleCharsPerLine: 18,
     bylineMaxChars: 28,
   },
@@ -168,10 +174,6 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: -0.6,
     bylineFamily: SANS_BYLINE,
-    // Tight per-line budget calibrated against the receipt size ladder
-    // (56 → 40px Inter bold) and the 488px content width. Falls back to
-    // a 2-line wrap when the title doesn't fit at 56px. The 60-char hard
-    // cap is enforced in generator.
     titleCharsPerLine: 17,
     bylineMaxChars: 36,
   },
@@ -180,9 +182,21 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
 // ── Palettes ────────────────────────────────────────────────────────────────
 // Four lighting finishes. Each declares the bg + the text colours that
 // look good on that bg. Voice choice doesn't change these; bold-light
-// and serif-light share the same cream + ink-black.
+// and journal-light share the same cream + ink-black.
 
-export const PALETTES = ['light', 'night', 'noir', 'dusk'] as const;
+export const PALETTES = [
+  'light',
+  'mist',
+  'sand',
+  'sky',
+  'night',
+  'noir',
+  'dusk',
+  'forest',
+  'graphite',
+  'black',
+  'white',
+] as const;
 export type Palette = (typeof PALETTES)[number];
 
 interface PaletteSpec {
@@ -198,7 +212,7 @@ interface PaletteSpec {
 
 const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
   light: {
-    label: 'Light',
+    label: 'Paper',
     tagline: 'Cream off-white. Premium print stock, no warm cast.',
     bgFrom: '#FAFAF6',
     bgTo: '#F2F1EC',
@@ -206,6 +220,33 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     textPrimary: '#0B0B0F',
     // Warm stone — not cool gray-500 (reads as link-blue next to black).
     textMuted: '#6F6E69',
+  },
+  mist: {
+    label: 'Mist',
+    tagline: 'Cool pale grey. Clean, quiet, contemporary.',
+    bgFrom: '#F1F3F5',
+    bgTo: '#E6E9EC',
+    bgAngle: 180,
+    textPrimary: '#15171A',
+    textMuted: '#6E747B',
+  },
+  sand: {
+    label: 'Sand',
+    tagline: 'Warm stone. Grounded, tactile, understated.',
+    bgFrom: '#F4EEE4',
+    bgTo: '#E8DFD2',
+    bgAngle: 180,
+    textPrimary: '#211C17',
+    textMuted: '#766C60',
+  },
+  sky: {
+    label: 'Sky',
+    tagline: 'Pale blue. Open, calm, clear.',
+    bgFrom: '#E4F1FA',
+    bgTo: '#C9DFF2',
+    bgAngle: 160,
+    textPrimary: '#102133',
+    textMuted: '#5C6E80',
   },
   night: {
     label: 'Night',
@@ -236,6 +277,42 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     // Soft lilac-gray, not saturated “link” blue-violet.
     textMuted: '#9E9AAD',
   },
+  forest: {
+    label: 'Forest',
+    tagline: 'Deep green-black. Grounded and nocturnal.',
+    bgFrom: '#0D1914',
+    bgTo: '#14221B',
+    bgAngle: 160,
+    textPrimary: '#EDF4EC',
+    textMuted: '#98A69A',
+  },
+  graphite: {
+    label: 'Graphite',
+    tagline: 'Dark grey. Refined, neutral, low-glare.',
+    bgFrom: '#1A1B1F',
+    bgTo: '#282A30',
+    bgAngle: 180,
+    textPrimary: '#F2F2F3',
+    textMuted: '#A0A2A8',
+  },
+  black: {
+    label: 'Black',
+    tagline: 'True black. Absolute contrast and restraint.',
+    bgFrom: '#000000',
+    bgTo: '#090909',
+    bgAngle: 180,
+    textPrimary: '#FFFFFF',
+    textMuted: '#969696',
+  },
+  white: {
+    label: 'White',
+    tagline: 'True white. Crisp, bright, unadorned.',
+    bgFrom: '#FFFFFF',
+    bgTo: '#F7F7F7',
+    bgAngle: 180,
+    textPrimary: '#0B0B0F',
+    textMuted: '#6B6B70',
+  },
 };
 
 // ── Composed mood key types ─────────────────────────────────────────────────
@@ -250,11 +327,10 @@ export type MoodKey = StandardMoodKey | SpecialMoodKey;
 // invent cute names that don't land — only override where there's an
 // obvious good name.
 const FRIENDLY_LABELS: Partial<Record<MoodKey, string>> = {
-  'serif-light': 'Paper',
-  'serif-night': 'Ink',
-  'display-light': 'Display',
+  'thought-night': 'Thought',
+  'poster-noir': 'Poster',
+  'letter-light': 'Letter',
   'journal-light': 'Journal',
-  'bold-noir': 'Bold',
   'mono-noir': 'Terminal',
   'receipt-light': 'Receipt',
   'mono-matrix': 'Matrix',
@@ -263,9 +339,10 @@ const FRIENDLY_LABELS: Partial<Record<MoodKey, string>> = {
 // Per-mood descriptions for the iconic ones. Other moods get
 // `${voice.tagline} ${palette.tagline}` auto-composed.
 const FRIENDLY_DESCRIPTIONS: Partial<Record<MoodKey, string>> = {
-  'serif-light': 'Cream off-white, ink-black serif. Quiet, considered.',
-  'serif-night': 'Deep navy, warm white serif. Thoughtful default.',
-  'bold-noir': 'Matte black, white sans, very high weight. Statements.',
+  'thought-night': 'Deep navy, quiet DM Sans. A considered thought.',
+  'poster-noir': 'Matte black, Space Grotesk. A short statement.',
+  'letter-light': 'Cream stock, Erica Type. Expressive and personal.',
+  'journal-light': 'Cream off-white, Newsreader. Quiet editorial.',
   'mono-noir': 'Mono on pure matte black. Terminal classic.',
   'receipt-light':
     'Short claim + photo as proof. For milestones, wins, evidence.',
@@ -332,15 +409,29 @@ export const MOODS: Record<MoodKey, Mood> = (() => {
 })();
 
 /** Default mood used when callers don't specify. */
-export const DEFAULT_MOOD: MoodKey = 'serif-night';
+export const DEFAULT_MOOD: MoodKey = 'thought-night';
+
+/** Map a legacy or canonical mood string to a catalog key. */
+export function canonicalizeMoodKey(raw: string): MoodKey | null {
+  if (raw in MOODS) return raw as MoodKey;
+  if (raw === 'mono-matrix') return 'mono-matrix';
+  const dash = raw.indexOf('-');
+  if (dash <= 0) return null;
+  const legacyVoice = raw.slice(0, dash);
+  const palette = raw.slice(dash + 1) as Palette;
+  const voice = LEGACY_VOICE_ALIASES[legacyVoice];
+  if (!voice || !PALETTES.includes(palette)) return null;
+  return `${voice}-${palette}` as MoodKey;
+}
 
 /** Resolve & normalise a mood spec. Unknown keys fall back to the default. */
 export function resolveMood(spec?: { bg?: string }): MoodKey {
-  return isMoodKey(spec?.bg) ? (spec!.bg as MoodKey) : DEFAULT_MOOD;
+  if (typeof spec?.bg !== 'string') return DEFAULT_MOOD;
+  return canonicalizeMoodKey(spec.bg) ?? DEFAULT_MOOD;
 }
 
 export function isMoodKey(v: unknown): v is MoodKey {
-  return typeof v === 'string' && v in MOODS;
+  return typeof v === 'string' && canonicalizeMoodKey(v) != null;
 }
 
 /** Split a mood key back into its (voice, palette) — for picker UIs. */

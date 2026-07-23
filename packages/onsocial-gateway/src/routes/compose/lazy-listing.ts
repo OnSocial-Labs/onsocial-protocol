@@ -66,6 +66,9 @@ lazyListingRouter.post(
         cardMarkColor,
         cardMarkShape,
         cardTitleAlign,
+        cardFormat,
+        cardPalette,
+        cardPhotoCid,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -143,6 +146,11 @@ lazyListingRouter.post(
             cardMarkShape && { cardMarkShape }),
           ...(typeof cardTitleAlign === 'string' &&
             cardTitleAlign && { cardTitleAlign }),
+          ...(typeof cardFormat === 'string' && cardFormat && { cardFormat }),
+          ...(typeof cardPalette === 'string' &&
+            cardPalette && { cardPalette }),
+          ...(typeof cardPhotoCid === 'string' &&
+            cardPhotoCid && { cardPhotoCid }),
         },
         imageFile
       );

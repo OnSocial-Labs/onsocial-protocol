@@ -14,7 +14,6 @@ import {
   type ScarceSellSuccessDetail,
 } from '@/features/scarces/scarce-sell-form';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 interface ScarceSellSheetProps {
   open: boolean;
@@ -28,7 +27,6 @@ interface ScarceSellSheetProps {
 export function ScarceSellSheet({
   open,
   item,
-  sellerAccountId = null,
   onOpenChange,
   onListed,
 }: ScarceSellSheetProps) {
@@ -41,9 +39,6 @@ export function ScarceSellSheet({
     useState<CommerceSheetFooterState | null>(null);
   const sheetOpen = open && !closing && item != null;
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
-  const accountId = sellerAccountId?.trim() || item?.ownerId || '';
-  const name = accountId ? displayName(accountId) : '';
-  const handle = accountId ? fallbackLabel(accountId) : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -88,8 +83,6 @@ export function ScarceSellSheet({
           <GestureSheetHeader
             titleId={titleId}
             verb="Sell"
-            personName={name}
-            handle={handle}
             signal="reputation"
             closeAriaLabel="Close sell scarce"
             onClose={requestClose}

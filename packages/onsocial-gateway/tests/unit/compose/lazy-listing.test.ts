@@ -34,6 +34,26 @@ vi.mock('../../../src/services/compose/profileLookup.js', () => ({
 describe('buildLazyListAction', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('validates curated format limits before building a listing', async () => {
+    await expect(
+      buildLazyListAction(
+        'alice.testnet',
+        { title: 'A'.repeat(49), priceNear: '1', cardFormat: 'poster' },
+        undefined
+      )
+    ).rejects.toThrow('Poster cards support up to 48 characters');
+  });
+
+  it('requires a proof image for photo-led formats', async () => {
+    await expect(
+      buildLazyListAction(
+        'alice.testnet',
+        { title: 'Verified.', priceNear: '1', cardFormat: 'proof' },
+        undefined
+      )
+    ).rejects.toThrow('Proof cards require cardPhotoCid');
+  });
+
   it('builds action with image', async () => {
     mockLighthouseUpload('QmBuilt', 1000);
     mockLighthouseText('QmMeta', 200);

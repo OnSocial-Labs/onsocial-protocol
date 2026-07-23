@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { ProfileAvatar } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -13,12 +15,24 @@ import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { personalPostPath } from '@/lib/post-routes';
+import { fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+function sourcePostCoords(
+  path: string | undefined
+): { author: string; postId: string } | null {
+  if (!path?.trim()) return null;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  if (!match?.[1] || !match[2]) return null;
+  return { author: match[1], postId: match[2] };
+}
 
 const NEAR_INPUT_DECIMALS = 5;
 const MIN_PRICE_NEAR = '0.01';
@@ -67,6 +81,47 @@ export function ScarceSellForm({
   const [durationNs, setDurationNs] = useState<number>(24 * NS_PER_HOUR);
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const sourcePost = sourcePostCoords(item.sourcePostPath);
+  const sourcePostHref = sourcePost
+    ? personalPostPath(sourcePost.author, sourcePost.postId)
+    : null;
+  const sourceHandle = sourcePost ? fallbackLabel(sourcePost.author) : null;
+  const [sourceAuthorName, setSourceAuthorName] = useState<string | null>(null);
+  const [sourceAvatarUrl, setSourceAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const author = sourcePost?.author?.trim();
+    if (!author) {
+      setSourceAuthorName(null);
+      setSourceAvatarUrl(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const profile = await client.profiles.get(author);
+        if (cancelled) return;
+        setSourceAuthorName(profile?.name?.trim() || null);
+        setSourceAvatarUrl(
+          profile ? client.profiles.avatarUrl(profile) : null
+        );
+      } catch {
+        if (!cancelled) {
+          setSourceAuthorName(null);
+          setSourceAvatarUrl(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sourcePost?.author]);
+
+  const sourceDisplayName = sourceAuthorName?.trim() || null;
+  const sourceNameIsCustom =
+    Boolean(sourceDisplayName) &&
+    sourceDisplayName!.toLowerCase() !== sourceHandle?.toLowerCase();
 
   const applyAmountInput = useCallback((raw: string) => {
     setAmountInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
@@ -120,7 +175,10 @@ export function ScarceSellForm({
   let buyNowError: string | null = null;
   if (mode === 'auction' && normalizedBuyNow && normalizedAmount) {
     try {
-      if (BigInt(nearToYocto(normalizedBuyNow)) <= BigInt(nearToYocto(normalizedAmount))) {
+      if (
+        BigInt(nearToYocto(normalizedBuyNow)) <=
+        BigInt(nearToYocto(normalizedAmount))
+      ) {
         buyNowError = 'Buy now must be above reserve.';
       }
     } catch {
@@ -245,9 +303,10 @@ export function ScarceSellForm({
         void handleSubmit();
       }}
     >
-      <div className="market-listing-row scarce-sell-preview" aria-hidden>
+      <div className="market-listing-row scarce-sell-preview">
         <div
           className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
+          aria-hidden
         >
           {item.mediaUrl ? (
             <img src={item.mediaUrl} alt="" />
@@ -257,7 +316,39 @@ export function ScarceSellForm({
         </div>
         <div className="market-listing-copy">
           <p className="market-listing-title">{item.title}</p>
-          <p className="market-listing-meta">{item.tokenId}</p>
+          <p className="market-listing-meta">
+            <span className="market-listing-own">{item.tokenId}</span>
+            {sourcePostHref && sourceHandle ? (
+              <>
+                <span className="market-listing-own">{' · Author '}</span>
+                <Link
+                  href={sourcePostHref}
+                  scroll={false}
+                  className="scarce-sell-from-author"
+                >
+                  <ProfileAvatar
+                    src={sourceAvatarUrl}
+                    size="sm"
+                    className="scarce-sell-from-avatar"
+                  />
+                  {sourceNameIsCustom ? (
+                    <>
+                      <span className="scarce-sell-from-name">
+                        {sourceDisplayName}
+                      </span>
+                      <span className="scarce-sell-from-handle">
+                        @{sourceHandle}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="scarce-sell-from-name">
+                      @{sourceHandle}
+                    </span>
+                  )}
+                </Link>
+              </>
+            ) : null}
+          </p>
         </div>
       </div>
 

@@ -97,6 +97,9 @@ describe('ScarcesModule.fromPost.mint', () => {
       postId: '123',
       path: 'alice.near/post/123',
     });
+    expect(JSON.parse(form.get('creator') as string)).toEqual({
+      accountId: 'alice.near',
+    });
   });
 
   it('truncates long unbroken text to ~80 chars without trailing ellipsis', async () => {
@@ -269,6 +272,41 @@ describe('ScarcesModule.fromPost.mint', () => {
     expect(form.get('cardPhotoCid')).toBe('bafyOverridePhoto');
     expect(form.get('mediaCid')).toBeNull();
   });
+
+  it('routes proof cards through the gateway card pipeline, not the raw cover', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint(
+      {
+        ...ROW,
+        value: JSON.stringify({
+          text: 'Verified milestone.',
+          media: [{ cid: 'bafyProof', mime: 'image/png' }],
+        }),
+      },
+      { cardFormat: 'proof', cardPalette: 'noir' }
+    );
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(form.get('cardFormat')).toBe('proof');
+    expect(form.get('cardPalette')).toBe('noir');
+    expect(form.get('cardPhotoCid')).toBe('bafyProof');
+    expect(form.get('mediaCid')).toBeNull();
+  });
+
+  it('derives proof copy within the format limit', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint(
+      {
+        ...ROW,
+        value: JSON.stringify({
+          text: `${'A'.repeat(70)} with proof`,
+          media: [{ cid: 'bafyProof', mime: 'image/png' }],
+        }),
+      },
+      { cardFormat: 'proof' }
+    );
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect((form.get('title') as string).length).toBeLessThanOrEqual(56);
+  });
 });
 
 describe('ScarcesModule.fromPost.mintReceipt', () => {
@@ -360,5 +398,8 @@ describe('ScarcesModule.fromPost.list', () => {
     });
     const extra = JSON.parse(form.get('extra') as string);
     expect(extra.sourcePost.path).toBe('alice.near/post/123');
+    expect(JSON.parse(form.get('creator') as string)).toEqual({
+      accountId: 'alice.near',
+    });
   });
 });

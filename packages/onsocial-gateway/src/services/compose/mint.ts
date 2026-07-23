@@ -9,8 +9,6 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  uploadSvgToLighthouse,
-  inlineSvgAsDataUri,
   fetchImageAsDataUri,
   resolveExistingMediaCid,
   logger,
@@ -28,13 +26,19 @@ import {
   isMarkColor,
   isMarkShape,
   isTitleAlign,
+  isCardFormat,
+  isCardFormatPalette,
+  moodForCardFormat,
+  CARD_FORMAT_REGISTRY,
   type BackgroundKey,
+  type CardFormat,
   type FontKey,
   type MarkColor,
   type MarkShape,
   type TitleAlign,
 } from '@onsocial/text-card';
 import { getProfileName } from './profileLookup.js';
+import { rasterizeTextCard } from './card-raster.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,6 +89,10 @@ export interface ComposeMintRequest {
    */
   cardBg?: BackgroundKey | string;
   cardFont?: FontKey | string;
+  /** Locked curated card layout. Overrides the legacy voice × finish picker. */
+  cardFormat?: CardFormat | string;
+  /** Curated finish approved for `cardFormat`. */
+  cardPalette?: string;
   /**
    * Per-card customisation knobs (all optional). Validated against the
    * @onsocial/text-card catalog; unknown values are rejected at the
@@ -175,8 +183,8 @@ export async function buildMintAction(
       // No image and no reused CID — generate a typographic text-card SVG
       // and inline it as a data: URI. This makes the card render directly
       // from on-chain metadata in every wallet, with zero IPFS dependency.
-      // Author attribution defaults to the calling accountId so every card
-      // has provenance baked into the artwork itself.
+      // Prefer an explicit creator (post author from fromPost.*); otherwise
+      // fall back to the calling accountId so every card still has a byline.
       let creator = req.creator ?? { accountId };
       // When the caller didn't pass a displayName, look it up from
       // core-onsocial so the byline shows the user's profile name
@@ -187,10 +195,42 @@ export async function buildMintAction(
           creator = { ...creator, displayName: profileName };
         }
       }
+      let cardFormat: CardFormat | undefined;
+      let resolvedCardBg = req.cardBg;
+      if (req.cardFormat != null) {
+        if (!isCardFormat(req.cardFormat)) {
+          throw new ComposeError(400, `Unknown cardFormat: ${req.cardFormat}`);
+        }
+        cardFormat = req.cardFormat;
+        const requestedPalette = req.cardPalette;
+        if (
+          requestedPalette != null &&
+          !isCardFormatPalette(cardFormat, requestedPalette)
+        ) {
+          throw new ComposeError(
+            400,
+            `Unsupported ${req.cardPalette} finish for ${cardFormat} cards.`
+          );
+        }
+        const spec = CARD_FORMAT_REGISTRY[cardFormat];
+        if (req.title.length > spec.maxCharacters) {
+          throw new ComposeError(
+            400,
+            `${spec.label} cards support up to ${spec.maxCharacters} characters (got ${req.title.length}).`
+          );
+        }
+        if (spec.requiresPhoto && !req.cardPhotoCid) {
+          throw new ComposeError(
+            400,
+            `${spec.label} cards require cardPhotoCid (proof photo).`
+          );
+        }
+        resolvedCardBg = moodForCardFormat(cardFormat, requestedPalette);
+      }
       // Reject unknown theme keys at the boundary; never trust client
       // strings into a stylesheet. Allowlist enforced by the catalog.
-      if (req.cardBg && !isBackgroundKey(req.cardBg)) {
-        throw new ComposeError(400, `Unknown cardBg: ${req.cardBg}`);
+      if (resolvedCardBg && !isBackgroundKey(resolvedCardBg)) {
+        throw new ComposeError(400, `Unknown cardBg: ${resolvedCardBg}`);
       }
       if (req.cardFont && !isFontKey(req.cardFont)) {
         throw new ComposeError(400, `Unknown cardFont: ${req.cardFont}`);
@@ -219,7 +259,11 @@ export async function buildMintAction(
       // Receipt is a layout (short claim + photo-as-proof), one mood per
       // palette finish. Validate format requirements at the boundary so
       // callers get a clear 400 instead of a silently truncated card.
-      if (typeof req.cardBg === 'string' && req.cardBg.startsWith('receipt-')) {
+      if (
+        cardFormat === 'receipt' ||
+        (typeof resolvedCardBg === 'string' &&
+          resolvedCardBg.startsWith('receipt-'))
+      ) {
         if (!req.cardPhotoCid) {
           throw new ComposeError(
             400,
@@ -233,7 +277,7 @@ export async function buildMintAction(
           );
         }
       }
-      const theme = resolveTheme({ bg: req.cardBg, font: req.cardFont });
+      const theme = resolveTheme({ bg: resolvedCardBg, font: req.cardFont });
       const themeForCard: {
         bg?: string;
         font?: string;
@@ -271,6 +315,7 @@ export async function buildMintAction(
         title: req.title,
         description: req.description,
         creator,
+        ...(cardFormat ? { format: cardFormat } : {}),
         theme: themeForCard,
         ...(photoDataUri ? { photo: photoDataUri } : {}),
         provenance: {
@@ -280,33 +325,20 @@ export async function buildMintAction(
             : {}),
         },
       });
-      // Storage strategy splits by mood:
-      //
-      //   • Text-only (no photo) → inline the SVG as `data:` directly
-      //     in the on-chain `media` field. The whole NFT lives on
-      //     NEAR — no IPFS / CDN / pinning service dependency. This is
-      //     the "permanent thoughts" guarantee: as long as NEAR is
-      //     alive, the art renders. ~800 bytes ⇒ ~$0.04 storage cost.
-      //
-      //   • With photo (receipt mood) → upload the SVG
-      //     to Lighthouse and put the https://cdn/ipfs/<cid> URL
-      //     on-chain. Receipts are 5–50 KB once the photo is base64
-      //     embedded — too large to comfortably keep on-chain. The
-      //     photo bytes are still embedded *inside* the SVG so wallets
-      //     render correctly without cross-origin blocking.
-      if (photoDataUri) {
-        media = await uploadSvgToLighthouse(svg, `card-${Date.now()}.svg`);
-        logger.info(
-          { accountId, cid: media.cid, size: media.size, theme: themeForCard },
-          'Compose mint: auto-card with photo uploaded to Lighthouse'
-        );
-      } else {
-        media = inlineSvgAsDataUri(svg);
-        logger.info(
-          { accountId, size: media.size, theme: themeForCard },
-          'Compose mint: text-only card inlined as data: URI on-chain'
-        );
-      }
+      // Rasterize once with the bundled faces. The resulting PNG—not an SVG
+      // that depends on a wallet's installed fonts—is the permanent NFT media.
+      const png = rasterizeTextCard(svg);
+      media = await uploadToLighthouse({
+        buffer: png,
+        fieldname: 'image',
+        originalname: `card-${Date.now()}.png`,
+        mimetype: 'image/png',
+        size: png.length,
+      });
+      logger.info(
+        { accountId, cid: media.cid, size: media.size, theme: themeForCard },
+        'Compose mint: deterministic PNG card uploaded to Lighthouse'
+      );
       // Persist resolved theme keys so indexers / future re-renders can
       // reproduce the look without parsing the SVG.
       req.extra = {
@@ -314,6 +346,12 @@ export async function buildMintAction(
         theme: {
           bg: theme.bg,
           font: theme.font,
+          ...(cardFormat && { format: cardFormat }),
+          ...(cardFormat && {
+            palette:
+              req.cardPalette ??
+              CARD_FORMAT_REGISTRY[cardFormat].defaultPalette,
+          }),
           ...(req.cardMarkColor && { markColor: req.cardMarkColor }),
           ...(req.cardMarkShape && { markShape: req.cardMarkShape }),
           ...(req.cardTitleAlign && { titleAlign: req.cardTitleAlign }),

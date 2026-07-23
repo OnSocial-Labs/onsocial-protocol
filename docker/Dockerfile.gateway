@@ -22,6 +22,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 COPY packages/onsocial-rpc ./packages/onsocial-rpc
 COPY packages/onsocial-text-card ./packages/onsocial-text-card
 COPY packages/onsocial-gateway ./packages/onsocial-gateway
+# Erika Type is part of the immutable card renderer, not only the web UI.
+COPY packages/onsocial-app/public/fonts/erica-type ./packages/onsocial-app/public/fonts/erica-type
 COPY tsconfig.json ./
 
 # Build workspace deps first (gateway depends on these)
@@ -51,6 +53,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 COPY --from=builder /app/packages/onsocial-rpc/dist ./packages/onsocial-rpc/dist
 COPY --from=builder /app/packages/onsocial-text-card/dist ./packages/onsocial-text-card/dist
 COPY --from=builder /app/packages/onsocial-gateway/dist ./packages/onsocial-gateway/dist
+# Keep the exact local display face available to the PNG renderer at runtime.
+COPY --from=builder /app/packages/onsocial-app/public/fonts/erica-type ./packages/onsocial-app/public/fonts/erica-type
 
 # Copy SQL migrations (applied via deploy script)
 COPY --from=builder /app/packages/onsocial-gateway/migrations ./packages/onsocial-gateway/migrations

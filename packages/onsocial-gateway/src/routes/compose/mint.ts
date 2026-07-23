@@ -60,6 +60,8 @@ mintRouter.post(
         cardMarkShape,
         cardTitleAlign,
         cardPhotoCid,
+        cardFormat,
+        cardPalette,
       } = req.body;
 
       if (!title || typeof title !== 'string') {
@@ -121,6 +123,9 @@ mintRouter.post(
             cardTitleAlign && { cardTitleAlign }),
           ...(typeof cardPhotoCid === 'string' &&
             cardPhotoCid && { cardPhotoCid }),
+          ...(typeof cardFormat === 'string' && cardFormat && { cardFormat }),
+          ...(typeof cardPalette === 'string' &&
+            cardPalette && { cardPalette }),
         },
         imageFile
       );

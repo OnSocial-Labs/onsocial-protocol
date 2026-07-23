@@ -92,6 +92,8 @@ export class ScarcesLazyApi {
     if (opts.skipAutoMedia) form.append('skipAutoMedia', 'true');
     if (opts.creator) form.append('creator', JSON.stringify(opts.creator));
     if (opts.cardBg) form.append('cardBg', opts.cardBg);
+    if (opts.cardFormat) form.append('cardFormat', opts.cardFormat);
+    if (opts.cardPalette) form.append('cardPalette', opts.cardPalette);
     if (opts.cardFont) form.append('cardFont', opts.cardFont);
     if (opts.cardMarkColor) form.append('cardMarkColor', opts.cardMarkColor);
     if (opts.cardMarkShape) form.append('cardMarkShape', opts.cardMarkShape);

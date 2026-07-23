@@ -25,6 +25,15 @@ import type { ScarcesEventRow } from '../../query/scarces.js';
 
 /** Title length above which we hard-truncate (keeps wallet grids tidy). */
 const TITLE_MAX = 80;
+const CARD_TITLE_LIMITS = {
+  thought: 80,
+  poster: 48,
+  letter: 120,
+  journal: 120,
+  mono: 80,
+  receipt: 60,
+  proof: 56,
+} as const;
 
 /**
  * Derive a short, headline-style title from longer post text so it
@@ -39,7 +48,7 @@ const TITLE_MAX = 80;
  *      wallets and grids add their own truncation marker, and a
  *      doubled `…` looks broken.
  */
-function deriveTitle(text: string): string {
+function deriveTitle(text: string, maxCharacters = TITLE_MAX): string {
   const trimmed = text.trim();
   if (!trimmed) return '';
   const firstLine = trimmed.split(/\r?\n/)[0]!.trim();
@@ -49,24 +58,25 @@ function deriveTitle(text: string): string {
   if (
     firstSentence &&
     firstSentence.length < trimmed.length &&
-    firstSentence.length <= TITLE_MAX
+    firstSentence.length <= maxCharacters
   ) {
     return firstSentence;
   }
   if (
     firstLine &&
     firstLine.length < trimmed.length &&
-    firstLine.length <= TITLE_MAX
+    firstLine.length <= maxCharacters
   ) {
     return firstLine;
   }
-  if (trimmed.length <= TITLE_MAX) return trimmed;
+  if (trimmed.length <= maxCharacters) return trimmed;
   // Hard-truncate. Try to end on a word boundary so the wallet ellipsis
   // does not attach to a half-word.
-  const window = trimmed.slice(0, TITLE_MAX);
+  const window = trimmed.slice(0, maxCharacters);
   const lastSpace = window.lastIndexOf(' ');
   // Only honor the word boundary if it leaves at least half the title.
-  if (lastSpace >= TITLE_MAX / 2) return window.slice(0, lastSpace).trimEnd();
+  if (lastSpace >= maxCharacters / 2)
+    return window.slice(0, lastSpace).trimEnd();
   return window.trimEnd();
 }
 
@@ -321,6 +331,7 @@ export class ScarcesFromPostApi {
     const lazyOpts: LazyListingOptions = {
       title: base.title,
       priceNear,
+      ...(base.creator ? { creator: base.creator } : {}),
       ...(base.description ? { description: base.description } : {}),
       ...(base.mediaCid ? { mediaCid: base.mediaCid } : {}),
       ...(base.image ? { image: base.image } : {}),
@@ -329,6 +340,8 @@ export class ScarcesFromPostApi {
       ...(base.appId ? { appId: base.appId } : {}),
       ...(base.extra ? { extra: base.extra } : {}),
       ...(base.cardBg ? { cardBg: base.cardBg } : {}),
+      ...(base.cardFormat ? { cardFormat: base.cardFormat } : {}),
+      ...(base.cardPalette ? { cardPalette: base.cardPalette } : {}),
       ...(base.cardFont ? { cardFont: base.cardFont } : {}),
       ...(base.cardMarkColor ? { cardMarkColor: base.cardMarkColor } : {}),
       ...(base.cardMarkShape ? { cardMarkShape: base.cardMarkShape } : {}),
@@ -537,7 +550,11 @@ export class ScarcesFromPostApi {
     groupId?: string
   ): MintOptions {
     const text = extracted.text;
-    const title = opts.title ?? (deriveTitle(text) || `Post ${postId}`);
+    const autoTitleLimit = opts.cardFormat
+      ? CARD_TITLE_LIMITS[opts.cardFormat]
+      : TITLE_MAX;
+    const title =
+      opts.title ?? (deriveTitle(text, autoTitleLimit) || `Post ${postId}`);
     // Only drop description when it would be byte-identical to the
     // title (true duplication). Anything else — even small differences
     // like a trailing tag or a second sentence — is signal worth
@@ -549,14 +566,17 @@ export class ScarcesFromPostApi {
     // ── Media routing ──────────────────────────────────────────────
     // - Default: post photo becomes the cover (or no media → gateway
     //   renders a text-only auto-card).
-    // - Receipt mood (cardBg starts with `receipt-`): the receipt SVG
-    //   is the cover and the photo is embedded inside it as proof; we
-    //   must not also pass `mediaCid` or the post photo would override
-    //   the rendered card.
+    // - Photo-led Receipt / Proof formats: the card SVG is the cover and
+    //   the post photo is embedded inside it; do not pass `mediaCid` or the
+    //   raw post image would override the rendered card.
+    // - Keep the legacy receipt-mood route for existing callers.
+    const isPhotoCardFormat =
+      opts.cardFormat === 'receipt' || opts.cardFormat === 'proof';
     const isReceiptMood = (opts.cardBg ?? '').startsWith('receipt-');
+    const usesPhotoCard = isPhotoCardFormat || isReceiptMood;
     const explicitMediaCid = opts.mediaCid ?? extracted.mediaCid;
-    const resolvedMediaCid = isReceiptMood ? undefined : explicitMediaCid;
-    const resolvedPhotoCid = isReceiptMood
+    const resolvedMediaCid = usesPhotoCard ? undefined : explicitMediaCid;
+    const resolvedPhotoCid = usesPhotoCard
       ? (opts.cardPhotoCid ?? extracted.mediaCid)
       : opts.cardPhotoCid;
 
@@ -571,6 +591,10 @@ export class ScarcesFromPostApi {
 
     return {
       title,
+      // Bake the post author into auto text-cards — not the listing signer.
+      // Gateway defaults `creator` to the caller otherwise, so a greenghost
+      // listing of voter2's post would stamp greenghost on the artwork.
+      creator: { accountId: author },
       ...(description ? { description } : {}),
       ...(opts.copies != null ? { copies: opts.copies } : {}),
       ...(opts.royalty ? { royalty: opts.royalty } : {}),
@@ -579,6 +603,8 @@ export class ScarcesFromPostApi {
       ...(opts.image ? { image: opts.image } : {}),
       ...(resolvedMediaCid ? { mediaCid: resolvedMediaCid } : {}),
       ...(opts.cardBg ? { cardBg: opts.cardBg } : {}),
+      ...(opts.cardFormat ? { cardFormat: opts.cardFormat } : {}),
+      ...(opts.cardPalette ? { cardPalette: opts.cardPalette } : {}),
       ...(opts.cardFont ? { cardFont: opts.cardFont } : {}),
       ...(opts.cardMarkColor ? { cardMarkColor: opts.cardMarkColor } : {}),
       ...(opts.cardMarkShape ? { cardMarkShape: opts.cardMarkShape } : {}),

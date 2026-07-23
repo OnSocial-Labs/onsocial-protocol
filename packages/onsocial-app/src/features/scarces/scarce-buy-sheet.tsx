@@ -62,13 +62,20 @@ export function ScarceBuySheet({
   const sheetOpen =
     open && !closing && (post != null || listing != null) && Boolean(creatorId);
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
-  const name = creatorId
+  const handle = creatorId ? fallbackLabel(creatorId) : '';
+  const resolvedName = creatorId
     ? displayName(
         creatorId,
         listing?.creatorName ?? authorName ?? undefined
       )
     : '';
-  const handle = creatorId ? fallbackLabel(creatorId) : '';
+  // Avoid "Buy alice.near / @alice.near" when there's no custom profile name.
+  const personName =
+    resolvedName &&
+    handle &&
+    resolvedName.toLowerCase() !== handle.toLowerCase()
+      ? resolvedName
+      : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -113,12 +120,16 @@ export function ScarceBuySheet({
           <GestureSheetHeader
             titleId={titleId}
             verb="Buy"
-            personName={name}
+            personName={personName}
             handle={handle}
             signal="reputation"
             closeAriaLabel="Close buy scarce"
             onClose={requestClose}
-            whisper="Collect this scarce with NEAR."
+            whisper={
+              listing?.status === 'listed'
+                ? 'Pay with NEAR — scarce transfers to you.'
+                : 'Pay with NEAR — scarce mints to you.'
+            }
           />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>

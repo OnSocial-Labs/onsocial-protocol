@@ -413,6 +413,13 @@ export function MarketPagePanel() {
   const handleManageOwned = useCallback(
     async (item: OwnedScarceItem) => {
       if (delistTokenId) return;
+      if (item.listingKind === 'auction' && (item.bidCount ?? 0) > 0) {
+        setTxResult({
+          type: 'error',
+          msg: 'This auction already has bids — wait for it to end, then settle.',
+        });
+        return;
+      }
       setDelistTokenId(item.tokenId);
       try {
         const { accountId, wallet } = await getSigningWallet();

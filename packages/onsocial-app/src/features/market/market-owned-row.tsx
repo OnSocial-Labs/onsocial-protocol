@@ -38,6 +38,7 @@ export function MarketOwnedRow({
 }: MarketOwnedRowProps) {
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
+  const auctionHasBids = auction && (item.bidCount ?? 0) > 0;
   // Offers are open-book (no list-time opt-in). Only surface the control when
   // the catalog shows at least one live offer — empty "Offers" next to Sell
   // reads like a parallel primary action.
@@ -106,7 +107,11 @@ export function MarketOwnedRow({
         </div>
         <p className="market-listing-meta">
           {auction ? (
-            <span className="market-listing-own">Auction live</span>
+            <span className="market-listing-own">
+              {auctionHasBids
+                ? `${item.bidCount === 1 ? '1 bid' : `${item.bidCount} bids`} · wait to settle`
+                : 'Auction live'}
+            </span>
           ) : listed ? (
             <span className="market-listing-own">Listed</span>
           ) : (
@@ -138,7 +143,7 @@ export function MarketOwnedRow({
             {offersLabel}
           </OsSheetAction>
         ) : null}
-        {listed ? (
+        {listed && !auctionHasBids ? (
           <OsSheetAction
             type="button"
             variant={
@@ -171,7 +176,7 @@ export function MarketOwnedRow({
                 ? 'Cancel auction'
                 : 'Delist'}
           </OsSheetAction>
-        ) : (
+        ) : listed && auctionHasBids ? null : (
           <OsSheetAction
             type="button"
             variant={showOffers ? 'ghost' : 'primary'}

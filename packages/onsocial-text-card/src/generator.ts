@@ -36,6 +36,11 @@
 // ---------------------------------------------------------------------------
 
 import { MOODS, resolveMood, type MoodKey } from './themes.js';
+import {
+  CARD_FORMAT_REGISTRY,
+  isCardFormat,
+  type CardFormat,
+} from './formats.js';
 
 const WIDTH = 600;
 const HEIGHT = 600;
@@ -66,8 +71,6 @@ const BYLINE_HANDLE_SIZE = 13;
 /** Only used when a very long account id won't fit at the default handle size. */
 const BYLINE_HANDLE_FLOOR = 12;
 const BYLINE_STACK_GAP = 5; // px between name baseline and handle baseline
-/** Light hang under the name — enough to feel signed, not stepped over. */
-const BYLINE_HANDLE_INDENT = 5;
 const BYLINE_NAME_OPACITY = 0.72;
 const BYLINE_HANDLE_OPACITY = 0.42;
 const BYLINE_SOLO_OPACITY = 0.55;
@@ -541,6 +544,11 @@ export interface TextCardOptions {
   /** The thought — the hero of the card. */
   title: string;
   /**
+   * Locked visual layout recorded with the mint. When omitted, legacy callers
+   * retain their mood-derived layout (receipt moods still use Receipt).
+   */
+  format?: CardFormat;
+  /**
    * Optional longer text. Stored in NFT metadata for wallets that surface
    * it, but **deliberately not rendered on the card**.
    */
@@ -654,9 +662,18 @@ const BYLINE_SIGNATURE_SIGN = '~';
 export function generateTextCardSvg(opts: TextCardOptions): string {
   const moodKey = resolveMood(opts.theme);
   const mood = MOODS[moodKey];
+  const format = isCardFormat(opts.format)
+    ? opts.format
+    : moodKey.startsWith('receipt-')
+      ? 'receipt'
+      : 'thought';
+  const formatSpec = CARD_FORMAT_REGISTRY[format];
   // Receipt is a layout, not just a voice — every receipt-* mood
   // gets the short-claim + photo-as-proof treatment.
-  const isReceipt = moodKey.startsWith('receipt-');
+  const isReceipt =
+    moodKey.startsWith('receipt-') ||
+    format === 'receipt' ||
+    format === 'proof';
   // Dark receipt finishes (night / noir / dusk) want a lifted hairline
   // on the photo border so it reads as a clean edge against the dark bg
   // rather than a glowing outline.
@@ -674,8 +691,8 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   // misconfigured or the generator is called directly with too-long
   // text. Truncation here keeps the layout safe rather than overflowing.
   const rawTitle = isReceipt
-    ? opts.title.length > RECEIPT_TITLE_MAX_CHARS
-      ? opts.title.slice(0, RECEIPT_TITLE_MAX_CHARS - 1).trimEnd() + '\u2026'
+    ? opts.title.length > formatSpec.maxCharacters
+      ? opts.title.slice(0, formatSpec.maxCharacters - 1).trimEnd() + '\u2026'
       : opts.title
     : opts.title;
 
@@ -695,7 +712,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   const titleLines = wrap(
     titleSource,
     fit.charsPerLine,
-    isReceipt ? RECEIPT_TITLE_MAX_LINES : TITLE_MAX_LINES
+    isReceipt ? formatSpec.maxLines : TITLE_MAX_LINES
   );
 
   const creator = opts.creator;
@@ -797,9 +814,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       nameNorm !== `~/${idNorm}` &&
       nameNorm !== handle.toLowerCase();
 
-    const handleBudget = hasDistinctName
-      ? CONTENT_WIDTH - BYLINE_HANDLE_INDENT
-      : CONTENT_WIDTH;
+    const handleBudget = CONTENT_WIDTH;
 
     let handleSize = BYLINE_HANDLE_SIZE;
     if (estimateWidthPx(handle, handleSize, handleKind) > handleBudget) {
@@ -826,11 +841,10 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
         displayName = truncateVisual(displayName, nameCharBudget);
       }
       const nameY = handleY - handleSize - BYLINE_STACK_GAP;
-      const handleX = PADDING + BYLINE_HANDLE_INDENT;
       bylineBlock =
         `
   <text x="${PADDING}" y="${nameY}" font-family="${mood.bylineFamily}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
-  <text x="${handleX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>` +
+  <text x="${PADDING}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>` +
         bylineBlock;
     }
   }

@@ -12,21 +12,61 @@ import {
   composeMoodKey,
   resolveMood,
   resolveTheme,
+  canonicalizeMoodKey,
   THEME_MANIFEST,
   generateTextCardSvg,
   formatProvenanceLine,
   shortProvenancePostId,
+  CARD_FORMATS,
+  CARD_FORMAT_REGISTRY,
+  isCardFormat,
+  moodForCardFormat,
 } from '../src/index.js';
 
 describe('themes catalog', () => {
-  it('contains 6 voices and 4 palettes', () => {
-    expect(VOICES).toHaveLength(6);
-    expect(PALETTES).toHaveLength(4);
+  it('defines locked, format-specific card rules', () => {
+    expect(CARD_FORMATS).toEqual([
+      'thought',
+      'poster',
+      'letter',
+      'journal',
+      'mono',
+      'receipt',
+      'proof',
+    ]);
+    expect(CARD_FORMAT_REGISTRY.poster.maxCharacters).toBe(48);
+    expect(CARD_FORMAT_REGISTRY.thought.maxCharacters).toBe(80);
+    expect(CARD_FORMAT_REGISTRY.letter.maxCharacters).toBe(120);
+    expect(CARD_FORMAT_REGISTRY.thought.voice).toBe('thought');
+    expect(CARD_FORMAT_REGISTRY.poster.voice).toBe('poster');
+    expect(CARD_FORMAT_REGISTRY.letter.voice).toBe('letter');
+    expect(CARD_FORMAT_REGISTRY.journal.voice).toBe('journal');
+    expect(CARD_FORMAT_REGISTRY.mono.voice).toBe('mono');
+    expect(CARD_FORMAT_REGISTRY.receipt.requiresPhoto).toBe(true);
+    expect(CARD_FORMAT_REGISTRY.proof.requiresPhoto).toBe(true);
+    expect(isCardFormat('thought')).toBe(true);
+    expect(isCardFormat('freeform')).toBe(false);
+    expect(moodForCardFormat('poster', 'noir')).toBe('poster-noir');
+    expect(moodForCardFormat('thought', 'night')).toBe('thought-night');
+    expect(moodForCardFormat('letter', 'light')).toBe('letter-light');
+    expect(moodForCardFormat('journal', 'light')).toBe('journal-light');
   });
 
-  it('generates 25 moods (6×4 grid + mono-matrix bonus)', () => {
+  it('contains 6 voices and 11 palettes', () => {
+    expect(VOICES).toEqual([
+      'thought',
+      'poster',
+      'letter',
+      'journal',
+      'mono',
+      'receipt',
+    ]);
+    expect(PALETTES).toHaveLength(11);
+  });
+
+  it('generates 67 moods (6×11 grid + mono-matrix bonus)', () => {
     const keys = Object.keys(MOODS);
-    expect(keys).toHaveLength(25);
+    expect(keys).toHaveLength(67);
     expect(keys).toContain('mono-matrix');
     for (const v of VOICES) {
       for (const p of PALETTES) {
@@ -35,11 +75,19 @@ describe('themes catalog', () => {
     }
   });
 
-  it('default mood is serif-night and resolvable', () => {
-    expect(DEFAULT_MOOD).toBe('serif-night');
+  it('default mood is thought-night and resolvable', () => {
+    expect(DEFAULT_MOOD).toBe('thought-night');
     expect(MOODS[DEFAULT_MOOD]).toBeDefined();
-    expect(resolveMood({ bg: 'unknown' })).toBe('serif-night');
-    expect(resolveMood({ bg: 'display-noir' })).toBe('display-noir');
+    expect(resolveMood({ bg: 'unknown' })).toBe('thought-night');
+    expect(resolveMood({ bg: 'poster-noir' })).toBe('poster-noir');
+  });
+
+  it('accepts legacy mood aliases and maps them to canonical keys', () => {
+    expect(canonicalizeMoodKey('bold-night')).toBe('thought-night');
+    expect(canonicalizeMoodKey('display-noir')).toBe('poster-noir');
+    expect(canonicalizeMoodKey('serif-light')).toBe('journal-light');
+    expect(isMoodKey('bold-night')).toBe(true);
+    expect(resolveMood({ bg: 'bold-night' })).toBe('thought-night');
   });
 
   it('isMoodKey accepts every catalog key and rejects unknowns', () => {
@@ -61,26 +109,30 @@ describe('themes catalog', () => {
     expect(splitMoodKey('mono-matrix')).toBeNull();
   });
 
-  it('friendly labels are present on iconic moods', () => {
-    expect(MOODS['serif-light'].label).toBe('Paper');
-    expect(MOODS['serif-night'].label).toBe('Ink');
-    expect(MOODS['bold-noir'].label).toBe('Bold');
+  it('friendly labels and fonts match the agreed curated system', () => {
+    expect(MOODS['thought-night'].label).toBe('Thought');
+    expect(MOODS['thought-night'].titleUppercase).toBe(false);
+    expect(MOODS['thought-night'].titleFamily).toContain('DM Sans');
+    expect(MOODS['poster-noir'].label).toBe('Poster');
+    expect(MOODS['poster-noir'].titleFamily).toContain('Space Grotesk');
+    expect(MOODS['letter-light'].label).toBe('Letter');
+    expect(MOODS['letter-light'].titleFamily).toContain('Erica Type');
+    expect(MOODS['journal-light'].label).toBe('Journal');
+    expect(MOODS['journal-light'].titleFamily).toContain('Newsreader');
     expect(MOODS['mono-noir'].label).toBe('Terminal');
     expect(MOODS['mono-matrix'].label).toBe('Matrix');
     expect(MOODS['receipt-light'].label).toBe('Receipt');
-    // Non-iconic falls back to "Voice — Palette".
-    expect(MOODS['display-noir'].label).toBe('Display — Noir');
   });
 
   it('THEME_MANIFEST exposes voices, palettes, and moods', () => {
     expect(THEME_MANIFEST.voices).toHaveLength(6);
-    expect(THEME_MANIFEST.palettes).toHaveLength(4);
-    expect(THEME_MANIFEST.moods).toHaveLength(25);
+    expect(THEME_MANIFEST.palettes).toHaveLength(11);
+    expect(THEME_MANIFEST.moods).toHaveLength(67);
   });
 
   it('resolveTheme returns the default mood + quote font shim', () => {
     const t = resolveTheme();
-    expect(t.bg).toBe('serif-night');
+    expect(t.bg).toBe('thought-night');
     expect(t.font).toBe('quote');
   });
 });
@@ -114,10 +166,23 @@ describe('generator smoke', () => {
     const nonReceipt = generateTextCardSvg({
       title: 'Just words.',
       creator,
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
       photo,
     });
     expect(nonReceipt).not.toContain('<image');
+  });
+
+  it('renders the proof format as a photo-led locked layout', () => {
+    const photo = 'https://cdn.onsocial.id/ipfs/bafyProof';
+    const svg = generateTextCardSvg({
+      title: 'A verifiable milestone.',
+      creator,
+      format: 'proof',
+      theme: { bg: 'mono-noir' },
+      photo,
+    });
+    expect(svg).toContain('<image');
+    expect(svg).toContain(photo);
   });
 
   it('keeps the full unique account id in the byline', () => {
@@ -125,22 +190,20 @@ describe('generator smoke', () => {
     const withName = generateTextCardSvg({
       title: 'Hello.',
       creator: { accountId: longId, displayName: 'Test' },
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
     });
     expect(withName).toContain(longId);
     expect(withName).toContain('Test');
     expect(withName).not.toContain(`@${longId}`);
-    // Must not ellipsis-truncate the unique id.
     expect(withName).not.toMatch(/test05\.onsocial\.testne…/);
 
     const solo = generateTextCardSvg({
       title: 'Hello.',
       creator: { accountId: longId },
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
     });
     expect(solo).toContain(longId);
     expect(solo).not.toContain(`@${longId}`);
-    // No distinct name → single signature, not a duplicated bare id.
     expect(solo).not.toContain('test05.onsocial ·');
   });
 
@@ -148,7 +211,7 @@ describe('generator smoke', () => {
     const svg = generateTextCardSvg({
       title: 'Hello.',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
     });
     expect(svg).toContain('~alice.near');
     expect(svg).not.toContain('@alice.near');
@@ -159,23 +222,25 @@ describe('generator smoke', () => {
     const svg = generateTextCardSvg({
       title: 'Hello.',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
     });
     expect(svg).toContain('Alice');
     expect(svg).toContain('~alice.near');
-    // Two separate text nodes — name then handle.
     const textOpens = svg.match(/<text /g) ?? [];
-    expect(textOpens.length).toBeGreaterThanOrEqual(3); // title + name + handle
+    expect(textOpens.length).toBeGreaterThanOrEqual(3);
+    expect(svg).toMatch(
+      /<text x="56"[^>]*>Alice<\/text>\s*<text x="56"[^>]*>~alice\.near<\/text>/
+    );
   });
 
   it('uses DM Sans for the signature byline (app chrome parity)', () => {
     const svg = generateTextCardSvg({
       title: 'Hello.',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
     });
     expect(svg).toContain('DM Sans');
-    expect(MOODS['serif-night'].bylineFamily).toContain('DM Sans');
+    expect(MOODS['thought-night'].bylineFamily).toContain('DM Sans');
   });
 
   it('renders provenance with brand, when, and short post id', () => {
@@ -191,7 +256,7 @@ describe('generator smoke', () => {
     const svg = generateTextCardSvg({
       title: 'Hello.',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
       provenance: {
         issuedAt: Date.UTC(2026, 6, 18, 21, 14),
         postId: 'post42',

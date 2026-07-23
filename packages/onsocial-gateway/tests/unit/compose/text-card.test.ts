@@ -263,7 +263,7 @@ describe('generateTextCardSvg', () => {
     const svg = generateTextCardSvg({
       title: 'thought only',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
-      theme: { bg: 'serif-night' },
+      theme: { bg: 'thought-night' },
       photo: 'https://cdn.onsocial.id/ipfs/bafyPhoto',
     });
     expect(svg).not.toContain('<image');

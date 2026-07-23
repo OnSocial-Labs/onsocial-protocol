@@ -12,12 +12,13 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  inlineSvgAsDataUri,
+  fetchImageAsDataUri,
   resolveExistingMediaCid,
   logger,
   validateRoyalty,
   nearToYocto,
   MAX_METADATA_LEN,
+  gatewayUrl,
 } from './shared.js';
 import {
   generateTextCardSvg,
@@ -27,13 +28,19 @@ import {
   isMarkColor,
   isMarkShape,
   isTitleAlign,
+  isCardFormat,
+  isCardFormatPalette,
+  moodForCardFormat,
+  CARD_FORMAT_REGISTRY,
   type BackgroundKey,
+  type CardFormat,
   type FontKey,
   type MarkColor,
   type MarkShape,
   type TitleAlign,
 } from '@onsocial/text-card';
 import { getProfileName } from './profileLookup.js';
+import { rasterizeTextCard } from './card-raster.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,6 +97,12 @@ export interface ComposeLazyListRequest {
   cardMarkColor?: MarkColor | string;
   cardMarkShape?: MarkShape | string;
   cardTitleAlign?: TitleAlign | string;
+  /** Locked curated card layout. */
+  cardFormat?: CardFormat | string;
+  /** Curated finish approved for `cardFormat`. */
+  cardPalette?: string;
+  /** Proof image CID for Receipt and Proof layouts. */
+  cardPhotoCid?: string;
 }
 
 export interface ComposeLazyListResult {
@@ -179,8 +192,40 @@ export async function buildLazyListAction(
         creator = { ...creator, displayName: profileName };
       }
     }
-    if (req.cardBg && !isBackgroundKey(req.cardBg)) {
-      throw new ComposeError(400, `Unknown cardBg: ${req.cardBg}`);
+    let cardFormat: CardFormat | undefined;
+    let resolvedCardBg = req.cardBg;
+    if (req.cardFormat != null) {
+      if (!isCardFormat(req.cardFormat)) {
+        throw new ComposeError(400, `Unknown cardFormat: ${req.cardFormat}`);
+      }
+      cardFormat = req.cardFormat;
+      const requestedPalette = req.cardPalette;
+      if (
+        requestedPalette != null &&
+        !isCardFormatPalette(cardFormat, requestedPalette)
+      ) {
+        throw new ComposeError(
+          400,
+          `Unsupported ${requestedPalette} finish for ${cardFormat} cards.`
+        );
+      }
+      const spec = CARD_FORMAT_REGISTRY[cardFormat];
+      if (req.title.length > spec.maxCharacters) {
+        throw new ComposeError(
+          400,
+          `${spec.label} cards support up to ${spec.maxCharacters} characters (got ${req.title.length}).`
+        );
+      }
+      if (spec.requiresPhoto && !req.cardPhotoCid) {
+        throw new ComposeError(
+          400,
+          `${spec.label} cards require cardPhotoCid (proof photo).`
+        );
+      }
+      resolvedCardBg = moodForCardFormat(cardFormat, requestedPalette);
+    }
+    if (resolvedCardBg && !isBackgroundKey(resolvedCardBg)) {
+      throw new ComposeError(400, `Unknown cardBg: ${resolvedCardBg}`);
     }
     if (req.cardFont && !isFontKey(req.cardFont)) {
       throw new ComposeError(400, `Unknown cardFont: ${req.cardFont}`);
@@ -203,7 +248,7 @@ export async function buildLazyListAction(
         `Unknown cardTitleAlign: ${req.cardTitleAlign}`
       );
     }
-    const theme = resolveTheme({ bg: req.cardBg, font: req.cardFont });
+    const theme = resolveTheme({ bg: resolvedCardBg, font: req.cardFont });
     const themeForCard: {
       bg?: string;
       font?: string;
@@ -227,11 +272,16 @@ export async function buildLazyListAction(
       req.extra && typeof req.extra === 'object'
         ? (req.extra as { sourcePost?: { postId?: string } }).sourcePost
         : undefined;
+    const photoDataUri = req.cardPhotoCid
+      ? await fetchImageAsDataUri(gatewayUrl(req.cardPhotoCid))
+      : undefined;
     const svg = generateTextCardSvg({
       title: req.title,
       description: req.description,
       creator,
+      ...(cardFormat ? { format: cardFormat } : {}),
       theme: themeForCard,
+      ...(photoDataUri ? { photo: photoDataUri } : {}),
       provenance: {
         issuedAt: Date.now(),
         ...(typeof sourcePost?.postId === 'string' && sourcePost.postId
@@ -239,18 +289,29 @@ export async function buildLazyListAction(
           : {}),
       },
     });
-    // Inline the SVG as a data: URI directly in the on-chain `media`
-    // field. Lazy listings have no photo, so the SVG is small (~800
-    // bytes) and lives entirely on NEAR — no IPFS / CDN dependency.
-    media = inlineSvgAsDataUri(svg);
+    // The immutable listing cover is rendered once from the bundled fonts.
+    const png = rasterizeTextCard(svg);
+    media = await uploadToLighthouse({
+      buffer: png,
+      fieldname: 'image',
+      originalname: `card-${Date.now()}.png`,
+      mimetype: 'image/png',
+      size: png.length,
+    });
     req.extra = {
       ...(req.extra || {}),
       theme: {
         bg: theme.bg,
         font: theme.font,
+        ...(cardFormat && { format: cardFormat }),
+        ...(cardFormat && {
+          palette:
+            req.cardPalette ?? CARD_FORMAT_REGISTRY[cardFormat].defaultPalette,
+        }),
         ...(req.cardMarkColor && { markColor: req.cardMarkColor }),
         ...(req.cardMarkShape && { markShape: req.cardMarkShape }),
         ...(req.cardTitleAlign && { titleAlign: req.cardTitleAlign }),
+        ...(req.cardPhotoCid && { photoCid: req.cardPhotoCid }),
       },
     };
     logger.info(

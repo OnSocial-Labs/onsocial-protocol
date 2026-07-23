@@ -107,6 +107,20 @@ export interface MintFromPostOptions {
   extra?: Record<string, unknown>;
   /** Auto-card background theme key (forwarded when no media is supplied). */
   cardBg?: string;
+  /**
+   * Locked curated layout for the auto-card. The gateway validates this
+   * against its format registry and records the resolved choice in metadata.
+   */
+  cardFormat?:
+    | 'thought'
+    | 'poster'
+    | 'letter'
+    | 'journal'
+    | 'mono'
+    | 'receipt'
+    | 'proof';
+  /** Curated finish requested for `cardFormat` (for example `noir`). */
+  cardPalette?: string;
   /** Auto-card typography key (forwarded when no media is supplied). */
   cardFont?: string;
   /** Lock the author-mark colour to a named palette colour. */

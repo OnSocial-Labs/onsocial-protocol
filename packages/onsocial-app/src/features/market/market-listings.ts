@@ -89,6 +89,10 @@ export interface OwnedScarceItem {
   listingKind: 'fixed' | 'auction' | null;
   /** Set when this token is already listed for resale or auction. */
   listedPriceNear?: string | null;
+  /** Auction bids on the current listing — cancel is blocked when > 0. */
+  bidCount?: number;
+  /** Original post path from token `metadata.extra` when present. */
+  sourcePostPath?: string;
 }
 
 interface ContractSaleRecord {
@@ -237,10 +241,15 @@ export function hasUnresolvedTitleTemplate(title: string): boolean {
 }
 
 /** Make legacy `#{id}` edition titles readable when metadata stored them raw. */
-export function resolveTokenDisplayTitle(title: string, tokenId: string): string {
+export function resolveTokenDisplayTitle(
+  title: string,
+  tokenId: string
+): string {
   if (!hasUnresolvedTitleTemplate(title)) return title;
   const edition = tokenId.includes(':') ? tokenId.split(':').at(-1) : tokenId;
-  return title.replace(/#\{id\}/gi, `#${edition}`).replace(/\{token_id\}/gi, tokenId);
+  return title
+    .replace(/#\{id\}/gi, `#${edition}`)
+    .replace(/\{token_id\}/gi, tokenId);
 }
 
 /** Keep native inventory in the canonical owner-management surface. */
@@ -468,7 +477,11 @@ function listingPriceValue(item: MarketListingItem): number {
 export function auctionExpiresAtMs(
   expiresAtNs: number | null | undefined
 ): number | null {
-  if (expiresAtNs == null || !Number.isFinite(expiresAtNs) || expiresAtNs <= 0) {
+  if (
+    expiresAtNs == null ||
+    !Number.isFinite(expiresAtNs) ||
+    expiresAtNs <= 0
+  ) {
     return null;
   }
   if (expiresAtNs > 1e15) return Math.floor(expiresAtNs / 1e6);
@@ -739,7 +752,7 @@ export async function fetchOwnedScarces(
 
   const listedByToken = new Map<
     string,
-    { kind: 'fixed' | 'auction'; priceNear: string }
+    { kind: 'fixed' | 'auction'; priceNear: string; bidCount?: number }
   >();
   for (const sale of ownerSales) {
     const tokenId = nativeTokenIdFromSale(sale);
@@ -751,7 +764,13 @@ export async function fetchOwnedScarces(
     }
     if (isNativeAuctionSale(sale)) {
       const priceNear = auctionDisplayPriceNear(sale);
-      if (priceNear) listedByToken.set(tokenId, { kind: 'auction', priceNear });
+      if (priceNear) {
+        listedByToken.set(tokenId, {
+          kind: 'auction',
+          priceNear,
+          bidCount: auctionBidCount(sale),
+        });
+      }
     }
   }
 
@@ -764,13 +783,20 @@ export async function fetchOwnedScarces(
         (tokenId.includes(':') && !tokenId.startsWith('s:')
           ? tokenId
           : 'Scarce');
+      const extra = parseExtra(token.metadata?.extra ?? null);
+      const sourcePostPath = sourcePostPathFromExtra(extra);
+      const listed = listedByToken.get(tokenId);
       return {
         tokenId,
         title: resolveTokenDisplayTitle(title, tokenId),
         mediaUrl: resolveScarceMediaUrl(token.metadata?.media ?? null),
         ownerId: token.owner_id?.trim() || owner,
-        listingKind: listedByToken.get(tokenId)?.kind ?? null,
-        listedPriceNear: listedByToken.get(tokenId)?.priceNear ?? null,
+        listingKind: listed?.kind ?? null,
+        listedPriceNear: listed?.priceNear ?? null,
+        ...(listed?.kind === 'auction' && listed.bidCount != null
+          ? { bidCount: listed.bidCount }
+          : {}),
+        ...(sourcePostPath ? { sourcePostPath } : {}),
       };
     })
     .filter((item): item is OwnedScarceItem => item != null);
@@ -869,9 +895,7 @@ function listingFromActiveRow(
   const priceNear = priceNearFromYocto(displayYocto) ?? '—';
   const title =
     row.title?.trim() ||
-    (row.tokenId &&
-    row.tokenId.includes(':') &&
-    !row.tokenId.startsWith('s:')
+    (row.tokenId && row.tokenId.includes(':') && !row.tokenId.startsWith('s:')
       ? row.tokenId
       : 'Scarce');
   const blockTimestamp = timestampMs(row.listedBlockTimestamp);

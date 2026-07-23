@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
+import { ProfileAvatar } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -22,7 +24,11 @@ import {
 } from '@/features/scarces/scarces-wallet-client';
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto } from '@/lib/app-near-rpc';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { parsePostText } from '@/lib/post-display';
+import { postThreadPath } from '@/lib/post-routes';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
   txToastError,
@@ -96,6 +102,10 @@ export function ScarceBuyForm({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
+  const [creatorProfileName, setCreatorProfileName] = useState<string | null>(
+    null
+  );
 
   const status = listing?.status ?? embed?.status ?? 'none';
   const listingId = listing?.listingId ?? embed?.listingId;
@@ -106,6 +116,51 @@ export function ScarceBuyForm({
   const title =
     listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const sellerId = listing?.creatorId ?? post?.accountId;
+  const authorHandle = sellerId ? fallbackLabel(sellerId) : null;
+  const authorHref = post
+    ? postThreadPath(post)
+    : sellerId
+      ? portfolioPath(sellerId)
+      : null;
+  const authorDisplayName = sellerId
+    ? displayName(
+        sellerId,
+        creatorProfileName ?? authorName ?? undefined
+      )
+    : null;
+  const authorNameIsCustom =
+    Boolean(authorDisplayName) &&
+    Boolean(authorHandle) &&
+    authorDisplayName!.toLowerCase() !== authorHandle!.toLowerCase();
+
+  useEffect(() => {
+    const accountId = sellerId?.trim();
+    if (!accountId) {
+      setCreatorAvatarUrl(null);
+      setCreatorProfileName(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const profile = await client.profiles.get(accountId);
+        if (cancelled) return;
+        setCreatorAvatarUrl(
+          profile ? client.profiles.avatarUrl(profile) : null
+        );
+        setCreatorProfileName(profile?.name?.trim() || null);
+      } catch {
+        if (!cancelled) {
+          setCreatorAvatarUrl(null);
+          setCreatorProfileName(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sellerId]);
   const isOwnListing =
     Boolean(viewerAccountId) &&
     Boolean(sellerId) &&
@@ -278,6 +333,34 @@ export function ScarceBuyForm({
 
       <div className="scarce-buy-summary">
         {!post ? <p className="scarce-buy-title">{title}</p> : null}
+        {authorHandle && authorHref ? (
+          <p className="scarce-buy-author-line">
+            <span className="scarce-buy-author-label">Author</span>
+            <Link
+              href={authorHref}
+              scroll={false}
+              className="scarce-sell-from-author"
+            >
+              <ProfileAvatar
+                src={creatorAvatarUrl}
+                size="sm"
+                className="scarce-sell-from-avatar"
+              />
+              {authorNameIsCustom ? (
+                <>
+                  <span className="scarce-sell-from-name">
+                    {authorDisplayName}
+                  </span>
+                  <span className="scarce-sell-from-handle">
+                    @{authorHandle}
+                  </span>
+                </>
+              ) : (
+                <span className="scarce-sell-from-name">@{authorHandle}</span>
+              )}
+            </Link>
+          </p>
+        ) : null}
         <p className="scarce-buy-price">{formatPriceNear(priceNear)}</p>
         {copies != null && copies > 1 ? (
           <p className="profile-support-hint">
@@ -288,8 +371,8 @@ export function ScarceBuyForm({
         ) : null}
         <p className="profile-support-hint">
           {status === 'lazy_listing'
-            ? 'Minted to you on purchase. Goes to the creator — small protocol fee.'
-            : 'Transfer completes on confirmation. Seller is paid — small protocol fee.'}
+            ? 'Mints to you. Creator is paid after a 2% marketplace fee.'
+            : 'Transfers to you. Seller is paid after a 2% marketplace fee.'}
         </p>
       </div>
 

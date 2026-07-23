@@ -63,7 +63,7 @@ const modernSamples: Array<[string, string]> = [
 ];
 for (const [name, title] of modernSamples) {
   const moodKey: MoodKey = name.startsWith('display')
-    ? 'display-light'
+    ? 'poster-light'
     : 'journal-light';
   const svg = generateTextCardSvg({
     title,
@@ -87,7 +87,7 @@ const customisation: Array<
         {
           title: 'A small mark, four moods.',
           creator: creators.alice,
-          theme: { bg: 'serif-night' as MoodKey, markShape: shape },
+          theme: { bg: 'thought-night' as MoodKey, markShape: shape },
         },
       ] as [string, string, Parameters<typeof generateTextCardSvg>[0]]
   ),
@@ -100,7 +100,7 @@ const customisation: Array<
         {
           title: 'Lock the colour to make it yours.',
           creator: creators.alice,
-          theme: { bg: 'serif-light' as MoodKey, markColor: color },
+          theme: { bg: 'journal-light' as MoodKey, markColor: color },
         },
       ] as [string, string, Parameters<typeof generateTextCardSvg>[0]]
   ),
@@ -111,7 +111,7 @@ const customisation: Array<
     {
       title: 'Left-anchored, editorial.',
       creator: creators.alice,
-      theme: { bg: 'serif-night' as MoodKey, titleAlign: 'left' },
+      theme: { bg: 'thought-night' as MoodKey, titleAlign: 'left' },
     },
   ],
   [
@@ -120,7 +120,7 @@ const customisation: Array<
     {
       title: 'Centred, like a poem.',
       creator: creators.alice,
-      theme: { bg: 'serif-night' as MoodKey, titleAlign: 'center' },
+      theme: { bg: 'thought-night' as MoodKey, titleAlign: 'center' },
     },
   ],
   // Emoji handling.
@@ -130,7 +130,7 @@ const customisation: Array<
     {
       title: '🔥 Hot take: 🚀 ship it 🚢 anyway.',
       creator: { accountId: 'alice.near', displayName: 'Alice 👋' },
-      theme: { bg: 'serif-light' as MoodKey },
+      theme: { bg: 'journal-light' as MoodKey },
     },
   ],
   [
@@ -139,7 +139,7 @@ const customisation: Array<
     {
       title: 'pride 🏳️‍🌈 always — never split a grapheme.',
       creator: creators.alice,
-      theme: { bg: 'serif-dusk' as MoodKey },
+      theme: { bg: 'journal-dusk' as MoodKey },
     },
   ],
 ];
@@ -151,9 +151,9 @@ for (const [name, , opts] of customisation) {
 // ── Long-text auto-shrink showcase ───────────────────────────────────────
 // Same long body across moods so the size ladder is visible.
 const longRows: Array<[string, MoodKey]> = [
-  ['serif-night', 'serif-night'],
-  ['serif-light', 'serif-light'],
-  ['display-light', 'display-light'],
+  ['thought-night', 'thought-night'],
+  ['journal-light', 'journal-light'],
+  ['poster-light', 'poster-light'],
   ['journal-light', 'journal-light'],
 ];
 for (const [name, mood] of longRows) {

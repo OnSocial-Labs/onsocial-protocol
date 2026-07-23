@@ -29,6 +29,26 @@ vi.mock('../../../src/services/compose/profileLookup.js', () => ({
 describe('buildMintAction', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('rejects card copy beyond its locked format limit', async () => {
+    await expect(
+      buildMintAction(
+        'alice.testnet',
+        { title: 'A'.repeat(49), cardFormat: 'poster' },
+        undefined
+      )
+    ).rejects.toThrow('Poster cards support up to 48 characters');
+  });
+
+  it('requires a proof photo for photo-led formats', async () => {
+    await expect(
+      buildMintAction(
+        'alice.testnet',
+        { title: 'Verified.', cardFormat: 'proof' },
+        undefined
+      )
+    ).rejects.toThrow('Proof cards require cardPhotoCid');
+  });
+
   it('builds QuickMint action with image upload', async () => {
     mockLighthouseUpload('QmPrepArt', 5000);
     mockLighthouseText('QmPrepMeta', 300);

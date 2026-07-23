@@ -391,6 +391,17 @@ export interface MintOptions {
    * Ignored when `image` or `mediaCid` is supplied.
    */
   cardBg?: string;
+  /** Locked curated layout: thought, poster, letter, receipt, or proof. */
+  cardFormat?:
+    | 'thought'
+    | 'poster'
+    | 'letter'
+    | 'journal'
+    | 'mono'
+    | 'receipt'
+    | 'proof';
+  /** Curated finish selected for `cardFormat`. */
+  cardPalette?: string;
   /**
    * Auto-card typography key ('quote', 'statement', 'mono'). Unknown
    * values fall back to the default. Ignored when `image` or `mediaCid`
@@ -500,6 +511,17 @@ export interface LazyListingOptions {
   };
   /** Auto-card background theme key. */
   cardBg?: string;
+  /** Locked curated layout: thought, poster, letter, receipt, or proof. */
+  cardFormat?:
+    | 'thought'
+    | 'poster'
+    | 'letter'
+    | 'journal'
+    | 'mono'
+    | 'receipt'
+    | 'proof';
+  /** Curated finish selected for `cardFormat`. */
+  cardPalette?: string;
   /** Auto-card typography key. */
   cardFont?: string;
   /** Lock the author-mark colour (named palette colour). */
