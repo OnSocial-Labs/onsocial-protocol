@@ -104,6 +104,15 @@ __CDN_DOMAIN__ {
 
 		reverse_proxy https://__CDN_UPSTREAM__ {
 			header_up Host __CDN_UPSTREAM__
+			# The upstream gateway sets its own CORS headers, which Caddy
+			# appends to the ones above — the browser then sees
+			# Access-Control-Allow-Origin twice and rejects the response,
+			# breaking every crossOrigin="anonymous" load (canvas
+			# video-frame capture for scarce covers). Drop the upstream
+			# copies of the two we set so ours stay authoritative; the rest
+			# of the upstream CORS headers pass through untouched.
+			header_down -Access-Control-Allow-Origin
+			header_down -Access-Control-Allow-Methods
 			transport http {
 				tls
 				keepalive 60s
