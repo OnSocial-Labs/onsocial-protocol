@@ -211,12 +211,8 @@ fn seller_hint(e: &ScarcesEvent) -> &str {
 /// Partial update events (price/purchase/bid) must still set these so an
 /// INSERT-on-miss cannot crash the combined sink when create was never
 /// materialised (catalog table added mid-stream).
-fn set_listing_identity(
-    row: &mut substreams_database_change::tables::Row,
-    key: &str,
-    kind: &str,
-    e: &ScarcesEvent,
-) {
+fn set_listing_identity(tables: &mut Tables, key: &str, kind: &str, e: &ScarcesEvent) {
+    let row = tables.upsert_row("scarces_active_listings", key);
     row.set("listing_key", key);
     row.set("kind", kind);
     row.set("seller_id", seller_hint(e));
@@ -294,9 +290,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 return;
             };
             let key = lazy_key(listing_id);
+            set_listing_identity(tables, &key, "lazy", e);
             {
                 let row = tables.upsert_row("scarces_active_listings", &key);
-                set_listing_identity(row, &key, "lazy", e);
                 row.set("listing_id", listing_id);
                 if let Some(price) = non_empty(&e.new_price).or_else(|| non_empty(&e.price)) {
                     row.set("price", price);
@@ -309,9 +305,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 return;
             };
             let key = lazy_key(listing_id);
+            set_listing_identity(tables, &key, "lazy", e);
             {
                 let row = tables.upsert_row("scarces_active_listings", &key);
-                set_listing_identity(row, &key, "lazy", e);
                 row.set("listing_id", listing_id);
                 if e.new_expires_at > 0 {
                     row.set("expires_at", e.new_expires_at);
@@ -329,9 +325,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 tables.delete_row("scarces_active_listings", &key);
                 return;
             }
+            set_listing_identity(tables, &key, "lazy", e);
             {
                 let row = tables.upsert_row("scarces_active_listings", &key);
-                set_listing_identity(row, &key, "lazy", e);
                 row.set("listing_id", listing_id);
                 row.set("remaining", remaining);
                 if let Some(minted) = json_u32(&data, "minted_count") {
@@ -417,9 +413,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 return;
             };
             let key = native_key(token_id);
+            set_listing_identity(tables, &key, "auction", e);
             {
                 let row = tables.upsert_row("scarces_active_listings", &key);
-                set_listing_identity(row, &key, "auction", e);
                 row.set("token_id", token_id);
                 if let Some(bid) = non_empty(&e.bid_amount) {
                     row.set("highest_bid", bid);
@@ -439,9 +435,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 return;
             };
             let key = native_key(token_id);
+            set_listing_identity(tables, &key, "native", e);
             {
                 let row = tables.upsert_row("scarces_active_listings", &key);
-                set_listing_identity(row, &key, "native", e);
                 row.set("token_id", token_id);
                 if let Some(price) = non_empty(&e.new_price) {
                     row.set("price", price);
