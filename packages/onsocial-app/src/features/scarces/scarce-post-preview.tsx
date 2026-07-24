@@ -33,6 +33,15 @@ const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
 
+/**
+ * Live preview renders generated cards as inline SVG (not `<img
+ * src=data:svg>`). Nested https faces/photos work in the DOM; browsers
+ * block them inside SVG-as-image. Mint still inlines bytes into PNG.
+ */
+function inlineSvgMarkup(svg: string): string {
+  return svg.replace(/^<\?xml[^>]*>\s*/i, '');
+}
+
 interface ScarcePostPreviewProps {
   post: PostRow;
   /** Text-card mood when the post has no image cover. */
@@ -44,6 +53,8 @@ interface ScarcePostPreviewProps {
   cardTitleAlign?: TitleAlign;
   /** Profile display name for text-card byline. */
   creatorDisplayName?: string | null;
+  /** Optional profile face URL for the text-card signature preview. */
+  creatorAvatarUrl?: string | null;
   /**
    * Listing cover URL (IPFS text-card / photo). Wins over a generated
    * preview when the post itself has no photo.
@@ -56,14 +67,15 @@ interface ScarcePostPreviewProps {
 function previewTitle(post: PostRow, format?: CardFormat): string {
   const maxCharacters = format
     ? CARD_FORMAT_REGISTRY[format].maxCharacters
-    : 100;
+    : 108;
   const text = parsePostText(post.value).trim();
-  if (!text) return 'Untitled';
+  // Match SDK fromPost title fallback for media-only / empty posts.
+  if (!text) return `Post ${post.postId}`;
   const firstLine = text.split(/\r?\n/)[0]?.trim() ?? text;
   if (firstLine.length <= maxCharacters) return firstLine;
   const window = firstLine.slice(0, maxCharacters);
   const lastSpace = window.lastIndexOf(' ');
-  return `${(lastSpace >= 40 ? window.slice(0, lastSpace) : window).trimEnd()}…`;
+  return `${(lastSpace >= maxCharacters / 2 ? window.slice(0, lastSpace) : window).trimEnd()}…`;
 }
 
 /** Cover image for the scarce — first image only (matches fromPost.list). */
@@ -81,6 +93,7 @@ export function ScarcePostPreview({
   cardMarkColor = 'auto',
   cardTitleAlign = 'left',
   creatorDisplayName = null,
+  creatorAvatarUrl = null,
   mediaUrl = null,
   variant = 'sheet',
 }: ScarcePostPreviewProps) {
@@ -100,6 +113,8 @@ export function ScarcePostPreview({
     post.accountId,
     creatorDisplayName ?? undefined
   );
+  const avatarUrl = creatorAvatarUrl?.trim() || '';
+  const photoUrl = isPhotoCard ? cover?.url?.trim() || '' : '';
 
   useEffect(() => {
     if (!expanded) return;
@@ -110,14 +125,15 @@ export function ScarcePostPreview({
     return () => window.removeEventListener('keydown', onKey);
   }, [expanded]);
 
-  const textCardUri = useMemo(() => {
+  const textCardSvg = useMemo(() => {
     if (listingCover || (cover && !isPhotoCard)) return null;
-    const { dataUri } = previewTextCard({
+    const { svg } = previewTextCard({
       title,
       ...(cardFormat ? { format: cardFormat } : {}),
       creator: {
         accountId: post.accountId,
         displayName: creatorLabel,
+        ...(avatarUrl ? { avatar: avatarUrl } : {}),
       },
       theme: {
         bg: cardBg,
@@ -125,13 +141,13 @@ export function ScarcePostPreview({
         markColor: cardMarkColor,
         titleAlign: cardTitleAlign,
       },
-      ...(isPhotoCard && cover?.url ? { photo: cover.url } : {}),
+      ...(photoUrl ? { photo: photoUrl } : {}),
       provenance: {
         issuedAt: post.blockTimestamp || fallbackIssuedAt,
         postId: post.postId,
       },
     });
-    return dataUri;
+    return svg;
   }, [
     cover,
     isPhotoCard,
@@ -142,6 +158,8 @@ export function ScarcePostPreview({
     post.blockTimestamp,
     fallbackIssuedAt,
     creatorLabel,
+    avatarUrl,
+    photoUrl,
     cardBg,
     cardFormat,
     cardMarkShape,
@@ -149,10 +167,11 @@ export function ScarcePostPreview({
     cardTitleAlign,
   ]);
 
-  const src =
-    (isPhotoCard ? textCardUri : cover?.url) ?? listingCover ?? textCardUri;
-  if (!src) return null;
-  const isPhotoCover = Boolean((cover && !isPhotoCard) || listingCover);
+  const rasterSrc =
+    (isPhotoCard ? null : cover?.url) ?? listingCover ?? null;
+  const inlineSvg = textCardSvg ? inlineSvgMarkup(textCardSvg) : null;
+  if (!rasterSrc && !inlineSvg) return null;
+  const isPhotoCover = Boolean(rasterSrc);
 
   return (
     <>
@@ -176,7 +195,14 @@ export function ScarcePostPreview({
           setExpanded(true);
         }}
       >
-        <img className="scarce-post-preview-asset" src={src} alt="" />
+        {inlineSvg ? (
+          <div
+            className="scarce-post-preview-asset scarce-post-preview-svg"
+            dangerouslySetInnerHTML={{ __html: inlineSvg }}
+          />
+        ) : (
+          <img className="scarce-post-preview-asset" src={rasterSrc!} alt="" />
+        )}
       </button>
 
       {mounted && expanded
@@ -191,12 +217,20 @@ export function ScarcePostPreview({
               <p id={titleId} className="sr-only">
                 Card preview
               </p>
-              <img
-                className="scarce-card-lightbox-asset"
-                src={src}
-                alt=""
-                onClick={(event) => event.stopPropagation()}
-              />
+              {inlineSvg ? (
+                <div
+                  className="scarce-card-lightbox-asset scarce-card-lightbox-svg"
+                  dangerouslySetInnerHTML={{ __html: inlineSvg }}
+                  onClick={(event) => event.stopPropagation()}
+                />
+              ) : (
+                <img
+                  className="scarce-card-lightbox-asset"
+                  src={rasterSrc!}
+                  alt=""
+                  onClick={(event) => event.stopPropagation()}
+                />
+              )}
             </div>,
             document.body
           )

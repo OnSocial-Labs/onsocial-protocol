@@ -23,6 +23,8 @@ import { config } from '../../../src/config/index.js';
 // hit the NEAR RPC mock and consume mockFetch slots meant for the relay.
 vi.mock('../../../src/services/compose/profileLookup.js', () => ({
   getProfileName: vi.fn(async () => ''),
+  getProfileAvatar: vi.fn(async () => ''),
+  resolveCreatorAvatarDataUri: vi.fn(async () => undefined),
   _resetProfileCache: vi.fn(),
 }));
 
@@ -33,10 +35,10 @@ describe('buildMintAction', () => {
     await expect(
       buildMintAction(
         'alice.testnet',
-        { title: 'A'.repeat(49), cardFormat: 'poster' },
+        { title: 'A'.repeat(81), cardFormat: 'poster' },
         undefined
       )
-    ).rejects.toThrow('Poster cards support up to 48 characters');
+    ).rejects.toThrow('Poster cards support up to 80 characters');
   });
 
   it('requires a proof photo for photo-led formats', async () => {

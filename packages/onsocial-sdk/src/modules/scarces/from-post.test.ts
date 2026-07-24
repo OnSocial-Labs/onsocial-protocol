@@ -96,13 +96,15 @@ describe('ScarcesModule.fromPost.mint', () => {
       author: 'alice.near',
       postId: '123',
       path: 'alice.near/post/123',
+      blockHeight: 1,
+      blockTimestamp: 1,
     });
     expect(JSON.parse(form.get('creator') as string)).toEqual({
       accountId: 'alice.near',
     });
   });
 
-  it('truncates long unbroken text to ~80 chars without trailing ellipsis', async () => {
+  it('truncates long unbroken text to ~108 chars without trailing ellipsis', async () => {
     const { mod, spies } = makeMod();
     const longText = 'x'.repeat(200);
     await mod.fromPost.mint({
@@ -110,24 +112,24 @@ describe('ScarcesModule.fromPost.mint', () => {
       value: JSON.stringify({ text: longText }),
     });
     const [, , form] = spies.requestForm.mock.calls[0];
-    expect((form.get('title') as string).length).toBe(80);
+    expect((form.get('title') as string).length).toBe(108);
     // No appended ellipsis — wallets add their own truncation marker.
     expect(form.get('title')).not.toMatch(/[\u2026.]+$/);
   });
 
   it('breaks long text on a word boundary when one is available', async () => {
     const { mod, spies } = makeMod();
-    // Long sentence (>80 chars) with spaces — should cut at a space,
+    // Long sentence (>108 chars) with spaces — should cut at a space,
     // not mid-word, when the boundary is in the second half.
     const text =
-      'this is a long single sentence with several words that runs well past the eighty character limit for titles';
+      'this is a long single sentence with several words that runs well past the one hundred eight character default limit used for titles today';
     await mod.fromPost.mint({
       ...ROW,
       value: JSON.stringify({ text }),
     });
     const [, , form] = spies.requestForm.mock.calls[0];
     const title = form.get('title') as string;
-    expect(title.length).toBeLessThanOrEqual(80);
+    expect(title.length).toBeLessThanOrEqual(108);
     expect(title.endsWith(' ')).toBe(false);
     // Must end on a complete word from the source.
     expect(text.startsWith(title)).toBe(true);

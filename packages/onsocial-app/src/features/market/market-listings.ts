@@ -822,36 +822,62 @@ export async function fetchLazyListingById(
   }
 }
 
+const LIVE_LISTINGS_TTL_MS = 30_000;
+const liveListingsCache = new Map<
+  string,
+  { at: number; promise: Promise<MarketListingItem[]> }
+>();
+
 export async function fetchLiveListingsForCreator(
   creatorId: string
 ): Promise<MarketListingItem[]> {
+  const key = creatorId.trim().toLowerCase();
+  if (!key) return [];
+  const hit = liveListingsCache.get(key);
+  if (hit && Date.now() - hit.at < LIVE_LISTINGS_TTL_MS) {
+    return hit.promise;
+  }
+
   // Prefer per-id loads from indexer discovery. Full-map views
   // (`get_lazy_listings_by_creator`) currently trap if any sibling row is
   // corrupt, which would hide healthy listings for every creator.
-  try {
-    const client = createReadOnlyOnSocialClient();
-    const created = await client.query.scarces.events({
-      eventType: 'LAZY_LISTING_UPDATE',
-      operation: 'created',
-      author: creatorId,
-      limit: 40,
-    });
-    const ids: string[] = [];
-    const seen = new Set<string>();
-    for (const row of created) {
-      const listingId = row.listingId?.trim();
-      if (!listingId || seen.has(listingId)) continue;
-      seen.add(listingId);
-      ids.push(listingId);
+  // In-flight + short TTL cache: a feed of own posts must not N× this work.
+  const promise = (async (): Promise<MarketListingItem[]> => {
+    try {
+      const client = createReadOnlyOnSocialClient();
+      const created = await client.query.scarces.events({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'created',
+        author: creatorId,
+        limit: 40,
+      });
+      const ids: string[] = [];
+      const seen = new Set<string>();
+      for (const row of created) {
+        const listingId = row.listingId?.trim();
+        if (!listingId || seen.has(listingId)) continue;
+        seen.add(listingId);
+        ids.push(listingId);
+      }
+      const loaded = await Promise.all(
+        ids.map((id) => fetchLazyListingById(id))
+      );
+      const items = loaded.filter((item): item is MarketListingItem => {
+        if (!item || !isLiveLazyListing(item)) return false;
+        return accountIdsEqualSafe(item.creatorId, creatorId);
+      });
+      return withResolvedPostHrefs(items);
+    } catch {
+      return [];
     }
-    const loaded = await Promise.all(ids.map((id) => fetchLazyListingById(id)));
-    const items = loaded.filter((item): item is MarketListingItem => {
-      if (!item || !isLiveLazyListing(item)) return false;
-      return accountIdsEqualSafe(item.creatorId, creatorId);
-    });
-    return withResolvedPostHrefs(items);
-  } catch {
-    return [];
+  })();
+
+  liveListingsCache.set(key, { at: Date.now(), promise });
+  try {
+    return await promise;
+  } catch (error) {
+    liveListingsCache.delete(key);
+    throw error;
   }
 }
 

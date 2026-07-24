@@ -24,16 +24,69 @@ import type { QueryModule } from '../../query/index.js';
 import type { ScarcesEventRow } from '../../query/scarces.js';
 
 /** Title length above which we hard-truncate (keeps wallet grids tidy). */
-const TITLE_MAX = 80;
+const TITLE_MAX = 108;
 const CARD_TITLE_LIMITS = {
-  thought: 80,
-  poster: 48,
+  thought: 108,
+  poster: 80,
   letter: 120,
   journal: 120,
   mono: 80,
   receipt: 60,
   proof: 56,
 } as const;
+
+const AUTHOR_EVENTS_TTL_MS = 15_000;
+
+type AuthorEventsEntry = { at: number; rows: ScarcesEventRow[] };
+type AuthorEventsBucket = {
+  cache: Map<string, AuthorEventsEntry>;
+  inflight: Map<string, Promise<ScarcesEventRow[]>>;
+};
+
+/** Per-QueryModule so clients/tests never share stale author event rows. */
+const authorEventsByQuery = new WeakMap<QueryModule, AuthorEventsBucket>();
+
+function authorEventsBucket(query: QueryModule): AuthorEventsBucket {
+  let bucket = authorEventsByQuery.get(query);
+  if (!bucket) {
+    bucket = { cache: new Map(), inflight: new Map() };
+    authorEventsByQuery.set(query, bucket);
+  }
+  return bucket;
+}
+
+/**
+ * One author events query shared across every `fromPost.embed` call in a
+ * short window — a home feed of own posts must not N× Hasura.
+ */
+async function scarceEventsForAuthor(
+  query: QueryModule,
+  author: string,
+  limit: number
+): Promise<ScarcesEventRow[]> {
+  const { cache, inflight } = authorEventsBucket(query);
+  const key = `${author.trim().toLowerCase()}:${limit}`;
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.at < AUTHOR_EVENTS_TTL_MS) {
+    return cached.rows;
+  }
+  const pending = inflight.get(key);
+  if (pending) return pending;
+
+  const promise = query.scarces
+    .events({ author, limit })
+    .then((rows) => {
+      cache.set(key, { at: Date.now(), rows });
+      inflight.delete(key);
+      return rows;
+    })
+    .catch((error: unknown) => {
+      inflight.delete(key);
+      throw error;
+    });
+  inflight.set(key, promise);
+  return promise;
+}
 
 /**
  * Derive a short, headline-style title from longer post text so it
@@ -85,6 +138,8 @@ interface SourcePostLink {
   postId?: string;
   path?: string;
   groupId?: string;
+  blockHeight?: number;
+  blockTimestamp?: number;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -112,16 +167,35 @@ function stringField(
   return typeof value === 'string' && value ? value : undefined;
 }
 
+function positiveIntField(
+  obj: Record<string, unknown>,
+  key: string
+): number | undefined {
+  const value = obj[key];
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  }
+  return undefined;
+}
+
 function sourcePostFromObject(
   obj: Record<string, unknown>
 ): SourcePostLink | null {
   const nested = asRecord(obj.sourcePost);
   if (nested) {
+    const blockHeight = positiveIntField(nested, 'blockHeight');
+    const blockTimestamp = positiveIntField(nested, 'blockTimestamp');
     return {
       author: stringField(nested, 'author'),
       postId: stringField(nested, 'postId'),
       path: stringField(nested, 'path'),
       groupId: stringField(nested, 'groupId'),
+      ...(blockHeight != null ? { blockHeight } : {}),
+      ...(blockTimestamp != null ? { blockTimestamp } : {}),
     };
   }
 
@@ -135,6 +209,27 @@ function sourcePostFromObject(
 function sourcePostFromJson(value: unknown): SourcePostLink | null {
   const parsed = parseJsonObject(value);
   return parsed ? sourcePostFromObject(parsed) : null;
+}
+
+/** Provenance fields available when minting/listing from a PostRow. */
+interface SourcePostContext {
+  groupId?: string;
+  blockHeight?: number;
+  blockTimestamp?: number;
+}
+
+function sourcePostContext(post: PostSource): SourcePostContext {
+  if (!isPostRow(post)) return {};
+  const ctx: SourcePostContext = {};
+  const groupId = post.groupId?.trim();
+  if (groupId) ctx.groupId = groupId;
+  if (Number.isFinite(post.blockHeight) && post.blockHeight > 0) {
+    ctx.blockHeight = Math.floor(post.blockHeight);
+  }
+  if (Number.isFinite(post.blockTimestamp) && post.blockTimestamp > 0) {
+    ctx.blockTimestamp = Math.floor(post.blockTimestamp);
+  }
+  return ctx;
 }
 
 function sourcePostMatches(
@@ -292,15 +387,12 @@ export class ScarcesFromPostApi {
   ): Promise<MintResponse> {
     const { author, postId } = postCoords(post);
     const extracted = await this._readPost(post);
-    const groupId = isPostRow(post)
-      ? post.groupId?.trim() || undefined
-      : undefined;
     const mintOpts = this._buildMintOpts(
       author,
       postId,
       extracted,
       opts,
-      groupId
+      sourcePostContext(post)
     );
     return this._tokens.mint(mintOpts);
   }
@@ -324,10 +416,13 @@ export class ScarcesFromPostApi {
   ): Promise<MintResponse> {
     const { author, postId } = postCoords(post);
     const extracted = await this._readPost(post);
-    const groupId = isPostRow(post)
-      ? post.groupId?.trim() || undefined
-      : undefined;
-    const base = this._buildMintOpts(author, postId, extracted, opts, groupId);
+    const base = this._buildMintOpts(
+      author,
+      postId,
+      extracted,
+      opts,
+      sourcePostContext(post)
+    );
     const lazyOpts: LazyListingOptions = {
       title: base.title,
       priceNear,
@@ -434,8 +529,9 @@ export class ScarcesFromPostApi {
     const limit = opts.limit ?? 50;
     // Filter server-side by author; we cannot _eq inside extraData (TEXT)
     // through Hasura without JSONB, so we narrow by author and parse on
-    // the client. Author scoping keeps this cheap (one creator's events).
-    const all = await this._query.scarces.events({ author, limit });
+    // the client. Author scoping + short TTL/inflight cache keeps a feed
+    // of the same author's posts to one events query.
+    const all = await scarceEventsForAuthor(this._query, author, limit);
     let matched = all.filter((row) =>
       sourcePostMatches(
         sourcePostFromJson(row.extraData),
@@ -547,7 +643,7 @@ export class ScarcesFromPostApi {
     postId: string,
     extracted: ExtractedPost,
     opts: MintFromPostOptions,
-    groupId?: string
+    source: SourcePostContext = {}
   ): MintOptions {
     const text = extracted.text;
     const autoTitleLimit = opts.cardFormat
@@ -615,7 +711,13 @@ export class ScarcesFromPostApi {
           author,
           postId,
           path: `${author}/post/${postId}`,
-          ...(groupId ? { groupId } : {}),
+          ...(source.groupId ? { groupId: source.groupId } : {}),
+          ...(source.blockHeight != null
+            ? { blockHeight: source.blockHeight }
+            : {}),
+          ...(source.blockTimestamp != null
+            ? { blockTimestamp: source.blockTimestamp }
+            : {}),
         },
         mintedAt: Date.now(),
         ...(galleryExtra ?? {}),

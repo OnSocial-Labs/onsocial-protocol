@@ -37,7 +37,10 @@ import {
   type MarkShape,
   type TitleAlign,
 } from '@onsocial/text-card';
-import { getProfileName } from './profileLookup.js';
+import {
+  getProfileName,
+  resolveCreatorAvatarDataUri,
+} from './profileLookup.js';
 import { rasterizeTextCard } from './card-raster.js';
 
 // ---------------------------------------------------------------------------
@@ -75,12 +78,15 @@ export interface ComposeMintRequest {
   skipAutoMedia?: boolean;
   /**
    * Optional creator profile rendered onto the auto-generated text card
-   * (avatar initial + display name + @handle). When omitted, the SDK
+   * (display name + ~accountId + optional face). When omitted, the SDK
    * caller's `accountId` is used so author attribution is always present.
+   * Avatar may be a data URI, https URL, or `ipfs://` ref; the gateway
+   * inlines it into the permanent PNG at mint time.
    */
   creator?: {
     accountId: string;
     displayName?: string;
+    avatar?: string;
   };
   /**
    * Auto-card theming. Both keys must be in the @onsocial/text-card
@@ -194,6 +200,16 @@ export async function buildMintAction(
         if (profileName) {
           creator = { ...creator, displayName: profileName };
         }
+      }
+      const avatarDataUri = await resolveCreatorAvatarDataUri(
+        creator.accountId,
+        creator.avatar
+      );
+      if (avatarDataUri) {
+        creator = { ...creator, avatar: avatarDataUri };
+      } else {
+        const { avatar: _omit, ...rest } = creator;
+        creator = rest;
       }
       let cardFormat: CardFormat | undefined;
       let resolvedCardBg = req.cardBg;

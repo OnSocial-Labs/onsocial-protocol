@@ -821,24 +821,20 @@ export function PostCard({
   const {
     rootRef: scarceEmbedRef,
     embed: scarceEmbed,
-    status: scarceEmbedStatus,
     retry: retryScarceEmbed,
   } = usePostScarceEmbed(post, { force: isSelf || menuForceEmbed });
   const activelyListed =
     scarceEmbed?.status === 'lazy_listing' ||
     scarceEmbed?.status === 'listed' ||
     scarceEmbed?.status === 'auction';
-  // Wait until embed is ready (indexer + live listing fallback) so Market →
-  // post doesn't flash "List for sale" on an already-listed scarce.
-  const canListScarce =
-    isConnected &&
-    isSelf &&
-    scarceEmbedStatus === 'ready' &&
-    !activelyListed;
+  // Show List as soon as we don't know of an active listing. Waiting on
+  // `ready` made the menu feel broken on own posts while indexer/contract
+  // checks ran. Optimistic ledger + reconcile still flip to Cancel once
+  // a listing is confirmed.
+  const canListScarce = isConnected && isSelf && !activelyListed;
   const canCancelScarce =
     isConnected &&
     isSelf &&
-    scarceEmbedStatus === 'ready' &&
     canCancelPostScarce(scarceEmbed);
 
   async function handleCancelScarce() {

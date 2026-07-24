@@ -146,9 +146,12 @@ export function ScarceBuyForm({
         const client = createReadOnlyOnSocialClient();
         const profile = await client.profiles.get(accountId);
         if (cancelled) return;
-        setCreatorAvatarUrl(
-          profile ? client.profiles.avatarUrl(profile) : null
-        );
+        const media = profile ? client.profiles.avatarMedia(profile) : null;
+        const faceUrl =
+          media?.kind === 'image'
+            ? media.url
+            : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
+        setCreatorAvatarUrl(faceUrl);
         setCreatorProfileName(profile?.name?.trim() || null);
       } catch {
         if (!cancelled) {
@@ -321,6 +324,7 @@ export function ScarceBuyForm({
         <ScarcePostPreview
           post={post}
           creatorDisplayName={authorName}
+          creatorAvatarUrl={creatorAvatarUrl}
           cardBg={embed?.cardBg ?? listing?.cardBg}
         />
       ) : null}

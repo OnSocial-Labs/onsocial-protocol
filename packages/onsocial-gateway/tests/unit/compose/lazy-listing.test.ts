@@ -26,6 +26,8 @@ import {
 // hit the NEAR RPC mock and consume mockFetch slots meant for the relay.
 vi.mock('../../../src/services/compose/profileLookup.js', () => ({
   getProfileName: vi.fn(async () => ''),
+  getProfileAvatar: vi.fn(async () => ''),
+  resolveCreatorAvatarDataUri: vi.fn(async () => undefined),
   _resetProfileCache: vi.fn(),
 }));
 
@@ -38,10 +40,10 @@ describe('buildLazyListAction', () => {
     await expect(
       buildLazyListAction(
         'alice.testnet',
-        { title: 'A'.repeat(49), priceNear: '1', cardFormat: 'poster' },
+        { title: 'A'.repeat(81), priceNear: '1', cardFormat: 'poster' },
         undefined
       )
-    ).rejects.toThrow('Poster cards support up to 48 characters');
+    ).rejects.toThrow('Poster cards support up to 80 characters');
   });
 
   it('requires a proof image for photo-led formats', async () => {

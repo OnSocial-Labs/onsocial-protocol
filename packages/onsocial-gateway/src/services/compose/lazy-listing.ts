@@ -19,6 +19,7 @@ import {
   nearToYocto,
   MAX_METADATA_LEN,
   gatewayUrl,
+  ipfsUri,
 } from './shared.js';
 import {
   generateTextCardSvg,
@@ -39,7 +40,10 @@ import {
   type MarkShape,
   type TitleAlign,
 } from '@onsocial/text-card';
-import { getProfileName } from './profileLookup.js';
+import {
+  getProfileName,
+  resolveCreatorAvatarDataUri,
+} from './profileLookup.js';
 import { rasterizeTextCard } from './card-raster.js';
 
 // ---------------------------------------------------------------------------
@@ -84,11 +88,12 @@ export interface ComposeLazyListRequest {
   /**
    * Optional creator profile rendered onto the auto-generated text card.
    * When omitted, the calling accountId is used so attribution is
-   * always preserved.
+   * always preserved. Avatar is inlined into the permanent PNG.
    */
   creator?: {
     accountId: string;
     displayName?: string;
+    avatar?: string;
   };
   /** Auto-card theming. Unknown keys fall back to defaults. */
   cardBg?: BackgroundKey | string;
@@ -191,6 +196,16 @@ export async function buildLazyListAction(
       if (profileName) {
         creator = { ...creator, displayName: profileName };
       }
+    }
+    const avatarDataUri = await resolveCreatorAvatarDataUri(
+      creator.accountId,
+      creator.avatar
+    );
+    if (avatarDataUri) {
+      creator = { ...creator, avatar: avatarDataUri };
+    } else {
+      const { avatar: _omit, ...rest } = creator;
+      creator = rest;
     }
     let cardFormat: CardFormat | undefined;
     let resolvedCardBg = req.cardBg;
@@ -337,10 +352,15 @@ export async function buildLazyListAction(
     ...(req.extra && { extra: JSON.stringify(req.extra) }),
   };
 
-  // Upload full metadata JSON to Lighthouse
+  // Upload full metadata JSON to Lighthouse (OpenSea-compatible).
+  // Mirror mint: keep gateway `media` for wallets, plus `media_ipfs` CID
+  // for permanent / gateway-agnostic resolution.
+  const isIpfsMedia = !!media && !!media.cid;
   const fullMetadata = {
     ...tokenMetadata,
     ...(media && { image: media.url }),
+    ...(isIpfsMedia && media && { media_ipfs: ipfsUri(media.cid) }),
+    ...(isIpfsMedia && media && { media_url: media.url }),
     name: req.title,
     ...(req.description && { description: req.description }),
     ...(req.extra || {}),

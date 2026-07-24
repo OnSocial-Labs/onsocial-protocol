@@ -590,8 +590,8 @@ describe('OnSocial.mintPost', () => {
 
     const form = fetch.mock.calls[1][1].body as FormData;
     const title = form.get('title') as string;
-    expect(title.length).toBe(80);
-    expect(title).toBe('a'.repeat(80));
+    expect(title.length).toBe(108);
+    expect(title).toBe('a'.repeat(108));
     // Description keeps the full text
     expect(form.get('description')).toBe(longText);
   });

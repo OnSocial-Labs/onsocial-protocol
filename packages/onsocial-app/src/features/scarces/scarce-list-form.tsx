@@ -35,6 +35,7 @@ import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   txToastConfirming,
   txToastError,
@@ -184,6 +185,35 @@ export function ScarceListForm({
   );
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const authorId = post.accountId.trim();
+    if (!authorId) {
+      setCreatorAvatarUrl(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const profile = await client.profiles.get(authorId);
+        if (cancelled) return;
+        const media = profile ? client.profiles.avatarMedia(profile) : null;
+        // Cards need a still face — prefer image URL, else video poster.
+        const faceUrl =
+          media?.kind === 'image'
+            ? media.url
+            : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
+        setCreatorAvatarUrl(faceUrl);
+      } catch {
+        if (!cancelled) setCreatorAvatarUrl(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [post.accountId]);
 
   const hasCoverImage = Boolean(postScarceCoverImage(post));
   const usesPhotoCard = hasCoverImage && photoCardFormat !== 'cover';
@@ -368,6 +398,7 @@ export function ScarceListForm({
       <ScarcePostPreview
         post={post}
         creatorDisplayName={authorName}
+        creatorAvatarUrl={creatorAvatarUrl}
         {...(usesGeneratedCard
           ? {
               cardBg: cardTheme.cardBg,
@@ -380,21 +411,28 @@ export function ScarceListForm({
       />
 
       {hasCoverImage ? (
-        <div className="scarce-mood-picker scarce-mood-picker--single">
-          <ScarceFieldSelectMenu
-            label="Artwork"
-            value={photoCardFormat}
-            disabled={pending}
-            ariaLabel="Photo artwork format"
-            options={
-              [
-                { value: 'cover', label: 'Original photo' },
-                { value: 'proof', label: 'Proof card' },
-                { value: 'receipt', label: 'Receipt card' },
-              ] as const
-            }
-            onChange={(next) => selectPhotoCardFormat(next)}
-          />
+        <div className="scarce-mood-picker-block">
+          <div className="scarce-mood-picker scarce-mood-picker--single">
+            <ScarceFieldSelectMenu
+              label="Artwork"
+              value={photoCardFormat}
+              disabled={pending}
+              ariaLabel="Photo artwork format"
+              options={
+                [
+                  { value: 'cover', label: 'Original photo' },
+                  { value: 'proof', label: 'Proof card' },
+                  { value: 'receipt', label: 'Receipt card' },
+                ] as const
+              }
+              onChange={(next) => selectPhotoCardFormat(next)}
+            />
+          </div>
+          <p className="scarce-mood-picker-hint">
+            {photoCardFormat === 'cover'
+              ? 'Post photo as-is'
+              : 'Card with signature'}
+          </p>
         </div>
       ) : null}
 

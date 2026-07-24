@@ -102,60 +102,65 @@ export function ScarceCardMoodPicker({
   ];
 
   return (
-    <div className="scarce-mood-picker">
-      <ScarceFieldSelectMenu
-        label="Format"
-        value={value.cardFormat}
-        options={formatOptions}
-        disabled={disabled}
-        onChange={(next) => {
-          const nextFormat = CARD_FORMAT_REGISTRY[next];
-          const nextPalette = nextFormat.defaultPalette;
-          onChange(
-            patch(value, {
-              cardFormat: next,
-              cardPalette: nextPalette,
-              cardBg: moodForCardFormat(next, nextPalette),
-              cardTitleAlign: 'left',
-            })
-          );
-        }}
-      />
+    <div className="scarce-mood-picker-block">
+      <div className="scarce-mood-picker">
+        <ScarceFieldSelectMenu
+          label="Format"
+          value={value.cardFormat}
+          options={formatOptions}
+          disabled={disabled}
+          onChange={(next) => {
+            const nextFormat = CARD_FORMAT_REGISTRY[next];
+            const nextPalette = nextFormat.defaultPalette;
+            onChange(
+              patch(value, {
+                cardFormat: next,
+                cardPalette: nextPalette,
+                cardBg: moodForCardFormat(next, nextPalette),
+                cardTitleAlign: 'left',
+              })
+            );
+          }}
+        />
 
-      <ScarceFieldSelectMenu
-        label="Finish"
-        value={value.cardPalette}
-        options={finishOptions}
-        disabled={disabled}
-        onChange={(next) => {
-          onChange(
-            patch(value, {
-              cardPalette: next,
-              cardBg: moodForCardFormat(value.cardFormat, next),
-            })
-          );
-        }}
-      />
+        <ScarceFieldSelectMenu
+          label="Finish"
+          value={value.cardPalette}
+          options={finishOptions}
+          disabled={disabled}
+          onChange={(next) => {
+            onChange(
+              patch(value, {
+                cardPalette: next,
+                cardBg: moodForCardFormat(value.cardFormat, next),
+              })
+            );
+          }}
+        />
 
-      <ScarceFieldSelectMenu
-        label="Mark"
-        value={value.cardMarkShape}
-        options={markOptions}
-        disabled={disabled}
-        onChange={(next) =>
-          onChange(patch(value, { cardMarkShape: next }))
-        }
-      />
+        <ScarceFieldSelectMenu
+          label="Mark"
+          value={value.cardMarkShape}
+          options={markOptions}
+          disabled={disabled}
+          onChange={(next) =>
+            onChange(patch(value, { cardMarkShape: next }))
+          }
+        />
 
-      <ScarceFieldSelectMenu
-        label="Colour"
-        value={value.cardMarkColor}
-        options={colourOptions}
-        disabled={disabled}
-        onChange={(next) =>
-          onChange(patch(value, { cardMarkColor: next }))
-        }
-      />
+        <ScarceFieldSelectMenu
+          label="Colour"
+          value={value.cardMarkColor}
+          options={colourOptions}
+          disabled={disabled}
+          onChange={(next) =>
+            onChange(patch(value, { cardMarkColor: next }))
+          }
+        />
+      </div>
+      <p className="scarce-mood-picker-hint">
+        Up to {format.maxCharacters} characters on the cover
+      </p>
     </div>
   );
 }

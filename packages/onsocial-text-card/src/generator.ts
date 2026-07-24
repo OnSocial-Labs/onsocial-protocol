@@ -3,15 +3,16 @@
 //
 // Design (v0.3 — "editorial"):
 //   - The thought is the hero. Top-anchored, big, alone.
-//   - No avatar. The byline is type-only.
 //   - The author's deterministic colour lives in a small "mark" at the
-//     top-left — the only ornamentation, the author's signature.
+//     top-left — the only ornamentation besides the optional byline avatar.
 //   - Byline signature (always the same pattern):
-//       Name          ← DM Sans, medium, soft opacity of title ink
-//       ~accountId    ← tilde signature sign + full unique id
+//       [avatar?] Name          ← optional frozen face + DM Sans name
+//                 ~accountId    ← tilde signature sign + full unique id
 //       OnSocial · 18 Jul 26 · 21:14 · postId  ← quiet provenance
-//     No distinct name → `~accountId` alone. Title owns the voice fonts;
-//     the signature stays a calm UI sans (mono voice → mono).
+//     Avatar is optional; when present it is inlined (data URI) at mint so
+//     the permanent PNG does not depend on a live profile URL. No distinct
+//     name → `~accountId` alone. Title owns the voice fonts; the signature
+//     stays a calm UI sans (mono voice → mono).
 //   - No description on the card (stays in NFT metadata).
 //
 // Customisation (v0.3.1 — small, opinionated knobs):
@@ -79,6 +80,9 @@ const BYLINE_PROVENANCE_OPACITY = 0.3;
 /** Extra air between ~id and the OnSocial · date line. */
 const BYLINE_PROVENANCE_GAP = 12;
 const BYLINE_PROVENANCE_BRAND = 'OnSocial';
+/** Circular creator face beside the signature stack. */
+const BYLINE_AVATAR_SIZE = 36;
+const BYLINE_AVATAR_GAP = 12;
 const PROVENANCE_MONTHS = [
   'Jan',
   'Feb',
@@ -382,12 +386,13 @@ function truncateVisual(s: string, maxVisual: number): string {
 /** Try the size ladder; return the largest that fits without truncation. */
 function pickTitleFontSize(
   text: string,
-  baseCharsPerLine: number
+  baseCharsPerLine: number,
+  maxLines = TITLE_MAX_LINES
 ): { size: number; charsPerLine: number; truncated: boolean } {
   const baseSize = TITLE_FONT_SIZES[0];
   for (const size of TITLE_FONT_SIZES) {
     const charsPerLine = Math.floor(baseCharsPerLine * (baseSize / size));
-    const fitted = wrapWouldFit(text, charsPerLine, TITLE_MAX_LINES);
+    const fitted = wrapWouldFit(text, charsPerLine, maxLines);
     if (fitted) return { size, charsPerLine, truncated: false };
   }
   // Floor reached: text still overflows; render at floor and let wrap()
@@ -561,6 +566,12 @@ export interface TextCardOptions {
   creator?: {
     accountId: string;
     displayName?: string;
+    /**
+     * Optional face for the signature. Prefer a `data:image/*` URI so the
+     * minted PNG stays self-contained. http(s) is accepted for live
+     * previews only.
+     */
+    avatar?: string;
   };
   /** Mood + per-card customisation. */
   theme?: {
@@ -700,20 +711,17 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
 
   // ── Auto-shrink ladder ──────────────────────────────────────────
   // Standard moods: try the standard 4 sizes (44 → 38 → 32 → 28) and
-  // pick the largest that fits in TITLE_MAX_LINES at the per-mood
-  // budget. Receipt mood: bigger ladder (56 → 48 → 44 → 40) capped at
+  // pick the largest that fits in the format's maxLines at the per-mood
+  // budget. Receipt/Proof: bigger ladder (56 → 48 → 44 → 40) capped at
   // 2 lines, because the title is guaranteed-short and we want headline
   // weight.
+  const titleMaxLines = Math.min(formatSpec.maxLines, TITLE_MAX_LINES);
   const fit = isReceipt
     ? pickReceiptTitleFontSize(titleSource, mood.titleCharsPerLine)
-    : pickTitleFontSize(titleSource, mood.titleCharsPerLine);
+    : pickTitleFontSize(titleSource, mood.titleCharsPerLine, titleMaxLines);
   const titleFontSize = fit.size;
   const titleLineHeight = Math.round(titleFontSize * TITLE_LINE_HEIGHT_RATIO);
-  const titleLines = wrap(
-    titleSource,
-    fit.charsPerLine,
-    isReceipt ? formatSpec.maxLines : TITLE_MAX_LINES
-  );
+  const titleLines = wrap(titleSource, fit.charsPerLine, titleMaxLines);
 
   const creator = opts.creator;
 
@@ -798,6 +806,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     stackBottomY -= BYLINE_PROVENANCE_SIZE + BYLINE_PROVENANCE_GAP;
   }
 
+  let avatarDefs = '';
   if (creator) {
     const accountId = creator.accountId.trim();
     const handle = `${BYLINE_SIGNATURE_SIGN}${accountId}`;
@@ -814,39 +823,65 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       nameNorm !== `~/${idNorm}` &&
       nameNorm !== handle.toLowerCase();
 
-    const handleBudget = CONTENT_WIDTH;
+    const rawAvatar = creator.avatar?.trim() ?? '';
+    const hasAvatar =
+      rawAvatar.length > 0 && /^(https?:|data:image\/)/i.test(rawAvatar);
+    const textX = hasAvatar
+      ? PADDING + BYLINE_AVATAR_SIZE + BYLINE_AVATAR_GAP
+      : PADDING;
+    const textBudget = hasAvatar
+      ? CONTENT_WIDTH - BYLINE_AVATAR_SIZE - BYLINE_AVATAR_GAP
+      : CONTENT_WIDTH;
 
     let handleSize = BYLINE_HANDLE_SIZE;
-    if (estimateWidthPx(handle, handleSize, handleKind) > handleBudget) {
+    if (estimateWidthPx(handle, handleSize, handleKind) > textBudget) {
       handleSize = BYLINE_HANDLE_FLOOR;
     }
 
     const handleY = stackBottomY;
+    let signatureBlock = '';
 
     if (!hasDistinctName) {
-      bylineBlock =
-        `
-  <text x="${PADDING}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>` +
-        bylineBlock;
+      signatureBlock = `
+  <text x="${textX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>`;
     } else {
       const nameSize = BYLINE_NAME_SIZE;
       let displayName = rawName;
-      if (estimateWidthPx(displayName, nameSize, nameKind) > CONTENT_WIDTH) {
+      if (estimateWidthPx(displayName, nameSize, nameKind) > textBudget) {
         const nameRatio =
           nameKind === 'mono' ? MONO_CHAR_RATIO : SANS_CHAR_RATIO_BOLD;
         const nameCharBudget = Math.max(
           4,
-          Math.floor(CONTENT_WIDTH / (nameSize * nameRatio))
+          Math.floor(textBudget / (nameSize * nameRatio))
         );
         displayName = truncateVisual(displayName, nameCharBudget);
       }
       const nameY = handleY - handleSize - BYLINE_STACK_GAP;
-      bylineBlock =
-        `
-  <text x="${PADDING}" y="${nameY}" font-family="${mood.bylineFamily}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
-  <text x="${PADDING}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>` +
-        bylineBlock;
+      signatureBlock = `
+  <text x="${textX}" y="${nameY}" font-family="${mood.bylineFamily}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
+  <text x="${textX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>`;
     }
+
+    if (hasAvatar) {
+      const stackTop = hasDistinctName
+        ? handleY - handleSize - BYLINE_STACK_GAP - BYLINE_NAME_SIZE
+        : handleY - handleSize;
+      const stackMidY = (stackTop + handleY) / 2;
+      const avatarY = Math.round(stackMidY - BYLINE_AVATAR_SIZE / 2);
+      const avatarCx = PADDING + BYLINE_AVATAR_SIZE / 2;
+      const avatarCy = avatarY + BYLINE_AVATAR_SIZE / 2;
+      const ringOpacity =
+        isReceiptDark || mood.bgFrom.startsWith('#0') ? '0.22' : '0.16';
+      avatarDefs = `
+    <clipPath id="avatarClip"><circle cx="${avatarCx}" cy="${avatarCy}" r="${BYLINE_AVATAR_SIZE / 2}"/></clipPath>`;
+      signatureBlock =
+        `
+  <image href="${esc(rawAvatar)}" x="${PADDING}" y="${avatarY}" width="${BYLINE_AVATAR_SIZE}" height="${BYLINE_AVATAR_SIZE}" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>
+  <circle cx="${avatarCx}" cy="${avatarCy}" r="${BYLINE_AVATAR_SIZE / 2}" fill="none" stroke="${ink}" stroke-opacity="${ringOpacity}" stroke-width="1"/>` +
+        signatureBlock;
+    }
+
+    bylineBlock = signatureBlock + bylineBlock;
   }
 
   const v = angleToVector(mood.bgAngle);
@@ -873,7 +908,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     <linearGradient id="g" x1="${v.x1}" y1="${v.y1}" x2="${v.x2}" y2="${v.y2}">
       <stop offset="0%" stop-color="${mood.bgFrom}"/>
       <stop offset="100%" stop-color="${mood.bgTo}"/>
-    </linearGradient>${photoDefs}
+    </linearGradient>${photoDefs}${avatarDefs}
   </defs>
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#g)"/>${markBlock}
   <text x="${titleX}" y="${titleStartY}" font-family="${mood.titleFamily}" font-size="${titleFontSize}" font-weight="${mood.titleWeight}" fill="${mood.textPrimary}"${titleLetterSpacingAttr}${titleAnchorAttr}>${titleTspans}</text>${photoBlock}${bylineBlock}

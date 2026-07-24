@@ -34,8 +34,9 @@ describe('themes catalog', () => {
       'receipt',
       'proof',
     ]);
-    expect(CARD_FORMAT_REGISTRY.poster.maxCharacters).toBe(48);
-    expect(CARD_FORMAT_REGISTRY.thought.maxCharacters).toBe(80);
+    expect(CARD_FORMAT_REGISTRY.poster.maxCharacters).toBe(80);
+    expect(CARD_FORMAT_REGISTRY.poster.maxLines).toBe(4);
+    expect(CARD_FORMAT_REGISTRY.thought.maxCharacters).toBe(108);
     expect(CARD_FORMAT_REGISTRY.letter.maxCharacters).toBe(120);
     expect(CARD_FORMAT_REGISTRY.thought.voice).toBe('thought');
     expect(CARD_FORMAT_REGISTRY.poster.voice).toBe('poster');
@@ -230,6 +231,28 @@ describe('generator smoke', () => {
     expect(textOpens.length).toBeGreaterThanOrEqual(3);
     expect(svg).toMatch(
       /<text x="56"[^>]*>Alice<\/text>\s*<text x="56"[^>]*>~alice\.near<\/text>/
+    );
+  });
+
+  it('renders a circular avatar beside the signature when provided', () => {
+    const avatar =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const svg = generateTextCardSvg({
+      title: 'Hello.',
+      creator: {
+        accountId: 'alice.near',
+        displayName: 'Alice',
+        avatar,
+      },
+      theme: { bg: 'thought-night' },
+    });
+    expect(svg).toContain('clipPath id="avatarClip"');
+    expect(svg).toContain(avatar);
+    expect(svg).toContain('Alice');
+    expect(svg).toContain('~alice.near');
+    // Text shifts right of the 36px face + gap.
+    expect(svg).toMatch(
+      /<text x="104"[^>]*>Alice<\/text>\s*<text x="104"[^>]*>~alice\.near<\/text>/
     );
   });
 
