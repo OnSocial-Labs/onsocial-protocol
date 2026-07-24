@@ -24,6 +24,8 @@ import type { PostRow } from '@onsocial/sdk';
 import { parsePostText } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
 import {
+  isRenderablePostAudioMime,
+  isRenderablePostPlayableMime,
   isRenderablePostVideoMime,
   parsePostMedia,
   type PostMediaItem,
@@ -78,10 +80,29 @@ function previewTitle(post: PostRow, format?: CardFormat): string {
   return `${(lastSpace >= maxCharacters / 2 ? window.slice(0, lastSpace) : window).trimEnd()}…`;
 }
 
-/** Cover image for the scarce — first image only (matches fromPost.list). */
+/** Cover image for the scarce — first still only (matches fromPost.list). */
 export function postScarceCoverImage(post: PostRow): PostMediaItem | null {
   const items = parsePostMedia(post.value);
-  return items.find((item) => !isRenderablePostVideoMime(item.mime)) ?? null;
+  return items.find((item) => !isRenderablePostPlayableMime(item.mime)) ?? null;
+}
+
+/**
+ * First video on the post. It can never be the NEP-177 cover, but it is
+ * what the creator is selling — the listing flow offers a frame from it
+ * as the still cover.
+ */
+export function postScarceVideo(post: PostRow): PostMediaItem | null {
+  const items = parsePostMedia(post.value);
+  return items.find((item) => isRenderablePostVideoMime(item.mime)) ?? null;
+}
+
+/**
+ * First audio on the post. Same rule as video: never the wallet cover —
+ * the creator picks (or uploads) a still, and the track stays playable.
+ */
+export function postScarceAudio(post: PostRow): PostMediaItem | null {
+  const items = parsePostMedia(post.value);
+  return items.find((item) => isRenderablePostAudioMime(item.mime)) ?? null;
 }
 
 /** Live card / cover preview — tap to expand. */
@@ -167,8 +188,7 @@ export function ScarcePostPreview({
     cardTitleAlign,
   ]);
 
-  const rasterSrc =
-    (isPhotoCard ? null : cover?.url) ?? listingCover ?? null;
+  const rasterSrc = listingCover ?? (isPhotoCard ? null : cover?.url) ?? null;
   const inlineSvg = textCardSvg ? inlineSvgMarkup(textCardSvg) : null;
   if (!rasterSrc && !inlineSvg) return null;
   const isPhotoCover = Boolean(rasterSrc);

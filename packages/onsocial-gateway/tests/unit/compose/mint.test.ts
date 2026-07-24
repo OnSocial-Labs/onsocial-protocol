@@ -35,10 +35,10 @@ describe('buildMintAction', () => {
     await expect(
       buildMintAction(
         'alice.testnet',
-        { title: 'A'.repeat(81), cardFormat: 'poster' },
+        { title: 'A'.repeat(97), cardFormat: 'poster' },
         undefined
       )
-    ).rejects.toThrow('Poster cards support up to 80 characters');
+    ).rejects.toThrow('Poster cards support up to 96 characters');
   });
 
   it('requires a proof photo for photo-led formats', async () => {
@@ -75,6 +75,62 @@ describe('buildMintAction', () => {
     expect(result.targetAccount).toBe('scarces.onsocial.testnet');
     // No relay call
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('points marketplaces at the clip via animation_url for video scarces', async () => {
+    mockLighthouseUpload('QmPosterFrame', 5000);
+    mockLighthouseText('QmPrepMeta', 300);
+
+    const result = await buildMintAction(
+      'alice.testnet',
+      {
+        title: 'Clip',
+        extra: { playable: [{ cid: 'QmClip', mime: 'video/mp4' }] },
+      },
+      makeFile()
+    );
+
+    // On-chain `media` stays the still frame — that is all wallets render.
+    expect(result.action).toMatchObject({
+      metadata: {
+        media: 'https://test-gw.lighthouseweb3.xyz/ipfs/QmPosterFrame',
+      },
+    });
+    const reference = JSON.parse(mockUploadText.mock.calls[0]![0] as string);
+    expect(reference.animation_url).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmClip'
+    );
+    expect(reference.animation_ipfs).toBe('ipfs://QmClip');
+    expect(reference.image).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmPosterFrame'
+    );
+  });
+
+  it('omits animation_url when the post carried no clip', async () => {
+    mockLighthouseUpload('QmPrepArt', 5000);
+    mockLighthouseText('QmPrepMeta', 300);
+
+    await buildMintAction('alice.testnet', { title: 'Photo' }, makeFile());
+
+    const reference = JSON.parse(mockUploadText.mock.calls[0]![0] as string);
+    expect(reference.animation_url).toBeUndefined();
+  });
+
+  it('ignores a malformed playable hint rather than failing the mint', async () => {
+    mockLighthouseUpload('QmPrepArt', 5000);
+    mockLighthouseText('QmPrepMeta', 300);
+
+    await buildMintAction(
+      'alice.testnet',
+      {
+        title: 'Odd',
+        extra: { playable: [{ cid: '' }, 'nonsense', { mime: 'video/mp4' }] },
+      },
+      makeFile()
+    );
+
+    const reference = JSON.parse(mockUploadText.mock.calls[0]![0] as string);
+    expect(reference.animation_url).toBeUndefined();
   });
 
   it('builds MintFromCollection action without uploads', async () => {

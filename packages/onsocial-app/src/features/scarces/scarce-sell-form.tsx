@@ -12,6 +12,7 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
@@ -351,6 +352,13 @@ export function ScarceSellForm({
           </p>
         </div>
       </div>
+
+      <ScarceProvenanceCopy
+        title={item.title}
+        description={item.description}
+        postHref={sourcePostHref}
+        sourcePostPath={item.sourcePostPath}
+      />
 
       <div
         className="app-storage-presets profile-support-presets"

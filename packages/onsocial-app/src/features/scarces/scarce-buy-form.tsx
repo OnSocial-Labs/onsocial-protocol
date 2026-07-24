@@ -7,7 +7,11 @@ import { ProfileAvatar } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import { findLiveListingForPost } from '@/features/market/market-listings';
+import {
+  fetchScarceListingMeta,
+  findLiveListingForPost,
+  type ScarcePlayableMedia,
+} from '@/features/market/market-listings';
 import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
@@ -16,7 +20,9 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
+import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
 import {
   createAppScarcesWalletClient,
   LazyListingNotFoundError,
@@ -51,11 +57,15 @@ interface ScarceBuyFormProps {
     status: PostScarceEmbed['status'];
     priceNear?: string;
     title?: string;
+    description?: string;
     mediaUrl?: string | null;
     creatorId?: string;
     cardBg?: string;
     copies?: number;
     remaining?: number;
+    sourcePostPath?: string;
+    postHref?: string | null;
+    playable?: ScarcePlayableMedia;
   } | null;
   embed?: PostScarceEmbed | null;
   /** Profile display name for text-card preview byline. */
@@ -102,6 +112,15 @@ export function ScarceBuyForm({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [hydratedDescription, setHydratedDescription] = useState<string | null>(
+    null
+  );
+  const [hydratedMediaUrl, setHydratedMediaUrl] = useState<string | null>(null);
+  const [hydratedSourcePostPath, setHydratedSourcePostPath] = useState<
+    string | null
+  >(null);
+  const [hydratedPlayable, setHydratedPlayable] =
+    useState<ScarcePlayableMedia | null>(null);
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
   const [creatorProfileName, setCreatorProfileName] = useState<string | null>(
     null
@@ -113,8 +132,17 @@ export function ScarceBuyForm({
   const priceNear = listing?.priceNear ?? embed?.priceNear;
   const copies = listing?.copies ?? embed?.copies;
   const remaining = listing?.remaining ?? embed?.remaining;
-  const title =
-    listing?.title?.trim() || titleFromPost(post) || 'Scarce';
+  const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
+  const resolvedDescription =
+    listing?.description?.trim() || hydratedDescription || null;
+  const resolvedMediaUrl =
+    listing?.mediaUrl?.trim() ||
+    embed?.mediaUrl?.trim() ||
+    hydratedMediaUrl ||
+    null;
+  const resolvedSourcePostPath =
+    listing?.sourcePostPath?.trim() || hydratedSourcePostPath || null;
+  const resolvedPlayable = listing?.playable ?? hydratedPlayable;
   const sellerId = listing?.creatorId ?? post?.accountId;
   const authorHandle = sellerId ? fallbackLabel(sellerId) : null;
   const authorHref = post
@@ -123,10 +151,7 @@ export function ScarceBuyForm({
       ? portfolioPath(sellerId)
       : null;
   const authorDisplayName = sellerId
-    ? displayName(
-        sellerId,
-        creatorProfileName ?? authorName ?? undefined
-      )
+    ? displayName(sellerId, creatorProfileName ?? authorName ?? undefined)
     : null;
   const authorNameIsCustom =
     Boolean(authorDisplayName) &&
@@ -164,6 +189,49 @@ export function ScarceBuyForm({
       cancelled = true;
     };
   }, [sellerId]);
+
+  useEffect(() => {
+    const needsDescription = !listing?.description?.trim();
+    const needsMedia = !listing?.mediaUrl?.trim() && !embed?.mediaUrl?.trim();
+    const needsSource = !listing?.sourcePostPath?.trim();
+    const needsPlayable = !listing?.playable;
+    if (!needsDescription && !needsMedia && !needsSource && !needsPlayable) {
+      setHydratedDescription(null);
+      setHydratedMediaUrl(null);
+      setHydratedSourcePostPath(null);
+      setHydratedPlayable(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const meta = await fetchScarceListingMeta({ listingId, tokenId });
+      if (cancelled || !meta) return;
+      if (needsDescription && meta.description) {
+        setHydratedDescription(meta.description);
+      }
+      if (needsMedia && meta.mediaUrl) {
+        setHydratedMediaUrl(meta.mediaUrl);
+      }
+      if (needsSource && meta.sourcePostPath) {
+        setHydratedSourcePostPath(meta.sourcePostPath);
+      }
+      if (needsPlayable && meta.playable) {
+        setHydratedPlayable(meta.playable);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    listingId,
+    tokenId,
+    listing?.description,
+    listing?.mediaUrl,
+    listing?.sourcePostPath,
+    listing?.playable,
+    embed?.mediaUrl,
+  ]);
+
   const isOwnListing =
     Boolean(viewerAccountId) &&
     Boolean(sellerId) &&
@@ -193,14 +261,7 @@ export function ScarceBuyForm({
             }
           : null,
     };
-  }, [
-    canSubmit,
-    isConnected,
-    isMarketBuy,
-    isOwnListing,
-    onMakeOffer,
-    pending,
-  ]);
+  }, [canSubmit, isConnected, isMarketBuy, isOwnListing, onMakeOffer, pending]);
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
@@ -320,18 +381,26 @@ export function ScarceBuyForm({
         void handleSubmit();
       }}
     >
-      {post ? (
+      {/* A video scarce mints a still as its cover — show that as the
+          poster and let the buyer play the clip they are actually paying
+          for, rather than sending them off to the source post. */}
+      {resolvedPlayable ? (
+        <ScarceClipPlayer
+          key={resolvedPlayable.url}
+          clip={resolvedPlayable}
+          poster={resolvedMediaUrl}
+        />
+      ) : post ? (
         <ScarcePostPreview
           post={post}
           creatorDisplayName={authorName}
           creatorAvatarUrl={creatorAvatarUrl}
+          mediaUrl={resolvedMediaUrl}
           cardBg={embed?.cardBg ?? listing?.cardBg}
         />
-      ) : null}
-
-      {!post && listing?.mediaUrl ? (
+      ) : resolvedMediaUrl ? (
         <div className="scarce-buy-media" aria-hidden>
-          <img src={listing.mediaUrl} alt="" />
+          <img src={resolvedMediaUrl} alt="" />
         </div>
       ) : null}
 
@@ -379,6 +448,15 @@ export function ScarceBuyForm({
             : 'Transfers to you. Seller is paid after a 2% marketplace fee.'}
         </p>
       </div>
+
+      <ScarceProvenanceCopy
+        title={title}
+        description={resolvedDescription}
+        post={post}
+        postHref={listing?.postHref}
+        sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
+        hideOriginalLink={Boolean(post)}
+      />
 
       {fieldError ? (
         <p className="profile-support-error" role="alert">

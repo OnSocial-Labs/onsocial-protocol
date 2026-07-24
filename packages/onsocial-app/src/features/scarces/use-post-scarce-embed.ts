@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { findLiveListingForPost } from '@/features/market/market-listings';
+import { findLiveListingForPost, fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
   fetchScarceAuctionView,
   minNextBidNear,
@@ -120,13 +120,32 @@ export function usePostScarceEmbed(
               ...(live.remaining != null ? { remaining: live.remaining } : {}),
             };
           }
-        } else if (embed.status === 'auction' && embed.tokenId) {
-          const auction = await fetchScarceAuctionView(embed.tokenId);
-          if (auction && !auction.isEnded) {
-            resolved = {
-              ...embed,
-              priceNear: minNextBidNear(auction),
-            };
+        } else if (
+          embed.status === 'listed' ||
+          embed.status === 'auction' ||
+          embed.status === 'sold' ||
+          embed.status === 'minted'
+        ) {
+          if (embed.tokenId && !embed.mediaUrl) {
+            const meta = await fetchScarceTokenMeta(embed.tokenId);
+            if (meta) {
+              resolved = {
+                ...resolved,
+                ...(meta.mediaUrl ? { mediaUrl: meta.mediaUrl } : {}),
+                ...(meta.cardBg && !resolved.cardBg
+                  ? { cardBg: meta.cardBg }
+                  : {}),
+              };
+            }
+          }
+          if (embed.status === 'auction' && embed.tokenId) {
+            const auction = await fetchScarceAuctionView(embed.tokenId);
+            if (auction && !auction.isEnded) {
+              resolved = {
+                ...resolved,
+                priceNear: minNextBidNear(auction),
+              };
+            }
           }
         }
         if (cancelled) return;

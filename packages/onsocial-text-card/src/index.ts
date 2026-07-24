@@ -10,6 +10,7 @@ export {
 
   // v0.3.1 — per-card customisation
   MARK_COLORS,
+  MARK_COLOR_HEX,
   MARK_SHAPES,
   isMarkColor,
   isMarkShape,

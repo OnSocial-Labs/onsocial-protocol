@@ -64,10 +64,11 @@ describe('generateTextCardSvg', () => {
       title: 'My thought',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
     });
-    // Stacked signature: display name above ~accountId (tilde, not @).
+    // Stacked signature: display name above accountId (no @ / ~).
     expect(svg).toContain('>Alice<');
-    expect(svg).toContain('~alice.near');
+    expect(svg).toContain('alice.near');
     expect(svg).not.toContain('@alice.near');
+    expect(svg).not.toContain('~alice.near');
     // v0.3 has NO avatar — the only decoration is the small coloured
     // mark at the top-left (a thin rule, height=3).
     expect(svg).not.toMatch(/<rect [^>]*rx="8"/);
@@ -79,8 +80,9 @@ describe('generateTextCardSvg', () => {
       title: 'A thought',
       creator: { accountId: 'bob.testnet' },
     });
-    expect(svg).toContain('~bob.testnet');
+    expect(svg).toContain('bob.testnet');
     expect(svg).not.toContain('@bob.testnet');
+    expect(svg).not.toContain('~bob.testnet');
   });
 
   it('escapes XML-unsafe characters in displayName and accountId', () => {
@@ -93,7 +95,8 @@ describe('generateTextCardSvg', () => {
     });
     expect(svg).not.toContain('<Hacker>');
     expect(svg).toContain('&lt;Hacker&gt;');
-    expect(svg).toContain('~a&amp;b.near');
+    expect(svg).toContain('a&amp;b.near');
+    expect(svg).not.toContain('~a&amp;b.near');
   });
 
   it('omits author byline AND mark when no creator is provided', () => {
@@ -127,9 +130,10 @@ describe('generateTextCardSvg', () => {
       title: 't',
       creator: { accountId: 'a.near', displayName: longName },
     });
-    // Fixed name size (17); name + ~id are separate text nodes.
+    // Fixed name size (17); name + id are separate text nodes.
     expect(svg).toContain(`>${longName}<`);
-    expect(svg).toContain('~a.near');
+    expect(svg).toContain('a.near');
+    expect(svg).not.toContain('~a.near');
     expect(svg).toContain('font-size="17"');
   });
 

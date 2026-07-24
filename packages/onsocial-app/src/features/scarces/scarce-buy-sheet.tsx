@@ -8,6 +8,7 @@ import {
   CommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import {
   ScarceBuyForm,
@@ -22,11 +23,18 @@ export interface ScarceBuyListing {
   status: PostScarceEmbed['status'];
   priceNear?: string;
   title?: string;
+  /** NEP-177 description — full post text when minted from a post. */
+  description?: string;
   mediaUrl?: string | null;
   creatorId: string;
   creatorName?: string | null;
+  cardBg?: string;
   copies?: number;
   remaining?: number;
+  sourcePostPath?: string;
+  postHref?: string | null;
+  /** Clip behind a video scarce — cover stays the still frame. */
+  playable?: ScarcePlayableMedia;
 }
 
 interface ScarceBuySheetProps {
@@ -64,10 +72,7 @@ export function ScarceBuySheet({
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
   const handle = creatorId ? fallbackLabel(creatorId) : '';
   const resolvedName = creatorId
-    ? displayName(
-        creatorId,
-        listing?.creatorName ?? authorName ?? undefined
-      )
+    ? displayName(creatorId, listing?.creatorName ?? authorName ?? undefined)
     : '';
   // Avoid "Buy alice.near / @alice.near" when there's no custom profile name.
   const personName =

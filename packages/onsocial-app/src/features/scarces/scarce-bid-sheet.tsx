@@ -8,6 +8,7 @@ import {
   CommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import {
   ScarceBidForm,
@@ -19,10 +20,16 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 export interface ScarceBidListing {
   tokenId: string;
   title?: string;
+  /** NEP-177 description — full post text when minted from a post. */
+  description?: string;
   mediaUrl?: string | null;
   sellerId: string;
   sellerName?: string | null;
   priceNear?: string;
+  sourcePostPath?: string;
+  postHref?: string | null;
+  /** Clip behind a video scarce — cover stays the still frame. */
+  playable?: ScarcePlayableMedia;
 }
 
 interface ScarceBidSheetProps {

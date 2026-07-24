@@ -40,10 +40,10 @@ describe('buildLazyListAction', () => {
     await expect(
       buildLazyListAction(
         'alice.testnet',
-        { title: 'A'.repeat(81), priceNear: '1', cardFormat: 'poster' },
+        { title: 'A'.repeat(97), priceNear: '1', cardFormat: 'poster' },
         undefined
       )
-    ).rejects.toThrow('Poster cards support up to 80 characters');
+    ).rejects.toThrow('Poster cards support up to 96 characters');
   });
 
   it('requires a proof image for photo-led formats', async () => {

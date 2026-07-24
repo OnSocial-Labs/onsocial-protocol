@@ -14,6 +14,7 @@ import {
   logger,
   validateRoyalty,
   MAX_METADATA_LEN,
+  firstPlayable,
   gatewayUrl,
   ipfsUri,
   verifyCidLive,
@@ -78,7 +79,7 @@ export interface ComposeMintRequest {
   skipAutoMedia?: boolean;
   /**
    * Optional creator profile rendered onto the auto-generated text card
-   * (display name + ~accountId + optional face). When omitted, the SDK
+   * (display name + accountId + optional face). When omitted, the SDK
    * caller's `accountId` is used so author attribution is always present.
    * Avatar may be a data URI, https URL, or `ipfs://` ref; the gateway
    * inlines it into the permanent PNG at mint time.
@@ -415,7 +416,13 @@ export async function buildMintAction(
     // any gateway (their preferred one, ours, or `ipfs://`). The on-chain
     // `media` field stays as the resolved gateway URL because it renders
     // reliably across every wallet today.
+    //
+    // A scarce minted from a video keeps a still frame in `media` — that is
+    // all any wallet renders — and points marketplaces at the clip through
+    // `animation_url`, the field OpenSea and Mintbase play. Without it a
+    // video scarce looks like a plain image everywhere outside OnSocial.
     const isIpfsMedia = !!media && !!media.cid;
+    const playable = firstPlayable(req.extra);
     const fullMetadata = {
       ...tokenMetadata,
       ...(media && { image: media.url }),
@@ -424,6 +431,10 @@ export async function buildMintAction(
       name: req.title,
       ...(req.description && { description: req.description }),
       ...(req.extra || {}),
+      ...(playable && {
+        animation_url: gatewayUrl(playable.cid),
+        animation_ipfs: ipfsUri(playable.cid),
+      }),
     };
 
     metadata = await uploadJsonToLighthouse(fullMetadata);

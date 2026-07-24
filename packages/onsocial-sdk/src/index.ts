@@ -101,6 +101,7 @@ export {
 export type {
   ExtractedPost,
   MintFromPostOptions,
+  PlayableMediaRef,
   PostSource,
   BatchTransferEntry,
   TokenMetadata,

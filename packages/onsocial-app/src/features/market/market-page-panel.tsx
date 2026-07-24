@@ -257,9 +257,15 @@ export function MarketPagePanel() {
         setBidListing({
           tokenId: item.tokenId,
           title: item.title,
+          ...(item.description ? { description: item.description } : {}),
           mediaUrl: item.mediaUrl,
           sellerId: item.creatorId,
           priceNear: item.priceNear,
+          ...(item.sourcePostPath
+            ? { sourcePostPath: item.sourcePostPath }
+            : {}),
+          ...(item.postHref ? { postHref: item.postHref } : {}),
+          ...(item.playable ? { playable: item.playable } : {}),
         });
         return;
       }
@@ -269,8 +275,15 @@ export function MarketPagePanel() {
           status: 'listed',
           priceNear: item.priceNear,
           title: item.title,
+          ...(item.description ? { description: item.description } : {}),
           mediaUrl: item.mediaUrl,
           creatorId: item.creatorId,
+          ...(item.cardBg ? { cardBg: item.cardBg } : {}),
+          ...(item.sourcePostPath
+            ? { sourcePostPath: item.sourcePostPath }
+            : {}),
+          ...(item.postHref ? { postHref: item.postHref } : {}),
+          ...(item.playable ? { playable: item.playable } : {}),
         });
         return;
       }
@@ -280,10 +293,15 @@ export function MarketPagePanel() {
         status: 'lazy_listing',
         priceNear: item.priceNear,
         title: item.title,
+        ...(item.description ? { description: item.description } : {}),
         mediaUrl: item.mediaUrl,
         creatorId: item.creatorId,
+        ...(item.cardBg ? { cardBg: item.cardBg } : {}),
         copies: item.copies,
         remaining: item.remaining,
+        ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
+        ...(item.postHref ? { postHref: item.postHref } : {}),
+        ...(item.playable ? { playable: item.playable } : {}),
       });
     },
     [viewerAccountId]

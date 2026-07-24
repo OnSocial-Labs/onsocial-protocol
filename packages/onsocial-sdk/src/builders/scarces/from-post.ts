@@ -12,6 +12,12 @@ import type { PostRef } from '../../types.js';
 /** Anything identifying a post. */
 export type PostSource = PostRow | PostRef;
 
+/** A video / audio attachment — played in-app, never the wallet cover. */
+export interface PlayableMediaRef {
+  cid: string;
+  mime: string;
+}
+
 /** Parsed projection of a post body — text + first usable media CID. */
 export interface ExtractedPost {
   text: string;
@@ -21,6 +27,10 @@ export interface ExtractedPost {
   /** All image CIDs found in `media[]`, in source order. Excludes
    *  video/audio entries (those would render broken in NFT artwork). */
   mediaCids: string[];
+  /** Video / audio entries, in source order. Recorded in the scarce's
+   *  `extra.playable` so our surfaces can play them; the NEP-177 cover
+   *  stays a still image. */
+  playable: PlayableMediaRef[];
   /** Raw `media[]` entries as stored on chain (unfiltered). */
   media: Array<string | MediaRef>;
 }
@@ -29,6 +39,11 @@ export interface ExtractedPost {
 function isImageMime(mime: string | undefined): boolean {
   if (!mime) return true;
   return /^image\//i.test(mime);
+}
+
+function isPlayableMime(mime: string | undefined): boolean {
+  if (!mime) return false;
+  return /^(?:video|audio)\//i.test(mime);
 }
 
 /**
@@ -42,13 +57,13 @@ export function extractPostMedia(
 ): ExtractedPost {
   let parsed: Record<string, unknown> | null = null;
   if (value == null) {
-    return { text: '', media: [], mediaCids: [] };
+    return { text: '', media: [], mediaCids: [], playable: [] };
   }
   if (typeof value === 'string') {
     try {
       parsed = JSON.parse(value) as Record<string, unknown>;
     } catch {
-      return { text: value, media: [], mediaCids: [] };
+      return { text: value, media: [], mediaCids: [], playable: [] };
     }
   } else {
     parsed = value;
@@ -59,6 +74,7 @@ export function extractPostMedia(
     ? (parsed.media as Array<string | MediaRef>)
     : [];
   const mediaCids: string[] = [];
+  const playable: PlayableMediaRef[] = [];
   for (const entry of rawMedia) {
     if (typeof entry === 'string') {
       // String-only entries have no MIME info, so assume image.
@@ -66,12 +82,15 @@ export function extractPostMedia(
         mediaCids.push(entry.slice('ipfs://'.length));
       }
     } else if (entry && typeof entry.cid === 'string' && entry.cid) {
-      if (isImageMime(entry.mime)) {
+      const mime = typeof entry.mime === 'string' ? entry.mime : undefined;
+      if (isImageMime(mime)) {
         mediaCids.push(entry.cid);
+      } else if (mime && isPlayableMime(mime)) {
+        playable.push({ cid: entry.cid, mime });
       }
     }
   }
-  const result: ExtractedPost = { text, media: rawMedia, mediaCids };
+  const result: ExtractedPost = { text, media: rawMedia, mediaCids, playable };
   if (mediaCids.length > 0) result.mediaCid = mediaCids[0];
   return result;
 }

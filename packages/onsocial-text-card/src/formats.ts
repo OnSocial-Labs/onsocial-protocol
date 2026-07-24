@@ -54,8 +54,9 @@ export const CARD_FORMAT_REGISTRY: Record<CardFormat, CardFormatSpec> = {
     key: 'poster',
     label: 'Poster',
     description: 'A short statement with presence.',
-    maxCharacters: 80,
-    maxLines: 4,
+    // ALL CAPS at standard size — five lines for a real statement.
+    maxCharacters: 96,
+    maxLines: 5,
     requiresPhoto: false,
     voice: 'poster',
     defaultPalette: 'noir',

@@ -58,6 +58,33 @@ describe('extractPostMedia', () => {
     expect(out.mediaCids).toEqual(['bafyImg']);
     // Raw `media` is preserved untouched for callers who need it.
     expect(out.media).toHaveLength(3);
+    // …but they are kept as playable refs so the scarce can point at them.
+    expect(out.playable).toEqual([
+      { cid: 'bafyVid', mime: 'video/mp4' },
+      { cid: 'bafyAud', mime: 'audio/mpeg' },
+    ]);
+  });
+
+  it('surfaces a video-only post as playable with no cover image', () => {
+    const out = extractPostMedia(
+      JSON.stringify({
+        text: 'clip',
+        media: [{ cid: 'bafyVid', mime: 'video/webm' }],
+      })
+    );
+    expect(out.mediaCid).toBeUndefined();
+    expect(out.mediaCids).toEqual([]);
+    expect(out.playable).toEqual([{ cid: 'bafyVid', mime: 'video/webm' }]);
+  });
+
+  it('leaves playable empty for image-only posts', () => {
+    const out = extractPostMedia(
+      JSON.stringify({
+        text: 'photo',
+        media: [{ cid: 'a', mime: 'image/png' }],
+      })
+    );
+    expect(out.playable).toEqual([]);
   });
 
   it('collects all image CIDs in source order for multi-photo posts', () => {

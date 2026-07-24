@@ -39,6 +39,12 @@ interface LazyListingRecord {
   minted_count?: number | string | null;
 }
 
+/** Playable asset behind a scarce whose cover is a still frame. */
+export interface ScarcePlayableMedia {
+  url: string;
+  mime: string;
+}
+
 export interface MarketListingItem {
   /** Primary mint-on-purchase, secondary resale, or native auction. */
   kind: 'lazy' | 'native' | 'auction';
@@ -49,6 +55,8 @@ export interface MarketListingItem {
   /** Seller: creator for lazy, current owner for native/auction. */
   creatorId: string;
   title: string;
+  /** NEP-177 description — full post text when minted from a post. */
+  description?: string;
   /** Ask (fixed) or current high / reserve (auction). */
   priceNear: string;
   /** Makes auction prices unambiguous without duplicating price values. */
@@ -60,6 +68,8 @@ export interface MarketListingItem {
   postHref?: string;
   /** Text-card mood key from listing `extra.theme.bg`, when present. */
   cardBg?: string;
+  /** Clip behind a video scarce — the cover stays the still frame. */
+  playable?: ScarcePlayableMedia;
   /** Total edition size (NEP-177 copies). */
   copies?: number;
   /** Unsold editions still on this listing. */
@@ -83,6 +93,8 @@ export type MarketListingSort =
 export interface OwnedScarceItem {
   tokenId: string;
   title: string;
+  /** NEP-177 description — full post text when present. */
+  description?: string;
   mediaUrl?: string | null;
   ownerId: string;
   /** Listing state for an owned native scarce. */
@@ -115,6 +127,7 @@ interface ContractTokenRecord {
   owner_id?: string;
   metadata?: {
     title?: string | null;
+    description?: string | null;
     media?: string | null;
     extra?: string | null;
   } | null;
@@ -188,6 +201,27 @@ function priceNearFromRow(row: ScarcesEventRow): string {
     row.price?.trim() ??
     '—'
   );
+}
+
+/**
+ * Video / audio the scarce was minted from (`extra.playable`). The cover in
+ * `media` is always a still — this is the clip behind it, so buy/bid sheets
+ * can play what is actually being sold.
+ */
+function playableFromExtra(
+  extra: Record<string, unknown> | null
+): ScarcePlayableMedia | undefined {
+  const entries = extra?.playable;
+  if (!Array.isArray(entries)) return undefined;
+  for (const entry of entries) {
+    const record = asRecord(entry);
+    const cid = stringField(record, 'cid');
+    const mime = stringField(record, 'mime');
+    if (!cid || !mime) continue;
+    const url = resolveScarceMediaUrl(cid);
+    if (url) return { url, mime };
+  }
+  return undefined;
 }
 
 function sourcePostPathFromExtra(
@@ -311,11 +345,13 @@ function listingFromRecord(
   const creatorId = record.creator_id?.trim();
   if (!creatorId) return null;
   const title = record.metadata?.title?.trim() || `Scarce · ${listingId}`;
+  const description = record.metadata?.description?.trim() || undefined;
   const priceNear = priceNearFromYocto(record.price) ?? '—';
   const mediaUrl = resolveScarceMediaUrl(record.metadata?.media ?? null);
   const extra = parseExtra(record.metadata?.extra ?? null);
   const theme = asRecord(extra?.theme ?? null);
   const cardBg = stringField(theme, 'bg');
+  const playable = playableFromExtra(extra);
   const createdAt = Number(record.created_at) || 0;
   // Contract timestamps are ns; feed/indexer use ms-ish seconds — normalize to ms for sort.
   const blockTimestamp =
@@ -329,11 +365,13 @@ function listingFromRecord(
     listingId,
     creatorId,
     title,
+    ...(description && description !== title ? { description } : {}),
     priceNear,
     blockTimestamp,
     mediaUrl,
     sourcePostPath: sourcePostPathFromExtra(extra),
     ...(cardBg ? { cardBg } : {}),
+    ...(playable ? { playable } : {}),
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
   };
@@ -555,6 +593,7 @@ function listingFromNativeSale(
     token?.metadata?.title?.trim() ||
     (tokenId.includes(':') && !tokenId.startsWith('s:') ? tokenId : 'Scarce');
   const title = resolveTokenDisplayTitle(rawTitle, tokenId);
+  const description = token?.metadata?.description?.trim() || undefined;
   const mediaUrl = resolveScarceMediaUrl(token?.metadata?.media ?? null);
   const extra = parseExtra(token?.metadata?.extra ?? null);
   return {
@@ -562,6 +601,7 @@ function listingFromNativeSale(
     tokenId,
     creatorId: sellerId,
     title,
+    ...(description && description !== title ? { description } : {}),
     priceNear,
     priceLabel: isAuction ? auctionPriceLabel(sale) : 'Ask',
     blockTimestamp: timestampMs(sale.created_at),
@@ -783,12 +823,15 @@ export async function fetchOwnedScarces(
         (tokenId.includes(':') && !tokenId.startsWith('s:')
           ? tokenId
           : 'Scarce');
+      const displayTitle = resolveTokenDisplayTitle(title, tokenId);
+      const description = token.metadata?.description?.trim() || undefined;
       const extra = parseExtra(token.metadata?.extra ?? null);
       const sourcePostPath = sourcePostPathFromExtra(extra);
       const listed = listedByToken.get(tokenId);
       return {
         tokenId,
-        title: resolveTokenDisplayTitle(title, tokenId),
+        title: displayTitle,
+        ...(description && description !== displayTitle ? { description } : {}),
         mediaUrl: resolveScarceMediaUrl(token.metadata?.media ?? null),
         ownerId: token.owner_id?.trim() || owner,
         listingKind: listed?.kind ?? null,
@@ -820,6 +863,67 @@ export async function fetchLazyListingById(
   } catch {
     return null;
   }
+}
+
+/** NEP-177 fields for sheet/feed hydrate when catalog omits description. */
+export interface ScarceTokenMeta {
+  title?: string;
+  description?: string;
+  mediaUrl?: string | null;
+  sourcePostPath?: string;
+  cardBg?: string;
+  playable?: ScarcePlayableMedia;
+}
+
+/** Load title / description / media from a minted token. */
+export async function fetchScarceTokenMeta(
+  tokenId: string
+): Promise<ScarceTokenMeta | null> {
+  const token = await fetchTokenRecord(tokenId);
+  if (!token) return null;
+  const title = token.metadata?.title?.trim() || undefined;
+  const description = token.metadata?.description?.trim() || undefined;
+  const mediaUrl = resolveScarceMediaUrl(token.metadata?.media ?? null);
+  const extra = parseExtra(token.metadata?.extra ?? null);
+  const theme = asRecord(extra?.theme ?? null);
+  const cardBg = stringField(theme, 'bg');
+  const sourcePostPath = sourcePostPathFromExtra(extra);
+  const playable = playableFromExtra(extra);
+  return {
+    ...(title ? { title } : {}),
+    ...(description && description !== title ? { description } : {}),
+    ...(mediaUrl ? { mediaUrl } : {}),
+    ...(sourcePostPath ? { sourcePostPath } : {}),
+    ...(cardBg ? { cardBg } : {}),
+    ...(playable ? { playable } : {}),
+  };
+}
+
+/**
+ * Prefer live listing / token metadata for description + cover — catalog
+ * browse rows omit description.
+ */
+export async function fetchScarceListingMeta(opts: {
+  listingId?: string | null;
+  tokenId?: string | null;
+}): Promise<ScarceTokenMeta | null> {
+  const listingId = opts.listingId?.trim();
+  if (listingId) {
+    const live = await fetchLazyListingById(listingId);
+    if (live) {
+      return {
+        ...(live.title ? { title: live.title } : {}),
+        ...(live.description ? { description: live.description } : {}),
+        ...(live.mediaUrl ? { mediaUrl: live.mediaUrl } : {}),
+        ...(live.sourcePostPath ? { sourcePostPath: live.sourcePostPath } : {}),
+        ...(live.cardBg ? { cardBg: live.cardBg } : {}),
+        ...(live.playable ? { playable: live.playable } : {}),
+      };
+    }
+  }
+  const tokenId = opts.tokenId?.trim();
+  if (tokenId) return fetchScarceTokenMeta(tokenId);
+  return null;
 }
 
 const LIVE_LISTINGS_TTL_MS = 30_000;

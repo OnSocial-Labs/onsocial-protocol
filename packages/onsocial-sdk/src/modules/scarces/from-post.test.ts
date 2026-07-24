@@ -258,6 +258,31 @@ describe('ScarcesModule.fromPost.mint', () => {
     expect(extra.gallery).toBeUndefined();
   });
 
+  it('records extra.playable so a video post keeps a pointer to its clip', async () => {
+    const { mod, spies } = makeMod();
+    const videoRow = {
+      ...ROW,
+      value: JSON.stringify({
+        text: 'clip post',
+        media: [{ cid: 'bafyVid', mime: 'video/mp4' }],
+      }),
+    };
+    await mod.fromPost.mint(videoRow);
+    const [, , form] = spies.requestForm.mock.calls[0];
+    // A clip can never be the wallet cover — no mediaCid, card is minted.
+    expect(form.get('mediaCid')).toBeNull();
+    const extra = JSON.parse(form.get('extra') as string);
+    expect(extra.playable).toEqual([{ cid: 'bafyVid', mime: 'video/mp4' }]);
+  });
+
+  it('does not add extra.playable for image-only posts', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint(ROW);
+    const [, , form] = spies.requestForm.mock.calls[0];
+    const extra = JSON.parse(form.get('extra') as string);
+    expect(extra.playable).toBeUndefined();
+  });
+
   it('caller can override cardPhotoCid explicitly via receipt mood', async () => {
     const { mod, spies } = makeMod();
     await mod.fromPost.mintReceipt(

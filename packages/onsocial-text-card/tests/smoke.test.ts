@@ -34,8 +34,8 @@ describe('themes catalog', () => {
       'receipt',
       'proof',
     ]);
-    expect(CARD_FORMAT_REGISTRY.poster.maxCharacters).toBe(80);
-    expect(CARD_FORMAT_REGISTRY.poster.maxLines).toBe(4);
+    expect(CARD_FORMAT_REGISTRY.poster.maxCharacters).toBe(96);
+    expect(CARD_FORMAT_REGISTRY.poster.maxLines).toBe(5);
     expect(CARD_FORMAT_REGISTRY.thought.maxCharacters).toBe(108);
     expect(CARD_FORMAT_REGISTRY.letter.maxCharacters).toBe(120);
     expect(CARD_FORMAT_REGISTRY.thought.voice).toBe('thought');
@@ -51,6 +51,21 @@ describe('themes catalog', () => {
     expect(moodForCardFormat('thought', 'night')).toBe('thought-night');
     expect(moodForCardFormat('letter', 'light')).toBe('letter-light');
     expect(moodForCardFormat('journal', 'light')).toBe('journal-light');
+  });
+
+  it('renders Poster as ALL CAPS at standard size with room for a statement', () => {
+    const title = 'Build permanence into every scarce cover on chain.';
+    expect(title.length).toBeLessThanOrEqual(96);
+    const svg = generateTextCardSvg({
+      title,
+      format: 'poster',
+      theme: { bg: 'poster-noir' },
+    });
+    expect(svg).toContain('font-size="44"');
+    expect(svg).toContain('fill-opacity="0.92"');
+    expect(svg).toMatch(/BUILD/);
+    expect(svg).toMatch(/PERMANENCE/);
+    expect(svg).not.toContain('Build permanence');
   });
 
   it('contains 6 voices and 11 palettes', () => {
@@ -114,7 +129,7 @@ describe('themes catalog', () => {
     expect(MOODS['thought-night'].label).toBe('Thought');
     expect(MOODS['thought-night'].titleUppercase).toBe(false);
     expect(MOODS['thought-night'].titleFamily).toContain('DM Sans');
-    expect(MOODS['poster-noir'].label).toBe('Poster');
+    expect(MOODS['poster-noir'].titleUppercase).toBe(true);
     expect(MOODS['poster-noir'].titleFamily).toContain('Space Grotesk');
     expect(MOODS['letter-light'].label).toBe('Letter');
     expect(MOODS['letter-light'].titleFamily).toContain('Erica Type');
@@ -208,14 +223,15 @@ describe('generator smoke', () => {
     expect(solo).not.toContain('test05.onsocial ·');
   });
 
-  it('prefixes id with ~ not @', () => {
+  it('renders the plain account id in the byline (no @ or ~)', () => {
     const svg = generateTextCardSvg({
       title: 'Hello.',
       creator: { accountId: 'alice.near', displayName: 'Alice' },
       theme: { bg: 'thought-night' },
     });
-    expect(svg).toContain('~alice.near');
+    expect(svg).toContain('alice.near');
     expect(svg).not.toContain('@alice.near');
+    expect(svg).not.toContain('~alice.near');
     expect(svg).not.toContain('~/alice.near');
   });
 
@@ -226,11 +242,11 @@ describe('generator smoke', () => {
       theme: { bg: 'thought-night' },
     });
     expect(svg).toContain('Alice');
-    expect(svg).toContain('~alice.near');
+    expect(svg).toContain('alice.near');
     const textOpens = svg.match(/<text /g) ?? [];
     expect(textOpens.length).toBeGreaterThanOrEqual(3);
     expect(svg).toMatch(
-      /<text x="56"[^>]*>Alice<\/text>\s*<text x="56"[^>]*>~alice\.near<\/text>/
+      /<text x="56"[^>]*>Alice<\/text>\s*<text x="56"[^>]*>alice\.near<\/text>/
     );
   });
 
@@ -249,10 +265,10 @@ describe('generator smoke', () => {
     expect(svg).toContain('clipPath id="avatarClip"');
     expect(svg).toContain(avatar);
     expect(svg).toContain('Alice');
-    expect(svg).toContain('~alice.near');
+    expect(svg).toContain('alice.near');
     // Text shifts right of the 36px face + gap.
     expect(svg).toMatch(
-      /<text x="104"[^>]*>Alice<\/text>\s*<text x="104"[^>]*>~alice\.near<\/text>/
+      /<text x="104"[^>]*>Alice<\/text>\s*<text x="104"[^>]*>alice\.near<\/text>/
     );
   });
 

@@ -2,7 +2,7 @@ use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::store::LookupMap;
-use near_sdk::testing_env;
+use near_sdk::{NearToken, testing_env};
 
 fn make_standalone_token(contract: &mut Contract, owner_account: &AccountId) -> String {
     testing_env!(context(owner_account.clone()).build());
@@ -360,6 +360,42 @@ fn cancel_auction_wrong_owner_fails() {
         .unwrap();
     let err = contract.cancel_auction(&creator(), &tid).unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
+}
+
+#[test]
+fn cancel_auction_with_bids_fails() {
+    let mut contract = new_contract();
+    let tid = make_standalone_token(&mut contract, &buyer());
+    testing_env!(context(buyer()).build());
+
+    let params = AuctionListing {
+        reserve_price: U128(1_000),
+        min_bid_increment: U128(100),
+        expires_at: Some(2_000_000_000_000_000_000),
+        auction_duration_ns: None,
+        anti_snipe_extension_ns: 0,
+        buy_now_price: None,
+    };
+    contract
+        .list_native_scarce_auction(&buyer(), &tid, params)
+        .unwrap();
+
+    testing_env!(
+        context(creator())
+            .attached_deposit(NearToken::from_yoctonear(1_000))
+            .build()
+    );
+    contract.pending_attached_balance = 1_000;
+    contract.place_bid(&creator(), tid.clone(), 1_000).unwrap();
+
+    testing_env!(context(buyer()).build());
+    let err = contract.cancel_auction(&buyer(), &tid).unwrap_err();
+    match err {
+        MarketplaceError::InvalidState(msg) => {
+            assert!(msg.contains("active bids"), "{msg}");
+        }
+        other => panic!("expected InvalidState, got {other:?}"),
+    }
 }
 
 #[test]

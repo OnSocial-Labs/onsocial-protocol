@@ -127,10 +127,11 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     tagline: 'Space Grotesk. Crisp, geometric, built for posters.',
     titleFamily: DISPLAY_FAMILY,
     titleWeight: 700,
-    titleUppercase: false,
-    titleLetterSpacing: -0.8,
+    titleUppercase: true,
+    titleLetterSpacing: 0.6,
     bylineFamily: SANS_BYLINE,
-    titleCharsPerLine: 20,
+    // Caps run a bit wider than sentence case at the same size.
+    titleCharsPerLine: 18,
     bylineMaxChars: 36,
   },
   letter: {

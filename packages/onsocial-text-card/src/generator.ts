@@ -7,11 +7,11 @@
 //     top-left — the only ornamentation besides the optional byline avatar.
 //   - Byline signature (always the same pattern):
 //       [avatar?] Name          ← optional frozen face + DM Sans name
-//                 ~accountId    ← tilde signature sign + full unique id
+//                 accountId     ← full unique id (no @ / ~ prefix)
 //       OnSocial · 18 Jul 26 · 21:14 · postId  ← quiet provenance
 //     Avatar is optional; when present it is inlined (data URI) at mint so
 //     the permanent PNG does not depend on a live profile URL. No distinct
-//     name → `~accountId` alone. Title owns the voice fonts; the signature
+//     name → accountId alone. Title owns the voice fonts; the signature
 //     stays a calm UI sans (mono voice → mono).
 //   - No description on the card (stays in NFT metadata).
 //
@@ -64,6 +64,10 @@ const MARK_GAP_BELOW = 32; // px reserved between mark and title
 const TITLE_FONT_SIZES = [44, 38, 32, 28] as const;
 const TITLE_LINE_HEIGHT_RATIO = 56 / 44; // ~1.27
 const TITLE_MAX_LINES = 6;
+/** Poster locks base size — ALL CAPS presence, no shrink ladder. */
+const POSTER_TITLE_FONT_SIZE = TITLE_FONT_SIZES[0];
+/** Soften cover type so it sits in the stock, not on top of it. */
+const TITLE_FILL_OPACITY = 0.92;
 
 // Byline (bottom band) — one signature stamp, two opacities of the same ink.
 // Tight stack + shared hue so name and id feel embedded, not two labels.
@@ -77,7 +81,7 @@ const BYLINE_HANDLE_OPACITY = 0.42;
 const BYLINE_SOLO_OPACITY = 0.55;
 const BYLINE_PROVENANCE_SIZE = 11;
 const BYLINE_PROVENANCE_OPACITY = 0.3;
-/** Extra air between ~id and the OnSocial · date line. */
+/** Extra air between the account id and the OnSocial · date line. */
 const BYLINE_PROVENANCE_GAP = 12;
 const BYLINE_PROVENANCE_BRAND = 'OnSocial';
 /** Circular creator face beside the signature stack. */
@@ -163,7 +167,7 @@ export type MarkColor =
   | 'lime'
   | 'tangerine';
 
-const MARK_COLOR_HEX: Record<Exclude<MarkColor, 'auto'>, string> = {
+export const MARK_COLOR_HEX: Record<Exclude<MarkColor, 'auto'>, string> = {
   violet: SIGNATURE_PALETTE[0],
   green: SIGNATURE_PALETTE[1],
   orange: SIGNATURE_PALETTE[2],
@@ -666,9 +670,6 @@ function renderMark(shape: MarkShape, color: string): string {
   }
 }
 
-/** Byline signature sign — tilde, no slash. */
-const BYLINE_SIGNATURE_SIGN = '~';
-
 /** Generate a text-card SVG. Returns raw SVG markup (string). */
 export function generateTextCardSvg(opts: TextCardOptions): string {
   const moodKey = resolveMood(opts.theme);
@@ -707,18 +708,30 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       : opts.title
     : opts.title;
 
-  const titleSource = mood.titleUppercase ? rawTitle.toUpperCase() : rawTitle;
+  const titleSource =
+    mood.titleUppercase || formatSpec.key === 'poster'
+      ? rawTitle.toUpperCase()
+      : rawTitle;
 
-  // ── Auto-shrink ladder ──────────────────────────────────────────
   // Standard moods: try the standard 4 sizes (44 → 38 → 32 → 28) and
   // pick the largest that fits in the format's maxLines at the per-mood
-  // budget. Receipt/Proof: bigger ladder (56 → 48 → 44 → 40) capped at
-  // 2 lines, because the title is guaranteed-short and we want headline
-  // weight.
+  // budget. Poster: locked 44px ALL CAPS (no shrink). Receipt/Proof:
+  // bigger ladder (56 → 48 → 44 → 40) capped at 2 lines.
   const titleMaxLines = Math.min(formatSpec.maxLines, TITLE_MAX_LINES);
+  const isPoster = formatSpec.key === 'poster';
   const fit = isReceipt
     ? pickReceiptTitleFontSize(titleSource, mood.titleCharsPerLine)
-    : pickTitleFontSize(titleSource, mood.titleCharsPerLine, titleMaxLines);
+    : isPoster
+      ? {
+          size: POSTER_TITLE_FONT_SIZE,
+          charsPerLine: mood.titleCharsPerLine,
+          truncated: !wrapWouldFit(
+            titleSource,
+            mood.titleCharsPerLine,
+            titleMaxLines
+          ),
+        }
+      : pickTitleFontSize(titleSource, mood.titleCharsPerLine, titleMaxLines);
   const titleFontSize = fit.size;
   const titleLineHeight = Math.round(titleFontSize * TITLE_LINE_HEIGHT_RATIO);
   const titleLines = wrap(titleSource, fit.charsPerLine, titleMaxLines);
@@ -778,7 +791,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   const photoY = HEIGHT - RECEIPT_PHOTO_BOTTOM_GAP - RECEIPT_PHOTO_SIZE;
 
   // ── Byline (bottom): signature + quiet provenance ──────────────────
-  // Name / ~id above; optional `OnSocial · date · time · postId` under.
+  // Name / account id above; optional `OnSocial · date · time · postId` under.
   let bylineBlock = '';
   const provenanceLine = formatProvenanceLine(opts.provenance);
   const ink = mood.textPrimary;
@@ -809,7 +822,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   let avatarDefs = '';
   if (creator) {
     const accountId = creator.accountId.trim();
-    const handle = `${BYLINE_SIGNATURE_SIGN}${accountId}`;
+    const handle = accountId;
     const rawName = creator.displayName?.trim() ?? '';
     const nameNorm = rawName.toLowerCase();
     const idNorm = accountId.toLowerCase();
@@ -911,7 +924,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     </linearGradient>${photoDefs}${avatarDefs}
   </defs>
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#g)"/>${markBlock}
-  <text x="${titleX}" y="${titleStartY}" font-family="${mood.titleFamily}" font-size="${titleFontSize}" font-weight="${mood.titleWeight}" fill="${mood.textPrimary}"${titleLetterSpacingAttr}${titleAnchorAttr}>${titleTspans}</text>${photoBlock}${bylineBlock}
+  <text x="${titleX}" y="${titleStartY}" font-family="${mood.titleFamily}" font-size="${titleFontSize}" font-weight="${mood.titleWeight}" fill="${mood.textPrimary}" fill-opacity="${TITLE_FILL_OPACITY}"${titleLetterSpacingAttr}${titleAnchorAttr}>${titleTspans}</text>${photoBlock}${bylineBlock}
 </svg>`;
 }
 

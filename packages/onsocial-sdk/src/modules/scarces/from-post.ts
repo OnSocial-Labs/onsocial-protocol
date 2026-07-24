@@ -27,7 +27,7 @@ import type { ScarcesEventRow } from '../../query/scarces.js';
 const TITLE_MAX = 108;
 const CARD_TITLE_LIMITS = {
   thought: 108,
-  poster: 80,
+  poster: 96,
   letter: 120,
   journal: 120,
   mono: 80,
@@ -685,6 +685,15 @@ export class ScarcesFromPostApi {
         ? { gallery: extracted.mediaCids }
         : undefined;
 
+    // ── Playable ──────────────────────────────────────────────────────────
+    // Video / audio can never be the NEP-177 cover (wallets render `media`
+    // as a still image), so the cover is a frame or a chosen photo and the
+    // clip itself is recorded here for surfaces that can play it.
+    const playableExtra =
+      extracted.playable.length > 0
+        ? { playable: extracted.playable }
+        : undefined;
+
     return {
       title,
       // Bake the post author into auto text-cards — not the listing signer.
@@ -721,6 +730,7 @@ export class ScarcesFromPostApi {
         },
         mintedAt: Date.now(),
         ...(galleryExtra ?? {}),
+        ...(playableExtra ?? {}),
         ...(opts.extra ?? {}),
       },
     };

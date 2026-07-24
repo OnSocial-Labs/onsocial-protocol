@@ -66,5 +66,6 @@ export { extractPostMedia, isPostRow, postCoords } from './from-post.js';
 export type {
   ExtractedPost,
   MintFromPostOptions,
+  PlayableMediaRef,
   PostSource,
 } from './from-post.js';

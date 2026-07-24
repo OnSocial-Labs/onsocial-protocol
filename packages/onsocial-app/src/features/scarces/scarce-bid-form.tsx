@@ -6,6 +6,10 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
+  fetchScarceListingMeta,
+  type ScarcePlayableMedia,
+} from '@/features/market/market-listings';
+import {
   buyNowNear,
   currentBidNear,
   fetchScarceAuctionView,
@@ -23,7 +27,9 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
+import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
@@ -54,9 +60,13 @@ interface ScarceBidFormProps {
   listing?: {
     tokenId: string;
     title?: string;
+    description?: string;
     mediaUrl?: string | null;
     sellerId: string;
     priceNear?: string;
+    sourcePostPath?: string;
+    postHref?: string | null;
+    playable?: ScarcePlayableMedia;
   } | null;
   authorName?: string | null;
   onSuccess?: (detail: ScarceBidSuccessDetail) => void;
@@ -133,11 +143,29 @@ export function ScarceBidForm({
   const [countdown, setCountdown] = useState<string | null>(null);
   /** Indexer bids for this token (all auctions), oldest → newest. */
   const [tokenBidRows, setTokenBidRows] = useState<ScarcesEventRow[]>([]);
+  const [hydratedDescription, setHydratedDescription] = useState<string | null>(
+    null
+  );
+  const [hydratedMediaUrl, setHydratedMediaUrl] = useState<string | null>(null);
+  const [hydratedSourcePostPath, setHydratedSourcePostPath] = useState<
+    string | null
+  >(null);
+  const [hydratedPlayable, setHydratedPlayable] =
+    useState<ScarcePlayableMedia | null>(null);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
   const sellerId = listing?.sellerId ?? auction?.sellerId ?? post?.accountId;
-  const title =
-    listing?.title?.trim() || titleFromPost(post) || 'Scarce';
+  const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
+  const resolvedDescription =
+    listing?.description?.trim() || hydratedDescription || null;
+  const resolvedMediaUrl =
+    listing?.mediaUrl?.trim() ||
+    embed?.mediaUrl?.trim() ||
+    hydratedMediaUrl ||
+    null;
+  const resolvedSourcePostPath =
+    listing?.sourcePostPath?.trim() || hydratedSourcePostPath || null;
+  const resolvedPlayable = listing?.playable ?? hydratedPlayable;
   const isOwnAuction =
     Boolean(viewerAccountId) &&
     Boolean(sellerId) &&
@@ -146,8 +174,7 @@ export function ScarceBidForm({
     Boolean(viewerAccountId) &&
     Boolean(auction?.highestBidder) &&
     accountIdsEqual(viewerAccountId!, auction!.highestBidder!);
-  const ended =
-    Boolean(auction?.isEnded) || countdown === 'Ended';
+  const ended = Boolean(auction?.isEnded) || countdown === 'Ended';
   const buyNow = auction && !ended ? buyNowNear(auction) : null;
 
   // Only this listing’s bids — last `bid_count` events match on-chain state.
@@ -179,6 +206,50 @@ export function ScarceBidForm({
       cancelled = true;
     };
   }, [tokenId]);
+
+  useEffect(() => {
+    const needsDescription = !listing?.description?.trim();
+    const needsMedia = !listing?.mediaUrl?.trim() && !embed?.mediaUrl?.trim();
+    const needsSource = !listing?.sourcePostPath?.trim();
+    const needsPlayable = !listing?.playable;
+    if (
+      !tokenId ||
+      (!needsDescription && !needsMedia && !needsSource && !needsPlayable)
+    ) {
+      setHydratedDescription(null);
+      setHydratedMediaUrl(null);
+      setHydratedSourcePostPath(null);
+      setHydratedPlayable(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const meta = await fetchScarceListingMeta({ tokenId });
+      if (cancelled || !meta) return;
+      if (needsDescription && meta.description) {
+        setHydratedDescription(meta.description);
+      }
+      if (needsMedia && meta.mediaUrl) {
+        setHydratedMediaUrl(meta.mediaUrl);
+      }
+      if (needsSource && meta.sourcePostPath) {
+        setHydratedSourcePostPath(meta.sourcePostPath);
+      }
+      if (needsPlayable && meta.playable) {
+        setHydratedPlayable(meta.playable);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    tokenId,
+    listing?.description,
+    listing?.mediaUrl,
+    listing?.sourcePostPath,
+    listing?.playable,
+    embed?.mediaUrl,
+  ]);
 
   useEffect(() => {
     if (!tokenId) {
@@ -250,8 +321,8 @@ export function ScarceBidForm({
       return false;
     }
   })();
-    // Next-bid floor already at/above Buy now → primary is Buy now.
-    const minMeetsBuyNow =
+  // Next-bid floor already at/above Buy now → primary is Buy now.
+  const minMeetsBuyNow =
     buyNowYocto > 0n &&
     Boolean(auction) &&
     minNextBidYocto(auction!) >= buyNowYocto;
@@ -497,17 +568,23 @@ export function ScarceBidForm({
         void handleSubmit();
       }}
     >
-      {post ? (
+      {/* Cover is the still; play the clip the bid is actually for. */}
+      {resolvedPlayable ? (
+        <ScarceClipPlayer
+          key={resolvedPlayable.url}
+          clip={resolvedPlayable}
+          poster={resolvedMediaUrl}
+        />
+      ) : post ? (
         <ScarcePostPreview
           post={post}
           creatorDisplayName={authorName}
+          mediaUrl={resolvedMediaUrl}
           cardBg={embed?.cardBg}
         />
-      ) : null}
-
-      {!post && listing?.mediaUrl ? (
+      ) : resolvedMediaUrl ? (
         <div className="scarce-buy-media" aria-hidden>
-          <img src={listing.mediaUrl} alt="" />
+          <img src={resolvedMediaUrl} alt="" />
         </div>
       ) : null}
 
@@ -550,15 +627,22 @@ export function ScarceBidForm({
         ) : null}
       </div>
 
+      <ScarceProvenanceCopy
+        title={title}
+        description={resolvedDescription}
+        post={post}
+        postHref={listing?.postHref}
+        sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
+        hideOriginalLink={Boolean(post)}
+      />
+
       {bidHistory.length > 0 ? (
         <div className="scarce-bid-history" aria-label="Bids this auction">
           <p className="scarce-mood-picker-label">This auction</p>
           <ul className="scarce-bid-history-list">
             {bidHistory.map((row, index) => {
               const amountNear = bidRowAmountNear(row);
-              const amount = amountNear
-                ? formatNearLabel(amountNear)
-                : '—';
+              const amount = amountNear ? formatNearLabel(amountNear) : '—';
               const bidder = row.bidder || row.buyerId || row.author;
               return (
                 <li

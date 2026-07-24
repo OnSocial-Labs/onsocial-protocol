@@ -10,11 +10,7 @@ export const POST_VIDEO_MAX_BYTES = 8 * 1024 * 1024;
 export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const POST_MEDIA_MAX_FILES = 4;
 
-const POST_IMAGE_MIMES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-]);
+const POST_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const POST_VIDEO_MIMES = new Set(['video/mp4', 'video/webm']);
 
@@ -36,6 +32,16 @@ export function isPostVideoMime(mime: string): boolean {
 /** Render-time video check — accept any video/* from stored media refs. */
 export function isRenderablePostVideoMime(mime: string): boolean {
   return mime.toLowerCase().startsWith('video/');
+}
+
+/** Render-time audio check — accept any audio/* from stored media refs. */
+export function isRenderablePostAudioMime(mime: string): boolean {
+  return mime.toLowerCase().startsWith('audio/');
+}
+
+/** Video or audio — never the NEP-177 still cover. */
+export function isRenderablePostPlayableMime(mime: string): boolean {
+  return isRenderablePostVideoMime(mime) || isRenderablePostAudioMime(mime);
 }
 
 /** Format seconds as `0:12` / `1:05` for quote thumbs. */
@@ -82,7 +88,9 @@ export function applyMediaKindOverride<T extends { kind?: string }>(
   return rest as T;
 }
 
-function asMediaRef(entry: unknown): (MediaRef & { previewUrl?: string }) | null {
+function asMediaRef(
+  entry: unknown
+): (MediaRef & { previewUrl?: string }) | null {
   if (typeof entry === 'string') {
     const trimmed = entry.trim();
     if (!trimmed) return null;
@@ -126,7 +134,9 @@ function resolveMediaUrl(
 }
 
 /** Parse post body media for feed/detail rendering (images + video). */
-export function parsePostMedia(value: string | null | undefined): PostMediaItem[] {
+export function parsePostMedia(
+  value: string | null | undefined
+): PostMediaItem[] {
   const trimmed = value?.trim();
   if (!trimmed) return [];
 
@@ -172,7 +182,9 @@ function readVideoDurationSeconds(file: File): Promise<number> {
   });
 }
 
-export async function validatePostMediaFile(file: File): Promise<string | null> {
+export async function validatePostMediaFile(
+  file: File
+): Promise<string | null> {
   const mime = file.type.toLowerCase();
   if (!isPostMediaMime(mime)) {
     return 'Use a JPG, PNG, WebP, MP4, or WebM file.';
@@ -195,6 +207,159 @@ export async function validatePostMediaFile(file: File): Promise<string | null> 
     return 'Could not read that video file.';
   }
   return null;
+}
+
+/** Longest edge of a captured video frame — keeps the cover upload small. */
+const POSTER_FRAME_MAX_EDGE = 1080;
+const POSTER_FRAME_TIMEOUT_MS = 12_000;
+
+export class PosterFrameError extends Error {
+  constructor(message = 'Could not read a frame from that video.') {
+    super(message);
+    this.name = 'PosterFrameError';
+  }
+}
+
+export interface CaptureVideoPosterOptions {
+  /** Seek target in seconds. Defaults to a short sample into the clip. */
+  atSeconds?: number;
+  fileName?: string;
+}
+
+/**
+ * Default seek when the creator has not scrubbed yet — frame zero is often
+ * black, so sample slightly into the clip (capped at 1s).
+ */
+export function defaultPosterSeekSeconds(duration: number): number {
+  if (!Number.isFinite(duration) || duration <= 0) return 0;
+  return Math.min(duration / 2, 1);
+}
+
+/** Probe duration for the frame scrubber. Rejects on load / timeout errors. */
+export async function probeVideoDuration(url: string): Promise<number> {
+  const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'metadata';
+  video.src = url;
+  try {
+    return await new Promise<number>((resolve, reject) => {
+      const timer = window.setTimeout(
+        () => reject(new PosterFrameError()),
+        POSTER_FRAME_TIMEOUT_MS
+      );
+      const settle = (run: () => void) => {
+        window.clearTimeout(timer);
+        run();
+      };
+      video.onerror = () => settle(() => reject(new PosterFrameError()));
+      video.onloadedmetadata = () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        settle(() => resolve(Math.max(0, duration)));
+      };
+    });
+  } finally {
+    video.onerror = null;
+    video.onloadedmetadata = null;
+    video.removeAttribute('src');
+    video.load();
+  }
+}
+
+/**
+ * Grab a still from an already-loaded `<video>` element. Prefer this when
+ * the creator is scrubbing an on-screen preview — no second network load.
+ */
+export async function captureVideoElementFrame(
+  video: HTMLVideoElement,
+  fileName = 'cover.jpg'
+): Promise<File> {
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+  if (!width || !height) throw new PosterFrameError();
+  const scale = Math.min(1, POSTER_FRAME_MAX_EDGE / Math.max(width, height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const context = canvas.getContext('2d');
+  if (!context) throw new PosterFrameError();
+  try {
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  } catch {
+    throw new PosterFrameError();
+  }
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    try {
+      canvas.toBlob(resolve, 'image/jpeg', 0.9);
+    } catch {
+      resolve(null);
+    }
+  });
+  if (!blob) throw new PosterFrameError();
+  return new File([blob], fileName, { type: 'image/jpeg' });
+}
+
+/**
+ * Grab a still frame from a video URL as a JPEG file. Used as the NEP-177
+ * cover for video posts — wallets only render still images, so a scarce
+ * minted from a clip needs a frame (or a chosen photo) to show.
+ *
+ * Requires the media host to allow cross-origin reads; a tainted canvas
+ * throws `PosterFrameError` so callers can fall back to a photo picker.
+ */
+export async function captureVideoPosterFrame(
+  url: string,
+  options: CaptureVideoPosterOptions | string = {}
+): Promise<File> {
+  // Legacy callers passed the file name as the second argument.
+  const opts: CaptureVideoPosterOptions =
+    typeof options === 'string' ? { fileName: options } : options;
+  const fileName = opts.fileName ?? 'cover.jpg';
+
+  const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  video.src = url;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(
+        () => reject(new PosterFrameError()),
+        POSTER_FRAME_TIMEOUT_MS
+      );
+      const settle = (run: () => void) => {
+        window.clearTimeout(timer);
+        run();
+      };
+      video.onerror = () => settle(() => reject(new PosterFrameError()));
+      video.onseeked = () => settle(resolve);
+      video.onloadeddata = () => {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        const requested =
+          typeof opts.atSeconds === 'number' && Number.isFinite(opts.atSeconds)
+            ? opts.atSeconds
+            : defaultPosterSeekSeconds(duration);
+        const target =
+          duration > 0
+            ? Math.min(Math.max(0, requested), Math.max(0, duration - 0.05))
+            : 0;
+        if (target <= 0 && video.currentTime === 0) settle(resolve);
+        else video.currentTime = target;
+      };
+    });
+
+    return await captureVideoElementFrame(video, fileName);
+  } finally {
+    video.onerror = null;
+    video.onseeked = null;
+    video.onloadeddata = null;
+    video.removeAttribute('src');
+    video.load();
+  }
 }
 
 /** Optimistic media entries with local blob preview URLs. */
@@ -240,9 +405,7 @@ export function revokeDroppedOptimisticMedia(
   previous: Array<{ accountId: string; postId: string; value: string }>,
   next: Array<{ accountId: string; postId: string }>
 ): void {
-  const nextKeys = new Set(
-    next.map((row) => `${row.accountId}:${row.postId}`)
-  );
+  const nextKeys = new Set(next.map((row) => `${row.accountId}:${row.postId}`));
   for (const row of previous) {
     if (nextKeys.has(`${row.accountId}:${row.postId}`)) continue;
     revokeOptimisticMediaPreviewUrls(row.value);
@@ -289,9 +452,9 @@ export function appendPostMediaUnmute(href: string, mediaIndex = 0): string {
   return next;
 }
 
-export function readPostMediaUnmuteIndex(
-  searchParams: { get(name: string): string | null }
-): number {
+export function readPostMediaUnmuteIndex(searchParams: {
+  get(name: string): string | null;
+}): number {
   const raw = searchParams.get('mi');
   if (!raw) return 0;
   const parsed = Number.parseInt(raw, 10);

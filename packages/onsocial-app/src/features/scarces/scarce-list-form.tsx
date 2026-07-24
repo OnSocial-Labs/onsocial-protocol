@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+} from 'react';
 import {
   CARD_FORMAT_REGISTRY,
   isCardFormat,
@@ -18,24 +24,30 @@ import {
   ScarceCardMoodPicker,
   type ScarceCardThemeOptions,
 } from '@/features/scarces/scarce-card-mood-picker';
-import { ScarceFieldSelectMenu } from '@/features/scarces/scarce-field-select-menu';
+import { ScarceChoiceField } from '@/features/scarces/scarce-choice-field';
 import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import { ScarceDetailsField } from '@/features/scarces/scarce-details-field';
 import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
 import {
   ScarcePostPreview,
+  postScarceAudio,
   postScarceCoverImage,
+  postScarceVideo,
 } from '@/features/scarces/scarce-post-preview';
+import { ScarceVideoFramePicker } from '@/features/scarces/scarce-video-frame-picker';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { parsePostText } from '@/lib/post-display';
+import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
   txToastConfirming,
   txToastError,
@@ -106,6 +118,36 @@ const DEFAULT_CARD_THEME: ScarceCardThemeOptions = {
   cardTitleAlign: 'left',
 };
 const CARD_DEFAULTS_STORAGE_PREFIX = 'onsocial.scarces.card-defaults:';
+/** Match SDK `deriveTitle` — no trailing ellipsis (wallets add their own). */
+const MINT_TITLE_MAX = 108;
+
+function deriveMintTitle(text: string, maxCharacters = MINT_TITLE_MAX): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  const firstLine = trimmed.split(/\r?\n/)[0]?.trim() ?? '';
+  const firstSentence = firstLine.split(/(?<=[.!?])\s+/)[0]?.trim() ?? '';
+  if (
+    firstSentence &&
+    firstSentence.length < trimmed.length &&
+    firstSentence.length <= maxCharacters
+  ) {
+    return firstSentence;
+  }
+  if (
+    firstLine &&
+    firstLine.length < trimmed.length &&
+    firstLine.length <= maxCharacters
+  ) {
+    return firstLine;
+  }
+  if (trimmed.length <= maxCharacters) return trimmed;
+  const window = trimmed.slice(0, maxCharacters);
+  const lastSpace = window.lastIndexOf(' ');
+  if (lastSpace >= maxCharacters / 2) {
+    return window.slice(0, lastSpace).trimEnd();
+  }
+  return window.trimEnd();
+}
 
 function readCardDefaults(accountId: string): ScarceCardThemeOptions {
   try {
@@ -144,6 +186,24 @@ function extractListingId(response: unknown): string | undefined {
   if (value.result != null) return extractListingId(value.result);
   return undefined;
 }
+
+/**
+ * Cover for a video / audio post. Wallets render NEP-177 `media` as a still
+ * image, so a clip needs either a generated card, a frame from the video, or
+ * a photo the creator picks. The media itself keeps playing on the post.
+ */
+type MediaCoverMode = 'card' | 'frame' | 'photo';
+
+const VIDEO_COVER_OPTIONS = [
+  { value: 'card', label: 'Text card' },
+  { value: 'frame', label: 'Frame' },
+  { value: 'photo', label: 'Photo' },
+] as const;
+
+const AUDIO_COVER_OPTIONS = [
+  { value: 'card', label: 'Text card' },
+  { value: 'photo', label: 'Cover' },
+] as const;
 
 export interface ScarceListSuccessDetail {
   priceNear: string;
@@ -186,6 +246,16 @@ export function ScarceListForm({
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
+  const [videoCoverMode, setVideoCoverMode] = useState<MediaCoverMode>(() => {
+    // Video posts open on a frame — that's what people expect to sell.
+    const hasImage = Boolean(postScarceCoverImage(post));
+    const hasVideo = Boolean(postScarceVideo(post));
+    return !hasImage && hasVideo ? 'frame' : 'card';
+  });
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [coverPending, setCoverPending] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
   useEffect(() => {
     const authorId = post.accountId.trim();
@@ -216,8 +286,62 @@ export function ScarceListForm({
   }, [post.accountId]);
 
   const hasCoverImage = Boolean(postScarceCoverImage(post));
+  const postVideo = useMemo(() => postScarceVideo(post), [post]);
+  const postAudio = useMemo(() => postScarceAudio(post), [post]);
+  const showVideoCoverPicker = !hasCoverImage && Boolean(postVideo);
+  const showAudioCoverPicker =
+    !hasCoverImage && !postVideo && Boolean(postAudio);
+  const showMediaCoverPicker = showVideoCoverPicker || showAudioCoverPicker;
   const usesPhotoCard = hasCoverImage && photoCardFormat !== 'cover';
-  const usesGeneratedCard = !hasCoverImage || usesPhotoCard;
+  const usesGeneratedCard = (!hasCoverImage && !coverFile) || usesPhotoCard;
+
+  const mintBody = useMemo(() => parsePostText(post.value).trim(), [post]);
+  const mintTitle = useMemo(() => {
+    if (!mintBody) return `Post ${post.postId}`;
+    // Same rules as SDK `deriveTitle` / `CARD_TITLE_LIMITS` for the format.
+    const maxCharacters = usesGeneratedCard
+      ? CARD_FORMAT_REGISTRY[cardTheme.cardFormat].maxCharacters
+      : MINT_TITLE_MAX;
+    return deriveMintTitle(mintBody, maxCharacters) || `Post ${post.postId}`;
+  }, [mintBody, post.postId, usesGeneratedCard, cardTheme.cardFormat]);
+
+  useEffect(() => {
+    if (!coverFile) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(coverFile);
+    setCoverPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [coverFile]);
+
+  const selectMediaCoverMode = useCallback((next: MediaCoverMode) => {
+    setVideoCoverMode(next);
+    setCoverError(null);
+    setCoverPending(false);
+    // Frame mode mounts the scrubber, which captures on its own. Clear any
+    // prior still so a leftover upload does not flash over the new frame.
+    setCoverFile(null);
+  }, []);
+
+  const onCoverPhotoChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] ?? null;
+      event.target.value = '';
+      if (!file) return;
+      if (!isPostImageMime(file.type)) {
+        setCoverError('Use a JPG, PNG, or WebP photo.');
+        return;
+      }
+      if (file.size > POST_IMAGE_MAX_BYTES) {
+        setCoverError('Photo must be 5 MB or smaller.');
+        return;
+      }
+      setCoverError(null);
+      setCoverFile(file);
+    },
+    []
+  );
 
   const selectPhotoCardFormat = useCallback(
     (next: 'cover' | 'receipt' | 'proof') => {
@@ -283,6 +407,7 @@ export function ScarceListForm({
   const canSubmit =
     isConnected &&
     !pending &&
+    !coverPending &&
     Boolean(normalizedAmount) &&
     !amountError &&
     editionCount != null &&
@@ -332,6 +457,9 @@ export function ScarceListForm({
         ...(resolvedRoyaltyBps > 0
           ? { royalty: { [post.accountId]: resolvedRoyaltyBps } }
           : {}),
+        // Video posts have no still to mint — the chosen frame or photo
+        // becomes the cover the wallet renders.
+        ...(coverFile && !usesPhotoCard ? { image: coverFile } : {}),
         ...(usesGeneratedCard
           ? {
               cardBg: cardTheme.cardBg,
@@ -395,60 +523,132 @@ export function ScarceListForm({
         void handleSubmit();
       }}
     >
-      <ScarcePostPreview
-        post={post}
-        creatorDisplayName={authorName}
-        creatorAvatarUrl={creatorAvatarUrl}
-        {...(usesGeneratedCard
-          ? {
-              cardBg: cardTheme.cardBg,
-              cardFormat: cardTheme.cardFormat,
-              cardMarkShape: cardTheme.cardMarkShape,
-              cardMarkColor: cardTheme.cardMarkColor,
-              cardTitleAlign: cardTheme.cardTitleAlign,
-            }
-          : {})}
-      />
+      {showVideoCoverPicker && videoCoverMode === 'frame' && postVideo?.url ? (
+        <ScarceVideoFramePicker
+          videoUrl={postVideo.url}
+          fileName={`post-${post.postId}-cover.jpg`}
+          disabled={pending}
+          onFrame={setCoverFile}
+          onError={(message) => {
+            setCoverError(message);
+            setVideoCoverMode('card');
+            setCoverFile(null);
+          }}
+          onPendingChange={setCoverPending}
+        />
+      ) : (
+        <ScarcePostPreview
+          post={post}
+          creatorDisplayName={authorName}
+          creatorAvatarUrl={creatorAvatarUrl}
+          {...(coverPreviewUrl && !usesPhotoCard
+            ? { mediaUrl: coverPreviewUrl }
+            : {})}
+          {...(usesGeneratedCard
+            ? {
+                cardBg: cardTheme.cardBg,
+                cardFormat: cardTheme.cardFormat,
+                cardMarkShape: cardTheme.cardMarkShape,
+                cardMarkColor: cardTheme.cardMarkColor,
+                cardTitleAlign: cardTheme.cardTitleAlign,
+              }
+            : {})}
+        />
+      )}
 
-      {hasCoverImage ? (
-        <div className="scarce-mood-picker-block">
-          <div className="scarce-mood-picker scarce-mood-picker--single">
-            <ScarceFieldSelectMenu
+      <div className="scarce-mood-picker-block">
+        <div
+          className="app-storage-presets profile-support-presets scarce-choice-chip-row"
+          role="group"
+          aria-label="Scarce options"
+        >
+          {hasCoverImage ? (
+            <ScarceChoiceField
               label="Artwork"
               value={photoCardFormat}
               disabled={pending}
-              ariaLabel="Photo artwork format"
               options={
                 [
-                  { value: 'cover', label: 'Original photo' },
-                  { value: 'proof', label: 'Proof card' },
-                  { value: 'receipt', label: 'Receipt card' },
+                  { value: 'cover', label: 'Original' },
+                  { value: 'proof', label: 'Proof' },
+                  { value: 'receipt', label: 'Receipt' },
                 ] as const
               }
               onChange={(next) => selectPhotoCardFormat(next)}
             />
-          </div>
+          ) : null}
+          {showMediaCoverPicker ? (
+            <ScarceChoiceField
+              label="Cover"
+              value={
+                showAudioCoverPicker && videoCoverMode === 'frame'
+                  ? 'card'
+                  : videoCoverMode
+              }
+              disabled={pending || coverPending}
+              options={
+                showAudioCoverPicker ? AUDIO_COVER_OPTIONS : VIDEO_COVER_OPTIONS
+              }
+              onChange={(next) => selectMediaCoverMode(next)}
+            />
+          ) : null}
+          {usesGeneratedCard ? (
+            <ScarceCardMoodPicker
+              value={cardTheme}
+              onChange={setCardTheme}
+              disabled={pending}
+              hasPhoto={usesPhotoCard}
+              formats={
+                usesPhotoCard
+                  ? (['receipt', 'proof'] as const)
+                  : (['thought', 'poster', 'letter', 'journal', 'mono'] as const)
+              }
+            />
+          ) : null}
+          <ScarceDetailsField
+            title={mintTitle}
+            description={mintBody}
+            disabled={pending}
+          />
+        </div>
+        {hasCoverImage ? (
           <p className="scarce-mood-picker-hint">
             {photoCardFormat === 'cover'
-              ? 'Post photo as-is'
-              : 'Card with signature'}
+              ? 'Photo is minted as the scarce. Text goes in the title and description.'
+              : 'Card with signature — photo stays as proof on the card.'}
           </p>
-        </div>
-      ) : null}
-
-      {usesGeneratedCard ? (
-        <ScarceCardMoodPicker
-          value={cardTheme}
-          onChange={setCardTheme}
-          disabled={pending}
-          hasPhoto={usesPhotoCard}
-          formats={
-            usesPhotoCard
-              ? (['receipt', 'proof'] as const)
-              : (['thought', 'poster', 'letter', 'journal', 'mono'] as const)
-          }
-        />
-      ) : null}
+        ) : null}
+        {showMediaCoverPicker ? (
+          <>
+            {videoCoverMode === 'photo' ? (
+              <label className="os-surface-chip scarce-cover-upload">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="scarce-cover-upload-input"
+                  disabled={pending}
+                  onChange={onCoverPhotoChange}
+                />
+                {coverFile
+                  ? 'Change photo'
+                  : showAudioCoverPicker
+                    ? 'Choose cover'
+                    : 'Choose photo'}
+              </label>
+            ) : null}
+            <p className="scarce-mood-picker-hint">
+              {coverPending
+                ? 'Grabbing a frame…'
+                : (coverError ??
+                  (showAudioCoverPicker
+                    ? 'Wallets show a still image. Your audio keeps playing on the post.'
+                    : videoCoverMode === 'frame'
+                      ? 'Drag to pick the cover frame. This still is what wallets show.'
+                      : 'Wallets show a still image. Your video keeps playing on the post.'))}
+            </p>
+          </>
+        ) : null}
+      </div>
 
       <div className="app-storage-amount-field profile-support-amount-field">
         <input

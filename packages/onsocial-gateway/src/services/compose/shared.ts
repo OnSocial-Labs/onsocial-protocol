@@ -58,6 +58,33 @@ export function ipfsUri(cid: string): string {
   return `ipfs://${cid}`;
 }
 
+/** A video / audio attachment recorded by the SDK in `extra.playable`. */
+export interface PlayableRef {
+  cid: string;
+  mime: string;
+}
+
+/**
+ * First usable entry of `extra.playable`, which the SDK fills when a scarce
+ * is minted from a post carrying video or audio. `extra` is caller-supplied
+ * and unvalidated, so malformed entries are skipped rather than failing the
+ * mint — a bad hint should never cost someone their listing.
+ */
+export function firstPlayable(
+  extra: Record<string, unknown> | undefined
+): PlayableRef | undefined {
+  const entries = extra?.playable;
+  if (!Array.isArray(entries)) return undefined;
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    const { cid, mime } = entry as Record<string, unknown>;
+    if (typeof cid !== 'string' || typeof mime !== 'string') continue;
+    if (!cid.trim() || !mime.trim()) continue;
+    return { cid: cid.trim(), mime: mime.trim() };
+  }
+  return undefined;
+}
+
 export async function resolveExistingMediaCid(
   cid: string,
   mediaHash?: string

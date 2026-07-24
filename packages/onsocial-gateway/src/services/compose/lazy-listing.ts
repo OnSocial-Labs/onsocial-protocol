@@ -18,6 +18,7 @@ import {
   validateRoyalty,
   nearToYocto,
   MAX_METADATA_LEN,
+  firstPlayable,
   gatewayUrl,
   ipfsUri,
 } from './shared.js';
@@ -354,8 +355,11 @@ export async function buildLazyListAction(
 
   // Upload full metadata JSON to Lighthouse (OpenSea-compatible).
   // Mirror mint: keep gateway `media` for wallets, plus `media_ipfs` CID
-  // for permanent / gateway-agnostic resolution.
+  // for permanent / gateway-agnostic resolution, and `animation_url` so a
+  // listing minted from a video plays on marketplaces instead of showing
+  // only its still cover frame.
   const isIpfsMedia = !!media && !!media.cid;
+  const playable = firstPlayable(req.extra);
   const fullMetadata = {
     ...tokenMetadata,
     ...(media && { image: media.url }),
@@ -364,6 +368,10 @@ export async function buildLazyListAction(
     name: req.title,
     ...(req.description && { description: req.description }),
     ...(req.extra || {}),
+    ...(playable && {
+      animation_url: gatewayUrl(playable.cid),
+      animation_ipfs: ipfsUri(playable.cid),
+    }),
   };
 
   const metadata = await uploadJsonToLighthouse(fullMetadata);
