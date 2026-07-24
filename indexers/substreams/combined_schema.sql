@@ -539,10 +539,10 @@ CREATE TABLE IF NOT EXISTS scarces_events (
 -- Sink-maintained live Market catalog (upsert on list/create, delete on sell/cancel).
 CREATE TABLE IF NOT EXISTS scarces_active_listings (
   listing_key TEXT PRIMARY KEY,
-  kind TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'unknown',
   listing_id TEXT,
   token_id TEXT,
-  seller_id TEXT NOT NULL,
+  seller_id TEXT NOT NULL DEFAULT 'unknown',
   creator_id TEXT,
   price TEXT,
   reserve_price TEXT,
