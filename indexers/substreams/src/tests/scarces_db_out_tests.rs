@@ -394,6 +394,56 @@ fn active_listing_purchase_sold_out_deletes() {
 }
 
 #[test]
+fn active_listing_purchase_without_prior_create_sets_identity() {
+    // Mid-stream catalog tables: purchase can arrive before any create was
+    // materialised. Upsert must still set NOT NULL kind/seller_id.
+    let mut tables = Tables::new();
+    let purchased = ScarcesEvent {
+        id: "r-0-LAZY_LISTING_UPDATE-purchased".into(),
+        block_height: 260593105,
+        block_timestamp: 1784825520231508209,
+        receipt_id: "r0".into(),
+        event_type: "LAZY_LISTING_UPDATE".into(),
+        operation: "purchased".into(),
+        author: "buyer.near".into(),
+        listing_id: "ll:324".into(),
+        creator_id: "seller.near".into(),
+        extra_data: r#"{"listing_id":"ll:324","remaining":3,"minted_count":2}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &purchased);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "lazy:ll:324",
+            "kind"
+        ),
+        Some("lazy")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "lazy:ll:324",
+            "seller_id"
+        ),
+        Some("seller.near")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "lazy:ll:324",
+            "remaining"
+        ),
+        Some("3")
+    );
+}
+
+#[test]
 fn active_listing_auction_bid_updates_high() {
     let mut tables = Tables::new();
     let created = ScarcesEvent {

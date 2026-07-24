@@ -513,25 +513,39 @@ jobs:
             fi
 
             # Post-deploy smoke test: verify sink system tables and contract tables.
+            # Require the live cursor to move after restart — a non-zero MAX(block_num)
+            # alone is a false pass when the sink is crash-looping on the next block.
             echo "🧪 Running post-deploy smoke test..."
             CURSOR_WAIT=0
             CURSOR_MAX_WAIT=120
+            CURSOR_BASE=$($PSQL -tAc "SELECT COALESCE(MAX(block_num), 0) FROM cursors" 2>/dev/null | tr -d '[:space:]' || true)
+            CURSOR_COUNT=""
+            CURSOR_BLOCK_NUM=""
             while [ $CURSOR_WAIT -lt $CURSOR_MAX_WAIT ]; do
               CURSOR_COUNT=$($PSQL -tAc "SELECT COUNT(*) FROM cursors" 2>/dev/null | tr -d '[:space:]' || true)
               CURSOR_BLOCK_NUM=$($PSQL -tAc "SELECT COALESCE(MAX(block_num), 0) FROM cursors" 2>/dev/null | tr -d '[:space:]' || true)
-              if [ -n "$CURSOR_COUNT" ] && [ "$CURSOR_COUNT" != "0" ] && [ -n "$CURSOR_BLOCK_NUM" ] && [ "$CURSOR_BLOCK_NUM" != "0" ]; then
+              if [ -n "$CURSOR_COUNT" ] && [ "$CURSOR_COUNT" != "0" ] \
+                && [ -n "$CURSOR_BLOCK_NUM" ] && [ "$CURSOR_BLOCK_NUM" != "0" ] \
+                && [ "$CURSOR_BLOCK_NUM" -gt "${CURSOR_BASE:-0}" ]; then
                 echo "  ✅ cursors rows present: $CURSOR_COUNT"
-                echo "  ✅ cursor block advanced: $CURSOR_BLOCK_NUM"
+                echo "  ✅ cursor advanced: ${CURSOR_BASE:-0} → $CURSOR_BLOCK_NUM"
                 break
+              fi
+              if ! systemctl is-active --quiet "$SERVICE"; then
+                echo "  ❌ Sink inactive during smoke wait"
+                journalctl -u "$SERVICE" --no-pager -n 80 2>/dev/null || true
+                exit 1
               fi
               sleep 5
               CURSOR_WAIT=$((CURSOR_WAIT + 5))
-              echo "  ⏱ waiting for cursor progress... ${CURSOR_WAIT}s (rows=${CURSOR_COUNT:-0}, block=${CURSOR_BLOCK_NUM:-0})"
+              echo "  ⏱ waiting for cursor progress... ${CURSOR_WAIT}s (rows=${CURSOR_COUNT:-0}, block=${CURSOR_BLOCK_NUM:-0}, base=${CURSOR_BASE:-0})"
             done
 
-            if [ -z "${CURSOR_COUNT:-}" ] || [ "$CURSOR_COUNT" = "0" ] || [ -z "${CURSOR_BLOCK_NUM:-}" ] || [ "$CURSOR_BLOCK_NUM" = "0" ]; then
-              echo "❌ Smoke test failed: cursor did not advance beyond block 0"
-              journalctl -u "$SERVICE" --no-pager -n 50 2>/dev/null || true
+            if [ -z "${CURSOR_COUNT:-}" ] || [ "$CURSOR_COUNT" = "0" ] \
+              || [ -z "${CURSOR_BLOCK_NUM:-}" ] || [ "$CURSOR_BLOCK_NUM" = "0" ] \
+              || [ "$CURSOR_BLOCK_NUM" -le "${CURSOR_BASE:-0}" ]; then
+              echo "❌ Smoke test failed: cursor did not advance after restart (base=${CURSOR_BASE:-0}, now=${CURSOR_BLOCK_NUM:-0})"
+              journalctl -u "$SERVICE" --no-pager -n 80 2>/dev/null || true
               exit 1
             fi
 
