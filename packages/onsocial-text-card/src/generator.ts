@@ -24,19 +24,26 @@
 //     visual mass, different personality.
 //   - `theme.titleAlign`: 'left' (default, editorial) or 'center' (poem).
 //
-// Emoji handling (v0.3.1):
+// Emoji handling (v0.3.1 / v0.6):
 //   - Wrap & width estimation segment by grapheme cluster (Intl.Segmenter)
 //     so multi-codepoint emoji like 🏳️‍🌈 count as one symbol, and width
 //     accounts for emoji glyphs being roughly square (~1.0× the font
-//     size, vs ~0.5× for sans).
+//     size, vs ~0.55× for Latin).
 //   - Font-family chains include emoji fallbacks ('Apple Color Emoji',
-//     'Segoe UI Emoji', 'Noto Color Emoji') for consistent rendering
-//     across renderers.
+//     'Segoe UI Emoji', 'Noto Color Emoji') for browser preview.
+//   - Permanent PNG mint loads Noto Color Emoji when the host ships it
+//     (gateway Docker installs font-noto-emoji) so preview ≈ mint.
+//
+// Layout (v0.6):
+//   - Unified inset (64px). Wrap / fit use per-voice advance ratios
+//     (fontkit-calibrated) + letter-spacing, not raw character counts.
+//   - Long tokens (@account, URLs, $TICKER) soft-break on punctuation
+//     before falling back to grapheme hard-break + ellipsis.
 //
 // Zero deps. Returns raw SVG markup.
 // ---------------------------------------------------------------------------
 
-import { MOODS, resolveMood, type MoodKey } from './themes.js';
+import { MOODS, resolveMood, type Mood, type MoodKey } from './themes.js';
 import {
   CARD_FORMAT_REGISTRY,
   isCardFormat,
@@ -45,7 +52,8 @@ import {
 
 const WIDTH = 600;
 const HEIGHT = 600;
-const PADDING = 56;
+/** Edge inset — keep title/byline off the trim for every voice. */
+const PADDING = 64;
 const CONTENT_WIDTH = WIDTH - PADDING * 2;
 
 // Author mark.
@@ -66,11 +74,14 @@ const TITLE_CAP_HEIGHT_RATIO = 0.7;
 
 // Title.
 // Auto-shrink ladder — try the largest first; drop a step if the text
-// won't fit in TITLE_MAX_LINES at the per-mood character budget. Below
-// the floor, ellipsis-truncate. Line-height tracks font size 1.27×.
-const TITLE_FONT_SIZES = [44, 38, 32, 28] as const;
+// won't fit in TITLE_MAX_LINES at the measured pixel budget. Wide faces
+// (Letter / Mono) use a deeper floor so longer copy packs the column
+// instead of sitting sparse at 44px. Line-height tracks font size 1.27×.
+const TITLE_FONT_SIZES = [44, 40, 36, 32] as const;
+/** Deeper floor for wide / mono voices — fill width before truncating. */
+const TITLE_FONT_SIZES_DENSE = [44, 40, 36, 32, 28] as const;
 const TITLE_LINE_HEIGHT_RATIO = 56 / 44; // ~1.27
-const TITLE_MAX_LINES = 6;
+const TITLE_MAX_LINES = 7;
 /** Poster locks base size — ALL CAPS presence, no shrink ladder. */
 const POSTER_TITLE_FONT_SIZE = TITLE_FONT_SIZES[0];
 /** Soften cover type so it sits in the stock, not on top of it. */
@@ -109,18 +120,20 @@ const PROVENANCE_MONTHS = [
   'Dec',
 ] as const;
 
-// ── Receipt mood (v0.5) ─────────────────────────────────────────────────────
-// A short claim + a photo as proof. Different layout from every other
-// mood: title top-anchored at most 2 lines, photo is the hero of the
-// bottom half, byline anchors under the photo.
-//
-// The photo is 220×220 — ~13% of the canvas, ~70px at typical wallet
-// thumbnail size. Big enough to read; small enough that the type still
-// owns the top half. Hairline border, no rotation, no white frame —
-// keep the chrome quiet, let the evidence speak.
-const RECEIPT_PHOTO_SIZE = 220;
-const RECEIPT_PHOTO_RADIUS = 6;
-const RECEIPT_PHOTO_BOTTOM_GAP = 120; // space for signature + provenance under photo
+// ── Receipt / Proof (v0.6) ──────────────────────────────────────────────────
+// Short claim + photo as proof. Three clean zones stacked top→bottom:
+//   1. Claim (title) at the top pad, ≤2 lines.
+//   2. Full-bleed photo plane — no border, no radius — filling the gap
+//      between the claim and the signature.
+//   3. Signature footer on the card background (never over the photo),
+//      so the account stays legible regardless of the image.
+// The photo band is measured to fit between the claim baseline and the
+// byline top, so it can never collide with either.
+const RECEIPT_CLAIM_PHOTO_GAP = 24; // air below the claim, above the photo
+const RECEIPT_PHOTO_BYLINE_GAP = 24; // air below the photo, above signature
+const RECEIPT_PHOTO_MIN_HEIGHT = 180;
+/** Soft corner on the evidence plane — no stroke, just a quiet clip. */
+const RECEIPT_PHOTO_RADIUS = 20;
 const RECEIPT_TITLE_MAX_LINES = 2;
 // Hard cap on receipt title length. Past this point the format breaks
 // (the claim stops feeling like a headline and starts feeling like a
@@ -135,9 +148,29 @@ const RECEIPT_TITLE_FONT_SIZES = [56, 48, 44, 40] as const;
 const SANS_CHAR_RATIO_BOLD = 0.56;
 const SANS_CHAR_RATIO_REGULAR = 0.5;
 const MONO_CHAR_RATIO = 0.62;
+/** Proportional space advance — much narrower than a letter. */
+const PROPORTIONAL_SPACE_RATIO = 0.26;
 // Emoji glyphs render approximately square at the line's font size,
 // regardless of family. Slightly conservative so we under-fit, not over.
 const EMOJI_CHAR_RATIO = 1.0;
+/**
+ * Prefer soft-breaking long tokens after these graphemes (URLs, NEAR
+ * accounts, tickers, hashtags) before grapheme hard-break.
+ */
+const SOFT_BREAK_AFTER = new Set([
+  '/',
+  '.',
+  '_',
+  '-',
+  ':',
+  '@',
+  '#',
+  '$',
+  '?',
+  '&',
+  '=',
+  '%',
+]);
 
 // ── Signature palette ──────────────────────────────────────────────────────
 // 12 distinct hues. Each account hashes to one of them — instant
@@ -259,7 +292,8 @@ function isEmoji(g: string): boolean {
 
 /**
  * Visual character budget — emojis count as ~2 normal characters because
- * they render roughly twice as wide at a given font size.
+ * they render roughly twice as wide at a given font size. Used for byline
+ * truncation helpers that still speak in "chars".
  */
 function visualLength(s: string): number {
   let n = 0;
@@ -282,8 +316,48 @@ function estimateWidthPx(
   let w = 0;
   for (const g of graphemes(s)) {
     if (isEmoji(g)) w += fontSize * EMOJI_CHAR_RATIO;
-    else w += g.length * fontSize * ratio;
+    else w += fontSize * ratio;
   }
+  return w;
+}
+
+/** Title metrics from the active mood (advance + SVG letter-spacing). */
+function titleMetrics(mood: Mood): {
+  advanceRatio: number;
+  letterSpacing: number;
+  monospace: boolean;
+} {
+  return {
+    advanceRatio: mood.titleAdvanceRatio,
+    letterSpacing: mood.titleLetterSpacing,
+    monospace: mood.titleFamily.toLowerCase().includes('mono'),
+  };
+}
+
+type TitleMetrics = ReturnType<typeof titleMetrics>;
+
+/**
+ * Pixel width of title text at `fontSize` using the voice's mean advance
+ * and SVG letter-spacing (applied between graphemes). Spaces in
+ * proportional faces use a narrow advance so wrap fills the column.
+ */
+function estimateTitleWidthPx(
+  s: string,
+  fontSize: number,
+  metrics: TitleMetrics
+): number {
+  const gs = graphemes(s);
+  if (gs.length === 0) return 0;
+  let w = 0;
+  for (const g of gs) {
+    if (isEmoji(g)) w += fontSize * EMOJI_CHAR_RATIO;
+    else if (g === ' ' || g === '\u00A0') {
+      w +=
+        fontSize *
+        (metrics.monospace ? metrics.advanceRatio : PROPORTIONAL_SPACE_RATIO);
+    } else w += fontSize * metrics.advanceRatio;
+  }
+  if (gs.length > 1) w += metrics.letterSpacing * (gs.length - 1);
   return w;
 }
 
@@ -297,70 +371,130 @@ function esc(s: string): string {
     .replace(/'/g, '&apos;');
 }
 
+function lineFits(
+  s: string,
+  maxWidthPx: number,
+  fontSize: number,
+  metrics: TitleMetrics
+): boolean {
+  return estimateTitleWidthPx(s, fontSize, metrics) <= maxWidthPx;
+}
+
+/** Soft-break ends (exclusive grapheme indices) inside a long token. */
+function softBreakEnds(gs: string[]): number[] {
+  const ends: number[] = [];
+  for (let i = 0; i < gs.length - 1; i++) {
+    if (SOFT_BREAK_AFTER.has(gs[i])) ends.push(i + 1);
+  }
+  return ends;
+}
+
 /**
- * Greedy word-wrap into a fixed number of lines, budgeting by *visual*
- * length (emojis cost 2). Lines beyond the limit are truncated with an
- * ellipsis on the last visible line.
+ * Split a single overlong token across lines, preferring breaks after
+ * URL/account punctuation, then grapheme hard-break.
  */
-function wrap(
+function breakLongToken(
+  word: string,
+  maxWidthPx: number,
+  fontSize: number,
+  metrics: TitleMetrics
+): string[] {
+  const gs = graphemes(word);
+  const softEnds = softBreakEnds(gs);
+  const parts: string[] = [];
+  let start = 0;
+
+  while (start < gs.length) {
+    let end = start + 1;
+    while (
+      end <= gs.length &&
+      lineFits(gs.slice(start, end).join(''), maxWidthPx, fontSize, metrics)
+    ) {
+      end += 1;
+    }
+    // `end` is first index that does not fit; last fitting is end - 1.
+    let breakAt = end - 1;
+    if (breakAt <= start) {
+      // Single grapheme wider than the column — take it anyway.
+      parts.push(gs[start]);
+      start += 1;
+      continue;
+    }
+    const softInRange = softEnds.filter((i) => i > start && i <= breakAt);
+    if (softInRange.length > 0) {
+      breakAt = softInRange[softInRange.length - 1]!;
+    }
+    parts.push(gs.slice(start, breakAt).join(''));
+    start = breakAt;
+  }
+  return parts;
+}
+
+function appendEllipsis(
+  line: string,
+  maxWidthPx: number,
+  fontSize: number,
+  metrics: TitleMetrics
+): string {
+  const ell = '\u2026';
+  const gs = graphemes(line);
+  while (
+    gs.length > 0 &&
+    !lineFits(gs.join('') + ell, maxWidthPx, fontSize, metrics)
+  ) {
+    gs.pop();
+  }
+  return `${gs.join('')}${ell}`;
+}
+
+/**
+ * Greedy word-wrap by measured pixel width. Lines beyond `maxLines` are
+ * dropped and the last visible line gets a reliable ellipsis.
+ */
+function wrapByWidth(
   text: string,
-  maxCharsPerLine: number,
+  maxWidthPx: number,
+  fontSize: number,
+  metrics: TitleMetrics,
   maxLines: number
 ): string[] {
   const trimmed = text.trim();
+  if (!trimmed) return [];
+
   const words = trimmed.split(/\s+/);
-  const lines: string[] = [];
+  const unlimited: string[] = [];
   let current = '';
 
-  const fits = (s: string): boolean => visualLength(s) <= maxCharsPerLine;
+  const fits = (s: string) => lineFits(s, maxWidthPx, fontSize, metrics);
 
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
     if (fits(candidate)) {
       current = candidate;
-    } else {
-      if (current) lines.push(current);
-      if (!fits(word)) {
-        // Hard-break by grapheme so multi-codepoint clusters stay intact.
-        const gs = graphemes(word);
-        let buf = '';
-        for (const g of gs) {
-          const next = buf + g;
-          if (fits(next)) {
-            buf = next;
-          } else {
-            if (buf) lines.push(buf);
-            buf = g;
-          }
-          if (lines.length >= maxLines) break;
-        }
-        current = buf;
-      } else {
-        current = word;
+      continue;
+    }
+    if (current) unlimited.push(current);
+    if (!fits(word)) {
+      const chunks = breakLongToken(word, maxWidthPx, fontSize, metrics);
+      for (let i = 0; i < chunks.length - 1; i++) {
+        unlimited.push(chunks[i]!);
       }
+      current = chunks[chunks.length - 1] ?? '';
+    } else {
+      current = word;
     }
-    if (lines.length >= maxLines) break;
   }
-  if (current && lines.length < maxLines) lines.push(current);
+  if (current) unlimited.push(current);
 
-  if (lines.length > maxLines) {
-    lines.length = maxLines;
-  }
+  if (unlimited.length <= maxLines) return unlimited;
 
-  // If we dropped content, mark the last visible line with an ellipsis.
-  const consumed = lines.join(' ');
-  if (consumed.length < trimmed.length && lines.length > 0) {
-    const last = lines[lines.length - 1];
-    const lastGs = graphemes(last);
-    while (
-      lastGs.length > 0 &&
-      visualLength(lastGs.join('') + '…') > maxCharsPerLine
-    ) {
-      lastGs.pop();
-    }
-    lines[lines.length - 1] = `${lastGs.join('')}…`;
-  }
-
+  const lines = unlimited.slice(0, maxLines);
+  lines[lines.length - 1] = appendEllipsis(
+    lines[lines.length - 1]!,
+    maxWidthPx,
+    fontSize,
+    metrics
+  );
   return lines;
 }
 
@@ -373,10 +507,52 @@ function paletteIndex(seed: string): number {
   return Math.abs(h) % SIGNATURE_PALETTE.length;
 }
 
+/** Like `wrapByWidth`, but only returns whether the text fits in `maxLines`. */
+function wrapWouldFitByWidth(
+  text: string,
+  maxWidthPx: number,
+  fontSize: number,
+  metrics: TitleMetrics,
+  maxLines: number
+): boolean {
+  return countWrappedLines(text, maxWidthPx, fontSize, metrics) <= maxLines;
+}
+
+/** Line count if wrapped with no ellipsis cap (for density / fit checks). */
+function countWrappedLines(
+  text: string,
+  maxWidthPx: number,
+  fontSize: number,
+  metrics: TitleMetrics
+): number {
+  const words = text.trim().split(/\s+/);
+  if (words.length === 1 && words[0] === '') return 0;
+  const fits = (s: string) => lineFits(s, maxWidthPx, fontSize, metrics);
+  let lines = 0;
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (fits(candidate)) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines += 1;
+    if (!fits(word)) {
+      const chunks = breakLongToken(word, maxWidthPx, fontSize, metrics);
+      lines += Math.max(0, chunks.length - 1);
+      current = chunks[chunks.length - 1] ?? '';
+    } else {
+      current = word;
+    }
+  }
+  if (current) lines += 1;
+  return lines;
+}
+
 /** Trim to `max` *visual* characters, appending an ellipsis when shortened. */
 function truncateVisual(s: string, maxVisual: number): string {
   if (visualLength(s) <= maxVisual) return s;
-  if (maxVisual <= 1) return '…';
+  if (maxVisual <= 1) return '\u2026';
   const gs = graphemes(s);
   const out: string[] = [];
   let used = 0;
@@ -386,102 +562,68 @@ function truncateVisual(s: string, maxVisual: number): string {
     out.push(g);
     used += cost;
   }
-  return out.join('') + '…';
+  return out.join('') + '\u2026';
 }
 
 // ── Title auto-shrink ──────────────────────────────────────────────────────
-// The per-mood `titleCharsPerLine` budget is calibrated for the default
-// 44px font. At smaller sizes the canvas fits proportionally more chars,
-// so we scale the budget by (44 / size).
+// Fit against CONTENT_WIDTH using per-voice advance ratios. Keep the type
+// as LARGE as possible: use the biggest size that still fits inside the
+// format's line budget, and only step down when the copy runs out of
+// lines. Wide / mono faces get a deeper floor (down to 28px) so long copy
+// shrinks gracefully instead of truncating early — but we never shrink a
+// title that already fits.
+
+function titleSizeLadder(metrics: TitleMetrics): readonly number[] {
+  return metrics.monospace || metrics.advanceRatio >= 0.58
+    ? TITLE_FONT_SIZES_DENSE
+    : TITLE_FONT_SIZES;
+}
 
 /** Try the size ladder; return the largest that fits without truncation. */
 function pickTitleFontSize(
   text: string,
-  baseCharsPerLine: number,
+  metrics: TitleMetrics,
   maxLines = TITLE_MAX_LINES
-): { size: number; charsPerLine: number; truncated: boolean } {
-  const baseSize = TITLE_FONT_SIZES[0];
-  for (const size of TITLE_FONT_SIZES) {
-    const charsPerLine = Math.floor(baseCharsPerLine * (baseSize / size));
-    const fitted = wrapWouldFit(text, charsPerLine, maxLines);
-    if (fitted) return { size, charsPerLine, truncated: false };
+): { size: number; truncated: boolean } {
+  const ladder = titleSizeLadder(metrics);
+  for (const size of ladder) {
+    if (wrapWouldFitByWidth(text, CONTENT_WIDTH, size, metrics, maxLines)) {
+      return { size, truncated: false };
+    }
   }
-  // Floor reached: text still overflows; render at floor and let wrap()
-  // ellipsis-truncate the visible portion.
-  const floor = TITLE_FONT_SIZES[TITLE_FONT_SIZES.length - 1];
-  const charsPerLine = Math.floor(baseCharsPerLine * (baseSize / floor));
-  return { size: floor, charsPerLine, truncated: true };
+  const floor = ladder[ladder.length - 1]!;
+  return { size: floor, truncated: true };
 }
 
 /**
  * Receipt-mood variant of the size ladder. Bigger sizes (56 → 40), 2-line
- * cap. Same scaling logic as `pickTitleFontSize` so longer claims (still
- * inside RECEIPT_TITLE_MAX_CHARS) shrink proportionally.
+ * cap. Same pixel-width logic as `pickTitleFontSize`.
  */
 function pickReceiptTitleFontSize(
   text: string,
-  baseCharsPerLine: number
-): { size: number; charsPerLine: number; truncated: boolean } {
-  const baseSize = RECEIPT_TITLE_FONT_SIZES[0];
+  metrics: TitleMetrics
+): { size: number; truncated: boolean } {
   for (const size of RECEIPT_TITLE_FONT_SIZES) {
-    const charsPerLine = Math.floor(baseCharsPerLine * (baseSize / size));
-    const fitted = wrapWouldFit(text, charsPerLine, RECEIPT_TITLE_MAX_LINES);
-    if (fitted) return { size, charsPerLine, truncated: false };
+    if (
+      wrapWouldFitByWidth(
+        text,
+        CONTENT_WIDTH,
+        size,
+        metrics,
+        RECEIPT_TITLE_MAX_LINES
+      )
+    ) {
+      return { size, truncated: false };
+    }
   }
   const floor = RECEIPT_TITLE_FONT_SIZES[RECEIPT_TITLE_FONT_SIZES.length - 1];
-  const charsPerLine = Math.floor(baseCharsPerLine * (baseSize / floor));
-  return { size: floor, charsPerLine, truncated: true };
-}
-
-/** Like `wrap`, but only returns whether the text fits in `maxLines`. */
-function wrapWouldFit(
-  text: string,
-  maxCharsPerLine: number,
-  maxLines: number
-): boolean {
-  const words = text.trim().split(/\s+/);
-  const fits = (s: string): boolean => visualLength(s) <= maxCharsPerLine;
-  let lines = 0;
-  let current = '';
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (fits(candidate)) {
-      current = candidate;
-      continue;
-    }
-    if (current) {
-      lines += 1;
-      if (lines >= maxLines) return false;
-    }
-    if (!fits(word)) {
-      // Hard-break a long word by graphemes; each break adds a line.
-      const gs = graphemes(word);
-      let buf = '';
-      for (const g of gs) {
-        const next = buf + g;
-        if (fits(next)) {
-          buf = next;
-        } else {
-          if (buf) {
-            lines += 1;
-            if (lines >= maxLines) return false;
-          }
-          buf = g;
-        }
-      }
-      current = buf;
-    } else {
-      current = word;
-    }
-  }
-  if (current) lines += 1;
-  return lines <= maxLines;
+  return { size: floor, truncated: true };
 }
 
 /**
  * UI helper: report whether a title will render at the default size, in
  * a shrunk size, or be truncated. Used by compose UIs to drive the
- * green / amber / red counter ("fits at 44px" → "fits at 28px, smaller"
+ * green / amber / red counter ("fits at 44px" → "fits at 32px, smaller"
  * → "will be truncated; full text saved to metadata").
  */
 export type TitleFitStatus = 'fits' | 'shrunk' | 'truncated';
@@ -504,24 +646,27 @@ export function measureTitleFit(
 ): TitleFit {
   const moodKey = resolveMood(spec);
   const mood = MOODS[moodKey];
+  const metrics = titleMetrics(mood);
   const text = mood.titleUppercase ? title.toUpperCase() : title;
-  const fit = pickTitleFontSize(text, mood.titleCharsPerLine);
+  const fit = pickTitleFontSize(text, metrics);
   const baseSize = TITLE_FONT_SIZES[0];
-  const floorSize = TITLE_FONT_SIZES[TITLE_FONT_SIZES.length - 1];
+  const ladder = titleSizeLadder(metrics);
+  const floorSize = ladder[ladder.length - 1]!;
   const status: TitleFitStatus = fit.truncated
     ? 'truncated'
     : fit.size === baseSize
       ? 'fits'
       : 'shrunk';
-  const approxMaxChars =
-    Math.floor(mood.titleCharsPerLine * (baseSize / floorSize)) *
-    TITLE_MAX_LINES;
+  const approxCharsPerLine = Math.max(
+    8,
+    Math.floor(CONTENT_WIDTH / (floorSize * metrics.advanceRatio))
+  );
   return {
     status,
     size: fit.size,
     isMaxSize: fit.size === baseSize,
     truncated: fit.truncated,
-    approxMaxChars,
+    approxMaxChars: approxCharsPerLine * TITLE_MAX_LINES,
   };
 }
 
@@ -601,11 +746,10 @@ export interface TextCardOptions {
   };
   /**
    * Photo URL or `data:image/*` URI rendered as **proof** beneath a
-   * short claim. Only honoured when `theme.bg === 'receipt'` — every
-   * other mood ignores it (the text-card's other moods are intentionally
-   * type-only). The image is laid out at 220×220 in the bottom half of
-   * the canvas, aligned to the same left column as the title. Provide a
-   * stable gateway URL or data URI for offline / wallet rendering.
+   * short claim. Only honoured on receipt/proof layouts — other moods
+   * stay type-only. The image is a full-bleed plane under the claim
+   * (no border); byline sits beneath. Provide a stable gateway URL or
+   * data URI for offline / wallet rendering.
    */
   photo?: string;
   /** Optional provenance line under the signature. */
@@ -740,28 +884,36 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       ? rawTitle.toUpperCase()
       : rawTitle;
 
-  // Standard moods: try the standard 4 sizes (44 → 38 → 32 → 28) and
-  // pick the largest that fits in the format's maxLines at the per-mood
-  // budget. Poster: locked 44px ALL CAPS (no shrink). Receipt/Proof:
-  // bigger ladder (56 → 48 → 44 → 40) capped at 2 lines.
+  // Standard moods: try the size ladder and pick a size that fits the
+  // format's maxLines at the measured pixel budget. Wide faces also
+  // density-prefer so longer copy packs the column. Poster: locked 44px
+  // ALL CAPS (no shrink). Receipt/Proof: bigger ladder (56 → 40), 2 lines.
   const titleMaxLines = Math.min(formatSpec.maxLines, TITLE_MAX_LINES);
   const isPoster = formatSpec.key === 'poster';
+  const metrics = titleMetrics(mood);
   const fit = isReceipt
-    ? pickReceiptTitleFontSize(titleSource, mood.titleCharsPerLine)
+    ? pickReceiptTitleFontSize(titleSource, metrics)
     : isPoster
       ? {
           size: POSTER_TITLE_FONT_SIZE,
-          charsPerLine: mood.titleCharsPerLine,
-          truncated: !wrapWouldFit(
+          truncated: !wrapWouldFitByWidth(
             titleSource,
-            mood.titleCharsPerLine,
+            CONTENT_WIDTH,
+            POSTER_TITLE_FONT_SIZE,
+            metrics,
             titleMaxLines
           ),
         }
-      : pickTitleFontSize(titleSource, mood.titleCharsPerLine, titleMaxLines);
+      : pickTitleFontSize(titleSource, metrics, titleMaxLines);
   const titleFontSize = fit.size;
   const titleLineHeight = Math.round(titleFontSize * TITLE_LINE_HEIGHT_RATIO);
-  const titleLines = wrap(titleSource, fit.charsPerLine, titleMaxLines);
+  const titleLines = wrapByWidth(
+    titleSource,
+    CONTENT_WIDTH,
+    titleFontSize,
+    metrics,
+    titleMaxLines
+  );
 
   const creator = opts.creator;
 
@@ -788,8 +940,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     : '';
 
   // Title alignment — left anchors at PADDING, center anchors at WIDTH/2.
-  // Receipt mode forces left alignment so the photo below feels anchored
-  // to the same column as the headline.
+  // Receipt mode forces left alignment so the claim sits above the photo.
   const effectiveTitleAlign: TitleAlign = isReceipt ? 'left' : titleAlign;
   const titleX = effectiveTitleAlign === 'center' ? WIDTH / 2 : PADDING;
   const titleAnchorAttr =
@@ -802,12 +953,17 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     )
     .join('');
 
-  // ── Photo (receipt mood only) ──────────────────────────────────────
-  // Photo is the hero of the bottom half — 220×220, anchored to the
-  // left column (matching the title), sitting RECEIPT_PHOTO_BOTTOM_GAP
-  // above the bottom edge so the byline can tuck underneath. Hairline
-  // border, soft corner radius, no rotation, no white frame — the
-  // photo IS the design.
+  // Bottom of the rendered claim (last baseline + a descender allowance).
+  const claimBottomY = Math.round(
+    titleStartY +
+      (titleLines.length - 1) * titleLineHeight +
+      titleFontSize * 0.24
+  );
+
+  // ── Photo (receipt / proof) ────────────────────────────────────────
+  // Full-bleed evidence plane between the claim and the signature — no
+  // border, no radius. Its band is measured after the byline so it can
+  // never overlap the account line.
   //
   // We only honour http(s) and data:image/* URIs; any other scheme
   // (javascript:, file:, etc.) is silently dropped so untrusted callers
@@ -817,12 +973,12 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     typeof opts.photo === 'string' &&
     opts.photo.length > 0 &&
     /^(https?:|data:image\/)/i.test(opts.photo);
-  const photoX = PADDING;
-  const photoY = HEIGHT - RECEIPT_PHOTO_BOTTOM_GAP - RECEIPT_PHOTO_SIZE;
 
   // ── Byline (bottom): signature + quiet provenance ──────────────────
   // Name / account id above; optional `OnSocial · date · time · postId` under.
   let bylineBlock = '';
+  // Topmost y of any byline element — photo band stops above this.
+  let bylineTopY = HEIGHT - PADDING;
   const provenanceLine = formatProvenanceLine(opts.provenance);
   const ink = mood.textPrimary;
   const isMono = mood.bylineFamily.toLowerCase().includes('mono');
@@ -887,6 +1043,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     if (!hasDistinctName) {
       signatureBlock = `
   <text x="${textX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>`;
+      bylineTopY = Math.min(bylineTopY, handleY - handleSize);
     } else {
       const nameSize = BYLINE_NAME_SIZE;
       let displayName = rawName;
@@ -903,6 +1060,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       signatureBlock = `
   <text x="${textX}" y="${nameY}" font-family="${mood.bylineFamily}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
   <text x="${textX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>`;
+      bylineTopY = Math.min(bylineTopY, nameY - nameSize);
     }
 
     if (hasAvatar) {
@@ -922,6 +1080,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   <image href="${esc(rawAvatar)}" x="${PADDING}" y="${avatarY}" width="${BYLINE_AVATAR_SIZE}" height="${BYLINE_AVATAR_SIZE}" preserveAspectRatio="xMidYMid slice" clip-path="url(#avatarClip)"/>
   <circle cx="${avatarCx}" cy="${avatarCy}" r="${BYLINE_AVATAR_SIZE / 2}" fill="none" stroke="${ink}" stroke-opacity="${ringOpacity}" stroke-width="1"/>` +
         signatureBlock;
+      bylineTopY = Math.min(bylineTopY, avatarY);
     }
 
     bylineBlock = signatureBlock + bylineBlock;
@@ -929,20 +1088,29 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
 
   const v = angleToVector(mood.bgAngle);
 
-  // ── Photo block (receipt only) ─────────────────────────────────────
-  // On dark variants the muted stroke can read as "inactive". Use the
-  // primary text colour at low opacity so the photo still gets a clean
-  // edge against the slate without a glowing rectangle.
+  // ── Photo block (receipt / proof) ──────────────────────────────────
+  // Evidence plane inset to the same 64px column as the type — soft
+  // corner clip, no stroke — sized to fill the gap between the claim
+  // and the signature so it can never collide with either.
   let photoBlock = '';
   let photoDefs = '';
   if (hasPhoto) {
-    const strokeColor = isReceiptDark ? mood.textPrimary : mood.textMuted;
-    const strokeOpacity = isReceiptDark ? '0.18' : '0.3';
+    const photoX = PADDING;
+    const photoW = CONTENT_WIDTH;
+    const photoTop = claimBottomY + RECEIPT_CLAIM_PHOTO_GAP;
+    const photoBottom = bylineTopY - RECEIPT_PHOTO_BYLINE_GAP;
+    const photoH = Math.max(
+      RECEIPT_PHOTO_MIN_HEIGHT,
+      Math.round(photoBottom - photoTop)
+    );
     photoDefs = `
-    <clipPath id="photoClip"><rect x="${photoX}" y="${photoY}" width="${RECEIPT_PHOTO_SIZE}" height="${RECEIPT_PHOTO_SIZE}" rx="${RECEIPT_PHOTO_RADIUS}" ry="${RECEIPT_PHOTO_RADIUS}"/></clipPath>`;
+    <clipPath id="photoClip"><rect x="${photoX}" y="${photoTop}" width="${photoW}" height="${photoH}" rx="${RECEIPT_PHOTO_RADIUS}" ry="${RECEIPT_PHOTO_RADIUS}"/></clipPath>`;
+    // Clip on a wrapping <g> — more reliable than clip-path on <image>
+    // itself (browser SVG-as-img and Resvg both honour group clips).
     photoBlock = `
-  <image href="${esc(opts.photo!)}" x="${photoX}" y="${photoY}" width="${RECEIPT_PHOTO_SIZE}" height="${RECEIPT_PHOTO_SIZE}" preserveAspectRatio="xMidYMid slice" clip-path="url(#photoClip)"/>
-  <rect x="${photoX}" y="${photoY}" width="${RECEIPT_PHOTO_SIZE}" height="${RECEIPT_PHOTO_SIZE}" rx="${RECEIPT_PHOTO_RADIUS}" ry="${RECEIPT_PHOTO_RADIUS}" fill="none" stroke="${strokeColor}" stroke-opacity="${strokeOpacity}" stroke-width="1"/>`;
+  <g clip-path="url(#photoClip)">
+    <image href="${esc(opts.photo!)}" x="${photoX}" y="${photoTop}" width="${photoW}" height="${photoH}" preserveAspectRatio="xMidYMid slice"/>
+  </g>`;
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>

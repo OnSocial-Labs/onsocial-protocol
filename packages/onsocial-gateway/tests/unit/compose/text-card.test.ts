@@ -235,7 +235,7 @@ describe('generateTextCardSvg', () => {
 
   // ── v0.5: receipt mood ──────────────────────────────────────────────────
   // The receipt mood is the only place `photo` is honoured. Short claim
-  // top, 220×220 photo bottom-left, byline below. Other moods silently
+  // top, full-bleed photo plane, byline below. Other moods silently
   // ignore the photo so callers can't smuggle imagery into a text-only card.
 
   it('renders a receipt with photo when bg=receipt and photo is provided', () => {
@@ -247,10 +247,15 @@ describe('generateTextCardSvg', () => {
     });
     expect(svg).toContain('<image');
     expect(svg).toContain('href="https://cdn.onsocial.id/ipfs/bafyPhoto"');
-    expect(svg).toContain('clip-path="url(#photoClip)"');
     expect(svg).toContain('id="photoClip"');
-    // 220×220 anchored bottom-left at the standard 56px padding.
-    expect(svg).toContain('width="220" height="220"');
+    // Rounded clip on a wrapping <g> (more reliable than clip-path on <image>).
+    expect(svg).toContain('<g clip-path="url(#photoClip)">');
+    expect(svg).toMatch(
+      /<clipPath id="photoClip"><rect[^>]*rx="20"[^>]*ry="20"/
+    );
+    // Evidence plane inset to the 64px text column, no border chrome.
+    expect(svg).toMatch(/<image[^>]*x="64"[^>]*width="472"/);
+    expect(svg).not.toMatch(/<rect[^>]*stroke/);
   });
 
   it('omits the photo block on receipt mood when no photo is provided', () => {

@@ -38,7 +38,8 @@ describe('themes catalog', () => {
     expect(CARD_FORMAT_REGISTRY.poster.maxLines).toBe(5);
     expect(CARD_FORMAT_REGISTRY.thought.maxCharacters).toBe(108);
     expect(CARD_FORMAT_REGISTRY.letter.maxCharacters).toBe(120);
-    expect(CARD_FORMAT_REGISTRY.thought.voice).toBe('thought');
+    expect(CARD_FORMAT_REGISTRY.letter.maxLines).toBe(7);
+    expect(CARD_FORMAT_REGISTRY.mono.maxCharacters).toBe(100);
     expect(CARD_FORMAT_REGISTRY.poster.voice).toBe('poster');
     expect(CARD_FORMAT_REGISTRY.letter.voice).toBe('letter');
     expect(CARD_FORMAT_REGISTRY.journal.voice).toBe('journal');
@@ -75,8 +76,8 @@ describe('themes catalog', () => {
       format: 'thought',
       theme: { bg: 'thought-night' },
     });
-    // Pad 56 → caps on 56 → baseline 87.
-    expect(noMark).toMatch(/<text[^>]*y="87"[^>]*font-size="44"/);
+    // Pad 64 → caps on 64 → baseline 95.
+    expect(noMark).toMatch(/<text[^>]*y="95"[^>]*font-size="44"/);
 
     const rule = generateTextCardSvg({
       title: 'Hi',
@@ -97,8 +98,8 @@ describe('themes catalog', () => {
       bar.match(/<text[^>]*y="(\d+)"[^>]*font-size="44"/)?.[1]
     );
     // Mark heights: rule 3, bar 24 → title drops by exactly 21.
-    expect(ruleY).toBe(118);
-    expect(barY).toBe(139);
+    expect(ruleY).toBe(126);
+    expect(barY).toBe(147);
     expect(barY - ruleY).toBe(21);
   });
 
@@ -235,6 +236,41 @@ describe('generator smoke', () => {
     expect(svg).toContain(photo);
   });
 
+  it('soft-breaks long account tokens instead of overflowing the column', () => {
+    const svg = generateTextCardSvg({
+      title: '@test03.onsocial.testnet collects $SOCIAL',
+      format: 'letter',
+      theme: { bg: 'letter-light' },
+    });
+    // Long NEAR id should soft-break on '.' rather than one runaway tspan.
+    const tspans = [...svg.matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)].map(
+      (m) => m[1]
+    );
+    expect(tspans.length).toBeGreaterThan(1);
+    expect(tspans.some((t) => t.includes('onsocial'))).toBe(true);
+    // No single line should still hold the full unsplit token.
+    expect(tspans.some((t) => t.includes('@test03.onsocial.testnet'))).toBe(
+      false
+    );
+  });
+
+  it('fits a longer mono note by stepping down the size, not truncating', () => {
+    const title =
+      'const proof = await mint({ postId, claim: "shipped on near" });';
+    const svg = generateTextCardSvg({
+      title,
+      format: 'mono',
+      theme: { bg: 'mono-noir' },
+    });
+    const size = Number(
+      svg.match(/<text[^>]*font-size="(\d+)"[^>]*>/)?.[1] ?? '0'
+    );
+    expect(size).toBeGreaterThanOrEqual(28);
+    expect(size).toBeLessThanOrEqual(44);
+    // Long note should not be ellipsis-truncated at the fitted size.
+    expect(svg).not.toContain('\u2026');
+  });
+
   it('keeps the full unique account id in the byline', () => {
     const longId = 'test05.onsocial.testnet';
     const withName = generateTextCardSvg({
@@ -280,7 +316,7 @@ describe('generator smoke', () => {
     const textOpens = svg.match(/<text /g) ?? [];
     expect(textOpens.length).toBeGreaterThanOrEqual(3);
     expect(svg).toMatch(
-      /<text x="56"[^>]*>Alice<\/text>\s*<text x="56"[^>]*>alice\.near<\/text>/
+      /<text x="64"[^>]*>Alice<\/text>\s*<text x="64"[^>]*>alice\.near<\/text>/
     );
   });
 
@@ -300,9 +336,9 @@ describe('generator smoke', () => {
     expect(svg).toContain(avatar);
     expect(svg).toContain('Alice');
     expect(svg).toContain('alice.near');
-    // Text shifts right of the 36px face + gap.
+    // Text shifts right of the 36px face + gap (pad 64 → x=112).
     expect(svg).toMatch(
-      /<text x="104"[^>]*>Alice<\/text>\s*<text x="104"[^>]*>alice\.near<\/text>/
+      /<text x="112"[^>]*>Alice<\/text>\s*<text x="112"[^>]*>alice\.near<\/text>/
     );
   });
 

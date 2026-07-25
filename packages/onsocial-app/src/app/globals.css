@@ -7124,7 +7124,7 @@ a.os-surface-row {
     padding: 0.28rem 0.6rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: var(--protocol-blue);
+    color: #00ec97;
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -7137,11 +7137,11 @@ a.os-surface-row {
   .discover-trending-chip:hover,
   .discover-trending-chip:focus-visible {
     background: rgb(var(--fg-rgb) / 0.09);
+    color: #33f0ad;
     outline: none;
   }
 
   .discover-trending-chip--ticker {
-    color: var(--protocol-green);
     letter-spacing: 0.02em;
   }
 
@@ -7152,11 +7152,7 @@ a.os-surface-row {
   }
 
   .discover-trending-chip .discover-trending-chip-count {
-    color: color-mix(in srgb, var(--protocol-blue) 55%, rgb(var(--fg-rgb)));
-  }
-
-  .discover-trending-chip--ticker .discover-trending-chip-count {
-    color: color-mix(in srgb, var(--protocol-green) 55%, rgb(var(--fg-rgb)));
+    color: color-mix(in srgb, #00ec97 55%, rgb(var(--fg-rgb)));
   }
 
   .discover-omni-search {
@@ -7346,7 +7342,7 @@ a.os-surface-row {
   }
 
   .discover-focus-row--ticker .discover-focus-row-label {
-    color: var(--protocol-green);
+    color: #00ec97;
     letter-spacing: 0.02em;
   }
 
@@ -13879,81 +13875,94 @@ a.os-surface-row {
     word-break: break-word;
   }
 
-  /* TEMP trial: one green for # / @ / $ / links in the feed. */
-  .post-card-body .os-hashtag,
+  /*
+   * Feed / post tokens — exact NEAR Protocol green (#00EC97) for @ # $
+   * links + show more. Selectors beat mood signal remaps.
+   */
+  .post-card .os-hashtag,
+  .post-card .os-mention,
+  .post-card .os-ticker,
+  .post-card .os-link,
   .post-card-quote-inset-body .os-hashtag,
-  .post-card-body .os-mention,
   .post-card-quote-inset-body .os-mention,
-  .post-card-body .os-ticker,
   .post-card-quote-inset-body .os-ticker,
-  .post-card-body .os-link,
-  .post-card-quote-inset-body .os-link {
-    font-weight: 300;
+  .post-card-quote-inset-body .os-link,
+  .portfolio-frame[data-mood] .post-card .os-hashtag,
+  .portfolio-frame[data-mood] .post-card .os-mention,
+  .portfolio-frame[data-mood] .post-card .os-ticker,
+  .portfolio-frame[data-mood] .post-card .os-link,
+  .portfolio-os-layer[data-mood] .post-card .os-hashtag,
+  .portfolio-os-layer[data-mood] .post-card .os-mention,
+  .portfolio-os-layer[data-mood] .post-card .os-ticker,
+  .portfolio-os-layer[data-mood] .post-card .os-link {
+    font-weight: 400;
     text-decoration: none;
     cursor: pointer;
-    color: var(--protocol-green);
+    color: #00ec97;
   }
 
-  .post-card-body .os-hashtag.is-active,
-  .post-card-quote-inset-body .os-hashtag.is-active {
-    font-weight: 400;
+  .post-card .os-hashtag.is-active,
+  .post-card-quote-inset-body .os-hashtag.is-active,
+  .portfolio-frame[data-mood] .post-card .os-hashtag.is-active,
+  .portfolio-os-layer[data-mood] .post-card .os-hashtag.is-active {
+    font-weight: 500;
   }
 
-  .post-card-body .os-ticker.is-active,
-  .post-card-quote-inset-body .os-ticker.is-active {
-    font-weight: 400;
+  .post-card .os-ticker.is-active,
+  .post-card-quote-inset-body .os-ticker.is-active,
+  .portfolio-frame[data-mood] .post-card .os-ticker.is-active,
+  .portfolio-os-layer[data-mood] .post-card .os-ticker.is-active {
+    font-weight: 500;
     letter-spacing: 0.01em;
   }
 
-  .post-card-body .os-hashtag:hover,
+  .post-card .os-hashtag:hover,
+  .post-card .os-mention:hover,
+  .post-card .os-ticker:hover,
+  .post-card .os-link:hover,
+  .post-card .os-hashtag:focus-visible,
+  .post-card .os-mention:focus-visible,
+  .post-card .os-ticker:focus-visible,
+  .post-card .os-link:focus-visible,
   .post-card-quote-inset-body .os-hashtag:hover,
-  .post-card-body .os-mention:hover,
   .post-card-quote-inset-body .os-mention:hover,
-  .post-card-body .os-ticker:hover,
   .post-card-quote-inset-body .os-ticker:hover,
-  .post-card-body .os-link:hover,
   .post-card-quote-inset-body .os-link:hover,
-  .post-card-body .os-hashtag:focus-visible,
   .post-card-quote-inset-body .os-hashtag:focus-visible,
-  .post-card-body .os-mention:focus-visible,
   .post-card-quote-inset-body .os-mention:focus-visible,
-  .post-card-body .os-ticker:focus-visible,
   .post-card-quote-inset-body .os-ticker:focus-visible,
-  .post-card-body .os-link:focus-visible,
-  .post-card-quote-inset-body .os-link:focus-visible {
+  .post-card-quote-inset-body .os-link:focus-visible,
+  .portfolio-frame[data-mood] .post-card .os-hashtag:hover,
+  .portfolio-frame[data-mood] .post-card .os-mention:hover,
+  .portfolio-frame[data-mood] .post-card .os-ticker:hover,
+  .portfolio-frame[data-mood] .post-card .os-link:hover,
+  .portfolio-frame[data-mood] .post-card .os-hashtag:focus-visible,
+  .portfolio-frame[data-mood] .post-card .os-mention:focus-visible,
+  .portfolio-frame[data-mood] .post-card .os-ticker:focus-visible,
+  .portfolio-frame[data-mood] .post-card .os-link:focus-visible,
+  .portfolio-os-layer[data-mood] .post-card .os-hashtag:hover,
+  .portfolio-os-layer[data-mood] .post-card .os-mention:hover,
+  .portfolio-os-layer[data-mood] .post-card .os-ticker:hover,
+  .portfolio-os-layer[data-mood] .post-card .os-link:hover,
+  .portfolio-os-layer[data-mood] .post-card .os-hashtag:focus-visible,
+  .portfolio-os-layer[data-mood] .post-card .os-mention:focus-visible,
+  .portfolio-os-layer[data-mood] .post-card .os-ticker:focus-visible,
+  .portfolio-os-layer[data-mood] .post-card .os-link:focus-visible {
     text-decoration: none;
     outline: none;
+    color: #33f0ad;
   }
 
-  .post-card-body .os-hashtag:hover,
-  .post-card-quote-inset-body .os-hashtag:hover,
-  .post-card-body .os-hashtag:focus-visible,
-  .post-card-quote-inset-body .os-hashtag:focus-visible,
-  .post-card-body .os-mention:hover,
-  .post-card-quote-inset-body .os-mention:hover,
-  .post-card-body .os-mention:focus-visible,
-  .post-card-quote-inset-body .os-mention:focus-visible,
-  .post-card-body .os-ticker:hover,
-  .post-card-quote-inset-body .os-ticker:hover,
-  .post-card-body .os-ticker:focus-visible,
-  .post-card-quote-inset-body .os-ticker:focus-visible,
-  .post-card-body .os-link:hover,
-  .post-card-quote-inset-body .os-link:hover,
-  .post-card-body .os-link:focus-visible,
-  .post-card-quote-inset-body .os-link:focus-visible {
-    color: var(--protocol-green-hover);
-  }
-
-  /* Expand chrome — same size as post body, lighter weight; no underline. */
+  /* Expand chrome — same feed token green. */
   .post-card-body-block > .post-card-show-more {
     margin: 0;
     padding: 0;
     border: 0;
     background: none;
-    color: var(--protocol-green);
+    color: #00ec97;
     font: inherit;
     font-size: inherit;
-    font-weight: 300;
+    font-weight: 400;
     line-height: inherit;
     letter-spacing: normal;
     cursor: pointer;
@@ -13967,7 +13976,7 @@ a.os-surface-row {
   .post-card-body-block > .post-card-show-more:hover,
   .post-card-body-block > .post-card-show-more:focus-visible,
   .post-card-body-block > .post-card-show-more:active {
-    color: var(--protocol-green-hover);
+    color: #33f0ad;
     text-decoration: none !important;
     text-decoration-line: none !important;
     outline: none;

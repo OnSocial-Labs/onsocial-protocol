@@ -43,11 +43,15 @@ export interface Mood {
   textMuted: string;
 
   /**
-   * Per-mood horizontal character budget for the wrapped title. Bold/uppercase
-   * and monospace glyphs are wider than serif at the same point size, so each
-   * voice declares what fits inside the padded canvas.
+   * Approximate Latin chars per line at the default title size (UI hints /
+   * legacy). Layout uses `titleAdvanceRatio` + pixel width, not this budget.
    */
   titleCharsPerLine: number;
+  /**
+   * Mean advance width as a fraction of em (fontkit-calibrated, slightly
+   * conservative). Used with letter-spacing for pixel-accurate wrap/fit.
+   */
+  titleAdvanceRatio: number;
   /** Per-mood handle character budget — keeps the byline on a single line. */
   bylineMaxChars: number;
 
@@ -107,6 +111,7 @@ interface VoiceSpec {
   titleLetterSpacing: number;
   bylineFamily: string;
   titleCharsPerLine: number;
+  titleAdvanceRatio: number;
   bylineMaxChars: number;
 }
 
@@ -119,7 +124,10 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: -0.2,
     bylineFamily: SANS_BYLINE,
-    titleCharsPerLine: 20,
+    // fontkit mean ~0.543 → slightly conservative so lines never touch
+    // the trim; spaces counted narrower (see PROPORTIONAL_SPACE_RATIO).
+    titleCharsPerLine: 19,
+    titleAdvanceRatio: 0.55,
     bylineMaxChars: 36,
   },
   poster: {
@@ -130,8 +138,9 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: true,
     titleLetterSpacing: 0.6,
     bylineFamily: SANS_BYLINE,
-    // Caps run a bit wider than sentence case at the same size.
+    // Caps + tracking; mean ~0.554.
     titleCharsPerLine: 18,
+    titleAdvanceRatio: 0.57,
     bylineMaxChars: 36,
   },
   letter: {
@@ -142,7 +151,10 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: -0.3,
     bylineFamily: SANS_BYLINE,
-    titleCharsPerLine: 20,
+    // Erica Type mean ~0.606 — widest voice; 7 lines so it holds a full
+    // excerpt without shrinking, and never overruns the edge.
+    titleCharsPerLine: 17,
+    titleAdvanceRatio: 0.62,
     bylineMaxChars: 36,
   },
   journal: {
@@ -153,7 +165,8 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: 0,
     bylineFamily: SANS_BYLINE,
-    titleCharsPerLine: 20,
+    titleCharsPerLine: 19,
+    titleAdvanceRatio: 0.55,
     bylineMaxChars: 36,
   },
   mono: {
@@ -164,7 +177,9 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: 0,
     bylineFamily: MONO_FAMILY,
+    // True mono advance 0.60; density preference shrinks longer notes.
     titleCharsPerLine: 18,
+    titleAdvanceRatio: 0.6,
     bylineMaxChars: 28,
   },
   receipt: {
@@ -175,7 +190,8 @@ const VOICE_SPECS: Record<Voice, VoiceSpec> = {
     titleUppercase: false,
     titleLetterSpacing: -0.6,
     bylineFamily: SANS_BYLINE,
-    titleCharsPerLine: 17,
+    titleCharsPerLine: 18,
+    titleAdvanceRatio: 0.58,
     bylineMaxChars: 36,
   },
 };
@@ -374,6 +390,7 @@ function buildStandardMood(voice: Voice, palette: Palette): Mood {
     textPrimary: p.textPrimary,
     textMuted: p.textMuted,
     titleCharsPerLine: v.titleCharsPerLine,
+    titleAdvanceRatio: v.titleAdvanceRatio,
     bylineMaxChars: v.bylineMaxChars,
   };
 }
@@ -394,6 +411,7 @@ const MATRIX_MOOD: Mood = {
   textMuted: '#5A8A55',
   accentOverride: '#7DFF6E',
   titleCharsPerLine: VOICE_SPECS.mono.titleCharsPerLine,
+  titleAdvanceRatio: VOICE_SPECS.mono.titleAdvanceRatio,
   bylineMaxChars: VOICE_SPECS.mono.bylineMaxChars,
 };
 
