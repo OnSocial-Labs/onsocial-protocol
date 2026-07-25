@@ -73,7 +73,9 @@ export function ScarceListSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      // Tall commerce form — open full, no mid peek. peekRatio 1 ⇒ drag ~96px dismisses.
       initialDetent="full"
+      peekRatio={1}
       panelClassName={`profile-support-sheet-panel${
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}

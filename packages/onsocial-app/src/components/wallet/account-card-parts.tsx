@@ -247,7 +247,7 @@ export function AccountWalletZone({
   return (
     <section
       id="account-sheet-wallet-zone"
-      className={`account-card-wallet-zone os-surface-panel${socialHelpOpen ? ' is-social-help-open' : ''}`}
+      className="account-card-wallet-zone os-surface-panel"
       aria-label={APP_SOCIAL_WALLET_ARIA_LABEL}
     >
       <div className="account-wallet-balance-row">
@@ -271,7 +271,7 @@ export function AccountWalletZone({
             onClick={() => setSocialHelpOpen((open) => !open)}
             aria-label={APP_SOCIAL_HELP_TITLE}
             aria-expanded={socialHelpOpen}
-            aria-controls="account-social-help-dialog"
+            aria-haspopup="dialog"
           >
             <QuestionMarkCircleIcon
               aria-hidden
@@ -400,10 +400,7 @@ export function AccountShortcutDock({
         onClick={onClose}
         aria-label="Discover profiles"
       >
-        <SearchIcon
-          aria-hidden
-          className="account-shortcut-dock-icon"
-        />
+        <SearchIcon aria-hidden className="account-shortcut-dock-icon" />
       </Link>
       <a
         className="os-surface-tile account-shortcut-dock-button"
@@ -413,10 +410,7 @@ export function AccountShortcutDock({
         onClick={onClose}
         aria-label="View on explorer"
       >
-        <ExternalLinkIcon
-          aria-hidden
-          className="account-shortcut-dock-icon"
-        />
+        <ExternalLinkIcon aria-hidden className="account-shortcut-dock-icon" />
       </a>
       <button
         type="button"

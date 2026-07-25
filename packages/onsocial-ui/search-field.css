@@ -131,10 +131,14 @@
 .search-field.os-floating-panel-search {
   border: 0;
   border-radius: 9999px;
-  background: var(--os-surface-fill-hover-soft);
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface, transparent)) 36%,
+    var(--os-action-bg, rgb(var(--fg-rgb) / 0.07))
+  );
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
   color: var(--os-surface-muted);
   transition:
     background 160ms ease,
@@ -147,14 +151,31 @@
 .search-field.os-floating-panel-search:hover,
 .search-field.os-floating-panel-search:focus-within {
   border: 0;
-  background: var(--os-surface-fill-hover);
+  background: color-mix(
+    in srgb,
+    var(--glass-surface-os, var(--glass-surface, transparent)) 30%,
+    var(--os-action-bg-hover, rgb(var(--fg-rgb) / 0.1))
+  );
   color: var(--os-surface-emphasis);
 }
 
 .search-field.sheet-control:focus-within,
 .search-field.os-floating-panel-search:focus-within {
   outline: none;
-  box-shadow: 0 0 0 1px var(--os-surface-ring);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .search-field.sheet-control,
+  .search-field.os-floating-panel-search,
+  .search-field.sheet-control:hover,
+  .search-field.sheet-control:focus-within,
+  .search-field.os-floating-panel-search:hover,
+  .search-field.os-floating-panel-search:focus-within {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--os-surface-fill-hover-soft);
+  }
 }
 
 /* Neutralize floating-panel nested overrides so SearchField stays one look. */

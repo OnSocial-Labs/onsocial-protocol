@@ -1,9 +1,16 @@
 'use client';
 
-import { useCallback, useId, useMemo, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import { ProfileSupportForm } from '@/components/portfolio/profile-support-form';
+import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -14,6 +21,7 @@ interface ProfileSupportSheetProps {
   pageAccountId: string;
   profileName?: string | null;
   avatarUrl?: string | null;
+  /** Page owner mood when already known (portfolio). Otherwise fetched. */
   mood?: ResolvedMood | null;
   onOpenChange: (open: boolean) => void;
 }
@@ -39,12 +47,14 @@ export function ProfileSupportSheet({
   const sheetOpen = open && !closing;
   const name = displayName(pageAccountId, profileName ?? undefined);
   const handle = fallbackLabel(pageAccountId);
+  const fetchedMood = usePageOwnerMood(pageAccountId, open || closing);
+  const effectiveMood = mood ?? fetchedMood;
   const panelStyle = useMemo(
     () =>
-      mood
-        ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
+      effectiveMood
+        ? (supportSheetPanelStyle(effectiveMood.cssVars) as CSSProperties)
         : undefined,
-    [mood]
+    [effectiveMood]
   );
 
   // Remount the form each open so amount/presets reset without an effect.
@@ -70,9 +80,11 @@ export function ProfileSupportSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
-      moodId={mood?.id}
+      moodId={effectiveMood?.id}
       panelStyle={panelStyle}
       panelClassName="profile-support-sheet-panel"
+      initialDetent="full"
+      peekRatio={1}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close support"

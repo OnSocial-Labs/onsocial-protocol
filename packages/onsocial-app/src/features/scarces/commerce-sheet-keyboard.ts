@@ -7,7 +7,7 @@ import {
 } from '@/hooks/use-visual-viewport-sheet';
 
 /** Cap content-sized commerce sheets; keyboard open clamps to visual viewport. */
-export const COMMERCE_SHEET_MAX_HEIGHT_PX = 640;
+export const COMMERCE_SHEET_MAX_HEIGHT_PX = 736;
 
 /**
  * Lift/clamp GlassSheet panels above the mobile keyboard (composer pattern),

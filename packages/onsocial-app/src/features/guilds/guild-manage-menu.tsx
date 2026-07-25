@@ -1,17 +1,15 @@
 'use client';
 
+import { useCallback, useId, useState } from 'react';
 import {
-  FloatingPanelMenu,
+  Divider,
+  GlassSheet,
+  SheetHeader,
   UserPlusFillIcon,
-  osFloatingPanelBodyClassName,
   osFloatingPanelCountClassName,
-  osFloatingPanelHeaderActiveClassName,
-  osFloatingPanelHeaderClassName,
-  osFloatingPanelHeaderLabelClassName,
-  osFloatingPanelItemClassName,
   osIconActionClassName,
-  useDropdown,
 } from '@onsocial/ui';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
 export type GuildManageSheetId =
@@ -44,29 +42,71 @@ function CountBadge({ count }: { count: number }) {
   );
 }
 
+interface ManageAction {
+  id: GuildManageSheetId;
+  label: string;
+  count?: number;
+}
+
+/**
+ * Banner manage control — icon opens the shared content-hugging action drawer
+ * (same open/spacing as Standing / choice drawers), not an anchored dropdown.
+ */
 export function GuildManageMenu({
   pendingRequestCount,
   memberCount,
   activeProposalCount,
   accessGated,
+  memberDriven: _memberDriven,
   canAddMember,
   canReviewRequests = false,
   onOpenSheet,
 }: GuildManageMenuProps) {
-  const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
-  const menuLabel = 'Guild';
+  void _memberDriven;
+  const titleId = useId();
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const sheetOpen = open && !closing;
   const showRequests = accessGated && canReviewRequests;
 
+  useScrollLock(sheetOpen);
+
+  const requestClose = useCallback(() => {
+    setClosing(true);
+  }, []);
+
+  const handleClosed = useCallback(() => {
+    setClosing(false);
+    setOpen(false);
+  }, []);
+
+  const actions: ManageAction[] = [
+    ...(showRequests
+      ? [
+          {
+            id: 'requests' as const,
+            label: 'Member requests',
+            count: pendingRequestCount,
+          },
+        ]
+      : []),
+    { id: 'members', label: 'Members', count: memberCount },
+    { id: 'proposals', label: 'Proposals', count: activeProposalCount },
+    ...(canAddMember
+      ? [{ id: 'add-member' as const, label: 'Add member' }]
+      : []),
+  ];
+
   return (
-    <div className="guild-manage-menu" ref={containerRef}>
+    <div className="guild-manage-menu">
       <button
         type="button"
         className={`${osIconActionClassName} guild-manage-menu-trigger${
           showRequests && pendingRequestCount > 0 ? ' has-badge' : ''
-        }${isOpen ? ' is-open' : ''}`}
-        onClick={toggle}
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
+        }${sheetOpen ? ' is-open' : ''}`}
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={sheetOpen}
         aria-label={
           showRequests && pendingRequestCount > 0
             ? `Guild menu, ${pendingRequestCount} pending requests`
@@ -84,77 +124,63 @@ export function GuildManageMenu({
         ) : null}
       </button>
 
-      <FloatingPanelMenu
-        ref={panelRef}
-        open={isOpen}
-        align="right"
-        offset="sm"
-        className="guild-manage-menu-panel"
-        role="menu"
-        aria-label={menuLabel}
+      <GlassSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleClosed}
+        tone="os"
+        initialDetent="full"
+        peekRatio={1}
+        zIndex={60}
+        ariaLabelledBy={titleId}
+        backdropLabel="Close guild menu"
+        panelClassName="scarce-choice-sheet-panel"
+        bodyClassName="scarce-choice-sheet-body"
+        header={
+          <>
+            <SheetHeader
+              titleId={titleId}
+              title="Guild"
+              subtitle="Members & access"
+              onClose={requestClose}
+              closeAriaLabel="Close guild menu"
+            />
+            <Divider variant="section" className="glass-sheet-header-divider" />
+          </>
+        }
       >
-        <div className={osFloatingPanelHeaderClassName}>
-          <p className={osFloatingPanelHeaderLabelClassName}>{menuLabel}</p>
-          <p className={osFloatingPanelHeaderActiveClassName}>Members & access</p>
+        <div
+          className="scarce-choice-sheet-list"
+          role="menu"
+          aria-label="Guild"
+        >
+          <div className="scarce-choice-sheet-section">
+            {actions.map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                role="menuitem"
+                className="scarce-choice-sheet-option"
+                onClick={() => {
+                  onOpenSheet(action.id);
+                  requestClose();
+                }}
+              >
+                {action.count != null ? (
+                  <span className="scarce-choice-sheet-leading">
+                    <CountBadge count={action.count} />
+                  </span>
+                ) : null}
+                <span className="scarce-choice-sheet-option-copy">
+                  <span className="scarce-choice-sheet-option-label">
+                    {action.label}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-
-        <div className={osFloatingPanelBodyClassName}>
-          {showRequests ? (
-            <button
-              type="button"
-              role="menuitem"
-              className={osFloatingPanelItemClassName}
-              onClick={() => {
-                onOpenSheet('requests');
-                close();
-              }}
-            >
-              <span>Member requests</span>
-              <CountBadge count={pendingRequestCount} />
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            role="menuitem"
-            className={osFloatingPanelItemClassName}
-            onClick={() => {
-              onOpenSheet('members');
-              close();
-            }}
-          >
-            <span>Members</span>
-            <CountBadge count={memberCount} />
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            className={osFloatingPanelItemClassName}
-            onClick={() => {
-              onOpenSheet('proposals');
-              close();
-            }}
-          >
-            <span>Proposals</span>
-            <CountBadge count={activeProposalCount} />
-          </button>
-
-          {canAddMember ? (
-            <button
-              type="button"
-              role="menuitem"
-              className={osFloatingPanelItemClassName}
-              onClick={() => {
-                onOpenSheet('add-member');
-                close();
-              }}
-            >
-              <span>Add member</span>
-            </button>
-          ) : null}
-        </div>
-      </FloatingPanelMenu>
+      </GlassSheet>
     </div>
   );
 }

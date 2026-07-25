@@ -209,6 +209,8 @@ export async function buildMintAction(
       if (avatarDataUri) {
         creator = { ...creator, avatar: avatarDataUri };
       } else {
+        // Truly unset — never silently drop a face that was set;
+        // resolveCreatorAvatarDataUri throws ComposeError(502) instead.
         const { avatar: _omit, ...rest } = creator;
         creator = rest;
       }

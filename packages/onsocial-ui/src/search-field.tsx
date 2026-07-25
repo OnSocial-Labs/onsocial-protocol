@@ -26,6 +26,8 @@ export interface SearchFieldProps {
    * vertical divider after the glyph.
    */
   leadingIcon?: ReactNode;
+  /** Focus the input on mount (GlassSheet prefers this over the close button). */
+  autoFocus?: boolean;
   className?: string;
   onFocus?: FocusEventHandler<HTMLInputElement>;
   onBlur?: FocusEventHandler<HTMLInputElement>;
@@ -45,6 +47,7 @@ export function SearchField({
   ariaLabel,
   chrome = 'sheet',
   leadingIcon,
+  autoFocus = false,
   className = '',
   onFocus,
   onBlur,
@@ -88,6 +91,7 @@ export function SearchField({
         placeholder={placeholder}
         maxLength={maxLength}
         aria-label={ariaLabel ?? placeholder}
+        autoFocus={autoFocus}
         className="search-field-input"
       />
       <span className="search-field-clear-slot" aria-hidden={!value.trim()}>

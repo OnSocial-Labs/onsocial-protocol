@@ -81,11 +81,13 @@ export {
   GiftIcon,
   GlobeIcon,
   HeartIcon,
+  ImageIcon,
   LinkIcon,
   LogoutIcon,
   MessageIcon,
   MessageRoundIcon,
   MultiplyIcon,
+  NoteTextIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
   RepeatIcon,
@@ -94,6 +96,7 @@ export {
   SlidersHorizontalIcon,
   TrashIcon,
   UserIcon,
+  VideoPlayerIcon,
   type MageStrokeIconProps,
 } from './mage-stroke-icons.js';
 export {

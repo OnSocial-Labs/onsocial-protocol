@@ -19,11 +19,13 @@ import {
   GiftIcon,
   GlobeIcon,
   HeartIcon,
+  ImageIcon,
   LinkIcon,
   LogoutIcon,
   MessageIcon,
   MessageRoundIcon,
   MultiplyIcon,
+  NoteTextIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
   RepeatIcon,
@@ -32,6 +34,7 @@ import {
   SlidersHorizontalIcon,
   TrashIcon,
   UserIcon,
+  VideoPlayerIcon,
 } from './mage-stroke-icons.js';
 
 describe('mage stroke icons', () => {
@@ -50,9 +53,11 @@ describe('mage stroke icons', () => {
     expect(typeof FireBIcon).toBe('function');
     expect(typeof FireIcon).toBe('function');
     expect(typeof HeartIcon).toBe('function');
+    expect(typeof ImageIcon).toBe('function');
     expect(typeof LinkIcon).toBe('function');
     expect(typeof MessageIcon).toBe('function');
     expect(typeof MessageRoundIcon).toBe('function');
+    expect(typeof NoteTextIcon).toBe('function');
     expect(typeof PlusIcon).toBe('function');
     expect(typeof QuestionMarkCircleIcon).toBe('function');
     expect(typeof RepeatIcon).toBe('function');
@@ -68,5 +73,6 @@ describe('mage stroke icons', () => {
     expect(typeof DotsHorizontalIcon).toBe('function');
     expect(typeof DotsVerticalIcon).toBe('function');
     expect(typeof SlidersHorizontalIcon).toBe('function');
+    expect(typeof VideoPlayerIcon).toBe('function');
   });
 });

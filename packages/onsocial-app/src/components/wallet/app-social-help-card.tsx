@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
-import { OsNoticeCard } from '@/components/ui/os-notice-card';
+import { useCallback, useEffect, useId, useState } from 'react';
 import {
+  Divider,
+  GlassSheet,
+  OsSheetAction,
+  OsSheetActions,
+  SheetHeader,
+} from '@onsocial/ui';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
+import {
+  APP_SOCIAL_HELP_DETAIL,
   APP_SOCIAL_HELP_SUMMARY,
   APP_SOCIAL_HELP_TITLE,
 } from '@/lib/app-reward-constants';
@@ -13,70 +20,64 @@ interface AppSocialHelpCardProps {
   onClose: () => void;
 }
 
+/** Content-hugging info drawer — same open/spacing as choice drawers. */
 export function AppSocialHelpCard({ open, onClose }: AppSocialHelpCardProps) {
   const titleId = useId();
-  const gotItRef = useRef<HTMLButtonElement>(null);
+  const [closing, setClosing] = useState(false);
+  const sheetOpen = open && !closing;
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    gotItRef.current?.focus();
+    if (open) setClosing(false);
   }, [open]);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
+  useScrollLock(sheetOpen);
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
+  const requestClose = useCallback(() => {
+    setClosing(true);
+  }, []);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, open]);
-
-  if (!open) {
-    return null;
-  }
+  const handleClosed = useCallback(() => {
+    setClosing(false);
+    onClose();
+  }, [onClose]);
 
   return (
-    <div className="account-social-help-layer">
-      <button
-        type="button"
-        className="account-social-help-backdrop"
-        aria-label="Close help"
-        onClick={onClose}
-      />
-      <OsNoticeCard
-        id="account-social-help-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="account-social-help-card"
-        align="center"
-        shell
-        title={APP_SOCIAL_HELP_TITLE}
-        titleId={titleId}
-        body={APP_SOCIAL_HELP_SUMMARY}
-        footer={
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              ref={gotItRef}
-              type="button"
-              variant="primary"
-              ready
-              onClick={onClose}
-            >
-              Got it
-            </OsSheetAction>
-          </OsSheetActions>
-        }
-      />
-    </div>
+    <GlassSheet
+      open={sheetOpen}
+      onClose={requestClose}
+      onClosed={handleClosed}
+      tone="os"
+      initialDetent="full"
+      peekRatio={1}
+      zIndex={60}
+      ariaLabelledBy={titleId}
+      backdropLabel="Close help"
+      panelClassName="scarce-choice-sheet-panel"
+      bodyClassName="scarce-choice-sheet-body account-social-help-sheet-body"
+      header={
+        <>
+          <SheetHeader
+            titleId={titleId}
+            title={APP_SOCIAL_HELP_TITLE}
+            onClose={requestClose}
+            closeAriaLabel="Close help"
+          />
+          <Divider variant="section" className="glass-sheet-header-divider" />
+        </>
+      }
+    >
+      <p className="account-social-help-summary">{APP_SOCIAL_HELP_SUMMARY}</p>
+      <p className="account-social-help-detail">{APP_SOCIAL_HELP_DETAIL}</p>
+      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type="button"
+          variant="primary"
+          ready
+          onClick={requestClose}
+        >
+          Got it
+        </OsSheetAction>
+      </OsSheetActions>
+    </GlassSheet>
   );
 }

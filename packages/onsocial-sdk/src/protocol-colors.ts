@@ -8,8 +8,9 @@ export const PROTOCOL_COLORS = {
   blueHover: '#93c5fd',
   /* TEMP trial: soft purple — matches soft NEAR green energy */
   purple: '#c084fc',
-  /* TEMP trial: mint green (system-wide) — revert to #4ade80 with protocol.css */
-  green: '#02db99',
+  /* TEMP trial: protocol green — keep with protocol.css */
+  green: '#00d084',
+  greenHover: '#00e5a0',
   amber: '#fbbf24',
   pink: '#ec4899',
   red: '#f87171',

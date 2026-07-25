@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import {
+  useCallback,
+  useId,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
@@ -8,7 +14,9 @@ import {
   PostAmplifyForm,
   type PostAmplifySuccessDetail,
 } from '@/features/home/post-amplify-form';
+import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 interface PostAmplifySheetProps {
@@ -34,6 +42,17 @@ export function PostAmplifySheet({
   const sheetOpen = open && !closing && post != null;
   const name = post ? displayName(post.accountId, authorName ?? undefined) : '';
   const handle = post ? fallbackLabel(post.accountId) : '';
+  const authorMood = usePageOwnerMood(
+    post?.accountId,
+    Boolean(open || closing)
+  );
+  const panelStyle = useMemo(
+    () =>
+      authorMood
+        ? (supportSheetPanelStyle(authorMood.cssVars) as CSSProperties)
+        : undefined,
+    [authorMood]
+  );
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -57,7 +76,11 @@ export function PostAmplifySheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      moodId={authorMood?.id}
+      panelStyle={panelStyle}
       panelClassName="profile-support-sheet-panel"
+      initialDetent="full"
+      peekRatio={1}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close amplify"

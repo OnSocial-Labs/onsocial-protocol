@@ -7,7 +7,7 @@ import {
   InformationCircleFillIcon,
   PlusIcon,
   ProtocolMotionArrow,
-  SheetCloseButton,
+  SheetHeader,
 } from '@onsocial/ui';
 import {
   GUILD_SPACE_KIND_OPTIONS,
@@ -77,7 +77,8 @@ function WritersShareValue({
 
 function writersShareAriaLabel(display: GuildSpaceWritersShareDisplay): string {
   if (display.kind === 'loading') return 'Loading who can share';
-  if (display.kind === 'leaders-only') return 'Leaders only. View who can share';
+  if (display.kind === 'leaders-only')
+    return 'Leaders only. View who can share';
   return `${display.count} can share. View who can share`;
 }
 
@@ -165,7 +166,8 @@ function GuildRoomFactsSheet({
         onClose();
       }}
       tone="os"
-      initialDetent="peek"
+      initialDetent="full"
+      peekRatio={1}
       zIndex={56}
       presentation="swap"
       ariaLabelledBy={titleId}
@@ -174,21 +176,13 @@ function GuildRoomFactsSheet({
       bodyClassName="guild-facts-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-facts-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    {space.title}
-                  </h2>
-                  <p className="discover-sheet-subtitle">Room details</p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title={space.title}
+            subtitle="Room details"
+            onClose={requestClose}
+            closeAriaLabel="Close room info"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
@@ -234,7 +228,10 @@ function GuildRoomFactsSheet({
         <section className="guild-facts-section">
           <h3 className="guild-facts-section-title">Details</h3>
           <div className="guild-facts-section-rows">
-            <GuildRoomFactsRow label="Type" value={spaceKindLabel(space.kind)} />
+            <GuildRoomFactsRow
+              label="Type"
+              value={spaceKindLabel(space.kind)}
+            />
             <GuildRoomFactsRow
               label="Who sees this"
               value={audienceLabel(space.audience)}
@@ -272,9 +269,7 @@ export function GuildFeedFilterList({
 
   return (
     <>
-      <div
-        className={`guild-feed-filter-pin${pinned ? ' is-pinned' : ''}`}
-      >
+      <div className={`guild-feed-filter-pin${pinned ? ' is-pinned' : ''}`}>
         <div className="guild-feed-filter-list" aria-label="Guild rooms">
           <button
             className={`guild-feed-filter-button${selectedFeedFilterId === 'all' ? ' is-active' : ''}`}

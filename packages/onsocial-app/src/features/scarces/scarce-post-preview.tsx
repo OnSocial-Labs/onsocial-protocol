@@ -1,13 +1,17 @@
 'use client';
 
 import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { SheetCloseButton } from '@onsocial/ui';
 import type {
   CardFormat,
   MarkColor,
@@ -21,6 +25,8 @@ import {
   previewTextCard,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { parsePostText } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
 import {
@@ -34,6 +40,7 @@ import {
 const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
+const LIGHTBOX_EXIT_MS = 180;
 
 /**
  * Live preview renders generated cards as inline SVG (not `<img
@@ -119,13 +126,22 @@ export function ScarcePostPreview({
   variant = 'sheet',
 }: ScarcePostPreviewProps) {
   const titleId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [entered, setEntered] = useState(false);
   const [fallbackIssuedAt] = useState(() => Date.now());
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
     getServerMountedSnapshot
   );
+  const lightboxOpen = expanded && !closing;
+  const viewport = useVisualViewportSheetMetrics(expanded || closing);
+  useScrollLock(lightboxOpen);
+
   const cover = postScarceCoverImage(post);
   const listingCover = mediaUrl?.trim() || null;
   const isPhotoCard = cardFormat === 'receipt' || cardFormat === 'proof';
@@ -137,14 +153,82 @@ export function ScarcePostPreview({
   const avatarUrl = creatorAvatarUrl?.trim() || '';
   const photoUrl = isPhotoCard ? cover?.url?.trim() || '' : '';
 
+  /** Pin the overlay to the visible viewport so a lingering keyboard cannot clip it. */
+  const lightboxStyle = useMemo((): CSSProperties | undefined => {
+    if (typeof window === 'undefined') return undefined;
+    const vv = window.visualViewport;
+    if (!viewport.isMobile || !vv || viewport.height <= 0) return undefined;
+    return {
+      top: vv.offsetTop,
+      left: vv.offsetLeft,
+      width: vv.width,
+      height: vv.height,
+      // Prefer visual viewport height over layout `dvh` while the keyboard is up.
+      ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
+    };
+  }, [viewport.height, viewport.isMobile]);
+
+  const requestClose = useCallback(() => {
+    setClosing(true);
+    setEntered(false);
+  }, []);
+
   useEffect(() => {
-    if (!expanded) return;
+    if (!closing) return;
+    const timer = window.setTimeout(() => {
+      setClosing(false);
+      setExpanded(false);
+      triggerRef.current?.focus();
+    }, LIGHTBOX_EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [closing]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    // Dismiss the mobile keyboard before measuring / focusing chrome.
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      active !== closeRef.current &&
+      (active.tagName === 'INPUT' ||
+        active.tagName === 'TEXTAREA' ||
+        active.isContentEditable)
+    ) {
+      active.blur();
+    }
+    const frame = window.requestAnimationFrame(() => {
+      setEntered(true);
+      closeRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [lightboxOpen]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setExpanded(false);
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        requestClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !panelRef.current) return;
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [expanded]);
+  }, [lightboxOpen, requestClose]);
 
   const textCardSvg = useMemo(() => {
     if (listingCover || (cover && !isPhotoCard)) return null;
@@ -196,6 +280,7 @@ export function ScarcePostPreview({
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         className={[
           'scarce-post-preview',
@@ -208,10 +293,12 @@ export function ScarcePostPreview({
           .join(' ')}
         aria-label="Preview card"
         aria-haspopup="dialog"
-        aria-expanded={expanded}
+        aria-expanded={lightboxOpen}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          setClosing(false);
+          setEntered(false);
           setExpanded(true);
         }}
       >
@@ -225,18 +312,28 @@ export function ScarcePostPreview({
         )}
       </button>
 
-      {mounted && expanded
+      {mounted && (expanded || closing)
         ? createPortal(
             <div
-              className="scarce-card-lightbox"
+              ref={panelRef}
+              className={`scarce-card-lightbox${entered && !closing ? ' is-open' : ''}${closing ? ' is-closing' : ''}`}
               role="dialog"
               aria-modal="true"
               aria-labelledby={titleId}
-              onClick={() => setExpanded(false)}
+              style={lightboxStyle}
+              onClick={requestClose}
             >
               <p id={titleId} className="sr-only">
                 Card preview
               </p>
+              <div className="scarce-card-lightbox-chrome">
+                <SheetCloseButton
+                  ref={closeRef}
+                  onClick={requestClose}
+                  ariaLabel="Close preview"
+                  className="scarce-card-lightbox-close"
+                />
+              </div>
               {inlineSvg ? (
                 <div
                   className="scarce-card-lightbox-asset scarce-card-lightbox-svg"

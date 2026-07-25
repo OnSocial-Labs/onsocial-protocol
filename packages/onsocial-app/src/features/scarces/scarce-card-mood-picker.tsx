@@ -19,6 +19,7 @@ import { ScarceChoiceField } from '@/features/scarces/scarce-choice-field';
 import {
   ScarceColourSwatch,
   ScarceFinishSwatch,
+  ScarceFormatSwatch,
   ScarceMarkSwatch,
   resolveMarkPreviewColor,
 } from '@/features/scarces/scarce-choice-visuals';
@@ -105,6 +106,7 @@ export function ScarceCardMoodPicker({
       value: key,
       label: spec.label,
       description: `Up to ${spec.maxCharacters} characters`,
+      leading: <ScarceFormatSwatch format={key} />,
     };
   });
 
@@ -162,9 +164,19 @@ export function ScarceCardMoodPicker({
         options={formatOptions}
         disabled={disabled}
         copy="Cover layout and character limit."
+        chipLeading={
+          <ScarceFormatSwatch format={value.cardFormat} size="chip" />
+        }
         onChange={(next) => {
-          const nextFormat = CARD_FORMAT_REGISTRY[next];
-          const nextPalette = nextFormat.defaultPalette;
+          const prevDefault =
+            CARD_FORMAT_REGISTRY[value.cardFormat].defaultPalette;
+          const nextDefault = CARD_FORMAT_REGISTRY[next].defaultPalette;
+          // Keep a Finish the user already picked. Only adopt the new
+          // format default when they were still on the previous default.
+          const keepFinish = value.cardPalette !== prevDefault;
+          const nextPalette = keepFinish
+            ? value.cardPalette
+            : nextDefault;
           onChange(
             patch(value, {
               cardFormat: next,

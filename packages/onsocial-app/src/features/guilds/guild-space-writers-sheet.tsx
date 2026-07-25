@@ -7,7 +7,7 @@ import {
   Divider,
   GlassSheet,
   ProfileAvatar,
-  SheetCloseButton,
+  SheetHeader,
 } from '@onsocial/ui';
 import {
   OsSheetAction,
@@ -111,10 +111,7 @@ export function GuildSpaceWritersSheet({
         client.query.groups.membersOf(groupId, { limit: 120 }),
       ]);
       const ownerId = readGuildOwnerId(config);
-      const reconciled = reconcileGuildMemberRoster(
-        page.items ?? [],
-        ownerId
-      );
+      const reconciled = reconcileGuildMemberRoster(page.items ?? [], ownerId);
       const roleFlags = await fetchGuildMemberRoleFlags(
         client,
         groupId,
@@ -201,8 +198,7 @@ export function GuildSpaceWritersSheet({
     : members.filter((member) => grantedIds.has(member.memberId));
 
   const hasList = leaders.length > 0 || candidateRows.length > 0;
-  const showEmptyManage =
-    canEdit && leaders.length > 0 && members.length === 0;
+  const showEmptyManage = canEdit && leaders.length > 0 && members.length === 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -320,30 +316,23 @@ export function GuildSpaceWritersSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
-      initialDetent="peek"
+      initialDetent="full"
+      peekRatio={1}
       zIndex={58}
       presentation="swap"
       ariaLabelledBy={titleId}
       backdropLabel="Close who can share"
-      panelClassName="guild-add-space-sheet-panel"
-      bodyClassName="guild-add-space-sheet-body"
+      panelClassName="guild-facts-sheet-panel"
+      bodyClassName="guild-facts-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-add-space-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Who can share
-                  </h2>
-                  <p className="discover-sheet-subtitle">{spaceTitle}</p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Who can share"
+            subtitle={spaceTitle}
+            onClose={requestClose}
+            closeAriaLabel="Close who can share"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
@@ -361,9 +350,7 @@ export function GuildSpaceWritersSheet({
 
         {loadState === 'ready' && !hasList ? (
           <div className="guild-manage-sheet-empty">
-            <p className="guild-manage-sheet-empty-primary">
-              No members yet
-            </p>
+            <p className="guild-manage-sheet-empty-primary">No members yet</p>
             <p className="discover-sheet-subtitle">
               Add members, then choose who can share here.
             </p>
@@ -431,7 +418,9 @@ export function GuildSpaceWritersSheet({
                           <span className="standing-row-copy">
                             <span className="standing-row-head">
                               <span className="standing-row-name-row guild-member-row-name-row">
-                                <span className="standing-row-name">{name}</span>
+                                <span className="standing-row-name">
+                                  {name}
+                                </span>
                                 {showRoleBadge ? (
                                   <GuildMemberRoleBadge member={member} />
                                 ) : null}
@@ -478,7 +467,9 @@ export function GuildSpaceWritersSheet({
                           <span className="standing-row-copy">
                             <span className="standing-row-head">
                               <span className="standing-row-name-row guild-member-row-name-row">
-                                <span className="standing-row-name">{name}</span>
+                                <span className="standing-row-name">
+                                  {name}
+                                </span>
                                 {showRoleBadge ? (
                                   <GuildMemberRoleBadge member={member} />
                                 ) : null}

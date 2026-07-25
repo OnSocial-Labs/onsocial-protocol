@@ -130,6 +130,8 @@ export function ScarceOffersSheet({
       onClosed={handleSheetClosed}
       tone="os"
       panelClassName="profile-support-sheet-panel"
+      initialDetent="full"
+      peekRatio={1}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close offers"

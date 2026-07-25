@@ -240,11 +240,14 @@ function useSheetFocusTrap(
         : null;
 
     const focusables = getFocusableElements(panel);
-    const initialTarget = focusables[0] ?? panel;
+    const autoFocusTarget = focusables.find((element) =>
+      element.hasAttribute('autofocus')
+    );
+    const initialTarget = autoFocusTarget ?? focusables[0] ?? panel;
     if (initialTarget === panel) {
       panel.tabIndex = -1;
     }
-    initialTarget.focus();
+    initialTarget.focus({ preventScroll: true });
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') {

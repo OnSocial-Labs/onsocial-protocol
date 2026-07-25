@@ -68,6 +68,36 @@ describe('themes catalog', () => {
     expect(svg).not.toContain('Build permanence');
   });
 
+  it('keeps mark→title air constant and cap-height-aligns the title pad', () => {
+    // Cap ratio 0.7 × 44 → baseline sits at round(visualTop + 30.8).
+    const noMark = generateTextCardSvg({
+      title: 'Hi',
+      format: 'thought',
+      theme: { bg: 'thought-night' },
+    });
+    // Pad 56 → caps on 56 → baseline 87.
+    expect(noMark).toMatch(/<text[^>]*y="87"[^>]*font-size="44"/);
+
+    const rule = generateTextCardSvg({
+      title: 'Hi',
+      creator: { accountId: 'a.near' },
+      format: 'thought',
+      theme: { bg: 'thought-night', markShape: 'rule' },
+    });
+    const bar = generateTextCardSvg({
+      title: 'Hi',
+      creator: { accountId: 'a.near' },
+      format: 'thought',
+      theme: { bg: 'thought-night', markShape: 'bar' },
+    });
+    const ruleY = Number(rule.match(/<text[^>]*y="(\d+)"[^>]*font-size="44"/)?.[1]);
+    const barY = Number(bar.match(/<text[^>]*y="(\d+)"[^>]*font-size="44"/)?.[1]);
+    // Mark heights: rule 3, bar 24 → title drops by exactly 21.
+    expect(ruleY).toBe(118);
+    expect(barY).toBe(139);
+    expect(barY - ruleY).toBe(21);
+  });
+
   it('contains 6 voices and 11 palettes', () => {
     expect(VOICES).toEqual([
       'thought',

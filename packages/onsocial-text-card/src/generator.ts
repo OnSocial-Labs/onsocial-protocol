@@ -55,7 +55,14 @@ const MARK_DOT_R = 5; // radius
 const MARK_SQUARE = 10;
 const MARK_BAR_W = 4;
 const MARK_BAR_H = 24;
-const MARK_GAP_BELOW = 32; // px reserved between mark and title
+/** Clear air between the mark's bottom edge and the title's cap line. */
+const MARK_GAP_BELOW = 28;
+/**
+ * Cap-height ≈ this fraction of `font-size` for Latin display faces.
+ * Title baseline = visualTop + fontSize × ratio so the pad edge meets
+ * the tops of capitals, not the em box (which floats above the glyphs).
+ */
+const TITLE_CAP_HEIGHT_RATIO = 0.7;
 
 // Title.
 // Auto-shrink ladder — try the largest first; drop a step if the text
@@ -656,6 +663,26 @@ export function formatProvenanceLine(
 }
 
 /** Render a single mark shape at the top-left corner. */
+function markHeight(shape: MarkShape): number {
+  switch (shape) {
+    case 'dot':
+      return MARK_DOT_R * 2;
+    case 'square':
+      return MARK_SQUARE;
+    case 'bar':
+      return MARK_BAR_H;
+    case 'rule':
+    default:
+      return MARK_RULE_H;
+  }
+}
+
+/** Title baseline so capital tops land on `visualTop`. */
+function titleBaselineY(visualTop: number, fontSize: number): number {
+  return Math.round(visualTop + fontSize * TITLE_CAP_HEIGHT_RATIO);
+}
+
+/** Render a single mark shape at the top-left corner. */
 function renderMark(shape: MarkShape, color: string): string {
   switch (shape) {
     case 'dot':
@@ -740,7 +767,9 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
 
   // ── Author mark ─────────────────────────────────────────────────────
   let markBlock = '';
-  let titleStartY = PADDING + titleFontSize;
+  // Cap-height compensate so the visual top of the title sits on the
+  // pad (or on the air below the mark), not on the em box above glyphs.
+  let titleStartY = titleBaselineY(PADDING, titleFontSize);
   if (creator) {
     const colorOverride = opts.theme?.markColor;
     const markColor =
@@ -750,7 +779,9 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
         ? MARK_COLOR_HEX[colorOverride as Exclude<MarkColor, 'auto'>]
         : SIGNATURE_PALETTE[paletteIndex(creator.accountId)];
     markBlock = `\n  ${renderMark(markShape, markColor)}`;
-    titleStartY = PADDING + MARK_GAP_BELOW + titleFontSize;
+    const titleVisualTop =
+      PADDING + markHeight(markShape) + MARK_GAP_BELOW;
+    titleStartY = titleBaselineY(titleVisualTop, titleFontSize);
   }
 
   const titleLetterSpacingAttr = mood.titleLetterSpacing

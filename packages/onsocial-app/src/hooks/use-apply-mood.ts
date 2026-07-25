@@ -11,6 +11,7 @@ import {
 } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { invalidatePageOwnerMoodCache } from '@/hooks/use-page-owner-mood';
 import { invalidateViewerCommittedMoodCache } from '@/hooks/use-viewer-wallet-mood-vars';
 import { accountIdsEqual } from '@/lib/account-match';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
@@ -74,6 +75,7 @@ export function useApplyMood(pageAccountId: string) {
           { wait: true }
         );
         invalidateViewerCommittedMoodCache(signingAccountId);
+        invalidatePageOwnerMoodCache(signingAccountId);
         router.refresh();
         return collectRelayTxHashes(response)[0] ?? '';
       } catch (err) {

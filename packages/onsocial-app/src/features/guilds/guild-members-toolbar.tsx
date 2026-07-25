@@ -1,26 +1,14 @@
 'use client';
 
+import { SearchField, osFloatingPanelCountClassName } from '@onsocial/ui';
 import {
-  ChevronDownIcon,
-  FloatingPanelMenu,
-  osFloatingPanelBodyClassName,
-  osFloatingPanelCountClassName,
-  osFloatingPanelHeaderActiveClassName,
-  osFloatingPanelHeaderClassName,
-  osFloatingPanelHeaderLabelClassName,
-  osFloatingPanelItemClassName,
-  osFloatingPanelTriggerChevronClassName,
-  osFloatingPanelTriggerClassName,
-  osFloatingPanelTriggerLabelClassName,
-  osFloatingPanelTriggerMetaClassName,
-  SearchField,
-  useDropdown,
-} from '@onsocial/ui';
+  ChoiceDrawerMenu,
+  type ChoiceOption,
+} from '@/components/ui/choice-drawer';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   countGuildMembersByRoleFilter,
   GUILD_MEMBER_ROLE_FILTERS,
-  guildMemberFilterLabel,
   type GuildMemberRoleFilter,
 } from '@/features/guilds/guild-member-filter';
 import { formatProfileCount } from '@/lib/profile-social-standings';
@@ -29,11 +17,9 @@ import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
 function CountBadge({
   count,
   loading = false,
-  inTrigger = false,
 }: {
   count: number;
   loading?: boolean;
-  inTrigger?: boolean;
 }) {
   if (loading) {
     return (
@@ -48,7 +34,7 @@ function CountBadge({
     <span
       className={`${osFloatingPanelCountClassName} os-floating-panel-count--standing${
         count === 0 ? ' is-zero' : ''
-      }${inTrigger ? '' : ''}`}
+      }`}
     >
       {formatProfileCount(count)}
     </span>
@@ -72,83 +58,33 @@ export function GuildMembersToolbar({
   onQueryChange,
   countsLoading = false,
 }: GuildMembersToolbarProps) {
-  const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
-  const activeLabel = guildMemberFilterLabel(roleFilter);
-  const activeCount = countGuildMembersByRoleFilter(members, roleFilter);
-  const menuLabel = 'Members';
+  const options: ChoiceOption<GuildMemberRoleFilter>[] =
+    GUILD_MEMBER_ROLE_FILTERS.map((option) => ({
+      value: option.id,
+      label: option.label,
+      leading: (
+        <CountBadge
+          count={countGuildMembersByRoleFilter(members, option.id)}
+          loading={countsLoading}
+        />
+      ),
+    }));
 
   return (
     <div className="standing-list-toolbar guild-members-toolbar">
-      <div className="standing-view-menu" ref={containerRef}>
-        <button
-          type="button"
-          className={`${osFloatingPanelTriggerClassName}${isOpen ? ' is-open' : ''}`}
-          onClick={toggle}
-          aria-haspopup="listbox"
-          aria-expanded={isOpen}
-          aria-label={
-            isOpen
-              ? `Close ${menuLabel.toLowerCase()} menu`
-              : `Open ${menuLabel.toLowerCase()} menu`
-          }
-        >
-          <span className={osFloatingPanelTriggerLabelClassName}>
-            {activeLabel}
-          </span>
-          <span className={osFloatingPanelTriggerMetaClassName}>
-            <CountBadge count={activeCount} loading={countsLoading} inTrigger />
-            <ChevronDownIcon
-              className={`${osFloatingPanelTriggerChevronClassName}${
-                isOpen ? ' is-open' : ''
-              }`}
-              aria-hidden
-            />
-          </span>
-        </button>
-
-        <FloatingPanelMenu
-          ref={panelRef}
-          open={isOpen}
-          align="left"
-          offset="sm"
-          className="standing-view-menu-panel"
-          role="listbox"
-          aria-label={menuLabel}
-        >
-          <div className={osFloatingPanelHeaderClassName}>
-            <p className={osFloatingPanelHeaderLabelClassName}>{menuLabel}</p>
-            <p className={osFloatingPanelHeaderActiveClassName}>
-              {activeLabel}
-            </p>
-          </div>
-
-          <div className={osFloatingPanelBodyClassName}>
-            {GUILD_MEMBER_ROLE_FILTERS.map((option) => {
-              const selected = option.id === roleFilter;
-              const count = countGuildMembersByRoleFilter(members, option.id);
-
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  className={`${osFloatingPanelItemClassName}${
-                    selected ? ' is-selected' : ''
-                  }`}
-                  onClick={() => {
-                    onRoleFilterChange(option.id);
-                    close();
-                  }}
-                >
-                  <span>{option.label}</span>
-                  <CountBadge count={count} loading={countsLoading} />
-                </button>
-              );
-            })}
-          </div>
-        </FloatingPanelMenu>
-      </div>
+      <ChoiceDrawerMenu
+        label="Members"
+        value={roleFilter}
+        options={options}
+        onChange={onRoleFilterChange}
+        triggerMeta={
+          <CountBadge
+            count={countGuildMembersByRoleFilter(members, roleFilter)}
+            loading={countsLoading}
+          />
+        }
+        className="standing-view-menu"
+      />
 
       <SearchField
         value={query}

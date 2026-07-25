@@ -191,6 +191,6 @@ export function standViewLabel(
   isSelf: boolean
 ): string {
   if (kind === 'mutual') return 'Solidarity';
-  if (kind === 'incoming') return isSelf ? 'With you' : 'With them';
-  return isSelf ? 'Standing with' : 'They stand with';
+  if (kind === 'incoming') return isSelf ? 'Stand with you' : 'Stand with them';
+  return isSelf ? 'You stand with' : 'They stand with';
 }

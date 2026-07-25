@@ -13,6 +13,44 @@
 @import '@onsocial/ui/search-field.css';
 @import './transaction-feedback-toast.css';
 
+/*
+ * Scarce text-card SVGs (and mint Resvg) ask for family name "Erica Type" —
+ * the face's real name-table id. next/font/local only registers "ericaType"
+ * for --font-erica-type, so without these aliases Letter cards silently
+ * render as DM Sans in the browser preview.
+ */
+@font-face {
+  font-family: 'Erica Type';
+  src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Erica Type';
+  src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Erika Type';
+  src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Erika Type';
+  src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Discover tabs close the header — never pair with the section hairline. */
 .overlay-header-portal:has(.discover-tab-bar) .glass-sheet-header-divider,
 .discover-sheet-header ~ .glass-sheet-header-divider {
@@ -128,17 +166,35 @@
 /* Support / scarce commerce sheets — content-sized, scroll when tall (auction). */
 .glass-sheet-panel.profile-support-sheet-panel {
   height: auto;
-  max-height: min(92dvh, 40rem);
+  /* List / buy sheets are denser now — open taller so preview + chips stay in view. */
+  max-height: min(94dvh, 46rem);
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
   /* Defaults when opened outside a mood portfolio (e.g. Market Sell). */
-  --signal-reputation: var(
-    --mood-signal-reputation,
-    var(--protocol-blue, #60a5fa)
-  );
+  --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
   --signal-standing: var(--mood-signal-standing, #5ecf9a);
   --signal-endorse: var(--mood-signal-endorse, #dab872);
   --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
+}
+
+/* Larger grip hit-target on commerce + content-hugging info sheets. */
+.glass-sheet-panel.profile-support-sheet-panel > .glass-sheet-drag,
+.glass-sheet-panel.scarce-choice-sheet-panel > .glass-sheet-drag,
+.glass-sheet-panel.guild-facts-sheet-panel > .glass-sheet-drag {
+  min-height: 1.65rem;
+  padding: 0.7rem 0 0.35rem;
+}
+
+.glass-sheet-panel.profile-support-sheet-panel
+  > .glass-sheet-drag
+  .glass-sheet-grip,
+.glass-sheet-panel.scarce-choice-sheet-panel
+  > .glass-sheet-drag
+  .glass-sheet-grip,
+.glass-sheet-panel.guild-facts-sheet-panel
+  > .glass-sheet-drag
+  .glass-sheet-grip {
+  opacity: 0.7;
 }
 
 .glass-sheet-panel.profile-support-sheet-panel > .glass-sheet-body {
@@ -1761,7 +1817,7 @@ a.os-surface-row {
     );
     --signal-reputation: color-mix(
       in srgb,
-      var(--mood-signal-reputation, var(--protocol-blue, #60a5fa))
+      var(--mood-signal-reputation, var(--protocol-green))
         var(--mood-light-tone),
       var(--mood-light-ink)
     );
@@ -1822,7 +1878,7 @@ a.os-surface-row {
       );
       --signal-reputation: color-mix(
         in srgb,
-        var(--mood-signal-reputation, var(--protocol-blue, #60a5fa))
+        var(--mood-signal-reputation, var(--protocol-green))
           var(--mood-light-tone),
         var(--mood-light-ink)
       );
@@ -10613,40 +10669,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .account-card-wallet-zone.is-social-help-open
-    > :not(.account-social-help-layer) {
-    pointer-events: none;
-  }
-
-  .account-social-help-layer {
-    position: absolute;
-    inset: 0;
-    z-index: 4;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.55rem 0.65rem;
-  }
-
-  .account-social-help-backdrop {
-    position: absolute;
-    inset: 0;
-    border: 0;
-    padding: 0;
-    background: rgb(var(--bg-rgb) / 0.42);
-    backdrop-filter: blur(10px) saturate(0.95);
-    -webkit-backdrop-filter: blur(10px) saturate(0.95);
-    cursor: default;
-    animation: account-editor-discard-dim-in 180ms ease both;
-  }
-
-  .account-social-help-card {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 17.5rem;
-  }
-
   .account-storage-body {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
   }
@@ -12452,12 +12474,6 @@ a.os-surface-row {
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .account-social-help-backdrop {
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-      background: rgb(var(--bg-rgb) / 0.72);
-    }
-
     .account-editor-form.is-discard-confirm .account-editor-form-main::after {
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
@@ -14707,25 +14723,78 @@ a.os-surface-row {
   }
 
   .scarce-card-lightbox {
+    --scarce-lightbox-vh: 100dvh;
     position: fixed;
     inset: 0;
     z-index: 80;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem;
-    background: rgb(0 0 0 / 0.58);
+    box-sizing: border-box;
+    padding: max(1.25rem, env(safe-area-inset-top, 0px))
+      max(1.25rem, env(safe-area-inset-right, 0px))
+      max(1.25rem, env(safe-area-inset-bottom, 0px))
+      max(1.25rem, env(safe-area-inset-left, 0px));
+    background: rgb(6 6 8 / 0);
     cursor: zoom-out;
+    opacity: 0;
+    transition:
+      opacity 180ms ease,
+      background 180ms ease;
+  }
+
+  .scarce-card-lightbox.is-open {
+    /* Solid field — the art should own the screen, not blend with the sheet. */
+    background: rgb(6 6 8 / 0.98);
+    opacity: 1;
+  }
+
+  .scarce-card-lightbox.is-closing {
+    background: rgb(6 6 8 / 0);
+    opacity: 0;
+  }
+
+  .scarce-card-lightbox-chrome {
+    position: absolute;
+    top: max(0.55rem, env(safe-area-inset-top, 0px));
+    right: max(0.55rem, env(safe-area-inset-right, 0px));
+    z-index: 2;
+  }
+
+  .scarce-card-lightbox-close {
+    color: rgb(255 255 255 / 0.88);
+  }
+
+  .scarce-card-lightbox-close:hover,
+  .scarce-card-lightbox-close:focus-visible {
+    color: rgb(255 255 255 / 1);
   }
 
   .scarce-card-lightbox-asset {
     display: block;
-    width: min(100%, 22rem);
+    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.92), 36rem);
+    max-height: min(calc(var(--scarce-lightbox-vh) * 0.92), 36rem);
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 0.9rem;
+    border-radius: 1rem;
+    box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 0.35);
     cursor: default;
+    transform: scale(0.94);
+    opacity: 0;
+    transition:
+      transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      opacity 180ms ease;
+  }
+
+  .scarce-card-lightbox.is-open .scarce-card-lightbox-asset {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .scarce-card-lightbox.is-closing .scarce-card-lightbox-asset {
+    transform: scale(0.96);
+    opacity: 0;
   }
 
   .scarce-mood-picker-block {
@@ -14758,16 +14827,27 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .scarce-cover-upload:has(.scarce-cover-upload-input:disabled) {
+  .scarce-cover-upload:disabled {
     cursor: not-allowed;
     opacity: 0.55;
   }
 
-  .scarce-cover-upload-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
+  /*
+   * Off-screen file input — must stay in the DOM for programmatic .click(),
+   * but must not paint native "No file chosen" / Browse chrome.
+   */
+  .scarce-cover-file-input {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 0.1px;
+    height: 0.1px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
     opacity: 0;
+    border: 0;
+    clip: rect(0, 0, 0, 0);
     pointer-events: none;
   }
 
@@ -14783,7 +14863,89 @@ a.os-surface-row {
     position: relative;
     margin: 0;
     width: 100%;
+    cursor: zoom-in;
+  }
+
+  .scarce-frame-picker-stage:disabled {
     cursor: default;
+  }
+
+  .scarce-frame-picker-stage-fill {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .scarce-frame-lightbox {
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+    cursor: zoom-out;
+  }
+
+  .scarce-frame-lightbox-stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  .scarce-frame-lightbox-video {
+    /* Leave room for the scrubber dock under the art. */
+    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.72), 36rem);
+    max-height: min(calc(var(--scarce-lightbox-vh) * 0.72), 36rem);
+    cursor: default;
+  }
+
+  .scarce-frame-lightbox-pending {
+    position: absolute;
+    inset: auto 0 0.75rem;
+    margin: 0 auto;
+    width: fit-content;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.55);
+    color: rgb(255 255 255 / 0.9);
+    font-size: 0.72rem;
+    line-height: 1.2;
+    pointer-events: none;
+  }
+
+  .scarce-frame-lightbox-dock {
+    width: min(92vw, 22rem);
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0 0.25rem max(0.25rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-time {
+    color: rgb(255 255 255 / 0.62);
+  }
+
+  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-track::before {
+    background: rgb(255 255 255 / 0.2);
+  }
+
+  .scarce-frame-picker-scrub--lightbox .scarce-frame-picker-track::after {
+    background: rgb(255 255 255 / 0.72);
+  }
+
+  .scarce-frame-picker-scrub--lightbox
+    input[type='range']::-webkit-slider-thumb {
+    background: rgb(255 255 255 / 0.95);
+    box-shadow: 0 0 0 2px rgb(6 6 8 / 0.85);
+  }
+
+  .scarce-frame-picker-scrub--lightbox input[type='range']::-moz-range-thumb {
+    background: rgb(255 255 255 / 0.95);
+    box-shadow: 0 0 0 2px rgb(6 6 8 / 0.85);
   }
 
   .scarce-frame-picker-loading {
@@ -14942,6 +15104,9 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+    /* Bleed the row pill outside the text column so option copy sits on the
+       same 1.15rem inset as the sheet title instead of 0.65rem further in. */
+    margin-inline: -0.65rem;
   }
 
   .scarce-choice-sheet-section {
@@ -14964,8 +15129,11 @@ a.os-surface-row {
     align-items: center;
     gap: 0.7rem;
     width: 100%;
+    /* 2.75rem touch target — matches .glass-sheet-icon-action. Rows with no
+       swatch or count badge would otherwise land near 37px. */
+    min-height: 2.75rem;
     margin: 0;
-    padding: 0.62rem 0.65rem;
+    padding: 0.5rem 0.65rem;
     border: 0;
     border-radius: 0.7rem;
     background: transparent;
@@ -14984,11 +15152,22 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.08);
   }
 
+  .scarce-choice-sheet-option:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+  }
+
   .scarce-choice-sheet-leading {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
+  }
+
+  .scarce-choice-sheet-trailing {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
   }
 
   .scarce-choice-sheet-option-copy {
@@ -14999,15 +15178,29 @@ a.os-surface-row {
     gap: 0.1rem;
   }
 
+  .scarce-choice-sheet-option-primary {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
   .scarce-choice-sheet-option-label {
     font-size: 0.84rem;
-    font-weight: 550;
+    /* Match floating-panel items — medium, not semi-bold. */
+    font-weight: 500;
     line-height: 1.25;
     letter-spacing: -0.01em;
   }
 
-  .scarce-choice-sheet-option.is-selected .scarce-choice-sheet-option-label {
-    font-weight: 650;
+  /* Counts as leading icons — same optical weight as format/colour swatches. */
+  .scarce-choice-sheet-leading .os-floating-panel-count {
+    box-sizing: border-box;
+    width: 1.85rem;
+    min-width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
+    font-size: 0.72rem;
   }
 
   .scarce-choice-sheet-option-desc {
@@ -15016,9 +15209,23 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .scarce-choice-sheet-check {
+  .scarce-choice-sheet-check-slot {
+    display: inline-flex;
     flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
     color: rgb(var(--fg-rgb) / 0.55);
+    opacity: 0;
+  }
+
+  .scarce-choice-sheet-check-slot.is-visible {
+    opacity: 1;
+  }
+
+  .scarce-choice-sheet-check {
+    display: block;
   }
 
   .scarce-choice-sheet-hint {
@@ -15026,6 +15233,33 @@ a.os-surface-row {
     font-size: 0.72rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .account-social-help-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .account-social-help-sheet-body .os-sheet-actions {
+    margin-top: 0.35rem;
+  }
+
+  .account-social-help-summary,
+  .account-social-help-detail {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+  }
+
+  .account-social-help-summary {
+    color: rgb(var(--fg-rgb) / 0.82);
+    font-weight: 550;
+  }
+
+  .account-social-help-detail {
+    color: rgb(var(--fg-rgb) / 0.52);
   }
 
   .scarce-choice-swatch {
@@ -15072,7 +15306,6 @@ a.os-surface-row {
       var(--scarce-finish-from),
       var(--scarce-finish-to)
     );
-    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.12);
   }
 
   .scarce-choice-swatch--finish.scarce-choice-swatch--option {
@@ -15096,8 +15329,6 @@ a.os-surface-row {
 
   .scarce-choice-swatch--mark {
     border-radius: 0.45rem;
-    background: rgb(var(--fg-rgb) / 0.05);
-    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
     padding: 0.15rem;
   }
 
@@ -15106,8 +15337,144 @@ a.os-surface-row {
     height: 0.95rem;
     padding: 0.08rem;
     border-radius: 0.28rem;
-    background: transparent;
-    box-shadow: none;
+  }
+
+  .scarce-choice-swatch--icon {
+    color: rgb(var(--fg-rgb) / 0.72);
+    padding: 0.08rem;
+  }
+
+  .scarce-choice-swatch--icon.scarce-choice-swatch--chip {
+    width: 0.95rem;
+    height: 0.95rem;
+    padding: 0;
+  }
+
+  .scarce-choice-swatch-mage {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .scarce-choice-sheet-option.is-selected .scarce-choice-swatch--icon {
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .scarce-choice-swatch--format {
+    border-radius: 0.4rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .scarce-choice-swatch--format.scarce-choice-swatch--option {
+    width: 2.2rem;
+    height: 1.85rem;
+  }
+
+  .scarce-choice-swatch--format.scarce-choice-swatch--chip {
+    width: 1rem;
+    height: 0.75rem;
+    border-radius: 0.25rem;
+  }
+
+  .scarce-choice-format-aa {
+    line-height: 1;
+    letter-spacing: 0.01em;
+  }
+
+  .scarce-choice-swatch--format-thought .scarce-choice-format-aa {
+    /* Same family strings as @onsocial/text-card SVG voices. */
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  .scarce-choice-swatch--format-poster .scarce-choice-format-aa {
+    font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .scarce-choice-swatch--format-letter .scarce-choice-format-aa {
+    /* Must match SVG + mint name-table: "Erica Type" (not next/font ericaType). */
+    font-family: 'Erica Type', 'Erika Type', 'DM Sans', system-ui, sans-serif;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: -0.03em;
+  }
+
+  .scarce-choice-swatch--format-journal .scarce-choice-format-aa {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-style: normal;
+    letter-spacing: 0;
+  }
+
+  .scarce-choice-swatch--format-mono .scarce-choice-format-aa {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .scarce-choice-swatch--format-receipt,
+  .scarce-choice-swatch--format-proof {
+    flex-direction: column;
+    gap: 0.12rem;
+    padding: 0.18rem 0.2rem;
+  }
+
+  .scarce-choice-swatch--format-receipt.scarce-choice-swatch--chip,
+  .scarce-choice-swatch--format-proof.scarce-choice-swatch--chip {
+    gap: 0.06rem;
+    padding: 0.08rem;
+  }
+
+  .scarce-choice-format-photo {
+    display: block;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0.55rem;
+    border-radius: 0.18rem;
+    background: rgb(var(--fg-rgb) / 0.16);
+  }
+
+  .scarce-choice-swatch--format-proof .scarce-choice-format-photo {
+    flex: 1.35 1 auto;
+  }
+
+  .scarce-choice-format-caption {
+    font-size: 0.45rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: rgb(var(--fg-rgb) / 0.7);
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+
+  .scarce-choice-swatch--format-proof .scarce-choice-format-caption {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .scarce-choice-swatch--format.scarce-choice-swatch--chip
+    .scarce-choice-format-aa {
+    font-size: 0.48rem;
+  }
+
+  .scarce-choice-swatch--format-letter.scarce-choice-swatch--chip
+    .scarce-choice-format-aa {
+    font-size: 0.52rem;
+  }
+
+  .scarce-choice-swatch--format.scarce-choice-swatch--chip
+    .scarce-choice-format-caption {
+    font-size: 0.32rem;
   }
 
   .scarce-details-sheet {
@@ -15159,10 +15526,6 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .scarce-mood-picker-field:has(.scarce-field-select-menu-panel) {
-    z-index: 8;
-  }
-
   .scarce-mood-picker-label {
     margin: 0;
     font-size: 0.72rem;
@@ -15170,56 +15533,6 @@ a.os-surface-row {
     letter-spacing: 0.02em;
     text-transform: uppercase;
     color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .scarce-field-select {
-    position: relative;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .scarce-field-select .scarce-field-select-trigger.os-floating-panel-trigger {
-    display: flex;
-    width: 100%;
-    max-width: none;
-    min-height: 2.65rem;
-    justify-content: space-between;
-    gap: 0.55rem;
-    border-radius: 0.9rem;
-    padding: 0.7rem 0.85rem;
-    font-size: 0.86rem;
-    font-weight: 550;
-  }
-
-  .scarce-field-select-trigger:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-
-  .scarce-field-select-menu-panel.os-floating-panel-menu {
-    z-index: 50;
-    width: max(100%, 12rem);
-    min-width: 100%;
-  }
-
-  .scarce-field-select-menu-panel .os-floating-panel-body {
-    max-height: min(16.5rem, 42dvh);
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  /*
-   * Open field menus sit above the commerce footer and escape body clip
-   * for the pick duration (same approach as market sort / post menus).
-   */
-  .glass-sheet-panel:has(.scarce-field-select-menu-panel) > .glass-sheet-body {
-    z-index: 6;
-    overflow: visible;
-  }
-
-  .glass-sheet-panel:has(.scarce-field-select-menu-panel)
-    > .glass-sheet-footer {
-    z-index: 5;
   }
 
   .scarce-royalty-field {
@@ -17482,8 +17795,56 @@ a.os-surface-row {
   .guild-add-member-sheet {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
-    padding-bottom: 0.5rem;
+    gap: 0.75rem;
+    min-height: 0;
+  }
+
+  .guild-add-member-hint {
+    margin: 0.15rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .guild-add-member-results {
+    margin: 0.15rem 0 0;
+  }
+
+  button.guild-add-member-result {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0.55rem 0.15rem;
+    border: 0;
+    border-radius: 0.7rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  button.guild-add-member-result:hover,
+  button.guild-add-member-result:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  button.guild-add-member-result.is-selected {
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  button.guild-add-member-result:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .guild-add-member-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.35rem 1.15rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
   }
 
   .guild-facepile {
@@ -19861,7 +20222,11 @@ a.os-surface-row {
   .gesture-sheet-verb--reputation {
     color: color-mix(
       in srgb,
-      var(--signal-reputation, var(--mood-signal-reputation, #7c9cff)) 88%,
+      var(
+          --signal-reputation,
+          var(--mood-signal-reputation, var(--protocol-green))
+        )
+        88%,
       rgb(var(--fg-rgb) / 0.55)
     );
   }
@@ -20127,36 +20492,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.9);
   }
 
-  /* Support presets — reputation signal (mood when present, protocol blue fallback). */
-  .profile-support-sheet-panel
-    .profile-support-presets
-    .os-surface-chip.is-selected,
-  .profile-support-presets .os-surface-chip.is-selected {
-    background: color-mix(
-      in srgb,
-      var(--signal-reputation, var(--protocol-blue, #60a5fa)) 14%,
-      transparent
-    );
-    color: var(--signal-reputation, var(--protocol-blue, #60a5fa));
-  }
-
-  .profile-support-sheet-panel
-    .profile-support-presets
-    .os-surface-chip.is-selected:not(:disabled):hover,
-  .profile-support-sheet-panel
-    .profile-support-presets
-    .os-surface-chip.is-selected:not(:disabled):focus-visible,
-  .profile-support-presets .os-surface-chip.is-selected:not(:disabled):hover,
-  .profile-support-presets
-    .os-surface-chip.is-selected:not(:disabled):focus-visible {
-    background: color-mix(
-      in srgb,
-      var(--signal-reputation, var(--protocol-blue, #60a5fa)) 20%,
-      transparent
-    );
-    color: var(--signal-reputation, var(--protocol-blue, #60a5fa));
-  }
-
   .profile-support-token-unit {
     display: inline-flex;
     align-items: center;
@@ -20205,4 +20540,48 @@ a.os-surface-row {
   .profile-support-error {
     color: var(--signal-error, #ef4444);
   }
+}
+
+/*
+ * Support presets — page owner's mood reputation signal.
+ * Unlayered on purpose: @onsocial/ui os-surface-interactive.css is imported
+ * unlayered, so a layered override would always lose the cascade to the base
+ * .os-surface-chip.is-selected rule regardless of specificity.
+ */
+.profile-support-presets .os-surface-chip.is-selected {
+  background: color-mix(
+    in srgb,
+    var(--mood-signal-reputation, var(--signal-reputation)) 14%,
+    transparent
+  );
+  color: var(--mood-signal-reputation, var(--signal-reputation));
+}
+
+.profile-support-presets .os-surface-chip.is-selected:not(:disabled):hover,
+.profile-support-presets
+  .os-surface-chip.is-selected:not(:disabled):focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--mood-signal-reputation, var(--signal-reputation)) 22%,
+    transparent
+  );
+  color: var(--mood-signal-reputation, var(--signal-reputation));
+}
+
+/*
+ * Add member search — avatar + divider compose row. Fill/blur come from the
+ * shared SearchField chrome; only the taller rounded-rect shape is local.
+ */
+.search-field.os-floating-panel-search.guild-add-member-search {
+  min-height: 2.65rem;
+  height: auto;
+  padding: 0.55rem 0.65rem 0.55rem 0.85rem;
+  border-radius: 0.9rem;
+}
+
+/* Selected profile's avatar inside the "Add {name}" action button. */
+.guild-add-member-action-avatar {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex-shrink: 0;
 }

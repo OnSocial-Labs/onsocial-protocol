@@ -361,7 +361,7 @@ export function ScarceSellForm({
       />
 
       <div
-        className="app-storage-presets profile-support-presets"
+        className="app-storage-presets"
         role="group"
         aria-label="Listing type"
       >
@@ -414,7 +414,7 @@ export function ScarceSellForm({
 
       <div className="profile-support-quick-row">
         <div
-          className="app-storage-presets profile-support-presets"
+          className="app-storage-presets"
           role="group"
           aria-label={mode === 'auction' ? 'Quick reserves' : 'Quick prices'}
         >
@@ -460,7 +460,7 @@ export function ScarceSellForm({
             </span>
           </div>
           <div
-            className="app-storage-presets profile-support-presets"
+            className="app-storage-presets"
             role="group"
             aria-label="Quick increments"
           >
@@ -481,7 +481,7 @@ export function ScarceSellForm({
 
           <p className="scarce-mood-picker-label">Duration after first bid</p>
           <div
-            className="app-storage-presets profile-support-presets"
+            className="app-storage-presets"
             role="group"
             aria-label="Auction duration"
           >

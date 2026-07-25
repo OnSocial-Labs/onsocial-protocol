@@ -19,9 +19,9 @@
     /* TEMP trial: soft purple — matches soft NEAR green energy */
     --protocol-purple: #c084fc;
     --protocol-purple-hover: #d8b4fe;
-    /* TEMP trial: mint green (system-wide) — revert to #4ade80 / #86efac */
-    --protocol-green: #02db99;
-    --protocol-green-hover: #36e5b0;
+    /* TEMP trial: protocol green */
+    --protocol-green: #00d084;
+    --protocol-green-hover: #00e5a0;
     --protocol-amber: #fbbf24;
     --protocol-pink: #ec4899;
     --protocol-red: #f87171;
@@ -48,13 +48,13 @@
     --protocol-purple-shadow: rgb(192 132 252 / 0.2);
     --protocol-purple-glow: rgb(192 132 252 / 0.16);
 
-    --protocol-green-border: rgb(2 219 153 / 0.4);
-    --protocol-green-border-strong: rgb(2 219 153 / 0.6);
-    --protocol-green-bg: rgb(2 219 153 / 0.06);
-    --protocol-green-frame-border: rgb(2 219 153 / 0.3);
-    --protocol-green-frame-bg: rgb(2 219 153 / 0.08);
-    --protocol-green-shadow: rgb(2 219 153 / 0.2);
-    --protocol-green-glow: rgb(2 219 153 / 0.14);
+    --protocol-green-border: rgb(0 208 132 / 0.4);
+    --protocol-green-border-strong: rgb(0 208 132 / 0.6);
+    --protocol-green-bg: rgb(0 208 132 / 0.06);
+    --protocol-green-frame-border: rgb(0 208 132 / 0.3);
+    --protocol-green-frame-bg: rgb(0 208 132 / 0.08);
+    --protocol-green-shadow: rgb(0 208 132 / 0.2);
+    --protocol-green-glow: rgb(0 208 132 / 0.14);
 
     --protocol-amber-border: rgb(251 191 36 / 0.48);
     --protocol-amber-border-strong: rgb(251 191 36 / 0.65);
@@ -110,13 +110,13 @@
     --protocol-purple-shadow: rgb(192 132 252 / 0.2);
     --protocol-purple-glow: rgb(192 132 252 / 0.16);
 
-    --protocol-green-border: rgb(2 219 153 / 0.4);
-    --protocol-green-border-strong: rgb(2 219 153 / 0.6);
-    --protocol-green-bg: rgb(2 219 153 / 0.06);
-    --protocol-green-frame-border: rgb(2 219 153 / 0.3);
-    --protocol-green-frame-bg: rgb(2 219 153 / 0.08);
-    --protocol-green-shadow: rgb(2 219 153 / 0.2);
-    --protocol-green-glow: rgb(2 219 153 / 0.14);
+    --protocol-green-border: rgb(0 208 132 / 0.4);
+    --protocol-green-border-strong: rgb(0 208 132 / 0.6);
+    --protocol-green-bg: rgb(0 208 132 / 0.06);
+    --protocol-green-frame-border: rgb(0 208 132 / 0.3);
+    --protocol-green-frame-bg: rgb(0 208 132 / 0.08);
+    --protocol-green-shadow: rgb(0 208 132 / 0.2);
+    --protocol-green-glow: rgb(0 208 132 / 0.14);
 
     --protocol-amber-border: rgb(251 191 36 / 0.48);
     --protocol-amber-border-strong: rgb(251 191 36 / 0.65);

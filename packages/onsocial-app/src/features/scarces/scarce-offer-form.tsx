@@ -291,7 +291,7 @@ export function ScarceOfferForm({
           </div>
           <div className="profile-support-quick-row">
             <div
-              className="app-storage-presets profile-support-presets"
+              className="app-storage-presets"
               role="group"
               aria-label="Quick offers"
             >

@@ -305,6 +305,81 @@ export function CameraIcon({
   );
 }
 
+/** Mage `note-text` — text card / written cover. */
+export function NoteTextIcon({
+  strokeWidth = 2,
+  ...props
+}: MageStrokeIconProps & { strokeWidth?: number }) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M20.221 17.084v-8.11a4.166 4.166 0 0 0-4.166-4.197h-8.11A4.166 4.166 0 0 0 3.78 8.944v8.11a4.166 4.166 0 0 0 4.166 4.196h8.11a4.166 4.166 0 0 0 4.166-4.166M16.055 6.805V2.75m-8.11 4.055V2.75m-.507 8.11h9.124m-9.124 5.068h9.124"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `image` — still photo / picture cover. */
+export function ImageIcon({
+  strokeWidth = 2,
+  ...props
+}: MageStrokeIconProps & { strokeWidth?: number }) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M16.24 3.5h-8.5a5 5 0 0 0-5 5v7a5 5 0 0 0 5 5h8.5a5 5 0 0 0 5-5v-7a5 5 0 0 0-5-5"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="m2.99 17 2.75-3.2a2.2 2.2 0 0 1 2.77-.27a2.2 2.2 0 0 0 2.77-.27l2.33-2.33a4 4 0 0 1 5.16-.43l2.49 1.93M7.99 10.17a1.66 1.66 0 1 0 0-3.32a1.66 1.66 0 0 0 0 3.32"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `video-player` — video frame / clip cover. */
+export function VideoPlayerIcon({
+  strokeWidth = 2,
+  ...props
+}: MageStrokeIconProps & { strokeWidth?: number }) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M3.196 7.873h17.608m-4.997 0V2.877M8.193 7.873V2.877m1.947 9.051v4.922c0 .101.032.2.091.286c.06.085.145.154.246.199a.66.66 0 0 0 .633-.057l3.798-2.65a.56.56 0 0 0 .176-.199a.5.5 0 0 0-.02-.492a.6.6 0 0 0-.192-.186l-3.798-2.272a.66.66 0 0 0-.616-.025a.6.6 0 0 0-.232.198a.5.5 0 0 0-.086.276"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <rect
+        width="18.5"
+        height="18.5"
+        x="2.75"
+        y="2.75"
+        rx="6"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 export function ChevronRightIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>

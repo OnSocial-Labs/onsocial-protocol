@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
 } from 'react';
@@ -25,6 +26,11 @@ import {
   type ScarceCardThemeOptions,
 } from '@/features/scarces/scarce-card-mood-picker';
 import { ScarceChoiceField } from '@/features/scarces/scarce-choice-field';
+import {
+  ScarceCoverIcon,
+  ScarceFormatSwatch,
+  type ScarceCoverMode,
+} from '@/features/scarces/scarce-choice-visuals';
 import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
@@ -192,18 +198,38 @@ function extractListingId(response: unknown): string | undefined {
  * image, so a clip needs either a generated card, a frame from the video, or
  * a photo the creator picks. The media itself keeps playing on the post.
  */
-type MediaCoverMode = 'card' | 'frame' | 'photo';
+type MediaCoverMode = ScarceCoverMode;
 
 const VIDEO_COVER_OPTIONS = [
-  { value: 'card', label: 'Text card' },
-  { value: 'frame', label: 'Frame' },
-  { value: 'photo', label: 'Photo' },
-] as const;
+  {
+    value: 'card' as const,
+    label: 'Text card',
+    leading: <ScarceCoverIcon mode="card" />,
+  },
+  {
+    value: 'frame' as const,
+    label: 'Frame',
+    leading: <ScarceCoverIcon mode="frame" />,
+  },
+  {
+    value: 'photo' as const,
+    label: 'Photo',
+    leading: <ScarceCoverIcon mode="photo" />,
+  },
+];
 
 const AUDIO_COVER_OPTIONS = [
-  { value: 'card', label: 'Text card' },
-  { value: 'photo', label: 'Cover' },
-] as const;
+  {
+    value: 'card' as const,
+    label: 'Text card',
+    leading: <ScarceCoverIcon mode="card" />,
+  },
+  {
+    value: 'photo' as const,
+    label: 'Cover',
+    leading: <ScarceCoverIcon mode="photo" />,
+  },
+];
 
 export interface ScarceListSuccessDetail {
   priceNear: string;
@@ -256,6 +282,10 @@ export function ScarceListForm({
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [coverPending, setCoverPending] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
+  /** Last Frame scrub — survives Cover switches to Text / Photo. */
+  const [frameSeek, setFrameSeek] = useState<number | null>(null);
+  const frameCoverRef = useRef<File | null>(null);
+  const coverPhotoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const authorId = post.accountId.trim();
@@ -316,11 +346,23 @@ export function ScarceListForm({
   }, [coverFile]);
 
   const selectMediaCoverMode = useCallback((next: MediaCoverMode) => {
-    setVideoCoverMode(next);
     setCoverError(null);
     setCoverPending(false);
-    // Frame mode mounts the scrubber, which captures on its own. Clear any
-    // prior still so a leftover upload does not flash over the new frame.
+    if (next === 'photo') {
+      // Open the picker first — only commit Photo mode after a valid file so
+      // Format chips and the text-card preview do not flash an empty state.
+      coverPhotoInputRef.current?.click();
+      return;
+    }
+    if (next === 'frame') {
+      setVideoCoverMode('frame');
+      // Restore the last grabbed still while the picker remounts to that seek.
+      setCoverFile(frameCoverRef.current);
+      return;
+    }
+    setVideoCoverMode(next);
+    // Text card: clear the mint still so the generated card shows. Keep
+    // frameCoverRef / frameSeek so Frame can reopen on the last moment.
     setCoverFile(null);
   }, []);
 
@@ -339,6 +381,7 @@ export function ScarceListForm({
       }
       setCoverError(null);
       setCoverFile(file);
+      setVideoCoverMode('photo');
     },
     []
   );
@@ -412,6 +455,20 @@ export function ScarceListForm({
     !amountError &&
     editionCount != null &&
     resolvedRoyaltyBps != null;
+
+  /** Why the List button is disabled — quiet, specific, no error tone. */
+  const disabledReason =
+    !isConnected || pending || canSubmit
+      ? null
+      : coverPending
+        ? 'Grabbing your cover frame…'
+        : !normalizedAmount
+          ? 'Enter a price to list.'
+          : editionCount == null
+            ? 'Enter copies between 1 and 100.'
+            : resolvedRoyaltyBps == null
+              ? 'Enter a royalty between 0 and 50%.'
+              : null;
 
   const footerState = useMemo((): CommerceSheetFooterState => {
     return {
@@ -527,12 +584,18 @@ export function ScarceListForm({
         <ScarceVideoFramePicker
           videoUrl={postVideo.url}
           fileName={`post-${post.postId}-cover.jpg`}
+          initialSeek={frameSeek}
           disabled={pending}
-          onFrame={setCoverFile}
+          onFrame={(file) => {
+            frameCoverRef.current = file;
+            setCoverFile(file);
+          }}
+          onSeekCommit={setFrameSeek}
           onError={(message) => {
             setCoverError(message);
             setVideoCoverMode('card');
             setCoverFile(null);
+            frameCoverRef.current = null;
           }}
           onPendingChange={setCoverPending}
         />
@@ -558,7 +621,7 @@ export function ScarceListForm({
 
       <div className="scarce-mood-picker-block">
         <div
-          className="app-storage-presets profile-support-presets scarce-choice-chip-row"
+          className="app-storage-presets scarce-choice-chip-row"
           role="group"
           aria-label="Scarce options"
         >
@@ -567,12 +630,29 @@ export function ScarceListForm({
               label="Artwork"
               value={photoCardFormat}
               disabled={pending}
-              options={
-                [
-                  { value: 'cover', label: 'Original' },
-                  { value: 'proof', label: 'Proof' },
-                  { value: 'receipt', label: 'Receipt' },
-                ] as const
+              options={[
+                {
+                  value: 'cover' as const,
+                  label: 'Original',
+                  leading: <ScarceCoverIcon mode="photo" />,
+                },
+                {
+                  value: 'proof' as const,
+                  label: 'Proof',
+                  leading: <ScarceFormatSwatch format="proof" />,
+                },
+                {
+                  value: 'receipt' as const,
+                  label: 'Receipt',
+                  leading: <ScarceFormatSwatch format="receipt" />,
+                },
+              ]}
+              chipLeading={
+                photoCardFormat === 'cover' ? (
+                  <ScarceCoverIcon mode="photo" size="chip" />
+                ) : (
+                  <ScarceFormatSwatch format={photoCardFormat} size="chip" />
+                )
               }
               onChange={(next) => selectPhotoCardFormat(next)}
             />
@@ -588,6 +668,16 @@ export function ScarceListForm({
               disabled={pending || coverPending}
               options={
                 showAudioCoverPicker ? AUDIO_COVER_OPTIONS : VIDEO_COVER_OPTIONS
+              }
+              chipLeading={
+                <ScarceCoverIcon
+                  mode={
+                    showAudioCoverPicker && videoCoverMode === 'frame'
+                      ? 'card'
+                      : videoCoverMode
+                  }
+                  size="chip"
+                />
               }
               onChange={(next) => selectMediaCoverMode(next)}
             />
@@ -611,72 +701,70 @@ export function ScarceListForm({
             disabled={pending}
           />
         </div>
-        {hasCoverImage ? (
-          <p className="scarce-mood-picker-hint">
-            {photoCardFormat === 'cover'
-              ? 'Photo is minted as the scarce. Text goes in the title and description.'
-              : 'Card with signature — photo stays as proof on the card.'}
-          </p>
-        ) : null}
         {showMediaCoverPicker ? (
           <>
-            {videoCoverMode === 'photo' ? (
-              <label className="os-surface-chip scarce-cover-upload">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="scarce-cover-upload-input"
-                  disabled={pending}
-                  onChange={onCoverPhotoChange}
-                />
-                {coverFile
-                  ? 'Change photo'
-                  : showAudioCoverPicker
-                    ? 'Choose cover'
-                    : 'Choose photo'}
-              </label>
+            {/*
+              Keep the native file control off-screen. `sr-only` alone still
+              paints "No file chosen" in some WebKit builds.
+            */}
+            <input
+              ref={coverPhotoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="scarce-cover-file-input"
+              tabIndex={-1}
+              aria-hidden
+              disabled={pending}
+              onChange={onCoverPhotoChange}
+            />
+            {videoCoverMode === 'photo' && coverFile ? (
+              <button
+                type="button"
+                className="os-surface-chip scarce-cover-upload"
+                disabled={pending}
+                onClick={() => coverPhotoInputRef.current?.click()}
+              >
+                Change photo
+              </button>
             ) : null}
-            <p className="scarce-mood-picker-hint">
-              {coverPending
-                ? 'Grabbing a frame…'
-                : (coverError ??
-                  (showAudioCoverPicker
-                    ? 'Wallets show a still image. Your audio keeps playing on the post.'
-                    : videoCoverMode === 'frame'
-                      ? 'Drag to pick the cover frame. This still is what wallets show.'
-                      : 'Wallets show a still image. Your video keeps playing on the post.'))}
-            </p>
+            {coverPending || coverError || videoCoverMode === 'frame' ? (
+              <p className="scarce-mood-picker-hint">
+                {coverPending
+                  ? 'Grabbing a frame…'
+                  : (coverError ?? 'Drag to pick the cover frame.')}
+              </p>
+            ) : null}
           </>
         ) : null}
       </div>
 
-      <div className="app-storage-amount-field profile-support-amount-field">
-        <input
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={amountInput}
-          onChange={(event) => applyAmountInput(event.target.value)}
-          onFocus={onAmountFocus}
-          onBlur={() =>
-            applyAmountInput(
-              finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-            )
-          }
-          placeholder={MIN_PRICE_NEAR}
-          aria-label="Price in NEAR"
-          aria-invalid={Boolean(amountError)}
-          className="app-storage-amount-input"
-          disabled={pending}
-        />
-        <span className="account-card-balance-unit profile-support-token-unit">
-          NEAR
-        </span>
-      </div>
-
-      <div className="profile-support-quick-row">
+      <div className="scarce-royalty-field">
+        <p className="scarce-mood-picker-label">Price</p>
+        <div className="app-storage-amount-field profile-support-amount-field">
+          <input
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={amountInput}
+            onChange={(event) => applyAmountInput(event.target.value)}
+            onFocus={onAmountFocus}
+            onBlur={() =>
+              applyAmountInput(
+                finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
+              )
+            }
+            placeholder={MIN_PRICE_NEAR}
+            aria-label="Price in NEAR"
+            aria-invalid={Boolean(amountError)}
+            className="app-storage-amount-input"
+            disabled={pending}
+          />
+          <span className="account-card-balance-unit profile-support-token-unit">
+            NEAR
+          </span>
+        </div>
         <div
-          className="app-storage-presets profile-support-presets"
+          className="app-storage-presets"
           role="group"
           aria-label="Quick prices"
         >
@@ -699,7 +787,7 @@ export function ScarceListForm({
       <div className="scarce-royalty-field">
         <p className="scarce-mood-picker-label">Copies</p>
         <div
-          className="app-storage-presets profile-support-presets"
+          className="app-storage-presets"
           role="group"
           aria-label="Number of copies"
         >
@@ -771,7 +859,7 @@ export function ScarceListForm({
       <div className="scarce-royalty-field">
         <p className="scarce-mood-picker-label">Resale royalty</p>
         <div
-          className="app-storage-presets profile-support-presets"
+          className="app-storage-presets"
           role="group"
           aria-label="Resale royalty"
         >
@@ -835,9 +923,9 @@ export function ScarceListForm({
           </div>
         ) : null}
         <p className="profile-support-hint scarce-royalty-hint">
-          You receive primary sales after a 2% marketplace fee.
+          Keep first sales after 2%.
           {resolvedRoyaltyBps && resolvedRoyaltyBps > 0
-            ? ` Post author earns ${formatRoyaltyPercent(resolvedRoyaltyBps)}% on resale.`
+            ? ` Author earns ${formatRoyaltyPercent(resolvedRoyaltyBps)}% on resales.`
             : ' No resale cut.'}
         </p>
       </div>
@@ -848,6 +936,8 @@ export function ScarceListForm({
         </p>
       ) : !isConnected ? (
         <p className="profile-support-hint">Connect to list this post.</p>
+      ) : disabledReason ? (
+        <p className="profile-support-hint">{disabledReason}</p>
       ) : null}
     </form>
   );

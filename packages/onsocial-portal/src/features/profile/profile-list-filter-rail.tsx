@@ -50,8 +50,8 @@ export function buildStandViewOptions({
   counts: { incoming: number; outgoing: number; mutual: number };
   isSelf: boolean;
 }): ProfileListViewOption[] {
-  const incomingLabel = isSelf ? 'With you' : 'With them';
-  const outgoingLabel = isSelf ? 'Standing with' : 'They stand with';
+  const incomingLabel = isSelf ? 'Stand with you' : 'Stand with them';
+  const outgoingLabel = isSelf ? 'You stand with' : 'They stand with';
 
   return [
     {

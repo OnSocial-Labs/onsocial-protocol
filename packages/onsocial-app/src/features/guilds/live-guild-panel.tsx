@@ -55,7 +55,10 @@ import {
   GuildManageMenu,
   type GuildManageSheetId,
 } from '@/features/guilds/guild-manage-menu';
-import { guildDisplayInitials, guildDisplayName } from '@/features/guilds/guild-card-display';
+import {
+  guildDisplayInitials,
+  guildDisplayName,
+} from '@/features/guilds/guild-card-display';
 import { GuildMemberRequestsSheet } from '@/features/guilds/guild-member-requests-sheet';
 import { GuildMembersSheet } from '@/features/guilds/guild-members-sheet';
 import { GuildEditSheet } from '@/features/guilds/guild-edit-sheet';
@@ -65,9 +68,7 @@ import { GuildSettingsSheet } from '@/features/guilds/guild-settings-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
 import { GuildSpaceWritersSheet } from '@/features/guilds/guild-space-writers-sheet';
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
-import {
-  collectRelayTxHashes,
-} from '@/features/guilds/guilds-data';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
@@ -222,9 +223,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     spaceTitle: string;
     canEdit: boolean;
   } | null>(null);
-  const [allowlistSpaceIds, setAllowlistSpaceIds] = useState<ReadonlySet<string>>(
-    () => new Set()
-  );
+  const [allowlistSpaceIds, setAllowlistSpaceIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const hasLoadedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
   const confirmLeaveTimerRef = useRef<number | null>(null);
@@ -249,12 +250,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   );
   const canAddMember = Boolean(viewer?.isOwner || viewer?.isAdmin);
   const showManageMenu = Boolean(viewer?.isMember);
-  const resolvedDisplayName =
-    config
-      ? guildDisplayName(config.name, groupId)
-      : shellPreview
-        ? guildDisplayName(shellPreview.name, groupId)
-        : null;
+  const resolvedDisplayName = config
+    ? guildDisplayName(config.name, groupId)
+    : shellPreview
+      ? guildDisplayName(shellPreview.name, groupId)
+      : null;
   const title =
     headerElevated && resolvedDisplayName ? resolvedDisplayName : 'Guild';
   const viewerAccess = useMemo(
@@ -369,17 +369,16 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     [feedPosts, quotedPosts, facepileIds]
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
-  const {
-    engagement,
-    toggleReaction,
-    isReactionPending,
-    confirmAmplify,
-  } = usePostEngagement(feedPosts, {
-    onError: (message) => setTxResult({ type: 'error', msg: message }),
-  });
-  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(feedPosts, {
-    onError: (message) => setTxResult({ type: 'error', msg: message }),
-  });
+  const { engagement, toggleReaction, isReactionPending, confirmAmplify } =
+    usePostEngagement(feedPosts, {
+      onError: (message) => setTxResult({ type: 'error', msg: message }),
+    });
+  const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
+    feedPosts,
+    {
+      onError: (message) => setTxResult({ type: 'error', msg: message }),
+    }
+  );
 
   const refreshFeed = useCallback(async () => {
     setIsFeedRefreshing(true);
@@ -710,8 +709,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       chainStats: state.stats,
       rosterFloor: facepileIds.length,
     }) ?? 0;
-  const membershipHint =
-    accountId ? (readGuildMembershipCache(accountId, groupId) ?? null) : null;
+  const membershipHint = accountId
+    ? (readGuildMembershipCache(accountId, groupId) ?? null)
+    : null;
   const membershipChromePending =
     walletLoading ||
     (isConnected &&
@@ -733,7 +733,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       if (needsCollaborativeStorage) return 'Add storage';
       return config.accessGated ? 'Request access' : 'Join guild';
     }
-    if (joinPending) return joinCancelReady ? 'Cancel request' : 'Request pending';
+    if (joinPending)
+      return joinCancelReady ? 'Cancel request' : 'Request pending';
     if (needsCollaborativeStorage) return 'Add storage';
     return config.accessGated ? 'Request access' : 'Join guild';
   }, [
@@ -806,11 +807,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       });
 
       if (confirmed) {
-        if (
-          config.memberDriven &&
-          !viewer?.isMember &&
-          !joinPending
-        ) {
+        if (config.memberDriven && !viewer?.isMember && !joinPending) {
           setOptimisticJoinPending(true);
         } else if (joinPending) {
           setOptimisticJoinPending(false);
@@ -910,7 +907,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       const newPostId = Date.now().toString();
       const { client } = await getClient();
       const filePayload = files.length ? { files } : {};
-      const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
+      const media = files.length
+        ? buildOptimisticMediaEntries(files)
+        : undefined;
       const mediaKind =
         !pollEmbed && files.length ? mediaKindFromFile(files[0]!) : undefined;
       const tagPayload = postMetaFromText(text);
@@ -1028,7 +1027,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
             ...(mode === 'post' && composerSpace
               ? {
                   channel: guildSpaceFeedChannel(composerSpace),
-                  kind: pollEmbed ? 'poll' : mediaKind ?? composerSpace.kind,
+                  kind: pollEmbed ? 'poll' : (mediaKind ?? composerSpace.kind),
                 }
               : mode === 'quote'
                 ? {
@@ -1113,7 +1112,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       // Loading stays title-only — no marketing subtitle / raw groupId flash.
       backFallbackHref="/groups"
       actions={
-        loadState === 'ready' && config && (showManageMenu || canManageGuild) ? (
+        loadState === 'ready' &&
+        config &&
+        (showManageMenu || canManageGuild) ? (
           <>
             {showManageMenu ? (
               <GuildManageMenu
@@ -1136,10 +1137,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 aria-label="Guild settings"
                 onClick={() => setSettingsSheetOpen(true)}
               >
-                <SettingsIcon
-                  className="glass-sheet-close-icon"
-                  aria-hidden
-                />
+                <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
               </button>
             ) : null}
           </>
@@ -1279,10 +1277,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 aria-hidden
               >
                 {config.bannerUrl ? (
-                  <img
-                    src={config.bannerUrl}
-                    alt=""
-                  />
+                  <img src={config.bannerUrl} alt="" />
                 ) : null}
               </div>
 
@@ -1309,10 +1304,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 <div className="guild-hero-identity-actions">
                   <div className="guild-hero-membership-slot">
                     {membershipChromePending ? (
-                      <span
-                        aria-busy="true"
-                        aria-label="Loading membership"
-                      >
+                      <span aria-busy="true" aria-label="Loading membership">
                         <span
                           className="standing-row-shimmer guild-hero-membership-shimmer"
                           aria-hidden
@@ -1408,9 +1400,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                       return (
                         <ProfileAvatar
                           key={memberId}
-                          src={
-                            postAuthorProfiles[memberId]?.avatarUrl ?? null
-                          }
+                          src={postAuthorProfiles[memberId]?.avatarUrl ?? null}
                           fallbackInitial={
                             postAuthorProfiles[memberId]?.displayName ??
                             memberId
@@ -1429,8 +1419,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                       />
                     ) : (
                       <>
-                        {memberCount}{' '}
-                        {memberCount === 1 ? 'member' : 'members'}
+                        {memberCount} {memberCount === 1 ? 'member' : 'members'}
                       </>
                     )}
                   </span>
@@ -1639,9 +1628,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           memberDriven={config.memberDriven}
           onClose={() => setManageSheet(null)}
           onOpenRequests={
-            viewer?.isMember
-              ? () => setManageSheet('requests')
-              : undefined
+            viewer?.isMember ? () => setManageSheet('requests') : undefined
           }
           onResolved={() => void refresh()}
         />
@@ -1650,6 +1637,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
         <GuildAddMemberSheet
           open
           groupId={groupId}
+          memberIds={state.members.map((member) => member.memberId)}
           onClose={() => setManageSheet(null)}
           onAdded={() => void refresh()}
         />

@@ -6,7 +6,7 @@ import {
   Divider,
   GlassSheet,
   ProtocolMotionArrow,
-  SheetCloseButton,
+  SheetHeader,
   normalizeSocialTimestamp,
 } from '@onsocial/ui';
 import {
@@ -17,7 +17,10 @@ import { guildMemberTimeMeta } from '@/features/guilds/guild-member-time-meta';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { formatCompactCount, formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
+import {
+  formatCompactCount,
+  formatPageDrawerJoinedFullLabel,
+} from '@/lib/page-drawer-meta';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 interface GuildFactsSheetProps {
@@ -174,6 +177,7 @@ export function GuildFactsSheet({
       onClosed={handleClosed}
       tone="os"
       initialDetent="full"
+      peekRatio={1}
       zIndex={57}
       ariaLabelledBy={titleId}
       backdropLabel="Close guild facts"
@@ -181,21 +185,13 @@ export function GuildFactsSheet({
       bodyClassName="guild-facts-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-facts-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Guild
-                  </h2>
-                  <p className="discover-sheet-subtitle">{guildName}</p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Guild"
+            subtitle={guildName}
+            onClose={requestClose}
+            closeAriaLabel="Close guild facts"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

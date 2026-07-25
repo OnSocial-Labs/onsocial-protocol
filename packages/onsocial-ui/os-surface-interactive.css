@@ -194,14 +194,14 @@
 
 /* Selected preset / segmented option — fill tint only, no border. */
 .os-surface-chip.is-selected {
-  background: color-mix(in srgb, var(--protocol-blue) 14%, transparent);
-  color: var(--protocol-blue);
+  background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
+  color: var(--protocol-green);
 }
 
 .os-surface-chip.is-selected:not(:disabled):hover,
 .os-surface-chip.is-selected:not(:disabled):focus-visible {
-  background: color-mix(in srgb, var(--protocol-blue) 20%, transparent);
-  color: var(--protocol-blue);
+  background: color-mix(in srgb, var(--protocol-green-hover) 20%, transparent);
+  color: var(--protocol-green-hover);
 }
 
 .os-surface-chip.is-ready {

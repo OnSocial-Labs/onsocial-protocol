@@ -70,6 +70,7 @@ export function ScarceDetailsField({
         onClosed={handleClosed}
         tone="os"
         initialDetent="full"
+        peekRatio={1}
         zIndex={60}
         ariaLabelledBy={titleId}
         backdropLabel="Close details"

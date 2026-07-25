@@ -3,9 +3,17 @@
 import type { CSSProperties } from 'react';
 import {
   MARK_COLOR_HEX,
+  type CardFormat,
   type MarkColor,
   type MarkShape,
 } from '@onsocial/text-card';
+import {
+  ImageIcon,
+  NoteTextIcon,
+  VideoPlayerIcon,
+} from '@onsocial/ui';
+
+export type ScarceCoverMode = 'card' | 'frame' | 'photo';
 
 /** Round colour chip — Auto uses a conic rainbow; named colours use hex. */
 export function ScarceColourSwatch({
@@ -105,4 +113,67 @@ export function resolveMarkPreviewColor(
 ): string {
   if (color === 'auto') return fallback;
   return MARK_COLOR_HEX[color];
+}
+
+/** Mage Cover glyphs — Text card / Frame / Photo. */
+export function ScarceCoverIcon({
+  mode,
+  size = 'option',
+}: {
+  mode: ScarceCoverMode;
+  size?: 'option' | 'chip';
+}) {
+  const className = 'scarce-choice-swatch-mage';
+  const glyph =
+    mode === 'frame' ? (
+      <VideoPlayerIcon className={className} aria-hidden />
+    ) : mode === 'photo' ? (
+      <ImageIcon className={className} aria-hidden />
+    ) : (
+      <NoteTextIcon className={className} aria-hidden />
+    );
+
+  return (
+    <span
+      className={`scarce-choice-swatch scarce-choice-swatch--icon scarce-choice-swatch--${size}`}
+      aria-hidden
+    >
+      {glyph}
+    </span>
+  );
+}
+
+/**
+ * Mini type specimen for Format — the preview *is* the choice (not a
+ * symbolic metaphor). Uses the same voice fonts as the minted card.
+ */
+export function ScarceFormatSwatch({
+  format,
+  size = 'option',
+}: {
+  format: CardFormat;
+  size?: 'option' | 'chip';
+}) {
+  if (format === 'receipt' || format === 'proof') {
+    return (
+      <span
+        className={`scarce-choice-swatch scarce-choice-swatch--format scarce-choice-swatch--format-${format} scarce-choice-swatch--${size}`}
+        aria-hidden
+      >
+        <span className="scarce-choice-format-photo" />
+        <span className="scarce-choice-format-caption">Aa</span>
+      </span>
+    );
+  }
+
+  const sample = format === 'poster' ? 'AA' : 'Aa';
+
+  return (
+    <span
+      className={`scarce-choice-swatch scarce-choice-swatch--format scarce-choice-swatch--format-${format} scarce-choice-swatch--${size}`}
+      aria-hidden
+    >
+      <span className="scarce-choice-format-aa">{sample}</span>
+    </span>
+  );
 }

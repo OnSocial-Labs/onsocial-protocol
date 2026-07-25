@@ -112,6 +112,7 @@ export function ScarceBuySheet({
       onClosed={handleSheetClosed}
       tone="os"
       initialDetent="full"
+      peekRatio={1}
       panelClassName={`profile-support-sheet-panel${
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
