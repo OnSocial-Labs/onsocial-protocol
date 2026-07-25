@@ -9,7 +9,13 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { Divider, GlassSheet, ProfileAvatar, SheetCloseButton } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  ProfileAvatar,
+  SheetCloseButton,
+  ShopFillIcon,
+} from '@onsocial/ui';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -269,8 +275,12 @@ export function PortfolioScarceEarningsSheet({
                   className="portfolio-scarce-earnings-market-header"
                   scroll={false}
                   onClick={requestClose}
+                  aria-label="Open Market"
                 >
-                  Market
+                  <ShopFillIcon
+                    className="portfolio-scarce-earnings-market-header-glyph"
+                    aria-hidden
+                  />
                 </Link>
                 <SheetCloseButton
                   onClick={requestClose}

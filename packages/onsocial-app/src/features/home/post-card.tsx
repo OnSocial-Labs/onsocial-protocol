@@ -1,25 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  CopyIcon,
   Divider,
   DotsVerticalIcon,
   FireBFillIcon,
   FireBIcon,
-  FloatingPanelMenu,
+  GiftIcon,
   HeartFillIcon,
   HeartIcon,
   MessageRoundIcon,
   ProfileAvatar,
   RepeatIcon,
+  ShopIcon,
+  TrashIcon,
+  UserIcon,
+  UserMinusIcon,
+  UserPlusIcon,
   UsersFillIcon,
-  osFloatingPanelBodyClassName,
-  osFloatingPanelItemClassName,
-  useDropdown,
 } from '@onsocial/ui';
+import {
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
@@ -170,11 +177,20 @@ function PostCardMenu({
     relationshipAccountId || accountId
   );
   const [supportOpen, setSupportOpen] = useState(false);
-  const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const isOpen = open && !closing;
+  const requestClose = useCallback(() => {
+    setClosing(true);
+  }, []);
+  const handleClosed = useCallback(() => {
+    setClosing(false);
+    setOpen(false);
+  }, []);
+  const close = requestClose;
 
   const isSelf =
-    Boolean(viewerAccountId) &&
-    accountIdsEqual(viewerAccountId!, accountId);
+    Boolean(viewerAccountId) && accountIdsEqual(viewerAccountId!, accountId);
   const showGestures = isConnected && !isSelf;
   const showListScarce = isConnected && isSelf && canListScarce && onListScarce;
   const showCancelScarce =
@@ -211,9 +227,7 @@ function PostCardMenu({
       setTxResult({
         type: 'error',
         msg:
-          error instanceof Error
-            ? error.message
-            : 'Could not update standing.',
+          error instanceof Error ? error.message : 'Could not update standing.',
       });
     } finally {
       close();
@@ -230,12 +244,97 @@ function PostCardMenu({
         ? 'Step back'
         : 'Stand with';
 
+  const menuItems = useMemo<ActionDrawerItem[]>(() => {
+    const items: ActionDrawerItem[] = [];
+    if (showGestures) {
+      items.push({
+        id: 'stand',
+        label: standLabel,
+        disabled: pending || isLoading,
+        leading: viewerStanding ? (
+          <UserMinusIcon className="action-drawer-icon" aria-hidden />
+        ) : (
+          <UserPlusIcon className="action-drawer-icon" aria-hidden />
+        ),
+        onSelect: () => void handleStandToggle(),
+      });
+      items.push({
+        id: 'support',
+        label: 'Support',
+        leading: <GiftIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          setSupportOpen(true);
+          requestClose();
+        },
+      });
+      items.push({
+        id: 'endorse',
+        label: 'Endorse',
+        leading: <FireBIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          requestClose();
+          router.push(endorsementsHref, { scroll: false });
+        },
+      });
+    }
+    if (showListScarce) {
+      items.push({
+        id: 'list-scarce',
+        label: 'List for sale',
+        leading: <ShopIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          requestClose();
+          onListScarce();
+        },
+      });
+    }
+    if (showCancelScarce) {
+      items.push({
+        id: 'cancel-scarce',
+        label: cancelScarcePending ? 'Canceling…' : 'Cancel listing',
+        destructive: true,
+        disabled: cancelScarcePending,
+        leading: <TrashIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          requestClose();
+          onCancelScarce();
+        },
+      });
+    }
+    items.push({
+      id: 'view-profile',
+      label: 'View profile',
+      href: profileHref,
+      leading: <UserIcon className="action-drawer-icon" aria-hidden />,
+      onSelect: () => requestClose(),
+    });
+    if (href) {
+      items.push({
+        id: 'copy-link',
+        label: 'Copy link',
+        leading: <CopyIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => void copyLink(),
+      });
+    }
+    return items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    showGestures,
+    standLabel,
+    viewerStanding,
+    pending,
+    isLoading,
+    showListScarce,
+    showCancelScarce,
+    cancelScarcePending,
+    href,
+    profileHref,
+    endorsementsHref,
+  ]);
+
   return (
     <>
-      <div
-        className={`post-card-menu${isOpen ? ' is-open' : ''}`}
-        ref={containerRef}
-      >
+      <div className={`post-card-menu${isOpen ? ' is-open' : ''}`}>
         <button
           type="button"
           className={`post-card-menu-trigger${isOpen ? ' is-open' : ''}`}
@@ -246,129 +345,23 @@ function PostCardMenu({
               if (showGestures) setGesturesArmed(true);
               onMenuOpen?.();
             }
-            toggle();
+            setOpen(true);
           }}
-          aria-haspopup="menu"
+          aria-haspopup="dialog"
           aria-expanded={isOpen}
           aria-label="Post options"
         >
           <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
         </button>
 
-        <FloatingPanelMenu
-          ref={panelRef}
+        <ActionDrawer
           open={isOpen}
-          align="right"
-          offset="sm"
-          className="post-card-menu-panel"
-          role="menu"
-          aria-label="Post options"
-        >
-          <div className={osFloatingPanelBodyClassName}>
-            {showGestures ? (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={osFloatingPanelItemClassName}
-                  disabled={pending || isLoading}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void handleStandToggle();
-                  }}
-                >
-                  <span>{standLabel}</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={osFloatingPanelItemClassName}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    setSupportOpen(true);
-                    close();
-                  }}
-                >
-                  <span>Support</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={osFloatingPanelItemClassName}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    close();
-                    router.push(endorsementsHref, { scroll: false });
-                  }}
-                >
-                  <span>Endorse</span>
-                </button>
-              </>
-            ) : null}
-            {showListScarce ? (
-              <button
-                type="button"
-                role="menuitem"
-                className={osFloatingPanelItemClassName}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  close();
-                  onListScarce();
-                }}
-              >
-                <span>List for sale</span>
-              </button>
-            ) : null}
-            {showCancelScarce ? (
-              <button
-                type="button"
-                role="menuitem"
-                className={osFloatingPanelItemClassName}
-                disabled={cancelScarcePending}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  close();
-                  onCancelScarce();
-                }}
-              >
-                <span>
-                  {cancelScarcePending ? 'Canceling…' : 'Cancel listing'}
-                </span>
-              </button>
-            ) : null}
-            <Link
-              href={profileHref}
-              scroll={false}
-              role="menuitem"
-              className={osFloatingPanelItemClassName}
-              onClick={(event) => {
-                event.stopPropagation();
-                close();
-              }}
-            >
-              <span>View profile</span>
-            </Link>
-            {href ? (
-              <button
-                type="button"
-                role="menuitem"
-                className={osFloatingPanelItemClassName}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  void copyLink();
-                }}
-              >
-                <span>Copy link</span>
-              </button>
-            ) : null}
-          </div>
-        </FloatingPanelMenu>
+          onClose={requestClose}
+          onClosed={handleClosed}
+          label="Post options"
+          listAriaLabel="Post options"
+          items={menuItems}
+        />
       </div>
       <ProfileSupportSheet
         open={supportOpen}
@@ -501,11 +494,7 @@ export function QuotedPostInset({
               </p>
             ) : null}
             {collage ? (
-              <PostMediaStrip
-                items={collage}
-                size="quote"
-                playbackDisabled
-              />
+              <PostMediaStrip items={collage} size="quote" playbackDisabled />
             ) : null}
             {thumb ? <QuoteMediaThumb item={thumb} /> : null}
             {!collage && text ? (
@@ -833,9 +822,7 @@ export function PostCard({
   // a listing is confirmed.
   const canListScarce = isConnected && isSelf && !activelyListed;
   const canCancelScarce =
-    isConnected &&
-    isSelf &&
-    canCancelPostScarce(scarceEmbed);
+    isConnected && isSelf && canCancelPostScarce(scarceEmbed);
 
   async function handleCancelScarce() {
     if (!scarceEmbed || cancelScarcePending) return;
@@ -894,9 +881,7 @@ export function PostCard({
   const profileHref = portfolioPath(post.accountId);
   const guildId = post.groupId?.trim() || null;
   const guildLabel =
-    showGuildAttribution && guildId
-      ? guildName?.trim() || guildId
-      : null;
+    showGuildAttribution && guildId ? guildName?.trim() || guildId : null;
   const guildHref = guildId ? guildPath(guildId) : null;
   const detailTimestampIso = detailLayout
     ? postTimestampIso(post.blockTimestamp)

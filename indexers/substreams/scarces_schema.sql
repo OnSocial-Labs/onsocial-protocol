@@ -125,6 +125,11 @@ CREATE TABLE IF NOT EXISTS scarces_active_listings (
   seller_id TEXT NOT NULL DEFAULT 'unknown',
   creator_id TEXT,
   price TEXT,
+  -- Generated numeric mirror of `price` so the sink never writes it and
+  -- price sorts stay index-backed (yocto values exceed BIGINT).
+  price_numeric NUMERIC GENERATED ALWAYS AS (
+    CASE WHEN price ~ '^[0-9]+$' THEN price::numeric ELSE NULL END
+  ) STORED,
   reserve_price TEXT,
   buy_now_price TEXT,
   highest_bid TEXT,
@@ -154,6 +159,12 @@ CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_token
   ON scarces_active_listings(token_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_listing
   ON scarces_active_listings(listing_id);
+CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_price
+  ON scarces_active_listings(price_numeric);
+CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_expires
+  ON scarces_active_listings(expires_at);
+CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_kind_listed
+  ON scarces_active_listings(kind, listed_block_timestamp DESC);
 
 -- Sink-maintained open offers (upsert on made, delete on cancel/accept).
 CREATE TABLE IF NOT EXISTS scarces_active_offers (

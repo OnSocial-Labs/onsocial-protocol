@@ -354,8 +354,10 @@ const pendingIndexer = Boolean(freshPost) && !thread.root;`,
       'os.token.* and os.boost.* reads',
     ],
     readMethods: [
-      'os.scarces.tokens.get(tokenId) for NEP-171 token metadata.',
-      'os.query.scarces.* for indexed event and listing surfaces when available.',
+      'os.query.scarces.activeListings / activeOffers for Market browse (indexer catalog).',
+      'os.query.scarces.recentSales / events / tokenHistory for activity and mint times.',
+      'os.scarces.tokens.get(tokenId) for NEP-171 token metadata at sheet open when catalog omits fields.',
+      'Contract views for buy/bid/cancel verify and owned inventory (`nft_tokens_for_owner`).',
       'os.rewards.getBalance(accountId) for partner reward balances.',
       'os.token.* and os.boost.* helpers for read-only token and boost state.',
     ],
@@ -384,7 +386,10 @@ const lazyListing = await os.scarces.fromPost.list(
 
 const recentMints = await os.query.scarces.mintsBy(accountId, {
   limit: 5,
-});`,
+});
+
+const liveListings = await os.query.scarces.activeListings({ limit: 40 });
+const recentSales = await os.query.scarces.recentSales({ limit: 20 });`,
       },
       {
         title: 'Mint directly from metadata and a CID',
@@ -402,6 +407,8 @@ const recentMints = await os.query.scarces.mintsBy(accountId, {
     ],
     notes: [
       'Use fromPost for provenance; use tokens.mint for standalone assets.',
+      'Market browse is indexer-first (OnAPI catalog/events). RPC is for action-time verify, owned vault, and true catalog outage — not empty markets.',
+      'Listed time comes from catalog listedBlockTimestamp; minted time from scarces_events via tokenHistory on detail sheets.',
       'Keep marketplace and reward flows behind explicit user confirmation.',
       'Server-side reward crediting should use trusted auth and should not expose API keys to browsers.',
     ],

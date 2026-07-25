@@ -28,6 +28,8 @@ export interface ScarceBidListing {
   priceNear?: string;
   sourcePostPath?: string;
   postHref?: string | null;
+  /** Catalog listed time (ms) — shown as “Listed …” on the bid sheet. */
+  listedAtMs?: number;
   /** Clip behind a video scarce — cover stays the still frame. */
   playable?: ScarcePlayableMedia;
 }
@@ -40,6 +42,8 @@ interface ScarceBidSheetProps {
   listing?: ScarceBidListing | null;
   onOpenChange: (open: boolean) => void;
   onBid?: (detail: ScarceBidSuccessDetail) => void;
+  /** Stack above portfolio drawers when opened from Listings. */
+  zIndex?: number;
 }
 
 /** Buyer sheet for placing a bid on a native scarce auction. */
@@ -51,6 +55,7 @@ export function ScarceBidSheet({
   listing = null,
   onOpenChange,
   onBid,
+  zIndex = 56,
 }: ScarceBidSheetProps) {
   const titleId = useId();
   const formId = useId();
@@ -107,7 +112,7 @@ export function ScarceBidSheet({
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
       panelStyle={panelStyle}
-      zIndex={56}
+      zIndex={zIndex}
       ariaLabelledBy={titleId}
       backdropLabel="Close bid scarce"
       bodyClassName="profile-support-sheet-body"

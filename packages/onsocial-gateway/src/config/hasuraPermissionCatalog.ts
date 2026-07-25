@@ -758,6 +758,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'seller_id',
       'creator_id',
       'price',
+      'price_numeric',
       'reserve_price',
       'buy_now_price',
       'highest_bid',

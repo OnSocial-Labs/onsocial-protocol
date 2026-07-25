@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   excludeOwnedNativeListings,
+  formatMarketRelativeTime,
   hasUnresolvedTitleTemplate,
   resolveTokenDisplayTitle,
   sortMarketListings,
@@ -13,6 +14,21 @@ const baseListing: Omit<MarketListingItem, 'kind' | 'tokenId'> = {
   priceNear: '1',
   blockTimestamp: 1,
 };
+
+describe('formatMarketRelativeTime', () => {
+  it('returns empty for missing timestamps', () => {
+    expect(formatMarketRelativeTime(0)).toBe('');
+    expect(formatMarketRelativeTime(Number.NaN)).toBe('');
+  });
+
+  it('formats recent ages', () => {
+    const now = Date.now();
+    expect(formatMarketRelativeTime(now - 30_000)).toBe('just now');
+    expect(formatMarketRelativeTime(now - 5 * 60_000)).toBe('5m ago');
+    expect(formatMarketRelativeTime(now - 3 * 3_600_000)).toBe('3h ago');
+    expect(formatMarketRelativeTime(now - 2 * 86_400_000)).toBe('2d ago');
+  });
+});
 
 describe('hasUnresolvedTitleTemplate', () => {
   it.each(['Genesis #{id}', 'Genesis {token_id}', '{seat_number}'])(

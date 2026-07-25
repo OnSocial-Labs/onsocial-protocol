@@ -2952,6 +2952,34 @@ describe('QueryModule', () => {
       expect(body.query).toMatch(/buyerId: \{_eq: \$buyerId\}/);
     });
 
+    it('recentSales merges native purchases and lazy purchased', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
+      await os.query.scarces.recentSales({ limit: 12 });
+
+      expect(fetch.mock.calls).toHaveLength(2);
+      const bodies = fetch.mock.calls.map((call) =>
+        JSON.parse((call[1] as RequestInit).body as string)
+      );
+      expect(bodies).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              eventType: 'SCARCE_UPDATE',
+              operation: ['purchase', 'auction_settled'],
+              limit: 12,
+            }),
+          }),
+          expect.objectContaining({
+            variables: expect.objectContaining({
+              eventType: 'LAZY_LISTING_UPDATE',
+              operation: ['purchased'],
+              limit: 12,
+            }),
+          }),
+        ])
+      );
+    });
+
     it('bids returns auction_bid events for a token in chronological order', async () => {
       const { os, fetch } = makeOs({ data: { scarcesEvents: [] } });
       await os.query.scarces.bids('s:1');
@@ -2996,6 +3024,50 @@ describe('QueryModule', () => {
         offset: 0,
         kind: 'auction',
       });
+    });
+
+    it('activeListings supports kinds / search / sellerId filters', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesActiveListings: [] } });
+      await os.query.scarces.activeListings({
+        kinds: ['lazy', 'native'],
+        search: 'sunset',
+        sellerId: 'a.near',
+        offset: 40,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/kind: \{_in: \$kinds\}/);
+      expect(body.query).toMatch(/sellerId: \{_eq: \$sellerId\}/);
+      expect(body.query).toMatch(/title: \{_ilike: \$search\}/);
+      expect(body.variables).toEqual({
+        limit: 40,
+        offset: 40,
+        kinds: ['lazy', 'native'],
+        sellerId: 'a.near',
+        search: '%sunset%',
+      });
+    });
+
+    it('activeListings maps orderBy to indexer sorts with nulls last', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesActiveListings: [] } });
+      await os.query.scarces.activeListings({ orderBy: 'price_asc' });
+      await os.query.scarces.activeListings({ orderBy: 'price_desc' });
+      await os.query.scarces.activeListings({ orderBy: 'ending_asc' });
+
+      const queries = fetch.mock.calls.map(
+        (call) => JSON.parse((call[1] as RequestInit).body as string).query
+      );
+      expect(queries[0]).toMatch(
+        /orderBy: \[\{priceNumeric: ASC_NULLS_LAST\}, \{listedBlockTimestamp: DESC\}\]/
+      );
+      expect(queries[1]).toMatch(
+        /orderBy: \[\{priceNumeric: DESC_NULLS_LAST\}, \{listedBlockTimestamp: DESC\}\]/
+      );
+      expect(queries[2]).toMatch(
+        /orderBy: \[\{expiresAt: ASC_NULLS_LAST\}, \{listedBlockTimestamp: DESC\}\]/
+      );
     });
 
     it('activeOffers queries scarcesActiveOffers by tokenId', async () => {

@@ -1,28 +1,34 @@
-import type { ScarcesActiveListingRow } from '@onsocial/sdk';
+import type { ScarcesActiveListingRow, ScarcesEventRow } from '@onsocial/sdk';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { resolvePostThreadHrefsFromSourcePaths } from '@/lib/post-routes';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
+/**
+ * Market data plane (indexer-first, same pattern as feed/standings):
+ *
+ * - Browse / sales / activity → OnAPI `os.query.scarces.*` (Hasura catalog + events)
+ * - Buy / bid / cancel verify → NEAR contract views at action time
+ * - “Yours” owned inventory → RPC (`nft_tokens_for_owner`) — no owned sink yet
+ * - RPC browse fallback → only on true OnAPI/Hasura failure, never on empty catalog
+ *
+ * Times: listed = `listedBlockTimestamp` / event time; minted = first mint-family
+ * event via `tokenHistory` (detail sheets only). Legacy test rows may omit fields.
+ */
+
 const SCARCES_CONTRACT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
     ? 'scarces.onsocial.near'
     : 'scarces.onsocial.testnet';
 
-/** Minimal event shape used by Market browse (matches SDK scarces event rows). */
-interface ScarcesEventRow {
-  listingId: string | null;
-  tokenId: string | null;
-  creatorId: string | null;
-  author: string;
-  buyerId: string | null;
-  sellerId: string | null;
-  price: string | null;
-  amount: string | null;
-  extraData: string | null;
-  blockTimestamp: number;
-}
+/** Mint-family ops used to resolve “Minted …” on detail sheets. */
+const SCARCE_MINT_OPS = new Set([
+  'quick_mint',
+  'creator_mint',
+  'purchased',
+  'purchase',
+]);
 
 interface LazyListingRecord {
   creator_id?: string;
@@ -103,6 +109,8 @@ export interface OwnedScarceItem {
   listedPriceNear?: string | null;
   /** Auction bids on the current listing — cancel is blocked when > 0. */
   bidCount?: number;
+  /** Auction clock (`Sale.expires_at`, ns) when listed as auction. */
+  expiresAtNs?: number | null;
   /** Original post path from token `metadata.extra` when present. */
   sourcePostPath?: string;
 }
@@ -188,6 +196,22 @@ function timestampMs(raw: number | string | null | undefined): number {
   const timestamp = typeof raw === 'string' ? Number(raw) : raw;
   if (!Number.isFinite(timestamp) || !timestamp || timestamp <= 0) return 0;
   return timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
+}
+
+/**
+ * Relative age for Market listed / sold / minted labels.
+ * Accepts ms or ns-ish indexer timestamps.
+ */
+export function formatMarketRelativeTime(timestamp: number): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+  const ms = timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
+  const elapsed = Math.max(0, Date.now() - ms);
+  const minutes = Math.floor(elapsed / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function priceNearFromRow(row: ScarcesEventRow): string {
@@ -301,7 +325,7 @@ export function excludeOwnedNativeListings(
   );
 }
 
-export function saleTitle(row: ScarcesEventRow): string {
+export function saleTitle(row: Pick<ScarcesEventRow, 'extraData' | 'tokenId'>): string {
   const extra = parseExtra(row.extraData);
   const titled =
     stringField(extra, 'title') ??
@@ -315,6 +339,26 @@ export function saleTitle(row: ScarcesEventRow): string {
   if (tokenId.includes(':') && !tokenId.startsWith('s:')) return tokenId;
   // Native token ids (s:319) — quiet label, not a raw id dump.
   return 'Scarce';
+}
+
+function saleMediaFromRow(
+  row: Pick<ScarcesEventRow, 'extraData'>
+): string | null {
+  const extra = parseExtra(row.extraData);
+  return (
+    resolveScarceMediaUrl(
+      stringField(extra, 'media') ??
+        stringField(extra, 'mediaUrl') ??
+        stringField(extra, 'mediaCid') ??
+        null
+    ) ?? null
+  );
+}
+
+function saleSourcePostFromRow(
+  row: Pick<ScarcesEventRow, 'extraData'>
+): string | undefined {
+  return sourcePostPathFromExtra(parseExtra(row.extraData));
 }
 
 function parseCount(raw: unknown): number | undefined {
@@ -547,16 +591,15 @@ export function sortMarketListings(
     );
   }
   if (sort === 'ending') {
+    // Auctions only — fixed/lazy rows (if present) sink below by recency.
     return copy.sort((a, b) => {
-      const aMs = auctionExpiresAtMs(a.expiresAtNs);
-      const bMs = auctionExpiresAtMs(b.expiresAtNs);
-      const aLive = a.kind === 'auction' && aMs != null;
-      const bLive = b.kind === 'auction' && bMs != null;
-      if (aLive && bLive) return aMs! - bMs!;
-      if (aLive !== bLive) return aLive ? -1 : 1;
       const aAuction = a.kind === 'auction';
       const bAuction = b.kind === 'auction';
       if (aAuction !== bAuction) return aAuction ? -1 : 1;
+      const aMs = auctionExpiresAtMs(a.expiresAtNs);
+      const bMs = auctionExpiresAtMs(b.expiresAtNs);
+      if (aMs != null && bMs != null) return aMs - bMs;
+      if ((aMs != null) !== (bMs != null)) return aMs != null ? -1 : 1;
       return b.blockTimestamp - a.blockTimestamp;
     });
   }
@@ -732,53 +775,32 @@ export async function fetchNativeMarketListings(
   return fetchNativeMarketListingsFromRpc(limit);
 }
 
-const OWNED_PAGE_SIZE = 50;
+/** Default “Yours” page — small enough to never stall the panel. */
+export const OWNED_PAGE_SIZE = 24;
 /** Cap so a huge vault doesn’t stall Market; newest pages still load first. */
 const OWNED_MAX_TOKENS = 300;
 
-async function fetchOwnedTokenPages(
-  owner: string
-): Promise<ContractTokenRecord[]> {
-  const tokens: ContractTokenRecord[] = [];
-  let fromIndex = 0;
-  while (tokens.length < OWNED_MAX_TOKENS) {
-    const page = await viewNearContract<ContractTokenRecord[]>(
-      SCARCES_CONTRACT,
-      'nft_tokens_for_owner',
-      {
-        account_id: owner,
-        from_index: String(fromIndex),
-        limit: OWNED_PAGE_SIZE,
-      }
-    );
-    if (!Array.isArray(page) || page.length === 0) break;
-    tokens.push(...page);
-    if (page.length < OWNED_PAGE_SIZE) break;
-    fromIndex += page.length;
-  }
-  return tokens;
+/** One page of wallet-owned scarces for Market “Yours”. */
+export interface OwnedScarcesPage {
+  items: OwnedScarceItem[];
+  /** Tokens consumed from the newest end; pass back as `fromEnd`. */
+  nextFromEnd: number;
+  hasMore: boolean;
 }
 
-/**
- * Scarces owned by `accountId`, with optional listed price when already for sale.
- * Newest first so recent wins/buys show under Yours without scrolling forever.
- */
-export async function fetchOwnedScarces(
-  accountId: string
-): Promise<OwnedScarceItem[]> {
-  const owner = accountId.trim();
-  if (!owner) return [];
-
-  let tokens: ContractTokenRecord[] = [];
-  try {
-    tokens = await fetchOwnedTokenPages(owner);
-  } catch {
-    return [];
-  }
-
-  // Contract enumeration is oldest→newest; flip for Market “Yours”.
-  tokens.reverse();
-
+async function fetchOwnerListedStates(
+  owner: string
+): Promise<
+  Map<
+    string,
+    {
+      kind: 'fixed' | 'auction';
+      priceNear: string;
+      bidCount?: number;
+      expiresAtNs?: number | null;
+    }
+  >
+> {
   let ownerSales: ContractSaleRecord[] = [];
   try {
     ownerSales = await viewNearContract<ContractSaleRecord[]>(
@@ -792,7 +814,12 @@ export async function fetchOwnedScarces(
 
   const listedByToken = new Map<
     string,
-    { kind: 'fixed' | 'auction'; priceNear: string; bidCount?: number }
+    {
+      kind: 'fixed' | 'auction';
+      priceNear: string;
+      bidCount?: number;
+      expiresAtNs?: number | null;
+    }
   >();
   for (const sale of ownerSales) {
     const tokenId = nativeTokenIdFromSale(sale);
@@ -809,11 +836,27 @@ export async function fetchOwnedScarces(
           kind: 'auction',
           priceNear,
           bidCount: auctionBidCount(sale),
+          expiresAtNs: saleExpiresAtNs(sale),
         });
       }
     }
   }
+  return listedByToken;
+}
 
+function ownedItemsFromTokens(
+  tokens: ContractTokenRecord[],
+  owner: string,
+  listedByToken: Map<
+    string,
+    {
+      kind: 'fixed' | 'auction';
+      priceNear: string;
+      bidCount?: number;
+      expiresAtNs?: number | null;
+    }
+  >
+): OwnedScarceItem[] {
   return tokens
     .map((token): OwnedScarceItem | null => {
       const tokenId = token.token_id?.trim();
@@ -839,10 +882,74 @@ export async function fetchOwnedScarces(
         ...(listed?.kind === 'auction' && listed.bidCount != null
           ? { bidCount: listed.bidCount }
           : {}),
+        ...(listed?.kind === 'auction' && listed.expiresAtNs != null
+          ? { expiresAtNs: listed.expiresAtNs }
+          : {}),
         ...(sourcePostPath ? { sourcePostPath } : {}),
       };
     })
     .filter((item): item is OwnedScarceItem => item != null);
+}
+
+/**
+ * One newest-first page of scarces owned by `accountId`, with listed price
+ * when already for sale. Intentional RPC path (`nft_supply_for_owner` +
+ * `nft_tokens_for_owner` + owner sales) — no owned-inventory indexer sink
+ * yet. Contract enumeration is oldest→newest, so pages are cut from the end
+ * of the range and flipped; `hasMore` stops at `OWNED_MAX_TOKENS`.
+ */
+export async function fetchOwnedScarcesPage(
+  accountId: string,
+  opts: { fromEnd?: number; pageSize?: number } = {}
+): Promise<OwnedScarcesPage> {
+  const owner = accountId.trim();
+  const fromEnd = Math.max(0, opts.fromEnd ?? 0);
+  const pageSize = Math.max(1, opts.pageSize ?? OWNED_PAGE_SIZE);
+  const empty: OwnedScarcesPage = {
+    items: [],
+    nextFromEnd: fromEnd,
+    hasMore: false,
+  };
+  if (!owner || fromEnd >= OWNED_MAX_TOKENS) return empty;
+
+  let total = 0;
+  try {
+    const supply = await viewNearContract<string | number>(
+      SCARCES_CONTRACT,
+      'nft_supply_for_owner',
+      { account_id: owner }
+    );
+    total = Math.floor(Number(supply));
+  } catch {
+    return empty;
+  }
+  if (!Number.isFinite(total) || total <= fromEnd) return empty;
+
+  const take = Math.min(pageSize, total - fromEnd, OWNED_MAX_TOKENS - fromEnd);
+  const fromIndex = total - fromEnd - take;
+
+  let tokens: ContractTokenRecord[] = [];
+  try {
+    tokens = await viewNearContract<ContractTokenRecord[]>(
+      SCARCES_CONTRACT,
+      'nft_tokens_for_owner',
+      { account_id: owner, from_index: String(fromIndex), limit: take }
+    );
+  } catch {
+    return empty;
+  }
+  if (!Array.isArray(tokens)) return empty;
+
+  // Oldest→newest within the slice; flip for Market “Yours”.
+  tokens.reverse();
+
+  const listedByToken = await fetchOwnerListedStates(owner);
+  const nextFromEnd = fromEnd + take;
+  return {
+    items: ownedItemsFromTokens(tokens, owner, listedByToken),
+    nextFromEnd,
+    hasMore: nextFromEnd < Math.min(total, OWNED_MAX_TOKENS),
+  };
 }
 
 /**
@@ -901,7 +1008,7 @@ export async function fetchScarceTokenMeta(
 
 /**
  * Prefer live listing / token metadata for description + cover — catalog
- * browse rows omit description.
+ * browse rows omit description. RPC hydrate is sheet-open only.
  */
 export async function fetchScarceListingMeta(opts: {
   listingId?: string | null;
@@ -924,6 +1031,28 @@ export async function fetchScarceListingMeta(opts: {
   const tokenId = opts.tokenId?.trim();
   if (tokenId) return fetchScarceTokenMeta(tokenId);
   return null;
+}
+
+/**
+ * Mint time from indexer `scarces_events` (first mint-family op, else earliest
+ * token event). Detail sheets only — not browse rows.
+ */
+export async function fetchScarceMintedAt(
+  tokenId: string
+): Promise<number | null> {
+  const id = tokenId.trim();
+  if (!id) return null;
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const history = await client.query.scarces.tokenHistory(id, { limit: 40 });
+    if (history.length === 0) return null;
+    const mint =
+      history.find((row) => SCARCE_MINT_OPS.has(row.operation)) ?? history[0];
+    const ms = timestampMs(mint.blockTimestamp);
+    return ms > 0 ? ms : null;
+  } catch {
+    return null;
+  }
 }
 
 const LIVE_LISTINGS_TTL_MS = 30_000;
@@ -1084,7 +1213,8 @@ function listingFromActiveRow(
 }
 
 /**
- * Degraded browse: indexer event discovery + RPC hydrate (pre-catalog path).
+ * Degraded browse: indexer event discovery + RPC hydrate.
+ * Used only when OnAPI/Hasura catalog throws — not when the market is empty.
  */
 async function fetchMarketListingsViaRpc(
   limit: number
@@ -1131,34 +1261,74 @@ async function fetchMarketListingsViaRpc(
     .slice(0, limit);
 }
 
+/** One Market catalog page for infinite scroll. */
+export interface MarketListingsPage {
+  items: MarketListingItem[];
+  /** Pass back as `offset` to fetch the next page. */
+  nextOffset: number;
+  hasMore: boolean;
+}
+
+function sortToIndexerOrder(
+  sort: MarketListingSort | undefined
+): 'listed_desc' | 'price_asc' | 'price_desc' | 'ending_asc' {
+  if (sort === 'price-asc') return 'price_asc';
+  if (sort === 'price-desc') return 'price_desc';
+  if (sort === 'ending') return 'ending_asc';
+  return 'listed_desc';
+}
+
 /**
- * Active Market catalog — prefers sink `scarces_active_listings`, falls back
- * to event discovery + RPC hydrate when the catalog is empty/unavailable.
- * Buy/bid/verify still use contract views at action time.
+ * Active Market catalog via sink `scarces_active_listings` (OnAPI), paged.
+ * Filter / sort / search run in the indexer so pages stay globally correct.
+ * Empty catalog → empty UI. RPC degrade only on true query failure, and only
+ * for the first page. Buy/bid/verify still use contract views at action time.
  */
 export async function fetchMarketListings(
   opts: {
     limit?: number;
+    offset?: number;
+    kinds?: ('lazy' | 'native' | 'auction')[];
+    search?: string;
+    sort?: MarketListingSort;
   } = {}
-): Promise<MarketListingItem[]> {
+): Promise<MarketListingsPage> {
   const limit = opts.limit ?? 40;
+  const offset = opts.offset ?? 0;
   try {
     const client = createReadOnlyOnSocialClient();
-    const rows = await client.query.scarces.activeListings({ limit });
+    const rows = await client.query.scarces.activeListings({
+      limit,
+      offset,
+      ...(opts.kinds?.length ? { kinds: opts.kinds } : {}),
+      ...(opts.search?.trim() ? { search: opts.search.trim() } : {}),
+      orderBy: sortToIndexerOrder(opts.sort),
+    });
     const items = rows
       .map((row) => listingFromActiveRow(row))
       .filter((item): item is MarketListingItem => item != null);
-    if (items.length > 0) {
-      return withResolvedPostHrefs(items.slice(0, limit));
-    }
+    return {
+      items: await withResolvedPostHrefs(items),
+      // Advance by raw row count so client-dropped rows don't re-fetch.
+      nextOffset: offset + rows.length,
+      hasMore: rows.length === limit,
+    };
   } catch {
-    // Catalog missing / Hasura not tracked yet — degrade to RPC hydrate.
+    // Catalog missing / Hasura unavailable — degrade to RPC hydrate.
+    if (offset > 0) return { items: [], nextOffset: offset, hasMore: false };
+    const fallback = await fetchMarketListingsViaRpc(limit);
+    return {
+      items: await withResolvedPostHrefs(fallback),
+      nextOffset: fallback.length,
+      hasMore: false,
+    };
   }
-
-  const fallback = await fetchMarketListingsViaRpc(limit);
-  return withResolvedPostHrefs(fallback);
 }
 
+/**
+ * Recent sales from indexer events (`os.query.scarces.recentSales`).
+ * RPC token hydrate only when event extra lacks title/media/source path.
+ */
 export async function fetchMarketSales(
   opts: {
     limit?: number;
@@ -1166,47 +1336,64 @@ export async function fetchMarketSales(
 ): Promise<MarketSaleItem[]> {
   const limit = opts.limit ?? 20;
   const client = createReadOnlyOnSocialClient();
-  const [lazyResult, nativeResult] = await Promise.allSettled([
-    client.query.scarces.events({
-      eventType: 'LAZY_LISTING_UPDATE',
-      operation: 'purchased',
-      limit,
-    }),
-    client.query.scarces.events({
-      eventType: 'SCARCE_UPDATE',
-      operation: ['purchase', 'auction_settled'],
-      limit,
-    }),
-  ]);
-  const lazyPurchased =
-    lazyResult.status === 'fulfilled' ? lazyResult.value : [];
-  const nativeSales =
-    nativeResult.status === 'fulfilled' ? nativeResult.value : [];
+  let merged: ScarcesEventRow[] = [];
+  try {
+    merged = await client.query.scarces.recentSales({ limit });
+  } catch {
+    // Fall back to dual event queries if recentSales is unavailable.
+    const [lazyResult, nativeResult] = await Promise.allSettled([
+      client.query.scarces.events({
+        eventType: 'LAZY_LISTING_UPDATE',
+        operation: 'purchased',
+        limit,
+      }),
+      client.query.scarces.events({
+        eventType: 'SCARCE_UPDATE',
+        operation: ['purchase', 'auction_settled'],
+        limit,
+      }),
+    ]);
+    const lazyPurchased =
+      lazyResult.status === 'fulfilled' ? lazyResult.value : [];
+    const nativeSales =
+      nativeResult.status === 'fulfilled' ? nativeResult.value : [];
+    merged = [...lazyPurchased, ...nativeSales].sort(
+      (a, b) => b.blockTimestamp - a.blockTimestamp
+    );
+  }
 
-  const merged = [...lazyPurchased, ...nativeSales].sort(
-    (a, b) => b.blockTimestamp - a.blockTimestamp
-  );
+  const items = merged.slice(0, limit).map((row) => {
+    const mediaUrl = saleMediaFromRow(row);
+    const sourcePostPath = saleSourcePostFromRow(row);
+    return {
+      listingId: row.listingId?.trim() || undefined,
+      tokenId: row.tokenId?.trim() || undefined,
+      buyerId: accountFromRow(row.buyerId),
+      sellerId: accountFromRow(row.sellerId),
+      creatorId: accountFromRow(row.creatorId, row.author),
+      title: saleTitle(row),
+      priceNear: priceNearFromRow(row),
+      blockTimestamp: row.blockTimestamp,
+      ...(mediaUrl ? { mediaUrl } : {}),
+      ...(sourcePostPath ? { sourcePostPath } : {}),
+    };
+  });
 
-  const items = merged.slice(0, limit).map((row) => ({
-    listingId: row.listingId?.trim() || undefined,
-    tokenId: row.tokenId?.trim() || undefined,
-    buyerId: accountFromRow(row.buyerId),
-    sellerId: accountFromRow(row.sellerId),
-    creatorId: accountFromRow(row.creatorId, row.author),
-    title: saleTitle(row),
-    priceNear: priceNearFromRow(row),
-    blockTimestamp: row.blockTimestamp,
-  }));
-  const tokenIds = [
+  const tokenIdsNeedingMeta = [
     ...new Set(
       items
-        .map((item) => item.tokenId?.trim())
-        .filter((tokenId): tokenId is string => Boolean(tokenId))
+        .filter((item) => {
+          if (!item.tokenId?.trim()) return false;
+          const needsTitle =
+            item.title === 'Scarce' || hasUnresolvedTitleTemplate(item.title);
+          return needsTitle || !item.mediaUrl || !item.sourcePostPath;
+        })
+        .map((item) => item.tokenId!.trim())
     ),
   ];
   const tokenMeta = new Map(
     await Promise.all(
-      tokenIds.map(
+      tokenIdsNeedingMeta.map(
         async (tokenId) => [tokenId, await fetchTokenRecord(tokenId)] as const
       )
     )
@@ -1214,19 +1401,22 @@ export async function fetchMarketSales(
 
   const enriched = items.map((item) => {
     const token = item.tokenId ? tokenMeta.get(item.tokenId) : null;
-    const tokenTitle = token?.metadata?.title?.trim();
-    const extra = parseExtra(token?.metadata?.extra ?? null);
+    if (!token) return item;
+    const tokenTitle = token.metadata?.title?.trim();
+    const extra = parseExtra(token.metadata?.extra ?? null);
+    const mediaFromToken = token.metadata?.media
+      ? resolveScarceMediaUrl(token.metadata.media)
+      : null;
+    const sourceFromToken = sourcePostPathFromExtra(extra);
     return {
       ...item,
       ...(tokenTitle &&
       (item.title === 'Scarce' || hasUnresolvedTitleTemplate(item.title))
         ? { title: resolveTokenDisplayTitle(tokenTitle, item.tokenId!) }
         : {}),
-      ...(token?.metadata?.media
-        ? { mediaUrl: resolveScarceMediaUrl(token.metadata.media) }
-        : {}),
-      ...(sourcePostPathFromExtra(extra)
-        ? { sourcePostPath: sourcePostPathFromExtra(extra) }
+      ...(!item.mediaUrl && mediaFromToken ? { mediaUrl: mediaFromToken } : {}),
+      ...(!item.sourcePostPath && sourceFromToken
+        ? { sourcePostPath: sourceFromToken }
         : {}),
     };
   });

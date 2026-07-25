@@ -5,16 +5,23 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
-import type { OwnedScarceItem } from '@/features/market/market-listings';
+import {
+  auctionExpiresAtMs,
+  type OwnedScarceItem,
+} from '@/features/market/market-listings';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
   delistPending?: boolean;
+  settlePending?: boolean;
   /** Highest open offer (NEAR), when known from the offers catalog. */
   highestOfferNear?: string | null;
   offerCount?: number;
+  /** Clock for ended-auction settle CTA. */
+  nowMs?: number;
   onSell: (item: OwnedScarceItem) => void;
   onDelist: (item: OwnedScarceItem) => void;
+  onSettle?: (item: OwnedScarceItem) => void;
   onOffers?: (item: OwnedScarceItem) => void;
 }
 
@@ -30,15 +37,25 @@ const CONFIRM_LEAVE_MS = 4_000;
 export function MarketOwnedRow({
   item,
   delistPending = false,
+  settlePending = false,
   highestOfferNear = null,
   offerCount = 0,
+  nowMs,
   onSell,
   onDelist,
+  onSettle,
   onOffers,
 }: MarketOwnedRowProps) {
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
   const auctionHasBids = auction && (item.bidCount ?? 0) > 0;
+  const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+  const auctionEnded =
+    auction &&
+    endsAtMs != null &&
+    typeof nowMs === 'number' &&
+    endsAtMs <= nowMs;
+  const needsSettle = Boolean(auctionHasBids && auctionEnded && onSettle);
   // Offers are open-book (no list-time opt-in). Only surface the control when
   // the catalog shows at least one live offer — empty "Offers" next to Sell
   // reads like a parallel primary action.
@@ -51,7 +68,7 @@ export function MarketOwnedRow({
   const [confirmTokenId, setConfirmTokenId] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingDelist =
-    confirmTokenId === item.tokenId && listed && !delistPending;
+    confirmTokenId === item.tokenId && listed && !delistPending && !needsSettle;
 
   useEffect(() => {
     return () => {
@@ -70,7 +87,7 @@ export function MarketOwnedRow({
   };
 
   const handleDelistClick = () => {
-    if (delistPending) return;
+    if (delistPending || settlePending) return;
     if (!confirmingDelist) {
       setConfirmTokenId(item.tokenId);
       confirmTimerRef.current = window.setTimeout(() => {
@@ -108,9 +125,11 @@ export function MarketOwnedRow({
         <p className="market-listing-meta">
           {auction ? (
             <span className="market-listing-own">
-              {auctionHasBids
-                ? `${item.bidCount === 1 ? '1 bid' : `${item.bidCount} bids`} · wait to settle`
-                : 'Auction live'}
+              {needsSettle
+                ? `${item.bidCount === 1 ? '1 bid' : `${item.bidCount} bids`} · ended`
+                : auctionHasBids
+                  ? `${item.bidCount === 1 ? '1 bid' : `${item.bidCount} bids`} · live`
+                  : 'Auction live'}
             </span>
           ) : listed ? (
             <span className="market-listing-own">Listed</span>
@@ -143,7 +162,18 @@ export function MarketOwnedRow({
             {offersLabel}
           </OsSheetAction>
         ) : null}
-        {listed && !auctionHasBids ? (
+        {needsSettle ? (
+          <OsSheetAction
+            type="button"
+            variant={showOffers ? 'ghost' : 'primary'}
+            ready={!settlePending}
+            pending={settlePending}
+            pendingLabel="Settling…"
+            onClick={() => onSettle?.(item)}
+          >
+            Complete
+          </OsSheetAction>
+        ) : listed && !auctionHasBids ? (
           <OsSheetAction
             type="button"
             variant={

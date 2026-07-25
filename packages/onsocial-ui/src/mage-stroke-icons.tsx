@@ -716,6 +716,78 @@ export function UserIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Mage `user-plus` — add / stand-with affordance. */
+export function UserPlusIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M12.125 14.719c-3.6 0-7.62 2.928-7.62 6.526m7.62-9.785a4.36 4.36 0 0 0 4.035-2.683a4.355 4.355 0 0 0-3.17-5.948a4.362 4.362 0 0 0-5.215 4.274a4.356 4.356 0 0 0 4.35 4.357"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M16.488 14.983v5.997m-2.993-2.992h6"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `user-minus` — remove / step-back affordance. */
+export function UserMinusIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M12.125 14.719c-3.6 0-7.62 2.928-7.62 6.526m7.62-9.785a4.36 4.36 0 0 0 4.035-2.683a4.355 4.355 0 0 0-3.17-5.948a4.362 4.362 0 0 0-5.215 4.274a4.356 4.356 0 0 0 4.35 4.357"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M13.495 17.988h6"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage `shop` — market / list-for-sale affordance. */
+export function ShopIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M21.25 9.944a3.08 3.08 0 0 1-2.056 2.899a2.9 2.9 0 0 1-1.027.185a3.08 3.08 0 0 1-2.899-2.056a2.9 2.9 0 0 1-.185-1.028c.003.351-.06.7-.185 1.028A3.08 3.08 0 0 1 12 13.028a3.08 3.08 0 0 1-2.898-2.056a2.9 2.9 0 0 1-.185-1.028c.002.351-.06.7-.185 1.028a3.08 3.08 0 0 1-2.899 2.056c-.35.002-.7-.06-1.027-.185A3.08 3.08 0 0 1 2.75 9.944l.462-1.623l1.11-3.166a2.06 2.06 0 0 1 1.943-1.377h11.47a2.06 2.06 0 0 1 1.942 1.377l1.11 3.166z"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M19.194 12.843v5.324a2.056 2.056 0 0 1-2.055 2.055H6.86a2.055 2.055 0 0 1-2.056-2.055v-5.324m4.113 4.296h6.166"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `plus` — add / create affordance. */
 export function PlusIcon(props: MageStrokeIconProps) {
   return (

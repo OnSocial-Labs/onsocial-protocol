@@ -1,22 +1,23 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
+  CopyIcon,
   DotsVerticalIcon,
-  FloatingPanelMenu,
   OsSheetAction,
   OsSheetActions,
-  osFloatingPanelBodyClassName,
-  osFloatingPanelHeaderActiveClassName,
-  osFloatingPanelHeaderClassName,
-  osFloatingPanelHeaderLabelClassName,
-  osFloatingPanelItemClassName,
+  TrashIcon,
+  UserCircleFillIcon,
+  UserIcon,
+  UsersFillIcon,
   osIconActionClassName,
   osIconActionGlyphClassName,
-  useDropdown,
 } from '@onsocial/ui';
-import { OsNoticeCard } from '@/components/ui/os-notice-card';
+import {
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
 import { executeGuildMemberAction } from '@/features/guilds/execute-guild-member-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
@@ -28,7 +29,7 @@ import {
 } from '@/features/guilds/guild-member-row-actions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { fallbackLabel } from '@/lib/profile-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   txToastConfirming,
@@ -46,6 +47,22 @@ interface GuildMemberRowMenuProps {
     actionId: GuildMemberRowActionId;
     propose: boolean;
   }) => void;
+}
+
+function actionIcon(id: GuildMemberRowActionId): ReactNode {
+  switch (id) {
+    case 'copy-handle':
+      return <CopyIcon className="action-drawer-icon" aria-hidden />;
+    case 'remove-from-guild':
+      return <TrashIcon className="action-drawer-icon" aria-hidden />;
+    case 'transfer-ownership':
+      return <UserCircleFillIcon className="action-drawer-icon" aria-hidden />;
+    case 'make-mod':
+    case 'make-admin':
+      return <UsersFillIcon className="action-drawer-icon" aria-hidden />;
+    default:
+      return <UserIcon className="action-drawer-icon" aria-hidden />;
+  }
 }
 
 function toastCopyForAction(action: GuildMemberRowAction): {
@@ -105,7 +122,8 @@ export function GuildMemberRowMenu({
 }: GuildMemberRowMenuProps) {
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
-  const { isOpen, close, toggle, containerRef, panelRef } = useDropdown();
+  const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [confirmAction, setConfirmAction] =
     useState<GuildMemberRowAction | null>(null);
   const [keepOwnerAsMember, setKeepOwnerAsMember] = useState(false);
@@ -114,12 +132,27 @@ export function GuildMemberRowMenu({
   const [copyError, setCopyError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const sheetOpen = open && !closing;
   const actions = guildMemberRowActions(member, manageContext);
   const menuLabel = `Manage ${memberLabel}`;
   const handle = fallbackLabel(member.memberId);
   const whoLabel = memberLabel.trim()
     ? `${memberLabel} · @${handle}`
     : `@${handle}`;
+
+  const requestClose = useCallback(() => {
+    if (pending) return;
+    setClosing(true);
+  }, [pending]);
+
+  const handleClosed = useCallback(() => {
+    setClosing(false);
+    setOpen(false);
+    setConfirmAction(null);
+    setKeepOwnerAsMember(false);
+    setSupportOnSubmit(true);
+    setActionError(null);
+  }, []);
 
   const resetConfirm = useCallback(() => {
     if (pending) return;
@@ -138,7 +171,7 @@ export function GuildMemberRowMenu({
         } catch {
           setCopyError('Could not copy handle.');
         }
-        close();
+        requestClose();
         return;
       }
 
@@ -148,7 +181,7 @@ export function GuildMemberRowMenu({
       setSupportOnSubmit(true);
       setConfirmAction(action);
     },
-    [close, member.memberId]
+    [member.memberId, requestClose]
   );
 
   const handleConfirm = useCallback(async () => {
@@ -159,7 +192,9 @@ export function GuildMemberRowMenu({
     try {
       const { client, accountId, wallet } = await getClient();
       const removeOldOwner =
-        confirmAction.id === 'transfer-ownership' ? !keepOwnerAsMember : undefined;
+        confirmAction.id === 'transfer-ownership'
+          ? !keepOwnerAsMember
+          : undefined;
       const response = await executeGuildMemberAction(client, {
         accountId,
         wallet,
@@ -185,7 +220,7 @@ export function GuildMemberRowMenu({
           propose: Boolean(confirmAction.propose),
         });
         setConfirmAction(null);
-        close();
+        setClosing(true);
       }
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
@@ -196,7 +231,6 @@ export function GuildMemberRowMenu({
       setPending(false);
     }
   }, [
-    close,
     confirmAction,
     getClient,
     groupId,
@@ -209,6 +243,18 @@ export function GuildMemberRowMenu({
     trackTransaction,
   ]);
 
+  const menuItems = useMemo<ActionDrawerItem[]>(
+    () =>
+      actions.map((action) => ({
+        id: action.id,
+        label: action.label,
+        destructive: action.destructive,
+        leading: actionIcon(action.id),
+        onSelect: () => void handleMenuAction(action),
+      })),
+    [actions, handleMenuAction]
+  );
+
   if (actions.length === 0) return null;
 
   const confirmCopy = confirmAction
@@ -216,21 +262,15 @@ export function GuildMemberRowMenu({
     : null;
 
   return (
-    <div className="guild-member-row-menu" ref={containerRef}>
+    <div className="guild-member-row-menu">
       <button
         type="button"
         className={`${osIconActionClassName} guild-member-row-menu-trigger${
-          isOpen ? ' is-open' : ''
+          sheetOpen ? ' is-open' : ''
         }`}
-        onClick={() => {
-          if (isOpen && confirmAction) {
-            resetConfirm();
-            return;
-          }
-          toggle();
-        }}
+        onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        aria-expanded={isOpen}
+        aria-expanded={sheetOpen}
         aria-label={menuLabel}
         disabled={pending}
       >
@@ -240,58 +280,19 @@ export function GuildMemberRowMenu({
         />
       </button>
 
-      <FloatingPanelMenu
-        ref={panelRef}
-        open={isOpen}
-        align="right"
-        offset="sm"
-        className="guild-member-row-menu-panel"
-        role={confirmAction ? 'dialog' : 'menu'}
-        aria-label={confirmAction ? confirmCopy?.title : menuLabel}
+      <ActionDrawer
+        open={sheetOpen}
+        onClose={confirmAction ? resetConfirm : requestClose}
+        onClosed={handleClosed}
+        label={confirmAction && confirmCopy ? confirmCopy.title : menuLabel}
+        copy={whoLabel}
+        listAriaLabel={menuLabel}
+        closeAriaLabel={confirmAction ? 'Back to member actions' : 'Close menu'}
+        items={confirmAction ? undefined : menuItems}
       >
         {confirmAction && confirmCopy ? (
-          <OsNoticeCard
-            className="guild-member-row-confirm"
-            title={confirmCopy.title}
-            meta={whoLabel}
-            body={confirmCopy.subtitle}
-            footer={
-              <div className="os-commit-actions">
-                {!pending ? (
-                  <button
-                    type="button"
-                    className="os-commit-cancel"
-                    onClick={resetConfirm}
-                  >
-                    Cancel
-                  </button>
-                ) : null}
-                <OsSheetActions
-                  layout="row-compact"
-                  tone="frosted-primary"
-                  borderless
-                >
-                  <OsSheetAction
-                    type="button"
-                    variant="primary"
-                    ready
-                    pending={pending}
-                    pendingLabel={
-                      confirmAction.propose
-                        ? 'Submitting…'
-                        : confirmAction.id === 'transfer-ownership'
-                          ? 'Transferring…'
-                          : 'Updating…'
-                    }
-                    disabled={pending}
-                    onClick={() => void handleConfirm()}
-                  >
-                    {confirmCopy.confirmLabel}
-                  </OsSheetAction>
-                </OsSheetActions>
-              </div>
-            }
-          >
+          <div className="action-drawer-confirm">
+            <p className="action-drawer-confirm-body">{confirmCopy.subtitle}</p>
             {confirmAction.id === 'transfer-ownership' ? (
               <label className="os-notice-card-toggle">
                 <input
@@ -311,9 +312,7 @@ export function GuildMemberRowMenu({
                   type="checkbox"
                   checked={supportOnSubmit}
                   disabled={pending}
-                  onChange={(event) =>
-                    setSupportOnSubmit(event.target.checked)
-                  }
+                  onChange={(event) => setSupportOnSubmit(event.target.checked)}
                 />
                 <span>Support when submitted</span>
               </label>
@@ -323,34 +322,37 @@ export function GuildMemberRowMenu({
                 {actionError}
               </p>
             ) : null}
-          </OsNoticeCard>
-        ) : (
-          <>
-            <div className={osFloatingPanelHeaderClassName}>
-              <p className={osFloatingPanelHeaderLabelClassName}>Member</p>
-              <p className={osFloatingPanelHeaderActiveClassName}>
-                {memberLabel || displayName(member.memberId)}
-              </p>
-            </div>
-
-            <div className={osFloatingPanelBodyClassName}>
-              {actions.map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  role="menuitem"
-                  className={`${osFloatingPanelItemClassName}${
-                    action.destructive ? ' is-destructive' : ''
-                  }`}
-                  onClick={() => void handleMenuAction(action)}
-                >
-                  <span>{action.label}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </FloatingPanelMenu>
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="button"
+                variant="primary"
+                ready
+                pending={pending}
+                pendingLabel={
+                  confirmAction.propose
+                    ? 'Submitting…'
+                    : confirmAction.id === 'transfer-ownership'
+                      ? 'Transferring…'
+                      : 'Updating…'
+                }
+                disabled={pending}
+                onClick={() => void handleConfirm()}
+              >
+                {confirmCopy.confirmLabel}
+              </OsSheetAction>
+            </OsSheetActions>
+            {!pending ? (
+              <button
+                type="button"
+                className="action-drawer-confirm-cancel"
+                onClick={resetConfirm}
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
+        ) : undefined}
+      </ActionDrawer>
 
       {copyError ? (
         <p className="guild-member-row-menu-error" role="alert">

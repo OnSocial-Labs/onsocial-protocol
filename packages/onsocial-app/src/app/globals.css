@@ -4732,13 +4732,18 @@ a.os-surface-row {
   }
 
   .portfolio-scarce-earnings-market-header {
+    /* Kept for scarce-earnings sheet until it switches to SheetHeader chrome. */
+    box-sizing: border-box;
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
-    padding: 0.25rem 0.45rem;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0;
     border-radius: 9999px;
-    color: var(--protocol-green);
-    font-size: 0.72rem;
-    font-weight: 600;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.72);
     text-decoration: none;
     transition:
       color 160ms ease,
@@ -4747,9 +4752,16 @@ a.os-surface-row {
 
   .portfolio-scarce-earnings-market-header:hover,
   .portfolio-scarce-earnings-market-header:focus-visible {
-    color: var(--protocol-green-hover);
-    background: var(--protocol-green-bg);
+    color: rgb(var(--fg-rgb) / 0.92);
+    background: rgb(var(--fg-rgb) / 0.06);
     outline: none;
+  }
+
+  .portfolio-scarce-earnings-market-header-glyph {
+    display: block;
+    width: 1.15rem;
+    height: 1.15rem;
+    flex-shrink: 0;
   }
 
   /*
@@ -4785,6 +4797,74 @@ a.os-surface-row {
 
   .portfolio-payout-mark-icon--shop {
     animation-delay: 3.5s;
+  }
+
+  .portfolio-payout-mark-icon--actions {
+    animation-delay: 1.75s;
+  }
+
+  .portfolio-listing-action-row {
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .portfolio-listing-action-hit {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+
+  button.portfolio-listing-action-hit {
+    cursor: pointer;
+  }
+
+  .portfolio-listing-action-hit:not(:disabled):focus-visible {
+    outline: none;
+  }
+
+  .portfolio-listing-action-hit:not(:disabled):focus-visible
+    .standing-row-name {
+    color: rgb(var(--fg-rgb) / 1);
+  }
+
+  .portfolio-listing-action-thumb {
+    flex: 0 0 auto;
+    width: 2.75rem;
+    height: 2.75rem;
+    pointer-events: none;
+  }
+
+  .portfolio-listing-action-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+    pointer-events: none;
+  }
+
+  .portfolio-listing-action-seller {
+    margin-top: 0.08rem;
+  }
+
+  .portfolio-listing-action-aside {
+    min-width: 4.75rem;
+    align-items: flex-end;
+    gap: 0.28rem;
+  }
+
+  .portfolio-listing-action-cta {
+    flex: 0 0 auto;
+  }
+
+  .portfolio-listing-action-section + .portfolio-listing-action-section {
+    margin-top: 1.25rem;
   }
 
   .portfolio-identity-gesture--payout:hover .portfolio-payout-mark-icon,
@@ -15166,11 +15246,37 @@ a.os-surface-row {
     cursor: not-allowed;
   }
 
+  /* Action-drawer destructive rows (remove, cancel, leave). */
+  .scarce-choice-sheet-option.is-destructive {
+    color: var(--protocol-red);
+  }
+
+  .scarce-choice-sheet-option.is-destructive:hover,
+  .scarce-choice-sheet-option.is-destructive:focus-visible {
+    background: color-mix(in srgb, var(--protocol-red) 12%, transparent);
+  }
+
   .scarce-choice-sheet-leading {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
+  }
+
+  /* Mage icon inside an action-drawer leading slot. */
+  .scarce-choice-sheet-leading .action-drawer-icon {
+    width: 1.85rem;
+    height: 1.85rem;
+    padding: 0.35rem;
+    border-radius: 0.6rem;
+    color: rgb(var(--fg-rgb) / 0.72);
+    box-sizing: border-box;
+  }
+
+  .scarce-choice-sheet-option.is-destructive
+    .scarce-choice-sheet-leading
+    .action-drawer-icon {
+    color: var(--protocol-red);
   }
 
   .scarce-choice-sheet-trailing {
@@ -15242,6 +15348,46 @@ a.os-surface-row {
     font-size: 0.72rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  /* Action-drawer inline confirm step (guild member management). */
+  .action-drawer-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding-top: 0.15rem;
+  }
+
+  .action-drawer-confirm-body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .action-drawer-confirm .os-sheet-actions {
+    margin-top: 0.15rem;
+  }
+
+  .action-drawer-confirm-cancel {
+    align-self: center;
+    margin: 0;
+    padding: 0.35rem 0.75rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.62);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .action-drawer-confirm-cancel:hover,
+  .action-drawer-confirm-cancel:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
   }
 
   .account-social-help-sheet-body {
@@ -15348,9 +15494,15 @@ a.os-surface-row {
     border-radius: 0.28rem;
   }
 
+  /*
+   * Mage glyph swatch (Cover: Text card / Frame / Photo). Symbol, not a
+   * preview — inset to the same optical size as `.action-drawer-icon` so
+   * menu glyphs match across drawers. Preview swatches (colour / finish /
+   * format / mark) still fill their box.
+   */
   .scarce-choice-swatch--icon {
     color: rgb(var(--fg-rgb) / 0.72);
-    padding: 0.08rem;
+    padding: 0.35rem;
   }
 
   .scarce-choice-swatch--icon.scarce-choice-swatch--chip {
@@ -16120,6 +16272,10 @@ a.os-surface-row {
     background: var(--os-surface-row-hover);
     color: var(--os-surface-emphasis);
     outline: none;
+  }
+
+  .market-listing-sentinel {
+    height: 1px;
   }
 
   .post-card-amplify.is-active:hover:not(:disabled),

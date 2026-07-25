@@ -2,10 +2,18 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { GiftIcon, ShopFillIcon } from '@onsocial/ui';
+import {
+  PortfolioListingActionsMark,
+  PortfolioListingActionsSheet,
+} from '@/components/portfolio/portfolio-listing-actions-sheet';
 import { PortfolioScarceEarningsSheet } from '@/components/portfolio/portfolio-scarce-earnings-sheet';
 import { PortfolioSupportCollectInfoSheet } from '@/components/portfolio/portfolio-support-collect-info-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import {
+  fetchListingActions,
+  type ListingActionItem,
+} from '@/features/scarces/listing-actions';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
@@ -24,8 +32,8 @@ interface PortfolioOwnerPayoutMarksProps {
 
 /**
  * Owner face — same gesture chrome as Stand / Endorse / Support:
- * animated mark (reputation gift / endorse shop) + quiet amount; soft wash.
- * Tap opens drawers (Collect only on support — sales already paid to wallet).
+ * animated mark (reputation gift / endorse shop / listing actions) + quiet
+ * amount or count; soft wash. Tap opens drawers.
  */
 export function PortfolioOwnerPayoutMarks({
   accountId,
@@ -34,9 +42,11 @@ export function PortfolioOwnerPayoutMarks({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [salesYocto, setSalesYocto] = useState<string | null>(null);
+  const [listingActions, setListingActions] = useState<ListingActionItem[]>([]);
   const [collectPending, setCollectPending] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
+  const [listingsOpen, setListingsOpen] = useState(false);
 
   const refreshSupport = useCallback(
     async (options: { fresh?: boolean } = {}) => {
@@ -59,10 +69,20 @@ export function PortfolioOwnerPayoutMarks({
     }
   }, [accountId]);
 
+  const refreshListingActions = useCallback(async () => {
+    try {
+      const page = await fetchListingActions(accountId);
+      setListingActions(page.items);
+    } catch {
+      setListingActions([]);
+    }
+  }, [accountId]);
+
   useEffect(() => {
     void refreshSupport({ fresh: true });
     void refreshSales();
-  }, [refreshSupport, refreshSales]);
+    void refreshListingActions();
+  }, [refreshSupport, refreshSales, refreshListingActions]);
 
   async function handleCollect() {
     if (collectPending || !claimableYocto || claimableYocto <= 0n) return;
@@ -116,8 +136,9 @@ export function PortfolioOwnerPayoutMarks({
 
   const showSupport = claimableYocto != null && claimableYocto > 0n;
   const showSales = salesYocto != null && salesYocto !== '0';
+  const showListings = listingActions.length > 0;
 
-  if (!showSupport && !showSales) {
+  if (!showSupport && !showSales && !showListings) {
     return null;
   }
 
@@ -132,8 +153,21 @@ export function PortfolioOwnerPayoutMarks({
         <div
           className="portfolio-identity-gesture-row"
           role="group"
-          aria-label="Payouts"
+          aria-label="Payouts and listings"
         >
+          {showListings ? (
+            <PortfolioListingActionsMark
+              count={listingActions.length}
+              onOpen={() => setListingsOpen(true)}
+            />
+          ) : null}
+
+          {showListings && (showSupport || showSales) ? (
+            <span className="portfolio-identity-gesture-sep" aria-hidden>
+              ·
+            </span>
+          ) : null}
+
           {showSupport ? (
             <button
               type="button"
@@ -173,6 +207,17 @@ export function PortfolioOwnerPayoutMarks({
           ) : null}
         </div>
       </div>
+
+      {showListings ? (
+        <PortfolioListingActionsSheet
+          open={listingsOpen}
+          accountId={accountId}
+          onOpenChange={setListingsOpen}
+          onActionsChanged={() => {
+            void refreshListingActions();
+          }}
+        />
+      ) : null}
 
       {showSupport ? (
         <PortfolioSupportCollectInfoSheet

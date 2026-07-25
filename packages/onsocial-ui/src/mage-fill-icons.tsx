@@ -256,3 +256,51 @@ export function GiftFillIcon(props: MageFillIconProps) {
     </MageFillSvg>
   );
 }
+
+/** Mage `user-fill` — profile action hover state. */
+export function UserFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M20.37 21.25a.75.75 0 0 1-.75.75H4.38a.75.75 0 0 1-.75-.75c0-4.1 4.5-7.28 8.37-7.28s8.37 3.18 8.37 7.28M17.1 7.11A5.1 5.1 0 1 1 12 2a5.11 5.11 0 0 1 5.1 5.11"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `user-minus-fill` — step-back action hover state. */
+export function UserMinusFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M13.166 21.25a.75.75 0 0 1-.75.75h-7.64a.75.75 0 0 1-.75-.75c0-4.105 4.504-7.289 8.378-7.289a.75.75 0 0 1 .751.751zM17.14 9.076a5 5 0 0 1-1.892 2.293a5.095 5.095 0 0 1-6.446-.638A5.1 5.1 0 0 1 7.31 7.114a5.1 5.1 0 0 1 .861-2.843a5.17 5.17 0 0 1 2.302-1.882A5.115 5.115 0 0 1 16.05 3.5a5 5 0 0 1 1.392 2.623c.197.992.092 2.02-.3 2.953m2.081 9.671h-3.934a.75.75 0 0 1 0-1.502h3.934a.751.751 0 0 1 0 1.502"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `copy-fill` — copy-link action hover state. */
+export function CopyFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M18.355 6.54h-1.94V4.69a2.69 2.69 0 0 0-1.646-2.484A2.7 2.7 0 0 0 13.745 2h-8.05a2.68 2.68 0 0 0-2.67 2.69v10.09a2.68 2.68 0 0 0 2.67 2.69h1.94v1.85a2.68 2.68 0 0 0 2.67 2.68h8a2.68 2.68 0 0 0 2.67-2.68V9.23a2.69 2.69 0 0 0-2.62-2.69M7.635 9.23v6.74h-1.94a1.18 1.18 0 0 1-1.17-1.19V4.69a1.18 1.18 0 0 1 1.17-1.19h8.05a1.18 1.18 0 0 1 1.17 1.19v1.85h-4.61a2.69 2.69 0 0 0-2.67 2.69"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `trash-fill` — destructive action hover state. */
+export function TrashFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M20.725 5.275h-4.69v-.89a2.4 2.4 0 0 0-.7-1.68a2.38 2.38 0 0 0-1.69-.7h-3.26a2.38 2.38 0 0 0-1.69.7a2.4 2.4 0 0 0-.69 1.68v.89h-4.69a.75.75 0 1 0 0 1.5h1.42v11.76a3.45 3.45 0 0 0 1 2.46a3.5 3.5 0 0 0 2.45 1h7.62a3.5 3.5 0 0 0 2.45-1a3.45 3.45 0 0 0 1-2.46V6.775h1.43a.75.75 0 0 0 0-1.5zm-11.2-.89a.87.87 0 0 1 .26-.62a.9.9 0 0 1 .62-.26h3.26a.88.88 0 0 1 .63.26a.9.9 0 0 1 .26.62v.89h-5zm1.33 12.61a1 1 0 1 1-2 0v-5.43a1 1 0 0 1 2 0zm4.36 0a1 1 0 0 1-2 0v-5.43a1 1 0 0 1 2 0z"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}

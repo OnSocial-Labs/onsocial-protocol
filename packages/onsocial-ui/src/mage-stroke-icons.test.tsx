@@ -31,9 +31,12 @@ import {
   RepeatIcon,
   SearchIcon,
   SettingsIcon,
+  ShopIcon,
   SlidersHorizontalIcon,
   TrashIcon,
   UserIcon,
+  UserMinusIcon,
+  UserPlusIcon,
   VideoPlayerIcon,
 } from './mage-stroke-icons.js';
 
@@ -65,10 +68,13 @@ describe('mage stroke icons', () => {
     expect(typeof GlobeIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');
     expect(typeof UserIcon).toBe('function');
+    expect(typeof UserMinusIcon).toBe('function');
+    expect(typeof UserPlusIcon).toBe('function');
     expect(typeof MultiplyIcon).toBe('function');
     expect(typeof TrashIcon).toBe('function');
     expect(typeof SearchIcon).toBe('function');
     expect(typeof SettingsIcon).toBe('function');
+    expect(typeof ShopIcon).toBe('function');
     expect(typeof DotsCircleIcon).toBe('function');
     expect(typeof DotsHorizontalIcon).toBe('function');
     expect(typeof DotsVerticalIcon).toBe('function');

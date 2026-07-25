@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SearchField, ShopFillIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -15,12 +15,13 @@ import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
 import {
+  auctionExpiresAtMs,
   fetchMarketListings,
   fetchMarketSales,
-  fetchOwnedScarces,
+  fetchOwnedScarcesPage,
   excludeOwnedNativeListings,
+  formatMarketRelativeTime,
   marketListingRowKey,
-  sortMarketListings,
   type MarketListingItem,
   type MarketListingSort,
   type MarketSaleItem,
@@ -28,7 +29,12 @@ import {
 } from '@/features/market/market-listings';
 import { MarketOwnedRow } from '@/features/market/market-owned-row';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import type { ScarceBidSuccessDetail } from '@/features/scarces/scarce-bid-form';
+import {
+  executeListingAction,
+  type ListingActionItem,
+} from '@/features/scarces/listing-actions';
 import {
   ScarceBidSheet,
   type ScarceBidListing,
@@ -86,11 +92,56 @@ const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
 /** Initial Recent sales rows; expand shows the rest of the fetched window. */
 const RECENT_SALES_PREVIEW = 8;
 
-interface MarketPageData {
-  key: number;
-  listings: MarketListingItem[];
-  sales: MarketSaleItem[];
-  owned: OwnedScarceItem[];
+/** Catalog page size for infinite scroll. */
+const LISTINGS_PAGE_SIZE = 40;
+/** Debounce before a search keystroke becomes an indexer query. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+/** Server catalog pages for the current filter / sort / search params. */
+interface ListingsState {
+  /** Params key the loaded pages belong to; null until the first page lands. */
+  paramsKey: string | null;
+  items: MarketListingItem[];
+  nextOffset: number;
+  hasMore: boolean;
+  failed: boolean;
+}
+
+const EMPTY_LISTINGS: ListingsState = {
+  paramsKey: null,
+  items: [],
+  nextOffset: 0,
+  hasMore: false,
+  failed: false,
+};
+
+/** Newest-first pages of wallet-owned scarces (RPC, capped). */
+interface OwnedState {
+  items: OwnedScarceItem[];
+  nextFromEnd: number;
+  hasMore: boolean;
+  loaded: boolean;
+}
+
+const EMPTY_OWNED: OwnedState = {
+  items: [],
+  nextFromEnd: 0,
+  hasMore: false,
+  loaded: false,
+};
+
+function filterToKinds(
+  filter: ListingFilter
+): ('lazy' | 'native' | 'auction')[] | undefined {
+  if (filter === 'auctions') return ['auction'];
+  if (filter === 'fixed') return ['lazy', 'native'];
+  return undefined;
+}
+
+function dedupeListings(items: MarketListingItem[]): MarketListingItem[] {
+  const byKey = new Map<string, MarketListingItem>();
+  for (const item of items) byKey.set(marketListingRowKey(item), item);
+  return [...byKey.values()];
 }
 
 function sourcePostCoords(
@@ -102,24 +153,16 @@ function sourcePostCoords(
   return { author: match[1], postId: match[2] };
 }
 
-function formatSaleTime(timestamp: number): string {
-  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
-  const ms = timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
-  const elapsed = Math.max(0, Date.now() - ms);
-  const minutes = Math.floor(elapsed / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 export function MarketPagePanel() {
   const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [retryKey, setRetryKey] = useState(0);
-  const [data, setData] = useState<MarketPageData | null>(null);
-  const [failedKey, setFailedKey] = useState<number | null>(null);
+  const [listingsState, setListingsState] =
+    useState<ListingsState>(EMPTY_LISTINGS);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [sales, setSales] = useState<MarketSaleItem[] | null>(null);
+  const [ownedState, setOwnedState] = useState<OwnedState>(EMPTY_OWNED);
+  const [ownedLoadingMore, setOwnedLoadingMore] = useState(false);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
   const [bidListing, setBidListing] = useState<ScarceBidListing | null>(null);
   const [offerListing, setOfferListing] = useState<ScarceOfferListing | null>(
@@ -129,6 +172,7 @@ export function MarketPagePanel() {
   const [offersItem, setOffersItem] = useState<OwnedScarceItem | null>(null);
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
   const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
+  const [settleTokenId, setSettleTokenId] = useState<string | null>(null);
   const [listingFilter, setListingFilter] = useState<ListingFilter>('all');
   const [listingSort, setListingSort] = useState<MarketListingSort>('newest');
   const [listingQuery, setListingQuery] = useState('');
@@ -141,8 +185,22 @@ export function MarketPagePanel() {
   const [myOffers, setMyOffers] = useState<MyOpenTokenOffer[]>([]);
   const [offersRevision, setOffersRevision] = useState(0);
   const toolbarHidden = useDockAutoHide(sortMenuOpen);
+  const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
   const normalizedListingQuery = listingQuery.trim().toLowerCase();
   const searching = normalizedListingQuery.length > 0;
+
+  // Debounced indexer search; client filter covers the typing gap below.
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  useEffect(() => {
+    const trimmed = listingQuery.trim();
+    const id = window.setTimeout(() => {
+      setDebouncedQuery(trimmed);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [listingQuery]);
 
   const setFilter = useCallback((next: ListingFilter) => {
     setListingFilter(next);
@@ -151,47 +209,190 @@ export function MarketPagePanel() {
     }
   }, []);
 
+  // Ending soon is auction clocks only — keep the Auctions tab in sync.
+  const setSort = useCallback((next: MarketListingSort) => {
+    setListingSort(next);
+    if (next === 'ending') {
+      setListingFilter('auctions');
+    }
+  }, []);
+
+  const listingsParamsKey = `${retryKey}|${listingFilter}|${listingSort}|${debouncedQuery.toLowerCase()}`;
+
+  // First catalog page; previous items stay rendered while params refine.
+  useEffect(() => {
+    let cancelled = false;
+    // Ending sort always queries auctions, even mid-tab transition.
+    const kinds =
+      listingSort === 'ending' ? (['auction'] as const) : filterToKinds(listingFilter);
+    fetchMarketListings({
+      limit: LISTINGS_PAGE_SIZE,
+      ...(kinds ? { kinds: [...kinds] } : {}),
+      ...(debouncedQuery ? { search: debouncedQuery } : {}),
+      sort: listingSort,
+    }).then(
+      (page) => {
+        if (cancelled) return;
+        setListingsState({
+          paramsKey: listingsParamsKey,
+          items: page.items,
+          nextOffset: page.nextOffset,
+          hasMore: page.hasMore,
+          failed: false,
+        });
+      },
+      () => {
+        if (cancelled) return;
+        setListingsState({ ...EMPTY_LISTINGS, paramsKey: listingsParamsKey, failed: true });
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [listingsParamsKey, listingFilter, listingSort, debouncedQuery]);
+
+  const listingsReady = listingsState.paramsKey === listingsParamsKey;
+  const listingsFailed = listingsReady && listingsState.failed;
+
+  const loadMoreListings = useCallback(() => {
+    if (!listingsReady || listingsState.failed) return;
+    if (!listingsState.hasMore || loadingMore) return;
+    setLoadingMore(true);
+    const kinds =
+      listingSort === 'ending' ? (['auction'] as const) : filterToKinds(listingFilter);
+    fetchMarketListings({
+      limit: LISTINGS_PAGE_SIZE,
+      offset: listingsState.nextOffset,
+      ...(kinds ? { kinds: [...kinds] } : {}),
+      ...(debouncedQuery ? { search: debouncedQuery } : {}),
+      sort: listingSort,
+    })
+      .then((page) => {
+        setListingsState((current) =>
+          current.paramsKey === listingsParamsKey
+            ? {
+                ...current,
+                items: dedupeListings([...current.items, ...page.items]),
+                nextOffset: page.nextOffset,
+                hasMore: page.hasMore,
+              }
+            : current
+        );
+      })
+      .catch(() => {
+        // Stop paging quietly; the loaded pages stay usable.
+        setListingsState((current) =>
+          current.paramsKey === listingsParamsKey
+            ? { ...current, hasMore: false }
+            : current
+        );
+      })
+      .finally(() => {
+        setLoadingMore(false);
+      });
+  }, [
+    listingsReady,
+    listingsState.failed,
+    listingsState.hasMore,
+    listingsState.nextOffset,
+    loadingMore,
+    listingFilter,
+    listingSort,
+    debouncedQuery,
+    listingsParamsKey,
+  ]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: listingsSentinelRef,
+    enabled:
+      listingsReady &&
+      !listingsState.failed &&
+      listingsState.hasMore &&
+      !loadingMore,
+    onIntersect: loadMoreListings,
+    rootMargin: '240px 0px',
+  });
+
   useEffect(() => {
     let cancelled = false;
     setSalesExpanded(false);
-    void Promise.allSettled([
-      fetchMarketListings(),
-      fetchMarketSales(),
-      viewerAccountId
-        ? fetchOwnedScarces(viewerAccountId)
-        : Promise.resolve([] as OwnedScarceItem[]),
-    ]).then((results) => {
-      if (cancelled) return;
-      const listings =
-        results[0].status === 'fulfilled' ? results[0].value : null;
-      const sales = results[1].status === 'fulfilled' ? results[1].value : null;
-      const owned = results[2].status === 'fulfilled' ? results[2].value : null;
-      // Hard-fail only when every browse source fails.
-      if (listings == null && sales == null && owned == null) {
-        setFailedKey(retryKey);
-        return;
+    fetchMarketSales().then(
+      (rows) => {
+        if (!cancelled) setSales(rows);
+      },
+      () => {
+        if (!cancelled) setSales([]);
       }
-      setData({
-        key: retryKey,
-        listings: listings ?? [],
-        sales: sales ?? [],
-        owned: owned ?? [],
-      });
-    });
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [retryKey]);
+
+  // “Yours” loads independently so a slow RPC vault never blocks browse.
+  useEffect(() => {
+    let cancelled = false;
+    setOwnedState(EMPTY_OWNED);
+    if (!viewerAccountId) {
+      setOwnedState({ ...EMPTY_OWNED, loaded: true });
+      return;
+    }
+    fetchOwnedScarcesPage(viewerAccountId).then(
+      (page) => {
+        if (cancelled) return;
+        setOwnedState({
+          items: page.items,
+          nextFromEnd: page.nextFromEnd,
+          hasMore: page.hasMore,
+          loaded: true,
+        });
+      },
+      () => {
+        if (!cancelled) setOwnedState({ ...EMPTY_OWNED, loaded: true });
+      }
+    );
     return () => {
       cancelled = true;
     };
   }, [retryKey, viewerAccountId]);
 
+  const loadMoreOwned = useCallback(() => {
+    if (!viewerAccountId || !ownedState.hasMore || ownedLoadingMore) return;
+    setOwnedLoadingMore(true);
+    fetchOwnedScarcesPage(viewerAccountId, {
+      fromEnd: ownedState.nextFromEnd,
+    })
+      .then((page) => {
+        setOwnedState((current) => ({
+          ...current,
+          items: [...current.items, ...page.items],
+          nextFromEnd: page.nextFromEnd,
+          hasMore: page.hasMore,
+        }));
+      })
+      .catch(() => {
+        setOwnedState((current) => ({ ...current, hasMore: false }));
+      })
+      .finally(() => {
+        setOwnedLoadingMore(false);
+      });
+  }, [
+    viewerAccountId,
+    ownedState.hasMore,
+    ownedState.nextFromEnd,
+    ownedLoadingMore,
+  ]);
+
   const status: LoadStatus =
-    data?.key === retryKey
-      ? 'ready'
-      : failedKey === retryKey
+    listingsState.paramsKey === null
+      ? 'loading'
+      : listingsFailed && (sales?.length ?? 0) === 0
         ? 'error'
-        : 'loading';
-  const listings = data?.key === retryKey ? data.listings : [];
-  const sales = data?.key === retryKey ? data.sales : [];
-  const owned = data?.key === retryKey ? data.owned : [];
+        : 'ready';
+  const listings = listingsState.items;
+  const owned = ownedState.items;
+  const salesRows = sales ?? [];
   const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
   const browseListings = excludeOwnedNativeListings(listings, ownedTokenIdSet);
 
@@ -217,26 +418,35 @@ export function MarketPagePanel() {
     };
   }, [retryKey, viewerAccountId, offersRevision, status, owned, listings]);
 
+  // Server pages arrive filtered + sorted; the client passes only re-apply
+  // the same rules so stale items behave while a params change is in flight.
   const typedListings =
     listingFilter === 'auctions'
       ? browseListings.filter((item) => item.kind === 'auction')
       : listingFilter === 'fixed'
         ? browseListings.filter((item) => item.kind !== 'auction')
         : browseListings;
-  const queriedListings = searching
+  const filteredListings = searching
     ? typedListings.filter((item) =>
         listingMatchesQuery(item, normalizedListingQuery)
       )
     : typedListings;
-  const filteredListings = sortMarketListings(queriedListings, listingSort);
 
-  const hasLiveAuctionClocks = filteredListings.some(
-    (item) =>
-      item.kind === 'auction' &&
-      item.expiresAtNs != null &&
-      Number.isFinite(item.expiresAtNs) &&
-      item.expiresAtNs > 0
-  );
+  const hasLiveAuctionClocks =
+    filteredListings.some(
+      (item) =>
+        item.kind === 'auction' &&
+        item.expiresAtNs != null &&
+        Number.isFinite(item.expiresAtNs) &&
+        item.expiresAtNs > 0
+    ) ||
+    owned.some(
+      (item) =>
+        item.listingKind === 'auction' &&
+        item.expiresAtNs != null &&
+        Number.isFinite(item.expiresAtNs) &&
+        item.expiresAtNs > 0
+    );
 
   useEffect(() => {
     if (!hasLiveAuctionClocks || status !== 'ready') return;
@@ -250,7 +460,16 @@ export function MarketPagePanel() {
 
   const handleBuy = useCallback(
     (item: MarketListingItem) => {
-      if (viewerAccountId && accountIdsEqual(viewerAccountId, item.creatorId)) {
+      const isOwn =
+        Boolean(viewerAccountId) &&
+        accountIdsEqual(viewerAccountId!, item.creatorId);
+      const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+      const auctionEnded =
+        item.kind === 'auction' &&
+        endsAtMs != null &&
+        endsAtMs <= Date.now();
+      // Own live listings aren't buyable; ended own auctions open settle.
+      if (isOwn && !auctionEnded) {
         return;
       }
       if (item.kind === 'auction' && item.tokenId) {
@@ -266,9 +485,13 @@ export function MarketPagePanel() {
             : {}),
           ...(item.postHref ? { postHref: item.postHref } : {}),
           ...(item.playable ? { playable: item.playable } : {}),
+          ...(item.blockTimestamp > 0
+            ? { listedAtMs: item.blockTimestamp }
+            : {}),
         });
         return;
       }
+      if (isOwn) return;
       if (item.kind === 'native' && item.tokenId) {
         setBuyListing({
           tokenId: item.tokenId,
@@ -284,6 +507,9 @@ export function MarketPagePanel() {
             : {}),
           ...(item.postHref ? { postHref: item.postHref } : {}),
           ...(item.playable ? { playable: item.playable } : {}),
+          ...(item.blockTimestamp > 0
+            ? { listedAtMs: item.blockTimestamp }
+            : {}),
         });
         return;
       }
@@ -302,6 +528,9 @@ export function MarketPagePanel() {
         ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
         ...(item.postHref ? { postHref: item.postHref } : {}),
         ...(item.playable ? { playable: item.playable } : {}),
+        ...(item.blockTimestamp > 0
+          ? { listedAtMs: item.blockTimestamp }
+          : {}),
       });
     },
     [viewerAccountId]
@@ -322,29 +551,28 @@ export function MarketPagePanel() {
         viewerAccountId &&
         listing?.tokenId === detail.tokenId
       ) {
-        setData((current) => {
-          if (!current) return current;
-          const alreadyOwned = current.owned.some(
+        setListingsState((current) => ({
+          ...current,
+          items: current.items.filter((row) => row.tokenId !== detail.tokenId),
+        }));
+        setOwnedState((current) => {
+          const alreadyOwned = current.items.some(
             (row) => row.tokenId === detail.tokenId
           );
+          if (alreadyOwned) return current;
           return {
             ...current,
-            listings: current.listings.filter(
-              (row) => row.tokenId !== detail.tokenId
-            ),
-            owned: alreadyOwned
-              ? current.owned
-              : [
-                  {
-                    tokenId: detail.tokenId,
-                    title: listing.title?.trim() || 'Scarce',
-                    mediaUrl: listing.mediaUrl,
-                    ownerId: viewerAccountId,
-                    listingKind: null,
-                    listedPriceNear: null,
-                  },
-                  ...current.owned,
-                ],
+            items: [
+              {
+                tokenId: detail.tokenId!,
+                title: listing.title?.trim() || 'Scarce',
+                mediaUrl: listing.mediaUrl,
+                ownerId: viewerAccountId,
+                listingKind: null,
+                listedPriceNear: null,
+              },
+              ...current.items,
+            ],
           };
         });
       }
@@ -389,21 +617,20 @@ export function MarketPagePanel() {
         });
         if (!confirmed) return;
 
-        setData((current) =>
-          current
-            ? {
-                ...current,
-                listings: current.listings.filter(
-                  (row) => marketListingRowKey(row) !== rowKey
-                ),
-                owned: current.owned.map((row) =>
-                  item.tokenId && row.tokenId === item.tokenId
-                    ? { ...row, listingKind: null, listedPriceNear: null }
-                    : row
-                ),
-              }
-            : current
-        );
+        setListingsState((current) => ({
+          ...current,
+          items: current.items.filter(
+            (row) => marketListingRowKey(row) !== rowKey
+          ),
+        }));
+        setOwnedState((current) => ({
+          ...current,
+          items: current.items.map((row) =>
+            item.tokenId && row.tokenId === item.tokenId
+              ? { ...row, listingKind: null, listedPriceNear: null }
+              : row
+          ),
+        }));
 
         const coords = sourcePostCoords(item.sourcePostPath);
         if (coords && item.kind === 'lazy') {
@@ -430,11 +657,11 @@ export function MarketPagePanel() {
 
   const handleManageOwned = useCallback(
     async (item: OwnedScarceItem) => {
-      if (delistTokenId) return;
+      if (delistTokenId || settleTokenId) return;
       if (item.listingKind === 'auction' && (item.bidCount ?? 0) > 0) {
         setTxResult({
           type: 'error',
-          msg: 'This auction already has bids — wait for it to end, then settle.',
+          msg: 'This auction already has bids — wait for it to end, then complete the sale.',
         });
         return;
       }
@@ -467,27 +694,98 @@ export function MarketPagePanel() {
         setDelistTokenId(null);
       }
     },
-    [delistTokenId, getSigningWallet, setTxResult, trackTransaction]
+    [delistTokenId, getSigningWallet, setTxResult, settleTokenId, trackTransaction]
+  );
+
+  const handleSettleOwned = useCallback(
+    async (item: OwnedScarceItem) => {
+      if (settleTokenId || delistTokenId) return;
+      const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+      if (
+        item.listingKind !== 'auction' ||
+        (item.bidCount ?? 0) <= 0 ||
+        endsAtMs == null ||
+        endsAtMs > Date.now()
+      ) {
+        setTxResult({
+          type: 'error',
+          msg: 'This auction isn’t ready to complete yet.',
+        });
+        return;
+      }
+      setSettleTokenId(item.tokenId);
+      try {
+        const { accountId, wallet } = await getSigningWallet();
+        const action: ListingActionItem = {
+          id: `complete_sale:${item.tokenId}`,
+          kind: 'complete_sale',
+          title: item.title,
+          tokenId: item.tokenId,
+          sellerId: item.ownerId,
+          priceNear: item.listedPriceNear ?? null,
+          bidCount: item.bidCount ?? 0,
+          expiresAtNs: item.expiresAtNs ?? null,
+          ended: true,
+        };
+        const confirmed = await executeListingAction({
+          item: action,
+          accountId,
+          wallet,
+          trackTransaction,
+        });
+        if (!confirmed) return;
+        setOwnedState((current) => ({
+          ...current,
+          items: current.items.map((row) =>
+            row.tokenId === item.tokenId
+              ? { ...row, listingKind: null, listedPriceNear: null, bidCount: undefined, expiresAtNs: undefined }
+              : row
+          ),
+        }));
+        setRetryKey((value) => value + 1);
+      } catch (cause) {
+        if (isWalletUserCancellation(cause)) return;
+        setTxResult({
+          type: 'error',
+          msg:
+            cause instanceof Error
+              ? cause.message
+              : txToastError.settleScarceAuctionFailed,
+        });
+      } finally {
+        setSettleTokenId(null);
+      }
+    },
+    [delistTokenId, getSigningWallet, setTxResult, settleTokenId, trackTransaction]
   );
 
   const showEmptyBrowse =
-    status === 'ready' && browseListings.length === 0 && owned.length === 0;
+    status === 'ready' &&
+    listingsReady &&
+    !listingsFailed &&
+    !searching &&
+    listingFilter === 'all' &&
+    browseListings.length === 0 &&
+    owned.length === 0;
   const showEmptyFilter =
     status === 'ready' &&
-    browseListings.length > 0 &&
+    listingsReady &&
+    !listingsFailed &&
+    !showEmptyBrowse &&
+    (searching || listingFilter !== 'all') &&
     filteredListings.length === 0;
   const visibleSales =
-    salesExpanded || sales.length <= RECENT_SALES_PREVIEW
-      ? sales
-      : sales.slice(0, RECENT_SALES_PREVIEW);
-  const hiddenSalesCount = Math.max(0, sales.length - visibleSales.length);
+    salesExpanded || salesRows.length <= RECENT_SALES_PREVIEW
+      ? salesRows
+      : salesRows.slice(0, RECENT_SALES_PREVIEW);
+  const hiddenSalesCount = Math.max(0, salesRows.length - visibleSales.length);
 
   const showListingToolbar = status !== 'error' && !showEmptyBrowse;
   const showOwnedSection =
     Boolean(viewerAccountId) && owned.length > 0 && !searching;
   const showMyOffersSection =
     Boolean(viewerAccountId) && myOffers.length > 0 && !searching;
-  const showSalesSection = sales.length > 0 && !searching;
+  const showSalesSection = salesRows.length > 0 && !searching;
 
   const titleForToken = useCallback(
     (tokenId: string): { title: string; mediaUrl?: string | null } => {
@@ -508,6 +806,7 @@ export function MarketPagePanel() {
     <OsAppScreen
       title="Market"
       leading={null}
+      scrollRootRef={scrollRootRef}
       heading={
         <SearchField
           value={listingQuery}
@@ -554,7 +853,7 @@ export function MarketPagePanel() {
             </div>
             <MarketListingSortMenu
               sort={listingSort}
-              onSortChange={setListingSort}
+              onSortChange={setSort}
               endingDisabled={listingFilter === 'fixed'}
               onOpenChange={setSortMenuOpen}
             />
@@ -595,8 +894,11 @@ export function MarketPagePanel() {
         ) : null}
 
         {status === 'ready' &&
+        listingsReady &&
+        !searching &&
+        listingFilter === 'all' &&
         browseListings.length === 0 &&
-        sales.length > 0 &&
+        salesRows.length > 0 &&
         !showEmptyBrowse ? (
           <p className="market-page-status">
             No active listings — recent sales below.
@@ -653,6 +955,14 @@ export function MarketPagePanel() {
                 );
               })}
             </div>
+            {loadingMore ? <MarketListSkeleton rows={2} /> : null}
+            {listingsState.hasMore ? (
+              <div
+                ref={listingsSentinelRef}
+                className="market-listing-sentinel"
+                aria-hidden
+              />
+            ) : null}
           </section>
         ) : null}
 
@@ -668,11 +978,16 @@ export function MarketPagePanel() {
                   <MarketOwnedRow
                     key={item.tokenId}
                     item={item}
+                    nowMs={nowMs}
                     highestOfferNear={offerSummary?.highestAmountNear ?? null}
                     offerCount={offerSummary?.offerCount ?? 0}
                     delistPending={delistTokenId === item.tokenId}
+                    settlePending={settleTokenId === item.tokenId}
                     onSell={setSellItem}
                     onOffers={setOffersItem}
+                    onSettle={(row) => {
+                      void handleSettleOwned(row);
+                    }}
                     onDelist={(row) => {
                       void handleManageOwned(row);
                     }}
@@ -680,6 +995,16 @@ export function MarketPagePanel() {
                 );
               })}
             </div>
+            {ownedState.hasMore ? (
+              <button
+                type="button"
+                className="market-sales-more"
+                onClick={loadMoreOwned}
+                disabled={ownedLoadingMore}
+              >
+                {ownedLoadingMore ? 'Loading…' : 'Show more'}
+              </button>
+            ) : null}
           </section>
         ) : null}
 
@@ -772,7 +1097,7 @@ export function MarketPagePanel() {
               {visibleSales.map((sale, index) => {
                 const seller =
                   sale.sellerId?.trim() || sale.creatorId?.trim() || '';
-                const saleTime = formatSaleTime(sale.blockTimestamp);
+                const saleTime = formatMarketRelativeTime(sale.blockTimestamp);
                 const title = sale.postHref ? (
                   <Link
                     href={sale.postHref}
@@ -836,7 +1161,7 @@ export function MarketPagePanel() {
                 Show {hiddenSalesCount} more
               </button>
             ) : null}
-            {salesExpanded && sales.length > RECENT_SALES_PREVIEW ? (
+            {salesExpanded && salesRows.length > RECENT_SALES_PREVIEW ? (
               <button
                 type="button"
                 className="market-sales-more"

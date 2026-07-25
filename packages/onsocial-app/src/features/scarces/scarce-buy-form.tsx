@@ -9,6 +9,8 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchScarceListingMeta,
+  fetchScarceMintedAt,
+  formatMarketRelativeTime,
   findLiveListingForPost,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
@@ -65,6 +67,7 @@ interface ScarceBuyFormProps {
     remaining?: number;
     sourcePostPath?: string;
     postHref?: string | null;
+    listedAtMs?: number;
     playable?: ScarcePlayableMedia;
   } | null;
   embed?: PostScarceEmbed | null;
@@ -121,6 +124,7 @@ export function ScarceBuyForm({
   >(null);
   const [hydratedPlayable, setHydratedPlayable] =
     useState<ScarcePlayableMedia | null>(null);
+  const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
   const [creatorProfileName, setCreatorProfileName] = useState<string | null>(
     null
@@ -231,6 +235,22 @@ export function ScarceBuyForm({
     listing?.playable,
     embed?.mediaUrl,
   ]);
+
+  useEffect(() => {
+    const id = tokenId?.trim();
+    if (!id || status === 'lazy_listing') {
+      setMintedAtMs(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const minted = await fetchScarceMintedAt(id);
+      if (!cancelled) setMintedAtMs(minted);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tokenId, status]);
 
   const isOwnListing =
     Boolean(viewerAccountId) &&
@@ -442,6 +462,25 @@ export function ScarceBuyForm({
               : `${copies} editions`}
           </p>
         ) : null}
+        {(() => {
+          const listedLabel = listing?.listedAtMs
+            ? formatMarketRelativeTime(listing.listedAtMs)
+            : '';
+          const mintedLabel = mintedAtMs
+            ? formatMarketRelativeTime(mintedAtMs)
+            : '';
+          if (!listedLabel && !mintedLabel) return null;
+          return (
+            <p className="profile-support-hint">
+              {[
+                listedLabel ? `Listed ${listedLabel}` : null,
+                mintedLabel ? `Minted ${mintedLabel}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          );
+        })()}
         <p className="profile-support-hint">
           {status === 'lazy_listing'
             ? 'Mints to you. Creator is paid after a 2% marketplace fee.'

@@ -81,6 +81,8 @@ export interface ScarcesActiveListingRow {
   creatorId: string | null;
   /** Ask / display price in yoctoNEAR. */
   price: string | null;
+  /** Postgres-generated numeric mirror of `price` for server-side sorting. */
+  priceNumeric: string | null;
   reservePrice: string | null;
   buyNowPrice: string | null;
   highestBid: string | null;
@@ -109,6 +111,7 @@ const SCARCES_ACTIVE_LISTING_FIELDS = `
   sellerId
   creatorId
   price
+  priceNumeric
   reservePrice
   buyNowPrice
   highestBid
@@ -461,6 +464,36 @@ export class ScarcesQuery {
   }
 
   /**
+   * Market recent sales — native `purchase` + `auction_settled` plus lazy
+   * `purchased`, newest first. Prefer this for Market activity rails.
+   */
+  async recentSales(
+    opts: { buyerId?: string; sellerId?: string; limit?: number } = {}
+  ): Promise<ScarcesEventRow[]> {
+    const limit = opts.limit ?? 20;
+    const shared = {
+      buyerId: opts.buyerId,
+      sellerId: opts.sellerId,
+      limit,
+    };
+    const [native, lazy] = await Promise.all([
+      this.events({
+        ...shared,
+        eventType: SCARCES_EVENT_TYPES.SCARCE,
+        operation: [...PURCHASE_OPS, ...AUCTION_SETTLE_OPS],
+      }),
+      this.events({
+        ...shared,
+        eventType: SCARCES_EVENT_TYPES.LAZY_LISTING,
+        operation: LAZY_PURCHASE_OPS,
+      }),
+    ]);
+    return [...native, ...lazy]
+      .sort((a, b) => b.blockTimestamp - a.blockTimestamp)
+      .slice(0, limit);
+  }
+
+  /**
    * Creator payout events — primary lazy/collection purchases plus secondary
    * `royalty_paid` rows where `creatorId` matches. Newest first. Prefer
    * `creatorPayment` on each row when summing earnings.
@@ -508,38 +541,83 @@ export class ScarcesQuery {
   }
 
   /**
-   * Live Market catalog (lazy + native + auction), newest listed first.
-   * Backed by sink-maintained `scarces_active_listings` — not an event log.
+   * Live Market catalog (lazy + native + auction), newest listed first by
+   * default. Backed by sink-maintained `scarces_active_listings` — not an
+   * event log. Filtering / sorting / search all execute in the indexer so
+   * pagination stays correct at any catalog size.
    *
    * ```ts
    * const live = await os.query.scarces.activeListings({ limit: 40 });
+   * const cheapAuctions = await os.query.scarces.activeListings({
+   *   kinds: ['auction'],
+   *   orderBy: 'price_asc',
+   * });
    * ```
    */
   async activeListings(
     opts: {
       limit?: number;
       offset?: number;
+      /** Single-kind filter (kept for back-compat; prefer `kinds`). */
       kind?: 'lazy' | 'native' | 'auction' | string;
+      /** Multi-kind filter, e.g. `['lazy', 'native']` for fixed-price. */
+      kinds?: ('lazy' | 'native' | 'auction' | string)[];
+      /** Only listings from this seller account. */
+      sellerId?: string;
+      /** Case-insensitive substring match on title / seller / creator. */
+      search?: string;
+      /** Server-side sort; defaults to newest listed first. */
+      orderBy?: 'listed_desc' | 'price_asc' | 'price_desc' | 'ending_asc';
     } = {}
   ): Promise<ScarcesActiveListingRow[]> {
     const limit = opts.limit ?? 40;
     const offset = opts.offset ?? 0;
     const variables: Record<string, unknown> = { limit, offset };
-    const kindFilter = opts.kind ? `where: { kind: {_eq: $kind} },` : '';
-    if (opts.kind) variables.kind = opts.kind;
-    const params = opts.kind
-      ? '$limit: Int!, $offset: Int!, $kind: String!'
-      : '$limit: Int!, $offset: Int!';
+    const params = ['$limit: Int!', '$offset: Int!'];
+    const where: string[] = [];
+
+    if (opts.kind) {
+      params.push('$kind: String!');
+      variables.kind = opts.kind;
+      where.push('kind: {_eq: $kind}');
+    } else if (opts.kinds?.length) {
+      params.push('$kinds: [String!]!');
+      variables.kinds = opts.kinds;
+      where.push('kind: {_in: $kinds}');
+    }
+    if (opts.sellerId) {
+      params.push('$sellerId: String!');
+      variables.sellerId = opts.sellerId;
+      where.push('sellerId: {_eq: $sellerId}');
+    }
+    if (opts.search?.trim()) {
+      params.push('$search: String!');
+      variables.search = `%${opts.search.trim()}%`;
+      where.push(
+        '_or: [{title: {_ilike: $search}}, {sellerId: {_ilike: $search}}, {creatorId: {_ilike: $search}}]'
+      );
+    }
+
+    const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';
+    // NULLS_LAST keeps unpriced / clockless rows from leading sorted pages.
+    const orderClause =
+      opts.orderBy === 'price_asc'
+        ? '[{priceNumeric: ASC_NULLS_LAST}, {listedBlockTimestamp: DESC}]'
+        : opts.orderBy === 'price_desc'
+          ? '[{priceNumeric: DESC_NULLS_LAST}, {listedBlockTimestamp: DESC}]'
+          : opts.orderBy === 'ending_asc'
+            ? '[{expiresAt: ASC_NULLS_LAST}, {listedBlockTimestamp: DESC}]'
+            : '[{listedBlockTimestamp: DESC}]';
 
     const res = await this._q.graphql<{
       scarcesActiveListings: ScarcesActiveListingRow[];
     }>({
-      query: `query ScarcesActiveListings(${params}) {
+      query: `query ScarcesActiveListings(${params.join(', ')}) {
         scarcesActiveListings(
-          ${kindFilter}
+          ${whereClause}
           limit: $limit,
           offset: $offset,
-          orderBy: [{listedBlockTimestamp: DESC}]
+          orderBy: ${orderClause}
         ) { ${SCARCES_ACTIVE_LISTING_FIELDS} }
       }`,
       variables,

@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/os-sheet-primary-action';
 import {
   marketListingRowKey,
+  formatMarketRelativeTime,
   type MarketListingItem,
 } from '@/features/market/market-listings';
 import { formatAuctionCountdown } from '@/features/scarces/scarce-auction';
@@ -101,6 +102,7 @@ export function MarketListingRow({
         : auctionCountdown === 'Ended'
           ? 'Ended'
           : `Ends in ${auctionCountdown}`;
+  const listedTime = formatMarketRelativeTime(item.blockTimestamp);
 
   useEffect(() => {
     return () => {
@@ -237,6 +239,12 @@ export function MarketListingRow({
               {auctionClockLabel}
             </span>
           ) : null}
+          {listedTime ? (
+            <span className="market-listing-own">
+              {' · '}
+              Listed {listedTime}
+            </span>
+          ) : null}
           {isOwnListing ? (
             <span className="market-listing-own"> · Yours</span>
           ) : null}
@@ -282,12 +290,18 @@ export function MarketListingRow({
             ready
             aria-label={
               item.kind === 'auction'
-                ? `Bid on ${item.title}`
+                ? auctionCountdown === 'Ended'
+                  ? `Settle auction for ${item.title}`
+                  : `Bid on ${item.title}`
                 : `Buy ${item.title}`
             }
             onClick={() => onBuy(item)}
           >
-            {item.kind === 'auction' ? 'Bid' : 'Buy'}
+            {item.kind === 'auction'
+              ? auctionCountdown === 'Ended'
+                ? 'Settle'
+                : 'Bid'
+              : 'Buy'}
           </OsSheetAction>
         )}
       </OsSheetActions>

@@ -7,6 +7,8 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchScarceListingMeta,
+  fetchScarceMintedAt,
+  formatMarketRelativeTime,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
 import {
@@ -66,6 +68,7 @@ interface ScarceBidFormProps {
     priceNear?: string;
     sourcePostPath?: string;
     postHref?: string | null;
+    listedAtMs?: number;
     playable?: ScarcePlayableMedia;
   } | null;
   authorName?: string | null;
@@ -152,6 +155,7 @@ export function ScarceBidForm({
   >(null);
   const [hydratedPlayable, setHydratedPlayable] =
     useState<ScarcePlayableMedia | null>(null);
+  const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
   const sellerId = listing?.sellerId ?? auction?.sellerId ?? post?.accountId;
@@ -250,6 +254,22 @@ export function ScarceBidForm({
     listing?.playable,
     embed?.mediaUrl,
   ]);
+
+  useEffect(() => {
+    const id = tokenId.trim();
+    if (!id) {
+      setMintedAtMs(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const minted = await fetchScarceMintedAt(id);
+      if (!cancelled) setMintedAtMs(minted);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tokenId]);
 
   useEffect(() => {
     if (!tokenId) {
@@ -468,7 +488,10 @@ export function ScarceBidForm({
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
         submittedMessage: txToastConfirming.settlingScarceAuction,
-        successMessage: txToastSuccess.scarceAuctionSettled,
+        successMessage:
+          isHighestBidder && !isOwnAuction
+            ? txToastSuccess.scarceAuctionCollected
+            : txToastSuccess.scarceAuctionSettled,
         failureMessage: txToastError.settleScarceAuctionFailed,
       });
       if (!confirmed) return;
@@ -499,11 +522,19 @@ export function ScarceBidForm({
     if (!visible) return null;
 
     if (ended) {
+      const settleLabel = !isConnected
+        ? 'Connect wallet'
+        : isHighestBidder && !isOwnAuction
+          ? 'Collect'
+          : isOwnAuction
+            ? 'Complete sale'
+            : 'Settle auction';
       return {
         visible: true,
         primaryType: 'button',
-        primaryLabel: isConnected ? 'Settle auction' : 'Connect wallet',
-        primaryPendingLabel: 'Settling…',
+        primaryLabel: settleLabel,
+        primaryPendingLabel:
+          isHighestBidder && !isOwnAuction ? 'Collecting…' : 'Settling…',
         canSubmit: isConnected ? !pending : true,
         pending: pending === 'settle',
         disabled: Boolean(pending) || (isConnected && !tokenId),
@@ -549,6 +580,7 @@ export function ScarceBidForm({
     canBid,
     ended,
     isConnected,
+    isHighestBidder,
     isOwnAuction,
     minMeetsBuyNow,
     minNear,
@@ -635,6 +667,26 @@ export function ScarceBidForm({
         sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
         hideOriginalLink={Boolean(post)}
       />
+
+      {(() => {
+        const listedLabel = listing?.listedAtMs
+          ? formatMarketRelativeTime(listing.listedAtMs)
+          : '';
+        const mintedLabel = mintedAtMs
+          ? formatMarketRelativeTime(mintedAtMs)
+          : '';
+        if (!listedLabel && !mintedLabel) return null;
+        return (
+          <p className="profile-support-hint">
+            {[
+              listedLabel ? `Listed ${listedLabel}` : null,
+              mintedLabel ? `Minted ${mintedLabel}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        );
+      })()}
 
       {bidHistory.length > 0 ? (
         <div className="scarce-bid-history" aria-label="Bids this auction">

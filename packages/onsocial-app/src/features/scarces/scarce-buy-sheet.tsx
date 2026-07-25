@@ -33,6 +33,8 @@ export interface ScarceBuyListing {
   remaining?: number;
   sourcePostPath?: string;
   postHref?: string | null;
+  /** Catalog listed time (ms) — shown as “Listed …” on the buy sheet. */
+  listedAtMs?: number;
   /** Clip behind a video scarce — cover stays the still frame. */
   playable?: ScarcePlayableMedia;
 }

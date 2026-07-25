@@ -32,7 +32,11 @@ export {
   type SheetHeaderProps,
 } from './glass-sheet.js';
 export {
+  CopyFillIcon,
+  TrashFillIcon,
   UserPlusFillIcon,
+  UserMinusFillIcon,
+  UserFillIcon,
   InformationCircleFillIcon,
   DotsCircleFillIcon,
   FireFillIcon,
@@ -93,9 +97,12 @@ export {
   RepeatIcon,
   SearchIcon,
   SettingsIcon,
+  ShopIcon,
   SlidersHorizontalIcon,
   TrashIcon,
   UserIcon,
+  UserMinusIcon,
+  UserPlusIcon,
   VideoPlayerIcon,
   type MageStrokeIconProps,
 } from './mage-stroke-icons.js';
