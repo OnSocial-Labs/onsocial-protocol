@@ -18,7 +18,12 @@
 
 import { config } from '../../config/index.js';
 import { rpcQuery } from '../../rpc/index.js';
-import { ComposeError, fetchImageAsDataUri, gatewayUrl, logger } from './shared.js';
+import {
+  ComposeError,
+  fetchImageAsDataUri,
+  gatewayUrl,
+  logger,
+} from './shared.js';
 
 const CACHE_TTL_MS = 60_000;
 const MAX_NAME_LEN = 60;

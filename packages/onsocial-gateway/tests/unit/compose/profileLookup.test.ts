@@ -108,10 +108,7 @@ describe('resolveCreatorAvatarDataUri', () => {
 
   it('returns an explicit data URI without fetching', async () => {
     await expect(
-      resolveCreatorAvatarDataUri(
-        'alice.near',
-        'data:image/png;base64,abc'
-      )
+      resolveCreatorAvatarDataUri('alice.near', 'data:image/png;base64,abc')
     ).resolves.toBe('data:image/png;base64,abc');
     expect(mockedRpc).not.toHaveBeenCalled();
     expect(mockedFetch).not.toHaveBeenCalled();
