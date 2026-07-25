@@ -36,7 +36,7 @@ export function usePageOwnerMood(
 
     const cached = moodCache.get(id);
     if (cached) {
-      setMood(cached);
+      queueMicrotask(() => setMood(cached));
       return;
     }
 

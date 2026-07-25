@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import {
   Divider,
   GlassSheet,
@@ -24,11 +24,13 @@ interface AppSocialHelpCardProps {
 export function AppSocialHelpCard({ open, onClose }: AppSocialHelpCardProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing;
 
-  useEffect(() => {
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) setClosing(false);
-  }, [open]);
+  }
 
   useScrollLock(sheetOpen);
 
