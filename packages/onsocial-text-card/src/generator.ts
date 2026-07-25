@@ -779,8 +779,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
         ? MARK_COLOR_HEX[colorOverride as Exclude<MarkColor, 'auto'>]
         : SIGNATURE_PALETTE[paletteIndex(creator.accountId)];
     markBlock = `\n  ${renderMark(markShape, markColor)}`;
-    const titleVisualTop =
-      PADDING + markHeight(markShape) + MARK_GAP_BELOW;
+    const titleVisualTop = PADDING + markHeight(markShape) + MARK_GAP_BELOW;
     titleStartY = titleBaselineY(titleVisualTop, titleFontSize);
   }
 

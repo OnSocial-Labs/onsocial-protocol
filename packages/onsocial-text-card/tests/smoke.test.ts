@@ -90,8 +90,12 @@ describe('themes catalog', () => {
       format: 'thought',
       theme: { bg: 'thought-night', markShape: 'bar' },
     });
-    const ruleY = Number(rule.match(/<text[^>]*y="(\d+)"[^>]*font-size="44"/)?.[1]);
-    const barY = Number(bar.match(/<text[^>]*y="(\d+)"[^>]*font-size="44"/)?.[1]);
+    const ruleY = Number(
+      rule.match(/<text[^>]*y="(\d+)"[^>]*font-size="44"/)?.[1]
+    );
+    const barY = Number(
+      bar.match(/<text[^>]*y="(\d+)"[^>]*font-size="44"/)?.[1]
+    );
     // Mark heights: rule 3, bar 24 → title drops by exactly 21.
     expect(ruleY).toBe(118);
     expect(barY).toBe(139);
