@@ -514,6 +514,7 @@
             "author": "creator.onsocial.testnet",
             "creator_id": "creator.onsocial.testnet",
             "listing_id": "ll:catalog-1",
+            "app_id": "test_app_01",
             "price": "1000000000000000000000000",
             "copies": 3,
             "max_per_purchase": 1,
@@ -544,6 +545,7 @@
         "fields": {
           "kind": "lazy",
           "listing_id": "ll:catalog-1",
+          "app_id": "test_app_01",
           "seller_id": "creator.onsocial.testnet",
           "title": "Catalog Drop",
           "media": "ipfs://catalog",
@@ -636,6 +638,186 @@
           "token_id": "s:99",
           "buyer_id": "buyer.onsocial.testnet",
           "amount": "2000000000000000000000000"
+        }
+      }
+    ]
+  },
+  {
+    "name": "scarces_app_pool_register_catalog",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000020,
+    "block_timestamp": 1776000003,
+    "receipt_seed": [108, 109],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "APP_POOL_UPDATE",
+        "data": [
+          {
+            "operation": "register",
+            "author": "owner.onsocial.testnet",
+            "owner_id": "owner.onsocial.testnet",
+            "app_id": "test_app_01",
+            "initial_balance": "1000000000000000000000000",
+            "primary_sale_bps": 750,
+            "creator_access": "approval",
+            "curated": true,
+            "metadata": "{\"name\":\"Test App\"}"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_apps": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_events",
+        "fields": {
+          "event_type": "APP_POOL_UPDATE",
+          "operation": "register",
+          "app_id": "test_app_01",
+          "owner_id": "owner.onsocial.testnet",
+          "initial_balance": "1000000000000000000000000"
+        }
+      },
+      {
+        "table": "scarces_apps",
+        "fields": {
+          "app_id": "test_app_01",
+          "owner_id": "owner.onsocial.testnet",
+          "primary_sale_bps": 750,
+          "creator_access": "approval",
+          "curated": true,
+          "metadata": "{\"name\":\"Test App\"}",
+          "created_block_height": "245000020",
+          "created_block_timestamp": "1776000003",
+          "updated_block_height": "245000020"
+        }
+      }
+    ]
+  },
+  {
+    "name": "scarces_app_pool_config_update_catalog",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000021,
+    "block_timestamp": 1776000004,
+    "receipt_seed": [112, 113],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "APP_POOL_UPDATE",
+        "data": [
+          {
+            "operation": "config_update",
+            "author": "owner.onsocial.testnet",
+            "owner_id": "owner.onsocial.testnet",
+            "app_id": "test_app_01",
+            "primary_sale_bps": 250,
+            "creator_access": "open",
+            "curated": false
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_apps": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_apps",
+        "fields": {
+          "app_id": "test_app_01",
+          "owner_id": "owner.onsocial.testnet",
+          "primary_sale_bps": 250,
+          "creator_access": "open",
+          "curated": false,
+          "updated_block_height": "245000021",
+          "updated_block_timestamp": "1776000004"
+        }
+      }
+    ]
+  },
+  {
+    "name": "scarces_app_moderator_added_roster",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000022,
+    "block_timestamp": 1776000005,
+    "receipt_seed": [114, 115],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "APP_POOL_UPDATE",
+        "data": [
+          {
+            "operation": "moderator_added",
+            "author": "owner.onsocial.testnet",
+            "app_id": "test_app_01",
+            "account_id": "mod.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_app_creators": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_app_creators",
+        "fields": {
+          "id": "test_app_01:moderator:mod.onsocial.testnet",
+          "app_id": "test_app_01",
+          "account_id": "mod.onsocial.testnet",
+          "role": "moderator",
+          "added_block_height": "245000022",
+          "added_block_timestamp": "1776000005"
+        }
+      }
+    ]
+  },
+  {
+    "name": "scarces_app_approved_creator_added_roster",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000023,
+    "block_timestamp": 1776000006,
+    "receipt_seed": [116, 117],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "APP_POOL_UPDATE",
+        "data": [
+          {
+            "operation": "approved_creator_added",
+            "author": "owner.onsocial.testnet",
+            "app_id": "test_app_01",
+            "account_id": "artist.onsocial.testnet"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_app_creators": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_app_creators",
+        "fields": {
+          "id": "test_app_01:approved_creator:artist.onsocial.testnet",
+          "app_id": "test_app_01",
+          "account_id": "artist.onsocial.testnet",
+          "role": "approved_creator"
         }
       }
     ]

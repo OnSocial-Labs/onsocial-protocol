@@ -17,6 +17,7 @@ pub(crate) fn scarces_db_out_impl(output: ScarcesOutput) -> DatabaseChanges {
         write_scarces_event(&mut tables, event);
         apply_active_listing(&mut tables, event);
         apply_active_offer(&mut tables, event);
+        apply_app_pool(&mut tables, event);
     }
 
     tables.to_database_changes()
@@ -268,6 +269,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 row.set("listing_id", listing_id);
                 row.set("seller_id", seller);
                 row.set("creator_id", seller);
+                if let Some(app_id) = non_empty(&e.app_id) {
+                    row.set("app_id", app_id);
+                }
                 if let Some(price) = non_empty(&e.price) {
                     row.set("price", price);
                 }
@@ -358,6 +362,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 row.set("kind", "native");
                 row.set("token_id", token_id);
                 row.set("seller_id", seller);
+                if let Some(app_id) = non_empty(&e.app_id) {
+                    row.set("app_id", app_id);
+                }
                 if let Some(price) = non_empty(&e.price) {
                     row.set("price", price);
                 }
@@ -390,6 +397,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 row.set("kind", "auction");
                 row.set("token_id", token_id);
                 row.set("seller_id", seller);
+                if let Some(app_id) = non_empty(&e.app_id) {
+                    row.set("app_id", app_id);
+                }
                 if !reserve.is_empty() {
                     row.set("reserve_price", reserve);
                     row.set("price", reserve);
@@ -578,6 +588,102 @@ pub(crate) fn apply_active_offer(tables: &mut Tables, e: &ScarcesEvent) {
                 collection_offer_key(collection_id, buyer),
             );
         }
+        _ => {}
+    }
+}
+
+const ROLE_MODERATOR: &str = "moderator";
+const ROLE_APPROVED_CREATOR: &str = "approved_creator";
+
+fn app_creator_key(app_id: &str, role: &str, account_id: &str) -> String {
+    format!("{app_id}:{role}:{account_id}")
+}
+
+/// Profile columns shared by `register` and `config_update`.
+fn set_app_profile(tables: &mut Tables, app_id: &str, e: &ScarcesEvent) {
+    let row = tables.upsert_row("scarces_apps", app_id);
+    row.set("primary_sale_bps", e.primary_sale_bps);
+    row.set("curated", e.curated);
+    if let Some(access) = non_empty(&e.creator_access) {
+        row.set("creator_access", access);
+    }
+    if let Some(metadata) = non_empty(&e.metadata) {
+        row.set("metadata", metadata);
+    }
+}
+
+fn set_app_updated(tables: &mut Tables, app_id: &str, e: &ScarcesEvent) {
+    let row = tables.upsert_row("scarces_apps", app_id);
+    row.set("app_id", app_id);
+    row.set("updated_block_height", e.block_height);
+    row.set("updated_block_timestamp", e.block_timestamp);
+}
+
+fn upsert_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &ScarcesEvent) {
+    let Some(account_id) = non_empty(&e.account_id) else {
+        return;
+    };
+    let key = app_creator_key(app_id, role, account_id);
+    let row = tables.upsert_row("scarces_app_creators", &key);
+    row.set("id", &key);
+    row.set("app_id", app_id);
+    row.set("account_id", account_id);
+    row.set("role", role);
+    row.set("added_block_height", e.block_height);
+    row.set("added_block_timestamp", e.block_timestamp);
+}
+
+fn delete_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &ScarcesEvent) {
+    let Some(account_id) = non_empty(&e.account_id) else {
+        return;
+    };
+    tables.delete_row(
+        "scarces_app_creators",
+        app_creator_key(app_id, role, account_id),
+    );
+}
+
+/// Live app catalog + membership roster. `fund`/`withdraw` stay events-only —
+/// the pool balance is not mirrored in `scarces_apps`.
+pub(crate) fn apply_app_pool(tables: &mut Tables, e: &ScarcesEvent) {
+    if e.event_type != "APP_POOL_UPDATE" {
+        return;
+    }
+
+    let Some(app_id) = non_empty(&e.app_id) else {
+        return;
+    };
+
+    match e.operation.as_str() {
+        "register" => {
+            set_app_updated(tables, app_id, e);
+            set_app_profile(tables, app_id, e);
+            let row = tables.upsert_row("scarces_apps", app_id);
+            if let Some(owner) = non_empty(&e.owner_id).or_else(|| non_empty(&e.author)) {
+                row.set("owner_id", owner);
+            }
+            row.set("created_block_height", e.block_height);
+            row.set("created_block_timestamp", e.block_timestamp);
+        }
+        "config_update" => {
+            set_app_updated(tables, app_id, e);
+            set_app_profile(tables, app_id, e);
+            if let Some(owner) = non_empty(&e.owner_id) {
+                let row = tables.upsert_row("scarces_apps", app_id);
+                row.set("owner_id", owner);
+            }
+        }
+        "owner_transferred" => {
+            set_app_updated(tables, app_id, e);
+            if let Some(owner) = non_empty(&e.new_owner) {
+                let row = tables.upsert_row("scarces_apps", app_id);
+                row.set("owner_id", owner);
+            }
+        }
+        "moderator_added" => upsert_app_creator(tables, app_id, ROLE_MODERATOR, e),
+        "moderator_removed" => delete_app_creator(tables, app_id, ROLE_MODERATOR, e),
+        "approved_creator_added" => upsert_app_creator(tables, app_id, ROLE_APPROVED_CREATOR, e),
+        "approved_creator_removed" => delete_app_creator(tables, app_id, ROLE_APPROVED_CREATOR, e),
         _ => {}
     }
 }

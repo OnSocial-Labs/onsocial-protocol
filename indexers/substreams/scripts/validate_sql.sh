@@ -225,24 +225,39 @@ SQLEOF
 
     validate_scarces_catalog_upgrade_shape() {
       db="$1"
-      has_price_numeric="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
-        SELECT EXISTS (
-          SELECT 1
-          FROM information_schema.columns
-          WHERE table_schema = '"'"'public'"'"'
-            AND table_name = '"'"'scarces_active_listings'"'"'
-            AND column_name = '"'"'price_numeric'"'"'
-        );
-      ")"
-      if [ "$has_price_numeric" != "t" ]; then
-        echo "error: expected scarces_active_listings.price_numeric after upgrade in $db" >&2
-        exit 1
-      fi
+      for column_name in price_numeric app_id; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'scarces_active_listings'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected scarces_active_listings.${column_name} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
+
+      for relation in scarces_apps scarces_app_creators; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${relation}'"'"') IS NOT NULL;
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected relation public.${relation} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
 
       for index_name in \
         idx_scarces_active_listings_price \
         idx_scarces_active_listings_expires \
-        idx_scarces_active_listings_kind_listed
+        idx_scarces_active_listings_kind_listed \
+        idx_scarces_active_listings_app \
+        idx_scarces_apps_owner \
+        idx_scarces_app_creators_app_role
       do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${index_name}'"'"') IS NOT NULL;

@@ -93,6 +93,12 @@ pub fn decode_scarces_event(
         app_id: str_field(data, "app_id"),
         funder: str_field(data, "funder"),
 
+        // App profile
+        primary_sale_bps: u32_field(data, "primary_sale_bps"),
+        creator_access: str_field(data, "creator_access"),
+        curated: bool_field(data, "curated"),
+        metadata: str_field(data, "metadata"),
+
         // Ownership / transfers
         old_owner: str_field_any(data, &["old_owner", "old_owner_id"]),
         new_owner: str_field(data, "new_owner"),
@@ -177,6 +183,16 @@ fn u32_field(data: &Value, key: &str) -> u32 {
             _ => None,
         })
         .unwrap_or(0)
+}
+
+fn bool_field(data: &Value, key: &str) -> bool {
+    data.get(key)
+        .and_then(|v| match v {
+            Value::Bool(b) => Some(*b),
+            Value::String(s) => s.parse().ok(),
+            _ => None,
+        })
+        .unwrap_or(false)
 }
 
 fn json_array_field(data: &Value, key: &str) -> String {

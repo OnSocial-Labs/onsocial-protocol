@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS scarces_active_listings (
   token_id TEXT,
   seller_id TEXT NOT NULL DEFAULT 'unknown',
   creator_id TEXT,
+  -- intentionally no app_id
   price TEXT,
   -- intentionally no price_numeric
   reserve_price TEXT,
@@ -45,6 +46,9 @@ CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_token
   ON scarces_active_listings(token_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_listing
   ON scarces_active_listings(listing_id);
+
+-- Note: scarces_apps / scarces_app_creators are intentionally absent so the
+-- CREATE TABLE IF NOT EXISTS path is exercised on an existing database.
 
 -- Seed a row so generated columns must compute from existing price text.
 INSERT INTO scarces_active_listings (

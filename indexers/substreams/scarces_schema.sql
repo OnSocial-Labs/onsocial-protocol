@@ -124,6 +124,8 @@ CREATE TABLE IF NOT EXISTS scarces_active_listings (
   token_id TEXT,
   seller_id TEXT NOT NULL DEFAULT 'unknown',
   creator_id TEXT,
+  -- App that the listing was created under (NULL for unattributed listings).
+  app_id TEXT,
   price TEXT,
   -- Generated numeric mirror of `price` so the sink never writes it and
   -- price sorts stay index-backed (yocto values exceed BIGINT).
@@ -149,11 +151,14 @@ CREATE TABLE IF NOT EXISTS scarces_active_listings (
   updated_block_timestamp BIGINT NOT NULL DEFAULT 0
 );
 
--- Existing deployments skip CREATE TABLE; ensure generated column before indexes.
+-- Existing deployments skip CREATE TABLE; ensure added columns before indexes.
 ALTER TABLE scarces_active_listings
   ADD COLUMN IF NOT EXISTS price_numeric NUMERIC GENERATED ALWAYS AS (
     CASE WHEN price ~ '^[0-9]+$' THEN price::numeric ELSE NULL END
   ) STORED;
+
+ALTER TABLE scarces_active_listings
+  ADD COLUMN IF NOT EXISTS app_id TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_listed
   ON scarces_active_listings(listed_block_timestamp DESC);
@@ -171,6 +176,8 @@ CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_expires
   ON scarces_active_listings(expires_at);
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_kind_listed
   ON scarces_active_listings(kind, listed_block_timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_app
+  ON scarces_active_listings(app_id);
 
 -- Sink-maintained open offers (upsert on made, delete on cancel/accept).
 CREATE TABLE IF NOT EXISTS scarces_active_offers (
@@ -197,6 +204,41 @@ CREATE INDEX IF NOT EXISTS idx_scarces_active_offers_kind
   ON scarces_active_offers(kind);
 CREATE INDEX IF NOT EXISTS idx_scarces_active_offers_updated
   ON scarces_active_offers(updated_block_timestamp DESC);
+
+-- Sink-maintained live app catalog (upsert on register/config_update/owner_transferred).
+-- Pool balance is intentionally not mirrored here — fund/withdraw stay events-only.
+CREATE TABLE IF NOT EXISTS scarces_apps (
+  app_id TEXT PRIMARY KEY,
+  owner_id TEXT,
+  primary_sale_bps INTEGER,
+  creator_access TEXT,
+  curated BOOLEAN,
+  metadata TEXT,
+  created_block_height BIGINT DEFAULT 0,
+  created_block_timestamp BIGINT DEFAULT 0,
+  updated_block_height BIGINT DEFAULT 0,
+  updated_block_timestamp BIGINT DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_scarces_apps_owner
+  ON scarces_apps(owner_id);
+CREATE INDEX IF NOT EXISTS idx_scarces_apps_updated
+  ON scarces_apps(updated_block_timestamp DESC);
+
+-- Sink-maintained app membership roster (upsert on add, delete on remove).
+CREATE TABLE IF NOT EXISTS scarces_app_creators (
+  id TEXT PRIMARY KEY,
+  app_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  added_block_height BIGINT DEFAULT 0,
+  added_block_timestamp BIGINT DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_scarces_app_creators_app_role
+  ON scarces_app_creators(app_id, role);
+CREATE INDEX IF NOT EXISTS idx_scarces_app_creators_account
+  ON scarces_app_creators(account_id);
 
 -- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_scarces_events_type ON scarces_events(event_type);

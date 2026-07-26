@@ -242,6 +242,27 @@ fn test_decode_app_pool_register() {
 }
 
 #[test]
+fn test_decode_app_pool_register_profile_fields() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"APP_POOL_UPDATE","data":[{"operation":"register","author":"owner.near","owner_id":"owner.near","app_id":"my_app","initial_balance":"0","primary_sale_bps":1000,"creator_access":"invite_only","curated":true,"metadata":"ipfs://app"}]}"#;
+    let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
+    assert_eq!(event.primary_sale_bps, 1000);
+    assert_eq!(event.creator_access, "invite_only");
+    assert!(event.curated);
+    assert_eq!(event.metadata, "ipfs://app");
+}
+
+#[test]
+fn test_decode_app_config_update_uncurated() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"APP_POOL_UPDATE","data":[{"operation":"config_update","author":"owner.near","owner_id":"owner.near","app_id":"my_app","primary_sale_bps":250,"creator_access":"open","curated":false}]}"#;
+    let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
+    assert_eq!(event.operation, "config_update");
+    assert_eq!(event.primary_sale_bps, 250);
+    assert_eq!(event.creator_access, "open");
+    assert!(!event.curated);
+    assert_eq!(event.metadata, "");
+}
+
+#[test]
 fn test_decode_app_pool_fund() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"APP_POOL_UPDATE","data":[{"operation":"fund","author":"funder.near","funder":"funder.near","app_id":"my_app","amount":"10000","new_balance":"10000"}]}"#;
     let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();

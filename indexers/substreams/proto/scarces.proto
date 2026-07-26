@@ -89,6 +89,12 @@ message ScarcesEvent {
   string app_id = 50;
   string funder = 51;
 
+  // --- App profile fields (APP_POOL_UPDATE register / config_update) ---
+  uint32 primary_sale_bps = 130;
+  string creator_access = 131;   // open|approval|invite_only
+  bool curated = 132;
+  string metadata = 133;
+
   // --- Ownership / transfers ---
   string old_owner = 60;
   string new_owner = 61;

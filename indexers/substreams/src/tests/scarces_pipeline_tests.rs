@@ -153,6 +153,39 @@ fn scarces_all_7_event_types_through_pipeline() {
 }
 
 #[test]
+fn scarces_app_pool_register_full_pipeline() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"APP_POOL_UPDATE","data":[{"operation":"register","author":"owner.near","owner_id":"owner.near","app_id":"my_app","initial_balance":"1000","primary_sale_bps":750,"creator_access":"approval","curated":true,"metadata":"{\"name\":\"My App\"}"}]}"#;
+    let block = MockBlockBuilder::new(100, 1000)
+        .add_receipt(CONTRACT, &[1], vec![json])
+        .build();
+
+    let output = run_scarces_pipeline(&block);
+    let e = &output.events[0];
+    assert_eq!(e.event_type, "APP_POOL_UPDATE");
+    assert_eq!(e.operation, "register");
+    assert_eq!(e.app_id, "my_app");
+    assert_eq!(e.owner_id, "owner.near");
+    assert_eq!(e.primary_sale_bps, 750);
+    assert_eq!(e.creator_access, "approval");
+    assert!(e.curated);
+    assert_eq!(e.metadata, r#"{"name":"My App"}"#);
+}
+
+#[test]
+fn scarces_app_moderator_added_full_pipeline() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"APP_POOL_UPDATE","data":[{"operation":"moderator_added","author":"owner.near","app_id":"my_app","account_id":"mod.near"}]}"#;
+    let block = MockBlockBuilder::new(100, 1000)
+        .add_receipt(CONTRACT, &[1], vec![json])
+        .build();
+
+    let output = run_scarces_pipeline(&block);
+    let e = &output.events[0];
+    assert_eq!(e.operation, "moderator_added");
+    assert_eq!(e.app_id, "my_app");
+    assert_eq!(e.account_id, "mod.near");
+}
+
+#[test]
 fn scarces_ignores_non_onsocial() {
     let json = r#"{"standard":"nep171","version":"1.0.0","event":"nft_mint","data":[{}]}"#;
     let block = MockBlockBuilder::new(100, 1000)

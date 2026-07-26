@@ -140,7 +140,9 @@
           "config_update",
           "owner_transferred",
           "moderator_added",
-          "moderator_removed"
+          "moderator_removed",
+          "approved_creator_added",
+          "approved_creator_removed"
         ],
         "STORAGE_UPDATE": [
           "storage_deposit",

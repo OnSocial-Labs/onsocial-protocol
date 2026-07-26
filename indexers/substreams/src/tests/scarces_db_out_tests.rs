@@ -1,6 +1,7 @@
 use crate::pb::scarces::v1::*;
 use crate::scarces_db_out::{
-    apply_active_listing, apply_active_offer, scarces_db_out_impl, write_scarces_event,
+    apply_active_listing, apply_active_offer, apply_app_pool, scarces_db_out_impl,
+    write_scarces_event,
 };
 use substreams_database_change::pb::database::table_change::Operation;
 use substreams_database_change::pb::database::DatabaseChanges;
@@ -633,5 +634,324 @@ fn active_offer_accepted_deletes() {
             || offers
                 .iter()
                 .all(|tc| matches!(tc.operation(), Operation::Delete))
+    );
+}
+
+// ─── App catalog + roster ──────────────────────────────────────────
+
+fn app_pool_event(operation: &str) -> ScarcesEvent {
+    ScarcesEvent {
+        id: format!("r-0-APP_POOL_UPDATE-{operation}"),
+        block_height: 500,
+        block_timestamp: 5_000,
+        receipt_id: "r0".into(),
+        event_type: "APP_POOL_UPDATE".into(),
+        operation: operation.into(),
+        author: "owner.near".into(),
+        app_id: "my_app".into(),
+        extra_data: "{}".into(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn app_pool_register_upserts_catalog() {
+    let mut tables = Tables::new();
+    let mut event = app_pool_event("register");
+    event.owner_id = "owner.near".into();
+    event.initial_balance = "1000".into();
+    event.primary_sale_bps = 750;
+    event.creator_access = "approval".into();
+    event.curated = true;
+    event.metadata = "{\"name\":\"My App\"}".into();
+
+    apply_app_pool(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_apps"), 1);
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "app_id"),
+        Some("my_app")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "owner_id"),
+        Some("owner.near")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "primary_sale_bps"),
+        Some("750")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "creator_access"),
+        Some("approval")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "curated"),
+        Some("true")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "metadata"),
+        Some("{\"name\":\"My App\"}")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "created_block_height"),
+        Some("500")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "updated_block_timestamp"),
+        Some("5000")
+    );
+}
+
+#[test]
+fn app_pool_config_update_keeps_created_block() {
+    let mut tables = Tables::new();
+    let mut event = app_pool_event("config_update");
+    event.block_height = 900;
+    event.block_timestamp = 9_000;
+    event.owner_id = "owner.near".into();
+    event.primary_sale_bps = 250;
+    event.creator_access = "open".into();
+    event.curated = false;
+
+    apply_app_pool(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_apps"), 1);
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "primary_sale_bps"),
+        Some("250")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "creator_access"),
+        Some("open")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "curated"),
+        Some("false")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "updated_block_height"),
+        Some("900")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "created_block_height"),
+        None
+    );
+}
+
+#[test]
+fn app_pool_owner_transferred_updates_owner() {
+    let mut tables = Tables::new();
+    let mut event = app_pool_event("owner_transferred");
+    event.old_owner = "owner.near".into();
+    event.new_owner = "next.near".into();
+
+    apply_app_pool(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "owner_id"),
+        Some("next.near")
+    );
+    assert_eq!(
+        find_field(&changes, "scarces_apps", "created_block_height"),
+        None
+    );
+}
+
+#[test]
+fn app_pool_fund_and_withdraw_leave_catalog_untouched() {
+    let mut tables = Tables::new();
+    let mut funded = app_pool_event("fund");
+    funded.funder = "funder.near".into();
+    funded.amount = "10".into();
+    funded.new_balance = "10".into();
+    let mut withdrawn = app_pool_event("withdraw");
+    withdrawn.owner_id = "owner.near".into();
+    withdrawn.amount = "5".into();
+    withdrawn.new_balance = "5".into();
+
+    apply_app_pool(&mut tables, &funded);
+    apply_app_pool(&mut tables, &withdrawn);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_apps"), 0);
+}
+
+#[test]
+fn app_pool_moderator_added_upserts_roster() {
+    let mut tables = Tables::new();
+    let mut event = app_pool_event("moderator_added");
+    event.account_id = "mod.near".into();
+
+    apply_app_pool(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_app_creators"), 1);
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_app_creators",
+            "my_app:moderator:mod.near",
+            "role"
+        ),
+        Some("moderator")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_app_creators",
+            "my_app:moderator:mod.near",
+            "account_id"
+        ),
+        Some("mod.near")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_app_creators",
+            "my_app:moderator:mod.near",
+            "added_block_height"
+        ),
+        Some("500")
+    );
+}
+
+#[test]
+fn app_pool_moderator_removed_deletes_roster_row() {
+    let mut tables = Tables::new();
+    let mut removed = app_pool_event("moderator_removed");
+    removed.account_id = "mod.near".into();
+
+    apply_app_pool(&mut tables, &removed);
+    let changes = tables.to_database_changes();
+
+    let rows = changes
+        .table_changes
+        .iter()
+        .filter(|tc| tc.table == "scarces_app_creators")
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 1);
+    assert!(matches!(rows[0].operation(), Operation::Delete));
+    assert!(format!("{:?}", rows[0].primary_key).contains("my_app:moderator:mod.near"));
+}
+
+#[test]
+fn app_pool_approved_creator_added_upserts_roster() {
+    let mut tables = Tables::new();
+    let mut added = app_pool_event("approved_creator_added");
+    added.account_id = "creator.near".into();
+
+    apply_app_pool(&mut tables, &added);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_app_creators"), 1);
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_app_creators",
+            "my_app:approved_creator:creator.near",
+            "role"
+        ),
+        Some("approved_creator")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_app_creators",
+            "my_app:approved_creator:creator.near",
+            "id"
+        ),
+        Some("my_app:approved_creator:creator.near")
+    );
+}
+
+#[test]
+fn app_pool_approved_creator_add_then_remove_cancels_out() {
+    let mut tables = Tables::new();
+    let mut added = app_pool_event("approved_creator_added");
+    added.account_id = "creator.near".into();
+    let mut removed = app_pool_event("approved_creator_removed");
+    removed.account_id = "creator.near".into();
+
+    apply_app_pool(&mut tables, &added);
+    apply_app_pool(&mut tables, &removed);
+    let changes = tables.to_database_changes();
+    let rows = changes
+        .table_changes
+        .iter()
+        .filter(|tc| tc.table == "scarces_app_creators")
+        .collect::<Vec<_>>();
+    assert!(
+        rows.is_empty()
+            || rows
+                .iter()
+                .all(|tc| matches!(tc.operation(), Operation::Delete))
+    );
+}
+
+#[test]
+fn app_pool_without_app_id_is_ignored() {
+    let mut tables = Tables::new();
+    let mut event = app_pool_event("register");
+    event.app_id = String::new();
+
+    apply_app_pool(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_apps"), 0);
+}
+
+#[test]
+fn active_listing_create_tags_app_id() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-LAZY_LISTING_UPDATE-created".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "LAZY_LISTING_UPDATE".into(),
+        operation: "created".into(),
+        author: "creator.near".into(),
+        listing_id: "ll:app".into(),
+        creator_id: "creator.near".into(),
+        app_id: "my_app".into(),
+        price: "1".into(),
+        extra_data: r#"{"listing_id":"ll:app","app_id":"my_app","copies":1,"price":"1"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:app", "app_id"),
+        Some("my_app")
+    );
+}
+
+#[test]
+fn active_listing_create_without_app_id_leaves_column_unset() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-list_native".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "list_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:1".into(),
+        price: "1".into(),
+        extra_data: r#"{"token_id":"s:1","price":"1"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "native:s:1", "app_id"),
+        None
     );
 }
