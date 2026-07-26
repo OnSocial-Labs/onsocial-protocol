@@ -16,7 +16,6 @@ import {
   MessageRoundIcon,
   ProfileAvatar,
   RepeatIcon,
-  ShopIcon,
   TrashIcon,
   UserIcon,
   UserMinusIcon,
@@ -147,8 +146,6 @@ function PostCardMenu({
   href,
   accountId,
   authorProfile,
-  canListScarce = false,
-  onListScarce,
   canCancelScarce = false,
   onCancelScarce,
   cancelScarcePending = false,
@@ -157,8 +154,6 @@ function PostCardMenu({
   href?: string;
   accountId: string;
   authorProfile?: PostAuthorProfile;
-  canListScarce?: boolean;
-  onListScarce?: () => void;
   canCancelScarce?: boolean;
   onCancelScarce?: () => void;
   cancelScarcePending?: boolean;
@@ -192,7 +187,6 @@ function PostCardMenu({
   const isSelf =
     Boolean(viewerAccountId) && accountIdsEqual(viewerAccountId!, accountId);
   const showGestures = isConnected && !isSelf;
-  const showListScarce = isConnected && isSelf && canListScarce && onListScarce;
   const showCancelScarce =
     isConnected && isSelf && canCancelScarce && onCancelScarce;
   const pending = isStandingPendingForTarget(accountId);
@@ -277,17 +271,8 @@ function PostCardMenu({
         },
       });
     }
-    if (showListScarce) {
-      items.push({
-        id: 'list-scarce',
-        label: 'List for sale',
-        leading: <ShopIcon className="action-drawer-icon" aria-hidden />,
-        onSelect: () => {
-          requestClose();
-          onListScarce();
-        },
-      });
-    }
+    // List is a primary card CTA (Collect · List · Amplify) — keep Cancel
+    // in the ⋮ menu for managing an active listing.
     if (showCancelScarce) {
       items.push({
         id: 'cancel-scarce',
@@ -324,7 +309,6 @@ function PostCardMenu({
     viewerStanding,
     pending,
     isLoading,
-    showListScarce,
     showCancelScarce,
     cancelScarcePending,
     href,
@@ -950,8 +934,6 @@ export function PostCard({
                   href={actionHref ?? postThreadPath(post)}
                   accountId={post.accountId}
                   authorProfile={authorProfile}
-                  canListScarce={canListScarce}
-                  onListScarce={() => setListScarceOpen(true)}
                   canCancelScarce={canCancelScarce}
                   onCancelScarce={() => {
                     void handleCancelScarce();
@@ -1028,10 +1010,18 @@ export function PostCard({
             href={quotedHref}
           />
         ) : null}
-        {scarceEmbed ? (
+        {scarceEmbed || canListScarce ? (
           <PostScarceCta
-            embed={scarceEmbed}
+            embed={
+              scarceEmbed ?? {
+                status: 'none',
+                events: [],
+              }
+            }
             isAuthor={isSelf}
+            authorAccountId={post.accountId}
+            canList={canListScarce}
+            onList={() => setListScarceOpen(true)}
             onBuy={() => setBuyScarceOpen(true)}
             onBid={() => setBidScarceOpen(true)}
           />

@@ -13,12 +13,22 @@ import {
 import { SCARCES_VERBS } from './verbs.js';
 import { scarcesRelayOptions } from './_relay.js';
 
+/**
+ * Who may create collections under an app.
+ * - `open` — any account (default)
+ * - `approval` — owner, moderators, or explicitly approved creators
+ * - `invite_only` — owner or moderators only
+ */
+export type CreatorAccess = 'open' | 'approval' | 'invite_only';
+
 /** Optional config fields for `register` and `setConfig`. */
 export interface AppConfigInput {
   maxUserBytes?: number;
   defaultRoyalty?: Record<string, number>;
   primarySaleBps?: number;
+  /** @deprecated Prefer `creatorAccess`. `true` maps to `invite_only`. */
   curated?: boolean;
+  creatorAccess?: CreatorAccess;
   metadata?: string;
 }
 
@@ -146,6 +156,45 @@ export class ScarcesAppsApi {
         accountId,
       },
       'scarces.removeModerator',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /**
+   * Approve a creator to make collections under this app.
+   * Only takes effect when the app's `creatorAccess` is `approval`.
+   */
+  async addApprovedCreator(
+    appId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.ADD_APPROVED_CREATOR,
+      {
+        appId,
+        accountId,
+      },
+      'scarces.addApprovedCreator',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Remove a creator from the app's approved-creator roster. */
+  async removeApprovedCreator(
+    appId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.REMOVE_APPROVED_CREATOR,
+      {
+        appId,
+        accountId,
+      },
+      'scarces.removeApprovedCreator',
       this._relayOpts({ confirmation: true })
     );
   }

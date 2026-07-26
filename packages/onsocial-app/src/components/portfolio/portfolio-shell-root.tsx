@@ -29,6 +29,10 @@ import type {
   ProfilePostPeek,
   ProfileScarcePeek,
 } from '@/lib/fetch-profile-peeks';
+import {
+  EMPTY_PROFILE_STORE,
+  type ProfileStoreShelf,
+} from '@/lib/profile-store-types';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { resolvePageFace } from '@/lib/page-face';
@@ -51,6 +55,7 @@ interface PortfolioShellRootProps {
   drawerMeta: PageDrawerMeta;
   postPeeks?: ProfilePostPeek[];
   scarcePeeks?: ProfileScarcePeek[];
+  storeShelf?: ProfileStoreShelf;
   children: ReactNode;
 }
 
@@ -68,6 +73,7 @@ function PortfolioShellPreviewBridge({
   drawerMeta,
   postPeeks = [],
   scarcePeeks = [],
+  storeShelf = EMPTY_PROFILE_STORE,
   children,
 }: Omit<
   PortfolioShellRootProps,
@@ -146,6 +152,7 @@ function PortfolioShellPreviewBridge({
           stats={stats}
           guilds={guilds}
           scarcePeeks={scarcePeeks}
+          storeShelf={storeShelf}
         />
         <PortfolioFacePreviewBar
           pageAccountId={pageAccountId}

@@ -9,6 +9,7 @@ import {
   PageDrawerPostPeekList,
   PageDrawerScarcePeekRail,
 } from '@/components/portfolio/page-drawer-peeks';
+import { PortfolioStoreShelf } from '@/components/portfolio/portfolio-store-shelf';
 import {
   PAGE_DRAWER_GUILD_PEEK,
   PAGE_SECTION_LABELS,
@@ -20,6 +21,10 @@ import type {
   ProfilePostPeek,
   ProfileScarcePeek,
 } from '@/lib/fetch-profile-peeks';
+import {
+  EMPTY_PROFILE_STORE,
+  type ProfileStoreShelf,
+} from '@/lib/profile-store-types';
 import type { PublicPageConfig, PublicPageStats } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import {
@@ -39,6 +44,7 @@ interface PageContentSectionsProps {
   postPeeks?: ProfilePostPeek[];
   scarcePeeks?: ProfileScarcePeek[];
   scarceCount?: number;
+  storeShelf?: ProfileStoreShelf;
 }
 
 function PageDrawerLinksList({ links }: { links: PortfolioSocialLink[] }) {
@@ -84,6 +90,7 @@ export function PageContentSections({
   postPeeks = [],
   scarcePeeks = [],
   scarceCount = 0,
+  storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentSectionsProps) {
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),
@@ -91,6 +98,7 @@ export function PageContentSections({
   );
 
   const effectiveScarceCount = Math.max(scarceCount, scarcePeeks.length);
+  const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
 
   const sections = useMemo(
     () =>
@@ -99,9 +107,18 @@ export function PageContentSections({
         guilds,
         links,
         scarceCount: effectiveScarceCount,
+        storeListingCount,
         postPeekCount: postPeeks.length,
       }),
-    [config, stats, guilds, links, effectiveScarceCount, postPeeks.length]
+    [
+      config,
+      stats,
+      guilds,
+      links,
+      effectiveScarceCount,
+      storeListingCount,
+      postPeeks.length,
+    ]
   );
 
   const peekGuilds = guilds.slice(0, PAGE_DRAWER_GUILD_PEEK);
@@ -122,10 +139,12 @@ export function PageContentSections({
       {sections.map((section, index) => {
         const count = pageSectionCountHint(section, stats, {
           scarceCount: effectiveScarceCount,
+          storeListingCount,
         });
         const showGuildRail = section === 'groups' && peekGuilds.length > 0;
         const showLinks = section === 'links' && links.length > 0;
         const showPosts = section === 'posts';
+        const showStore = section === 'store' && storeListingCount > 0;
         const showScarces =
           section === 'collectibles' && scarcePeeks.length > 0;
 
@@ -164,6 +183,13 @@ export function PageContentSections({
                     See all posts
                   </Link>
                 </>
+              ) : null}
+
+              {showStore ? (
+                <PortfolioStoreShelf
+                  pageAccountId={pageAccountId}
+                  shelf={storeShelf}
+                />
               ) : null}
 
               {showScarces ? (

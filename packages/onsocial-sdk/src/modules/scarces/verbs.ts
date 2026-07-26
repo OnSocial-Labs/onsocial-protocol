@@ -78,6 +78,8 @@ export const SCARCES_VERBS = {
   TRANSFER_APP_OWNERSHIP: 'transfer-app-ownership',
   ADD_MODERATOR: 'add-moderator',
   REMOVE_MODERATOR: 'remove-moderator',
+  ADD_APPROVED_CREATOR: 'add-approved-creator',
+  REMOVE_APPROVED_CREATOR: 'remove-approved-creator',
   BAN_COLLECTION: 'ban-collection',
   UNBAN_COLLECTION: 'unban-collection',
 

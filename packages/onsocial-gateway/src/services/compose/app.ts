@@ -15,6 +15,20 @@ import {
   validateRoyalty,
 } from './shared.js';
 
+/** Valid `creator_access` modes accepted by the contract. */
+const CREATOR_ACCESS_MODES = ['open', 'approval', 'invite_only'] as const;
+export type CreatorAccess = (typeof CREATOR_ACCESS_MODES)[number];
+
+function validateCreatorAccess(value?: string): CreatorAccess | undefined {
+  if (value == null) return undefined;
+  if (!(CREATOR_ACCESS_MODES as readonly string[]).includes(value))
+    throw new ComposeError(
+      400,
+      `creatorAccess must be one of: ${CREATOR_ACCESS_MODES.join(', ')}`
+    );
+  return value as CreatorAccess;
+}
+
 // ---------------------------------------------------------------------------
 // App Registration & Config
 // ---------------------------------------------------------------------------
@@ -26,6 +40,7 @@ export function buildRegisterAppAction(params: {
   defaultRoyalty?: Record<string, number>;
   primarySaleBps?: number;
   curated?: boolean;
+  creatorAccess?: string;
   metadata?: string;
   targetAccount?: string;
 }): SimpleActionResult {
@@ -36,6 +51,7 @@ export function buildRegisterAppAction(params: {
   }
   if (params.primarySaleBps != null && params.primarySaleBps > 5000)
     throw new ComposeError(400, 'primarySaleBps cannot exceed 5000 (50%)');
+  const creatorAccess = validateCreatorAccess(params.creatorAccess);
   return {
     action: {
       type: 'register_app',
@@ -51,6 +67,7 @@ export function buildRegisterAppAction(params: {
         primary_sale_bps: params.primarySaleBps,
       }),
       ...(params.curated != null && { curated: params.curated }),
+      ...(creatorAccess != null && { creator_access: creatorAccess }),
       ...(params.metadata != null && { metadata: params.metadata }),
     },
     targetAccount: resolveScarcesTarget(params.targetAccount),
@@ -64,6 +81,7 @@ export function buildSetAppConfigAction(params: {
   defaultRoyalty?: Record<string, number>;
   primarySaleBps?: number;
   curated?: boolean;
+  creatorAccess?: string;
   metadata?: string;
   targetAccount?: string;
 }): SimpleActionResult {
@@ -74,6 +92,7 @@ export function buildSetAppConfigAction(params: {
   }
   if (params.primarySaleBps != null && params.primarySaleBps > 5000)
     throw new ComposeError(400, 'primarySaleBps cannot exceed 5000 (50%)');
+  const creatorAccess = validateCreatorAccess(params.creatorAccess);
   return {
     action: {
       type: 'set_app_config',
@@ -88,6 +107,7 @@ export function buildSetAppConfigAction(params: {
         primary_sale_bps: params.primarySaleBps,
       }),
       ...(params.curated != null && { curated: params.curated }),
+      ...(creatorAccess != null && { creator_access: creatorAccess }),
       ...(params.metadata != null && { metadata: params.metadata }),
     },
     targetAccount: resolveScarcesTarget(params.targetAccount),
@@ -179,6 +199,42 @@ export function buildRemoveModeratorAction(params: {
   return {
     action: {
       type: 'remove_moderator',
+      app_id: params.appId,
+      account_id: params.accountId,
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
+/** Build an AddApprovedCreator action — owner approves a creator (approval mode). */
+export function buildAddApprovedCreatorAction(params: {
+  appId: string;
+  accountId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.appId) throw new ComposeError(400, 'Missing appId');
+  if (!params.accountId) throw new ComposeError(400, 'Missing accountId');
+  return {
+    action: {
+      type: 'add_approved_creator',
+      app_id: params.appId,
+      account_id: params.accountId,
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
+/** Build a RemoveApprovedCreator action. */
+export function buildRemoveApprovedCreatorAction(params: {
+  appId: string;
+  accountId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.appId) throw new ComposeError(400, 'Missing appId');
+  if (!params.accountId) throw new ComposeError(400, 'Missing accountId');
+  return {
+    action: {
+      type: 'remove_approved_creator',
       app_id: params.appId,
       account_id: params.accountId,
     },

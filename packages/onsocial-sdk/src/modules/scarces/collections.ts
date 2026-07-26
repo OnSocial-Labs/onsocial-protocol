@@ -36,7 +36,7 @@ export class ScarcesCollectionsApi {
     this._scarcesContract = resolveContractId(_http.network, 'scarces');
   }
 
-  private _relayOpts(opts?: { confirmation?: boolean }) {
+  private _relayOpts(opts?: { confirmation?: boolean; depositYocto?: string }) {
     return scarcesRelayOptions(this._getBroadcast, opts);
   }
 
@@ -95,6 +95,8 @@ export class ScarcesCollectionsApi {
       form.append('transferable', String(opts.transferable));
     if (opts.burnable !== undefined)
       form.append('burnable', String(opts.burnable));
+    if (opts.maxRedeems != null)
+      form.append('maxRedeems', String(opts.maxRedeems));
     if (opts.mediaCid) form.append('mediaCid', opts.mediaCid);
     if (opts.mediaHash) form.append('mediaHash', opts.mediaHash);
     if (opts.image) form.append('image', opts.image);
@@ -130,12 +132,24 @@ export class ScarcesCollectionsApi {
     );
   }
 
-  /** Purchase from a collection (pay priceNear per token). */
+  /**
+   * Purchase from a collection (pay priceNear per token).
+   *
+   * Attach `depositYocto` equal to `price × quantity` (wallet broadcast) —
+   * session FunctionCall keys cannot pay value deposits, and the gateway
+   * relayer only allows 0 / 1 yocto. `maxPricePerTokenNear` guards against a
+   * price bump between quote and mint.
+   */
   async purchaseFrom(
     collectionId: string,
     maxPricePerTokenNear: string,
-    quantity = 1
+    quantityOrOpts: number | { quantity?: number; depositYocto?: string } = 1
   ): Promise<RelayResponse> {
+    const opts =
+      typeof quantityOrOpts === 'number'
+        ? { quantity: quantityOrOpts }
+        : quantityOrOpts;
+    const quantity = opts.quantity ?? 1;
     return composeAndSign(
       this._http,
       this._getSession(),
@@ -146,7 +160,11 @@ export class ScarcesCollectionsApi {
         maxPricePerTokenNear,
       },
       'scarces.purchaseFromCollection',
-      this._relayOpts()
+      this._relayOpts(
+        opts.depositYocto !== undefined
+          ? { depositYocto: opts.depositYocto }
+          : undefined
+      )
     );
   }
 

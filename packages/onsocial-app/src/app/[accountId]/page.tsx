@@ -12,6 +12,7 @@ import {
   fetchProfilePostPeeks,
   fetchProfileScarcePeeks,
 } from '@/lib/fetch-profile-peeks';
+import { fetchProfileStoreShelf } from '@/lib/fetch-profile-store';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
@@ -72,13 +73,15 @@ export default async function AccountPage({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  const [shell, signals, guilds, postPeeks, scarcePeeks] = await Promise.all([
-    loadProfileShell(accountId),
-    fetchProfileSignals(accountId),
-    fetchProfileGuilds(accountId),
-    fetchProfilePostPeeks(accountId),
-    fetchProfileScarcePeeks(accountId),
-  ]);
+  const [shell, signals, guilds, postPeeks, scarcePeeks, storeShelf] =
+    await Promise.all([
+      loadProfileShell(accountId),
+      fetchProfileSignals(accountId),
+      fetchProfileGuilds(accountId),
+      fetchProfilePostPeeks(accountId),
+      fetchProfileScarcePeeks(accountId),
+      fetchProfileStoreShelf(accountId),
+    ]);
   const name = displayName(accountId, shell?.name ?? undefined);
   const postCount = Math.max(
     signals?.postCount ?? 0,
@@ -121,6 +124,7 @@ export default async function AccountPage({
         drawerMeta={drawerMeta}
         postPeeks={postPeeks}
         scarcePeeks={scarcePeeks}
+        storeShelf={storeShelf}
       >
         <PortfolioIdentity
           accountId={accountId}

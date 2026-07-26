@@ -457,6 +457,8 @@ export interface CollectionOptions {
   renewable?: boolean;
   transferable?: boolean;
   burnable?: boolean;
+  /** Max times each token may be redeemed (music / pass-style drops). */
+  maxRedeems?: number;
 }
 
 export interface ListingOptions {
@@ -777,6 +779,7 @@ export type PageSection =
   | 'support'
   | 'posts'
   | 'events'
+  | 'store'
   | 'collectibles'
   | 'badges'
   | 'groups';

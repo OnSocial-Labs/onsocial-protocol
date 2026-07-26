@@ -13,6 +13,8 @@ import {
   buildTransferAppOwnershipAction,
   buildAddModeratorAction,
   buildRemoveModeratorAction,
+  buildAddApprovedCreatorAction,
+  buildRemoveApprovedCreatorAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,
   buildStorageDepositAction,
@@ -33,6 +35,8 @@ const register = actionHandlers(
       primarySaleBps:
         b.primarySaleBps != null ? Number(b.primarySaleBps) : undefined,
       curated: b.curated != null ? Boolean(b.curated) : undefined,
+      creatorAccess:
+        b.creatorAccess != null ? String(b.creatorAccess) : undefined,
       metadata: b.metadata != null ? String(b.metadata) : undefined,
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),
@@ -50,6 +54,8 @@ const setConfig = actionHandlers(
       primarySaleBps:
         b.primarySaleBps != null ? Number(b.primarySaleBps) : undefined,
       curated: b.curated != null ? Boolean(b.curated) : undefined,
+      creatorAccess:
+        b.creatorAccess != null ? String(b.creatorAccess) : undefined,
       metadata: b.metadata != null ? String(b.metadata) : undefined,
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),
@@ -115,6 +121,30 @@ const removeMod = actionHandlers(
   'remove-moderator'
 );
 appRouter.post('/prepare/remove-moderator', removeMod.prepare);
+
+// ── Add Approved Creator ────────────────────────────────────────────────────
+const addCreator = actionHandlers(
+  (b) =>
+    buildAddApprovedCreatorAction({
+      appId: String(b.appId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'add-approved-creator'
+);
+appRouter.post('/prepare/add-approved-creator', addCreator.prepare);
+
+// ── Remove Approved Creator ─────────────────────────────────────────────────
+const removeCreator = actionHandlers(
+  (b) =>
+    buildRemoveApprovedCreatorAction({
+      appId: String(b.appId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'remove-approved-creator'
+);
+appRouter.post('/prepare/remove-approved-creator', removeCreator.prepare);
 
 // ── Ban Collection ──────────────────────────────────────────────────────────
 const ban = actionHandlers(

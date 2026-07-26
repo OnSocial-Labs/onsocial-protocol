@@ -120,6 +120,14 @@ export type CoreAction =
 
 // ── Scarces Actions (scarces-onsocial) ──────────────────────────────────────
 
+/**
+ * Who may create collections under an app.
+ * - `open` — any account (default)
+ * - `approval` — owner, moderators, or explicitly approved creators
+ * - `invite_only` — owner or moderators only
+ */
+export type CreatorAccess = 'open' | 'approval' | 'invite_only';
+
 export type ScarcesAction =
   // Minting
   | {
@@ -323,6 +331,7 @@ export type ScarcesAction =
       default_royalty?: Record<string, number>;
       primary_sale_bps?: number;
       curated?: boolean;
+      creator_access?: CreatorAccess;
       metadata?: string;
     }
   | { type: 'set_spending_cap'; cap?: string }
@@ -336,11 +345,14 @@ export type ScarcesAction =
       default_royalty?: Record<string, number>;
       primary_sale_bps?: number;
       curated?: boolean;
+      creator_access?: CreatorAccess;
       metadata?: string;
     }
   | { type: 'transfer_app_ownership'; app_id: string; new_owner: string }
   | { type: 'add_moderator'; app_id: string; account_id: string }
   | { type: 'remove_moderator'; app_id: string; account_id: string }
+  | { type: 'add_approved_creator'; app_id: string; account_id: string }
+  | { type: 'remove_approved_creator'; app_id: string; account_id: string }
   | {
       type: 'ban_collection';
       app_id: string;

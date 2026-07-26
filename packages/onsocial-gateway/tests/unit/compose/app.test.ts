@@ -13,6 +13,8 @@ import {
   buildTransferAppOwnershipAction,
   buildAddModeratorAction,
   buildRemoveModeratorAction,
+  buildAddApprovedCreatorAction,
+  buildRemoveApprovedCreatorAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,
   buildStorageDepositAction,
@@ -51,6 +53,23 @@ describe('buildRegisterAppAction', () => {
     expect(result.action).toHaveProperty('primary_sale_bps', 500);
     expect(result.action).toHaveProperty('curated', true);
     expect(result.action).toHaveProperty('metadata', '{"name":"Tickets"}');
+  });
+
+  it('includes creator_access when provided', () => {
+    const result = buildRegisterAppAction({
+      appId: 'tickets.near',
+      creatorAccess: 'approval',
+    });
+    expect(result.action).toHaveProperty('creator_access', 'approval');
+  });
+
+  it('rejects an invalid creatorAccess', () => {
+    expect(() =>
+      buildRegisterAppAction({
+        appId: 'tickets.near',
+        creatorAccess: 'everyone',
+      })
+    ).toThrow(ComposeError);
   });
 
   it('throws on missing appId', () => {
@@ -170,6 +189,40 @@ describe('buildRemoveModeratorAction', () => {
       type: 'remove_moderator',
       app_id: 'tickets.near',
       account_id: 'mod.near',
+    });
+  });
+});
+
+describe('buildAddApprovedCreatorAction', () => {
+  it('builds a valid add-approved-creator action', () => {
+    const result = buildAddApprovedCreatorAction({
+      appId: 'tickets.near',
+      accountId: 'creator.near',
+    });
+    expect(result.action).toEqual({
+      type: 'add_approved_creator',
+      app_id: 'tickets.near',
+      account_id: 'creator.near',
+    });
+  });
+
+  it('throws on missing accountId', () => {
+    expect(() =>
+      buildAddApprovedCreatorAction({ appId: 'tickets.near', accountId: '' })
+    ).toThrow(ComposeError);
+  });
+});
+
+describe('buildRemoveApprovedCreatorAction', () => {
+  it('builds a valid remove-approved-creator action', () => {
+    const result = buildRemoveApprovedCreatorAction({
+      appId: 'tickets.near',
+      accountId: 'creator.near',
+    });
+    expect(result.action).toEqual({
+      type: 'remove_approved_creator',
+      app_id: 'tickets.near',
+      account_id: 'creator.near',
     });
   });
 });

@@ -19,6 +19,7 @@ describe('resolvePageSections', () => {
   it('returns content-first defaults when sections are unset', () => {
     expect(resolvePageSections({})).toEqual([
       'posts',
+      'store',
       'groups',
       'collectibles',
       'links',
@@ -145,6 +146,24 @@ describe('isPageSectionVisible', () => {
         postPeekCount: 2,
       })
     ).toBe(true);
+  });
+
+  it('shows store when the account has live listings', () => {
+    expect(
+      isPageSectionVisible('store', {
+        stats: emptyStats,
+        guilds: [],
+        links: [],
+        storeListingCount: 2,
+      })
+    ).toBe(true);
+    expect(
+      isPageSectionVisible('store', {
+        stats: emptyStats,
+        guilds: [],
+        links: [],
+      })
+    ).toBe(false);
   });
 
   it('shows collectibles from scarce count and hides badges and support', () => {

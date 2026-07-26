@@ -136,6 +136,7 @@ describe('scarces builders — collections', () => {
         renewable: true,
         transferable: true,
         burnable: false,
+        maxRedeems: 3,
       })
     ).toEqual({
       type: 'create_collection',
@@ -155,6 +156,7 @@ describe('scarces builders — collections', () => {
       renewable: true,
       transferable: true,
       burnable: false,
+      max_redeems: 3,
     });
   });
 

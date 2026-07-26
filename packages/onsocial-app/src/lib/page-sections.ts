@@ -10,6 +10,7 @@ export const PAGE_SECTION_LABELS: Record<PageSection, string> = {
   support: 'Support',
   posts: 'Posts',
   events: 'Events',
+  store: 'Store',
   collectibles: 'Collectibles',
   badges: 'Badges',
   groups: 'Guilds',
@@ -21,6 +22,7 @@ export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
   support: 'Support and tipping.',
   posts: 'Public posts and updates.',
   events: 'Events they host or attend.',
+  store: 'Scarces they have for sale right now.',
   collectibles: 'Scarces and collectibles.',
   badges: 'Earned badges and credentials.',
   groups: 'Guilds they belong to.',
@@ -29,6 +31,7 @@ export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
 /** Visitor-friendly defaults — browse chapters only; gestures sit after. */
 const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'posts',
+  'store',
   'groups',
   'collectibles',
   'links',
@@ -60,7 +63,7 @@ export function resolvePageSections(config: PublicPageConfig): PageSection[] {
 export function pageSectionCountHint(
   section: PageSection,
   stats: PublicPageStats,
-  options: { scarceCount?: number } = {}
+  options: { scarceCount?: number; storeListingCount?: number } = {}
 ): string | null {
   switch (section) {
     case 'posts':
@@ -69,6 +72,10 @@ export function pageSectionCountHint(
       return stats.badgeCount > 0 ? formatCompactCount(stats.badgeCount) : null;
     case 'groups':
       return stats.groupCount > 0 ? formatCompactCount(stats.groupCount) : null;
+    case 'store': {
+      const storeCount = options.storeListingCount ?? 0;
+      return storeCount > 0 ? formatCompactCount(storeCount) : null;
+    }
     case 'collectibles': {
       const scarceCount = options.scarceCount ?? 0;
       return scarceCount > 0 ? formatCompactCount(scarceCount) : null;
@@ -84,6 +91,8 @@ export interface PageSectionVisibilityInput {
   links: PortfolioSocialLink[];
   /** Indexed scarce mints for collectibles visibility. */
   scarceCount?: number;
+  /** Live listings from this account for Store shelf visibility. */
+  storeListingCount?: number;
   /** Recent post peeks already loaded for the drawer. */
   postPeekCount?: number;
 }
@@ -100,6 +109,8 @@ export function isPageSectionVisible(
       );
     case 'groups':
       return input.guilds.length > 0 || input.stats.groupCount > 0;
+    case 'store':
+      return (input.storeListingCount ?? 0) > 0;
     case 'collectibles':
       return (input.scarceCount ?? 0) > 0;
     case 'badges':

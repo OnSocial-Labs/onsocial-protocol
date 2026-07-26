@@ -35,6 +35,10 @@ import type { PublicPageConfig, PublicPageStats } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import type { ProfileScarcePeek } from '@/lib/fetch-profile-peeks';
 import {
+  EMPTY_PROFILE_STORE,
+  type ProfileStoreShelf,
+} from '@/lib/profile-store-types';
+import {
   pageDrawerJumpSections,
   pageDrawerSectionDomId,
   resolvePageDrawerActiveSection,
@@ -66,6 +70,7 @@ interface PageContentDrawerProps {
   stats: PublicPageStats;
   guilds?: ProfileGuildSummary[];
   scarcePeeks?: ProfileScarcePeek[];
+  storeShelf?: ProfileStoreShelf;
 }
 
 function MetaSep() {
@@ -189,6 +194,7 @@ export function PageContentDrawer({
   stats,
   guilds = [],
   scarcePeeks = [],
+  storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentDrawerProps) {
   const { isOpen, close } = usePageContentDrawer();
   const { postPeeks } = usePortfolioPostPeeks();
@@ -223,6 +229,7 @@ export function PageContentDrawer({
     drawerMeta.scarceMintCount,
     scarcePeeks.length
   );
+  const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
 
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),
@@ -237,10 +244,19 @@ export function PageContentDrawer({
           guilds,
           links,
           scarceCount,
+          storeListingCount,
           postPeekCount: postPeeks.length,
         })
       ),
-    [config, drawerStats, guilds, links, postPeeks.length, scarceCount]
+    [
+      config,
+      drawerStats,
+      guilds,
+      links,
+      postPeeks.length,
+      scarceCount,
+      storeListingCount,
+    ]
   );
 
   const [activeSection, setActiveSection] = useState<PageSection | null>(
@@ -461,6 +477,7 @@ export function PageContentDrawer({
           postPeeks={postPeeks}
           scarcePeeks={scarcePeeks}
           scarceCount={scarceCount}
+          storeShelf={storeShelf}
         />
       </GlassSheet>
 

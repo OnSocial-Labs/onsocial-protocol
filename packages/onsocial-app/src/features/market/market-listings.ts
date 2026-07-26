@@ -86,6 +86,11 @@ export interface MarketListingItem {
   bidCount?: number;
   /** Optional auction buy-now ask (NEAR). Bid ≥ this settles immediately. */
   buyNowNear?: string | null;
+  /**
+   * Medium taxonomy from metadata `extra.kind` (`art` | `book` | `music`).
+   * Distinct from listing `kind` (lazy / native / auction).
+   */
+  mediumKind?: string | null;
 }
 
 /** Browse sort for Market listings. */
@@ -232,6 +237,22 @@ function priceNearFromRow(row: ScarcesEventRow): string {
  * `media` is always a still — this is the clip behind it, so buy/bid sheets
  * can play what is actually being sold.
  */
+/** Medium taxonomy (`art` / `book` / `music`) from NEP-177 `extra.kind`. */
+export function mediumKindFromExtra(
+  extra: Record<string, unknown> | null
+): string | undefined {
+  const kind = stringField(extra, 'kind');
+  if (!kind) return undefined;
+  return kind.toLowerCase();
+}
+
+/** Parse listing `extraJson` blob for medium kind filtering. */
+export function mediumKindFromExtraJson(
+  extraJson: string | null | undefined
+): string | undefined {
+  return mediumKindFromExtra(parseExtra(extraJson ?? null));
+}
+
 function playableFromExtra(
   extra: Record<string, unknown> | null
 ): ScarcePlayableMedia | undefined {
@@ -325,7 +346,9 @@ export function excludeOwnedNativeListings(
   );
 }
 
-export function saleTitle(row: Pick<ScarcesEventRow, 'extraData' | 'tokenId'>): string {
+export function saleTitle(
+  row: Pick<ScarcesEventRow, 'extraData' | 'tokenId'>
+): string {
   const extra = parseExtra(row.extraData);
   const titled =
     stringField(extra, 'title') ??
@@ -403,6 +426,7 @@ function listingFromRecord(
   const copiesSafe = parseCount(record.metadata?.copies);
   const copies = copiesSafe != null && copiesSafe > 0 ? copiesSafe : undefined;
   const remaining = remainingForListing(record, copies);
+  const mediumKind = mediumKindFromExtra(extra);
 
   return {
     kind: 'lazy',
@@ -418,6 +442,7 @@ function listingFromRecord(
     ...(playable ? { playable } : {}),
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
+    ...(mediumKind ? { mediumKind } : {}),
   };
 }
 
@@ -639,6 +664,7 @@ function listingFromNativeSale(
   const description = token?.metadata?.description?.trim() || undefined;
   const mediaUrl = resolveScarceMediaUrl(token?.metadata?.media ?? null);
   const extra = parseExtra(token?.metadata?.extra ?? null);
+  const mediumKind = mediumKindFromExtra(extra);
   return {
     kind: isAuction ? 'auction' : 'native',
     tokenId,
@@ -650,6 +676,7 @@ function listingFromNativeSale(
     blockTimestamp: timestampMs(sale.created_at),
     mediaUrl,
     sourcePostPath: sourcePostPathFromExtra(extra),
+    ...(mediumKind ? { mediumKind } : {}),
     ...(isAuction
       ? {
           expiresAtNs: saleExpiresAtNs(sale),
@@ -788,9 +815,7 @@ export interface OwnedScarcesPage {
   hasMore: boolean;
 }
 
-async function fetchOwnerListedStates(
-  owner: string
-): Promise<
+async function fetchOwnerListedStates(owner: string): Promise<
   Map<
     string,
     {
@@ -1181,6 +1206,8 @@ function listingFromActiveRow(
         ? ('Ask' as const)
         : undefined;
 
+  const mediumKind = mediumKindFromExtraJson(row.extraJson);
+
   return {
     kind,
     ...(kind === 'lazy' && row.listingId?.trim()
@@ -1197,6 +1224,7 @@ function listingFromActiveRow(
       ? { sourcePostPath: row.sourcePostPath.trim() }
       : {}),
     ...(row.cardBg?.trim() ? { cardBg: row.cardBg.trim() } : {}),
+    ...(mediumKind ? { mediumKind } : {}),
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
     ...(kind === 'auction'
@@ -1291,6 +1319,10 @@ export async function fetchMarketListings(
     kinds?: ('lazy' | 'native' | 'auction')[];
     search?: string;
     sort?: MarketListingSort;
+    /** Restrict to one creator / seller (creator Store deep-link). */
+    sellerId?: string;
+    /** Restrict to one app / store slug. */
+    appId?: string;
   } = {}
 ): Promise<MarketListingsPage> {
   const limit = opts.limit ?? 40;
@@ -1302,6 +1334,8 @@ export async function fetchMarketListings(
       offset,
       ...(opts.kinds?.length ? { kinds: opts.kinds } : {}),
       ...(opts.search?.trim() ? { search: opts.search.trim() } : {}),
+      ...(opts.sellerId?.trim() ? { sellerId: opts.sellerId.trim() } : {}),
+      ...(opts.appId?.trim() ? { appId: opts.appId.trim() } : {}),
       orderBy: sortToIndexerOrder(opts.sort),
     });
     const items = rows
@@ -1316,7 +1350,16 @@ export async function fetchMarketListings(
   } catch {
     // Catalog missing / Hasura unavailable — degrade to RPC hydrate.
     if (offset > 0) return { items: [], nextOffset: offset, hasMore: false };
-    const fallback = await fetchMarketListingsViaRpc(limit);
+    // RPC-hydrated rows carry no app_id — can't honor an app filter, so skip
+    // the fallback rather than show unrelated listings.
+    if (opts.appId?.trim()) return { items: [], nextOffset: 0, hasMore: false };
+    const fallbackAll = await fetchMarketListingsViaRpc(limit);
+    const seller = opts.sellerId?.trim();
+    const fallback = seller
+      ? fallbackAll.filter((item) =>
+          accountIdsEqualSafe(item.creatorId, seller)
+        )
+      : fallbackAll;
     return {
       items: await withResolvedPostHrefs(fallback),
       nextOffset: fallback.length,

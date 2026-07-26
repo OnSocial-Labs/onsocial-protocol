@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { MarketPagePanel } from '@/features/market/market-page-panel';
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function MarketPage() {
-  return <MarketPagePanel />;
+  return (
+    <Suspense fallback={null}>
+      <MarketPagePanel />
+    </Suspense>
+  );
 }

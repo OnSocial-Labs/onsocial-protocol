@@ -36,6 +36,7 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
     ...(opts.renewable != null ? { renewable: opts.renewable } : {}),
     ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
     ...(opts.burnable != null ? { burnable: opts.burnable } : {}),
+    ...(opts.maxRedeems != null ? { max_redeems: opts.maxRedeems } : {}),
     ...(parseOptionalU64(opts.startTime) != null
       ? { start_time: parseOptionalU64(opts.startTime) }
       : {}),

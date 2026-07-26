@@ -42,6 +42,15 @@ export const txToastConfirming = {
   acceptingScarceOffer: 'Confirming accept…',
   cancelingScarceOffer: 'Confirming cancel…',
   cancelingScarceListing: 'Confirming cancel…',
+  creatingCollection: 'Starting your drop…',
+  mintingCollection: 'Collecting…',
+  updatingAllowlist: 'Updating allowlist…',
+  creatingApp: 'Opening your store…',
+  updatingApp: 'Saving store settings…',
+  updatingAppCreators: 'Updating creators…',
+  transferringAppOwnership: 'Transferring store…',
+  requestingStoreAccess: 'Requesting publishing access…',
+  withdrawingStoreAccess: 'Withdrawing request…',
 } as const;
 
 export const txToastPending = {
@@ -137,6 +146,15 @@ export const txToastSuccess = {
   scarceOfferCanceled: 'Offer canceled.',
   scarceListingCanceled: 'Listing canceled.',
   scarceAuctionListed: 'Auction listed.',
+  collectionCreated: 'Drop is live.',
+  collectionMinted: 'Collected from the drop.',
+  allowlistUpdated: 'Allowlist updated.',
+  appCreated: 'Your store is open.',
+  appUpdated: 'Store settings saved.',
+  appCreatorsUpdated: 'Creators updated.',
+  appOwnershipTransferred: 'Store ownership transferred.',
+  storeAccessRequested: 'Publishing access requested.',
+  storeAccessWithdrawn: 'Request withdrawn.',
 } as const;
 
 export const txToastError = {
@@ -178,4 +196,13 @@ export const txToastError = {
   cancelScarceOfferFailed: 'Could not cancel offer.',
   cancelScarceListingFailed: 'Could not cancel listing.',
   listScarceAuctionFailed: 'Could not list auction.',
+  createCollectionFailed: 'Could not start the drop.',
+  mintCollectionFailed: 'Could not collect from the drop.',
+  updateAllowlistFailed: 'Could not update the allowlist.',
+  createAppFailed: 'Could not open the store.',
+  updateAppFailed: 'Could not save store settings.',
+  updateAppCreatorsFailed: 'Could not update creators.',
+  transferAppOwnershipFailed: 'Could not transfer the store.',
+  requestStoreAccessFailed: 'Could not request publishing access.',
+  withdrawStoreAccessFailed: 'Could not withdraw the request.',
 } as const;

@@ -79,6 +79,8 @@ export interface ScarcesActiveListingRow {
   tokenId: string | null;
   sellerId: string;
   creatorId: string | null;
+  /** App / store slug this listing was published under, when any. */
+  appId: string | null;
   /** Ask / display price in yoctoNEAR. */
   price: string | null;
   /** Postgres-generated numeric mirror of `price` for server-side sorting. */
@@ -110,6 +112,7 @@ const SCARCES_ACTIVE_LISTING_FIELDS = `
   tokenId
   sellerId
   creatorId
+  appId
   price
   priceNumeric
   reservePrice
@@ -564,6 +567,8 @@ export class ScarcesQuery {
       kinds?: ('lazy' | 'native' | 'auction' | string)[];
       /** Only listings from this seller account. */
       sellerId?: string;
+      /** Only listings published under this app / store slug. */
+      appId?: string;
       /** Case-insensitive substring match on title / seller / creator. */
       search?: string;
       /** Server-side sort; defaults to newest listed first. */
@@ -589,6 +594,11 @@ export class ScarcesQuery {
       params.push('$sellerId: String!');
       variables.sellerId = opts.sellerId;
       where.push('sellerId: {_eq: $sellerId}');
+    }
+    if (opts.appId) {
+      params.push('$appId: String!');
+      variables.appId = opts.appId;
+      where.push('appId: {_eq: $appId}');
     }
     if (opts.search?.trim()) {
       params.push('$search: String!');

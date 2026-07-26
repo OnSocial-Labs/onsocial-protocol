@@ -1,5 +1,7 @@
 import { accountIdsEqual } from '@/lib/account-match';
 import {
+  APP_APPS_PATH,
+  APP_COLLECTION_PATH,
   APP_DISCOVER_PATH,
   APP_GROUPS_PATH,
   APP_HOME_PATH,
@@ -22,6 +24,7 @@ export interface OsAppLink {
 /**
  * Which launcher app is "here" for the current route.
  * External portals (Boost / Protocol) are never active in-app.
+ * Stores covers `/apps` and drop pages under `/collection`.
  */
 export function resolveActiveOsAppId(
   pathname: string,
@@ -34,6 +37,15 @@ export function resolveActiveOsAppId(
   }
   if (path === APP_DISCOVER_PATH || path.startsWith(`${APP_DISCOVER_PATH}/`)) {
     return 'discover';
+  }
+  if (path === APP_APPS_PATH || path.startsWith(`${APP_APPS_PATH}/`)) {
+    return 'stores';
+  }
+  if (
+    path === APP_COLLECTION_PATH ||
+    path.startsWith(`${APP_COLLECTION_PATH}/`)
+  ) {
+    return 'stores';
   }
   if (path === APP_MARKET_PATH || path.startsWith(`${APP_MARKET_PATH}/`)) {
     return 'market';
@@ -66,10 +78,7 @@ export function resolveActiveOsAppId(
 }
 
 /** Match tile id to {@link resolveActiveOsAppId} (aliases: feed↔home, my-page↔page). */
-export function isOsAppActive(
-  appId: string,
-  activeId: string | null
-): boolean {
+export function isOsAppActive(appId: string, activeId: string | null): boolean {
   if (!activeId) return false;
   if (appId === activeId) return true;
   if (activeId === 'home' && (appId === 'home' || appId === 'feed')) {
@@ -96,6 +105,13 @@ const OS_EXTERNAL_LINKS: OsAppLink[] = [
   },
 ];
 
+const STORES_APP: OsAppLink = {
+  id: 'stores',
+  label: 'Stores',
+  kind: 'app',
+  href: APP_APPS_PATH,
+};
+
 export function gateOsApps(): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
@@ -108,6 +124,7 @@ export function gateOsApps(): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    STORES_APP,
     {
       id: 'groups',
       label: 'Guilds',
@@ -144,6 +161,7 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    STORES_APP,
     {
       id: 'groups',
       label: 'Guilds',
@@ -169,6 +187,7 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    STORES_APP,
     {
       id: 'groups',
       label: 'Guilds',
@@ -189,6 +208,7 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    STORES_APP,
     {
       id: 'groups',
       label: 'Guilds',
