@@ -1,0 +1,90 @@
+---
+description: App portfolio face — one-page public identity; quiet Stand · Endorse · Support row
+globs: packages/onsocial-app/src/components/portfolio/**/*.{ts,tsx},packages/onsocial-app/src/app/[accountId]/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# App portfolio face
+
+The portfolio is a **one-page public face**, not a Portal action dashboard.
+
+## Face contents
+
+- Identity (avatar, name, **full** NEAR account id as handle, full bio)
+- Connected visitor gestures under bio: **Stand · Endorse · Support** (quiet text + colored arrows; no pills)
+- Signals (standing · solidarity · endorsements · reputation) — browse metrics
+- Links
+- Dock (connect / account / summon)
+
+## Page drawer (Launch)
+
+Owner-customizable scroll surface — **extension of the face**, not a second portfolio:
+
+- Tall glass sheet (~95dvh) so a thin strip of mood face stays visible
+- Compact header: **name** + one facts line (`N posts · N guilds · Joined Mon YYYY ›`) + jump chips; DAO roles / tags live in the Joined account-facts sheet
+- **Joined** is clickable → slim account-facts sheet (Portal-style), not a second face card
+- Account facts OnSocial: Joined · fused `Updated Mar 12 · Name · Banner` (omit when same day as Joined) · activity/roles/tags when present; NEAR: Network · Account · Created
+- Drawer body is a **curated portfolio**: peek sections → See all; hide empty sections
+- Jump chips live in **header chrome** under facts (not in the scroll body); scroll-spy active state; compact chips; mood tint on **active chip only**; smooth-scroll to sections
+- Default order: posts → guilds → collectibles → links → badges
+- One sheet-body scroller; overlay footer pill (**Stand · Endorse · Support**) absolutely on the panel (`height: auto`, not in flex flow); content scrolls under it; launcher hide on scroll down / reveal on scroll up or top; jump briefly tucks the pill; connect whisper when disconnected; hidden for self
+- Support is **not** a drawer section — gestures only
+- Dock arrows match Stand size (`0.55rem`), not the larger face signal clamp
+- Face keeps link **icons**; drawer Links shows label + hostname / handle rows
+- No avatar / `@id` / bio — face already owns those
+- No reputation band names — score/rank stay on the face
+- Mood-thread chrome + thin drag grip; sections scroll inside
+- Hide zero counts
+
+## Gesture row
+
+| Control | Arrow hue | Behavior |
+|---------|-----------|----------|
+| **Stand** / Standing / Step back | `--signal-standing` | Inline toggle (ledger + dots; Step back on hover) |
+| **Endorse** | `--signal-endorse` | Opens endorsements overlay (compose there) |
+| **Support** | `--signal-reputation` | Opens dedicated Support glass sheet |
+
+Even trio with · separators. Same control height as standing modal; **no border**; hover = soft bg wash.
+
+## Before vs after connect
+
+| State | Face |
+|-------|------|
+| Disconnected | Full face + dock connect only — **no** gesture row |
+| Connected visitor | Same face + Stand · Endorse · Support under bio |
+| Owner / self | No visitor gestures; when unclaimed target balance > 0: **gift · amount · Collect** in the same slot |
+
+## Off-face depth
+
+- **Standing lists** — signal taps → standing overlay
+- **Endorsements** — endorse signal / face Endorse → endorsements overlay + compose sheet
+- **Support** — face Support + drawer Stand · Support whisper → dedicated `ProfileSupportSheet` (amount + `trackTransaction`)
+  - Form stack: amount → presets left / available right → outcome → CTA
+  - Outcome line **live only** from `get_action_config` — never show hardcoded % fallback
+  - Valid amount morphs same line to SOCIAL amounts (`0.99 to them · 0.01 protocol boost`)
+  - While loading: `Loading split…`; on failure: soft error + Retry; Support gated until live + active
+  - Say **protocol boost**, not treasury
+  - **Received support (owner):** face Collect line (`PortfolioOwnerSupportCollect`) — gift icon + amount + Collect; claims shared `get_target_balance` pot (profile support, endorsement support, boost-post author share); `claim_target_balance` + `trackTransaction`; owner-only; hide when zero; not in account sheet
+
+## Gesture sheet chrome (Support / Endorse compose)
+
+One title beat — **not** a duplicate face-card strip:
+
+- Fused title: signal-colored verb + person (`Support Voter 02`, `Endorse …`)
+- Quiet `@` + **full account id** under the title (never strip `.near` / `.testnet`)
+- Optional one-line whisper only when relationship state exists
+- Close control top-right
+
+Shared: `GestureSheetHeader` (`gesture-sheet-header.tsx`). Identity labels use `fallbackLabel` / raw `accountId` — full NEAR id.
+
+## Do not
+
+- Copy Portal’s bordered Support + Endorse + Stand pill cluster
+- Show disabled action CTAs pre-connect
+- Put the money Support **form** on the mood face or inline in the page drawer (sheet only)
+- Open the page content drawer for face Support
+- Use bordered pills on face gestures **or face tags**
+- Put profile tags on the face — drawer only (quiet text, no pills)
+- Re-introduce the person in the page drawer (no second avatar · name · handle card; no bio bridge)
+- Stack avatar · name · handle **and** a bare verb title on gesture sheets when already on their face
+- Open the page drawer as a full-bleed wipe — keep a mood-face peek

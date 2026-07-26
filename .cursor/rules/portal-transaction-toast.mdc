@@ -1,0 +1,103 @@
+---
+description: Portal transaction toast UX — placement, copy voice, and loading pattern for NEAR txs
+alwaysApply: true
+---
+
+# Portal transaction toast
+
+Use this pattern for wallet / on-chain feedback in `@onsocial/portal`. Do not add second toast systems or per-button anchored toasts.
+
+## Component and hook
+
+- UI: `TransactionFeedbackToast` from `@/components/ui/transaction-feedback-toast`
+- Tracking: `useNearTransactionFeedback` + `trackTransaction({ txHashes, submittedMessage, successMessage, failureMessage })`
+- Copy: `@/lib/transaction-toast-copy`
+  - Social: `txToastPending`, `txToastSuccess`, `txToastError`
+  - Governance / partners: `txToastGovPending`, `txToastGovSuccess`, `txToastGovError`
+
+Add strings to `transaction-toast-copy.ts`; do not inline toast copy in feature files.
+
+## Placement (all screens)
+
+One global toast per surface (page / modal):
+
+- **Mobile:** bottom **center** (`mx-auto` between safe-area insets), `max-w-sm` cap
+- **Desktop (sm+):** top-right below nav (`top` ~5rem + safe-area), `max-w-sm`
+
+Never anchor transaction toasts to buttons. Never mount multiple `TransactionFeedbackToast` on the same surface — merge toast state instead.
+
+## State morph (blue → green)
+
+One card updates in place:
+
+1. **Pending / confirming** — blue spinner, eyebrow `Confirming`, pending line from copy module
+2. **Success** — green check, same card, success line
+3. **Error** — red, plain language
+
+Do not skip pending for chain confirmation. Do not show a second toast on success.
+
+`trackTransaction` sets `pendingPhase: 'chain'` after wallet submit. Use `pendingPhase: 'wallet'` only for pre-submit wallet prompts (e.g. session authorize).
+
+## Button vs toast loading
+
+- **Button loading / pulsing dots:** wallet signing only
+- **Toast:** after submit through chain confirm
+- **On success:** hide action UI optimistically; toast + page state — do not flash the action button again before refresh
+
+## Copy voice
+
+**Social flows** — short, human, SOCIAL-forward; ellipsis `…` on pending:
+
+- `Collecting SOCIAL…`, `SOCIAL collected.`, `You're in Season Two.`
+
+**Governance / partners** — formal but still one line; use `txToastGov*` helpers:
+
+- `Submitting proposal…`, `Delegation confirmed.`, `approval vote confirmed.`
+
+Avoid chain jargon in the body (`on-chain`, `transaction hash`). Explorer link: `View on Nearblocks` when `explorerHref` is set.
+
+## When `trackTransaction` is required
+
+Any flow that calls `signAndSendTransaction` / returns tx hashes and waits on chain:
+
+- Season collect/join, boost, swap, support, profile support claim
+- Governance vote/finalize/proposal, staking delegate/withdraw
+- Partners registration/delegation/proposal
+
+**Exceptions** (success/error only, no confirming morph):
+
+- Off-chain API (OnAPI app CRUD, Stripe checkout return)
+- SDK `wait: true` profile save with inline button loading
+- Endorse/remove with modal close on success
+- Passive reward credit toasts (`portal-rewards-context`)
+
+For new NEAR txs, always use `trackTransaction` — never jump straight to success.
+
+## Inline confirmation (no toast)
+
+Social gestures confirmed in the UI itself — button state, counts, modal close:
+
+- **Stand / step back** — pulsing dots while pending; pill flips to **Standing** (green dot) or **Stand with** on success. Toast **errors only**.
+- **Endorse / remove** — modal closes on success; toast **errors only**.
+- **Profile save** — editor closes / saved state; toast **errors only**.
+
+Reserve toasts for money/chain flows (collect, support, swap, gov) where the user needs confirming → confirmed feedback away from the button.
+
+## Viewer standing ledger
+
+Confirmed-ledger pattern via `ProfileProvider` + `useProfile` (`viewer-standing-ledger.ts`):
+
+- **Profile button / counts** — `deriveProfileSocialStanding`; reconcile per profile on fetch
+- **Discover rows** — `resolveViewerStandingForTarget` at render
+- **Standing lists** (`StandPagePanel`) — `deriveStandingListAccounts` injects confirmed stands into viewer outgoing list until API catches up; removes unstood rows; soft retry at 2s/5s
+- **Snapshots** — pass profile shell to `updateStanding(..., snapshot)` when standing from profile/discover so list rows have name/avatar before indexer returns
+- **Pending** — `isStandingPendingForTarget` for dots across surfaces
+
+## Season participation (claim + join)
+
+Same confirmed-ledger pattern as standing, via `SeasonParticipationProvider` + `useSeasonParticipation`:
+
+- **Season collect** — `confirmSeasonClaim(seasonId)` after `trackTransaction` success; derive with `deriveSeasonClaim`; archive hints via `resolveArchiveClaimHint`
+- **Season join** — `confirmSeasonJoin(seasonId)` after join tx confirms; derive with `resolveSeasonJoinedFor`; profile rally badge reads ledger until `/me` catches up
+- **Pending** — `isSeasonClaimPending` / `isSeasonJoinPending` for dots across surfaces
+- **Reconcile** — `reconcileSeasonClaimFromApi` / `reconcileSeasonJoinFromApi` when fetch agrees; soft retry at 2s/5s when ledger has override

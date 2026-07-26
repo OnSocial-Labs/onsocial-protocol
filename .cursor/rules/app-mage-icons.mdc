@@ -1,0 +1,22 @@
+---
+description: App OS icons — Mage only, 2px stroke unless fill
+globs: packages/onsocial-app/**/*.{ts,tsx},packages/onsocial-ui/src/mage-*.tsx
+alwaysApply: false
+---
+
+# App OS — Mage icons
+
+Product UI icons come from `@onsocial/ui` Mage wrappers only.
+
+## Rules
+
+- **Stroke icons:** default `strokeWidth={2}` (2px on the 24 viewBox). Do not use 1.5 / 1.75 / 2.25.
+- **Fill icons:** solid fills for dock / launcher / brand marks — no stroke weight.
+- **Do not** import `lucide-react` or `react-icons` in `@onsocial/app`.
+- Prefer existing exports from `@onsocial/ui` (`MultiplyIcon`, `PlusIcon`, `SearchIcon`, brand fills, etc.). Add new Mage wrappers in `mage-stroke-icons.tsx` / `mage-fill-icons.tsx` / `mage-brand-fill-icons.tsx` when a glyph is missing.
+- Size with CSS classes (`width` / `height`), not Lucide `size` props.
+- Avoid CSS `stroke-width` overrides unless matching the 2px default.
+
+## Exceptions
+
+None for app chrome. Brand/social marks use Mage brand fills (`GithubFillIcon`, `XFillIcon`, …), not third-party icon packs.

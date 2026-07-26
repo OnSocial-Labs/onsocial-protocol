@@ -1,0 +1,31 @@
+---
+description: WSL shell execution conventions for this workspace
+alwaysApply: true
+---
+
+# WSL Shell Commands
+
+This workspace lives in WSL Ubuntu at `/home/greenx/onsocial-protocol`.
+
+When running shell commands that need Linux tools (pnpm, node, npm, bash, git, near-cli, etc.):
+
+- **Always use `wsl -d Ubuntu`** — the default WSL distro is `docker-desktop`, not Ubuntu.
+- Use `wsl -d Ubuntu -- bash -lc "cd /home/greenx/onsocial-protocol && <command>"` for one-liners.
+- For the agent automation shell profile, use `cmd.exe` (not `pwsh.exe`) since PowerShell 7 path is unreliable on this machine.
+- The shell runner may only work once per Cursor session — prefer shell subagents (`subagent_type="shell"`) for reliable execution.
+
+## GitHub CLI (`gh`)
+
+`gh` is installed in WSL Ubuntu (`/usr/bin/gh`, v2.86+) and authenticated as **greenghostnear** for **OnSocial-Labs/onsocial-protocol**.
+
+Use shell subagents for `gh` commands. Workflow display names differ from filenames:
+
+- Testnet deploy: `"Deploy Testnet"` (file: `.github/workflows/deploy-testnet.yml`)
+- Build images only: `"Build and Publish Main Images"`
+
+Examples:
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd /home/greenx/onsocial-protocol && gh workflow run "Deploy Testnet"'
+wsl -d Ubuntu -- bash -lc 'cd /home/greenx/onsocial-protocol && gh run list --workflow="Deploy Testnet" --limit 3'
+```

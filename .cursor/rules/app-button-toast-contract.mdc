@@ -1,0 +1,137 @@
+---
+description: App OS button + transaction toast contract — button pulses, toast is green/red only
+globs: packages/onsocial-app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# App OS — buttons and transaction toast
+
+One language for every commit control. Do not invent a second toast or spinner system.
+
+## Ownership split
+
+| Phase | Owner | UI |
+|-------|--------|-----|
+| Ready / intent | Button | `OsSheetAction` `ready` frame, or second-tap label (`Leave?`) |
+| Working (wallet **and** chain wait) | Button | `PulsingDots` only — hide label |
+| Success | Global toast | Green one-liner via `trackTransaction` or `setTxResult` |
+| Fail | Global toast | Red one-liner |
+| Social gesture | Control itself | Stand / endorse flip; toast **errors only** |
+
+**No blue / pending toast in the app.** The toast is success or error only.
+
+**Do not** use `succeeded` / green check morph on app action buttons. Success is always the toast.
+
+## Handoff (required for NEAR txs)
+
+```ts
+setPending(true);           // button dots — wallet + chain wait
+const response = await …;   // signAndSend / SDK write
+const confirmed = await trackTransaction({
+  txHashes,
+  successMessage: txToastSuccess.…,
+  failureMessage: txToastError.…,
+});
+// clear pending in finally (or after trackTransaction returns)
+```
+
+Keep the button `pending` through `trackTransaction`. Never clear dots before chain settle just to show a toast — there is no confirming toast.
+
+`submittedMessage` / `txToastConfirming.*` are optional leftovers for call-site notes; they are **not** shown in the toast.
+
+For off-chain / SDK `wait: true` sheet saves (profile, mood, page look):
+
+```ts
+// pending dots while save runs
+on success: setTxResult({ type: 'success', msg: txToastSuccess.… }); close sheet
+on error:   setTxResult({ type: 'error', msg: txToastError.… });
+```
+
+Do **not** also show an inline red error card for the same save failure — toast owns it. Inline alerts stay for session hints and field validation only.
+
+Never mount a local `TransactionFeedbackToast` — root provider only.
+
+## Rewards
+
+- **Collect SOCIAL** — chip pulses through claim + chain wait; toast is green success only
+- **Passive credits** — same glass toast (`+X SOCIAL · Stand`), not a custom burst pill
+- Do not revive `AppRewardCreditBurst`
+
+## When to use `OsSheetAction`
+
+**Use** for sheet/footer/form commit CTAs:
+
+- Profile editor, storage deposit/withdraw/share
+- Guild create, settings save, composer Post, add member/space
+- Home feed composer Post
+- Preview bars (mood / page look) — `layout="row-compact"` + `.os-commit-actions`
+- Guild member role confirms (Move to mod, Remove, Transfer, …) — same commit chrome
+- Proposal vote / confirm footers
+
+**Keep compact custom pills** (not full-width sheet actions):
+
+- Guild hero join / leave / request
+- Stand / step back
+- Structure discovery chips, icon-only row actions
+- Collect SOCIAL chip on wallet card
+
+## Commit chrome (Cancel + primary)
+
+Shared classes: `.os-commit-actions` + `.os-commit-cancel`
+
+- Text **Cancel** (muted) + compact primary chip — not a danger Cancel button
+- Destructive secondary (Discard) may use `.os-commit-cancel.is-danger`
+- Used by preview bars and notice-card confirms
+- No mood tint on in-panel confirms; preview bars may whisper mood on the shell only
+
+## Notice cards (info + confirm)
+
+Shared component: `OsNoticeCard` (`@/components/ui/os-notice-card`)
+
+One glass + type language for:
+
+- **Info** (`align="center"` + `shell`) — How SOCIAL works → title, body, single primary (**Got it**)
+- **Confirm** (`align="start"`, shell optional) — Discard, guild member role → title, optional meta/body, toggles, commit row
+- Nested confirms (guild menu) use `shell={false}` inside the existing floating panel
+
+Do not invent per-feature title/body/button CSS for these surfaces.
+
+## Guild member confirms
+
+- **Menu** for choosing an action; **OsNoticeCard** once chosen (same glass panel, not a menu list)
+- Structure: title → who (meta) → consequence → optional toggles → commit row
+- Do not repeat who in a read-only Member field
+- Do not keep menu header chrome on the confirm step
+
+## Preview bars (mood / page look)
+
+- Copy: plain mood / look label (e.g. **Noir**) — no cryptic `Business · Noir` pairing required
+- Layout: **one thin pill toolbar** above the dock — never a stacked confirmation card
+- Actions: `.os-commit-actions` — text **Cancel** + compact primary **Save** chip (or `Unlock · N`); Save pulses while busy
+- Shell: glass + soft top lip + whisper mood wash; toast owns success
+- Do not show a second “saved” line on the bar
+
+## Button API (app)
+
+Prefer `OsSheetAction` / `OsSheetPrimaryAction`:
+
+- `ready` — framed when dirty / commit-ready
+- `pending` — dots only (`pendingLabel` is SR-only)
+- **Do not pass `succeeded` / `succeededLabel` in app**
+
+## Toast chrome
+
+- One global status lane (bottom, above dock) — OS-column centered like preview bars
+- Readable overlay fill (`bg/0.92`, blur 32, soft lip) — near dropdown opacity; **stable fill** (never retint on success/error)
+- Soft chip radius (`~1.15rem`), not a capsule (capsule = controls)
+- Color on the status icon + dismiss hairline (green/red); glass fill stays stable
+- One-line body; **green/red icon only** — no pending/blue state
+- Copy from `@/lib/transaction-toast-copy`
+
+## “Confirm” in labels
+
+Means **user intent** only (second tap, ready to commit). Never means chain confirmation — the button is still pulsing then.
+
+## Sizing
+
+`OsSheetAction` is full-width in stacks; `row-compact` for preview bars. Base min-height ~2.75rem; slightly taller from `sm`; slightly tighter under 380px. Do not invent per-screen button heights for sheet CTAs.
