@@ -7204,7 +7204,7 @@ a.os-surface-row {
     padding: 0.28rem 0.6rem;
     border-radius: 999px;
     background: rgb(var(--fg-rgb) / 0.05);
-    color: #00ec97;
+    color: var(--protocol-green);
     font-size: 0.8rem;
     font-weight: 600;
     line-height: 1;
@@ -7217,7 +7217,7 @@ a.os-surface-row {
   .discover-trending-chip:hover,
   .discover-trending-chip:focus-visible {
     background: rgb(var(--fg-rgb) / 0.09);
-    color: #33f0ad;
+    color: var(--protocol-green-hover);
     outline: none;
   }
 
@@ -7232,7 +7232,7 @@ a.os-surface-row {
   }
 
   .discover-trending-chip .discover-trending-chip-count {
-    color: color-mix(in srgb, #00ec97 55%, rgb(var(--fg-rgb)));
+    color: color-mix(in srgb, var(--protocol-green) 55%, rgb(var(--fg-rgb)));
   }
 
   .discover-omni-search {
@@ -7422,7 +7422,7 @@ a.os-surface-row {
   }
 
   .discover-focus-row--ticker .discover-focus-row-label {
-    color: #00ec97;
+    color: var(--protocol-green);
     letter-spacing: 0.02em;
   }
 
@@ -14112,7 +14112,7 @@ a.os-surface-row {
   }
 
   /*
-   * Feed / post tokens — exact NEAR Protocol green (#00EC97) for @ # $
+   * Feed / post tokens — protocol green (= NEAR #00EC97) for @ # $
    * links + show more. Selectors beat mood signal remaps.
    */
   .post-card .os-hashtag,
@@ -14134,7 +14134,7 @@ a.os-surface-row {
     font-weight: 400;
     text-decoration: none;
     cursor: pointer;
-    color: #00ec97;
+    color: var(--protocol-green);
   }
 
   .post-card .os-hashtag.is-active,
@@ -14186,7 +14186,7 @@ a.os-surface-row {
   .portfolio-os-layer[data-mood] .post-card .os-link:focus-visible {
     text-decoration: none;
     outline: none;
-    color: #33f0ad;
+    color: var(--protocol-green-hover);
   }
 
   /* Expand chrome — same feed token green. */
@@ -14195,7 +14195,7 @@ a.os-surface-row {
     padding: 0;
     border: 0;
     background: none;
-    color: #00ec97;
+    color: var(--protocol-green);
     font: inherit;
     font-size: inherit;
     font-weight: 400;
@@ -14212,7 +14212,7 @@ a.os-surface-row {
   .post-card-body-block > .post-card-show-more:hover,
   .post-card-body-block > .post-card-show-more:focus-visible,
   .post-card-body-block > .post-card-show-more:active {
-    color: #33f0ad;
+    color: var(--protocol-green-hover);
     text-decoration: none !important;
     text-decoration-line: none !important;
     outline: none;
