@@ -701,35 +701,37 @@ export function ScarceListForm({
           onPendingChange={setCoverPending}
         />
       ) : (
-        <ScarcePostPreview
-          post={post}
-          creatorDisplayName={authorName}
-          creatorAvatarUrl={creatorAvatarUrl}
-          {...(coverPreviewUrl && !usesPhotoCard
-            ? { mediaUrl: coverPreviewUrl }
-            : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
-              ? { mediaUrl: mintPreviewUrl }
+        <>
+          <ScarcePostPreview
+            post={post}
+            creatorDisplayName={authorName}
+            creatorAvatarUrl={creatorAvatarUrl}
+            {...(coverPreviewUrl && !usesPhotoCard
+              ? { mediaUrl: coverPreviewUrl }
+              : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
+                ? { mediaUrl: mintPreviewUrl }
+                : {})}
+            {...(usesGeneratedCard
+              ? {
+                  cardBg: cardTheme.cardBg,
+                  cardFormat: cardTheme.cardFormat,
+                  cardMarkShape: cardTheme.cardMarkShape,
+                  cardMarkColor: cardTheme.cardMarkColor,
+                  cardTitleAlign: cardTheme.cardTitleAlign,
+                }
               : {})}
-          {...(usesGeneratedCard
-            ? {
-                cardBg: cardTheme.cardBg,
-                cardFormat: cardTheme.cardFormat,
-                cardMarkShape: cardTheme.cardMarkShape,
-                cardMarkColor: cardTheme.cardMarkColor,
-                cardTitleAlign: cardTheme.cardTitleAlign,
-              }
-            : {})}
-        />
-        {mintPreviewPending && usesGeneratedCard && !usesPhotoCard ? (
-          <p className="app-page-note" aria-live="polite">
-            Rendering card…
-          </p>
-        ) : null}
-        {mintPreviewError ? (
-          <p className="profile-support-error" role="alert">
-            {mintPreviewError}
-          </p>
-        ) : null}
+          />
+          {mintPreviewPending && usesGeneratedCard && !usesPhotoCard ? (
+            <p className="app-page-note" aria-live="polite">
+              Rendering card…
+            </p>
+          ) : null}
+          {mintPreviewError ? (
+            <p className="profile-support-error" role="alert">
+              {mintPreviewError}
+            </p>
+          ) : null}
+        </>
       )}
 
       <div className="scarce-mood-picker-block">
