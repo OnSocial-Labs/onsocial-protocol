@@ -20,11 +20,7 @@ import {
   type MarkShape,
   type TitleAlign,
 } from '@onsocial/text-card';
-import {
-  ComposeError,
-  fetchImageAsDataUri,
-  gatewayUrl,
-} from './shared.js';
+import { ComposeError, fetchImageAsDataUri, gatewayUrl } from './shared.js';
 import {
   getProfileName,
   resolveCreatorAvatarDataUri,
