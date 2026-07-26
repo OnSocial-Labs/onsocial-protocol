@@ -25,7 +25,7 @@ pub struct ScarceOptions {
     #[serde(default)]
     pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
     #[serde(default)]
-    pub app_id: Option<AccountId>,
+    pub app_id: Option<String>,
     #[serde(default = "crate::default_true")]
     pub transferable: bool,
     #[serde(default = "crate::default_true")]
@@ -42,7 +42,7 @@ pub struct MintContext {
 #[derive(Clone, Default)]
 pub struct ScarceOverrides {
     pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
-    pub app_id: Option<AccountId>,
+    pub app_id: Option<String>,
     pub transferable: Option<bool>,
     pub burnable: Option<bool>,
     pub paid_price: u128,
@@ -74,7 +74,7 @@ pub struct Scarce {
     #[serde(default)]
     pub burnable: Option<bool>,
     #[serde(default)]
-    pub app_id: Option<AccountId>,
+    pub app_id: Option<String>,
 }
 
 #[near(serializers = [json])]

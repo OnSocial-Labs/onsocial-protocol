@@ -141,7 +141,7 @@ fn template() -> serde_json::Value {
 async fn test_app_creator_tracked_on_collection_create() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;
@@ -171,7 +171,7 @@ async fn test_app_creator_tracked_on_collection_create() -> Result<()> {
 async fn test_app_creator_refcount_across_collections() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;
@@ -221,7 +221,7 @@ async fn test_app_creator_refcount_across_collections() -> Result<()> {
 async fn test_app_creators_paginated() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;
@@ -268,7 +268,7 @@ async fn test_app_creators_paginated() -> Result<()> {
 async fn test_app_owner_tracked_on_quick_mint_and_burn() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;
@@ -305,7 +305,7 @@ async fn test_app_owner_tracked_on_quick_mint_and_burn() -> Result<()> {
 async fn test_app_owner_reindexed_on_transfer() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;
@@ -382,7 +382,7 @@ async fn test_app_owner_reindexed_on_transfer() -> Result<()> {
 async fn test_app_owners_paginated() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;

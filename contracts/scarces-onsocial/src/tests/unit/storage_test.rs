@@ -79,7 +79,7 @@ fn all_tiers_empty_fails() {
 fn tier1_app_pool_covers_storage() {
     let mut contract = new_contract();
     let byte_cost = storage::storage_byte_cost();
-    let app: AccountId = "myapp.near".parse().unwrap();
+    let app = "myapp".to_string();
 
     contract.app_pools.insert(
         app.clone(),
@@ -93,11 +93,13 @@ fn tier1_app_pool_covers_storage() {
             default_royalty: None,
             primary_sale_bps: 0,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
     contract
-        .charge_storage_waterfall(&buyer(), 40, Some(&app))
+        .charge_storage_waterfall(&buyer(), 40, Some(app.as_str()))
         .unwrap();
 
     let pool = contract.app_pools.get(&app).unwrap();
@@ -115,7 +117,7 @@ fn tier1_app_pool_covers_storage() {
 fn tier1_per_user_cap_falls_to_tier3() {
     let mut contract = new_contract();
     let byte_cost = storage::storage_byte_cost();
-    let app: AccountId = "myapp.near".parse().unwrap();
+    let app = "myapp".to_string();
 
     contract.app_pools.insert(
         app.clone(),
@@ -129,13 +131,15 @@ fn tier1_per_user_cap_falls_to_tier3() {
             default_royalty: None,
             primary_sale_bps: 0,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
     contract.pending_attached_balance = byte_cost * 20;
 
     contract
-        .charge_storage_waterfall(&buyer(), 20, Some(&app))
+        .charge_storage_waterfall(&buyer(), 20, Some(app.as_str()))
         .unwrap();
 
     let pool = contract.app_pools.get(&app).unwrap();
@@ -171,7 +175,7 @@ fn release_tier2_credits_platform_pool() {
 fn release_tier1_credits_app_pool() {
     let mut contract = new_contract();
     let byte_cost = storage::storage_byte_cost();
-    let app: AccountId = "myapp.near".parse().unwrap();
+    let app = "myapp".to_string();
 
     contract.app_pools.insert(
         app.clone(),
@@ -185,12 +189,14 @@ fn release_tier1_credits_app_pool() {
             default_royalty: None,
             primary_sale_bps: 0,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
     let usage_key = format!("{}:{}", buyer(), app);
     contract.app_user_usage.insert(usage_key.clone(), 40);
 
-    contract.release_storage_waterfall(&buyer(), 20, Some(&app));
+    contract.release_storage_waterfall(&buyer(), 20, Some(app.as_str()));
 
     let pool = contract.app_pools.get(&app).unwrap();
     assert_eq!(pool.used_bytes, 20);

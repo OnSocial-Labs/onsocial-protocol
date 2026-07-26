@@ -104,7 +104,7 @@ impl Contract {
                     token_id,
                     self.scarces_by_id
                         .get(token_id)
-                        .and_then(|t| t.app_id.as_ref()),
+                        .and_then(|t| t.app_id.as_deref()),
                 );
                 let token = self
                     .scarces_by_id
@@ -264,7 +264,7 @@ impl Contract {
 
         let before = self.storage_usage_flushed();
 
-        let app_for_index = self.resolve_token_app_id(token_id, token_app_id.as_ref());
+        let app_for_index = self.resolve_token_app_id(token_id, token_app_id.as_deref());
 
         self.scarces_by_id.remove(token_id);
 
@@ -273,7 +273,7 @@ impl Contract {
 
         let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
         if bytes_freed > 0 {
-            self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_ref());
+            self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_deref());
         }
 
         if let Some(app) = app_for_index {
@@ -309,7 +309,7 @@ impl Contract {
 
         let before = self.storage_usage_flushed();
 
-        let app_for_index = self.resolve_token_app_id(token_id, token_app_id.as_ref());
+        let app_for_index = self.resolve_token_app_id(token_id, token_app_id.as_deref());
 
         self.scarces_by_id.remove(token_id);
 
@@ -318,7 +318,7 @@ impl Contract {
 
         let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
         if bytes_freed > 0 {
-            self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_ref());
+            self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_deref());
         }
 
         if let Some(app) = app_for_index {

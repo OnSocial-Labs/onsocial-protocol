@@ -5,7 +5,7 @@ impl Contract {
     // Invariant: app default royalty is always included; overlapping recipients are additive.
     pub(crate) fn merge_royalties(
         &self,
-        app_id: Option<&AccountId>,
+        app_id: Option<&str>,
         creator_royalty: Option<HashMap<AccountId, u32>>,
     ) -> Result<Option<HashMap<AccountId, u32>>, MarketplaceError> {
         let app_royalty = app_id

@@ -25,7 +25,7 @@ impl Contract {
 
     pub fn get_lazy_listings_by_app(
         &self,
-        app_id: AccountId,
+        app_id: String,
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<(String, LazyListingRecord)> {
@@ -33,7 +33,7 @@ impl Contract {
         let limit = limit.unwrap_or(50).min(100) as usize;
         self.lazy_listings
             .iter()
-            .filter(|(_, l)| l.app_id.as_ref() == Some(&app_id))
+            .filter(|(_, l)| l.app_id.as_deref() == Some(&app_id))
             .skip(start)
             .take(limit)
             .map(|(id, l)| (id.clone(), l.clone()))

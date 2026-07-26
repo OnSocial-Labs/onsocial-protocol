@@ -212,3 +212,146 @@ fn pause_wrong_creator_fails() {
     let err = contract.pause_collection(&buyer(), "owned").unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
+
+#[test]
+fn create_collection_unknown_app_fails() {
+    let mut contract = new_contract();
+    let mut cfg = minimal_config("no-app");
+    cfg.options.app_id = Some("missing-app".to_string());
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
+    assert!(matches!(err, MarketplaceError::NotFound(_)));
+}
+
+#[test]
+fn create_collection_invite_only_blocks_outsider() {
+    let mut contract = new_contract();
+    contract.app_pools.insert(
+        "gated".to_string(),
+        AppPool {
+            owner_id: owner(),
+            balance: U128(10u128.pow(24)),
+            used_bytes: 0,
+            max_user_bytes: 50_000,
+            default_royalty: None,
+            primary_sale_bps: 100,
+            moderators: vec![],
+            curated: false,
+            metadata: None,
+            creator_access: CreatorAccess::InviteOnly,
+            approved_creators: vec![],
+        },
+    );
+
+    let mut cfg = minimal_config("gated-col");
+    cfg.options.app_id = Some("gated".to_string());
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
+    assert!(matches!(err, MarketplaceError::Unauthorized(_)));
+
+    // Owner can still create.
+    contract
+        .create_collection(&owner(), {
+            let mut cfg = minimal_config("owner-col");
+            cfg.options.app_id = Some("gated".to_string());
+            cfg
+        })
+        .unwrap();
+    assert_eq!(
+        contract
+            .collections
+            .get("owner-col")
+            .unwrap()
+            .app_commission_bps,
+        100
+    );
+}
+
+#[test]
+fn create_collection_snapshots_commission_bps() {
+    let mut contract = new_contract();
+    contract.app_pools.insert(
+        "snap".to_string(),
+        AppPool {
+            owner_id: owner(),
+            balance: U128(10u128.pow(24)),
+            used_bytes: 0,
+            max_user_bytes: 50_000,
+            default_royalty: None,
+            primary_sale_bps: 400,
+            moderators: vec![],
+            curated: false,
+            metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
+        },
+    );
+
+    let mut cfg = minimal_config("snap-col");
+    cfg.options.app_id = Some("snap".to_string());
+    contract.create_collection(&creator(), cfg).unwrap();
+
+    // Owner raises live pool bps after create — snapshot must stay 400.
+    let mut pool = contract.app_pools.get("snap").unwrap().clone();
+    pool.primary_sale_bps = 900;
+    contract.app_pools.insert("snap".to_string(), pool);
+
+    let col = contract.collections.get("snap-col").unwrap();
+    assert_eq!(col.app_commission_bps, 400);
+    assert_eq!(
+        contract.calculate_app_commission(10_000, Some("snap"), Some(col.app_commission_bps)),
+        400
+    );
+    assert_eq!(
+        contract.calculate_app_commission(10_000, Some("snap"), None),
+        900,
+        "live pool fallback uses updated bps"
+    );
+}
+
+#[test]
+fn lazy_collection_borsh_append_defaults_commission_sentinel() {
+    use near_sdk::borsh::BorshDeserialize;
+
+    let col = LazyCollection {
+        creator_id: creator(),
+        collection_id: "legacy".into(),
+        total_supply: 5,
+        minted_count: 0,
+        metadata_template: "{}".into(),
+        price_near: U128(0),
+        start_price: None,
+        start_time: None,
+        end_time: None,
+        created_at: 1,
+        app_id: Some("myapp".into()),
+        royalty: None,
+        renewable: false,
+        revocation_mode: collections::RevocationMode::None,
+        max_redeems: None,
+        redeemed_count: 0,
+        fully_redeemed_count: 0,
+        burnable: true,
+        mint_mode: collections::MintMode::Open,
+        max_per_wallet: None,
+        transferable: true,
+        paused: false,
+        cancelled: false,
+        refund_pool: U128(0),
+        refund_per_token: U128(0),
+        refunded_count: 0,
+        refund_deadline: None,
+        total_revenue: U128(0),
+        allowlist_price: None,
+        banned: false,
+        metadata: None,
+        app_metadata: None,
+        max_per_purchase: 10,
+        app_commission_bps: 500,
+    };
+
+    let mut bytes = near_sdk::borsh::to_vec(&col).unwrap();
+    bytes.truncate(bytes.len() - 2); // drop trailing app_commission_bps
+    let loaded = LazyCollection::try_from_slice(&bytes).unwrap();
+    assert_eq!(loaded.app_commission_bps, u16::MAX);
+    assert_eq!(loaded.collection_id, "legacy");
+    assert_eq!(loaded.max_per_purchase, 10);
+}

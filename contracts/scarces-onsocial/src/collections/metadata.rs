@@ -37,14 +37,14 @@ impl Contract {
                 self.charge_storage_waterfall(
                     actor_id,
                     after - before,
-                    collection.app_id.as_ref(),
+                    collection.app_id.as_deref(),
                 )?;
             }
             std::cmp::Ordering::Less => {
                 self.release_storage_waterfall(
                     actor_id,
                     before - after,
-                    collection.app_id.as_ref(),
+                    collection.app_id.as_deref(),
                 );
             }
             std::cmp::Ordering::Equal => {}
@@ -58,7 +58,7 @@ impl Contract {
     pub(crate) fn set_collection_app_metadata(
         &mut self,
         actor_id: &AccountId,
-        app_id: &AccountId,
+        app_id: &str,
         collection_id: &str,
         metadata: Option<String>,
     ) -> Result<(), MarketplaceError> {
@@ -78,7 +78,7 @@ impl Contract {
             .cloned()
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
 
-        if collection.app_id.as_ref() != Some(app_id) {
+        if collection.app_id.as_deref() != Some(app_id) {
             return Err(MarketplaceError::Unauthorized(
                 "Collection does not belong to this app".into(),
             ));
@@ -106,14 +106,14 @@ impl Contract {
                 self.charge_storage_waterfall(
                     actor_id,
                     after - before,
-                    collection.app_id.as_ref(),
+                    collection.app_id.as_deref(),
                 )?;
             }
             std::cmp::Ordering::Less => {
                 self.release_storage_waterfall(
                     actor_id,
                     before - after,
-                    collection.app_id.as_ref(),
+                    collection.app_id.as_deref(),
                 );
             }
             std::cmp::Ordering::Equal => {}

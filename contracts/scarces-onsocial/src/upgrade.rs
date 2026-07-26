@@ -1,11 +1,15 @@
 use crate::constants::GAS_MIGRATE_TGAS;
+use crate::guards::check_one_yocto;
 use crate::*;
 use near_sdk::json_types::Base58CryptoHash;
 
 #[near]
 impl Contract {
+    /// Owner-only self-upgrade. Requires 1 yoctoNEAR so FCAKs cannot deploy.
+    #[payable]
     #[handle_result]
-    pub fn update_contract(&self) -> Result<Promise, MarketplaceError> {
+    pub fn update_contract(&mut self) -> Result<Promise, MarketplaceError> {
+        check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         let code = env::input().expect("No input").to_vec();
         Ok(Promise::new(env::current_account_id())
@@ -19,11 +23,14 @@ impl Contract {
             .as_return())
     }
 
+    /// Owner-only self-upgrade from a global contract hash. Requires 1 yoctoNEAR.
+    #[payable]
     #[handle_result]
     pub fn update_contract_from_hash(
-        &self,
+        &mut self,
         code_hash: Base58CryptoHash,
     ) -> Result<Promise, MarketplaceError> {
+        check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         Ok(Promise::new(env::current_account_id())
             .use_global_contract(code_hash)
@@ -36,8 +43,8 @@ impl Contract {
             .as_return())
     }
 
-    /// Upgrade entrypoint. Rewrites lazy listings to seed `minted_count` from
-    /// legacy `extra.supplyRemaining` (append-compatible Borsh load + cleanup).
+    /// Standard upgrade entrypoint: bump version / NEP-177 spec and emit.
+    /// New AppPool / commission fields are Borsh-append-compatible (no rewrite).
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
@@ -45,17 +52,6 @@ impl Contract {
         let old_version = contract.version.clone();
         contract.version = env!("CARGO_PKG_VERSION").to_string();
         contract.contract_metadata.spec = NFT_METADATA_SPEC.to_string();
-
-        let listings: Vec<(String, LazyListingRecord)> = contract
-            .lazy_listings
-            .iter()
-            .map(|(id, listing)| (id.clone(), listing.clone()))
-            .collect();
-        for (listing_id, mut listing) in listings {
-            if crate::lazy_listing::seed_minted_from_legacy_extra(&mut listing) {
-                contract.lazy_listings.insert(listing_id, listing);
-            }
-        }
 
         events::emit_contract_upgraded(&env::current_account_id(), &old_version, &contract.version);
 

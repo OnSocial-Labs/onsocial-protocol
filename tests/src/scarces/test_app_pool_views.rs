@@ -30,7 +30,7 @@ async fn setup_app_owner(
     contract: &near_workspaces::Contract,
 ) -> Result<(near_workspaces::Account, String)> {
     let app_owner = worker.dev_create_account().await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     storage_deposit(contract, &app_owner, None, DEPOSIT_LARGE)
         .await?
         .into_result()?;
@@ -61,7 +61,7 @@ async fn test_app_user_usage_unregistered_app() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let user = worker.dev_create_account().await?;
 
-    let usage = get_app_user_usage(&contract, user.id().as_str(), "nonexistent.near").await?;
+    let usage = get_app_user_usage(&contract, user.id().as_str(), "nonexistent-app").await?;
     assert_eq!(usage, 0);
 
     Ok(())
@@ -90,7 +90,7 @@ async fn test_app_user_remaining_unregistered_app_zero() -> Result<()> {
     let user = worker.dev_create_account().await?;
 
     let remaining =
-        get_app_user_remaining(&contract, user.id().as_str(), "nonexistent.near").await?;
+        get_app_user_remaining(&contract, user.id().as_str(), "nonexistent-app").await?;
     assert_eq!(remaining, 0);
 
     Ok(())
@@ -140,7 +140,7 @@ async fn test_user_storage_after_deposit() -> Result<()> {
 async fn test_app_metadata_none_for_missing() -> Result<()> {
     let (_worker, _owner, contract) = setup().await?;
 
-    let meta = get_app_metadata(&contract, "nonexistent.near").await?;
+    let meta = get_app_metadata(&contract, "nonexistent-app").await?;
     assert!(meta.is_none());
 
     Ok(())

@@ -12,6 +12,7 @@ pub struct ListingBrowseMeta<'a> {
     pub extra: Option<&'a str>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn emit_lazy_listing_created(
     creator_id: &AccountId,
     listing_id: &str,
@@ -20,6 +21,8 @@ pub fn emit_lazy_listing_created(
     max_per_purchase: u32,
     expires_at: Option<u64>,
     browse: ListingBrowseMeta<'_>,
+    app_id: Option<&str>,
+    app_commission_bps: u16,
 ) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)
         .field("creator_id", creator_id)
@@ -31,6 +34,8 @@ pub fn emit_lazy_listing_created(
         .field_opt("media", browse.media)
         .field_opt("extra", browse.extra)
         .field_opt("expires_at", expires_at)
+        .field_opt("app_id", app_id)
+        .field("app_commission_bps", app_commission_bps as u32)
         .emit();
 }
 
@@ -47,7 +52,7 @@ pub struct LazyListingPurchase<'a> {
     pub app_pool_amount: U128,
     pub app_commission: U128,
     pub creator_payment: U128,
-    pub app_id: Option<&'a AccountId>,
+    pub app_id: Option<&'a str>,
     pub token_ids: &'a [String],
     pub minted_count: u32,
     pub remaining: u32,

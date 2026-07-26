@@ -54,59 +54,6 @@ fn create_lazy_listing_happy() {
 }
 
 #[test]
-fn seed_minted_from_legacy_supply_remaining() {
-    let mut listing = LazyListingRecord {
-        creator_id: creator(),
-        metadata: scarce::types::TokenMetadata {
-            title: Some("Legacy".into()),
-            description: None,
-            media: None,
-            media_hash: None,
-            copies: Some(5),
-            issued_at: None,
-            expires_at: None,
-            starts_at: None,
-            updated_at: None,
-            extra: Some(
-                r#"{"supplyRemaining":3,"sourcePost":{"author":"a.near","postId":"1"}}"#.into(),
-            ),
-            reference: None,
-            reference_hash: None,
-        },
-        price: U128(1_000),
-        royalty: None,
-        app_id: None,
-        transferable: true,
-        burnable: true,
-        expires_at: None,
-        created_at: 1,
-        minted_count: 0,
-        max_per_purchase: 1,
-    };
-    assert!(crate::lazy_listing::seed_minted_from_legacy_extra(
-        &mut listing
-    ));
-    assert_eq!(listing.minted_count, 2);
-    assert_eq!(crate::lazy_listing::remaining_editions(&listing), 3);
-    assert!(
-        !listing
-            .metadata
-            .extra
-            .as_deref()
-            .unwrap_or("")
-            .contains("supplyRemaining")
-    );
-    assert!(
-        listing
-            .metadata
-            .extra
-            .as_deref()
-            .unwrap_or("")
-            .contains("sourcePost")
-    );
-}
-
-#[test]
 fn create_lazy_listing_increments_token_id() {
     let mut contract = setup_contract();
     testing_env!(context(creator()).build());
@@ -137,11 +84,90 @@ fn create_lazy_listing_unknown_app_fails() {
     testing_env!(context(creator()).build());
 
     let mut params = make_lazy_listing_params(1_000);
-    params.options.app_id = Some("unknown-app.near".parse().unwrap());
+    params.options.app_id = Some("unknown-app".to_string());
     let err = contract
         .create_lazy_listing(&creator(), params)
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
+}
+
+#[test]
+fn create_lazy_listing_invite_only_blocks_outsider() {
+    let mut contract = setup_contract();
+    contract.app_pools.insert(
+        "gated".to_string(),
+        AppPool {
+            owner_id: owner(),
+            balance: U128(10u128.pow(24)),
+            used_bytes: 0,
+            max_user_bytes: 50_000,
+            default_royalty: None,
+            primary_sale_bps: 100,
+            moderators: vec![],
+            curated: false,
+            metadata: None,
+            creator_access: CreatorAccess::InviteOnly,
+            approved_creators: vec![],
+        },
+    );
+    testing_env!(context(creator()).build());
+
+    let mut params = make_lazy_listing_params(1_000);
+    params.options.app_id = Some("gated".to_string());
+    let err = contract
+        .create_lazy_listing(&creator(), params)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::Unauthorized(_)));
+}
+
+#[test]
+fn create_lazy_listing_snapshots_commission_and_emits_app_id() {
+    let mut contract = setup_contract();
+    contract.app_pools.insert(
+        "snap".to_string(),
+        AppPool {
+            owner_id: owner(),
+            balance: U128(10u128.pow(24)),
+            used_bytes: 0,
+            max_user_bytes: 50_000,
+            default_royalty: None,
+            primary_sale_bps: 350,
+            moderators: vec![],
+            curated: false,
+            metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
+        },
+    );
+    testing_env!(context(creator()).build());
+
+    let mut params = make_lazy_listing_params(1_000);
+    params.options.app_id = Some("snap".to_string());
+    let id = contract.create_lazy_listing(&creator(), params).unwrap();
+
+    let listing = contract.lazy_listings.get(&id).unwrap();
+    assert_eq!(listing.app_commission_bps, 350);
+    assert_eq!(listing.app_id.as_deref(), Some("snap"));
+
+    let logs = get_logs();
+    let joined = logs.join("\n");
+    assert!(
+        joined.contains("\"app_id\":\"snap\""),
+        "created event must carry app_id for indexer: {joined}"
+    );
+    assert!(
+        joined.contains("\"app_commission_bps\":350"),
+        "created event must carry commission snapshot: {joined}"
+    );
+
+    // Live pool change must not rewrite the snapshot.
+    let mut pool = contract.app_pools.get("snap").unwrap().clone();
+    pool.primary_sale_bps = 900;
+    contract.app_pools.insert("snap".to_string(), pool);
+    assert_eq!(
+        contract.calculate_app_commission(10_000, Some("snap"), Some(listing.app_commission_bps)),
+        350
+    );
 }
 
 #[test]
@@ -322,11 +348,13 @@ fn lazy_listing_borsh_append_defaults_minted_and_max() {
         created_at: 42,
         minted_count: 99,
         max_per_purchase: 7,
+        app_commission_bps: 0,
     };
     let bytes = borsh_legacy_lazy_listing(&legacy);
     let loaded = LazyListingRecord::try_from_slice(&bytes).unwrap();
     assert_eq!(loaded.minted_count, 0);
     assert_eq!(loaded.max_per_purchase, 1);
+    assert_eq!(loaded.app_commission_bps, u16::MAX);
     assert_eq!(loaded.metadata.copies, Some(4));
     assert_eq!(loaded.created_at, 42);
 }
@@ -358,82 +386,12 @@ fn lazy_listing_borsh_minted_only_defaults_max_per_purchase() {
         created_at: 1,
         minted_count: 0,
         max_per_purchase: 1,
+        app_commission_bps: 0,
     });
     2u32.serialize(&mut buf).unwrap(); // minted_count only
     let loaded = LazyListingRecord::try_from_slice(&buf).unwrap();
     assert_eq!(loaded.minted_count, 2);
     assert_eq!(loaded.max_per_purchase, 1);
-}
-
-#[test]
-fn migrate_seed_walk_updates_legacy_listings() {
-    let mut contract = setup_contract();
-    testing_env!(context(creator()).build());
-
-    let listing_id = "ll:legacy".to_string();
-    contract.lazy_listings.insert(
-        listing_id.clone(),
-        LazyListingRecord {
-            creator_id: creator(),
-            metadata: scarce::types::TokenMetadata {
-                title: Some("Legacy".into()),
-                description: None,
-                media: None,
-                media_hash: None,
-                copies: Some(5),
-                issued_at: None,
-                expires_at: None,
-                starts_at: None,
-                updated_at: None,
-                extra: Some(
-                    r#"{"supplyRemaining":3,"sourcePost":{"author":"a.near","postId":"1"}}"#.into(),
-                ),
-                reference: None,
-                reference_hash: None,
-            },
-            price: U128(1_000),
-            royalty: None,
-            app_id: None,
-            transferable: true,
-            burnable: true,
-            expires_at: None,
-            created_at: 1,
-            minted_count: 0,
-            max_per_purchase: 1,
-        },
-    );
-
-    // Same walk `migrate()` performs after state_read.
-    let listings: Vec<(String, LazyListingRecord)> = contract
-        .lazy_listings
-        .iter()
-        .map(|(id, listing)| (id.clone(), listing.clone()))
-        .collect();
-    for (id, mut listing) in listings {
-        if crate::lazy_listing::seed_minted_from_legacy_extra(&mut listing) {
-            contract.lazy_listings.insert(id, listing);
-        }
-    }
-
-    let after = contract.lazy_listings.get(&listing_id).unwrap();
-    assert_eq!(after.minted_count, 2);
-    assert_eq!(crate::lazy_listing::remaining_editions(after), 3);
-    assert!(
-        !after
-            .metadata
-            .extra
-            .as_deref()
-            .unwrap_or("")
-            .contains("supplyRemaining")
-    );
-    assert!(
-        after
-            .metadata
-            .extra
-            .as_deref()
-            .unwrap_or("")
-            .contains("sourcePost")
-    );
 }
 
 #[test]

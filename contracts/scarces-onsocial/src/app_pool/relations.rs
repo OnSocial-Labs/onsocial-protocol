@@ -1,7 +1,7 @@
 use crate::*;
 
 impl Contract {
-    pub(crate) fn track_app_creator(&mut self, app_id: &AccountId, creator_id: &AccountId) {
+    pub(crate) fn track_app_creator(&mut self, app_id: &str, creator_id: &AccountId) {
         let key = format!("{}:{}", app_id, creator_id);
         let count = self
             .app_creator_collection_counts
@@ -14,7 +14,7 @@ impl Contract {
         if count == 0 {
             if !self.app_creators.contains_key(app_id) {
                 self.app_creators.insert(
-                    app_id.clone(),
+                    app_id.to_string(),
                     IterableSet::new(StorageKey::AppCreatorsInner {
                         app_id_hash: env::sha256(app_id.as_bytes()),
                     }),
@@ -27,7 +27,7 @@ impl Contract {
         }
     }
 
-    pub(crate) fn untrack_app_creator(&mut self, app_id: &AccountId, creator_id: &AccountId) {
+    pub(crate) fn untrack_app_creator(&mut self, app_id: &str, creator_id: &AccountId) {
         let key = format!("{}:{}", app_id, creator_id);
         let count = self
             .app_creator_collection_counts
@@ -47,7 +47,7 @@ impl Contract {
         }
     }
 
-    pub(crate) fn track_app_owner(&mut self, app_id: &AccountId, owner_id: &AccountId) {
+    pub(crate) fn track_app_owner(&mut self, app_id: &str, owner_id: &AccountId) {
         let key = format!("{}:{}", app_id, owner_id);
         let count = self.app_owner_token_counts.get(&key).copied().unwrap_or(0);
         self.app_owner_token_counts
@@ -56,7 +56,7 @@ impl Contract {
         if count == 0 {
             if !self.app_owners.contains_key(app_id) {
                 self.app_owners.insert(
-                    app_id.clone(),
+                    app_id.to_string(),
                     IterableSet::new(StorageKey::AppOwnersInner {
                         app_id_hash: env::sha256(app_id.as_bytes()),
                     }),
@@ -69,7 +69,7 @@ impl Contract {
         }
     }
 
-    pub(crate) fn untrack_app_owner(&mut self, app_id: &AccountId, owner_id: &AccountId) {
+    pub(crate) fn untrack_app_owner(&mut self, app_id: &str, owner_id: &AccountId) {
         let key = format!("{}:{}", app_id, owner_id);
         let count = self.app_owner_token_counts.get(&key).copied().unwrap_or(0);
         if count <= 1 {

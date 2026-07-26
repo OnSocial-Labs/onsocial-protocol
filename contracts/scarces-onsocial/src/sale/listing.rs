@@ -243,9 +243,9 @@ impl Contract {
         let bytes_used = after.saturating_sub(before);
 
         // Accounting invariant: resolve token app context before storage charge routing.
-        let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
+        let app_id = self.resolve_token_app_id(token_id, token_app_id.as_deref());
         // Storage/accounting invariant: rollback sale if storage charge fails.
-        if let Err(e) = self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref()) {
+        if let Err(e) = self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_deref()) {
             let _ = self.remove_sale(env::current_account_id(), token_id.to_string());
             return Err(e);
         }
@@ -260,6 +260,7 @@ impl Contract {
                 media: media.as_deref(),
                 extra: extra.as_deref(),
             },
+            app_id.as_deref(),
         );
         Ok(())
     }
@@ -286,12 +287,12 @@ impl Contract {
                 .scarces_by_id
                 .get(token_id)
                 .and_then(|t| t.app_id.clone());
-            self.resolve_token_app_id(token_id, token_app_id.as_ref())
+            self.resolve_token_app_id(token_id, token_app_id.as_deref())
         };
         let before_remove = self.storage_usage_flushed();
         self.remove_sale(env::current_account_id(), token_id.to_string())?;
         let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
-        self.release_storage_waterfall(owner_id, bytes_freed, listing_app_id.as_ref());
+        self.release_storage_waterfall(owner_id, bytes_freed, listing_app_id.as_deref());
 
         events::emit_native_scarce_delisted(owner_id, token_id);
         Ok(())

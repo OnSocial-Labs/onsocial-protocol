@@ -55,9 +55,9 @@ impl Contract {
     pub(crate) fn resolve_token_app_id(
         &self,
         token_id: &str,
-        token_app_id: Option<&AccountId>,
-    ) -> Option<AccountId> {
-        token_app_id.cloned().or_else(|| {
+        token_app_id: Option<&str>,
+    ) -> Option<String> {
+        token_app_id.map(|s| s.to_string()).or_else(|| {
             let cid = collection_id_from_token_id(token_id);
             self.collections.get(cid).and_then(|c| c.app_id.clone())
         })

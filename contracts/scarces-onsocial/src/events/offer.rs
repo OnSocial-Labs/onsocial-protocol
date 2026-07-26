@@ -40,7 +40,7 @@ pub fn emit_offer_accepted(
         .field("price", amount)
         .field("marketplace_fee", result.revenue)
         .field("app_pool_amount", result.app_pool_amount)
-        .field_opt("app_id", result.app_id.as_ref())
+        .field_opt("app_id", result.app_id.as_deref())
         .emit();
 }
 
@@ -83,6 +83,6 @@ pub fn emit_collection_offer_accepted(
         .field("price", amount)
         .field("marketplace_fee", result.revenue)
         .field("app_pool_amount", result.app_pool_amount)
-        .field_opt("app_id", result.app_id.as_ref())
+        .field_opt("app_id", result.app_id.as_deref())
         .emit();
 }

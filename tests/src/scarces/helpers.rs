@@ -38,6 +38,9 @@ pub const DEPOSIT_LARGE: NearToken = NearToken::from_millinear(500);
 /// Minimum storage deposit to register (0.01 NEAR)
 pub const DEPOSIT_REGISTER: NearToken = NearToken::from_millinear(10);
 
+/// Valid app slug for integration tests (app_id is a slug, not an AccountId).
+pub const TEST_APP_ID: &str = "test-app";
+
 // =============================================================================
 // View Structs (mirror contract return types for typed deserialization)
 // =============================================================================

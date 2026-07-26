@@ -46,18 +46,11 @@ async fn test_register_app_basic() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
 
-    register_app(
-        &contract,
-        &app_owner,
-        &app_owner.id().to_string(),
-        DEPOSIT_LARGE,
-    )
-    .await?
-    .into_result()?;
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
 
-    let pool = get_app_pool(&contract, &app_owner.id().to_string()).await?;
-    assert!(pool.is_some(), "App pool should exist");
-    let pool = pool.unwrap();
+    let pool = get_app_pool(&contract, TEST_APP_ID).await?.unwrap();
     assert_eq!(pool.owner_id, app_owner.id().to_string());
 
     Ok(())
@@ -68,15 +61,25 @@ async fn test_register_app_duplicate_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
 
-    register_app(
-        &contract,
-        &app_owner,
-        &app_owner.id().to_string(),
-        DEPOSIT_LARGE,
-    )
-    .await?
-    .into_result()?;
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
 
+    let result = register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_LARGE).await?;
+    assert!(
+        result.into_result().is_err(),
+        "Duplicate registration should fail"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_register_app_rejects_account_id_shaped() -> Result<()> {
+    let (worker, _owner, contract) = setup().await?;
+    let app_owner = user_with_storage(&worker, &contract).await?;
+
+    // Sandbox account ids are 64-char hex / contain invalid chars for slugs.
     let result = register_app(
         &contract,
         &app_owner,
@@ -86,7 +89,7 @@ async fn test_register_app_duplicate_fails() -> Result<()> {
     .await?;
     assert!(
         result.into_result().is_err(),
-        "Duplicate registration should fail"
+        "AccountId-shaped app_id must be rejected by slug validation"
     );
 
     Ok(())
@@ -100,20 +103,19 @@ async fn test_register_app_duplicate_fails() -> Result<()> {
 async fn test_fund_app_pool() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
 
-    register_app(&contract, &app_owner, &app_id, DEPOSIT_STORAGE)
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
 
-    let pool_before = get_app_pool(&contract, &app_id).await?.unwrap();
+    let pool_before = get_app_pool(&contract, TEST_APP_ID).await?.unwrap();
     let balance_before: u128 = pool_before.balance.parse().unwrap();
 
-    fund_app_pool(&contract, &app_owner, &app_id, NearToken::from_near(1))
+    fund_app_pool(&contract, &app_owner, TEST_APP_ID, NearToken::from_near(1))
         .await?
         .into_result()?;
 
-    let pool_after = get_app_pool(&contract, &app_id).await?.unwrap();
+    let pool_after = get_app_pool(&contract, TEST_APP_ID).await?.unwrap();
     let balance_after: u128 = pool_after.balance.parse().unwrap();
 
     assert!(
@@ -132,7 +134,7 @@ async fn test_fund_nonexistent_pool_fails() -> Result<()> {
     let result = fund_app_pool(
         &contract,
         &user,
-        "nonexistent.near",
+        "nonexistent-app",
         NearToken::from_near(1),
     )
     .await?;
@@ -152,26 +154,25 @@ async fn test_fund_nonexistent_pool_fails() -> Result<()> {
 async fn test_withdraw_app_pool() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
 
-    register_app(&contract, &app_owner, &app_id, DEPOSIT_STORAGE)
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
 
-    fund_app_pool(&contract, &app_owner, &app_id, NearToken::from_near(2))
+    fund_app_pool(&contract, &app_owner, TEST_APP_ID, NearToken::from_near(2))
         .await?
         .into_result()?;
 
-    let pool_before = get_app_pool(&contract, &app_id).await?.unwrap();
+    let pool_before = get_app_pool(&contract, TEST_APP_ID).await?.unwrap();
     let balance_before: u128 = pool_before.balance.parse().unwrap();
 
     // Withdraw 1 NEAR
     let one_near = "1000000000000000000000000";
-    withdraw_app_pool(&contract, &app_owner, &app_id, one_near, ONE_YOCTO)
+    withdraw_app_pool(&contract, &app_owner, TEST_APP_ID, one_near, ONE_YOCTO)
         .await?
         .into_result()?;
 
-    let pool_after = get_app_pool(&contract, &app_id).await?.unwrap();
+    let pool_after = get_app_pool(&contract, TEST_APP_ID).await?.unwrap();
     let balance_after: u128 = pool_after.balance.parse().unwrap();
     let one_near_val: u128 = one_near.parse().unwrap();
 
@@ -189,20 +190,19 @@ async fn test_withdraw_app_pool_non_owner_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
     let stranger = user_with_storage(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
 
-    register_app(&contract, &app_owner, &app_id, DEPOSIT_STORAGE)
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
 
-    fund_app_pool(&contract, &app_owner, &app_id, NearToken::from_near(1))
+    fund_app_pool(&contract, &app_owner, TEST_APP_ID, NearToken::from_near(1))
         .await?
         .into_result()?;
 
     let result = withdraw_app_pool(
         &contract,
         &stranger,
-        &app_id,
+        TEST_APP_ID,
         "500000000000000000000000",
         ONE_YOCTO,
     )
@@ -216,13 +216,12 @@ async fn test_withdraw_app_pool_non_owner_fails() -> Result<()> {
 async fn test_withdraw_app_pool_exceeds_balance_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
 
-    register_app(&contract, &app_owner, &app_id, DEPOSIT_STORAGE)
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
 
-    fund_app_pool(&contract, &app_owner, &app_id, NearToken::from_near(1))
+    fund_app_pool(&contract, &app_owner, TEST_APP_ID, NearToken::from_near(1))
         .await?
         .into_result()?;
 
@@ -230,7 +229,7 @@ async fn test_withdraw_app_pool_exceeds_balance_fails() -> Result<()> {
     let result = withdraw_app_pool(
         &contract,
         &app_owner,
-        &app_id,
+        TEST_APP_ID,
         "10000000000000000000000000",
         ONE_YOCTO,
     )
@@ -251,16 +250,15 @@ async fn test_withdraw_app_pool_exceeds_balance_fails() -> Result<()> {
 async fn test_set_app_config() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
 
-    register_app(&contract, &app_owner, &app_id, DEPOSIT_STORAGE)
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
 
     set_app_config(
         &contract,
         &app_owner,
-        &app_id,
+        TEST_APP_ID,
         json!({
             "metadata": "{\"name\": \"My App\"}",
             "curated": true,
@@ -270,7 +268,7 @@ async fn test_set_app_config() -> Result<()> {
     .await?
     .into_result()?;
 
-    let pool = get_app_pool(&contract, &app_id).await?.unwrap();
+    let pool = get_app_pool(&contract, TEST_APP_ID).await?.unwrap();
     assert!(pool.curated, "Pool should be curated after config update");
 
     Ok(())
@@ -285,30 +283,29 @@ async fn test_transfer_app_ownership() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
     let new_owner = user_with_storage(&worker, &contract).await?;
-    let app_id = app_owner.id().to_string();
 
-    register_app(&contract, &app_owner, &app_id, DEPOSIT_STORAGE)
+    register_app(&contract, &app_owner, TEST_APP_ID, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
 
     transfer_app_ownership(
         &contract,
         &app_owner,
-        &app_id,
+        TEST_APP_ID,
         &new_owner.id().to_string(),
         ONE_YOCTO,
     )
     .await?
     .into_result()?;
 
-    let pool = get_app_pool(&contract, &app_id).await?.unwrap();
+    let pool = get_app_pool(&contract, TEST_APP_ID).await?.unwrap();
     assert_eq!(pool.owner_id, new_owner.id().to_string());
 
     // Old owner should no longer be able to configure
     let result = set_app_config(
         &contract,
         &app_owner,
-        &app_id,
+        TEST_APP_ID,
         json!({"curated": true}),
         ONE_YOCTO,
     )

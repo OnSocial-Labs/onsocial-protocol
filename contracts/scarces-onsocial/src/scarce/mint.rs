@@ -68,7 +68,7 @@ impl Contract {
         self.scarces_by_id.insert(token_id.clone(), token);
         self.add_token_to_owner(&owner_id, &token_id);
 
-        if let Some(app) = self.resolve_token_app_id(&token_id, ovr.app_id.as_ref()) {
+        if let Some(app) = self.resolve_token_app_id(&token_id, ovr.app_id.as_deref()) {
             self.track_app_owner(&app, &owner_id);
         }
 
@@ -94,7 +94,7 @@ impl Contract {
             }
         }
 
-        let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
+        let merged_royalty = self.merge_royalties(app_id.as_deref(), royalty)?;
         let id = self.next_token_id;
         self.next_token_id = self
             .next_token_id
@@ -120,8 +120,8 @@ impl Contract {
 
         let bytes_used = self.storage_usage_flushed().saturating_sub(before);
         // Storage/accounting invariant: rollback token if storage charge fails.
-        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
-            if let Some(app) = self.resolve_token_app_id(&token_id, app_id.as_ref()) {
+        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_deref()) {
+            if let Some(app) = self.resolve_token_app_id(&token_id, app_id.as_deref()) {
                 self.untrack_app_owner(&app, actor_id);
             }
             self.scarces_by_id.remove(&token_id);
@@ -194,7 +194,7 @@ impl Contract {
             .collections
             .get(collection_id)
             .and_then(|c| c.app_id.clone());
-        let (app_id_str, app_name, app_icon) = match app_id.as_ref() {
+        let (app_id_str, app_name, app_icon) = match app_id.as_deref() {
             Some(app) => {
                 let pool_meta = self.app_pools.get(app).and_then(|p| p.metadata.clone());
                 (

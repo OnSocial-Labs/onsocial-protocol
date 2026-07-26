@@ -65,6 +65,8 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "transfer_app_ownership",
     "add_moderator",
     "remove_moderator",
+    "add_approved_creator",
+    "remove_approved_creator",
     "ban_collection",
     "unban_collection",
 ];

@@ -50,7 +50,7 @@ async fn setup_app_pool(
     max_user_bytes: Option<u64>,
     fund_amount: NearToken,
 ) -> Result<String> {
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     let mut action = json!({
         "type": "register_app",
         "app_id": app_id,
@@ -321,7 +321,7 @@ async fn test_tier2_exhausted_falls_to_tier3() -> Result<()> {
         &contract,
         &app_owner,
         Some(50_000),
-        NearToken::from_yoctonear(0),
+        NearToken::from_yoctonear(1),
     )
     .await?;
 
@@ -357,7 +357,7 @@ async fn test_tier3_user_balance_covers_mint() -> Result<()> {
         &contract,
         &app_owner,
         Some(50_000),
-        NearToken::from_yoctonear(0),
+        NearToken::from_yoctonear(1),
     )
     .await?;
 
@@ -396,7 +396,7 @@ async fn test_tier3_insufficient_balance_fails() -> Result<()> {
         &contract,
         &app_owner,
         Some(50_000),
-        NearToken::from_yoctonear(0),
+        NearToken::from_yoctonear(1),
     )
     .await?;
 

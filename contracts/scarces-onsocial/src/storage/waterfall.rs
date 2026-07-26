@@ -7,7 +7,7 @@ impl Contract {
         &mut self,
         account_id: &AccountId,
         bytes_used: u64,
-        app_id: Option<&AccountId>,
+        app_id: Option<&str>,
     ) -> Result<(), MarketplaceError> {
         if bytes_used == 0 {
             return Ok(());
@@ -25,7 +25,7 @@ impl Contract {
                 if can_cover_cost > 0 && pool.balance.0 >= can_cover_cost {
                     pool.balance.0 -= can_cover_cost;
                     pool.used_bytes += can_cover_bytes;
-                    self.app_pools.insert(app.clone(), pool);
+                    self.app_pools.insert(app.to_string(), pool);
                     self.app_user_usage
                         .insert(usage_key, user_used + can_cover_bytes);
 
@@ -38,7 +38,7 @@ impl Contract {
                     return Ok(());
                 }
 
-                self.app_pools.insert(app.clone(), pool);
+                self.app_pools.insert(app.to_string(), pool);
             }
         }
 
@@ -65,7 +65,7 @@ impl Contract {
         &mut self,
         account_id: &AccountId,
         bytes_freed: u64,
-        app_id: Option<&AccountId>,
+        app_id: Option<&str>,
     ) {
         if bytes_freed == 0 {
             return;
@@ -82,7 +82,7 @@ impl Contract {
                 pool.used_bytes = pool.used_bytes.saturating_sub(returnable);
                 self.app_user_usage
                     .insert(usage_key, user_used.saturating_sub(returnable));
-                self.app_pools.insert(app.clone(), pool);
+                self.app_pools.insert(app.to_string(), pool);
 
                 let remainder = bytes_freed.saturating_sub(returnable);
                 if remainder > 0 {

@@ -201,12 +201,13 @@ impl Contract {
             bytes_used,
             &creator_id,
             buyer_id,
-            app_id.as_ref(),
+            app_id.as_deref(),
+            Some(collection.app_commission_bps),
         ) {
             Ok(r) => r,
             Err(e) => {
                 for tid in &token_ids {
-                    if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                    if let Some(app) = self.resolve_token_app_id(tid, app_id.as_deref()) {
                         self.untrack_app_owner(&app, buyer_id);
                     }
                     self.scarces_by_id.remove(tid);
@@ -245,7 +246,7 @@ impl Contract {
             marketplace_fee: U128(result.revenue),
             app_pool_amount: U128(result.app_pool_amount),
             app_commission: U128(result.app_commission),
-            app_id: result.app_id.as_ref(),
+            app_id: result.app_id.as_deref(),
             token_ids: &token_ids,
         });
         Ok(())
@@ -333,9 +334,9 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
+        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_deref()) {
             for tid in &token_ids {
-                if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                if let Some(app) = self.resolve_token_app_id(tid, app_id.as_deref()) {
                     self.untrack_app_owner(&app, recipient);
                 }
                 self.scarces_by_id.remove(tid);
@@ -436,9 +437,9 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
+        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_deref()) {
             for (i, tid) in token_ids.iter().enumerate() {
-                if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                if let Some(app) = self.resolve_token_app_id(tid, app_id.as_deref()) {
                     self.untrack_app_owner(&app, &receivers[i]);
                 }
                 self.scarces_by_id.remove(tid);

@@ -3,8 +3,8 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-fn app_id() -> AccountId {
-    "store.near".parse().unwrap()
+fn app_id() -> String {
+    "store".to_string()
 }
 
 fn other_creator() -> AccountId {
@@ -22,6 +22,7 @@ fn register_app(contract: &mut Contract, metadata: Option<String>) {
                 primary_sale_bps: None,
                 curated: Some(false),
                 metadata,
+                creator_access: None,
             },
         }))
         .unwrap();
@@ -253,7 +254,7 @@ fn template_substitutes_app_placeholders() {
 
     assert_eq!(meta.title.unwrap(), "Acme Store #1");
     let extra = meta.extra.unwrap();
-    assert!(extra.contains("\"app\":\"store.near\""));
+    assert!(extra.contains("\"app\":\"store\""));
     assert!(extra.contains("\"icon\":\"https://acme/icon.png\""));
 }
 

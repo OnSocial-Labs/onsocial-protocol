@@ -85,6 +85,8 @@ impl Contract {
             | Action::TransferAppOwnership { .. }
             | Action::AddModerator { .. }
             | Action::RemoveModerator { .. }
+            | Action::AddApprovedCreator { .. }
+            | Action::RemoveApprovedCreator { .. }
             | Action::BanCollection { .. }
             | Action::UnbanCollection { .. } => self.dispatch_admin(action, actor_id),
         }

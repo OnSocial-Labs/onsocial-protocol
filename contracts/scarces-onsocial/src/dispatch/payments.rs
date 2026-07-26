@@ -126,7 +126,7 @@ impl Contract {
             }
             Action::RegisterApp { app_id, params } => {
                 let deposit = core::mem::take(&mut self.pending_attached_balance);
-                self.register_app(actor_id, &app_id, params, deposit)?;
+                self.register_app(actor_id, app_id, params, deposit)?;
                 Ok(Value::Null)
             }
             _ => unreachable!("dispatch_payments called with non-payment action"),

@@ -177,3 +177,119 @@ pub fn deserialize_max_per_purchase_listing<R: near_sdk::borsh::io::Read>(
     let v = deserialize_trailing_u32_or(reader, 1)?;
     Ok(if v == 0 { 1 } else { v })
 }
+
+/// Append-compatible Borsh read for trailing `u16` (EOF → `default`).
+pub fn deserialize_trailing_u16_or<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+    default: u16,
+) -> Result<u16, near_sdk::borsh::io::Error> {
+    let mut buf = [0u8; 2];
+    match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
+        0 => Ok(default),
+        2 => Ok(u16::from_le_bytes(buf)),
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing u16 length {n}"),
+        )),
+    }
+}
+
+/// Sentinel meaning "legacy record: use live app pool bps".
+pub fn default_commission_sentinel() -> u16 {
+    u16::MAX
+}
+
+pub fn deserialize_trailing_commission_bps<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<u16, near_sdk::borsh::io::Error> {
+    deserialize_trailing_u16_or(reader, u16::MAX)
+}
+
+/// Append-compatible Borsh read for trailing `CreatorAccess` (EOF → Open).
+pub fn deserialize_trailing_creator_access<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<crate::CreatorAccess, near_sdk::borsh::io::Error> {
+    let mut buf = [0u8; 1];
+    match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
+        0 => Ok(crate::CreatorAccess::Open),
+        1 => match buf[0] {
+            0 => Ok(crate::CreatorAccess::Open),
+            1 => Ok(crate::CreatorAccess::Approval),
+            2 => Ok(crate::CreatorAccess::InviteOnly),
+            other => Err(near_sdk::borsh::io::Error::new(
+                near_sdk::borsh::io::ErrorKind::InvalidData,
+                format!("invalid CreatorAccess discriminant {other}"),
+            )),
+        },
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing CreatorAccess length {n}"),
+        )),
+    }
+}
+
+/// Append-compatible Borsh read for trailing `Vec<AccountId>` (EOF → empty).
+pub fn deserialize_trailing_account_vec<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<Vec<AccountId>, near_sdk::borsh::io::Error> {
+    use near_sdk::borsh::BorshDeserialize;
+    let mut len_buf = [0u8; 4];
+    match near_sdk::borsh::io::Read::read(reader, &mut len_buf)? {
+        0 => Ok(Vec::new()),
+        4 => {
+            let len = u32::from_le_bytes(len_buf) as usize;
+            let mut out = Vec::with_capacity(len);
+            for _ in 0..len {
+                out.push(AccountId::deserialize_reader(reader)?);
+            }
+            Ok(out)
+        }
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing Vec length prefix {n}"),
+        )),
+    }
+}
+
+/// App IDs are unique lowercase slugs (not NEAR accounts).
+pub fn validate_app_id(app_id: &str) -> Result<(), MarketplaceError> {
+    if app_id.is_empty() {
+        return Err(MarketplaceError::InvalidInput(
+            "App ID cannot be empty".into(),
+        ));
+    }
+    if app_id.len() < 3 || app_id.len() > 40 {
+        return Err(MarketplaceError::InvalidInput(
+            "App ID must be 3-40 characters".into(),
+        ));
+    }
+    if app_id == "s" || app_id == "ll" {
+        return Err(MarketplaceError::InvalidInput(
+            "App ID 's' and 'll' are reserved".into(),
+        ));
+    }
+    if app_id.contains(':') || app_id.contains('.') || app_id.contains('\0') {
+        return Err(MarketplaceError::InvalidInput(
+            "App ID cannot contain ':', '.', or null characters".into(),
+        ));
+    }
+    if app_id.starts_with('-') || app_id.ends_with('-') {
+        return Err(MarketplaceError::InvalidInput(
+            "App ID cannot start or end with '-'".into(),
+        ));
+    }
+    if app_id.contains("--") {
+        return Err(MarketplaceError::InvalidInput(
+            "App ID cannot contain consecutive '--'".into(),
+        ));
+    }
+    if !app_id
+        .chars()
+        .all(|c| matches!(c, 'a'..='z' | '0'..='9' | '-'))
+    {
+        return Err(MarketplaceError::InvalidInput(
+            "App ID must be lowercase a-z, digits 0-9, and '-' only".into(),
+        ));
+    }
+    Ok(())
+}

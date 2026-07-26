@@ -77,7 +77,7 @@ impl Contract {
             }
         }
 
-        let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
+        let merged_royalty = self.merge_royalties(app_id.as_deref(), royalty)?;
         if let Some(ref r) = merged_royalty {
             if r.is_empty() {
                 return Err(MarketplaceError::InvalidInput(
@@ -135,18 +135,19 @@ impl Contract {
             }
         }
 
-        if let Some(ref app) = app_id {
-            if let Some(pool) = self.app_pools.get(app) {
-                if pool.curated
-                    && creator_id != &pool.owner_id
-                    && !pool.moderators.contains(creator_id)
-                {
-                    return Err(MarketplaceError::Unauthorized(
-                        "This app is curated — only the app owner or a moderator can create collections".into(),
-                    ));
-                }
+        let app_commission_bps = if let Some(ref app) = app_id {
+            let pool = self.app_pools.get(app).ok_or_else(|| {
+                MarketplaceError::NotFound(format!("App pool not found: {}", app))
+            })?;
+            if !pool.can_create_collection(creator_id) {
+                return Err(MarketplaceError::Unauthorized(
+                    "This app restricts who can create collections".into(),
+                ));
             }
-        }
+            pool.primary_sale_bps
+        } else {
+            0
+        };
 
         if self.collections.contains_key(&collection_id) {
             return Err(MarketplaceError::InvalidState(
@@ -188,6 +189,7 @@ impl Contract {
             metadata,
             app_metadata: None,
             max_per_purchase,
+            app_commission_bps,
         };
 
         let before = self.storage_usage_flushed();
@@ -211,7 +213,7 @@ impl Contract {
         let bytes_used = after.saturating_sub(before);
 
         // Storage/accounting invariant: rollback collection if storage charge fails.
-        if let Err(e) = self.charge_storage_waterfall(creator_id, bytes_used, app_id.as_ref()) {
+        if let Err(e) = self.charge_storage_waterfall(creator_id, bytes_used, app_id.as_deref()) {
             if let Some(set) = self.collections_by_creator.get_mut(creator_id) {
                 set.remove(&collection_id);
             }
@@ -223,7 +225,14 @@ impl Contract {
             self.track_app_creator(app, creator_id);
         }
 
-        events::emit_collection_created(creator_id, &collection_id, total_supply, price_near);
+        events::emit_collection_created(
+            creator_id,
+            &collection_id,
+            total_supply,
+            price_near,
+            app_id.as_deref(),
+            app_commission_bps,
+        );
         Ok(())
     }
 }

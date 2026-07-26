@@ -3,8 +3,8 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-fn app_id() -> AccountId {
-    "myapp.near".parse().unwrap()
+fn app_id() -> String {
+    "myapp".to_string()
 }
 
 fn setup_contract() -> Contract {
@@ -512,14 +512,14 @@ fn set_collection_app_metadata_wrong_app_fails() {
 
     contract
         .execute(make_request(Action::RegisterApp {
-            app_id: "other.near".parse().unwrap(),
+            app_id: "other".to_string(),
             params: AppConfig::default(),
         }))
         .unwrap();
 
     let err = contract
         .execute(make_request(Action::SetCollectionAppMetadata {
-            app_id: "other.near".parse().unwrap(),
+            app_id: "other".to_string(),
             collection_id: "noappcol".to_string(),
             metadata: Some(r#"{"x":1}"#.to_string()),
         }))

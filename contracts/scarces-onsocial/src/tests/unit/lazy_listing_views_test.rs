@@ -7,8 +7,8 @@ fn setup_contract() -> Contract {
     new_contract()
 }
 
-fn app_id() -> AccountId {
-    "app.near".parse().unwrap()
+fn app_id() -> String {
+    "app".to_string()
 }
 
 fn make_lazy_listing_params(price: u128) -> LazyListing {
@@ -143,6 +143,7 @@ fn get_lazy_listings_by_app_filters() {
             primary_sale_bps: None,
             curated: None,
             metadata: None,
+            creator_access: None,
         },
     };
     contract.execute(make_request(register_action)).unwrap();

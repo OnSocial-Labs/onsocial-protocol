@@ -15,7 +15,7 @@ pub struct LazyListingRecord {
     #[serde(default)]
     pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
     #[serde(default)]
-    pub app_id: Option<AccountId>,
+    pub app_id: Option<String>,
     #[serde(default = "crate::default_true")]
     pub transferable: bool,
     #[serde(default = "crate::default_true")]
@@ -31,6 +31,10 @@ pub struct LazyListingRecord {
     #[serde(default = "crate::default_one")]
     #[borsh(deserialize_with = "crate::deserialize_max_per_purchase_listing")]
     pub max_per_purchase: u32,
+    /// Snapshot of app `primary_sale_bps` at create time. `u16::MAX` = legacy (use live pool).
+    #[serde(default = "crate::default_commission_sentinel")]
+    #[borsh(deserialize_with = "crate::deserialize_trailing_commission_bps")]
+    pub app_commission_bps: u16,
 }
 
 #[near(serializers = [json])]

@@ -9,14 +9,15 @@ impl Contract {
         bytes_used: u64,
         creator_id: &AccountId,
         payer_id: &AccountId,
-        app_id: Option<&AccountId>,
+        app_id: Option<&str>,
+        commission_bps: Option<u16>,
     ) -> Result<PrimarySaleResult, MarketplaceError> {
         self.charge_storage_waterfall(payer_id, bytes_used, app_id)?;
 
         if price > 0 {
             let (rev, app_amt) = self.route_fee(price, app_id);
 
-            let app_commission = self.calculate_app_commission(price, app_id);
+            let app_commission = self.calculate_app_commission(price, app_id, commission_bps);
             if app_commission > 0 {
                 if let Some(aid) = app_id {
                     if let Some(pool) = self.app_pools.get(aid) {
@@ -46,7 +47,7 @@ impl Contract {
                 app_pool_amount: app_amt,
                 app_commission,
                 creator_payment,
-                app_id: app_id.cloned(),
+                app_id: app_id.map(|s| s.to_string()),
             })
         } else {
             Ok(PrimarySaleResult {
@@ -54,7 +55,7 @@ impl Contract {
                 app_pool_amount: 0,
                 app_commission: 0,
                 creator_payment: 0,
-                app_id: app_id.cloned(),
+                app_id: app_id.map(|s| s.to_string()),
             })
         }
     }
@@ -70,11 +71,11 @@ impl Contract {
         let token_clone = self.scarces_by_id.get(token_id).cloned();
         let app_id = self.resolve_token_app_id(
             token_id,
-            token_clone.as_ref().and_then(|t| t.app_id.as_ref()),
+            token_clone.as_ref().and_then(|t| t.app_id.as_deref()),
         );
 
-        let (total_fee, _, _, _) = self.calculate_fee_split(sale_price, app_id.as_ref());
-        let (revenue, app_pool_amount) = self.route_fee(sale_price, app_id.as_ref());
+        let (total_fee, _, _, _) = self.calculate_fee_split(sale_price, app_id.as_deref());
+        let (revenue, app_pool_amount) = self.route_fee(sale_price, app_id.as_deref());
         let amount_after_fee = sale_price.saturating_sub(total_fee);
 
         if let Some(ref token) = token_clone {
@@ -111,7 +112,7 @@ impl Contract {
     pub(crate) fn calculate_fee_split(
         &self,
         price: u128,
-        app_id: Option<&AccountId>,
+        app_id: Option<&str>,
     ) -> (u128, u128, u128, u128) {
         let total_fee = (price * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
 
@@ -131,14 +132,14 @@ impl Contract {
     }
 
     // Token accounting guarantee: if app pool is unavailable at settlement, its fee share is redirected to platform storage.
-    pub(crate) fn route_fee(&mut self, price: u128, app_id: Option<&AccountId>) -> (u128, u128) {
+    pub(crate) fn route_fee(&mut self, price: u128, app_id: Option<&str>) -> (u128, u128) {
         let (_, app_amount, platform_amount, revenue) = self.calculate_fee_split(price, app_id);
 
         if app_amount > 0 {
             if let Some(app) = app_id {
                 if let Some(mut pool) = self.app_pools.remove(app) {
                     pool.balance.0 = pool.balance.0.saturating_add(app_amount);
-                    self.app_pools.insert(app.clone(), pool);
+                    self.app_pools.insert(app.to_string(), pool);
                 } else {
                     env::log_str(&format!(
                         "WARN: app pool '{}' missing during route_fee; {} yN → platform pool",
@@ -164,15 +165,31 @@ impl Contract {
         (revenue, app_amount)
     }
 
-    pub(crate) fn calculate_app_commission(&self, price: u128, app_id: Option<&AccountId>) -> u128 {
-        if let Some(app) = app_id {
-            if let Some(pool) = self.app_pools.get(app) {
-                if pool.primary_sale_bps > 0 {
-                    return (price * pool.primary_sale_bps as u128) / BASIS_POINTS as u128;
+    pub(crate) fn calculate_app_commission(
+        &self,
+        price: u128,
+        app_id: Option<&str>,
+        snapshot_bps: Option<u16>,
+    ) -> u128 {
+        let bps = match snapshot_bps {
+            Some(v) if v != u16::MAX => v,
+            _ => {
+                if let Some(app) = app_id {
+                    if let Some(pool) = self.app_pools.get(app) {
+                        pool.primary_sale_bps
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    return 0;
                 }
             }
+        };
+        if bps > 0 {
+            (price * bps as u128) / BASIS_POINTS as u128
+        } else {
+            0
         }
-        0
     }
 
     // Token accounting guarantee: unallocated payout remainder is sent to fee recipient; zero-total payout falls back to seller.

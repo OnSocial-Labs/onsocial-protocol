@@ -110,7 +110,7 @@ impl Contract {
             ) {
                 for tid in &token_ids {
                     if self.scarces_by_id.contains_key(tid) {
-                        if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                        if let Some(app) = self.resolve_token_app_id(tid, app_id.as_deref()) {
                             self.untrack_app_owner(&app, buyer_id);
                         }
                         self.scarces_by_id.remove(tid);
@@ -129,12 +129,13 @@ impl Contract {
             bytes_used,
             &creator_id,
             buyer_id,
-            app_id.as_ref(),
+            app_id.as_deref(),
+            Some(listing.app_commission_bps),
         ) {
             Ok(r) => r,
             Err(e) => {
                 for tid in &token_ids {
-                    if let Some(app) = self.resolve_token_app_id(tid, app_id.as_ref()) {
+                    if let Some(app) = self.resolve_token_app_id(tid, app_id.as_deref()) {
                         self.untrack_app_owner(&app, buyer_id);
                     }
                     self.scarces_by_id.remove(tid);
@@ -156,7 +157,7 @@ impl Contract {
                 std::cmp::Ordering::Greater => {
                     let delta = after_update - before_update;
                     if let Err(e) =
-                        self.charge_storage_waterfall(&creator_id, delta, app_id.as_ref())
+                        self.charge_storage_waterfall(&creator_id, delta, app_id.as_deref())
                     {
                         env::panic_str(&format!("Lazy listing storage charge failed: {e}"));
                     }
@@ -165,7 +166,7 @@ impl Contract {
                     self.release_storage_waterfall(
                         &creator_id,
                         before_update - after_update,
-                        app_id.as_ref(),
+                        app_id.as_deref(),
                     );
                 }
                 std::cmp::Ordering::Equal => {}
@@ -174,7 +175,7 @@ impl Contract {
             let before_remove = self.storage_usage_flushed();
             self.lazy_listings.remove(&listing_id);
             let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
-            self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_ref());
+            self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_deref());
         }
 
         self.pending_attached_balance += deposit.saturating_sub(total_price);
@@ -191,7 +192,7 @@ impl Contract {
             app_pool_amount: U128(result.app_pool_amount),
             app_commission: U128(result.app_commission),
             creator_payment: U128(result.creator_payment),
-            app_id: result.app_id.as_ref(),
+            app_id: result.app_id.as_deref(),
             token_ids: &token_ids,
             minted_count: listing.minted_count,
             remaining,
@@ -225,7 +226,7 @@ impl Contract {
             let before = self.storage_usage_flushed();
             self.lazy_listings.remove(&listing_id);
             let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
-            self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_ref());
+            self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_deref());
             events::emit_lazy_listing_expired(&creator_id, &listing_id);
             count += 1;
         }

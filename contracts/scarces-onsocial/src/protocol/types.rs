@@ -102,7 +102,7 @@ pub enum Action {
         metadata: Option<String>,
     },
     SetCollectionAppMetadata {
-        app_id: AccountId,
+        app_id: String,
         collection_id: String,
         metadata: Option<String>,
     },
@@ -205,13 +205,13 @@ pub enum Action {
         refund_deadline_ns: Option<u64>,
     },
     FundAppPool {
-        app_id: AccountId,
+        app_id: String,
     },
     StorageDeposit {
         account_id: Option<AccountId>,
     },
     RegisterApp {
-        app_id: AccountId,
+        app_id: String,
         #[serde(flatten)]
         params: crate::AppConfig,
     },
@@ -221,7 +221,7 @@ pub enum Action {
     },
     StorageWithdraw,
     WithdrawAppPool {
-        app_id: AccountId,
+        app_id: String,
         amount: U128,
     },
     WithdrawPlatformStorage {
@@ -229,29 +229,37 @@ pub enum Action {
     },
 
     SetAppConfig {
-        app_id: AccountId,
+        app_id: String,
         #[serde(flatten)]
         params: crate::AppConfig,
     },
     TransferAppOwnership {
-        app_id: AccountId,
+        app_id: String,
         new_owner: AccountId,
     },
     AddModerator {
-        app_id: AccountId,
+        app_id: String,
         account_id: AccountId,
     },
     RemoveModerator {
-        app_id: AccountId,
+        app_id: String,
+        account_id: AccountId,
+    },
+    AddApprovedCreator {
+        app_id: String,
+        account_id: AccountId,
+    },
+    RemoveApprovedCreator {
+        app_id: String,
         account_id: AccountId,
     },
     BanCollection {
-        app_id: AccountId,
+        app_id: String,
         collection_id: String,
         reason: Option<String>,
     },
     UnbanCollection {
-        app_id: AccountId,
+        app_id: String,
         collection_id: String,
     },
 }
@@ -270,7 +278,6 @@ impl Action {
                 | Self::CancelCollection { .. }
                 | Self::FundAppPool { .. }
                 | Self::StorageDeposit { .. }
-                | Self::RegisterApp { .. }
                 | Self::QuickMint { .. }
                 | Self::CreateCollection { .. }
                 | Self::MintFromCollection { .. }

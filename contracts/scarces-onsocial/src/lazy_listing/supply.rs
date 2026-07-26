@@ -62,15 +62,6 @@ fn extra_object(metadata: &TokenMetadata) -> serde_json::Map<String, Value> {
         .unwrap_or_default()
 }
 
-fn read_legacy_supply_remaining(metadata: &TokenMetadata) -> Option<u64> {
-    let map = extra_object(metadata);
-    match map.get(EXTRA_SUPPLY_REMAINING) {
-        Some(Value::Number(n)) => n.as_u64(),
-        Some(Value::String(s)) => s.parse::<u64>().ok(),
-        _ => None,
-    }
-}
-
 /// Remove legacy inventory key from listing / mint metadata.
 pub(crate) fn strip_legacy_supply_remaining(metadata: &mut TokenMetadata) -> bool {
     let mut map = extra_object(metadata);
@@ -82,20 +73,6 @@ pub(crate) fn strip_legacy_supply_remaining(metadata: &mut TokenMetadata) -> boo
     } else {
         Some(serde_json::to_string(&Value::Object(map)).unwrap_or_default())
     };
-    true
-}
-
-/// Seed `minted_count` from legacy `extra.supplyRemaining` when present.
-/// Returns true when the record was updated.
-pub(crate) fn seed_minted_from_legacy_extra(listing: &mut LazyListingRecord) -> bool {
-    let Some(remaining) = read_legacy_supply_remaining(&listing.metadata) else {
-        let stripped = strip_legacy_supply_remaining(&mut listing.metadata);
-        return stripped;
-    };
-    let total = edition_total(listing) as u64;
-    let remaining = remaining.min(total);
-    listing.minted_count = total.saturating_sub(remaining) as u32;
-    strip_legacy_supply_remaining(&mut listing.metadata);
     true
 }
 

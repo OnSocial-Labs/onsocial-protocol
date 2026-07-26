@@ -86,6 +86,7 @@ impl Contract {
             buy_now_price: buy_now_price.map(U128),
         };
 
+        let app_id = self.resolve_token_app_id(token_id, token_app_id.as_deref());
         events::emit_auction_created(
             owner_id,
             token_id,
@@ -96,6 +97,7 @@ impl Contract {
                 media: media.as_deref(),
                 extra: extra.as_deref(),
             },
+            app_id.as_deref(),
         );
 
         let sale = Sale {
@@ -113,8 +115,7 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
-        if let Err(e) = self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref()) {
+        if let Err(e) = self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_deref()) {
             let _ = self.remove_sale(env::current_account_id(), token_id.to_string());
             return Err(e);
         }
@@ -191,8 +192,8 @@ impl Contract {
             self.check_transferable(&token, token_id, "auction settle")?;
             let (total_fee, _, _, _) = self.calculate_fee_split(
                 winning_bid,
-                self.resolve_token_app_id(token_id, token.app_id.as_ref())
-                    .as_ref(),
+                self.resolve_token_app_id(token_id, token.app_id.as_deref())
+                    .as_deref(),
             );
             let amount_after_fee = winning_bid.saturating_sub(total_fee);
             let _ = self.compute_payout(&token, &seller_id, amount_after_fee, Some(10))?;
@@ -228,7 +229,7 @@ impl Contract {
                 winning_bid,
                 result.revenue,
                 result.app_pool_amount,
-                result.app_id.as_ref(),
+                result.app_id.as_deref(),
             );
         } else {
             if let Some(bidder) = winner {

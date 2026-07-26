@@ -672,7 +672,7 @@ async fn test_app_id_resale_pays_royalties_and_sponsor_pool() -> Result<()> {
     let buyer = user(&worker, &contract).await?;
     let artist = worker.dev_create_account().await?;
     let app_artist = worker.dev_create_account().await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
 
     register_app(&contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?

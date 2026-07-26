@@ -7,8 +7,8 @@ fn setup_contract() -> Contract {
     new_contract()
 }
 
-fn app_id() -> AccountId {
-    "app.near".parse().unwrap()
+fn app_id() -> String {
+    "app".to_string()
 }
 
 fn default_options() -> scarce::types::ScarceOptions {
@@ -30,6 +30,7 @@ fn register_app(contract: &mut Contract) {
             primary_sale_bps: Some(500),
             curated: Some(false),
             metadata: Some(r#"{"base_uri":"https://example.com"}"#.to_string()),
+            creator_access: None,
         },
     };
     contract.execute(make_request(action)).unwrap();
@@ -142,16 +143,17 @@ fn get_all_app_ids_pagination() {
     let mut contract = setup_contract();
     register_app(&mut contract);
 
-    testing_env!(context(owner()).build());
+    testing_env!(context_with_deposit(owner(), 1).build());
     contract
         .execute(make_request(Action::RegisterApp {
-            app_id: "app2.near".parse().unwrap(),
+            app_id: "app2".to_string(),
             params: AppConfig {
                 max_user_bytes: None,
                 default_royalty: None,
                 primary_sale_bps: None,
                 curated: None,
                 metadata: None,
+                creator_access: None,
             },
         }))
         .unwrap();

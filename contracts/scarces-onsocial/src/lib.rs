@@ -34,7 +34,7 @@ mod upgrade;
 mod tests;
 
 pub use admin::ContractInfo;
-pub use app_pool::{AppConfig, AppPool};
+pub use app_pool::{AppConfig, AppPool, CreatorAccess};
 pub use collections::{
     AllowlistEntry, CollectionConfig, CollectionProgress, CollectionStats, LazyCollection,
     MintMode, RevocationMode,
@@ -56,8 +56,11 @@ pub use scarce::types::{
 };
 pub use storage::{StorageKey, UserStorageBalance};
 pub use validation::{
-    default_max_batch_mint, default_one, default_true, deserialize_max_per_purchase_collection,
-    deserialize_max_per_purchase_listing, deserialize_minted_count, deserialize_trailing_u32_or,
+    default_commission_sentinel, default_max_batch_mint, default_one, default_true,
+    deserialize_max_per_purchase_collection, deserialize_max_per_purchase_listing,
+    deserialize_minted_count, deserialize_trailing_account_vec,
+    deserialize_trailing_commission_bps, deserialize_trailing_creator_access,
+    deserialize_trailing_u16_or, deserialize_trailing_u32_or,
 };
 
 #[near(
@@ -94,15 +97,15 @@ pub struct Contract {
 
     pub fee_config: FeeConfig,
 
-    pub app_pools: LookupMap<AccountId, AppPool>,
-    pub app_pool_ids: IterableSet<AccountId>,
+    pub app_pools: LookupMap<String, AppPool>,
+    pub app_pool_ids: IterableSet<String>,
     // Storage/accounting invariant: tracks per-(user, app) byte attribution for tiered storage reversal.
     pub(crate) app_user_usage: LookupMap<String, u64>,
     // Relationship invariant: app_creators[app] reflects creators with at least one live collection in `app`.
-    pub(crate) app_creators: LookupMap<AccountId, IterableSet<AccountId>>,
+    pub(crate) app_creators: LookupMap<String, IterableSet<AccountId>>,
     pub(crate) app_creator_collection_counts: LookupMap<String, u32>,
     // Relationship invariant: app_owners[app] reflects accounts currently holding ≥1 token tagged with `app`.
-    pub(crate) app_owners: LookupMap<AccountId, IterableSet<AccountId>>,
+    pub(crate) app_owners: LookupMap<String, IterableSet<AccountId>>,
     pub(crate) app_owner_token_counts: LookupMap<String, u32>,
     pub platform_storage_balance: u128,
     pub user_storage: LookupMap<AccountId, UserStorageBalance>,

@@ -118,8 +118,11 @@ impl Contract {
             let total_revenue = collection.total_revenue.0;
             let marketplace_fees =
                 (total_revenue * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
-            let app_commission =
-                self.calculate_app_commission(total_revenue, collection.app_id.as_ref());
+            let app_commission = self.calculate_app_commission(
+                total_revenue,
+                collection.app_id.as_deref(),
+                Some(collection.app_commission_bps),
+            );
             let creator_revenue = total_revenue
                 .saturating_sub(marketplace_fees)
                 .saturating_sub(app_commission);

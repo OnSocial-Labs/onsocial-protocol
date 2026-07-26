@@ -326,13 +326,13 @@ impl Contract {
         // Preflight payout so settlement cannot fail after the token has moved.
         let (total_fee, _, _, _) = self.calculate_fee_split(
             price,
-            self.resolve_token_app_id(&token_id, token.app_id.as_ref())
-                .as_ref(),
+            self.resolve_token_app_id(&token_id, token.app_id.as_deref())
+                .as_deref(),
         );
         let amount_after_fee = price.saturating_sub(total_fee);
         let _ = self.compute_payout(&token, &seller_id, amount_after_fee, Some(10))?;
 
-        let listing_app_id = self.resolve_token_app_id(&token_id, token.app_id.as_ref());
+        let listing_app_id = self.resolve_token_app_id(&token_id, token.app_id.as_deref());
 
         // Security boundary: remove listing before transfer side effects.
         let before_remove = self.storage_usage_flushed();
@@ -366,7 +366,7 @@ impl Contract {
             }
         };
 
-        self.release_storage_waterfall(&seller_id, bytes_freed, listing_app_id.as_ref());
+        self.release_storage_waterfall(&seller_id, bytes_freed, listing_app_id.as_deref());
 
         let current_contract = env::current_account_id();
         events::emit_scarce_purchase(&events::ScarcePurchase {
@@ -377,7 +377,7 @@ impl Contract {
             price: U128(price),
             marketplace_fee: result.revenue,
             app_pool_amount: result.app_pool_amount,
-            app_id: result.app_id.as_ref(),
+            app_id: result.app_id.as_deref(),
         });
         Ok(price)
     }

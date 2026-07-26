@@ -189,7 +189,7 @@ impl Contract {
             self.release_storage_waterfall(
                 &collection.creator_id,
                 bytes_freed,
-                collection.app_id.as_ref(),
+                collection.app_id.as_deref(),
             );
         }
 

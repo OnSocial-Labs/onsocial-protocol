@@ -3,8 +3,8 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-fn app_id() -> AccountId {
-    "myapp.near".parse().unwrap()
+fn app_id() -> String {
+    "myapp".to_string()
 }
 
 fn moderator() -> AccountId {
@@ -118,9 +118,9 @@ fn ban_collection_already_banned_fails() {
 #[test]
 fn ban_collection_wrong_app_fails() {
     let mut contract = setup_with_app_collection("banme4");
-    testing_env!(context(owner()).build());
+    testing_env!(context_with_deposit(owner(), 1).build());
 
-    let other_app: AccountId = "other.near".parse().unwrap();
+    let other_app = "other".to_string();
     contract
         .execute(make_request(Action::RegisterApp {
             app_id: other_app.clone(),

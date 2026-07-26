@@ -204,7 +204,7 @@ fn uses_prepaid_balance_excluded_actions() {
     assert!(!Action::StorageDeposit { account_id: None }.uses_prepaid_balance());
     assert!(
         !Action::FundAppPool {
-            app_id: "app.near".parse().unwrap()
+            app_id: "app".to_string()
         }
         .uses_prepaid_balance()
     );

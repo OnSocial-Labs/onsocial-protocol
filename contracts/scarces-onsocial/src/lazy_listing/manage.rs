@@ -43,11 +43,19 @@ impl Contract {
             crate::validation::validate_royalty(r)?;
         }
 
-        if let Some(ref app) = app_id {
-            if !self.app_pools.contains_key(app) {
-                return Err(MarketplaceError::NotFound("App pool not found".into()));
+        let app_commission_bps = if let Some(ref app) = app_id {
+            let pool = self.app_pools.get(app).ok_or_else(|| {
+                MarketplaceError::NotFound(format!("App pool not found: {}", app))
+            })?;
+            if !pool.can_create_collection(creator_id) {
+                return Err(MarketplaceError::Unauthorized(
+                    "This app restricts who can create listings".into(),
+                ));
             }
-        }
+            pool.primary_sale_bps
+        } else {
+            0
+        };
 
         if let Some(exp) = expires_at {
             if exp <= env::block_timestamp() {
@@ -59,7 +67,7 @@ impl Contract {
 
         let listing_app_id = app_id.clone();
 
-        let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
+        let merged_royalty = self.merge_royalties(app_id.as_deref(), royalty)?;
 
         // Storage key invariant: `ll:` namespace is reserved for lazy-listing IDs.
         let id = self.next_token_id;
@@ -85,6 +93,7 @@ impl Contract {
             created_at: env::block_timestamp(),
             minted_count: 0,
             max_per_purchase,
+            app_commission_bps,
         };
 
         // Storage/accounting invariant: rollback listing insert if storage charge fails.
@@ -92,7 +101,7 @@ impl Contract {
         self.lazy_listings.insert(listing_id.clone(), listing);
         let bytes_used = self.storage_usage_flushed().saturating_sub(before);
         if let Err(e) =
-            self.charge_storage_waterfall(creator_id, bytes_used, listing_app_id.as_ref())
+            self.charge_storage_waterfall(creator_id, bytes_used, listing_app_id.as_deref())
         {
             self.lazy_listings.remove(&listing_id);
             return Err(e);
@@ -110,6 +119,8 @@ impl Contract {
                 media: media.as_deref(),
                 extra: extra.as_deref(),
             },
+            listing_app_id.as_deref(),
+            app_commission_bps,
         );
         Ok(listing_id)
     }
@@ -137,7 +148,7 @@ impl Contract {
         let before = self.storage_usage_flushed();
         self.lazy_listings.remove(listing_id);
         let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
-        self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_ref());
+        self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_deref());
 
         events::emit_lazy_listing_cancelled(&creator_id, listing_id);
         Ok(())

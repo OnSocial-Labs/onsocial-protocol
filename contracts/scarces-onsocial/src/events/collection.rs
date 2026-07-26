@@ -10,12 +10,16 @@ pub fn emit_collection_created(
     collection_id: &str,
     total_supply: u32,
     price_near: U128,
+    app_id: Option<&str>,
+    app_commission_bps: u16,
 ) {
     EventBuilder::new(COLLECTION, "create", creator_id)
         .field("creator_id", creator_id)
         .field("collection_id", collection_id)
         .field("total_supply", total_supply)
         .field("price_near", price_near)
+        .field_opt("app_id", app_id)
+        .field("app_commission_bps", app_commission_bps as u32)
         .emit();
 }
 
@@ -28,7 +32,7 @@ pub struct CollectionPurchase<'a> {
     pub marketplace_fee: U128,
     pub app_pool_amount: U128,
     pub app_commission: U128,
-    pub app_id: Option<&'a AccountId>,
+    pub app_id: Option<&'a str>,
     pub token_ids: &'a [String],
 }
 
@@ -57,7 +61,7 @@ pub fn emit_collection_metadata_update(actor_id: &AccountId, collection_id: &str
 
 pub fn emit_collection_app_metadata_update(
     actor_id: &AccountId,
-    app_id: &AccountId,
+    app_id: &str,
     collection_id: &str,
 ) {
     EventBuilder::new(COLLECTION, "app_metadata_update", actor_id)

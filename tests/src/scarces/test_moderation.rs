@@ -42,7 +42,7 @@ async fn setup_app(
     contract: &near_workspaces::Contract,
 ) -> Result<(near_workspaces::Account, String)> {
     let app_owner = user_with_storage(worker, contract).await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     register_app(contract, &app_owner, &app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;

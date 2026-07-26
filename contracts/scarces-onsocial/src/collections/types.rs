@@ -45,7 +45,7 @@ pub struct LazyCollection {
     pub start_time: Option<u64>,
     pub end_time: Option<u64>,
     pub created_at: u64,
-    pub app_id: Option<AccountId>,
+    pub app_id: Option<String>,
     pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
     #[serde(default)]
     pub renewable: bool,
@@ -97,6 +97,10 @@ pub struct LazyCollection {
     #[serde(default = "crate::default_max_batch_mint")]
     #[borsh(deserialize_with = "crate::deserialize_max_per_purchase_collection")]
     pub max_per_purchase: u32,
+    /// Snapshot of app `primary_sale_bps` at create time. `u16::MAX` = legacy (use live pool).
+    #[serde(default = "crate::default_commission_sentinel")]
+    #[borsh(deserialize_with = "crate::deserialize_trailing_commission_bps")]
+    pub app_commission_bps: u16,
 }
 
 #[near(serializers = [json])]
@@ -145,7 +149,7 @@ pub struct CollectionProgress {
 pub struct CollectionStats {
     pub collection_id: String,
     pub creator_id: AccountId,
-    pub app_id: Option<AccountId>,
+    pub app_id: Option<String>,
     pub total_supply: u32,
     pub minted_count: u32,
     pub remaining: u32,

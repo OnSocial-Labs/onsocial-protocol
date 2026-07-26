@@ -101,7 +101,7 @@ impl Contract {
             return true;
         }
 
-        let app_for_index = self.resolve_token_app_id(&token_id, token.app_id.as_ref());
+        let app_for_index = self.resolve_token_app_id(&token_id, token.app_id.as_deref());
 
         self.remove_token_from_owner(&receiver_id, &token_id);
 
@@ -162,7 +162,7 @@ impl Contract {
 
         // State/indexing invariant: delist uses pre-transfer owner context.
         let old_owner_id = token.owner_id.clone();
-        let app_for_index = self.resolve_token_app_id(token_id, token.app_id.as_ref());
+        let app_for_index = self.resolve_token_app_id(token_id, token.app_id.as_deref());
 
         if sender_id != &token.owner_id {
             if let Some(approved_id) = approval_id {

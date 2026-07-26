@@ -24,6 +24,14 @@ impl Contract {
                 self.remove_moderator(actor_id, &app_id, &account_id)?;
                 Ok(Value::Null)
             }
+            Action::AddApprovedCreator { app_id, account_id } => {
+                self.add_approved_creator(actor_id, &app_id, account_id)?;
+                Ok(Value::Null)
+            }
+            Action::RemoveApprovedCreator { app_id, account_id } => {
+                self.remove_approved_creator(actor_id, &app_id, &account_id)?;
+                Ok(Value::Null)
+            }
             Action::BanCollection {
                 app_id,
                 collection_id,

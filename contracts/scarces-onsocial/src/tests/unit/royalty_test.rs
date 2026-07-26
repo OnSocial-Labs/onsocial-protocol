@@ -13,7 +13,7 @@ fn merge_both_none() {
 #[test]
 fn merge_app_only() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
 
     let mut app_royalty = HashMap::new();
     app_royalty.insert("artist.near".parse::<AccountId>().unwrap(), 500u32);
@@ -30,10 +30,15 @@ fn merge_app_only() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
-    let result = contract.merge_royalties(Some(&app), None).unwrap().unwrap();
+    let result = contract
+        .merge_royalties(Some(app.as_str()), None)
+        .unwrap()
+        .unwrap();
     assert_eq!(result.len(), 1);
     assert_eq!(
         *result
@@ -65,7 +70,7 @@ fn merge_creator_only() {
 #[test]
 fn merge_disjoint_accounts() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
 
     let mut app_royalty = HashMap::new();
     app_royalty.insert("platform.near".parse::<AccountId>().unwrap(), 200u32);
@@ -82,6 +87,8 @@ fn merge_disjoint_accounts() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
@@ -89,7 +96,7 @@ fn merge_disjoint_accounts() {
     creator_royalty.insert("creator.near".parse::<AccountId>().unwrap(), 300u32);
 
     let result = contract
-        .merge_royalties(Some(&app), Some(creator_royalty))
+        .merge_royalties(Some(app.as_str()), Some(creator_royalty))
         .unwrap()
         .unwrap();
     assert_eq!(result.len(), 2);
@@ -110,7 +117,7 @@ fn merge_disjoint_accounts() {
 #[test]
 fn merge_shared_account_summed() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
     let shared: AccountId = "shared.near".parse().unwrap();
 
     let mut app_royalty = HashMap::new();
@@ -128,6 +135,8 @@ fn merge_shared_account_summed() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
@@ -135,7 +144,7 @@ fn merge_shared_account_summed() {
     creator_royalty.insert(shared.clone(), 300u32);
 
     let result = contract
-        .merge_royalties(Some(&app), Some(creator_royalty))
+        .merge_royalties(Some(app.as_str()), Some(creator_royalty))
         .unwrap()
         .unwrap();
     assert_eq!(result.len(), 1);
@@ -145,7 +154,7 @@ fn merge_shared_account_summed() {
 #[test]
 fn merge_exceeds_max_royalty_bps_fails() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
 
     let mut app_royalty = HashMap::new();
     app_royalty.insert("a.near".parse::<AccountId>().unwrap(), 3_000u32);
@@ -162,6 +171,8 @@ fn merge_exceeds_max_royalty_bps_fails() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
@@ -169,7 +180,7 @@ fn merge_exceeds_max_royalty_bps_fails() {
     creator_royalty.insert("b.near".parse::<AccountId>().unwrap(), 2_001u32);
 
     let err = contract
-        .merge_royalties(Some(&app), Some(creator_royalty))
+        .merge_royalties(Some(app.as_str()), Some(creator_royalty))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -177,7 +188,7 @@ fn merge_exceeds_max_royalty_bps_fails() {
 #[test]
 fn merge_exactly_max_royalty_bps_ok() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
 
     let mut app_royalty = HashMap::new();
     app_royalty.insert("a.near".parse::<AccountId>().unwrap(), 2_500u32);
@@ -194,6 +205,8 @@ fn merge_exactly_max_royalty_bps_ok() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
@@ -201,7 +214,7 @@ fn merge_exactly_max_royalty_bps_ok() {
     creator_royalty.insert("b.near".parse::<AccountId>().unwrap(), 2_500u32);
 
     let result = contract
-        .merge_royalties(Some(&app), Some(creator_royalty))
+        .merge_royalties(Some(app.as_str()), Some(creator_royalty))
         .unwrap()
         .unwrap();
     let total: u32 = result.values().sum();

@@ -43,7 +43,7 @@ async fn user_with_storage(
 async fn test_lazy_listings_by_app_empty() -> Result<()> {
     let (_worker, _owner, contract) = setup().await?;
 
-    let listings = get_lazy_listings_by_app(&contract, "nonexistent.near", None, None).await?;
+    let listings = get_lazy_listings_by_app(&contract, "nonexistent-app", None, None).await?;
     assert!(listings.is_empty());
 
     Ok(())
@@ -53,7 +53,7 @@ async fn test_lazy_listings_by_app_empty() -> Result<()> {
 async fn test_lazy_listings_by_app_returns_matching() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = worker.dev_create_account().await?;
-    let app_id = app_owner.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
     storage_deposit(&contract, &app_owner, None, DEPOSIT_LARGE)
         .await?
         .into_result()?;

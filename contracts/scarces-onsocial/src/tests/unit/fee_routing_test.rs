@@ -17,7 +17,7 @@ fn fee_split_no_app_id() {
 #[test]
 fn fee_split_with_app_pool() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
     contract.app_pools.insert(
         app.clone(),
         AppPool {
@@ -30,11 +30,14 @@ fn fee_split_with_app_pool() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
     let price: u128 = 10_000_000_000_000_000_000_000_000;
-    let (total, app_amt, platform, revenue) = contract.calculate_fee_split(price, Some(&app));
+    let (total, app_amt, platform, revenue) =
+        contract.calculate_fee_split(price, Some(app.as_str()));
 
     assert_eq!(total, price * 200 / 10_000);
     assert_eq!(app_amt, price * 50 / 10_000);
@@ -45,8 +48,9 @@ fn fee_split_with_app_pool() {
 #[test]
 fn fee_split_missing_app_pool_falls_to_platform() {
     let contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
-    let (total, app_amt, platform, revenue) = contract.calculate_fee_split(1_000_000, Some(&app));
+    let app = "app".to_string();
+    let (total, app_amt, platform, revenue) =
+        contract.calculate_fee_split(1_000_000, Some(app.as_str()));
 
     assert_eq!(app_amt, 0, "pool not found → no app share");
     assert!(platform > 0, "falls back to platform");
@@ -83,7 +87,7 @@ fn route_fee_with_app_funds_pool() {
     let mut contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
     contract.app_pools.insert(
         app.clone(),
         AppPool {
@@ -96,11 +100,13 @@ fn route_fee_with_app_funds_pool() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
     let price: u128 = 2_000_000_000_000_000_000_000_000;
-    let (_revenue, app_amt) = contract.route_fee(price, Some(&app));
+    let (_revenue, app_amt) = contract.route_fee(price, Some(app.as_str()));
 
     assert!(app_amt > 0);
     let pool = contract.app_pools.get(&app).unwrap();
@@ -112,10 +118,10 @@ fn route_fee_missing_pool_falls_to_platform() {
     let mut contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let app: AccountId = "ghost.near".parse().unwrap();
+    let app = "ghost".to_string();
     let before = contract.platform_storage_balance;
 
-    let (_revenue, app_amt) = contract.route_fee(1_000_000, Some(&app));
+    let (_revenue, app_amt) = contract.route_fee(1_000_000, Some(app.as_str()));
     assert_eq!(app_amt, 0, "pool missing → 0 returned for app_amt");
     assert!(contract.platform_storage_balance > before);
 }
@@ -271,13 +277,13 @@ fn update_fee_config_total_below_min_fails() {
 #[test]
 fn app_commission_no_app() {
     let contract = new_contract();
-    assert_eq!(contract.calculate_app_commission(1_000_000, None), 0);
+    assert_eq!(contract.calculate_app_commission(1_000_000, None, None), 0);
 }
 
 #[test]
 fn app_commission_pool_zero_bps() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
     contract.app_pools.insert(
         app.clone(),
         AppPool {
@@ -290,15 +296,20 @@ fn app_commission_pool_zero_bps() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
-    assert_eq!(contract.calculate_app_commission(1_000_000, Some(&app)), 0);
+    assert_eq!(
+        contract.calculate_app_commission(1_000_000, Some("app"), None),
+        0
+    );
 }
 
 #[test]
 fn app_commission_computed() {
     let mut contract = new_contract();
-    let app: AccountId = "app.near".parse().unwrap();
+    let app = "app".to_string();
     contract.app_pools.insert(
         app.clone(),
         AppPool {
@@ -311,10 +322,68 @@ fn app_commission_computed() {
             moderators: vec![],
             curated: false,
             metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
         },
     );
 
     let price: u128 = 10_000;
-    let commission = contract.calculate_app_commission(price, Some(&app));
+    let commission = contract.calculate_app_commission(price, Some(app.as_str()), None);
     assert_eq!(commission, price * 500 / 10_000);
+}
+
+#[test]
+fn app_commission_snapshot_overrides_live_pool() {
+    let mut contract = new_contract();
+    let app = "app".to_string();
+    contract.app_pools.insert(
+        app.clone(),
+        AppPool {
+            owner_id: owner(),
+            balance: U128(0),
+            used_bytes: 0,
+            max_user_bytes: 50_000,
+            default_royalty: None,
+            primary_sale_bps: 900,
+            moderators: vec![],
+            curated: false,
+            metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
+        },
+    );
+
+    let price: u128 = 10_000;
+    assert_eq!(
+        contract.calculate_app_commission(price, Some(app.as_str()), Some(250)),
+        price * 250 / 10_000
+    );
+}
+
+#[test]
+fn app_commission_sentinel_falls_back_to_live_pool() {
+    let mut contract = new_contract();
+    let app = "app".to_string();
+    contract.app_pools.insert(
+        app.clone(),
+        AppPool {
+            owner_id: owner(),
+            balance: U128(0),
+            used_bytes: 0,
+            max_user_bytes: 50_000,
+            default_royalty: None,
+            primary_sale_bps: 400,
+            moderators: vec![],
+            curated: false,
+            metadata: None,
+            creator_access: CreatorAccess::Open,
+            approved_creators: vec![],
+        },
+    );
+
+    let price: u128 = 10_000;
+    assert_eq!(
+        contract.calculate_app_commission(price, Some(app.as_str()), Some(u16::MAX)),
+        price * 400 / 10_000
+    );
 }

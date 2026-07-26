@@ -62,7 +62,7 @@ pub struct ScarcePurchase<'a> {
     pub price: U128,
     pub marketplace_fee: u128,
     pub app_pool_amount: u128,
-    pub app_id: Option<&'a AccountId>,
+    pub app_id: Option<&'a str>,
 }
 
 pub fn emit_scarce_purchase(e: &ScarcePurchase) {
@@ -155,6 +155,7 @@ pub fn emit_native_scarce_listed(
     price: U128,
     expires_at: Option<u64>,
     browse: super::ListingBrowseMeta<'_>,
+    app_id: Option<&str>,
 ) {
     EventBuilder::new(SCARCE, "list_native", owner_id)
         .field("owner_id", owner_id)
@@ -164,6 +165,7 @@ pub fn emit_native_scarce_listed(
         .field_opt("media", browse.media)
         .field_opt("extra", browse.extra)
         .field_opt("expires_at", expires_at)
+        .field_opt("app_id", app_id)
         .emit();
 }
 
@@ -282,6 +284,7 @@ pub fn emit_auction_created(
     auction: &crate::sale::AuctionState,
     expires_at: Option<u64>,
     browse: super::ListingBrowseMeta<'_>,
+    app_id: Option<&str>,
 ) {
     EventBuilder::new(SCARCE, "auction_created", owner_id)
         .field("owner_id", owner_id)
@@ -295,6 +298,7 @@ pub fn emit_auction_created(
         .field_opt("title", browse.title)
         .field_opt("media", browse.media)
         .field_opt("extra", browse.extra)
+        .field_opt("app_id", app_id)
         .emit();
 }
 
@@ -321,7 +325,7 @@ pub fn emit_auction_settled(
     winning_bid: u128,
     revenue: u128,
     app_pool_amount: u128,
-    app_id: Option<&AccountId>,
+    app_id: Option<&str>,
 ) {
     EventBuilder::new(SCARCE, "auction_settled", winner_id)
         .field("winner_id", winner_id)

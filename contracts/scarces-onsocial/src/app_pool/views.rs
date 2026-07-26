@@ -2,16 +2,16 @@ use crate::*;
 
 #[near]
 impl Contract {
-    pub fn get_app_pool(&self, app_id: AccountId) -> Option<AppPool> {
+    pub fn get_app_pool(&self, app_id: String) -> Option<AppPool> {
         self.app_pools.get(&app_id).cloned()
     }
 
-    pub fn get_app_user_usage(&self, account_id: AccountId, app_id: AccountId) -> u64 {
+    pub fn get_app_user_usage(&self, account_id: AccountId, app_id: String) -> u64 {
         let key = format!("{}:{}", account_id, app_id);
         self.app_user_usage.get(&key).copied().unwrap_or(0)
     }
 
-    pub fn get_app_user_remaining(&self, account_id: AccountId, app_id: AccountId) -> u64 {
+    pub fn get_app_user_remaining(&self, account_id: AccountId, app_id: String) -> u64 {
         let key = format!("{}:{}", account_id, app_id);
         let used = self.app_user_usage.get(&key).copied().unwrap_or(0);
         if let Some(pool) = self.app_pools.get(&app_id) {
@@ -28,7 +28,7 @@ impl Contract {
             .unwrap_or_default()
     }
 
-    pub fn get_app_metadata(&self, app_id: AccountId) -> Option<Value> {
+    pub fn get_app_metadata(&self, app_id: String) -> Option<Value> {
         self.app_pools
             .get(&app_id)
             .and_then(|pool| pool.metadata.as_ref())
@@ -39,7 +39,7 @@ impl Contract {
         self.app_pool_ids.len()
     }
 
-    pub fn get_all_app_ids(&self, from_index: Option<u32>, limit: Option<u32>) -> Vec<AccountId> {
+    pub fn get_all_app_ids(&self, from_index: Option<u32>, limit: Option<u32>) -> Vec<String> {
         let start = from_index.unwrap_or(0) as usize;
         let limit = limit.unwrap_or(50).min(100) as usize;
         self.app_pool_ids
@@ -69,7 +69,7 @@ impl Contract {
 
     pub fn get_app_creators(
         &self,
-        app_id: AccountId,
+        app_id: String,
         from_index: Option<u32>,
         limit: Option<u32>,
     ) -> Vec<AccountId> {
@@ -81,11 +81,11 @@ impl Contract {
         set.iter().skip(start).take(limit).cloned().collect()
     }
 
-    pub fn get_app_creator_count(&self, app_id: AccountId) -> u32 {
+    pub fn get_app_creator_count(&self, app_id: String) -> u32 {
         self.app_creators.get(&app_id).map(|s| s.len()).unwrap_or(0)
     }
 
-    pub fn is_app_creator(&self, app_id: AccountId, account_id: AccountId) -> bool {
+    pub fn is_app_creator(&self, app_id: String, account_id: AccountId) -> bool {
         self.app_creators
             .get(&app_id)
             .is_some_and(|s| s.contains(&account_id))
@@ -93,7 +93,7 @@ impl Contract {
 
     pub fn get_app_owners(
         &self,
-        app_id: AccountId,
+        app_id: String,
         from_index: Option<u32>,
         limit: Option<u32>,
     ) -> Vec<AccountId> {
@@ -105,13 +105,38 @@ impl Contract {
         set.iter().skip(start).take(limit).cloned().collect()
     }
 
-    pub fn get_app_owner_count(&self, app_id: AccountId) -> u32 {
+    pub fn get_app_owner_count(&self, app_id: String) -> u32 {
         self.app_owners.get(&app_id).map(|s| s.len()).unwrap_or(0)
     }
 
-    pub fn is_app_owner(&self, app_id: AccountId, account_id: AccountId) -> bool {
+    pub fn is_app_owner(&self, app_id: String, account_id: AccountId) -> bool {
         self.app_owners
             .get(&app_id)
             .is_some_and(|s| s.contains(&account_id))
+    }
+
+    pub fn is_approved_creator(&self, app_id: String, account_id: AccountId) -> bool {
+        self.app_pools
+            .get(&app_id)
+            .is_some_and(|p| p.is_approved_creator(&account_id))
+    }
+
+    pub fn get_approved_creators(
+        &self,
+        app_id: String,
+        from_index: Option<u32>,
+        limit: Option<u32>,
+    ) -> Vec<AccountId> {
+        let Some(pool) = self.app_pools.get(&app_id) else {
+            return vec![];
+        };
+        let start = from_index.unwrap_or(0) as usize;
+        let limit = limit.unwrap_or(50).min(100) as usize;
+        pool.approved_creators
+            .iter()
+            .skip(start)
+            .take(limit)
+            .cloned()
+            .collect()
     }
 }

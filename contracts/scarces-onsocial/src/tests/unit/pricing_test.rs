@@ -40,6 +40,7 @@ fn dutch_collection(floor: u128, start_price: u128, start: u64, end: u64) -> Laz
         metadata: None,
         app_metadata: None,
         max_per_purchase: MAX_BATCH_MINT,
+        app_commission_bps: 0,
     }
 }
 
@@ -78,6 +79,7 @@ fn fixed_collection(price: u128) -> LazyCollection {
         metadata: None,
         app_metadata: None,
         max_per_purchase: MAX_BATCH_MINT,
+        app_commission_bps: 0,
     }
 }
 

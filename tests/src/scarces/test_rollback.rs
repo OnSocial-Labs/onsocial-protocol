@@ -170,7 +170,7 @@ async fn test_create_collection_rollback_no_storage() -> Result<()> {
 async fn test_list_native_scarce_rollback_drained_storage() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let user = user_with_storage(&worker, &contract).await?;
-    let app_id = user.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
 
     // Register a real app pool so quick_mint's validation passes.
     register_app(&contract, &user, &app_id, DEPOSIT_LARGE)
@@ -245,7 +245,7 @@ async fn test_list_native_scarce_rollback_drained_storage() -> Result<()> {
 async fn test_list_auction_rollback_drained_storage() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let user = user_with_storage(&worker, &contract).await?;
-    let app_id = user.id().to_string();
+    let app_id = TEST_APP_ID.to_string();
 
     // Register a real app pool so quick_mint's validation passes.
     register_app(&contract, &user, &app_id, DEPOSIT_LARGE)

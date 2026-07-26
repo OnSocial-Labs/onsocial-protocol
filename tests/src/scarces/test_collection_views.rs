@@ -356,15 +356,15 @@ async fn test_get_total_collections() -> Result<()> {
 async fn setup_app(
     app_owner: &near_workspaces::Account,
     contract: &near_workspaces::Contract,
+    app_id: &str,
 ) -> Result<String> {
     storage_deposit(contract, app_owner, None, DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let app_id = app_owner.id().to_string();
-    register_app(contract, app_owner, &app_id, DEPOSIT_LARGE)
+    register_app(contract, app_owner, app_id, DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    Ok(app_id)
+    Ok(app_id.to_string())
 }
 
 #[tokio::test]
@@ -382,7 +382,7 @@ async fn test_app_count_after_register() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = worker.dev_create_account().await?;
 
-    setup_app(&app_owner, &contract).await?;
+    setup_app(&app_owner, &contract, TEST_APP_ID).await?;
 
     let count = get_app_count(&contract).await?;
     assert_eq!(count, 1);
@@ -404,13 +404,12 @@ async fn test_get_all_app_ids_empty() -> Result<()> {
 async fn test_get_all_app_ids_returns_registered() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = worker.dev_create_account().await?;
-    let app_id = app_owner.id().to_string();
 
-    setup_app(&app_owner, &contract).await?;
+    setup_app(&app_owner, &contract, TEST_APP_ID).await?;
 
     let ids = get_all_app_ids(&contract, None, None).await?;
     assert_eq!(ids.len(), 1);
-    assert_eq!(ids[0], app_id);
+    assert_eq!(ids[0], TEST_APP_ID);
 
     Ok(())
 }
@@ -421,10 +420,10 @@ async fn test_get_all_app_ids_pagination() -> Result<()> {
 
     // Register two apps
     let app_owner1 = worker.dev_create_account().await?;
-    setup_app(&app_owner1, &contract).await?;
+    setup_app(&app_owner1, &contract, "app-one").await?;
 
     let app_owner2 = worker.dev_create_account().await?;
-    setup_app(&app_owner2, &contract).await?;
+    setup_app(&app_owner2, &contract, "app-two").await?;
 
     assert_eq!(get_app_count(&contract).await?, 2);
 
