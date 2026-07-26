@@ -43,7 +43,13 @@
 // Zero deps. Returns raw SVG markup.
 // ---------------------------------------------------------------------------
 
-import { MOODS, resolveMood, type Mood, type MoodKey } from './themes.js';
+import {
+  MOODS,
+  resolveMood,
+  familyForResvgWeight,
+  type Mood,
+  type MoodKey,
+} from './themes.js';
 import {
   CARD_FORMAT_REGISTRY,
   isCardFormat,
@@ -1001,7 +1007,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       provLine = truncateVisual(provLine, budget);
     }
     bylineBlock += `
-  <text x="${PADDING}" y="${stackBottomY}" font-family="${mood.bylineFamily}" font-size="${BYLINE_PROVENANCE_SIZE}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_PROVENANCE_OPACITY}">${esc(provLine)}</text>`;
+  <text x="${PADDING}" y="${stackBottomY}" font-family="${familyForResvgWeight(mood.bylineFamily, 400)}" font-size="${BYLINE_PROVENANCE_SIZE}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_PROVENANCE_OPACITY}">${esc(provLine)}</text>`;
     stackBottomY -= BYLINE_PROVENANCE_SIZE + BYLINE_PROVENANCE_GAP;
   }
 
@@ -1042,7 +1048,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
 
     if (!hasDistinctName) {
       signatureBlock = `
-  <text x="${textX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>`;
+  <text x="${textX}" y="${handleY}" font-family="${familyForResvgWeight(mood.bylineFamily, 500)}" font-size="${handleSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_SOLO_OPACITY}">${esc(handle)}</text>`;
       bylineTopY = Math.min(bylineTopY, handleY - handleSize);
     } else {
       const nameSize = BYLINE_NAME_SIZE;
@@ -1058,8 +1064,8 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
       }
       const nameY = handleY - handleSize - BYLINE_STACK_GAP;
       signatureBlock = `
-  <text x="${textX}" y="${nameY}" font-family="${mood.bylineFamily}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
-  <text x="${textX}" y="${handleY}" font-family="${mood.bylineFamily}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>`;
+  <text x="${textX}" y="${nameY}" font-family="${familyForResvgWeight(mood.bylineFamily, 500)}" font-size="${nameSize}" font-weight="500" fill="${ink}" fill-opacity="${BYLINE_NAME_OPACITY}">${esc(displayName)}</text>
+  <text x="${textX}" y="${handleY}" font-family="${familyForResvgWeight(mood.bylineFamily, 400)}" font-size="${handleSize}" font-weight="400" fill="${ink}" fill-opacity="${BYLINE_HANDLE_OPACITY}">${esc(handle)}</text>`;
       bylineTopY = Math.min(bylineTopY, nameY - nameSize);
     }
 
@@ -1122,7 +1128,7 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     </linearGradient>${photoDefs}${avatarDefs}
   </defs>
   <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#g)"/>${markBlock}
-  <text x="${titleX}" y="${titleStartY}" font-family="${mood.titleFamily}" font-size="${titleFontSize}" font-weight="${mood.titleWeight}" fill="${mood.textPrimary}" fill-opacity="${TITLE_FILL_OPACITY}"${titleLetterSpacingAttr}${titleAnchorAttr}>${titleTspans}</text>${photoBlock}${bylineBlock}
+  <text x="${titleX}" y="${titleStartY}" font-family="${familyForResvgWeight(mood.titleFamily, mood.titleWeight)}" font-size="${titleFontSize}" font-weight="${mood.titleWeight}" fill="${mood.textPrimary}" fill-opacity="${TITLE_FILL_OPACITY}"${titleLetterSpacingAttr}${titleAnchorAttr}>${titleTspans}</text>${photoBlock}${bylineBlock}
 </svg>`;
 }
 

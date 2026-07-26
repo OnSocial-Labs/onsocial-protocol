@@ -364,8 +364,8 @@ export function ScarceListForm({
     return deriveMintTitle(mintBody, maxCharacters) || `Post ${post.postId}`;
   }, [mintBody, post.postId, usesGeneratedCard, cardTheme.cardFormat]);
 
-  // Mint-true PNG preview (same gateway builder as list). Live SVG stays as
-  // placeholder until the first PNG returns; theme changes debounce.
+  // Mint-true PNG preview (same gateway builder as list). Keep live SVG
+  // while the PNG loads so the sheet doesn't jump or flash a blank cover.
   useEffect(() => {
     const wantsMintPreview = usesGeneratedCard && !usesPhotoCard;
     if (!wantsMintPreview || !accountId) {
@@ -378,6 +378,8 @@ export function ScarceListForm({
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setMintPreviewPending(true);
+      // Drop stale PNG so ScarcePostPreview falls back to live SVG for this theme.
+      setMintPreviewUrl(null);
       void (async () => {
         try {
           const client = createAppOnSocialClient(accountId);
@@ -702,30 +704,32 @@ export function ScarceListForm({
         />
       ) : (
         <>
-          <ScarcePostPreview
-            post={post}
-            creatorDisplayName={authorName}
-            creatorAvatarUrl={creatorAvatarUrl}
-            {...(coverPreviewUrl && !usesPhotoCard
-              ? { mediaUrl: coverPreviewUrl }
-              : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
-                ? { mediaUrl: mintPreviewUrl }
+          <div
+            className={`scarce-list-preview${mintPreviewPending && usesGeneratedCard && !usesPhotoCard ? ' is-pending' : ''}`}
+            aria-busy={
+              mintPreviewPending && usesGeneratedCard && !usesPhotoCard
+            }
+          >
+            <ScarcePostPreview
+              post={post}
+              creatorDisplayName={authorName}
+              creatorAvatarUrl={creatorAvatarUrl}
+              {...(coverPreviewUrl && !usesPhotoCard
+                ? { mediaUrl: coverPreviewUrl }
+                : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
+                  ? { mediaUrl: mintPreviewUrl }
+                  : {})}
+              {...(usesGeneratedCard
+                ? {
+                    cardBg: cardTheme.cardBg,
+                    cardFormat: cardTheme.cardFormat,
+                    cardMarkShape: cardTheme.cardMarkShape,
+                    cardMarkColor: cardTheme.cardMarkColor,
+                    cardTitleAlign: cardTheme.cardTitleAlign,
+                  }
                 : {})}
-            {...(usesGeneratedCard
-              ? {
-                  cardBg: cardTheme.cardBg,
-                  cardFormat: cardTheme.cardFormat,
-                  cardMarkShape: cardTheme.cardMarkShape,
-                  cardMarkColor: cardTheme.cardMarkColor,
-                  cardTitleAlign: cardTheme.cardTitleAlign,
-                }
-              : {})}
-          />
-          {mintPreviewPending && usesGeneratedCard && !usesPhotoCard ? (
-            <p className="app-page-note" aria-live="polite">
-              Rendering card…
-            </p>
-          ) : null}
+            />
+          </div>
           {mintPreviewError ? (
             <p className="profile-support-error" role="alert">
               {mintPreviewError}

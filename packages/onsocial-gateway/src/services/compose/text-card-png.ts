@@ -99,8 +99,10 @@ export async function buildTextCardPng(
   if (avatarDataUri) {
     creator = { ...creator, avatar: avatarDataUri };
   } else {
-    const { avatar: _omit, ...rest } = creator;
-    creator = rest;
+    creator = {
+      accountId: creator.accountId,
+      ...(creator.displayName ? { displayName: creator.displayName } : {}),
+    };
   }
 
   let cardFormat: CardFormat | undefined;

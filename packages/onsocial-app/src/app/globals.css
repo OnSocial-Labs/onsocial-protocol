@@ -14965,6 +14965,22 @@ a.os-surface-row {
     color: inherit;
   }
 
+  /* List sheet: hold layout while mint-true PNG loads (live SVG underneath). */
+  .scarce-list-preview {
+    margin: 0 auto 0.7rem;
+    width: min(100%, 11rem);
+  }
+
+  .scarce-list-preview .scarce-post-preview {
+    margin-bottom: 0;
+    width: 100%;
+  }
+
+  .scarce-list-preview.is-pending {
+    opacity: 0.72;
+    transition: opacity 160ms ease;
+  }
+
   /* Feed: match single post-media tile width, not the sheet picker. */
   .scarce-post-preview--feed {
     margin: 0.45rem 0 0;

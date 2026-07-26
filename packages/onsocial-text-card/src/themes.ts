@@ -101,6 +101,35 @@ const MONO_FAMILY =
 const SANS_BYLINE =
   "'DM Sans', Inter, -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'";
 
+/**
+ * Fontsource ships some weights as separate family names (e.g. "DM Sans
+ * Medium"). Resvg matches those names exactly — prepend them so mint PNGs
+ * keep glyphs when weight is 500/600.
+ */
+export function familyForResvgWeight(
+  familyStack: string,
+  weight: number
+): string {
+  if (weight === 500) {
+    if (familyStack.includes("'DM Sans'")) {
+      return familyStack.replace("'DM Sans'", "'DM Sans Medium', 'DM Sans'");
+    }
+    if (familyStack.includes("'Newsreader'")) {
+      return familyStack.replace(
+        "'Newsreader'",
+        "'Newsreader Medium', 'Newsreader'"
+      );
+    }
+  }
+  if (weight === 600 && familyStack.includes("'JetBrains Mono'")) {
+    return familyStack.replace(
+      "'JetBrains Mono'",
+      "'JetBrains Mono SemiBold', 'JetBrains Mono'"
+    );
+  }
+  return familyStack;
+}
+
 interface VoiceSpec {
   label: string;
   /** Voice-specific tagline (not palette-aware). */

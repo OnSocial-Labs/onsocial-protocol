@@ -30,4 +30,29 @@ describe('buildTextCardPng', () => {
       Math.abs(withTitle.png.length - withoutTitle.png.length)
     ).toBeGreaterThan(500);
   });
+
+  it('embeds glyphs for Letter + Erica Type (graphite)', async () => {
+    const withTitle = await buildTextCardPng('alice.testnet', {
+      title: 'I voted!',
+      creator: { accountId: 'alice.testnet', displayName: 'Alice' },
+      cardFormat: 'letter',
+      cardPalette: 'graphite',
+      cardMarkShape: 'square',
+      cardMarkColor: 'tangerine',
+    });
+    const withoutTitle = await buildTextCardPng('alice.testnet', {
+      title: '',
+      creator: { accountId: 'alice.testnet', displayName: 'Alice' },
+      cardFormat: 'letter',
+      cardPalette: 'graphite',
+      cardMarkShape: 'square',
+      cardMarkColor: 'tangerine',
+    });
+
+    expect(withTitle.themeExtra.bg).toBe('letter-graphite');
+    expect(withTitle.png.equals(withoutTitle.png)).toBe(false);
+    expect(
+      Math.abs(withTitle.png.length - withoutTitle.png.length)
+    ).toBeGreaterThan(500);
+  });
 });
