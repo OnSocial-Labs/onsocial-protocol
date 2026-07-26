@@ -96,8 +96,6 @@ describe('ScarcesModule.fromPost.mint', () => {
       author: 'alice.near',
       postId: '123',
       path: 'alice.near/post/123',
-      blockHeight: 1,
-      blockTimestamp: 1,
     });
     expect(JSON.parse(form.get('creator') as string)).toEqual({
       accountId: 'alice.near',

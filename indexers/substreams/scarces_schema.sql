@@ -149,6 +149,12 @@ CREATE TABLE IF NOT EXISTS scarces_active_listings (
   updated_block_timestamp BIGINT NOT NULL DEFAULT 0
 );
 
+-- Existing deployments skip CREATE TABLE; ensure generated column before indexes.
+ALTER TABLE scarces_active_listings
+  ADD COLUMN IF NOT EXISTS price_numeric NUMERIC GENERATED ALWAYS AS (
+    CASE WHEN price ~ '^[0-9]+$' THEN price::numeric ELSE NULL END
+  ) STORED;
+
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_listed
   ON scarces_active_listings(listed_block_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_kind

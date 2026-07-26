@@ -138,8 +138,6 @@ interface SourcePostLink {
   postId?: string;
   path?: string;
   groupId?: string;
-  blockHeight?: number;
-  blockTimestamp?: number;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -167,35 +165,16 @@ function stringField(
   return typeof value === 'string' && value ? value : undefined;
 }
 
-function positiveIntField(
-  obj: Record<string, unknown>,
-  key: string
-): number | undefined {
-  const value = obj[key];
-  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return Math.floor(value);
-  }
-  if (typeof value === 'string' && value.trim()) {
-    const n = Number(value);
-    if (Number.isFinite(n) && n > 0) return Math.floor(n);
-  }
-  return undefined;
-}
-
 function sourcePostFromObject(
   obj: Record<string, unknown>
 ): SourcePostLink | null {
   const nested = asRecord(obj.sourcePost);
   if (nested) {
-    const blockHeight = positiveIntField(nested, 'blockHeight');
-    const blockTimestamp = positiveIntField(nested, 'blockTimestamp');
     return {
       author: stringField(nested, 'author'),
       postId: stringField(nested, 'postId'),
       path: stringField(nested, 'path'),
       groupId: stringField(nested, 'groupId'),
-      ...(blockHeight != null ? { blockHeight } : {}),
-      ...(blockTimestamp != null ? { blockTimestamp } : {}),
     };
   }
 
@@ -214,22 +193,12 @@ function sourcePostFromJson(value: unknown): SourcePostLink | null {
 /** Provenance fields available when minting/listing from a PostRow. */
 interface SourcePostContext {
   groupId?: string;
-  blockHeight?: number;
-  blockTimestamp?: number;
 }
 
 function sourcePostContext(post: PostSource): SourcePostContext {
   if (!isPostRow(post)) return {};
-  const ctx: SourcePostContext = {};
   const groupId = post.groupId?.trim();
-  if (groupId) ctx.groupId = groupId;
-  if (Number.isFinite(post.blockHeight) && post.blockHeight > 0) {
-    ctx.blockHeight = Math.floor(post.blockHeight);
-  }
-  if (Number.isFinite(post.blockTimestamp) && post.blockTimestamp > 0) {
-    ctx.blockTimestamp = Math.floor(post.blockTimestamp);
-  }
-  return ctx;
+  return groupId ? { groupId } : {};
 }
 
 function sourcePostMatches(
@@ -716,17 +685,14 @@ export class ScarcesFromPostApi {
       ...(opts.cardTitleAlign ? { cardTitleAlign: opts.cardTitleAlign } : {}),
       ...(resolvedPhotoCid ? { cardPhotoCid: resolvedPhotoCid } : {}),
       extra: {
+        // Indexer + embeds key off author/postId/path (+ groupId). Listing
+        // / mint block time comes from the receipt — do not mirror PostRow
+        // blockHeight/blockTimestamp into extra.
         sourcePost: {
           author,
           postId,
           path: `${author}/post/${postId}`,
           ...(source.groupId ? { groupId: source.groupId } : {}),
-          ...(source.blockHeight != null
-            ? { blockHeight: source.blockHeight }
-            : {}),
-          ...(source.blockTimestamp != null
-            ? { blockTimestamp: source.blockTimestamp }
-            : {}),
         },
         mintedAt: Date.now(),
         ...(galleryExtra ?? {}),

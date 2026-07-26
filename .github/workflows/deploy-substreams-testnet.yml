@@ -298,6 +298,14 @@ jobs:
               ADD COLUMN IF NOT EXISTS is_public BOOLEAN,
               ADD COLUMN IF NOT EXISTS creator_role TEXT,
               ADD COLUMN IF NOT EXISTS storage_allocation TEXT;
+
+            -- Market catalog: CREATE TABLE IF NOT EXISTS won't add columns to an
+            -- existing table, but combined_schema indexes price_numeric. Add it
+            -- before schema apply (same shape as migrations/20260725_*.sql).
+            ALTER TABLE IF EXISTS scarces_active_listings
+              ADD COLUMN IF NOT EXISTS price_numeric NUMERIC GENERATED ALWAYS AS (
+                CASE WHEN price ~ '^[0-9]+$' THEN price::numeric ELSE NULL END
+              ) STORED;
             SQLEOF
 
             # Schema: clean deploy drops everything; otherwise always apply the
