@@ -162,10 +162,26 @@ function getAffectedPackages(changedFiles) {
   );
 }
 
+/** Schema / migration / SQL validation script changes under the indexer. */
+function substreamsSqlChanged(changedFiles) {
+  return changedFiles.some(
+    (file) =>
+      (file.startsWith('indexers/substreams/') && file.endsWith('.sql')) ||
+      file === 'indexers/substreams/scripts/validate_sql.sh' ||
+      file.startsWith('indexers/substreams/tests/fixtures/')
+  );
+}
+
+function runSubstreamsSqlValidation() {
+  console.log('\n=== indexers/substreams (SQL schema upgrade) ===');
+  run('bash indexers/substreams/scripts/validate_sql.sh');
+}
+
 function main() {
   const diffBase = getPushDiffBase();
   const changedFiles = getChangedFiles(diffBase);
   const affected = getAffectedPackages(changedFiles);
+  const checkSubstreamsSql = substreamsSqlChanged(changedFiles);
 
   console.log(`Pre-push checks (diff base: ${diffBase})`);
 
@@ -174,9 +190,9 @@ function main() {
     return;
   }
 
-  if (affected.length === 0) {
+  if (affected.length === 0 && !checkSubstreamsSql) {
     console.log(
-      'No monitored package changes detected; skipping package checks.'
+      'No monitored package or substreams SQL changes detected; skipping checks.'
     );
     return;
   }
@@ -194,11 +210,18 @@ function main() {
   if (dependents.length > 0) {
     console.log(`Dependent packages: ${dependents.join(', ')}`);
   }
+  if (checkSubstreamsSql) {
+    console.log('Changed: indexers/substreams SQL schema / migrations');
+  }
 
   for (const pkg of affected) {
     const label = pkg.reason === 'dependent' ? ' (dependent)' : '';
     console.log(`\n=== ${pkg.name}${label} ===`);
     run(pkg.command);
+  }
+
+  if (checkSubstreamsSql) {
+    runSubstreamsSqlValidation();
   }
 
   console.log('\nPre-push checks passed.');

@@ -223,6 +223,47 @@ SQLEOF
       validate_expected_objects "$db"
     }
 
+    validate_scarces_catalog_upgrade_shape() {
+      db="$1"
+      has_price_numeric="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = '"'"'public'"'"'
+            AND table_name = '"'"'scarces_active_listings'"'"'
+            AND column_name = '"'"'price_numeric'"'"'
+        );
+      ")"
+      if [ "$has_price_numeric" != "t" ]; then
+        echo "error: expected scarces_active_listings.price_numeric after upgrade in $db" >&2
+        exit 1
+      fi
+
+      for index_name in \
+        idx_scarces_active_listings_price \
+        idx_scarces_active_listings_expires \
+        idx_scarces_active_listings_kind_listed
+      do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT to_regclass('"'"'public.${index_name}'"'"') IS NOT NULL;
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected index public.${index_name} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
+
+      price_value="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT price_numeric::text
+        FROM scarces_active_listings
+        WHERE listing_key = '"'"'lazy:fixture-listing'"'"';
+      ")"
+      if [ "$price_value" != "1000000000000000000000000" ]; then
+        echo "error: expected generated price_numeric on fixture row in $db, found ${price_value:-missing}" >&2
+        exit 1
+      fi
+    }
+
     validate_notifications_schema() {
       db="$1"
 
@@ -311,6 +352,19 @@ SQLEOF
     validate_expected_objects combined_validate
     validate_reputation_view_upgrade combined_validate
     validate_guild_view_upgrade combined_validate
+
+    # Existing testnet DBs keep old CREATE TABLE shapes. Deploy applies
+    # combined_schema (CREATE TABLE IF NOT EXISTS + CREATE INDEX) before
+    # migrations — this path catches indexes that reference columns the
+    # existing table does not yet have.
+    echo ">>> Existing-DB upgrade (baseline → combined_schema → migrations)"
+    createdb -h /tmp upgrade_validate
+    apply_sql upgrade_validate /work/tests/fixtures/upgrade_baseline.sql
+    apply_sql upgrade_validate /work/combined_schema.sql
+    apply_migrations upgrade_validate
+    apply_views upgrade_validate
+    validate_expected_objects upgrade_validate
+    validate_scarces_catalog_upgrade_shape upgrade_validate
 
     echo ">>> Standalone package schemas"
     createdb -h /tmp standalone_validate
