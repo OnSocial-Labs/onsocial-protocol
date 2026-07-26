@@ -130,7 +130,8 @@ export class HttpClient {
       method === 'POST' &&
       path.startsWith('/compose/') &&
       !path.includes('wait=') &&
-      !path.startsWith('/compose/prepare/')
+      !path.startsWith('/compose/prepare/') &&
+      !path.startsWith('/compose/preview/')
         ? `${path}${path.includes('?') ? '&' : '?'}wait=true`
         : path;
     const url = `${this.baseUrl}${effectivePath}`;
@@ -138,11 +139,11 @@ export class HttpClient {
       body !== undefined ? { 'Content-Type': 'application/json' } : undefined
     );
 
-    // Inject actor_id for API-key POST requests to compose/relay endpoints
+    // Inject actor_id for compose/relay POSTs whenever configured. Browser
+    // clients often have no local apiKey (the app proxy adds X-API-Key).
     let resolved = body;
     if (
       this._actorId &&
-      this._apiKey &&
       method === 'POST' &&
       body &&
       typeof body === 'object' &&
@@ -183,19 +184,18 @@ export class HttpClient {
       method === 'POST' &&
       path.startsWith('/compose/') &&
       !path.includes('wait=') &&
-      !path.startsWith('/compose/prepare/')
+      !path.startsWith('/compose/prepare/') &&
+      !path.startsWith('/compose/preview/')
         ? `${path}${path.includes('?') ? '&' : '?'}wait=true`
         : path;
     const url = `${this.baseUrl}${effectivePath}`;
     // Don't set Content-Type — browser/node will add boundary automatically
     const headers = this._headers();
 
-    // Inject actor_id for API-key POSTs to compose/relay endpoints — mirrors
-    // the JSON path in request(). Without this, FormData routes default to
-    // the API-key owner's identity instead of the configured actor.
+    // Inject actor_id for compose/relay FormData POSTs whenever configured.
+    // Browser clients often have no local apiKey (the app proxy adds X-API-Key).
     if (
       this._actorId &&
-      this._apiKey &&
       method === 'POST' &&
       (path.startsWith('/compose/') || path.startsWith('/relay/')) &&
       !form.has('actor_id')

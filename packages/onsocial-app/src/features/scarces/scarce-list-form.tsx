@@ -22,6 +22,11 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { findLiveListingForPost } from '@/features/market/market-listings';
 import {
+  fetchPublishableApps,
+  type AppView,
+} from '@/features/scarces/apps-data';
+import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
+import {
   ScarceCardMoodPicker,
   type ScarceCardThemeOptions,
 } from '@/features/scarces/scarce-card-mood-picker';
@@ -282,6 +287,11 @@ export function ScarceListForm({
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const [coverPending, setCoverPending] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
+  const [mintPreviewUrl, setMintPreviewUrl] = useState<string | null>(null);
+  const [mintPreviewPending, setMintPreviewPending] = useState(false);
+  const [mintPreviewError, setMintPreviewError] = useState<string | null>(null);
+  const [storeOptions, setStoreOptions] = useState<AppView[]>([]);
+  const [listAppId, setListAppId] = useState('');
   /** Last Frame scrub — survives Cover switches to Text / Photo. */
   const [frameSeek, setFrameSeek] = useState<number | null>(null);
   const frameCoverRef = useRef<File | null>(null);
@@ -315,6 +325,25 @@ export function ScarceListForm({
     };
   }, [post.accountId]);
 
+  useEffect(() => {
+    if (!accountId) {
+      setStoreOptions([]);
+      setListAppId('');
+      return;
+    }
+    let cancelled = false;
+    void fetchPublishableApps(accountId, { limit: 40 }).then((apps) => {
+      if (cancelled) return;
+      setStoreOptions(apps);
+      setListAppId((current) =>
+        current && apps.some((app) => app.appId === current) ? current : ''
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
   const hasCoverImage = Boolean(postScarceCoverImage(post));
   const postVideo = useMemo(() => postScarceVideo(post), [post]);
   const postAudio = useMemo(() => postScarceAudio(post), [post]);
@@ -334,6 +363,77 @@ export function ScarceListForm({
       : MINT_TITLE_MAX;
     return deriveMintTitle(mintBody, maxCharacters) || `Post ${post.postId}`;
   }, [mintBody, post.postId, usesGeneratedCard, cardTheme.cardFormat]);
+
+  // Mint-true PNG preview (same gateway builder as list). Live SVG stays as
+  // placeholder until the first PNG returns; theme changes debounce.
+  useEffect(() => {
+    const wantsMintPreview = usesGeneratedCard && !usesPhotoCard;
+    if (!wantsMintPreview || !accountId) {
+      setMintPreviewUrl(null);
+      setMintPreviewPending(false);
+      setMintPreviewError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setMintPreviewPending(true);
+      void (async () => {
+        try {
+          const client = createAppOnSocialClient(accountId);
+          const result = await client.scarces.previewTextCard({
+            title: mintTitle,
+            creator: {
+              accountId: post.accountId,
+              ...(authorName?.trim()
+                ? { displayName: authorName.trim() }
+                : {}),
+            },
+            cardBg: cardTheme.cardBg,
+            cardFormat: cardTheme.cardFormat,
+            cardPalette: cardTheme.cardPalette,
+            cardMarkShape: cardTheme.cardMarkShape,
+            cardMarkColor: cardTheme.cardMarkColor,
+            cardTitleAlign: cardTheme.cardTitleAlign,
+            postId: post.postId,
+            issuedAt: post.blockTimestamp || Date.now(),
+          });
+          if (cancelled) return;
+          setMintPreviewUrl(result.dataUri);
+          setMintPreviewError(null);
+        } catch (cause) {
+          if (cancelled) return;
+          setMintPreviewError(
+            cause instanceof Error
+              ? cause.message
+              : 'Could not preview card.'
+          );
+        } finally {
+          if (!cancelled) setMintPreviewPending(false);
+        }
+      })();
+    }, 320);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    accountId,
+    authorName,
+    cardTheme.cardBg,
+    cardTheme.cardFormat,
+    cardTheme.cardMarkColor,
+    cardTheme.cardMarkShape,
+    cardTheme.cardPalette,
+    cardTheme.cardTitleAlign,
+    mintTitle,
+    post.accountId,
+    post.blockTimestamp,
+    post.postId,
+    usesGeneratedCard,
+    usesPhotoCard,
+  ]);
 
   useEffect(() => {
     if (!coverFile) {
@@ -514,6 +614,7 @@ export function ScarceListForm({
         ...(resolvedRoyaltyBps > 0
           ? { royalty: { [post.accountId]: resolvedRoyaltyBps } }
           : {}),
+        ...(listAppId ? { appId: listAppId } : {}),
         // Video posts have no still to mint — the chosen frame or photo
         // becomes the cover the wallet renders.
         ...(coverFile && !usesPhotoCard ? { image: coverFile } : {}),
@@ -606,7 +707,9 @@ export function ScarceListForm({
           creatorAvatarUrl={creatorAvatarUrl}
           {...(coverPreviewUrl && !usesPhotoCard
             ? { mediaUrl: coverPreviewUrl }
-            : {})}
+            : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
+              ? { mediaUrl: mintPreviewUrl }
+              : {})}
           {...(usesGeneratedCard
             ? {
                 cardBg: cardTheme.cardBg,
@@ -617,6 +720,16 @@ export function ScarceListForm({
               }
             : {})}
         />
+        {mintPreviewPending && usesGeneratedCard && !usesPhotoCard ? (
+          <p className="app-page-note" aria-live="polite">
+            Rendering card…
+          </p>
+        ) : null}
+        {mintPreviewError ? (
+          <p className="profile-support-error" role="alert">
+            {mintPreviewError}
+          </p>
+        ) : null}
       )}
 
       <div className="scarce-mood-picker-block">
@@ -691,7 +804,13 @@ export function ScarceListForm({
               formats={
                 usesPhotoCard
                   ? (['receipt', 'proof'] as const)
-                  : (['thought', 'poster', 'letter', 'journal', 'mono'] as const)
+                  : ([
+                      'thought',
+                      'poster',
+                      'letter',
+                      'journal',
+                      'mono',
+                    ] as const)
               }
             />
           ) : null}
@@ -737,6 +856,42 @@ export function ScarceListForm({
           </>
         ) : null}
       </div>
+
+      {storeOptions.length > 0 ? (
+        <div className="scarce-royalty-field">
+          <p className="scarce-mood-picker-label">List to store</p>
+          <div
+            className="app-storage-presets"
+            role="group"
+            aria-label="Store for this listing"
+          >
+            <button
+              type="button"
+              className={`os-surface-chip${!listAppId ? ' is-selected' : ''}`}
+              disabled={pending}
+              onClick={() => setListAppId('')}
+            >
+              No store
+            </button>
+            {storeOptions.map((store) => (
+              <button
+                key={store.appId}
+                type="button"
+                className={`os-surface-chip${
+                  listAppId === store.appId ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setListAppId(store.appId)}
+              >
+                {store.title}
+              </button>
+            ))}
+          </div>
+          <p className="scarce-mood-picker-hint">
+            Optional. Ties this listing to a storefront for Market filters.
+          </p>
+        </div>
+      ) : null}
 
       <div className="scarce-royalty-field">
         <p className="scarce-mood-picker-label">Price</p>

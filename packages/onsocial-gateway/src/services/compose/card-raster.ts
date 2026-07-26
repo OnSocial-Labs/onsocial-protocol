@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { Resvg } from '@resvg/resvg-js';
+import { Resvg, type ResvgRenderOptions } from '@resvg/resvg-js';
 
 const require = createRequire(import.meta.url);
 const OUTPUT_WIDTH = 1200;
@@ -59,23 +59,37 @@ function resolveFontFiles(): string[] {
 }
 
 /**
- * Produce the permanent NFT asset. Font files are explicitly supplied and
- * system fonts are disabled, so gateway output cannot vary by host or wallet
- * beyond the optional emoji face when installed.
+ * Resvg 2.x ignores `fitTo` when fonts are supplied via `fontBuffers`.
+ * Scale the SVG canvas attrs instead (viewBox stays 600 so layout holds).
+ */
+function scaleSvgToOutput(svg: string): string {
+  return svg
+    .replace(/\bwidth="\d+(?:\.\d+)?"/i, `width="${OUTPUT_WIDTH}"`)
+    .replace(/\bheight="\d+(?:\.\d+)?"/i, `height="${OUTPUT_WIDTH}"`);
+}
+
+/**
+ * Produce the permanent NFT asset. Fonts load as buffers — Resvg 2.x does
+ * not register Fontsource `.woff` via `fontFiles`, which produced blank-title
+ * PNGs (mark + avatar only). System fonts stay off so hosts cannot leak into
+ * permanent artwork beyond the optional emoji face.
  */
 export function rasterizeTextCard(svg: string): Buffer {
   const fontFiles = resolveFontFiles();
   // Read eagerly so a missing production font fails the mint rather than
   // silently substituting a host font into permanent artwork.
-  for (const fontFile of fontFiles) readFileSync(fontFile);
+  const fontBuffers = fontFiles.map((fontFile) => readFileSync(fontFile));
 
-  const image = new Resvg(svg, {
-    fitTo: { mode: 'width', value: OUTPUT_WIDTH },
+  // `fontBuffers` is supported by @resvg/resvg-js@2.6 but missing from its
+  // published typings (only `fontFiles` / `fontDirs` are declared).
+  const options = {
     font: {
-      fontFiles,
+      fontBuffers,
       loadSystemFonts: false,
       defaultFontFamily: 'DM Sans',
     },
-  });
+  } as ResvgRenderOptions;
+
+  const image = new Resvg(scaleSvgToOutput(svg), options);
   return Buffer.from(image.render().asPng());
 }

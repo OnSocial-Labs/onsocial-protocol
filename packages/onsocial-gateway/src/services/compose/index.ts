@@ -73,6 +73,15 @@ export {
   buildPurchaseLazyListingAction,
 } from './lazy-listing.js';
 
+// Shared text-card PNG (mint / lazy-list / preview)
+export {
+  type BuildTextCardPngRequest,
+  type BuildTextCardPngResult,
+  type TextCardThemeExtra,
+  type TextCardCreatorInput,
+  buildTextCardPng,
+} from './text-card-png.js';
+
 // Token lifecycle (transfer, burn, renew, redeem, revoke, refund)
 export {
   buildTransferAction,
@@ -141,6 +150,8 @@ export {
   buildTransferAppOwnershipAction,
   buildAddModeratorAction,
   buildRemoveModeratorAction,
+  buildAddApprovedCreatorAction,
+  buildRemoveApprovedCreatorAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,
   buildStorageDepositAction,

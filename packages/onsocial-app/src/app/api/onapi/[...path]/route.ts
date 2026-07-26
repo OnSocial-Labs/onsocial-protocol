@@ -50,6 +50,7 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
 
   // Scarces — list / buy / cancel (lazy + fixed-price + native resale).
   { method: 'POST', path: 'compose/prepare/lazy-list', body: 'form' },
+  { method: 'POST', path: 'compose/preview/text-card', body: 'json' },
   { method: 'POST', path: 'compose/prepare/purchase-lazy-list', body: 'json' },
   {
     method: 'POST',

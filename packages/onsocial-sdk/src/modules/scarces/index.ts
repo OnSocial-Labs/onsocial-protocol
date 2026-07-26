@@ -51,6 +51,34 @@ import { ScarcesFromPostApi } from './from-post.js';
 import { ScarcesAppsApi } from './apps.js';
 import type { QueryModule } from '../../query/index.js';
 
+export interface TextCardPreviewOptions {
+  title: string;
+  description?: string;
+  creator?: {
+    accountId: string;
+    displayName?: string;
+    avatar?: string;
+  };
+  cardBg?: string;
+  cardFont?: string;
+  cardMarkColor?: string;
+  cardMarkShape?: string;
+  cardTitleAlign?: string;
+  cardFormat?: string;
+  cardPalette?: string;
+  cardPhotoCid?: string;
+  postId?: string;
+  issuedAt?: number;
+}
+
+export interface TextCardPreviewResult {
+  mediaType: 'image/png';
+  dataUri: string;
+  theme: Record<string, unknown>;
+  width: number;
+  height: number;
+}
+
 export class ScarcesModule {
   readonly tokens: ScarcesTokensApi;
   readonly collections: ScarcesCollectionsApi;
@@ -64,33 +92,65 @@ export class ScarcesModule {
   readonly apps: ScarcesAppsApi;
 
   constructor(
-    http: HttpClient,
+    private _http: HttpClient,
     getSession: SessionGetter,
     social?: SocialModule,
     storage?: StorageProvider,
     getBroadcast?: BroadcastGetter,
     query?: QueryModule
   ) {
-    this.tokens = new ScarcesTokensApi(http, getSession, storage, getBroadcast);
-    this.collections = new ScarcesCollectionsApi(
-      http,
+    this.tokens = new ScarcesTokensApi(
+      _http,
       getSession,
       storage,
       getBroadcast
     );
-    this.market = new ScarcesMarketApi(http, getSession, getBroadcast);
-    this.auctions = new ScarcesAuctionsApi(http, getSession, getBroadcast);
-    this.offers = new ScarcesOffersApi(http, getSession, getBroadcast);
-    this.lazy = new ScarcesLazyApi(http, getSession, storage, getBroadcast);
-    this.approvals = new ScarcesApprovalsApi(http, getSession, getBroadcast);
-    this.storage = new ScarcesStorageApi(http, getSession, getBroadcast);
+    this.collections = new ScarcesCollectionsApi(
+      _http,
+      getSession,
+      storage,
+      getBroadcast
+    );
+    this.market = new ScarcesMarketApi(_http, getSession, getBroadcast);
+    this.auctions = new ScarcesAuctionsApi(_http, getSession, getBroadcast);
+    this.offers = new ScarcesOffersApi(_http, getSession, getBroadcast);
+    this.lazy = new ScarcesLazyApi(_http, getSession, storage, getBroadcast);
+    this.approvals = new ScarcesApprovalsApi(_http, getSession, getBroadcast);
+    this.storage = new ScarcesStorageApi(_http, getSession, getBroadcast);
     this.fromPost = new ScarcesFromPostApi(
       this.tokens,
       this.lazy,
       social,
       query
     );
-    this.apps = new ScarcesAppsApi(http, getSession, getBroadcast);
+    this.apps = new ScarcesAppsApi(_http, getSession, getBroadcast);
+  }
+
+  /**
+   * Mint-identical text-card PNG preview (no IPFS upload).
+   * Same gateway builder as prepare/lazy-list and prepare/mint auto-card.
+   */
+  async previewTextCard(
+    opts: TextCardPreviewOptions
+  ): Promise<TextCardPreviewResult> {
+    return this._http.post<TextCardPreviewResult>(
+      '/compose/preview/text-card',
+      {
+        title: opts.title,
+        ...(opts.description ? { description: opts.description } : {}),
+        ...(opts.creator ? { creator: opts.creator } : {}),
+        ...(opts.cardBg ? { cardBg: opts.cardBg } : {}),
+        ...(opts.cardFont ? { cardFont: opts.cardFont } : {}),
+        ...(opts.cardMarkColor ? { cardMarkColor: opts.cardMarkColor } : {}),
+        ...(opts.cardMarkShape ? { cardMarkShape: opts.cardMarkShape } : {}),
+        ...(opts.cardTitleAlign ? { cardTitleAlign: opts.cardTitleAlign } : {}),
+        ...(opts.cardFormat ? { cardFormat: opts.cardFormat } : {}),
+        ...(opts.cardPalette ? { cardPalette: opts.cardPalette } : {}),
+        ...(opts.cardPhotoCid ? { cardPhotoCid: opts.cardPhotoCid } : {}),
+        ...(opts.postId ? { postId: opts.postId } : {}),
+        ...(opts.issuedAt != null ? { issuedAt: opts.issuedAt } : {}),
+      }
+    );
   }
 }
 

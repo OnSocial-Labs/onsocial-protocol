@@ -34,6 +34,7 @@ import { collectionManageRouter } from './collection-manage.js';
 import { marketplaceRouter } from './marketplace.js';
 import { offerRouter } from './offer.js';
 import { appRouter } from './app.js';
+import { previewRouter } from './preview.js';
 
 export const composeRouter = Router();
 
@@ -51,3 +52,4 @@ composeRouter.use(collectionManageRouter);
 composeRouter.use(marketplaceRouter);
 composeRouter.use(offerRouter);
 composeRouter.use(appRouter);
+composeRouter.use(previewRouter);

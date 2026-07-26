@@ -12,7 +12,6 @@ import {
   ComposeError,
   uploadToLighthouse,
   uploadJsonToLighthouse,
-  fetchImageAsDataUri,
   resolveExistingMediaCid,
   logger,
   validateRoyalty,
@@ -22,30 +21,15 @@ import {
   gatewayUrl,
   ipfsUri,
 } from './shared.js';
-import {
-  generateTextCardSvg,
-  resolveTheme,
-  isBackgroundKey,
-  isFontKey,
-  isMarkColor,
-  isMarkShape,
-  isTitleAlign,
-  isCardFormat,
-  isCardFormatPalette,
-  moodForCardFormat,
-  CARD_FORMAT_REGISTRY,
-  type BackgroundKey,
-  type CardFormat,
-  type FontKey,
-  type MarkColor,
-  type MarkShape,
-  type TitleAlign,
+import type {
+  BackgroundKey,
+  CardFormat,
+  FontKey,
+  MarkColor,
+  MarkShape,
+  TitleAlign,
 } from '@onsocial/text-card';
-import {
-  getProfileName,
-  resolveCreatorAvatarDataUri,
-} from './profileLookup.js';
-import { rasterizeTextCard } from './card-raster.js';
+import { buildTextCardPng } from './text-card-png.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -188,127 +172,27 @@ export async function buildLazyListAction(
       'Compose lazy-list: image uploaded to Lighthouse'
     );
   } else if (!req.skipAutoMedia) {
-    // No image and no reused CID — generate a typographic text-card SVG
-    // and inline it as a data: URI. Mirrors composeMint so themed cards
-    // are first-class on every release path.
-    let creator = req.creator ?? { accountId };
-    if (!creator.displayName) {
-      const profileName = await getProfileName(creator.accountId);
-      if (profileName) {
-        creator = { ...creator, displayName: profileName };
-      }
-    }
-    const avatarDataUri = await resolveCreatorAvatarDataUri(
-      creator.accountId,
-      creator.avatar
-    );
-    if (avatarDataUri) {
-      creator = { ...creator, avatar: avatarDataUri };
-    } else {
-      // Truly unset — never silently drop a face that was set;
-      // resolveCreatorAvatarDataUri throws ComposeError(502) instead.
-      const { avatar: _omit, ...rest } = creator;
-      creator = rest;
-    }
-    let cardFormat: CardFormat | undefined;
-    let resolvedCardBg = req.cardBg;
-    if (req.cardFormat != null) {
-      if (!isCardFormat(req.cardFormat)) {
-        throw new ComposeError(400, `Unknown cardFormat: ${req.cardFormat}`);
-      }
-      cardFormat = req.cardFormat;
-      const requestedPalette = req.cardPalette;
-      if (
-        requestedPalette != null &&
-        !isCardFormatPalette(cardFormat, requestedPalette)
-      ) {
-        throw new ComposeError(
-          400,
-          `Unsupported ${requestedPalette} finish for ${cardFormat} cards.`
-        );
-      }
-      const spec = CARD_FORMAT_REGISTRY[cardFormat];
-      if (req.title.length > spec.maxCharacters) {
-        throw new ComposeError(
-          400,
-          `${spec.label} cards support up to ${spec.maxCharacters} characters (got ${req.title.length}).`
-        );
-      }
-      if (spec.requiresPhoto && !req.cardPhotoCid) {
-        throw new ComposeError(
-          400,
-          `${spec.label} cards require cardPhotoCid (proof photo).`
-        );
-      }
-      resolvedCardBg = moodForCardFormat(cardFormat, requestedPalette);
-    }
-    if (resolvedCardBg && !isBackgroundKey(resolvedCardBg)) {
-      throw new ComposeError(400, `Unknown cardBg: ${resolvedCardBg}`);
-    }
-    if (req.cardFont && !isFontKey(req.cardFont)) {
-      throw new ComposeError(400, `Unknown cardFont: ${req.cardFont}`);
-    }
-    if (req.cardMarkColor && !isMarkColor(req.cardMarkColor)) {
-      throw new ComposeError(
-        400,
-        `Unknown cardMarkColor: ${req.cardMarkColor}`
-      );
-    }
-    if (req.cardMarkShape && !isMarkShape(req.cardMarkShape)) {
-      throw new ComposeError(
-        400,
-        `Unknown cardMarkShape: ${req.cardMarkShape}`
-      );
-    }
-    if (req.cardTitleAlign && !isTitleAlign(req.cardTitleAlign)) {
-      throw new ComposeError(
-        400,
-        `Unknown cardTitleAlign: ${req.cardTitleAlign}`
-      );
-    }
-    const theme = resolveTheme({ bg: resolvedCardBg, font: req.cardFont });
-    const themeForCard: {
-      bg?: string;
-      font?: string;
-      markColor?: MarkColor;
-      markShape?: MarkShape;
-      titleAlign?: TitleAlign;
-    } = {
-      bg: theme.bg,
-      font: theme.font,
-      ...(req.cardMarkColor && {
-        markColor: req.cardMarkColor as MarkColor,
-      }),
-      ...(req.cardMarkShape && {
-        markShape: req.cardMarkShape as MarkShape,
-      }),
-      ...(req.cardTitleAlign && {
-        titleAlign: req.cardTitleAlign as TitleAlign,
-      }),
-    };
+    // Same builder as preview + mint — WYSIWYG with permanent PNG.
     const sourcePost =
       req.extra && typeof req.extra === 'object'
         ? (req.extra as { sourcePost?: { postId?: string } }).sourcePost
         : undefined;
-    const photoDataUri = req.cardPhotoCid
-      ? await fetchImageAsDataUri(gatewayUrl(req.cardPhotoCid))
-      : undefined;
-    const svg = generateTextCardSvg({
+    const { png, themeExtra } = await buildTextCardPng(accountId, {
       title: req.title,
       description: req.description,
-      creator,
-      ...(cardFormat ? { format: cardFormat } : {}),
-      theme: themeForCard,
-      ...(photoDataUri ? { photo: photoDataUri } : {}),
-      provenance: {
-        issuedAt: Date.now(),
-        ...(typeof sourcePost?.postId === 'string' && sourcePost.postId
-          ? { postId: sourcePost.postId }
-          : {}),
-      },
+      creator: req.creator,
+      cardBg: req.cardBg,
+      cardFont: req.cardFont,
+      cardMarkColor: req.cardMarkColor,
+      cardMarkShape: req.cardMarkShape,
+      cardTitleAlign: req.cardTitleAlign,
+      cardFormat: req.cardFormat,
+      cardPalette: req.cardPalette,
+      cardPhotoCid: req.cardPhotoCid,
+      ...(typeof sourcePost?.postId === 'string' && sourcePost.postId
+        ? { postId: sourcePost.postId }
+        : {}),
     });
-    // The immutable listing cover is rendered once from the bundled fonts.
-    const png = rasterizeTextCard(svg);
     media = await uploadToLighthouse({
       buffer: png,
       fieldname: 'image',
@@ -318,23 +202,11 @@ export async function buildLazyListAction(
     });
     req.extra = {
       ...(req.extra || {}),
-      theme: {
-        bg: theme.bg,
-        font: theme.font,
-        ...(cardFormat && { format: cardFormat }),
-        ...(cardFormat && {
-          palette:
-            req.cardPalette ?? CARD_FORMAT_REGISTRY[cardFormat].defaultPalette,
-        }),
-        ...(req.cardMarkColor && { markColor: req.cardMarkColor }),
-        ...(req.cardMarkShape && { markShape: req.cardMarkShape }),
-        ...(req.cardTitleAlign && { titleAlign: req.cardTitleAlign }),
-        ...(req.cardPhotoCid && { photoCid: req.cardPhotoCid }),
-      },
+      theme: themeExtra,
     };
     logger.info(
-      { accountId, size: media.size, theme: themeForCard },
-      'Compose lazy-list: text-only card inlined as data: URI on-chain'
+      { accountId, size: media.size, theme: themeExtra },
+      'Compose lazy-list: deterministic PNG card uploaded to Lighthouse'
     );
   }
 
