@@ -264,13 +264,14 @@ jobs:
             load_compose_env
 
             # ── Render live Caddyfile from template ──────────────────
+            # CDN upstream: dedicated Lighthouse gateway (Profile URL).
+            # Shared gateway.lighthouse.storage cert expired Jul 2026 → 502s.
+            # Revert upstream string to: gateway.lighthouse.storage
+            # (Do not put comments inside the sed \ continuation — bash breaks.)
             sed \
               -e 's/__SERVER_NAMES__/testnet.onsocial.id/g' \
               -e 's/__PAGES_HOST_PATTERNS__/*.testnet.onsocial.id/g' \
               -e 's|__CDN_DOMAIN__|cdn.testnet.onsocial.id|g' \
-              # Dedicated Lighthouse gateway (Profile URL). Shared public
-              # gateway.lighthouse.storage cert expired Jul 2026 → CDN 502s.
-              # Revert: s|__CDN_UPSTREAM__|gateway.lighthouse.storage|g
               -e 's|__CDN_UPSTREAM__|statistical-barnacle-3ny44.lighthouseweb3.xyz|g' \
               -e 's/__BACKEND_UPSTREAM__/backend:4001/g' \
               -e 's/__GATEWAY_UPSTREAM__/gateway:8080/g' \
