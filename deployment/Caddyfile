@@ -76,6 +76,12 @@ __SERVER_NAMES__ {
 # storage or gateway providers, only the upstream below has to change —
 # every already-written CID keeps resolving.
 #
+# Current default upstream (deploy scripts):
+#   statistical-barnacle-3ny44.lighthouseweb3.xyz   # dedicated (Lighthouse Profile)
+# Previous / revert:
+#   gateway.lighthouse.storage                      # shared public gateway
+# Override: LIGHTHOUSE_CDN_UPSTREAM=<host>
+#
 # Caddy automatically caches responses at the OS-page-cache layer; for a
 # proper HTTP cache (disk-backed, becomes a de-facto second pin) build the
 # image with the cache-handler plugin (see docker/Dockerfile.caddy).

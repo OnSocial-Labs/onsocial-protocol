@@ -135,7 +135,9 @@ CDN_DOMAIN="cdn.onsocial.id"
 if [[ "$PUBLIC_DOMAIN" = "testnet.onsocial.id" ]]; then
   CDN_DOMAIN="cdn.testnet.onsocial.id"
 fi
-CDN_UPSTREAM="${LIGHTHOUSE_CDN_UPSTREAM:-gateway.lighthouse.storage}"
+# Dedicated Lighthouse gateway (Profile URL). Revert default:
+#   gateway.lighthouse.storage
+CDN_UPSTREAM="${LIGHTHOUSE_CDN_UPSTREAM:-statistical-barnacle-3ny44.lighthouseweb3.xyz}"
 sed \
   -e "s/__SERVER_NAMES__/$SERVER_NAMES/g" \
   -e "s/__PAGES_HOST_PATTERNS__/$PAGES_HOST_PATTERNS/g" \

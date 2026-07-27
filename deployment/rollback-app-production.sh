@@ -193,7 +193,8 @@ render_caddyfile() {
   if [[ "$PUBLIC_DOMAIN" = "testnet.onsocial.id" ]]; then
     cdn_domain="cdn.testnet.onsocial.id"
   fi
-  local cdn_upstream="${LIGHTHOUSE_CDN_UPSTREAM:-gateway.lighthouse.storage}"
+  # Dedicated Lighthouse gateway. Revert default: gateway.lighthouse.storage
+  local cdn_upstream="${LIGHTHOUSE_CDN_UPSTREAM:-statistical-barnacle-3ny44.lighthouseweb3.xyz}"
   sed \
     -e "s/__SERVER_NAMES__/$(server_names_value)/g" \
     -e "s/__PAGES_HOST_PATTERNS__/$(pages_host_patterns_value)/g" \
