@@ -101,7 +101,7 @@ describe('verifyCidLive', () => {
     );
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
-      'https://gateway.lighthouse.storage/ipfs/QmFallbackCid',
+      'https://statistical-barnacle-3ny44.lighthouseweb3.xyz/ipfs/QmFallbackCid',
       expect.objectContaining({ method: 'HEAD' })
     );
   });
@@ -111,13 +111,70 @@ describe('verifyCidLive', () => {
       typeof import('../../../src/services/compose/shared.js')
     >('../../../src/services/compose/shared.js');
 
-    mockFetch
-      .mockResolvedValueOnce(new Response('', { status: 429 }))
-      .mockResolvedValueOnce(new Response('', { status: 404 }));
+    mockFetch.mockResolvedValue(new Response('', { status: 404 }));
 
     await expect(verifyCidLive('QmMissingCid', 1)).rejects.toMatchObject({
       status: 502,
     });
+  });
+});
+
+describe('extractIpfsCid / imageFetchCandidateUrls', () => {
+  it('extracts CIDs from ipfs / gateway / bare forms', async () => {
+    const { extractIpfsCid } = await vi.importActual<
+      typeof import('../../../src/services/compose/shared.js')
+    >('../../../src/services/compose/shared.js');
+
+    expect(extractIpfsCid('ipfs://bafyface')).toBe('bafyface');
+    expect(
+      extractIpfsCid('https://cdn.testnet.onsocial.id/ipfs/bafyface')
+    ).toBe('bafyface');
+    expect(extractIpfsCid('bafyface')).toBe('bafyface');
+    expect(extractIpfsCid('https://example.com/avatar.png')).toBeNull();
+  });
+
+  it('lists primary + fallback gateways for IPFS images', async () => {
+    const { imageFetchCandidateUrls } = await vi.importActual<
+      typeof import('../../../src/services/compose/shared.js')
+    >('../../../src/services/compose/shared.js');
+
+    const urls = imageFetchCandidateUrls(
+      'https://cdn.testnet.onsocial.id/ipfs/bafyface'
+    );
+    expect(urls[0]).toBe('https://cdn.testnet.onsocial.id/ipfs/bafyface');
+    expect(urls).toContain(
+      'https://statistical-barnacle-3ny44.lighthouseweb3.xyz/ipfs/bafyface'
+    );
+    expect(urls).toContain('https://ipfs.io/ipfs/bafyface');
+  });
+});
+
+describe('fetchImageAsDataUri', () => {
+  beforeEach(() => mockFetch.mockReset());
+
+  it('falls back to the next gateway when the primary times out', async () => {
+    const { fetchImageAsDataUri } = await vi.importActual<
+      typeof import('../../../src/services/compose/shared.js')
+    >('../../../src/services/compose/shared.js');
+
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    mockFetch
+      .mockRejectedValueOnce(new Error('TimeoutError: aborted'))
+      .mockResolvedValueOnce(
+        new Response(pngBytes, {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+        })
+      );
+
+    const dataUri = await fetchImageAsDataUri(
+      'https://cdn.testnet.onsocial.id/ipfs/bafyface'
+    );
+    expect(dataUri).toMatch(/^data:image\/png;base64,/);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[1]?.[0]).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/bafyface'
+    );
   });
 });
 

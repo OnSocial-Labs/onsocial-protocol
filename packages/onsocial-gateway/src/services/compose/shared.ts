@@ -125,7 +125,13 @@ const VERIFY_CID_MAX_DELAY_MS = Number(
 );
 const VERIFY_CID_FALLBACK_GATEWAY_BASES = (
   process.env.LIGHTHOUSE_VERIFY_FALLBACK_GATEWAYS ||
-  'https://gateway.lighthouse.storage/ipfs'
+  // Dedicated Lighthouse first (shared gateway.lighthouse.storage TLS has
+  // failed before); public ipfs.io last-resort for bake/verify reads.
+  [
+    'https://statistical-barnacle-3ny44.lighthouseweb3.xyz/ipfs',
+    'https://ipfs.io/ipfs',
+    'https://gateway.lighthouse.storage/ipfs',
+  ].join(',')
 )
   .split(',')
   .map((base) => base.trim())
@@ -144,6 +150,27 @@ function cidVerificationUrls(cid: string): string[] {
       ),
     ]),
   ];
+}
+
+/** Pull a CID out of `ipfs://…` or common `/ipfs/<cid>` gateway URLs. */
+export function extractIpfsCid(refOrUrl: string): string | null {
+  const cleaned = refOrUrl.trim();
+  if (!cleaned) return null;
+  if (/^ipfs:\/\//i.test(cleaned)) {
+    const cid = cleaned.slice('ipfs://'.length).replace(/^ipfs\//, '');
+    return /^[a-z0-9]+$/i.test(cid) ? cid : null;
+  }
+  const pathMatch = cleaned.match(/\/ipfs\/([a-z0-9]+)/i);
+  if (pathMatch?.[1]) return pathMatch[1];
+  if (/^[a-z0-9]+$/i.test(cleaned)) return cleaned;
+  return null;
+}
+
+/** URLs to try when inlining an IPFS (or already-https) image. */
+export function imageFetchCandidateUrls(url: string): string[] {
+  const cid = extractIpfsCid(url);
+  if (!cid) return [url];
+  return [...new Set([url, ...cidVerificationUrls(cid)])];
 }
 
 function retryAfterDelayMs(response: Response, attempt: number): number {
@@ -337,41 +364,55 @@ export async function uploadSvgToLighthouse(
  * security, which makes the embedded photo show as a broken icon.
  * Embedding the bytes as a data URI sidesteps the restriction.
  *
+ * When `url` is IPFS-backed (brand CDN / `ipfs://` / bare CID), tries the
+ * same gateway fallbacks as CID verification — a slow/timeout CDN must
+ * not block minting a card that has a valid avatar on another gateway.
+ *
  * Throws `ComposeError(502, ...)` on fetch failure or non-image
  * content-type so callers can surface a 502 instead of silently
  * shipping a card with a broken photo chip.
  */
 export async function fetchImageAsDataUri(
   url: string,
-  timeoutMs = 8_000
+  timeoutMs = 12_000
 ): Promise<string> {
-  let res: Response;
-  try {
-    res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-  } catch (err) {
-    throw new ComposeError(
-      502,
-      `Failed to fetch photo for inline embed: ${String(err)}`
-    );
+  const candidates = imageFetchCandidateUrls(url);
+  let lastErr: unknown;
+
+  for (const [index, candidate] of candidates.entries()) {
+    let res: Response;
+    try {
+      res = await fetch(candidate, { signal: AbortSignal.timeout(timeoutMs) });
+    } catch (err) {
+      lastErr = err;
+      continue;
+    }
+    if (!res.ok) {
+      lastErr = `HTTP ${res.status}`;
+      continue;
+    }
+    const contentType = res.headers.get('content-type') || 'image/png';
+    // Only allow image MIME types — refuses html/json/etc. so we never
+    // smuggle a non-image payload into the SVG.
+    const mime = contentType.split(';')[0].trim().toLowerCase();
+    if (!mime.startsWith('image/')) {
+      lastErr = `non-image content-type: ${mime}`;
+      continue;
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (index > 0) {
+      logger.warn(
+        { primary: candidates[0], resolved: candidate, lastErr },
+        'Inline image resolved through fallback IPFS gateway'
+      );
+    }
+    return `data:${mime};base64,${buf.toString('base64')}`;
   }
-  if (!res.ok) {
-    throw new ComposeError(
-      502,
-      `Failed to fetch photo for inline embed: HTTP ${res.status}`
-    );
-  }
-  const contentType = res.headers.get('content-type') || 'image/png';
-  // Only allow image MIME types — refuses html/json/etc. so we never
-  // smuggle a non-image payload into the SVG.
-  const mime = contentType.split(';')[0].trim().toLowerCase();
-  if (!mime.startsWith('image/')) {
-    throw new ComposeError(
-      502,
-      `Photo URL returned non-image content-type: ${mime}`
-    );
-  }
-  const buf = Buffer.from(await res.arrayBuffer());
-  return `data:${mime};base64,${buf.toString('base64')}`;
+
+  throw new ComposeError(
+    502,
+    `Failed to fetch photo for inline embed: ${String(lastErr)}`
+  );
 }
 
 /**
