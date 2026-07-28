@@ -19,7 +19,7 @@ describe('rasterizeTextCard', () => {
     expect(png.readUInt32BE(16)).toBe(1200);
   });
 
-  it('embeds title glyphs (woff must load via fontBuffers)', () => {
+  it('embeds title glyphs (woffs convert to TTF fontFiles)', () => {
     const withTitle = rasterizeTextCard(
       generateTextCardSvg({
         title: 'I voted!',
