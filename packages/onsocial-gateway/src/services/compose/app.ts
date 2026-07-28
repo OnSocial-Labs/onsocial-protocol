@@ -224,6 +224,32 @@ export function buildAddApprovedCreatorAction(params: {
   };
 }
 
+/** Approve several creators in one call (max 20; skips duplicates on-chain). */
+export function buildAddApprovedCreatorsAction(params: {
+  appId: string;
+  accountIds: string[];
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.appId) throw new ComposeError(400, 'Missing appId');
+  const accountIds = (params.accountIds ?? [])
+    .map((id) => String(id || '').trim())
+    .filter(Boolean);
+  if (accountIds.length === 0) {
+    throw new ComposeError(400, 'Missing accountIds');
+  }
+  if (accountIds.length > 20) {
+    throw new ComposeError(400, 'Maximum 20 accountIds per batch');
+  }
+  return {
+    action: {
+      type: 'add_approved_creators',
+      app_id: params.appId,
+      account_ids: accountIds,
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
 /** Build a RemoveApprovedCreator action. */
 export function buildRemoveApprovedCreatorAction(params: {
   appId: string;

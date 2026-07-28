@@ -9,7 +9,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import type { CreatorAccess } from '@/features/scarces/apps-data';
-import { creatorAccessLabel } from '@/features/scarces/apps-data';
+import {
+  creatorAccessLabel,
+  creatorAccessShort,
+} from '@/features/scarces/apps-data';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
 import {
   txToastConfirming,
@@ -51,13 +54,17 @@ export function CreateAppPanel() {
   const { trackTransaction } = useAppTransactionFeedback();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [commissionInput, setCommissionInput] = useState('2.5');
   const [creatorAccess, setCreatorAccess] = useState<CreatorAccess>('open');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const derivedSlug = useMemo(() => slugify(slug || name), [slug, name]);
+  const derivedSlug = useMemo(
+    () => slugify(slugTouched ? slug || name : name),
+    [slug, name, slugTouched]
+  );
   const commission = Number.parseFloat(commissionInput);
   const commissionValid =
     Number.isFinite(commission) &&
@@ -138,7 +145,7 @@ export function CreateAppPanel() {
   return (
     <OsAppScreen
       title="Open a store"
-      subtitle="A branded storefront where you (and creators you allow) publish drops. You set the commission on every primary sale."
+      subtitle="Branded storefront for drops you (and allowed creators) publish."
       backFallbackHref={APP_APPS_PATH}
     >
       <form className="drop-create-form" onSubmit={handleSubmit}>
@@ -150,6 +157,7 @@ export function CreateAppPanel() {
             onChange={(event) => setName(event.target.value)}
             placeholder="Midnight Records"
             maxLength={MAX_NAME}
+            disabled={pending}
           />
         </label>
 
@@ -157,14 +165,19 @@ export function CreateAppPanel() {
           <span>Store ID</span>
           <input
             id={fieldId('id')}
-            value={slug}
-            onChange={(event) => setSlug(event.target.value)}
-            placeholder={derivedSlug || 'midnight-records'}
+            value={slugTouched ? slug : derivedSlug}
+            onChange={(event) => {
+              setSlugTouched(true);
+              setSlug(event.target.value);
+            }}
+            placeholder="midnight-records"
             maxLength={MAX_SLUG}
+            disabled={pending}
+            spellCheck={false}
+            autoCapitalize="none"
+            autoCorrect="off"
           />
-          <small>
-            Permanent · public link: {appPath(derivedSlug || 'your-store')}
-          </small>
+          <small>Permanent · {appPath(derivedSlug || 'your-store')}</small>
         </label>
 
         <label className="guild-field" htmlFor={fieldId('description')}>
@@ -175,6 +188,7 @@ export function CreateAppPanel() {
             onChange={(event) => setDescription(event.target.value)}
             placeholder="What this store publishes and who it's for."
             maxLength={MAX_DESCRIPTION}
+            disabled={pending}
           />
           <small>
             {description.length}/{MAX_DESCRIPTION}
@@ -202,7 +216,7 @@ export function CreateAppPanel() {
               </button>
             ))}
           </div>
-          <div className="app-storage-amount-field">
+          <div className="drop-create-suffix-field">
             <input
               id={fieldId('commission')}
               type="text"
@@ -214,36 +228,37 @@ export function CreateAppPanel() {
               }
               placeholder="2.5"
               aria-label="Commission percentage"
-              className="app-storage-amount-input"
               disabled={pending}
             />
-            <span className="account-card-balance-unit">% per sale</span>
+            <span>% per sale</span>
           </div>
-          <small>
-            Locked onto each drop when it&rsquo;s created — changing it later
-            only affects new drops.
-          </small>
+          <small>Locked on each new drop · max {MAX_COMMISSION_PCT}%.</small>
         </label>
 
         <div className="guild-field">
-          <span>Who can create drops here</span>
-          <div className="app-access-options" role="radiogroup">
+          <span>Who can create drops</span>
+          <div
+            className="app-storage-presets"
+            role="radiogroup"
+            aria-label="Who can create drops"
+          >
             {ACCESS_MODES.map((mode) => (
               <button
                 key={mode}
                 type="button"
                 role="radio"
                 aria-checked={creatorAccess === mode}
-                className={`app-access-option${
+                className={`os-surface-chip${
                   creatorAccess === mode ? ' is-selected' : ''
                 }`}
                 disabled={pending}
                 onClick={() => setCreatorAccess(mode)}
               >
-                {creatorAccessLabel(mode)}
+                {creatorAccessShort(mode)}
               </button>
             ))}
           </div>
+          <small>{creatorAccessLabel(creatorAccess)}</small>
         </div>
 
         {error ? <p className="guild-form-error">{error}</p> : null}

@@ -23,7 +23,8 @@ export interface SearchFieldProps {
   /**
    * Replaces the default magnifying glass (e.g. Market shop / Discover mark).
    * Pass a single icon sized via `search-field-icon`. Shows a portal-style
-   * vertical divider after the glyph.
+   * vertical divider after the glyph. Icon + placeholder share the mute →
+   * reveal ladder on hover/focus.
    */
   leadingIcon?: ReactNode;
   /** Focus the input on mount (GlassSheet prefers this over the close button). */

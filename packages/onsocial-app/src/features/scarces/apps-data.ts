@@ -1,6 +1,13 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract } from '@/lib/app-near-rpc';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import {
+  APPS_PAGE_SIZE,
+  isLikelyTestStore,
+  sortApps,
+  type AppsAccessFilter,
+  type AppsDirectorySort,
+} from '@/features/scarces/apps-directory';
 
 /**
  * App (store) reads — a branded economic network on the shared scarces
@@ -60,6 +67,37 @@ export interface AppView {
   moderators: string[];
   approvedCreators: string[];
   metadataRaw: string | null;
+  /** Indexer `updated_block_timestamp` (ns → ms). */
+  updatedAtMs?: number;
+  /** Indexer `created_block_timestamp` (ns → ms). */
+  createdAtMs?: number;
+  /** Live Market listings under this store (directory enrichment). */
+  liveListingCount?: number;
+}
+
+export interface FetchAppsOptions {
+  fromIndex?: number;
+  limit?: number;
+  query?: string;
+  access?: AppsAccessFilter;
+  sort?: AppsDirectorySort;
+  /** Drop CI / SDK integration spam. Default true. */
+  hideTest?: boolean;
+}
+
+export interface AppsDirectoryPage {
+  apps: AppView[];
+  hasMore: boolean;
+  /** Next indexer offset (accounts for over-fetch when hiding tests). */
+  nextOffset: number;
+}
+
+function nsToMs(value: number | null | undefined): number | undefined {
+  if (value == null) return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  // NEAR timestamps are nanoseconds.
+  return n > 1e15 ? Math.floor(n / 1e6) : Math.floor(n);
 }
 
 function asRecord(value: unknown): AppPoolRecord | null {
@@ -172,14 +210,18 @@ export async function fetchAllAppIds(
   }
 }
 
-/** Map an indexer / thin record into AppView without a live roster. */
-function toAppViewFromIndexer(row: {
+type IndexerAppRow = {
   appId: string;
   ownerId: string;
   primarySaleBps?: number | null;
   creatorAccess?: string | null;
   metadata?: string | null;
-}): AppView {
+  createdBlockTimestamp?: number | null;
+  updatedBlockTimestamp?: number | null;
+};
+
+/** Map an indexer / thin record into AppView without a live roster. */
+function toAppViewFromIndexer(row: IndexerAppRow): AppView {
   const meta = parseMetadata(row.metadata);
   const bps = Math.max(
     0,
@@ -187,6 +229,8 @@ function toAppViewFromIndexer(row: {
   );
   const image = meta.image ?? meta.media ?? null;
   const banner = meta.banner ?? null;
+  const updatedAtMs = nsToMs(row.updatedBlockTimestamp);
+  const createdAtMs = nsToMs(row.createdBlockTimestamp);
   return {
     appId: row.appId,
     ownerId: row.ownerId,
@@ -202,21 +246,97 @@ function toAppViewFromIndexer(row: {
     moderators: [],
     approvedCreators: [],
     metadataRaw: row.metadata ?? null,
+    ...(updatedAtMs != null ? { updatedAtMs } : {}),
+    ...(createdAtMs != null ? { createdAtMs } : {}),
   };
 }
 
-/** Directory listing — indexer only (no N× RPC). Detail pages use fetchApp. */
-export async function fetchApps(
-  opts: { fromIndex?: number; limit?: number } = {}
-): Promise<AppView[]> {
-  const limit = opts.limit ?? 60;
+function directoryOrderBy(sort: AppsDirectorySort): string {
+  switch (sort) {
+    case 'fee-asc':
+      return '[{primarySaleBps: ASC}, {updatedBlockTimestamp: DESC}]';
+    case 'fee-desc':
+      return '[{primarySaleBps: DESC}, {updatedBlockTimestamp: DESC}]';
+    case 'name':
+      // Metadata JSON isn't a clean name column — sort client-side after fetch.
+      return '[{updatedBlockTimestamp: DESC}]';
+    case 'recent':
+    default:
+      return '[{updatedBlockTimestamp: DESC}]';
+  }
+}
+
+function buildDirectoryWhere(opts: {
+  query?: string;
+  access?: AppsAccessFilter;
+  hideTest?: boolean;
+}): {
+  params: string[];
+  whereClause: string;
+  variables: Record<string, unknown>;
+} {
+  const params: string[] = [];
+  const clauses: string[] = [];
+  const variables: Record<string, unknown> = {};
+
+  if (opts.access && opts.access !== 'all') {
+    params.push('$creatorAccess: String!');
+    variables.creatorAccess = opts.access;
+    clauses.push('{creatorAccess: {_eq: $creatorAccess}}');
+  }
+
+  const q = opts.query?.trim();
+  if (q) {
+    params.push('$queryLike: String!');
+    variables.queryLike = `%${q}%`;
+    clauses.push(
+      '{_or: [{appId: {_ilike: $queryLike}}, {ownerId: {_ilike: $queryLike}}, {metadata: {_ilike: $queryLike}}]}'
+    );
+  }
+
+  if (opts.hideTest !== false) {
+    // Exclude known CI/SDK store spam at the indexer when possible.
+    clauses.push('{_not: {metadata: {_ilike: "%integration-test%"}}}');
+    clauses.push('{appId: {_nilike: "intapptest_%"}}');
+    clauses.push('{appId: {_nilike: "smokeapptest_%"}}');
+    clauses.push('{appId: {_nilike: "intapp%"}}');
+  }
+
+  const whereClause =
+    clauses.length === 0
+      ? ''
+      : clauses.length === 1
+        ? `where: ${clauses[0]},`
+        : `where: {_and: [${clauses.join(', ')}]},`;
+
+  return { params, whereClause, variables };
+}
+
+/**
+ * Directory page — indexer `scarces_apps` with search / access / sort.
+ * Detail pages still use `fetchApp` (live roster).
+ */
+export async function fetchAppsDirectory(
+  opts: FetchAppsOptions = {}
+): Promise<AppsDirectoryPage> {
+  const limit = opts.limit ?? APPS_PAGE_SIZE;
   const fromIndex = opts.fromIndex ?? 0;
+  const sort = opts.sort ?? 'recent';
+  const hideTest = opts.hideTest !== false;
+  // Over-fetch when hiding tests so a page still fills after client safety net.
+  const fetchLimit = hideTest ? Math.min(limit * 3, 120) : limit + 1;
 
   try {
     const { createReadOnlyOnSocialClient } = await import(
       '@/lib/create-readonly-onsocial-client'
     );
     const client = createReadOnlyOnSocialClient();
+    const built = buildDirectoryWhere({
+      query: opts.query,
+      access: opts.access,
+      hideTest,
+    });
+    const params = ['$limit: Int!', '$offset: Int!', ...built.params];
     const res = await client.query.graphql<{
       scarcesApps: Array<{
         appId: string;
@@ -224,42 +344,138 @@ export async function fetchApps(
         primarySaleBps: number | null;
         creatorAccess: string | null;
         metadata: string | null;
+        createdBlockTimestamp: number | null;
+        updatedBlockTimestamp: number | null;
       }>;
     }>({
-      query: `query ScarcesApps($limit: Int!, $offset: Int!) {
+      query: `query ScarcesAppsDirectory(${params.join(', ')}) {
         scarcesApps(
+          ${built.whereClause}
           limit: $limit
           offset: $offset
-          orderBy: [{updatedBlockTimestamp: DESC}]
+          orderBy: ${directoryOrderBy(sort)}
         ) {
           appId
           ownerId
           primarySaleBps
           creatorAccess
           metadata
+          createdBlockTimestamp
+          updatedBlockTimestamp
         }
       }`,
-      variables: { limit, offset: fromIndex },
+      variables: {
+        limit: fetchLimit,
+        offset: fromIndex,
+        ...built.variables,
+      },
     });
     const rows = res.data?.scarcesApps;
-    if (Array.isArray(rows) && rows.length > 0) {
-      return rows.map((row) =>
-        toAppViewFromIndexer({
-          appId: row.appId,
-          ownerId: row.ownerId,
-          primarySaleBps: row.primarySaleBps,
-          creatorAccess: row.creatorAccess,
-          metadata: row.metadata,
-        })
-      );
+    if (Array.isArray(rows)) {
+      let apps = rows.map((row) => toAppViewFromIndexer(row));
+      if (hideTest) {
+        apps = apps.filter((app) => !isLikelyTestStore(app));
+      }
+      if (sort === 'name' || sort === 'recent') {
+        apps = sortApps(apps, sort);
+      }
+      const page = apps.slice(0, limit);
+      const hasMore = rows.length >= fetchLimit || apps.length > limit;
+      return {
+        apps: page,
+        hasMore,
+        nextOffset: fromIndex + rows.length,
+      };
     }
   } catch {
     // Fall through to contract directory.
   }
 
-  const ids = await fetchAllAppIds(opts);
-  const views = await Promise.all(ids.map((id) => fetchApp(id)));
-  return views.filter((view): view is AppView => view != null);
+  const ids = await fetchAllAppIds({
+    fromIndex,
+    limit: fetchLimit,
+  });
+  const views = (
+    await Promise.all(ids.map((id) => fetchApp(id)))
+  ).filter((view): view is AppView => view != null);
+  let apps = views;
+  if (hideTest) apps = apps.filter((app) => !isLikelyTestStore(app));
+  if (opts.access && opts.access !== 'all') {
+    apps = apps.filter((app) => app.creatorAccess === opts.access);
+  }
+  const q = opts.query?.trim().toLowerCase();
+  if (q) {
+    apps = apps.filter(
+      (app) =>
+        app.appId.toLowerCase().includes(q) ||
+        app.ownerId.toLowerCase().includes(q) ||
+        app.title.toLowerCase().includes(q) ||
+        (app.description ?? '').toLowerCase().includes(q)
+    );
+  }
+  apps = sortApps(apps, sort);
+  return {
+    apps: apps.slice(0, limit),
+    hasMore: ids.length >= fetchLimit || apps.length > limit,
+    nextOffset: fromIndex + ids.length,
+  };
+}
+
+/** Directory listing — indexer only (no N× RPC). Detail pages use fetchApp. */
+export async function fetchApps(
+  opts: FetchAppsOptions = {}
+): Promise<AppView[]> {
+  const page = await fetchAppsDirectory(opts);
+  return page.apps;
+}
+
+/**
+ * Live Market listing counts keyed by store `appId`.
+ * One indexer scan — used to annotate the directory, not for ACL.
+ */
+export async function fetchStoreLiveListingCounts(
+  opts: { limit?: number } = {}
+): Promise<Map<string, number>> {
+  const limit = opts.limit ?? 500;
+  const counts = new Map<string, number>();
+  try {
+    const { createReadOnlyOnSocialClient } = await import(
+      '@/lib/create-readonly-onsocial-client'
+    );
+    const client = createReadOnlyOnSocialClient();
+    const res = await client.query.graphql<{
+      scarcesActiveListings: Array<{ appId: string | null }>;
+    }>({
+      query: `query StoreLiveListingCounts($limit: Int!) {
+        scarcesActiveListings(
+          where: {appId: {_isNull: false}}
+          limit: $limit
+        ) {
+          appId
+        }
+      }`,
+      variables: { limit },
+    });
+    for (const row of res.data?.scarcesActiveListings ?? []) {
+      const id = row.appId?.trim();
+      if (!id) continue;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  } catch {
+    // Directory still works without listing annotations.
+  }
+  return counts;
+}
+
+export function mergeLiveListingCounts(
+  apps: AppView[],
+  counts: Map<string, number>
+): AppView[] {
+  if (counts.size === 0) return apps;
+  return apps.map((app) => {
+    const n = counts.get(app.appId);
+    return n && n > 0 ? { ...app, liveListingCount: n } : app;
+  });
 }
 
 /**

@@ -53,6 +53,22 @@ export function reconcileScarceEmbedFromApi(
       (fetched.status === 'lazy_listing' || fetched.status === 'listed') &&
       Boolean(fetched.listingId || fetched.tokenId)
     ) {
+      // Stale creator listings cache can still return a cancelled listing —
+      // don't drop a seeded override for a different listing id.
+      if (
+        override.listingId &&
+        fetched.listingId &&
+        override.listingId !== fetched.listingId
+      ) {
+        return false;
+      }
+      if (
+        override.tokenId &&
+        fetched.tokenId &&
+        override.tokenId !== fetched.tokenId
+      ) {
+        return false;
+      }
       clearScarceEmbedOverride(key);
       return true;
     }
@@ -112,14 +128,20 @@ export function resolveScarceEmbed(
     (override.status === 'lazy_listing' || override.status === 'listed') &&
     (fetched.status === override.status || fetched.status === 'none')
   ) {
+    // Cover art is listing-scoped — never inherit a prior listing's media.
+    const sameListing =
+      !override.listingId ||
+      !fetched.listingId ||
+      override.listingId === fetched.listingId;
     return {
       ...fetched,
       ...override,
       listingId: override.listingId ?? fetched.listingId,
       tokenId: override.tokenId ?? fetched.tokenId,
       priceNear: override.priceNear ?? fetched.priceNear,
-      cardBg: override.cardBg ?? fetched.cardBg,
-      mediaUrl: override.mediaUrl ?? fetched.mediaUrl,
+      cardBg: override.cardBg ?? (sameListing ? fetched.cardBg : undefined),
+      mediaUrl:
+        override.mediaUrl ?? (sameListing ? fetched.mediaUrl : undefined),
       copies: override.copies ?? fetched.copies,
       remaining: override.remaining ?? fetched.remaining,
       events: fetched.events.length > 0 ? fetched.events : override.events,

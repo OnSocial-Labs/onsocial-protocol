@@ -308,7 +308,12 @@ export function ScarcePostPreview({
             dangerouslySetInnerHTML={{ __html: inlineSvg }}
           />
         ) : (
-          <img className="scarce-post-preview-asset" src={rasterSrc!} alt="" />
+          <img
+            key={rasterSrc!}
+            className="scarce-post-preview-asset"
+            src={rasterSrc!}
+            alt=""
+          />
         )}
       </button>
 
@@ -342,6 +347,7 @@ export function ScarcePostPreview({
                 />
               ) : (
                 <img
+                  key={rasterSrc!}
                   className="scarce-card-lightbox-asset"
                   src={rasterSrc!}
                   alt=""

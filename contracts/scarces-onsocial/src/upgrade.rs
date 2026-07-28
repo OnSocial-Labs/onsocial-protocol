@@ -44,7 +44,6 @@ impl Contract {
     }
 
     /// Standard upgrade entrypoint: bump version / NEP-177 spec and emit.
-    /// New AppPool / commission fields are Borsh-append-compatible (no rewrite).
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {

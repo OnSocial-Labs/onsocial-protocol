@@ -66,6 +66,7 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "add_moderator",
     "remove_moderator",
     "add_approved_creator",
+    "add_approved_creators",
     "remove_approved_creator",
     "ban_collection",
     "unban_collection",

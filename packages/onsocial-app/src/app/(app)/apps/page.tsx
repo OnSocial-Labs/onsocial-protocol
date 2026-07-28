@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
-import { fetchApps } from '@/features/scarces/apps-data';
+import { fetchAppsDirectory } from '@/features/scarces/apps-data';
 import { AppsDirectoryPanel } from '@/features/scarces/apps-directory-panel';
+import { APPS_PAGE_SIZE } from '@/features/scarces/apps-directory';
 
 export const metadata: Metadata = {
   title: 'Stores • OnSocial',
@@ -8,6 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AppsPage() {
-  const apps = await fetchApps({ limit: 60 });
-  return <AppsDirectoryPanel initial={apps} />;
+  const page = await fetchAppsDirectory({
+    limit: APPS_PAGE_SIZE,
+    hideTest: true,
+    sort: 'recent',
+  });
+  return <AppsDirectoryPanel initial={page.apps} />;
 }

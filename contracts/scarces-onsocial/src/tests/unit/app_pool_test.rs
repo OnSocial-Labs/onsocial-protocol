@@ -304,6 +304,98 @@ fn add_approved_creator_happy() {
 }
 
 #[test]
+fn add_approved_creators_batch_happy() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    contract
+        .execute(make_request(Action::AddApprovedCreators {
+            app_id: app_id(),
+            account_ids: vec![creator(), buyer()],
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert!(pool.approved_creators.contains(&creator()));
+    assert!(pool.approved_creators.contains(&buyer()));
+    assert_eq!(pool.approved_creators.len(), 2);
+}
+
+#[test]
+fn add_approved_creators_skips_duplicates_and_existing() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: creator(),
+        }))
+        .unwrap();
+
+    contract
+        .execute(make_request(Action::AddApprovedCreators {
+            app_id: app_id(),
+            account_ids: vec![creator(), creator(), buyer()],
+        }))
+        .unwrap();
+
+    let pool = contract.app_pools.get(&app_id()).unwrap();
+    assert_eq!(pool.approved_creators.len(), 2);
+    assert!(pool.approved_creators.contains(&buyer()));
+}
+
+#[test]
+fn add_approved_creators_all_existing_fails() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract
+        .execute(make_request(Action::AddApprovedCreator {
+            app_id: app_id(),
+            account_id: creator(),
+        }))
+        .unwrap();
+
+    let err = contract
+        .execute(make_request(Action::AddApprovedCreators {
+            app_id: app_id(),
+            account_ids: vec![creator()],
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidState(_)));
+}
+
+#[test]
+fn add_approved_creators_empty_fails() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    let err = contract
+        .execute(make_request(Action::AddApprovedCreators {
+            app_id: app_id(),
+            account_ids: vec![],
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
+fn add_approved_creators_over_batch_cap_fails() {
+    let mut contract = setup_with_app();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    let too_many: Vec<AccountId> = (0..21)
+        .map(|i| format!("c{i}.near").parse().unwrap())
+        .collect();
+    let err = contract
+        .execute(make_request(Action::AddApprovedCreators {
+            app_id: app_id(),
+            account_ids: too_many,
+        }))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
 fn add_approved_creator_duplicate_fails() {
     let mut contract = setup_with_app();
     testing_env!(context_with_deposit(owner(), 1).build());

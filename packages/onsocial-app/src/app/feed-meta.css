@@ -1,0 +1,121 @@
+/*
+ * Feed meta — single owner of @#$ / link / Show more color, weight, hover.
+ * Unlayered after Tailwind so it cannot lose to `button { font: inherit }`
+ * or body 400. Markup carries no weight utilities for these tokens.
+ *
+ * Idle: 300 + protocol green (feed / posts / thread fold — same metrics)
+ * Portfolio bio: inherit mood type; color from `--signal-reputation`
+ * Selected #/$ (.is-active): 500
+ * Desktop (fine pointer): underline on hover / focus-visible — color unchanged
+ * Touch: no hover chrome (avoids sticky :hover after tap)
+ *
+ * Composer textarea + backdrop stay 300 in globals so the caret aligns.
+ * Thread fold uses the same 300 / AA as Show more; compact 0.72rem size.
+ */
+.os-hashtag,
+.os-mention,
+.os-ticker,
+.os-link,
+button.post-card-show-more,
+.post-card .post-card-show-more,
+.post-thread-more {
+  color: var(--protocol-green);
+  font-family: var(--app-font-sans);
+  font-size: inherit;
+  font-style: normal;
+  font-weight: 300;
+  line-height: inherit;
+  text-decoration: none;
+  /*
+   * Grayscale AA on the token only — not on a parent GPU layer (that
+   * stacked with body-block and looked soft / thick).
+   */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fold — same 300 / green / AA as tokens; compact size for chrome. */
+.post-thread-more {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+
+/*
+ * Portfolio bio — mood owns face / weight / size; tokens only pick the
+ * reputation signal color (and underline hover). Do not force feed 300 /
+ * DM Sans here.
+ */
+.portfolio-bio .os-hashtag,
+.portfolio-bio .os-mention,
+.portfolio-bio .os-ticker,
+.portfolio-bio .os-link {
+  color: var(--signal-reputation);
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  -webkit-font-smoothing: inherit;
+  -moz-osx-font-smoothing: inherit;
+}
+
+.portfolio-bio .os-hashtag.is-active,
+.portfolio-bio .os-ticker.is-active {
+  font-weight: inherit;
+}
+
+.os-hashtag.is-active,
+.os-ticker.is-active {
+  font-weight: 500;
+}
+
+/* Backdrop mirrors match their textarea (composer 300, bio editor 500) —
+   an explicit weight here would drift the caret. */
+.guild-composer-input-backdrop .os-hashtag,
+.guild-composer-input-backdrop .os-mention,
+.guild-composer-input-backdrop .os-ticker,
+.guild-composer-input-backdrop .os-link,
+.account-editor-bio-backdrop .os-hashtag,
+.account-editor-bio-backdrop .os-mention,
+.account-editor-bio-backdrop .os-ticker,
+.account-editor-bio-backdrop .os-link {
+  font-family: inherit;
+  font-weight: inherit;
+  color: var(--protocol-green);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .os-hashtag:hover,
+  .os-mention:hover,
+  .os-ticker:hover,
+  .os-link:hover,
+  .os-hashtag:focus-visible,
+  .os-mention:focus-visible,
+  .os-ticker:focus-visible,
+  .os-link:focus-visible,
+  .post-thread-more:hover,
+  .post-thread-more:focus-visible,
+  button.post-card-show-more:hover,
+  button.post-card-show-more:focus-visible,
+  .post-card .post-card-show-more:hover,
+  .post-card .post-card-show-more:focus-visible {
+    color: var(--protocol-green);
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+    text-decoration-thickness: from-font;
+    outline: none;
+  }
+
+  .portfolio-bio .os-hashtag:hover,
+  .portfolio-bio .os-mention:hover,
+  .portfolio-bio .os-ticker:hover,
+  .portfolio-bio .os-link:hover,
+  .portfolio-bio .os-hashtag:focus-visible,
+  .portfolio-bio .os-mention:focus-visible,
+  .portfolio-bio .os-ticker:focus-visible,
+  .portfolio-bio .os-link:focus-visible {
+    color: var(--signal-reputation);
+  }
+}

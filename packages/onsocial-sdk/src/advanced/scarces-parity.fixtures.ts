@@ -102,6 +102,7 @@ export const ALL_SCARCES_ACTION_TYPES = [
   'add_moderator',
   'remove_moderator',
   'add_approved_creator',
+  'add_approved_creators',
   'remove_approved_creator',
   'ban_collection',
   'unban_collection',
@@ -968,6 +969,19 @@ export function getScarcesParityCases(
         type: 'add_approved_creator',
         app_id: 'my-app',
         account_id: 'creator.near',
+      },
+    },
+    {
+      name: 'add approved creators batch',
+      action: {
+        type: 'add_approved_creators',
+        app_id: 'my-app',
+        account_ids: ['creator.near', 'artist.near'],
+      },
+      expectedAction: {
+        type: 'add_approved_creators',
+        app_id: 'my-app',
+        account_ids: ['creator.near', 'artist.near'],
       },
     },
     {

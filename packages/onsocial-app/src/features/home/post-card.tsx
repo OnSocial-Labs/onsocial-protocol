@@ -41,6 +41,7 @@ import {
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
+import { invalidateLiveListingsCache } from '@/features/market/market-listings';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -825,6 +826,7 @@ export function PostCard({
         failureMessage: txToastError.cancelScarceListingFailed,
       });
       if (!confirmed) return;
+      invalidateLiveListingsCache(post.accountId);
       setScarceEmbedOverride(postScarceKey(post.accountId, post.postId), {
         status: 'none',
         events: [],

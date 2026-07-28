@@ -228,6 +228,29 @@ pub fn deserialize_trailing_creator_access<R: near_sdk::borsh::io::Read>(
     }
 }
 
+/// Append-compatible Borsh read for trailing `Option<AccountId>` (EOF → None).
+pub fn deserialize_trailing_option_account_id<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<Option<AccountId>, near_sdk::borsh::io::Error> {
+    use near_sdk::borsh::BorshDeserialize;
+    let mut tag = [0u8; 1];
+    match near_sdk::borsh::io::Read::read(reader, &mut tag)? {
+        0 => Ok(None),
+        1 => match tag[0] {
+            0 => Ok(None),
+            1 => Ok(Some(AccountId::deserialize_reader(reader)?)),
+            other => Err(near_sdk::borsh::io::Error::new(
+                near_sdk::borsh::io::ErrorKind::InvalidData,
+                format!("unexpected Option discriminant {other}"),
+            )),
+        },
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing Option tag length {n}"),
+        )),
+    }
+}
+
 /// Append-compatible Borsh read for trailing `Vec<AccountId>` (EOF → empty).
 pub fn deserialize_trailing_account_vec<R: near_sdk::borsh::io::Read>(
     reader: &mut R,

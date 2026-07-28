@@ -174,6 +174,10 @@ function scaleSvgToOutput(svg: string): string {
  * the musl Resvg binding (blank titles in Docker), and `fontFiles`
  * cannot parse WOFF directly. System fonts stay off so hosts cannot
  * leak into permanent artwork beyond the optional emoji face.
+ *
+ * Quality: layout stays the 600 design grid × 2 (1200 PNG). Text uses
+ * optimizeLegibility; embedded avatar/photo use optimizeQuality — neither
+ * changes on-card sizes.
  */
 export function rasterizeTextCard(svg: string): Buffer {
   const options = {
@@ -182,6 +186,11 @@ export function rasterizeTextCard(svg: string): Buffer {
       loadSystemFonts: false,
       defaultFontFamily: 'DM Sans',
     },
+    // 1 = optimizeLegibility (text); 2 = geometricPrecision (marks/clips)
+    textRendering: 1,
+    shapeRendering: 2,
+    // 0 = optimizeQuality for <image> (avatar / proof photo)
+    imageRendering: 0,
   } as ResvgRenderOptions;
 
   const image = new Resvg(scaleSvgToOutput(svg), options);

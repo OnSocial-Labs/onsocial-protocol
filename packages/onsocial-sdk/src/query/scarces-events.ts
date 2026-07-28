@@ -112,6 +112,8 @@ export const APP_POOL_OPERATIONS = [
   'owner_transferred',
   'moderator_added',
   'moderator_removed',
+  'approved_creator_added',
+  'approved_creator_removed',
 ] as const;
 
 /** STORAGE_UPDATE family operations. */
@@ -132,6 +134,7 @@ export const CONTRACT_OPERATIONS = [
   'contract_upgrade',
   'owner_transferred',
   'fee_recipient_changed',
+  'fee_recipient_secondary_changed',
   'fee_config_updated',
   'contract_metadata_updated',
   'approved_nft_contract_added',

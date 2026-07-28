@@ -79,6 +79,7 @@ export const SCARCES_VERBS = {
   ADD_MODERATOR: 'add-moderator',
   REMOVE_MODERATOR: 'remove-moderator',
   ADD_APPROVED_CREATOR: 'add-approved-creator',
+  ADD_APPROVED_CREATORS: 'add-approved-creators',
   REMOVE_APPROVED_CREATOR: 'remove-approved-creator',
   BAN_COLLECTION: 'ban-collection',
   UNBAN_COLLECTION: 'unban-collection',

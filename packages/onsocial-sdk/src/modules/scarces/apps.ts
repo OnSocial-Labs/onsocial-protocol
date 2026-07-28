@@ -181,6 +181,27 @@ export class ScarcesAppsApi {
     );
   }
 
+  /**
+   * Approve several creators in one tx (max 20). Skips already-approved
+   * on-chain; only takes effect when `creatorAccess` is `approval`.
+   */
+  async addApprovedCreators(
+    appId: string,
+    accountIds: string[]
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.ADD_APPROVED_CREATORS,
+      {
+        appId,
+        accountIds,
+      },
+      'scarces.addApprovedCreators',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
   /** Remove a creator from the app's approved-creator roster. */
   async removeApprovedCreator(
     appId: string,

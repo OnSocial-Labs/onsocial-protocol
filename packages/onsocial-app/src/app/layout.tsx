@@ -14,9 +14,14 @@ import './globals.css';
 const dmSans = DM_Sans({
   subsets: ['latin'],
   variable: '--font-dm-sans',
-  display: 'swap',
-  // Include Light so post #/@/$ / links at weight 300 actually render lighter.
-  weight: ['300', '400', '500', '600', '700'],
+  // block, not swap: with swap, rows that painted during the fallback window
+  // rendered Arial (no 300) and stayed thick until something re-rendered them
+  // (mid-feed rows had no reason to; a boost reorder did — hence “boost fixes
+  // it”). block holds text invisible for the instant the woff2 needs instead.
+  display: 'block',
+  // Variable wght axis — discrete weights were deduped to the same woff2, so
+  // font-weight: 300 painted as 400 glyphs.
+  weight: 'variable',
 });
 
 const spaceGrotesk = Space_Grotesk({

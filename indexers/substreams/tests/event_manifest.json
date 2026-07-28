@@ -159,6 +159,7 @@
           "contract_upgrade",
           "owner_transferred",
           "fee_recipient_changed",
+          "fee_recipient_secondary_changed",
           "fee_config_updated",
           "contract_metadata_updated",
           "approved_nft_contract_added",

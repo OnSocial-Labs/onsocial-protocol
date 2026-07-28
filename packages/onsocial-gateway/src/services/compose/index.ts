@@ -151,6 +151,7 @@ export {
   buildAddModeratorAction,
   buildRemoveModeratorAction,
   buildAddApprovedCreatorAction,
+  buildAddApprovedCreatorsAction,
   buildRemoveApprovedCreatorAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,

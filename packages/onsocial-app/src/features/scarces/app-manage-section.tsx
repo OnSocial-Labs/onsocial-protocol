@@ -12,6 +12,7 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
   creatorAccessLabel,
+  creatorAccessShort,
   type AppView,
   type CreatorAccess,
 } from '@/features/scarces/apps-data';
@@ -24,6 +25,10 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  MAX_CREATOR_BATCH,
+  parseRosterAccountIds,
+} from '@/features/scarces/app-roster-parse';
 
 const ACCESS_MODES: CreatorAccess[] = ['open', 'approval', 'invite_only'];
 const MAX_COMMISSION_PCT = 50;
@@ -261,8 +266,58 @@ export function AppManageSection({
       action: 'add' | 'remove',
       resetInput?: () => void
     ) => {
+      if (pending) return;
+
+      if (kind === 'creator' && action === 'add') {
+        const ids = parseRosterAccountIds(accountId).filter(
+          (id) => !accountIdsEqual(id, app.ownerId)
+        );
+        if (ids.length === 0) {
+          setNote(
+            accountId.trim()
+              ? 'You already own this store — add other accounts.'
+              : 'Add one or more account IDs.'
+          );
+          return;
+        }
+        if (ids.length > MAX_CREATOR_BATCH) {
+          setNote(`Add at most ${MAX_CREATOR_BATCH} creators at a time.`);
+          return;
+        }
+        setPending(true);
+        setNote(null);
+        try {
+          const client = await withWallet();
+          const response = await client.scarces.apps.addApprovedCreators(
+            app.appId,
+            ids
+          );
+          const confirmed = await trackTransaction({
+            txHashes: collectRelayTxHashes(response),
+            submittedMessage: txToastConfirming.updatingAppCreators,
+            successMessage: txToastSuccess.appCreatorsUpdated,
+            failureMessage: txToastError.updateAppCreatorsFailed,
+          });
+          if (!confirmed) return;
+          resetInput?.();
+          onChanged();
+        } catch (cause) {
+          if (isWalletUserCancellation(cause)) return;
+          setTxResult({
+            type: 'error',
+            msg:
+              cause instanceof Error
+                ? cause.message
+                : txToastError.updateAppCreatorsFailed,
+          });
+        } finally {
+          setPending(false);
+        }
+        return;
+      }
+
       const id = accountId.trim().toLowerCase();
-      if (!id || pending) return;
+      if (!id) return;
       if (action === 'add' && accountIdsEqual(id, app.ownerId)) {
         setNote('You already own this store.');
         return;
@@ -274,9 +329,7 @@ export function AppManageSection({
         const apps = client.scarces.apps;
         const response =
           kind === 'creator'
-            ? action === 'add'
-              ? await apps.addApprovedCreator(app.appId, id)
-              : await apps.removeApprovedCreator(app.appId, id)
+            ? await apps.removeApprovedCreator(app.appId, id)
             : action === 'add'
               ? await apps.addModerator(app.appId, id)
               : await apps.removeModerator(app.appId, id);
@@ -374,23 +427,28 @@ export function AppManageSection({
 
           <div className="guild-field">
             <span>Who can create drops</span>
-            <div className="app-access-options" role="radiogroup">
+            <div
+              className="app-storage-presets"
+              role="radiogroup"
+              aria-label="Who can create drops"
+            >
               {ACCESS_MODES.map((mode) => (
                 <button
                   key={mode}
                   type="button"
                   role="radio"
                   aria-checked={creatorAccess === mode}
-                  className={`app-access-option${
+                  className={`os-surface-chip${
                     creatorAccess === mode ? ' is-selected' : ''
                   }`}
                   disabled={pending}
                   onClick={() => setCreatorAccess(mode)}
                 >
-                  {creatorAccessLabel(mode)}
+                  {creatorAccessShort(mode)}
                 </button>
               ))}
             </div>
+            <small>{creatorAccessLabel(creatorAccess)}</small>
           </div>
 
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -536,7 +594,8 @@ export function AppManageSection({
         <div className="app-manage-roster">
           <h4 className="app-manage-roster-title">Approved creators</h4>
           <RosterEditor
-            placeholder="creator.near"
+            placeholder="creator.near, artist.near"
+            multiline
             value={creatorInput}
             onChange={setCreatorInput}
             disabled={pending}
@@ -548,6 +607,10 @@ export function AppManageSection({
             members={app.approvedCreators}
             onRemove={(id) => void mutateRoster('creator', id, 'remove')}
           />
+          <small>
+            One or many accounts · comma or newline · up to {MAX_CREATOR_BATCH}{' '}
+            per add.
+          </small>
         </div>
       ) : null}
 
@@ -583,6 +646,7 @@ function RosterEditor({
   onAdd,
   members,
   onRemove,
+  multiline = false,
 }: {
   placeholder: string;
   value: string;
@@ -591,19 +655,32 @@ function RosterEditor({
   onAdd: () => void;
   members: string[];
   onRemove: (id: string) => void;
+  multiline?: boolean;
 }) {
   return (
     <div className="app-roster-editor">
       <div className="app-roster-add">
-        <input
-          type="text"
-          autoComplete="off"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          disabled={disabled}
-          aria-label="Account to add"
-        />
+        {multiline ? (
+          <textarea
+            autoComplete="off"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-label="Accounts to add"
+            rows={3}
+          />
+        ) : (
+          <input
+            type="text"
+            autoComplete="off"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder}
+            disabled={disabled}
+            aria-label="Account to add"
+          />
+        )}
         <button
           type="button"
           className="os-surface-chip"

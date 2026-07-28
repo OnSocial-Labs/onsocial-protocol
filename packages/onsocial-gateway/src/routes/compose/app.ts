@@ -14,6 +14,7 @@ import {
   buildAddModeratorAction,
   buildRemoveModeratorAction,
   buildAddApprovedCreatorAction,
+  buildAddApprovedCreatorsAction,
   buildRemoveApprovedCreatorAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,
@@ -133,6 +134,20 @@ const addCreator = actionHandlers(
   'add-approved-creator'
 );
 appRouter.post('/prepare/add-approved-creator', addCreator.prepare);
+
+// ── Add Approved Creators (batch) ───────────────────────────────────────────
+const addCreators = actionHandlers(
+  (b) =>
+    buildAddApprovedCreatorsAction({
+      appId: String(b.appId || ''),
+      accountIds: (parseJsonField(b.accountIds) ??
+        b.accountIds ??
+        []) as string[],
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'add-approved-creators'
+);
+appRouter.post('/prepare/add-approved-creators', addCreators.prepare);
 
 // ── Remove Approved Creator ─────────────────────────────────────────────────
 const removeCreator = actionHandlers(

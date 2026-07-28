@@ -21,6 +21,7 @@
     --protocol-purple-hover: #d8b4fe;
     /* NEAR Protocol green — single brand signal across app + portal */
     --protocol-green: #00ec97;
+    /* Lighter mint on hover — same in light and dark. */
     --protocol-green-hover: #33f0ad;
     --protocol-amber: #fbbf24;
     --protocol-pink: #ec4899;

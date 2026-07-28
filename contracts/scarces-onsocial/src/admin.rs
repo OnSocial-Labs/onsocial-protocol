@@ -5,6 +5,7 @@ pub struct ContractInfo {
     pub owner: AccountId,
     pub version: String,
     pub fee_recipient: AccountId,
+    pub fee_recipient_secondary: Option<AccountId>,
     pub fee_config: FeeConfig,
     pub approved_nft_contracts: Vec<AccountId>,
     pub wnear_account_id: Option<AccountId>,
@@ -60,6 +61,7 @@ impl Contract {
             contract_metadata,
             approved_nft_contracts: IterableSet::new(StorageKey::ApprovedNftContracts),
             wnear_account_id: None,
+            fee_recipient_secondary: None,
             pending_attached_balance: 0,
         }
     }
@@ -88,6 +90,33 @@ impl Contract {
         let old_recipient = self.fee_recipient.clone();
         self.fee_recipient = fee_recipient;
         events::emit_fee_recipient_changed(&self.owner_id, &old_recipient, &self.fee_recipient);
+        Ok(())
+    }
+
+    /// Set or clear the secondary marketplace revenue recipient.
+    /// When set, revenue transfers split 50/50 with `fee_recipient`.
+    #[payable]
+    #[handle_result]
+    pub fn set_fee_recipient_secondary(
+        &mut self,
+        fee_recipient_secondary: Option<AccountId>,
+    ) -> Result<(), MarketplaceError> {
+        crate::guards::check_one_yocto()?;
+        self.check_contract_owner(&env::predecessor_account_id())?;
+        if let Some(ref secondary) = fee_recipient_secondary {
+            if secondary == &self.fee_recipient {
+                return Err(MarketplaceError::InvalidInput(
+                    "Secondary fee recipient must differ from primary".to_string(),
+                ));
+            }
+        }
+        let old = self.fee_recipient_secondary.clone();
+        self.fee_recipient_secondary = fee_recipient_secondary;
+        events::emit_fee_recipient_secondary_changed(
+            &self.owner_id,
+            old.as_ref(),
+            self.fee_recipient_secondary.as_ref(),
+        );
         Ok(())
     }
 
@@ -213,6 +242,7 @@ impl Contract {
             owner: self.owner_id.clone(),
             version: self.version.clone(),
             fee_recipient: self.fee_recipient.clone(),
+            fee_recipient_secondary: self.fee_recipient_secondary.clone(),
             fee_config: self.fee_config.clone(),
             approved_nft_contracts: self.approved_nft_contracts.iter().cloned().collect(),
             wnear_account_id: self.wnear_account_id.clone(),

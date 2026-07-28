@@ -14,6 +14,7 @@ import {
   buildAddModeratorAction,
   buildRemoveModeratorAction,
   buildAddApprovedCreatorAction,
+  buildAddApprovedCreatorsAction,
   buildRemoveApprovedCreatorAction,
   buildBanCollectionAction,
   buildUnbanCollectionAction,
@@ -209,6 +210,26 @@ describe('buildAddApprovedCreatorAction', () => {
   it('throws on missing accountId', () => {
     expect(() =>
       buildAddApprovedCreatorAction({ appId: 'tickets.near', accountId: '' })
+    ).toThrow(ComposeError);
+  });
+});
+
+describe('buildAddApprovedCreatorsAction', () => {
+  it('builds a valid add-approved-creators action', () => {
+    const result = buildAddApprovedCreatorsAction({
+      appId: 'tickets.near',
+      accountIds: ['creator.near', 'artist.near'],
+    });
+    expect(result.action).toEqual({
+      type: 'add_approved_creators',
+      app_id: 'tickets.near',
+      account_ids: ['creator.near', 'artist.near'],
+    });
+  });
+
+  it('throws on empty accountIds', () => {
+    expect(() =>
+      buildAddApprovedCreatorsAction({ appId: 'tickets.near', accountIds: [] })
     ).toThrow(ComposeError);
   });
 });

@@ -57,6 +57,40 @@ fn set_fee_recipient_non_owner_fails() {
 }
 
 #[test]
+fn set_fee_recipient_secondary_happy() {
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    contract.set_fee_recipient_secondary(Some(buyer())).unwrap();
+    assert_eq!(contract.fee_recipient_secondary, Some(buyer()));
+
+    contract.set_fee_recipient_secondary(None).unwrap();
+    assert_eq!(contract.fee_recipient_secondary, None);
+}
+
+#[test]
+fn set_fee_recipient_secondary_same_as_primary_fails() {
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    let err = contract
+        .set_fee_recipient_secondary(Some(owner()))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
+fn set_fee_recipient_secondary_non_owner_fails() {
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(buyer(), 1).build());
+
+    let err = contract
+        .set_fee_recipient_secondary(Some(creator()))
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::Unauthorized(_)));
+}
+
+#[test]
 fn set_contract_metadata_partial_update() {
     let mut contract = new_contract();
     testing_env!(context_with_deposit(owner(), 1).build());
@@ -157,6 +191,7 @@ fn get_contract_info_returns_all_fields() {
     let info = contract.get_contract_info();
     assert_eq!(info.owner, owner());
     assert_eq!(info.fee_recipient, owner());
+    assert!(info.fee_recipient_secondary.is_none());
     assert!(info.approved_nft_contracts.contains(&nft));
     assert!(info.wnear_account_id.is_none());
     assert!(!info.version.is_empty());
@@ -174,4 +209,42 @@ fn get_contract_info_empty_defaults() {
     let info = contract.get_contract_info();
     assert!(info.approved_nft_contracts.is_empty());
     assert!(info.wnear_account_id.is_none());
+    assert!(info.fee_recipient_secondary.is_none());
+}
+
+#[test]
+fn migrate_defaults_missing_fee_recipient_secondary() {
+    use near_sdk::borsh::BorshDeserialize;
+
+    let contract = new_contract();
+    let mut bytes = near_sdk::borsh::to_vec(&contract).unwrap();
+    // Drop trailing Option::None tag for fee_recipient_secondary (pre-upgrade layout).
+    assert_eq!(
+        bytes.last().copied(),
+        Some(0),
+        "fresh contract serializes secondary as None"
+    );
+    bytes.truncate(bytes.len() - 1);
+
+    let loaded = Contract::try_from_slice(&bytes).unwrap();
+    assert!(loaded.fee_recipient_secondary.is_none());
+    assert_eq!(loaded.fee_recipient, owner());
+    assert_eq!(loaded.owner_id, owner());
+
+    near_sdk::env::state_write(&loaded);
+    let migrated = Contract::migrate();
+    assert!(migrated.fee_recipient_secondary.is_none());
+}
+
+#[test]
+fn fee_recipient_secondary_borsh_roundtrip_some() {
+    use near_sdk::borsh::BorshDeserialize;
+
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract.set_fee_recipient_secondary(Some(buyer())).unwrap();
+
+    let bytes = near_sdk::borsh::to_vec(&contract).unwrap();
+    let loaded = Contract::try_from_slice(&bytes).unwrap();
+    assert_eq!(loaded.fee_recipient_secondary, Some(buyer()));
 }

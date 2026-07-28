@@ -60,7 +60,8 @@ pub use validation::{
     deserialize_max_per_purchase_collection, deserialize_max_per_purchase_listing,
     deserialize_minted_count, deserialize_trailing_account_vec,
     deserialize_trailing_commission_bps, deserialize_trailing_creator_access,
-    deserialize_trailing_u16_or, deserialize_trailing_u32_or,
+    deserialize_trailing_option_account_id, deserialize_trailing_u16_or,
+    deserialize_trailing_u32_or,
 };
 
 #[near(
@@ -125,6 +126,11 @@ pub struct Contract {
 
     // Cross-contract boundary: accepted FT receiver source for unwrap-and-credit flow.
     pub wnear_account_id: Option<AccountId>,
+
+    /// When set, marketplace revenue is split 50/50 with `fee_recipient`.
+    /// Append-compatible: absent in pre-upgrade state → None (safe `migrate`).
+    #[borsh(deserialize_with = "crate::deserialize_trailing_option_account_id")]
+    pub fee_recipient_secondary: Option<AccountId>,
 
     // Persistence invariant: transient execution balance is non-persistent and excluded from serialization.
     #[borsh(skip)]

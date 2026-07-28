@@ -12,6 +12,8 @@
 @import '@onsocial/ui/profile-avatar.css';
 @import '@onsocial/ui/search-field.css';
 @import './transaction-feedback-toast.css';
+/* After Tailwind — feed @#$ / Show more weights (see file comment). */
+@import './feed-meta.css';
 
 /*
  * Scarce text-card SVGs (and mint Resvg) ask for family name "Erica Type" —
@@ -24,7 +26,8 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  /* Avoid blank Letter glyphs while the face loads (list-sheet SVG fallback). */
+  font-display: block;
 }
 
 @font-face {
@@ -32,7 +35,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -40,7 +43,7 @@
   src: url('/fonts/erica-type/erika_type-webfont.woff') format('woff');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
@@ -48,7 +51,7 @@
   src: url('/fonts/erica-type/erika_type_b-webfont.woff') format('woff');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 /* Discover tabs close the header — never pair with the section hairline. */
@@ -10152,7 +10155,6 @@ a.os-surface-row {
     position: relative;
     z-index: 2;
     pointer-events: auto;
-    font-weight: 300;
     cursor: pointer;
   }
 
@@ -13726,12 +13728,12 @@ a.os-surface-row {
     transition: color 160ms ease;
   }
 
-  .post-card--openable:hover .post-card-body,
-  .post-card--openable:has(.post-card-hit:focus-visible) .post-card-body,
-  .post-card-open:hover .post-card-body,
-  .post-card-open:focus-visible .post-card-body {
-    color: rgb(var(--fg-rgb) / 0.98);
-  }
+  /*
+   * Do NOT darken `.post-card-body` on card hover. That ink lift left Show more
+   * (protocol green, weight 300) looking thinner beside nearly-solid body copy —
+   * especially on long truncated posts — while Show more’s own weight never moved.
+   * Card hover affordance stays on background + avatar ring only.
+   */
 
   .post-card-avatar-link {
     position: relative;
@@ -13785,6 +13787,12 @@ a.os-surface-row {
     flex: 1;
     flex-direction: column;
     gap: 0.2rem;
+    /*
+     * One compositor layer for the post column (not also on body-block —
+     * nested translateZ stacks blur glyphs so green 300 reads thicker).
+     */
+    transform: translateZ(0);
+    isolation: isolate;
   }
 
   /* Name @handle · 50m ··· — handle truncates before the display name. */
@@ -14112,8 +14120,9 @@ a.os-surface-row {
   }
 
   /*
-   * Feed / post tokens — protocol green (= NEAR #00EC97) for @ # $
-   * links + show more. Selectors beat mood signal remaps.
+   * Feed / post tokens — cursor only. Weight, color, decoration and outline all
+   * come from the base token block plus the unlayered feed meta block, so a
+   * post-scoped rule can never drift from the rest of the app.
    */
   .post-card .os-hashtag,
   .post-card .os-mention,
@@ -14122,105 +14131,37 @@ a.os-surface-row {
   .post-card-quote-inset-body .os-hashtag,
   .post-card-quote-inset-body .os-mention,
   .post-card-quote-inset-body .os-ticker,
-  .post-card-quote-inset-body .os-link,
-  .portfolio-frame[data-mood] .post-card .os-hashtag,
-  .portfolio-frame[data-mood] .post-card .os-mention,
-  .portfolio-frame[data-mood] .post-card .os-ticker,
-  .portfolio-frame[data-mood] .post-card .os-link,
-  .portfolio-os-layer[data-mood] .post-card .os-hashtag,
-  .portfolio-os-layer[data-mood] .post-card .os-mention,
-  .portfolio-os-layer[data-mood] .post-card .os-ticker,
-  .portfolio-os-layer[data-mood] .post-card .os-link {
-    font-weight: 400;
-    text-decoration: none;
+  .post-card-quote-inset-body .os-link {
     cursor: pointer;
-    color: var(--protocol-green);
   }
 
-  .post-card .os-hashtag.is-active,
-  .post-card-quote-inset-body .os-hashtag.is-active,
-  .portfolio-frame[data-mood] .post-card .os-hashtag.is-active,
-  .portfolio-os-layer[data-mood] .post-card .os-hashtag.is-active {
-    font-weight: 500;
-  }
-
-  .post-card .os-ticker.is-active,
-  .post-card-quote-inset-body .os-ticker.is-active,
-  .portfolio-frame[data-mood] .post-card .os-ticker.is-active,
-  .portfolio-os-layer[data-mood] .post-card .os-ticker.is-active {
-    font-weight: 500;
-    letter-spacing: 0.01em;
-  }
-
-  .post-card .os-hashtag:hover,
-  .post-card .os-mention:hover,
-  .post-card .os-ticker:hover,
-  .post-card .os-link:hover,
-  .post-card .os-hashtag:focus-visible,
-  .post-card .os-mention:focus-visible,
-  .post-card .os-ticker:focus-visible,
-  .post-card .os-link:focus-visible,
-  .post-card-quote-inset-body .os-hashtag:hover,
-  .post-card-quote-inset-body .os-mention:hover,
-  .post-card-quote-inset-body .os-ticker:hover,
-  .post-card-quote-inset-body .os-link:hover,
-  .post-card-quote-inset-body .os-hashtag:focus-visible,
-  .post-card-quote-inset-body .os-mention:focus-visible,
-  .post-card-quote-inset-body .os-ticker:focus-visible,
-  .post-card-quote-inset-body .os-link:focus-visible,
-  .portfolio-frame[data-mood] .post-card .os-hashtag:hover,
-  .portfolio-frame[data-mood] .post-card .os-mention:hover,
-  .portfolio-frame[data-mood] .post-card .os-ticker:hover,
-  .portfolio-frame[data-mood] .post-card .os-link:hover,
-  .portfolio-frame[data-mood] .post-card .os-hashtag:focus-visible,
-  .portfolio-frame[data-mood] .post-card .os-mention:focus-visible,
-  .portfolio-frame[data-mood] .post-card .os-ticker:focus-visible,
-  .portfolio-frame[data-mood] .post-card .os-link:focus-visible,
-  .portfolio-os-layer[data-mood] .post-card .os-hashtag:hover,
-  .portfolio-os-layer[data-mood] .post-card .os-mention:hover,
-  .portfolio-os-layer[data-mood] .post-card .os-ticker:hover,
-  .portfolio-os-layer[data-mood] .post-card .os-link:hover,
-  .portfolio-os-layer[data-mood] .post-card .os-hashtag:focus-visible,
-  .portfolio-os-layer[data-mood] .post-card .os-mention:focus-visible,
-  .portfolio-os-layer[data-mood] .post-card .os-ticker:focus-visible,
-  .portfolio-os-layer[data-mood] .post-card .os-link:focus-visible {
-    text-decoration: none;
-    outline: none;
-    color: var(--protocol-green-hover);
-  }
-
-  /* Expand chrome — same feed token green. */
-  .post-card-body-block > .post-card-show-more {
+  /* Expand chrome — reset only. Color/weight/hover: feed-meta.css. */
+  .post-card .post-card-show-more,
+  button.post-card-show-more {
     margin: 0;
     padding: 0;
     border: 0;
     background: none;
-    color: var(--protocol-green);
-    font: inherit;
     font-size: inherit;
-    font-weight: 400;
     line-height: inherit;
     letter-spacing: normal;
     cursor: pointer;
-    text-decoration: none !important;
-    text-decoration-line: none !important;
+    text-decoration: none;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: color 140ms ease;
   }
 
-  .post-card-body-block > .post-card-show-more:hover,
-  .post-card-body-block > .post-card-show-more:focus-visible,
-  .post-card-body-block > .post-card-show-more:active {
-    color: var(--protocol-green-hover);
-    text-decoration: none !important;
-    text-decoration-line: none !important;
+  .post-card .post-card-show-more:focus-visible,
+  button.post-card-show-more:focus-visible {
     outline: none;
   }
 
   .post-media-strip {
     margin-top: 0.35rem;
     min-width: 0;
+    /* Photos decode on their own layer so body text AA stays put. */
+    transform: translateZ(0);
+    isolation: isolate;
   }
 
   .post-media-strip.is-focused {
@@ -14894,8 +14835,9 @@ a.os-surface-row {
 
   .post-card-scarce-buy-main {
     color: var(--protocol-green);
-    font-weight: 700;
-    transition: color 160ms ease;
+    /* Protocol green chrome — not a bold CTA. */
+    font-weight: 400;
+    text-decoration: none;
   }
 
   .post-card-scarce-buy-meta {
@@ -14903,9 +14845,24 @@ a.os-surface-row {
     font-weight: 500;
   }
 
-  .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
-  .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
-    color: color-mix(in srgb, var(--protocol-green) 72%, white);
+  /* Desktop: same underline hover as feed tokens. Touch: no sticky hover. */
+  @media (hover: hover) and (pointer: fine) {
+    .post-card-scarce-buy:hover:not(:disabled) .post-card-scarce-buy-main,
+    .post-card-scarce-buy:focus-visible .post-card-scarce-buy-main {
+      color: var(--protocol-green);
+      text-decoration: underline;
+      text-underline-offset: 0.12em;
+      text-decoration-thickness: from-font;
+    }
+
+    .post-card-scarce-buy--secondary:hover:not(:disabled)
+      .post-card-scarce-buy-main,
+    .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
+      color: var(--protocol-green);
+      text-decoration: underline;
+      text-underline-offset: 0.12em;
+      text-decoration-thickness: from-font;
+    }
   }
 
   .post-card-scarce-buy:disabled {
@@ -14923,12 +14880,6 @@ a.os-surface-row {
   .post-card-scarce-buy--secondary .post-card-scarce-buy-main {
     color: rgb(var(--fg-rgb) / 0.55);
     font-weight: 600;
-  }
-
-  .post-card-scarce-buy--secondary:hover:not(:disabled)
-    .post-card-scarce-buy-main,
-  .post-card-scarce-buy--secondary:focus-visible .post-card-scarce-buy-main {
-    color: var(--protocol-green);
   }
 
   .post-card-scarce-links {
@@ -16519,8 +16470,78 @@ a.os-surface-row {
   .drop-create-form {
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
-    padding-bottom: 2rem;
+    gap: 1.15rem;
+    /* Match Guild / Market OsAppScreen body inset. */
+    padding: 0.15rem 1rem 1.5rem;
+  }
+
+  /* Create forms: plain label stacks — kill guild-field card chrome. */
+  .drop-create-form .guild-field {
+    padding: 0;
+    gap: 0.4rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .drop-create-form .guild-field input,
+  .drop-create-form .guild-field textarea {
+    border: 0;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    padding: 0.65rem 0.75rem;
+  }
+
+  .drop-create-form .guild-field input:focus,
+  .drop-create-form .guild-field textarea:focus {
+    border: 0;
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+    outline: none;
+  }
+
+  .drop-create-form .guild-field textarea {
+    min-height: 5rem;
+  }
+
+  /* One soft shell: value + unit (not a nested storage “amount card”). */
+  .drop-create-form .drop-create-suffix-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    padding: 0.65rem 0.75rem;
+  }
+
+  .drop-create-form .drop-create-suffix-field:focus-within {
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .drop-create-form .drop-create-suffix-field input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .drop-create-form .drop-create-suffix-field input:focus {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .drop-create-form .drop-create-suffix-field span {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--os-surface-muted);
   }
 
   .drop-cover-picker {
@@ -16600,38 +16621,53 @@ a.os-surface-row {
   }
 
   /* ── App (store) create + access controls ─── */
+  /* Borderless soft chips — same ladder as os-surface-chip (no card chrome). */
 
   .app-access-options {
     display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
   }
 
   .app-access-option {
-    text-align: left;
-    padding: 0.6rem 0.75rem;
-    border-radius: 0.85rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: rgb(var(--fg-rgb) / 0.02);
-    color: var(--os-surface-muted-strong);
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--os-surface-fill-strong);
+    color: var(--os-surface-muted);
     font: inherit;
-    font-size: 0.88rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.28rem 0.7rem;
+    text-align: center;
     cursor: pointer;
     transition:
-      border-color 160ms ease,
       background 160ms ease,
       color 160ms ease;
   }
 
-  .app-access-option:hover:not(:disabled) {
-    background: rgb(var(--fg-rgb) / 0.05);
+  .app-access-option:hover:not(:disabled),
+  .app-access-option:focus-visible:not(:disabled) {
+    background: rgb(var(--fg-rgb) / 0.1);
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .app-access-option.is-selected {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.7);
-    background: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.1);
-    color: var(--os-surface-emphasis);
-    font-weight: 600;
+    background: color-mix(in srgb, var(--protocol-green) 14%, transparent);
+    color: var(--protocol-green);
+  }
+
+  .app-access-option.is-selected:hover:not(:disabled),
+  .app-access-option.is-selected:focus-visible:not(:disabled) {
+    background: color-mix(in srgb, var(--protocol-green-hover) 20%, transparent);
+    color: var(--protocol-green-hover);
+  }
+
+  .app-access-option:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
 
   /* ── App (store) page ─── */
@@ -16922,9 +16958,16 @@ a.os-surface-row {
     gap: 0.4rem;
   }
 
-  .app-roster-add input {
+  .app-roster-add input,
+  .app-roster-add textarea {
     flex: 1;
     min-width: 0;
+  }
+
+  .app-roster-add textarea {
+    resize: vertical;
+    min-height: 4rem;
+    font: inherit;
   }
 
   .app-roster-members {
@@ -16969,81 +17012,71 @@ a.os-surface-row {
   /* ── App directory ─── */
 
   .apps-directory {
-    padding-bottom: 2rem;
-  }
-
-  .apps-directory-grid {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-    gap: 0.75rem;
-  }
-
-  .apps-directory-card {
+    /* Same OsAppScreen body inset as Market / Guilds / Home. */
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    padding: 0.85rem;
-    border-radius: 1rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    background: rgb(var(--fg-rgb) / 0.02);
-    text-decoration: none;
-    transition:
-      border-color 160ms ease,
-      background 160ms ease;
+    gap: 1.35rem;
+    padding: 0.15rem 1rem 1.5rem;
   }
 
-  .apps-directory-card:hover {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    background: rgb(var(--fg-rgb) / 0.04);
+  .apps-directory-list {
+    gap: 0.2rem;
+  }
+
+  .apps-directory-row {
+    text-decoration: none;
+    color: inherit;
   }
 
   .apps-directory-logo {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 0.85rem;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgb(var(--fg-rgb) / 0.06);
+    cursor: inherit;
+    border-radius: 0.55rem;
   }
 
-  .apps-directory-logo img {
+  .apps-directory-logo-fallback {
+    display: flex;
     width: 100%;
     height: 100%;
-    object-fit: cover;
-  }
-
-  .apps-directory-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-  }
-
-  .apps-directory-title {
-    font-size: 0.92rem;
-    font-weight: 700;
-    color: var(--os-surface-emphasis);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .apps-directory-owner {
+    align-items: center;
+    justify-content: center;
     font-size: 0.78rem;
-    color: var(--os-surface-muted-strong);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.55);
+    background: linear-gradient(
+      145deg,
+      rgb(var(--fg-rgb) / 0.14),
+      rgb(var(--fg-rgb) / 0.05)
+    );
   }
 
-  .apps-directory-facts {
-    font-size: 0.75rem;
-    color: var(--os-surface-muted);
+  .apps-directory-more {
+    display: flex;
+    justify-content: center;
+    padding: 0.35rem 0 0;
+  }
+
+  .apps-directory-more-btn {
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: var(--os-surface-emphasis);
+    border-radius: 999px;
+    padding: 0.45rem 1rem;
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .apps-directory-more-btn:hover:not(:disabled),
+  .apps-directory-more-btn:focus-visible:not(:disabled) {
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .apps-directory-more-btn:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
 
   .market-page-retry {
@@ -19686,7 +19719,7 @@ a.os-surface-row {
     padding-top: 0.42rem;
   }
 
-  /* Fold — TEMP trial: protocol green; weight matches Show more; no underline. */
+  /* Fold chrome — layout only; weight/color locked unlayered (with Show more). */
   .post-thread-more {
     position: relative;
     display: block;
@@ -19696,22 +19729,12 @@ a.os-surface-row {
     cursor: pointer;
     text-align: left;
     padding: 0.05rem 0.35rem 0.5rem 3rem;
-    font-family: inherit;
-    font-size: 0.72rem;
-    font-weight: 300;
-    line-height: 1.45;
-    color: var(--protocol-green);
-    text-decoration: none !important;
-    text-decoration-line: none !important;
-    transition: color 140ms ease;
+    /* Size/weight/color: feed-meta.css (same as Show more / #$@). */
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  .post-thread-more:hover,
-  .post-thread-more:focus-visible,
-  .post-thread-more:active {
-    color: var(--protocol-green-hover);
-    text-decoration: none !important;
-    text-decoration-line: none !important;
+  .post-thread-more:focus-visible {
     outline: none;
   }
 
@@ -20082,49 +20105,32 @@ a.os-surface-row {
     color: inherit;
     font: inherit;
     font-size: 0.92rem;
+    /* Same as feed tokens — keep caret aligned with green #$@ highlights. */
+    font-weight: 300;
     line-height: 1.5;
   }
 
   /*
-   * Text tokens — TEMP trial: # / @ / $ / links share protocol green.
-   * Mooded profiles still remap via --signal-*.
+   * Text tokens — # / @ / $ / links.
+   * Weight, color, and hover live in feed-meta.css; keep this block to
+   * layout / idle decoration only.
    */
-  .guild-composer-hashtag,
   .os-hashtag,
   .os-mention,
   .os-ticker {
-    color: var(--protocol-green);
-    font-weight: inherit;
     text-decoration: none;
   }
 
   .os-link {
     display: inline;
-    color: var(--protocol-green);
-    font-weight: inherit;
     text-decoration: none;
     white-space: nowrap;
-    transition: color 140ms ease;
   }
 
-  .os-hashtag,
-  .os-mention,
-  .os-ticker {
-    transition: color 140ms ease;
-  }
-
-  .os-hashtag:hover,
   .os-hashtag:focus-visible,
-  .os-mention:hover,
   .os-mention:focus-visible,
-  .os-ticker:hover,
   .os-ticker:focus-visible,
-  .guild-composer-hashtag:hover,
-  .guild-composer-hashtag:focus-visible,
-  .os-link:hover,
   .os-link:focus-visible {
-    color: var(--protocol-green-hover);
-    text-decoration: none;
     outline: none;
   }
 
@@ -20135,10 +20141,6 @@ a.os-surface-row {
     margin-right: 0.18em;
     vertical-align: -0.08em;
     flex-shrink: 0;
-  }
-
-  .os-link-label {
-    font-weight: inherit;
   }
 
   /*
@@ -20166,117 +20168,9 @@ a.os-surface-row {
     white-space: pre-wrap;
   }
 
-  .os-hashtag.is-active {
-    font-weight: 600;
-  }
-
+  /* Selected tokens — weight is set unlayered; only the $ tracking lives here. */
   .os-ticker.is-active {
-    font-weight: 700;
     letter-spacing: 0.01em;
-  }
-
-  .portfolio-frame[data-mood] .os-hashtag,
-  .portfolio-os-layer[data-mood] .os-hashtag {
-    color: var(--signal-standing);
-  }
-
-  .portfolio-frame[data-mood] .os-mention,
-  .portfolio-os-layer[data-mood] .os-mention {
-    color: var(--signal-solidarity);
-  }
-
-  .portfolio-frame[data-mood] .os-ticker,
-  .portfolio-os-layer[data-mood] .os-ticker {
-    color: var(--signal-reputation);
-  }
-
-  .portfolio-frame[data-mood] .os-hashtag:hover,
-  .portfolio-frame[data-mood] .os-hashtag:focus-visible,
-  .portfolio-os-layer[data-mood] .os-hashtag:hover,
-  .portfolio-os-layer[data-mood] .os-hashtag:focus-visible {
-    color: color-mix(in srgb, var(--signal-standing) 72%, white);
-  }
-
-  .portfolio-frame[data-mood] .os-mention:hover,
-  .portfolio-frame[data-mood] .os-mention:focus-visible,
-  .portfolio-os-layer[data-mood] .os-mention:hover,
-  .portfolio-os-layer[data-mood] .os-mention:focus-visible {
-    color: color-mix(in srgb, var(--signal-solidarity) 72%, white);
-  }
-
-  .portfolio-frame[data-mood] .os-ticker:hover,
-  .portfolio-frame[data-mood] .os-ticker:focus-visible,
-  .portfolio-os-layer[data-mood] .os-ticker:hover,
-  .portfolio-os-layer[data-mood] .os-ticker:focus-visible {
-    color: color-mix(in srgb, var(--signal-reputation) 72%, white);
-  }
-
-  /* External links — same standing tint as #tags (fewer bio colors). */
-  .portfolio-frame[data-mood] .os-link,
-  .portfolio-os-layer[data-mood] .os-link {
-    color: var(--signal-standing);
-  }
-
-  .portfolio-frame[data-mood] .os-link:hover,
-  .portfolio-frame[data-mood] .os-link:focus-visible,
-  .portfolio-os-layer[data-mood] .os-link:hover,
-  .portfolio-os-layer[data-mood] .os-link:focus-visible {
-    color: color-mix(in srgb, var(--signal-standing) 72%, white);
-  }
-
-  /* Profile editor bio — same mood signal tokens as the live portfolio face. */
-  .account-editor-panel--page-mood .os-hashtag,
-  .account-editor-panel--page-mood .os-link {
-    color: var(--signal-standing, var(--protocol-green));
-  }
-
-  .account-editor-panel--page-mood .os-mention {
-    color: var(--signal-solidarity, var(--protocol-purple));
-  }
-
-  .account-editor-panel--page-mood .os-ticker {
-    color: var(--signal-reputation, var(--protocol-green));
-  }
-
-  .account-editor-panel--page-mood .os-hashtag:hover,
-  .account-editor-panel--page-mood .os-hashtag:focus-visible,
-  .account-editor-panel--page-mood .os-link:hover,
-  .account-editor-panel--page-mood .os-link:focus-visible {
-    color: color-mix(
-      in srgb,
-      var(--signal-standing, var(--protocol-green)) 72%,
-      white
-    );
-  }
-
-  .account-editor-panel--page-mood .os-mention:hover,
-  .account-editor-panel--page-mood .os-mention:focus-visible {
-    color: color-mix(
-      in srgb,
-      var(--signal-solidarity, var(--protocol-purple)) 72%,
-      white
-    );
-  }
-
-  .account-editor-panel--page-mood .os-ticker:hover,
-  .account-editor-panel--page-mood .os-ticker:focus-visible {
-    color: color-mix(
-      in srgb,
-      var(--signal-reputation, var(--protocol-green)) 72%,
-      white
-    );
-  }
-
-  /* Composer overlay: never bold tags — weight mismatch shifts the caret. */
-  .guild-composer-input-backdrop .os-hashtag,
-  .guild-composer-input-backdrop .os-mention,
-  .guild-composer-input-backdrop .os-ticker,
-  .guild-composer-input-backdrop .os-link,
-  .account-editor-bio-backdrop .os-hashtag,
-  .account-editor-bio-backdrop .os-mention,
-  .account-editor-bio-backdrop .os-ticker,
-  .account-editor-bio-backdrop .os-link {
-    font-weight: inherit;
   }
 
   .composer-mention-suggest {
@@ -20346,6 +20240,8 @@ a.os-surface-row {
     color: inherit;
     font: inherit;
     font-size: 0.92rem;
+    /* Match feed meta weight so typed #$@ stay caret-aligned at 300. */
+    font-weight: 300;
     line-height: 1.5;
     outline: none;
     padding: 0;

@@ -158,11 +158,32 @@ impl Contract {
         }
 
         if revenue > 0 {
-            let _ = Promise::new(self.fee_recipient.clone())
-                .transfer(NearToken::from_yoctonear(revenue));
+            self.transfer_marketplace_revenue(revenue);
         }
 
         (revenue, app_amount)
+    }
+
+    /// Pay marketplace revenue to `fee_recipient`, splitting 50/50 when a
+    /// secondary recipient is configured (odd yocto stays with primary).
+    pub(crate) fn transfer_marketplace_revenue(&self, revenue: u128) {
+        if revenue == 0 {
+            return;
+        }
+        if let Some(ref secondary) = self.fee_recipient_secondary {
+            let half = revenue / 2;
+            let primary_share = revenue.saturating_sub(half);
+            if primary_share > 0 {
+                let _ = Promise::new(self.fee_recipient.clone())
+                    .transfer(NearToken::from_yoctonear(primary_share));
+            }
+            if half > 0 {
+                let _ = Promise::new(secondary.clone()).transfer(NearToken::from_yoctonear(half));
+            }
+        } else {
+            let _ = Promise::new(self.fee_recipient.clone())
+                .transfer(NearToken::from_yoctonear(revenue));
+        }
     }
 
     pub(crate) fn calculate_app_commission(
@@ -224,8 +245,7 @@ impl Contract {
             }
             let remaining = amount_after_fee.saturating_sub(actual_distributed);
             if remaining > 0 {
-                let _ = Promise::new(self.fee_recipient.clone())
-                    .transfer(NearToken::from_yoctonear(remaining));
+                self.transfer_marketplace_revenue(remaining);
             }
         } else if amount_after_fee > 0 {
             let _ = Promise::new(fallback_recipient.clone())

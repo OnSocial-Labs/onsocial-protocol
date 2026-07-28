@@ -1086,6 +1086,15 @@ const liveListingsCache = new Map<
   { at: number; promise: Promise<MarketListingItem[]> }
 >();
 
+/** Drop creator live-listing cache after cancel / re-list so hydrate is fresh. */
+export function invalidateLiveListingsCache(creatorId?: string): void {
+  if (!creatorId?.trim()) {
+    liveListingsCache.clear();
+    return;
+  }
+  liveListingsCache.delete(creatorId.trim().toLowerCase());
+}
+
 export async function fetchLiveListingsForCreator(
   creatorId: string
 ): Promise<MarketListingItem[]> {

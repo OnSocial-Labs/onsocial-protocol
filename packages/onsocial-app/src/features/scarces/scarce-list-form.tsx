@@ -20,7 +20,10 @@ import type { PostRow } from '@onsocial/sdk';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import { findLiveListingForPost } from '@/features/market/market-listings';
+import {
+  findLiveListingForPost,
+  invalidateLiveListingsCache,
+} from '@/features/market/market-listings';
 import {
   fetchPublishableApps,
   type AppView,
@@ -364,8 +367,9 @@ export function ScarceListForm({
     return deriveMintTitle(mintBody, maxCharacters) || `Post ${post.postId}`;
   }, [mintBody, post.postId, usesGeneratedCard, cardTheme.cardFormat]);
 
-  // Mint-true PNG preview (same gateway builder as list). Keep live SVG
-  // while the PNG loads so the sheet doesn't jump or flash a blank cover.
+  // Mint-true PNG preview (same gateway builder as list). Keep the last
+  // PNG on screen while the next one loads — clearing it fell back to live
+  // SVG and Letter/Erica briefly looked blank or like DM Sans.
   useEffect(() => {
     const wantsMintPreview = usesGeneratedCard && !usesPhotoCard;
     if (!wantsMintPreview || !accountId) {
@@ -378,8 +382,6 @@ export function ScarceListForm({
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setMintPreviewPending(true);
-      // Drop stale PNG so ScarcePostPreview falls back to live SVG for this theme.
-      setMintPreviewUrl(null);
       void (async () => {
         try {
           const client = createAppOnSocialClient(accountId);
@@ -387,9 +389,7 @@ export function ScarceListForm({
             title: mintTitle,
             creator: {
               accountId: post.accountId,
-              ...(authorName?.trim()
-                ? { displayName: authorName.trim() }
-                : {}),
+              ...(authorName?.trim() ? { displayName: authorName.trim() } : {}),
             },
             cardBg: cardTheme.cardBg,
             cardFormat: cardTheme.cardFormat,
@@ -406,9 +406,7 @@ export function ScarceListForm({
         } catch (cause) {
           if (cancelled) return;
           setMintPreviewError(
-            cause instanceof Error
-              ? cause.message
-              : 'Could not preview card.'
+            cause instanceof Error ? cause.message : 'Could not preview card.'
           );
         } finally {
           if (!cancelled) setMintPreviewPending(false);
@@ -649,7 +647,12 @@ export function ScarceListForm({
         listingId = live?.listingId;
       }
 
+      invalidateLiveListingsCache(post.accountId);
       const key = postScarceKey(post.accountId, post.postId);
+      const coverMedia =
+        (usesGeneratedCard ? mintPreviewUrl : null)?.trim() ||
+        coverPreviewUrl?.trim() ||
+        undefined;
       setScarceEmbedOverride(key, {
         status: 'lazy_listing',
         priceNear,
@@ -657,6 +660,7 @@ export function ScarceListForm({
         remaining: editionCount,
         ...(listingId ? { listingId } : {}),
         ...(usesGeneratedCard ? { cardBg: cardTheme.cardBg as MoodKey } : {}),
+        ...(coverMedia ? { mediaUrl: coverMedia } : {}),
         events: [],
       });
       onSuccess?.({ priceNear, listingId });

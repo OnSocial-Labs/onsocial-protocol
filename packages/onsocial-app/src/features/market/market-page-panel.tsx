@@ -28,6 +28,7 @@ import {
   fetchOwnedScarcesPage,
   excludeOwnedNativeListings,
   formatMarketRelativeTime,
+  invalidateLiveListingsCache,
   marketListingRowKey,
   type MarketListingItem,
   type MarketListingSort,
@@ -711,6 +712,7 @@ export function MarketPagePanel() {
           ),
         }));
 
+        invalidateLiveListingsCache(item.creatorId);
         const coords = sourcePostCoords(item.sourcePostPath);
         if (coords && item.kind === 'lazy') {
           setScarceEmbedOverride(postScarceKey(coords.author, coords.postId), {

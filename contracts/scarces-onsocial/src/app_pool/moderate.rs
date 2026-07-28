@@ -95,6 +95,66 @@ impl Contract {
         Ok(())
     }
 
+    /// Approve several creators in one call. Skips duplicates / already-approved;
+    /// errors if the batch is empty after filtering or would exceed the roster cap.
+    pub(crate) fn add_approved_creators(
+        &mut self,
+        actor_id: &AccountId,
+        app_id: &str,
+        account_ids: Vec<AccountId>,
+    ) -> Result<(), MarketplaceError> {
+        if account_ids.is_empty() {
+            return Err(MarketplaceError::InvalidInput(
+                "account_ids must not be empty".to_string(),
+            ));
+        }
+        if account_ids.len() > MAX_APPROVED_CREATORS_BATCH {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Maximum {MAX_APPROVED_CREATORS_BATCH} creators per batch"
+            )));
+        }
+
+        let mut pool = self
+            .app_pools
+            .remove(app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
+        if !Self::is_app_authority(&pool, actor_id) {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::Unauthorized(
+                "Only app owner or moderator can approve creators".to_string(),
+            ));
+        }
+
+        let mut unique: Vec<AccountId> = Vec::new();
+        for id in account_ids {
+            if unique.contains(&id) || pool.approved_creators.contains(&id) {
+                continue;
+            }
+            unique.push(id);
+        }
+        if unique.is_empty() {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::InvalidState(
+                "No new creators to approve".to_string(),
+            ));
+        }
+        if pool.approved_creators.len() + unique.len() > 200 {
+            self.app_pools.insert(app_id.to_string(), pool);
+            return Err(MarketplaceError::InvalidInput(
+                "Maximum 200 approved creators per app".to_string(),
+            ));
+        }
+
+        for id in &unique {
+            pool.approved_creators.push(id.clone());
+        }
+        self.app_pools.insert(app_id.to_string(), pool);
+        for id in &unique {
+            events::emit_approved_creator_added(actor_id, app_id, id);
+        }
+        Ok(())
+    }
+
     pub(crate) fn remove_approved_creator(
         &mut self,
         actor_id: &AccountId,

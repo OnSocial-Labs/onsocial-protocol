@@ -86,6 +86,7 @@ impl Contract {
             | Action::AddModerator { .. }
             | Action::RemoveModerator { .. }
             | Action::AddApprovedCreator { .. }
+            | Action::AddApprovedCreators { .. }
             | Action::RemoveApprovedCreator { .. }
             | Action::BanCollection { .. }
             | Action::UnbanCollection { .. } => self.dispatch_admin(action, actor_id),

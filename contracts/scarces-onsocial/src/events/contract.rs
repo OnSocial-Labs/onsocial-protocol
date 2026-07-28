@@ -29,6 +29,17 @@ pub fn emit_fee_recipient_changed(
         .emit();
 }
 
+pub fn emit_fee_recipient_secondary_changed(
+    owner_id: &AccountId,
+    old_recipient: Option<&AccountId>,
+    new_recipient: Option<&AccountId>,
+) {
+    EventBuilder::new(CONTRACT, "fee_recipient_secondary_changed", owner_id)
+        .field_opt("old_recipient", old_recipient)
+        .field_opt("new_recipient", new_recipient)
+        .emit();
+}
+
 pub fn emit_fee_config_updated(
     owner_id: &AccountId,
     total_fee_bps: u16,

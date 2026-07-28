@@ -352,6 +352,7 @@ export type ScarcesAction =
   | { type: 'add_moderator'; app_id: string; account_id: string }
   | { type: 'remove_moderator'; app_id: string; account_id: string }
   | { type: 'add_approved_creator'; app_id: string; account_id: string }
+  | { type: 'add_approved_creators'; app_id: string; account_ids: string[] }
   | { type: 'remove_approved_creator'; app_id: string; account_id: string }
   | {
       type: 'ban_collection';

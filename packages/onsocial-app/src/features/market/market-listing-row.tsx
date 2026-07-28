@@ -53,14 +53,20 @@ function postHrefFromSourcePath(path: string | undefined): string | null {
   return personalPostPath(coords.author, coords.postId);
 }
 
-/** Seed post menu so Market → post shows Cancel, not List, before embed loads. */
+/** Seed post so Market → post shows Cancel + the Market cover (not a prior card). */
 function seedListedEmbed(item: MarketListingItem) {
   const coords = sourcePostCoords(item.sourcePostPath);
   if (!coords || item.kind !== 'lazy' || !item.listingId) return;
+  const mediaUrl = item.mediaUrl?.trim() || undefined;
+  const cardBg = item.cardBg?.trim() || undefined;
   setScarceEmbedOverride(postScarceKey(coords.author, coords.postId), {
     status: 'lazy_listing',
     listingId: item.listingId,
     priceNear: item.priceNear,
+    ...(mediaUrl ? { mediaUrl } : {}),
+    ...(cardBg ? { cardBg } : {}),
+    ...(item.copies != null ? { copies: item.copies } : {}),
+    ...(item.remaining != null ? { remaining: item.remaining } : {}),
     events: [],
   });
 }

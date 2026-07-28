@@ -28,6 +28,13 @@ impl Contract {
                 self.add_approved_creator(actor_id, &app_id, account_id)?;
                 Ok(Value::Null)
             }
+            Action::AddApprovedCreators {
+                app_id,
+                account_ids,
+            } => {
+                self.add_approved_creators(actor_id, &app_id, account_ids)?;
+                Ok(Value::Null)
+            }
             Action::RemoveApprovedCreator { app_id, account_id } => {
                 self.remove_approved_creator(actor_id, &app_id, &account_id)?;
                 Ok(Value::Null)

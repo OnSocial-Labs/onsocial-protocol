@@ -41,20 +41,15 @@
     transition: opacity 160ms ease;
   }
 
-  /* Branded prefix — ~1.2rem, steady mute; text owns hover/focus reaction. */
+  /* Branded prefix — slightly larger; same mute → reveal ladder as default. */
   .search-field--branded .search-field-icon {
     width: 1.2rem;
     height: 1.2rem;
-    opacity: 0.58;
   }
 
+  .search-field:hover .search-field-icon,
   .search-field:focus-within .search-field-icon {
     opacity: 0.72;
-  }
-
-  .search-field--branded:hover .search-field-icon,
-  .search-field--branded:focus-within .search-field-icon {
-    opacity: 0.58;
   }
 
   /* Portal-style inset rail after prefix (NEAR account / amount fields). */
@@ -77,7 +72,17 @@
     outline: none;
   }
 
+  /*
+   * Placeholder tracks the leading icon: quieter at rest, lifts on hover /
+   * focus so the field reads as one control.
+   */
   .search-field-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.42);
+    transition: color 160ms ease;
+  }
+
+  .search-field:hover .search-field-input::placeholder,
+  .search-field:focus-within .search-field-input::placeholder {
     color: var(--os-surface-muted, rgb(var(--fg-rgb) / 0.55));
   }
 
@@ -190,18 +195,11 @@
   .search-field-icon {
   width: 1.2rem;
   height: 1.2rem;
-  opacity: 0.58;
 }
 
+.search-field.os-floating-panel-search:hover .search-field-icon,
 .search-field.os-floating-panel-search:focus-within .search-field-icon {
   opacity: 0.72;
-}
-
-.search-field.os-floating-panel-search.search-field--branded:hover
-  .search-field-icon,
-.search-field.os-floating-panel-search.search-field--branded:focus-within
-  .search-field-icon {
-  opacity: 0.58;
 }
 
 .search-field.sheet-control .search-field-input,
@@ -212,6 +210,14 @@
 
 .search-field.sheet-control .search-field-input::placeholder,
 .search-field.os-floating-panel-search .search-field-input::placeholder {
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.search-field.sheet-control:hover .search-field-input::placeholder,
+.search-field.sheet-control:focus-within .search-field-input::placeholder,
+.search-field.os-floating-panel-search:hover .search-field-input::placeholder,
+.search-field.os-floating-panel-search:focus-within
+  .search-field-input::placeholder {
   color: var(--os-surface-muted);
 }
 

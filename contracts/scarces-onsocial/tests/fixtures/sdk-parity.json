@@ -929,6 +929,21 @@
       }
     },
     {
+      "name": "add approved creators batch",
+      "expected_action_type": "add_approved_creators",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "add_approved_creators",
+          "app_id": "my-app",
+          "account_ids": [
+            "creator.near",
+            "artist.near"
+          ]
+        }
+      }
+    },
+    {
       "name": "remove approved creator",
       "expected_action_type": "remove_approved_creator",
       "request": {

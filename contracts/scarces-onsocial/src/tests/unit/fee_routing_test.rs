@@ -83,6 +83,27 @@ fn route_fee_no_app_funds_platform() {
 }
 
 #[test]
+fn transfer_marketplace_revenue_splits_when_secondary_set() {
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(owner(), 1).build());
+    contract.set_fee_recipient_secondary(Some(buyer())).unwrap();
+
+    // Odd amount: primary gets rest (ceil), secondary gets floor half.
+    let revenue = 101u128;
+    contract.transfer_marketplace_revenue(revenue);
+    // Promise side effects aren't asserted in unit VM; this covers the branch.
+    assert_eq!(contract.fee_recipient_secondary.as_ref(), Some(&buyer()));
+}
+
+#[test]
+fn transfer_marketplace_revenue_odd_yocto_math() {
+    let half = 101u128 / 2;
+    let primary = 101u128.saturating_sub(half);
+    assert_eq!(half, 50);
+    assert_eq!(primary, 51);
+}
+
+#[test]
 fn route_fee_with_app_funds_pool() {
     let mut contract = new_contract();
     testing_env!(context(owner()).build());

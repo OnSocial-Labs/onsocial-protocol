@@ -38,6 +38,7 @@ export function OsAutolinkChip({
   const iconVisible = variant === 'mirror' ? false : (showIcon ?? true);
   const classes = [
     'os-link',
+    /* Weight lives in feed-meta.css. Mirror inherits textarea metrics. */
     variant === 'mirror' ? 'os-link--mirror' : null,
     !iconVisible ? 'os-link--plain' : null,
     className,

@@ -249,6 +249,10 @@ pub enum Action {
         app_id: String,
         account_id: AccountId,
     },
+    AddApprovedCreators {
+        app_id: String,
+        account_ids: Vec<AccountId>,
+    },
     RemoveApprovedCreator {
         app_id: String,
         account_id: AccountId,
