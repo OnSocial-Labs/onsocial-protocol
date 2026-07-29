@@ -5,6 +5,10 @@ import {
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
 import { guildMediaUrlFromCid } from '@/features/guilds/guild-visual';
+import {
+  normalizeTopicList,
+  TOPIC_MAX_PER_ENTITY,
+} from '@/lib/topic-slug';
 export const GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_NEAR = '0.1';
 
 export const GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_YOCTO = 100_000_000_000_000_000_000_000n;
@@ -277,8 +281,8 @@ export function mergeGuildOnsocialMetadataPatch(
   };
 }
 
-/** Guild discover tags — first tag is primary; hard cap keeps cards scannable. */
-export const GUILD_MAX_TAGS = 2;
+/** Guild topics — first is primary; hard cap keeps cards scannable. */
+export const GUILD_MAX_TAGS = TOPIC_MAX_PER_ENTITY;
 
 /** Display name — short enough for hero + cards. */
 export const GUILD_MAX_NAME_LENGTH = 64;
@@ -290,25 +294,11 @@ export const GUILD_MAX_NAME_LENGTH = 64;
 export const GUILD_MAX_DESCRIPTION_LENGTH = 240;
 
 export function normalizeGuildTagList(tags: unknown): string[] {
-  if (!Array.isArray(tags)) return [];
-
-  const out: string[] = [];
-  for (const tag of tags) {
-    if (typeof tag !== 'string') continue;
-    const normalized = tag
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    if (!normalized || out.includes(normalized)) continue;
-    out.push(normalized);
-    if (out.length >= GUILD_MAX_TAGS) break;
-  }
-  return out;
+  return normalizeTopicList(tags, GUILD_MAX_TAGS);
 }
 
 export function normalizeGuildTagsInput(input: string): string[] {
-  return normalizeGuildTagList(input.split(','));
+  return normalizeGuildTagList(input.split(/[,\s]+/));
 }
 
 export function guildTagsEqual(a: string[], b: string[]): boolean {

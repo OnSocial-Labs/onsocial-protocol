@@ -13,6 +13,7 @@ import {
   type GuildBlueprint,
   type GuildSurface,
 } from '@/features/guilds/guilds-data';
+import { topicLabel } from '@/lib/topic-slug';
 
 function SurfaceBadge({ surface }: { surface: GuildSurface }) {
   return <span className="guild-surface-badge">{surface}</span>;
@@ -169,9 +170,9 @@ export function GuildDetailPanel({ groupId }: { groupId: string }) {
             <span>{guild.governance}</span>
             <span>{guild.members}</span>
           </div>
-          <div className="guild-tag-list">
+          <div className="guild-tag-list" aria-label="Topics">
             {guild.tags.map((tag) => (
-              <span key={tag}>#{tag}</span>
+              <span key={tag}>{topicLabel(tag) ?? tag}</span>
             ))}
           </div>
         </section>

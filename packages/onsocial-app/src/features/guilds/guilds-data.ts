@@ -153,7 +153,7 @@ export const GUILD_ACTIONS: GuildActionMap[] = [
     id: 'create',
     label: 'Create guild',
     userValue:
-      'Start a guild with a name, privacy, tags, and governance mode.',
+      'Start a guild with a name, privacy, topics, and governance mode.',
     surface: 'page',
     route: '/groups/create',
     sdkMethods: ['os.groups.create(groupId, config)'],

@@ -16,13 +16,12 @@ import {
   type AppView,
   type CreatorAccess,
 } from '@/features/scarces/apps-data';
-import {
-  HUB_CATEGORIES,
-  type HubCategory,
-} from '@/features/scarces/hub-categories';
+import { hubTopicsMetadataFields } from '@/features/scarces/hub-categories';
+import { HubTopicsEditor } from '@/features/scarces/hub-topics-editor';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { topicsEqual } from '@/lib/topic-slug';
 import {
   txToastConfirming,
   txToastError,
@@ -65,8 +64,8 @@ export function AppManageSection({
   const [brandDescription, setBrandDescription] = useState(
     app.description ?? ''
   );
-  const [brandCategory, setBrandCategory] = useState<HubCategory>(
-    app.category ?? 'other'
+  const [brandTopics, setBrandTopics] = useState<string[]>(
+    app.topics.length > 0 ? app.topics : app.category ? [app.category] : []
   );
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -93,7 +92,10 @@ export function AppManageSection({
   const brandingDirty =
     brandName.trim() !== app.title ||
     brandDescription.trim() !== (app.description ?? '') ||
-    brandCategory !== (app.category ?? 'other') ||
+    !topicsEqual(
+      brandTopics,
+      app.topics.length > 0 ? app.topics : app.category ? [app.category] : []
+    ) ||
     logoFile != null ||
     bannerFile != null;
 
@@ -144,6 +146,10 @@ export function AppManageSection({
       setNote('Hub name needs at least 2 characters.');
       return;
     }
+    if (brandTopics.length < 1) {
+      setNote('Pick or type a category for this hub.');
+      return;
+    }
     setPending(true);
     setNote(null);
     try {
@@ -175,7 +181,7 @@ export function AppManageSection({
 
       const metadata = JSON.stringify({
         name,
-        category: brandCategory,
+        ...hubTopicsMetadataFields(brandTopics),
         ...(brandDescription.trim()
           ? { description: brandDescription.trim() }
           : {}),
@@ -211,7 +217,7 @@ export function AppManageSection({
     pending,
     brandName,
     brandDescription,
-    brandCategory,
+    brandTopics,
     logoFile,
     bannerFile,
     app.metadataRaw,
@@ -506,28 +512,17 @@ export function AppManageSection({
                   />
                 </label>
                 <div className="guild-field">
-                  <span>Category</span>
-                  <div
-                    className="app-storage-presets"
-                    role="radiogroup"
-                    aria-label="Hub category"
-                  >
-                    {HUB_CATEGORIES.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        role="radio"
-                        aria-checked={brandCategory === option.id}
-                        className={`os-surface-chip${
-                          brandCategory === option.id ? ' is-selected' : ''
-                        }`}
-                        disabled={pending}
-                        onClick={() => setBrandCategory(option.id)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+                  <span>Topics</span>
+                  <HubTopicsEditor
+                    topics={brandTopics}
+                    onChange={setBrandTopics}
+                    id="app-manage-topics"
+                    disabled={pending}
+                  />
+                  <small>
+                    Primary is the category for directory browse. Optional
+                    second topic.
+                  </small>
                 </div>
                 <label className="guild-field" htmlFor="app-manage-logo-file">
                   <span>Logo</span>

@@ -32,6 +32,7 @@ import {
   APP_DROP_CREATE_PATH,
   MARKET_APP_PARAM,
 } from '@/lib/app-routes';
+import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -57,6 +58,7 @@ export function AppPagePanel({
   const [catalogTab, setCatalogTab] = useState<StoreCatalogTab>('drops');
   const [drops, setDrops] = useState<CollectionView[]>([]);
   const [dropsLoadedKey, setDropsLoadedKey] = useState<string | null>(null);
+  const [dropsIndexerCatchUp, setDropsIndexerCatchUp] = useState(false);
   const dropsKey = `${appId}:${refreshKey}`;
   const dropsLoading = dropsLoadedKey !== dropsKey;
 
@@ -78,13 +80,49 @@ export function AppPagePanel({
 
   useEffect(() => {
     let cancelled = false;
-    void fetchCollectionsByApp(appId, { limit: 48 }).then((next) => {
-      if (cancelled) return;
-      setDrops(next);
-      setDropsLoadedKey(dropsKey);
+    const timers: number[] = [];
+    setDropsIndexerCatchUp(false);
+
+    async function load(): Promise<CollectionView[]> {
+      try {
+        const next = await fetchCollectionsByApp(appId, { limit: 48 });
+        if (cancelled) return [];
+        setDrops(next);
+        setDropsLoadedKey(dropsKey);
+        return next;
+      } catch {
+        if (cancelled) return [];
+        setDrops([]);
+        setDropsLoadedKey(dropsKey);
+        return [];
+      }
+    }
+
+    void load().then((next) => {
+      if (cancelled || next.length > 0) {
+        setDropsIndexerCatchUp(false);
+        return;
+      }
+      setDropsIndexerCatchUp(true);
+      INDEXER_SOFT_RETRY_MS.forEach((delay, index) => {
+        timers.push(
+          window.setTimeout(() => {
+            void load().then((retry) => {
+              if (cancelled) return;
+              if (retry.length > 0) {
+                setDropsIndexerCatchUp(false);
+              } else if (index === INDEXER_SOFT_RETRY_MS.length - 1) {
+                setDropsIndexerCatchUp(false);
+              }
+            });
+          }, delay)
+        );
+      });
     });
+
     return () => {
       cancelled = true;
+      for (const timer of timers) window.clearTimeout(timer);
     };
   }, [appId, dropsKey]);
 
@@ -179,9 +217,15 @@ export function AppPagePanel({
               by @{fallbackLabel(app.ownerId)}
             </Link>
             <div className="app-page-badges">
-              {categoryLabel ? (
-                <span className="app-page-badge">{categoryLabel}</span>
-              ) : null}
+              {app.topics.length > 0
+                ? app.topics.map((topic) => (
+                    <span key={topic} className="app-page-badge">
+                      {hubCategoryLabel(topic) ?? topic}
+                    </span>
+                  ))
+                : categoryLabel ? (
+                    <span className="app-page-badge">{categoryLabel}</span>
+                  ) : null}
               <span className="app-page-badge">
                 {app.commissionPct}% commission
               </span>
@@ -214,6 +258,7 @@ export function AppPagePanel({
           <StoreDropsList
             drops={drops}
             loading={dropsLoading}
+            indexerCatchUp={dropsIndexerCatchUp}
             emptyActionHref={createHref}
             canCreate={canCreate}
           />

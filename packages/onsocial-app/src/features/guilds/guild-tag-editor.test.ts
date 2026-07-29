@@ -16,7 +16,7 @@ describe('guild-tag-editor', () => {
   it('blocks a third tag with a clear hint', () => {
     const result = tryAddGuildEditorTag(['builders', 'social'], 'grants');
     expect(result.tags).toEqual(['builders', 'social']);
-    expect(result.hint).toBe('Max 2 tags');
+    expect(result.hint).toBe('Max 2 topics');
   });
 
   it('dedupes and removes tags', () => {

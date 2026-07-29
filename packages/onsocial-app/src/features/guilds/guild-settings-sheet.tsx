@@ -95,7 +95,7 @@ export function GuildSettingsSheet({
           <span className="os-surface-row-copy">
             <span className="os-surface-row-label">Edit guild</span>
             <span className="os-surface-row-description">
-              Banner, avatar, name, tags, access
+              Banner, avatar, name, topics, access
             </span>
           </span>
           <ProtocolMotionArrow className="account-card-action-arrow" />

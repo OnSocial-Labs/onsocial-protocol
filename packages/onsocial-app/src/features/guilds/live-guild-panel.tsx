@@ -83,6 +83,7 @@ import {
   revokeDroppedOptimisticMedia,
 } from '@/lib/post-media';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
+import { topicLabel } from '@/lib/topic-slug';
 import {
   readGuildOwnerId,
   reconcileGuildMemberRoster,
@@ -1210,9 +1211,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 ) : null}
 
                 {shellPreview.tags.length > 0 ? (
-                  <div className="guild-hero-tags" aria-label="Guild tags">
+                  <div className="guild-hero-tags" aria-label="Guild topics">
                     {shellPreview.tags.map((tag) => (
-                      <span key={tag}>#{tag}</span>
+                      <span key={tag}>{topicLabel(tag) ?? tag}</span>
                     ))}
                   </div>
                 ) : null}
@@ -1447,9 +1448,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
               ) : null}
 
               {config.tags.length > 0 ? (
-                <div className="guild-hero-tags" aria-label="Guild tags">
+                <div className="guild-hero-tags" aria-label="Guild topics">
                   {config.tags.map((tag) => (
-                    <span key={tag}>#{tag}</span>
+                    <span key={tag}>{topicLabel(tag) ?? tag}</span>
                   ))}
                 </div>
               ) : null}

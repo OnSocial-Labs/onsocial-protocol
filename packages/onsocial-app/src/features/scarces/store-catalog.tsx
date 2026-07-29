@@ -7,11 +7,16 @@ import {
   deriveCollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   fetchMarketListings,
   type MarketListingItem,
 } from '@/features/market/market-listings';
 import { collectionPath, marketAppPath } from '@/lib/app-routes';
+import {
+  INDEXER_CATCH_UP_COPY,
+  INDEXER_SOFT_RETRY_MS,
+} from '@/lib/indexer-soft-retry';
 import { fallbackLabel } from '@/lib/profile-display';
 
 export type StoreCatalogTab = 'drops' | 'resale';
@@ -98,30 +103,45 @@ export function StoreDropCard({ view }: { view: CollectionView }) {
 export function StoreDropsList({
   drops,
   loading,
+  indexerCatchUp = false,
   emptyActionHref,
   canCreate,
 }: {
   drops: CollectionView[];
   loading: boolean;
+  indexerCatchUp?: boolean;
   emptyActionHref: string;
   canCreate: boolean;
 }) {
   if (loading) {
-    return <p className="market-page-status">Loading drops…</p>;
+    return (
+      <div className="market-section" aria-busy="true" aria-live="polite">
+        <p className="sr-only">Loading drops…</p>
+        <MarketListSkeleton rows={3} />
+      </div>
+    );
   }
   if (drops.length === 0) {
     return (
-      <p className="market-page-status">
-        No drops in this store yet.
+      <div className="standing-panel-empty-block is-centered">
+        <div className="standing-panel-empty-state">
+          <p className="standing-panel-empty-primary">
+            No drops in this hub yet.
+          </p>
+          {indexerCatchUp ? (
+            <p className="standing-panel-empty-secondary">
+              {INDEXER_CATCH_UP_COPY}
+            </p>
+          ) : null}
+        </div>
         {canCreate ? (
-          <>
-            {' '}
-            <Link className="app-soon-link" href={emptyActionHref}>
+          <div className="standing-panel-empty-actions">
+            <Link className="standing-panel-empty-action" href={emptyActionHref}>
               Create a drop
             </Link>
-          </>
+          </div>
         ) : null}
-      </p>
+      </div>
     );
   }
   return (
@@ -184,40 +204,94 @@ function StoreResaleCard({
 export function StoreResalePanel({ appId }: { appId: string }) {
   const [items, setItems] = useState<MarketListingItem[]>([]);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [indexerCatchUp, setIndexerCatchUp] = useState(false);
   const loading = loadedFor !== appId;
   const shopHref = marketAppPath(appId);
 
   useEffect(() => {
     let cancelled = false;
-    void fetchMarketListings({ appId, limit: 12, sort: 'newest' }).then(
-      (page) => {
-        if (cancelled) return;
+    const timers: number[] = [];
+    setIndexerCatchUp(false);
+
+    async function load(): Promise<MarketListingItem[]> {
+      try {
+        const page = await fetchMarketListings({
+          appId,
+          limit: 12,
+          sort: 'newest',
+        });
+        if (cancelled) return [];
         setItems(page.items);
         setLoadedFor(appId);
-      },
-      () => {
-        if (cancelled) return;
+        return page.items;
+      } catch {
+        if (cancelled) return [];
         setItems([]);
         setLoadedFor(appId);
+        return [];
       }
-    );
+    }
+
+    void load().then((next) => {
+      if (cancelled || next.length > 0) {
+        setIndexerCatchUp(false);
+        return;
+      }
+      setIndexerCatchUp(true);
+      INDEXER_SOFT_RETRY_MS.forEach((delay, index) => {
+        timers.push(
+          window.setTimeout(() => {
+            void load().then((retryItems) => {
+              if (cancelled) return;
+              if (retryItems.length > 0) {
+                setIndexerCatchUp(false);
+              } else if (index === INDEXER_SOFT_RETRY_MS.length - 1) {
+                setIndexerCatchUp(false);
+              }
+            });
+          }, delay)
+        );
+      });
+    });
+
     return () => {
       cancelled = true;
+      for (const timer of timers) window.clearTimeout(timer);
     };
   }, [appId]);
 
   if (loading) {
-    return <p className="market-page-status">Loading resale…</p>;
+    return (
+      <div className="market-section" aria-busy="true" aria-live="polite">
+        <p className="sr-only">Loading resale…</p>
+        <MarketListSkeleton rows={3} />
+      </div>
+    );
   }
 
   if (items.length === 0) {
     return (
-      <p className="market-page-status">
-        No resale listings for this store yet.{' '}
-        <Link className="app-soon-link" href={shopHref} scroll={false}>
-          Open Market
-        </Link>
-      </p>
+      <div className="standing-panel-empty-block is-centered">
+        <div className="standing-panel-empty-state">
+          <p className="standing-panel-empty-primary">
+            No resale listings for this hub yet.
+          </p>
+          {indexerCatchUp ? (
+            <p className="standing-panel-empty-secondary">
+              {INDEXER_CATCH_UP_COPY}
+            </p>
+          ) : null}
+        </div>
+        <div className="standing-panel-empty-actions">
+          <Link
+            className="standing-panel-empty-action"
+            href={shopHref}
+            scroll={false}
+          >
+            Open Market
+          </Link>
+        </div>
+      </div>
     );
   }
 

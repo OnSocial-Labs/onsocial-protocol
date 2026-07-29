@@ -10,7 +10,7 @@ import {
 } from '@/features/scarces/apps-directory';
 import {
   parseHubCategory,
-  type HubCategory,
+  parseHubTopics,
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
 
@@ -56,6 +56,8 @@ interface AppMetadata {
   base_uri?: string;
   banner?: string;
   category?: string;
+  /** Freeform topics — primary is category; max 2. */
+  topics?: string[];
 }
 
 export interface AppView {
@@ -65,8 +67,10 @@ export interface AppView {
   description?: string;
   mediaUrl: string | null;
   bannerUrl: string | null;
-  /** User-chosen hub focus (metadata `category`). */
-  category: HubCategory | null;
+  /** Topics — primary (= category) first; max 2. */
+  topics: string[];
+  /** Primary topic for directory filter (topics[0]). */
+  category: string | null;
   /** Primary-sale commission in basis points (0..=5000). */
   primarySaleBps: number;
   /** Commission as a percentage string, e.g. "2.5". */
@@ -145,6 +149,7 @@ function toAppView(
   );
   const image = meta.image ?? meta.media ?? null;
   const banner = meta.banner ?? null;
+  const topics = parseHubTopics(meta);
   return {
     appId,
     ownerId: record.owner_id,
@@ -154,7 +159,8 @@ function toAppView(
       : {}),
     mediaUrl: image ? resolveScarceMediaUrl(image) : null,
     bannerUrl: banner ? resolveScarceMediaUrl(banner) : null,
-    category: parseHubCategory(meta.category),
+    topics,
+    category: topics[0] ?? parseHubCategory(meta.category),
     primarySaleBps: bps,
     commissionPct: bpsToPct(bps),
     creatorAccess: parseCreatorAccess(record.creator_access),
@@ -241,6 +247,7 @@ function toAppViewFromIndexer(row: IndexerAppRow): AppView {
   const banner = meta.banner ?? null;
   const updatedAtMs = nsToMs(row.updatedBlockTimestamp);
   const createdAtMs = nsToMs(row.createdBlockTimestamp);
+  const topics = parseHubTopics(meta);
   return {
     appId: row.appId,
     ownerId: row.ownerId,
@@ -250,7 +257,8 @@ function toAppViewFromIndexer(row: IndexerAppRow): AppView {
       : {}),
     mediaUrl: image ? resolveScarceMediaUrl(image) : null,
     bannerUrl: banner ? resolveScarceMediaUrl(banner) : null,
-    category: parseHubCategory(meta.category),
+    topics,
+    category: topics[0] ?? parseHubCategory(meta.category),
     primarySaleBps: bps,
     commissionPct: bpsToPct(bps),
     creatorAccess: parseCreatorAccess(row.creatorAccess),

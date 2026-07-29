@@ -30,6 +30,10 @@ import {
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
 import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
+import {
+  INDEXER_CATCH_UP_COPY,
+  INDEXER_SOFT_RETRY_MS,
+} from '@/lib/indexer-soft-retry';
 import { fallbackLabel } from '@/lib/profile-display';
 
 function monogram(title: string): string {
@@ -41,8 +45,13 @@ function monogram(title: string): string {
 
 function storeMeta(app: AppView): string {
   const parts = [`@${fallbackLabel(app.ownerId)}`];
-  const category = hubCategoryLabel(app.category);
-  if (category) parts.push(category);
+  const topicsLabel =
+    app.topics.length > 0
+      ? app.topics
+          .map((topic) => hubCategoryLabel(topic) ?? topic)
+          .join(' · ')
+      : hubCategoryLabel(app.category);
+  if (topicsLabel) parts.push(topicsLabel);
   parts.push(creatorAccessShort(app.creatorAccess));
   if (app.liveListingCount && app.liveListingCount > 0) {
     parts.push(
@@ -71,6 +80,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
   const [nextOffset, setNextOffset] = useState(initial.length);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [indexerCatchUp, setIndexerCatchUp] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const toolbarHidden = useDockAutoHide(menuOpen);
   const listingCountsRef = useRef<Map<string, number> | null>(null);
@@ -86,51 +96,81 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
 
   useEffect(() => {
     let cancelled = false;
+    const softTimers: number[] = [];
     const requestId = ++requestIdRef.current;
     const cold = !hasLoadedOnceRef.current;
     if (cold) setStatus('loading');
     else setRefreshing(true);
     setError(null);
+    setIndexerCatchUp(false);
 
-    void (async () => {
-      try {
-        const [page, counts] = await Promise.all([
-          fetchAppsDirectory({
-            limit: APPS_PAGE_SIZE,
-            query: debouncedQuery || undefined,
-            category,
-            sort,
-            hideTest,
-          }),
-          listingCountsRef.current
-            ? Promise.resolve(listingCountsRef.current)
-            : fetchStoreLiveListingCounts(),
-        ]);
-        if (cancelled || requestId !== requestIdRef.current) return;
-        listingCountsRef.current = counts;
-        setApps(mergeLiveListingCounts(page.apps, counts));
-        setHasMore(page.hasMore);
-        setNextOffset(page.nextOffset);
-        hasLoadedOnceRef.current = true;
-        setStatus('ready');
-      } catch {
+    async function loadPage(opts?: { soft?: boolean }) {
+      const [page, counts] = await Promise.all([
+        fetchAppsDirectory({
+          limit: APPS_PAGE_SIZE,
+          query: debouncedQuery || undefined,
+          category,
+          sort,
+          hideTest,
+        }),
+        listingCountsRef.current
+          ? Promise.resolve(listingCountsRef.current)
+          : fetchStoreLiveListingCounts(),
+      ]);
+      if (cancelled || requestId !== requestIdRef.current) return null;
+      listingCountsRef.current = counts;
+      setApps(mergeLiveListingCounts(page.apps, counts));
+      setHasMore(page.hasMore);
+      setNextOffset(page.nextOffset);
+      hasLoadedOnceRef.current = true;
+      setStatus('ready');
+      if (!opts?.soft) setRefreshing(false);
+      return page;
+    }
+
+    void loadPage()
+      .then((page) => {
+        if (cancelled || requestId !== requestIdRef.current || !page) return;
+        if (page.apps.length > 0) {
+          setIndexerCatchUp(false);
+          return;
+        }
+        setIndexerCatchUp(true);
+        INDEXER_SOFT_RETRY_MS.forEach((delay, index) => {
+          softTimers.push(
+            window.setTimeout(() => {
+              void loadPage({ soft: true }).then((retryPage) => {
+                if (cancelled || requestId !== requestIdRef.current) return;
+                if (retryPage && retryPage.apps.length > 0) {
+                  setIndexerCatchUp(false);
+                } else if (index === INDEXER_SOFT_RETRY_MS.length - 1) {
+                  setIndexerCatchUp(false);
+                }
+              });
+            }, delay)
+          );
+        });
+      })
+      .catch(() => {
         if (cancelled || requestId !== requestIdRef.current) return;
         setError('Couldn’t load hubs.');
         setStatus('error');
+        setIndexerCatchUp(false);
         if (!hasLoadedOnceRef.current) {
           setApps([]);
           setHasMore(false);
           setNextOffset(0);
         }
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled && requestId === requestIdRef.current) {
           setRefreshing(false);
         }
-      }
-    })();
+      });
 
     return () => {
       cancelled = true;
+      for (const timer of softTimers) window.clearTimeout(timer);
     };
   }, [debouncedQuery, category, sort, hideTest, retryKey]);
 
@@ -164,6 +204,18 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
   const searching = Boolean(debouncedQuery);
   const empty = status === 'ready' && apps.length === 0 && !error;
   const showSkeleton = status === 'loading' && apps.length === 0;
+  const emptyCentered = searching || category === 'all';
+
+  let emptyPrimary: string;
+  if (searching) {
+    emptyPrimary = `No hubs match “${debouncedQuery}”.`;
+  } else if (category !== 'all') {
+    emptyPrimary = `No ${hubCategoryLabel(category) ?? category} hubs right now.`;
+  } else if (hideTest) {
+    emptyPrimary = 'No hubs yet.';
+  } else {
+    emptyPrimary = 'No hubs yet. Be the first.';
+  }
 
   return (
     <OsAppScreen
@@ -213,7 +265,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
       }
     >
       <div
-        className="apps-directory"
+        className={`apps-directory${refreshing ? ' is-refreshing' : ''}`}
         id="hubs-directory-results"
         aria-busy={refreshing || undefined}
       >
@@ -225,39 +277,73 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
         ) : null}
 
         {status === 'error' && apps.length === 0 ? (
-          <p className="market-page-status" role="alert">
-            {error ?? 'Couldn’t load hubs.'}{' '}
-            <button
-              type="button"
-              className="market-page-retry"
-              onClick={() => setRetryKey((value) => value + 1)}
-            >
-              Retry
-            </button>
-          </p>
+          <div className="standing-panel-empty-block is-centered">
+            <div className="standing-panel-empty-state">
+              <p className="standing-panel-empty-primary" role="alert">
+                {error ?? 'Couldn’t load hubs.'}
+              </p>
+            </div>
+            <div className="standing-panel-empty-actions">
+              <button
+                type="button"
+                className="standing-panel-empty-action"
+                onClick={() => setRetryKey((value) => value + 1)}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {empty ? (
-          <div className="market-page-empty">
-            <p className="market-page-empty-copy">
-              {searching
-                ? `No hubs match “${debouncedQuery}”.`
-                : category !== 'all'
-                  ? `No ${
-                      hubCategoryLabel(category) ?? category
-                    } hubs right now.`
-                  : hideTest
-                    ? 'No hubs yet.'
-                    : 'No hubs yet. Be the first.'}
-            </p>
-            {hideTest && !searching && category === 'all' ? (
-              <button
-                type="button"
-                className="market-page-retry"
-                onClick={() => setHideTest(false)}
-              >
-                Show test hubs
-              </button>
+          <div
+            className={`standing-panel-empty-block${
+              searching
+                ? ' is-search'
+                : emptyCentered
+                  ? ' is-centered'
+                  : ''
+            }`}
+          >
+            <div className="standing-panel-empty-state">
+              <p className="standing-panel-empty-primary">{emptyPrimary}</p>
+              {indexerCatchUp && !searching ? (
+                <p className="standing-panel-empty-secondary">
+                  {INDEXER_CATCH_UP_COPY}
+                </p>
+              ) : null}
+            </div>
+            {searching ||
+            (hideTest && !searching && category === 'all') ||
+            (isConnected && !searching) ? (
+              <div className="standing-panel-empty-actions">
+                {searching ? (
+                  <button
+                    type="button"
+                    className="standing-panel-empty-action"
+                    onClick={() => setQuery('')}
+                  >
+                    Clear search
+                  </button>
+                ) : null}
+                {hideTest && !searching && category === 'all' ? (
+                  <button
+                    type="button"
+                    className="standing-panel-empty-action"
+                    onClick={() => setHideTest(false)}
+                  >
+                    Show test hubs
+                  </button>
+                ) : null}
+                {isConnected && !searching ? (
+                  <Link
+                    href={APP_APP_CREATE_PATH}
+                    className="standing-panel-empty-action"
+                  >
+                    Open a hub
+                  </Link>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : null}

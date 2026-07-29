@@ -2,19 +2,15 @@ import {
   GUILD_MAX_TAGS,
   normalizeGuildTagList,
 } from '@/features/guilds/guild-config';
+import { TOPIC_MAX_LENGTH } from '@/lib/topic-slug';
 
-export const GUILD_EDITOR_MAX_TAG_LENGTH = 24;
+export const GUILD_EDITOR_MAX_TAG_LENGTH = TOPIC_MAX_LENGTH;
 
-export type GuildEditorTagCommitHint = 'Already added' | 'Max 2 tags';
+export type GuildEditorTagCommitHint = 'Already added' | 'Max 2 topics';
 
 export function normalizeGuildEditorTagDraft(raw: string): string {
-  return raw
-    .trim()
-    .replace(/^#+/, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, GUILD_EDITOR_MAX_TAG_LENGTH);
+  const list = normalizeGuildTagList([raw]);
+  return list[0] ?? '';
 }
 
 export function normalizeGuildEditorTags(tags: unknown): string[] {
@@ -45,7 +41,7 @@ export function tryAddGuildEditorTag(
 
   const current = normalizeGuildEditorTags(tags);
   if (current.length >= GUILD_MAX_TAGS) {
-    return { tags: current, hint: 'Max 2 tags' };
+    return { tags: current, hint: 'Max 2 topics' };
   }
   if (current.includes(normalized)) {
     return { tags: current, hint: 'Already added' };

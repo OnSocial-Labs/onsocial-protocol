@@ -669,12 +669,16 @@ export function GuildEditSheet({
             >
               {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
             </p>
-            <div className="guild-edit-tags">
+            <div className="guild-field guild-edit-tags">
+              <span>Topics</span>
               <GuildTagsEditor
                 tags={tags}
                 onChange={setTags}
                 id={fieldId(formId, 'tags')}
               />
+              <small>
+                Primary topic first. Optional second topic.
+              </small>
             </div>
 
             {memberDriven ? null : (

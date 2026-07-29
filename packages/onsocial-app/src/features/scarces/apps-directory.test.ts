@@ -17,6 +17,7 @@ function stubApp(partial: Partial<AppView> & Pick<AppView, 'appId'>): AppView {
     commissionPct: '2.5',
     creatorAccess: 'open',
     category: null,
+    topics: [],
     moderators: [],
     approvedCreators: [],
     metadataRaw: null,

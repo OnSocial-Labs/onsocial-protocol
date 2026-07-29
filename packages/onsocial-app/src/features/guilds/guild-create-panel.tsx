@@ -181,8 +181,11 @@ export function GuildCreatePanel() {
         </label>
 
         <div className="guild-field">
-          <span>Tags</span>
+          <span>Topics</span>
           <GuildTagsEditor tags={tags} onChange={setTags} id={fieldId('tags')} />
+          <small>
+            Primary topic first. Optional second topic.
+          </small>
         </div>
 
         <div className="guild-toggle-grid">

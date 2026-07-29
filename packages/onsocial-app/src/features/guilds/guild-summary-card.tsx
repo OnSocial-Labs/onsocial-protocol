@@ -6,7 +6,6 @@ import {
   guildDisplayName,
   type GuildCardRole,
 } from '@/features/guilds/guild-card-display';
-import { GUILD_MAX_TAGS } from '@/features/guilds/guild-config';
 import {
   guildAvatarFillStyle,
   guildCoverClassName,
@@ -14,6 +13,7 @@ import {
   guildFallbackCoverStyle,
 } from '@/features/guilds/guild-visual';
 import { guildPath } from '@/features/guilds/guilds-data';
+import { topicLabel } from '@/lib/topic-slug';
 
 export interface GuildSummaryCardModel {
   groupId: string;
@@ -24,7 +24,7 @@ export interface GuildSummaryCardModel {
   accessGated: boolean;
   memberDriven: boolean;
   memberCount?: number | null;
-  /** Discover tags — max two; first is primary. */
+  /** Topics — max two; first is primary (card shows primary only). */
   tags?: string[];
   role?: GuildCardRole | null;
 }
@@ -73,19 +73,6 @@ function GuildMemberStat({ count }: { count: number }) {
   );
 }
 
-function GuildTopicTags({ tags }: { tags: string[] }) {
-  const visible = tags.slice(0, GUILD_MAX_TAGS);
-  if (visible.length === 0) return null;
-
-  return (
-    <span className="guild-summary-card-tags">
-      {visible.map((tag) => (
-        <span key={tag}>#{tag}</span>
-      ))}
-    </span>
-  );
-}
-
 export function GuildSummaryCard({
   guild,
   variant = 'grid',
@@ -94,7 +81,11 @@ export function GuildSummaryCard({
   variant?: 'rail' | 'grid';
 }) {
   const displayName = guildDisplayName(guild.name, guild.groupId);
-  const topicTags = guild.tags ?? [];
+  const primaryTopic = guild.tags?.[0]
+    ? (topicLabel(guild.tags[0]) ?? guild.tags[0])
+    : null;
+  const description = guild.description?.trim() || null;
+  const isRail = variant === 'rail';
 
   return (
     <Link
@@ -102,40 +93,50 @@ export function GuildSummaryCard({
       href={guildPath(guild.groupId)}
       scroll={false}
     >
-      <div
-        className={guildCoverClassName(guild.bannerUrl)}
-        style={guildCoverStyle(guild.bannerUrl, guild.groupId)}
-        aria-hidden
-      >
-        {guild.bannerUrl ? <img src={guild.bannerUrl} alt="" /> : null}
-      </div>
-        <span className="guild-summary-card-identity" aria-hidden>
-          <span className="guild-summary-card-avatar-shell">
-            <span
-              className={`guild-summary-card-avatar${
-                guild.avatarUrl
-                  ? ' has-media'
-                  : ' guild-summary-card-avatar--fallback'
-              }`}
-              style={
-                guild.avatarUrl
-                  ? guildAvatarFillStyle(guild.avatarUrl)
-                  : guildFallbackCoverStyle(guild.groupId)
-              }
-            >
-              {guild.avatarUrl ? null : (
-                <span>{guildDisplayInitials(guild.name, guild.groupId)}</span>
-              )}
+      <span className="guild-summary-card-media" aria-hidden>
+        <span
+          className={guildCoverClassName(guild.bannerUrl)}
+          style={guildCoverStyle(guild.bannerUrl, guild.groupId)}
+        >
+          {guild.bannerUrl ? <img src={guild.bannerUrl} alt="" /> : null}
+        </span>
+        {isRail ? (
+          <span className="guild-summary-card-identity">
+            <span className="guild-summary-card-avatar-shell">
+              <span
+                className={`guild-summary-card-avatar${
+                  guild.avatarUrl
+                    ? ' has-media'
+                    : ' guild-summary-card-avatar--fallback'
+                }`}
+                style={
+                  guild.avatarUrl
+                    ? guildAvatarFillStyle(guild.avatarUrl)
+                    : guildFallbackCoverStyle(guild.groupId)
+                }
+              >
+                {guild.avatarUrl ? null : (
+                  <span>
+                    {guildDisplayInitials(guild.name, guild.groupId)}
+                  </span>
+                )}
+              </span>
             </span>
           </span>
-        </span>
+        ) : null}
+      </span>
+
       <span className="guild-summary-card-body">
         <span className="guild-summary-card-name">{displayName}</span>
-        {guild.description ? (
-          <span className="guild-summary-card-copy">{guild.description}</span>
+        {description ? (
+          <span className="guild-summary-card-copy">{description}</span>
         ) : null}
-        {variant === 'grid' ? <GuildTopicTags tags={topicTags} /> : null}
         <span className="guild-summary-card-meta">
+          {primaryTopic ? (
+            <span className="guild-card-pill guild-card-pill--topic">
+              {primaryTopic}
+            </span>
+          ) : null}
           {guild.memberCount != null ? (
             <GuildMemberStat count={guild.memberCount} />
           ) : null}

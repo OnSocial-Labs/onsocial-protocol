@@ -2,10 +2,15 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PlusIcon, SearchField, osIconActionClassName } from '@onsocial/ui';
+import {
+  PlusIcon,
+  SearchField,
+  UsersFillIcon,
+  osIconActionClassName,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { OsAppScreenMark } from '@/components/app/os-app-screen-mark';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
   enrichGuildSummaryCards,
@@ -16,7 +21,9 @@ import {
   GuildSummaryCard,
   type GuildSummaryCardModel,
 } from '@/features/guilds/guild-summary-card';
+import { HUB_TOPIC_SUGGESTIONS } from '@/features/scarces/hub-categories';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { topicLabel } from '@/lib/topic-slug';
 
 function mergeGuildCards(
   primary: GuildSummaryCardModel[],
@@ -32,9 +39,30 @@ function mergeGuildCards(
   return merged;
 }
 
+/** Name, id, description, and topics (tags). */
+function guildCardMatchesQuery(
+  card: GuildSummaryCardModel,
+  needle: string
+): boolean {
+  const displayName = guildDisplayName(card.name, card.groupId);
+  if (card.groupId.toLowerCase().includes(needle)) return true;
+  if (displayName.toLowerCase().includes(needle)) return true;
+  if ((card.description ?? '').toLowerCase().includes(needle)) return true;
+  return (card.tags ?? []).some((tag) => tag.toLowerCase().includes(needle));
+}
+
+function guildMatchesTopic(
+  card: GuildSummaryCardModel,
+  topic: string | 'all'
+): boolean {
+  if (topic === 'all') return true;
+  return (card.tags ?? []).some((tag) => tag === topic);
+}
+
 export function LiveGuildsIndexPanel() {
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
   const [search, setSearch] = useState('');
+  const [topicFilter, setTopicFilter] = useState<'all' | string>('all');
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
     'loading'
   );
@@ -45,6 +73,7 @@ export function LiveGuildsIndexPanel() {
     GuildSummaryCardModel[] | null
   >(null);
   const searchRequestRef = useRef(0);
+  const toolbarHidden = useDockAutoHide(false);
 
   const load = useCallback(async () => {
     setLoadState('loading');
@@ -67,7 +96,9 @@ export function LiveGuildsIndexPanel() {
         publicOnly: !accountId,
         limit: 24,
       });
-      const browseCards = browseItems.map((row) => guildSummaryCardFromBrowse(row));
+      const browseCards = browseItems.map((row) =>
+        guildSummaryCardFromBrowse(row)
+      );
       const merged = mergeGuildCards(membershipCards, browseCards);
 
       setGuilds(merged);
@@ -138,29 +169,40 @@ export function LiveGuildsIndexPanel() {
     setSearchState('idle');
   }
 
-  const visibleGuilds = useMemo(() => {
-    if (!searchQuery) return guilds;
-    if (searchResults) return searchResults;
-    const needle = searchQuery.toLowerCase();
-    return guilds.filter((card) => {
-      const displayName = guildDisplayName(card.name, card.groupId);
-      return (
-        card.groupId.toLowerCase().includes(needle) ||
-        displayName.toLowerCase().includes(needle) ||
-        (card.description ?? '').toLowerCase().includes(needle)
-      );
-    });
-  }, [guilds, searchQuery, searchResults]);
+  const topicChips = useMemo(() => {
+    const seen = new Set<string>();
+    const chips: Array<{ id: string; label: string }> = [
+      { id: 'all', label: 'All' },
+    ];
+    for (const entry of HUB_TOPIC_SUGGESTIONS) {
+      seen.add(entry.id);
+      chips.push({ id: entry.id, label: entry.label });
+    }
+    for (const guild of guilds) {
+      const primary = guild.tags?.[0];
+      if (!primary || seen.has(primary)) continue;
+      seen.add(primary);
+      chips.push({ id: primary, label: topicLabel(primary) ?? primary });
+    }
+    return chips;
+  }, [guilds]);
 
-  const toolbar = (
-    <SearchField
-      value={search}
-      onValueChange={setSearch}
-      placeholder="Search guilds"
-      ariaLabel="Search guilds"
-      chrome="floating-panel"
-    />
-  );
+  const visibleGuilds = useMemo(() => {
+    let rows = guilds;
+    if (searchQuery) {
+      const needle = searchQuery.toLowerCase();
+      const localMatches = guilds.filter((card) =>
+        guildCardMatchesQuery(card, needle)
+      );
+      rows = searchResults
+        ? mergeGuildCards(searchResults, localMatches)
+        : localMatches;
+    }
+    if (topicFilter !== 'all') {
+      rows = rows.filter((card) => guildMatchesTopic(card, topicFilter));
+    }
+    return rows;
+  }, [guilds, searchQuery, searchResults, topicFilter]);
 
   const createAction = (
     <Link
@@ -168,20 +210,58 @@ export function LiveGuildsIndexPanel() {
       className={osIconActionClassName}
       aria-label="Create guild"
     >
-      <PlusIcon
-        aria-hidden
-        className="glass-sheet-icon-action-glyph"
-      />
+      <PlusIcon aria-hidden className="glass-sheet-icon-action-glyph" />
     </Link>
   );
+
+  const filtering = Boolean(searchQuery) || topicFilter !== 'all';
 
   return (
     <OsAppScreen
       title="Guilds"
-      subtitle="Your guilds and open communities on-chain."
-      leading={<OsAppScreenMark appId="groups" label="Guilds" />}
+      leading={null}
       actions={createAction}
-      toolbar={toolbar}
+      heading={
+        <SearchField
+          value={search}
+          onValueChange={setSearch}
+          placeholder="Search guilds"
+          clearAriaLabel="Clear search"
+          ariaLabel="Search guilds"
+          className="discover-nav-search-field os-app-screen-search"
+          leadingIcon={
+            <UsersFillIcon className="search-field-icon" aria-hidden />
+          }
+        />
+      }
+      toolbar={
+        <div
+          className={`os-app-chrome-rail market-listing-toolbar${
+            toolbarHidden ? ' is-scroll-hidden' : ''
+          }`}
+        >
+          <div
+            className="discover-tab-bar market-listing-filters guild-topic-filters"
+            role="tablist"
+            aria-label="Filter by topic"
+          >
+            <div className="discover-tab-bar-scroller">
+              {topicChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={topicFilter === chip.id}
+                  className={topicFilter === chip.id ? 'is-active' : undefined}
+                  onClick={() => setTopicFilter(chip.id)}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      }
     >
       <div className="guilds-page">
         {loadState === 'loading' ? (
@@ -208,23 +288,52 @@ export function LiveGuildsIndexPanel() {
         {loadState === 'ready' &&
         searchState !== 'loading' &&
         visibleGuilds.length === 0 ? (
-          <section className="guild-state-card">
-            <p className="guild-eyebrow">
-              {search.trim() ? 'No matches' : 'No guilds yet'}
-            </p>
-            <h2>
-              {search.trim()
-                ? 'Try another name or guild ID.'
-                : isConnected
-                  ? 'Create a guild or join one by URL.'
-                  : 'Connect a wallet to see your guilds, or search public ones.'}
-            </h2>
-            {!search.trim() ? (
-              <Link className="guild-primary-link" href="/groups/create">
-                Create a guild
-              </Link>
-            ) : null}
-          </section>
+          <div className="standing-panel-empty-block is-centered">
+            <div className="standing-panel-empty-state">
+              <p className="standing-panel-empty-primary">
+                {filtering
+                  ? 'No guilds match that search.'
+                  : isConnected
+                    ? 'No guilds yet.'
+                    : 'Connect a wallet to see your guilds.'}
+              </p>
+              <p className="standing-panel-empty-secondary">
+                {filtering
+                  ? 'Try another name, topic, or guild ID.'
+                  : isConnected
+                    ? 'Create a guild or join one by URL.'
+                    : 'Or search public guilds above.'}
+              </p>
+            </div>
+            <div className="standing-panel-empty-actions">
+              {!filtering ? (
+                <Link
+                  className="standing-panel-empty-action"
+                  href="/groups/create"
+                >
+                  Create a guild
+                </Link>
+              ) : null}
+              {topicFilter !== 'all' ? (
+                <button
+                  type="button"
+                  className="standing-panel-empty-action"
+                  onClick={() => setTopicFilter('all')}
+                >
+                  Clear topic
+                </button>
+              ) : null}
+              {searchQuery ? (
+                <button
+                  type="button"
+                  className="standing-panel-empty-action"
+                  onClick={() => setSearch('')}
+                >
+                  Clear search
+                </button>
+              ) : null}
+            </div>
+          </div>
         ) : null}
 
         {loadState === 'ready' &&
@@ -232,7 +341,11 @@ export function LiveGuildsIndexPanel() {
         visibleGuilds.length > 0 ? (
           <div className="guild-summary-card-grid">
             {visibleGuilds.map((guild) => (
-              <GuildSummaryCard key={guild.groupId} guild={guild} variant="grid" />
+              <GuildSummaryCard
+                key={guild.groupId}
+                guild={guild}
+                variant="grid"
+              />
             ))}
           </div>
         ) : null}

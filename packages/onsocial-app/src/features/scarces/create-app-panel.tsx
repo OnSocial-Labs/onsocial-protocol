@@ -13,11 +13,10 @@ import {
   creatorAccessLabel,
   creatorAccessShort,
 } from '@/features/scarces/apps-data';
-import {
-  HUB_CATEGORIES,
-  type HubCategory,
-} from '@/features/scarces/hub-categories';
+import { hubTopicsMetadataFields } from '@/features/scarces/hub-categories';
+import { HubTopicsEditor } from '@/features/scarces/hub-topics-editor';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
+import { normalizeTopicList } from '@/lib/topic-slug';
 
 import {
   txToastConfirming,
@@ -63,7 +62,7 @@ export function CreateAppPanel() {
   const [description, setDescription] = useState('');
   const [commissionInput, setCommissionInput] = useState('2.5');
   const [creatorAccess, setCreatorAccess] = useState<CreatorAccess>('open');
-  const [category, setCategory] = useState<HubCategory>('other');
+  const [topics, setTopics] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +81,8 @@ export function CreateAppPanel() {
     !pending &&
     name.trim().length >= 2 &&
     derivedSlug.length >= MIN_SLUG &&
-    commissionValid;
+    commissionValid &&
+    normalizeTopicList(topics).length >= 1;
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -101,10 +101,15 @@ export function CreateAppPanel() {
         setError(`Commission must be between 0 and ${MAX_COMMISSION_PCT}%.`);
         return;
       }
+      const normalizedTopics = normalizeTopicList(topics);
+      if (normalizedTopics.length < 1) {
+        setError('Pick or type a category for this hub.');
+        return;
+      }
 
       const metadata = JSON.stringify({
         name: name.trim(),
-        category,
+        ...hubTopicsMetadataFields(normalizedTopics),
         ...(description.trim() ? { description: description.trim() } : {}),
       });
 
@@ -143,7 +148,7 @@ export function CreateAppPanel() {
       name,
       description,
       creatorAccess,
-      category,
+      topics,
       getSigningWallet,
       trackTransaction,
       router,
@@ -244,29 +249,16 @@ export function CreateAppPanel() {
         </label>
 
         <div className="guild-field">
-          <span>Category</span>
-          <div
-            className="app-storage-presets"
-            role="radiogroup"
-            aria-label="Hub category"
-          >
-            {HUB_CATEGORIES.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                role="radio"
-                aria-checked={category === option.id}
-                className={`os-surface-chip${
-                  category === option.id ? ' is-selected' : ''
-                }`}
-                disabled={pending}
-                onClick={() => setCategory(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <small>Helps people find this hub in the directory.</small>
+          <span>Topics</span>
+          <HubTopicsEditor
+            topics={topics}
+            onChange={setTopics}
+            id={fieldId('topics')}
+            disabled={pending}
+          />
+          <small>
+            Primary is the category for directory browse. Optional second topic.
+          </small>
         </div>
 
         <div className="guild-field">

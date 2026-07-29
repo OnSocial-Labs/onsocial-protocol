@@ -22,6 +22,7 @@ import {
   formatPageDrawerJoinedFullLabel,
 } from '@/lib/page-drawer-meta';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { topicLabel } from '@/lib/topic-slug';
 
 interface GuildFactsSheetProps {
   open: boolean;
@@ -168,7 +169,9 @@ export function GuildFactsSheet({
     ? formatPageDrawerJoinedFullLabel(createdAt)
     : null;
   const tagLine =
-    tags.length > 0 ? tags.map((tag) => `#${tag}`).join(' · ') : null;
+    tags.length > 0
+      ? tags.map((tag) => topicLabel(tag) ?? tag).join(' · ')
+      : null;
 
   return (
     <GlassSheet
@@ -281,7 +284,7 @@ export function GuildFactsSheet({
           {createdLabel ? (
             <FactRow label="Created" value={createdLabel} />
           ) : null}
-          {tagLine ? <FactRow label="Tags" value={tagLine} /> : null}
+          {tagLine ? <FactRow label="Topics" value={tagLine} /> : null}
           <FactRow
             label="ID"
             value={<span className="guild-facts-id">{groupId}</span>}
