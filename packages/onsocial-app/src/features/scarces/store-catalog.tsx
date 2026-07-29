@@ -211,7 +211,6 @@ export function StoreResalePanel({ appId }: { appId: string }) {
   useEffect(() => {
     let cancelled = false;
     const timers: number[] = [];
-    setIndexerCatchUp(false);
 
     async function load(): Promise<MarketListingItem[]> {
       try {

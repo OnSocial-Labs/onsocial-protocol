@@ -81,7 +81,6 @@ export function AppPagePanel({
   useEffect(() => {
     let cancelled = false;
     const timers: number[] = [];
-    setDropsIndexerCatchUp(false);
 
     async function load(): Promise<CollectionView[]> {
       try {
