@@ -869,11 +869,11 @@ export function ScarceListForm({
 
       {storeOptions.length > 0 ? (
         <div className="scarce-royalty-field">
-          <p className="scarce-mood-picker-label">List to store</p>
+          <p className="scarce-mood-picker-label">List to hub</p>
           <div
             className="app-storage-presets"
             role="group"
-            aria-label="Store for this listing"
+            aria-label="Hub for this listing"
           >
             <button
               type="button"
@@ -881,7 +881,7 @@ export function ScarceListForm({
               disabled={pending}
               onClick={() => setListAppId('')}
             >
-              No store
+              No hub
             </button>
             {storeOptions.map((store) => (
               <button

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   PlusIcon,
   SearchField,
-  ShopFillIcon,
+  StarMovingFillIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -20,12 +20,15 @@ import {
   type AppView,
 } from '@/features/scarces/apps-data';
 import {
-  APPS_ACCESS_FILTERS,
   APPS_PAGE_SIZE,
-  type AppsAccessFilter,
   type AppsDirectorySort,
 } from '@/features/scarces/apps-directory';
+import { AppsDirectoryCategoryMenu } from '@/features/scarces/apps-directory-category-menu';
 import { AppsDirectorySortMenu } from '@/features/scarces/apps-directory-sort-menu';
+import {
+  hubCategoryLabel,
+  type HubCategoryFilter,
+} from '@/features/scarces/hub-categories';
 import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
@@ -37,10 +40,10 @@ function monogram(title: string): string {
 }
 
 function storeMeta(app: AppView): string {
-  const parts = [
-    `@${fallbackLabel(app.ownerId)}`,
-    creatorAccessShort(app.creatorAccess),
-  ];
+  const parts = [`@${fallbackLabel(app.ownerId)}`];
+  const category = hubCategoryLabel(app.category);
+  if (category) parts.push(category);
+  parts.push(creatorAccessShort(app.creatorAccess));
   if (app.liveListingCount && app.liveListingCount > 0) {
     parts.push(
       app.liveListingCount === 1
@@ -56,7 +59,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
   const [apps, setApps] = useState<AppView[]>(initial);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [access, setAccess] = useState<AppsAccessFilter>('all');
+  const [category, setCategory] = useState<HubCategoryFilter>('all');
   const [sort, setSort] = useState<AppsDirectorySort>('recent');
   const [hideTest, setHideTest] = useState(true);
   const [status, setStatus] = useState<'ready' | 'loading' | 'error'>(
@@ -68,8 +71,8 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
   const [nextOffset, setNextOffset] = useState(initial.length);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const toolbarHidden = useDockAutoHide(sortMenuOpen);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const toolbarHidden = useDockAutoHide(menuOpen);
   const listingCountsRef = useRef<Map<string, number> | null>(null);
   const requestIdRef = useRef(0);
   const hasLoadedOnceRef = useRef(initial.length > 0);
@@ -95,7 +98,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
           fetchAppsDirectory({
             limit: APPS_PAGE_SIZE,
             query: debouncedQuery || undefined,
-            access,
+            category,
             sort,
             hideTest,
           }),
@@ -112,7 +115,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
         setStatus('ready');
       } catch {
         if (cancelled || requestId !== requestIdRef.current) return;
-        setError('Couldn’t load stores.');
+        setError('Couldn’t load hubs.');
         setStatus('error');
         if (!hasLoadedOnceRef.current) {
           setApps([]);
@@ -129,7 +132,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, access, sort, hideTest, retryKey]);
+  }, [debouncedQuery, category, sort, hideTest, retryKey]);
 
   async function loadMore() {
     if (loadingMore || !hasMore) return;
@@ -139,7 +142,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
         fromIndex: nextOffset,
         limit: APPS_PAGE_SIZE,
         query: debouncedQuery || undefined,
-        access,
+        category,
         sort,
         hideTest,
       });
@@ -152,7 +155,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
       setHasMore(page.hasMore);
       setNextOffset(page.nextOffset);
     } catch {
-      setError('Couldn’t load more stores.');
+      setError('Couldn’t load more hubs.');
     } finally {
       setLoadingMore(false);
     }
@@ -164,14 +167,14 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
 
   return (
     <OsAppScreen
-      title="Stores"
+      title="Hubs"
       leading={null}
       actions={
         isConnected ? (
           <Link
             href={APP_APP_CREATE_PATH}
             className={osIconActionClassName}
-            aria-label="Open a store"
+            aria-label="Open a hub"
           >
             <PlusIcon aria-hidden />
           </Link>
@@ -181,12 +184,12 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
         <SearchField
           value={query}
           onValueChange={setQuery}
-          placeholder="Search stores"
+          placeholder="Search hubs"
           clearAriaLabel="Clear search"
-          ariaLabel="Search stores"
+          ariaLabel="Search hubs"
           className="discover-nav-search-field os-app-screen-search"
           leadingIcon={
-            <ShopFillIcon className="search-field-icon" aria-hidden />
+            <StarMovingFillIcon className="search-field-icon" aria-hidden />
           }
         />
       }
@@ -196,51 +199,34 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
             toolbarHidden ? ' is-scroll-hidden' : ''
           }`}
         >
-          <div
-            className="discover-tab-bar market-listing-filters"
-            role="tablist"
-            aria-label="Creator access"
-          >
-            <div className="discover-tab-bar-scroller">
-              {APPS_ACCESS_FILTERS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  id={`stores-access-tab-${tab.id}`}
-                  aria-controls="stores-directory-results"
-                  aria-selected={access === tab.id}
-                  className={access === tab.id ? 'is-active' : undefined}
-                  onClick={() => setAccess(tab.id)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <AppsDirectoryCategoryMenu
+            category={category}
+            onCategoryChange={setCategory}
+            onOpenChange={setMenuOpen}
+          />
           <AppsDirectorySortMenu
             sort={sort}
             onSortChange={setSort}
-            onOpenChange={setSortMenuOpen}
+            onOpenChange={setMenuOpen}
           />
         </div>
       }
     >
       <div
         className="apps-directory"
-        id="stores-directory-results"
+        id="hubs-directory-results"
         aria-busy={refreshing || undefined}
       >
         {showSkeleton ? (
           <div className="market-section" aria-busy="true" aria-live="polite">
-            <p className="sr-only">Loading stores…</p>
+            <p className="sr-only">Loading hubs…</p>
             <MarketListSkeleton rows={5} />
           </div>
         ) : null}
 
         {status === 'error' && apps.length === 0 ? (
           <p className="market-page-status" role="alert">
-            {error ?? 'Couldn’t load stores.'}{' '}
+            {error ?? 'Couldn’t load hubs.'}{' '}
             <button
               type="button"
               className="market-page-retry"
@@ -255,23 +241,22 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
               {searching
-                ? `No stores match “${debouncedQuery}”.`
-                : access !== 'all'
+                ? `No hubs match “${debouncedQuery}”.`
+                : category !== 'all'
                   ? `No ${
-                      APPS_ACCESS_FILTERS.find((tab) => tab.id === access)
-                        ?.label ?? access
-                    } stores right now.`
+                      hubCategoryLabel(category) ?? category
+                    } hubs right now.`
                   : hideTest
-                    ? 'No stores yet.'
-                    : 'No stores yet. Be the first.'}
+                    ? 'No hubs yet.'
+                    : 'No hubs yet. Be the first.'}
             </p>
-            {hideTest && !searching && access === 'all' ? (
+            {hideTest && !searching && category === 'all' ? (
               <button
                 type="button"
                 className="market-page-retry"
                 onClick={() => setHideTest(false)}
               >
-                Show test stores
+                Show test hubs
               </button>
             ) : null}
           </div>

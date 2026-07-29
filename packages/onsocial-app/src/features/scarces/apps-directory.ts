@@ -1,4 +1,5 @@
 import type { AppView, CreatorAccess } from '@/features/scarces/apps-data';
+import type { HubCategoryFilter } from '@/features/scarces/hub-categories';
 
 export type AppsAccessFilter = 'all' | CreatorAccess;
 export type AppsDirectorySort = 'recent' | 'fee-asc' | 'fee-desc' | 'name';
@@ -103,16 +104,19 @@ export function filterDirectoryApps(
   opts: {
     query?: string;
     access?: AppsAccessFilter;
+    category?: HubCategoryFilter;
     hideTest?: boolean;
     sort?: AppsDirectorySort;
   } = {}
 ): AppView[] {
   const access = opts.access ?? 'all';
+  const category = opts.category ?? 'all';
   const hideTest = opts.hideTest ?? true;
   const query = opts.query ?? '';
   let rows = apps.filter((app) => {
     if (hideTest && isLikelyTestStore(app)) return false;
     if (access !== 'all' && app.creatorAccess !== access) return false;
+    if (category !== 'all' && app.category !== category) return false;
     return matchesAppQuery(app, query);
   });
   rows = sortApps(rows, opts.sort ?? 'recent');

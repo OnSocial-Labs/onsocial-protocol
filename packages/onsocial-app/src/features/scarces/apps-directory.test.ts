@@ -16,6 +16,7 @@ function stubApp(partial: Partial<AppView> & Pick<AppView, 'appId'>): AppView {
     primarySaleBps: 250,
     commissionPct: '2.5',
     creatorAccess: 'open',
+    category: null,
     moderators: [],
     approvedCreators: [],
     metadataRaw: null,
@@ -114,5 +115,21 @@ describe('filterDirectoryApps', () => {
     expect(byFee.map((row) => row.appId)).toEqual(['closed-shop', 'atelier']);
     expect(matchesAppQuery(apps[0]!, 'atelier')).toBe(true);
     expect(matchesAppQuery(apps[0]!, 'zzz')).toBe(false);
+  });
+
+  it('filters by hub category', () => {
+    const withCats = [
+      stubApp({ appId: 'vinyl', title: 'Vinyl', category: 'music' }),
+      stubApp({ appId: 'canvas', title: 'Canvas', category: 'art' }),
+      stubApp({ appId: 'misc', title: 'Misc', category: null }),
+    ];
+    expect(
+      filterDirectoryApps(withCats, { category: 'music' }).map((row) => row.appId)
+    ).toEqual(['vinyl']);
+    expect(
+      filterDirectoryApps(withCats, { category: 'all', sort: 'name' }).map(
+        (row) => row.appId
+      )
+    ).toEqual(['canvas', 'misc', 'vinyl']);
   });
 });

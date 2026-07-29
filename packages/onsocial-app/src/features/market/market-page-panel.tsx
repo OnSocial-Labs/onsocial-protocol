@@ -8,6 +8,7 @@ import {
   PlusIcon,
   SearchField,
   ShopFillIcon,
+  StarMovingFillIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -21,6 +22,11 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
+import {
+  MARKET_MEDIUM_FILTERS,
+  MarketMediumMenu,
+  type MarketMediumFilter,
+} from '@/features/market/market-medium-menu';
 import {
   auctionExpiresAtMs,
   fetchMarketListings,
@@ -99,7 +105,6 @@ function listingMatchesQuery(item: MarketListingItem, query: string): boolean {
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type ListingFilter = 'all' | 'fixed' | 'auctions';
-type MediumFilter = 'all' | 'art' | 'book' | 'music';
 
 const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -107,14 +112,7 @@ const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
   { id: 'auctions', label: 'Auctions' },
 ];
 
-const MEDIUM_FILTERS: { id: MediumFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'art', label: 'Art' },
-  { id: 'book', label: 'Book' },
-  { id: 'music', label: 'Music' },
-];
-
-function parseMediumFilter(raw: string | null): MediumFilter {
+function parseMediumFilter(raw: string | null): MarketMediumFilter {
   const value = raw?.trim().toLowerCase() ?? '';
   if (value === 'art' || value === 'book' || value === 'music') return value;
   return 'all';
@@ -261,7 +259,7 @@ export function MarketPagePanel() {
   }, [router]);
 
   const setMediumFilter = useCallback(
-    (next: MediumFilter) => {
+    (next: MarketMediumFilter) => {
       const params = new URLSearchParams(searchParams.toString());
       if (next === 'all') {
         params.delete(MARKET_KIND_PARAM);
@@ -935,9 +933,9 @@ export function MarketPagePanel() {
           <Link
             href={APP_APPS_PATH}
             className={osIconActionClassName}
-            aria-label="Browse stores"
+            aria-label="Browse hubs"
           >
-            <ShopFillIcon aria-hidden />
+            <StarMovingFillIcon aria-hidden />
           </Link>
           {viewerAccountId ? (
             <Link
@@ -995,31 +993,12 @@ export function MarketPagePanel() {
                   ))}
                 </div>
               </div>
-              <div
-                className="discover-tab-bar market-listing-filters market-medium-filters"
-                role="tablist"
-                aria-label="Medium"
-              >
-                <div className="discover-tab-bar-scroller">
-                  {MEDIUM_FILTERS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      id={`market-medium-tab-${tab.id}`}
-                      aria-controls="market-listing-results"
-                      aria-selected={mediumFilter === tab.id}
-                      className={
-                        mediumFilter === tab.id ? 'is-active' : undefined
-                      }
-                      onClick={() => setMediumFilter(tab.id)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
+            <MarketMediumMenu
+              medium={mediumFilter}
+              onMediumChange={setMediumFilter}
+              onOpenChange={setSortMenuOpen}
+            />
             <MarketListingSortMenu
               sort={listingSort}
               onSortChange={setSort}
@@ -1062,7 +1041,7 @@ export function MarketPagePanel() {
               scroll={false}
               className="market-creator-filter-handle"
             >
-              <ShopFillIcon
+              <StarMovingFillIcon
                 className="market-creator-filter-icon"
                 aria-hidden
               />
@@ -1072,7 +1051,7 @@ export function MarketPagePanel() {
               type="button"
               className="market-creator-filter-clear"
               onClick={clearNarrowFilter}
-              aria-label="Clear store filter"
+              aria-label="Clear hub filter"
             >
               <MultiplyIcon aria-hidden />
             </button>
@@ -1141,8 +1120,9 @@ export function MarketPagePanel() {
               ? `No listings match “${listingQuery.trim()}”.`
               : mediumFilter !== 'all'
                 ? `Nothing in ${
-                    MEDIUM_FILTERS.find((tab) => tab.id === mediumFilter)
-                      ?.label ?? mediumFilter
+                    MARKET_MEDIUM_FILTERS.find(
+                      (tab) => tab.id === mediumFilter
+                    )?.label ?? mediumFilter
                   } right now.`
                 : `Nothing in ${
                     listingFilter === 'auctions' ? 'Auctions' : 'Fixed'

@@ -4,8 +4,8 @@ import { AppsDirectoryPanel } from '@/features/scarces/apps-directory-panel';
 import { APPS_PAGE_SIZE } from '@/features/scarces/apps-directory';
 
 export const metadata: Metadata = {
-  title: 'Stores • OnSocial',
-  description: 'Branded storefronts publishing drops on OnSocial.',
+  title: 'Hubs • OnSocial',
+  description: 'Creator hubs publishing drops on OnSocial.',
 };
 
 export default async function AppsPage() {

@@ -51,7 +51,7 @@ function commerceLinks(
     links.push({ href: collectionPath(collectionId), label: 'Drop' });
   }
   if (appId) {
-    links.push({ href: appPath(appId), label: 'Store' });
+    links.push({ href: appPath(appId), label: 'Hub' });
   }
   // Market only when it narrows something (store or creator) — not a bare /market.
   if (appId) {

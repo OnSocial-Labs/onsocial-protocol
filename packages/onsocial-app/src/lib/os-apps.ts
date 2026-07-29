@@ -24,7 +24,7 @@ export interface OsAppLink {
 /**
  * Which launcher app is "here" for the current route.
  * External portals (Boost / Protocol) are never active in-app.
- * Stores covers `/apps` and drop pages under `/collection`.
+ * Hubs covers `/apps` and drop pages under `/collection`.
  */
 export function resolveActiveOsAppId(
   pathname: string,
@@ -39,13 +39,13 @@ export function resolveActiveOsAppId(
     return 'discover';
   }
   if (path === APP_APPS_PATH || path.startsWith(`${APP_APPS_PATH}/`)) {
-    return 'stores';
+    return 'hubs';
   }
   if (
     path === APP_COLLECTION_PATH ||
     path.startsWith(`${APP_COLLECTION_PATH}/`)
   ) {
-    return 'stores';
+    return 'hubs';
   }
   if (path === APP_MARKET_PATH || path.startsWith(`${APP_MARKET_PATH}/`)) {
     return 'market';
@@ -105,9 +105,9 @@ const OS_EXTERNAL_LINKS: OsAppLink[] = [
   },
 ];
 
-const STORES_APP: OsAppLink = {
-  id: 'stores',
-  label: 'Stores',
+const HUBS_APP: OsAppLink = {
+  id: 'hubs',
+  label: 'Hubs',
   kind: 'app',
   href: APP_APPS_PATH,
 };
@@ -124,7 +124,7 @@ export function gateOsApps(): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
-    STORES_APP,
+    HUBS_APP,
     {
       id: 'groups',
       label: 'Guilds',
@@ -161,7 +161,7 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
-    STORES_APP,
+    HUBS_APP,
     {
       id: 'groups',
       label: 'Guilds',
@@ -187,7 +187,7 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
-    STORES_APP,
+    HUBS_APP,
     {
       id: 'groups',
       label: 'Guilds',
@@ -208,7 +208,7 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
-    STORES_APP,
+    HUBS_APP,
     {
       id: 'groups',
       label: 'Guilds',

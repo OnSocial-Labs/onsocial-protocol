@@ -6,6 +6,7 @@ import {
   HomeFillIcon,
   SearchFillIcon,
   ShopFillIcon,
+  StarMovingFillIcon,
   UserCircleFillIcon,
   UsersFillIcon,
   type MageFillIconProps,
@@ -16,7 +17,9 @@ const OS_APP_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>> = {
   feed: DotsCircleFillIcon,
   discover: SearchFillIcon,
   market: ShopFillIcon,
-  stores: ShopFillIcon,
+  hubs: StarMovingFillIcon,
+  /** @deprecated alias — prefer `hubs` */
+  stores: StarMovingFillIcon,
   groups: UsersFillIcon,
   boost: FireFillIcon,
   protocol: GlobeFillIcon,

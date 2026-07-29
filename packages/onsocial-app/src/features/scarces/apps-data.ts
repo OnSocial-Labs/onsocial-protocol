@@ -8,6 +8,11 @@ import {
   type AppsAccessFilter,
   type AppsDirectorySort,
 } from '@/features/scarces/apps-directory';
+import {
+  parseHubCategory,
+  type HubCategory,
+  type HubCategoryFilter,
+} from '@/features/scarces/hub-categories';
 
 /**
  * App (store) reads — a branded economic network on the shared scarces
@@ -50,6 +55,7 @@ interface AppMetadata {
   media?: string;
   base_uri?: string;
   banner?: string;
+  category?: string;
 }
 
 export interface AppView {
@@ -59,6 +65,8 @@ export interface AppView {
   description?: string;
   mediaUrl: string | null;
   bannerUrl: string | null;
+  /** User-chosen hub focus (metadata `category`). */
+  category: HubCategory | null;
   /** Primary-sale commission in basis points (0..=5000). */
   primarySaleBps: number;
   /** Commission as a percentage string, e.g. "2.5". */
@@ -80,6 +88,7 @@ export interface FetchAppsOptions {
   limit?: number;
   query?: string;
   access?: AppsAccessFilter;
+  category?: HubCategoryFilter;
   sort?: AppsDirectorySort;
   /** Drop CI / SDK integration spam. Default true. */
   hideTest?: boolean;
@@ -145,6 +154,7 @@ function toAppView(
       : {}),
     mediaUrl: image ? resolveScarceMediaUrl(image) : null,
     bannerUrl: banner ? resolveScarceMediaUrl(banner) : null,
+    category: parseHubCategory(meta.category),
     primarySaleBps: bps,
     commissionPct: bpsToPct(bps),
     creatorAccess: parseCreatorAccess(record.creator_access),
@@ -240,6 +250,7 @@ function toAppViewFromIndexer(row: IndexerAppRow): AppView {
       : {}),
     mediaUrl: image ? resolveScarceMediaUrl(image) : null,
     bannerUrl: banner ? resolveScarceMediaUrl(banner) : null,
+    category: parseHubCategory(meta.category),
     primarySaleBps: bps,
     commissionPct: bpsToPct(bps),
     creatorAccess: parseCreatorAccess(row.creatorAccess),
@@ -323,8 +334,10 @@ export async function fetchAppsDirectory(
   const fromIndex = opts.fromIndex ?? 0;
   const sort = opts.sort ?? 'recent';
   const hideTest = opts.hideTest !== false;
-  // Over-fetch when hiding tests so a page still fills after client safety net.
-  const fetchLimit = hideTest ? Math.min(limit * 3, 120) : limit + 1;
+  const category = opts.category ?? 'all';
+  // Over-fetch when hiding tests / filtering category so a page still fills.
+  const needsOverfetch = hideTest || category !== 'all';
+  const fetchLimit = needsOverfetch ? Math.min(limit * 3, 120) : limit + 1;
 
   try {
     const { createReadOnlyOnSocialClient } = await import(
@@ -376,6 +389,9 @@ export async function fetchAppsDirectory(
       if (hideTest) {
         apps = apps.filter((app) => !isLikelyTestStore(app));
       }
+      if (category !== 'all') {
+        apps = apps.filter((app) => app.category === category);
+      }
       if (sort === 'name' || sort === 'recent') {
         apps = sortApps(apps, sort);
       }
@@ -402,6 +418,9 @@ export async function fetchAppsDirectory(
   if (hideTest) apps = apps.filter((app) => !isLikelyTestStore(app));
   if (opts.access && opts.access !== 'all') {
     apps = apps.filter((app) => app.creatorAccess === opts.access);
+  }
+  if (category !== 'all') {
+    apps = apps.filter((app) => app.category === category);
   }
   const q = opts.query?.trim().toLowerCase();
   if (q) {

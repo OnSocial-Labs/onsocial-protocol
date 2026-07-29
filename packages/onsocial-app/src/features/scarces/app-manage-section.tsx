@@ -16,6 +16,10 @@ import {
   type AppView,
   type CreatorAccess,
 } from '@/features/scarces/apps-data';
+import {
+  HUB_CATEGORIES,
+  type HubCategory,
+} from '@/features/scarces/hub-categories';
 import { accountIdsEqual } from '@/lib/account-match';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -61,6 +65,9 @@ export function AppManageSection({
   const [brandDescription, setBrandDescription] = useState(
     app.description ?? ''
   );
+  const [brandCategory, setBrandCategory] = useState<HubCategory>(
+    app.category ?? 'other'
+  );
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [showBranding, setShowBranding] = useState(false);
@@ -86,6 +93,7 @@ export function AppManageSection({
   const brandingDirty =
     brandName.trim() !== app.title ||
     brandDescription.trim() !== (app.description ?? '') ||
+    brandCategory !== (app.category ?? 'other') ||
     logoFile != null ||
     bannerFile != null;
 
@@ -133,7 +141,7 @@ export function AppManageSection({
     if (!brandingDirty || pending) return;
     const name = brandName.trim();
     if (name.length < 2) {
-      setNote('Store name needs at least 2 characters.');
+      setNote('Hub name needs at least 2 characters.');
       return;
     }
     setPending(true);
@@ -167,6 +175,7 @@ export function AppManageSection({
 
       const metadata = JSON.stringify({
         name,
+        category: brandCategory,
         ...(brandDescription.trim()
           ? { description: brandDescription.trim() }
           : {}),
@@ -202,6 +211,7 @@ export function AppManageSection({
     pending,
     brandName,
     brandDescription,
+    brandCategory,
     logoFile,
     bannerFile,
     app.metadataRaw,
@@ -216,7 +226,7 @@ export function AppManageSection({
     const nextOwner = transferTo.trim().toLowerCase();
     if (!nextOwner || pending) return;
     if (accountIdsEqual(nextOwner, app.ownerId)) {
-      setNote('That account already owns this store.');
+      setNote('That account already owns this hub.');
       return;
     }
     setPending(true);
@@ -275,7 +285,7 @@ export function AppManageSection({
         if (ids.length === 0) {
           setNote(
             accountId.trim()
-              ? 'You already own this store — add other accounts.'
+              ? 'You already own this hub — add other accounts.'
               : 'Add one or more account IDs.'
           );
           return;
@@ -319,7 +329,7 @@ export function AppManageSection({
       const id = accountId.trim().toLowerCase();
       if (!id) return;
       if (action === 'add' && accountIdsEqual(id, app.ownerId)) {
-        setNote('You already own this store.');
+        setNote('You already own this hub.');
         return;
       }
       setPending(true);
@@ -373,7 +383,7 @@ export function AppManageSection({
         className="collection-allowlist-toggle"
         onClick={() => setOpen(true)}
       >
-        {canManageSettings ? 'Manage store' : 'Approve creators'}
+        {canManageSettings ? 'Manage hub' : 'Approve creators'}
       </button>
     );
   }
@@ -387,11 +397,11 @@ export function AppManageSection({
   return (
     <section
       className="app-manage"
-      aria-label={canManageSettings ? 'Manage store' : 'Approve creators'}
+      aria-label={canManageSettings ? 'Manage hub' : 'Approve creators'}
     >
       <div className="collection-allowlist-head">
         <h3 className="market-section-title">
-          {canManageSettings ? 'Manage store' : 'Approve creators'}
+          {canManageSettings ? 'Manage hub' : 'Approve creators'}
         </h3>
         <button
           type="button"
@@ -495,6 +505,30 @@ export function AppManageSection({
                     onChange={(event) => setBrandDescription(event.target.value)}
                   />
                 </label>
+                <div className="guild-field">
+                  <span>Category</span>
+                  <div
+                    className="app-storage-presets"
+                    role="radiogroup"
+                    aria-label="Hub category"
+                  >
+                    {HUB_CATEGORIES.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={brandCategory === option.id}
+                        className={`os-surface-chip${
+                          brandCategory === option.id ? ' is-selected' : ''
+                        }`}
+                        disabled={pending}
+                        onClick={() => setBrandCategory(option.id)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <label className="guild-field" htmlFor="app-manage-logo-file">
                   <span>Logo</span>
                   <input
@@ -554,7 +588,7 @@ export function AppManageSection({
               className="collection-allowlist-toggle"
               onClick={() => setShowTransfer((open) => !open)}
             >
-              {showTransfer ? 'Hide transfer' : 'Transfer store'}
+              {showTransfer ? 'Hide transfer' : 'Transfer hub'}
             </button>
             {showTransfer ? (
               <div className="app-manage-roster">
@@ -570,7 +604,7 @@ export function AppManageSection({
                     onChange={(event) => setTransferTo(event.target.value)}
                   />
                   <small>
-                    Permanent. You become a regular account on this store.
+                    Permanent. You become a regular account on this hub.
                   </small>
                 </label>
                 <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -581,7 +615,7 @@ export function AppManageSection({
                     disabled={transferTo.trim().length === 0 || pending}
                     onClick={() => void transferOwnership()}
                   >
-                    {pending ? 'Transferring…' : 'Transfer store'}
+                    {pending ? 'Transferring…' : 'Transfer hub'}
                   </OsSheetAction>
                 </OsSheetActions>
               </div>

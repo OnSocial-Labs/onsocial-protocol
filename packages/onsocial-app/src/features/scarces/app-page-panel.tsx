@@ -15,6 +15,7 @@ import {
   type AppView,
 } from '@/features/scarces/apps-data';
 import { AppManageSection } from '@/features/scarces/app-manage-section';
+import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import {
   fetchCollectionsByApp,
   type CollectionView,
@@ -109,12 +110,12 @@ export function AppPagePanel({
 
   if (notFound || !app) {
     return (
-      <OsAppScreen title="Store" backFallbackHref={APP_APPS_PATH}>
+      <OsAppScreen title="Hub" backFallbackHref={APP_APPS_PATH}>
         <div className="market-page">
           <p className="market-page-status">
-            This store isn&rsquo;t available.{' '}
+            This hub isn&rsquo;t available.{' '}
             <Link className="app-soon-link" href={APP_APPS_PATH}>
-              Browse stores
+              Browse hubs
             </Link>
           </p>
         </div>
@@ -132,6 +133,7 @@ export function AppPagePanel({
   const canRequestPublish =
     isConnected && !canCreate && app.creatorAccess === 'approval';
   const canReviewRequests = authority && app.creatorAccess === 'approval';
+  const categoryLabel = hubCategoryLabel(app.category);
 
   return (
     <OsAppScreen
@@ -142,7 +144,7 @@ export function AppPagePanel({
           <Link
             href={createHref}
             className={osIconActionClassName}
-            aria-label="Create a drop in this store"
+            aria-label="Create a drop in this hub"
           >
             <PlusIcon aria-hidden />
           </Link>
@@ -177,6 +179,9 @@ export function AppPagePanel({
               by @{fallbackLabel(app.ownerId)}
             </Link>
             <div className="app-page-badges">
+              {categoryLabel ? (
+                <span className="app-page-badge">{categoryLabel}</span>
+              ) : null}
               <span className="app-page-badge">
                 {app.commissionPct}% commission
               </span>
@@ -194,7 +199,7 @@ export function AppPagePanel({
         {!canCreate && isConnected && !canRequestPublish ? (
           <p className="app-page-note">
             {app.creatorAccess === 'invite_only'
-              ? 'Only store staff can publish here. Ask the owner to add you as a moderator.'
+              ? 'Only hub staff can publish here. Ask the owner to add you as a moderator.'
               : `${creatorAccessLabel(app.creatorAccess)}.`}
           </p>
         ) : null}

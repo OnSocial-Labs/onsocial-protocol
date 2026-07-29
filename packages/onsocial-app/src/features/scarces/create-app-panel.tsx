@@ -13,7 +13,12 @@ import {
   creatorAccessLabel,
   creatorAccessShort,
 } from '@/features/scarces/apps-data';
+import {
+  HUB_CATEGORIES,
+  type HubCategory,
+} from '@/features/scarces/hub-categories';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
+
 import {
   txToastConfirming,
   txToastError,
@@ -58,6 +63,7 @@ export function CreateAppPanel() {
   const [description, setDescription] = useState('');
   const [commissionInput, setCommissionInput] = useState('2.5');
   const [creatorAccess, setCreatorAccess] = useState<CreatorAccess>('open');
+  const [category, setCategory] = useState<HubCategory>('other');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,7 +94,7 @@ export function CreateAppPanel() {
         return;
       }
       if (derivedSlug.length < MIN_SLUG) {
-        setError(`Store ID must be at least ${MIN_SLUG} characters.`);
+        setError(`Hub ID must be at least ${MIN_SLUG} characters.`);
         return;
       }
       if (!commissionValid) {
@@ -98,6 +104,7 @@ export function CreateAppPanel() {
 
       const metadata = JSON.stringify({
         name: name.trim(),
+        category,
         ...(description.trim() ? { description: description.trim() } : {}),
       });
 
@@ -136,6 +143,7 @@ export function CreateAppPanel() {
       name,
       description,
       creatorAccess,
+      category,
       getSigningWallet,
       trackTransaction,
       router,
@@ -144,13 +152,13 @@ export function CreateAppPanel() {
 
   return (
     <OsAppScreen
-      title="Open a store"
-      subtitle="Branded storefront for drops you (and allowed creators) publish."
+      title="Open a hub"
+      subtitle="A branded hub for drops you (and allowed creators) publish."
       backFallbackHref={APP_APPS_PATH}
     >
       <form className="drop-create-form" onSubmit={handleSubmit}>
         <label className="guild-field" htmlFor={fieldId('name')}>
-          <span>Store name</span>
+          <span>Hub name</span>
           <input
             id={fieldId('name')}
             value={name}
@@ -162,7 +170,7 @@ export function CreateAppPanel() {
         </label>
 
         <label className="guild-field" htmlFor={fieldId('id')}>
-          <span>Store ID</span>
+          <span>Hub ID</span>
           <input
             id={fieldId('id')}
             value={slugTouched ? slug : derivedSlug}
@@ -177,7 +185,7 @@ export function CreateAppPanel() {
             autoCapitalize="none"
             autoCorrect="off"
           />
-          <small>Permanent · {appPath(derivedSlug || 'your-store')}</small>
+          <small>Permanent · {appPath(derivedSlug || 'your-hub')}</small>
         </label>
 
         <label className="guild-field" htmlFor={fieldId('description')}>
@@ -186,7 +194,7 @@ export function CreateAppPanel() {
             id={fieldId('description')}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="What this store publishes and who it's for."
+            placeholder="What this hub publishes and who it's for."
             maxLength={MAX_DESCRIPTION}
             disabled={pending}
           />
@@ -236,6 +244,32 @@ export function CreateAppPanel() {
         </label>
 
         <div className="guild-field">
+          <span>Category</span>
+          <div
+            className="app-storage-presets"
+            role="radiogroup"
+            aria-label="Hub category"
+          >
+            {HUB_CATEGORIES.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={category === option.id}
+                className={`os-surface-chip${
+                  category === option.id ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setCategory(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <small>Helps people find this hub in the directory.</small>
+        </div>
+
+        <div className="guild-field">
           <span>Who can create drops</span>
           <div
             className="app-storage-presets"
@@ -280,7 +314,7 @@ export function CreateAppPanel() {
             pendingLabel="Opening…"
             disabled={!canSubmit}
           >
-            Open store
+            Open hub
           </OsSheetPrimaryAction>
         </OsSheetActions>
       </form>

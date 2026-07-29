@@ -13,10 +13,10 @@ export async function generateMetadata({
   const id = decodeURIComponent(appId);
   const view = await fetchApp(id);
   if (!view) {
-    return { title: 'Store • OnSocial' };
+    return { title: 'Hub • OnSocial' };
   }
   return {
-    title: `${view.title} • Store • OnSocial`,
+    title: `${view.title} • Hub • OnSocial`,
     ...(view.description ? { description: view.description } : {}),
   };
 }
