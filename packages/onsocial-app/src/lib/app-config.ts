@@ -39,6 +39,12 @@ export const SOCIAL_SPEND_CONTRACT =
     ? 'social-spend.onsocial.near'
     : 'social-spend.onsocial.testnet';
 
+/** Lock-and-earn boost contract (portfolio boost sheet). */
+export const BOOST_CONTRACT =
+  ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'boost.onsocial.near'
+    : 'boost.onsocial.testnet';
+
 /** Outer signer for session-relayed (NEP-366) transactions. */
 export const RELAYER_ACCOUNT =
   ACTIVE_NEAR_NETWORK === 'mainnet'

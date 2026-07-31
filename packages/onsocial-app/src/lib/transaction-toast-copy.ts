@@ -51,6 +51,11 @@ export const txToastConfirming = {
   transferringAppOwnership: 'Transferring hub…',
   requestingStoreAccess: 'Requesting publishing access…',
   withdrawingStoreAccess: 'Withdrawing request…',
+  committingBoost: 'Confirming boost…',
+  collectingBoost: 'Confirming collection…',
+  renewingBoost: 'Confirming renewal…',
+  extendingBoost: 'Confirming extension…',
+  releasingBoost: 'Confirming release…',
 } as const;
 
 export const txToastPending = {
@@ -155,6 +160,11 @@ export const txToastSuccess = {
   appOwnershipTransferred: 'Hub ownership transferred.',
   storeAccessRequested: 'Publishing access requested.',
   storeAccessWithdrawn: 'Request withdrawn.',
+  boostCommitted: (amountLabel: string) => `${amountLabel} SOCIAL committed.`,
+  boostCollected: 'SOCIAL collected.',
+  boostRenewed: 'Commitment renewed.',
+  boostExtended: (periodLabel: string) => `Extended to ${periodLabel}.`,
+  boostReleased: 'Position released. SOCIAL collected.',
 } as const;
 
 export const txToastError = {
@@ -205,4 +215,9 @@ export const txToastError = {
   transferAppOwnershipFailed: 'Could not transfer the hub.',
   requestStoreAccessFailed: 'Could not request publishing access.',
   withdrawStoreAccessFailed: 'Could not withdraw the request.',
+  commitBoostFailed: 'Could not commit SOCIAL.',
+  collectBoostFailed: 'Could not collect boost rewards.',
+  renewBoostFailed: 'Could not renew the commitment.',
+  extendBoostFailed: 'Could not extend the commitment.',
+  releaseBoostFailed: 'Could not release the position.',
 } as const;

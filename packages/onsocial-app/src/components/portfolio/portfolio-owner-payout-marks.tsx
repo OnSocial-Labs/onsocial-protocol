@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { GiftIcon, ShopFillIcon } from '@onsocial/ui';
+import { FireFillIcon, GiftIcon, ShopFillIcon } from '@onsocial/ui';
 import {
   PortfolioListingActionsMark,
   PortfolioListingActionsSheet,
 } from '@/components/portfolio/portfolio-listing-actions-sheet';
+import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
+import { useBoostPosition } from '@/features/boost/use-boost-position';
 import { PortfolioScarceEarningsSheet } from '@/components/portfolio/portfolio-scarce-earnings-sheet';
 import { PortfolioSupportCollectInfoSheet } from '@/components/portfolio/portfolio-support-collect-info-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -47,6 +49,8 @@ export function PortfolioOwnerPayoutMarks({
   const [supportOpen, setSupportOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
   const [listingsOpen, setListingsOpen] = useState(false);
+  const [boostOpen, setBoostOpen] = useState(false);
+  const boost = useBoostPosition(accountId, { live: boostOpen });
 
   const refreshSupport = useCallback(
     async (options: { fresh?: boolean } = {}) => {
@@ -138,14 +142,13 @@ export function PortfolioOwnerPayoutMarks({
   const showSales = salesYocto != null && salesYocto !== '0';
   const showListings = listingActions.length > 0;
 
-  if (!showSupport && !showSales && !showListings) {
-    return null;
-  }
-
   const supportLabel = showSupport
     ? formatSocialCompact(claimableYocto!.toString())
     : '';
   const salesLabel = showSales ? formatEarningsNearCompact(salesYocto!) : '';
+  const boostLabel = boost.hasPosition
+    ? formatSocialCompact(boost.lockedYocto)
+    : '';
 
   return (
     <>
@@ -175,12 +178,17 @@ export function PortfolioOwnerPayoutMarks({
               onClick={() => setSupportOpen(true)}
               aria-label={`${supportLabel} SOCIAL ready to collect`}
             >
-              <span className="signal-group signal-group-reputation" aria-hidden>
+              <span
+                className="signal-group signal-group-reputation"
+                aria-hidden
+              >
                 <span className="portfolio-payout-mark-icon">
                   <GiftIcon className="portfolio-payout-mark-svg" />
                 </span>
               </span>
-              <span className="portfolio-payout-mark-amount">{supportLabel}</span>
+              <span className="portfolio-payout-mark-amount">
+                {supportLabel}
+              </span>
             </button>
           ) : null}
 
@@ -205,6 +213,32 @@ export function PortfolioOwnerPayoutMarks({
               <span className="portfolio-payout-mark-amount">{salesLabel}</span>
             </button>
           ) : null}
+
+          {showListings || showSupport || showSales ? (
+            <span className="portfolio-identity-gesture-sep" aria-hidden>
+              ·
+            </span>
+          ) : null}
+
+          <button
+            type="button"
+            className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+            onClick={() => setBoostOpen(true)}
+            aria-label={
+              boost.hasPosition
+                ? `${boostLabel} SOCIAL boosting — manage`
+                : 'Boost — lock SOCIAL to grow influence'
+            }
+          >
+            <span className="signal-group signal-group-standing" aria-hidden>
+              <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--boost">
+                <FireFillIcon className="portfolio-payout-mark-svg" />
+              </span>
+            </span>
+            {boostLabel ? (
+              <span className="portfolio-payout-mark-amount">{boostLabel}</span>
+            ) : null}
+          </button>
         </div>
       </div>
 
@@ -238,6 +272,13 @@ export function PortfolioOwnerPayoutMarks({
           onOpenChange={setSalesOpen}
         />
       ) : null}
+
+      <PortfolioBoostSheet
+        open={boostOpen}
+        accountId={accountId}
+        position={boost}
+        onOpenChange={setBoostOpen}
+      />
     </>
   );
 }

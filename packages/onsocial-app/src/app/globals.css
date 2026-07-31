@@ -4719,6 +4719,114 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.42);
   }
 
+  /* ── Portfolio boost sheet (commit / manage) ─────────────── */
+
+  .portfolio-boost-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .portfolio-boost-intro {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.6);
+  }
+
+  .portfolio-boost-collect {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.35rem 0 0.1rem;
+    text-align: center;
+  }
+
+  .portfolio-boost-collect-amount {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .portfolio-boost-collect-unit {
+    font-size: 0.6em;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .portfolio-boost-collect-rate {
+    margin: 0;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  .portfolio-boost-mode-row,
+  .portfolio-boost-periods {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .portfolio-boost-period-bonus {
+    margin-left: 0.35ch;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.72;
+  }
+
+  .portfolio-boost-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .portfolio-boost-summary-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .portfolio-boost-summary-label {
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .portfolio-boost-summary-value {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .portfolio-boost-note {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .portfolio-boost-note--center {
+    text-align: center;
+  }
+
+  .portfolio-boost-portal-link {
+    margin: 0;
+    text-align: center;
+    font-size: 0.78rem;
+  }
+
+  .portfolio-boost-portal-link a {
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   .portfolio-payout-sheet-sub {
     margin: 0.28rem 0 0;
     max-width: 22rem;
@@ -4786,6 +4894,10 @@ a.os-surface-row {
     color: var(--signal-endorse);
   }
 
+  .portfolio-identity-gesture--payout .signal-group-standing {
+    color: var(--signal-standing);
+  }
+
   .portfolio-payout-mark-icon {
     display: inline-flex;
     flex-shrink: 0;
@@ -4804,6 +4916,10 @@ a.os-surface-row {
 
   .portfolio-payout-mark-icon--actions {
     animation-delay: 1.75s;
+  }
+
+  .portfolio-payout-mark-icon--boost {
+    animation-delay: 5.25s;
   }
 
   .portfolio-listing-action-row {
@@ -6733,6 +6849,8 @@ a.os-surface-row {
    */
   .os-app-screen[data-immersive-header='true'] {
     backdrop-filter: none;
+    /* Immersive heroes bleed to the very top — no strip above the banner. */
+    --os-screen-body-pad-top: 0px;
   }
 
   .os-app-screen::before {
@@ -6837,7 +6955,8 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .os-app-screen[data-glass-chrome='true'] .os-app-screen-header.is-elevated::before {
+  .os-app-screen[data-glass-chrome='true']
+    .os-app-screen-header.is-elevated::before {
     opacity: 1;
   }
 
@@ -6857,9 +6976,7 @@ a.os-surface-row {
    * (.os-chrome-glass) owns a single frost sheet covering nav + room rail.
    * The header's own frost is only a fallback for screens without the rail.
    */
-  .os-app-screen[data-immersive-header='true']:not(
-      :has(.guild-feed-filter-pin)
-    )
+  .os-app-screen[data-immersive-header='true']:not(:has(.guild-feed-filter-pin))
     .os-app-screen-header.is-elevated::before {
     opacity: 1;
   }
@@ -6871,8 +6988,7 @@ a.os-surface-row {
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .os-app-screen[data-immersive-header='true']
-      .os-app-screen-header::before,
+    .os-app-screen[data-immersive-header='true'] .os-app-screen-header::before,
     .os-app-screen[data-glass-chrome='true'] .os-app-screen-header::before {
       background: rgb(var(--bg-rgb) / 0.94);
       backdrop-filter: none;
@@ -6915,7 +7031,8 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
-  .os-app-screen[data-immersive-header='true'] .guild-hero h2 {
+  .os-app-screen[data-immersive-header='true'] .guild-hero h2,
+  .os-app-screen[data-immersive-header='true'] .app-page-hero .app-page-title {
     opacity: calc(1 - var(--title-handoff, 0));
     will-change: opacity;
   }
@@ -7808,6 +7925,17 @@ a.os-surface-row {
 
   .portfolio-summon-compose:active {
     background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  /* Drop creation — protocol-purple stars instead of the post pen. */
+  .portfolio-summon-compose.is-drop {
+    color: color-mix(in srgb, var(--protocol-purple) 88%, rgb(var(--fg-rgb)));
+  }
+
+  .portfolio-summon-compose.is-drop:hover,
+  .portfolio-summon-compose.is-drop:focus-visible {
+    background: color-mix(in srgb, var(--protocol-purple) 12%, transparent);
+    color: var(--protocol-purple);
   }
 
   .portfolio-summon-compose-icon {
@@ -16651,40 +16779,115 @@ a.os-surface-row {
     min-height: 5rem;
   }
 
-  /* Id availability — lead word + tint on the same Permanent helper line. */
-  .drop-create-form .guild-field small.is-available,
-  .guild-create-form .guild-field small.is-available {
+  /* Field status — hint text colour only (create hub / guild ID). */
+  .guild-field small.is-available {
     color: var(--protocol-green);
     font-weight: 600;
   }
 
-  .drop-create-form .guild-field small.is-taken,
-  .guild-create-form .guild-field small.is-taken {
+  .guild-field small.is-taken {
     color: var(--protocol-red);
     font-weight: 600;
   }
 
-  .drop-create-form .guild-field small.is-checking,
-  .guild-create-form .guild-field small.is-checking {
+  .guild-field small.is-checking {
     opacity: 0.48;
   }
 
+  /*
+   * Account field — one soft shell (same as create-hub .guild-field > input).
+   * Avatar + divider live inside the shell; the <input> must stay chrome-free
+   * so later .guild-field input rules don't paint a nested pill on top.
+   */
+  .near-account-field {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    border: 0;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .near-account-field:focus-within {
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+
+  /*
+   * Status = same 1px inset lip as idle/focus, colour swapped only.
+   * Never tint the shell fill — create hub + transfer share this.
+   */
   .drop-create-form .guild-field > input.is-available,
-  .drop-create-form .guild-field > input.is-available:focus,
   .guild-create-form .guild-field > input.is-available,
-  .guild-create-form .guild-field > input.is-available:focus {
-    background: color-mix(in srgb, var(--protocol-green) 12%, transparent);
-    box-shadow: inset 0 1px 0
-      color-mix(in srgb, var(--protocol-green) 22%, transparent);
+  .hub-manage-form .guild-field > input.is-available,
+  .near-account-field.is-available {
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 var(--protocol-green);
+  }
+
+  .drop-create-form .guild-field > input.is-available:focus,
+  .guild-create-form .guild-field > input.is-available:focus,
+  .hub-manage-form .guild-field > input.is-available:focus,
+  .near-account-field.is-available:focus-within {
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
   .drop-create-form .guild-field > input.is-taken,
-  .drop-create-form .guild-field > input.is-taken:focus,
   .guild-create-form .guild-field > input.is-taken,
-  .guild-create-form .guild-field > input.is-taken:focus {
-    background: color-mix(in srgb, var(--protocol-red) 12%, transparent);
-    box-shadow: inset 0 1px 0
-      color-mix(in srgb, var(--protocol-red) 22%, transparent);
+  .hub-manage-form .guild-field > input.is-taken,
+  .near-account-field.is-taken {
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 var(--protocol-red);
+  }
+
+  .drop-create-form .guild-field > input.is-taken:focus,
+  .guild-create-form .guild-field > input.is-taken:focus,
+  .hub-manage-form .guild-field > input.is-taken:focus,
+  .near-account-field.is-taken:focus-within {
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 var(--protocol-red);
+  }
+
+  .near-account-field-leading {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin-left: 0.65rem;
+  }
+
+  .near-account-field-avatar {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  /* Same vertical detail rail treatment as .portfolio-summon-divider. */
+  .near-account-field-divider {
+    flex-shrink: 0;
+    align-self: stretch;
+    margin-block: 0.45rem;
+    margin-inline: 0.55rem;
+    opacity: 0.9;
+  }
+
+  .guild-field .near-account-field > input,
+  .guild-field .near-account-field > input:focus {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    /* Left gap comes from the divider margin — don't double-pad. */
+    padding: 0.65rem 0.75rem 0.65rem 0;
+    font: inherit;
+    font-size: inherit;
+    outline: none;
   }
 
   /* One soft shell: value + unit (not a nested storage “amount card”). */
@@ -16848,7 +17051,11 @@ a.os-surface-row {
 
   .app-access-option.is-selected:hover:not(:disabled),
   .app-access-option.is-selected:focus-visible:not(:disabled) {
-    background: color-mix(in srgb, var(--protocol-green-hover) 20%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--protocol-green-hover) 20%,
+      transparent
+    );
     color: var(--protocol-green-hover);
   }
 
@@ -16931,14 +17138,6 @@ a.os-surface-row {
     color: var(--os-surface-emphasis);
   }
 
-  .app-page-description {
-    margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.5;
-    color: var(--os-surface-muted-strong);
-    white-space: pre-wrap;
-  }
-
   .app-page-actions {
     display: flex;
     flex-direction: column;
@@ -16952,10 +17151,27 @@ a.os-surface-row {
     width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
     max-width: none;
     margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
-    height: clamp(6.75rem, 24vw, 9.25rem);
+    /* Safe-area share so the cover runs under the immersive nav bar. */
+    height: calc(env(safe-area-inset-top, 0px) + clamp(6.75rem, 24vw, 9.25rem));
     overflow: hidden;
     border-radius: 0;
     background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  /* Soft top scrim so back / gear icons stay readable on bright covers. */
+  .app-hub-cover::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+    height: calc(env(safe-area-inset-top, 0px) + 4.25rem);
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.48) 0%,
+      rgb(0 0 0 / 0.22) 55%,
+      transparent 100%
+    );
   }
 
   .app-hub-cover img {
@@ -16986,22 +17202,14 @@ a.os-surface-row {
     padding-bottom: 0.15rem;
   }
 
-  .app-hub-meta-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-height: 1.75rem;
-  }
-
-  .app-hub-meta-dot {
-    color: var(--os-surface-muted);
-    font-size: 0.8rem;
-  }
-
-  .app-hub-meta-access {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--os-surface-muted-strong);
+  /*
+   * Catalog tab rail inside the guild pin: margin becomes padding so the
+   * block totals --os-chrome-rail-block (0.28 + chip 1.53 + 0.35 = 2.16rem)
+   * and the chrome glass bottom edge docks flush with the chips.
+   */
+  .guild-feed-filter-pin .app-hub-catalog-tabs {
+    margin: 0;
+    padding: 0.28rem 0 0.35rem;
   }
 
   /* Creator-facing rollup strip — indexer stats. */
@@ -17332,6 +17540,21 @@ a.os-surface-row {
     padding: 0.35rem 1.15rem 1.35rem;
   }
 
+  .glass-sheet-panel.hub-manage-sheet-panel {
+    max-width: 32rem;
+    --glass-sheet-body-opacity: 0.72;
+  }
+
+  /* Transfer — hug content like scarce-choice / facts; no full-height void. */
+  .glass-sheet-panel.hub-manage-sheet-panel--hug {
+    height: auto !important;
+    max-height: min(72dvh, 32rem);
+  }
+
+  .glass-sheet-panel.hub-manage-sheet-panel--hug > .glass-sheet-body {
+    flex: 0 1 auto;
+  }
+
   .hub-manage-form {
     display: flex;
     flex-direction: column;
@@ -17343,12 +17566,15 @@ a.os-surface-row {
     opacity: 0.45;
   }
 
-  .hub-manage-sheet-footer.is-discard-confirm {
-    display: flex;
-    flex-direction: column;
+  .hub-manage-sheet-footer {
     padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
       max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .hub-manage-sheet-footer.is-discard-confirm {
+    display: flex;
+    flex-direction: column;
   }
 
   .hub-look-media {
@@ -17425,6 +17651,10 @@ a.os-surface-row {
     font-size: 0.78rem;
     line-height: 1.4;
     color: var(--os-surface-muted);
+  }
+
+  .hub-manage-hint.is-danger {
+    color: color-mix(in srgb, var(--protocol-red) 72%, rgb(var(--fg-rgb)));
   }
 
   .hub-look-logo-hint {
@@ -21168,7 +21398,8 @@ a.os-surface-row {
    * Chips dissolve in place — the glass band's bottom edge provides the
    * motion. (A translate would ghost the chips over the nav title.)
    */
-  .guild-feed-filter-pin.is-pinned .guild-feed-filter-pin-inner.is-scroll-hidden {
+  .guild-feed-filter-pin.is-pinned
+    .guild-feed-filter-pin-inner.is-scroll-hidden {
     opacity: 0;
     pointer-events: none;
   }
