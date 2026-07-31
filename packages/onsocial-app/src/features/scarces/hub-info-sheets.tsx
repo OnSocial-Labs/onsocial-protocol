@@ -142,8 +142,13 @@ export function HubFactsSheet({
         <FactSection title="Creators">
           <FactRow label="Access" value={creatorAccessShort(app.creatorAccess)} />
           <p className="guild-facts-copy">
-            {creatorAccessLabel(app.creatorAccess)}. Creators keep {keepPct}%
-            of every primary sale.
+            {creatorAccessLabel(app.creatorAccess)}.
+          </p>
+          <FactRow label="Commission" value={`${app.commissionPct}%`} />
+          <p className="guild-facts-copy">
+            {app.primarySaleBps === 0
+              ? 'The hub takes no cut — creators keep 100% of every primary sale.'
+              : `The hub keeps ${app.commissionPct}% of each primary sale — creators keep ${keepPct}%.`}
           </p>
           <FactRow
             label="Roster"

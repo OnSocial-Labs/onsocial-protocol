@@ -190,11 +190,14 @@ export function StorePublishRequestSection({
     ]
   );
 
-  if (!canRequest && !canReview) return null;
+  const showRequestForm = canRequest && !isApprovedCreator;
+  // The reviewer inbox only earns page space when something is pending.
+  const showInbox = canReview && inbox.length > 0;
+  if (!showRequestForm && !showInbox) return null;
 
   return (
     <section className="app-publish-requests" aria-label="Publishing access">
-      {canRequest && !isApprovedCreator ? (
+      {showRequestForm ? (
         <div className="app-publish-request-form">
           <h3 className="market-section-title">Request publishing access</h3>
           {mine?.status === 'pending' ? (
@@ -244,16 +247,12 @@ export function StorePublishRequestSection({
         </div>
       ) : null}
 
-      {canReview ? (
+      {showInbox ? (
         <div className="app-publish-inbox">
           <h3 className="market-section-title">
-            Publish requests
-            {inbox.length > 0 ? ` · ${inbox.length}` : ''}
+            Publish requests · {inbox.length}
           </h3>
-          {inbox.length === 0 ? (
-            <p className="app-page-note">No pending requests.</p>
-          ) : (
-            <ul className="app-publish-inbox-list">
+          <ul className="app-publish-inbox-list">
               {inbox.map((request) => (
                 <li key={request.requesterId} className="app-publish-inbox-row">
                   <div>
@@ -285,8 +284,7 @@ export function StorePublishRequestSection({
                   </OsSheetActions>
                 </li>
               ))}
-            </ul>
-          )}
+          </ul>
         </div>
       ) : null}
     </section>

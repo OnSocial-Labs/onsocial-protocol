@@ -166,14 +166,12 @@ export function StoreDropsList({
   drops,
   loading,
   indexerCatchUp = false,
-  emptyActionHref,
   canCreate,
   spotlight = false,
 }: {
   drops: CollectionView[];
   loading: boolean;
   indexerCatchUp?: boolean;
-  emptyActionHref: string;
   canCreate: boolean;
   /** Render the first drop as a large spotlight card. */
   spotlight?: boolean;
@@ -187,25 +185,25 @@ export function StoreDropsList({
     );
   }
   if (drops.length === 0) {
+    // No duplicate button here — the hero already carries the create CTA.
     return (
       <div className="standing-panel-empty-block is-centered">
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">
-            No drops in this hub yet.
+            {canCreate
+              ? 'This is where your drops will land.'
+              : 'No drops in this hub yet.'}
           </p>
           {indexerCatchUp ? (
             <p className="standing-panel-empty-secondary">
               {INDEXER_CATCH_UP_COPY}
             </p>
+          ) : canCreate ? (
+            <p className="standing-panel-empty-secondary">
+              Start your first drop to open the storefront.
+            </p>
           ) : null}
         </div>
-        {canCreate ? (
-          <div className="standing-panel-empty-actions">
-            <Link className="standing-panel-empty-action" href={emptyActionHref}>
-              Create a drop
-            </Link>
-          </div>
-        ) : null}
       </div>
     );
   }

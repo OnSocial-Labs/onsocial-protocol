@@ -75,13 +75,6 @@ function monogram(title: string): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
-function keepPctLabel(primarySaleBps: number): string {
-  const pct = (10000 - primarySaleBps) / 100;
-  return Number.isInteger(pct)
-    ? String(pct)
-    : pct.toFixed(2).replace(/\.?0+$/, '');
-}
-
 export function AppPagePanel({
   appId,
   initial,
@@ -276,8 +269,16 @@ export function AppPagePanel({
   const canRequestPublish =
     isConnected && !canCreate && app.creatorAccess === 'approval';
   const canReviewRequests = authority && app.creatorAccess === 'approval';
-  const keepPct = keepPctLabel(app.primarySaleBps);
   const creatorCount = rosterIds.length;
+  const categoryLine = app.categories
+    .map((category) => hubCategoryLabel(category) ?? category)
+    .join(' · ');
+  const hasActivity =
+    stats != null &&
+    (stats.dropsTotal > 0 ||
+      stats.mintedTotal > 0 ||
+      stats.salesCount > 0 ||
+      stats.liveListings > 0);
 
   return (
     <OsAppScreen
@@ -378,6 +379,14 @@ export function AppPagePanel({
             <span className="app-hub-meta-access">
               {creatorAccessShort(app.creatorAccess)}
             </span>
+            {categoryLine ? (
+              <>
+                <span className="app-hub-meta-dot" aria-hidden>
+                  ·
+                </span>
+                <span className="app-hub-meta-access">{categoryLine}</span>
+              </>
+            ) : null}
             <button
               type="button"
               className="guild-hero-facts-button"
@@ -391,18 +400,7 @@ export function AppPagePanel({
             </button>
           </div>
 
-          <div className="app-page-badges">
-            {app.categories.map((category) => (
-              <span key={category} className="app-page-badge">
-                {hubCategoryLabel(category) ?? category}
-              </span>
-            ))}
-            <span className="app-page-badge app-hub-keep">
-              Creators keep {keepPct}%
-            </span>
-          </div>
-
-          {stats ? (
+          {stats && hasActivity ? (
             <dl className="app-hub-stats" aria-label="Hub activity">
               <div className="app-hub-stat">
                 <dt>Drops</dt>
@@ -468,7 +466,6 @@ export function AppPagePanel({
             drops={drops}
             loading={dropsLoading}
             indexerCatchUp={dropsIndexerCatchUp}
-            emptyActionHref={createHref}
             canCreate={canCreate}
             spotlight
           />
