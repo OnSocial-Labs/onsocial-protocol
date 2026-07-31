@@ -1,6 +1,7 @@
 'use client';
 
-import type { ReactNode, RefObject } from 'react';
+import type { CSSProperties, ReactNode, RefObject } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
@@ -24,9 +25,23 @@ export interface OsAppScreenProps {
   immersiveHeader?: boolean;
   /** Visual state for an immersive header after content scrolls. */
   headerElevated?: boolean;
+  /**
+   * Immersive elevate wash — CSS `url("…")` for `--os-immersive-header-banner`
+   * (blurred banner behind elevated chrome).
+   */
+  immersiveHeaderBanner?: string | null;
+  /**
+   * Shared chrome glass: overlay the header (nav + toolbar rails) on the
+   * scroller and frost it once content scrolls under — same recipe as the
+   * guild chrome glass. The screen measures its own chrome height and
+   * tracks elevation internally. Ignored when `immersiveHeader` is set
+   * (immersive screens own their elevation / glass band).
+   */
+  glassChrome?: boolean;
   toolbar?: ReactNode;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
+  style?: CSSProperties;
   children: ReactNode;
 }
 
@@ -40,19 +55,77 @@ export function OsAppScreen({
   heading,
   immersiveHeader = false,
   headerElevated = false,
+  immersiveHeaderBanner = null,
+  glassChrome = false,
   toolbar,
   scrollRootRef,
+  style,
   children,
 }: OsAppScreenProps) {
+  const glassMode = glassChrome && !immersiveHeader;
+  const headerRef = useRef<HTMLElement | null>(null);
+  const bodyRef = useRef<HTMLElement | null>(null);
+  const [glassElevated, setGlassElevated] = useState(false);
+
+  const setBodyRef = (node: HTMLElement | null) => {
+    bodyRef.current = node;
+    if (scrollRootRef) scrollRootRef.current = node;
+  };
+
+  useLayoutEffect(() => {
+    if (!glassMode) return;
+    const header = headerRef.current;
+    const body = bodyRef.current;
+    if (!header || !body) return;
+    const screen = header.closest<HTMLElement>('.os-app-screen');
+
+    // Chrome height varies per screen (search bars, chip rails, auto-hide),
+    // so measure it — the body offsets content by this much.
+    const syncHeight = () => {
+      screen?.style.setProperty(
+        '--os-screen-chrome-height',
+        `${header.offsetHeight}px`
+      );
+    };
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(header);
+    syncHeight();
+
+    const syncElevated = () => {
+      setGlassElevated(body.scrollTop > 8);
+    };
+    syncElevated();
+    body.addEventListener('scroll', syncElevated, { passive: true });
+    return () => {
+      observer.disconnect();
+      body.removeEventListener('scroll', syncElevated);
+      screen?.style.removeProperty('--os-screen-chrome-height');
+    };
+  }, [glassMode]);
+
+  const screenStyle =
+    immersiveHeaderBanner != null && immersiveHeaderBanner !== ''
+      ? ({
+          ...style,
+          ['--os-immersive-header-banner' as string]: immersiveHeaderBanner,
+        } satisfies CSSProperties)
+      : style;
+
+  const elevated = headerElevated || (glassMode && glassElevated);
+
   return (
     <div
       className="os-app-screen app-surface"
       data-tone="os"
       data-immersive-header={immersiveHeader ? 'true' : undefined}
+      data-immersive-banner={immersiveHeaderBanner ? 'true' : undefined}
+      data-glass-chrome={glassMode ? 'true' : undefined}
+      style={screenStyle}
     >
       <div className="os-app-screen-column">
         <header
-          className={`os-app-screen-header${headerElevated ? ' is-elevated' : ''}`}
+          ref={headerRef}
+          className={`os-app-screen-header${elevated ? ' is-elevated' : ''}`}
         >
           <div className="os-app-screen-nav-row">
             {leading !== undefined ? (
@@ -96,7 +169,7 @@ export function OsAppScreen({
             <div className="os-app-screen-toolbar">{toolbar}</div>
           ) : null}
         </header>
-        <main ref={scrollRootRef} className="os-app-screen-body">
+        <main ref={setBodyRef} className="os-app-screen-body">
           {children}
         </main>
       </div>

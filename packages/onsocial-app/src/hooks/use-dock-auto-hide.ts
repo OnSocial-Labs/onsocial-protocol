@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 
 export const DOCK_HIDE_DELTA_PX = 14;
 export const DOCK_SHOW_DELTA_PX = 8;
 export const DOCK_TOP_REVEAL_PX = 48;
+/** Ignore scroll deltas briefly after a hide/show flip (layout/animation settle). */
+export const DOCK_TOGGLE_COOLDOWN_MS = 280;
 
 type ScrollRootInput = Element | RefObject<Element | null> | null;
 
@@ -51,6 +53,7 @@ export function useDockAutoHide(
   hideRequest = 0
 ): boolean {
   const [hidden, setHidden] = useState(false);
+  const cooldownUntilRef = useRef(0);
   const usesRef = isScrollRootRef(scrollRoot);
   const boundElement = usesRef ? null : scrollRoot;
 
@@ -74,6 +77,16 @@ export function useDockAutoHide(
 
     let lastTop = boundElement.scrollTop;
 
+    const applyHidden = (next: boolean) => {
+      const now = performance.now();
+      if (now < cooldownUntilRef.current) return;
+      setHidden((current) => {
+        if (current === next) return current;
+        cooldownUntilRef.current = now + DOCK_TOGGLE_COOLDOWN_MS;
+        return next;
+      });
+    };
+
     const onScroll = (event: Event) => {
       if (event.target !== boundElement) return;
       const top = boundElement.scrollTop;
@@ -81,9 +94,9 @@ export function useDockAutoHide(
       lastTop = top;
       const delta = top - last;
       if (top <= DOCK_TOP_REVEAL_PX || delta < -DOCK_SHOW_DELTA_PX) {
-        setHidden(false);
+        applyHidden(false);
       } else if (delta > DOCK_HIDE_DELTA_PX) {
-        setHidden(true);
+        applyHidden(true);
       }
     };
 
@@ -104,6 +117,16 @@ export function useDockAutoHide(
     const lastTops = new WeakMap<EventTarget, number>();
     const rootRef = usesRef ? scrollRoot : null;
 
+    const applyHidden = (next: boolean) => {
+      const now = performance.now();
+      if (now < cooldownUntilRef.current) return;
+      setHidden((current) => {
+        if (current === next) return current;
+        cooldownUntilRef.current = now + DOCK_TOGGLE_COOLDOWN_MS;
+        return next;
+      });
+    };
+
     const onScroll = (event: Event) => {
       const target = event.target;
       if (!target) return;
@@ -120,9 +143,9 @@ export function useDockAutoHide(
 
       const delta = top - last;
       if (top <= DOCK_TOP_REVEAL_PX || delta < -DOCK_SHOW_DELTA_PX) {
-        setHidden(false);
+        applyHidden(false);
       } else if (delta > DOCK_HIDE_DELTA_PX) {
-        setHidden(true);
+        applyHidden(true);
       }
     };
 

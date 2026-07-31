@@ -43,6 +43,7 @@ export function GuildDescriptionClamp({ text }: { text: string }) {
       type="button"
       className="guild-hero-description-toggle"
       aria-expanded={expanded}
+      aria-label={expanded ? 'Collapse description' : 'Expand description'}
       onClick={() => setExpanded((current) => !current)}
     >
       <p
@@ -59,9 +60,6 @@ export function GuildDescriptionClamp({ text }: { text: string }) {
       >
         {text}
       </p>
-      <span className="guild-hero-description-more">
-        {expanded ? 'Show less' : 'More'}
-      </span>
     </button>
   );
 }

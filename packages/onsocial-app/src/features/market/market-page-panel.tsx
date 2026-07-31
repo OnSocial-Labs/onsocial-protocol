@@ -927,6 +927,7 @@ export function MarketPagePanel() {
     <OsAppScreen
       title="Market"
       leading={null}
+      glassChrome
       scrollRootRef={scrollRootRef}
       actions={
         <>

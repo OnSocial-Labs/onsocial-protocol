@@ -64,16 +64,24 @@ export function guildMembershipJoinLabel(args: {
   isMember?: boolean;
   isOwner?: boolean;
   confirmingLeave?: boolean;
+  needsStorage?: boolean;
+  loadGuild?: boolean;
+  hintMember?: boolean;
+  hintJoinPending?: boolean;
 }): string {
-  if (!args.isConnected) return 'Connect wallet';
+  if (!args.isConnected) return 'Connect';
+  if (args.loadGuild) return 'Load';
   if (args.isMember) {
     if (!args.confirmingLeave) return 'Joined';
-    return args.isOwner ? 'Transfer ownership?' : 'Leave guild?';
+    return args.isOwner ? 'Transfer?' : 'Leave?';
   }
-  if (args.joinPending) {
-    return args.joinCancelReady ? 'Cancel request' : 'Request pending';
+  if (args.hintMember) return 'Joined';
+  if (args.hintJoinPending || (args.joinPending && !args.joinCancelReady)) {
+    return 'Pending';
   }
-  return args.accessGated ? 'Request access' : 'Join guild';
+  if (args.joinPending && args.joinCancelReady) return 'Cancel';
+  if (args.needsStorage) return 'Storage';
+  return args.accessGated ? 'Request' : 'Join';
 }
 
 export function guildMembershipJoinPendingLabel(args: {
@@ -82,6 +90,6 @@ export function guildMembershipJoinPendingLabel(args: {
   leaving?: boolean;
 }): string {
   if (args.leaving) return 'Leaving…';
-  if (args.canceling) return 'Canceling…';
-  return args.accessGated ? 'Requesting…' : 'Joining…';
+  if (args.canceling) return 'Cancel…';
+  return args.accessGated ? 'Request…' : 'Joining…';
 }

@@ -640,6 +640,7 @@ export function HomePagePanel() {
     <HomeActiveFocusProvider focus={activeFocus}>
       <OsAppScreen
         title="Home"
+        glassChrome
         scrollRootRef={scrollRootRef}
         leading={
           <Link

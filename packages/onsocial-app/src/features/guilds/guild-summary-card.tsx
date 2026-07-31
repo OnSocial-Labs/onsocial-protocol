@@ -1,16 +1,15 @@
+'use client';
+
 import Link from 'next/link';
 import {
   formatGuildMemberCountParts,
   guildCardMetaTags,
-  guildDisplayInitials,
   guildDisplayName,
   type GuildCardRole,
 } from '@/features/guilds/guild-card-display';
 import {
-  guildAvatarFillStyle,
   guildCoverClassName,
   guildCoverStyle,
-  guildFallbackCoverStyle,
 } from '@/features/guilds/guild-visual';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { topicLabel } from '@/lib/topic-slug';
@@ -85,7 +84,6 @@ export function GuildSummaryCard({
     ? (topicLabel(guild.tags[0]) ?? guild.tags[0])
     : null;
   const description = guild.description?.trim() || null;
-  const isRail = variant === 'rail';
 
   return (
     <Link
@@ -100,30 +98,6 @@ export function GuildSummaryCard({
         >
           {guild.bannerUrl ? <img src={guild.bannerUrl} alt="" /> : null}
         </span>
-        {isRail ? (
-          <span className="guild-summary-card-identity">
-            <span className="guild-summary-card-avatar-shell">
-              <span
-                className={`guild-summary-card-avatar${
-                  guild.avatarUrl
-                    ? ' has-media'
-                    : ' guild-summary-card-avatar--fallback'
-                }`}
-                style={
-                  guild.avatarUrl
-                    ? guildAvatarFillStyle(guild.avatarUrl)
-                    : guildFallbackCoverStyle(guild.groupId)
-                }
-              >
-                {guild.avatarUrl ? null : (
-                  <span>
-                    {guildDisplayInitials(guild.name, guild.groupId)}
-                  </span>
-                )}
-              </span>
-            </span>
-          </span>
-        ) : null}
       </span>
 
       <span className="guild-summary-card-body">

@@ -11,9 +11,6 @@ import {
 import {
   Divider,
   InformationCircleFillIcon,
-  OsSheetAction,
-  OsSheetActions,
-  ProfileAvatar,
   SettingsIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
@@ -55,10 +52,16 @@ import {
   GuildManageMenu,
   type GuildManageSheetId,
 } from '@/features/guilds/guild-manage-menu';
+import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
-  guildDisplayInitials,
-  guildDisplayName,
-} from '@/features/guilds/guild-card-display';
+  buildGuildFacepileIds,
+  GuildFacepile,
+} from '@/features/guilds/guild-facepile';
+import {
+  GuildMembershipJoinButton,
+  guildMembershipJoinLabel,
+  guildMembershipJoinPendingLabel,
+} from '@/features/guilds/guild-membership-join-button';
 import { GuildMemberRequestsSheet } from '@/features/guilds/guild-member-requests-sheet';
 import { GuildMembersSheet } from '@/features/guilds/guild-members-sheet';
 import { GuildEditSheet } from '@/features/guilds/guild-edit-sheet';
@@ -70,6 +73,8 @@ import { GuildSpaceWritersSheet } from '@/features/guilds/guild-space-writers-sh
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { coalesceFeedThreads } from '@/lib/feed-threads';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -90,7 +95,6 @@ import {
 } from '@/features/guilds/guild-member-roster';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
-  guildAvatarFillStyle,
   guildCoverStyle,
   guildHeroCoverClassName,
 } from '@/features/guilds/guild-visual';
@@ -146,9 +150,6 @@ interface LiveGuildState {
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 type GuildFeedFilterId = 'all' | string;
-
-/** Reserved facepile avatar slots — keep in sync with `.guild-facepile-avatars--slots` width. */
-const GUILD_FACEPILE_SLOTS = 3;
 
 function pendingJoinRequest(request: JoinRequest | null): boolean {
   return request?.status === 'pending';
@@ -232,6 +233,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const confirmLeaveTimerRef = useRef<number | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreInFlightRef = useRef(false);
 
   const config = state.config;
   const viewer = state.viewer;
@@ -256,8 +259,11 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     : shellPreview
       ? guildDisplayName(shellPreview.name, groupId)
       : null;
-  const title =
-    headerElevated && resolvedDisplayName ? resolvedDisplayName : 'Guild';
+  // Always the real name when known — heading is hidden until elevate (no "Guild" flash).
+  const title = resolvedDisplayName ?? 'Guild';
+  // Auto-hide only while sticky under elevated chrome — stay visible at top of page.
+  // Unscoped listener — same path as the bottom dock (body scroller via capture).
+  const feedFiltersHidden = useDockAutoHide(!headerElevated);
   const viewerAccess = useMemo(
     () => ({
       isMember: viewer?.isMember ?? false,
@@ -347,13 +353,14 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const quotedPosts = useQuotedPosts(feedPosts);
   // Confirmed-ledger facepile: the viewer knows they are a member before the
   // indexer does, so seed the stack with their own avatar until stats catch up.
-  const facepileIds = useMemo(() => {
-    const ids = state.members.map((member) => member.memberId);
-    if (viewer?.isMember && accountId && !ids.includes(accountId)) {
-      ids.unshift(accountId);
-    }
-    return ids;
-  }, [accountId, state.members, viewer?.isMember]);
+  const facepileIds = useMemo(
+    () =>
+      buildGuildFacepileIds(
+        state.members.map((member) => member.memberId),
+        { viewerId: accountId, viewerIsMember: viewer?.isMember }
+      ),
+    [accountId, state.members, viewer?.isMember]
+  );
   const viewerJoinedAt = useMemo(() => {
     if (!accountId || !viewer?.isMember) return null;
     return (
@@ -626,6 +633,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       '.os-app-screen-header'
     );
 
+    const screen =
+      scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
+    const railPin = scrollRoot.querySelector('.guild-feed-filter-pin');
+
     const syncElevated = () => {
       const scrolled = scrollRoot.scrollTop > 8;
       if (!heroTitle) {
@@ -635,13 +646,37 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       const headerBottom =
         header?.getBoundingClientRect().bottom ??
         scrollRoot.getBoundingClientRect().top + 72;
-      const titleTop = heroTitle.getBoundingClientRect().top;
-      /* Hysteresis avoids elevate flicker at the title handoff line. */
+      const heroRect = heroTitle.getBoundingClientRect();
+      const titleTop = heroRect.top;
+
+      // Guard: if the hero hasn't laid out yet (height 0), leave handoff at
+      // the default (0) so the hero name stays visible on first paint.
+      if (heroRect.height > 0) {
+        const fadeZone = 28;
+        const distance = titleTop - headerBottom;
+        const t = Math.max(0, Math.min(1, 1 - distance / fadeZone));
+        screen?.style.setProperty('--title-handoff', String(t));
+      }
+
+      // Rail reveal: the chrome glass starts at nav height and grows down to
+      // meet the chips strip over its final approach, docking flush (0 → 1).
+      if (railPin) {
+        const pinRect = railPin.getBoundingClientRect();
+        if (pinRect.height > 0) {
+          const approach = pinRect.height;
+          const p = Math.max(
+            0,
+            Math.min(1, (headerBottom + approach - pinRect.top) / approach)
+          );
+          screen?.style.setProperty('--os-rail-reveal', String(p));
+        }
+      }
+
       setHeaderElevated((current) => {
         if (current) {
-          return scrolled && titleTop < headerBottom + 10;
+          return scrolled && titleTop < headerBottom + 2;
         }
-        return scrolled && titleTop < headerBottom - 2;
+        return scrolled && titleTop < headerBottom - 4;
       });
     };
 
@@ -651,6 +686,8 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     return () => {
       scrollRoot.removeEventListener('scroll', syncElevated);
       window.removeEventListener('resize', syncElevated);
+      screen?.style.removeProperty('--title-handoff');
+      screen?.style.removeProperty('--os-rail-reveal');
     };
   }, [loadState, shellPreview?.name]);
 
@@ -674,34 +711,45 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
   }, [refresh]);
 
-  const loadMoreFeed = useCallback(async () => {
-    if (loadingMore) return;
+  const loadMoreFeed = useCallback(() => {
+    if (loadMoreInFlightRef.current || !hasMorePosts) return;
+    loadMoreInFlightRef.current = true;
     setLoadingMore(true);
-    try {
-      const client = createReadOnlyOnSocialClient();
-      const page = selectedFeedSpace
-        ? await client.query.groups.feedFiltered({
-            groupId,
-            channel: guildSpaceFeedChannel(selectedFeedSpace),
-            limit: 20,
-            offset: state.posts.length,
-          })
-        : await client.query.groups.feed({
-            groupId,
-            limit: 20,
-            offset: state.posts.length,
-          });
-      setState((current) => ({
-        ...current,
-        posts: [...current.posts, ...(page.items ?? [])],
-      }));
-      setHasMorePosts(page.nextOffset !== undefined);
-    } catch {
-      // Keep the current list; the button stays available to retry.
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [groupId, loadingMore, selectedFeedSpace, state.posts.length]);
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const page = selectedFeedSpace
+          ? await client.query.groups.feedFiltered({
+              groupId,
+              channel: guildSpaceFeedChannel(selectedFeedSpace),
+              limit: 20,
+              offset: state.posts.length,
+            })
+          : await client.query.groups.feed({
+              groupId,
+              limit: 20,
+              offset: state.posts.length,
+            });
+        setState((current) => ({
+          ...current,
+          posts: [...current.posts, ...(page.items ?? [])],
+        }));
+        setHasMorePosts(page.nextOffset !== undefined);
+      } catch {
+        // Keep the current list; the sentinel stays available to retry.
+      } finally {
+        loadMoreInFlightRef.current = false;
+        setLoadingMore(false);
+      }
+    })();
+  }, [groupId, hasMorePosts, selectedFeedSpace, state.posts.length]);
+
+  useInfiniteScrollSentinel({
+    scrollRootRef,
+    sentinelRef: loadMoreRef,
+    enabled: hasMorePosts && state.posts.length > 0,
+    onIntersect: loadMoreFeed,
+  });
 
   // Never show a count the viewer knows is stale (e.g. "0 members" while the
   // member-only Leave action is visible) — trust the confirmed facepile.
@@ -719,35 +767,32 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       Boolean(accountId) &&
       !shellExtrasResolved &&
       membershipHint == null);
-  const actionLabel = useMemo(() => {
-    if (!isConnected) return 'Connect wallet';
-    if (!config) return 'Load guild';
-    if (viewer?.isMember) {
-      if (!confirmingLeave) return 'Joined';
-      // Owner cannot leave until ownership moves — same red confirm, different path.
-      return viewer.isOwner ? 'Transfer ownership?' : 'Leave guild?';
-    }
-    // Session hint while extras settle — never flash Join over unknown membership.
-    if (!viewer && membershipHint) {
-      if (membershipHint.isMember) return 'Joined';
-      if (membershipHint.joinPending) return 'Request pending';
-      if (needsCollaborativeStorage) return 'Add storage';
-      return config.accessGated ? 'Request access' : 'Join guild';
-    }
-    if (joinPending)
-      return joinCancelReady ? 'Cancel request' : 'Request pending';
-    if (needsCollaborativeStorage) return 'Add storage';
-    return config.accessGated ? 'Request access' : 'Join guild';
-  }, [
-    config,
-    confirmingLeave,
-    isConnected,
-    joinPending,
-    joinCancelReady,
-    membershipHint,
-    needsCollaborativeStorage,
-    viewer,
-  ]);
+  const actionLabel = useMemo(
+    () =>
+      guildMembershipJoinLabel({
+        isConnected,
+        accessGated: Boolean(config?.accessGated),
+        joinPending,
+        joinCancelReady,
+        isMember: viewer?.isMember,
+        isOwner: viewer?.isOwner,
+        confirmingLeave,
+        needsStorage: needsCollaborativeStorage,
+        loadGuild: !config,
+        hintMember: !viewer && Boolean(membershipHint?.isMember),
+        hintJoinPending: !viewer && Boolean(membershipHint?.joinPending),
+      }),
+    [
+      config,
+      confirmingLeave,
+      isConnected,
+      joinPending,
+      joinCancelReady,
+      membershipHint,
+      needsCollaborativeStorage,
+      viewer,
+    ]
+  );
 
   const clearConfirmLeave = () => {
     if (confirmLeaveTimerRef.current !== null) {
@@ -1102,14 +1147,18 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           canEdit: canAddMember,
         })
       }
-      pinned={headerElevated}
+      pinned={
+        loadState === 'ready' ||
+        (loadState === 'loading' && Boolean(shellPreview))
+      }
+      scrollHidden={headerElevated && feedFiltersHidden}
     />
   );
 
   return (
     <OsAppScreen
       title={title}
-      // Hero owns name + mode; nav title fades in on scroll only.
+      // Hero owns the name; nav title appears when it scrolls under (no morph).
       // Loading stays title-only — no marketing subtitle / raw groupId flash.
       backFallbackHref="/groups"
       actions={
@@ -1148,6 +1197,13 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       headerElevated={headerElevated}
       scrollRootRef={scrollRootRef}
     >
+      {/* Viewport-anchored chrome glass — nav + room rail frost as one pane. */}
+      <div
+        aria-hidden
+        className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}${
+          headerElevated && feedFiltersHidden ? ' is-rail-hidden' : ''
+        }`}
+      />
       <div className="guilds-page">
         {loadState === 'loading' ? (
           <div
@@ -1167,48 +1223,22 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                   ) : null}
                 </div>
 
-                <div className="guild-hero-identity">
-                  <div className="guild-hero-avatar-shell">
-                    <div
-                      className={`guild-hero-avatar${
-                        shellPreview.avatarUrl
-                          ? ' has-media'
-                          : ' guild-hero-avatar--fallback'
-                      }`}
-                      style={
-                        shellPreview.avatarUrl
-                          ? guildAvatarFillStyle(shellPreview.avatarUrl)
-                          : guildCoverStyle(null, groupId)
-                      }
-                      aria-hidden
-                    >
-                      {shellPreview.avatarUrl ? null : (
-                        <span>
-                          {guildDisplayInitials(shellPreview.name, groupId)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
                 <h2 ref={heroTitleRef}>
                   {guildDisplayName(shellPreview.name, groupId)}
                 </h2>
 
                 <div className="guild-hero-meta">
-                  <span className="guild-hero-mode-row">
-                    <span className="guild-hero-mode">
-                      {guildAccessLabel(
-                        shellPreview.accessGated,
-                        shellPreview.memberDriven
-                      )}
+                  <div className="guild-hero-meta-main">
+                    <span className="guild-hero-mode-row">
+                      <span className="guild-hero-mode">
+                        {guildAccessLabel(
+                          shellPreview.accessGated,
+                          shellPreview.memberDriven
+                        )}
+                      </span>
                     </span>
-                  </span>
+                  </div>
                 </div>
-
-                {shellPreview.description ? (
-                  <GuildDescriptionClamp text={shellPreview.description} />
-                ) : null}
 
                 {shellPreview.tags.length > 0 ? (
                   <div className="guild-hero-tags" aria-label="Guild topics">
@@ -1217,12 +1247,15 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     ))}
                   </div>
                 ) : null}
+
+                {shellPreview.description ? (
+                  <GuildDescriptionClamp text={shellPreview.description} />
+                ) : null}
               </section>
             ) : (
               <div className="guild-loading-hero" aria-hidden>
                 <div className="guild-loading-cover standing-row-shimmer" />
-                <div className="guild-loading-identity">
-                  <div className="guild-loading-avatar standing-row-shimmer" />
+                <div className="guild-loading-identity guild-loading-identity--no-avatar">
                   <div className="guild-loading-lines">
                     <div className="standing-row-shimmer guild-loading-line" />
                     <div className="standing-row-shimmer guild-loading-line-sm" />
@@ -1282,170 +1315,82 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 ) : null}
               </div>
 
-              <div className="guild-hero-identity">
-                <div className="guild-hero-avatar-shell">
-                  <div
-                    className={`guild-hero-avatar${
-                      config.avatarUrl
-                        ? ' has-media'
-                        : ' guild-hero-avatar--fallback'
-                    }`}
-                    style={
-                      config.avatarUrl
-                        ? guildAvatarFillStyle(config.avatarUrl)
-                        : guildCoverStyle(null, groupId)
-                    }
-                    aria-hidden
-                  >
-                    {config.avatarUrl ? null : (
-                      <span>{guildDisplayInitials(config.name, groupId)}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="guild-hero-identity-actions">
-                  <div className="guild-hero-membership-slot">
-                    {membershipChromePending ? (
-                      <span aria-busy="true" aria-label="Loading membership">
-                        <span
-                          className="standing-row-shimmer guild-hero-membership-shimmer"
-                          aria-hidden
-                        />
-                      </span>
-                    ) : (
-                      <OsSheetActions
-                        layout="row-compact"
-                        tone="frosted-primary"
-                        borderless
-                        className="guild-hero-membership"
-                      >
-                        <OsSheetAction
-                          type="button"
-                          className="guild-hero-action"
-                          variant={confirmingLeave ? 'danger' : 'primary'}
-                          ready={
-                            !confirmingLeave &&
-                            (Boolean(viewer?.isMember) ||
-                              (!joinPending &&
-                                !needsCollaborativeStorage &&
-                                isConnected &&
-                                Boolean(config)))
-                          }
-                          pending={actionPending}
-                          pendingLabel={
-                            viewer?.isMember
-                              ? 'Leaving…'
-                              : joinPending
-                                ? 'Canceling…'
-                                : 'Joining…'
-                          }
-                          disabled={
-                            (joinPending && !joinCancelReady) ||
-                            (!viewer &&
-                              Boolean(membershipHint) &&
-                              !shellExtrasResolved)
-                          }
-                          onClick={handleMembershipClick}
-                          onBlur={
-                            confirmingLeave ? clearConfirmLeave : undefined
-                          }
-                        >
-                          {actionLabel}
-                        </OsSheetAction>
-                      </OsSheetActions>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               <h2 ref={heroTitleRef}>{config.name}</h2>
 
               <div className="guild-hero-meta">
-                <button
-                  type="button"
-                  className="guild-facepile guild-facepile--stable"
-                  disabled={!shellExtrasResolved}
-                  aria-busy={!shellExtrasResolved}
-                  aria-label={
-                    shellExtrasResolved
-                      ? `${memberCount} ${memberCount === 1 ? 'member' : 'members'}. View roster.`
-                      : 'Loading members'
-                  }
-                  onClick={() => {
-                    if (!shellExtrasResolved) return;
-                    setManageSheet('members');
-                  }}
-                >
-                  <span
-                    className="guild-facepile-avatars guild-facepile-avatars--slots"
-                    aria-hidden
-                  >
-                    {Array.from({ length: GUILD_FACEPILE_SLOTS }, (_, i) => {
-                      if (!shellExtrasResolved) {
-                        return (
-                          <span
-                            key={i}
-                            className="standing-row-shimmer guild-facepile-avatar-shimmer"
-                          />
-                        );
-                      }
-                      const memberId = facepileIds[i];
-                      if (!memberId) {
-                        return (
-                          <span
-                            key={`empty-${i}`}
-                            className="guild-facepile-slot is-empty"
-                            aria-hidden
-                          />
-                        );
-                      }
-                      return (
-                        <ProfileAvatar
-                          key={memberId}
-                          src={postAuthorProfiles[memberId]?.avatarUrl ?? null}
-                          fallbackInitial={
-                            postAuthorProfiles[memberId]?.displayName ??
-                            memberId
-                          }
-                          size="sm"
-                          className="guild-facepile-avatar"
-                        />
-                      );
-                    })}
-                  </span>
-                  <span className="guild-facepile-count guild-facepile-count--slot">
-                    {!shellExtrasResolved ? (
-                      <span
-                        className="standing-row-shimmer guild-facepile-count-shimmer"
+                <div className="guild-hero-meta-main">
+                  <GuildFacepile
+                    memberIds={facepileIds}
+                    profiles={postAuthorProfiles}
+                    memberCount={memberCount}
+                    loading={!shellExtrasResolved}
+                    onClick={() => {
+                      if (!shellExtrasResolved) return;
+                      setManageSheet('members');
+                    }}
+                    disabled={!shellExtrasResolved}
+                  />
+                  <span className="guild-hero-mode-row">
+                    <span className="guild-hero-mode">
+                      {guildAccessLabel(
+                        config.accessGated,
+                        config.memberDriven
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      className="guild-hero-facts-button"
+                      aria-label="Guild facts"
+                      onClick={() => setFactsSheetOpen(true)}
+                    >
+                      <InformationCircleFillIcon
+                        className="guild-hero-facts-icon"
                         aria-hidden
                       />
-                    ) : (
-                      <>
-                        {memberCount} {memberCount === 1 ? 'member' : 'members'}
-                      </>
-                    )}
+                    </button>
                   </span>
-                </button>
-                <span className="guild-hero-mode-row">
-                  <span className="guild-hero-mode">
-                    {guildAccessLabel(config.accessGated, config.memberDriven)}
-                  </span>
-                  <button
-                    type="button"
-                    className="guild-hero-facts-button"
-                    aria-label="Guild facts"
-                    onClick={() => setFactsSheetOpen(true)}
-                  >
-                    <InformationCircleFillIcon
-                      className="guild-hero-facts-icon"
-                      aria-hidden
+                </div>
+                <div className="guild-hero-membership-slot">
+                  {membershipChromePending ? (
+                    <span aria-busy="true" aria-label="Loading membership">
+                      <span
+                        className="standing-row-shimmer guild-hero-membership-shimmer"
+                        aria-hidden
+                      />
+                    </span>
+                  ) : (
+                    <GuildMembershipJoinButton
+                      className="guild-hero-membership"
+                      label={actionLabel}
+                      variant={confirmingLeave ? 'danger' : 'primary'}
+                      ready={
+                        !confirmingLeave &&
+                        (Boolean(viewer?.isMember) ||
+                          (!joinPending &&
+                            !needsCollaborativeStorage &&
+                            isConnected &&
+                            Boolean(config)))
+                      }
+                      pending={actionPending}
+                      pendingLabel={guildMembershipJoinPendingLabel({
+                        accessGated: Boolean(config?.accessGated),
+                        canceling: joinPending,
+                        leaving: Boolean(viewer?.isMember),
+                      })}
+                      disabled={
+                        (joinPending && !joinCancelReady) ||
+                        (!viewer &&
+                          Boolean(membershipHint) &&
+                          !shellExtrasResolved)
+                      }
+                      onClick={handleMembershipClick}
+                      onBlur={
+                        confirmingLeave ? clearConfirmLeave : undefined
+                      }
                     />
-                  </button>
-                </span>
+                  )}
+                </div>
               </div>
-
-              {config.description ? (
-                <GuildDescriptionClamp text={config.description} />
-              ) : null}
 
               {config.tags.length > 0 ? (
                 <div className="guild-hero-tags" aria-label="Guild topics">
@@ -1453,6 +1398,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                     <span key={tag}>{topicLabel(tag) ?? tag}</span>
                   ))}
                 </div>
+              ) : null}
+
+              {config.description ? (
+                <GuildDescriptionClamp text={config.description} />
               ) : null}
 
               {needsCollaborativeStorage ? (
@@ -1502,15 +1451,22 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                       />
                     </div>
                   ))}
-                  {hasMorePosts ? (
-                    <button
-                      type="button"
-                      className="guild-load-more"
-                      disabled={loadingMore}
-                      onClick={() => void loadMoreFeed()}
-                    >
-                      {loadingMore ? 'Loading…' : 'Show more posts'}
-                    </button>
+                  {(hasMorePosts || loadingMore) ? (
+                    <div className="home-feed-load-more">
+                      {hasMorePosts ? (
+                        <div
+                          ref={loadMoreRef}
+                          className="home-feed-sentinel"
+                          aria-hidden
+                        />
+                      ) : null}
+                      {loadingMore ? (
+                        <PostRowSkeleton
+                          rows={2}
+                          showChannel={selectedFeedFilterId === 'all'}
+                        />
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               ) : state.feedError ? (

@@ -220,6 +220,7 @@ export function LiveGuildsIndexPanel() {
     <OsAppScreen
       title="Guilds"
       leading={null}
+      glassChrome
       actions={createAction}
       heading={
         <SearchField

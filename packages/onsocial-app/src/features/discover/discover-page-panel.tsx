@@ -19,6 +19,7 @@ function DiscoverPageScreen({
     <OsAppScreen
       title="Discover"
       leading={null}
+      glassChrome
       scrollRootRef={scrollRootRef}
       heading={
         <DiscoverNavSearch className="discover-nav-search-field os-app-screen-search" />

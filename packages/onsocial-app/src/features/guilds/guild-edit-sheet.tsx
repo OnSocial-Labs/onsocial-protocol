@@ -24,7 +24,6 @@ import {
 import { OsNoticeCard } from '@/components/ui/os-notice-card';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { guildDisplayInitials } from '@/features/guilds/guild-card-display';
 import {
   GUILD_MAX_DESCRIPTION_LENGTH,
   GUILD_MAX_NAME_LENGTH,
@@ -40,7 +39,6 @@ import {
 } from '@/features/guilds/guild-tag-editor';
 import { GuildTagsEditor } from '@/features/guilds/guild-tags-editor';
 import {
-  guildAvatarFillStyle,
   guildCoverStyle,
   guildHeroCoverClassName,
 } from '@/features/guilds/guild-visual';
@@ -53,7 +51,6 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
-import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const GUILD_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
@@ -110,19 +107,15 @@ export function GuildEditSheet({
   const [accessGated, setAccessGated] = useState(false);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerRemoved, setBannerRemoved] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const keepEditingRef = useRef<HTMLButtonElement>(null);
   const dirtyRef = useRef(false);
 
   const bannerPreview = useObjectUrl(bannerFile);
-  const avatarPreview = useObjectUrl(avatarFile);
   const sheetOpen = open && !closing;
 
   useScrollLock(open || closing);
@@ -147,8 +140,6 @@ export function GuildEditSheet({
       setMemberDriven(normalized.memberDriven);
       setBannerFile(null);
       setBannerRemoved(false);
-      setAvatarFile(null);
-      setAvatarRemoved(false);
 
       if (!accountId) {
         setLoadState('forbidden');
@@ -192,9 +183,6 @@ export function GuildEditSheet({
   const displayBannerUrl = bannerRemoved
     ? null
     : (bannerPreview ?? snapshot?.bannerUrl ?? null);
-  const displayAvatarUrl = avatarRemoved
-    ? null
-    : (avatarPreview ?? snapshot?.avatarUrl ?? null);
 
   const normalizedTags = useMemo(
     () => normalizeGuildEditorTags(tags),
@@ -209,14 +197,10 @@ export function GuildEditSheet({
       accessGated !== snapshot.accessGated ||
       !guildEditorTagsEqual(normalizedTags, snapshot.tags) ||
       bannerFile !== null ||
-      bannerRemoved ||
-      avatarFile !== null ||
-      avatarRemoved
+      bannerRemoved
     );
   }, [
     accessGated,
-    avatarFile,
-    avatarRemoved,
     bannerFile,
     bannerRemoved,
     description,
@@ -279,16 +263,6 @@ export function GuildEditSheet({
       };
     } else if (bannerRemoved && snapshot.bannerUrl) {
       onsocialPatch.banner = null;
-    }
-    if (avatarFile) {
-      const uploaded = await client.storage.upload(avatarFile);
-      changes.avatar = {
-        cid: uploaded.cid,
-        mime: uploaded.mime,
-        size: uploaded.size,
-      };
-    } else if (avatarRemoved && snapshot.avatarUrl) {
-      changes.avatar = null;
     }
     if (Object.keys(onsocialPatch).length > 0) {
       const existing = await client.groups.getConfig(groupId);
@@ -387,7 +361,6 @@ export function GuildEditSheet({
   };
 
   const openBannerPicker = () => bannerInputRef.current?.click();
-  const openAvatarPicker = () => avatarInputRef.current?.click();
 
   return (
     <GlassSheet
@@ -564,56 +537,6 @@ export function GuildEditSheet({
               </p>
             </div>
 
-            <div className="guild-hero-identity">
-              <div className="guild-hero-avatar-shell">
-                <div
-                  className={`guild-hero-avatar guild-edit-avatar profile-editor-media-host profile-editor-media-host--avatar${
-                    displayAvatarUrl
-                      ? ' has-media'
-                      : ' guild-hero-avatar--fallback'
-                  }`}
-                  style={
-                    displayAvatarUrl
-                      ? guildAvatarFillStyle(displayAvatarUrl)
-                      : guildCoverStyle(null, groupId)
-                  }
-                >
-                  <button
-                    type="button"
-                    className="profile-editor-media-backdrop guild-edit-avatar-hit"
-                    onClick={openAvatarPicker}
-                    aria-label={
-                      displayAvatarUrl ? 'Change avatar' : 'Add avatar'
-                    }
-                  >
-                    {displayAvatarUrl ? null : (
-                      <span aria-hidden>
-                        {guildDisplayInitials(name || snapshot.name, groupId)}
-                      </span>
-                    )}
-                    <span
-                      className={`profile-editor-media-overlay${displayAvatarUrl ? ' has-media' : ''}`}
-                      aria-hidden
-                    />
-                  </button>
-                  <ProfileEditorMediaToolbar
-                    layout="avatar"
-                    removeLabel={
-                      displayAvatarUrl ? 'Remove avatar' : undefined
-                    }
-                    onRemove={
-                      displayAvatarUrl
-                        ? () => {
-                            setAvatarFile(null);
-                            setAvatarRemoved(true);
-                          }
-                        : undefined
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
             <label className="sr-only" htmlFor={fieldId(formId, 'name')}>
               Guild name
             </label>
@@ -711,32 +634,6 @@ export function GuildEditSheet({
               const file = event.target.files?.[0] ?? null;
               setBannerFile(file);
               if (file) setBannerRemoved(false);
-            }}
-          />
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept={GUILD_IMAGE_ACCEPT}
-            hidden
-            onChange={(event) => {
-              const input = event.target;
-              const file = input.files?.[0] ?? null;
-              input.value = '';
-              if (!file) return;
-              void (async () => {
-                try {
-                  const prepared = await prepareGuildAvatarFile(file);
-                  setAvatarFile(prepared);
-                  setAvatarRemoved(false);
-                  setError(null);
-                } catch (cause) {
-                  setError(
-                    cause instanceof Error
-                      ? cause.message
-                      : 'Could not prepare that avatar.'
-                  );
-                }
-              })();
             }}
           />
         </form>
