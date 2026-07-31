@@ -155,7 +155,7 @@ await os.groups.create(groupId, {
   description: 'A testnet group for app builders.',
   isPrivate: false,
   memberDriven: false,
-  tags: ['dev'],
+  topics: ['dev'],
 });
 
 await os.groups.addMember(groupId, accountId);

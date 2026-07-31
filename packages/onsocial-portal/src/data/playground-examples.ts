@@ -190,7 +190,7 @@ const result = await os.groups.create(groupId, {
   description: "A " + portalNetwork + " group for SDK builders",
   isPrivate: false,
   memberDriven: false,
-  tags: ["web3", "near", "builders"]
+  topics: ["web3", "near", "builders"]
 });
 
 const config = await os.groups.getConfig(groupId);
@@ -203,7 +203,7 @@ const visibleConfig = config
       memberDriven,
       isPrivate: config.is_private ?? config.isPrivate,
       createdAt: config.created_at ?? config.createdAt,
-      tags: config.tags,
+      topics: config.topics,
       governanceActive: memberDriven,
       ...(memberDriven
         ? { votingConfig: config.voting_config ?? config.votingConfig ?? null }
@@ -240,7 +240,7 @@ if (!(await os.groups.getConfig(groupId))) {
     description: "A reusable " + portalNetwork + " group for SDK playground examples.",
     isPrivate: false,
     memberDriven: false,
-    tags: ["playground", "sdk"]
+    topics: ["playground", "sdk"]
   });
 }
 
@@ -275,7 +275,7 @@ if (!(await os.groups.getConfig(groupId))) {
     description: "A reusable " + portalNetwork + " group for SDK playground examples.",
     isPrivate: false,
     memberDriven: false,
-    tags: ["playground", "sdk"]
+    topics: ["playground", "sdk"]
   });
 }
 
@@ -608,7 +608,7 @@ const visibleConfig = config
       memberDriven,
       isPrivate: config.is_private ?? config.isPrivate,
       createdAt: config.created_at ?? config.createdAt,
-      tags: config.tags,
+      topics: config.topics,
       governanceActive: memberDriven,
       ...(memberDriven
         ? { votingConfig: config.voting_config ?? config.votingConfig ?? null }
