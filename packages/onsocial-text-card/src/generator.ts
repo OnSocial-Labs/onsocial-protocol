@@ -1092,7 +1092,8 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
     bylineBlock = signatureBlock + bylineBlock;
   }
 
-  const v = angleToVector(mood.bgAngle);
+  const solidBg = mood.bgFrom.toLowerCase() === mood.bgTo.toLowerCase();
+  const v = solidBg ? null : angleToVector(mood.bgAngle);
 
   // ── Photo block (receipt / proof) ──────────────────────────────────
   // Evidence plane inset to the same 64px column as the type — soft
@@ -1119,15 +1120,20 @@ export function generateTextCardSvg(opts: TextCardOptions): string {
   </g>`;
   }
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}">
-  <defs>
-    <linearGradient id="g" x1="${v.x1}" y1="${v.y1}" x2="${v.x2}" y2="${v.y2}">
+  const bgDefs = solidBg
+    ? ''
+    : `
+    <linearGradient id="g" x1="${v!.x1}" y1="${v!.y1}" x2="${v!.x2}" y2="${v!.y2}">
       <stop offset="0%" stop-color="${mood.bgFrom}"/>
       <stop offset="100%" stop-color="${mood.bgTo}"/>
-    </linearGradient>${photoDefs}${avatarDefs}
+    </linearGradient>`;
+  const bgFill = solidBg ? mood.bgFrom : 'url(#g)';
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" width="${WIDTH}" height="${HEIGHT}">
+  <defs>${bgDefs}${photoDefs}${avatarDefs}
   </defs>
-  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#g)"/>${markBlock}
+  <rect width="${WIDTH}" height="${HEIGHT}" fill="${bgFill}"/>${markBlock}
   <text x="${titleX}" y="${titleStartY}" font-family="${familyForResvgWeight(mood.titleFamily, mood.titleWeight)}" font-size="${titleFontSize}" font-weight="${mood.titleWeight}" fill="${mood.textPrimary}" fill-opacity="${TITLE_FILL_OPACITY}"${titleLetterSpacingAttr}${titleAnchorAttr}>${titleTspans}</text>${photoBlock}${bylineBlock}
 </svg>`;
 }

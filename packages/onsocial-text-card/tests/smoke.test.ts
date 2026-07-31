@@ -175,6 +175,19 @@ describe('themes catalog', () => {
     expect(MOODS['receipt-light'].label).toBe('Receipt');
   });
 
+  it('noir and black finishes are solid (no near-black banding)', () => {
+    expect(MOODS['poster-noir'].bgFrom).toBe(MOODS['poster-noir'].bgTo);
+    expect(MOODS['mono-noir'].bgFrom).toBe(MOODS['mono-noir'].bgTo);
+    expect(MOODS['thought-black'].bgFrom).toBe('#000000');
+    expect(MOODS['thought-black'].bgTo).toBe('#000000');
+    const svg = generateTextCardSvg({
+      title: 'Solid black',
+      theme: { bg: 'poster-noir' },
+    });
+    expect(svg).toContain('fill="#0B0B0F"');
+    expect(svg).not.toContain('<linearGradient');
+  });
+
   it('THEME_MANIFEST exposes voices, palettes, and moods', () => {
     expect(THEME_MANIFEST.voices).toHaveLength(6);
     expect(THEME_MANIFEST.palettes).toHaveLength(11);

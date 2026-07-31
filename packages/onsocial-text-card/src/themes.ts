@@ -25,10 +25,11 @@ export interface Mood {
   /** One-line description (UI hint, not on the card). */
   description: string;
 
-  // Background — single near-flat colour with a subtle gradient lift.
+  // Background — usually a subtle gradient lift. Solid finishes
+  // (noir / black) set bgFrom === bgTo to avoid near-black banding.
   bgFrom: string;
   bgTo: string;
-  /** Gradient angle in degrees (0 = top→bottom, 135 = TL→BR). */
+  /** Gradient angle in degrees (0 = top→bottom, 135 = TL→BR). Unused when solid. */
   bgAngle: number;
 
   // Typography
@@ -307,8 +308,9 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
   noir: {
     label: 'Noir',
     tagline: 'Matte black. Editorial, photographic, high contrast.',
+    // Solid — a near-black lift bands into visible strips on many displays.
     bgFrom: '#0B0B0F',
-    bgTo: '#14141A',
+    bgTo: '#0B0B0F',
     bgAngle: 180,
     textPrimary: '#FFFFFF',
     textMuted: '#8A8A8A',
@@ -344,8 +346,9 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
   black: {
     label: 'Black',
     tagline: 'True black. Absolute contrast and restraint.',
+    // Solid #000 — any lift off true black bands and reads as grey wash.
     bgFrom: '#000000',
-    bgTo: '#090909',
+    bgTo: '#000000',
     bgAngle: 180,
     textPrimary: '#FFFFFF',
     textMuted: '#969696',
