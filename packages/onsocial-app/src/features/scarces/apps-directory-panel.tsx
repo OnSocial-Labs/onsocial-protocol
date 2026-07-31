@@ -46,9 +46,9 @@ function monogram(title: string): string {
 function storeMeta(app: AppView): string {
   const parts = [`@${fallbackLabel(app.ownerId)}`];
   const topicsLabel =
-    app.topics.length > 0
-      ? app.topics
-          .map((topic) => hubCategoryLabel(topic) ?? topic)
+    app.categories.length > 0
+      ? app.categories
+          .map((category) => hubCategoryLabel(category) ?? category)
           .join(' · ')
       : hubCategoryLabel(app.category);
   if (topicsLabel) parts.push(topicsLabel);

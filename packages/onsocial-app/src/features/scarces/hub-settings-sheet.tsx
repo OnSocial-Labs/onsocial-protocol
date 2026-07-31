@@ -8,26 +8,27 @@ import {
   SheetCloseButton,
 } from '@onsocial/ui';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
+import type { HubManageSheetId } from '@/features/scarces/hub-manage-sheets';
 
-interface GuildSettingsSheetProps {
+interface HubSettingsSheetProps {
   open: boolean;
-  guildName?: string;
+  hubName?: string;
+  showPeople: boolean;
   onClose: () => void;
-  onEditGuild: () => void;
-  onOpenRooms: () => void;
+  onOpenSheet: (sheet: HubManageSheetId) => void;
 }
 
 /**
- * Settings hub for guild owners/admins — Edit guild + Rooms + future tools.
- * Toolbar gear opens this sheet instead of deep-linking into the editor.
+ * Settings hub for hub owners — look / access / people / transfer.
+ * Toolbar gear opens this sheet instead of an inline manage dump.
  */
-export function GuildSettingsSheet({
+export function HubSettingsSheet({
   open,
-  guildName,
+  hubName,
+  showPeople,
   onClose,
-  onEditGuild,
-  onOpenRooms,
-}: GuildSettingsSheetProps) {
+  onOpenSheet,
+}: HubSettingsSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -44,6 +45,11 @@ export function GuildSettingsSheet({
     onClose();
   }, [onClose]);
 
+  const openSheet = (sheet: HubManageSheetId) => {
+    onOpenSheet(sheet);
+    requestClose();
+  };
+
   return (
     <GlassSheet
       open={sheetOpen}
@@ -54,7 +60,7 @@ export function GuildSettingsSheet({
       zIndex={57}
       presentation="swap"
       ariaLabelledBy={titleId}
-      backdropLabel="Close guild settings"
+      backdropLabel="Close hub settings"
       panelClassName="guild-settings-sheet-panel"
       bodyClassName="guild-settings-sheet-body"
       header={
@@ -67,7 +73,7 @@ export function GuildSettingsSheet({
                     Settings
                   </h2>
                   <p className="discover-sheet-subtitle">
-                    {guildName?.trim() || 'Guild tools and configuration'}
+                    {hubName?.trim() || 'Hub tools and configuration'}
                   </p>
                 </div>
               </div>
@@ -82,20 +88,17 @@ export function GuildSettingsSheet({
     >
       <nav
         className="os-surface-row-list guild-settings-sheet-list"
-        aria-label="Guild settings"
+        aria-label="Hub settings"
       >
         <button
           type="button"
           className="os-surface-row os-surface-row--navigate"
-          onClick={() => {
-            onEditGuild();
-            requestClose();
-          }}
+          onClick={() => openSheet('look')}
         >
           <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Edit guild</span>
+            <span className="os-surface-row-label">Edit look</span>
             <span className="os-surface-row-description">
-              Banner, name, topics, access
+              Logo, banner, name, categories
             </span>
           </span>
           <ProtocolMotionArrow className="account-card-action-arrow" />
@@ -104,48 +107,45 @@ export function GuildSettingsSheet({
         <button
           type="button"
           className="os-surface-row os-surface-row--navigate"
-          onClick={() => {
-            onOpenRooms();
-            requestClose();
-          }}
+          onClick={() => openSheet('access')}
         >
           <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Rooms</span>
+            <span className="os-surface-row-label">Access & sales</span>
             <span className="os-surface-row-description">
-              Rooms and feed tabs
+              Commission and who can create drops
             </span>
           </span>
           <ProtocolMotionArrow className="account-card-action-arrow" />
         </button>
 
-        <button
-          type="button"
-          className="os-surface-row"
-          disabled
-          aria-disabled="true"
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Group storage</span>
-            <span className="os-surface-row-description">
-              Shared files and media quota
+        {showPeople ? (
+          <button
+            type="button"
+            className="os-surface-row os-surface-row--navigate"
+            onClick={() => openSheet('people')}
+          >
+            <span className="os-surface-row-copy">
+              <span className="os-surface-row-label">People</span>
+              <span className="os-surface-row-description">
+                Moderators and approved creators
+              </span>
             </span>
-          </span>
-          <span className="os-surface-row-badge">Soon</span>
-        </button>
+            <ProtocolMotionArrow className="account-card-action-arrow" />
+          </button>
+        ) : null}
 
         <button
           type="button"
-          className="os-surface-row"
-          disabled
-          aria-disabled="true"
+          className="os-surface-row os-surface-row--navigate"
+          onClick={() => openSheet('transfer')}
         >
           <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Analytics</span>
+            <span className="os-surface-row-label">Transfer hub</span>
             <span className="os-surface-row-description">
-              Reach, posts, and member activity
+              Hand ownership to another account
             </span>
           </span>
-          <span className="os-surface-row-badge">Soon</span>
+          <ProtocolMotionArrow className="account-card-action-arrow" />
         </button>
       </nav>
     </GlassSheet>

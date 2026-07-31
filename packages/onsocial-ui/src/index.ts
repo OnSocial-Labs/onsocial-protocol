@@ -38,6 +38,7 @@ export {
   UserMinusFillIcon,
   UserFillIcon,
   InformationCircleFillIcon,
+  QuestionMarkCircleFillIcon,
   DotsCircleFillIcon,
   FireFillIcon,
   FireBFillIcon,

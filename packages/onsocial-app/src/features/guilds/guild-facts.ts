@@ -99,7 +99,7 @@ function membershipRowToCardBase(row: {
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
     memberDriven: Boolean(row.isMemberDriven),
     memberCount: null,
-    tags: [],
+    topics: [],
     role: guildRoleFromFlags(row),
   };
 }
@@ -147,15 +147,17 @@ export function applyChainGuildFacts(
     indexedCount: input.indexedMemberCount ?? card.memberCount,
   });
 
-  const tags = input.config
-    ? normalizeGuildTagList((input.config as { tags?: unknown }).tags)
-    : (card.tags ?? []);
+  const topics = input.config
+    ? normalizeGuildTagList(
+        (input.config as { topics?: unknown }).topics
+      )
+    : (card.topics ?? []);
 
   return {
     ...card,
     accessGated,
     memberCount,
-    tags,
+    topics,
   };
 }
 

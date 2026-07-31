@@ -26,7 +26,7 @@ export function AppsDirectoryCategoryMenu({
 }) {
   return (
     <ChoiceDrawerMenu
-      label="Category"
+      label="Topic"
       value={category}
       options={CATEGORY_OPTIONS}
       onChange={onCategoryChange}

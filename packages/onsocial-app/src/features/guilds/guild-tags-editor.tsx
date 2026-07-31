@@ -2,7 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
-import { GUILD_MAX_TAGS } from '@/features/guilds/guild-config';
+import { GUILD_MAX_TOPICS } from '@/features/guilds/guild-config';
 import {
   GUILD_EDITOR_MAX_TAG_LENGTH,
   parseGuildEditorTagDraft,
@@ -16,16 +16,23 @@ interface GuildTagsEditorProps {
   tags: string[];
   onChange: (tags: string[]) => void;
   id?: string;
+  disabled?: boolean;
 }
 
-export function GuildTagsEditor({ tags, onChange, id }: GuildTagsEditorProps) {
+export function GuildTagsEditor({
+  tags,
+  onChange,
+  id,
+  disabled = false,
+}: GuildTagsEditorProps) {
   const [draft, setDraft] = useState('');
   const [hint, setHint] = useState<GuildEditorTagCommitHint | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const atMax = tags.length >= GUILD_MAX_TAGS;
+  const atMax = tags.length >= GUILD_MAX_TOPICS;
 
   const commitDraft = (value: string) => {
+    if (disabled) return;
     const parsed = parseGuildEditorTagDraft(value);
     if (parsed.length === 0) {
       setDraft('');
@@ -56,14 +63,19 @@ export function GuildTagsEditor({ tags, onChange, id }: GuildTagsEditorProps) {
       return;
     }
 
-    if (event.key === 'Backspace' && draft.length === 0 && tags.length > 0) {
+    if (
+      event.key === 'Backspace' &&
+      draft.length === 0 &&
+      tags.length > 0 &&
+      !disabled
+    ) {
       onChange(tags.slice(0, -1));
       setHint(null);
     }
   };
 
   const focusInput = () => {
-    if (!atMax) {
+    if (!atMax && !disabled) {
       inputRef.current?.focus();
     }
   };
@@ -98,6 +110,7 @@ export function GuildTagsEditor({ tags, onChange, id }: GuildTagsEditorProps) {
               type="button"
               className="account-editor-tag-remove"
               aria-label={`Remove ${tag}`}
+              disabled={disabled}
               onClick={(event) => {
                 event.stopPropagation();
                 onChange(removeGuildEditorTag(tags, tag));
@@ -113,13 +126,14 @@ export function GuildTagsEditor({ tags, onChange, id }: GuildTagsEditorProps) {
         ))}
 
         {!atMax ? (
-          <li className="portfolio-tag account-editor-tag account-editor-tag--draft">
+          <li className="guild-tags-editor-draft">
             <input
               ref={inputRef}
               className="account-editor-tags-input"
               value={draft}
-              placeholder={tags.length === 0 ? 'Add tags…' : 'Add tag…'}
-              aria-label="Add guild tag"
+              disabled={disabled}
+              placeholder="Add topic…"
+              aria-label="Add guild topic"
               maxLength={GUILD_EDITOR_MAX_TAG_LENGTH}
               onFocus={scrollFieldIntoView}
               onChange={(event) => {
@@ -147,12 +161,7 @@ export function GuildTagsEditor({ tags, onChange, id }: GuildTagsEditorProps) {
           </span>
         ) : (
           <span>
-            {tags.length}/{GUILD_MAX_TAGS}
-            {tags.length === 0
-              ? ' — first tag is primary for discover'
-              : tags.length === 1
-                ? ' — add one more or leave as primary'
-                : ' — first is primary for discover'}
+            {tags.length}/{GUILD_MAX_TOPICS}
           </span>
         )}
       </small>

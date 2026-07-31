@@ -5,9 +5,10 @@ import {
   isOwnJoinRequestProposal,
   memberRequestRowToProposal,
   mergeGuildOnsocialMetadataPatch,
+  normalizeGuildConfig,
   normalizeGuildTagList,
   normalizeGuildTagsInput,
-  GUILD_MAX_TAGS,
+  GUILD_MAX_TOPICS,
 } from '@/features/guilds/guild-config';
 
 const row = {
@@ -58,14 +59,24 @@ describe('guild member request access', () => {
   });
 });
 
-describe('guild tags', () => {
-  it(`keeps at most ${GUILD_MAX_TAGS} tags with the first as primary`, () => {
+describe('guild topics', () => {
+  it(`keeps at most ${GUILD_MAX_TOPICS} topics with the first as primary`, () => {
     expect(
       normalizeGuildTagsInput('Builders, Social, Extra, Noise')
     ).toEqual(['builders', 'social']);
     expect(
       normalizeGuildTagList(['Near', 'near', 'grants', 'dao'])
     ).toEqual(['near', 'grants']);
+  });
+
+  it('reads topics[] from group config', () => {
+    expect(
+      normalizeGuildConfig('dao', {
+        name: 'DAO',
+        is_private: false,
+        topics: ['builders', 'social'],
+      }).topics
+    ).toEqual(['builders', 'social']);
   });
 });
 

@@ -3,8 +3,8 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
 import {
-  HUB_MAX_TOPICS,
-  HUB_TOPIC_SUGGESTIONS,
+  HUB_CATEGORY_SUGGESTIONS,
+  HUB_MAX_CATEGORIES,
   hubCategoryLabel,
 } from '@/features/scarces/hub-categories';
 import {
@@ -14,54 +14,54 @@ import {
 } from '@/lib/topic-slug';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 
-type CommitHint = 'Already added' | 'Max 2 topics';
+type CommitHint = 'Already added' | 'Max 2 categories';
 
-function tryAddTopic(
-  topics: string[],
+function tryAddCategory(
+  categories: string[],
   draft: string
-): { topics: string[]; hint: CommitHint | null } {
+): { categories: string[]; hint: CommitHint | null } {
   const slug = normalizeTopicSlug(draft);
-  if (!slug) return { topics, hint: null };
-  const current = normalizeTopicList(topics, HUB_MAX_TOPICS);
-  if (current.length >= HUB_MAX_TOPICS) {
-    return { topics: current, hint: 'Max 2 topics' };
+  if (!slug) return { categories, hint: null };
+  const current = normalizeTopicList(categories, HUB_MAX_CATEGORIES);
+  if (current.length >= HUB_MAX_CATEGORIES) {
+    return { categories: current, hint: 'Max 2 categories' };
   }
   if (current.includes(slug)) {
-    return { topics: current, hint: 'Already added' };
+    return { categories: current, hint: 'Already added' };
   }
   return {
-    topics: normalizeTopicList([...current, slug], HUB_MAX_TOPICS),
+    categories: normalizeTopicList([...current, slug], HUB_MAX_CATEGORIES),
     hint: null,
   };
 }
 
-function removeTopic(topics: string[], topic: string): string[] {
-  const slug = normalizeTopicSlug(topic);
+function removeCategory(categories: string[], category: string): string[] {
+  const slug = normalizeTopicSlug(category);
   return normalizeTopicList(
-    topics.filter((item) => item !== slug),
-    HUB_MAX_TOPICS
+    categories.filter((item) => item !== slug),
+    HUB_MAX_CATEGORIES
   );
 }
 
-interface HubTopicsEditorProps {
-  topics: string[];
-  onChange: (topics: string[]) => void;
+interface HubCategoriesEditorProps {
+  categories: string[];
+  onChange: (categories: string[]) => void;
   id?: string;
   disabled?: boolean;
 }
 
-/** Primary + optional secondary hub topics (primary = category). */
-export function HubTopicsEditor({
-  topics,
+/** Primary + optional secondary hub categories (first = directory browse). */
+export function HubCategoriesEditor({
+  categories,
   onChange,
   id,
   disabled = false,
-}: HubTopicsEditorProps) {
+}: HubCategoriesEditorProps) {
   const [draft, setDraft] = useState('');
   const [hint, setHint] = useState<CommitHint | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const atMax = topics.length >= HUB_MAX_TOPICS;
+  const atMax = categories.length >= HUB_MAX_CATEGORIES;
 
   const commitDraft = (value: string) => {
     const parts = value
@@ -74,11 +74,11 @@ export function HubTopicsEditor({
       return;
     }
 
-    let next = topics;
+    let next = categories;
     let nextHint: CommitHint | null = null;
     for (const part of parts) {
-      const result = tryAddTopic(next, part);
-      next = result.topics;
+      const result = tryAddCategory(next, part);
+      next = result.categories;
       if (result.hint && !nextHint) nextHint = result.hint;
     }
     onChange(next);
@@ -92,8 +92,12 @@ export function HubTopicsEditor({
       commitDraft(draft);
       return;
     }
-    if (event.key === 'Backspace' && draft.length === 0 && topics.length > 0) {
-      onChange(topics.slice(0, -1));
+    if (
+      event.key === 'Backspace' &&
+      draft.length === 0 &&
+      categories.length > 0
+    ) {
+      onChange(categories.slice(0, -1));
       setHint(null);
     }
   };
@@ -106,31 +110,33 @@ export function HubTopicsEditor({
 
   const toggleSuggestion = (idSlug: string) => {
     if (disabled) return;
-    if (topics.includes(idSlug)) {
-      onChange(removeTopic(topics, idSlug));
+    if (categories.includes(idSlug)) {
+      onChange(removeCategory(categories, idSlug));
       setHint(null);
       return;
     }
-    const result = tryAddTopic(topics, idSlug);
-    onChange(result.topics);
+    const result = tryAddCategory(categories, idSlug);
+    onChange(result.categories);
     setHint(result.hint);
   };
 
   return (
-    <div className="guild-tags-editor hub-topics-editor">
+    <div className="guild-tags-editor hub-categories-editor">
       <div
         className="app-storage-presets"
         role="group"
         aria-label="Suggested categories"
       >
-        {HUB_TOPIC_SUGGESTIONS.map((option) => (
+        {HUB_CATEGORY_SUGGESTIONS.map((option) => (
           <button
             key={option.id}
             type="button"
             className={`os-surface-chip${
-              topics.includes(option.id) ? ' is-selected' : ''
+              categories.includes(option.id) ? ' is-selected' : ''
             }`}
-            disabled={disabled || (!topics.includes(option.id) && atMax)}
+            disabled={
+              disabled || (!categories.includes(option.id) && atMax)
+            }
             onClick={() => toggleSuggestion(option.id)}
           >
             {option.label}
@@ -151,25 +157,25 @@ export function HubTopicsEditor({
         }}
         role="presentation"
       >
-        {topics.map((topic, index) => (
+        {categories.map((category, index) => (
           <li
-            key={topic}
+            key={category}
             className={`portfolio-tag account-editor-tag${
               index === 0 ? ' guild-tags-editor-tag--primary' : ''
             }`}
           >
-            {hubCategoryLabel(topic) ?? topic}
+            {hubCategoryLabel(category) ?? category}
             {index === 0 ? (
-              <span className="guild-tags-editor-primary-label">Category</span>
+              <span className="guild-tags-editor-primary-label">Primary</span>
             ) : null}
             <button
               type="button"
               className="account-editor-tag-remove"
-              aria-label={`Remove ${topic}`}
+              aria-label={`Remove ${category}`}
               disabled={disabled}
               onClick={(event) => {
                 event.stopPropagation();
-                onChange(removeTopic(topics, topic));
+                onChange(removeCategory(categories, category));
                 setHint(null);
               }}
             >
@@ -182,17 +188,17 @@ export function HubTopicsEditor({
         ))}
 
         {!atMax ? (
-          <li className="portfolio-tag account-editor-tag account-editor-tag--draft">
+          <li className="guild-tags-editor-draft">
             <input
               ref={inputRef}
               className="account-editor-tags-input"
               value={draft}
               disabled={disabled}
-              placeholder={
-                topics.length === 0 ? 'Add category…' : 'Add topic…'
-              }
+              placeholder="Add category…"
               aria-label={
-                topics.length === 0 ? 'Hub category' : 'Secondary hub topic'
+                categories.length === 0
+                  ? 'Primary hub category'
+                  : 'Secondary hub category'
               }
               maxLength={TOPIC_MAX_LENGTH}
               onFocus={scrollFieldIntoView}
@@ -222,12 +228,7 @@ export function HubTopicsEditor({
           </span>
         ) : (
           <span>
-            {topics.length}/{HUB_MAX_TOPICS}
-            {topics.length === 0
-              ? ' — first is the category for browse'
-              : topics.length === 1
-                ? ' — add one more or leave as category'
-                : ' — first is the category for browse'}
+            {categories.length}/{HUB_MAX_CATEGORIES}
           </span>
         )}
       </small>

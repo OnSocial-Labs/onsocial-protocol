@@ -9,8 +9,7 @@ import {
   type AppsDirectorySort,
 } from '@/features/scarces/apps-directory';
 import {
-  parseHubCategory,
-  parseHubTopics,
+  parseHubCategories,
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
 
@@ -55,9 +54,8 @@ interface AppMetadata {
   media?: string;
   base_uri?: string;
   banner?: string;
-  category?: string;
-  /** Freeform topics — primary is category; max 2. */
-  topics?: string[];
+  /** Hub categories — primary first; max 2. */
+  categories?: string[];
 }
 
 export interface AppView {
@@ -67,9 +65,9 @@ export interface AppView {
   description?: string;
   mediaUrl: string | null;
   bannerUrl: string | null;
-  /** Topics — primary (= category) first; max 2. */
-  topics: string[];
-  /** Primary topic for directory filter (topics[0]). */
+  /** Categories — primary first; max 2. */
+  categories: string[];
+  /** Primary category for directory filter (categories[0]). */
   category: string | null;
   /** Primary-sale commission in basis points (0..=5000). */
   primarySaleBps: number;
@@ -149,7 +147,7 @@ function toAppView(
   );
   const image = meta.image ?? meta.media ?? null;
   const banner = meta.banner ?? null;
-  const topics = parseHubTopics(meta);
+  const categories = parseHubCategories(meta);
   return {
     appId,
     ownerId: record.owner_id,
@@ -159,8 +157,8 @@ function toAppView(
       : {}),
     mediaUrl: image ? resolveScarceMediaUrl(image) : null,
     bannerUrl: banner ? resolveScarceMediaUrl(banner) : null,
-    topics,
-    category: topics[0] ?? parseHubCategory(meta.category),
+    categories,
+    category: categories[0] ?? null,
     primarySaleBps: bps,
     commissionPct: bpsToPct(bps),
     creatorAccess: parseCreatorAccess(record.creator_access),
@@ -192,6 +190,135 @@ export function creatorAccessShort(access: CreatorAccess): string {
     case 'invite_only':
       return 'Staff';
   }
+}
+
+/**
+ * One app record from the indexer (`scarces_apps`) — fast first paint for the
+ * hub page. No roster; `fetchApp` reconciles owner/moderators/creators after.
+ */
+export async function fetchAppIndexerRow(
+  appId: string
+): Promise<AppView | null> {
+  const id = appId.trim();
+  if (!id) return null;
+  try {
+    const { createReadOnlyOnSocialClient } = await import(
+      '@/lib/create-readonly-onsocial-client'
+    );
+    const client = createReadOnlyOnSocialClient();
+    const res = await client.query.graphql<{
+      scarcesApps: Array<{
+        appId: string;
+        ownerId: string;
+        primarySaleBps: number | null;
+        creatorAccess: string | null;
+        metadata: string | null;
+        createdBlockTimestamp: number | null;
+        updatedBlockTimestamp: number | null;
+      }>;
+    }>({
+      query: `query ScarcesAppRow($appId: String!) {
+        scarcesApps(where: {appId: {_eq: $appId}}, limit: 1) {
+          appId
+          ownerId
+          primarySaleBps
+          creatorAccess
+          metadata
+          createdBlockTimestamp
+          updatedBlockTimestamp
+        }
+      }`,
+      variables: { appId: id },
+    });
+    const row = res.data?.scarcesApps?.[0];
+    return row ? toAppViewFromIndexer(row) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Rolled-up hub stats from the indexer `scarces_app_stats` view. */
+export interface AppStatsView {
+  appId: string;
+  dropsTotal: number;
+  mintedTotal: number;
+  uniqueHolders: number;
+  salesCount: number;
+  /** Total sales volume in yoctoNEAR (decimal string). */
+  salesVolumeYocto: string;
+  liveListings: number;
+  /** Latest drop/mint/sale timestamp (ms), when any activity exists. */
+  lastActivityMs: number | null;
+}
+
+function toCount(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+/** Per-hub stats — indexer only; null when the view is unavailable. */
+export async function fetchAppStats(
+  appId: string
+): Promise<AppStatsView | null> {
+  const id = appId.trim();
+  if (!id) return null;
+  try {
+    const { createReadOnlyOnSocialClient } = await import(
+      '@/lib/create-readonly-onsocial-client'
+    );
+    const client = createReadOnlyOnSocialClient();
+    const res = await client.query.graphql<{
+      scarcesAppStats: Array<{
+        appId: string;
+        dropsTotal: number | string | null;
+        mintedTotal: number | string | null;
+        uniqueHolders: number | string | null;
+        salesCount: number | string | null;
+        salesVolume: number | string | null;
+        liveListings: number | string | null;
+        lastActivityTimestamp: number | string | null;
+      }>;
+    }>({
+      query: `query ScarcesAppStats($appId: String!) {
+        scarcesAppStats(where: {appId: {_eq: $appId}}, limit: 1) {
+          appId
+          dropsTotal
+          mintedTotal
+          uniqueHolders
+          salesCount
+          salesVolume
+          liveListings
+          lastActivityTimestamp
+        }
+      }`,
+      variables: { appId: id },
+    });
+    const row = res.data?.scarcesAppStats?.[0];
+    if (!row) return null;
+    return {
+      appId: row.appId,
+      dropsTotal: toCount(row.dropsTotal),
+      mintedTotal: toCount(row.mintedTotal),
+      uniqueHolders: toCount(row.uniqueHolders),
+      salesCount: toCount(row.salesCount),
+      salesVolumeYocto: String(row.salesVolume ?? '0'),
+      liveListings: toCount(row.liveListings),
+      lastActivityMs: nsToMs(Number(row.lastActivityTimestamp)) ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Compact NEAR label for a yocto volume string, e.g. "12.4K". */
+export function appVolumeNearLabel(volumeYocto: string): string {
+  const near = Number(volumeYocto) / 1e24;
+  if (!Number.isFinite(near) || near <= 0) return '0';
+  if (near >= 1_000_000) return `${(near / 1_000_000).toFixed(1)}M`;
+  if (near >= 1_000) return `${(near / 1_000).toFixed(1)}K`;
+  if (near >= 100) return near.toFixed(0);
+  if (near >= 1) return near.toFixed(1);
+  return near.toFixed(2);
 }
 
 /** One app record from the contract, or null when missing. */
@@ -247,7 +374,7 @@ function toAppViewFromIndexer(row: IndexerAppRow): AppView {
   const banner = meta.banner ?? null;
   const updatedAtMs = nsToMs(row.updatedBlockTimestamp);
   const createdAtMs = nsToMs(row.createdBlockTimestamp);
-  const topics = parseHubTopics(meta);
+  const categories = parseHubCategories(meta);
   return {
     appId: row.appId,
     ownerId: row.ownerId,
@@ -257,8 +384,8 @@ function toAppViewFromIndexer(row: IndexerAppRow): AppView {
       : {}),
     mediaUrl: image ? resolveScarceMediaUrl(image) : null,
     bannerUrl: banner ? resolveScarceMediaUrl(banner) : null,
-    topics,
-    category: topics[0] ?? parseHubCategory(meta.category),
+    categories,
+    category: categories[0] ?? null,
     primarySaleBps: bps,
     commissionPct: bpsToPct(bps),
     creatorAccess: parseCreatorAccess(row.creatorAccess),

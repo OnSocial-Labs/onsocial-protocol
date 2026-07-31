@@ -458,7 +458,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       accessGated: normalizedConfig.accessGated,
       memberDriven: normalizedConfig.memberDriven,
       description: normalizedConfig.description,
-      tags: normalizedConfig.tags,
+      topics: normalizedConfig.topics,
     };
     writeGuildShellCache(groupId, shellEntry);
     setShellPreview(shellEntry);
@@ -1240,9 +1240,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                   </div>
                 </div>
 
-                {shellPreview.tags.length > 0 ? (
+                {shellPreview.topics.length > 0 ? (
                   <div className="guild-hero-tags" aria-label="Guild topics">
-                    {shellPreview.tags.map((tag) => (
+                    {shellPreview.topics.map((tag) => (
                       <span key={tag}>{topicLabel(tag) ?? tag}</span>
                     ))}
                   </div>
@@ -1392,9 +1392,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                 </div>
               </div>
 
-              {config.tags.length > 0 ? (
+              {config.topics.length > 0 ? (
                 <div className="guild-hero-tags" aria-label="Guild topics">
-                  {config.tags.map((tag) => (
+                  {config.topics.map((tag) => (
                     <span key={tag}>{topicLabel(tag) ?? tag}</span>
                   ))}
                 </div>
@@ -1617,7 +1617,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
           createdAt={readGroupStatsCreatedAt(state.stats)}
           postCount={state.postCount}
           roomCount={feedSpaces.length}
-          tags={config.tags}
+          topics={config.topics}
           onClose={() => {
             setFactsSheetOpen(false);
             const next = factsNextRef.current;

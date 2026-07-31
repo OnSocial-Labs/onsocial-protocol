@@ -171,7 +171,7 @@ export function GuildDetailPanel({ groupId }: { groupId: string }) {
             <span>{guild.members}</span>
           </div>
           <div className="guild-tag-list" aria-label="Topics">
-            {guild.tags.map((tag) => (
+            {guild.topics.map((tag) => (
               <span key={tag}>{topicLabel(tag) ?? tag}</span>
             ))}
           </div>

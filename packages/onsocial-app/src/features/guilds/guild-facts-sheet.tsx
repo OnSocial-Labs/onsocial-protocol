@@ -42,7 +42,7 @@ interface GuildFactsSheetProps {
   createdAt?: number | null;
   postCount?: number | null;
   roomCount?: number | null;
-  tags?: string[];
+  topics?: string[];
   onOpenMembers: () => void;
 }
 
@@ -123,9 +123,10 @@ export function GuildFactsSheet({
   createdAt,
   postCount,
   roomCount,
-  tags = [],
+  topics = [],
   onOpenMembers,
 }: GuildFactsSheetProps) {
+  const topicList = topics;
   const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -169,8 +170,8 @@ export function GuildFactsSheet({
     ? formatPageDrawerJoinedFullLabel(createdAt)
     : null;
   const tagLine =
-    tags.length > 0
-      ? tags.map((tag) => topicLabel(tag) ?? tag).join(' · ')
+    topicList.length > 0
+      ? topicList.map((tag) => topicLabel(tag) ?? tag).join(' · ')
       : null;
 
   return (

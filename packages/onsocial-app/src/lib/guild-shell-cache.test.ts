@@ -13,7 +13,7 @@ const shell = {
   accessGated: false,
   memberDriven: true,
   description: '',
-  tags: [] as string[],
+  topics: [] as string[],
 };
 
 describe('guildShellCache', () => {

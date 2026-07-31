@@ -100,18 +100,83 @@ export function StoreDropCard({ view }: { view: CollectionView }) {
   );
 }
 
+/** Latest drop rendered large — cover art, mint progress, price. */
+function StoreDropSpotlightCard({ view }: { view: CollectionView }) {
+  const status = deriveCollectionStatus(view);
+  const price = view.priceNear != null ? `${view.priceNear} NEAR` : 'Free';
+  const pct =
+    view.totalSupply > 0
+      ? Math.min(100, Math.round((view.minted / view.totalSupply) * 100))
+      : null;
+  const progress =
+    view.totalSupply > 0
+      ? `${view.minted}/${view.totalSupply} minted`
+      : `${view.minted} minted`;
+
+  return (
+    <Link
+      href={collectionPath(view.collectionId)}
+      className="app-drop-spotlight"
+      scroll={false}
+    >
+      <span
+        className={`app-drop-spotlight-media${
+          view.mediaUrl ? ' has-media' : ''
+        }`}
+      >
+        {view.mediaUrl ? (
+          <img src={view.mediaUrl} alt="" />
+        ) : (
+          <span aria-hidden>{view.title.slice(0, 1).toUpperCase()}</span>
+        )}
+      </span>
+      <span className="app-drop-spotlight-body">
+        <span className="app-drop-spotlight-title">{view.title}</span>
+        <span className="app-drop-card-meta">
+          {collectionStatusLabel(status)}
+          {view.kind ? ` · ${view.kind}` : ''}
+          {' · '}
+          {price}
+        </span>
+        {pct != null ? (
+          <span
+            className="app-drop-spotlight-progress"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={progress}
+          >
+            <span
+              className="app-drop-spotlight-progress-fill"
+              style={{ width: `${pct}%` }}
+            />
+          </span>
+        ) : null}
+        <span className="app-drop-card-meta">
+          {progress}
+          {' · '}@{fallbackLabel(view.creatorId)}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export function StoreDropsList({
   drops,
   loading,
   indexerCatchUp = false,
   emptyActionHref,
   canCreate,
+  spotlight = false,
 }: {
   drops: CollectionView[];
   loading: boolean;
   indexerCatchUp?: boolean;
   emptyActionHref: string;
   canCreate: boolean;
+  /** Render the first drop as a large spotlight card. */
+  spotlight?: boolean;
 }) {
   if (loading) {
     return (
@@ -140,6 +205,23 @@ export function StoreDropsList({
               Create a drop
             </Link>
           </div>
+        ) : null}
+      </div>
+    );
+  }
+  const [first, ...rest] = drops;
+  if (spotlight && first) {
+    return (
+      <div className="app-drop-catalog">
+        <StoreDropSpotlightCard view={first} />
+        {rest.length > 0 ? (
+          <ul className="app-drop-list">
+            {rest.map((drop) => (
+              <li key={drop.collectionId}>
+                <StoreDropCard view={drop} />
+              </li>
+            ))}
+          </ul>
         ) : null}
       </div>
     );

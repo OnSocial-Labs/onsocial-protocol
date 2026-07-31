@@ -57,7 +57,7 @@ export class ScarcesAppsApi {
         ...config,
       },
       'scarces.registerApp',
-      this._relayOpts()
+      this._relayOpts({ confirmation: true })
     );
   }
 

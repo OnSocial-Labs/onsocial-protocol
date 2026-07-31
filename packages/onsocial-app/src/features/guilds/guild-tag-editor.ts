@@ -1,5 +1,5 @@
 import {
-  GUILD_MAX_TAGS,
+  GUILD_MAX_TOPICS,
   normalizeGuildTagList,
 } from '@/features/guilds/guild-config';
 import { TOPIC_MAX_LENGTH } from '@/lib/topic-slug';
@@ -40,7 +40,7 @@ export function tryAddGuildEditorTag(
   }
 
   const current = normalizeGuildEditorTags(tags);
-  if (current.length >= GUILD_MAX_TAGS) {
+  if (current.length >= GUILD_MAX_TOPICS) {
     return { tags: current, hint: 'Max 2 topics' };
   }
   if (current.includes(normalized)) {

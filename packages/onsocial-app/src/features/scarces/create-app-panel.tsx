@@ -2,10 +2,21 @@
 
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { OsSheetAction, OsSheetActions, OsSheetPrimaryAction } from '@onsocial/ui';
+import {
+  OsSheetAction,
+  OsSheetActions,
+  OsSheetPrimaryAction,
+  QuestionMarkCircleFillIcon,
+  osIconActionClassName,
+} from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  entityIdAvailabilityClass,
+  entityIdAvailabilityLead,
+  useEntityIdAvailability,
+} from '@/hooks/use-entity-id-availability';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import type { CreatorAccess } from '@/features/scarces/apps-data';
@@ -13,8 +24,12 @@ import {
   creatorAccessLabel,
   creatorAccessShort,
 } from '@/features/scarces/apps-data';
-import { hubTopicsMetadataFields } from '@/features/scarces/hub-categories';
-import { HubTopicsEditor } from '@/features/scarces/hub-topics-editor';
+import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
+import {
+  HubCreateHelpDrawer,
+  HUB_CREATE_HELP_TITLE,
+} from '@/features/scarces/hub-create-help-drawer';
+import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
 import { APP_APPS_PATH, appPath } from '@/lib/app-routes';
 import { normalizeTopicList } from '@/lib/topic-slug';
 
@@ -55,21 +70,24 @@ function pctToBps(pct: number): number {
 export function CreateAppPanel() {
   const router = useRouter();
   const { isConnected, isLoading, connect, getSigningWallet } = useAppWallet();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [slugTouched, setSlugTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [commissionInput, setCommissionInput] = useState('2.5');
   const [creatorAccess, setCreatorAccess] = useState<CreatorAccess>('open');
-  const [topics, setTopics] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const derivedSlug = useMemo(
     () => slugify(slugTouched ? slug || name : name),
     [slug, name, slugTouched]
   );
+  const idAvailability = useEntityIdAvailability('hub', derivedSlug, MIN_SLUG);
+  const idAvailabilityClass = entityIdAvailabilityClass(idAvailability);
   const commission = Number.parseFloat(commissionInput);
   const commissionValid =
     Number.isFinite(commission) &&
@@ -82,7 +100,9 @@ export function CreateAppPanel() {
     name.trim().length >= 2 &&
     derivedSlug.length >= MIN_SLUG &&
     commissionValid &&
-    normalizeTopicList(topics).length >= 1;
+    normalizeTopicList(categories).length >= 1 &&
+    idAvailability !== 'taken' &&
+    idAvailability !== 'checking';
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -101,15 +121,15 @@ export function CreateAppPanel() {
         setError(`Commission must be between 0 and ${MAX_COMMISSION_PCT}%.`);
         return;
       }
-      const normalizedTopics = normalizeTopicList(topics);
-      if (normalizedTopics.length < 1) {
+      const normalizedCategories = normalizeTopicList(categories);
+      if (normalizedCategories.length < 1) {
         setError('Pick or type a category for this hub.');
         return;
       }
 
       const metadata = JSON.stringify({
         name: name.trim(),
-        ...hubTopicsMetadataFields(normalizedTopics),
+        ...hubCategoriesMetadataFields(normalizedCategories),
         ...(description.trim() ? { description: description.trim() } : {}),
       });
 
@@ -132,9 +152,19 @@ export function CreateAppPanel() {
         router.push(appPath(derivedSlug));
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
-        setError(
-          cause instanceof Error ? cause.message : txToastError.createAppFailed
-        );
+        const detail =
+          cause instanceof Error && cause.message.trim()
+            ? cause.message.trim()
+            : null;
+        setTxResult({
+          type: 'error',
+          msg:
+            detail &&
+            !detail.startsWith('{') &&
+            detail.length < 160
+              ? detail
+              : txToastError.createAppFailed,
+        });
       } finally {
         setPending(false);
       }
@@ -148,9 +178,10 @@ export function CreateAppPanel() {
       name,
       description,
       creatorAccess,
-      topics,
+      categories,
       getSigningWallet,
       trackTransaction,
+      setTxResult,
       router,
     ]
   );
@@ -158,16 +189,32 @@ export function CreateAppPanel() {
   return (
     <OsAppScreen
       title="Open a hub"
-      subtitle="A branded hub for drops you (and allowed creators) publish."
       backFallbackHref={APP_APPS_PATH}
+      glassChrome
+      actions={
+        <button
+          type="button"
+          className={osIconActionClassName}
+          aria-label={HUB_CREATE_HELP_TITLE}
+          aria-expanded={helpOpen}
+          aria-haspopup="dialog"
+          onClick={() => setHelpOpen(true)}
+        >
+          <QuestionMarkCircleFillIcon aria-hidden />
+        </button>
+      }
     >
       <form className="drop-create-form" onSubmit={handleSubmit}>
         <label className="guild-field" htmlFor={fieldId('name')}>
-          <span>Hub name</span>
+          <span>Name</span>
           <input
             id={fieldId('name')}
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              setName(event.target.value);
+              // Name is source of truth — re-link ID after any name edit.
+              setSlugTouched(false);
+            }}
             placeholder="Midnight Records"
             maxLength={MAX_NAME}
             disabled={pending}
@@ -189,8 +236,13 @@ export function CreateAppPanel() {
             spellCheck={false}
             autoCapitalize="none"
             autoCorrect="off"
+            aria-invalid={idAvailability === 'taken'}
+            className={idAvailabilityClass}
           />
-          <small>Permanent · {appPath(derivedSlug || 'your-hub')}</small>
+          <small className={idAvailabilityClass}>
+            {entityIdAvailabilityLead(idAvailability)} ·{' '}
+            {appPath(derivedSlug || 'your-hub')}
+          </small>
         </label>
 
         <label className="guild-field" htmlFor={fieldId('description')}>
@@ -202,8 +254,9 @@ export function CreateAppPanel() {
             placeholder="What this hub publishes and who it's for."
             maxLength={MAX_DESCRIPTION}
             disabled={pending}
+            aria-describedby={fieldId('description-count')}
           />
-          <small>
+          <small id={fieldId('description-count')}>
             {description.length}/{MAX_DESCRIPTION}
           </small>
         </label>
@@ -249,16 +302,13 @@ export function CreateAppPanel() {
         </label>
 
         <div className="guild-field">
-          <span>Topics</span>
-          <HubTopicsEditor
-            topics={topics}
-            onChange={setTopics}
-            id={fieldId('topics')}
+          <span>Category</span>
+          <HubCategoriesEditor
+            categories={categories}
+            onChange={setCategories}
+            id={fieldId('categories')}
             disabled={pending}
           />
-          <small>
-            Primary is the category for directory browse. Optional second topic.
-          </small>
         </div>
 
         <div className="guild-field">
@@ -310,6 +360,7 @@ export function CreateAppPanel() {
           </OsSheetPrimaryAction>
         </OsSheetActions>
       </form>
+      <HubCreateHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </OsAppScreen>
   );
 }

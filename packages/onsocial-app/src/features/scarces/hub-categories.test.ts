@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   hubCategoryLabel,
   parseHubCategory,
-  parseHubTopics,
-  hubTopicsMetadataFields,
+  parseHubCategories,
+  hubCategoriesMetadataFields,
 } from '@/features/scarces/hub-categories';
 
-describe('hub categories / topics', () => {
+describe('hub categories', () => {
   it('parses freeform categories', () => {
     expect(parseHubCategory('music')).toBe('music');
     expect(parseHubCategory('Books')).toBe('books');
@@ -15,21 +15,27 @@ describe('hub categories / topics', () => {
     expect(parseHubCategory(null)).toBeNull();
   });
 
-  it('falls back to category when topics is empty', () => {
-    expect(parseHubTopics({ topics: [], category: 'Film' })).toEqual(['film']);
-    expect(parseHubTopics({ topics: ['!!!'], category: 'art' })).toEqual([
-      'art',
-    ]);
+  it('reads categories[] only', () => {
+    expect(
+      parseHubCategories({
+        categories: ['music', 'record'],
+      })
+    ).toEqual(['music', 'record']);
+    expect(parseHubCategories({})).toEqual([]);
+    expect(
+      parseHubCategories({
+        categories: ['!!!'],
+      })
+    ).toEqual([]);
   });
 
-  it('writes topics + legacy category primary', () => {
-    expect(hubTopicsMetadataFields(['Music', 'Live Music'])).toEqual({
-      topics: ['music', 'live_music'],
-      category: 'music',
+  it('writes categories only (primary is categories[0])', () => {
+    expect(hubCategoriesMetadataFields(['Music', 'Live Music'])).toEqual({
+      categories: ['music', 'live_music'],
     });
   });
 
-  it('labels known and custom topics', () => {
+  it('labels known and custom categories', () => {
     expect(hubCategoryLabel('art')).toBe('Art');
     expect(hubCategoryLabel('live_music')).toBe('Live Music');
     expect(hubCategoryLabel(null)).toBeNull();

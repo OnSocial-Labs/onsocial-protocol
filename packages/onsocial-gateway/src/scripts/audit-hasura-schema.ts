@@ -26,6 +26,12 @@ const SKIPPED_TABLE_TOKENS = new Set([
   'constraint',
   'foreign',
   'check',
+  // Multi-line generated-column expressions (e.g. price_numeric's CASE) put
+  // expression keywords at line start — they are not column names.
+  'case',
+  'when',
+  'else',
+  'end',
 ]);
 
 function parseRelationNames(sql: string): string[] {

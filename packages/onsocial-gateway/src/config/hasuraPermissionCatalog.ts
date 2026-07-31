@@ -806,6 +806,31 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'scarces_token_owners',
+    columns: [
+      'token_id',
+      'owner_id',
+      'burned',
+      'collection_id',
+      'app_id',
+      'minted_block_timestamp',
+      'updated_block_timestamp',
+    ],
+  },
+  {
+    name: 'scarces_app_stats',
+    columns: [
+      'app_id',
+      'drops_total',
+      'minted_total',
+      'unique_holders',
+      'sales_count',
+      'sales_volume',
+      'live_listings',
+      'last_activity_timestamp',
+    ],
+  },
+  {
     name: 'scarces_active_offers',
     columns: [
       'offer_key',

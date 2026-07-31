@@ -52,6 +52,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
       db="$1"
       apply_sql "$db" /work/core_schema_views.sql
       apply_sql "$db" /work/leaderboard_schema_views.sql
+      apply_sql "$db" /work/scarces_schema_views.sql
       # Real amplify heat (replaces stub) when social-spend table is present.
       has_spend="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
         SELECT to_regclass('"'"'public.social_spend_events'"'"') IS NOT NULL;
@@ -87,7 +88,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in posts_current posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation; do
+      for view_name in posts_current posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"

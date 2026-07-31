@@ -21,7 +21,7 @@ import {
   GuildSummaryCard,
   type GuildSummaryCardModel,
 } from '@/features/guilds/guild-summary-card';
-import { HUB_TOPIC_SUGGESTIONS } from '@/features/scarces/hub-categories';
+import { HUB_CATEGORY_SUGGESTIONS } from '@/features/scarces/hub-categories';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { topicLabel } from '@/lib/topic-slug';
 
@@ -48,7 +48,7 @@ function guildCardMatchesQuery(
   if (card.groupId.toLowerCase().includes(needle)) return true;
   if (displayName.toLowerCase().includes(needle)) return true;
   if ((card.description ?? '').toLowerCase().includes(needle)) return true;
-  return (card.tags ?? []).some((tag) => tag.toLowerCase().includes(needle));
+  return (card.topics ?? []).some((tag) => tag.toLowerCase().includes(needle));
 }
 
 function guildMatchesTopic(
@@ -56,7 +56,7 @@ function guildMatchesTopic(
   topic: string | 'all'
 ): boolean {
   if (topic === 'all') return true;
-  return (card.tags ?? []).some((tag) => tag === topic);
+  return (card.topics ?? []).some((tag) => tag === topic);
 }
 
 export function LiveGuildsIndexPanel() {
@@ -174,12 +174,12 @@ export function LiveGuildsIndexPanel() {
     const chips: Array<{ id: string; label: string }> = [
       { id: 'all', label: 'All' },
     ];
-    for (const entry of HUB_TOPIC_SUGGESTIONS) {
+    for (const entry of HUB_CATEGORY_SUGGESTIONS) {
       seen.add(entry.id);
       chips.push({ id: entry.id, label: entry.label });
     }
     for (const guild of guilds) {
-      const primary = guild.tags?.[0];
+      const primary = guild.topics?.[0];
       if (!primary || seen.has(primary)) continue;
       seen.add(primary);
       chips.push({ id: primary, label: topicLabel(primary) ?? primary });

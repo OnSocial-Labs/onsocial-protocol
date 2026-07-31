@@ -84,7 +84,7 @@ describe('GroupsModule lifecycle (signed actions)', () => {
       description: 'Core contributors',
       isPrivate: false,
       memberDriven: true,
-      tags: ['builders', 'core'],
+      topics: ['builders', 'core'],
     });
 
     await groups.create('dao', config);
@@ -100,7 +100,7 @@ describe('GroupsModule lifecycle (signed actions)', () => {
             description: 'Core contributors',
             is_private: false,
             member_driven: true,
-            tags: ['builders', 'core'],
+            topics: ['builders', 'core'],
           },
         },
         targetAccount: CORE_MAINNET,

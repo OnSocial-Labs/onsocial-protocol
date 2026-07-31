@@ -615,9 +615,10 @@ describe('ScarcesModule.market — management helpers', () => {
 describe('ScarcesModule.apps', () => {
   it('register', async () => {
     const http = makeHttp();
-    const { getter } = makeSessionGetter();
+    const { getter, signed } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter);
     await mod.apps.register('app1', { primarySaleBps: 250, curated: true });
+    expect(signed[0].depositYocto).toBe('1');
     expect(prepareBodyFor(http.post, 'register-app')).toEqual({
       appId: 'app1',
       primarySaleBps: 250,

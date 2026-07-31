@@ -79,6 +79,30 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'compose/prepare/make-offer', body: 'json' },
   { method: 'POST', path: 'compose/prepare/cancel-offer', body: 'json' },
   { method: 'POST', path: 'compose/prepare/accept-offer', body: 'json' },
+
+  // Hubs (apps) — register / config / creators / ownership.
+  { method: 'POST', path: 'compose/prepare/register-app', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/set-app-config', body: 'json' },
+  {
+    method: 'POST',
+    path: 'compose/prepare/transfer-app-ownership',
+    body: 'json',
+  },
+  {
+    method: 'POST',
+    path: 'compose/prepare/add-approved-creator',
+    body: 'json',
+  },
+  {
+    method: 'POST',
+    path: 'compose/prepare/add-approved-creators',
+    body: 'json',
+  },
+  {
+    method: 'POST',
+    path: 'compose/prepare/remove-approved-creator',
+    body: 'json',
+  },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;

@@ -200,7 +200,8 @@ export interface GuildConfigSnapshot {
   ownerId: string | null;
   accessGated: boolean;
   memberDriven: boolean;
-  tags: string[];
+  /** Topics — primary first; max 2. */
+  topics: string[];
   structure: GuildStructureDocument;
 }
 
@@ -237,8 +238,8 @@ export function normalizeGuildConfig(
   groupId: string,
   raw: Record<string, unknown>
 ): GuildConfigSnapshot {
-  const rawTags = Array.isArray(raw.tags)
-    ? raw.tags.filter((tag): tag is string => typeof tag === 'string')
+  const rawTopics = Array.isArray(raw.topics)
+    ? raw.topics.filter((topic): topic is string => typeof topic === 'string')
     : [];
   const avatarCid = readNestedString(raw, ['avatar', 'cid']);
   const bannerCid = readNestedString(raw, ['x', 'onsocial', 'banner', 'cid']);
@@ -254,7 +255,7 @@ export function normalizeGuildConfig(
     accessGated: deriveGuildAccessGated(raw),
     memberDriven:
       readBoolean(raw.member_driven) || readBoolean(raw.memberDriven),
-    tags: normalizeGuildTagList(rawTags),
+    topics: normalizeGuildTagList(rawTopics),
     structure: parseGuildStructure(raw),
   };
 }
@@ -282,7 +283,7 @@ export function mergeGuildOnsocialMetadataPatch(
 }
 
 /** Guild topics — first is primary; hard cap keeps cards scannable. */
-export const GUILD_MAX_TAGS = TOPIC_MAX_PER_ENTITY;
+export const GUILD_MAX_TOPICS = TOPIC_MAX_PER_ENTITY;
 
 /** Display name — short enough for hero + cards. */
 export const GUILD_MAX_NAME_LENGTH = 64;
@@ -294,7 +295,7 @@ export const GUILD_MAX_NAME_LENGTH = 64;
 export const GUILD_MAX_DESCRIPTION_LENGTH = 240;
 
 export function normalizeGuildTagList(tags: unknown): string[] {
-  return normalizeTopicList(tags, GUILD_MAX_TAGS);
+  return normalizeTopicList(tags, GUILD_MAX_TOPICS);
 }
 
 export function normalizeGuildTagsInput(input: string): string[] {

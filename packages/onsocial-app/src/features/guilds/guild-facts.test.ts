@@ -59,7 +59,7 @@ describe('guild-facts', () => {
     const enriched = applyChainGuildFacts(card, {
       config: {
         is_private: true,
-        tags: ['builders', 'social', 'extra'],
+        topics: ['builders', 'social', 'extra'],
       },
       stats: { total_members: 9 },
       indexedMemberCount: 7,
@@ -67,6 +67,6 @@ describe('guild-facts', () => {
 
     expect(enriched.accessGated).toBe(true);
     expect(enriched.memberCount).toBe(9);
-    expect(enriched.tags).toEqual(['builders', 'social']);
+    expect(enriched.topics).toEqual(['builders', 'social']);
   });
 });

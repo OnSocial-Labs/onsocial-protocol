@@ -5,10 +5,10 @@ import {
 } from '@/lib/topic-slug';
 
 /**
- * Suggested hub categories (chips). Users can type any topic slug —
- * primary topic is the hub category for browse/filter.
+ * Suggested hub categories (chips). Users can type any category slug —
+ * primary (= categories[0]) powers directory browse/filter.
  */
-export const HUB_TOPIC_SUGGESTIONS = [
+export const HUB_CATEGORY_SUGGESTIONS = [
   { id: 'music', label: 'Music' },
   { id: 'art', label: 'Art' },
   { id: 'books', label: 'Books' },
@@ -17,54 +17,44 @@ export const HUB_TOPIC_SUGGESTIONS = [
   { id: 'film', label: 'Film' },
 ] as const;
 
-/** @deprecated Use HUB_TOPIC_SUGGESTIONS — kept for call sites during migrate. */
-export const HUB_CATEGORIES = HUB_TOPIC_SUGGESTIONS;
-
 export type HubCategory = string;
 export type HubCategoryFilter = 'all' | string;
 
-export const HUB_MAX_TOPICS = 2;
+export const HUB_MAX_CATEGORIES = 2;
 
 export function parseHubCategory(raw: unknown): string | null {
   return normalizeTopicSlug(raw);
 }
 
-/** Topics from metadata (`topics[]` preferred; fall back to `category`). */
-export function parseHubTopics(meta: {
-  topics?: unknown;
-  category?: unknown;
+/** Categories from hub metadata — `categories[]` only. */
+export function parseHubCategories(meta: {
+  categories?: unknown;
 }): string[] {
-  const fromTopics = Array.isArray(meta.topics)
-    ? normalizeTopicList(meta.topics, HUB_MAX_TOPICS)
+  return Array.isArray(meta.categories)
+    ? normalizeTopicList(meta.categories, HUB_MAX_CATEGORIES)
     : [];
-  if (fromTopics.length > 0) return fromTopics;
-  const fromCategory = normalizeTopicSlug(meta.category);
-  return fromCategory ? [fromCategory] : [];
 }
 
 export function hubCategoryLabel(
   category: string | null | undefined
 ): string | null {
-  return topicLabel(category, HUB_TOPIC_SUGGESTIONS);
+  return topicLabel(category, HUB_CATEGORY_SUGGESTIONS);
 }
 
-export function hubTopicsLabel(topics: string[]): string | null {
-  if (topics.length === 0) return null;
-  return topics
+export function hubCategoriesLabel(categories: string[]): string | null {
+  if (categories.length === 0) return null;
+  return categories
     .map((slug) => hubCategoryLabel(slug) ?? slug)
     .filter(Boolean)
     .join(' · ');
 }
 
-/** Metadata fields: `topics` + legacy `category` (= primary). */
-export function hubTopicsMetadataFields(topics: string[]): {
-  topics: string[];
-  category?: string;
+/** Hub metadata — first entry is primary for directory browse. */
+export function hubCategoriesMetadataFields(categories: string[]): {
+  categories: string[];
 } {
-  const normalized = normalizeTopicList(topics, HUB_MAX_TOPICS);
   return {
-    topics: normalized,
-    ...(normalized[0] ? { category: normalized[0] } : {}),
+    categories: normalizeTopicList(categories, HUB_MAX_CATEGORIES),
   };
 }
 
@@ -73,7 +63,7 @@ export const HUB_CATEGORY_FILTERS: ReadonlyArray<{
   label: string;
 }> = [
   { id: 'all', label: 'All' },
-  ...HUB_TOPIC_SUGGESTIONS.map((entry) => ({
+  ...HUB_CATEGORY_SUGGESTIONS.map((entry) => ({
     id: entry.id as HubCategoryFilter,
     label: entry.label,
   })),

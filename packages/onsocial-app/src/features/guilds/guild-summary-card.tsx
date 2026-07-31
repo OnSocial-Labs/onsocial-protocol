@@ -24,7 +24,7 @@ export interface GuildSummaryCardModel {
   memberDriven: boolean;
   memberCount?: number | null;
   /** Topics — max two; first is primary (card shows primary only). */
-  tags?: string[];
+  topics?: string[];
   role?: GuildCardRole | null;
 }
 
@@ -80,8 +80,8 @@ export function GuildSummaryCard({
   variant?: 'rail' | 'grid';
 }) {
   const displayName = guildDisplayName(guild.name, guild.groupId);
-  const primaryTopic = guild.tags?.[0]
-    ? (topicLabel(guild.tags[0]) ?? guild.tags[0])
+  const primaryTopic = guild.topics?.[0]
+    ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
     : null;
   const description = guild.description?.trim() || null;
 

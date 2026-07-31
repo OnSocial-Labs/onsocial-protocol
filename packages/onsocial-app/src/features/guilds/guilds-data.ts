@@ -17,7 +17,7 @@ export interface GuildBlueprint {
   governance: 'Owner-led' | 'Collaborative';
   members: string;
   channels: string[];
-  tags: string[];
+  topics: string[];
 }
 
 export interface GuildActionMap {
@@ -76,7 +76,7 @@ export const GUILD_BLUEPRINTS: GuildBlueprint[] = [
     governance: 'Owner-led',
     members: 'Open join',
     channels: ['announcements', 'drops', 'supporters'],
-    tags: ['creator', 'community', 'social'],
+    topics: ['creator', 'community', 'social'],
   },
   {
     id: 'builder-room',
@@ -89,7 +89,7 @@ export const GUILD_BLUEPRINTS: GuildBlueprint[] = [
     governance: 'Collaborative',
     members: 'Request to join',
     channels: ['updates', 'tasks', 'resources'],
-    tags: ['builders', 'projects', 'work'],
+    topics: ['builders', 'projects', 'work'],
   },
   {
     id: 'review-circle',
@@ -102,7 +102,7 @@ export const GUILD_BLUEPRINTS: GuildBlueprint[] = [
     governance: 'Collaborative',
     members: 'Invite or proposal',
     channels: ['intake', 'reviews', 'decisions'],
-    tags: ['governance', 'curation', 'grants'],
+    topics: ['governance', 'curation', 'grants'],
   },
 ];
 
@@ -380,7 +380,7 @@ export function getGuildBlueprint(groupId: string): GuildBlueprint {
       governance: 'Owner-led',
       members: 'Request to join',
       channels: ['announcements', 'general', 'resources'],
-      tags: ['guild', 'onsocial'],
+      topics: ['guild', 'onsocial'],
     }
   );
 }

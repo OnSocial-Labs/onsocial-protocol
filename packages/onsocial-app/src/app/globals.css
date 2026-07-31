@@ -6701,6 +6701,16 @@ a.os-surface-row {
     --os-chrome-rail-z: 6;
     --os-chrome-rail-block: 2.16rem;
     --guild-feed-filter-sticky-block: var(--os-chrome-rail-block);
+    /*
+     * One body inset for every list / create screen — same 1rem as the
+     * header. Page roots consume --os-screen-body-inset; don't pad the
+     * scroller itself (immersive heroes need to bleed).
+     */
+    --os-screen-body-pad-x: 1rem;
+    --os-screen-body-pad-top: 0.15rem;
+    --os-screen-body-pad-bottom: 1.5rem;
+    --os-screen-body-inset: var(--os-screen-body-pad-top)
+      var(--os-screen-body-pad-x) var(--os-screen-body-pad-bottom);
     position: relative;
     height: 100dvh;
     max-height: 100dvh;
@@ -9716,7 +9726,8 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
-    padding: 0.35rem 1rem 1.25rem;
+    /* Denser vertical rhythm; same side inset as every other screen. */
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
   @keyframes standing-panel-body-in {
@@ -13046,14 +13057,18 @@ a.os-surface-row {
   }
 
   /*
-   * Shared OsAppScreen body inset — Home, Market, Guilds, threads.
-   * Discover/Standing use `.standing-panel` (list density) instead.
+   * Shared OsAppScreen body inset — one rule for every padded page root.
+   * Discover/Standing denser vertical uses the same --os-screen-body-pad-x.
    */
   .home-feed,
   .app-soon-page,
   .guilds-page,
+  .market-page,
+  .apps-directory,
+  .app-page,
+  .drop-create-form,
   .guild-create-form {
-    padding: 0 1rem 1.5rem;
+    padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
   }
 
   .home-feed,
@@ -13061,6 +13076,11 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+  }
+
+  .guilds-page {
+    display: flex;
+    flex-direction: column;
   }
 
   /* Same toolbar offset as Discover tab rail. */
@@ -16183,8 +16203,6 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 1.35rem;
-    /* Match guilds / endorsements — align with os-app-screen header inset. */
-    padding: 0.15rem 1rem 1.5rem;
   }
 
   .market-page-status,
@@ -16582,12 +16600,19 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 1.15rem;
-    /* Match Guild / Market OsAppScreen body inset. */
-    padding: 0.15rem 1rem 1.5rem;
   }
 
-  /* Create forms: plain label stacks — kill guild-field card chrome. */
-  .drop-create-form .guild-field {
+  .guild-create-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  /* Create / edit forms: plain label stacks — kill guild-field card chrome. */
+  .drop-create-form .guild-field,
+  .guild-create-form .guild-field,
+  .guild-edit-form .guild-field,
+  .hub-manage-form .guild-field {
     padding: 0;
     gap: 0.4rem;
     border: 0;
@@ -16595,8 +16620,12 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .drop-create-form .guild-field input,
-  .drop-create-form .guild-field textarea {
+  .drop-create-form .guild-field > input,
+  .drop-create-form .guild-field > textarea,
+  .guild-create-form .guild-field > input,
+  .guild-create-form .guild-field > textarea,
+  .hub-manage-form .guild-field > input,
+  .hub-manage-form .guild-field > textarea {
     border: 0;
     border-radius: 0.85rem;
     background: rgb(var(--fg-rgb) / 0.04);
@@ -16604,20 +16633,63 @@ a.os-surface-row {
     padding: 0.65rem 0.75rem;
   }
 
-  .drop-create-form .guild-field input:focus,
-  .drop-create-form .guild-field textarea:focus {
+  .drop-create-form .guild-field > input:focus,
+  .drop-create-form .guild-field > textarea:focus,
+  .guild-create-form .guild-field > input:focus,
+  .guild-create-form .guild-field > textarea:focus,
+  .hub-manage-form .guild-field > input:focus,
+  .hub-manage-form .guild-field > textarea:focus {
     border: 0;
     background: rgb(var(--fg-rgb) / 0.055);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
     outline: none;
   }
 
-  .drop-create-form .guild-field textarea {
+  .drop-create-form .guild-field > textarea,
+  .guild-create-form .guild-field > textarea,
+  .hub-manage-form .guild-field > textarea {
     min-height: 5rem;
   }
 
+  /* Id availability — lead word + tint on the same Permanent helper line. */
+  .drop-create-form .guild-field small.is-available,
+  .guild-create-form .guild-field small.is-available {
+    color: var(--protocol-green);
+    font-weight: 600;
+  }
+
+  .drop-create-form .guild-field small.is-taken,
+  .guild-create-form .guild-field small.is-taken {
+    color: var(--protocol-red);
+    font-weight: 600;
+  }
+
+  .drop-create-form .guild-field small.is-checking,
+  .guild-create-form .guild-field small.is-checking {
+    opacity: 0.48;
+  }
+
+  .drop-create-form .guild-field > input.is-available,
+  .drop-create-form .guild-field > input.is-available:focus,
+  .guild-create-form .guild-field > input.is-available,
+  .guild-create-form .guild-field > input.is-available:focus {
+    background: color-mix(in srgb, var(--protocol-green) 12%, transparent);
+    box-shadow: inset 0 1px 0
+      color-mix(in srgb, var(--protocol-green) 22%, transparent);
+  }
+
+  .drop-create-form .guild-field > input.is-taken,
+  .drop-create-form .guild-field > input.is-taken:focus,
+  .guild-create-form .guild-field > input.is-taken,
+  .guild-create-form .guild-field > input.is-taken:focus {
+    background: color-mix(in srgb, var(--protocol-red) 12%, transparent);
+    box-shadow: inset 0 1px 0
+      color-mix(in srgb, var(--protocol-red) 22%, transparent);
+  }
+
   /* One soft shell: value + unit (not a nested storage “amount card”). */
-  .drop-create-form .drop-create-suffix-field {
+  .drop-create-form .drop-create-suffix-field,
+  .hub-manage-form .drop-create-suffix-field {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -16627,12 +16699,14 @@ a.os-surface-row {
     padding: 0.65rem 0.75rem;
   }
 
-  .drop-create-form .drop-create-suffix-field:focus-within {
+  .drop-create-form .drop-create-suffix-field:focus-within,
+  .hub-manage-form .drop-create-suffix-field:focus-within {
     background: rgb(var(--fg-rgb) / 0.055);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
   }
 
-  .drop-create-form .drop-create-suffix-field input {
+  .drop-create-form .drop-create-suffix-field input,
+  .hub-manage-form .drop-create-suffix-field input {
     flex: 1;
     min-width: 0;
     border: 0;
@@ -16643,12 +16717,14 @@ a.os-surface-row {
     font-variant-numeric: tabular-nums;
   }
 
-  .drop-create-form .drop-create-suffix-field input:focus {
+  .drop-create-form .drop-create-suffix-field input:focus,
+  .hub-manage-form .drop-create-suffix-field input:focus {
     background: transparent;
     box-shadow: none;
   }
 
-  .drop-create-form .drop-create-suffix-field span {
+  .drop-create-form .drop-create-suffix-field span,
+  .hub-manage-form .drop-create-suffix-field span {
     flex-shrink: 0;
     font-size: 0.78rem;
     font-weight: 500;
@@ -16787,8 +16863,6 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
-    /* Match Market / Hubs OsAppScreen body inset. */
-    padding: 0.15rem 1rem 1.5rem;
   }
 
   .app-page-head {
@@ -16797,16 +16871,23 @@ a.os-surface-row {
     align-items: center;
   }
 
+  .app-page-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
   .app-page-logo {
-    width: 4.25rem;
-    height: 4.25rem;
+    width: 5rem;
+    height: 5rem;
     flex-shrink: 0;
-    border-radius: 1.1rem;
+    border-radius: 1.2rem;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     background: rgb(var(--fg-rgb) / 0.06);
+    box-shadow: 0 1px 0 rgb(var(--fg-rgb) / 0.04);
   }
 
   .app-page-logo img {
@@ -16882,19 +16963,265 @@ a.os-surface-row {
     gap: 0.5rem;
   }
 
-  .app-page-banner {
-    margin: -0.2rem 0 0;
-    border-radius: 0.9rem;
+  /* Edge-bleed hub cover — guild hero look inside the OS screen body. */
+  .app-hub-cover {
+    position: relative;
+    z-index: 0;
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
+    max-width: none;
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
+    height: clamp(6.75rem, 24vw, 9.25rem);
     overflow: hidden;
-    aspect-ratio: 3 / 1;
+    border-radius: 0;
     background: rgb(var(--fg-rgb) / 0.06);
   }
 
-  .app-page-banner img {
-    display: block;
+  .app-hub-cover img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  /* Logo overlaps the cover with a page-colored ring, guild-identity style. */
+  .app-page-head--overlap {
+    position: relative;
+    z-index: 1;
+    align-items: flex-end;
+    margin-top: -2.1rem;
+  }
+
+  .app-page-head--overlap .app-page-logo {
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 1.1rem;
+    background: rgb(var(--bg-rgb) / 1);
+    box-shadow: 0 0 0 0.2rem rgb(var(--bg-rgb) / 1);
+  }
+
+  .app-page-head--overlap .app-page-headings {
+    padding-bottom: 0.15rem;
+  }
+
+  .app-hub-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 1.75rem;
+  }
+
+  .app-hub-meta-dot {
+    color: var(--os-surface-muted);
+    font-size: 0.8rem;
+  }
+
+  .app-hub-meta-access {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--os-surface-muted-strong);
+  }
+
+  .app-hub-keep {
+    border-color: color-mix(in srgb, var(--protocol-green) 34%, transparent);
+    background: color-mix(in srgb, var(--protocol-green) 12%, transparent);
+    color: color-mix(
+      in srgb,
+      var(--protocol-green) 72%,
+      var(--os-surface-emphasis)
+    );
+  }
+
+  /* Creator-facing rollup strip — indexer stats. */
+  .app-hub-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin: 0.1rem 0 0;
+  }
+
+  .app-hub-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 0.9rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+    min-width: 0;
+  }
+
+  .app-hub-stat dt {
+    margin: 0;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--os-surface-muted);
+  }
+
+  .app-hub-stat dd {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--os-surface-emphasis);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-hub-stat-unit {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--os-surface-muted-strong);
+  }
+
+  .app-hub-cta-row {
+    display: flex;
+  }
+
+  .app-hub-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 1.15rem;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--protocol-purple);
+    color: white;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .app-hub-cta:hover,
+  .app-hub-cta:focus-visible {
+    filter: brightness(1.08);
+  }
+
+  /* Drops catalog — spotlight + list. */
+  .app-drop-catalog {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .app-drop-spotlight {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    border-radius: 1.1rem;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.03);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .app-drop-spotlight-media {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 16 / 9;
+    background: rgb(var(--fg-rgb) / 0.06);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--os-surface-muted-strong);
+  }
+
+  .app-drop-spotlight-media img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .app-drop-spotlight-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.75rem 0.9rem 0.85rem;
+  }
+
+  .app-drop-spotlight-title {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: var(--os-surface-emphasis);
+  }
+
+  .app-drop-spotlight-progress {
+    display: block;
+    height: 0.35rem;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    overflow: hidden;
+    margin: 0.15rem 0;
+  }
+
+  .app-drop-spotlight-progress-fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--protocol-green);
+  }
+
+  /* Creators drawer roster rows. */
+  .hub-people-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 0 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hub-people-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.15rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .hub-people-avatar {
+    flex-shrink: 0;
+  }
+
+  .hub-people-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .hub-people-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--os-surface-emphasis);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hub-people-handle {
+    font-size: 0.78rem;
+    color: var(--os-surface-muted-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hub-people-role {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    color: var(--os-surface-muted-strong);
   }
 
   .app-drop-list {
@@ -17027,17 +17354,113 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
-  /* ── App manage (owner) ─── */
+  /* ── Hub manage sheets ─── */
 
-  .app-manage {
+  .hub-manage-sheet-body {
+    padding: 0.35rem 1.15rem 1.35rem;
+  }
+
+  .hub-manage-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  .hub-manage-sheet-main.is-discard-confirm {
+    pointer-events: none;
+    opacity: 0.45;
+  }
+
+  .hub-manage-sheet-footer.is-discard-confirm {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
+      calc(0.35rem + env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
+  }
+
+  .hub-look-media {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
-    padding: 0.95rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.02);
   }
+
+  .hub-look-banner-host {
+    position: relative;
+    width: 100%;
+  }
+
+  .hub-look-banner-picker {
+    aspect-ratio: 3 / 1;
+  }
+
+  .hub-look-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .hub-look-logo-host {
+    flex-shrink: 0;
+    width: 5.25rem;
+    height: 5.25rem;
+  }
+
+  .hub-logo-picker {
+    width: 100%;
+    height: 100%;
+    border: 1px dashed rgb(var(--fg-rgb) / 0.2);
+    border-radius: 1.2rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+    overflow: hidden;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    color: inherit;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
+  .hub-logo-picker:hover:not(:disabled),
+  .hub-logo-picker:focus-visible {
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.7);
+    background: rgb(var(--fg-rgb) / 0.05);
+    outline: none;
+  }
+
+  .hub-logo-picker.has-media {
+    border-style: solid;
+  }
+
+  .hub-logo-picker img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .hub-logo-placeholder {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--os-surface-muted);
+  }
+
+  .hub-look-logo-hint,
+  .hub-manage-hint {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--os-surface-muted);
+  }
+
+  .hub-look-logo-hint {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ── App manage roster (people sheet) ─── */
 
   .app-manage-roster {
     display: flex;
@@ -17074,12 +17497,25 @@ a.os-surface-row {
   .app-roster-add textarea {
     flex: 1;
     min-width: 0;
+    border: 0;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    padding: 0.65rem 0.75rem;
+    font: inherit;
+    color: inherit;
+  }
+
+  .app-roster-add input:focus,
+  .app-roster-add textarea:focus {
+    outline: none;
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
   }
 
   .app-roster-add textarea {
     resize: vertical;
     min-height: 4rem;
-    font: inherit;
   }
 
   .app-roster-members {
@@ -17124,11 +17560,9 @@ a.os-surface-row {
   /* ── App directory ─── */
 
   .apps-directory {
-    /* Same OsAppScreen body inset as Market / Guilds / Home. */
     display: flex;
     flex-direction: column;
     gap: 1.35rem;
-    padding: 0.15rem 1rem 1.5rem;
   }
 
   .apps-directory.is-refreshing {
@@ -17626,12 +18060,6 @@ a.os-surface-row {
   }
 
   .guilds-page,
-  .guild-create-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
   .guilds-page:has(.guild-hero) {
     gap: 0.55rem;
   }
@@ -17731,8 +18159,8 @@ a.os-surface-row {
   /* Guild detail hero — portal-style solid banner + overlapping avatar. */
   .guild-hero {
     --guild-avatar-size: 4.5rem;
-    /* Page (1rem) + hero (0.1rem) — cover bleeds both so content stays put. */
-    --guild-hero-bleed: 1.1rem;
+    /* Page pad-x + hero 0.1rem — cover bleeds both so content stays put. */
+    --guild-hero-bleed: calc(var(--os-screen-body-pad-x, 1rem) + 0.1rem);
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
@@ -18296,11 +18724,7 @@ a.os-surface-row {
   }
 
   .guild-edit-sheet-body {
-    padding: 0 0.85rem 0.75rem;
-  }
-
-  .guild-edit-sheet-header {
-    padding-bottom: 0.35rem;
+    padding: 0;
   }
 
   .guild-edit-sheet-footer {
@@ -18314,109 +18738,70 @@ a.os-surface-row {
     flex-direction: column;
   }
 
-  .guild-edit-form.is-discard-confirm .guild-edit-hero {
+  .guild-edit-form.is-discard-confirm .guild-edit-form-main {
     pointer-events: none;
+  }
+
+  .guild-edit-form-main {
+    background: transparent;
   }
 
   .guild-edit-hero.is-dimmed {
     opacity: 0.45;
   }
 
-  /* Sheet hero: same language as guild profile, without page bleed. */
-  .guild-edit-hero.guild-hero {
-    --guild-hero-bleed: 0.85rem;
-    padding-bottom: 0.55rem;
+  /* Banner matches profile editor; fields sit below with sheet pad. */
+  .guild-edit-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0.15rem 0.85rem 1rem;
   }
 
-  .guild-edit-hero > .guild-hero-cover {
-    height: clamp(7rem, 22vw, 9.5rem);
-    border-radius: 0.85rem;
+  .guild-edit-fields > .guild-edit-name {
+    margin-top: 0.55rem;
   }
 
-  .guild-edit-hero > .guild-hero-cover::after {
-    border-radius: 0.85rem 0.85rem 0 0;
-    height: 3.25rem;
+  .guild-edit-fields > .guild-edit-meta {
+    margin-top: 0.2rem;
   }
 
-  .guild-edit-cover {
-    position: relative;
+  .guild-edit-fields > .guild-edit-description {
+    margin-top: 0.35rem;
   }
 
-  .guild-edit-cover-hit {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
+  .guild-edit-fields > .guild-edit-limits {
+    margin-top: 0.15rem;
+  }
+
+  .guild-edit-fields > .guild-edit-tags,
+  .guild-edit-fields > .guild-edit-access {
+    margin-top: 0.95rem;
+  }
+
+  .guild-edit-hero
+    .account-editor-banner-button.guild-hero-cover--fallback
+    .account-editor-banner-empty {
     background: transparent;
-    cursor: pointer;
   }
 
-  .guild-edit-cover-hit img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .guild-edit-cover-hint {
-    position: absolute;
-    right: 0.65rem;
-    bottom: 0.55rem;
-    z-index: 2;
-    margin: 0;
-    padding: 0.22rem 0.45rem;
-    border-radius: 9999px;
-    background: rgb(0 0 0 / 0.42);
-    color: rgb(255 255 255 / 0.88);
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    pointer-events: none;
-  }
-
-  .guild-edit-avatar {
-    position: relative;
-    /* Rim chips need overflow:visible; shell owns the opaque ring. */
-    box-sizing: border-box;
-    border: 0;
-    box-shadow: none;
-  }
-
-  .guild-edit-avatar.profile-editor-media-host--avatar {
-    border-radius: var(--guild-avatar-radius, 1.15rem);
-    overflow: visible;
-  }
-
-  .guild-edit-avatar-hit.profile-editor-media-backdrop,
-  .guild-edit-avatar-hit {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    display: block;
-    width: auto;
-    height: auto;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-    border-radius: inherit;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-  }
-
-  .guild-edit-avatar-hit > span:not(.profile-editor-media-overlay) {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
+  .guild-edit-hero .account-editor-banner-button.guild-hero-cover--fallback {
+    background:
+      radial-gradient(
+        circle at var(--guild-fallback-spot-x) var(--guild-fallback-spot-y),
+        color-mix(in srgb, var(--guild-fallback-accent) 28%, transparent),
+        transparent 62%
+      ),
+      linear-gradient(
+        180deg,
+        rgb(var(--fg-rgb) / 0.07),
+        rgb(var(--fg-rgb) / 0.03)
+      );
   }
 
   .guild-edit-name {
     width: 100%;
-    margin: 0.65rem 0 0;
+    margin: 0;
     padding: 0;
     border: 0;
     background: transparent;
@@ -18449,7 +18834,7 @@ a.os-surface-row {
 
   .guild-edit-description {
     width: 100%;
-    margin: 0.1rem 0 0;
+    margin: 0;
     padding: 0;
     border: 0;
     background: transparent;
@@ -18468,15 +18853,11 @@ a.os-surface-row {
   }
 
   .guild-edit-limits {
-    margin: 0.15rem 0 0;
+    margin: 0;
     font-size: 0.62rem;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
     color: rgb(var(--fg-rgb) / 0.32);
-  }
-
-  .guild-edit-tags {
-    margin-top: 0.15rem;
   }
 
   .guild-edit-tags .guild-tags-editor {
@@ -18491,9 +18872,8 @@ a.os-surface-row {
     text-align: left;
   }
 
-  .guild-edit-access-toggle {
-    width: 100%;
-    margin-top: 0.55rem;
+  .guild-edit-access .app-storage-presets {
+    justify-content: flex-start;
   }
 
   .guild-rooms-sheet-body {
@@ -21273,7 +21653,7 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .hub-topics-editor .app-storage-presets {
+  .hub-categories-editor .app-storage-presets {
     justify-content: center;
     width: 100%;
   }
@@ -21282,28 +21662,140 @@ a.os-surface-row {
     margin: 0;
     cursor: text;
     justify-content: center;
+    gap: 0.35rem;
   }
 
   .guild-tags-editor-list.is-full {
     cursor: default;
   }
 
-  .guild-tags-editor .guild-tags-editor-tag--primary,
-  .guild-field .guild-tags-editor .guild-tags-editor-tag--primary {
+  /*
+   * Selected topics — soft token chip (same shell as os-surface-chip).
+   * Green selected state stays on the suggestion row only, so the same
+   * topic isn’t highlighted twice. Fixed height so Primary doesn’t
+   * inflate the first chip past later ones.
+   */
+  .guild-tags-editor .account-editor-tag.portfolio-tag,
+  .guild-field .guild-tags-editor .account-editor-tag.portfolio-tag {
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--os-surface-fill-strong);
+    color: var(--os-surface-muted);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    min-height: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.28rem 0 0.55rem;
     gap: 0.28rem;
   }
 
+  .guild-tags-editor .account-editor-tag-remove,
+  .guild-field .guild-tags-editor .account-editor-tag-remove {
+    width: 0.9rem;
+    height: 0.9rem;
+    color: rgb(var(--fg-rgb) / 0.35);
+  }
+
+  .guild-tags-editor .account-editor-tag-remove:hover,
+  .guild-field .guild-tags-editor .account-editor-tag-remove:hover {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .guild-tags-editor .account-editor-tag-remove-icon,
+  .guild-field .guild-tags-editor .account-editor-tag-remove-icon {
+    width: 0.62rem;
+    height: 0.62rem;
+  }
+
+  /*
+   * Primary mark — same type size as the topic label, quieter weight.
+   * Keeps first + later chips on one scale (no oversized uppercase).
+   */
   .guild-tags-editor .guild-tags-editor-primary-label,
   .guild-field .guild-tags-editor .guild-tags-editor-primary-label {
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.5);
-    font-size: 0.56rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.36);
+    font-size: inherit;
+    font-weight: 600;
+    letter-spacing: inherit;
+    line-height: inherit;
+    padding: 0;
+    text-transform: none;
+  }
+
+  /* Draft add field — mini name-field shell, chip-height (visible fill). */
+  .guild-tags-editor-draft {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 1.55rem;
+    height: 1.55rem;
+    list-style: none;
+    margin: 0;
+    padding: 0 0.65rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: var(--os-surface-fill-strong);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .guild-tags-editor-draft:focus-within {
+    background: rgb(var(--fg-rgb) / 0.1);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .drop-create-form .guild-tags-editor-draft,
+  .guild-create-form .guild-tags-editor-draft,
+  .guild-field .guild-tags-editor-draft {
+    background: var(--os-surface-fill-strong);
+  }
+
+  .drop-create-form .guild-tags-editor-draft:focus-within,
+  .guild-create-form .guild-tags-editor-draft:focus-within,
+  .guild-field .guild-tags-editor-draft:focus-within {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .guild-tags-editor .guild-tags-editor-draft .account-editor-tags-input,
+  .guild-field
+    .guild-tags-editor
+    .guild-tags-editor-draft
+    .account-editor-tags-input {
+    width: auto;
+    min-width: 5.25rem;
+    max-width: 100%;
+    height: 100%;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    color: rgb(var(--fg-rgb) / 0.78);
+    font: inherit;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     line-height: 1;
-    padding: 0.18rem 0.32rem;
-    text-transform: uppercase;
+    text-align: start;
+  }
+
+  .guild-tags-editor
+    .guild-tags-editor-draft
+    .account-editor-tags-input::placeholder,
+  .guild-field
+    .guild-tags-editor
+    .guild-tags-editor-draft
+    .account-editor-tags-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    opacity: 1;
   }
 
   .guild-tags-editor-meta {
@@ -21394,7 +21886,7 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
-    padding: 0.15rem 1rem 1.35rem;
+    padding: 0.15rem var(--os-screen-body-pad-x, 1rem) 1.35rem;
   }
 
   .endorsements-panel-toolbar {

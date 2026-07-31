@@ -168,7 +168,8 @@ export interface GroupConfigV1 {
   avatar?: MediaRef;
   isPrivate: boolean;
   memberDriven?: boolean;
-  tags?: string[];
+  /** Guild topics — primary first; max 2 in app. */
+  topics?: string[];
   x?: Record<string, Record<string, unknown>>;
 }
 
@@ -535,10 +536,10 @@ export function validateGroupConfigV1(g: unknown): string | null {
     return 'group.memberDriven must be boolean';
   }
   if (
-    g.tags !== undefined &&
-    (!Array.isArray(g.tags) || !g.tags.every(isStr))
+    g.topics !== undefined &&
+    (!Array.isArray(g.topics) || !g.topics.every(isStr))
   ) {
-    return 'group.tags must be string[]';
+    return 'group.topics must be string[]';
   }
   return validateExtensions(g.x);
 }
