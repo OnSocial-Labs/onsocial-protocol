@@ -45,6 +45,7 @@ export {
   TimeFillIcon,
   ShopFillIcon,
   StarMovingFillIcon,
+  StarsCFillIcon,
   UsersFillIcon,
   HomeFillIcon,
   SearchFillIcon,

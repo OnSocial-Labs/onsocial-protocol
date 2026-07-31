@@ -21,6 +21,7 @@ import {
   OsSheetActions,
   OsSheetPrimaryAction,
 } from '@/components/ui/os-sheet-primary-action';
+import { NearAccountField } from '@/components/ui/near-account-field';
 import { OsNoticeCard } from '@/components/ui/os-notice-card';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -38,8 +39,17 @@ import {
 import { hubCategoriesMetadataFields } from '@/features/scarces/hub-categories';
 import { HubCategoriesEditor } from '@/features/scarces/hub-categories-editor';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import {
+  nearAccountStatusClass,
+  useNearAccountStatus,
+} from '@/hooks/use-near-account-status';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
+import {
+  nearAccountPlaceholder,
+  normalizeNearAccountId,
+} from '@/lib/app-near-account';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { topicsEqual } from '@/lib/topic-slug';
@@ -87,6 +97,8 @@ function HubManageSheetChrome({
   footer,
   pending = false,
   dirty = false,
+  /** Short sheets (Transfer) hug content — tall forms stay full-height. */
+  contentHug = false,
 }: {
   open: boolean;
   title: string;
@@ -96,6 +108,7 @@ function HubManageSheetChrome({
   footer?: ReactNode;
   pending?: boolean;
   dirty?: boolean;
+  contentHug?: boolean;
 }) {
   const titleId = useId();
   const discardTitleId = useId();
@@ -153,11 +166,14 @@ function HubManageSheetChrome({
       onClosed={handleClosed}
       tone="os"
       initialDetent="full"
+      peekRatio={contentHug ? 1 : undefined}
       zIndex={58}
       presentation="swap"
       ariaLabelledBy={titleId}
       backdropLabel={`Close ${title}`}
-      panelClassName="hub-manage-sheet-panel"
+      panelClassName={`hub-manage-sheet-panel${
+        contentHug ? ' hub-manage-sheet-panel--hug' : ''
+      }`}
       bodyClassName="hub-manage-sheet-body"
       header={
         <>
@@ -182,53 +198,57 @@ function HubManageSheetChrome({
         </>
       }
       footer={
-        discardConfirmOpen ? (
+        footer || discardConfirmOpen ? (
           <div
-            className="hub-manage-sheet-footer is-discard-confirm"
-            role="alertdialog"
-            aria-modal
-            aria-labelledby={discardTitleId}
-            aria-describedby={discardBodyId}
+            className={`hub-manage-sheet-footer${
+              discardConfirmOpen ? ' is-discard-confirm' : ''
+            }`}
+            role={discardConfirmOpen ? 'alertdialog' : undefined}
+            aria-modal={discardConfirmOpen || undefined}
+            aria-labelledby={discardConfirmOpen ? discardTitleId : undefined}
+            aria-describedby={discardConfirmOpen ? discardBodyId : undefined}
           >
-            <OsNoticeCard
-              className="hub-manage-discard-card"
-              align="center"
-              shell
-              title="Discard changes?"
-              titleId={discardTitleId}
-              body="Edits won’t be saved."
-              bodyId={discardBodyId}
-              footer={
-                <div className="os-commit-actions">
-                  <button
-                    type="button"
-                    className="os-commit-cancel is-danger"
-                    onClick={handleDiscard}
-                  >
-                    Discard
-                  </button>
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                  >
-                    <OsSheetAction
-                      ref={keepEditingRef}
+            {discardConfirmOpen ? (
+              <OsNoticeCard
+                className="hub-manage-discard-card"
+                align="center"
+                shell
+                title="Discard changes?"
+                titleId={discardTitleId}
+                body="Edits won’t be saved."
+                bodyId={discardBodyId}
+                footer={
+                  <div className="os-commit-actions">
+                    <button
                       type="button"
-                      variant="primary"
-                      ready
-                      onClick={handleKeepEditing}
+                      className="os-commit-cancel is-danger"
+                      onClick={handleDiscard}
                     >
-                      Keep editing
-                    </OsSheetAction>
-                  </OsSheetActions>
-                </div>
-              }
-            />
+                      Discard
+                    </button>
+                    <OsSheetActions
+                      layout="row-compact"
+                      tone="frosted-primary"
+                      borderless
+                    >
+                      <OsSheetAction
+                        ref={keepEditingRef}
+                        type="button"
+                        variant="primary"
+                        ready
+                        onClick={handleKeepEditing}
+                      >
+                        Keep editing
+                      </OsSheetAction>
+                    </OsSheetActions>
+                  </div>
+                }
+              />
+            ) : (
+              footer
+            )}
           </div>
-        ) : (
-          footer
-        )
+        ) : null
       }
     >
       <div
@@ -950,15 +970,28 @@ export function HubTransferSheet({
     setError(null);
   }, [open, app.appId]);
 
+  const normalizedTo = normalizeNearAccountId(transferTo);
+  const isSelf = accountIdsEqual(normalizedTo, app.ownerId);
+  const accountStatus = useNearAccountStatus(transferTo);
+  const recipientProfiles = usePostAuthorProfiles(
+    accountStatus === 'found' && !isSelf ? [normalizedTo] : []
+  );
+  const recipientProfile = recipientProfiles[normalizedTo];
+  const recipientLabel =
+    recipientProfile?.displayName?.trim() || fallbackLabel(normalizedTo);
+  const statusClass = isSelf
+    ? 'is-taken'
+    : nearAccountStatusClass(accountStatus);
   const dirty = transferTo.trim().length > 0;
+  const canTransfer =
+    dirty &&
+    !pending &&
+    !isSelf &&
+    accountStatus === 'found';
 
   const transfer = async () => {
-    const nextOwner = transferTo.trim().toLowerCase();
-    if (!nextOwner || pending) return;
-    if (accountIdsEqual(nextOwner, app.ownerId)) {
-      setError('That account already owns this hub.');
-      return;
-    }
+    const nextOwner = normalizedTo;
+    if (!canTransfer || !nextOwner) return;
     setPending(true);
     setError(null);
     try {
@@ -997,18 +1030,19 @@ export function HubTransferSheet({
       subtitle="Hand ownership to another account"
       onClose={onClose}
       pending={pending}
+      contentHug
       footer={
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetActions layout="stack" borderless>
           <OsSheetAction
             type="button"
             variant="danger"
-            ready={dirty && !pending}
+            ready={canTransfer}
             pending={pending}
             pendingLabel="Transferring…"
-            disabled={!dirty || pending}
+            disabled={!canTransfer}
             onClick={() => void transfer()}
           >
-            Transfer hub
+            {canTransfer ? `Transfer to ${recipientLabel}` : 'Transfer hub'}
           </OsSheetAction>
         </OsSheetActions>
       }
@@ -1017,21 +1051,32 @@ export function HubTransferSheet({
         className="hub-manage-form"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!canTransfer) return;
           void transfer();
         }}
       >
         <label className="guild-field" htmlFor="hub-transfer-owner">
           <span>New owner</span>
-          <input
+          <NearAccountField
             id="hub-transfer-owner"
-            type="text"
-            autoComplete="off"
             value={transferTo}
             disabled={pending}
-            placeholder="account.near"
-            onChange={(event) => setTransferTo(event.target.value)}
+            placeholder={nearAccountPlaceholder()}
+            status={accountStatus}
+            statusClass={statusClass}
+            aria-invalid={
+              accountStatus === 'missing' ||
+              accountStatus === 'invalid' ||
+              isSelf
+            }
+            onValueChange={(next) => {
+              setError(null);
+              setTransferTo(next);
+            }}
           />
-          <small>Permanent. You become a regular account on this hub.</small>
+          <small className="hub-manage-hint is-danger">
+            Permanent — you lose owner controls immediately.
+          </small>
         </label>
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>

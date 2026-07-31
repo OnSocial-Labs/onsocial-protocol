@@ -25,36 +25,52 @@ export function StoreCatalogTabs({
   tab,
   onTabChange,
   dropCount,
+  pinned = false,
+  scrollHidden = false,
 }: {
   tab: StoreCatalogTab;
   onTabChange: (tab: StoreCatalogTab) => void;
   dropCount: number | null;
+  /** Stick under the elevated immersive header (guild room-rail chrome). */
+  pinned?: boolean;
+  /** Tuck away on scroll down while pinned. */
+  scrollHidden?: boolean;
 }) {
   return (
-    <div
-      className="discover-tab-bar market-listing-filters"
-      role="tablist"
-      aria-label="Store catalog"
-    >
-      <div className="discover-tab-bar-scroller">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'drops'}
-          className={tab === 'drops' ? 'is-active' : undefined}
-          onClick={() => onTabChange('drops')}
+    <div className={`guild-feed-filter-pin${pinned ? ' is-pinned' : ''}`}>
+      <div
+        className={`guild-feed-filter-pin-inner${
+          pinned && scrollHidden ? ' is-scroll-hidden' : ''
+        }`}
+      >
+        <div
+          className="discover-tab-bar market-listing-filters app-hub-catalog-tabs"
+          role="tablist"
+          aria-label="Store catalog"
         >
-          Drops{dropCount != null ? ` · ${dropCount}` : ''}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'resale'}
-          className={tab === 'resale' ? 'is-active' : undefined}
-          onClick={() => onTabChange('resale')}
-        >
-          Resale
-        </button>
+          <div className="discover-tab-bar-scroller">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'drops'}
+              className={tab === 'drops' ? 'is-active' : undefined}
+              onClick={() => onTabChange('drops')}
+            >
+              {/* Count only once there is something to count — the empty
+                  state already says the shelf is empty. */}
+              Drops{dropCount ? ` · ${dropCount}` : ''}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'resale'}
+              className={tab === 'resale' ? 'is-active' : undefined}
+              onClick={() => onTabChange('resale')}
+            >
+              Resale
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -185,7 +201,7 @@ export function StoreDropsList({
     );
   }
   if (drops.length === 0) {
-    // No duplicate button here — the hero already carries the create CTA.
+    // No button here — creators start drops from the dock's stars action.
     return (
       <div className="standing-panel-empty-block is-centered">
         <div className="standing-panel-empty-state">
@@ -200,7 +216,7 @@ export function StoreDropsList({
             </p>
           ) : canCreate ? (
             <p className="standing-panel-empty-secondary">
-              Start your first drop to open the storefront.
+              Tap the stars below to start your first drop.
             </p>
           ) : null}
         </div>

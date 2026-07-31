@@ -22,6 +22,7 @@ export function GuildFacepile({
   memberIds,
   profiles,
   memberCount,
+  countUnit = { one: 'member', other: 'members' },
   loading = false,
   slots = GUILD_FACEPILE_SLOTS,
   showCount = true,
@@ -33,6 +34,8 @@ export function GuildFacepile({
   memberIds: string[];
   profiles: Record<string, PostAuthorProfile>;
   memberCount?: number | null;
+  /** Singular / plural for the count label — hubs pass creator(s). */
+  countUnit?: { one: string; other: string };
   loading?: boolean;
   slots?: number;
   showCount?: boolean;
@@ -44,15 +47,17 @@ export function GuildFacepile({
   const countLabel =
     memberCount == null
       ? null
-      : `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`;
+      : `${memberCount} ${
+          memberCount === 1 ? countUnit.one : countUnit.other
+        }`;
 
   const resolvedAria =
     ariaLabel ??
     (loading
-      ? 'Loading members'
+      ? `Loading ${countUnit.other}`
       : countLabel
         ? `${countLabel}. View roster.`
-        : 'View members');
+        : `View ${countUnit.other}`);
 
   const body = (
     <>

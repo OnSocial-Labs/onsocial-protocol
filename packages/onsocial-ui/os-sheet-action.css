@@ -274,7 +274,19 @@
   transform: scale(0.985);
 }
 
+/*
+ * Danger stays muted until `.is-ready` (host sets ready={canTransfer}).
+ * Do not arm on :not(:disabled) alone — that raced frosted footer styles.
+ */
 .os-sheet-action--danger {
+  border-color: rgb(var(--fg-rgb) / 0.1);
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.26);
+  cursor: default;
+}
+
+.os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
   border-color: color-mix(
     in srgb,
     var(--protocol-red) 24%,
@@ -282,9 +294,10 @@
   );
   background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
   color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
+  cursor: pointer;
 }
 
-.os-sheet-action--danger:hover {
+.os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded):hover {
   border-color: color-mix(in srgb, var(--protocol-red) 42%, transparent);
   background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
   color: var(--protocol-red);
@@ -294,13 +307,23 @@
     color-mix(in srgb, var(--protocol-red) 10%, transparent);
 }
 
-.os-sheet-action--danger:focus-visible {
+.os-sheet-action--danger.is-ready:not(:disabled):focus-visible {
   box-shadow: 0 0 0 2px
     color-mix(in srgb, var(--protocol-red, #f87171) 35%, transparent);
 }
 
-.os-sheet-action--danger:active {
+.os-sheet-action--danger.is-ready:not(:disabled):active {
   transform: scale(0.985);
+}
+
+.os-sheet-action--danger:disabled:not(.is-pending):not(.is-succeeded),
+.os-sheet-action--danger:not(.is-ready):not(.is-pending):not(.is-succeeded) {
+  opacity: 1;
+  border-color: rgb(var(--fg-rgb) / 0.1);
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.26);
+  box-shadow: none;
+  cursor: default;
 }
 
 .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
@@ -480,8 +503,12 @@
     0 6px 14px -4px var(--os-action-shadow);
 }
 
-.os-sheet-actions--frosted-primary .os-sheet-action--danger,
-.os-sheet-actions--frosted-primary .os-sheet-action--danger:hover {
+.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger.is-ready:not(:disabled),
+.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger.is-ready:not(:disabled):hover,
+.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
   backdrop-filter: blur(10px) saturate(140%);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
 }
@@ -520,7 +547,7 @@
     .is-dirty,
     .is-pending,
     .is-succeeded,
-    .os-sheet-action--danger,
+    .os-sheet-action--danger.is-ready,
     .os-sheet-action--primary,
     .os-sheet-action--ghost
   ),
@@ -537,9 +564,11 @@
     .is-succeeded
   ):hover,
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger,
+  .os-sheet-action--danger.is-ready,
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger:hover {
+  .os-sheet-action--danger.is-ready:hover,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger.is-pending {
   border: 0;
   border-width: 0;
   border-color: transparent;
@@ -553,20 +582,34 @@
   box-shadow: none;
 }
 
-.os-sheet-actions.os-sheet-actions--borderless .os-sheet-action--danger,
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--danger:not(.is-ready):not(.is-pending),
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger {
+  .os-sheet-action--danger:not(.is-ready):not(.is-pending) {
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.26);
+}
+
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--danger.is-pending:disabled:not(.is-succeeded) {
   background: color-mix(in srgb, var(--protocol-red) 5%, transparent);
   color: color-mix(in srgb, var(--protocol-red) 78%, rgb(var(--fg-rgb) / 0.52));
 }
 
-.os-sheet-actions.os-sheet-actions--borderless .os-sheet-action--danger:hover,
 .os-sheet-actions.os-sheet-actions--borderless
-  .os-sheet-action--danger:focus-visible,
+  .os-sheet-action--danger.is-ready:not(:disabled):hover,
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--danger.is-ready:not(:disabled):focus-visible,
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger:hover,
+  .os-sheet-action--danger.is-ready:not(:disabled):hover,
 .os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
-  .os-sheet-action--danger:focus-visible {
+  .os-sheet-action--danger.is-ready:not(:disabled):focus-visible {
   background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
   color: var(--protocol-red);
   backdrop-filter: blur(10px) saturate(140%);

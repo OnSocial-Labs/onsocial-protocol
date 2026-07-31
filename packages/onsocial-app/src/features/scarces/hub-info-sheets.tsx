@@ -317,6 +317,7 @@ export function HubCreatorsSheet({
       initialDetent="full"
       peekRatio={1}
       zIndex={57}
+      presentation="swap"
       ariaLabelledBy={titleId}
       backdropLabel="Close creators"
       panelClassName="guild-facts-sheet-panel"

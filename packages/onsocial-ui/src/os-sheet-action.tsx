@@ -79,15 +79,20 @@ export function OsSheetAction({
       className={cn(
         osSheetActionClassName,
         `os-sheet-action--${variant}`,
-        isPrimary && isReady && !succeeded && !failed && !pending && 'is-ready',
+        (isPrimary || variant === 'danger') &&
+          isReady &&
+          !succeeded &&
+          !failed &&
+          !pending &&
+          'is-ready',
         succeeded && 'is-succeeded',
         failed && !succeeded && 'is-failed',
         pending && 'is-pending',
         className
       )}
-      disabled={disabled || pending || succeeded}
       aria-busy={pending || undefined}
       {...props}
+      disabled={disabled || pending || succeeded}
     >
       <span className="os-sheet-action__shell">
         <span

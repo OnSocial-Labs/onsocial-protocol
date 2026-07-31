@@ -11,6 +11,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import {
   PenFillIcon,
+  StarsCFillIcon,
   OnSocialMark,
   glassSheetBackdropFilterStyle,
   osLauncherBackdropClassName,
@@ -166,7 +167,7 @@ export function SummonLauncher({
     [onOpenChange, openProp]
   );
 
-  const composeAction = useComposeLauncher();
+  const compose = useComposeLauncher();
   const dockHidden = useDockAutoHide() && !open;
   const sheetRef = useRef<HTMLElement>(null);
   const dragStateRef = useRef<{ startY: number; baseY: number } | null>(null);
@@ -289,17 +290,28 @@ export function SummonLauncher({
               </button>
             }
             action={
-              composeAction ? (
+              compose ? (
                 <button
                   type="button"
-                  className="portfolio-summon-compose"
-                  onClick={composeAction}
-                  aria-label="Compose a post"
+                  className={`portfolio-summon-compose${
+                    compose.kind === 'drop' ? ' is-drop' : ''
+                  }`}
+                  onClick={compose.action}
+                  aria-label={
+                    compose.kind === 'drop' ? 'Start a drop' : 'Compose a post'
+                  }
                 >
-                  <PenFillIcon
-                    className="portfolio-summon-compose-icon"
-                    aria-hidden
-                  />
+                  {compose.kind === 'drop' ? (
+                    <StarsCFillIcon
+                      className="portfolio-summon-compose-icon"
+                      aria-hidden
+                    />
+                  ) : (
+                    <PenFillIcon
+                      className="portfolio-summon-compose-icon"
+                      aria-hidden
+                    />
+                  )}
                 </button>
               ) : undefined
             }

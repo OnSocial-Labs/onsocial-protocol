@@ -8,14 +8,15 @@ import {
   useState,
 } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   InformationCircleFillIcon,
-  PlusIcon,
   SettingsIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import {
   appVolumeNearLabel,
   canCreateInApp,
@@ -29,6 +30,7 @@ import {
   type AppStatsView,
   type AppView,
 } from '@/features/scarces/apps-data';
+import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { guildCoverStyle } from '@/features/guilds/guild-visual';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
@@ -55,6 +57,7 @@ import {
   type StoreCatalogTab,
 } from '@/features/scarces/store-catalog';
 import { StorePublishRequestSection } from '@/features/scarces/store-publish-request-section';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   APP_APPS_PATH,
@@ -82,6 +85,7 @@ export function AppPagePanel({
   appId: string;
   initial: AppView | null;
 }) {
+  const router = useRouter();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const [app, setApp] = useState<AppView | null>(initial);
   const [notFound, setNotFound] = useState(false);
@@ -98,8 +102,16 @@ export function AppPagePanel({
     null
   );
   const settingsNextRef = useRef<HubManageSheetId | null>(null);
+  const creatorsNextRef = useRef(false);
+  const [headerElevated, setHeaderElevated] = useState(false);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const dropsKey = `${appId}:${refreshKey}`;
   const dropsLoading = dropsLoadedKey !== dropsKey;
+  const hasApp = app != null;
+  // Auto-hide only while the tab rail is stuck under the elevated chrome —
+  // stay visible at the top of the page (same path as the bottom dock).
+  const catalogTabsHidden = useDockAutoHide(!headerElevated);
 
   // Indexer paints the hero first when the server had nothing cached.
   useEffect(() => {
@@ -192,6 +204,73 @@ export function AppPagePanel({
     };
   }, [appId, dropsKey]);
 
+  // Title handoff: elevate the immersive nav once the hero name scrolls
+  // under it — same recipe as the guild page, minus the room-filter rail.
+  useEffect(() => {
+    const scrollRoot = scrollRootRef.current;
+    if (!scrollRoot || !hasApp) return;
+
+    const heroTitle = heroTitleRef.current;
+    const header = scrollRoot.parentElement?.querySelector(
+      '.os-app-screen-header'
+    );
+    const screen = scrollRoot.closest<HTMLElement>('.os-app-screen') ?? null;
+    const railPin = scrollRoot.querySelector('.guild-feed-filter-pin');
+
+    const syncElevated = () => {
+      const scrolled = scrollRoot.scrollTop > 8;
+      if (!heroTitle) {
+        setHeaderElevated(scrollRoot.scrollTop > 18);
+        return;
+      }
+      const headerBottom =
+        header?.getBoundingClientRect().bottom ??
+        scrollRoot.getBoundingClientRect().top + 72;
+      const heroRect = heroTitle.getBoundingClientRect();
+      const titleTop = heroRect.top;
+
+      // Guard: before first layout (height 0), leave handoff at 0 so the
+      // hero name stays visible on first paint.
+      if (heroRect.height > 0) {
+        const fadeZone = 28;
+        const distance = titleTop - headerBottom;
+        const t = Math.max(0, Math.min(1, 1 - distance / fadeZone));
+        screen?.style.setProperty('--title-handoff', String(t));
+      }
+
+      // Rail reveal: the chrome glass starts at nav height and grows down to
+      // meet the catalog tabs over their final approach, docking flush.
+      if (railPin) {
+        const pinRect = railPin.getBoundingClientRect();
+        if (pinRect.height > 0) {
+          const approach = pinRect.height;
+          const p = Math.max(
+            0,
+            Math.min(1, (headerBottom + approach - pinRect.top) / approach)
+          );
+          screen?.style.setProperty('--os-rail-reveal', String(p));
+        }
+      }
+
+      setHeaderElevated((current) => {
+        if (current) {
+          return scrolled && titleTop < headerBottom + 2;
+        }
+        return scrolled && titleTop < headerBottom - 4;
+      });
+    };
+
+    syncElevated();
+    scrollRoot.addEventListener('scroll', syncElevated, { passive: true });
+    window.addEventListener('resize', syncElevated, { passive: true });
+    return () => {
+      scrollRoot.removeEventListener('scroll', syncElevated);
+      window.removeEventListener('resize', syncElevated);
+      screen?.style.removeProperty('--title-handoff');
+      screen?.style.removeProperty('--os-rail-reveal');
+    };
+  }, [hasApp]);
+
   const owner = useMemo(
     () => (app ? isAppOwner(app, viewerAccountId ?? null) : false),
     [app, viewerAccountId]
@@ -230,6 +309,14 @@ export function AppPagePanel({
 
   const onManaged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  // Drop creation lives on the dock — purple stars where the pen sits for
+  // posts. The button only shows while a creator is on this hub.
+  const createHref = `${APP_DROP_CREATE_PATH}?${MARKET_APP_PARAM}=${encodeURIComponent(appId)}`;
+  const openDropCreate = useCallback(() => {
+    router.push(createHref);
+  }, [createHref, router]);
+  useRegisterComposeAction(canCreate ? openDropCreate : null, 'drop');
+
   const scrollToPublish = useCallback(() => {
     document
       .getElementById(PUBLISH_SECTION_ID)
@@ -256,7 +343,7 @@ export function AppPagePanel({
 
   if (!app) {
     return (
-      <OsAppScreen title="Hub" backFallbackHref={APP_APPS_PATH}>
+      <OsAppScreen title="Hub" backFallbackHref={APP_APPS_PATH} immersiveHeader>
         <div className="app-page" aria-busy="true">
           <div className="app-hub-cover guild-hero-cover--fallback" />
           <p className="sr-only">Loading hub…</p>
@@ -265,14 +352,10 @@ export function AppPagePanel({
     );
   }
 
-  const createHref = `${APP_DROP_CREATE_PATH}?${MARKET_APP_PARAM}=${encodeURIComponent(app.appId)}`;
   const canRequestPublish =
     isConnected && !canCreate && app.creatorAccess === 'approval';
   const canReviewRequests = authority && app.creatorAccess === 'approval';
   const creatorCount = rosterIds.length;
-  const categoryLine = app.categories
-    .map((category) => hubCategoryLabel(category) ?? category)
-    .join(' · ');
   const hasActivity =
     stats != null &&
     (stats.dropsTotal > 0 ||
@@ -285,40 +368,34 @@ export function AppPagePanel({
       title={app.title}
       backFallbackHref={APP_APPS_PATH}
       actions={
-        canCreate || showSettingsGear ? (
-          <>
-            {canCreate ? (
-              <Link
-                href={createHref}
-                className={osIconActionClassName}
-                aria-label="Create a drop in this hub"
-              >
-                <PlusIcon aria-hidden />
-              </Link>
-            ) : null}
-            {showSettingsGear ? (
-              <button
-                type="button"
-                className={osIconActionClassName}
-                aria-label="Hub settings"
-                onClick={() => {
-                  if (owner) {
-                    setSettingsOpen(true);
-                    return;
-                  }
-                  setManageSheet('people');
-                }}
-              >
-                <SettingsIcon
-                  className="glass-sheet-close-icon"
-                  aria-hidden
-                />
-              </button>
-            ) : null}
-          </>
+        showSettingsGear ? (
+          <button
+            type="button"
+            className={osIconActionClassName}
+            aria-label="Hub settings"
+            onClick={() => {
+              if (owner) {
+                setSettingsOpen(true);
+                return;
+              }
+              setManageSheet('people');
+            }}
+          >
+            <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
+          </button>
         ) : undefined
       }
+      immersiveHeader
+      headerElevated={headerElevated}
+      scrollRootRef={scrollRootRef}
     >
+      {/* Viewport-anchored chrome glass — nav + catalog rail frost as one pane. */}
+      <div
+        aria-hidden
+        className={`os-chrome-glass${headerElevated ? ' is-frosted' : ''}${
+          headerElevated && catalogTabsHidden ? ' is-rail-hidden' : ''
+        }`}
+      />
       <div className="app-page">
         <section className="app-page-hero" aria-label="Hub profile">
           <div
@@ -345,7 +422,9 @@ export function AppPagePanel({
               )}
             </span>
             <div className="app-page-headings">
-              <h2 className="app-page-title">{app.title}</h2>
+              <h2 className="app-page-title" ref={heroTitleRef}>
+                {app.title}
+              </h2>
               <Link
                 href={portfolioPath(app.ownerId)}
                 scroll={false}
@@ -356,49 +435,45 @@ export function AppPagePanel({
             </div>
           </header>
 
-          <div className="app-hub-meta-row">
-            <GuildFacepile
-              memberIds={rosterIds}
-              profiles={rosterProfiles}
-              showCount={false}
-              onClick={() => setCreatorsOpen(true)}
-              aria-label={`${creatorCount} ${
-                creatorCount === 1 ? 'creator' : 'creators'
-              }. View roster.`}
-            />
-            <button
-              type="button"
-              className="guild-hero-meta-link"
-              onClick={() => setCreatorsOpen(true)}
-            >
-              {creatorCount} {creatorCount === 1 ? 'creator' : 'creators'}
-            </button>
-            <span className="app-hub-meta-dot" aria-hidden>
-              ·
-            </span>
-            <span className="app-hub-meta-access">
-              {creatorAccessShort(app.creatorAccess)}
-            </span>
-            {categoryLine ? (
-              <>
-                <span className="app-hub-meta-dot" aria-hidden>
-                  ·
-                </span>
-                <span className="app-hub-meta-access">{categoryLine}</span>
-              </>
-            ) : null}
-            <button
-              type="button"
-              className="guild-hero-facts-button"
-              aria-label="Hub facts"
-              onClick={() => setFactsOpen(true)}
-            >
-              <InformationCircleFillIcon
-                className="guild-hero-facts-icon"
-                aria-hidden
+          {/* Same anatomy as guild-hero-meta: facepile + count, then
+              mode + facts tucked tight — categories on their own tags row. */}
+          <div className="guild-hero-meta">
+            <div className="guild-hero-meta-main">
+              <GuildFacepile
+                memberIds={rosterIds}
+                profiles={rosterProfiles}
+                memberCount={creatorCount}
+                countUnit={{ one: 'creator', other: 'creators' }}
+                onClick={() => setCreatorsOpen(true)}
               />
-            </button>
+              <span className="guild-hero-mode-row">
+                <span className="guild-hero-mode">
+                  {creatorAccessShort(app.creatorAccess)}
+                </span>
+                <button
+                  type="button"
+                  className="guild-hero-facts-button"
+                  aria-label="Hub facts"
+                  onClick={() => setFactsOpen(true)}
+                >
+                  <InformationCircleFillIcon
+                    className="guild-hero-facts-icon"
+                    aria-hidden
+                  />
+                </button>
+              </span>
+            </div>
           </div>
+
+          {app.categories.length > 0 ? (
+            <div className="guild-hero-tags" aria-label="Hub categories">
+              {app.categories.map((category) => (
+                <span key={category}>
+                  {hubCategoryLabel(category) ?? category}
+                </span>
+              ))}
+            </div>
+          ) : null}
 
           {stats && hasActivity ? (
             <dl className="app-hub-stats" aria-label="Hub activity">
@@ -425,16 +500,10 @@ export function AppPagePanel({
           ) : null}
 
           {app.description ? (
-            <p className="app-page-description">{app.description}</p>
+            <GuildDescriptionClamp text={app.description} />
           ) : null}
 
-          {canCreate ? (
-            <div className="app-hub-cta-row">
-              <Link className="app-hub-cta" href={createHref}>
-                Start a drop
-              </Link>
-            </div>
-          ) : canRequestPublish ? (
+          {canRequestPublish ? (
             <div className="app-hub-cta-row">
               <button
                 type="button"
@@ -459,6 +528,8 @@ export function AppPagePanel({
           tab={catalogTab}
           onTabChange={setCatalogTab}
           dropCount={dropsLoading ? null : drops.length}
+          pinned
+          scrollHidden={headerElevated && catalogTabsHidden}
         />
 
         {catalogTab === 'drops' ? (
@@ -486,10 +557,18 @@ export function AppPagePanel({
 
       <HubFactsSheet
         open={factsOpen}
-        onClose={() => setFactsOpen(false)}
+        onClose={() => {
+          setFactsOpen(false);
+          if (creatorsNextRef.current) {
+            creatorsNextRef.current = false;
+            setCreatorsOpen(true);
+          }
+        }}
         app={app}
         stats={stats}
-        onOpenCreators={() => setCreatorsOpen(true)}
+        onOpenCreators={() => {
+          creatorsNextRef.current = true;
+        }}
       />
 
       <HubCreatorsSheet

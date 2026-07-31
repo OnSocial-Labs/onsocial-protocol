@@ -6,7 +6,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { PenFillIcon } from '@onsocial/ui';
+import { PenFillIcon, StarsCFillIcon } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
@@ -44,7 +44,7 @@ function readDockHintPending(): boolean {
 export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
   const { open: openPageDrawer } = usePageContentDrawer();
   const { accountId, isConnected } = useAppWallet();
-  const composeAction = useComposeLauncher();
+  const compose = useComposeLauncher();
   const { isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const [osOpen, setOsOpen] = useState(false);
@@ -173,17 +173,28 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
             </button>
           }
           action={
-            composeAction ? (
+            compose ? (
               <button
                 type="button"
-                className="portfolio-summon-compose"
-                onClick={composeAction}
-                aria-label="Compose a post"
+                className={`portfolio-summon-compose${
+                  compose.kind === 'drop' ? ' is-drop' : ''
+                }`}
+                onClick={compose.action}
+                aria-label={
+                  compose.kind === 'drop' ? 'Start a drop' : 'Compose a post'
+                }
               >
-                <PenFillIcon
-                  className="portfolio-summon-compose-icon"
-                  aria-hidden
-                />
+                {compose.kind === 'drop' ? (
+                  <StarsCFillIcon
+                    className="portfolio-summon-compose-icon"
+                    aria-hidden
+                  />
+                ) : (
+                  <PenFillIcon
+                    className="portfolio-summon-compose-icon"
+                    aria-hidden
+                  />
+                )}
               </button>
             ) : undefined
           }
