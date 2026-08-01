@@ -91,6 +91,33 @@ export function formatYoctoSocialFixed(
 }
 
 /**
+ * Split whole / fraction so the integer part (and the SOCIAL suffix) stays
+ * visually steady while the fraction digits tick — same trick as the portal
+ * live counter.
+ */
+export function formatYoctoSocialParts(
+  value: bigint,
+  fractionDigits: number
+): { whole: string; fraction: string; full: string } {
+  const full = formatYoctoSocialFixed(value, fractionDigits);
+  if (fractionDigits === 0) {
+    return { whole: full, fraction: '', full };
+  }
+
+  const dotIndex = full.indexOf('.');
+  if (dotIndex === -1) {
+    const fraction = '0'.repeat(fractionDigits);
+    return { whole: full, fraction, full: `${full}.${fraction}` };
+  }
+
+  return {
+    whole: full.slice(0, dotIndex),
+    fraction: full.slice(dotIndex + 1),
+    full,
+  };
+}
+
+/**
  * Project claimable rewards forward from the chain snapshot so the counter
  * accrues between gateway resyncs.
  */

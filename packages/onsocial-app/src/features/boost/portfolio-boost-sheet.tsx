@@ -37,6 +37,7 @@ import {
   formatTimeRemainingLabel,
   formatUnlockDateLabel,
   formatYoctoSocialFixed,
+  formatYoctoSocialParts,
   lockPeriodOption,
   previewUnlockDateLabel,
 } from '@/features/boost/boost-position';
@@ -73,6 +74,44 @@ type BoostSheetMode = 'collect' | 'increase' | 'renew' | 'extend';
 type BoostTxAction = 'commit' | 'collect' | 'unlock' | 'renew' | 'extend';
 
 const LIVE_COUNTER_FRACTION_DIGITS = 4;
+
+/**
+ * Live counter — portal `LiveClaimableAmount` pattern: mono digits, each
+ * fraction digit in a fixed 1ch slot, SOCIAL as a sibling suffix so ticks
+ * never reflow the label.
+ */
+function BoostLiveClaimableAmount({ valueYocto }: { valueYocto: bigint }) {
+  const { whole, fraction, full } = formatYoctoSocialParts(
+    valueYocto,
+    LIVE_COUNTER_FRACTION_DIGITS
+  );
+
+  return (
+    <p
+      className="portfolio-boost-collect-amount"
+      aria-label={`${full} SOCIAL ready to collect`}
+    >
+      <span className="portfolio-boost-collect-amount-inner" aria-hidden>
+        <span className="portfolio-boost-collect-whole">{whole}</span>
+        <span className="portfolio-boost-collect-point">.</span>
+        <span
+          className="portfolio-boost-collect-fraction"
+          style={{ minWidth: `${LIVE_COUNTER_FRACTION_DIGITS}ch` }}
+        >
+          {fraction.split('').map((digit, index) => (
+            <span
+              key={`fraction-${index}`}
+              className="portfolio-boost-collect-digit"
+            >
+              {digit}
+            </span>
+          ))}
+        </span>
+        <span className="portfolio-boost-collect-unit">SOCIAL</span>
+      </span>
+    </p>
+  );
+}
 
 interface PortfolioBoostSheetProps {
   open: boolean;
@@ -592,13 +631,7 @@ export function PortfolioBoostSheet({
         <div className="portfolio-boost-view">
           <section className="portfolio-boost-collect" aria-live="off">
             <p className="portfolio-payout-sheet-eyebrow">Ready to collect</p>
-            <p className="portfolio-boost-collect-amount">
-              {formatYoctoSocialFixed(
-                claimableYocto,
-                LIVE_COUNTER_FRACTION_DIGITS
-              )}{' '}
-              <span className="portfolio-boost-collect-unit">SOCIAL</span>
-            </p>
+            <BoostLiveClaimableAmount valueYocto={claimableYocto} />
             {ratePerSecondYocto > 0n ? (
               <p className="portfolio-boost-collect-rate">
                 +
