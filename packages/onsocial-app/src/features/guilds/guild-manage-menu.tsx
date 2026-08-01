@@ -30,10 +30,16 @@ interface GuildManageMenuProps {
   onOpenSheet: (sheet: GuildManageSheetId) => void;
 }
 
-function CountBadge({ count }: { count: number }) {
+function CountBadge({
+  count,
+  tone = 'standing',
+}: {
+  count: number;
+  tone?: 'standing' | 'solidarity';
+}) {
   return (
     <span
-      className={`${osFloatingPanelCountClassName} os-floating-panel-count--standing${
+      className={`${osFloatingPanelCountClassName} os-floating-panel-count--${tone}${
         count === 0 ? ' is-zero' : ''
       }`}
     >
@@ -46,6 +52,8 @@ interface ManageAction {
   id: GuildManageSheetId;
   label: string;
   count?: number;
+  /** Pending inbox counts use purple; roster counts stay standing blue. */
+  countTone?: 'standing' | 'solidarity';
 }
 
 /**
@@ -87,6 +95,7 @@ export function GuildManageMenu({
             id: 'requests' as const,
             label: 'Member requests',
             count: pendingRequestCount,
+            countTone: 'solidarity' as const,
           },
         ]
       : []),
@@ -168,7 +177,10 @@ export function GuildManageMenu({
               >
                 {action.count != null ? (
                   <span className="scarce-choice-sheet-leading">
-                    <CountBadge count={action.count} />
+                    <CountBadge
+                      count={action.count}
+                      tone={action.countTone ?? 'standing'}
+                    />
                   </span>
                 ) : null}
                 <span className="scarce-choice-sheet-option-copy">

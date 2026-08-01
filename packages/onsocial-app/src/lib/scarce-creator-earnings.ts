@@ -97,7 +97,9 @@ export function sourcePostPathFromExtra(
 }
 
 /** Sync personal-only href — prefer `resolvePostThreadHrefFromSourcePath`. */
-export function postHrefFromSourcePath(path: string | undefined): string | null {
+export function postHrefFromSourcePath(
+  path: string | undefined
+): string | null {
   if (!path?.trim()) return null;
   const match = path.trim().match(/^(.+)\/post\/(.+)$/);
   if (!match?.[1] || !match[2]) return null;
@@ -216,10 +218,13 @@ export function formatEarningsNear(yocto: string): string {
   return `${formatEarningsNearCompact(yocto)} NEAR`;
 }
 
-/** Trailing context after the title: ` · of 1.00 NEAR · 22 Jul`. */
+/**
+ * Trailing context after the title (no date — drawers put date above amount).
+ * Royalty: ` · of 1.00 NEAR`.
+ */
 export function formatEarningKindSuffix(
   row: ScarceCreatorEarningRow,
-  when: string
+  when: string = ''
 ): string {
   const parts: string[] = [];
   if (row.kind === 'royalty' && row.salePriceYocto) {
@@ -229,10 +234,10 @@ export function formatEarningKindSuffix(
   return parts.length ? ` · ${parts.join(' · ')}` : '';
 }
 
-/** One-line kind copy (no link): `Royalty · Hello · of 1.00 NEAR · 22 Jul`. */
+/** One-line kind copy (no link). Pass `when` only for non-drawer surfaces. */
 export function formatEarningKindLine(
   row: ScarceCreatorEarningRow,
-  when: string
+  when: string = ''
 ): string {
   const kind = row.kind === 'royalty' ? 'Royalty' : 'Sale';
   const title = row.title.trim();

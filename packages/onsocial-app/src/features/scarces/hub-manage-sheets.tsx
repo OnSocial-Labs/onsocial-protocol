@@ -60,7 +60,12 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-export type HubManageSheetId = 'look' | 'access' | 'people' | 'transfer';
+export type HubManageSheetId =
+  | 'look'
+  | 'access'
+  | 'people'
+  | 'publish-requests'
+  | 'transfer';
 
 const ACCESS_MODES: CreatorAccess[] = ['open', 'approval', 'invite_only'];
 const COMMISSION_PRESETS = [0, 2.5, 5, 10] as const;

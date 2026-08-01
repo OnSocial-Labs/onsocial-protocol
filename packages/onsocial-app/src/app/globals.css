@@ -163,7 +163,15 @@
 }
 
 .glass-sheet-panel.portfolio-support-collect-info-panel > .glass-sheet-body {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.glass-sheet-panel.portfolio-support-collect-info-panel:has(
+    .profile-support-sheet-footer
+  )
+  .portfolio-support-collect-info-body {
+  padding-bottom: 0.35rem;
 }
 
 /* Support / scarce commerce sheets — content-sized, scroll when tall (auction). */
@@ -431,6 +439,16 @@
 
 /* Composer dock Post — unlayered so row-compact stays pill-sized. */
 /* Proposal card vote chips — unlayered so they beat os-sheet-action row-compact. */
+/* Pending-count candy badge — solid purple + light glass lip. */
+.guild-manage-menu-badge {
+  background: var(--protocol-purple);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 0 0 1px rgb(255 255 255 / 0.12),
+    0 2px 6px -1px rgb(0 0 0 / 0.22);
+}
+
 .guild-proposal-card-actions.os-sheet-actions--row-compact {
   width: auto;
   gap: 0.3rem;
@@ -450,6 +468,47 @@
   font-size: 0.68rem;
   font-weight: 600;
   line-height: 1;
+}
+
+/* Hub publish Approve / dismiss — row CTA size (Buy / Join). */
+.hub-publish-request-actions.os-sheet-actions--row-compact {
+  flex-shrink: 0;
+  width: auto;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.hub-publish-request-actions.os-sheet-actions--row-compact .os-sheet-action,
+.hub-publish-request-actions.os-sheet-actions--row-compact
+  .os-sheet-action--primary,
+.hub-publish-request-actions.os-sheet-actions--row-compact
+  .os-sheet-action--danger {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 1.65rem;
+  padding: 0.28rem 0.72rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  border-radius: 9999px;
+  box-shadow: none;
+}
+
+.hub-publish-request-actions.os-sheet-actions--row-compact
+  .hub-publish-request-dismiss {
+  width: 1.65rem;
+  min-width: 1.65rem;
+  padding: 0;
+}
+
+.hub-publish-request-dismiss-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.hub-publish-request-actions.os-sheet-actions--borderless
+  .os-sheet-action__shell {
+  min-height: 1.1rem;
 }
 
 .guild-composer-toolbar-post.os-sheet-actions--row-compact {
@@ -4690,9 +4749,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .portfolio-support-collect-cta {
-    margin: 0 0 1rem;
-  }
 
   .portfolio-payout-sheet-eyebrow {
     margin: 0 0 0.2rem;
@@ -4717,6 +4773,17 @@ a.os-surface-row {
     font-weight: 600;
     letter-spacing: 0;
     color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .portfolio-boost-sheet-title {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.4rem;
+  }
+
+  .portfolio-boost-sheet-title-amount {
+    font-variant-numeric: tabular-nums;
   }
 
   /* ── Portfolio boost sheet (commit / manage) ─────────────── */
@@ -4755,7 +4822,7 @@ a.os-surface-row {
 
   /*
    * Portal LiveClaimableAmount layout: mono whole + fixed 1ch fraction
-   * slots + SOCIAL suffix. Digit ticks must not reflow the label.
+   * slots. Digit ticks must not reflow the label.
    */
   .portfolio-boost-collect-amount-inner {
     display: inline-flex;
@@ -4798,18 +4865,6 @@ a.os-surface-row {
     font-variant-numeric: tabular-nums;
   }
 
-  .portfolio-boost-collect-unit {
-    flex-shrink: 0;
-    align-self: center;
-    margin-left: 0.4rem;
-    font-family: inherit;
-    font-size: 0.6em;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.42);
-  }
-
   .portfolio-boost-collect-rate {
     margin: 0;
     font-size: 0.72rem;
@@ -4817,18 +4872,45 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
-  .portfolio-boost-mode-row,
-  .portfolio-boost-periods {
+  .portfolio-boost-mode-row {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.4rem;
   }
 
+  /*
+   * Compact 5-up period picker — equal columns, one row on every phone.
+   * Period + bonus stack so labels stay short; padding stays sheet-tight.
+   */
+  .portfolio-boost-periods {
+    display: grid;
+    /* Commit = 5; Extend = only longer periods (never current). */
+    grid-template-columns: repeat(var(--boost-period-cols, 5), minmax(0, 1fr));
+    gap: 0.18rem;
+    width: 100%;
+    max-width: 20rem;
+    margin-inline: auto;
+  }
+
+  .portfolio-boost-periods .os-surface-chip {
+    display: inline-flex;
+    min-width: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.08rem;
+    padding: 0.28rem 0.08rem;
+    border-radius: 0.55rem;
+    font-size: 0.64rem;
+    line-height: 1;
+  }
+
   .portfolio-boost-period-bonus {
-    margin-left: 0.35ch;
+    font-size: 0.54rem;
     font-variant-numeric: tabular-nums;
-    opacity: 0.72;
+    opacity: 0.7;
   }
 
   .portfolio-boost-summary {
@@ -4866,16 +4948,64 @@ a.os-surface-row {
     text-align: center;
   }
 
-  .portfolio-boost-portal-link {
-    margin: 0;
-    text-align: center;
-    font-size: 0.78rem;
+  .portfolio-boost-shimmer-title {
+    display: block;
+    width: 8.5rem;
+    height: 1.35rem;
+    border-radius: 0.4rem;
   }
 
-  .portfolio-boost-portal-link a {
-    color: rgb(var(--fg-rgb) / 0.55);
-    text-decoration: underline;
-    text-underline-offset: 3px;
+  .portfolio-boost-shimmer-eyebrow {
+    display: block;
+    width: 6rem;
+    height: 0.6rem;
+    margin: 0 auto;
+    border-radius: 0.3rem;
+  }
+
+  .portfolio-boost-shimmer-label {
+    display: block;
+    width: 3.6rem;
+    height: 0.7rem;
+    border-radius: 0.3rem;
+  }
+
+  .portfolio-boost-shimmer-amount {
+    display: block;
+    width: 7.5rem;
+    height: 1.55rem;
+    margin: 0.15rem auto 0;
+    border-radius: 0.4rem;
+  }
+
+  .portfolio-boost-shimmer-rate {
+    display: block;
+    width: 4.5rem;
+    height: 0.65rem;
+    margin: 0.35rem auto 0;
+    border-radius: 0.3rem;
+  }
+
+  .portfolio-boost-shimmer-chip {
+    display: block;
+    width: 5.4rem;
+    height: 1.85rem;
+    border-radius: 9999px;
+  }
+
+  .portfolio-boost-shimmer-value {
+    display: block;
+    width: 5.5rem;
+    height: 0.85rem;
+    border-radius: 0.3rem;
+  }
+
+  .portfolio-payout-mark-amount-shimmer {
+    display: inline-block;
+    width: 2.6rem;
+    height: 0.85rem;
+    border-radius: 0.3rem;
+    vertical-align: middle;
   }
 
   .portfolio-payout-sheet-sub {
@@ -4893,37 +5023,8 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .portfolio-scarce-earnings-market-header {
-    /* Kept for scarce-earnings sheet until it switches to SheetHeader chrome. */
-    box-sizing: border-box;
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: 1.85rem;
-    height: 1.85rem;
-    padding: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.72);
-    text-decoration: none;
-    transition:
-      color 160ms ease,
-      background 160ms ease;
-  }
-
-  .portfolio-scarce-earnings-market-header:hover,
-  .portfolio-scarce-earnings-market-header:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.92);
-    background: rgb(var(--fg-rgb) / 0.06);
-    outline: none;
-  }
-
-  .portfolio-scarce-earnings-market-header-glyph {
-    display: block;
-    width: 1.15rem;
-    height: 1.15rem;
-    flex-shrink: 0;
+  .portfolio-scarce-earnings-amount {
+    color: var(--signal-endorse, #dab872);
   }
 
   /*
@@ -4958,18 +5059,22 @@ a.os-surface-row {
     height: var(--payout-mark-size);
     color: inherit;
     transform-origin: 50% 60%;
+  }
+
+  /* Soft nudge only when there’s something to do (collect / settle / unlock). */
+  .portfolio-payout-mark-icon--nudge {
     animation: portfolio-gift-nudge 11s ease-in-out infinite;
   }
 
-  .portfolio-payout-mark-icon--shop {
+  .portfolio-payout-mark-icon--shop.portfolio-payout-mark-icon--nudge {
     animation-delay: 3.5s;
   }
 
-  .portfolio-payout-mark-icon--actions {
+  .portfolio-payout-mark-icon--actions.portfolio-payout-mark-icon--nudge {
     animation-delay: 1.75s;
   }
 
-  .portfolio-payout-mark-icon--boost {
+  .portfolio-payout-mark-icon--boost.portfolio-payout-mark-icon--nudge {
     animation-delay: 5.25s;
   }
 
@@ -5037,9 +5142,10 @@ a.os-surface-row {
     margin-top: 1.25rem;
   }
 
-  .portfolio-identity-gesture--payout:hover .portfolio-payout-mark-icon,
+  .portfolio-identity-gesture--payout:hover
+    .portfolio-payout-mark-icon--nudge,
   .portfolio-identity-gesture--payout:focus-visible
-    .portfolio-payout-mark-icon {
+    .portfolio-payout-mark-icon--nudge {
     animation: none;
   }
 
@@ -5173,6 +5279,71 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
+  .portfolio-support-collect-info-subtotals {
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  /* Quiet one-line disclosure — same weight as section notes, not a card. */
+  .portfolio-support-collect-earlier-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    max-width: 100%;
+    margin: 0;
+    padding: 0.1rem 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.48);
+    font: inherit;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .portfolio-support-collect-earlier-toggle:hover,
+  .portfolio-support-collect-earlier-toggle:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
+    outline: none;
+  }
+
+  .portfolio-support-collect-earlier-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .portfolio-support-collect-earlier-meta {
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+  }
+
+  .portfolio-support-collect-earlier-chevron {
+    display: block;
+    width: 0.7rem;
+    height: 0.7rem;
+    flex-shrink: 0;
+    color: inherit;
+    transform-origin: 50% 50%;
+    transform-box: fill-box;
+    transition: transform 160ms ease;
+  }
+
+  .portfolio-support-collect-earlier-toggle.is-open
+    .portfolio-support-collect-earlier-chevron {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-support-collect-earlier-chevron {
+      transition: none;
+    }
+  }
+
   .portfolio-support-collect-info-empty {
     margin: 0;
     font-size: 0.8rem;
@@ -5191,6 +5362,7 @@ a.os-surface-row {
 
   .portfolio-support-collect-info-row .standing-row-aside {
     min-width: 4.5rem;
+    gap: 0.18rem;
   }
 
   .portfolio-support-collect-info-amount {
@@ -17527,22 +17699,6 @@ a.os-surface-row {
     gap: 1rem;
   }
 
-  .app-publish-inbox-list {
-    list-style: none;
-    margin: 0.5rem 0 0;
-    padding: 0;
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .app-publish-inbox-row {
-    display: grid;
-    gap: 0.55rem;
-    padding: 0.65rem 0.7rem;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.035);
-  }
-
   .app-page-note {
     margin: 0;
     font-size: 0.82rem;
@@ -17600,6 +17756,11 @@ a.os-surface-row {
   .glass-sheet-panel.hub-manage-sheet-panel--hug {
     height: auto !important;
     max-height: min(72dvh, 32rem);
+  }
+
+  /* Publish inbox — hug account rows, cap at standard peek (0.62). */
+  .glass-sheet-panel.hub-publish-requests-sheet-panel {
+    max-height: min(62dvh, 32rem);
   }
 
   .glass-sheet-panel.hub-manage-sheet-panel--hug > .glass-sheet-body {
@@ -18882,17 +19043,24 @@ a.os-surface-row {
     position: absolute;
     top: -0.15rem;
     right: -0.15rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-width: 1rem;
     height: 1rem;
     padding: 0 0.22rem;
     border-radius: 9999px;
-    background: var(--protocol-blue);
+    background: var(--protocol-purple);
     color: #fff;
     font-size: 0.62rem;
     font-weight: 700;
     line-height: 1rem;
     text-align: center;
     pointer-events: none;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      0 0 0 1px rgb(255 255 255 / 0.12),
+      0 2px 6px -1px rgb(0 0 0 / 0.22);
   }
 
   .glass-sheet-panel.guild-manage-sheet-panel {

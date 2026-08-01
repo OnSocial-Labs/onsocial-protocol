@@ -464,6 +464,62 @@ export function RepeatIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Mage `refresh` — renew / restart commitment. */
+export function RefreshIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M17.605 7.705A7.9 7.9 0 0 0 12 5.382a7.93 7.93 0 0 0-7.929 7.929A7.94 7.94 0 0 0 12 21.25a7.94 7.94 0 0 0 7.929-7.94"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeMiterlimit={10}
+        fill="none"
+      />
+      <path
+        d="m16.88 2.75l.95 3.858a1.33 1.33 0 0 1-.97 1.609l-3.869.948"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
+/** Mage-style `unlocked` — release a completed boost commitment. */
+export function UnlockIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="M6.75 10.75h10.5a2.5 2.5 0 0 1 2.5 2.5v5.5a2.5 2.5 0 0 1-2.5 2.5H6.75a2.5 2.5 0 0 1-2.5-2.5v-5.5a2.5 2.5 0 0 1 2.5-2.5Z"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M8.25 10.75v-3.5a3.75 3.75 0 0 1 7.3-1.2"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M12 14.5v2.5"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `heart` — like idle state; pair with HeartFillIcon when active. */
 export function HeartIcon(props: MageStrokeIconProps) {
   return (

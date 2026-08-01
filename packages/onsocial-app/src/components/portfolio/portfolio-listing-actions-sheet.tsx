@@ -454,7 +454,7 @@ export function PortfolioListingActionsMark({
       aria-label={`${count} listing ${count === 1 ? 'action' : 'actions'} needed`}
     >
       <span className="signal-group signal-group-endorse" aria-hidden>
-        <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--actions">
+        <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--actions portfolio-payout-mark-icon--nudge">
           <TimeFillIcon className="portfolio-payout-mark-svg" />
         </span>
       </span>

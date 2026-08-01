@@ -4,15 +4,17 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useState,
   type CSSProperties,
 } from 'react';
 import {
+  ChartFillIcon,
   Divider,
   GlassSheet,
-  OsSheetAction,
-  OsSheetActions,
   SheetCloseButton,
+  osIconActionClassName,
+  osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import {
   buildBoostLockMsg,
@@ -30,6 +32,9 @@ import {
   BOOST_DEFAULT_LOCK_MONTHS,
   BOOST_LOCK_GAS,
   BOOST_LOCK_PERIOD_OPTIONS,
+  isLongerLockPeriod,
+  longerLockPeriodOptions,
+  resolveCurrentLockMonths,
   BOOST_MIN_LOCK_SOCIAL_LABEL,
   BOOST_MIN_LOCK_YOCTO,
   BOOST_UNLOCK_GAS,
@@ -42,6 +47,11 @@ import {
   previewUnlockDateLabel,
 } from '@/features/boost/boost-position';
 import type { BoostPosition } from '@/features/boost/use-boost-position';
+import {
+  CommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
+import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
@@ -76,9 +86,41 @@ type BoostTxAction = 'commit' | 'collect' | 'unlock' | 'renew' | 'extend';
 const LIVE_COUNTER_FRACTION_DIGITS = 4;
 
 /**
+ * Standing-style shimmer shell. Neutral bars only — no real copy, since we
+ * don't yet know whether this resolves to the manage view or the lock form.
+ */
+function BoostSheetLoadingSkeleton() {
+  return (
+    <div
+      className="portfolio-boost-view"
+      role="status"
+      aria-label="Loading boost"
+    >
+      <section className="portfolio-boost-collect" aria-hidden>
+        <span className="standing-row-shimmer portfolio-boost-shimmer-eyebrow" />
+        <span className="standing-row-shimmer portfolio-boost-shimmer-amount" />
+        <span className="standing-row-shimmer portfolio-boost-shimmer-rate" />
+      </section>
+      <div className="portfolio-boost-mode-row" aria-hidden>
+        <span className="standing-row-shimmer portfolio-boost-shimmer-chip" />
+        <span className="standing-row-shimmer portfolio-boost-shimmer-chip" />
+        <span className="standing-row-shimmer portfolio-boost-shimmer-chip" />
+      </div>
+      <section className="portfolio-boost-summary" aria-hidden>
+        {[0, 1, 2].map((row) => (
+          <div key={row} className="portfolio-boost-summary-row">
+            <span className="standing-row-shimmer portfolio-boost-shimmer-label" />
+            <span className="standing-row-shimmer portfolio-boost-shimmer-value" />
+          </div>
+        ))}
+      </section>
+    </div>
+  );
+}
+
+/**
  * Live counter — portal `LiveClaimableAmount` pattern: mono digits, each
- * fraction digit in a fixed 1ch slot, SOCIAL as a sibling suffix so ticks
- * never reflow the label.
+ * fraction digit in a fixed 1ch slot so ticks never reflow.
  */
 function BoostLiveClaimableAmount({ valueYocto }: { valueYocto: bigint }) {
   const { whole, fraction, full } = formatYoctoSocialParts(
@@ -107,7 +149,6 @@ function BoostLiveClaimableAmount({ valueYocto }: { valueYocto: bigint }) {
             </span>
           ))}
         </span>
-        <span className="portfolio-boost-collect-unit">SOCIAL</span>
       </span>
     </p>
   );
@@ -204,9 +245,15 @@ export function PortfolioBoostSheet({
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? null;
-  const panelStyle = mood
-    ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
-    : undefined;
+  const { panelStyle: keyboardPanelStyle, keyboardOpen } =
+    useCommerceSheetKeyboard(sheetOpen);
+  const panelStyle = useMemo((): CSSProperties | undefined => {
+    const moodStyle = mood
+      ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
+      : undefined;
+    if (!moodStyle && !keyboardPanelStyle) return undefined;
+    return { ...moodStyle, ...keyboardPanelStyle };
+  }, [keyboardPanelStyle, mood]);
 
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -262,6 +309,7 @@ export function PortfolioBoostSheet({
 
   const {
     account,
+    lockStatus,
     loaded,
     hasPosition,
     lockedYocto,
@@ -269,15 +317,32 @@ export function PortfolioBoostSheet({
     ratePerSecondYocto,
     canUnlock,
     refresh,
+    resetLiveCounterAfterClaim,
   } = position;
 
-  const currentOption = account ? lockPeriodOption(account.lock_months) : null;
+  const currentLockMonths = resolveCurrentLockMonths(account, lockStatus);
+  const currentOption = lockPeriodOption(currentLockMonths);
   const canIncrease = hasPosition && currentOption != null;
   const extendOptions = hasPosition
-    ? BOOST_LOCK_PERIOD_OPTIONS.filter(
-        (option) => account != null && option.months > account.lock_months
-      )
+    ? longerLockPeriodOptions(currentLockMonths)
     : [];
+  const extendOption =
+    extendMonths != null ? lockPeriodOption(extendMonths) : null;
+  const extendInfluenceYocto =
+    extendOption != null
+      ? applyLockBonus(lockedYocto, extendOption.bonusPercent)
+      : null;
+  const summaryBonusOption =
+    mode === 'extend' && extendOption ? extendOption : currentOption;
+
+  // Drop a stale Extend selection if the position caught up to that period.
+  if (
+    extendMonths != null &&
+    currentLockMonths > 0 &&
+    !isLongerLockPeriod(extendMonths, currentLockMonths)
+  ) {
+    setExtendMonths(null);
+  }
   const commitOption =
     lockPeriodOption(selectedMonths) ??
     lockPeriodOption(BOOST_DEFAULT_LOCK_MONTHS)!;
@@ -418,6 +483,7 @@ export function PortfolioBoostSheet({
       successMessage: txToastSuccess.boostCollected,
       failureMessage: txToastError.collectBoostFailed,
       onConfirmed: async () => {
+        resetLiveCounterAfterClaim();
         await Promise.all([
           refreshAppSocialBalanceAfterClaim(),
           refreshWalletBalance(),
@@ -440,6 +506,7 @@ export function PortfolioBoostSheet({
       successMessage: txToastSuccess.boostReleased,
       failureMessage: txToastError.releaseBoostFailed,
       onConfirmed: async () => {
+        resetLiveCounterAfterClaim();
         await Promise.all([
           refreshAppSocialBalanceAfterClaim(),
           refreshWalletBalance(),
@@ -470,6 +537,10 @@ export function PortfolioBoostSheet({
   function handleExtend() {
     const option = extendMonths ? lockPeriodOption(extendMonths) : null;
     if (!option) return;
+    if (!isLongerLockPeriod(option.months, currentLockMonths)) {
+      setFieldError('Pick a longer period than your current commitment.');
+      return;
+    }
     void runBoostTransaction({
       action: 'extend',
       receiverId: BOOST_CONTRACT,
@@ -499,14 +570,6 @@ export function PortfolioBoostSheet({
 
   const txPending = pendingAction != null;
 
-  const portalLink = (
-    <p className="portfolio-boost-portal-link">
-      <a href={portalHref('/boost')} target="_blank" rel="noreferrer">
-        Leaderboard &amp; details on Portal
-      </a>
-    </p>
-  );
-
   const modeChips: { id: BoostSheetMode; label: string }[] = [
     { id: 'collect', label: 'Collect' },
     ...(canIncrease ? [{ id: 'increase' as const, label: 'Increase' }] : []),
@@ -516,64 +579,103 @@ export function PortfolioBoostSheet({
       : []),
   ];
 
-  const primaryAction = canUnlock ? (
-    <OsSheetAction
-      type="button"
-      ready={!txPending}
-      pending={pendingAction === 'unlock'}
-      pendingLabel="Releasing…"
-      disabled={txPending}
-      onClick={handleUnlock}
-    >
-      Unlock + collect
-    </OsSheetAction>
-  ) : mode === 'increase' ? (
-    <OsSheetAction
-      type="button"
-      ready={amountReady && !txPending}
-      pending={pendingAction === 'commit'}
-      pendingLabel="Committing…"
-      disabled={txPending || !amountReady}
-      onClick={handleCommit}
-    >
-      Increase
-    </OsSheetAction>
-  ) : mode === 'renew' ? (
-    <OsSheetAction
-      type="button"
-      ready={!txPending}
-      pending={pendingAction === 'renew'}
-      pendingLabel="Renewing…"
-      disabled={txPending}
-      onClick={handleRenew}
-    >
-      Renew
-    </OsSheetAction>
-  ) : mode === 'extend' ? (
-    <OsSheetAction
-      type="button"
-      ready={extendMonths != null && !txPending}
-      pending={pendingAction === 'extend'}
-      pendingLabel="Extending…"
-      disabled={txPending || extendMonths == null}
-      onClick={handleExtend}
-    >
-      {extendMonths != null
+  /**
+   * Completed lock — unlock is the default; renew keeps the same period;
+   * extend (when available) upgrades without an unlock gap.
+   */
+  const completeChips: typeof modeChips = [
+    { id: 'collect', label: 'Unlock' },
+    { id: 'renew', label: 'Renew' },
+    ...(extendOptions.length > 0
+      ? [{ id: 'extend' as const, label: 'Extend' }]
+      : []),
+  ];
+
+  const footerState = ((): CommerceSheetFooterState | null => {
+    if (!loaded) return null;
+
+    if (!hasPosition) {
+      return {
+        visible: true,
+        primaryLabel: 'Commit',
+        primaryPendingLabel: 'Committing…',
+        canSubmit: amountReady && !txPending,
+        pending: pendingAction === 'commit',
+        disabled: txPending || !amountReady,
+        primaryType: 'button',
+        onPrimaryClick: handleCommit,
+      };
+    }
+
+    if (mode === 'renew') {
+      return {
+        visible: true,
+        primaryLabel: 'Renew',
+        primaryPendingLabel: 'Renewing…',
+        canSubmit: !txPending,
+        pending: pendingAction === 'renew',
+        disabled: txPending,
+        primaryType: 'button',
+        onPrimaryClick: handleRenew,
+      };
+    }
+
+    if (mode === 'extend') {
+      const canExtend =
+        extendMonths != null &&
+        isLongerLockPeriod(extendMonths, currentLockMonths);
+      const extendLabel = canExtend
         ? `Extend to ${lockPeriodOption(extendMonths)?.short}`
-        : 'Pick a period'}
-    </OsSheetAction>
-  ) : (
-    <OsSheetAction
-      type="button"
-      ready={claimableYocto >= BOOST_CLAIM_DUST_YOCTO && !txPending}
-      pending={pendingAction === 'collect'}
-      pendingLabel="Collecting…"
-      disabled={txPending || claimableYocto < BOOST_CLAIM_DUST_YOCTO}
-      onClick={handleCollect}
-    >
-      Collect
-    </OsSheetAction>
-  );
+        : 'Pick a period';
+      return {
+        visible: true,
+        primaryLabel: extendLabel,
+        primaryPendingLabel: 'Extending…',
+        canSubmit: canExtend && !txPending,
+        pending: pendingAction === 'extend',
+        disabled: txPending || !canExtend,
+        primaryType: 'button',
+        onPrimaryClick: handleExtend,
+      };
+    }
+
+    if (canUnlock) {
+      return {
+        visible: true,
+        primaryLabel: 'Unlock + collect',
+        primaryPendingLabel: 'Releasing…',
+        canSubmit: !txPending,
+        pending: pendingAction === 'unlock',
+        disabled: txPending,
+        primaryType: 'button',
+        onPrimaryClick: handleUnlock,
+      };
+    }
+
+    if (mode === 'increase') {
+      return {
+        visible: true,
+        primaryLabel: 'Increase',
+        primaryPendingLabel: 'Committing…',
+        canSubmit: amountReady && !txPending,
+        pending: pendingAction === 'commit',
+        disabled: txPending || !amountReady,
+        primaryType: 'button',
+        onPrimaryClick: handleCommit,
+      };
+    }
+
+    return {
+      visible: true,
+      primaryLabel: 'Collect',
+      primaryPendingLabel: 'Collecting…',
+      canSubmit: claimableYocto >= BOOST_CLAIM_DUST_YOCTO && !txPending,
+      pending: pendingAction === 'collect',
+      disabled: txPending || claimableYocto < BOOST_CLAIM_DUST_YOCTO,
+      primaryType: 'button',
+      onPrimaryClick: handleCollect,
+    };
+  })();
 
   return (
     <GlassSheet
@@ -583,7 +685,9 @@ export function PortfolioBoostSheet({
       tone="os"
       moodId={mood?.id}
       panelStyle={panelStyle}
-      panelClassName="profile-support-sheet-panel"
+      panelClassName={`profile-support-sheet-panel${
+        keyboardOpen ? ' is-keyboard-open' : ''
+      }`}
       initialDetent="full"
       peekRatio={1}
       zIndex={56}
@@ -597,21 +701,56 @@ export function PortfolioBoostSheet({
               <div className="standing-sheet-subject">
                 <div className="standing-sheet-subject-copy">
                   <p className="portfolio-payout-sheet-eyebrow">Boost</p>
-                  <h2 id={titleId} className="portfolio-payout-sheet-total">
-                    {hasPosition ? (
+                  <h2
+                    id={titleId}
+                    className="portfolio-payout-sheet-total portfolio-boost-sheet-title"
+                    aria-label={
+                      !loaded
+                        ? 'Loading boost'
+                        : hasPosition
+                          ? `${formatSocialCompact(lockedYocto)} SOCIAL locked`
+                          : 'Lock SOCIAL'
+                    }
+                  >
+                    {!loaded ? (
+                      <span
+                        className="standing-row-shimmer portfolio-boost-shimmer-title"
+                        aria-hidden
+                      />
+                    ) : hasPosition ? (
                       <>
-                        {formatSocialCompact(lockedYocto)}{' '}
-                        <span className="portfolio-payout-sheet-unit">
+                        <span
+                          className="portfolio-boost-sheet-title-amount"
+                          aria-hidden
+                        >
+                          {formatSocialCompact(lockedYocto)}
+                        </span>
+                        <span
+                          className="portfolio-payout-sheet-unit"
+                          aria-hidden
+                        >
                           SOCIAL locked
                         </span>
                       </>
                     ) : (
-                      'Lock SOCIAL'
+                      <span aria-hidden>Lock SOCIAL</span>
                     )}
                   </h2>
                 </div>
               </div>
-              <div className="standing-sheet-actions">
+              <div className="standing-sheet-actions standing-sheet-actions--payout">
+                <a
+                  href={portalHref('/boost/leaderboard')}
+                  className={osIconActionClassName}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Open boost leaderboard"
+                >
+                  <ChartFillIcon
+                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                    aria-hidden
+                  />
+                </a>
                 <SheetCloseButton
                   onClick={requestClose}
                   ariaLabel="Close boost"
@@ -622,11 +761,18 @@ export function PortfolioBoostSheet({
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
+      footer={
+        footerState ? (
+          <CommerceSheetFooter
+            formId="portfolio-boost-sheet"
+            keyboardOpen={keyboardOpen}
+            state={footerState}
+          />
+        ) : undefined
+      }
     >
       {!loaded ? (
-        <div className="portfolio-boost-view">
-          <p className="portfolio-boost-note">Loading your boost…</p>
-        </div>
+        <BoostSheetLoadingSkeleton />
       ) : hasPosition && account ? (
         <div className="portfolio-boost-view">
           <section className="portfolio-boost-collect" aria-live="off">
@@ -644,32 +790,32 @@ export function PortfolioBoostSheet({
             ) : null}
           </section>
 
-          {!canUnlock ? (
-            <div
-              className="portfolio-boost-mode-row"
-              role="group"
-              aria-label="Boost actions"
-            >
-              {modeChips.map((chip) => (
-                <button
-                  key={chip.id}
-                  type="button"
-                  className={`os-surface-chip${
-                    mode === chip.id ? ' is-selected' : ''
-                  }`}
-                  disabled={txPending}
-                  onClick={() => switchMode(chip.id)}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-          ) : (
+          <div
+            className="portfolio-boost-mode-row"
+            role="group"
+            aria-label="Boost actions"
+          >
+            {(canUnlock ? completeChips : modeChips).map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                className={`os-surface-chip${
+                  mode === chip.id ? ' is-selected' : ''
+                }`}
+                disabled={txPending}
+                onClick={() => switchMode(chip.id)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {canUnlock && mode === 'collect' ? (
             <p className="portfolio-boost-note portfolio-boost-note--center">
               Your commitment is complete. Release your SOCIAL and collect
               everything in one go.
             </p>
-          )}
+          ) : null}
 
           {!canUnlock && mode === 'increase' ? (
             <>
@@ -696,21 +842,50 @@ export function PortfolioBoostSheet({
             </>
           ) : null}
 
-          {!canUnlock && mode === 'renew' ? (
-            <p className="portfolio-boost-note">
-              Restart your{' '}
-              {currentOption?.label ?? `${account.lock_months} month`}{' '}
-              commitment from today. Locked amount stays the same.
+          {mode === 'renew' ? (
+            <p
+              className={`portfolio-boost-note${
+                canUnlock ? ' portfolio-boost-note--center' : ''
+              }`}
+            >
+              {canUnlock ? 'Keep boosting — restart' : 'Restart'} your{' '}
+              {currentOption?.label ?? `${currentLockMonths} month`} commitment
+              from today. Locked amount stays the same.
             </p>
           ) : null}
 
-          {!canUnlock && mode === 'extend' ? (
-            <>
+          {mode === 'extend' ? (
+            extendOptions.length > 0 || currentOption ? (
               <div
                 className="portfolio-boost-periods"
                 role="group"
                 aria-label="Extend lock period"
+                style={
+                  {
+                    '--boost-period-cols': String(
+                      Math.max(
+                        (currentOption ? 1 : 0) + extendOptions.length,
+                        1
+                      )
+                    ),
+                  } as CSSProperties
+                }
               >
+                {currentOption ? (
+                  <button
+                    type="button"
+                    className={`os-surface-chip${
+                      extendMonths == null ? ' is-selected' : ''
+                    }`}
+                    disabled
+                    aria-current={extendMonths == null ? 'true' : undefined}
+                  >
+                    {currentOption.short}
+                    <span className="portfolio-boost-period-bonus">
+                      +{currentOption.bonusPercent}%
+                    </span>
+                  </button>
+                ) : null}
                 {extendOptions.map((option) => (
                   <button
                     key={option.months}
@@ -719,7 +894,11 @@ export function PortfolioBoostSheet({
                       extendMonths === option.months ? ' is-selected' : ''
                     }`}
                     disabled={txPending}
-                    onClick={() => setExtendMonths(option.months)}
+                    onClick={() =>
+                      setExtendMonths((current) =>
+                        current === option.months ? null : option.months
+                      )
+                    }
                   >
                     {option.short}
                     <span className="portfolio-boost-period-bonus">
@@ -728,10 +907,11 @@ export function PortfolioBoostSheet({
                   </button>
                 ))}
               </div>
+            ) : (
               <p className="portfolio-boost-note">
-                Upgrade to a longer period. Timer resets from today.
+                You’re already on the longest commitment.
               </p>
-            </>
+            )
           ) : null}
 
           {fieldError || amountError ? (
@@ -740,34 +920,43 @@ export function PortfolioBoostSheet({
             </p>
           ) : null}
 
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            {primaryAction}
-          </OsSheetActions>
-
           <section className="portfolio-boost-summary" aria-label="Commitment">
             <div className="portfolio-boost-summary-row">
               <span className="portfolio-boost-summary-label">Influence</span>
               <span className="portfolio-boost-summary-value">
-                {formatSocialCompact(account.effective_boost)}
-                {currentOption ? ` (+${currentOption.bonusPercent}%)` : ''}
+                {mode === 'extend' && extendInfluenceYocto != null
+                  ? formatSocialCompact(extendInfluenceYocto)
+                  : formatSocialCompact(account.effective_boost)}
               </span>
             </div>
+            {summaryBonusOption ? (
+              <div className="portfolio-boost-summary-row">
+                <span className="portfolio-boost-summary-label">Bonus</span>
+                <span className="portfolio-boost-summary-value">
+                  +{summaryBonusOption.bonusPercent}%
+                </span>
+              </div>
+            ) : null}
             <div className="portfolio-boost-summary-row">
               <span className="portfolio-boost-summary-label">Unlocks</span>
               <span className="portfolio-boost-summary-value">
-                {formatUnlockDateLabel(account.unlock_at)} ·{' '}
-                {formatTimeRemainingLabel(account.unlock_at)}
+                {mode === 'extend' && extendOption ? (
+                  previewUnlockDateLabel(extendOption.months)
+                ) : (
+                  <>
+                    {formatUnlockDateLabel(account.unlock_at)} ·{' '}
+                    {formatTimeRemainingLabel(account.unlock_at)}
+                  </>
+                )}
               </span>
             </div>
             <div className="portfolio-boost-summary-row">
               <span className="portfolio-boost-summary-label">Collected</span>
               <span className="portfolio-boost-summary-value">
-                {formatSocialCompact(account.rewards_claimed)} SOCIAL
+                {formatSocialCompact(account.rewards_claimed)}
               </span>
             </div>
           </section>
-
-          {portalLink}
         </div>
       ) : (
         <div className="portfolio-boost-view">
@@ -780,6 +969,11 @@ export function PortfolioBoostSheet({
             className="portfolio-boost-periods"
             role="group"
             aria-label="Lock period"
+            style={
+              {
+                '--boost-period-cols': String(BOOST_LOCK_PERIOD_OPTIONS.length),
+              } as CSSProperties
+            }
           >
             {BOOST_LOCK_PERIOD_OPTIONS.map((option) => (
               <button
@@ -818,7 +1012,7 @@ export function PortfolioBoostSheet({
             </p>
           ) : (
             <p className="portfolio-boost-note">
-              One period. Locked until unlock — collect rewards anytime.
+              Longer commitments earn a bigger influence bonus.
             </p>
           )}
 
@@ -827,21 +1021,6 @@ export function PortfolioBoostSheet({
               {fieldError ?? amountError}
             </p>
           ) : null}
-
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              ready={amountReady && !txPending}
-              pending={pendingAction === 'commit'}
-              pendingLabel="Committing…"
-              disabled={txPending || !amountReady}
-              onClick={handleCommit}
-            >
-              Commit
-            </OsSheetAction>
-          </OsSheetActions>
-
-          {portalLink}
         </div>
       )}
     </GlassSheet>

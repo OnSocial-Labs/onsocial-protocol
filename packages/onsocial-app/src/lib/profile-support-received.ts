@@ -28,6 +28,45 @@ export function supportPotActionLabel(action: SupportPotAction): string {
   );
 }
 
+export function sumSupportReceivedYocto(
+  rows: ReadonlyArray<{ amountYocto: string }>
+): bigint {
+  let total = 0n;
+  for (const row of rows) {
+    try {
+      total += BigInt(row.amountYocto || '0');
+    } catch {
+      // skip malformed
+    }
+  }
+  return total;
+}
+
+/** Compact kind totals for the current pot — e.g. "Boost share 30.60 · Profile support 9.90". */
+export function supportReceivedKindSubtotals(
+  rows: ReadonlyArray<{ action: SupportPotAction; amountYocto: string }>,
+  formatAmount: (yocto: string) => string
+): string {
+  const totals = new Map<SupportPotAction, bigint>();
+  for (const row of rows) {
+    let amount = 0n;
+    try {
+      amount = BigInt(row.amountYocto || '0');
+    } catch {
+      continue;
+    }
+    if (amount <= 0n) continue;
+    totals.set(row.action, (totals.get(row.action) ?? 0n) + amount);
+  }
+
+  return SUPPORT_POT_LEGEND.filter((entry) => totals.has(entry.action))
+    .map((entry) => {
+      const yocto = (totals.get(entry.action) ?? 0n).toString();
+      return `${entry.label} ${formatAmount(yocto)}`;
+    })
+    .join(' · ');
+}
+
 /** Initial sheet payload — current pot + first page of earlier credits. */
 export type ProfileSupportReceivedSummary = {
   accountId: string;

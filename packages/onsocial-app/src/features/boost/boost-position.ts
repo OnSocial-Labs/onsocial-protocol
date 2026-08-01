@@ -55,8 +55,76 @@ export function parseYoctoOrZero(value: string | null | undefined): bigint {
 }
 
 export function lockPeriodOption(months: number): BoostLockPeriodOption | null {
+  const normalized = Number(months);
+  if (!Number.isFinite(normalized) || normalized <= 0) return null;
   return (
-    BOOST_LOCK_PERIOD_OPTIONS.find((option) => option.months === months) ?? null
+    BOOST_LOCK_PERIOD_OPTIONS.find((option) => option.months === normalized) ??
+    null
+  );
+}
+
+/** Map on-chain bonus_percent back to the canonical lock period. */
+export function lockMonthsFromBonusPercent(
+  bonusPercent: number | null | undefined
+): number | null {
+  const bonus = Number(bonusPercent);
+  switch (bonus) {
+    case 5:
+      return 1;
+    case 10:
+      return 6;
+    case 20:
+      return 12;
+    case 35:
+      return 24;
+    case 50:
+      return 48;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Resolve the active commitment length from every signal we have.
+ * Takes the max positive value so a sparse `0` on one view can never
+ * under-report and let Extend offer the current period again.
+ */
+export function resolveCurrentLockMonths(
+  account: { lock_months?: number | null } | null | undefined,
+  lockStatus?: {
+    lock_months?: number | null;
+    bonus_percent?: number | null;
+  } | null
+): number {
+  const candidates = [
+    Number(account?.lock_months),
+    Number(lockStatus?.lock_months),
+    lockMonthsFromBonusPercent(lockStatus?.bonus_percent) ?? NaN,
+  ].filter((value) => Number.isFinite(value) && value > 0);
+  return candidates.length > 0 ? Math.max(...candidates) : 0;
+}
+
+/** Periods strictly longer than the current lock — Extend never offers same/shorter. */
+export function longerLockPeriodOptions(
+  currentMonths: number | null | undefined
+): BoostLockPeriodOption[] {
+  const normalized = Number(currentMonths);
+  if (!Number.isFinite(normalized) || normalized <= 0) return [];
+  return BOOST_LOCK_PERIOD_OPTIONS.filter(
+    (option) => option.months > normalized
+  );
+}
+
+/** Guard for Extend clicks — same/shorter periods are renew, not extend. */
+export function isLongerLockPeriod(
+  months: number,
+  currentMonths: number
+): boolean {
+  return (
+    Number.isFinite(months) &&
+    Number.isFinite(currentMonths) &&
+    currentMonths > 0 &&
+    months > currentMonths
   );
 }
 
@@ -117,16 +185,34 @@ export function formatYoctoSocialParts(
   };
 }
 
+/** Drop dust claimable when the rate is zero (same floor as the portal). */
+export function normalizeBoostClaimableYocto(
+  claimableYocto: bigint,
+  rewardsPerSecondYocto: bigint
+): bigint {
+  if (
+    rewardsPerSecondYocto === 0n &&
+    claimableYocto > 0n &&
+    claimableYocto < BOOST_CLAIM_DUST_YOCTO
+  ) {
+    return 0n;
+  }
+  return claimableYocto;
+}
+
 /**
- * Project claimable rewards forward from the chain snapshot so the counter
- * accrues between gateway resyncs.
+ * Project claimable rewards forward from the chain snapshot timestamp.
+ * Used once when anchoring; ticks use {@link extrapolateFromClientAnchor}.
  */
 export function extrapolateClaimableYocto(
   snapshot: BoostRewardsLiveSnapshot,
   atMs: number
 ): bigint {
   const perSecondYocto = parseYoctoOrZero(snapshot.rewards_per_second);
-  const anchorYocto = parseYoctoOrZero(snapshot.claimable_rewards);
+  const anchorYocto = normalizeBoostClaimableYocto(
+    parseYoctoOrZero(snapshot.claimable_rewards),
+    perSecondYocto
+  );
   if (perSecondYocto <= 0n) {
     return anchorYocto;
   }
@@ -135,6 +221,29 @@ export function extrapolateClaimableYocto(
   const atNs = BigInt(atMs) * 1_000_000n;
   const elapsedNs = atNs > asOfNs ? atNs - asOfNs : 0n;
   return anchorYocto + (perSecondYocto * elapsedNs) / 1_000_000_000n;
+}
+
+export type BoostLiveCounterAnchor = {
+  baseYocto: bigint;
+  clientMs: number;
+  ratePerSecondYocto: bigint;
+};
+
+/**
+ * Client-side accrual from a wall-clock anchor — avoids block-timestamp vs
+ * wall-clock jitter when the gateway resyncs (portal pattern).
+ */
+export function extrapolateFromClientAnchor(
+  anchor: BoostLiveCounterAnchor,
+  atMs = Date.now()
+): bigint {
+  const elapsedMs = Math.max(0, atMs - anchor.clientMs);
+  if (anchor.ratePerSecondYocto <= 0n || elapsedMs === 0) {
+    return anchor.baseYocto;
+  }
+  return (
+    anchor.baseYocto + (anchor.ratePerSecondYocto * BigInt(elapsedMs)) / 1000n
+  );
 }
 
 export function formatUnlockDateLabel(unlockAtNs: number): string {

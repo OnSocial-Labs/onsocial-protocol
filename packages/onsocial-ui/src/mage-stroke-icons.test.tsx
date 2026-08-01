@@ -28,6 +28,7 @@ import {
   NoteTextIcon,
   PlusIcon,
   QuestionMarkCircleIcon,
+  RefreshIcon,
   RepeatIcon,
   SearchIcon,
   SettingsIcon,
@@ -35,6 +36,7 @@ import {
   StarMovingIcon,
   SlidersHorizontalIcon,
   TrashIcon,
+  UnlockIcon,
   UserIcon,
   UserMinusIcon,
   UserPlusIcon,
@@ -64,6 +66,7 @@ describe('mage stroke icons', () => {
     expect(typeof NoteTextIcon).toBe('function');
     expect(typeof PlusIcon).toBe('function');
     expect(typeof QuestionMarkCircleIcon).toBe('function');
+    expect(typeof RefreshIcon).toBe('function');
     expect(typeof RepeatIcon).toBe('function');
     expect(typeof GiftIcon).toBe('function');
     expect(typeof GlobeIcon).toBe('function');
@@ -73,6 +76,7 @@ describe('mage stroke icons', () => {
     expect(typeof UserPlusIcon).toBe('function');
     expect(typeof MultiplyIcon).toBe('function');
     expect(typeof TrashIcon).toBe('function');
+    expect(typeof UnlockIcon).toBe('function');
     expect(typeof SearchIcon).toBe('function');
     expect(typeof SettingsIcon).toBe('function');
     expect(typeof ShopIcon).toBe('function');

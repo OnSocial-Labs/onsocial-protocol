@@ -9,9 +9,27 @@ interface TokenIconProps {
   className?: string;
 }
 
+function withTokenIconClass(
+  variant: 'mark' | 'image' | 'fallback',
+  className?: string
+): string {
+  if (className) {
+    if (variant === 'image') return className;
+    const modifier =
+      variant === 'mark' ? 'app-token-icon--mark' : 'app-token-icon--fallback';
+    return className.includes(modifier)
+      ? className
+      : `${className} ${modifier}`;
+  }
+  if (variant === 'mark') return 'app-token-icon app-token-icon--mark';
+  if (variant === 'fallback') return 'app-token-icon app-token-icon--fallback';
+  return 'app-token-icon';
+}
+
 /**
  * Circular FT icon with letter / brand-mark fallback — amount-field unit mark.
  * Brand SVG fallback uses a CSS mask so it tracks `--fg` on any mood.
+ * Custom `className` keeps the variant modifier (`--mark` / `--fallback`).
  */
 export function TokenIcon({ src, label, className }: TokenIconProps) {
   const [failedForSrc, setFailedForSrc] = useState<string | null>(null);
@@ -23,10 +41,7 @@ export function TokenIcon({ src, label, className }: TokenIconProps) {
 
   if (useBrandMark && !imageFailed) {
     return (
-      <span
-        className={className ?? 'app-token-icon app-token-icon--mark'}
-        aria-hidden
-      />
+      <span className={withTokenIconClass('mark', className)} aria-hidden />
     );
   }
 
@@ -36,17 +51,14 @@ export function TokenIcon({ src, label, className }: TokenIconProps) {
         src={src}
         alt=""
         aria-hidden
-        className={className ?? 'app-token-icon'}
+        className={withTokenIconClass('image', className)}
         onError={() => setFailedForSrc(src)}
       />
     );
   }
 
   return (
-    <span
-      className={className ?? 'app-token-icon app-token-icon--fallback'}
-      aria-hidden
-    >
+    <span className={withTokenIconClass('fallback', className)} aria-hidden>
       {letter}
     </span>
   );

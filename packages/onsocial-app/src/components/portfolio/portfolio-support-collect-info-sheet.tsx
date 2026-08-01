@@ -10,10 +10,9 @@ import {
   type CSSProperties,
 } from 'react';
 import {
+  ChevronDownIcon,
   Divider,
   GlassSheet,
-  OsSheetAction,
-  OsSheetActions,
   ProfileAvatar,
   SheetCloseButton,
 } from '@onsocial/ui';
@@ -29,11 +28,17 @@ import { formatSocialCompact } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
+  sumSupportReceivedYocto,
   supportPotActionLabel,
+  supportReceivedKindSubtotals,
   type ProfileSupportReceivedHistoryPage,
   type ProfileSupportReceivedSummary,
 } from '@/lib/profile-support-received';
 import type { SupportReceivedRow } from '@onsocial/sdk';
+import {
+  CommerceSheetFooter,
+  type CommerceSheetFooterState,
+} from '@/features/scarces/commerce-sheet-footer';
 
 interface PortfolioSupportCollectInfoSheetProps {
   open: boolean;
@@ -103,11 +108,13 @@ function SupportCreditList({
                   </span>
                   <span className="portfolio-support-collect-info-row-kind">
                     {kind}
-                    {when ? ` · ${when}` : ''}
                   </span>
                 </div>
               </Link>
               <div className="standing-row-aside">
+                {when ? (
+                  <span className="standing-row-time">{when}</span>
+                ) : null}
                 <span className="portfolio-support-collect-info-amount">
                   {formatSocialCompact(row.amountYocto)} SOCIAL
                 </span>
@@ -132,11 +139,13 @@ export function PortfolioSupportCollectInfoSheet({
   onOpenChange,
 }: PortfolioSupportCollectInfoSheetProps) {
   const titleId = useId();
+  const earlierPanelId = useId();
   const [closing, setClosing] = useState(false);
   const [current, setCurrent] = useState<SupportReceivedRow[] | null>(null);
   const [history, setHistory] = useState<SupportReceivedRow[]>([]);
   const [historyHasMore, setHistoryHasMore] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [earlierOpen, setEarlierOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -152,7 +161,7 @@ export function PortfolioSupportCollectInfoSheet({
 
   const spenderIds = [
     ...(current ?? []).map((row) => row.spenderId),
-    ...history.map((row) => row.spenderId),
+    ...(earlierOpen ? history.map((row) => row.spenderId) : []),
   ];
   const profiles = usePostAuthorProfiles(spenderIds);
 
@@ -162,6 +171,7 @@ export function PortfolioSupportCollectInfoSheet({
     setCurrent(null);
     setHistory([]);
     setHistoryHasMore(false);
+    setEarlierOpen(false);
     setLoadError(null);
     void (async () => {
       try {
@@ -239,9 +249,7 @@ export function PortfolioSupportCollectInfoSheet({
         );
         const next = page.items.filter(
           (row) =>
-            !seen.has(
-              `${row.blockHeight}:${row.spenderId}:${row.amountYocto}`
-            )
+            !seen.has(`${row.blockHeight}:${row.spenderId}:${row.amountYocto}`)
         );
         return next.length ? [...prev, ...next] : prev;
       });
@@ -259,6 +267,7 @@ export function PortfolioSupportCollectInfoSheet({
     sentinelRef: loadMoreRef,
     enabled:
       sheetOpen &&
+      earlierOpen &&
       historyHasMore &&
       !historyLoading &&
       current != null &&
@@ -278,8 +287,33 @@ export function PortfolioSupportCollectInfoSheet({
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const showEarlier =
-    current != null && (history.length > 0 || historyHasMore);
+  const showEarlier = current != null && (history.length > 0 || historyHasMore);
+  const currentKindSubtotals =
+    current && current.length > 0
+      ? supportReceivedKindSubtotals(current, formatSocialCompact)
+      : '';
+  const earlierTotalYocto = sumSupportReceivedYocto(history);
+  const earlierCountLabel = historyHasMore
+    ? `${history.length}+`
+    : String(history.length);
+  const earlierSummaryAmount =
+    earlierTotalYocto > 0n
+      ? `${formatSocialCompact(earlierTotalYocto.toString())} SOCIAL`
+      : null;
+
+  const footerState = ((): CommerceSheetFooterState | null => {
+    if (!onCollect) return null;
+    return {
+      visible: true,
+      primaryLabel: APP_COLLECT_ACTION_LABEL,
+      primaryPendingLabel: 'Collecting…',
+      canSubmit: !collectPending,
+      pending: collectPending,
+      disabled: collectPending,
+      primaryType: 'button',
+      onPrimaryClick: onCollect,
+    };
+  })();
 
   return (
     <GlassSheet
@@ -320,24 +354,16 @@ export function PortfolioSupportCollectInfoSheet({
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
+      footer={
+        footerState ? (
+          <CommerceSheetFooter
+            formId="portfolio-support-collect"
+            keyboardOpen={false}
+            state={footerState}
+          />
+        ) : undefined
+      }
     >
-      {onCollect ? (
-        <div className="portfolio-support-collect-cta">
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="button"
-              ready={!collectPending}
-              pending={collectPending}
-              pendingLabel="Collecting…"
-              disabled={collectPending}
-              onClick={onCollect}
-            >
-              {APP_COLLECT_ACTION_LABEL}
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      ) : null}
-
       <section className="portfolio-support-collect-info-block">
         {loadError ? (
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
@@ -348,27 +374,58 @@ export function PortfolioSupportCollectInfoSheet({
             No credits in this pot yet.
           </p>
         ) : (
-          <SupportCreditList items={current} profiles={profiles} />
+          <>
+            {currentKindSubtotals ? (
+              <p className="portfolio-support-collect-info-subtotals">
+                {currentKindSubtotals}
+              </p>
+            ) : null}
+            <SupportCreditList items={current} profiles={profiles} />
+          </>
         )}
       </section>
 
       {showEarlier ? (
         <section className="portfolio-support-collect-info-block">
-          <p className="portfolio-support-collect-info-section-note">
-            Earlier — already collected
-          </p>
-          {history.length > 0 ? (
-            <SupportCreditList items={history} profiles={profiles} />
-          ) : null}
-          {historyHasMore ? (
-            <div
-              ref={loadMoreRef}
-              className="portfolio-support-collect-info-sentinel"
+          <button
+            type="button"
+            className={`portfolio-support-collect-earlier-toggle${
+              earlierOpen ? ' is-open' : ''
+            }`}
+            aria-expanded={earlierOpen}
+            aria-controls={earlierPanelId}
+            onClick={() => setEarlierOpen((open) => !open)}
+          >
+            <span className="portfolio-support-collect-earlier-label">
+              Earlier
+              <span className="portfolio-support-collect-earlier-meta">
+                {earlierSummaryAmount
+                  ? ` · ${earlierSummaryAmount} · ${earlierCountLabel}`
+                  : ` · ${earlierCountLabel}`}
+              </span>
+            </span>
+            <ChevronDownIcon
+              className="portfolio-support-collect-earlier-chevron"
               aria-hidden
             />
-          ) : null}
-          {historyLoading ? (
-            <p className="portfolio-support-collect-info-empty">Loading…</p>
+          </button>
+
+          {earlierOpen ? (
+            <div id={earlierPanelId}>
+              {history.length > 0 ? (
+                <SupportCreditList items={history} profiles={profiles} />
+              ) : null}
+              {historyHasMore ? (
+                <div
+                  ref={loadMoreRef}
+                  className="portfolio-support-collect-info-sentinel"
+                  aria-hidden
+                />
+              ) : null}
+              {historyLoading ? (
+                <p className="portfolio-support-collect-info-empty">Loading…</p>
+              ) : null}
+            </div>
           ) : null}
         </section>
       ) : null}

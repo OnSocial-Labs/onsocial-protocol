@@ -15,6 +15,8 @@ import {
   ProfileAvatar,
   SheetCloseButton,
   ShopFillIcon,
+  osIconActionClassName,
+  osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
@@ -120,12 +122,15 @@ function EarningsList({
                         )}
                       </>
                     ) : null}
-                    {formatEarningKindSuffix(row, when)}
+                    {formatEarningKindSuffix(row)}
                   </span>
                 </div>
               </div>
               <div className="standing-row-aside">
-                <span className="portfolio-support-collect-info-amount">
+                {when ? (
+                  <span className="standing-row-time">{when}</span>
+                ) : null}
+                <span className="portfolio-support-collect-info-amount portfolio-scarce-earnings-amount">
                   {formatEarningsNear(row.paymentYocto)}
                 </span>
               </div>
@@ -184,9 +189,7 @@ export function PortfolioScarceEarningsSheet({
         setItems([]);
         setHasMore(false);
         setLoadError(
-          cause instanceof Error
-            ? cause.message
-            : 'Could not load scarce sales'
+          cause instanceof Error ? cause.message : 'Could not load scarce sales'
         );
       }
     })();
@@ -221,7 +224,8 @@ export function PortfolioScarceEarningsSheet({
   useInfiniteScrollSentinel({
     scrollRootRef: bodyRef,
     sentinelRef: loadMoreRef,
-    enabled: sheetOpen && hasMore && !loadingMore && items != null && !loadError,
+    enabled:
+      sheetOpen && hasMore && !loadingMore && items != null && !loadError,
     onIntersect: () => {
       void loadMore();
     },
@@ -272,13 +276,13 @@ export function PortfolioScarceEarningsSheet({
               <div className="standing-sheet-actions standing-sheet-actions--payout">
                 <Link
                   href={APP_MARKET_PATH}
-                  className="portfolio-scarce-earnings-market-header"
+                  className={osIconActionClassName}
                   scroll={false}
                   onClick={requestClose}
                   aria-label="Open Market"
                 >
                   <ShopFillIcon
-                    className="portfolio-scarce-earnings-market-header-glyph"
+                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
                     aria-hidden
                   />
                 </Link>

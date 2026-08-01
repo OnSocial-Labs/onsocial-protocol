@@ -45,6 +45,7 @@ import {
   HubTransferSheet,
   type HubManageSheetId,
 } from '@/features/scarces/hub-manage-sheets';
+import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
 import { HubSettingsSheet } from '@/features/scarces/hub-settings-sheet';
 import {
   fetchCollectionsByApp,
@@ -57,6 +58,11 @@ import {
   type StoreCatalogTab,
 } from '@/features/scarces/store-catalog';
 import { StorePublishRequestSection } from '@/features/scarces/store-publish-request-section';
+import {
+  fetchStorePublishDecisions,
+  fetchStorePublishRequests,
+  filterActionablePublishRequests,
+} from '@/features/scarces/store-publish-requests';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
@@ -67,6 +73,7 @@ import {
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { formatProfileCount } from '@/lib/profile-social-standings';
 
 const PUBLISH_SECTION_ID = 'hub-publish-requests';
 
@@ -98,6 +105,10 @@ export function AppPagePanel({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
   const [creatorsOpen, setCreatorsOpen] = useState(false);
+  const [pendingPublishSnapshot, setPendingPublishSnapshot] = useState<{
+    appId: string;
+    count: number;
+  } | null>(null);
   const [manageSheet, setManageSheet] = useState<HubManageSheetId | null>(
     null
   );
@@ -309,6 +320,47 @@ export function AppPagePanel({
 
   const onManaged = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  const canReviewRequests =
+    Boolean(authority && app?.creatorAccess === 'approval');
+  const reviewAppId =
+    canReviewRequests && app ? app.appId : null;
+  const approvedCreatorsKey = useMemo(
+    () =>
+      (app?.approvedCreators ?? [])
+        .map((id) => id.trim().toLowerCase())
+        .filter(Boolean)
+        .sort()
+        .join('|'),
+    [app?.approvedCreators]
+  );
+  const pendingPublishCount =
+    reviewAppId && pendingPublishSnapshot?.appId === reviewAppId
+      ? pendingPublishSnapshot.count
+      : 0;
+
+  // Soft mailbox count for the settings gear / Publish requests row.
+  useEffect(() => {
+    if (!reviewAppId) return;
+    let cancelled = false;
+    const approved = approvedCreatorsKey
+      ? approvedCreatorsKey.split('|')
+      : [];
+    void Promise.all([
+      fetchStorePublishRequests(reviewAppId),
+      fetchStorePublishDecisions(reviewAppId),
+    ]).then(([rows, decisions]) => {
+      if (cancelled) return;
+      setPendingPublishSnapshot({
+        appId: reviewAppId,
+        count: filterActionablePublishRequests(rows, approved, decisions)
+          .length,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reviewAppId, approvedCreatorsKey, refreshKey]);
+
   // Drop creation lives on the dock — purple stars where the pen sits for
   // posts. The button only shows while a creator is on this hub.
   const createHref = `${APP_DROP_CREATE_PATH}?${MARKET_APP_PARAM}=${encodeURIComponent(appId)}`;
@@ -354,7 +406,6 @@ export function AppPagePanel({
 
   const canRequestPublish =
     isConnected && !canCreate && app.creatorAccess === 'approval';
-  const canReviewRequests = authority && app.creatorAccess === 'approval';
   const creatorCount = rosterIds.length;
   const hasActivity =
     stats != null &&
@@ -371,17 +422,25 @@ export function AppPagePanel({
         showSettingsGear ? (
           <button
             type="button"
-            className={osIconActionClassName}
-            aria-label="Hub settings"
-            onClick={() => {
-              if (owner) {
-                setSettingsOpen(true);
-                return;
-              }
-              setManageSheet('people');
-            }}
+            className={`${osIconActionClassName} guild-manage-menu-trigger${
+              canReviewRequests && pendingPublishCount > 0 ? ' has-badge' : ''
+            }`}
+            aria-label={
+              canReviewRequests && pendingPublishCount > 0
+                ? `Hub settings, ${pendingPublishCount} publish requests`
+                : 'Hub settings'
+            }
+            onClick={() => setSettingsOpen(true)}
           >
-            <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
+            <SettingsIcon
+              className="glass-sheet-close-icon guild-manage-menu-icon"
+              aria-hidden
+            />
+            {canReviewRequests && pendingPublishCount > 0 ? (
+              <span className="guild-manage-menu-badge" aria-hidden>
+                {formatProfileCount(pendingPublishCount)}
+              </span>
+            ) : null}
           </button>
         ) : undefined
       }
@@ -548,9 +607,7 @@ export function AppPagePanel({
           <StorePublishRequestSection
             appId={app.appId}
             canRequest={canRequestPublish}
-            canReview={canReviewRequests}
             isApprovedCreator={isApprovedCreator}
-            onApproved={onManaged}
           />
         </div>
       </div>
@@ -577,11 +634,14 @@ export function AppPagePanel({
         app={app}
       />
 
-      {owner ? (
+      {showSettingsGear ? (
         <HubSettingsSheet
           open={settingsOpen}
           hubName={app.title}
-          showPeople
+          showOwnerTools={owner}
+          showPeople={authority && (owner || app.creatorAccess === 'approval')}
+          showPublishRequests={canReviewRequests}
+          publishRequestCount={pendingPublishCount}
           onClose={() => {
             setSettingsOpen(false);
             const next = settingsNextRef.current;
@@ -620,6 +680,16 @@ export function AppPagePanel({
           onChanged={onManaged}
           canManageCreators={authority}
           canManageModerators={owner}
+        />
+      ) : null}
+
+      {canReviewRequests ? (
+        <HubPublishRequestsSheet
+          open={manageSheet === 'publish-requests'}
+          appId={app.appId}
+          approvedCreatorIds={app.approvedCreators}
+          onClose={() => setManageSheet(null)}
+          onChanged={onManaged}
         />
       ) : null}
 

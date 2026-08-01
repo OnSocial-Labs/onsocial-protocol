@@ -6,6 +6,7 @@ import {
   PortfolioListingActionsMark,
   PortfolioListingActionsSheet,
 } from '@/components/portfolio/portfolio-listing-actions-sheet';
+import { BOOST_CLAIM_DUST_YOCTO } from '@/features/boost/boost-position';
 import { PortfolioBoostSheet } from '@/features/boost/portfolio-boost-sheet';
 import { useBoostPosition } from '@/features/boost/use-boost-position';
 import { PortfolioScarceEarningsSheet } from '@/components/portfolio/portfolio-scarce-earnings-sheet';
@@ -45,6 +46,7 @@ export function PortfolioOwnerPayoutMarks({
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [salesYocto, setSalesYocto] = useState<string | null>(null);
   const [listingActions, setListingActions] = useState<ListingActionItem[]>([]);
+  const [listingsLoaded, setListingsLoaded] = useState(false);
   const [collectPending, setCollectPending] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
@@ -58,7 +60,8 @@ export function PortfolioOwnerPayoutMarks({
         const next = await fetchProfileSupportBalanceYocto(accountId, options);
         setClaimableYocto(next);
       } catch {
-        setClaimableYocto(null);
+        // Treat errors as loaded-empty so the row can still settle.
+        setClaimableYocto(0n);
       }
     },
     [accountId]
@@ -69,7 +72,7 @@ export function PortfolioOwnerPayoutMarks({
       const page = await fetchScarceCreatorEarnings(accountId, { limit: 100 });
       setSalesYocto(page.totalYocto);
     } catch {
-      setSalesYocto(null);
+      setSalesYocto('0');
     }
   }, [accountId]);
 
@@ -79,10 +82,16 @@ export function PortfolioOwnerPayoutMarks({
       setListingActions(page.items);
     } catch {
       setListingActions([]);
+    } finally {
+      setListingsLoaded(true);
     }
   }, [accountId]);
 
   useEffect(() => {
+    setClaimableYocto(null);
+    setSalesYocto(null);
+    setListingActions([]);
+    setListingsLoaded(false);
     void refreshSupport({ fresh: true });
     void refreshSales();
     void refreshListingActions();
@@ -141,6 +150,12 @@ export function PortfolioOwnerPayoutMarks({
   const showSupport = claimableYocto != null && claimableYocto > 0n;
   const showSales = salesYocto != null && salesYocto !== '0';
   const showListings = listingActions.length > 0;
+  /** Wait for every mark — paint the row once so amounts don’t shove each other. */
+  const marksReady =
+    claimableYocto != null &&
+    salesYocto != null &&
+    listingsLoaded &&
+    boost.loaded;
 
   const supportLabel = showSupport
     ? formatSocialCompact(claimableYocto!.toString())
@@ -149,97 +164,117 @@ export function PortfolioOwnerPayoutMarks({
   const boostLabel = boost.hasPosition
     ? formatSocialCompact(boost.lockedYocto)
     : '';
+  /** Fire nudges when rewards are collectable or the lock can be released. */
+  const boostActionable =
+    boost.hasPosition &&
+    (boost.canUnlock || boost.claimableYocto >= BOOST_CLAIM_DUST_YOCTO);
 
   return (
     <>
       <div className="portfolio-identity-gestures">
-        <div
-          className="portfolio-identity-gesture-row"
-          role="group"
-          aria-label="Payouts and listings"
-        >
-          {showListings ? (
-            <PortfolioListingActionsMark
-              count={listingActions.length}
-              onOpen={() => setListingsOpen(true)}
-            />
-          ) : null}
-
-          {showListings && (showSupport || showSales) ? (
-            <span className="portfolio-identity-gesture-sep" aria-hidden>
-              ·
-            </span>
-          ) : null}
-
-          {showSupport ? (
-            <button
-              type="button"
-              className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
-              onClick={() => setSupportOpen(true)}
-              aria-label={`${supportLabel} SOCIAL ready to collect`}
-            >
-              <span
-                className="signal-group signal-group-reputation"
-                aria-hidden
-              >
-                <span className="portfolio-payout-mark-icon">
-                  <GiftIcon className="portfolio-payout-mark-svg" />
-                </span>
-              </span>
-              <span className="portfolio-payout-mark-amount">
-                {supportLabel}
-              </span>
-            </button>
-          ) : null}
-
-          {showSupport && showSales ? (
-            <span className="portfolio-identity-gesture-sep" aria-hidden>
-              ·
-            </span>
-          ) : null}
-
-          {showSales ? (
-            <button
-              type="button"
-              className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
-              onClick={() => setSalesOpen(true)}
-              aria-label={`${salesLabel} NEAR from scarce sales`}
-            >
-              <span className="signal-group signal-group-endorse" aria-hidden>
-                <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--shop">
-                  <ShopFillIcon className="portfolio-payout-mark-svg" />
-                </span>
-              </span>
-              <span className="portfolio-payout-mark-amount">{salesLabel}</span>
-            </button>
-          ) : null}
-
-          {showListings || showSupport || showSales ? (
-            <span className="portfolio-identity-gesture-sep" aria-hidden>
-              ·
-            </span>
-          ) : null}
-
-          <button
-            type="button"
-            className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
-            onClick={() => setBoostOpen(true)}
-            aria-label={
-              boost.hasPosition
-                ? `${boostLabel} SOCIAL boosting — manage`
-                : 'Boost — lock SOCIAL to grow influence'
-            }
+        {!marksReady ? (
+          <span
+            className="standing-row-shimmer portfolio-identity-gesture-shimmer"
+            role="status"
+            aria-label="Loading payouts"
+          />
+        ) : (
+          <div
+            className="portfolio-identity-gesture-row"
+            role="group"
+            aria-label="Payouts and listings"
           >
-            <span className="signal-group signal-group-standing" aria-hidden>
-              <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--boost">
-                <FireFillIcon className="portfolio-payout-mark-svg" />
-              </span>
-            </span>
-            {boostLabel ? (
-              <span className="portfolio-payout-mark-amount">{boostLabel}</span>
+            {showListings ? (
+              <PortfolioListingActionsMark
+                count={listingActions.length}
+                onOpen={() => setListingsOpen(true)}
+              />
             ) : null}
-          </button>
-        </div>
+
+            {showListings && (showSupport || showSales) ? (
+              <span className="portfolio-identity-gesture-sep" aria-hidden>
+                ·
+              </span>
+            ) : null}
+
+            {showSupport ? (
+              <button
+                type="button"
+                className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+                onClick={() => setSupportOpen(true)}
+                aria-label={`${supportLabel} SOCIAL ready to collect`}
+              >
+                <span
+                  className="signal-group signal-group-reputation"
+                  aria-hidden
+                >
+                  <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--nudge">
+                    <GiftIcon className="portfolio-payout-mark-svg" />
+                  </span>
+                </span>
+                <span className="portfolio-payout-mark-amount">
+                  {supportLabel}
+                </span>
+              </button>
+            ) : null}
+
+            {showSupport && showSales ? (
+              <span className="portfolio-identity-gesture-sep" aria-hidden>
+                ·
+              </span>
+            ) : null}
+
+            {showSales ? (
+              <button
+                type="button"
+                className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+                onClick={() => setSalesOpen(true)}
+                aria-label={`${salesLabel} NEAR from scarce sales`}
+              >
+                <span className="signal-group signal-group-endorse" aria-hidden>
+                  <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--shop">
+                    <ShopFillIcon className="portfolio-payout-mark-svg" />
+                  </span>
+                </span>
+                <span className="portfolio-payout-mark-amount">
+                  {salesLabel}
+                </span>
+              </button>
+            ) : null}
+
+            {showListings || showSupport || showSales ? (
+              <span className="portfolio-identity-gesture-sep" aria-hidden>
+                ·
+              </span>
+            ) : null}
+
+            <button
+              type="button"
+              className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+              onClick={() => setBoostOpen(true)}
+              aria-label={
+                boost.hasPosition
+                  ? `${boostLabel} SOCIAL boosting — manage`
+                  : 'Boost — lock SOCIAL to grow influence'
+              }
+            >
+              <span className="signal-group signal-group-standing" aria-hidden>
+                <span
+                  className={`portfolio-payout-mark-icon portfolio-payout-mark-icon--boost${
+                    boostActionable ? ' portfolio-payout-mark-icon--nudge' : ''
+                  }`}
+                >
+                  <FireFillIcon className="portfolio-payout-mark-svg" />
+                </span>
+              </span>
+              {boostLabel ? (
+                <span className="portfolio-payout-mark-amount">
+                  {boostLabel}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        )}
       </div>
 
       {showListings ? (

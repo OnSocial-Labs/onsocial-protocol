@@ -4,28 +4,37 @@ import { useCallback, useId, useState } from 'react';
 import {
   Divider,
   GlassSheet,
-  ProtocolMotionArrow,
   SheetCloseButton,
+  osFloatingPanelCountClassName,
 } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import type { HubManageSheetId } from '@/features/scarces/hub-manage-sheets';
+import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { formatProfileCount } from '@/lib/profile-social-standings';
 
 interface HubSettingsSheetProps {
   open: boolean;
   hubName?: string;
+  /** Owner-only: look / access / transfer. */
+  showOwnerTools: boolean;
   showPeople: boolean;
+  showPublishRequests: boolean;
+  publishRequestCount?: number;
   onClose: () => void;
   onOpenSheet: (sheet: HubManageSheetId) => void;
 }
 
 /**
- * Settings hub for hub owners — look / access / people / transfer.
- * Toolbar gear opens this sheet instead of an inline manage dump.
+ * Settings hub for hub owners / staff — look / access / people /
+ * publish requests / transfer. Toolbar gear opens this instead of an
+ * inline manage dump.
  */
 export function HubSettingsSheet({
   open,
   hubName,
+  showOwnerTools,
   showPeople,
+  showPublishRequests,
+  publishRequestCount = 0,
   onClose,
   onOpenSheet,
 }: HubSettingsSheetProps) {
@@ -90,38 +99,40 @@ export function HubSettingsSheet({
         className="os-surface-row-list guild-settings-sheet-list"
         aria-label="Hub settings"
       >
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
-          onClick={() => openSheet('look')}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Edit look</span>
-            <span className="os-surface-row-description">
-              Logo, banner, name, categories
+        {showOwnerTools ? (
+          <button
+            type="button"
+            className="os-surface-row"
+            onClick={() => openSheet('look')}
+          >
+            <span className="os-surface-row-copy">
+              <span className="os-surface-row-label">Edit look</span>
+              <span className="os-surface-row-description">
+                Logo, banner, name, categories
+              </span>
             </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
+          </button>
+        ) : null}
 
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
-          onClick={() => openSheet('access')}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Access & sales</span>
-            <span className="os-surface-row-description">
-              Commission and who can create drops
+        {showOwnerTools ? (
+          <button
+            type="button"
+            className="os-surface-row"
+            onClick={() => openSheet('access')}
+          >
+            <span className="os-surface-row-copy">
+              <span className="os-surface-row-label">Access & sales</span>
+              <span className="os-surface-row-description">
+                Commission and who can create drops
+              </span>
             </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
+          </button>
+        ) : null}
 
         {showPeople ? (
           <button
             type="button"
-            className="os-surface-row os-surface-row--navigate"
+            className="os-surface-row"
             onClick={() => openSheet('people')}
           >
             <span className="os-surface-row-copy">
@@ -130,23 +141,46 @@ export function HubSettingsSheet({
                 Moderators and approved creators
               </span>
             </span>
-            <ProtocolMotionArrow className="account-card-action-arrow" />
           </button>
         ) : null}
 
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
-          onClick={() => openSheet('transfer')}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Transfer hub</span>
-            <span className="os-surface-row-description">
-              Hand ownership to another account
+        {showPublishRequests ? (
+          <button
+            type="button"
+            className="os-surface-row"
+            onClick={() => openSheet('publish-requests')}
+          >
+            <span className="os-surface-row-copy">
+              <span className="os-surface-row-label">Publish requests</span>
+              <span className="os-surface-row-description">
+                Approve creators waiting to publish
+              </span>
             </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
+            {publishRequestCount > 0 ? (
+              <span
+                className={`${osFloatingPanelCountClassName} os-floating-panel-count--solidarity`}
+                aria-hidden
+              >
+                {formatProfileCount(publishRequestCount)}
+              </span>
+            ) : null}
+          </button>
+        ) : null}
+
+        {showOwnerTools ? (
+          <button
+            type="button"
+            className="os-surface-row"
+            onClick={() => openSheet('transfer')}
+          >
+            <span className="os-surface-row-copy">
+              <span className="os-surface-row-label">Transfer hub</span>
+              <span className="os-surface-row-description">
+                Hand ownership to another account
+              </span>
+            </span>
+          </button>
+        ) : null}
       </nav>
     </GlassSheet>
   );
