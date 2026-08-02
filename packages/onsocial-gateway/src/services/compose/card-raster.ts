@@ -13,7 +13,8 @@ import { inflateSync } from 'node:zlib';
 import { Resvg, type ResvgRenderOptions } from '@resvg/resvg-js';
 
 const require = createRequire(import.meta.url);
-const OUTPUT_WIDTH = 1200;
+/** 600 design grid × 3 — sharper when UI shows the card small. */
+const OUTPUT_WIDTH = 1800;
 
 function packageFont(path: string): string {
   return require.resolve(path);
@@ -175,7 +176,7 @@ function scaleSvgToOutput(svg: string): string {
  * cannot parse WOFF directly. System fonts stay off so hosts cannot
  * leak into permanent artwork beyond the optional emoji face.
  *
- * Quality: layout stays the 600 design grid × 2 (1200 PNG). Text uses
+ * Quality: layout stays the 600 design grid × 3 (1800 PNG). Text uses
  * optimizeLegibility; embedded avatar/photo use optimizeQuality — neither
  * changes on-card sizes.
  */

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildTextCardPng } from '../../../src/services/compose/text-card-png.js';
 
 describe('buildTextCardPng', () => {
-  it('returns a 1200px PNG with title glyphs', async () => {
+  it('returns an 1800px PNG with title glyphs', async () => {
     const withTitle = await buildTextCardPng('alice.testnet', {
       title: 'I voted!',
       creator: { accountId: 'alice.testnet', displayName: 'Alice' },
@@ -23,7 +23,7 @@ describe('buildTextCardPng', () => {
     expect(withTitle.png.subarray(0, 8)).toEqual(
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
     );
-    expect(withTitle.png.readUInt32BE(16)).toBe(1200);
+    expect(withTitle.png.readUInt32BE(16)).toBe(1800);
     expect(withTitle.themeExtra.bg).toBe('thought-night');
     expect(withTitle.png.equals(withoutTitle.png)).toBe(false);
     expect(

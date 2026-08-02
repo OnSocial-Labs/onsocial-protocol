@@ -79,8 +79,8 @@ previewRouter.post(
         mediaType: 'image/png',
         dataUri: `data:image/png;base64,${png.toString('base64')}`,
         theme: themeExtra,
-        width: 1200,
-        height: 1200,
+        width: 1800,
+        height: 1800,
       });
     } catch (err) {
       if (err instanceof ComposeError) {

@@ -90,8 +90,8 @@ const TITLE_LINE_HEIGHT_RATIO = 56 / 44; // ~1.27
 const TITLE_MAX_LINES = 7;
 /** Poster locks base size — ALL CAPS presence, no shrink ladder. */
 const POSTER_TITLE_FONT_SIZE = TITLE_FONT_SIZES[0];
-/** Soften cover type so it sits in the stock, not on top of it. */
-const TITLE_FILL_OPACITY = 0.92;
+/** Solid cover type — matches mint PNG ink (no soft wash). */
+const TITLE_FILL_OPACITY = 1;
 
 // Byline (bottom band) — one signature stamp, two opacities of the same ink.
 // Tight stack + shared hue so name and id feel embedded, not two labels.

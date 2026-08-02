@@ -15385,11 +15385,14 @@ a.os-surface-row {
     color: var(--protocol-green);
   }
 
-  /* Art only — no chrome under/around the card; sized for sheet open. */
+  /*
+   * Art only — integer CSS sizes that divide the 1800 mint PNG cleanly
+   * (180px = ÷10, 300px = ÷6) so browser downscale stays sharp.
+   */
   .scarce-post-preview {
     display: block;
     margin: 0 auto 0.7rem;
-    width: min(100%, 11rem);
+    width: min(100%, 180px);
     padding: 0;
     border: 0;
     background: transparent;
@@ -15398,10 +15401,10 @@ a.os-surface-row {
     color: inherit;
   }
 
-  /* List sheet: hold layout while mint-true PNG loads (live SVG underneath). */
+  /* List sheet: hold layout while mint-true PNG loads. */
   .scarce-list-preview {
     margin: 0 auto 0.7rem;
-    width: min(100%, 11rem);
+    width: min(100%, 180px);
   }
 
   .scarce-list-preview .scarce-post-preview {
@@ -15409,15 +15412,52 @@ a.os-surface-row {
     width: 100%;
   }
 
+  .scarce-list-preview-placeholder {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
   .scarce-list-preview.is-pending {
     opacity: 0.72;
     transition: opacity 160ms ease;
   }
 
-  /* Feed: match single post-media tile width, not the sheet picker. */
+  /* TEMP QA: Live SVG vs mint PNG — remove with scarce-list-form compare. */
+  .scarce-list-preview-compare {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.85rem 1rem;
+    margin: 0 auto 0.7rem;
+  }
+
+  .scarce-list-preview-compare-col {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .scarce-list-preview-compare-label {
+    margin: 0;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .scarce-list-preview-compare .scarce-list-preview {
+    margin-bottom: 0;
+  }
+
+  /* Feed: integer size vs 1800 mint PNG (÷6). */
   .scarce-post-preview--feed {
     margin: 0.45rem 0 0;
-    width: min(100%, 18rem);
+    width: min(100%, 300px);
   }
 
   .scarce-post-preview:focus-visible {
@@ -15498,8 +15538,9 @@ a.os-surface-row {
 
   .scarce-card-lightbox-asset {
     display: block;
-    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.92), 36rem);
-    max-height: min(calc(var(--scarce-lightbox-vh) * 0.92), 36rem);
+    /* 600px = 1800÷3 — integer scale for mint PNG zoom. */
+    width: min(92vw, calc(var(--scarce-lightbox-vh) * 0.92), 600px);
+    max-height: min(calc(var(--scarce-lightbox-vh) * 0.92), 600px);
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
@@ -15582,7 +15623,7 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.4rem;
     margin: 0 auto 0.7rem;
-    width: min(100%, 11rem);
+    width: min(100%, 180px);
   }
 
   .scarce-frame-picker-stage {
@@ -16346,7 +16387,7 @@ a.os-surface-row {
 
   .scarce-buy-media {
     margin: 0 auto 0.7rem;
-    width: min(100%, 11rem);
+    width: min(100%, 180px);
   }
 
   .scarce-buy-media img {
@@ -22875,6 +22916,36 @@ a.os-surface-row {
     transparent
   );
   color: var(--mood-signal-reputation, var(--signal-reputation));
+}
+
+/*
+ * Boost drawer chips — same standing tint as the portfolio flame mark.
+ * Mode row + period picker; selected only. Unlayered for the same reason.
+ */
+.portfolio-boost-mode-row .os-surface-chip.is-selected,
+.portfolio-boost-periods .os-surface-chip.is-selected {
+  background: color-mix(
+    in srgb,
+    var(--mood-signal-standing, var(--signal-standing, #5ecf9a)) 14%,
+    transparent
+  );
+  color: var(--mood-signal-standing, var(--signal-standing, #5ecf9a));
+}
+
+.portfolio-boost-mode-row
+  .os-surface-chip.is-selected:not(:disabled):hover,
+.portfolio-boost-mode-row
+  .os-surface-chip.is-selected:not(:disabled):focus-visible,
+.portfolio-boost-periods
+  .os-surface-chip.is-selected:not(:disabled):hover,
+.portfolio-boost-periods
+  .os-surface-chip.is-selected:not(:disabled):focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--mood-signal-standing, var(--signal-standing, #5ecf9a)) 22%,
+    transparent
+  );
+  color: var(--mood-signal-standing, var(--signal-standing, #5ecf9a));
 }
 
 /*

@@ -363,6 +363,25 @@ export function PortfolioBoostSheet({
       ? 'Not enough SOCIAL in your wallet.'
       : null;
   const amountReady = amountYocto >= BOOST_MIN_LOCK_YOCTO && !insufficient;
+  const increaseInfluenceYocto =
+    mode === 'increase' && amountReady && currentOption
+      ? applyLockBonus(
+          lockedYocto + amountYocto,
+          currentOption.bonusPercent
+        )
+      : null;
+  const summaryInfluenceYocto =
+    mode === 'extend' && extendInfluenceYocto != null
+      ? extendInfluenceYocto
+      : increaseInfluenceYocto;
+  const summaryUnlockPreviewMonths =
+    mode === 'extend' && extendOption
+      ? extendOption.months
+      : mode === 'renew' && currentOption
+        ? currentOption.months
+        : mode === 'increase' && amountReady && currentOption
+          ? currentOption.months
+          : null;
 
   const applyAmountInput = useCallback((raw: string) => {
     setAmountInput(
@@ -812,46 +831,19 @@ export function PortfolioBoostSheet({
 
           {canUnlock && mode === 'collect' ? (
             <p className="portfolio-boost-note portfolio-boost-note--center">
-              Your commitment is complete. Release your SOCIAL and collect
-              everything in one go.
+              Release your lock and collect everything.
             </p>
           ) : null}
 
           {!canUnlock && mode === 'increase' ? (
-            <>
-              <BoostAmountField
-                amountInput={amountInput}
-                onAmountInput={applyAmountInput}
-                onMax={applyMaxAmount}
-                balanceYocto={balanceYocto}
-                tokenIconSrc={socialIcon}
-                disabled={txPending}
-              />
-              <p className="portfolio-boost-note">
-                Keeps {currentOption?.short} (+{currentOption?.bonusPercent}
-                %). Timer resets from today.
-                {amountReady && currentOption
-                  ? ` New influence ${formatSocialCompact(
-                      applyLockBonus(
-                        lockedYocto + amountYocto,
-                        currentOption.bonusPercent
-                      )
-                    )}.`
-                  : ''}
-              </p>
-            </>
-          ) : null}
-
-          {mode === 'renew' ? (
-            <p
-              className={`portfolio-boost-note${
-                canUnlock ? ' portfolio-boost-note--center' : ''
-              }`}
-            >
-              {canUnlock ? 'Keep boosting — restart' : 'Restart'} your{' '}
-              {currentOption?.label ?? `${currentLockMonths} month`} commitment
-              from today. Locked amount stays the same.
-            </p>
+            <BoostAmountField
+              amountInput={amountInput}
+              onAmountInput={applyAmountInput}
+              onMax={applyMaxAmount}
+              balanceYocto={balanceYocto}
+              tokenIconSrc={socialIcon}
+              disabled={txPending}
+            />
           ) : null}
 
           {mode === 'extend' ? (
@@ -924,9 +916,9 @@ export function PortfolioBoostSheet({
             <div className="portfolio-boost-summary-row">
               <span className="portfolio-boost-summary-label">Influence</span>
               <span className="portfolio-boost-summary-value">
-                {mode === 'extend' && extendInfluenceYocto != null
-                  ? formatSocialCompact(extendInfluenceYocto)
-                  : formatSocialCompact(account.effective_boost)}
+                {formatSocialCompact(
+                  summaryInfluenceYocto ?? account.effective_boost
+                )}
               </span>
             </div>
             {summaryBonusOption ? (
@@ -940,8 +932,8 @@ export function PortfolioBoostSheet({
             <div className="portfolio-boost-summary-row">
               <span className="portfolio-boost-summary-label">Unlocks</span>
               <span className="portfolio-boost-summary-value">
-                {mode === 'extend' && extendOption ? (
-                  previewUnlockDateLabel(extendOption.months)
+                {summaryUnlockPreviewMonths != null ? (
+                  previewUnlockDateLabel(summaryUnlockPreviewMonths)
                 ) : (
                   <>
                     {formatUnlockDateLabel(account.unlock_at)} ·{' '}

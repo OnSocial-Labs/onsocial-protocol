@@ -43,9 +43,10 @@ const getServerMountedSnapshot = () => false;
 const LIGHTBOX_EXIT_MS = 180;
 
 /**
- * Live preview renders generated cards as inline SVG (not `<img
- * src=data:svg>`). Nested https faces/photos work in the DOM; browsers
- * block them inside SVG-as-image. Mint still inlines bytes into PNG.
+ * Fallback live SVG for feed/buy when no mint raster URL is supplied.
+ * List sheet prefers gateway mint PNG (`mediaUrl`) so preview matches mint.
+ * Nested https faces/photos work in DOM SVG; browsers block them in
+ * SVG-as-image. Mint inlines bytes into PNG.
  */
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');

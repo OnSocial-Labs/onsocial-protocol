@@ -368,8 +368,7 @@ export function ScarceListForm({
   }, [mintBody, post.postId, usesGeneratedCard, cardTheme.cardFormat]);
 
   // Mint-true PNG preview (same gateway builder as list). Keep the last
-  // PNG on screen while the next one loads — clearing it fell back to live
-  // SVG and Letter/Erica briefly looked blank or like DM Sans.
+  // PNG on screen while the next one loads — never fall back to live SVG.
   useEffect(() => {
     const wantsMintPreview = usesGeneratedCard && !usesPhotoCard;
     if (!wantsMintPreview || !accountId) {
@@ -708,32 +707,69 @@ export function ScarceListForm({
         />
       ) : (
         <>
-          <div
-            className={`scarce-list-preview${mintPreviewPending && usesGeneratedCard && !usesPhotoCard ? ' is-pending' : ''}`}
-            aria-busy={
-              mintPreviewPending && usesGeneratedCard && !usesPhotoCard
-            }
-          >
-            <ScarcePostPreview
-              post={post}
-              creatorDisplayName={authorName}
-              creatorAvatarUrl={creatorAvatarUrl}
-              {...(coverPreviewUrl && !usesPhotoCard
-                ? { mediaUrl: coverPreviewUrl }
-                : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
-                  ? { mediaUrl: mintPreviewUrl }
+          {usesGeneratedCard && !usesPhotoCard && !coverPreviewUrl ? (
+            // TEMP QA: side-by-side live SVG vs mint PNG — remove after sign-off.
+            <div
+              className="scarce-list-preview-compare"
+              aria-busy={mintPreviewPending}
+            >
+              <div className="scarce-list-preview-compare-col">
+                <p className="scarce-list-preview-compare-label">Live SVG</p>
+                <div className="scarce-list-preview">
+                  <ScarcePostPreview
+                    post={post}
+                    creatorDisplayName={authorName}
+                    creatorAvatarUrl={creatorAvatarUrl}
+                    cardBg={cardTheme.cardBg}
+                    cardFormat={cardTheme.cardFormat}
+                    cardMarkShape={cardTheme.cardMarkShape}
+                    cardMarkColor={cardTheme.cardMarkColor}
+                    cardTitleAlign={cardTheme.cardTitleAlign}
+                  />
+                </div>
+              </div>
+              <div className="scarce-list-preview-compare-col">
+                <p className="scarce-list-preview-compare-label">Mint PNG</p>
+                <div
+                  className={`scarce-list-preview${mintPreviewPending ? ' is-pending' : ''}`}
+                >
+                  {mintPreviewUrl ? (
+                    <ScarcePostPreview
+                      post={post}
+                      creatorDisplayName={authorName}
+                      creatorAvatarUrl={creatorAvatarUrl}
+                      mediaUrl={mintPreviewUrl}
+                    />
+                  ) : (
+                    <div
+                      className="scarce-list-preview-placeholder"
+                      aria-hidden
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="scarce-list-preview">
+              <ScarcePostPreview
+                post={post}
+                creatorDisplayName={authorName}
+                creatorAvatarUrl={creatorAvatarUrl}
+                {...(coverPreviewUrl
+                  ? { mediaUrl: coverPreviewUrl }
                   : {})}
-              {...(usesGeneratedCard
-                ? {
-                    cardBg: cardTheme.cardBg,
-                    cardFormat: cardTheme.cardFormat,
-                    cardMarkShape: cardTheme.cardMarkShape,
-                    cardMarkColor: cardTheme.cardMarkColor,
-                    cardTitleAlign: cardTheme.cardTitleAlign,
-                  }
-                : {})}
-            />
-          </div>
+                {...(usesGeneratedCard
+                  ? {
+                      cardBg: cardTheme.cardBg,
+                      cardFormat: cardTheme.cardFormat,
+                      cardMarkShape: cardTheme.cardMarkShape,
+                      cardMarkColor: cardTheme.cardMarkColor,
+                      cardTitleAlign: cardTheme.cardTitleAlign,
+                    }
+                  : {})}
+              />
+            </div>
+          )}
           {mintPreviewError ? (
             <p className="profile-support-error" role="alert">
               {mintPreviewError}
