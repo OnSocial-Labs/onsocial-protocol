@@ -707,58 +707,29 @@ export function ScarceListForm({
         />
       ) : (
         <>
-          {usesGeneratedCard && !usesPhotoCard && !coverPreviewUrl ? (
-            // TEMP QA: side-by-side live SVG vs mint PNG — remove after sign-off.
-            <div
-              className="scarce-list-preview-compare"
-              aria-busy={mintPreviewPending}
-            >
-              <div className="scarce-list-preview-compare-col">
-                <p className="scarce-list-preview-compare-label">Live SVG</p>
-                <div className="scarce-list-preview">
-                  <ScarcePostPreview
-                    post={post}
-                    creatorDisplayName={authorName}
-                    creatorAvatarUrl={creatorAvatarUrl}
-                    cardBg={cardTheme.cardBg}
-                    cardFormat={cardTheme.cardFormat}
-                    cardMarkShape={cardTheme.cardMarkShape}
-                    cardMarkColor={cardTheme.cardMarkColor}
-                    cardTitleAlign={cardTheme.cardTitleAlign}
-                  />
-                </div>
-              </div>
-              <div className="scarce-list-preview-compare-col">
-                <p className="scarce-list-preview-compare-label">Mint PNG</p>
-                <div
-                  className={`scarce-list-preview${mintPreviewPending ? ' is-pending' : ''}`}
-                >
-                  {mintPreviewUrl ? (
-                    <ScarcePostPreview
-                      post={post}
-                      creatorDisplayName={authorName}
-                      creatorAvatarUrl={creatorAvatarUrl}
-                      mediaUrl={mintPreviewUrl}
-                    />
-                  ) : (
-                    <div
-                      className="scarce-list-preview-placeholder"
-                      aria-hidden
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="scarce-list-preview">
+          <div
+            className={`scarce-list-preview${mintPreviewPending && usesGeneratedCard && !usesPhotoCard ? ' is-pending' : ''}`}
+            aria-busy={
+              mintPreviewPending && usesGeneratedCard && !usesPhotoCard
+            }
+          >
+            {usesGeneratedCard &&
+            !usesPhotoCard &&
+            !mintPreviewUrl &&
+            !coverPreviewUrl ? (
+              <div className="scarce-list-preview-placeholder" aria-hidden />
+            ) : (
               <ScarcePostPreview
                 post={post}
                 creatorDisplayName={authorName}
                 creatorAvatarUrl={creatorAvatarUrl}
-                {...(coverPreviewUrl
+                {...(coverPreviewUrl && !usesPhotoCard
                   ? { mediaUrl: coverPreviewUrl }
-                  : {})}
-                {...(usesGeneratedCard
+                  : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
+                    ? { mediaUrl: mintPreviewUrl }
+                    : {})}
+                {...(usesGeneratedCard &&
+                (coverPreviewUrl || mintPreviewUrl || usesPhotoCard)
                   ? {
                       cardBg: cardTheme.cardBg,
                       cardFormat: cardTheme.cardFormat,
@@ -768,8 +739,8 @@ export function ScarceListForm({
                     }
                   : {})}
               />
-            </div>
-          )}
+            )}
+          </div>
           {mintPreviewError ? (
             <p className="profile-support-error" role="alert">
               {mintPreviewError}

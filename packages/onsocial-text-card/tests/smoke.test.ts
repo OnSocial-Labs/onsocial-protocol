@@ -63,7 +63,7 @@ describe('themes catalog', () => {
       theme: { bg: 'poster-noir' },
     });
     expect(svg).toContain('font-size="44"');
-    expect(svg).toContain('fill-opacity="0.92"');
+    expect(svg).toContain('fill-opacity="1"');
     expect(svg).toMatch(/BUILD/);
     expect(svg).toMatch(/PERMANENCE/);
     expect(svg).not.toContain('Build permanence');

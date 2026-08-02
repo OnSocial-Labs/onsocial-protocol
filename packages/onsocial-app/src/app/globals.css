@@ -15424,36 +15424,6 @@ a.os-surface-row {
     transition: opacity 160ms ease;
   }
 
-  /* TEMP QA: Live SVG vs mint PNG — remove with scarce-list-form compare. */
-  .scarce-list-preview-compare {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.85rem 1rem;
-    margin: 0 auto 0.7rem;
-  }
-
-  .scarce-list-preview-compare-col {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .scarce-list-preview-compare-label {
-    margin: 0;
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .scarce-list-preview-compare .scarce-list-preview {
-    margin-bottom: 0;
-  }
-
   /* Feed: integer size vs 1800 mint PNG (÷6). */
   .scarce-post-preview--feed {
     margin: 0.45rem 0 0;

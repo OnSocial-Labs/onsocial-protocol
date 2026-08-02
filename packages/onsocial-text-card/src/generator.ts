@@ -90,21 +90,24 @@ const TITLE_LINE_HEIGHT_RATIO = 56 / 44; // ~1.27
 const TITLE_MAX_LINES = 7;
 /** Poster locks base size — ALL CAPS presence, no shrink ladder. */
 const POSTER_TITLE_FONT_SIZE = TITLE_FONT_SIZES[0];
-/** Soften cover type so it sits in the stock, like the signature. */
-const TITLE_FILL_OPACITY = 0.92;
+/**
+ * Solid title ink — PNG antialias already softens; full opacity stays clean
+ * at mint display sizes.
+ */
+const TITLE_FILL_OPACITY = 1;
 
-// Byline (bottom band) — one signature stamp, two opacities of the same ink.
-// Tight stack + shared hue so name and id feel embedded, not two labels.
+// Byline (bottom band) — one signature stamp, stepped opacities of the same ink.
+// Slightly lifted vs SVG-era values so mint PNG doesn’t wash out.
 const BYLINE_NAME_SIZE = 17;
 const BYLINE_HANDLE_SIZE = 13;
 /** Only used when a very long account id won't fit at the default handle size. */
 const BYLINE_HANDLE_FLOOR = 12;
 const BYLINE_STACK_GAP = 5; // px between name baseline and handle baseline
-const BYLINE_NAME_OPACITY = 0.72;
-const BYLINE_HANDLE_OPACITY = 0.42;
-const BYLINE_SOLO_OPACITY = 0.55;
+const BYLINE_NAME_OPACITY = 0.85;
+const BYLINE_HANDLE_OPACITY = 0.55;
+const BYLINE_SOLO_OPACITY = 0.7;
 const BYLINE_PROVENANCE_SIZE = 11;
-const BYLINE_PROVENANCE_OPACITY = 0.3;
+const BYLINE_PROVENANCE_OPACITY = 0.42;
 /** Extra air between the account id and the OnSocial · date line. */
 const BYLINE_PROVENANCE_GAP = 12;
 const BYLINE_PROVENANCE_BRAND = 'OnSocial';
