@@ -6,9 +6,13 @@ import { config } from '../../config/index.js';
 import {
   type UploadedFile,
   type UploadResult,
+  type VariationUploadResult,
   ComposeError,
   uploadToLighthouse,
+  uploadVariationImagesToLighthouse,
   resolveExistingMediaCid,
+  variationMediaUrl,
+  verifyCidLive,
   logger,
   validateRoyalty,
   MAX_METADATA_LEN,
@@ -63,6 +67,15 @@ export interface ComposeCreateCollectionRequest {
   mediaCid?: string;
   /** Pre-computed media hash to pair with `mediaCid`. */
   mediaHash?: string;
+  /**
+   * Variation set (BYO storage): IPFS directory CID whose files are named
+   * `1.<ext>` … `<totalSupply>.<ext>`. Each minted token resolves its own
+   * media via the `{seat_number}` placeholder. Mutually exclusive with
+   * `mediaCid` / uploaded variation images.
+   */
+  variationsCid?: string;
+  /** File extension inside the variations directory (default `png`). */
+  variationsExt?: string;
   /** Optional: override target account (which scarces contract) */
   targetAccount?: string;
 }
@@ -81,6 +94,8 @@ export interface CreateCollectionActionResult {
   action: Record<string, unknown>;
   targetAccount: string;
   media?: UploadResult;
+  /** Present when the drop is a variation set. */
+  variations?: VariationUploadResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +117,8 @@ export interface CreateCollectionActionResult {
 export async function buildCreateCollectionAction(
   accountId: string,
   req: ComposeCreateCollectionRequest,
-  imageFile?: UploadedFile
+  imageFile?: UploadedFile,
+  variationImageFiles?: UploadedFile[]
 ): Promise<CreateCollectionActionResult> {
   // ── Validate (mirrors contracts/scarces-onsocial/src/collections/create.rs) ──
 
@@ -191,10 +207,64 @@ export async function buildCreateCollectionAction(
     }
   }
 
-  let media: UploadResult | undefined;
+  const hasVariationUpload =
+    variationImageFiles != null && variationImageFiles.length > 0;
+  if (hasVariationUpload && (req.mediaCid || imageFile)) {
+    throw new ComposeError(
+      400,
+      'Provide either a single cover image or a variation set, not both'
+    );
+  }
+  if (hasVariationUpload && req.variationsCid) {
+    throw new ComposeError(
+      400,
+      'Provide either uploaded variation images or variationsCid, not both'
+    );
+  }
+  if (req.variationsCid && req.mediaCid) {
+    throw new ComposeError(
+      400,
+      'variationsCid and mediaCid are mutually exclusive'
+    );
+  }
 
-  // 1. Resolve media: prefer caller-provided CID (BYO storage); else upload.
-  if (req.mediaCid) {
+  let media: UploadResult | undefined;
+  let variations: VariationUploadResult | undefined;
+
+  // 1. Resolve media.
+  if (hasVariationUpload) {
+    // Variation set: every token gets its own art. Uploaded as one IPFS
+    // directory so a single CID seals the full set before the first mint.
+    if (variationImageFiles.length !== req.totalSupply) {
+      throw new ComposeError(
+        400,
+        `Variation set must have exactly one image per token: got ${variationImageFiles.length} images for supply ${req.totalSupply}`
+      );
+    }
+    variations = await uploadVariationImagesToLighthouse(variationImageFiles);
+    logger.info(
+      { accountId, cid: variations.cid, count: variations.count },
+      'Compose create-collection: variation set uploaded'
+    );
+  } else if (req.variationsCid) {
+    // BYO variation directory (large / generative sets pinned upstream).
+    const ext = (req.variationsExt || 'png').replace(/^\./, '').toLowerCase();
+    if (!/^[a-z0-9]{1,8}$/.test(ext)) {
+      throw new ComposeError(400, 'Invalid variationsExt');
+    }
+    // Spot-check the directory bounds so a broken/incomplete pin fails
+    // here instead of minting tokens with dead media.
+    await verifyCidLive(`${req.variationsCid}/1.${ext}`);
+    if (req.totalSupply > 1) {
+      await verifyCidLive(`${req.variationsCid}/${req.totalSupply}.${ext}`);
+    }
+    variations = {
+      cid: req.variationsCid,
+      count: req.totalSupply,
+      ext,
+      urlTemplate: variationMediaUrl(req.variationsCid, ext),
+    };
+  } else if (req.mediaCid) {
     media = await resolveExistingMediaCid(req.mediaCid, req.mediaHash);
   } else if (imageFile) {
     media = await uploadToLighthouse(imageFile);
@@ -207,11 +277,27 @@ export async function buildCreateCollectionAction(
   // 2. Build NEP-177 metadata template (this is what each minted token gets)
   // We store the dedicated-gateway https URL on-chain (not `ipfs://...`)
   // so wallets render reliably without depending on the public IPFS DHT.
+  //
+  // Variation sets: `media` keeps the `{seat_number}` placeholder — the
+  // contract interpolates the token's global mint position. No `media_hash`
+  // (per-token media, content-addressed by the directory CID) and
+  // `copies: 1` (each artwork is unique).
+  // Every variation token needs a distinct title — append the seat number
+  // unless the caller already templated one in.
+  const hasTitlePlaceholder = /\{(seat_number|index|token_id)\}/.test(
+    req.title
+  );
+  const templateTitle =
+    variations && !hasTitlePlaceholder
+      ? `${req.title} #{seat_number}`
+      : req.title;
+
   const metadataTemplate: Record<string, unknown> = {
-    title: req.title,
+    title: templateTitle,
     ...(req.description && { description: req.description }),
-    ...(media && { media: media.url }),
-    ...(media && media.hash && { media_hash: media.hash }),
+    ...(variations && { media: variations.urlTemplate, copies: 1 }),
+    ...(!variations && media && { media: media.url }),
+    ...(!variations && media && media.hash && { media_hash: media.hash }),
     ...(req.extra && { extra: JSON.stringify(req.extra) }),
   };
 
@@ -255,5 +341,5 @@ export async function buildCreateCollectionAction(
       ? 'scarces.onsocial.near'
       : 'scarces.onsocial.testnet');
 
-  return { action, targetAccount, media };
+  return { action, targetAccount, media, ...(variations && { variations }) };
 }

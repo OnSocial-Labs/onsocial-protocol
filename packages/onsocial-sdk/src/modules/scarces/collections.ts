@@ -53,7 +53,14 @@ export class ScarcesCollectionsApi {
    * ```
    */
   async create(opts: CollectionOptions): Promise<RelayResponse> {
-    if (hasLocalUpload(this._storage, opts.image, opts.mediaCid)) {
+    // Variation sets always go through the gateway — the directory pin
+    // (one CID for the whole art set) happens server-side.
+    const isVariationSet =
+      (opts.images?.length ?? 0) > 0 || Boolean(opts.variationsCid);
+    if (
+      !isVariationSet &&
+      hasLocalUpload(this._storage, opts.image, opts.mediaCid)
+    ) {
       const { mediaCid, mediaHash } = await resolveScarceMedia(
         opts,
         this._storage
@@ -97,9 +104,15 @@ export class ScarcesCollectionsApi {
       form.append('burnable', String(opts.burnable));
     if (opts.maxRedeems != null)
       form.append('maxRedeems', String(opts.maxRedeems));
+    if (opts.metadata) form.append('metadata', JSON.stringify(opts.metadata));
     if (opts.mediaCid) form.append('mediaCid', opts.mediaCid);
     if (opts.mediaHash) form.append('mediaHash', opts.mediaHash);
+    if (opts.variationsCid) form.append('variationsCid', opts.variationsCid);
+    if (opts.variationsExt) form.append('variationsExt', opts.variationsExt);
     if (opts.image) form.append('image', opts.image);
+    for (const file of opts.images ?? []) {
+      form.append('images', file);
+    }
 
     const result = await composeFormAndSign(
       this._http,

@@ -15,6 +15,7 @@ import {
 import {
   parseJsonField,
   parseBool,
+  collectFiles,
   extractImageFile,
   resolveActorId,
 } from './helpers.js';
@@ -73,6 +74,8 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
     burnable,
     mediaCid,
     mediaHash,
+    variationsCid,
+    variationsExt,
     targetAccount,
   } = body as Record<string, string | undefined>;
 
@@ -104,6 +107,8 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
       ...(parseBool(burnable) != null && { burnable: parseBool(burnable) }),
       ...(mediaCid && { mediaCid }),
       ...(mediaHash && { mediaHash }),
+      ...(variationsCid && { variationsCid }),
+      ...(variationsExt && { variationsExt }),
       ...(targetAccount && { targetAccount }),
     },
     parsedExtra,
@@ -127,7 +132,10 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
 // ---------------------------------------------------------------------------
 collectionRouter.post(
   '/prepare/create-collection',
-  upload.single('image'),
+  upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'images', maxCount: 50 },
+  ]),
   async (req: Request, res: Response) => {
     const effectiveActorId = resolveActorId(req);
 
@@ -149,12 +157,17 @@ collectionRouter.post(
       }
 
       const { req: collectionReq } = buildCreateCollectionReq(req.body);
-      const imageFile = extractImageFile(req.file);
+      const fileGroups = req.files as
+        | Record<string, Express.Multer.File[]>
+        | undefined;
+      const imageFile = extractImageFile(fileGroups?.image?.[0]);
+      const variationImageFiles = collectFiles(fileGroups?.images);
 
       const built = await buildCreateCollectionAction(
         effectiveActorId,
         collectionReq,
-        imageFile
+        imageFile,
+        variationImageFiles
       );
 
       res.status(200).json({
@@ -166,6 +179,14 @@ collectionRouter.post(
               url: built.media.url,
               size: built.media.size,
               hash: built.media.hash,
+            }
+          : undefined,
+        variations: built.variations
+          ? {
+              cid: built.variations.cid,
+              count: built.variations.count,
+              ext: built.variations.ext,
+              url_template: built.variations.urlTemplate,
             }
           : undefined,
       });

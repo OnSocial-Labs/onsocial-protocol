@@ -169,12 +169,24 @@ fn contract_metadata_reference_with_hash_is_valid() {
 }
 
 #[test]
-fn token_media_requires_hash() {
+fn token_media_requires_hash_when_not_content_addressed() {
     let mut metadata = token_metadata();
-    metadata.media = Some("ipfs://bafymedia".into());
+    metadata.media = Some("https://cdn.example/art.png".into());
 
     let err = validate_token_metadata(&metadata).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
+fn token_content_addressed_media_without_hash_is_valid() {
+    // The CID itself carries integrity — no separate hash needed. This is
+    // what lets variation-drop templates omit a per-token media_hash.
+    let mut metadata = token_metadata();
+    metadata.media = Some("ipfs://bafymedia".into());
+    assert!(validate_token_metadata(&metadata).is_ok());
+
+    metadata.media = Some("https://cdn.onsocial.id/ipfs/bafymedia/3.png".into());
+    assert!(validate_token_metadata(&metadata).is_ok());
 }
 
 #[test]

@@ -64,8 +64,22 @@ pub(crate) fn validate_contract_metadata(
     Ok(())
 }
 
+/// Content-addressed URIs (IPFS) carry integrity in the CID itself, so a
+/// separate `media_hash` is redundant. This is what makes single-template
+/// variation drops possible: one template, per-token media under a directory
+/// CID, no per-token hash needed.
+pub(crate) fn is_content_addressed_uri(uri: &str) -> bool {
+    uri.starts_with("ipfs://") || uri.contains("/ipfs/")
+}
+
 pub(crate) fn validate_token_metadata(metadata: &TokenMetadata) -> Result<(), MarketplaceError> {
-    validate_hash_pair("media", &metadata.media, "media_hash", &metadata.media_hash)?;
+    let media_content_addressed = metadata
+        .media
+        .as_deref()
+        .is_some_and(is_content_addressed_uri);
+    if !(media_content_addressed && metadata.media_hash.is_none()) {
+        validate_hash_pair("media", &metadata.media, "media_hash", &metadata.media_hash)?;
+    }
     validate_hash_pair(
         "reference",
         &metadata.reference,

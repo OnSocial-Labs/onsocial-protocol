@@ -77,7 +77,10 @@ function statusTone(status: CollectionStatus): string {
   return 'is-idle';
 }
 
-function scheduleLine(view: CollectionView, status: CollectionStatus): string | null {
+function scheduleLine(
+  view: CollectionView,
+  status: CollectionStatus
+): string | null {
   if (status === 'upcoming' && view.startTimeMs) {
     const rel = formatMarketRelativeTime(view.startTimeMs);
     return rel ? `Opens ${rel}` : null;
@@ -100,8 +103,11 @@ export function CollectionPagePanel({
   collectionId: string;
   initial: CollectionView | null;
 }) {
-  const { accountId: viewerAccountId, isConnected, getSigningWallet } =
-    useAppWallet();
+  const {
+    accountId: viewerAccountId,
+    isConnected,
+    getSigningWallet,
+  } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [view, setView] = useState<CollectionView | null>(initial);
   const [notFound, setNotFound] = useState(initial == null);
@@ -296,8 +302,7 @@ export function CollectionPagePanel({
     : walletRemaining === 0
       ? 'You’ve reached your limit for this drop.'
       : null;
-  const canMint =
-    isConnected && mintable && walletRemaining !== 0 && !pending;
+  const canMint = isConnected && mintable && walletRemaining !== 0 && !pending;
 
   return (
     <OsAppScreen
@@ -336,6 +341,11 @@ export function CollectionPagePanel({
           >
             @{fallbackLabel(view.creatorId)}
           </Link>
+          {view.seriesId ? (
+            <p className="collection-series-note">
+              Part of the {view.seriesTitle ?? view.seriesId} series
+            </p>
+          ) : null}
           {view.description ? (
             <p className="collection-description">{view.description}</p>
           ) : null}
@@ -369,6 +379,12 @@ export function CollectionPagePanel({
               <dt>Price</dt>
               <dd>{priceLabel}</dd>
             </div>
+            {view.isVariations ? (
+              <div>
+                <dt>Set</dt>
+                <dd>{view.totalSupply} unique pieces · 1 of each</dd>
+              </div>
+            ) : null}
             {schedule ? (
               <div>
                 <dt>{status === 'upcoming' ? 'Opens' : 'Window'}</dt>
@@ -412,9 +428,7 @@ export function CollectionPagePanel({
               <button
                 type="button"
                 className="collection-qty-btn"
-                onClick={() =>
-                  setQuantity((q) => Math.min(maxQuantity, q + 1))
-                }
+                onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
                 disabled={pending || quantity >= maxQuantity}
                 aria-label="Increase quantity"
               >
@@ -450,6 +464,13 @@ export function CollectionPagePanel({
 
           {mintDisabledReason ? (
             <p className="collection-mint-hint">{mintDisabledReason}</p>
+          ) : view.isVariations && mintable && !isOwner ? (
+            <p className="collection-mint-hint">
+              Every piece is one of a kind — you&rsquo;ll receive piece #
+              {view.minted + 1}
+              {quantity > 1 ? `–#${view.minted + quantity}` : ''} of{' '}
+              {view.totalSupply}.
+            </p>
           ) : isOwner && mintable ? (
             <p className="collection-mint-hint">
               Creators don’t collect from their own drop. Share the link so fans

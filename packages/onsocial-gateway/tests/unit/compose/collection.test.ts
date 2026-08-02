@@ -5,8 +5,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   mockUploadBuffer,
+  mockUploadDirectory,
   mockFetch,
   mockLighthouseUpload,
+  mockLighthouseDirectoryUpload,
   mockRelaySuccess,
   makeFile,
 } from './helpers.js';
@@ -288,5 +290,163 @@ describe('buildCreateCollectionAction', () => {
     );
 
     expect(result.targetAccount).toBe('my-nft.testnet');
+  });
+});
+
+describe('buildCreateCollectionAction — variation sets', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const variationFiles = (count: number, mimetype = 'image/png') =>
+    Array.from({ length: count }, (_, i) =>
+      makeFile({
+        fieldname: 'images',
+        originalname: `art-${i + 1}.png`,
+        mimetype,
+      })
+    );
+
+  it('uploads a directory and builds a {seat_number} template', async () => {
+    mockLighthouseDirectoryUpload('QmVarDir');
+
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'ink-studies',
+        totalSupply: 3,
+        title: 'Ink Study',
+        priceNear: '1',
+      },
+      undefined,
+      variationFiles(3)
+    );
+
+    expect(result.variations).toBeDefined();
+    expect(result.variations!.cid).toBe('QmVarDir');
+    expect(result.variations!.count).toBe(3);
+
+    // Files are renamed to their 1-based seat positions.
+    const uploaded = mockUploadDirectory.mock.calls[0][0].files;
+    expect(uploaded.map((f) => f.filename)).toEqual([
+      '1.png',
+      '2.png',
+      '3.png',
+    ]);
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    expect(template.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmVarDir/{seat_number}.png'
+    );
+    // Per-token media is content-addressed by the directory CID — no hash.
+    expect(template.media_hash).toBeUndefined();
+    // Each artwork is unique.
+    expect(template.copies).toBe(1);
+    // Title gets a seat suffix so every token is distinguishable.
+    expect(template.title).toBe('Ink Study #{seat_number}');
+  });
+
+  it('keeps a caller-provided title placeholder', async () => {
+    mockLighthouseDirectoryUpload();
+
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'seats',
+        totalSupply: 2,
+        title: 'Seat {seat_number} of 2',
+      },
+      undefined,
+      variationFiles(2)
+    );
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    expect(template.title).toBe('Seat {seat_number} of 2');
+  });
+
+  it('rejects image count not matching totalSupply', async () => {
+    await expect(
+      buildCreateCollectionAction(
+        'creator.testnet',
+        {
+          collectionId: 'mismatch',
+          totalSupply: 5,
+          title: 'Mismatch',
+        },
+        undefined,
+        variationFiles(3)
+      )
+    ).rejects.toThrow('exactly one image per token');
+  });
+
+  it('rejects mixed image formats', async () => {
+    const files = [
+      makeFile({ fieldname: 'images', mimetype: 'image/png' }),
+      makeFile({ fieldname: 'images', mimetype: 'image/jpeg' }),
+    ];
+    await expect(
+      buildCreateCollectionAction(
+        'creator.testnet',
+        {
+          collectionId: 'mixed',
+          totalSupply: 2,
+          title: 'Mixed',
+        },
+        undefined,
+        files
+      )
+    ).rejects.toThrow('share one format');
+  });
+
+  it('rejects variation images combined with a single cover image', async () => {
+    await expect(
+      buildCreateCollectionAction(
+        'creator.testnet',
+        {
+          collectionId: 'both',
+          totalSupply: 2,
+          title: 'Both',
+        },
+        makeFile(),
+        variationFiles(2)
+      )
+    ).rejects.toThrow('not both');
+  });
+
+  it('builds a template from a BYO variationsCid without uploading', async () => {
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'generative',
+        totalSupply: 10000,
+        title: 'Gen Art',
+        variationsCid: 'QmByoDir',
+        variationsExt: 'webp',
+      },
+      undefined
+    );
+
+    expect(mockUploadDirectory).not.toHaveBeenCalled();
+    expect(result.variations!.cid).toBe('QmByoDir');
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    expect(template.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmByoDir/{seat_number}.webp'
+    );
+    expect(template.copies).toBe(1);
+  });
+
+  it('rejects variationsCid combined with mediaCid', async () => {
+    await expect(
+      buildCreateCollectionAction(
+        'creator.testnet',
+        {
+          collectionId: 'conflict',
+          totalSupply: 10,
+          title: 'Conflict',
+          variationsCid: 'QmByoDir',
+          mediaCid: 'QmSingle',
+        },
+        undefined
+      )
+    ).rejects.toThrow(ComposeError);
   });
 });

@@ -45,6 +45,7 @@ import {
   HubTransferSheet,
   type HubManageSheetId,
 } from '@/features/scarces/hub-manage-sheets';
+import { HubPublishAccessSheet } from '@/features/scarces/hub-publish-access-sheet';
 import { HubPublishRequestsSheet } from '@/features/scarces/hub-publish-requests-sheet';
 import { HubSettingsSheet } from '@/features/scarces/hub-settings-sheet';
 import {
@@ -57,11 +58,13 @@ import {
   StoreResalePanel,
   type StoreCatalogTab,
 } from '@/features/scarces/store-catalog';
-import { StorePublishRequestSection } from '@/features/scarces/store-publish-request-section';
 import {
+  fetchMyStorePublishDecision,
+  fetchMyStorePublishRequest,
   fetchStorePublishDecisions,
   fetchStorePublishRequests,
   filterActionablePublishRequests,
+  isStorePublishRequestRejected,
 } from '@/features/scarces/store-publish-requests';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -74,8 +77,6 @@ import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { formatProfileCount } from '@/lib/profile-social-standings';
-
-const PUBLISH_SECTION_ID = 'hub-publish-requests';
 
 /** Two-letter monogram from the store name for the logo fallback. */
 function monogram(title: string): string {
@@ -103,6 +104,9 @@ export function AppPagePanel({
   const [dropsLoadedKey, setDropsLoadedKey] = useState<string | null>(null);
   const [dropsIndexerCatchUp, setDropsIndexerCatchUp] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [publishAccessOpen, setPublishAccessOpen] = useState(false);
+  const [publishAccessRefreshKey, setPublishAccessRefreshKey] = useState(0);
+  const [myPublishPending, setMyPublishPending] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
   const [creatorsOpen, setCreatorsOpen] = useState(false);
   const [pendingPublishSnapshot, setPendingPublishSnapshot] = useState<{
@@ -294,11 +298,6 @@ export function AppPagePanel({
     () => (app ? canCreateInApp(app, viewerAccountId ?? null) : false),
     [app, viewerAccountId]
   );
-  const isApprovedCreator = useMemo(() => {
-    if (!app || !viewerAccountId) return false;
-    const id = viewerAccountId.trim().toLowerCase();
-    return app.approvedCreators.some((x) => x.toLowerCase() === id);
-  }, [app, viewerAccountId]);
 
   const rosterIds = useMemo(() => {
     if (!app) return [];
@@ -361,19 +360,47 @@ export function AppPagePanel({
     };
   }, [reviewAppId, approvedCreatorsKey, refreshKey]);
 
-  // Drop creation lives on the dock — purple stars where the pen sits for
-  // posts. The button only shows while a creator is on this hub.
+  // Dock stars only when the viewer can create drops. Request-to-publish
+  // lives opposite the hero meta (guild Join / Request pattern).
+  const canRequestPublish = Boolean(
+    app && isConnected && !canCreate && app.creatorAccess === 'approval'
+  );
   const createHref = `${APP_DROP_CREATE_PATH}?${MARKET_APP_PARAM}=${encodeURIComponent(appId)}`;
   const openDropCreate = useCallback(() => {
     router.push(createHref);
   }, [createHref, router]);
+  const openPublishAccess = useCallback(() => {
+    setPublishAccessOpen(true);
+  }, []);
   useRegisterComposeAction(canCreate ? openDropCreate : null, 'drop');
 
-  const scrollToPublish = useCallback(() => {
-    document
-      .getElementById(PUBLISH_SECTION_ID)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+  // No reset needed when ineligible — the pending pill only renders inside
+  // the `canRequestPublish` branch, and the fetch below refreshes the flag
+  // whenever eligibility returns.
+  useEffect(() => {
+    if (!canRequestPublish || !viewerAccountId || !app) return;
+    let cancelled = false;
+    void Promise.all([
+      fetchMyStorePublishRequest(app.appId, viewerAccountId),
+      fetchMyStorePublishDecision(app.appId, viewerAccountId),
+    ]).then(([row, decision]) => {
+      if (cancelled) return;
+      const declined =
+        row != null &&
+        row.status === 'pending' &&
+        decision != null &&
+        isStorePublishRequestRejected(row, [decision]);
+      setMyPublishPending(row?.status === 'pending' && !declined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canRequestPublish,
+    viewerAccountId,
+    app,
+    publishAccessRefreshKey,
+  ]);
 
   const showSettingsGear =
     authority && (owner || app?.creatorAccess === 'approval');
@@ -404,8 +431,6 @@ export function AppPagePanel({
     );
   }
 
-  const canRequestPublish =
-    isConnected && !canCreate && app.creatorAccess === 'approval';
   const creatorCount = rosterIds.length;
   const hasActivity =
     stats != null &&
@@ -494,8 +519,8 @@ export function AppPagePanel({
             </div>
           </header>
 
-          {/* Same anatomy as guild-hero-meta: facepile + count, then
-              mode + facts tucked tight — categories on their own tags row. */}
+          {/* Same anatomy as guild-hero-meta: facepile + mode, Request
+              opposite (guild Join / Request). Categories on tags row. */}
           <div className="guild-hero-meta">
             <div className="guild-hero-meta-main">
               <GuildFacepile
@@ -522,6 +547,17 @@ export function AppPagePanel({
                 </button>
               </span>
             </div>
+            {canRequestPublish ? (
+              <div className="guild-hero-membership-slot">
+                <button
+                  type="button"
+                  className="hub-hero-publish-request"
+                  onClick={openPublishAccess}
+                >
+                  {myPublishPending ? 'Pending' : 'Request'}
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {app.categories.length > 0 ? (
@@ -562,17 +598,6 @@ export function AppPagePanel({
             <GuildDescriptionClamp text={app.description} />
           ) : null}
 
-          {canRequestPublish ? (
-            <div className="app-hub-cta-row">
-              <button
-                type="button"
-                className="app-hub-cta"
-                onClick={scrollToPublish}
-              >
-                Request to publish
-              </button>
-            </div>
-          ) : null}
         </section>
 
         {!canCreate && isConnected && !canRequestPublish ? (
@@ -603,14 +628,16 @@ export function AppPagePanel({
           <StoreResalePanel appId={app.appId} />
         )}
 
-        <div id={PUBLISH_SECTION_ID}>
-          <StorePublishRequestSection
-            appId={app.appId}
-            canRequest={canRequestPublish}
-            isApprovedCreator={isApprovedCreator}
-          />
-        </div>
       </div>
+
+      {canRequestPublish ? (
+        <HubPublishAccessSheet
+          open={publishAccessOpen}
+          appId={app.appId}
+          onClose={() => setPublishAccessOpen(false)}
+          onChanged={() => setPublishAccessRefreshKey((k) => k + 1)}
+        />
+      ) : null}
 
       <HubFactsSheet
         open={factsOpen}

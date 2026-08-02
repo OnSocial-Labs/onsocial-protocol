@@ -40,6 +40,7 @@ vi.mock('../../../src/logger.js', () => ({
 
 vi.mock('../../../src/services/storage/lighthouse-upload.js', () => ({
   uploadNamedBufferToLighthouse: vi.fn(),
+  uploadNamedBuffersAsDirectoryToLighthouse: vi.fn(),
 }));
 
 // Stub verifyCidLive in tests — it would otherwise issue a real HEAD via the
@@ -59,12 +60,18 @@ vi.mock('../../../src/services/compose/shared.js', async (importActual) => {
 // ---------------------------------------------------------------------------
 
 import lighthouse from '@lighthouse-web3/sdk';
-import { uploadNamedBufferToLighthouse } from '../../../src/services/storage/lighthouse-upload.js';
+import {
+  uploadNamedBufferToLighthouse,
+  uploadNamedBuffersAsDirectoryToLighthouse,
+} from '../../../src/services/storage/lighthouse-upload.js';
 import type { UploadedFile } from '../../../src/services/compose/index.js';
 
 export const mockUploadBuffer = vi.mocked(lighthouse.uploadBuffer);
 export const mockUploadText = vi.mocked(lighthouse.uploadText);
 export const mockUploadNamedBuffer = vi.mocked(uploadNamedBufferToLighthouse);
+export const mockUploadDirectory = vi.mocked(
+  uploadNamedBuffersAsDirectoryToLighthouse
+);
 
 // Mock global fetch for relay calls
 export const mockFetch = vi.fn();
@@ -95,6 +102,13 @@ export function mockLighthouseUpload(cid = 'QmTestCid123', size = 15) {
 
 export function mockLighthouseText(cid = 'QmMetaCid456', size = 200) {
   mockUploadText.mockResolvedValue({ data: { Hash: cid, Size: size } });
+}
+
+export function mockLighthouseDirectoryUpload(dirCid = 'QmVariationsDir') {
+  mockUploadDirectory.mockResolvedValue({
+    dirHash: dirCid,
+    entries: [],
+  });
 }
 
 export function mockRelaySuccess(txHash = 'tx_abc123') {

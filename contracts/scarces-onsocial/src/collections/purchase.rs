@@ -177,6 +177,7 @@ impl Contract {
         let _minted = self.batch_mint(
             &ctx,
             token_ids.clone(),
+            start_index,
             &metadata_template,
             &collection_id,
             Some(ovr),
@@ -326,6 +327,7 @@ impl Contract {
         let _minted = self.batch_mint(
             &ctx,
             token_ids.clone(),
+            start_index,
             &metadata_template,
             collection_id,
             Some(ovr),
@@ -415,7 +417,7 @@ impl Contract {
             let metadata = self.generate_metadata_from_template(
                 &metadata_template,
                 &token_id,
-                i as u32,
+                start_index + i as u32,
                 receiver,
                 collection_id,
             )?;

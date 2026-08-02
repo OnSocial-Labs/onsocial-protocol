@@ -35,6 +35,7 @@ interface LazyCollectionRecord {
   transferable?: boolean;
   renewable?: boolean;
   max_redeems?: number | null;
+  metadata?: string | null;
 }
 
 export type CollectionStatus =
@@ -73,6 +74,11 @@ export interface CollectionView {
   transferable: boolean;
   renewable: boolean;
   maxRedeems: number | null;
+  /** True when every token resolves its own artwork (media has a seat placeholder). */
+  isVariations: boolean;
+  /** Series grouping (from collection metadata `series`), when set. */
+  seriesId: string | null;
+  seriesTitle: string | null;
   sourcePostPath?: string;
   cardBg?: string;
 }
@@ -109,9 +115,58 @@ interface TemplateMeta {
   title: string;
   description?: string;
   mediaUrl: string | null;
+  isVariations: boolean;
   sourcePostPath?: string;
   cardBg?: string;
   kind?: string;
+}
+
+const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
+
+/** Cover art for a variation drop: the template media resolved for seat 1. */
+function substituteFirstSeat(media: string, collectionId: string): string {
+  return media
+    .replace(/\{seat_number\}/g, '1')
+    .replace(/\{index\}/g, '0')
+    .replace(/\{token_id\}/g, `${collectionId}:1`);
+}
+
+/** Drop-level display title: strip per-token placeholders from the template title. */
+function stripTitlePlaceholders(title: string): string {
+  return title
+    .replace(/\s*#\{seat_number\}/g, '')
+    .replace(/\s*\{(seat_number|index|token_id)\}/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+interface SeriesMeta {
+  id: string;
+  title: string | null;
+}
+
+/** Parse `series` from the collection's freeform metadata blob. */
+function parseSeries(
+  metadataJson: string | null | undefined
+): SeriesMeta | null {
+  if (!metadataJson?.trim()) return null;
+  try {
+    const meta = asRecord(JSON.parse(metadataJson));
+    const raw = meta?.series;
+    if (typeof raw === 'string' && raw.trim()) {
+      return { id: raw.trim(), title: null };
+    }
+    const nested = asRecord(raw);
+    const id = typeof nested?.id === 'string' ? nested.id.trim() : '';
+    if (!id) return null;
+    const title =
+      typeof nested?.title === 'string' && nested.title.trim()
+        ? nested.title.trim()
+        : null;
+    return { id, title };
+  } catch {
+    return null;
+  }
 }
 
 function parseTemplate(
@@ -121,11 +176,12 @@ function parseTemplate(
   const fallback: TemplateMeta = {
     title: collectionId,
     mediaUrl: null,
+    isVariations: false,
   };
   if (!template) return fallback;
   try {
     const meta = JSON.parse(template) as Record<string, unknown>;
-    const title =
+    const rawTitle =
       typeof meta.title === 'string' && meta.title.trim()
         ? meta.title.trim()
         : collectionId;
@@ -133,8 +189,16 @@ function parseTemplate(
       typeof meta.description === 'string' && meta.description.trim()
         ? meta.description.trim()
         : undefined;
+    const rawMedia = typeof meta.media === 'string' ? meta.media : null;
+    const isVariations =
+      rawMedia != null && VARIATION_PLACEHOLDER.test(rawMedia);
+    const title = isVariations
+      ? stripTitlePlaceholders(rawTitle) || collectionId
+      : rawTitle;
     const mediaUrl = resolveScarceMediaUrl(
-      typeof meta.media === 'string' ? meta.media : null
+      rawMedia && isVariations
+        ? substituteFirstSeat(rawMedia, collectionId)
+        : rawMedia
     );
     let sourcePostPath: string | undefined;
     let cardBg: string | undefined;
@@ -161,6 +225,7 @@ function parseTemplate(
       title,
       ...(description ? { description } : {}),
       mediaUrl,
+      isVariations,
       ...(sourcePostPath ? { sourcePostPath } : {}),
       ...(cardBg ? { cardBg } : {}),
       ...(kind ? { kind } : {}),
@@ -182,6 +247,7 @@ function toCollectionView(record: LazyCollectionRecord): CollectionView | null {
   const priceYocto = yoctoString(record.price_near);
   const allowlistYocto = yoctoString(record.allowlist_price);
   const template = parseTemplate(record.metadata_template, collectionId);
+  const series = parseSeries(record.metadata);
   const maxRedeems =
     record.max_redeems != null && record.max_redeems > 0
       ? Math.floor(record.max_redeems)
@@ -215,6 +281,9 @@ function toCollectionView(record: LazyCollectionRecord): CollectionView | null {
     transferable: record.transferable !== false,
     renewable: Boolean(record.renewable),
     maxRedeems,
+    isVariations: template.isVariations,
+    seriesId: series?.id ?? null,
+    seriesTitle: series?.title ?? null,
     ...(template.sourcePostPath
       ? { sourcePostPath: template.sourcePostPath }
       : {}),

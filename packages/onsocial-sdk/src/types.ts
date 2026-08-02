@@ -439,10 +439,26 @@ export interface CollectionOptions {
   title: string;
   /** Optional file — uploaded by gateway (counts against tier quota). */
   image?: Blob | File;
+  /**
+   * Variation set — exactly one image per token (`images.length ===
+   * totalSupply`). The gateway pins them as a single IPFS directory and each
+   * minted token resolves its own art by seat number. Mutually exclusive
+   * with `image` / `mediaCid`.
+   */
+  images?: (Blob | File)[];
+  /**
+   * Variation set, BYO storage: pre-pinned IPFS directory CID whose files
+   * are named `1.<ext>` … `<totalSupply>.<ext>` (large / generative sets).
+   */
+  variationsCid?: string;
+  /** File extension inside the `variationsCid` directory (default `png`). */
+  variationsExt?: string;
   /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
   mediaCid?: string;
   /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */
   mediaHash?: string;
+  /** Collection-level metadata blob (e.g. `{ series: { id, title } }`). */
+  metadata?: Record<string, unknown>;
   priceNear?: string;
   description?: string;
   royalty?: Record<string, number>;

@@ -317,6 +317,43 @@
   flex: 0 0 auto;
 }
 
+/* Hub publish Request — soft purple wash, strong purple type (role-pill family). */
+.app-page-hero .hub-hero-publish-request {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 1.65rem;
+  padding: 0.28rem 0.62rem;
+  border: 0;
+  border-radius: 9999px;
+  background: color-mix(
+    in srgb,
+    var(--protocol-purple) 12%,
+    rgb(var(--fg-rgb) / 0.04)
+  );
+  color: var(--protocol-purple);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.app-page-hero .hub-hero-publish-request:hover,
+.app-page-hero .hub-hero-publish-request:focus-visible {
+  background: color-mix(
+    in srgb,
+    var(--protocol-purple) 18%,
+    rgb(var(--fg-rgb) / 0.04)
+  );
+  color: var(--protocol-purple);
+  outline: none;
+}
+
 .guild-hero-membership-slot > [aria-busy='true'] {
   display: block;
   width: 100%;
@@ -359,6 +396,14 @@
   .guild-hero-membership.os-sheet-actions--row-compact
   .os-sheet-action,
 .guild-hero
+  .guild-hero-membership-slot
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action--primary,
+.app-page-hero
+  .guild-hero-membership-slot
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action,
+.app-page-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
   .os-sheet-action--primary,
@@ -533,6 +578,10 @@
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
   .os-sheet-action__shell,
+.app-page-hero
+  .guild-hero-membership-slot
+  .guild-hero-membership.os-sheet-actions--row-compact
+  .os-sheet-action__shell,
 .guild-thread-nav-membership-slot
   .guild-thread-nav-membership.os-sheet-actions--row-compact
   .os-sheet-action__shell {
@@ -546,6 +595,15 @@
   .guild-hero-membership.os-sheet-actions--borderless
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
 .guild-hero
+  .guild-hero-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
+.app-page-hero
+  .guild-hero-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.app-page-hero
+  .guild-hero-membership.os-sheet-actions--borderless
+  .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
+.app-page-hero
   .guild-hero-membership.os-sheet-actions--borderless
   .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
 .guild-thread-nav-membership.os-sheet-actions--borderless
@@ -16715,6 +16773,13 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .collection-series-note {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--os-surface-muted);
+  }
+
   .collection-creator:hover,
   .collection-creator:focus-visible {
     color: var(--os-surface-emphasis);
@@ -17219,6 +17284,32 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  /* Variation set picker — thumbnails of the uploaded pieces. */
+  .drop-variations-grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 2px;
+  }
+
+  .drop-variations-grid img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .drop-variations-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: var(--os-surface-muted-strong);
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
   .drop-schedule-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -17490,30 +17581,6 @@ a.os-surface-row {
     color: var(--os-surface-muted-strong);
   }
 
-  .app-hub-cta-row {
-    display: flex;
-  }
-
-  .app-hub-cta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.55rem 1.15rem;
-    border: 0;
-    border-radius: 9999px;
-    background: var(--protocol-purple);
-    color: white;
-    font-size: 0.88rem;
-    font-weight: 700;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .app-hub-cta:hover,
-  .app-hub-cta:focus-visible {
-    filter: brightness(1.08);
-  }
-
   /* Drops catalog — spotlight + list. */
   .app-drop-catalog {
     display: flex;
@@ -17646,6 +17713,31 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
+  /* Series sections inside a hub catalog. */
+  .app-drop-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .app-drop-series {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .app-drop-series-title {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .app-drop-series-count {
+    font-weight: 500;
+    color: var(--os-surface-muted);
+  }
+
   .app-drop-card {
     display: grid;
     grid-template-columns: 3.4rem minmax(0, 1fr);
@@ -17703,11 +17795,6 @@ a.os-surface-row {
   .app-resale-panel {
     display: grid;
     gap: 0.65rem;
-  }
-
-  .app-publish-requests {
-    display: grid;
-    gap: 1rem;
   }
 
   .app-page-note {
@@ -17772,6 +17859,11 @@ a.os-surface-row {
   /* Publish inbox — hug account rows, cap at standard peek (0.62). */
   .glass-sheet-panel.hub-publish-requests-sheet-panel {
     max-height: min(62dvh, 32rem);
+  }
+
+  /* Requester publish-access drawer — short form, content-hug. */
+  .glass-sheet-panel.hub-publish-access-sheet-panel {
+    max-height: min(56dvh, 28rem);
   }
 
   .glass-sheet-panel.hub-manage-sheet-panel--hug > .glass-sheet-body {
@@ -20173,10 +20265,12 @@ a.os-surface-row {
     transition: color 140ms ease;
   }
 
+  /* Reserve width only while shimmering — loaded counts hug their text
+     so hubs ("1 creator") don't leave a members-sized gap before mode. */
   .guild-facepile-count--slot {
     display: inline-flex;
     align-items: center;
-    min-width: 5.5rem; /* "N members" */
+    min-width: 5.5rem; /* "N members" shimmer */
     min-height: 0.72rem;
   }
 

@@ -79,6 +79,109 @@ async function parseLighthouseError(response: Response): Promise<string> {
   return body.slice(0, 300);
 }
 
+export interface LighthouseDirectoryFile {
+  buffer: Buffer | Uint8Array;
+  filename: string;
+  mime?: string | null;
+}
+
+export interface LighthouseDirectoryUploadOptions {
+  files: LighthouseDirectoryFile[];
+  apiKey: string;
+  storageType?: string;
+  cidVersion?: number;
+  endpointBase?: string;
+  fetchImpl?: typeof fetch;
+}
+
+export interface LighthouseDirectoryUploadData {
+  /** CID of the wrapping directory — file N resolves at `<dirCid>/<filename>`. */
+  dirHash: string;
+  entries: LighthouseUploadData[];
+}
+
+/**
+ * Upload multiple files wrapped in a single IPFS directory
+ * (`wrap-with-directory=true`), so every file resolves under one
+ * content-addressed root: `ipfs://<dirHash>/<filename>`.
+ *
+ * Used by variation drops: the directory CID commits the full art set
+ * before the first mint.
+ */
+export async function uploadNamedBuffersAsDirectoryToLighthouse({
+  files,
+  apiKey,
+  storageType,
+  cidVersion = 1,
+  endpointBase = LIGHTHOUSE_NODE_URL,
+  fetchImpl = fetch,
+}: LighthouseDirectoryUploadOptions): Promise<LighthouseDirectoryUploadData> {
+  if (files.length === 0) {
+    throw new Error('Directory upload requires at least one file');
+  }
+
+  const endpoint = `${endpointBase.replace(/\/+$/, '')}/api/v0/add?cid-version=${cidVersion}&wrap-with-directory=true`;
+  const formData = new FormData();
+  for (const file of files) {
+    const bytes = new Uint8Array(file.buffer);
+    const blob = new Blob([bytes], {
+      type: file.mime || 'application/octet-stream',
+    });
+    formData.append(
+      'file',
+      blob,
+      filenameForLighthouse(file.filename, file.mime)
+    );
+  }
+
+  const response = await fetchImpl(endpoint, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      ...(storageType ? { 'X-Storage-Type': storageType } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    const details = await parseLighthouseError(response);
+    throw new Error(
+      `Lighthouse directory upload failed (${response.status}): ${details}`
+    );
+  }
+
+  const entries = parseAddEntries(await response.text());
+  // The wrapping directory is the entry with an empty Name (Kubo behaviour);
+  // it is emitted last when absent-named entries are not distinguished.
+  const dirEntry =
+    entries.find((entry) => !entry.Name) ?? entries[entries.length - 1];
+  if (!dirEntry?.Hash) {
+    throw new Error(
+      'Lighthouse directory upload failed: missing directory CID in response'
+    );
+  }
+
+  return { dirHash: dirEntry.Hash, entries };
+}
+
+/** Parse an IPFS `add` response — single JSON object, JSON array, or NDJSON. */
+function parseAddEntries(text: string): LighthouseUploadData[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  try {
+    const parsed = JSON.parse(trimmed) as
+      | LighthouseUploadData
+      | LighthouseUploadData[];
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return trimmed
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as LighthouseUploadData);
+  }
+}
+
 export async function uploadNamedBufferToLighthouse({
   buffer,
   apiKey,

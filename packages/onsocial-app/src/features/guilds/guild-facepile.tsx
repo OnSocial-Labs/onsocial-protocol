@@ -96,7 +96,11 @@ export function GuildFacepile({
         })}
       </span>
       {showCount ? (
-        <span className="guild-facepile-count guild-facepile-count--slot">
+        <span
+          className={`guild-facepile-count${
+            loading ? ' guild-facepile-count--slot' : ''
+          }`}
+        >
           {loading ? (
             <span
               className="standing-row-shimmer guild-facepile-count-shimmer"

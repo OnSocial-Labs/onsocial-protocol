@@ -133,10 +133,17 @@ impl Contract {
         Ok(token_id)
     }
 
+    /// `start_index` is the collection-wide position of the first token in
+    /// this batch (i.e. `minted_count` before the batch). Template
+    /// placeholders like `{seat_number}` must interpolate the token's global
+    /// position, not its offset within one purchase — otherwise a second
+    /// buyer's tokens would repeat the first buyer's seat numbers (and media,
+    /// for variation drops).
     pub(crate) fn batch_mint(
         &mut self,
         ctx: &crate::MintContext,
         token_ids: Vec<String>,
+        start_index: u32,
         metadata_template: &str,
         collection_id: &str,
         overrides: Option<crate::ScarceOverrides>,
@@ -155,11 +162,11 @@ impl Contract {
 
         let mut minted_tokens = Vec::new();
 
-        for (index, token_id) in token_ids.iter().enumerate() {
+        for (offset, token_id) in token_ids.iter().enumerate() {
             let metadata = self.generate_metadata_from_template(
                 metadata_template,
                 token_id,
-                index as u32,
+                start_index + offset as u32,
                 &ctx.owner_id,
                 collection_id,
             )?;

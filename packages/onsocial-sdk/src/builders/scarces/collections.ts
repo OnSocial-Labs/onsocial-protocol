@@ -27,6 +27,7 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
     metadata_template: metadataTemplate,
     price_near: nearToYocto(opts.priceNear ?? '0'),
     ...(opts.royalty ? { royalty: opts.royalty } : {}),
+    ...(opts.metadata ? { metadata: JSON.stringify(opts.metadata) } : {}),
     ...(opts.appId ? { app_id: opts.appId } : {}),
     ...(opts.mintMode ? { mint_mode: opts.mintMode } : {}),
     ...(opts.maxPerWallet != null ? { max_per_wallet: opts.maxPerWallet } : {}),

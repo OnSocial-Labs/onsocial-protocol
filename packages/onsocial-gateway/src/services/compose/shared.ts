@@ -8,7 +8,10 @@ import lighthouse from '@lighthouse-web3/sdk';
 import { createHash } from 'node:crypto';
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
-import { uploadNamedBufferToLighthouse } from '../storage/lighthouse-upload.js';
+import {
+  uploadNamedBufferToLighthouse,
+  uploadNamedBuffersAsDirectoryToLighthouse,
+} from '../storage/lighthouse-upload.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -303,6 +306,87 @@ export async function uploadToLighthouse(
     size: Number(result.Size ?? file.size),
     url: gatewayUrl(cid),
     hash,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Variation sets (multi-art drops)
+// ---------------------------------------------------------------------------
+
+/** Image formats accepted inside a variation directory. */
+const VARIATION_IMAGE_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+export interface VariationUploadResult {
+  /** Directory CID — file N resolves at `<cid>/<N>.<ext>` (1-based). */
+  cid: string;
+  count: number;
+  ext: string;
+  /** NEP-177 `media` template with the `{seat_number}` placeholder. */
+  urlTemplate: string;
+}
+
+/** Media template URL for a variation directory. */
+export function variationMediaUrl(cid: string, ext: string): string {
+  return `${gatewayUrl(cid)}/{seat_number}.${ext}`;
+}
+
+/**
+ * Upload a variation art set as one IPFS directory. Files are renamed to
+ * their 1-based seat position (`1.png` … `N.png`) so the collection's
+ * `metadata_template` can address them with `{seat_number}`. The directory
+ * CID commits the full set before the first mint — the drop stays sealed.
+ */
+export async function uploadVariationImagesToLighthouse(
+  files: UploadedFile[]
+): Promise<VariationUploadResult> {
+  if (files.length === 0) {
+    throw new ComposeError(400, 'Variation set requires at least one image');
+  }
+
+  const exts = files.map(
+    (file) => VARIATION_IMAGE_EXT[file.mimetype.toLowerCase()]
+  );
+  const missing = exts.findIndex((ext) => !ext);
+  if (missing >= 0) {
+    throw new ComposeError(
+      400,
+      `Variation image ${missing + 1} has unsupported type ${files[missing].mimetype} — use JPG, PNG, WebP, or GIF`
+    );
+  }
+  const ext = exts[0];
+  if (exts.some((e) => e !== ext)) {
+    throw new ComposeError(
+      400,
+      'All variation images must share one format (all JPG, all PNG, …) so tokens can resolve media by seat number'
+    );
+  }
+
+  const result = await uploadNamedBuffersAsDirectoryToLighthouse({
+    files: files.map((file, index) => ({
+      buffer: file.buffer,
+      filename: `${index + 1}.${ext}`,
+      mime: file.mimetype,
+    })),
+    apiKey: getApiKey(),
+    storageType: STORAGE_TYPE,
+  });
+
+  logger.info(
+    { cid: result.dirHash, count: files.length, ext },
+    'Variation set uploaded to Lighthouse as directory'
+  );
+
+  return {
+    cid: result.dirHash,
+    count: files.length,
+    ext,
+    urlTemplate: variationMediaUrl(result.dirHash, ext),
   };
 }
 

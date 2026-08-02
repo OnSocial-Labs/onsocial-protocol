@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   collectionStatusLabel,
@@ -79,8 +79,9 @@ export function StoreCatalogTabs({
 export function StoreDropCard({ view }: { view: CollectionView }) {
   const status = deriveCollectionStatus(view);
   const price = view.priceNear != null ? `${view.priceNear} NEAR` : 'Free';
-  const progress =
-    view.totalSupply > 0
+  const progress = view.isVariations
+    ? `${view.totalSupply} unique · ${view.remaining} left`
+    : view.totalSupply > 0
       ? `${view.minted}/${view.totalSupply}`
       : `${view.minted} minted`;
 
@@ -178,6 +179,95 @@ function StoreDropSpotlightCard({ view }: { view: CollectionView }) {
   );
 }
 
+interface DropGroup {
+  key: string;
+  /** Set when the group is a creator series; null for standalone drops. */
+  seriesTitle: string | null;
+  drops: CollectionView[];
+}
+
+/**
+ * Group drops by creator series while preserving newest-first order — a
+ * series appears at the position of its newest drop and collects the rest.
+ * Standalone drops stay as single-item groups.
+ */
+function groupDropsBySeries(drops: CollectionView[]): DropGroup[] {
+  const groups: DropGroup[] = [];
+  const byKey = new Map<string, DropGroup>();
+  for (const drop of drops) {
+    const key = drop.seriesId
+      ? `series:${drop.creatorId}:${drop.seriesId}`
+      : `drop:${drop.collectionId}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.drops.push(drop);
+      continue;
+    }
+    const group: DropGroup = {
+      key,
+      seriesTitle: drop.seriesId ? (drop.seriesTitle ?? drop.seriesId) : null,
+      drops: [drop],
+    };
+    byKey.set(key, group);
+    groups.push(group);
+  }
+  return groups;
+}
+
+/** Drops list with series sections; consecutive standalone drops share one list. */
+function GroupedDropsList({ drops }: { drops: CollectionView[] }) {
+  const groups = groupDropsBySeries(drops);
+  const blocks: ReactNode[] = [];
+  let standalone: CollectionView[] = [];
+
+  const flushStandalone = () => {
+    if (standalone.length === 0) return;
+    blocks.push(
+      <ul className="app-drop-list" key={`solo:${standalone[0].collectionId}`}>
+        {standalone.map((drop) => (
+          <li key={drop.collectionId}>
+            <StoreDropCard view={drop} />
+          </li>
+        ))}
+      </ul>
+    );
+    standalone = [];
+  };
+
+  for (const group of groups) {
+    if (!group.seriesTitle) {
+      standalone.push(...group.drops);
+      continue;
+    }
+    flushStandalone();
+    blocks.push(
+      <section
+        key={group.key}
+        className="app-drop-series"
+        aria-label={`Series: ${group.seriesTitle}`}
+      >
+        <h4 className="app-drop-series-title">
+          {group.seriesTitle}
+          <span className="app-drop-series-count">
+            {' '}
+            · {group.drops.length} {group.drops.length === 1 ? 'drop' : 'drops'}
+          </span>
+        </h4>
+        <ul className="app-drop-list">
+          {group.drops.map((drop) => (
+            <li key={drop.collectionId}>
+              <StoreDropCard view={drop} />
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+  flushStandalone();
+
+  return <div className="app-drop-groups">{blocks}</div>;
+}
+
 export function StoreDropsList({
   drops,
   loading,
@@ -228,27 +318,11 @@ export function StoreDropsList({
     return (
       <div className="app-drop-catalog">
         <StoreDropSpotlightCard view={first} />
-        {rest.length > 0 ? (
-          <ul className="app-drop-list">
-            {rest.map((drop) => (
-              <li key={drop.collectionId}>
-                <StoreDropCard view={drop} />
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        {rest.length > 0 ? <GroupedDropsList drops={rest} /> : null}
       </div>
     );
   }
-  return (
-    <ul className="app-drop-list">
-      {drops.map((drop) => (
-        <li key={drop.collectionId}>
-          <StoreDropCard view={drop} />
-        </li>
-      ))}
-    </ul>
-  );
+  return <GroupedDropsList drops={drops} />;
 }
 
 function formatListingPrice(priceNear: string): string {

@@ -25,6 +25,7 @@ pub mod unit {
     pub mod scarce_test;
     pub mod storage_test;
     pub mod validation_test;
+    pub mod variation_drop_test;
 
     pub mod app_pool_views_test;
     pub mod app_relations_test;
