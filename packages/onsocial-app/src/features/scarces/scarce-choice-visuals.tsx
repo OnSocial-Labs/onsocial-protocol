@@ -38,7 +38,7 @@ export function ScarceColourSwatch({
   );
 }
 
-/** Mini finish preview — palette gradient with an “Aa” sample. */
+/** Mini finish preview — solid palette swatch with an “Aa” sample. */
 export function ScarceFinishSwatch({
   bgFrom,
   bgTo,
