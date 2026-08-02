@@ -175,16 +175,17 @@ describe('themes catalog', () => {
     expect(MOODS['receipt-light'].label).toBe('Receipt');
   });
 
-  it('noir and black finishes are solid (no near-black banding)', () => {
-    expect(MOODS['poster-noir'].bgFrom).toBe(MOODS['poster-noir'].bgTo);
-    expect(MOODS['mono-noir'].bgFrom).toBe(MOODS['mono-noir'].bgTo);
+  it('every finish is solid (no gradient banding in mint PNGs)', () => {
+    for (const mood of Object.values(MOODS)) {
+      expect(mood.bgFrom).toBe(mood.bgTo);
+    }
+    expect(MOODS['thought-white'].bgFrom).toBe('#FFFFFF');
     expect(MOODS['thought-black'].bgFrom).toBe('#000000');
-    expect(MOODS['thought-black'].bgTo).toBe('#000000');
     const svg = generateTextCardSvg({
-      title: 'Solid black',
-      theme: { bg: 'poster-noir' },
+      title: 'Solid white',
+      theme: { bg: 'thought-white' },
     });
-    expect(svg).toContain('fill="#0B0B0F"');
+    expect(svg).toContain('fill="#FFFFFF"');
     expect(svg).not.toContain('<linearGradient');
   });
 

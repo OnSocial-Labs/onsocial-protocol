@@ -25,11 +25,11 @@ export interface Mood {
   /** One-line description (UI hint, not on the card). */
   description: string;
 
-  // Background — usually a subtle gradient lift. Solid finishes
-  // (noir / black) set bgFrom === bgTo to avoid near-black banding.
+  // Background — solid fills only (bgFrom === bgTo). Gradients band in
+  // mint PNGs; atmosphere comes from palette + type, not a lift.
   bgFrom: string;
   bgTo: string;
-  /** Gradient angle in degrees (0 = top→bottom, 135 = TL→BR). Unused when solid. */
+  /** Kept for wire compat; unused while fills are solid. */
   bgAngle: number;
 
   // Typography
@@ -262,7 +262,7 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     label: 'Paper',
     tagline: 'Cream off-white. Premium print stock, no warm cast.',
     bgFrom: '#FAFAF6',
-    bgTo: '#F2F1EC',
+    bgTo: '#FAFAF6',
     bgAngle: 180,
     textPrimary: '#0B0B0F',
     // Warm stone — not cool gray-500 (reads as link-blue next to black).
@@ -272,7 +272,7 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     label: 'Mist',
     tagline: 'Cool pale grey. Clean, quiet, contemporary.',
     bgFrom: '#F1F3F5',
-    bgTo: '#E6E9EC',
+    bgTo: '#F1F3F5',
     bgAngle: 180,
     textPrimary: '#15171A',
     textMuted: '#6E747B',
@@ -281,7 +281,7 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     label: 'Sand',
     tagline: 'Warm stone. Grounded, tactile, understated.',
     bgFrom: '#F4EEE4',
-    bgTo: '#E8DFD2',
+    bgTo: '#F4EEE4',
     bgAngle: 180,
     textPrimary: '#211C17',
     textMuted: '#766C60',
@@ -290,17 +290,17 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     label: 'Sky',
     tagline: 'Pale blue. Open, calm, clear.',
     bgFrom: '#E4F1FA',
-    bgTo: '#C9DFF2',
-    bgAngle: 160,
+    bgTo: '#E4F1FA',
+    bgAngle: 180,
     textPrimary: '#102133',
     textMuted: '#5C6E80',
   },
   night: {
     label: 'Night',
-    tagline: 'Deep navy with a subtle lift. Warm white type.',
+    tagline: 'Deep navy. Warm white type.',
     bgFrom: '#0E1320',
-    bgTo: '#141A2B',
-    bgAngle: 160,
+    bgTo: '#0E1320',
+    bgAngle: 180,
     textPrimary: '#F5EFE6',
     // Warm taupe muted to match primary — avoid blue-gray #8A93A6.
     textMuted: '#9A948A',
@@ -308,7 +308,6 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
   noir: {
     label: 'Noir',
     tagline: 'Matte black. Editorial, photographic, high contrast.',
-    // Solid — a near-black lift bands into visible strips on many displays.
     bgFrom: '#0B0B0F',
     bgTo: '#0B0B0F',
     bgAngle: 180,
@@ -317,10 +316,10 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
   },
   dusk: {
     label: 'Dusk',
-    tagline: 'Indigo with violet lift. Moody, after-hours.',
+    tagline: 'Indigo. Moody, after-hours.',
     bgFrom: '#1A1A2E',
-    bgTo: '#232342',
-    bgAngle: 160,
+    bgTo: '#1A1A2E',
+    bgAngle: 180,
     textPrimary: '#EDEAF7',
     // Soft lilac-gray, not saturated “link” blue-violet.
     textMuted: '#9E9AAD',
@@ -329,8 +328,8 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     label: 'Forest',
     tagline: 'Deep green-black. Grounded and nocturnal.',
     bgFrom: '#0D1914',
-    bgTo: '#14221B',
-    bgAngle: 160,
+    bgTo: '#0D1914',
+    bgAngle: 180,
     textPrimary: '#EDF4EC',
     textMuted: '#98A69A',
   },
@@ -338,7 +337,7 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     label: 'Graphite',
     tagline: 'Dark grey. Refined, neutral, low-glare.',
     bgFrom: '#1A1B1F',
-    bgTo: '#282A30',
+    bgTo: '#1A1B1F',
     bgAngle: 180,
     textPrimary: '#F2F2F3',
     textMuted: '#A0A2A8',
@@ -346,7 +345,6 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
   black: {
     label: 'Black',
     tagline: 'True black. Absolute contrast and restraint.',
-    // Solid #000 — any lift off true black bands and reads as grey wash.
     bgFrom: '#000000',
     bgTo: '#000000',
     bgAngle: 180,
@@ -357,7 +355,7 @@ const PALETTE_SPECS: Record<Palette, PaletteSpec> = {
     label: 'White',
     tagline: 'True white. Crisp, bright, unadorned.',
     bgFrom: '#FFFFFF',
-    bgTo: '#F7F7F7',
+    bgTo: '#FFFFFF',
     bgAngle: 180,
     textPrimary: '#0B0B0F',
     textMuted: '#6B6B70',
@@ -432,7 +430,7 @@ const MATRIX_MOOD: Mood = {
   label: FRIENDLY_LABELS['mono-matrix']!,
   description: FRIENDLY_DESCRIPTIONS['mono-matrix']!,
   bgFrom: '#0A0E0A',
-  bgTo: '#0E140E',
+  bgTo: '#0A0E0A',
   bgAngle: 180,
   titleFamily: VOICE_SPECS.mono.titleFamily,
   titleWeight: VOICE_SPECS.mono.titleWeight,
