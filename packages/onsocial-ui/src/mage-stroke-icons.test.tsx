@@ -6,6 +6,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   TimeIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
   DotsCircleIcon,
@@ -51,6 +52,7 @@ describe('mage stroke icons', () => {
     expect(typeof CheckIcon).toBe('function');
     expect(typeof ChevronDownIcon).toBe('function');
     expect(typeof TimeIcon).toBe('function');
+    expect(typeof ChevronLeftIcon).toBe('function');
     expect(typeof ChevronRightIcon).toBe('function');
     expect(typeof CopyIcon).toBe('function');
     expect(typeof EditIcon).toBe('function');

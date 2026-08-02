@@ -11,6 +11,8 @@ export interface TokenMetadata {
   media?: string;
   media_hash?: string;
   copies?: number;
+  /** NEP-177 expiry in milliseconds since epoch. */
+  expires_at?: number;
   extra?: string;
   reference?: string;
   reference_hash?: string;
@@ -42,6 +44,8 @@ export function buildTokenMetadata(opts: {
   mediaCid?: string;
   mediaHash?: string;
   copies?: number;
+  /** NEP-177 expiry in milliseconds since epoch. */
+  expiresAtMs?: number;
   extra?: Record<string, unknown>;
 }): TokenMetadata {
   if (opts.mediaCid && !opts.mediaHash) {
@@ -57,6 +61,7 @@ export function buildTokenMetadata(opts: {
     ...(opts.mediaCid ? { media: `ipfs://${opts.mediaCid}` } : {}),
     ...(opts.mediaHash ? { media_hash: opts.mediaHash } : {}),
     ...(opts.copies != null ? { copies: opts.copies } : {}),
+    ...(opts.expiresAtMs != null ? { expires_at: opts.expiresAtMs } : {}),
     ...(opts.extra ? { extra: JSON.stringify(opts.extra) } : {}),
   };
 }

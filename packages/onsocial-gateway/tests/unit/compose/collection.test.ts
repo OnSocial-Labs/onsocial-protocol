@@ -276,6 +276,74 @@ describe('buildCreateCollectionAction', () => {
     expect(result.action.price_near).toBe('2500000000000000000000000');
   });
 
+  it('stamps drop provenance into the token extra', async () => {
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'ink-studies-1',
+        totalSupply: 10,
+        title: 'Ink Study',
+        metadata: JSON.stringify({
+          series: { id: 'ink-studies', title: 'Ink Studies' },
+          cover: { seat: 2 },
+        }),
+        extra: { kind: 'art' },
+      },
+      undefined
+    );
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    const extra = JSON.parse(template.extra as string);
+    // Caller extra passes through; provenance fields are added.
+    expect(extra.kind).toBe('art');
+    expect(extra.collection).toEqual({
+      id: 'ink-studies-1',
+      title: 'Ink Study',
+    });
+    expect(extra.series).toEqual({ id: 'ink-studies', title: 'Ink Studies' });
+    expect(extra.creator).toBe('creator.testnet');
+  });
+
+  it('stamps provenance without series and overrides spoofed creator', async () => {
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'solo-drop',
+        totalSupply: 5,
+        title: 'Solo',
+        extra: { creator: 'evil.testnet' },
+      },
+      undefined
+    );
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    const extra = JSON.parse(template.extra as string);
+    expect(extra.collection).toEqual({ id: 'solo-drop', title: 'Solo' });
+    expect(extra.series).toBeUndefined();
+    // The authenticated account wins over caller-supplied `creator`.
+    expect(extra.creator).toBe('creator.testnet');
+  });
+
+  it('strips seat placeholders from the provenance collection title', async () => {
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'gen-set',
+        totalSupply: 100,
+        title: 'Gen Art',
+        variationsCid: 'QmArtDir',
+      },
+      undefined
+    );
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    // Token title keeps the per-seat suffix …
+    expect(template.title).toBe('Gen Art #{seat_number}');
+    // … but provenance names the drop itself.
+    const extra = JSON.parse(template.extra as string);
+    expect(extra.collection).toEqual({ id: 'gen-set', title: 'Gen Art' });
+  });
+
   it('respects targetAccount override', async () => {
     const result = await buildCreateCollectionAction(
       'creator.testnet',

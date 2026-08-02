@@ -4,7 +4,14 @@
 
 import type { HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
-import type { CollectionOptions, RelayResponse } from '../../types.js';
+import type {
+  CollectionOptions,
+  GenerateSetJob,
+  GenerateSetJobState,
+  GenerativeLayerSpec,
+  RelayResponse,
+  VariationSetUpload,
+} from '../../types.js';
 import {
   composeAndSign,
   composeFormAndSign,
@@ -14,7 +21,10 @@ import {
 } from '../../internal/session-bridge.js';
 import { SCARCES_VERBS } from './verbs.js';
 import { resolveContractId } from '../../internal/contracts.js';
-import { buildCreateCollectionAction } from '../../builders/scarces/collections.js';
+import {
+  buildCreateCollectionAction,
+  withCollectionProvenance,
+} from '../../builders/scarces/collections.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
 import { scarcesRelayOptions } from './_relay.js';
 
@@ -22,6 +32,25 @@ import { scarcesRelayOptions } from './_relay.js';
 export interface AllowlistEntry {
   account_id: string;
   allocation: number;
+}
+
+/** Gateway wire shape of a generative render job (snake_case). */
+interface RawGenerateJob {
+  job_id: string;
+  state: GenerateSetJobState;
+  progress: { done: number; total: number };
+  result?: VariationSetUpload;
+  error?: string;
+}
+
+function mapGenerateJob(raw: RawGenerateJob): GenerateSetJob {
+  return {
+    jobId: raw.job_id,
+    state: raw.state,
+    progress: raw.progress,
+    ...(raw.result ? { result: raw.result } : {}),
+    ...(raw.error ? { error: raw.error } : {}),
+  };
 }
 
 export class ScarcesCollectionsApi {
@@ -52,7 +81,10 @@ export class ScarcesCollectionsApi {
    * });
    * ```
    */
-  async create(opts: CollectionOptions): Promise<RelayResponse> {
+  async create(options: CollectionOptions): Promise<RelayResponse> {
+    // Every minted token carries drop / series / creator provenance in its
+    // NEP-177 `extra` — wallets and marketplaces can attribute it anywhere.
+    const opts = withCollectionProvenance(options, this._http.actorId);
     // Variation sets, trait directories, and random drops always go through
     // the gateway — directory pins and CID liveness checks happen server-side.
     const needsGatewayCompose =
@@ -95,6 +127,8 @@ export class ScarcesCollectionsApi {
     if (opts.extra) form.append('extra', JSON.stringify(opts.extra));
     if (opts.startTime) form.append('startTime', opts.startTime);
     if (opts.endTime) form.append('endTime', opts.endTime);
+    if (opts.expiresAtMs != null)
+      form.append('expiresAtMs', String(opts.expiresAtMs));
     if (opts.appId) form.append('appId', opts.appId);
     if (opts.mintMode) form.append('mintMode', opts.mintMode);
     if (opts.maxPerWallet)
@@ -130,6 +164,97 @@ export class ScarcesCollectionsApi {
       this._relayOpts()
     );
     return result.relay;
+  }
+
+  /**
+   * Pin a zipped variation set (art + optional traits) before creating the
+   * drop. Archive files must be seat-named — `1.png` … `N.png` (and
+   * `1.json` … `N.json` for traits). The gateway unpacks each archive and
+   * pins it as one IPFS directory on the platform pinning account.
+   *
+   * ```ts
+   * const set = await os.scarces.collections.uploadVariationSet({
+   *   imagesZip, traitsZip,
+   * });
+   * await os.scarces.collections.create({
+   *   collectionId: 'punks',
+   *   totalSupply: set.variations.count,
+   *   title: 'Punks',
+   *   variationsCid: set.variations.cid,
+   *   variationsExt: set.variations.ext,
+   *   referenceCid: set.reference?.cid,
+   *   randomAssignment: true,
+   * });
+   * ```
+   */
+  async uploadVariationSet(opts: {
+    imagesZip: Blob | File;
+    traitsZip?: Blob | File;
+  }): Promise<VariationSetUpload> {
+    const form = new FormData();
+    form.append('images', opts.imagesZip, 'images.zip');
+    if (opts.traitsZip) form.append('traits', opts.traitsZip, 'traits.zip');
+    return this._http.requestForm<VariationSetUpload>(
+      'POST',
+      '/compose/upload/variation-set',
+      form
+    );
+  }
+
+  /**
+   * Start a server-side generative render — the 10k-scale path. Uploads only
+   * the trait layer images plus a recipe (layer order, rarity weights,
+   * supply); the gateway composites every piece natively and pins art +
+   * trait JSON as IPFS directories. Returns immediately with a job to poll
+   * via `generateVariationSetStatus`.
+   *
+   * ```ts
+   * let job = await os.scarces.collections.generateVariationSet({
+   *   supply: 10_000,
+   *   layers: [
+   *     { name: 'Background', traits: [{ name: 'Red', weight: 9, image: red }] },
+   *     { name: 'Hat', noneWeight: 1, traits: [{ name: 'Crown', weight: 1, image: crown }] },
+   *   ],
+   * });
+   * while (job.state !== 'done' && job.state !== 'failed') {
+   *   await sleep(2_500);
+   *   job = await os.scarces.collections.generateVariationSetStatus(job.jobId);
+   * }
+   * ```
+   */
+  async generateVariationSet(opts: {
+    supply: number;
+    layers: GenerativeLayerSpec[];
+  }): Promise<GenerateSetJob> {
+    const form = new FormData();
+    let imageIndex = 0;
+    const recipeLayers = opts.layers.map((layer) => ({
+      name: layer.name,
+      noneWeight: layer.noneWeight ?? 0,
+      traits: layer.traits.map((trait) => {
+        form.append('layerImages', trait.image, `trait-${imageIndex}.png`);
+        return { name: trait.name, weight: trait.weight, image: imageIndex++ };
+      }),
+    }));
+    form.append(
+      'recipe',
+      JSON.stringify({ supply: opts.supply, layers: recipeLayers })
+    );
+
+    const raw = await this._http.requestForm<RawGenerateJob>(
+      'POST',
+      '/compose/generate/variation-set',
+      form
+    );
+    return mapGenerateJob(raw);
+  }
+
+  /** Poll a server-side render job started by `generateVariationSet`. */
+  async generateVariationSetStatus(jobId: string): Promise<GenerateSetJob> {
+    const raw = await this._http.get<RawGenerateJob>(
+      `/compose/generate/variation-set/${encodeURIComponent(jobId)}`
+    );
+    return mapGenerateJob(raw);
   }
 
   /** Mint from an existing collection. */

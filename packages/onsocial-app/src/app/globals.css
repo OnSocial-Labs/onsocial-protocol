@@ -391,6 +391,32 @@
   min-height: 1.1rem;
 }
 
+/* Create-drop header Start pill — same compact family as the market Buy pill. */
+.drop-create-header-cta.os-sheet-actions--row-compact {
+  flex-shrink: 0;
+  width: auto;
+  min-width: 4.5rem;
+  gap: 0;
+}
+
+.drop-create-header-cta.os-sheet-actions--row-compact .os-sheet-action,
+.drop-create-header-cta.os-sheet-actions--row-compact
+  .os-sheet-action--primary {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 1.65rem;
+  padding: 0.28rem 0.72rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  border-radius: 9999px;
+  box-shadow: none;
+}
+
+.drop-create-header-cta.os-sheet-actions--borderless .os-sheet-action__shell {
+  min-height: 1.1rem;
+}
+
 .guild-hero
   .guild-hero-membership-slot
   .guild-hero-membership.os-sheet-actions--row-compact
@@ -4807,7 +4833,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-
   .portfolio-payout-sheet-eyebrow {
     margin: 0 0 0.2rem;
     font-size: 0.72rem;
@@ -5200,8 +5225,7 @@ a.os-surface-row {
     margin-top: 1.25rem;
   }
 
-  .portfolio-identity-gesture--payout:hover
-    .portfolio-payout-mark-icon--nudge,
+  .portfolio-identity-gesture--payout:hover .portfolio-payout-mark-icon--nudge,
   .portfolio-identity-gesture--payout:focus-visible
     .portfolio-payout-mark-icon--nudge {
     animation: none;
@@ -13476,6 +13500,7 @@ a.os-surface-row {
   .apps-directory,
   .app-page,
   .drop-create-form,
+  .drop-studio,
   .guild-create-form {
     padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
   }
@@ -16780,6 +16805,17 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  .collection-series-note a {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .collection-series-note a:hover,
+  .collection-series-note a:focus-visible {
+    color: var(--os-surface-emphasis);
+  }
+
   .collection-creator:hover,
   .collection-creator:focus-visible {
     color: var(--os-surface-emphasis);
@@ -17023,7 +17059,8 @@ a.os-surface-row {
 
   /* ── Start a drop form ─── */
 
-  .drop-create-form {
+  .drop-create-form,
+  .drop-studio {
     display: flex;
     flex-direction: column;
     gap: 1.15rem;
@@ -17037,6 +17074,7 @@ a.os-surface-row {
 
   /* Create / edit forms: plain label stacks — kill guild-field card chrome. */
   .drop-create-form .guild-field,
+  .drop-studio .guild-field,
   .guild-create-form .guild-field,
   .guild-edit-form .guild-field,
   .hub-manage-form .guild-field {
@@ -17191,6 +17229,7 @@ a.os-surface-row {
 
   /* One soft shell: value + unit (not a nested storage “amount card”). */
   .drop-create-form .drop-create-suffix-field,
+  .drop-studio .drop-create-suffix-field,
   .hub-manage-form .drop-create-suffix-field {
     display: flex;
     align-items: center;
@@ -17202,15 +17241,18 @@ a.os-surface-row {
   }
 
   .drop-create-form .drop-create-suffix-field:focus-within,
+  .drop-studio .drop-create-suffix-field:focus-within,
   .hub-manage-form .drop-create-suffix-field:focus-within {
     background: rgb(var(--fg-rgb) / 0.055);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
   }
 
   .drop-create-form .drop-create-suffix-field input,
+  .drop-studio .drop-create-suffix-field input,
   .hub-manage-form .drop-create-suffix-field input {
     flex: 1;
     min-width: 0;
+    width: auto;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -17220,12 +17262,14 @@ a.os-surface-row {
   }
 
   .drop-create-form .drop-create-suffix-field input:focus,
+  .drop-studio .drop-create-suffix-field input:focus,
   .hub-manage-form .drop-create-suffix-field input:focus {
     background: transparent;
     box-shadow: none;
   }
 
   .drop-create-form .drop-create-suffix-field span,
+  .drop-studio .drop-create-suffix-field span,
   .hub-manage-form .drop-create-suffix-field span {
     flex-shrink: 0;
     font-size: 0.78rem;
@@ -17261,6 +17305,12 @@ a.os-surface-row {
     border-style: solid;
   }
 
+  /* Launch card for the layer studio — banner height, not a cover frame. */
+  .drop-cover-picker.drop-studio-launch {
+    aspect-ratio: auto;
+    padding: 1.15rem 1rem;
+  }
+
   .drop-cover-picker img {
     width: 100%;
     height: 100%;
@@ -17285,29 +17335,59 @@ a.os-surface-row {
   }
 
   /* Variation set picker — thumbnails of the uploaded pieces. */
-  .drop-variations-grid {
+  /* Cover piece selector — tap a thumbnail to front the drop with it. */
+  .drop-cover-seat-grid {
     display: grid;
-    width: 100%;
-    height: 100%;
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 1fr;
-    gap: 2px;
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: 0.4rem;
   }
 
-  .drop-variations-grid img {
+  .drop-cover-seat {
+    position: relative;
+    padding: 0;
+    aspect-ratio: 1;
+    border: 2px solid transparent;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.04);
+    cursor: pointer;
+    transition: border-color 160ms ease;
+  }
+
+  .drop-cover-seat img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  .drop-variations-more {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: var(--os-surface-muted-strong);
-    font-size: 0.85rem;
-    font-weight: 600;
+  .drop-cover-seat:hover:not(:disabled),
+  .drop-cover-seat:focus-visible {
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.5);
+    outline: none;
+  }
+
+  .drop-cover-seat.is-selected {
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+  }
+
+  /* Large-set sample tiles — preview only, not a cover picker. */
+  .drop-cover-seat.is-static,
+  .drop-cover-seat.is-static:hover {
+    cursor: default;
+    border-color: transparent;
+  }
+
+  .drop-cover-seat-badge {
+    position: absolute;
+    left: 0.3rem;
+    bottom: 0.3rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+    color: rgb(0 0 0 / 0.85);
+    font-size: 0.65rem;
+    font-weight: 700;
   }
 
   .scarce-traits {
@@ -17342,28 +17422,755 @@ a.os-surface-row {
     overflow-wrap: anywhere;
   }
 
-  .drop-schedule-grid {
+  /* Sale window — one row, two cells; picker lives in DropSaleWindowSheet. */
+  .drop-schedule-pair {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: 0.55rem;
   }
 
-  @media (max-width: 520px) {
-    .drop-schedule-grid {
-      grid-template-columns: 1fr;
+  .drop-schedule-cell {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.15rem;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .drop-schedule-cell:focus-within {
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .drop-schedule-cell-main {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    border: 0;
+    background: transparent;
+    padding: 0.6rem 0.75rem;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .drop-schedule-cell-main:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .drop-schedule-cell-main:focus-visible {
+    outline: none;
+  }
+
+  .drop-schedule-cell-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--os-surface-muted);
+  }
+
+  .drop-schedule-cell-value {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 550;
+    color: var(--os-surface-muted);
+  }
+
+  .drop-schedule-cell.has-value .drop-schedule-cell-value {
+    color: inherit;
+  }
+
+  .drop-schedule-cell-clear {
+    flex-shrink: 0;
+    width: 1.85rem;
+    height: 1.85rem;
+    margin-right: 0.35rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--os-surface-muted);
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .drop-schedule-cell-clear:hover:not(:disabled),
+  .drop-schedule-cell-clear:focus-visible {
+    color: inherit;
+    background: rgb(var(--fg-rgb) / 0.08);
+    outline: none;
+  }
+
+  /* Hug the picker content — no full-height empty sheet for one calendar. */
+  .glass-sheet-panel.drop-schedule-sheet-panel {
+    height: auto !important;
+    max-height: min(92dvh, 42rem);
+    max-width: 26rem;
+  }
+
+  .glass-sheet-panel.drop-schedule-sheet-panel > .glass-sheet-body {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  .drop-schedule-sheet-body {
+    padding: 0.1rem 1.05rem 0.55rem;
+  }
+
+  .drop-schedule-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .drop-schedule-sheet-footer {
+    padding: 0.4rem 1.05rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .drop-cal {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .drop-cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .drop-cal-month-btn {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 1.9rem;
+    border: 0;
+    border-radius: 0.7rem;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    padding: 0.2rem 0.45rem;
+  }
+
+  .drop-cal-month-btn:hover,
+  .drop-cal-month-btn:focus-visible,
+  .drop-cal-month-btn.is-open {
+    background: rgb(var(--fg-rgb) / 0.09);
+    outline: none;
+  }
+
+  .drop-cal-month {
+    font-size: 0.88rem;
+    font-weight: 650;
+    color: var(--os-surface-emphasis, inherit);
+    white-space: nowrap;
+  }
+
+  .drop-cal-month-chevron {
+    width: 0.9rem;
+    height: 0.9rem;
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: transform 140ms ease;
+  }
+
+  .drop-cal-month-btn.is-open .drop-cal-month-chevron {
+    transform: rotate(180deg);
+  }
+
+  .drop-cal-nav-btn {
+    width: 1.9rem;
+    height: 1.9rem;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .drop-cal-nav-btn:hover,
+  .drop-cal-nav-btn:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.1);
+    outline: none;
+  }
+
+  .drop-cal-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .drop-cal-nav-icon {
+    width: 1rem;
+    height: 1rem;
+    display: block;
+  }
+
+  .drop-cal-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.1rem 0 0;
+  }
+
+  .drop-cal-year-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .drop-cal-year-chips,
+  .drop-cal-month-chips {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .drop-cal-year-chips {
+    flex: 1;
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .drop-cal-month-chips {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .drop-cal-chip {
+    min-height: 1.85rem;
+    border: 0;
+    border-radius: 0.65rem;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: inherit;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    padding: 0.2rem 0.15rem;
+  }
+
+  .drop-cal-chip:hover,
+  .drop-cal-chip:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.1);
+    outline: none;
+  }
+
+  /* Fill-only selection — no inset ring (matches app-access-option chips). */
+  .drop-cal-chip.is-selected {
+    background: color-mix(in srgb, var(--protocol-green) 16%, transparent);
+    color: var(--protocol-green);
+    font-weight: 700;
+  }
+
+  .drop-cal-weekdays,
+  .drop-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.12rem;
+  }
+
+  /* ARIA rows — transparent to the CSS grid layout. */
+  .drop-cal-week {
+    display: contents;
+  }
+
+  .drop-cal-weekdays span {
+    text-align: center;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--os-surface-muted);
+    padding: 0;
+  }
+
+  .drop-cal-day {
+    min-height: 1.85rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+
+  .drop-cal-day:hover,
+  .drop-cal-day:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.08);
+    outline: none;
+  }
+
+  /* Adjacent-month filler — muted, still tappable. */
+  .drop-cal-day.is-outside:not(.is-selected) {
+    color: var(--os-surface-muted);
+    opacity: 0.45;
+  }
+
+  /* Today = weight only; selected wins with soft fill, no stroke. */
+  .drop-cal-day.is-today:not(.is-selected) {
+    font-weight: 700;
+    color: var(--os-surface-emphasis, inherit);
+    opacity: 1;
+  }
+
+  .drop-cal-day.is-selected {
+    background: color-mix(in srgb, var(--protocol-green) 16%, transparent);
+    color: var(--protocol-green);
+    font-weight: 700;
+    box-shadow: none;
+    opacity: 1;
+  }
+
+  .drop-cal-day.is-disabled,
+  .drop-cal-day:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .drop-cal-day.is-outside.is-disabled {
+    opacity: 0.18;
+  }
+
+  .drop-schedule-sheet .guild-field {
+    padding: 0;
+    gap: 0.28rem;
+    border: 0;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .drop-schedule-time {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .drop-schedule-time-label {
+    font-size: 0.76rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.74);
+  }
+
+  /* Tappable summary field — opens nested hour/minute sheet. */
+  .drop-schedule-time-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 2.5rem;
+    margin: 0;
+    padding: 0.55rem 0.75rem;
+    border: 0;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .drop-schedule-time-field:hover,
+  .drop-schedule-time-field:focus-visible,
+  .drop-schedule-time-field.is-open {
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+    outline: none;
+  }
+
+  .drop-schedule-time-field-value {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  .drop-schedule-time-field-suffix {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--os-surface-muted);
+  }
+
+  .drop-schedule-time-field-chevron {
+    flex-shrink: 0;
+    width: 0.95rem;
+    height: 0.95rem;
+    color: var(--os-surface-muted);
+  }
+
+  .drop-time-sheet-panel {
+    height: auto !important;
+    max-height: min(72dvh, 720px);
+    max-width: 28rem;
+  }
+
+  .drop-time-sheet-panel .glass-sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .drop-time-sheet-body {
+    padding: 0.15rem 1.15rem 0.35rem;
+  }
+
+  .drop-time-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .drop-time-column-label {
+    margin: 0;
+    font-size: 0.64rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .drop-time-drums {
+    --drop-time-item: 2.25rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    min-height: 0;
+  }
+
+  .drop-time-drum {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .drop-time-drum-frame {
+    position: relative;
+    height: calc(var(--drop-time-item) * 5);
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.05);
+    overflow: hidden;
+  }
+
+  .drop-time-drum-band {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 0.35rem;
+    right: 0.35rem;
+    height: var(--drop-time-item);
+    transform: translateY(-50%);
+    border-radius: 0.55rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+    pointer-events: none;
+  }
+
+  .drop-time-drum-list {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scroll-snap-type: y mandatory;
+    scroll-padding-block: calc(var(--drop-time-item) * 2);
+    padding-block: calc(var(--drop-time-item) * 2);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .drop-time-drum-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .drop-time-drum-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--drop-time-item);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.42);
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    cursor: pointer;
+    scroll-snap-align: center;
+    scroll-snap-stop: normal;
+  }
+
+  .drop-time-drum-option.is-selected {
+    color: inherit;
+    font-weight: 650;
+  }
+
+  .drop-time-drum-option:hover,
+  .drop-time-drum-option:focus-visible {
+    color: inherit;
+    outline: none;
+  }
+
+  .drop-time-drum-option:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+  }
+
+  .drop-cal-chip:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+  }
+
+  /* Keyboard-open: keep calendar + time usable without tall empty gaps. */
+  @media (max-height: 560px) {
+    .drop-schedule-sheet {
+      gap: 0.4rem;
+    }
+
+    .drop-schedule-sheet-body {
+      padding-bottom: 0.35rem;
+    }
+
+    .drop-cal-day,
+    .drop-cal-chip {
+      min-height: 1.7rem;
+    }
+
+    .drop-cal-chip {
+      font-size: 0.74rem;
     }
   }
 
-  .drop-create-app-note {
+  /* ── Generative drop builder — layered art generator ─── */
+
+  .gen-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .gen-builder-hint {
+    margin: 0;
+    font-size: 0.74rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  /* Builder inputs sit outside .guild-field — mirror its input treatment. */
+  .gen-layer-head input,
+  .gen-trait-card input,
+  .gen-trait-weight input {
+    border: 1px solid rgb(var(--fg-rgb) / 0.09);
+    border-radius: 0.7rem;
+    background: rgb(0 0 0 / 0.22);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .gen-layer-head input:focus,
+  .gen-trait-card input:focus,
+  .gen-trait-weight input:focus {
+    border-color: rgb(var(--fg-rgb) / 0.18);
+  }
+
+  .gen-layer-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    background: rgb(var(--fg-rgb) / 0.03);
+  }
+
+  .gen-layer-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .gen-layer-head input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .gen-layer-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex-shrink: 0;
+  }
+
+  .gen-layer-tools button {
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: var(--os-surface-muted-strong);
+    font-size: 0.78rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .gen-layer-tools button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .gen-trait-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: 0.6rem;
+  }
+
+  .gen-trait-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.45rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .gen-trait-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: contain;
+    border-radius: 0.6rem;
+    background: repeating-conic-gradient(
+        rgb(var(--fg-rgb) / 0.08) 0% 25%,
+        transparent 0% 50%
+      )
+      0 0 / 16px 16px;
+  }
+
+  .gen-trait-card input {
+    width: 100%;
+    min-width: 0;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.45rem;
+  }
+
+  .gen-trait-weight {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .gen-trait-weight input {
+    flex: 1;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gen-trait-weight button {
+    flex-shrink: 0;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.6rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    background: transparent;
+    color: var(--os-surface-muted);
+    font-size: 0.72rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .gen-add-traits,
+  .gen-add-layer,
+  .gen-generate {
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.85rem;
+    border: 1px dashed rgb(var(--fg-rgb) / 0.2);
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: var(--os-surface-muted-strong);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
+  .gen-add-traits:hover:not(:disabled),
+  .gen-add-layer:hover:not(:disabled),
+  .gen-generate:hover:not(:disabled) {
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.7);
+    background: rgb(var(--fg-rgb) / 0.05);
+  }
+
+  .gen-generate {
+    border-style: solid;
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.45);
+    color: var(--os-surface-emphasis);
+  }
+
+  .gen-add-traits:disabled,
+  .gen-add-layer:disabled,
+  .gen-generate:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .gen-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+  }
+
+  .gen-preview-grid img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .drop-generated-note {
     margin: 0;
     padding: 0.5rem 0.75rem;
     border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.05);
+    background: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.1);
+    border: 1px solid rgb(var(--signal-reputation-rgb, 0 236 151) / 0.25);
     font-size: 0.85rem;
-    color: var(--os-surface-muted-strong);
-  }
-
-  .drop-create-app-note strong {
     color: var(--os-surface-emphasis);
   }
 
@@ -17768,6 +18575,126 @@ a.os-surface-row {
   .app-drop-series-count {
     font-weight: 500;
     color: var(--os-surface-muted);
+  }
+
+  .app-drop-series-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .app-drop-series-link:hover,
+  .app-drop-series-link:focus-visible {
+    color: var(--os-surface-emphasis);
+  }
+
+  .app-drop-series-logo {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 0.4rem;
+    object-fit: cover;
+  }
+
+  /* Series page — brand header above the drop list. */
+  .series-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .series-hero {
+    display: grid;
+    grid-template-columns: 3.4rem minmax(0, 1fr) auto;
+    gap: 0.7rem;
+    align-items: center;
+  }
+
+  .series-hero-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.4rem;
+    height: 3.4rem;
+    border-radius: 0.9rem;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: var(--os-surface-muted-strong);
+    font-weight: 700;
+    font-size: 1.15rem;
+  }
+
+  .series-hero-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .series-hero-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .series-hero-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .series-hero-meta {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--os-surface-muted);
+  }
+
+  .series-hero-meta a {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .series-hero-meta a:hover,
+  .series-hero-meta a:focus-visible {
+    color: var(--os-surface-emphasis);
+  }
+
+  .series-hero-description {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: var(--os-surface-muted-strong);
+  }
+
+  .series-hero-edit {
+    align-self: start;
+  }
+
+  /* Square logo picker in the series edit sheet. */
+  .series-logo-picker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 1rem;
+    border: 1px dashed rgb(var(--fg-rgb) / 0.2);
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: var(--os-surface-muted-strong);
+    font-size: 1.3rem;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .series-logo-picker.has-media {
+    border-style: solid;
+  }
+
+  .series-logo-picker img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .app-drop-card {
@@ -18214,6 +19141,13 @@ a.os-surface-row {
     min-width: 0;
     margin: 0;
     overflow: visible;
+  }
+
+  /* Drop template pills under the create-drop header — same rail as Market. */
+  .drop-template-toolbar {
+    display: flex;
+    min-width: 0;
+    margin: 0;
   }
 
   .market-listing-filter-stack {
@@ -22187,6 +23121,30 @@ a.os-surface-row {
     padding: 0.75rem 0.85rem;
   }
 
+  /*
+   * Beat .guild-field input — otherwise hidden datetime/file inputs grow a
+   * visible pill and leak "dd/mm/yyyy --:--" into the form.
+   */
+  .guild-field input.scarce-cover-file-input,
+  .guild-field input.scarce-cover-file-input:focus {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 0.1px;
+    height: 0.1px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    opacity: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    clip: rect(0, 0, 0, 0);
+    /* Keep click() fallback alive for browsers without showPicker. */
+    pointer-events: auto;
+  }
+
   .guild-field textarea {
     min-height: 6rem;
     resize: vertical;
@@ -23028,12 +23986,10 @@ a.os-surface-row {
   color: var(--mood-signal-standing, var(--signal-standing, #5ecf9a));
 }
 
-.portfolio-boost-mode-row
-  .os-surface-chip.is-selected:not(:disabled):hover,
+.portfolio-boost-mode-row .os-surface-chip.is-selected:not(:disabled):hover,
 .portfolio-boost-mode-row
   .os-surface-chip.is-selected:not(:disabled):focus-visible,
-.portfolio-boost-periods
-  .os-surface-chip.is-selected:not(:disabled):hover,
+.portfolio-boost-periods .os-surface-chip.is-selected:not(:disabled):hover,
 .portfolio-boost-periods
   .os-surface-chip.is-selected:not(:disabled):focus-visible {
   background: color-mix(

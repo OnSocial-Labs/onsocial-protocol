@@ -11,6 +11,7 @@ import { logger } from '../../logger.js';
 import {
   uploadNamedBufferToLighthouse,
   uploadNamedBuffersAsDirectoryToLighthouse,
+  uploadDirectoryFromDiskToLighthouse,
 } from '../storage/lighthouse-upload.js';
 
 // ---------------------------------------------------------------------------
@@ -388,6 +389,38 @@ export async function uploadVariationImagesToLighthouse(
     ext,
     urlTemplate: variationMediaUrl(result.dirHash, ext),
   };
+}
+
+/**
+ * Upload pre-named buffers as one IPFS directory and return the directory
+ * CID. Callers own the naming scheme (e.g. `1.png` … `N.png` for variation
+ * sets, `1.json` … `N.json` for trait directories).
+ */
+export async function uploadNamedDirectory(
+  files: { buffer: Buffer; filename: string; mime: string }[]
+): Promise<string> {
+  const result = await uploadNamedBuffersAsDirectoryToLighthouse({
+    files,
+    apiKey: getApiKey(),
+    storageType: STORAGE_TYPE,
+  });
+  return result.dirHash;
+}
+
+/**
+ * Stream files from local disk into one pinned IPFS directory; returns the
+ * directory CID. Used for server-rendered generative sets, where the pieces
+ * are written to a temp dir so the full set never has to fit in memory.
+ */
+export async function uploadDiskDirectory(
+  files: { path: string; filename: string; mime: string }[]
+): Promise<string> {
+  const result = await uploadDirectoryFromDiskToLighthouse({
+    files,
+    apiKey: getApiKey(),
+    storageType: STORAGE_TYPE,
+  });
+  return result.dirHash;
 }
 
 export async function uploadJsonToLighthouse(

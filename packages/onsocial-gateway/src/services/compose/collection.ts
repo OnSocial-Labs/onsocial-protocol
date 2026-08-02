@@ -37,10 +37,15 @@ export interface ComposeCreateCollectionRequest {
   priceNear?: string;
   /** Optional: additional metadata fields (NEP-177 `extra`) */
   extra?: Record<string, unknown>;
-  /** Sale start time (unix ms) */
+  /** Sale start time (unix ns — contract sale window) */
   startTime?: number;
-  /** Sale end time (unix ms) */
+  /** Sale end time (unix ns — contract sale window) */
   endTime?: number;
+  /**
+   * Absolute access end stamped into every minted token’s NEP-177 metadata
+   * (`expires_at`, milliseconds since epoch). Same for all seats.
+   */
+  expiresAtMs?: number;
   /** Royalty map: { "account.near": 2500 } = 25% */
   royalty?: Record<string, number>;
   /** App ID for analytics attribution */
@@ -117,6 +122,41 @@ export interface CreateCollectionActionResult {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Strip per-token placeholders from a drop title for provenance display. */
+function stripTitlePlaceholders(title: string): string {
+  return title
+    .replace(/\s*#\{seat_number\}/g, '')
+    .replace(/\s*\{(seat_number|index|edition|token_id)\}/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** Series pointer from the collection-level metadata blob (string or object). */
+function parseSeriesPointer(
+  metadata: unknown
+): { id: string; title?: string } | null {
+  let value: unknown = metadata;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = (value as Record<string, unknown>).series;
+  if (typeof raw === 'string' && raw.trim()) return { id: raw.trim() };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const id = typeof record.id === 'string' ? record.id.trim() : '';
+  if (!id) return null;
+  const title =
+    typeof record.title === 'string' && record.title.trim()
+      ? record.title.trim()
+      : undefined;
+  return { id, ...(title ? { title } : {}) };
+}
+
 // ---------------------------------------------------------------------------
 // Build + Compose
 // ---------------------------------------------------------------------------
@@ -173,6 +213,12 @@ export async function buildCreateCollectionAction(
     req.endTime <= req.startTime
   ) {
     throw new ComposeError(400, 'End time must be after start time');
+  }
+
+  if (req.expiresAtMs != null) {
+    if (!Number.isFinite(req.expiresAtMs) || req.expiresAtMs <= Date.now()) {
+      throw new ComposeError(400, 'Access end must be in the future');
+    }
   }
 
   // Royalty
@@ -335,6 +381,22 @@ export async function buildCreateCollectionAction(
       ? `${req.title} #{seat_number}`
       : req.title;
 
+  // Token provenance — stamped into every minted token's NEP-177 `extra` so
+  // wallets, explorers, and marketplaces can attribute the token to its
+  // drop / series / creator without calling contract views. Authoritative
+  // fields (collection, creator) override caller-supplied keys; the series
+  // pointer mirrors the collection-level metadata blob.
+  const series = parseSeriesPointer(req.metadata);
+  const extra: Record<string, unknown> = {
+    ...(req.extra ?? {}),
+    collection: {
+      id: req.collectionId,
+      title: stripTitlePlaceholders(req.title) || req.collectionId,
+    },
+    ...(series ? { series } : {}),
+    creator: accountId,
+  };
+
   const metadataTemplate: Record<string, unknown> = {
     title: templateTitle,
     ...(req.description && { description: req.description }),
@@ -342,7 +404,8 @@ export async function buildCreateCollectionAction(
     ...(!variations && media && { media: media.url }),
     ...(!variations && media && media.hash && { media_hash: media.hash }),
     ...(reference && { reference: reference.urlTemplate }),
-    ...(req.extra && { extra: JSON.stringify(req.extra) }),
+    ...(req.expiresAtMs != null && { expires_at: req.expiresAtMs }),
+    extra: JSON.stringify(extra),
   };
 
   // Validate serialised template size (contract limit MAX_METADATA_LEN = 16 KB)

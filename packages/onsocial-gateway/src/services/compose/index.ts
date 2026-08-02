@@ -35,6 +35,32 @@ export {
   MAX_COLLECTION_SUPPLY,
 } from './shared.js';
 
+// Variation-set archives (zipped generative drops → pinned IPFS directories)
+export {
+  type VariationDirResult,
+  type VariationSetArchiveResult,
+  MAX_ARCHIVE_PIECES,
+  uploadVariationSetArchives,
+} from './variation-set.js';
+
+// Server-side generative rendering (layers + recipe → pinned 10k set)
+export {
+  type GenerativeRecipe,
+  type GenerativeLayerRecipe,
+  type GenerativeTraitRecipe,
+  MAX_GENERATIVE_SUPPLY,
+  parseGenerativeRecipe,
+  validateLayerImages,
+  renderGenerativeSet,
+} from './generative.js';
+export {
+  type GenerateJobState,
+  type GenerateJobView,
+  createGenerateJob,
+  getGenerateJob,
+  __resetGenerateJobs,
+} from './generate-jobs.js';
+
 // Set (core contract — any path)
 export {
   type ComposeSetRequest,

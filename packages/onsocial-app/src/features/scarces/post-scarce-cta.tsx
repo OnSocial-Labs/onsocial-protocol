@@ -11,7 +11,7 @@ import {
 
 interface PostScarceCtaProps {
   embed: PostScarceEmbed;
-  /** Hide Collect / Bid when the viewer authored the post. */
+  /** Hide Buy / Bid when the viewer authored the post. */
   isAuthor?: boolean;
   /** Author account — used for Market deep links. */
   authorAccountId?: string;
@@ -97,7 +97,7 @@ function CommerceLinkRow({
 
 /**
  * One-line commerce CTA under post media / above engagement.
- * Vocabulary: Collect · List · Amplify (Amplify lives in engagement row).
+ * Vocabulary: Buy · List · Amplify (Amplify lives in engagement row).
  */
 export function PostScarceCta({
   embed,
@@ -136,7 +136,7 @@ export function PostScarceCta({
   if (embed.status === 'minted') {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
-        <span className="post-card-scarce-cta-main">Collected</span>
+        <span className="post-card-scarce-cta-main">Owned</span>
         <CommerceLinkRow links={links} />
         {isAuthor && canList && onList ? (
           <button
@@ -206,7 +206,7 @@ export function PostScarceCta({
     );
   }
 
-  const canCollect =
+  const canBuy =
     !isAuthor &&
     ((embed.status === 'lazy_listing' && Boolean(embed.listingId)) ||
       (embed.status === 'listed' && Boolean(embed.tokenId)));
@@ -225,7 +225,7 @@ export function PostScarceCta({
     );
   }
 
-  if (!canCollect) {
+  if (!canBuy) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">
@@ -248,7 +248,7 @@ export function PostScarceCta({
         }}
       >
         <span className="post-card-scarce-buy-main">
-          {price ? `Collect · ${price} NEAR` : 'Collect'}
+          {price ? `Buy · ${price} NEAR` : 'Buy'}
         </span>
         {edition ? (
           <span className="post-card-scarce-buy-meta">{edition}</span>

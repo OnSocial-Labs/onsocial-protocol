@@ -6,6 +6,7 @@ export const APP_COLLECTION_PATH = '/collection';
 export const APP_DROP_CREATE_PATH = '/market/create';
 export const APP_APPS_PATH = '/apps';
 export const APP_APP_CREATE_PATH = '/apps/create';
+export const APP_SERIES_PATH = '/series';
 
 /** Query key that pre-filters Market to one creator / seller. */
 export const MARKET_CREATOR_PARAM = 'creator';
@@ -51,6 +52,14 @@ export function appPath(appId: string): string {
   return `${APP_APPS_PATH}/${encodeURIComponent(id)}`;
 }
 
+/** Public series page — a creator's ongoing drop series. */
+export function seriesPagePath(creatorId: string, seriesId: string): string {
+  const creator = creatorId.trim();
+  const id = seriesId.trim();
+  if (!creator || !id) return APP_MARKET_PATH;
+  return `${APP_SERIES_PATH}/${encodeURIComponent(creator)}/${encodeURIComponent(id)}`;
+}
+
 export function isAppRoutePath(pathname: string): boolean {
   return (
     pathname === APP_HOME_PATH ||
@@ -64,6 +73,8 @@ export function isAppRoutePath(pathname: string): boolean {
     pathname === APP_COLLECTION_PATH ||
     pathname.startsWith(`${APP_COLLECTION_PATH}/`) ||
     pathname === APP_APPS_PATH ||
-    pathname.startsWith(`${APP_APPS_PATH}/`)
+    pathname.startsWith(`${APP_APPS_PATH}/`) ||
+    pathname === APP_SERIES_PATH ||
+    pathname.startsWith(`${APP_SERIES_PATH}/`)
   );
 }

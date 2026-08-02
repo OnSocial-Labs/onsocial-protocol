@@ -41,6 +41,7 @@ vi.mock('../../../src/logger.js', () => ({
 vi.mock('../../../src/services/storage/lighthouse-upload.js', () => ({
   uploadNamedBufferToLighthouse: vi.fn(),
   uploadNamedBuffersAsDirectoryToLighthouse: vi.fn(),
+  uploadDirectoryFromDiskToLighthouse: vi.fn(),
 }));
 
 // Stub verifyCidLive in tests — it would otherwise issue a real HEAD via the
@@ -63,6 +64,7 @@ import lighthouse from '@lighthouse-web3/sdk';
 import {
   uploadNamedBufferToLighthouse,
   uploadNamedBuffersAsDirectoryToLighthouse,
+  uploadDirectoryFromDiskToLighthouse,
 } from '../../../src/services/storage/lighthouse-upload.js';
 import type { UploadedFile } from '../../../src/services/compose/index.js';
 
@@ -71,6 +73,9 @@ export const mockUploadText = vi.mocked(lighthouse.uploadText);
 export const mockUploadNamedBuffer = vi.mocked(uploadNamedBufferToLighthouse);
 export const mockUploadDirectory = vi.mocked(
   uploadNamedBuffersAsDirectoryToLighthouse
+);
+export const mockUploadDiskDirectory = vi.mocked(
+  uploadDirectoryFromDiskToLighthouse
 );
 
 // Mock global fetch for relay calls

@@ -75,6 +75,7 @@ export {
   CameraIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
   DotsCircleIcon,

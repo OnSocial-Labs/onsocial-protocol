@@ -1,3 +1,7 @@
+import { createReadStream } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
+
 const LIGHTHOUSE_NODE_URL =
   process.env.LIGHTHOUSE_NODE_URL || 'https://upload.lighthouse.storage';
 
@@ -153,6 +157,93 @@ export async function uploadNamedBuffersAsDirectoryToLighthouse({
   const entries = parseAddEntries(await response.text());
   // The wrapping directory is the entry with an empty Name (Kubo behaviour);
   // it is emitted last when absent-named entries are not distinguished.
+  const dirEntry =
+    entries.find((entry) => !entry.Name) ?? entries[entries.length - 1];
+  if (!dirEntry?.Hash) {
+    throw new Error(
+      'Lighthouse directory upload failed: missing directory CID in response'
+    );
+  }
+
+  return { dirHash: dirEntry.Hash, entries };
+}
+
+export interface LighthouseDiskFile {
+  /** Absolute path of the file on local disk. */
+  path: string;
+  filename: string;
+  mime?: string | null;
+}
+
+export interface LighthouseDiskDirectoryUploadOptions {
+  files: LighthouseDiskFile[];
+  apiKey: string;
+  storageType?: string;
+  cidVersion?: number;
+  endpointBase?: string;
+  fetchImpl?: typeof fetch;
+}
+
+/**
+ * Stream files from disk into one IPFS directory upload.
+ *
+ * Unlike `uploadNamedBuffersAsDirectoryToLighthouse`, the multipart body is
+ * produced as an async generator that reads one file at a time, so a large
+ * generated set (thousands of PNGs, gigabytes total) never has to fit in
+ * process memory.
+ */
+export async function uploadDirectoryFromDiskToLighthouse({
+  files,
+  apiKey,
+  storageType,
+  cidVersion = 1,
+  endpointBase = LIGHTHOUSE_NODE_URL,
+  fetchImpl = fetch,
+}: LighthouseDiskDirectoryUploadOptions): Promise<LighthouseDirectoryUploadData> {
+  if (files.length === 0) {
+    throw new Error('Directory upload requires at least one file');
+  }
+
+  const endpoint = `${endpointBase.replace(/\/+$/, '')}/api/v0/add?cid-version=${cidVersion}&wrap-with-directory=true`;
+  const boundary = `----onsocial-dir-${randomUUID()}`;
+
+  async function* multipartBody(): AsyncGenerator<Buffer> {
+    for (const file of files) {
+      const name = filenameForLighthouse(file.filename, file.mime);
+      const contentType = file.mime || 'application/octet-stream';
+      yield Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="file"; filename="${name}"\r\n` +
+          `Content-Type: ${contentType}\r\n\r\n`
+      );
+      for await (const chunk of createReadStream(file.path)) {
+        yield chunk as Buffer;
+      }
+      yield Buffer.from('\r\n');
+    }
+    yield Buffer.from(`--${boundary}--\r\n`);
+  }
+
+  const response = await fetchImpl(endpoint, {
+    method: 'POST',
+    body: Readable.toWeb(Readable.from(multipartBody())) as unknown as BodyInit,
+    // Node fetch requires half-duplex for streamed request bodies.
+    ...({ duplex: 'half' } as Record<string, unknown>),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      ...(storageType ? { 'X-Storage-Type': storageType } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    const details = await parseLighthouseError(response);
+    throw new Error(
+      `Lighthouse directory upload failed (${response.status}): ${details}`
+    );
+  }
+
+  const entries = parseAddEntries(await response.text());
   const dirEntry =
     entries.find((entry) => !entry.Name) ?? entries[entries.length - 1];
   if (!dirEntry?.Hash) {

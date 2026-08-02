@@ -272,7 +272,7 @@ function PostCardMenu({
         },
       });
     }
-    // List is a primary card CTA (Collect · List · Amplify) — keep Cancel
+    // List is a primary card CTA (Buy · List · Amplify) — keep Cancel
     // in the ⋮ menu for managing an active listing.
     if (showCancelScarce) {
       items.push({

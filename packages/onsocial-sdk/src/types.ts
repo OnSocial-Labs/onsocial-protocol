@@ -479,6 +479,12 @@ export interface CollectionOptions {
   extra?: Record<string, unknown>;
   startTime?: string;
   endTime?: string;
+  /**
+   * Absolute access end for every minted edition (NEP-177 `expires_at`,
+   * milliseconds since epoch). Same timestamp on all seats — not relative
+   * to mint time.
+   */
+  expiresAtMs?: number;
   appId?: string;
   mintMode?: string;
   maxPerWallet?: number;
@@ -489,6 +495,59 @@ export interface CollectionOptions {
   burnable?: boolean;
   /** Max times each token may be redeemed (music / pass-style drops). */
   maxRedeems?: number;
+}
+
+/** One pinned IPFS directory of seat-named files (`1.<ext>` … `N.<ext>`). */
+export interface VariationSetDir {
+  cid: string;
+  count: number;
+  ext: string;
+  /** Gateway URL template with the `{seat_number}` placeholder. */
+  url_template: string;
+}
+
+/**
+ * Result of `scarces.collections.uploadVariationSet` — directory CIDs ready
+ * to pass to `collections.create` as `variationsCid` / `referenceCid`.
+ */
+export interface VariationSetUpload {
+  variations: VariationSetDir;
+  reference?: VariationSetDir;
+}
+
+/** One weighted trait image in a generative layer (server-side rendering). */
+export interface GenerativeTraitSpec {
+  name: string;
+  /** Relative rarity weight (>= 0). Higher = more common. */
+  weight: number;
+  image: Blob | File;
+}
+
+export interface GenerativeLayerSpec {
+  name: string;
+  /** Weight for skipping this layer entirely (default 0 = always present). */
+  noneWeight?: number;
+  traits: GenerativeTraitSpec[];
+}
+
+export type GenerateSetJobState =
+  | 'queued'
+  | 'rendering'
+  | 'pinning'
+  | 'done'
+  | 'failed';
+
+/**
+ * A server-side generative render job. Poll with
+ * `scarces.collections.generateVariationSetStatus` until `state` is `done`
+ * (result carries the pinned CIDs) or `failed`.
+ */
+export interface GenerateSetJob {
+  jobId: string;
+  state: GenerateSetJobState;
+  progress: { done: number; total: number };
+  result?: VariationSetUpload;
+  error?: string;
 }
 
 export interface ListingOptions {

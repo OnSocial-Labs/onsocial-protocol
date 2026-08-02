@@ -23,7 +23,11 @@ import {
 } from '@/features/scarces/collections-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { accountIdsEqual } from '@/lib/account-match';
-import { APP_MARKET_PATH, marketCreatorPath } from '@/lib/app-routes';
+import {
+  APP_MARKET_PATH,
+  marketCreatorPath,
+  seriesPagePath,
+} from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -343,7 +347,14 @@ export function CollectionPagePanel({
           </Link>
           {view.seriesId ? (
             <p className="collection-series-note">
-              Part of the {view.seriesTitle ?? view.seriesId} series
+              Part of the{' '}
+              <Link
+                href={seriesPagePath(view.creatorId, view.seriesId)}
+                scroll={false}
+              >
+                {view.seriesTitle ?? view.seriesId}
+              </Link>{' '}
+              series
             </p>
           ) : null}
           {view.description ? (
@@ -471,7 +482,9 @@ export function CollectionPagePanel({
             <p className="collection-mint-hint">
               {view.randomAssignment
                 ? `Every piece is one of a kind — you'll draw ${
-                    quantity > 1 ? `${quantity} random pieces` : 'a random piece'
+                    quantity > 1
+                      ? `${quantity} random pieces`
+                      : 'a random piece'
                   } from the ${view.remaining} still unminted.`
                 : `Every piece is one of a kind — you'll receive piece #${
                     view.minted + 1

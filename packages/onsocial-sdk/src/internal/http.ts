@@ -64,6 +64,10 @@ export class HttpClient {
   private _isMutationPath(method: string, path: string): boolean {
     return (
       method === 'POST' &&
+      // Uploads and render jobs pin media without broadcasting — no relay
+      // shape to normalize.
+      !path.startsWith('/compose/upload/') &&
+      !path.startsWith('/compose/generate/') &&
       (path.startsWith('/compose/') ||
         path.startsWith('/relay/') ||
         path.startsWith('/v1/reward') ||
@@ -131,7 +135,9 @@ export class HttpClient {
       path.startsWith('/compose/') &&
       !path.includes('wait=') &&
       !path.startsWith('/compose/prepare/') &&
-      !path.startsWith('/compose/preview/')
+      !path.startsWith('/compose/preview/') &&
+      !path.startsWith('/compose/upload/') &&
+      !path.startsWith('/compose/generate/')
         ? `${path}${path.includes('?') ? '&' : '?'}wait=true`
         : path;
     const url = `${this.baseUrl}${effectivePath}`;
@@ -185,7 +191,9 @@ export class HttpClient {
       path.startsWith('/compose/') &&
       !path.includes('wait=') &&
       !path.startsWith('/compose/prepare/') &&
-      !path.startsWith('/compose/preview/')
+      !path.startsWith('/compose/preview/') &&
+      !path.startsWith('/compose/upload/') &&
+      !path.startsWith('/compose/generate/')
         ? `${path}${path.includes('?') ? '&' : '?'}wait=true`
         : path;
     const url = `${this.baseUrl}${effectivePath}`;

@@ -24,6 +24,7 @@
     "@onsocial/sdk": "workspace:*",
     "@onsocial/text-card": "workspace:*",
     "@onsocial/ui": "workspace:*",
+    "fflate": "^0.8.3",
     "next": "^16.2.9",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

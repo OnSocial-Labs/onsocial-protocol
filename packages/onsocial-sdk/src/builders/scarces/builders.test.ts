@@ -9,6 +9,7 @@ import {
   buildCancelCollectionOfferAction,
   buildCancelOfferAction,
   buildCreateCollectionAction,
+  withCollectionProvenance,
   buildCreateLazyListingAction,
   buildDelistNativeScarceAction,
   buildDeleteCollectionAction,
@@ -137,6 +138,7 @@ describe('scarces builders — collections', () => {
         transferable: true,
         burnable: false,
         maxRedeems: 3,
+        expiresAtMs: 1_800_000_000_000,
       })
     ).toEqual({
       type: 'create_collection',
@@ -145,6 +147,7 @@ describe('scarces builders — collections', () => {
       metadata_template: JSON.stringify({
         title: 'Genesis Collection',
         description: 'Season one',
+        expires_at: 1_800_000_000_000,
         extra: JSON.stringify({ season: 1 }),
       }),
       price_near: '2000000000000000000000000',
@@ -157,6 +160,46 @@ describe('scarces builders — collections', () => {
       transferable: true,
       burnable: false,
       max_redeems: 3,
+    });
+  });
+
+  it('withCollectionProvenance stamps drop / series / creator into extra', () => {
+    const enriched = withCollectionProvenance(
+      {
+        collectionId: 'ink-studies-1',
+        totalSupply: 10,
+        title: 'Ink Study #{seat_number}',
+        metadata: {
+          series: { id: 'ink-studies', title: 'Ink Studies' },
+          cover: { seat: 2 },
+        },
+        extra: { kind: 'art', creator: 'evil.near' },
+      },
+      'alice.near'
+    );
+
+    expect(enriched.extra).toEqual({
+      kind: 'art',
+      collection: { id: 'ink-studies-1', title: 'Ink Study' },
+      series: { id: 'ink-studies', title: 'Ink Studies' },
+      creator: 'alice.near',
+    });
+    // Original fields are untouched.
+    expect(enriched.collectionId).toBe('ink-studies-1');
+    expect(enriched.metadata).toEqual({
+      series: { id: 'ink-studies', title: 'Ink Studies' },
+      cover: { seat: 2 },
+    });
+  });
+
+  it('withCollectionProvenance omits series and creator when absent', () => {
+    const enriched = withCollectionProvenance({
+      collectionId: 'solo',
+      totalSupply: 5,
+      title: 'Solo',
+    });
+    expect(enriched.extra).toEqual({
+      collection: { id: 'solo', title: 'Solo' },
     });
   });
 

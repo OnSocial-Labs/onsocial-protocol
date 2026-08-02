@@ -15,7 +15,7 @@ const SCARCES_CONTRACT =
     : 'scarces.onsocial.testnet';
 
 /** Raw on-chain `LazyCollection` fields this app reads. */
-interface LazyCollectionRecord {
+export interface LazyCollectionRecord {
   creator_id?: string;
   collection_id?: string;
   total_supply?: number;
@@ -126,12 +126,19 @@ interface TemplateMeta {
 
 const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
 
-/** Cover art for a variation drop: the template media resolved for seat 1. */
-function substituteFirstSeat(media: string, collectionId: string): string {
+/**
+ * Cover art for a variation drop: the template media resolved for the
+ * creator-chosen cover seat (defaults to seat 1).
+ */
+function substituteSeat(
+  media: string,
+  collectionId: string,
+  seat: number
+): string {
   return media
-    .replace(/\{seat_number\}/g, '1')
-    .replace(/\{index\}/g, '0')
-    .replace(/\{token_id\}/g, `${collectionId}:1`);
+    .replace(/\{seat_number\}/g, String(seat))
+    .replace(/\{index\}/g, String(seat - 1))
+    .replace(/\{token_id\}/g, `${collectionId}:${seat}`);
 }
 
 /** Drop-level display title: strip per-token placeholders from the template title. */
@@ -146,6 +153,24 @@ function stripTitlePlaceholders(title: string): string {
 interface SeriesMeta {
   id: string;
   title: string | null;
+}
+
+/**
+ * Parse the creator-chosen cover piece (`cover.seat`) from the collection's
+ * freeform metadata blob. Returns null when absent or malformed.
+ */
+function parseCoverSeat(
+  metadataJson: string | null | undefined
+): number | null {
+  if (!metadataJson?.trim()) return null;
+  try {
+    const meta = asRecord(JSON.parse(metadataJson));
+    const cover = asRecord(meta?.cover);
+    const seat = Number(cover?.seat);
+    return Number.isSafeInteger(seat) && seat >= 1 ? seat : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Parse `series` from the collection's freeform metadata blob. */
@@ -174,7 +199,8 @@ function parseSeries(
 
 function parseTemplate(
   template: string | undefined,
-  collectionId: string
+  collectionId: string,
+  coverSeat = 1
 ): TemplateMeta {
   const fallback: TemplateMeta = {
     title: collectionId,
@@ -200,7 +226,7 @@ function parseTemplate(
       : rawTitle;
     const mediaUrl = resolveScarceMediaUrl(
       rawMedia && isVariations
-        ? substituteFirstSeat(rawMedia, collectionId)
+        ? substituteSeat(rawMedia, collectionId, coverSeat)
         : rawMedia
     );
     let sourcePostPath: string | undefined;
@@ -238,7 +264,10 @@ function parseTemplate(
   }
 }
 
-function toCollectionView(record: LazyCollectionRecord): CollectionView | null {
+/** Pure record → view mapping — exported for unit tests. */
+export function toCollectionView(
+  record: LazyCollectionRecord
+): CollectionView | null {
   const collectionId = record.collection_id?.trim();
   const creatorId = record.creator_id?.trim();
   if (!collectionId || !creatorId) return null;
@@ -249,7 +278,17 @@ function toCollectionView(record: LazyCollectionRecord): CollectionView | null {
   const remaining = Math.max(0, totalSupply - minted);
   const priceYocto = yoctoString(record.price_near);
   const allowlistYocto = yoctoString(record.allowlist_price);
-  const template = parseTemplate(record.metadata_template, collectionId);
+  const coverSeatRaw = parseCoverSeat(record.metadata);
+  // Fall back to seat 1 when the chosen seat is missing or out of range.
+  const coverSeat =
+    coverSeatRaw != null && (totalSupply === 0 || coverSeatRaw <= totalSupply)
+      ? coverSeatRaw
+      : 1;
+  const template = parseTemplate(
+    record.metadata_template,
+    collectionId,
+    coverSeat
+  );
   const series = parseSeries(record.metadata);
   const maxRedeems =
     record.max_redeems != null && record.max_redeems > 0

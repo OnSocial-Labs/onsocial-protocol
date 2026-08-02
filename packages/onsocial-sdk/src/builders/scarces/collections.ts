@@ -9,6 +9,58 @@ import {
   parseOptionalU64,
 } from './_shared.js';
 
+/** Strip per-token placeholders from a drop title for provenance display. */
+function stripTitlePlaceholders(title: string): string {
+  return title
+    .replace(/\s*#\{seat_number\}/g, '')
+    .replace(/\s*\{(seat_number|index|edition|token_id)\}/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/** Series pointer from the collection-level metadata blob, when present. */
+function seriesPointer(
+  metadata: Record<string, unknown> | undefined
+): { id: string; title?: string } | null {
+  const raw = metadata?.series;
+  if (typeof raw === 'string' && raw.trim()) return { id: raw.trim() };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const id = typeof record.id === 'string' ? record.id.trim() : '';
+  if (!id) return null;
+  const title =
+    typeof record.title === 'string' && record.title.trim()
+      ? record.title.trim()
+      : undefined;
+  return { id, ...(title ? { title } : {}) };
+}
+
+/**
+ * Stamp immutable provenance into the token template `extra` — collection
+ * id/title, series pointer, and creator — so any wallet, explorer, or
+ * marketplace can attribute a minted token to its drop without calling
+ * contract views. Provenance fields override caller-supplied keys of the
+ * same name; everything else in `extra` passes through.
+ */
+export function withCollectionProvenance(
+  opts: CollectionOptions,
+  creator?: string | null
+): CollectionOptions {
+  const series = seriesPointer(opts.metadata);
+  return {
+    ...opts,
+    extra: {
+      ...(opts.extra ?? {}),
+      collection: {
+        id: opts.collectionId,
+        title: stripTitlePlaceholders(opts.title) || opts.collectionId,
+      },
+      ...(series ? { series } : {}),
+      ...(creator ? { creator } : {}),
+    },
+  };
+}
+
 export function buildCreateCollectionAction(opts: CollectionOptions) {
   const metadataTemplate = JSON.stringify(
     buildTokenMetadata({
@@ -16,6 +68,7 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
       ...(opts.description ? { description: opts.description } : {}),
       ...(opts.mediaCid ? { mediaCid: opts.mediaCid } : {}),
       ...(opts.mediaHash ? { mediaHash: opts.mediaHash } : {}),
+      ...(opts.expiresAtMs != null ? { expiresAtMs: opts.expiresAtMs } : {}),
       ...(opts.extra ? { extra: opts.extra } : {}),
     })
   );

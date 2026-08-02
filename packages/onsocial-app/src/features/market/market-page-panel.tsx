@@ -114,8 +114,10 @@ const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
 
 function parseMediumFilter(raw: string | null): MarketMediumFilter {
   const value = raw?.trim().toLowerCase() ?? '';
-  if (value === 'art' || value === 'book' || value === 'music') return value;
-  return 'all';
+  const known = MARKET_MEDIUM_FILTERS.find(
+    (entry) => entry.id !== 'all' && entry.id === value
+  );
+  return known ? known.id : 'all';
 }
 
 /** Initial Recent sales rows; expand shows the rest of the fetched window. */

@@ -380,6 +380,21 @@ export function VideoPlayerIcon({
   );
 }
 
+export function ChevronLeftIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="m15.583 20l-6.587-6.587a2.013 2.013 0 0 1 0-2.826L15.583 4"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 export function ChevronRightIcon(props: MageStrokeIconProps) {
   return (
     <MageStrokeSvg {...props}>

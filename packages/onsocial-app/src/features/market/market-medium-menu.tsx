@@ -5,7 +5,14 @@ import {
   type ChoiceOption,
 } from '@/components/ui/choice-drawer';
 
-export type MarketMediumFilter = 'all' | 'art' | 'book' | 'music';
+export type MarketMediumFilter =
+  | 'all'
+  | 'art'
+  | 'book'
+  | 'music'
+  | 'ticket'
+  | 'coupon'
+  | 'membership';
 
 export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
   id: MarketMediumFilter;
@@ -15,6 +22,9 @@ export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
   { id: 'art', label: 'Art' },
   { id: 'book', label: 'Book' },
   { id: 'music', label: 'Music' },
+  { id: 'ticket', label: 'Tickets' },
+  { id: 'coupon', label: 'Coupons' },
+  { id: 'membership', label: 'Memberships' },
 ];
 
 const MEDIUM_OPTIONS: ChoiceOption<MarketMediumFilter>[] =

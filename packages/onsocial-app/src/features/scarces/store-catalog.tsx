@@ -12,7 +12,16 @@ import {
   fetchMarketListings,
   type MarketListingItem,
 } from '@/features/market/market-listings';
-import { collectionPath, marketAppPath } from '@/lib/app-routes';
+import {
+  fetchSeriesBrandingCached,
+  type SeriesBranding,
+} from '@/features/scarces/series-data';
+import {
+  collectionPath,
+  marketAppPath,
+  seriesPagePath,
+} from '@/lib/app-routes';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   INDEXER_CATCH_UP_COPY,
   INDEXER_SOFT_RETRY_MS,
@@ -183,6 +192,8 @@ interface DropGroup {
   key: string;
   /** Set when the group is a creator series; null for standalone drops. */
   seriesTitle: string | null;
+  creatorId: string;
+  seriesId: string | null;
   drops: CollectionView[];
 }
 
@@ -206,12 +217,57 @@ function groupDropsBySeries(drops: CollectionView[]): DropGroup[] {
     const group: DropGroup = {
       key,
       seriesTitle: drop.seriesId ? (drop.seriesTitle ?? drop.seriesId) : null,
+      creatorId: drop.creatorId,
+      seriesId: drop.seriesId,
       drops: [drop],
     };
     byKey.set(key, group);
     groups.push(group);
   }
   return groups;
+}
+
+/**
+ * Series section heading — links to the series page and shows the creator's
+ * series logo once branding loads (cached per session).
+ */
+function SeriesSectionHeading({ group }: { group: DropGroup }) {
+  const [branding, setBranding] = useState<SeriesBranding | null>(null);
+  const { creatorId, seriesId } = group;
+  const profiles = usePostAuthorProfiles([creatorId]);
+
+  useEffect(() => {
+    if (!seriesId) return;
+    let cancelled = false;
+    void fetchSeriesBrandingCached(creatorId, seriesId).then((next) => {
+      if (!cancelled) setBranding(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorId, seriesId]);
+
+  const title = branding?.title ?? group.seriesTitle;
+  // Series logo when branded, otherwise the creator's avatar carries identity.
+  const logoUrl = branding?.logoUrl ?? profiles[creatorId]?.avatarUrl ?? null;
+  return (
+    <h4 className="app-drop-series-title">
+      <Link
+        href={seriesId ? seriesPagePath(creatorId, seriesId) : '#'}
+        className="app-drop-series-link"
+        scroll={false}
+      >
+        {logoUrl ? (
+          <img className="app-drop-series-logo" src={logoUrl} alt="" />
+        ) : null}
+        {title}
+      </Link>
+      <span className="app-drop-series-count">
+        {' '}
+        · {group.drops.length} {group.drops.length === 1 ? 'drop' : 'drops'}
+      </span>
+    </h4>
+  );
 }
 
 /** Drops list with series sections; consecutive standalone drops share one list. */
@@ -246,13 +302,7 @@ function GroupedDropsList({ drops }: { drops: CollectionView[] }) {
         className="app-drop-series"
         aria-label={`Series: ${group.seriesTitle}`}
       >
-        <h4 className="app-drop-series-title">
-          {group.seriesTitle}
-          <span className="app-drop-series-count">
-            {' '}
-            · {group.drops.length} {group.drops.length === 1 ? 'drop' : 'drops'}
-          </span>
-        </h4>
+        <SeriesSectionHeading group={group} />
         <ul className="app-drop-list">
           {group.drops.map((drop) => (
             <li key={drop.collectionId}>
