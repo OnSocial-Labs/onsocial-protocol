@@ -382,7 +382,10 @@ export function CollectionPagePanel({
             {view.isVariations ? (
               <div>
                 <dt>Set</dt>
-                <dd>{view.totalSupply} unique pieces · 1 of each</dd>
+                <dd>
+                  {view.totalSupply} unique pieces · 1 of each
+                  {view.randomAssignment ? ' · random draw' : ''}
+                </dd>
               </div>
             ) : null}
             {schedule ? (
@@ -466,10 +469,15 @@ export function CollectionPagePanel({
             <p className="collection-mint-hint">{mintDisabledReason}</p>
           ) : view.isVariations && mintable && !isOwner ? (
             <p className="collection-mint-hint">
-              Every piece is one of a kind — you&rsquo;ll receive piece #
-              {view.minted + 1}
-              {quantity > 1 ? `–#${view.minted + quantity}` : ''} of{' '}
-              {view.totalSupply}.
+              {view.randomAssignment
+                ? `Every piece is one of a kind — you'll draw ${
+                    quantity > 1 ? `${quantity} random pieces` : 'a random piece'
+                  } from the ${view.remaining} still unminted.`
+                : `Every piece is one of a kind — you'll receive piece #${
+                    view.minted + 1
+                  }${quantity > 1 ? `–#${view.minted + quantity}` : ''} of ${
+                    view.totalSupply
+                  }.`}
             </p>
           ) : isOwner && mintable ? (
             <p className="collection-mint-hint">

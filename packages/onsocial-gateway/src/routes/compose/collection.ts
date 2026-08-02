@@ -76,6 +76,9 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
     mediaHash,
     variationsCid,
     variationsExt,
+    referenceCid,
+    referenceExt,
+    randomAssignment,
     targetAccount,
   } = body as Record<string, string | undefined>;
 
@@ -109,6 +112,11 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
       ...(mediaHash && { mediaHash }),
       ...(variationsCid && { variationsCid }),
       ...(variationsExt && { variationsExt }),
+      ...(referenceCid && { referenceCid }),
+      ...(referenceExt && { referenceExt }),
+      ...(parseBool(randomAssignment) != null && {
+        randomAssignment: parseBool(randomAssignment),
+      }),
       ...(targetAccount && { targetAccount }),
     },
     parsedExtra,
@@ -187,6 +195,13 @@ collectionRouter.post(
               count: built.variations.count,
               ext: built.variations.ext,
               url_template: built.variations.urlTemplate,
+            }
+          : undefined,
+        reference: built.reference
+          ? {
+              cid: built.reference.cid,
+              ext: built.reference.ext,
+              url_template: built.reference.urlTemplate,
             }
           : undefined,
       });

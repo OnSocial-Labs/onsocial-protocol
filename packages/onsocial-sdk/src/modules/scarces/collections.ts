@@ -53,12 +53,15 @@ export class ScarcesCollectionsApi {
    * ```
    */
   async create(opts: CollectionOptions): Promise<RelayResponse> {
-    // Variation sets always go through the gateway — the directory pin
-    // (one CID for the whole art set) happens server-side.
-    const isVariationSet =
-      (opts.images?.length ?? 0) > 0 || Boolean(opts.variationsCid);
+    // Variation sets, trait directories, and random drops always go through
+    // the gateway — directory pins and CID liveness checks happen server-side.
+    const needsGatewayCompose =
+      (opts.images?.length ?? 0) > 0 ||
+      Boolean(opts.variationsCid) ||
+      Boolean(opts.referenceCid) ||
+      Boolean(opts.randomAssignment);
     if (
-      !isVariationSet &&
+      !needsGatewayCompose &&
       hasLocalUpload(this._storage, opts.image, opts.mediaCid)
     ) {
       const { mediaCid, mediaHash } = await resolveScarceMedia(
@@ -109,6 +112,10 @@ export class ScarcesCollectionsApi {
     if (opts.mediaHash) form.append('mediaHash', opts.mediaHash);
     if (opts.variationsCid) form.append('variationsCid', opts.variationsCid);
     if (opts.variationsExt) form.append('variationsExt', opts.variationsExt);
+    if (opts.referenceCid) form.append('referenceCid', opts.referenceCid);
+    if (opts.referenceExt) form.append('referenceExt', opts.referenceExt);
+    if (opts.randomAssignment !== undefined)
+      form.append('randomAssignment', String(opts.randomAssignment));
     if (opts.image) form.append('image', opts.image);
     for (const file of opts.images ?? []) {
       form.append('images', file);

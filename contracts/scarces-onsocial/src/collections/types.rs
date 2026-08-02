@@ -101,6 +101,12 @@ pub struct LazyCollection {
     #[serde(default = "crate::default_commission_sentinel")]
     #[borsh(deserialize_with = "crate::deserialize_trailing_commission_bps")]
     pub app_commission_bps: u16,
+    /// Random seat assignment ("random drop"): each mint draws a uniformly
+    /// random unminted seat instead of the next sequential one, so rare
+    /// variations cannot be sniped by timing a purchase.
+    #[serde(default)]
+    #[borsh(deserialize_with = "crate::deserialize_trailing_bool")]
+    pub random_assignment: bool,
 }
 
 #[near(serializers = [json])]
@@ -135,6 +141,9 @@ pub struct CollectionConfig {
     /// Max tokens per purchase call (1..=MAX_BATCH_MINT). None → MAX_BATCH_MINT.
     #[serde(default)]
     pub max_per_purchase: Option<u32>,
+    /// Assign seats randomly instead of sequentially (see `LazyCollection`).
+    #[serde(default)]
+    pub random_assignment: bool,
 }
 
 #[near(serializers = [json])]
@@ -175,4 +184,5 @@ pub struct CollectionStats {
     pub paused: bool,
     pub banned: bool,
     pub allowlist_price: Option<U128>,
+    pub random_assignment: bool,
 }

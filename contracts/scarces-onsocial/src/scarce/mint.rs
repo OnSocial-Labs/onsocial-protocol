@@ -133,17 +133,17 @@ impl Contract {
         Ok(token_id)
     }
 
-    /// `start_index` is the collection-wide position of the first token in
-    /// this batch (i.e. `minted_count` before the batch). Template
-    /// placeholders like `{seat_number}` must interpolate the token's global
-    /// position, not its offset within one purchase — otherwise a second
+    /// `seat_indices[i]` is the collection-wide 0-based seat of `token_ids[i]`.
+    /// Template placeholders like `{seat_number}` must interpolate the token's
+    /// global seat, not its offset within one purchase — otherwise a second
     /// buyer's tokens would repeat the first buyer's seat numbers (and media,
-    /// for variation drops).
+    /// for variation drops). Random-assignment collections pass non-contiguous
+    /// seats drawn from the unminted pool.
     pub(crate) fn batch_mint(
         &mut self,
         ctx: &crate::MintContext,
         token_ids: Vec<String>,
-        start_index: u32,
+        seat_indices: &[u32],
         metadata_template: &str,
         collection_id: &str,
         overrides: Option<crate::ScarceOverrides>,
@@ -159,6 +159,11 @@ impl Contract {
                 MAX_BATCH_MINT
             )));
         }
+        if token_ids.len() != seat_indices.len() {
+            return Err(MarketplaceError::InternalError(
+                "Seat indices must match token IDs".into(),
+            ));
+        }
 
         let mut minted_tokens = Vec::new();
 
@@ -166,7 +171,7 @@ impl Contract {
             let metadata = self.generate_metadata_from_template(
                 metadata_template,
                 token_id,
-                start_index + offset as u32,
+                seat_indices[offset],
                 &ctx.owner_id,
                 collection_id,
             )?;

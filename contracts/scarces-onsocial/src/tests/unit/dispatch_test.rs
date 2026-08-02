@@ -65,6 +65,7 @@ fn dispatch_create_collection() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     let action = Action::CreateCollection { params };
     let result = contract.dispatch_action(action, &creator()).unwrap();
@@ -215,6 +216,7 @@ fn dispatch_burn_scarce() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), params).unwrap();
     contract
@@ -294,6 +296,7 @@ fn dispatch_pause_and_resume_collection() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), params).unwrap();
 
@@ -731,6 +734,7 @@ fn execute_make_collection_offer_happy() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), params).unwrap();
 

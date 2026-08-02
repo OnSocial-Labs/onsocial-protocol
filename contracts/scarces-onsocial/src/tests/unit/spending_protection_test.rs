@@ -86,6 +86,7 @@ fn setup_collection(contract: &mut Contract, price: u128) -> String {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     testing_env!(context(creator()).build());
     contract.create_collection(&creator(), config).unwrap();

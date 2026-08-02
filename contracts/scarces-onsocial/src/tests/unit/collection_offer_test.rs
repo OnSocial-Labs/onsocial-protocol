@@ -30,6 +30,7 @@ fn minimal_config(id: &str) -> CollectionConfig {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     }
 }
 

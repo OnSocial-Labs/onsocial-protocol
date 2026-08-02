@@ -160,6 +160,7 @@ impl Contract {
                 paused: collection.paused,
                 banned: collection.banned,
                 allowlist_price: collection.allowlist_price,
+                random_assignment: collection.random_assignment,
             }
         })
     }

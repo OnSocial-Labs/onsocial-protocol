@@ -25,6 +25,7 @@ import {
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
 import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
+import { ScarceTraits } from '@/features/scarces/scarce-traits';
 import {
   createAppScarcesWalletClient,
   LazyListingNotFoundError,
@@ -496,6 +497,8 @@ export function ScarceBuyForm({
         sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
         hideOriginalLink={Boolean(post)}
       />
+
+      {status !== 'lazy_listing' ? <ScarceTraits tokenId={tokenId} /> : null}
 
       {fieldError ? (
         <p className="profile-support-error" role="alert">

@@ -17310,6 +17310,38 @@ a.os-surface-row {
     font-weight: 600;
   }
 
+  .scarce-traits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .scarce-trait-chip {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.4rem 0.65rem;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    min-width: 0;
+  }
+
+  .scarce-trait-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--os-surface-muted);
+  }
+
+  .scarce-trait-value {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--os-surface-emphasis);
+    overflow-wrap: anywhere;
+  }
+
   .drop-schedule-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

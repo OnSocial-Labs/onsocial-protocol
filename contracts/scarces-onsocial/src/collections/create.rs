@@ -30,6 +30,7 @@ impl Contract {
             start_price,
             allowlist_price,
             max_per_purchase,
+            random_assignment,
         } = params;
 
         if collection_id.is_empty() || collection_id.len() > 64 {
@@ -190,6 +191,7 @@ impl Contract {
             app_metadata: None,
             max_per_purchase,
             app_commission_bps,
+            random_assignment,
         };
 
         let before = self.storage_usage_flushed();

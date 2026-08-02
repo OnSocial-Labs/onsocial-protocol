@@ -209,6 +209,7 @@ fn resolve_base_uri_from_app_metadata() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -239,6 +240,7 @@ fn resolve_base_uri_none_when_no_uri() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
 

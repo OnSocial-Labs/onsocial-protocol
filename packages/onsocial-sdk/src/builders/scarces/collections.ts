@@ -34,6 +34,7 @@ export function buildCreateCollectionAction(opts: CollectionOptions) {
     ...(opts.maxPerPurchase != null
       ? { max_per_purchase: opts.maxPerPurchase }
       : {}),
+    ...(opts.randomAssignment ? { random_assignment: true } : {}),
     ...(opts.renewable != null ? { renewable: opts.renewable } : {}),
     ...(opts.transferable != null ? { transferable: opts.transferable } : {}),
     ...(opts.burnable != null ? { burnable: opts.burnable } : {}),

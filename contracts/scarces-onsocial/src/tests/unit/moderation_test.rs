@@ -52,6 +52,7 @@ fn setup_with_app_collection(col_id: &str) -> Contract {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract
         .execute(make_request(Action::CreateCollection { params: cfg }))

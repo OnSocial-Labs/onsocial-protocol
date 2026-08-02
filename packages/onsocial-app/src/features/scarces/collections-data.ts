@@ -36,6 +36,7 @@ interface LazyCollectionRecord {
   renewable?: boolean;
   max_redeems?: number | null;
   metadata?: string | null;
+  random_assignment?: boolean;
 }
 
 export type CollectionStatus =
@@ -76,6 +77,8 @@ export interface CollectionView {
   maxRedeems: number | null;
   /** True when every token resolves its own artwork (media has a seat placeholder). */
   isVariations: boolean;
+  /** True when mints draw a random unminted seat instead of the next one. */
+  randomAssignment: boolean;
   /** Series grouping (from collection metadata `series`), when set. */
   seriesId: string | null;
   seriesTitle: string | null;
@@ -282,6 +285,7 @@ function toCollectionView(record: LazyCollectionRecord): CollectionView | null {
     renewable: Boolean(record.renewable),
     maxRedeems,
     isVariations: template.isVariations,
+    randomAssignment: Boolean(record.random_assignment),
     seriesId: series?.id ?? null,
     seriesTitle: series?.title ?? null,
     ...(template.sourcePostPath

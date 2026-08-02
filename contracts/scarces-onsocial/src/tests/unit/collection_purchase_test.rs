@@ -28,6 +28,7 @@ fn setup_contract_with_collection(price: u128) -> (Contract, String) {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
     (contract, "col".to_string())
@@ -104,6 +105,7 @@ fn purchase_creator_only_mode_fails() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
     testing_env!(context_with_deposit(buyer(), 100_000).build());
@@ -144,6 +146,7 @@ fn purchase_exceeds_supply_fails() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
     testing_env!(context_with_deposit(buyer(), 1_000_000).build());
@@ -184,6 +187,7 @@ fn purchase_exceeds_per_wallet_limit_fails() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -332,6 +336,7 @@ fn purchase_before_start_without_allowlist_fails() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -373,6 +378,7 @@ fn purchase_before_start_with_allowlist_succeeds() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
 
@@ -421,6 +427,7 @@ fn purchase_exceeds_max_per_purchase_fails() {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: Some(2),
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
     testing_env!(context_with_deposit(buyer(), 100_000).build());

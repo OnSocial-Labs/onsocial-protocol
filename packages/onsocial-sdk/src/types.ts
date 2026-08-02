@@ -453,6 +453,20 @@ export interface CollectionOptions {
   variationsCid?: string;
   /** File extension inside the `variationsCid` directory (default `png`). */
   variationsExt?: string;
+  /**
+   * Per-token trait metadata, BYO storage: pre-pinned IPFS directory CID
+   * whose files are named `1.json` … `<totalSupply>.json` (OpenSea-style
+   * `attributes`). Templated into NEP-177 `reference` by seat number.
+   */
+  referenceCid?: string;
+  /** File extension inside the `referenceCid` directory (default `json`). */
+  referenceExt?: string;
+  /**
+   * Random seat assignment: each mint draws a uniformly random unminted
+   * piece so rare variations cannot be sniped. Requires a variation set or
+   * `referenceCid`.
+   */
+  randomAssignment?: boolean;
   /** Pre-uploaded IPFS CID — bypasses gateway upload (BYO storage). */
   mediaCid?: string;
   /** NEP-177 `media_hash` (raw sha256 of the media bytes, base64). Required with `mediaCid`; upload flows compute it automatically. */

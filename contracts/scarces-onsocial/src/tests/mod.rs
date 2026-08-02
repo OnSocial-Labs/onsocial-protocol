@@ -20,6 +20,7 @@ pub mod unit {
     pub mod moderation_test;
     pub mod offer_test;
     pub mod pricing_test;
+    pub mod random_drop_test;
     pub mod royalty_test;
     pub mod sale_test;
     pub mod scarce_test;

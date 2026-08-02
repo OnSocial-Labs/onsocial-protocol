@@ -29,6 +29,7 @@ fn setup_contract_with_collection(template: &str) -> Contract {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     };
     contract.create_collection(&creator(), config).unwrap();
     contract

@@ -48,6 +48,16 @@ type DropMedium = 'art' | 'book' | 'music';
 /** One shared artwork minted N times, or one artwork per token. */
 type DropArtMode = 'single' | 'variations';
 
+/** Variation art source: direct upload or a pre-pinned IPFS directory. */
+type VariationSource = 'upload' | 'cid';
+
+const VARIATION_EXTS = ['png', 'jpg', 'webp', 'gif'] as const;
+
+/** Loose CID shape check — base58 / base32 CIDs are ≥32 alphanumerics. */
+function looksLikeCid(value: string): boolean {
+  return /^[A-Za-z0-9]{32,}$/.test(value);
+}
+
 const MEDIUM_OPTIONS: { id: DropMedium; label: string; hint: string }[] = [
   { id: 'art', label: 'Art', hint: 'Transferable prints' },
   { id: 'book', label: 'Book', hint: 'Soulbound · renewable' },
@@ -113,6 +123,13 @@ export function CreateDropPanel() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [variationFiles, setVariationFiles] = useState<File[]>([]);
   const [variationPreviews, setVariationPreviews] = useState<string[]>([]);
+  const [variationSource, setVariationSource] =
+    useState<VariationSource>('upload');
+  const [variationsCid, setVariationsCid] = useState('');
+  const [variationsExt, setVariationsExt] =
+    useState<(typeof VARIATION_EXTS)[number]>('png');
+  const [traitsCid, setTraitsCid] = useState('');
+  const [randomAssign, setRandomAssign] = useState(false);
   const [seriesName, setSeriesName] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,16 +137,21 @@ export function CreateDropPanel() {
   const variationsInputRef = useRef<HTMLInputElement>(null);
 
   const isVariations = artMode === 'variations';
+  const isPinnedSet = isVariations && variationSource === 'cid';
   const derivedSlug = useMemo(() => slugify(slug || title), [slug, title]);
   const editionSupply = Number.parseInt(supplyInput, 10);
-  const supply = isVariations ? variationFiles.length : editionSupply;
+  const supply =
+    isVariations && !isPinnedSet ? variationFiles.length : editionSupply;
   const price = finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS);
-  const supplyValid = isVariations
-    ? variationFiles.length >= MIN_VARIATIONS &&
-      variationFiles.length <= MAX_VARIATIONS
-    : Number.isSafeInteger(editionSupply) &&
-      editionSupply >= MIN_SUPPLY &&
-      editionSupply <= MAX_SUPPLY;
+  const supplyValid =
+    isVariations && !isPinnedSet
+      ? variationFiles.length >= MIN_VARIATIONS &&
+        variationFiles.length <= MAX_VARIATIONS
+      : Number.isSafeInteger(editionSupply) &&
+        editionSupply >= (isPinnedSet ? MIN_VARIATIONS : MIN_SUPPLY) &&
+        editionSupply <= MAX_SUPPLY;
+  const pinnedCidValid = looksLikeCid(variationsCid.trim());
+  const traitsCidValid = !traitsCid.trim() || looksLikeCid(traitsCid.trim());
   const maxRedeems = Number.parseInt(maxRedeemsInput, 10);
   const maxRedeemsValid =
     !maxRedeemsInput.trim() ||
@@ -142,8 +164,11 @@ export function CreateDropPanel() {
     derivedSlug.length >= 3 &&
     supplyValid &&
     maxRedeemsValid &&
+    traitsCidValid &&
     (isVariations
-      ? variationFiles.length >= MIN_VARIATIONS
+      ? isPinnedSet
+        ? pinnedCidValid
+        : variationFiles.length >= MIN_VARIATIONS
       : imageFile != null);
 
   const selectMedium = useCallback((next: DropMedium) => {
@@ -219,7 +244,15 @@ export function CreateDropPanel() {
         await connect();
         return;
       }
-      if (isVariations && variationFiles.length < MIN_VARIATIONS) {
+      if (isVariations && isPinnedSet && !pinnedCidValid) {
+        setError('Paste the IPFS folder CID of your pinned set.');
+        return;
+      }
+      if (
+        isVariations &&
+        !isPinnedSet &&
+        variationFiles.length < MIN_VARIATIONS
+      ) {
         setError(
           `Add ${MIN_VARIATIONS}–${MAX_VARIATIONS} images — one per piece.`
         );
@@ -229,11 +262,17 @@ export function CreateDropPanel() {
         setError('Add cover art for the drop.');
         return;
       }
+      if (!traitsCidValid) {
+        setError('The traits folder CID doesn’t look like an IPFS CID.');
+        return;
+      }
       if (!supplyValid) {
         setError(
-          isVariations
+          isVariations && !isPinnedSet
             ? `Variation sets are ${MIN_VARIATIONS}–${MAX_VARIATIONS} pieces.`
-            : `Supply must be between ${MIN_SUPPLY} and ${MAX_SUPPLY}.`
+            : isPinnedSet
+              ? `Supply must be between ${MIN_VARIATIONS} and ${MAX_SUPPLY}.`
+              : `Supply must be between ${MIN_SUPPLY} and ${MAX_SUPPLY}.`
         );
         return;
       }
@@ -271,8 +310,17 @@ export function CreateDropPanel() {
           totalSupply: supply,
           title: title.trim(),
           ...(isVariations
-            ? { images: variationFiles }
+            ? isPinnedSet
+              ? {
+                  variationsCid: variationsCid.trim(),
+                  ...(variationsExt !== 'png' ? { variationsExt } : {}),
+                }
+              : { images: variationFiles }
             : { image: imageFile! }),
+          ...(isVariations && traitsCid.trim()
+            ? { referenceCid: traitsCid.trim() }
+            : {}),
+          ...(isVariations && randomAssign ? { randomAssignment: true } : {}),
           transferable,
           renewable,
           extra: { kind: medium },
@@ -316,6 +364,13 @@ export function CreateDropPanel() {
       connect,
       imageFile,
       isVariations,
+      isPinnedSet,
+      pinnedCidValid,
+      variationsCid,
+      variationsExt,
+      traitsCid,
+      traitsCidValid,
+      randomAssign,
       variationFiles,
       seriesName,
       supplyValid,
@@ -387,12 +442,53 @@ export function CreateDropPanel() {
           </div>
           <small>
             {isVariations
-              ? 'One image per piece — collectors receive the next piece in order. The set is sealed when the drop starts.'
+              ? 'One image per piece — every piece is unique. The set is sealed when the drop starts.'
               : 'Every edition shares the same artwork.'}
           </small>
         </div>
 
         {isVariations ? (
+          <div className="guild-field">
+            <span>Set source</span>
+            <div
+              className="app-access-options"
+              role="radiogroup"
+              aria-label="Variation set source"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!isPinnedSet}
+                className={`app-access-option${
+                  !isPinnedSet ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setVariationSource('upload')}
+              >
+                Upload images
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isPinnedSet}
+                className={`app-access-option${
+                  isPinnedSet ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setVariationSource('cid')}
+              >
+                Pinned IPFS folder
+              </button>
+            </div>
+            <small>
+              {isPinnedSet
+                ? 'For big or generative sets: pin a folder with files named 1, 2, 3… and paste its CID.'
+                : `Upload ${MIN_VARIATIONS}–${MAX_VARIATIONS} images directly. Bigger set? Use a pinned IPFS folder.`}
+            </small>
+          </div>
+        ) : null}
+
+        {isVariations && !isPinnedSet ? (
           <button
             type="button"
             className={`drop-cover-picker${
@@ -426,7 +522,109 @@ export function CreateDropPanel() {
               </span>
             )}
           </button>
-        ) : (
+        ) : null}
+
+        {isPinnedSet ? (
+          <>
+            <label className="guild-field" htmlFor={fieldId('variations-cid')}>
+              <span>Art folder CID</span>
+              <input
+                id={fieldId('variations-cid')}
+                value={variationsCid}
+                onChange={(event) => setVariationsCid(event.target.value)}
+                placeholder="bafybei…"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={pending}
+              />
+              <small>
+                IPFS directory with one file per piece, named 1.{variationsExt}{' '}
+                … N.{variationsExt}.
+              </small>
+            </label>
+            <div className="guild-field">
+              <span>Image format</span>
+              <div
+                className="app-storage-presets"
+                role="group"
+                aria-label="Image format"
+              >
+                {VARIATION_EXTS.map((ext) => (
+                  <button
+                    key={ext}
+                    type="button"
+                    className={`os-surface-chip${
+                      variationsExt === ext ? ' is-selected' : ''
+                    }`}
+                    disabled={pending}
+                    onClick={() => setVariationsExt(ext)}
+                  >
+                    {ext.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="guild-field" htmlFor={fieldId('traits-cid')}>
+              <span>Traits folder CID (optional)</span>
+              <input
+                id={fieldId('traits-cid')}
+                value={traitsCid}
+                onChange={(event) => setTraitsCid(event.target.value)}
+                placeholder="bafybei…"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={pending}
+              />
+              <small>
+                Per-piece trait JSON (1.json … N.json) so marketplaces can show
+                attributes and rarity.
+              </small>
+            </label>
+          </>
+        ) : null}
+
+        {isVariations ? (
+          <div className="guild-field">
+            <span>Mint order</span>
+            <div
+              className="app-access-options"
+              role="radiogroup"
+              aria-label="Mint order"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!randomAssign}
+                className={`app-access-option${
+                  !randomAssign ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setRandomAssign(false)}
+              >
+                In order
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={randomAssign}
+                className={`app-access-option${
+                  randomAssign ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setRandomAssign(true)}
+              >
+                Random
+              </button>
+            </div>
+            <small>
+              {randomAssign
+                ? 'Each collector draws a random piece — rare pieces can’t be sniped by timing.'
+                : 'Collectors receive the next piece in order (piece 1 first).'}
+            </small>
+          </div>
+        ) : null}
+
+        {!isVariations ? (
           <button
             type="button"
             className={`drop-cover-picker${imagePreview ? ' has-media' : ''}`}
@@ -442,7 +640,7 @@ export function CreateDropPanel() {
               </span>
             )}
           </button>
-        )}
+        ) : null}
         <input
           ref={imageInputRef}
           type="file"
@@ -548,7 +746,31 @@ export function CreateDropPanel() {
           </small>
         </label>
 
-        {isVariations ? (
+        {isPinnedSet ? (
+          <div className="guild-field">
+            <span>Supply</span>
+            <div className="app-storage-amount-field">
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={supplyInput}
+                onChange={(event) =>
+                  setSupplyInput(event.target.value.replace(/[^\d]/g, ''))
+                }
+                placeholder="1000"
+                aria-label="Total pieces in the pinned set"
+                className="app-storage-amount-input"
+                disabled={pending}
+              />
+              <span className="account-card-balance-unit">pieces</span>
+            </div>
+            <small>
+              Must match the number of files in your pinned folder — the first
+              and last files are verified before the drop starts.
+            </small>
+          </div>
+        ) : isVariations ? (
           <div className="guild-field">
             <span>Supply</span>
             <small>

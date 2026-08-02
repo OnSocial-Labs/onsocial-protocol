@@ -146,15 +146,10 @@ impl Contract {
             )));
         }
 
-        let start_index = collection.minted_count;
         let metadata_template = collection.metadata_template.clone();
         let creator_id = collection.creator_id.clone();
         let app_id = collection.app_id.clone();
         let royalty = collection.royalty.clone();
-
-        let token_ids: Vec<String> = (start_index..start_index + quantity)
-            .map(|i| format!("{}:{}", collection_id, i + 1))
-            .collect();
 
         let mut updated_collection = collection.clone();
         updated_collection.minted_count += quantity;
@@ -163,6 +158,12 @@ impl Contract {
             .insert(collection_id.clone(), updated_collection);
 
         let before = self.storage_usage_flushed();
+
+        let (seat_indices, seat_journal) = self.allocate_seat_indices(&collection, quantity);
+        let token_ids: Vec<String> = seat_indices
+            .iter()
+            .map(|i| format!("{}:{}", collection_id, i + 1))
+            .collect();
 
         let ctx = crate::MintContext {
             owner_id: buyer_id.clone(),
@@ -177,7 +178,7 @@ impl Contract {
         let _minted = self.batch_mint(
             &ctx,
             token_ids.clone(),
-            start_index,
+            &seat_indices,
             &metadata_template,
             &collection_id,
             Some(ovr),
@@ -218,6 +219,7 @@ impl Contract {
                 restored.minted_count -= quantity;
                 restored.total_revenue.0 -= total_price;
                 self.collections.insert(collection_id.clone(), restored);
+                Self::restore_seat_pool(seat_journal);
                 if is_before_start || collection.max_per_wallet.is_some() {
                     let mint_key = format!("{}:{}", collection_id, buyer_id);
                     let cur = self
@@ -298,22 +300,23 @@ impl Contract {
         }
 
         let recipient = receiver_id.unwrap_or(actor_id);
-        let start_index = collection.minted_count;
         let metadata_template = collection.metadata_template.clone();
         let royalty = collection.royalty.clone();
         let app_id = collection.app_id.clone();
         let creator_id = collection.creator_id.clone();
 
-        let token_ids: Vec<String> = (start_index..start_index + quantity)
-            .map(|i| format!("{}:{}", collection_id, i + 1))
-            .collect();
-
-        let mut updated_collection = collection;
+        let mut updated_collection = collection.clone();
         updated_collection.minted_count += quantity;
         self.collections
             .insert(collection_id.to_string(), updated_collection);
 
         let before = self.storage_usage_flushed();
+
+        let (seat_indices, seat_journal) = self.allocate_seat_indices(&collection, quantity);
+        let token_ids: Vec<String> = seat_indices
+            .iter()
+            .map(|i| format!("{}:{}", collection_id, i + 1))
+            .collect();
 
         let ctx = crate::MintContext {
             owner_id: recipient.clone(),
@@ -327,7 +330,7 @@ impl Contract {
         let _minted = self.batch_mint(
             &ctx,
             token_ids.clone(),
-            start_index,
+            &seat_indices,
             &metadata_template,
             collection_id,
             Some(ovr),
@@ -347,6 +350,7 @@ impl Contract {
             let mut restored = self.collections.get(collection_id).unwrap().clone();
             restored.minted_count -= quantity;
             self.collections.insert(collection_id.to_string(), restored);
+            Self::restore_seat_pool(seat_journal);
             return Err(e);
         }
 
@@ -396,28 +400,29 @@ impl Contract {
             )));
         }
 
-        let start_index = collection.minted_count;
         let metadata_template = collection.metadata_template.clone();
         let royalty = collection.royalty.clone();
         let app_id = collection.app_id.clone();
         let creator_id = collection.creator_id.clone();
 
-        let mut updated_collection = collection;
+        let mut updated_collection = collection.clone();
         updated_collection.minted_count += count;
         self.collections
             .insert(collection_id.to_string(), updated_collection);
 
         let before = self.storage_usage_flushed();
 
+        let (seat_indices, seat_journal) = self.allocate_seat_indices(&collection, count);
         let mut token_ids = Vec::with_capacity(count as usize);
 
         for (i, receiver) in receivers.iter().enumerate() {
-            let token_id = format!("{}:{}", collection_id, start_index + i as u32 + 1);
+            let seat_index = seat_indices[i];
+            let token_id = format!("{}:{}", collection_id, seat_index + 1);
 
             let metadata = self.generate_metadata_from_template(
                 &metadata_template,
                 &token_id,
-                start_index + i as u32,
+                seat_index,
                 receiver,
                 collection_id,
             )?;
@@ -450,6 +455,7 @@ impl Contract {
             let mut restored = self.collections.get(collection_id).unwrap().clone();
             restored.minted_count -= count;
             self.collections.insert(collection_id.to_string(), restored);
+            Self::restore_seat_pool(seat_journal);
             return Err(e);
         }
 

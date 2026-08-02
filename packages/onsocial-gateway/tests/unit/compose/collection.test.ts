@@ -450,3 +450,95 @@ describe('buildCreateCollectionAction — variation sets', () => {
     ).rejects.toThrow(ComposeError);
   });
 });
+
+describe('buildCreateCollectionAction — traits & random assignment', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('templates reference from a referenceCid trait directory', async () => {
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'punks',
+        totalSupply: 1000,
+        title: 'Punk',
+        variationsCid: 'QmArtDir',
+        referenceCid: 'QmTraitDir',
+      },
+      undefined
+    );
+
+    expect(result.reference).toBeDefined();
+    expect(result.reference!.cid).toBe('QmTraitDir');
+    expect(result.reference!.ext).toBe('json');
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    expect(template.reference).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmTraitDir/{seat_number}.json'
+    );
+    // Trait JSONs are content-addressed by the directory CID — no hash.
+    expect(template.reference_hash).toBeUndefined();
+  });
+
+  it('sets random_assignment on the action for variation drops', async () => {
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'random-punks',
+        totalSupply: 1000,
+        title: 'Punk',
+        variationsCid: 'QmArtDir',
+        randomAssignment: true,
+      },
+      undefined
+    );
+
+    expect(result.action.random_assignment).toBe(true);
+  });
+
+  it('omits random_assignment unless requested', async () => {
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'ordered',
+        totalSupply: 10,
+        title: 'Ordered',
+        variationsCid: 'QmArtDir',
+      },
+      undefined
+    );
+
+    expect(result.action.random_assignment).toBeUndefined();
+  });
+
+  it('rejects randomAssignment without variations or trait metadata', async () => {
+    await expect(
+      buildCreateCollectionAction(
+        'creator.testnet',
+        {
+          collectionId: 'pointless',
+          totalSupply: 10,
+          title: 'Same Art',
+          randomAssignment: true,
+        },
+        undefined
+      )
+    ).rejects.toThrow('requires a variation set');
+  });
+
+  it('rejects an invalid referenceExt', async () => {
+    await expect(
+      buildCreateCollectionAction(
+        'creator.testnet',
+        {
+          collectionId: 'badext',
+          totalSupply: 10,
+          title: 'Bad',
+          variationsCid: 'QmArtDir',
+          referenceCid: 'QmTraitDir',
+          referenceExt: '../evil',
+        },
+        undefined
+      )
+    ).rejects.toThrow('Invalid referenceExt');
+  });
+});

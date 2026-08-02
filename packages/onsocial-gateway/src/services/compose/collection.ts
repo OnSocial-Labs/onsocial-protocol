@@ -76,6 +76,19 @@ export interface ComposeCreateCollectionRequest {
   variationsCid?: string;
   /** File extension inside the variations directory (default `png`). */
   variationsExt?: string;
+  /**
+   * Per-token trait metadata (BYO storage): IPFS directory CID whose files
+   * are named `1.<ext>` … `<totalSupply>.<ext>` (OpenSea-style `attributes`
+   * JSON). Templated into NEP-177 `reference` via `{seat_number}`.
+   */
+  referenceCid?: string;
+  /** File extension inside the reference directory (default `json`). */
+  referenceExt?: string;
+  /**
+   * Random seat assignment: each mint draws a uniformly random unminted
+   * piece so rare variations cannot be sniped by timing a purchase.
+   */
+  randomAssignment?: boolean;
   /** Optional: override target account (which scarces contract) */
   targetAccount?: string;
 }
@@ -96,6 +109,8 @@ export interface CreateCollectionActionResult {
   media?: UploadResult;
   /** Present when the drop is a variation set. */
   variations?: VariationUploadResult;
+  /** Present when per-token trait metadata is attached. */
+  reference?: { cid: string; ext: string; urlTemplate: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +289,34 @@ export async function buildCreateCollectionAction(
     );
   }
 
+  // 1b. Per-token trait metadata (marketplace-style attributes). Same
+  // `{seat_number}` addressing as variation media, pinned as `1.json`… under
+  // one directory CID. Content-addressed, so no per-token reference_hash.
+  let reference: CreateCollectionActionResult['reference'];
+  if (req.referenceCid) {
+    const ext = (req.referenceExt || 'json').replace(/^\./, '').toLowerCase();
+    if (!/^[a-z0-9]{1,8}$/.test(ext)) {
+      throw new ComposeError(400, 'Invalid referenceExt');
+    }
+    await verifyCidLive(`${req.referenceCid}/1.${ext}`);
+    if (req.totalSupply > 1) {
+      await verifyCidLive(`${req.referenceCid}/${req.totalSupply}.${ext}`);
+    }
+    reference = {
+      cid: req.referenceCid,
+      ext,
+      urlTemplate: variationMediaUrl(req.referenceCid, ext),
+    };
+  }
+
+  // Random assignment only makes sense when tokens differ from each other.
+  if (req.randomAssignment && !variations && !reference) {
+    throw new ComposeError(
+      400,
+      'randomAssignment requires a variation set or per-token reference metadata'
+    );
+  }
+
   // 2. Build NEP-177 metadata template (this is what each minted token gets)
   // We store the dedicated-gateway https URL on-chain (not `ipfs://...`)
   // so wallets render reliably without depending on the public IPFS DHT.
@@ -298,6 +341,7 @@ export async function buildCreateCollectionAction(
     ...(variations && { media: variations.urlTemplate, copies: 1 }),
     ...(!variations && media && { media: media.url }),
     ...(!variations && media && media.hash && { media_hash: media.hash }),
+    ...(reference && { reference: reference.urlTemplate }),
     ...(req.extra && { extra: JSON.stringify(req.extra) }),
   };
 
@@ -332,6 +376,7 @@ export async function buildCreateCollectionAction(
     }),
     ...(req.transferable != null && { transferable: req.transferable }),
     ...(req.burnable != null && { burnable: req.burnable }),
+    ...(req.randomAssignment && { random_assignment: true }),
   };
 
   // 4. Resolve target account
@@ -341,5 +386,11 @@ export async function buildCreateCollectionAction(
       ? 'scarces.onsocial.near'
       : 'scarces.onsocial.testnet');
 
-  return { action, targetAccount, media, ...(variations && { variations }) };
+  return {
+    action,
+    targetAccount,
+    media,
+    ...(variations && { variations }),
+    ...(reference && { reference }),
+  };
 }

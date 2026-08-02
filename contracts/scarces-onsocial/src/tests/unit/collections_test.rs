@@ -25,6 +25,7 @@ fn minimal_config(id: &str) -> CollectionConfig {
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     }
 }
 
@@ -346,12 +347,14 @@ fn lazy_collection_borsh_append_defaults_commission_sentinel() {
         app_metadata: None,
         max_per_purchase: 10,
         app_commission_bps: 500,
+        random_assignment: false,
     };
 
     let mut bytes = near_sdk::borsh::to_vec(&col).unwrap();
-    bytes.truncate(bytes.len() - 2); // drop trailing app_commission_bps
+    bytes.truncate(bytes.len() - 3); // drop trailing random_assignment + app_commission_bps
     let loaded = LazyCollection::try_from_slice(&bytes).unwrap();
     assert_eq!(loaded.app_commission_bps, u16::MAX);
     assert_eq!(loaded.collection_id, "legacy");
     assert_eq!(loaded.max_per_purchase, 10);
+    assert!(!loaded.random_assignment);
 }

@@ -32,6 +32,7 @@ fn variation_config(collection_id: &str, total_supply: u32) -> CollectionConfig 
         start_price: None,
         allowlist_price: None,
         max_per_purchase: None,
+        random_assignment: false,
     }
 }
 

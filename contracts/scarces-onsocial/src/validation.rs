@@ -65,9 +65,9 @@ pub(crate) fn validate_contract_metadata(
 }
 
 /// Content-addressed URIs (IPFS) carry integrity in the CID itself, so a
-/// separate `media_hash` is redundant. This is what makes single-template
-/// variation drops possible: one template, per-token media under a directory
-/// CID, no per-token hash needed.
+/// separate `media_hash` / `reference_hash` is redundant. This is what makes
+/// single-template variation drops possible: one template, per-token media and
+/// trait JSON under directory CIDs, no per-token hash needed.
 pub(crate) fn is_content_addressed_uri(uri: &str) -> bool {
     uri.starts_with("ipfs://") || uri.contains("/ipfs/")
 }
@@ -80,12 +80,18 @@ pub(crate) fn validate_token_metadata(metadata: &TokenMetadata) -> Result<(), Ma
     if !(media_content_addressed && metadata.media_hash.is_none()) {
         validate_hash_pair("media", &metadata.media, "media_hash", &metadata.media_hash)?;
     }
-    validate_hash_pair(
-        "reference",
-        &metadata.reference,
-        "reference_hash",
-        &metadata.reference_hash,
-    )?;
+    let reference_content_addressed = metadata
+        .reference
+        .as_deref()
+        .is_some_and(is_content_addressed_uri);
+    if !(reference_content_addressed && metadata.reference_hash.is_none()) {
+        validate_hash_pair(
+            "reference",
+            &metadata.reference,
+            "reference_hash",
+            &metadata.reference_hash,
+        )?;
+    }
     validate_nep177_timestamp_ms("issued_at", metadata.issued_at)?;
     validate_nep177_timestamp_ms("expires_at", metadata.expires_at)?;
     validate_nep177_timestamp_ms("starts_at", metadata.starts_at)?;
@@ -217,6 +223,28 @@ pub fn deserialize_trailing_commission_bps<R: near_sdk::borsh::io::Read>(
     reader: &mut R,
 ) -> Result<u16, near_sdk::borsh::io::Error> {
     deserialize_trailing_u16_or(reader, u16::MAX)
+}
+
+/// Append-compatible Borsh read for trailing `bool` (EOF → false).
+pub fn deserialize_trailing_bool<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<bool, near_sdk::borsh::io::Error> {
+    let mut buf = [0u8; 1];
+    match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
+        0 => Ok(false),
+        1 => match buf[0] {
+            0 => Ok(false),
+            1 => Ok(true),
+            other => Err(near_sdk::borsh::io::Error::new(
+                near_sdk::borsh::io::ErrorKind::InvalidData,
+                format!("invalid bool discriminant {other}"),
+            )),
+        },
+        n => Err(near_sdk::borsh::io::Error::new(
+            near_sdk::borsh::io::ErrorKind::InvalidData,
+            format!("unexpected trailing bool length {n}"),
+        )),
+    }
 }
 
 /// Append-compatible Borsh read for trailing `CreatorAccess` (EOF → Open).

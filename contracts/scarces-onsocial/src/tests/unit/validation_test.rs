@@ -190,6 +190,27 @@ fn token_content_addressed_media_without_hash_is_valid() {
 }
 
 #[test]
+fn token_reference_requires_hash_when_not_content_addressed() {
+    let mut metadata = token_metadata();
+    metadata.reference = Some("https://cdn.example/meta.json".into());
+
+    let err = validate_token_metadata(&metadata).unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
+fn token_content_addressed_reference_without_hash_is_valid() {
+    // Trait JSONs pinned under a directory CID need no per-token hash —
+    // this is what lets templates point reference at ipfs://cid/{seat}.json.
+    let mut metadata = token_metadata();
+    metadata.reference = Some("ipfs://bafymeta/3.json".into());
+    assert!(validate_token_metadata(&metadata).is_ok());
+
+    metadata.reference = Some("https://cdn.onsocial.id/ipfs/bafymeta/3.json".into());
+    assert!(validate_token_metadata(&metadata).is_ok());
+}
+
+#[test]
 fn token_media_hash_must_be_sha256() {
     let mut metadata = token_metadata();
     metadata.media = Some("ipfs://bafymedia".into());
@@ -206,15 +227,6 @@ fn token_media_with_hash_is_valid() {
     metadata.media_hash = Some(hash_32());
 
     assert!(validate_token_metadata(&metadata).is_ok());
-}
-
-#[test]
-fn token_reference_requires_hash() {
-    let mut metadata = token_metadata();
-    metadata.reference = Some("ipfs://bafyref".into());
-
-    let err = validate_token_metadata(&metadata).unwrap_err();
-    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
 #[test]
