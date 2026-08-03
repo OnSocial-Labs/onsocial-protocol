@@ -12,7 +12,8 @@ function makeProvider(opts: { uploadDelayMs?: number } = {}) {
       // Later files finish first so order bugs would scramble results.
       const name = file instanceof File ? file.name : 'blob';
       const delay =
-        opts.uploadDelayMs + (name.startsWith('a') ? 30 : name.startsWith('b') ? 5 : 15);
+        opts.uploadDelayMs +
+        (name.startsWith('a') ? 30 : name.startsWith('b') ? 5 : 15);
       await new Promise((r) => setTimeout(r, delay));
     }
     const name = file instanceof File ? file.name : 'blob';
