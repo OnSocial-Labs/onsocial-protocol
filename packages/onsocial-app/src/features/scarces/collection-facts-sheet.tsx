@@ -103,12 +103,12 @@ export function CollectionFactsSheet({
   open,
   onClose,
   view,
-  nowMs = Date.now(),
+  nowMs,
 }: {
   open: boolean;
   onClose: () => void;
   view: CollectionView;
-  nowMs?: number;
+  nowMs: number;
 }) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);

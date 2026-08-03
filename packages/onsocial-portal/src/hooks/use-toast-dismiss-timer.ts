@@ -63,19 +63,17 @@ export function useToastDismissTimer({
       remainingRef.current = 0;
       totalRef.current = 0;
       paint(0);
-      setPaused(false);
-      hoverPause.current = false;
-      touchPause.current = false;
-      focusPause.current = false;
-      return;
+    } else {
+      remainingRef.current = durationMs;
+      totalRef.current = durationMs;
+      paint(1);
     }
-    remainingRef.current = durationMs;
-    totalRef.current = durationMs;
-    paint(1);
-    setPaused(false);
     hoverPause.current = false;
     touchPause.current = false;
     focusPause.current = false;
+    // Reset pause UI when the toast session changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- session reset, not derived sync
+    setPaused(false);
   }, [active, durationMs, paint]);
 
   useEffect(() => {
