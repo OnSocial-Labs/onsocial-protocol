@@ -120,4 +120,54 @@ describe('toCollectionView cover seat', () => {
     });
     expect(view?.playables.map((t) => t.title)).toEqual(['One', 'Three']);
   });
+
+  it('reads writing manifesto CID and legacy readable chapters', () => {
+    const view = toCollectionView({
+      collection_id: 'book-1',
+      creator_id: 'alice.near',
+      total_supply: 10,
+      minted_count: 0,
+      metadata_template: JSON.stringify({
+        title: 'Novella',
+        media: 'https://cdn.example/ipfs/bafycover',
+        extra: JSON.stringify({
+          kind: 'writing',
+          writingFormat: 'book',
+          writingManifest: 'bafymanifestaaaaaaaaaaaaaaaaaaaa',
+          readable: [
+            { cid: 'bafymd1aaaaaaaaaaaaaaaaaaaaaaaa', mime: 'text/markdown', title: 'One' },
+            { cid: 'bafymd2aaaaaaaaaaaaaaaaaaaaaaaa', mime: 'text/markdown', title: 'Two' },
+          ],
+        }),
+      }),
+    });
+    expect(view?.kind).toBe('writing');
+    expect(view?.writingFormat).toBe('book');
+    expect(view?.writingManifestCid).toBe('bafymanifestaaaaaaaaaaaaaaaaaaaa');
+    expect(view?.readables.map((t) => t.title)).toEqual(['One', 'Two']);
+    expect(view?.readables[0]?.url).toMatch(/^\/api\/ipfs\//);
+  });
+
+  it('reads manifesto-only writing drops without inline chapters', () => {
+    const view = toCollectionView({
+      collection_id: 'book-2',
+      creator_id: 'alice.near',
+      total_supply: 10,
+      minted_count: 0,
+      metadata_template: JSON.stringify({
+        title: 'Essay',
+        media: 'https://cdn.example/ipfs/bafycover',
+        extra: JSON.stringify({
+          kind: 'writing',
+          writingFormat: 'article',
+          writingManifest: 'bafymanifestaaaaaaaaaaaaaaaaaaaa',
+          chapterCount: 1,
+        }),
+      }),
+    });
+    expect(view?.kind).toBe('writing');
+    expect(view?.writingFormat).toBe('article');
+    expect(view?.writingManifestCid).toBe('bafymanifestaaaaaaaaaaaaaaaaaaaa');
+    expect(view?.readables).toEqual([]);
+  });
 });

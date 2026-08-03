@@ -52,7 +52,7 @@ describe('DROP_TEMPLATES', () => {
     }
   });
 
-  it('custom leaves the form untouched and derives its kind', () => {
+  it('custom leaves the form untouched with no kind', () => {
     const custom = DROP_TEMPLATES.find((t) => t.id === 'custom');
     expect(custom?.presets).toBeNull();
     expect(custom?.kind).toBeNull();

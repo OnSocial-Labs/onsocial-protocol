@@ -33,6 +33,7 @@ import {
   CollectionAboutSheet,
   CollectionAboutTeaser,
 } from '@/features/scarces/collection-about-sheet';
+import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import {
   CollectionActivityRows,
   type CollectionActivityRow,
@@ -43,6 +44,7 @@ import {
   deriveCollectionStatus,
   fetchAllowlistRemaining,
   fetchCollection,
+  fetchOwnsCollectionEdition,
   fetchWalletMintRemaining,
   isCollectionMintable,
   type CollectionStatus,
@@ -152,6 +154,8 @@ export function CollectionPagePanel({
   const [allowlistRemaining, setAllowlistRemaining] = useState<number | null>(
     null
   );
+  /** null = unchecked; true/false after ownership scan for writing reader. */
+  const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [pending, setPending] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
@@ -236,21 +240,35 @@ export function CollectionPagePanel({
     if (!viewerAccountId) {
       setWalletRemaining(null);
       setAllowlistRemaining(null);
+      setHoldsEdition(null);
       return;
     }
     let cancelled = false;
+    const needsHoldCheck =
+      (view?.readables.length ?? 0) > 0 ||
+      Boolean(view?.writingManifestCid?.trim());
     void Promise.all([
       fetchWalletMintRemaining(collectionId, viewerAccountId),
       fetchAllowlistRemaining(collectionId, viewerAccountId),
-    ]).then(([wallet, allowlist]) => {
+      needsHoldCheck
+        ? fetchOwnsCollectionEdition(collectionId, viewerAccountId)
+        : Promise.resolve(null),
+    ]).then(([wallet, allowlist, owns]) => {
       if (cancelled) return;
       setWalletRemaining(wallet);
       setAllowlistRemaining(allowlist);
+      setHoldsEdition(owns);
     });
     return () => {
       cancelled = true;
     };
-  }, [collectionId, viewerAccountId, refreshKey]);
+  }, [
+    collectionId,
+    viewerAccountId,
+    refreshKey,
+    view?.readables.length,
+    view?.writingManifestCid,
+  ]);
 
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
@@ -573,6 +591,15 @@ export function CollectionPagePanel({
   const playables = view.playables;
   const hasPlayables = playables.length > 0;
   const isMusic = view.kind === 'music' || hasPlayables;
+  const readables = view.readables;
+  const hasReadables = readables.length > 0;
+  const canReadWriting =
+    isOwner || holdsEdition === true;
+  const writingLockedHint = !isConnected
+    ? 'Connect your wallet and Collect an edition to read.'
+    : holdsEdition === null
+      ? 'Checking your edition…'
+      : 'Collect an edition to unlock the full text.';
   const description = view.description?.trim() ?? '';
   const chipParts: string[] = [];
   if (view.isVariations) {
@@ -859,6 +886,17 @@ export function CollectionPagePanel({
               layout="tracks"
             />
           </section>
+        ) : null}
+
+        {hasReadables ? (
+          <CollectionWritingReader
+            collectionId={view.collectionId}
+            accountId={viewerAccountId}
+            readables={readables}
+            writingFormat={view.writingFormat}
+            canRead={canReadWriting}
+            lockedHint={writingLockedHint}
+          />
         ) : null}
 
         {isOwner && status === 'upcoming' ? (

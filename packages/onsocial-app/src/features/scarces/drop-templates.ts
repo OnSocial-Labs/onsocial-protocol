@@ -56,12 +56,13 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'writing',
     label: 'Writing',
-    tagline: 'A written work sold as soulbound copies — readers keep access.',
-    hint: 'Copies are soulbound — they stay with the reader and can’t be resold. Cover art fronts the drop; the writing itself can live in the description or a linked page.',
+    tagline:
+      'A written work as a supply-capped edition — books, poems, essays, and more.',
+    hint: 'Add a cover plus Markdown: Article (one file) or Book (ordered chapters, up to 100). Chapters pin to IPFS with a writing manifesto — holders open the reader on the drop page. Keep each chapter under ~500 KB. The About blurb stays public. Tradable by default — turn off transferable in Advanced for soulbound copies.',
     kind: 'writing',
     unit: 'copies',
     unitSingular: 'copy',
-    presets: { transferable: false, renewable: false, maxRedeems: '' },
+    presets: { transferable: true, renewable: false, maxRedeems: '' },
     openAdvanced: false,
   },
   {

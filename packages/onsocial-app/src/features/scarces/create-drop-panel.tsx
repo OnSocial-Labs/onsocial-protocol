@@ -48,6 +48,16 @@ import {
 } from '@/features/scarces/drop-audio';
 import { DropTrackPreviewList } from '@/features/scarces/drop-track-preview-list';
 import {
+  DROP_WRITING_MAX_BYTES,
+  DROP_WRITING_MAX_CHAPTERS,
+  buildWritingManifest,
+  chapterTitleFromFile,
+  isDropWritingMime,
+  writingChaptersValid,
+  type WritingReleaseFormat,
+} from '@/features/scarces/drop-writing';
+import { DropChapterPreviewList } from '@/features/scarces/drop-chapter-preview-list';
+import {
   DROP_TEMPLATES,
   type DropTemplate,
   type DropTemplateId,
@@ -118,8 +128,6 @@ const MAX_TITLE = 80;
 const CREATE_STORAGE_BUFFER_NEAR = STORAGE_DEPOSIT_PRESETS_NEAR[0];
 const MAX_DESCRIPTION = 1000;
 
-type DropMedium = 'art' | 'writing' | 'music';
-
 /** One shared artwork minted N times, or one artwork per token. */
 type DropArtMode = 'single' | 'variations';
 
@@ -145,16 +153,6 @@ function slugify(value: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 32);
-}
-
-/** Metadata tag derived from rights — not a separate creator choice. */
-function deriveDropKind(
-  transferable: boolean,
-  maxRedeemsInput: string
-): DropMedium {
-  if (!transferable) return 'writing';
-  if (maxRedeemsInput.trim()) return 'music';
-  return 'art';
 }
 
 export function CreateDropPanel() {
@@ -192,6 +190,9 @@ export function CreateDropPanel() {
   const [artMode, setArtMode] = useState<DropArtMode>('single');
   const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
   const [trackFiles, setTrackFiles] = useState<File[]>([]);
+  const [writingFormat, setWritingFormat] =
+    useState<WritingReleaseFormat>('article');
+  const [chapterFiles, setChapterFiles] = useState<File[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [variationFiles, setVariationFiles] = useState<File[]>([]);
@@ -224,6 +225,13 @@ export function CreateDropPanel() {
     coverCid: string;
     coverHash: string;
   } | null>(null);
+  const [pinnedWriting, setPinnedWriting] = useState<{
+    writingManifestCid: string;
+    writingFormat: WritingReleaseFormat;
+    chapterCount: number;
+    coverCid: string;
+    coverHash: string;
+  } | null>(null);
   const [pinnedLargeSet, setPinnedLargeSet] = useState<{
     cid: string;
     ext: string;
@@ -232,6 +240,7 @@ export function CreateDropPanel() {
   const [helpOpen, setHelpOpen] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const tracksInputRef = useRef<HTMLInputElement>(null);
+  const chaptersInputRef = useRef<HTMLInputElement>(null);
   const variationsInputRef = useRef<HTMLInputElement>(null);
   /** Replace wipes the set; append adds to the end (same format). */
   const variationPickModeRef = useRef<'replace' | 'append'>('replace');
@@ -244,6 +253,10 @@ export function CreateDropPanel() {
   useEffect(() => {
     setPinnedMusic(null);
   }, [trackFiles, imageFile, musicFormat]);
+
+  useEffect(() => {
+    setPinnedWriting(null);
+  }, [chapterFiles, imageFile, writingFormat]);
 
   useEffect(() => {
     setPinnedLargeSet(null);
@@ -273,11 +286,16 @@ export function CreateDropPanel() {
       setArtMode('single');
       setMusicFormat('single');
     }
+    if (next.id === 'writing') {
+      setArtMode('single');
+      setWritingFormat('article');
+    }
     setError(null);
   }, []);
 
   const isMusic = templateId === 'music';
-  const isVariations = !isMusic && artMode === 'variations';
+  const isWriting = templateId === 'writing';
+  const isVariations = !isMusic && !isWriting && artMode === 'variations';
   const isPinnedSet = isVariations && variationSource === 'cid';
   const isGeneratedSet = isVariations && variationSource === 'generate';
   /** Upload too big to attach directly — zipped and pinned at submit. */
@@ -317,6 +335,8 @@ export function CreateDropPanel() {
 
   const tracksReady =
     !isMusic || musicTracksValid(musicFormat, trackFiles.length);
+  const chaptersReady =
+    !isWriting || writingChaptersValid(writingFormat, chapterFiles.length);
   const customRoyaltyBps = parseCustomRoyaltyBps(customRoyaltyInput);
   const resolvedRoyaltyBps = isCustomRoyalty ? customRoyaltyBps : royaltyBps;
   const resolvedRoyaltyShares =
@@ -333,6 +353,7 @@ export function CreateDropPanel() {
     traitsCidValid &&
     coverSeatValid &&
     tracksReady &&
+    chaptersReady &&
     resolvedRoyaltyBps != null &&
     (isVariations
       ? isPinnedSet
@@ -402,6 +423,51 @@ export function CreateDropPanel() {
     }
     setError(null);
   }, []);
+
+  const onChaptersChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const picked = Array.from(event.target.files ?? []);
+      event.target.value = '';
+      if (picked.length === 0) return;
+      for (const file of picked) {
+        if (!isDropWritingMime(file.type, file.name)) {
+          setError('Use Markdown (.md) or plain text (.txt) files.');
+          return;
+        }
+        if (file.size > DROP_WRITING_MAX_BYTES) {
+          setError('Each chapter must be 500 KB or smaller.');
+          return;
+        }
+      }
+      setError(null);
+      setChapterFiles((prev) => {
+        if (writingFormat === 'article') {
+          return picked.slice(0, 1);
+        }
+        return [...prev, ...picked].slice(0, DROP_WRITING_MAX_CHAPTERS);
+      });
+    },
+    [writingFormat]
+  );
+
+  const removeChapterAt = useCallback((index: number) => {
+    setChapterFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const reorderChapters = useCallback((next: File[]) => {
+    setChapterFiles(next);
+  }, []);
+
+  const setWritingReleaseFormat = useCallback(
+    (format: WritingReleaseFormat) => {
+      setWritingFormat(format);
+      if (format === 'article') {
+        setChapterFiles((prev) => prev.slice(0, 1));
+      }
+      setError(null);
+    },
+    []
+  );
 
   const syncVariationPreviews = useCallback((files: File[]) => {
     setVariationPreviews((prev) => {
@@ -747,6 +813,55 @@ export function CreateDropPanel() {
         return;
       }
 
+      if (isWriting && !pinnedWriting) {
+        setPending(true);
+        setPendingLabel(
+          chapterFiles.length > 1
+            ? 'Uploading chapters…'
+            : 'Uploading manuscript…'
+        );
+        try {
+          const uploadClient = createAppOnSocialClient(uploaderAccountId);
+          const uploaded = await uploadClient.storage.uploadMany(chapterFiles);
+          const chapters = uploaded.map((ref, index) => {
+            const file = chapterFiles[index]!;
+            const chapterTitle = chapterTitleFromFile(file);
+            return {
+              cid: ref.cid,
+              mime: file.type || 'text/markdown',
+              ...(chapterTitle ? { title: chapterTitle } : {}),
+            };
+          });
+          setPendingLabel('Uploading manifesto…');
+          const manifesto = buildWritingManifest({
+            title: title.trim() || undefined,
+            chapters,
+          });
+          const manifestoPinned =
+            await uploadClient.storage.uploadJson(manifesto);
+          setPendingLabel('Uploading cover…');
+          const cover = await uploadClient.storage.upload(imageFile!);
+          const coverHash = await sha256BlobBase64(imageFile!);
+          setPinnedWriting({
+            writingManifestCid: manifestoPinned.cid,
+            writingFormat,
+            chapterCount: chapters.length,
+            coverCid: cover.cid,
+            coverHash,
+          });
+        } catch (cause) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : txToastError.createCollectionFailed
+          );
+        } finally {
+          setPending(false);
+          setPendingLabel('Starting…');
+        }
+        return;
+      }
+
       if (isLargeUpload && !pinnedLargeSet) {
         setPending(true);
         setPendingLabel('Uploading set…');
@@ -805,7 +920,12 @@ export function CreateDropPanel() {
                     mediaCid: pinnedMusic.coverCid,
                     mediaHash: pinnedMusic.coverHash,
                   }
-                : { image: imageFile! }),
+                : pinnedWriting
+                  ? {
+                      mediaCid: pinnedWriting.coverCid,
+                      mediaHash: pinnedWriting.coverHash,
+                    }
+                  : { image: imageFile! }),
             ...(isPinnedSet && traitsCid.trim()
               ? { referenceCid: traitsCid.trim() }
               : {}),
@@ -813,9 +933,15 @@ export function CreateDropPanel() {
             transferable,
             renewable,
             extra: {
-              kind:
-                template.kind ?? deriveDropKind(transferable, maxRedeemsInput),
+              ...(template.kind ? { kind: template.kind } : {}),
               ...(pinnedMusic ? { playable: pinnedMusic.playable } : {}),
+              ...(pinnedWriting
+                ? {
+                    writingFormat: pinnedWriting.writingFormat,
+                    writingManifest: pinnedWriting.writingManifestCid,
+                    chapterCount: pinnedWriting.chapterCount,
+                  }
+                : {}),
             },
             ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
             ...(price ? { priceNear: price } : {}),
@@ -889,6 +1015,7 @@ export function CreateDropPanel() {
         }
 
         setPinnedMusic(null);
+        setPinnedWriting(null);
         setPinnedLargeSet(null);
         router.push(collectionPath(collectionId));
       } catch (cause) {
@@ -934,7 +1061,6 @@ export function CreateDropPanel() {
       description,
       transferable,
       renewable,
-      maxRedeemsInput,
       maxRedeems,
       draftAllowlist,
       resolvedRoyaltyBps,
@@ -944,8 +1070,12 @@ export function CreateDropPanel() {
       isMusic,
       musicFormat,
       trackFiles,
+      isWriting,
+      writingFormat,
+      chapterFiles,
       accountId,
       pinnedMusic,
+      pinnedWriting,
       pinnedLargeSet,
       getSigningWallet,
       trackTransaction,
@@ -956,6 +1086,7 @@ export function CreateDropPanel() {
 
   const needsWalletConfirm =
     (isMusic && pinnedMusic != null) ||
+    (isWriting && pinnedWriting != null) ||
     (isLargeUpload && pinnedLargeSet != null);
 
   return (
@@ -1140,6 +1271,45 @@ export function CreateDropPanel() {
               {musicFormat === 'single'
                 ? 'One cover, one track — every edition shares the same release.'
                 : 'One cover for the album · add every track below. Editions share the full release.'}
+            </small>
+          </div>
+        ) : isWriting ? (
+          <div className="guild-field">
+            <span>Format</span>
+            <div
+              className="app-access-options"
+              role="radiogroup"
+              aria-label="Writing format"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={writingFormat === 'article'}
+                className={`app-access-option${
+                  writingFormat === 'article' ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setWritingReleaseFormat('article')}
+              >
+                Article
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={writingFormat === 'book'}
+                className={`app-access-option${
+                  writingFormat === 'book' ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setWritingReleaseFormat('book')}
+              >
+                Book
+              </button>
+            </div>
+            <small>
+              {writingFormat === 'article'
+                ? 'One cover, one Markdown file — every edition shares the same piece.'
+                : 'One cover · add chapters as Markdown (2–100). Holders read one chapter at a time.'}
             </small>
           </div>
         ) : (
@@ -1452,12 +1622,16 @@ export function CreateDropPanel() {
             <div className="guild-field">
               <DropArtworkPreview
                 src={imagePreview}
-                label={isMusic ? 'Cover preview' : 'Artwork preview'}
+                label={
+                  isMusic || isWriting ? 'Cover preview' : 'Artwork preview'
+                }
               />
               <div
                 className="app-storage-presets"
                 role="group"
-                aria-label={isMusic ? 'Cover actions' : 'Artwork actions'}
+                aria-label={
+                  isMusic || isWriting ? 'Cover actions' : 'Artwork actions'
+                }
               >
                 <button
                   type="button"
@@ -1477,7 +1651,9 @@ export function CreateDropPanel() {
               disabled={pending}
             >
               <span className="drop-cover-placeholder">
-                <strong>{isMusic ? 'Add cover' : 'Add artwork'}</strong>
+                <strong>
+                  {isMusic || isWriting ? 'Add cover' : 'Add artwork'}
+                </strong>
                 <small>JPG, PNG, or WebP · ≤5 MB</small>
               </span>
             </button>
@@ -1567,6 +1743,80 @@ export function CreateDropPanel() {
             />
           </div>
         ) : null}
+        {isWriting ? (
+          <div className="guild-field">
+            <span>
+              {writingFormat === 'article'
+                ? 'Manuscript'
+                : `Chapters${
+                    chapterFiles.length ? ` · ${chapterFiles.length}` : ''
+                  }`}
+            </span>
+            {chapterFiles.length > 0 ? (
+              <DropChapterPreviewList
+                files={chapterFiles}
+                disabled={pending}
+                sortable={writingFormat === 'book'}
+                onRemove={removeChapterAt}
+                onReorder={reorderChapters}
+              />
+            ) : null}
+            <div
+              className="app-storage-presets"
+              role="group"
+              aria-label="Manuscript actions"
+            >
+              <button
+                type="button"
+                className="os-surface-chip"
+                disabled={
+                  pending ||
+                  (writingFormat === 'article' && chapterFiles.length >= 1) ||
+                  (writingFormat === 'book' &&
+                    chapterFiles.length >= DROP_WRITING_MAX_CHAPTERS)
+                }
+                onClick={() => chaptersInputRef.current?.click()}
+              >
+                {chapterFiles.length === 0
+                  ? writingFormat === 'article'
+                    ? 'Add Markdown'
+                    : 'Add chapters'
+                  : writingFormat === 'article'
+                    ? 'Replace file'
+                    : 'Add more'}
+              </button>
+              {chapterFiles.length > 0 ? (
+                <button
+                  type="button"
+                  className="os-surface-chip"
+                  disabled={pending}
+                  onClick={() => {
+                    setChapterFiles([]);
+                    setError(null);
+                  }}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <small>
+              {writingFormat === 'article'
+                ? 'UTF-8 Markdown (.md) or plain text · ≤500 KB · holders read the full piece'
+                : `Name files 01-intro.md… · drag to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} chapters · ≤500 KB each`}
+            </small>
+            <input
+              ref={chaptersInputRef}
+              type="file"
+              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              multiple={writingFormat === 'book'}
+              className="scarce-cover-file-input"
+              tabIndex={-1}
+              aria-hidden
+              disabled={pending}
+              onChange={onChaptersChange}
+            />
+          </div>
+        ) : null}
         {isVariations && variationSource === 'upload' ? (
           <input
             ref={variationsInputRef}
@@ -1614,7 +1864,11 @@ export function CreateDropPanel() {
             id={fieldId('description')}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="What the collection is, why it’s special, and what collectors get."
+            placeholder={
+              isWriting
+                ? 'Public blurb for the About teaser — the manuscript is uploaded separately.'
+                : 'What the collection is, why it’s special, and what collectors get.'
+            }
             maxLength={MAX_DESCRIPTION}
           />
           <small>

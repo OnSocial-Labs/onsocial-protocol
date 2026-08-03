@@ -4,6 +4,19 @@ import {
   resolveScarceMediaUrl,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
+import {
+  DROP_WRITING_MAX_CHAPTERS,
+  isLikelyIpfsCid,
+  parseWritingFormat,
+  parseWritingManifest,
+  readablesFromManifest,
+  writingContentUrl,
+  type ScarceReadableMedia,
+  type WritingReleaseFormat,
+} from '@/features/scarces/drop-writing';
+import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
+
+export type { ScarceReadableMedia, WritingReleaseFormat };
 
 /**
  * Collection (drop) reads for Phase 2 — supply-capped, optionally timed /
@@ -86,6 +99,12 @@ export interface CollectionView {
   kind: string | null;
   /** Audio / video clips from metadata.extra.playable (music albums, etc.). */
   playables: ScarcePlayableMedia[];
+  /** Markdown chapters (from writing manifesto or legacy extra.readable). */
+  readables: ScarceReadableMedia[];
+  /** Article vs book when kind is writing. */
+  writingFormat: WritingReleaseFormat | null;
+  /** IPFS CID of onsocial.writing.v1 manifesto (preferred for books). */
+  writingManifestCid: string | null;
   transferable: boolean;
   renewable: boolean;
   maxRedeems: number | null;
@@ -184,6 +203,38 @@ function playablesFromExtraRecord(
   return out;
 }
 
+function readablesFromExtraRecord(
+  extra: Record<string, unknown> | null | undefined
+): ScarceReadableMedia[] {
+  const entries = extra?.readable;
+  if (!Array.isArray(entries)) return [];
+  const out: ScarceReadableMedia[] = [];
+  for (const entry of entries) {
+    if (out.length >= DROP_WRITING_MAX_CHAPTERS) break;
+    const record = asRecord(entry);
+    const cid = typeof record?.cid === 'string' ? record.cid.trim() : '';
+    const mime = typeof record?.mime === 'string' ? record.mime.trim() : '';
+    if (!cid || !mime || !isLikelyIpfsCid(cid)) continue;
+    const url = writingContentUrl(cid);
+    if (!url) continue;
+    const title =
+      typeof record?.title === 'string' && record.title.trim()
+        ? record.title.trim()
+        : undefined;
+    out.push({ url, mime, cid, ...(title ? { title } : {}) });
+  }
+  return out;
+}
+
+function writingManifestCidFromExtra(
+  extra: Record<string, unknown> | null | undefined
+): string | null {
+  const raw = extra?.writingManifest;
+  if (typeof raw !== 'string') return null;
+  const cid = raw.trim().replace(/^ipfs:\/\//, '');
+  return cid && isLikelyIpfsCid(cid) ? cid : null;
+}
+
 interface TemplateMeta {
   title: string;
   description?: string;
@@ -193,6 +244,9 @@ interface TemplateMeta {
   cardBg?: string;
   kind?: string;
   playables?: ScarcePlayableMedia[];
+  readables?: ScarceReadableMedia[];
+  writingFormat?: WritingReleaseFormat;
+  writingManifestCid?: string;
 }
 
 const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
@@ -304,6 +358,9 @@ function parseTemplate(
     let cardBg: string | undefined;
     let kind: string | undefined;
     let playables: ScarcePlayableMedia[] | undefined;
+    let readables: ScarceReadableMedia[] | undefined;
+    let writingFormat: WritingReleaseFormat | undefined;
+    let writingManifestCid: string | undefined;
     if (typeof meta.extra === 'string' && meta.extra.trim()) {
       try {
         const extra = asRecord(JSON.parse(meta.extra));
@@ -320,6 +377,13 @@ function parseTemplate(
         }
         const parsedPlayables = playablesFromExtraRecord(extra);
         if (parsedPlayables.length > 0) playables = parsedPlayables;
+        const manifestCid = writingManifestCidFromExtra(extra);
+        if (manifestCid) writingManifestCid = manifestCid;
+        // Legacy v1: chapters listed inline in extra.readable.
+        const parsedReadables = readablesFromExtraRecord(extra);
+        if (parsedReadables.length > 0) readables = parsedReadables;
+        const parsedFormat = parseWritingFormat(extra?.writingFormat);
+        if (parsedFormat) writingFormat = parsedFormat;
       } catch {
         // ignore malformed extra
       }
@@ -333,6 +397,9 @@ function parseTemplate(
       ...(cardBg ? { cardBg } : {}),
       ...(kind ? { kind } : {}),
       ...(playables ? { playables } : {}),
+      ...(readables ? { readables } : {}),
+      ...(writingFormat ? { writingFormat } : {}),
+      ...(writingManifestCid ? { writingManifestCid } : {}),
     };
   } catch {
     return fallback;
@@ -400,6 +467,15 @@ export function toCollectionView(
     ),
     kind: template.kind ?? null,
     playables: template.playables ?? [],
+    readables: template.readables ?? [],
+    writingFormat:
+      template.writingFormat ??
+      (template.readables && template.readables.length > 1
+        ? 'book'
+        : template.readables && template.readables.length === 1
+          ? 'article'
+          : null),
+    writingManifestCid: template.writingManifestCid ?? null,
     transferable: record.transferable !== false,
     renewable: Boolean(record.renewable),
     maxRedeems,
@@ -463,9 +539,42 @@ export async function fetchCollection(
       { collection_id: id }
     );
     if (!record) return null;
-    return toCollectionView(record);
+    const view = toCollectionView(record);
+    if (!view) return null;
+    return hydrateWritingManifest(view);
   } catch {
     return null;
+  }
+}
+
+/** Load onsocial.writing.v1 chapters when manifesto CID is present. */
+export async function hydrateWritingManifest(
+  view: CollectionView
+): Promise<CollectionView> {
+  const cid = view.writingManifestCid?.trim();
+  if (!cid) return view;
+  const url =
+    typeof window === 'undefined'
+      ? resolveScarceMediaUrl(cid)
+      : writingContentUrl(cid);
+  if (!url) return view;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return view;
+    const json: unknown = await response.json();
+    const manifest = parseWritingManifest(json);
+    if (!manifest) return view;
+    const readables = readablesFromManifest(manifest);
+    if (readables.length === 0) return view;
+    return {
+      ...view,
+      readables,
+      writingFormat:
+        view.writingFormat ??
+        (readables.length > 1 ? 'book' : 'article'),
+    };
+  } catch {
+    return view;
   }
 }
 
@@ -594,4 +703,81 @@ export async function fetchAllowlistRemaining(
   } catch {
     return 0;
   }
+}
+
+/**
+ * True when `accountId` currently owns at least one edition of this drop.
+ * Prefers indexer `scarcesTokenOwners`; falls back to full RPC ownership scan.
+ */
+export async function fetchOwnsCollectionEdition(
+  collectionId: string,
+  accountId: string
+): Promise<boolean> {
+  const id = collectionId.trim();
+  const account = accountId.trim();
+  if (!id || !account) return false;
+
+  try {
+    const client = createAppOnSocialClient(account);
+    const res = await client.query.graphql<{
+      scarcesTokenOwners: Array<{ tokenId?: string | null }>;
+    }>({
+      query: `
+        query OwnsCollectionEdition($ownerId: String!, $collectionId: String!) {
+          scarcesTokenOwners(
+            where: {
+              ownerId: { _eq: $ownerId }
+              collectionId: { _eq: $collectionId }
+              burned: { _eq: false }
+            }
+            limit: 1
+          ) {
+            tokenId
+          }
+        }
+      `,
+      variables: { ownerId: account, collectionId: id },
+    });
+    if ((res.data?.scarcesTokenOwners?.length ?? 0) > 0) return true;
+  } catch {
+    // Indexer lag / schema — fall through to RPC.
+  }
+
+  const prefix = `${id}:`;
+  let total = 0;
+  try {
+    const supply = await viewNearContract<string | number>(
+      SCARCES_CONTRACT,
+      'nft_supply_for_owner',
+      { account_id: account }
+    );
+    total = Math.floor(Number(supply));
+  } catch {
+    return false;
+  }
+  if (!Number.isFinite(total) || total <= 0) return false;
+
+  const pageSize = 50;
+  for (let fromIndex = 0; fromIndex < total; fromIndex += pageSize) {
+    const limit = Math.min(pageSize, total - fromIndex);
+    try {
+      const tokens = await viewNearContract<Array<{ token_id?: string }>>(
+        SCARCES_CONTRACT,
+        'nft_tokens_for_owner',
+        {
+          account_id: account,
+          from_index: String(fromIndex),
+          limit,
+        }
+      );
+      if (!Array.isArray(tokens)) continue;
+      for (const token of tokens) {
+        const tokenId = token.token_id?.trim() ?? '';
+        if (tokenId.startsWith(prefix)) return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
