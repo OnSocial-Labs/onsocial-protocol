@@ -91,7 +91,7 @@ export interface MarketListingItem {
   /** Optional auction buy-now ask (NEAR). Bid ≥ this settles immediately. */
   buyNowNear?: string | null;
   /**
-   * Medium taxonomy from metadata `extra.kind` (`art` | `book` | `music`).
+   * Medium taxonomy from metadata `extra.kind` (`art` | `writing` | `music`).
    * Distinct from listing `kind` (lazy / native / auction).
    */
   mediumKind?: string | null;
@@ -241,7 +241,7 @@ function priceNearFromRow(row: ScarcesEventRow): string {
  * `media` is always a still — this is the clip behind it, so buy/bid sheets
  * can play what is actually being sold.
  */
-/** Medium taxonomy (`art` / `book` / `music`) from NEP-177 `extra.kind`. */
+/** Medium taxonomy (`art` / `writing` / `music`) from NEP-177 `extra.kind`. */
 export function mediumKindFromExtra(
   extra: Record<string, unknown> | null
 ): string | undefined {

@@ -28,8 +28,11 @@ import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import { GuildDescriptionClamp } from '@/features/guilds/guild-description-clamp';
 import { CollectionAllowlistManager } from '@/features/scarces/collection-allowlist-manager';
+import {
+  CollectionAboutSheet,
+  CollectionAboutTeaser,
+} from '@/features/scarces/collection-about-sheet';
 import {
   CollectionActivityRows,
   type CollectionActivityRow,
@@ -162,6 +165,7 @@ export function CollectionPagePanel({
   const [activityOpen, setActivityOpen] = useState(false);
   const [activityClosing, setActivityClosing] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const activityTitleId = useId();
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -299,10 +303,10 @@ export function CollectionPagePanel({
   }, [view?.creatorId]);
 
   const status = view ? deriveCollectionStatus(view, nowMs) : 'ended';
-  // Early access (before start) is allowlist-gated on-chain; allowlist-only
-  // drops also gate in the UI so Collect matches product intent.
+  // Before Opens, minting is allowlist-gated on-chain when a list exists.
+  // After Opens, anyone can mint (open) — do not keep gating on the list.
   const needsAllowlist =
-    view != null && (status === 'upcoming' || view.allowlistOnly);
+    view != null && status === 'upcoming' && view.hasAllowlist;
   const allowlistOk =
     !needsAllowlist ||
     (allowlistRemaining != null && allowlistRemaining > 0);
@@ -579,7 +583,7 @@ export function CollectionPagePanel({
     );
   }
   if (schedule) chipParts.push(schedule);
-  if (view.allowlistOnly) chipParts.push('Allowlist');
+  if (view.hasAllowlist) chipParts.push('Early access');
   const personalAllowlistLeft =
     needsAllowlist &&
     isConnected &&
@@ -832,7 +836,10 @@ export function CollectionPagePanel({
               </div>
             </div>
             {description ? (
-              <GuildDescriptionClamp text={description} />
+              <CollectionAboutTeaser
+                text={description}
+                onReadMore={() => setAboutOpen(true)}
+              />
             ) : null}
           </header>
         </section>
@@ -854,7 +861,7 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {isOwner ? (
+        {isOwner && status === 'upcoming' ? (
           <div className="collection-owner-tools">
             <CollectionAllowlistManager
               collectionId={view.collectionId}
@@ -936,6 +943,12 @@ export function CollectionPagePanel({
           <p className="collection-activity-empty">No mint activity yet.</p>
         )}
       </GlassSheet>
+
+      <CollectionAboutSheet
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+        view={view}
+      />
 
       <CollectionFactsSheet
         open={factsOpen}

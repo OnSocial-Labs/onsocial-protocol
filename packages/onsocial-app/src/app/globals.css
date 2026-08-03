@@ -17263,6 +17263,67 @@ a.os-surface-row {
     color: var(--os-surface-emphasis);
   }
 
+  .collection-about-teaser {
+    margin: 0.15rem 0 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 0.4rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .collection-about-teaser.is-truncated {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .collection-about-teaser-line {
+    margin: 0;
+    min-width: 0;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.62);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .collection-about-read-more {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: rgb(var(--fg-rgb) / 0.72);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+  }
+
+  .collection-about-read-more:hover,
+  .collection-about-read-more:focus-visible {
+    color: var(--os-surface-emphasis);
+  }
+
+  .collection-about-read-more:focus-visible {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  .collection-about-sheet .collection-about-body {
+    margin: 0;
+    padding: 0.55rem 0 0.65rem;
+    font-size: 0.84rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.5;
+    color: rgb(var(--fg-rgb) / 0.78);
+    white-space: pre-wrap;
+  }
+
   .collection-action-band {
     display: flex;
     flex-direction: column;

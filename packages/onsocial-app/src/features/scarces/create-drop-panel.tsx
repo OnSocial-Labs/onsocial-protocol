@@ -26,6 +26,10 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
 import {
+  CollectionAllowlistSheet,
+  type AllowlistEntry,
+} from '@/features/scarces/collection-allowlist-manager';
+import {
   DropArtworkPreview,
   DropSeatTile,
 } from '@/features/scarces/drop-artwork-preview';
@@ -112,9 +116,9 @@ const LARGE_SET_PREVIEW_LIMIT = 24;
 const MAX_TITLE = 80;
 /** Attached on create so scarces can fund storage; unused NEAR is refunded. */
 const CREATE_STORAGE_BUFFER_NEAR = STORAGE_DEPOSIT_PRESETS_NEAR[0];
-const MAX_DESCRIPTION = 500;
+const MAX_DESCRIPTION = 1000;
 
-type DropMedium = 'art' | 'book' | 'music';
+type DropMedium = 'art' | 'writing' | 'music';
 
 /** One shared artwork minted N times, or one artwork per token. */
 type DropArtMode = 'single' | 'variations';
@@ -148,7 +152,7 @@ function deriveDropKind(
   transferable: boolean,
   maxRedeemsInput: string
 ): DropMedium {
-  if (!transferable) return 'book';
+  if (!transferable) return 'writing';
   if (maxRedeemsInput.trim()) return 'music';
   return 'art';
 }
@@ -159,7 +163,7 @@ export function CreateDropPanel() {
   const appId = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
   const { accountId, isConnected, isLoading, connect, getSigningWallet } =
     useAppWallet();
-  const { trackTransaction } = useAppTransactionFeedback();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [templateId, setTemplateId] = useState<DropTemplateId>('art');
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
@@ -182,7 +186,8 @@ export function CreateDropPanel() {
   const [transferable, setTransferable] = useState(true);
   const [renewable, setRenewable] = useState(false);
   const [maxRedeemsInput, setMaxRedeemsInput] = useState('');
-  const [allowlistOnly, setAllowlistOnly] = useState(false);
+  const [draftAllowlist, setDraftAllowlist] = useState<AllowlistEntry[]>([]);
+  const [allowlistSheetOpen, setAllowlistSheetOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [artMode, setArtMode] = useState<DropArtMode>('single');
   const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
@@ -660,6 +665,12 @@ export function CreateDropPanel() {
           return;
         }
       }
+      if (draftAllowlist.length > 0 && !startTime.trim()) {
+        setError(
+          'Set Opens in Sale window so the allowlist can mint early — or clear the list.'
+        );
+        return;
+      }
       const perWallet = Number.parseInt(maxPerWallet, 10);
 
       const trimmedSeries = seriesName.trim();
@@ -818,7 +829,6 @@ export function CreateDropPanel() {
             ...(Number.isSafeInteger(maxRedeems) && maxRedeems >= 1
               ? { maxRedeems }
               : {}),
-            ...(allowlistOnly ? { mintMode: 'allowlist' } : {}),
             ...(resolvedRoyaltyBps > 0
               ? (() => {
                   const royalty = buildRoyaltyMap(
@@ -839,6 +849,45 @@ export function CreateDropPanel() {
           failureMessage: txToastError.createCollectionFailed,
         });
         if (!confirmed) return;
+
+        if (draftAllowlist.length > 0) {
+          setPendingLabel('Saving allowlist…');
+          try {
+            const allowlistResponse =
+              await client.scarces.collections.setAllowlist(
+                collectionId,
+                draftAllowlist
+              );
+            const allowlistConfirmed = await trackTransaction({
+              txHashes: collectRelayTxHashes(allowlistResponse),
+              submittedMessage: txToastConfirming.updatingAllowlist,
+              successMessage: txToastSuccess.allowlistUpdated,
+              failureMessage: txToastError.updateAllowlistFailed,
+            });
+            if (!allowlistConfirmed) {
+              setTxResult({
+                type: 'error',
+                msg: 'Drop created — finish the allowlist on the drop page.',
+              });
+            }
+          } catch (allowlistCause) {
+            if (!isWalletUserCancellation(allowlistCause)) {
+              setTxResult({
+                type: 'error',
+                msg:
+                  allowlistCause instanceof Error
+                    ? allowlistCause.message
+                    : 'Drop created — finish the allowlist on the drop page.',
+              });
+            } else {
+              setTxResult({
+                type: 'error',
+                msg: 'Drop created — finish the allowlist on the drop page.',
+              });
+            }
+          }
+        }
+
         setPinnedMusic(null);
         setPinnedLargeSet(null);
         router.push(collectionPath(collectionId));
@@ -887,7 +936,7 @@ export function CreateDropPanel() {
       renewable,
       maxRedeemsInput,
       maxRedeems,
-      allowlistOnly,
+      draftAllowlist,
       resolvedRoyaltyBps,
       resolvedRoyaltyShares,
       appId,
@@ -900,6 +949,7 @@ export function CreateDropPanel() {
       pinnedLargeSet,
       getSigningWallet,
       trackTransaction,
+      setTxResult,
       router,
     ]
   );
@@ -1968,41 +2018,45 @@ export function CreateDropPanel() {
             </label>
 
             <div className="guild-field">
-              <span>Mint mode</span>
-              <div
-                className="app-access-options"
-                role="radiogroup"
-                aria-label="Mint mode"
-              >
+              <span>Allowlist</span>
+              <div className="app-storage-presets scarce-choice-chip-row">
                 <button
                   type="button"
-                  role="radio"
-                  aria-checked={!allowlistOnly}
-                  className={`app-access-option${
-                    !allowlistOnly ? ' is-selected' : ''
+                  className={`os-surface-chip scarce-choice-chip${
+                    allowlistSheetOpen || draftAllowlist.length > 0
+                      ? ' is-selected'
+                      : ''
                   }`}
-                  disabled={pending}
-                  onClick={() => setAllowlistOnly(false)}
+                  disabled={pending || !accountId}
+                  aria-haspopup="dialog"
+                  aria-expanded={allowlistSheetOpen}
+                  aria-label={
+                    draftAllowlist.length > 0
+                      ? `Allowlist: ${draftAllowlist.length} accounts`
+                      : 'Allowlist: add accounts'
+                  }
+                  onClick={() => {
+                    if (!accountId) return;
+                    setAllowlistSheetOpen(true);
+                  }}
                 >
-                  Open
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={allowlistOnly}
-                  className={`app-access-option${
-                    allowlistOnly ? ' is-selected' : ''
-                  }`}
-                  disabled={pending}
-                  onClick={() => setAllowlistOnly(true)}
-                >
-                  Allowlist only
+                  <span className="scarce-choice-chip-value">
+                    {draftAllowlist.length === 0
+                      ? 'None'
+                      : draftAllowlist.length === 1
+                        ? '1 account'
+                        : `${draftAllowlist.length} accounts`}
+                  </span>
                 </button>
               </div>
               <small>
-                {allowlistOnly
-                  ? 'Needs an allowlist before collectors can mint.'
-                  : 'Anyone can mint while the drop is open.'}
+                {draftAllowlist.length === 0
+                  ? startTime.trim()
+                    ? 'Optional. Listed accounts mint before Opens; then anyone can.'
+                    : 'Optional. Needs Opens in Sale window — otherwise the list never gates minting.'
+                  : startTime.trim()
+                    ? 'Listed accounts mint before Opens. After that, anyone can.'
+                    : 'Set Opens in Sale window so this list can mint early — or clear it.'}
               </small>
             </div>
           </>
@@ -2049,6 +2103,24 @@ export function CreateDropPanel() {
           else setStartTime(next);
         }}
       />
+
+      {accountId ? (
+        <CollectionAllowlistSheet
+          open={allowlistSheetOpen}
+          creatorId={accountId}
+          maxPerWallet={
+            (() => {
+              const perWallet = Number.parseInt(maxPerWallet, 10);
+              return Number.isSafeInteger(perWallet) && perWallet > 0
+                ? perWallet
+                : null;
+            })()
+          }
+          initialEntries={draftAllowlist}
+          onApply={setDraftAllowlist}
+          onClose={() => setAllowlistSheetOpen(false)}
+        />
+      ) : null}
     </OsAppScreen>
   );
 }

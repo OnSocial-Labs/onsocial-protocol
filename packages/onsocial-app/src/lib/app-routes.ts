@@ -14,7 +14,7 @@ export const MARKET_CREATOR_PARAM = 'creator';
 /** Query key that pre-filters Market to one app / store. */
 export const MARKET_APP_PARAM = 'app';
 
-/** Query key that pre-filters Market by medium (`art` | `book` | `music`). */
+/** Query key that pre-filters Market by medium (`art` | `writing` | `music`). */
 export const MARKET_KIND_PARAM = 'kind';
 
 /** Market pre-filtered to a single creator's live listings. */
@@ -31,7 +31,7 @@ export function marketAppPath(appId: string): string {
   return `${APP_MARKET_PATH}?${MARKET_APP_PARAM}=${encodeURIComponent(id)}`;
 }
 
-/** Market pre-filtered to one medium kind (art / book / music). */
+/** Market pre-filtered to one medium kind (art / writing / music). */
 export function marketKindPath(kind: string): string {
   const value = kind.trim().toLowerCase();
   if (!value) return APP_MARKET_PATH;

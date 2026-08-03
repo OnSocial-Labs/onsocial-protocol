@@ -19,6 +19,7 @@ import {
   SheetHeader,
   UserPlusIcon,
 } from '@onsocial/ui';
+import type { AllowlistEntry } from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -58,19 +59,16 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-const ALLOWLIST_SAVE_MAX = 100;
+export const ALLOWLIST_SAVE_MAX = 100;
 const SEARCH_DEBOUNCE_MS = 220;
 const REMOVE_CONFIRM_MS = 4_000;
 const PASTE_PLACEHOLDER = allowlistPastePlaceholder();
 
+export type { AllowlistEntry };
+
 interface GuildOption {
   groupId: string;
   name: string;
-}
-
-interface AllowlistEntry {
-  account_id: string;
-  allocation: number;
 }
 
 interface MemberRow {
@@ -83,9 +81,13 @@ interface SelectedFace {
   avatarUrl: string | null;
 }
 
-function saveLabel(count: number, pending: boolean): string {
+function saveLabel(count: number, pending: boolean, draft: boolean): string {
   if (pending) return 'Saving…';
-  if (count === 0) return 'Select people';
+  if (count === 0) return 'Select accounts';
+  if (draft) {
+    if (count === 1) return 'Add 1 account';
+    return `Add ${count} accounts`;
+  }
   if (count === 1) return 'Save 1 account';
   return `Save ${count} accounts`;
 }
@@ -248,13 +250,25 @@ function CollectionAllowlistSheet({
   collectionId,
   creatorId,
   maxPerWallet,
+  initialEntries = null,
+  onApply,
   onClose,
+  earlyAccessActive = true,
 }: {
   open: boolean;
-  collectionId: string;
+  /** Live collection id — omit in create-drop draft mode. */
+  collectionId?: string | null;
   creatorId: string;
   maxPerWallet: number | null;
+  /** Seed when the sheet opens (create-drop draft). */
+  initialEntries?: AllowlistEntry[] | null;
+  /**
+   * Draft mode — Done applies entries to the parent instead of an on-chain save.
+   */
+  onApply?: (entries: AllowlistEntry[]) => void;
   onClose: () => void;
+  /** Before Opens the list gates minting; after Opens it does not. */
+  earlyAccessActive?: boolean;
 }) {
   const titleId = useId();
   const pasteId = useId();
@@ -289,7 +303,13 @@ function CollectionAllowlistSheet({
   const [recentAccounts, setRecentAccounts] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const initialEntriesRef = useRef(initialEntries);
   const sheetOpen = open && !closing;
+  const isDraft = typeof onApply === 'function';
+
+  useEffect(() => {
+    initialEntriesRef.current = initialEntries;
+  }, [initialEntries]);
 
   useScrollLock(open || closing);
 
@@ -349,6 +369,30 @@ function CollectionAllowlistSheet({
       clearConfirmRemove();
       setNote(null);
       setMembersLoading(false);
+      setRecentAccounts([]);
+      return;
+    }
+
+    const seed = initialEntriesRef.current;
+    if (seed && seed.length > 0) {
+      const nextAlloc: Record<string, number> = {};
+      const nextFaces: Record<string, SelectedFace> = {};
+      for (const entry of seed) {
+        const id = entry.account_id.trim();
+        if (!id) continue;
+        const allocation =
+          Number.isSafeInteger(entry.allocation) && entry.allocation > 0
+            ? entry.allocation
+            : 1;
+        nextAlloc[id] = allocation;
+        nextFaces[id] = {
+          accountId: id,
+          name: fallbackLabel(id),
+          avatarUrl: null,
+        };
+      }
+      setAllocations(nextAlloc);
+      setFaces(nextFaces);
     }
   }, [clearConfirmRemove, open]);
 
@@ -378,8 +422,16 @@ function CollectionAllowlistSheet({
         if (!cancelled) setGuilds([]);
       });
 
+    const liveCollectionId = collectionId?.trim();
+    if (!liveCollectionId) {
+      setRecentAccounts([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     void client.query.scarces
-      .collection(collectionId, { limit: 80 })
+      .collection(liveCollectionId, { limit: 80 })
       .then((rows) => {
         if (cancelled) return;
         const live = new Set<string>();
@@ -866,12 +918,25 @@ function CollectionAllowlistSheet({
   }, [allocations, selectedIds]);
 
   const handleSave = useCallback(async () => {
+    if (mergedEntries.length > ALLOWLIST_SAVE_MAX) {
+      setNote(`Save up to ${ALLOWLIST_SAVE_MAX} accounts at a time.`);
+      return;
+    }
+
+    if (isDraft) {
+      onApply?.(mergedEntries);
+      requestClose();
+      return;
+    }
+
     if (mergedEntries.length === 0) {
       setNote('Search, pick guild members, or paste accounts.');
       return;
     }
-    if (mergedEntries.length > ALLOWLIST_SAVE_MAX) {
-      setNote(`Save up to ${ALLOWLIST_SAVE_MAX} accounts at a time.`);
+
+    const liveCollectionId = collectionId?.trim();
+    if (!liveCollectionId) {
+      setNote('Collection is missing.');
       return;
     }
 
@@ -881,7 +946,7 @@ function CollectionAllowlistSheet({
       const { accountId, wallet } = await getSigningWallet();
       const client = createAppScarcesWalletClient(accountId, wallet);
       const response = await client.scarces.collections.setAllowlist(
-        collectionId,
+        liveCollectionId,
         mergedEntries
       );
       const confirmed = await trackTransaction({
@@ -906,6 +971,8 @@ function CollectionAllowlistSheet({
     }
   }, [
     mergedEntries,
+    isDraft,
+    onApply,
     collectionId,
     getSigningWallet,
     trackTransaction,
@@ -915,11 +982,12 @@ function CollectionAllowlistSheet({
 
   const selectedGuild = guilds.find((g) => g.groupId === selectedGuildId);
   const capMax = allowlistCapStepperMax(maxPerWallet);
-  const canSave =
-    mergedEntries.length > 0 &&
-    mergedEntries.length <= ALLOWLIST_SAVE_MAX &&
-    !pending &&
-    !pasteBusy;
+  const canSave = isDraft
+    ? !pasteBusy && mergedEntries.length <= ALLOWLIST_SAVE_MAX
+    : mergedEntries.length > 0 &&
+      mergedEntries.length <= ALLOWLIST_SAVE_MAX &&
+      !pending &&
+      !pasteBusy;
   const showSources = !searchActive;
   const onListVisible = useMemo(
     () => recentAccounts.filter((id) => !isSelected(id)),
@@ -970,7 +1038,13 @@ function CollectionAllowlistSheet({
           <SheetHeader
             titleId={titleId}
             title="Allowlist"
-            subtitle={`${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} this save`}
+            subtitle={
+              isDraft
+                ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · mint before Opens`
+                : earlyAccessActive
+                  ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · early access before Opens`
+                  : `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · public mint is open`
+            }
             onClose={requestClose}
             closeAriaLabel="Close allowlist"
           />
@@ -1003,13 +1077,13 @@ function CollectionAllowlistSheet({
               variant="primary"
               ready={canSave}
               disabled={!canSave}
-              pending={pending}
+              pending={!isDraft && pending}
               pendingLabel="Saving…"
               onClick={() => {
                 void handleSave();
               }}
             >
-              {saveLabel(mergedEntries.length, pending)}
+              {saveLabel(mergedEntries.length, pending, isDraft)}
             </OsSheetAction>
           </OsSheetActions>
         </div>
@@ -1421,7 +1495,10 @@ function CollectionAllowlistSheet({
 
 /**
  * Post-create allowlist — search profiles, pick guild members, or paste.
+ * Export the sheet for create-drop draft mode (`onApply`).
  */
+export { CollectionAllowlistSheet };
+
 export function CollectionAllowlistManager({
   collectionId,
   creatorId,

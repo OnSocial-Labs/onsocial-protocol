@@ -60,8 +60,9 @@ function FactSection({
 
 function mintModeLabel(mode: string): string {
   const key = mode.trim().toLowerCase();
-  if (key === 'allowlist') return 'Allowlist';
-  if (key === 'open') return 'Open';
+  if (key === 'purchase_only') return 'Purchase only';
+  if (key === 'creator_only') return 'Creator only';
+  if (key === 'open' || key === 'allowlist') return 'Open';
   return mode.trim() || 'Open';
 }
 
@@ -220,8 +221,8 @@ export function CollectionFactsSheet({
           <FactRow
             label="Access"
             value={
-              view.allowlistOnly
-                ? 'Allowlist only'
+              view.hasAllowlist
+                ? `${mintModeLabel(view.mintMode)} · early access`
                 : mintModeLabel(view.mintMode)
             }
           />

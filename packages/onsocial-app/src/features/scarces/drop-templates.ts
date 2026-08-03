@@ -7,7 +7,7 @@
 
 export type DropTemplateId =
   | 'art'
-  | 'book'
+  | 'writing'
   | 'music'
   | 'ticket'
   | 'coupon'
@@ -54,11 +54,11 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     openAdvanced: false,
   },
   {
-    id: 'book',
-    label: 'Book',
+    id: 'writing',
+    label: 'Writing',
     tagline: 'A written work sold as soulbound copies — readers keep access.',
-    hint: 'Copies are soulbound — they stay with the reader and can’t be resold. Your cover art fronts the drop; the work itself can live in the description or a linked page.',
-    kind: 'book',
+    hint: 'Copies are soulbound — they stay with the reader and can’t be resold. Cover art fronts the drop; the writing itself can live in the description or a linked page.',
+    kind: 'writing',
     unit: 'copies',
     unitSingular: 'copy',
     presets: { transferable: false, renewable: false, maxRedeems: '' },

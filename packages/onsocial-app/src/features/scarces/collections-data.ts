@@ -74,7 +74,8 @@ export interface CollectionView {
   paused: boolean;
   cancelled: boolean;
   soldOut: boolean;
-  allowlistOnly: boolean;
+  /** True when the drop has a non-empty allowlist (early access before Opens). */
+  hasAllowlist: boolean;
   appId: string | null;
   /**
    * Hub primary-sale commission snapshotted at create (bps), or null when
@@ -391,7 +392,7 @@ export function toCollectionView(
     paused: Boolean(record.paused),
     cancelled: Boolean(record.cancelled),
     soldOut: totalSupply > 0 && remaining === 0,
-    allowlistOnly: allowlistYocto !== '0' || record.mint_mode === 'allowlist',
+    hasAllowlist: allowlistYocto !== '0',
     appId: record.app_id?.trim() || null,
     appCommissionBps: parseAppCommissionBps(
       record.app_commission_bps,

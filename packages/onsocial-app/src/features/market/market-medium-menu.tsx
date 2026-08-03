@@ -8,7 +8,7 @@ import {
 export type MarketMediumFilter =
   | 'all'
   | 'art'
-  | 'book'
+  | 'writing'
   | 'music'
   | 'ticket'
   | 'coupon'
@@ -20,7 +20,7 @@ export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
 }> = [
   { id: 'all', label: 'All' },
   { id: 'art', label: 'Art' },
-  { id: 'book', label: 'Book' },
+  { id: 'writing', label: 'Writing' },
   { id: 'music', label: 'Music' },
   { id: 'ticket', label: 'Tickets' },
   { id: 'coupon', label: 'Coupons' },
