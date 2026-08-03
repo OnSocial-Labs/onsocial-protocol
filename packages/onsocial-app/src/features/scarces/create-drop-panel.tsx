@@ -51,7 +51,7 @@ import {
   DROP_WRITING_MAX_BYTES,
   DROP_WRITING_MAX_CHAPTERS,
   buildWritingManifest,
-  chapterTitleFromFile,
+  chaptersFromPinnedFiles,
   isDropWritingMime,
   writingChaptersValid,
   type WritingReleaseFormat,
@@ -823,15 +823,7 @@ export function CreateDropPanel() {
         try {
           const uploadClient = createAppOnSocialClient(uploaderAccountId);
           const uploaded = await uploadClient.storage.uploadMany(chapterFiles);
-          const chapters = uploaded.map((ref, index) => {
-            const file = chapterFiles[index]!;
-            const chapterTitle = chapterTitleFromFile(file);
-            return {
-              cid: ref.cid,
-              mime: file.type || 'text/markdown',
-              ...(chapterTitle ? { title: chapterTitle } : {}),
-            };
-          });
+          const chapters = chaptersFromPinnedFiles(chapterFiles, uploaded);
           setPendingLabel('Uploading manifesto…');
           const manifesto = buildWritingManifest({
             title: title.trim() || undefined,
@@ -1309,7 +1301,7 @@ export function CreateDropPanel() {
             <small>
               {writingFormat === 'article'
                 ? 'One cover, one Markdown file — every edition shares the same piece.'
-                : 'One cover · add chapters as Markdown (2–100). Holders read one chapter at a time.'}
+                : 'One cover · ordered chapters — holders read one chapter at a time.'}
             </small>
           </div>
         ) : (
@@ -1764,7 +1756,11 @@ export function CreateDropPanel() {
             <div
               className="app-storage-presets"
               role="group"
-              aria-label="Manuscript actions"
+              aria-label={
+                writingFormat === 'article'
+                  ? 'Manuscript actions'
+                  : 'Chapter actions'
+              }
             >
               <button
                 type="button"
@@ -1779,8 +1775,8 @@ export function CreateDropPanel() {
               >
                 {chapterFiles.length === 0
                   ? writingFormat === 'article'
-                    ? 'Add Markdown'
-                    : 'Add chapters'
+                    ? 'Add file'
+                    : 'Add files'
                   : writingFormat === 'article'
                     ? 'Replace file'
                     : 'Add more'}
@@ -1801,8 +1797,8 @@ export function CreateDropPanel() {
             </div>
             <small>
               {writingFormat === 'article'
-                ? 'UTF-8 Markdown (.md) or plain text · ≤500 KB · holders read the full piece'
-                : `Name files 01-intro.md… · drag to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} chapters · ≤500 KB each`}
+                ? '.md or .txt · file name becomes the title · ≤500 KB'
+                : `Drag to reorder · file name → title · 2–${DROP_WRITING_MAX_CHAPTERS} · ≤500 KB each`}
             </small>
             <input
               ref={chaptersInputRef}
@@ -1837,7 +1833,13 @@ export function CreateDropPanel() {
             id={fieldId('title')}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Genesis Prints"
+            placeholder={
+              isWriting
+                ? 'The Quiet Hours'
+                : isMusic
+                  ? 'Night Drive'
+                  : 'Genesis Prints'
+            }
             maxLength={MAX_TITLE}
           />
         </label>
@@ -1848,7 +1850,14 @@ export function CreateDropPanel() {
             id={fieldId('id')}
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
-            placeholder={derivedSlug || 'genesis-prints'}
+            placeholder={
+              derivedSlug ||
+              (isWriting
+                ? 'the-quiet-hours'
+                : isMusic
+                  ? 'night-drive'
+                  : 'genesis-prints')
+            }
             maxLength={32}
           />
           <small>
@@ -1866,7 +1875,7 @@ export function CreateDropPanel() {
             onChange={(event) => setDescription(event.target.value)}
             placeholder={
               isWriting
-                ? 'Public blurb for the About teaser — the manuscript is uploaded separately.'
+                ? 'Short public blurb — the manuscript uploads separately.'
                 : 'What the collection is, why it’s special, and what collectors get.'
             }
             maxLength={MAX_DESCRIPTION}

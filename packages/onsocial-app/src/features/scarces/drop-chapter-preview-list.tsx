@@ -1,12 +1,16 @@
 'use client';
 
 import {
-  useEffect,
+  Fragment,
   useRef,
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react';
-import { MultiplyIcon } from '@onsocial/ui';
+import { Divider, MultiplyIcon } from '@onsocial/ui';
+import {
+  OsSheetAction,
+  OsSheetActions,
+} from '@/components/ui/os-sheet-primary-action';
 import { chapterTitleFromFile } from '@/features/scarces/drop-writing';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 
@@ -24,8 +28,8 @@ function fileKey(file: File): string {
 }
 
 /**
- * Local Markdown chapter list for Writing create — remove and (for books)
- * drag to set reading order before chapters are pinned into the manifesto.
+ * Local Markdown chapter list for Writing create — same row chrome and
+ * drag-reorder behavior as Music tracks.
  */
 export function DropChapterPreviewList({
   files,
@@ -37,64 +41,98 @@ export function DropChapterPreviewList({
   const listRef = useRef<HTMLUListElement | null>(null);
   const dragFromRef = useRef<number | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
+  /** Gap to insert into while dragging (0…files.length), or null. */
   const [insertAt, setInsertAt] = useState<number | null>(null);
   const canSort = sortable && files.length > 1 && Boolean(onReorder);
+  const showLineAt = dragFrom != null ? insertAt : null;
 
-  useEffect(() => {
-    dragFromRef.current = dragFrom;
-  }, [dragFrom]);
-
-  function clearDrag() {
+  function finishDragVisual() {
     setDragFrom(null);
     setInsertAt(null);
-    dragFromRef.current = null;
   }
 
-  function onDragStart(index: number, event: ReactDragEvent) {
-    if (!canSort || disabled) return;
+  function clearDragFromRef() {
+    // Spec: drop fires before dragend. Some engines reverse that — keep the
+    // index alive for one turn so onListDrop can still read it.
+    queueMicrotask(() => {
+      dragFromRef.current = null;
+    });
+  }
+
+  function allowListDrop(event: ReactDragEvent) {
+    if (!canSort || disabled || dragFromRef.current == null) return false;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    return true;
+  }
+
+  function gapFromPointer(clientY: number): number {
+    const list = listRef.current;
+    if (!list) return 0;
+    const rows = list.querySelectorAll<HTMLElement>('[data-chapter-row]');
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i]!.getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) return i;
+    }
+    return rows.length;
+  }
+
+  function onTitleDragStart(index: number, event: ReactDragEvent) {
+    if (!canSort || disabled) {
+      event.preventDefault();
+      return;
+    }
+    dragFromRef.current = index;
+    setDragFrom(index);
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', String(index));
-    setDragFrom(index);
-    dragFromRef.current = index;
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  function onTitleDragEnd() {
+    finishDragVisual();
+    clearDragFromRef();
   }
 
   function onListDragOver(event: ReactDragEvent) {
-    if (!canSort || disabled || dragFromRef.current == null) return;
-    event.preventDefault();
-    const list = listRef.current;
-    if (!list) return;
-    const rows = Array.from(
-      list.querySelectorAll<HTMLElement>('[data-chapter-index]')
-    );
-    let next = files.length;
-    for (const row of rows) {
-      const rect = row.getBoundingClientRect();
-      const mid = rect.top + rect.height / 2;
-      if (event.clientY < mid) {
-        next = Number(row.dataset.chapterIndex);
-        break;
-      }
-    }
-    setInsertAt(next);
+    if (!allowListDrop(event)) return;
+    const from = dragFromRef.current;
+    if (from == null) return;
+    const gap = gapFromPointer(event.clientY);
+    const noop = gap === from || gap === from + 1;
+    setInsertAt(noop ? null : gap);
   }
 
-  function onDragEnd() {
-    const from = dragFromRef.current;
-    const at = insertAt;
-    clearDrag();
-    if (from == null || at == null || !onReorder) return;
-    const next = reorderByInsert(files, from, at);
+  function onListDrop(event: ReactDragEvent) {
+    if (!canSort || disabled || !onReorder) return;
+    event.preventDefault();
+    const raw = event.dataTransfer.getData('text/plain');
+    const fromData = raw === '' ? Number.NaN : Number(raw);
+    const from =
+      dragFromRef.current ??
+      (Number.isSafeInteger(fromData) ? fromData : null);
+    const gap = insertAt ?? gapFromPointer(event.clientY);
+    finishDragVisual();
+    dragFromRef.current = null;
+    if (from == null || from < 0 || from >= files.length) return;
+    const next = reorderByInsert(files, from, gap);
     if (next !== files) onReorder(next);
   }
 
   return (
     <ul
       ref={listRef}
-      className="drop-chapter-preview-list"
+      className={`drop-track-list${dragFrom != null ? ' is-reordering' : ''}`}
+      aria-label="Chapters"
+      onDragEnter={allowListDrop}
       onDragOver={onListDragOver}
-      onDrop={(event) => {
-        event.preventDefault();
-        onDragEnd();
+      onDrop={onListDrop}
+      onDragLeave={(event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && listRef.current?.contains(next)) {
+          return;
+        }
+        setInsertAt(null);
       }}
     >
       {files.map((file, index) => {
@@ -102,35 +140,69 @@ export function DropChapterPreviewList({
         const title = chapterTitleFromFile(file);
         const isDragging = dragFrom === index;
         return (
-          <li
-            key={key}
-            data-chapter-index={index}
-            className={`drop-chapter-preview-row${
-              isDragging ? ' is-dragging' : ''
-            }${insertAt === index ? ' is-insert-before' : ''}`}
-            draggable={canSort && !disabled}
-            onDragStart={(event) => onDragStart(index, event)}
-            onDragEnd={onDragEnd}
-          >
-            <span className="drop-chapter-preview-index" aria-hidden>
-              {index + 1}
-            </span>
-            <span className="drop-chapter-preview-title">{title}</span>
-            <span className="drop-chapter-preview-name">{file.name}</span>
-            <button
-              type="button"
-              className="drop-chapter-preview-remove"
-              disabled={disabled}
-              aria-label={`Remove ${title}`}
-              onClick={() => onRemove(index)}
+          <Fragment key={key}>
+            {showLineAt === index ? (
+              <li className="drop-track-insert-slot" aria-hidden>
+                <Divider variant="detail" />
+              </li>
+            ) : null}
+            <li
+              data-chapter-row
+              data-chapter-index={index}
+              className={`drop-track-list-row${
+                isDragging ? ' is-dragging' : ''
+              }`}
             >
-              <MultiplyIcon aria-hidden />
-            </button>
-          </li>
+              <span
+                className={`drop-track-list-title${
+                  canSort ? ' is-sortable' : ''
+                }`}
+                title={
+                  canSort ? `${file.name} · drag to reorder` : file.name
+                }
+                {...(canSort && !disabled
+                  ? {
+                      draggable: true,
+                      role: 'button',
+                      tabIndex: 0,
+                      'aria-label': `Drag to reorder ${title}`,
+                      onDragStart: (event: ReactDragEvent) =>
+                        onTitleDragStart(index, event),
+                      onDragEnd: onTitleDragEnd,
+                    }
+                  : {})}
+              >
+                {index + 1}. {title}
+              </span>
+              <OsSheetActions
+                layout="row-compact"
+                tone="frosted-primary"
+                borderless
+                className="hub-publish-request-actions drop-track-list-remove-actions"
+              >
+                <OsSheetAction
+                  type="button"
+                  variant="danger"
+                  ready={!disabled}
+                  disabled={disabled}
+                  aria-label={`Remove ${title}`}
+                  className="hub-publish-request-dismiss"
+                  onClick={() => onRemove(index)}
+                >
+                  <MultiplyIcon
+                    className="hub-publish-request-dismiss-icon"
+                    aria-hidden
+                  />
+                </OsSheetAction>
+              </OsSheetActions>
+            </li>
+          </Fragment>
         );
       })}
-      {insertAt === files.length && canSort ? (
-        <li className="drop-chapter-preview-insert-end" aria-hidden />
+      {showLineAt === files.length ? (
+        <li className="drop-track-insert-slot" aria-hidden>
+          <Divider variant="detail" />
+        </li>
       ) : null}
     </ul>
   );

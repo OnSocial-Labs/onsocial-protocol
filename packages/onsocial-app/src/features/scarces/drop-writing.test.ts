@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { reorderByInsert } from '@/features/scarces/drop-track-order';
 import {
   buildWritingManifest,
   chapterTitleFromFile,
+  chaptersFromPinnedFiles,
   isDropWritingMime,
   isLikelyIpfsCid,
   parseWritingFormat,
@@ -63,8 +65,16 @@ describe('writing manifesto', () => {
     const built = buildWritingManifest({
       title: 'Novella',
       chapters: [
-        { cid: 'bafychapteroneaaaaaaaaaaaaaaaaaa', mime: 'text/markdown', title: 'One' },
-        { cid: 'bafychaptertwoaaaaaaaaaaaaaaaaaa', mime: 'text/markdown', title: 'Two' },
+        {
+          cid: 'bafychapteroneaaaaaaaaaaaaaaaaaa',
+          mime: 'text/markdown',
+          title: 'One',
+        },
+        {
+          cid: 'bafychaptertwoaaaaaaaaaaaaaaaaaa',
+          mime: 'text/markdown',
+          title: 'Two',
+        },
       ],
     });
     expect(built.format).toBe('onsocial.writing.v1');
@@ -97,6 +107,44 @@ describe('writing manifesto', () => {
         ],
       })?.chapters.map((c) => c.title)
     ).toEqual(['Good']);
+  });
+
+  it('pins manifesto chapters in the post-reorder UI order', () => {
+    const picked = [
+      mdFile('01-prologue.md'),
+      mdFile('02-the-road.md'),
+      mdFile('03-night.md'),
+    ];
+    // Drag prologue to the end — same helper the chapter list uses.
+    const chapterFiles = reorderByInsert(picked, 0, 3);
+    expect(chapterFiles.map((f) => f.name)).toEqual([
+      '02-the-road.md',
+      '03-night.md',
+      '01-prologue.md',
+    ]);
+
+    // uploadMany returns one CID per file, same index order as the array.
+    const uploaded = [
+      { cid: 'bafyroadchapteraaaaaaaaaaaaaaaaa' },
+      { cid: 'bafynightchapteraaaaaaaaaaaaaaa' },
+      { cid: 'bafyprologuechapteraaaaaaaaaaaa' },
+    ];
+    const chapters = chaptersFromPinnedFiles(chapterFiles, uploaded);
+    const manifesto = buildWritingManifest({
+      title: 'Novella',
+      chapters,
+    });
+
+    expect(manifesto.chapters.map((c) => c.title)).toEqual([
+      'The road',
+      'Night',
+      'Prologue',
+    ]);
+    expect(manifesto.chapters.map((c) => c.cid)).toEqual([
+      'bafyroadchapteraaaaaaaaaaaaaaaaa',
+      'bafynightchapteraaaaaaaaaaaaaaa',
+      'bafyprologuechapteraaaaaaaaaaaa',
+    ]);
   });
 });
 

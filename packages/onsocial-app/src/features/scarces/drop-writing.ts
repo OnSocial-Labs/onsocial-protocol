@@ -106,6 +106,32 @@ export function buildWritingManifest(opts: {
   };
 }
 
+/**
+ * Pair `uploadMany` results with the same-index chapter files.
+ * Create UI order is `chapterFiles` top→bottom; that order is what pins
+ * into the manifesto (and what holders read).
+ */
+export function chaptersFromPinnedFiles(
+  files: File[],
+  uploaded: ReadonlyArray<{ cid: string }>
+): ScarceReadableRef[] {
+  const count = Math.min(files.length, uploaded.length);
+  const chapters: ScarceReadableRef[] = [];
+  for (let index = 0; index < count; index++) {
+    const file = files[index]!;
+    const ref = uploaded[index]!;
+    const cid = ref.cid.trim();
+    if (!cid) continue;
+    const title = chapterTitleFromFile(file);
+    chapters.push({
+      cid,
+      mime: file.type || 'text/markdown',
+      ...(title ? { title } : {}),
+    });
+  }
+  return chapters;
+}
+
 export function parseWritingManifest(
   raw: unknown
 ): WritingManifestV1 | null {
