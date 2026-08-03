@@ -201,7 +201,7 @@ export function ScarceRoyaltyField({
         {hint ?? defaultHint}
       </p>
 
-      {splitEnabled && primaryAccountId && onSharesChange && canShowSplit ? (
+      {canShowSplit && primaryAccountId && typeof onSharesChange === 'function' ? (
         <ScarceRoyaltySplitSheet
           key={splitSession}
           open={splitSheetOpen}
