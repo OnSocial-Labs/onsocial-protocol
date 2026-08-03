@@ -24,6 +24,25 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
+import {
+  DropArtworkPreview,
+  DropSeatTile,
+} from '@/features/scarces/drop-artwork-preview';
+import {
+  buildCollectionId,
+  randomDropIdSuffix,
+} from '@/features/scarces/drop-collection-id';
+import {
+  DROP_AUDIO_MAX_BYTES,
+  DROP_AUDIO_MAX_TRACKS,
+  isDropAudioMime,
+  musicTracksValid,
+  sha256BlobBase64,
+  trackTitleFromFile,
+  type MusicReleaseFormat,
+} from '@/features/scarces/drop-audio';
+import { DropTrackPreviewList } from '@/features/scarces/drop-track-preview-list';
 import {
   DROP_TEMPLATES,
   type DropTemplate,
@@ -35,7 +54,9 @@ import {
   GenerativeDropBuilder,
   type BuilderDesignSummary,
   type GeneratedSet,
+  type GenerativeBuilderHandle,
 } from '@/features/scarces/generative-drop-builder';
+import { GenerativeStudioHelpDrawer } from '@/features/scarces/generative-studio-help-drawer';
 import {
   DropSaleWindowSheet,
   formatScheduleLabel,
@@ -43,7 +64,13 @@ import {
   localDateTimeToNs,
   type SaleWindowField,
 } from '@/features/scarces/drop-sale-window-sheet';
+import {
+  DEFAULT_ROYALTY_BPS,
+  parseCustomRoyaltyBps,
+} from '@/features/scarces/scarce-royalty';
+import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
+import { nearToYocto } from '@/lib/app-near-rpc';
 import {
   APP_MARKET_PATH,
   MARKET_APP_PARAM,
@@ -51,6 +78,7 @@ import {
   collectionPath,
 } from '@/lib/app-routes';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
+import { STORAGE_DEPOSIT_PRESETS_NEAR } from '@/lib/user-storage-display';
 import {
   txToastConfirming,
   txToastError,
@@ -78,6 +106,8 @@ const MAX_SET_TOTAL_BYTES = 400 * 1024 * 1024;
 /** Object URLs created for a large set — enough to preview, not the DOM. */
 const LARGE_SET_PREVIEW_LIMIT = 24;
 const MAX_TITLE = 80;
+/** Attached on create so scarces can fund storage; unused NEAR is refunded. */
+const CREATE_STORAGE_BUFFER_NEAR = STORAGE_DEPOSIT_PRESETS_NEAR[0];
 const MAX_DESCRIPTION = 500;
 
 type DropMedium = 'art' | 'book' | 'music';
@@ -123,11 +153,14 @@ export function CreateDropPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const appId = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
-  const { isConnected, isLoading, connect, getSigningWallet } = useAppWallet();
+  const { accountId, isConnected, isLoading, connect, getSigningWallet } =
+    useAppWallet();
   const { trackTransaction } = useAppTransactionFeedback();
   const [templateId, setTemplateId] = useState<DropTemplateId>('art');
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
+  /** Fixed for this form session — keeps the public-link preview honest. */
+  const [idSuffix] = useState(() => randomDropIdSuffix());
   const [description, setDescription] = useState('');
   const [supplyInput, setSupplyInput] = useState('25');
   const [priceInput, setPriceInput] = useState('1');
@@ -138,12 +171,17 @@ export function CreateDropPanel() {
     null
   );
   const [maxPerWallet, setMaxPerWallet] = useState('');
+  const [royaltyBps, setRoyaltyBps] = useState(DEFAULT_ROYALTY_BPS);
+  const [isCustomRoyalty, setIsCustomRoyalty] = useState(false);
+  const [customRoyaltyInput, setCustomRoyaltyInput] = useState('');
   const [transferable, setTransferable] = useState(true);
   const [renewable, setRenewable] = useState(false);
   const [maxRedeemsInput, setMaxRedeemsInput] = useState('');
   const [allowlistOnly, setAllowlistOnly] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [artMode, setArtMode] = useState<DropArtMode>('single');
+  const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
+  const [trackFiles, setTrackFiles] = useState<File[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [variationFiles, setVariationFiles] = useState<File[]>([]);
@@ -160,15 +198,46 @@ export function CreateDropPanel() {
   const [generatedPreviews, setGeneratedPreviews] = useState<string[]>([]);
   /** Full-screen layer studio step — the builder stays mounted underneath. */
   const [studioOpen, setStudioOpen] = useState(false);
+  const [studioHelpOpen, setStudioHelpOpen] = useState(false);
   const [design, setDesign] = useState<BuilderDesignSummary | null>(null);
+  const builderRef = useRef<GenerativeBuilderHandle>(null);
   const [seriesName, setSeriesName] = useState('');
   const [pending, setPending] = useState(false);
+  /** Upload pins first (album tracks); wallet sign stays a separate label. */
+  const [pendingLabel, setPendingLabel] = useState('Starting…');
+  /**
+   * Heavy pins finished — next submit only opens the wallet. A second click
+   * keeps the user gesture so the approve sheet actually pops.
+   */
+  const [pinnedMusic, setPinnedMusic] = useState<{
+    playable: Array<{ cid: string; mime: string; title?: string }>;
+    coverCid: string;
+    coverHash: string;
+  } | null>(null);
+  const [pinnedLargeSet, setPinnedLargeSet] = useState<{
+    cid: string;
+    ext: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const tracksInputRef = useRef<HTMLInputElement>(null);
   const variationsInputRef = useRef<HTMLInputElement>(null);
+  /** Replace wipes the set; append adds to the end (same format). */
+  const variationPickModeRef = useRef<'replace' | 'append'>('replace');
+  const variationFilesRef = useRef(variationFiles);
+  variationFilesRef.current = variationFiles;
   const errorRef = useRef<HTMLParagraphElement>(null);
   const toolbarHidden = useDockAutoHide();
+
+  // Invalidate pins if the creator changes files after prepare.
+  useEffect(() => {
+    setPinnedMusic(null);
+  }, [trackFiles, imageFile, musicFormat]);
+
+  useEffect(() => {
+    setPinnedLargeSet(null);
+  }, [variationFiles]);
 
   const template =
     DROP_TEMPLATES.find((entry) => entry.id === templateId) ??
@@ -190,10 +259,15 @@ export function CreateDropPanel() {
       if (!next.presets.renewable) setAccessEnds('');
     }
     if (next.openAdvanced) setShowAdvanced(true);
+    if (next.id === 'music') {
+      setArtMode('single');
+      setMusicFormat('single');
+    }
     setError(null);
   }, []);
 
-  const isVariations = artMode === 'variations';
+  const isMusic = templateId === 'music';
+  const isVariations = !isMusic && artMode === 'variations';
   const isPinnedSet = isVariations && variationSource === 'cid';
   const isGeneratedSet = isVariations && variationSource === 'generate';
   /** Upload too big to attach directly — zipped and pinned at submit. */
@@ -202,6 +276,11 @@ export function CreateDropPanel() {
     variationSource === 'upload' &&
     variationFiles.length > MAX_VARIATIONS;
   const derivedSlug = useMemo(() => slugify(slug || title), [slug, title]);
+  const collectionId = useMemo(
+    () =>
+      derivedSlug.length >= 3 ? buildCollectionId(derivedSlug, idSuffix) : '',
+    [derivedSlug, idSuffix]
+  );
   const editionSupply = Number.parseInt(supplyInput, 10);
   const supply =
     isVariations && !isPinnedSet ? variationFiles.length : editionSupply;
@@ -226,6 +305,10 @@ export function CreateDropPanel() {
       coverSeat >= 1 &&
       (!supplyValid || coverSeat <= supply));
 
+  const tracksReady =
+    !isMusic || musicTracksValid(musicFormat, trackFiles.length);
+  const customRoyaltyBps = parseCustomRoyaltyBps(customRoyaltyInput);
+  const resolvedRoyaltyBps = isCustomRoyalty ? customRoyaltyBps : royaltyBps;
   const canSubmit =
     isConnected &&
     !pending &&
@@ -235,6 +318,8 @@ export function CreateDropPanel() {
     maxRedeemsValid &&
     traitsCidValid &&
     coverSeatValid &&
+    tracksReady &&
+    resolvedRoyaltyBps != null &&
     (isVariations
       ? isPinnedSet
         ? pinnedCidValid
@@ -261,20 +346,90 @@ export function CreateDropPanel() {
     });
   }, []);
 
+  const onTracksChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const picked = Array.from(event.target.files ?? []);
+      event.target.value = '';
+      if (picked.length === 0) return;
+      for (const file of picked) {
+        if (!isDropAudioMime(file.type)) {
+          setError('Use MP3, M4A, WAV, or another audio file.');
+          return;
+        }
+        if (file.size > DROP_AUDIO_MAX_BYTES) {
+          setError('Each track must be 20 MB or smaller.');
+          return;
+        }
+      }
+      setError(null);
+      setTrackFiles((prev) => {
+        if (musicFormat === 'single') {
+          return picked.slice(0, 1);
+        }
+        const next = [...prev, ...picked].slice(0, DROP_AUDIO_MAX_TRACKS);
+        return next;
+      });
+    },
+    [musicFormat]
+  );
+
+  const removeTrackAt = useCallback((index: number) => {
+    setTrackFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const reorderTracks = useCallback((next: File[]) => {
+    setTrackFiles(next);
+  }, []);
+
+  const setMusicReleaseFormat = useCallback((format: MusicReleaseFormat) => {
+    setMusicFormat(format);
+    if (format === 'single') {
+      setTrackFiles((prev) => prev.slice(0, 1));
+    }
+    setError(null);
+  }, []);
+
+  const syncVariationPreviews = useCallback((files: File[]) => {
+    setVariationPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      // Big sets preview a sample — object URLs for 10k files would hurt.
+      return files
+        .slice(
+          0,
+          files.length > MAX_VARIATIONS ? LARGE_SET_PREVIEW_LIMIT : undefined
+        )
+        .map((file) => URL.createObjectURL(file));
+    });
+  }, []);
+
+  const openVariationPicker = useCallback((mode: 'replace' | 'append') => {
+    variationPickModeRef.current = mode;
+    variationsInputRef.current?.click();
+  }, []);
+
   const onVariationsChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files ?? []);
+      const picked = Array.from(event.target.files ?? []);
       event.target.value = '';
-      if (files.length === 0) return;
-      if (files.length < MIN_VARIATIONS || files.length > MAX_SET_PIECES) {
+      if (picked.length === 0) return;
+
+      const mode = variationPickModeRef.current;
+      variationPickModeRef.current = 'replace';
+      const existing = variationFilesRef.current;
+      const next = mode === 'append' ? [...existing, ...picked] : picked;
+
+      if (next.length < MIN_VARIATIONS || next.length > MAX_SET_PIECES) {
         setError(
-          `Pick ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — one per piece.`
+          mode === 'append'
+            ? `Sets hold ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — this would be ${next.length.toLocaleString()}.`
+            : `Pick ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — one per piece.`
         );
         return;
       }
-      const format = files[0].type;
+
+      const format = next[0].type;
       let totalBytes = 0;
-      for (const file of files) {
+      for (const file of next) {
         if (!isPostImageMime(file.type)) {
           setError('Use JPG, PNG, or WebP images.');
           return;
@@ -295,27 +450,40 @@ export function CreateDropPanel() {
         );
         return;
       }
+
       setError(null);
-      setVariationFiles(files);
-      setVariationPreviews((prev) => {
-        prev.forEach((url) => URL.revokeObjectURL(url));
-        // Big sets preview a sample — object URLs for 10k files would hurt.
-        return files
-          .slice(
-            0,
-            files.length > MAX_VARIATIONS ? LARGE_SET_PREVIEW_LIMIT : undefined
-          )
-          .map((file) => URL.createObjectURL(file));
-      });
-      // Keep the cover choice only while it still points at a real piece.
+      setVariationFiles(next);
+      syncVariationPreviews(next);
       setCoverSeatInput((prev) => {
         const seat = Number.parseInt(prev, 10);
-        return Number.isSafeInteger(seat) && seat >= 1 && seat <= files.length
+        return Number.isSafeInteger(seat) && seat >= 1 && seat <= next.length
           ? prev
           : '1';
       });
     },
-    []
+    [syncVariationPreviews]
+  );
+
+  const removeVariationAt = useCallback(
+    (index: number) => {
+      const existing = variationFilesRef.current;
+      if (index < 0 || index >= existing.length) return;
+      const next = existing.filter((_, i) => i !== index);
+      setVariationFiles(next);
+      syncVariationPreviews(next);
+      setCoverSeatInput((prev) => {
+        const seat = Number.parseInt(prev, 10);
+        if (!Number.isSafeInteger(seat) || seat < 1 || next.length === 0) {
+          return '1';
+        }
+        // Seat numbers are 1-based file indices — shift when a lower piece drops.
+        if (seat === index + 1) return '1';
+        if (seat > index + 1) return String(seat - 1);
+        return prev;
+      });
+      setError(null);
+    },
+    [syncVariationPreviews]
   );
 
   const uploadVariationArchives = useCallback(
@@ -397,7 +565,19 @@ export function CreateDropPanel() {
         return;
       }
       if (!isVariations && !imageFile) {
-        setError('Add cover art for the drop.');
+        setError(
+          isMusic
+            ? 'Add cover art for the release.'
+            : 'Add artwork for the drop.'
+        );
+        return;
+      }
+      if (isMusic && !musicTracksValid(musicFormat, trackFiles.length)) {
+        setError(
+          musicFormat === 'single'
+            ? 'Add one track for this single.'
+            : `Add 2–${DROP_AUDIO_MAX_TRACKS} tracks for an album.`
+        );
         return;
       }
       if (!traitsCidValid) {
@@ -460,10 +640,11 @@ export function CreateDropPanel() {
         setError('Access end must be in the future.');
         return;
       }
+      if (resolvedRoyaltyBps == null) {
+        setError('Enter a royalty between 0 and 50%.');
+        return;
+      }
       const perWallet = Number.parseInt(maxPerWallet, 10);
-
-      // Unique per contract — slug plus a short time-based suffix.
-      const collectionId = `${derivedSlug}-${Date.now().toString(36)}`;
 
       const trimmedSeries = seriesName.trim();
       // Collection-level metadata blob: series grouping plus the chosen
@@ -487,65 +668,148 @@ export function CreateDropPanel() {
             }
           : null;
 
-      setPending(true);
-      try {
-        const { accountId, wallet } = await getSigningWallet();
-        const client = createAppScarcesWalletClient(accountId, wallet);
+      if (!collectionId) {
+        setError('Add a title so OnSocial can build a drop ID.');
+        return;
+      }
 
-        // Large uploads: name files by seat, zip in the browser, pin via the
-        // gateway, then create by CID — the same path a generated set takes.
-        let largeSet: { cid: string; ext: string } | null = null;
-        if (isLargeUpload) {
-          const { imagesZip } = await buildVariationSetZip(variationFiles);
-          const pinned = await client.scarces.collections.uploadVariationSet({
-            imagesZip,
+      const uploaderAccountId = accountId?.trim();
+      if (!uploaderAccountId) {
+        await connect();
+        return;
+      }
+
+      // Phase 1 — pin heavy media without touching the wallet. The browser
+      // drops the click gesture after a long await, so wallet approve must be
+      // a separate click (phase 2).
+      if (isMusic && !pinnedMusic) {
+        setPending(true);
+        setPendingLabel(
+          trackFiles.length > 1 ? 'Uploading tracks…' : 'Uploading track…'
+        );
+        try {
+          const uploadClient = createAppOnSocialClient(uploaderAccountId);
+          const uploaded = await uploadClient.storage.uploadMany(trackFiles);
+          const playable = uploaded.map((ref, index) => {
+            const file = trackFiles[index]!;
+            const trackTitle = trackTitleFromFile(file);
+            return {
+              cid: ref.cid,
+              mime: file.type || 'audio/mpeg',
+              ...(trackTitle ? { title: trackTitle } : {}),
+            };
           });
-          largeSet = { cid: pinned.variations.cid, ext: pinned.variations.ext };
+          setPendingLabel('Uploading cover…');
+          const cover = await uploadClient.storage.upload(imageFile!);
+          const coverHash = await sha256BlobBase64(imageFile!);
+          setPinnedMusic({
+            playable,
+            coverCid: cover.cid,
+            coverHash,
+          });
+        } catch (cause) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : txToastError.createCollectionFailed
+          );
+        } finally {
+          setPending(false);
+          setPendingLabel('Starting…');
         }
+        return;
+      }
 
-        const response = await client.scarces.collections.create({
-          collectionId,
-          totalSupply: supply,
-          title: title.trim(),
-          ...(isVariations
-            ? isPinnedSet
-              ? {
-                  variationsCid: variationsCid.trim(),
-                  ...(variationsExt !== 'png' ? { variationsExt } : {}),
-                }
-              : largeSet
+      if (isLargeUpload && !pinnedLargeSet) {
+        setPending(true);
+        setPendingLabel('Uploading set…');
+        try {
+          const uploadClient = createAppOnSocialClient(uploaderAccountId);
+          const { imagesZip } = await buildVariationSetZip(variationFiles);
+          const pinned =
+            await uploadClient.scarces.collections.uploadVariationSet({
+              imagesZip,
+            });
+          setPinnedLargeSet({
+            cid: pinned.variations.cid,
+            ext: pinned.variations.ext,
+          });
+        } catch (cause) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : txToastError.createCollectionFailed
+          );
+        } finally {
+          setPending(false);
+          setPendingLabel('Starting…');
+        }
+        return;
+      }
+
+      // Phase 2 — user just clicked again; open wallet + sign immediately.
+      setPending(true);
+      setPendingLabel('Confirm in wallet…');
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const client = createAppScarcesWalletClient(signerId, wallet);
+
+        const response = await client.scarces.collections.create(
+          {
+            collectionId,
+            totalSupply: supply,
+            title: title.trim(),
+            ...(isVariations
+              ? isPinnedSet
                 ? {
-                    variationsCid: largeSet.cid,
-                    ...(largeSet.ext !== 'png'
-                      ? { variationsExt: largeSet.ext }
-                      : {}),
+                    variationsCid: variationsCid.trim(),
+                    ...(variationsExt !== 'png' ? { variationsExt } : {}),
                   }
-                : { images: variationFiles }
-            : { image: imageFile! }),
-          ...(isPinnedSet && traitsCid.trim()
-            ? { referenceCid: traitsCid.trim() }
-            : {}),
-          ...(isVariations && randomAssign ? { randomAssignment: true } : {}),
-          transferable,
-          renewable,
-          extra: {
-            kind: template.kind ?? deriveDropKind(transferable, maxRedeemsInput),
+                : pinnedLargeSet
+                  ? {
+                      variationsCid: pinnedLargeSet.cid,
+                      ...(pinnedLargeSet.ext !== 'png'
+                        ? { variationsExt: pinnedLargeSet.ext }
+                        : {}),
+                    }
+                  : { images: variationFiles }
+              : pinnedMusic
+                ? {
+                    mediaCid: pinnedMusic.coverCid,
+                    mediaHash: pinnedMusic.coverHash,
+                  }
+                : { image: imageFile! }),
+            ...(isPinnedSet && traitsCid.trim()
+              ? { referenceCid: traitsCid.trim() }
+              : {}),
+            ...(isVariations && randomAssign ? { randomAssignment: true } : {}),
+            transferable,
+            renewable,
+            extra: {
+              kind:
+                template.kind ?? deriveDropKind(transferable, maxRedeemsInput),
+              ...(pinnedMusic ? { playable: pinnedMusic.playable } : {}),
+            },
+            ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
+            ...(price ? { priceNear: price } : {}),
+            ...(description.trim() ? { description: description.trim() } : {}),
+            ...(startNs ? { startTime: startNs } : {}),
+            ...(endNs ? { endTime: endNs } : {}),
+            ...(expiresAtMs != null ? { expiresAtMs } : {}),
+            ...(Number.isSafeInteger(perWallet) && perWallet > 0
+              ? { maxPerWallet: perWallet }
+              : {}),
+            ...(Number.isSafeInteger(maxRedeems) && maxRedeems >= 1
+              ? { maxRedeems }
+              : {}),
+            ...(allowlistOnly ? { mintMode: 'allowlist' } : {}),
+            ...(resolvedRoyaltyBps > 0
+              ? { royalty: { [signerId]: resolvedRoyaltyBps } }
+              : {}),
+            ...(appId ? { appId } : {}),
           },
-          ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
-          ...(price ? { priceNear: price } : {}),
-          ...(description.trim() ? { description: description.trim() } : {}),
-          ...(startNs ? { startTime: startNs } : {}),
-          ...(endNs ? { endTime: endNs } : {}),
-          ...(expiresAtMs != null ? { expiresAtMs } : {}),
-          ...(Number.isSafeInteger(perWallet) && perWallet > 0
-            ? { maxPerWallet: perWallet }
-            : {}),
-          ...(Number.isSafeInteger(maxRedeems) && maxRedeems >= 1
-            ? { maxRedeems }
-            : {}),
-          ...(allowlistOnly ? { mintMode: 'allowlist' } : {}),
-          ...(appId ? { appId } : {}),
-        });
+          { depositYocto: nearToYocto(CREATE_STORAGE_BUFFER_NEAR) }
+        );
         const confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
           submittedMessage: txToastConfirming.creatingCollection,
@@ -553,6 +817,8 @@ export function CreateDropPanel() {
           failureMessage: txToastError.createCollectionFailed,
         });
         if (!confirmed) return;
+        setPinnedMusic(null);
+        setPinnedLargeSet(null);
         router.push(collectionPath(collectionId));
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
@@ -563,6 +829,7 @@ export function CreateDropPanel() {
         );
       } finally {
         setPending(false);
+        setPendingLabel('Starting…');
       }
     },
     [
@@ -589,7 +856,7 @@ export function CreateDropPanel() {
       endTime,
       accessEnds,
       maxPerWallet,
-      derivedSlug,
+      collectionId,
       supply,
       title,
       price,
@@ -599,26 +866,62 @@ export function CreateDropPanel() {
       maxRedeemsInput,
       maxRedeems,
       allowlistOnly,
+      resolvedRoyaltyBps,
       appId,
       template,
+      isMusic,
+      musicFormat,
+      trackFiles,
+      accountId,
+      pinnedMusic,
+      pinnedLargeSet,
       getSigningWallet,
       trackTransaction,
       router,
     ]
   );
 
+  const needsWalletConfirm =
+    (isMusic && pinnedMusic != null) ||
+    (isLargeUpload && pinnedLargeSet != null);
+
   return (
     <OsAppScreen
       title={studioOpen ? 'Design your set' : appId || 'Start a drop'}
-      subtitle={
-        studioOpen
-          ? 'Stack transparent layers, weight rarities, and generate the whole set.'
-          : undefined
-      }
       backFallbackHref={appId ? appPath(appId) : APP_MARKET_PATH}
       glassChrome
       actions={
-        studioOpen ? undefined : (
+        studioOpen ? (
+          <>
+            <button
+              type="button"
+              className={osIconActionClassName}
+              aria-label="How the layer studio works"
+              aria-expanded={studioHelpOpen}
+              aria-haspopup="dialog"
+              onClick={() => setStudioHelpOpen(true)}
+            >
+              <QuestionMarkCircleFillIcon aria-hidden />
+            </button>
+            <OsSheetActions
+              layout="row-compact"
+              tone="frosted-primary"
+              borderless
+              className="drop-create-header-cta"
+            >
+              <OsSheetAction
+                variant="primary"
+                ready={Boolean(design?.canGenerate)}
+                pending={Boolean(design?.working)}
+                pendingLabel="Generating…"
+                disabled={!design?.canGenerate}
+                onClick={() => builderRef.current?.generate()}
+              >
+                Generate
+              </OsSheetAction>
+            </OsSheetActions>
+          </>
+        ) : (
           <>
             <button
               type="button"
@@ -640,12 +943,18 @@ export function CreateDropPanel() {
                 type="submit"
                 form={fieldId('form')}
                 variant="primary"
-                ready={canSubmit}
+                ready={canSubmit || needsWalletConfirm}
                 pending={pending}
-                pendingLabel="Starting…"
-                disabled={pending || (isConnected && !canSubmit)}
+                pendingLabel={pendingLabel}
+                disabled={
+                  pending || (isConnected && !canSubmit && !needsWalletConfirm)
+                }
               >
-                {!isConnected && !isLoading ? 'Connect' : 'Start drop'}
+                {!isConnected && !isLoading
+                  ? 'Connect'
+                  : needsWalletConfirm
+                    ? 'Confirm in wallet'
+                    : 'Start drop'}
               </OsSheetAction>
             </OsSheetActions>
           </>
@@ -670,7 +979,9 @@ export function CreateDropPanel() {
                     type="button"
                     role="tab"
                     aria-selected={templateId === entry.id}
-                    className={templateId === entry.id ? 'is-active' : undefined}
+                    className={
+                      templateId === entry.id ? 'is-active' : undefined
+                    }
                     disabled={pending}
                     onClick={() => applyTemplate(entry)}
                   >
@@ -703,6 +1014,7 @@ export function CreateDropPanel() {
           style={studioOpen ? undefined : { display: 'none' }}
         >
           <GenerativeDropBuilder
+            ref={builderRef}
             disabled={pending}
             upload={uploadVariationArchives}
             remoteStart={startServerGeneration}
@@ -718,44 +1030,85 @@ export function CreateDropPanel() {
         style={studioOpen ? { display: 'none' } : undefined}
         onSubmit={handleSubmit}
       >
-        <div className="guild-field">
-          <span>Artwork</span>
-          <div
-            className="app-access-options"
-            role="radiogroup"
-            aria-label="Artwork mode"
-          >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!isVariations}
-              className={`app-access-option${
-                !isVariations ? ' is-selected' : ''
-              }`}
-              disabled={pending}
-              onClick={() => setArtMode('single')}
+        {isMusic ? (
+          <div className="guild-field">
+            <span>Release</span>
+            <div
+              className="app-access-options"
+              role="radiogroup"
+              aria-label="Release format"
             >
-              One artwork
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={isVariations}
-              className={`app-access-option${
-                isVariations ? ' is-selected' : ''
-              }`}
-              disabled={pending}
-              onClick={() => setArtMode('variations')}
-            >
-              Set of variations
-            </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={musicFormat === 'single'}
+                className={`app-access-option${
+                  musicFormat === 'single' ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setMusicReleaseFormat('single')}
+              >
+                Single
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={musicFormat === 'album'}
+                className={`app-access-option${
+                  musicFormat === 'album' ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setMusicReleaseFormat('album')}
+              >
+                Album
+              </button>
+            </div>
+            <small>
+              {musicFormat === 'single'
+                ? 'One cover, one track — every edition shares the same release.'
+                : 'One cover for the album · add every track below. Editions share the full release.'}
+            </small>
           </div>
-          <small>
-            {isVariations
-              ? 'One image per piece — every piece is unique. The set is sealed when the drop starts.'
-              : 'Every edition shares the same artwork.'}
-          </small>
-        </div>
+        ) : (
+          <div className="guild-field">
+            <span>Artwork</span>
+            <div
+              className="app-access-options"
+              role="radiogroup"
+              aria-label="Artwork mode"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!isVariations}
+                className={`app-access-option${
+                  !isVariations ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setArtMode('single')}
+              >
+                One artwork
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={isVariations}
+                className={`app-access-option${
+                  isVariations ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setArtMode('variations')}
+              >
+                Set of variations
+              </button>
+            </div>
+            <small>
+              {isVariations
+                ? 'One image per piece — every piece is unique. The set is sealed when the drop starts.'
+                : 'Every edition shares the same artwork.'}
+            </small>
+          </div>
+        )}
 
         {isVariations ? (
           <div className="guild-field">
@@ -792,8 +1145,8 @@ export function CreateDropPanel() {
             </div>
             <small>
               {isGeneratedSet || isPinnedSet
-                ? 'Stack transparent PNG layers, weight rarities, and we mix and pin the whole set — up to 10,000 pieces.'
-                : `Upload up to ${MAX_SET_PIECES.toLocaleString()} finished images — big sets are pinned for you when the drop starts.`}
+                ? 'Stack transparent PNG layers, weight rarities — OnSocial mixes and pins the set, up to 10,000 pieces.'
+                : `Upload up to ${MAX_SET_PIECES.toLocaleString()} finished images — large sets pin when you start the drop.`}
             </small>
           </div>
         ) : null}
@@ -825,18 +1178,18 @@ export function CreateDropPanel() {
         ) : null}
 
         {isVariations && variationSource === 'upload' ? (
-          variationPreviews.length === 0 ? (
+          variationFiles.length === 0 ? (
             <button
               type="button"
-              className="drop-cover-picker"
-              onClick={() => variationsInputRef.current?.click()}
+              className="drop-cover-picker drop-studio-launch"
+              onClick={() => openVariationPicker('replace')}
               disabled={pending}
             >
               <span className="drop-cover-placeholder">
                 <strong>Add your set</strong>
                 <small>
                   {MIN_VARIATIONS}–{MAX_SET_PIECES.toLocaleString()} images ·
-                  one format · up to 5 MB each
+                  same format · ≤5 MB each
                 </small>
               </span>
             </button>
@@ -847,9 +1200,13 @@ export function CreateDropPanel() {
               </span>
               <div className="drop-cover-seat-grid" aria-label="Set preview">
                 {variationPreviews.map((src, index) => (
-                  <span key={src} className="drop-cover-seat is-static">
-                    <img src={src} alt={`Piece ${index + 1}`} />
-                  </span>
+                  <DropSeatTile
+                    key={src}
+                    src={src}
+                    label={`Piece ${index + 1}`}
+                    disabled={pending}
+                    onRemove={() => removeVariationAt(index)}
+                  />
                 ))}
               </div>
               <div
@@ -860,49 +1217,44 @@ export function CreateDropPanel() {
                 <button
                   type="button"
                   className="os-surface-chip"
+                  disabled={pending || variationFiles.length >= MAX_SET_PIECES}
+                  onClick={() => openVariationPicker('append')}
+                >
+                  Add more
+                </button>
+                <button
+                  type="button"
+                  className="os-surface-chip"
                   disabled={pending}
-                  onClick={() => variationsInputRef.current?.click()}
+                  onClick={() => openVariationPicker('replace')}
                 >
                   Replace set
                 </button>
               </div>
               <small>
                 Previewing the first {variationPreviews.length} pieces. The
-                whole set is pinned to IPFS when you start the drop — pieces
-                are numbered in the order you selected them.
+                whole set pins when you start the drop — order is selection
+                order.
               </small>
             </div>
           ) : (
             <div className="guild-field">
               <span>
-                Your set · {variationPreviews.length} pieces — tap the cover
+                Your set · {variationFiles.length} pieces — tap to zoom
               </span>
-              <div
-                className="drop-cover-seat-grid"
-                role="radiogroup"
-                aria-label="Cover piece"
-              >
+              <div className="drop-cover-seat-grid" aria-label="Cover piece">
                 {variationPreviews.map((src, index) => {
                   const seat = index + 1;
-                  const selected = coverSeat === seat;
                   return (
-                    <button
+                    <DropSeatTile
                       key={src}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      aria-label={`Use piece ${seat} as the cover`}
-                      className={`drop-cover-seat${
-                        selected ? ' is-selected' : ''
-                      }`}
+                      src={src}
+                      label={`Piece ${seat}`}
                       disabled={pending}
-                      onClick={() => setCoverSeatInput(String(seat))}
-                    >
-                      <img src={src} alt={`Piece ${seat}`} />
-                      {selected ? (
-                        <span className="drop-cover-seat-badge">Cover</span>
-                      ) : null}
-                    </button>
+                      selected={coverSeat === seat}
+                      onRemove={() => removeVariationAt(index)}
+                      onSetCover={() => setCoverSeatInput(String(seat))}
+                    />
                   );
                 })}
               </div>
@@ -914,15 +1266,23 @@ export function CreateDropPanel() {
                 <button
                   type="button"
                   className="os-surface-chip"
+                  disabled={pending || variationFiles.length >= MAX_SET_PIECES}
+                  onClick={() => openVariationPicker('append')}
+                >
+                  Add more
+                </button>
+                <button
+                  type="button"
+                  className="os-surface-chip"
                   disabled={pending}
-                  onClick={() => variationsInputRef.current?.click()}
+                  onClick={() => openVariationPicker('replace')}
                 >
                   Replace set
                 </button>
               </div>
               <small>
-                Piece #{coverSeatValid ? coverSeat : 1} fronts the drop in the
-                market. Every piece keeps its own artwork.
+                Piece #{coverSeatValid ? coverSeat : 1} fronts the drop — set
+                cover from the zoom view. Every piece keeps its own artwork.
               </small>
             </div>
           )
@@ -1015,21 +1375,40 @@ export function CreateDropPanel() {
         ) : null}
 
         {!isVariations ? (
-          <button
-            type="button"
-            className={`drop-cover-picker${imagePreview ? ' has-media' : ''}`}
-            onClick={() => imageInputRef.current?.click()}
-            disabled={pending}
-          >
-            {imagePreview ? (
-              <img src={imagePreview} alt="Drop cover preview" />
-            ) : (
+          imagePreview ? (
+            <div className="guild-field">
+              <DropArtworkPreview
+                src={imagePreview}
+                label={isMusic ? 'Cover preview' : 'Artwork preview'}
+              />
+              <div
+                className="app-storage-presets"
+                role="group"
+                aria-label={isMusic ? 'Cover actions' : 'Artwork actions'}
+              >
+                <button
+                  type="button"
+                  className="os-surface-chip"
+                  disabled={pending}
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  Replace
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="drop-cover-picker drop-studio-launch"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={pending}
+            >
               <span className="drop-cover-placeholder">
-                <strong>Add cover art</strong>
-                <small>JPG, PNG, or WebP · up to 5 MB</small>
+                <strong>{isMusic ? 'Add cover' : 'Add artwork'}</strong>
+                <small>JPG, PNG, or WebP · ≤5 MB</small>
               </span>
-            )}
-          </button>
+            </button>
+          )
         ) : null}
         {!isVariations ? (
           <input
@@ -1042,6 +1421,78 @@ export function CreateDropPanel() {
             disabled={pending}
             onChange={onImageChange}
           />
+        ) : null}
+        {isMusic ? (
+          <div className="guild-field">
+            <span>
+              {musicFormat === 'single'
+                ? 'Track'
+                : `Tracks${trackFiles.length ? ` · ${trackFiles.length}` : ''}`}
+            </span>
+            {trackFiles.length > 0 ? (
+              <DropTrackPreviewList
+                files={trackFiles}
+                disabled={pending}
+                sortable={musicFormat === 'album'}
+                onRemove={removeTrackAt}
+                onReorder={reorderTracks}
+              />
+            ) : null}
+            <div
+              className="app-storage-presets"
+              role="group"
+              aria-label="Track actions"
+            >
+              <button
+                type="button"
+                className="os-surface-chip"
+                disabled={
+                  pending ||
+                  (musicFormat === 'single' && trackFiles.length >= 1) ||
+                  (musicFormat === 'album' &&
+                    trackFiles.length >= DROP_AUDIO_MAX_TRACKS)
+                }
+                onClick={() => tracksInputRef.current?.click()}
+              >
+                {trackFiles.length === 0
+                  ? musicFormat === 'single'
+                    ? 'Add track'
+                    : 'Add tracks'
+                  : musicFormat === 'single'
+                    ? 'Replace track'
+                    : 'Add more'}
+              </button>
+              {trackFiles.length > 0 ? (
+                <button
+                  type="button"
+                  className="os-surface-chip"
+                  disabled={pending}
+                  onClick={() => {
+                    setTrackFiles([]);
+                    setError(null);
+                  }}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <small>
+              {musicFormat === 'single'
+                ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
+                : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
+            </small>
+            <input
+              ref={tracksInputRef}
+              type="file"
+              accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.webm"
+              multiple={musicFormat === 'album'}
+              className="scarce-cover-file-input"
+              tabIndex={-1}
+              aria-hidden
+              disabled={pending}
+              onChange={onTracksChange}
+            />
+          </div>
         ) : null}
         {isVariations && variationSource === 'upload' ? (
           <input
@@ -1078,7 +1529,9 @@ export function CreateDropPanel() {
             maxLength={32}
           />
           <small>
-            Public link: {collectionPath(derivedSlug || 'your-drop')}
+            {collectionId
+              ? `Public link: ${collectionPath(collectionId)}`
+              : 'From your title — a short unique tag keeps the link yours.'}
           </small>
         </label>
 
@@ -1237,6 +1690,16 @@ export function CreateDropPanel() {
             ))}
           </div>
         </div>
+
+        <ScarceRoyaltyField
+          royaltyBps={royaltyBps}
+          isCustomRoyalty={isCustomRoyalty}
+          customRoyaltyInput={customRoyaltyInput}
+          pending={pending}
+          onRoyaltyBpsChange={setRoyaltyBps}
+          onCustomRoyaltyChange={setCustomRoyaltyInput}
+          onCustomToggle={setIsCustomRoyalty}
+        />
 
         <div className="guild-field">
           <button
@@ -1532,6 +1995,11 @@ export function CreateDropPanel() {
         title={`${template.label} drops`}
         summary={template.tagline}
         detail={template.hint}
+      />
+
+      <GenerativeStudioHelpDrawer
+        open={studioHelpOpen}
+        onClose={() => setStudioHelpOpen(false)}
       />
 
       <DropSaleWindowSheet

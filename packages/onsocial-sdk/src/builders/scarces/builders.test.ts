@@ -203,6 +203,42 @@ describe('scarces builders — collections', () => {
     });
   });
 
+  it('preserves album playable order through create metadata_template', () => {
+    const playable = [
+      { cid: 'bafyA', mime: 'audio/mpeg', title: 'Intro' },
+      { cid: 'bafyB', mime: 'audio/mpeg', title: 'Bridge' },
+      { cid: 'bafyC', mime: 'audio/mpeg', title: 'Outro' },
+    ];
+    const opts = withCollectionProvenance(
+      {
+        collectionId: 'album-1',
+        totalSupply: 10,
+        title: 'Album',
+        mediaCid: 'bafyCover',
+        mediaHash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+        extra: { kind: 'music', playable },
+      },
+      'alice.near'
+    );
+    const action = buildCreateCollectionAction(opts);
+    const template = JSON.parse(action.metadata_template as string) as {
+      extra: string;
+    };
+    const extra = JSON.parse(template.extra) as {
+      playable: Array<{ cid: string; title: string }>;
+    };
+    expect(extra.playable.map((t) => t.cid)).toEqual([
+      'bafyA',
+      'bafyB',
+      'bafyC',
+    ]);
+    expect(extra.playable.map((t) => t.title)).toEqual([
+      'Intro',
+      'Bridge',
+      'Outro',
+    ]);
+  });
+
   it('mint_from_collection includes optional receiver', () => {
     expect(buildMintFromCollectionAction('genesis', 2, 'carol.near')).toEqual({
       type: 'mint_from_collection',

@@ -7,6 +7,7 @@ import {
   ExternalLinkIcon,
   MultiplyIcon,
 } from '@onsocial/ui';
+import { useToastDismissTimer } from '@/hooks/use-toast-dismiss-timer';
 
 export type TransactionFeedback = {
   type: 'success' | 'error';
@@ -48,24 +49,22 @@ export function TransactionFeedbackToast({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useEffect(() => {
-    if (!result) return;
-    const timeout = DISMISS_MS[result.type];
-    const timer = window.setTimeout(() => onCloseRef.current(), timeout);
-    return () => window.clearTimeout(timer);
-  }, [result]);
+  const dismissMs = result ? DISMISS_MS[result.type] : 0;
+  const { paused, barRef, pauseProps } = useToastDismissTimer({
+    active: Boolean(result),
+    durationMs: dismissMs,
+    onDone: () => onCloseRef.current(),
+  });
 
   if (typeof document === 'undefined' || !result) return null;
-
-  const dismissKey = `${result.type}:${result.eyebrow ?? ''}:${result.msg}:${result.explorerHref ?? ''}`;
-  const dismissDuration = DISMISS_MS[result.type];
 
   return createPortal(
     <div className="app-tx-toast-anchor" role="presentation">
       <div
-        className={`app-tx-toast is-${result.type}`}
+        className={`app-tx-toast is-${result.type}${paused ? ' is-paused' : ''}`}
         role="status"
         aria-live="polite"
+        {...pauseProps}
       >
         <div className="app-tx-toast-row">
           <div className="app-tx-toast-icon-wrap">
@@ -102,16 +101,12 @@ export function TransactionFeedbackToast({
             onClick={onClose}
             aria-label="Dismiss"
           >
-            <MultiplyIcon
-              className="app-tx-toast-close-icon"
-              aria-hidden
-            />
+            <MultiplyIcon className="app-tx-toast-close-icon" aria-hidden />
           </button>
         </div>
         <div
-          key={dismissKey}
+          ref={barRef}
           className={`app-tx-toast-progress app-tx-toast-progress--${result.type}`}
-          style={{ animationDuration: `${dismissDuration}ms` }}
           aria-hidden
         />
       </div>

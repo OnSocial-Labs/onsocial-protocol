@@ -39,6 +39,11 @@ export interface OsAppScreenProps {
    */
   glassChrome?: boolean;
   toolbar?: ReactNode;
+  /**
+   * Drawer-style dock outside the scroll body (GlassSheet footer recipe).
+   * Overlay-pinned above the summon dock so body content frosts underneath.
+   */
+  footer?: ReactNode;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
   style?: CSSProperties;
@@ -58,6 +63,7 @@ export function OsAppScreen({
   immersiveHeaderBanner = null,
   glassChrome = false,
   toolbar,
+  footer,
   scrollRootRef,
   style,
   children,
@@ -66,6 +72,7 @@ export function OsAppScreen({
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
   const [glassElevated, setGlassElevated] = useState(false);
+  const hasFooter = footer != null;
 
   const setBodyRef = (node: HTMLElement | null) => {
     bodyRef.current = node;
@@ -120,6 +127,7 @@ export function OsAppScreen({
       data-immersive-header={immersiveHeader ? 'true' : undefined}
       data-immersive-banner={immersiveHeaderBanner ? 'true' : undefined}
       data-glass-chrome={glassMode ? 'true' : undefined}
+      data-screen-footer={hasFooter ? 'true' : undefined}
       style={screenStyle}
     >
       <div className="os-app-screen-column">
@@ -172,6 +180,9 @@ export function OsAppScreen({
         <main ref={setBodyRef} className="os-app-screen-body">
           {children}
         </main>
+        {hasFooter ? (
+          <div className="os-app-screen-footer">{footer}</div>
+        ) : null}
       </div>
       <AppShellLauncher />
     </div>

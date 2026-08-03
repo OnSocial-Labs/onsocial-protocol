@@ -8,6 +8,7 @@
 export type DropTemplateId =
   | 'art'
   | 'book'
+  | 'music'
   | 'ticket'
   | 'coupon'
   | 'membership'
@@ -61,6 +62,18 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     unit: 'copies',
     unitSingular: 'copy',
     presets: { transferable: false, renewable: false, maxRedeems: '' },
+    openAdvanced: false,
+  },
+  {
+    id: 'music',
+    label: 'Music',
+    tagline:
+      'A single or album — one cover, playable tracks, editions collectors keep.',
+    hint: 'Pick Single (one track) or Album (two or more). Cover art fronts the drop in wallets; tracks play in OnSocial. Every edition shares the same release.',
+    kind: 'music',
+    unit: 'editions',
+    unitSingular: 'edition',
+    presets: { transferable: true, renewable: false, maxRedeems: '' },
     openAdvanced: false,
   },
   {

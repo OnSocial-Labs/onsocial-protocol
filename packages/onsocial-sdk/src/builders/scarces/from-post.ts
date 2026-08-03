@@ -16,6 +16,8 @@ export type PostSource = PostRow | PostRef;
 export interface PlayableMediaRef {
   cid: string;
   mime: string;
+  /** Optional display name (e.g. album track title from filename). */
+  title?: string;
 }
 
 /** Parsed projection of a post body — text + first usable media CID. */

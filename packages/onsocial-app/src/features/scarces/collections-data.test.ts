@@ -66,4 +66,58 @@ describe('toCollectionView cover seat', () => {
     expect(view?.seriesTitle).toBe('Eggs');
     expect(view?.mediaUrl).toContain('/2.png');
   });
+
+  it('reads music playables from the token template extra', () => {
+    const view = toCollectionView({
+      collection_id: 'album-1',
+      creator_id: 'alice.near',
+      total_supply: 10,
+      minted_count: 0,
+      metadata_template: JSON.stringify({
+        title: 'Album',
+        media: 'https://cdn.example/ipfs/bafycover',
+        extra: JSON.stringify({
+          kind: 'music',
+          playable: [
+            { cid: 'bafy1', mime: 'audio/mpeg', title: 'One' },
+            { cid: 'bafy2', mime: 'audio/mpeg', title: 'Two' },
+            { cid: 'bafy3', mime: 'audio/mpeg', title: 'Three' },
+          ],
+        }),
+      }),
+    });
+    expect(view?.kind).toBe('music');
+    expect(view?.playables.map((t) => t.title)).toEqual([
+      'One',
+      'Two',
+      'Three',
+    ]);
+    expect(view?.playables.map((t) => t.url)).toEqual([
+      expect.stringContaining('bafy1'),
+      expect.stringContaining('bafy2'),
+      expect.stringContaining('bafy3'),
+    ]);
+  });
+
+  it('keeps album playable order after skipping a bad entry', () => {
+    const view = toCollectionView({
+      collection_id: 'album-2',
+      creator_id: 'alice.near',
+      total_supply: 10,
+      minted_count: 0,
+      metadata_template: JSON.stringify({
+        title: 'Album',
+        media: 'https://cdn.example/ipfs/bafycover',
+        extra: JSON.stringify({
+          kind: 'music',
+          playable: [
+            { cid: 'bafy1', mime: 'audio/mpeg', title: 'One' },
+            { cid: '', mime: 'audio/mpeg', title: 'Broken' },
+            { cid: 'bafy3', mime: 'audio/mpeg', title: 'Three' },
+          ],
+        }),
+      }),
+    });
+    expect(view?.playables.map((t) => t.title)).toEqual(['One', 'Three']);
+  });
 });

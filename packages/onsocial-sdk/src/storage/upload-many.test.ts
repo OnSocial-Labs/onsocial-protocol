@@ -7,14 +7,17 @@ import type {
 } from './provider.js';
 
 function makeProvider(opts: { uploadDelayMs?: number } = {}) {
-  let counter = 0;
   const upload = vi.fn(async (file: Blob | File): Promise<UploadedMedia> => {
-    const id = ++counter;
     if (opts.uploadDelayMs) {
-      await new Promise((r) => setTimeout(r, opts.uploadDelayMs));
+      // Later files finish first so order bugs would scramble results.
+      const name = file instanceof File ? file.name : 'blob';
+      const delay =
+        opts.uploadDelayMs + (name.startsWith('a') ? 30 : name.startsWith('b') ? 5 : 15);
+      await new Promise((r) => setTimeout(r, delay));
     }
+    const name = file instanceof File ? file.name : 'blob';
     return {
-      cid: `bafy${id}`,
+      cid: `bafy-${name}`,
       size: file.size ?? 100,
       mime: file.type || 'application/octet-stream',
     };
@@ -49,13 +52,12 @@ describe('StorageModule.uploadMany', () => {
     const mod = new StorageModule({} as never, provider);
     const inputs = [file('a.png'), file('b.png'), file('c.png'), file('d.png')];
     const out = await mod.uploadMany(inputs, { concurrency: 2 });
-    expect(out).toHaveLength(4);
-    expect(
-      out.every((r) => typeof r.cid === 'string' && r.cid.length > 0)
-    ).toBe(true);
-    // All cids unique — proves we didn't dedupe or short-circuit.
-    const cids = new Set(out.map((r) => r.cid));
-    expect(cids.size).toBe(4);
+    expect(out.map((r) => r.cid)).toEqual([
+      'bafy-a.png',
+      'bafy-b.png',
+      'bafy-c.png',
+      'bafy-d.png',
+    ]);
   });
 
   it('reports progress as uploads complete', async () => {

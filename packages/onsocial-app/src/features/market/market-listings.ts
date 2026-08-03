@@ -49,6 +49,8 @@ interface LazyListingRecord {
 export interface ScarcePlayableMedia {
   url: string;
   mime: string;
+  /** Track / clip label when present in `extra.playable`. */
+  title?: string;
 }
 
 export interface MarketListingItem {
@@ -76,6 +78,8 @@ export interface MarketListingItem {
   cardBg?: string;
   /** Clip behind a video scarce — the cover stays the still frame. */
   playable?: ScarcePlayableMedia;
+  /** Full playable list (album tracks); `playable` is the first entry. */
+  playables?: ScarcePlayableMedia[];
   /** Total edition size (NEP-177 copies). */
   copies?: number;
   /** Unsold editions still on this listing. */
@@ -253,20 +257,29 @@ export function mediumKindFromExtraJson(
   return mediumKindFromExtra(parseExtra(extraJson ?? null));
 }
 
-function playableFromExtra(
+function playablesFromExtra(
   extra: Record<string, unknown> | null
-): ScarcePlayableMedia | undefined {
+): ScarcePlayableMedia[] {
   const entries = extra?.playable;
-  if (!Array.isArray(entries)) return undefined;
+  if (!Array.isArray(entries)) return [];
+  const out: ScarcePlayableMedia[] = [];
   for (const entry of entries) {
     const record = asRecord(entry);
     const cid = stringField(record, 'cid');
     const mime = stringField(record, 'mime');
     if (!cid || !mime) continue;
     const url = resolveScarceMediaUrl(cid);
-    if (url) return { url, mime };
+    if (!url) continue;
+    const title = stringField(record, 'title') ?? undefined;
+    out.push({ url, mime, ...(title ? { title } : {}) });
   }
-  return undefined;
+  return out;
+}
+
+function playableFromExtra(
+  extra: Record<string, unknown> | null
+): ScarcePlayableMedia | undefined {
+  return playablesFromExtra(extra)[0];
 }
 
 function sourcePostPathFromExtra(
@@ -418,7 +431,8 @@ function listingFromRecord(
   const extra = parseExtra(record.metadata?.extra ?? null);
   const theme = asRecord(extra?.theme ?? null);
   const cardBg = stringField(theme, 'bg');
-  const playable = playableFromExtra(extra);
+  const playables = playablesFromExtra(extra);
+  const playable = playables[0];
   const createdAt = Number(record.created_at) || 0;
   // Contract timestamps are ns; feed/indexer use ms-ish seconds — normalize to ms for sort.
   const blockTimestamp =
@@ -440,6 +454,7 @@ function listingFromRecord(
     sourcePostPath: sourcePostPathFromExtra(extra),
     ...(cardBg ? { cardBg } : {}),
     ...(playable ? { playable } : {}),
+    ...(playables.length > 0 ? { playables } : {}),
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
     ...(mediumKind ? { mediumKind } : {}),
@@ -665,6 +680,8 @@ function listingFromNativeSale(
   const mediaUrl = resolveScarceMediaUrl(token?.metadata?.media ?? null);
   const extra = parseExtra(token?.metadata?.extra ?? null);
   const mediumKind = mediumKindFromExtra(extra);
+  const playables = playablesFromExtra(extra);
+  const playable = playables[0];
   return {
     kind: isAuction ? 'auction' : 'native',
     tokenId,
@@ -676,6 +693,8 @@ function listingFromNativeSale(
     blockTimestamp: timestampMs(sale.created_at),
     mediaUrl,
     sourcePostPath: sourcePostPathFromExtra(extra),
+    ...(playable ? { playable } : {}),
+    ...(playables.length > 0 ? { playables } : {}),
     ...(mediumKind ? { mediumKind } : {}),
     ...(isAuction
       ? {
@@ -1005,6 +1024,7 @@ export interface ScarceTokenMeta {
   sourcePostPath?: string;
   cardBg?: string;
   playable?: ScarcePlayableMedia;
+  playables?: ScarcePlayableMedia[];
 }
 
 /** Load title / description / media from a minted token. */
@@ -1020,7 +1040,8 @@ export async function fetchScarceTokenMeta(
   const theme = asRecord(extra?.theme ?? null);
   const cardBg = stringField(theme, 'bg');
   const sourcePostPath = sourcePostPathFromExtra(extra);
-  const playable = playableFromExtra(extra);
+  const playables = playablesFromExtra(extra);
+  const playable = playables[0];
   return {
     ...(title ? { title } : {}),
     ...(description && description !== title ? { description } : {}),
@@ -1028,6 +1049,7 @@ export async function fetchScarceTokenMeta(
     ...(sourcePostPath ? { sourcePostPath } : {}),
     ...(cardBg ? { cardBg } : {}),
     ...(playable ? { playable } : {}),
+    ...(playables.length > 0 ? { playables } : {}),
   };
 }
 
@@ -1050,6 +1072,7 @@ export async function fetchScarceListingMeta(opts: {
         ...(live.sourcePostPath ? { sourcePostPath: live.sourcePostPath } : {}),
         ...(live.cardBg ? { cardBg: live.cardBg } : {}),
         ...(live.playable ? { playable: live.playable } : {}),
+        ...(live.playables?.length ? { playables: live.playables } : {}),
       };
     }
   }

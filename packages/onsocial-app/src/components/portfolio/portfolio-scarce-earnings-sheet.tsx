@@ -18,6 +18,8 @@ import {
   osIconActionClassName,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
+import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -29,10 +31,13 @@ import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
+  EARNINGS_KIND_LEGEND,
   fetchScarceCreatorEarnings,
   formatEarningKindSuffix,
   formatEarningsNear,
+  scarceEarningsKindTotals,
   type ScarceCreatorEarningRow,
+  type ScarceEarningKind,
 } from '@/lib/scarce-creator-earnings';
 
 interface PortfolioScarceEarningsSheetProps {
@@ -79,14 +84,15 @@ function EarningsList({
               <div className="standing-row-main">
                 <Link
                   href={portfolioPath(row.buyerId)}
-                  className="standing-row-avatar-slot"
+                  className="portfolio-scarce-earnings-avatar-link"
                   scroll={false}
                   aria-label={label}
                 >
                   <ProfileAvatar
                     src={profile?.avatarUrl ?? null}
                     fallbackInitial={name || row.buyerId}
-                    size="md"
+                    size="lg"
+                    className="standing-row-avatar-slot"
                   />
                 </Link>
                 <div className="standing-row-copy">
@@ -157,6 +163,7 @@ export function PortfolioScarceEarningsSheet({
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<ScarceEarningKind | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const loadingMoreRef = useRef(false);
@@ -178,6 +185,7 @@ export function PortfolioScarceEarningsSheet({
     setItems(null);
     setHasMore(false);
     setLoadError(null);
+    setKindFilter(null);
     void (async () => {
       try {
         const page = await fetchScarceCreatorEarnings(accountId, { limit: 40 });
@@ -241,6 +249,19 @@ export function PortfolioScarceEarningsSheet({
     onOpenChange(false);
   }, [onOpenChange]);
 
+  const kindTotals =
+    items && items.length > 0 ? scarceEarningsKindTotals(items) : [];
+  const filteredItems =
+    items == null
+      ? null
+      : kindFilter
+        ? items.filter((row) => row.kind === kindFilter)
+        : items;
+  const kindFilterLabel = kindFilter
+    ? (EARNINGS_KIND_LEGEND.find((entry) => entry.kind === kindFilter)?.label ??
+      kindFilter)
+    : null;
+
   return (
     <GlassSheet
       open={sheetOpen}
@@ -267,10 +288,18 @@ export function PortfolioScarceEarningsSheet({
                     {totalLabel}{' '}
                     <span className="portfolio-payout-sheet-unit">NEAR</span>
                   </h2>
-                  <p className="portfolio-payout-sheet-sub">
-                    Already in your wallet — no claim needed. Primary sales and
-                    resale royalties pay you directly when the buyer confirms.
-                  </p>
+                  {kindTotals.length > 0 ? (
+                    <PortfolioPayoutKindFilters
+                      parts={kindTotals.map((entry) => ({
+                        id: entry.kind,
+                        label: entry.label,
+                        amountLabel: entry.amountLabel,
+                      }))}
+                      active={kindFilter}
+                      onChange={setKindFilter}
+                      ariaLabel="Filter scarce sales by kind"
+                    />
+                  ) : null}
                 </div>
               </div>
               <div className="standing-sheet-actions standing-sheet-actions--payout">
@@ -300,14 +329,18 @@ export function PortfolioScarceEarningsSheet({
       <section className="portfolio-support-collect-info-block">
         {loadError ? (
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
-        ) : items == null ? (
-          <p className="portfolio-support-collect-info-empty">Loading…</p>
+        ) : items == null || filteredItems == null ? (
+          <ProfileSocialListSkeleton count={5} />
         ) : items.length === 0 ? (
           <p className="portfolio-support-collect-info-empty">
             No scarce sales yet.
           </p>
+        ) : filteredItems.length === 0 ? (
+          <p className="portfolio-support-collect-info-empty">
+            No {kindFilterLabel ?? 'earnings'} yet.
+          </p>
         ) : (
-          <EarningsList items={items} profiles={profiles} />
+          <EarningsList items={filteredItems} profiles={profiles} />
         )}
         {hasMore ? (
           <div
@@ -317,7 +350,7 @@ export function PortfolioScarceEarningsSheet({
           />
         ) : null}
         {loadingMore ? (
-          <p className="portfolio-support-collect-info-empty">Loading…</p>
+          <ProfileSocialListSkeleton count={3} variant="append" />
         ) : null}
       </section>
     </GlassSheet>

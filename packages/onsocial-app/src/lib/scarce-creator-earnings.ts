@@ -200,6 +200,61 @@ export async function enrichEarningRows(
   return next;
 }
 
+export const EARNINGS_KIND_LEGEND: ReadonlyArray<{
+  kind: ScarceEarningKind;
+  label: string;
+}> = [
+  { kind: 'sale', label: 'Sales' },
+  { kind: 'royalty', label: 'Royalties' },
+];
+
+export type ScarceEarningsKindTotal = {
+  kind: ScarceEarningKind;
+  label: string;
+  amountLabel: string;
+};
+
+/**
+ * Compact kind totals — same rhythm as Support
+ * (`Profile support 113.85 · Boost share 30.60`).
+ */
+export function scarceEarningsKindTotals(
+  rows: ReadonlyArray<{ kind: ScarceEarningKind; paymentYocto: string }>,
+  formatAmount: (yocto: string) => string = formatEarningsNearCompact
+): ScarceEarningsKindTotal[] {
+  const totals = new Map<ScarceEarningKind, bigint>();
+  for (const row of rows) {
+    let amount = 0n;
+    try {
+      amount = BigInt(row.paymentYocto || '0');
+    } catch {
+      continue;
+    }
+    if (amount <= 0n) continue;
+    totals.set(row.kind, (totals.get(row.kind) ?? 0n) + amount);
+  }
+
+  return EARNINGS_KIND_LEGEND.filter((entry) => totals.has(entry.kind)).map(
+    (entry) => {
+      const yocto = (totals.get(entry.kind) ?? 0n).toString();
+      return {
+        kind: entry.kind,
+        label: entry.label,
+        amountLabel: formatAmount(yocto),
+      };
+    }
+  );
+}
+
+export function scarceEarningsKindSubtotals(
+  rows: ReadonlyArray<{ kind: ScarceEarningKind; paymentYocto: string }>,
+  formatAmount: (yocto: string) => string = formatEarningsNearCompact
+): string {
+  return scarceEarningsKindTotals(rows, formatAmount)
+    .map((entry) => `${entry.label} ${entry.amountLabel}`)
+    .join(' · ');
+}
+
 /** Compact NEAR — same 2dp rhythm as SOCIAL face amounts (`9.00` / `0.99`). */
 export function formatEarningsNearCompact(yocto: string): string {
   const near = yoctoToNear(yocto);

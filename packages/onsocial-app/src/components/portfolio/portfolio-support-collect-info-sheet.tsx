@@ -16,6 +16,8 @@ import {
   ProfileAvatar,
   SheetCloseButton,
 } from '@onsocial/ui';
+import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -28,13 +30,14 @@ import { formatSocialCompact } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
+  SUPPORT_POT_LEGEND,
   sumSupportReceivedYocto,
   supportPotActionLabel,
-  supportReceivedKindSubtotals,
+  supportReceivedKindTotals,
   type ProfileSupportReceivedHistoryPage,
   type ProfileSupportReceivedSummary,
 } from '@/lib/profile-support-received';
-import type { SupportReceivedRow } from '@onsocial/sdk';
+import type { SupportPotAction, SupportReceivedRow } from '@onsocial/sdk';
 import {
   CommerceSheetFooter,
   type CommerceSheetFooterState,
@@ -92,7 +95,7 @@ function SupportCreditList({
                 <ProfileAvatar
                   src={profile?.avatarUrl ?? null}
                   fallbackInitial={name || row.spenderId}
-                  size="md"
+                  size="lg"
                   className="standing-row-avatar-slot"
                 />
                 <div className="standing-row-copy">
@@ -147,6 +150,7 @@ export function PortfolioSupportCollectInfoSheet({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [earlierOpen, setEarlierOpen] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<SupportPotAction | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const historyLoadingRef = useRef(false);
@@ -173,6 +177,7 @@ export function PortfolioSupportCollectInfoSheet({
     setHistoryHasMore(false);
     setEarlierOpen(false);
     setLoadError(null);
+    setKindFilter(null);
     void (async () => {
       try {
         const response = await fetch(
@@ -288,10 +293,23 @@ export function PortfolioSupportCollectInfoSheet({
   }, [onOpenChange]);
 
   const showEarlier = current != null && (history.length > 0 || historyHasMore);
-  const currentKindSubtotals =
+  const kindTotals =
     current && current.length > 0
-      ? supportReceivedKindSubtotals(current, formatSocialCompact)
-      : '';
+      ? supportReceivedKindTotals(current, formatSocialCompact)
+      : [];
+  const filteredCurrent =
+    current == null
+      ? null
+      : kindFilter
+        ? current.filter((row) => row.action === kindFilter)
+        : current;
+  const filteredHistory = kindFilter
+    ? history.filter((row) => row.action === kindFilter)
+    : history;
+  const kindFilterLabel = kindFilter
+    ? (SUPPORT_POT_LEGEND.find((entry) => entry.action === kindFilter)?.label ??
+      kindFilter)
+    : null;
   const earlierTotalYocto = sumSupportReceivedYocto(history);
   const earlierCountLabel = historyHasMore
     ? `${history.length}+`
@@ -341,6 +359,18 @@ export function PortfolioSupportCollectInfoSheet({
                     {claimableLabel}{' '}
                     <span className="portfolio-payout-sheet-unit">SOCIAL</span>
                   </h2>
+                  {kindTotals.length > 0 ? (
+                    <PortfolioPayoutKindFilters
+                      parts={kindTotals.map((entry) => ({
+                        id: entry.action,
+                        label: entry.label,
+                        amountLabel: entry.amountLabel,
+                      }))}
+                      active={kindFilter}
+                      onChange={setKindFilter}
+                      ariaLabel="Filter support by kind"
+                    />
+                  ) : null}
                 </div>
               </div>
               <div className="standing-sheet-actions">
@@ -367,21 +397,18 @@ export function PortfolioSupportCollectInfoSheet({
       <section className="portfolio-support-collect-info-block">
         {loadError ? (
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
-        ) : current == null ? (
-          <p className="portfolio-support-collect-info-empty">Loading…</p>
+        ) : current == null || filteredCurrent == null ? (
+          <ProfileSocialListSkeleton count={5} />
         ) : current.length === 0 ? (
           <p className="portfolio-support-collect-info-empty">
             No credits in this pot yet.
           </p>
+        ) : filteredCurrent.length === 0 ? (
+          <p className="portfolio-support-collect-info-empty">
+            No {kindFilterLabel ?? 'credits'} in this pot.
+          </p>
         ) : (
-          <>
-            {currentKindSubtotals ? (
-              <p className="portfolio-support-collect-info-subtotals">
-                {currentKindSubtotals}
-              </p>
-            ) : null}
-            <SupportCreditList items={current} profiles={profiles} />
-          </>
+          <SupportCreditList items={filteredCurrent} profiles={profiles} />
         )}
       </section>
 
@@ -412,8 +439,15 @@ export function PortfolioSupportCollectInfoSheet({
 
           {earlierOpen ? (
             <div id={earlierPanelId}>
-              {history.length > 0 ? (
-                <SupportCreditList items={history} profiles={profiles} />
+              {filteredHistory.length > 0 ? (
+                <SupportCreditList
+                  items={filteredHistory}
+                  profiles={profiles}
+                />
+              ) : history.length > 0 ? (
+                <p className="portfolio-support-collect-info-empty">
+                  No {kindFilterLabel ?? 'credits'} earlier.
+                </p>
               ) : null}
               {historyHasMore ? (
                 <div
@@ -423,7 +457,7 @@ export function PortfolioSupportCollectInfoSheet({
                 />
               ) : null}
               {historyLoading ? (
-                <p className="portfolio-support-collect-info-empty">Loading…</p>
+                <ProfileSocialListSkeleton count={3} variant="append" />
               ) : null}
             </div>
           ) : null}

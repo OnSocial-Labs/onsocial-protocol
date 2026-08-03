@@ -34,6 +34,9 @@ export {
 export {
   CopyFillIcon,
   TrashFillIcon,
+  PlayFillIcon,
+  PauseFillIcon,
+  PlayCircleFillIcon,
   UserPlusFillIcon,
   UserMinusFillIcon,
   UserFillIcon,
@@ -104,6 +107,7 @@ export {
   RepeatIcon,
   SearchIcon,
   SettingsIcon,
+  ShareIcon,
   ShopIcon,
   StarMovingIcon,
   SlidersHorizontalIcon,

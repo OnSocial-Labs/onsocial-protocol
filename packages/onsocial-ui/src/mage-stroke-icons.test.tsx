@@ -33,6 +33,7 @@ import {
   RepeatIcon,
   SearchIcon,
   SettingsIcon,
+  ShareIcon,
   ShopIcon,
   StarMovingIcon,
   SlidersHorizontalIcon,
@@ -81,6 +82,7 @@ describe('mage stroke icons', () => {
     expect(typeof UnlockIcon).toBe('function');
     expect(typeof SearchIcon).toBe('function');
     expect(typeof SettingsIcon).toBe('function');
+    expect(typeof ShareIcon).toBe('function');
     expect(typeof ShopIcon).toBe('function');
     expect(typeof StarMovingIcon).toBe('function');
     expect(typeof DotsCircleIcon).toBe('function');

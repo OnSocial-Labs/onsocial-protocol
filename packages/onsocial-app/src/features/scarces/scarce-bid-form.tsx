@@ -70,6 +70,7 @@ interface ScarceBidFormProps {
     postHref?: string | null;
     listedAtMs?: number;
     playable?: ScarcePlayableMedia;
+    playables?: ScarcePlayableMedia[];
   } | null;
   authorName?: string | null;
   onSuccess?: (detail: ScarceBidSuccessDetail) => void;
@@ -155,6 +156,9 @@ export function ScarceBidForm({
   >(null);
   const [hydratedPlayable, setHydratedPlayable] =
     useState<ScarcePlayableMedia | null>(null);
+  const [hydratedPlayables, setHydratedPlayables] = useState<
+    ScarcePlayableMedia[] | null
+  >(null);
   const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
@@ -170,6 +174,8 @@ export function ScarceBidForm({
   const resolvedSourcePostPath =
     listing?.sourcePostPath?.trim() || hydratedSourcePostPath || null;
   const resolvedPlayable = listing?.playable ?? hydratedPlayable;
+  const resolvedPlayables =
+    listing?.playables ?? hydratedPlayables ?? undefined;
   const isOwnAuction =
     Boolean(viewerAccountId) &&
     Boolean(sellerId) &&
@@ -216,14 +222,20 @@ export function ScarceBidForm({
     const needsMedia = !listing?.mediaUrl?.trim() && !embed?.mediaUrl?.trim();
     const needsSource = !listing?.sourcePostPath?.trim();
     const needsPlayable = !listing?.playable;
+    const needsPlayables = !listing?.playables?.length;
     if (
       !tokenId ||
-      (!needsDescription && !needsMedia && !needsSource && !needsPlayable)
+      (!needsDescription &&
+        !needsMedia &&
+        !needsSource &&
+        !needsPlayable &&
+        !needsPlayables)
     ) {
       setHydratedDescription(null);
       setHydratedMediaUrl(null);
       setHydratedSourcePostPath(null);
       setHydratedPlayable(null);
+      setHydratedPlayables(null);
       return;
     }
     let cancelled = false;
@@ -242,6 +254,9 @@ export function ScarceBidForm({
       if (needsPlayable && meta.playable) {
         setHydratedPlayable(meta.playable);
       }
+      if (needsPlayables && meta.playables?.length) {
+        setHydratedPlayables(meta.playables);
+      }
     })();
     return () => {
       cancelled = true;
@@ -252,6 +267,7 @@ export function ScarceBidForm({
     listing?.mediaUrl,
     listing?.sourcePostPath,
     listing?.playable,
+    listing?.playables,
     embed?.mediaUrl,
   ]);
 
@@ -605,6 +621,9 @@ export function ScarceBidForm({
         <ScarceClipPlayer
           key={resolvedPlayable.url}
           clip={resolvedPlayable}
+          {...(resolvedPlayables?.length
+            ? { tracks: resolvedPlayables }
+            : {})}
           poster={resolvedMediaUrl}
         />
       ) : post ? (

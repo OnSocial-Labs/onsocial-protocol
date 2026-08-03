@@ -352,3 +352,42 @@ export function TrashFillIcon(props: MageFillIconProps) {
     </MageFillSvg>
   );
 }
+
+/** Mage `play-fill` — track / clip play glyph inside a soft circle chip. */
+export function PlayFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M19.105 11.446a2.34 2.34 0 0 1-.21 1c-.15.332-.38.62-.67.84l-9.65 7.51a2.3 2.3 0 0 1-1.17.46h-.23a2.2 2.2 0 0 1-1-.24a2.29 2.29 0 0 1-1.28-2v-14a2.2 2.2 0 0 1 .33-1.17a2.27 2.27 0 0 1 2.05-1.1c.412.02.812.148 1.16.37l9.66 6.44c.294.204.54.47.72.78c.19.34.29.721.29 1.11"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `pause-fill` — track / clip pause glyph (pair with PlayFillIcon). */
+export function PauseFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M10.25 5.5v13a1.75 1.75 0 0 1-1.75 1.75h-3a1.75 1.75 0 0 1-1.75-1.75v-13A1.76 1.76 0 0 1 5.5 3.75h3a1.75 1.75 0 0 1 1.75 1.75m10 0v13a1.75 1.75 0 0 1-1.75 1.75h-3a1.75 1.75 0 0 1-1.75-1.75v-13a1.76 1.76 0 0 1 1.75-1.75h3a1.75 1.75 0 0 1 1.75 1.75"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/**
+ * Mage `play-circle-fill` — cover / hero play control.
+ * Prefer PlayFillIcon inside a soft chip for dense track lists (no pause-circle pair).
+ */
+export function PlayCircleFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M12 1.75A10.25 10.25 0 1 0 22.25 12A10.26 10.26 0 0 0 12 1.75m4.3 10.57a1.4 1.4 0 0 1-.4.5l-4.76 3.7a1.3 1.3 0 0 1-.7.28h-.14a1.4 1.4 0 0 1-.6-.14a1.47 1.47 0 0 1-.57-.51a1.43 1.43 0 0 1-.2-.73V8.55a1.34 1.34 0 0 1 .19-.7a1.3 1.3 0 0 1 .54-.5a1.25 1.25 0 0 1 .7-.16c.25.007.492.083.7.22l4.76 3.18a1.33 1.33 0 0 1 .61 1.09c.007.22-.037.44-.13.64"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}

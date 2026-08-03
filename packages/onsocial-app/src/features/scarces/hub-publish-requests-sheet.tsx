@@ -301,7 +301,7 @@ export function HubPublishRequestsSheet({
                     <ProfileAvatar
                       src={profile?.avatarUrl ?? null}
                       fallbackInitial={name || request.requesterId}
-                      size="md"
+                      size="lg"
                       className="standing-row-avatar-slot"
                     />
                     <div className="standing-row-copy">

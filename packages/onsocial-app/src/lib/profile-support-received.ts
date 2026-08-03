@@ -43,10 +43,16 @@ export function sumSupportReceivedYocto(
 }
 
 /** Compact kind totals for the current pot — e.g. "Boost share 30.60 · Profile support 9.90". */
-export function supportReceivedKindSubtotals(
+export type SupportReceivedKindTotal = {
+  action: SupportPotAction;
+  label: string;
+  amountLabel: string;
+};
+
+export function supportReceivedKindTotals(
   rows: ReadonlyArray<{ action: SupportPotAction; amountYocto: string }>,
   formatAmount: (yocto: string) => string
-): string {
+): SupportReceivedKindTotal[] {
   const totals = new Map<SupportPotAction, bigint>();
   for (const row of rows) {
     let amount = 0n;
@@ -59,11 +65,24 @@ export function supportReceivedKindSubtotals(
     totals.set(row.action, (totals.get(row.action) ?? 0n) + amount);
   }
 
-  return SUPPORT_POT_LEGEND.filter((entry) => totals.has(entry.action))
-    .map((entry) => {
+  return SUPPORT_POT_LEGEND.filter((entry) => totals.has(entry.action)).map(
+    (entry) => {
       const yocto = (totals.get(entry.action) ?? 0n).toString();
-      return `${entry.label} ${formatAmount(yocto)}`;
-    })
+      return {
+        action: entry.action,
+        label: entry.label,
+        amountLabel: formatAmount(yocto),
+      };
+    }
+  );
+}
+
+export function supportReceivedKindSubtotals(
+  rows: ReadonlyArray<{ action: SupportPotAction; amountYocto: string }>,
+  formatAmount: (yocto: string) => string
+): string {
+  return supportReceivedKindTotals(rows, formatAmount)
+    .map((entry) => `${entry.label} ${entry.amountLabel}`)
     .join(' · ');
 }
 

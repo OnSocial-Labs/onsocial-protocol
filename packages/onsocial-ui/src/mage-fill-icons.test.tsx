@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   CopyFillIcon,
   TrashFillIcon,
+  PlayFillIcon,
+  PauseFillIcon,
+  PlayCircleFillIcon,
   UserFillIcon,
   UserMinusFillIcon,
   UserPlusFillIcon,
@@ -29,6 +32,9 @@ describe('mage fill icons', () => {
   it('exports icon components', () => {
     expect(typeof CopyFillIcon).toBe('function');
     expect(typeof TrashFillIcon).toBe('function');
+    expect(typeof PlayFillIcon).toBe('function');
+    expect(typeof PauseFillIcon).toBe('function');
+    expect(typeof PlayCircleFillIcon).toBe('function');
     expect(typeof UserFillIcon).toBe('function');
     expect(typeof UserMinusFillIcon).toBe('function');
     expect(typeof UserPlusFillIcon).toBe('function');

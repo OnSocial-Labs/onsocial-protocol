@@ -22,7 +22,6 @@ import {
   GlassSheet,
   OsSheetAction,
   OsSheetActions,
-  SheetCloseButton,
   SheetHeader,
 } from '@onsocial/ui';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
@@ -835,25 +834,17 @@ function DropSaleWindowDraftBody({
       bodyClassName="drop-schedule-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    {title}
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {draftDate && draftTime
-                      ? formatScheduleLabel(joinLocal(draftDate, draftTime))
-                      : clearLabel}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={onRequestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title={title}
+            subtitle={
+              draftDate && draftTime
+                ? formatScheduleLabel(joinLocal(draftDate, draftTime))
+                : clearLabel
+            }
+            onClose={onRequestClose}
+            closeAriaLabel="Close"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

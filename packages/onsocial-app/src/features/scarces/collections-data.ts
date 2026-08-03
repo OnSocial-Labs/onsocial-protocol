@@ -1,6 +1,9 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
-import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import {
+  resolveScarceMediaUrl,
+  type ScarcePlayableMedia,
+} from '@/features/market/market-listings';
 
 /**
  * Collection (drop) reads for Phase 2 — supply-capped, optionally timed /
@@ -32,11 +35,14 @@ export interface LazyCollectionRecord {
   cancelled?: boolean;
   banned?: boolean;
   app_id?: string | null;
+  /** Snapshot of hub primary-sale commission at create (`u16::MAX` = legacy). */
+  app_commission_bps?: number | null;
   transferable?: boolean;
   renewable?: boolean;
   max_redeems?: number | null;
   metadata?: string | null;
   random_assignment?: boolean;
+  royalty?: Record<string, number> | null;
 }
 
 export type CollectionStatus =
@@ -70,8 +76,15 @@ export interface CollectionView {
   soldOut: boolean;
   allowlistOnly: boolean;
   appId: string | null;
+  /**
+   * Hub primary-sale commission snapshotted at create (bps), or null when
+   * the drop has no hub / legacy sentinel (live hub rate).
+   */
+  appCommissionBps: number | null;
   /** Medium taxonomy from metadata.extra.kind when set. */
   kind: string | null;
+  /** Audio / video clips from metadata.extra.playable (music albums, etc.). */
+  playables: ScarcePlayableMedia[];
   transferable: boolean;
   renewable: boolean;
   maxRedeems: number | null;
@@ -82,6 +95,11 @@ export interface CollectionView {
   /** Series grouping (from collection metadata `series`), when set. */
   seriesId: string | null;
   seriesTitle: string | null;
+  /**
+   * Resale royalty map (account → bps). Empty / missing means none.
+   * Stored on the collection and stamped onto minted tokens.
+   */
+  royalty: Record<string, number> | null;
   sourcePostPath?: string;
   cardBg?: string;
 }
@@ -114,6 +132,57 @@ function nsToMs(raw: number | null | undefined): number | null {
   return raw > 1e15 ? Math.floor(raw / 1e6) : raw > 1e12 ? raw : raw * 1000;
 }
 
+/** Normalize on-chain royalty map; drop empty / invalid entries. */
+function parseRoyalty(
+  raw: Record<string, number> | null | undefined
+): Record<string, number> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const out: Record<string, number> = {};
+  for (const [accountId, value] of Object.entries(raw)) {
+    const id = accountId.trim();
+    const bps = Math.floor(Number(value));
+    if (!id || !Number.isSafeInteger(bps) || bps <= 0) continue;
+    out[id] = bps;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/** `u16::MAX` on-chain = legacy collection; use live hub rate. */
+const APP_COMMISSION_SENTINEL = 65_535;
+
+function parseAppCommissionBps(
+  raw: number | null | undefined,
+  hasApp: boolean
+): number | null {
+  if (!hasApp) return null;
+  if (raw == null || !Number.isFinite(raw)) return null;
+  const bps = Math.floor(Number(raw));
+  if (bps === APP_COMMISSION_SENTINEL) return null;
+  return Math.max(0, Math.min(5_000, bps));
+}
+
+function playablesFromExtraRecord(
+  extra: Record<string, unknown> | null | undefined
+): ScarcePlayableMedia[] {
+  const entries = extra?.playable;
+  if (!Array.isArray(entries)) return [];
+  const out: ScarcePlayableMedia[] = [];
+  for (const entry of entries) {
+    const record = asRecord(entry);
+    const cid = typeof record?.cid === 'string' ? record.cid.trim() : '';
+    const mime = typeof record?.mime === 'string' ? record.mime.trim() : '';
+    if (!cid || !mime) continue;
+    const url = resolveScarceMediaUrl(cid);
+    if (!url) continue;
+    const title =
+      typeof record?.title === 'string' && record.title.trim()
+        ? record.title.trim()
+        : undefined;
+    out.push({ url, mime, ...(title ? { title } : {}) });
+  }
+  return out;
+}
+
 interface TemplateMeta {
   title: string;
   description?: string;
@@ -122,6 +191,7 @@ interface TemplateMeta {
   sourcePostPath?: string;
   cardBg?: string;
   kind?: string;
+  playables?: ScarcePlayableMedia[];
 }
 
 const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
@@ -232,6 +302,7 @@ function parseTemplate(
     let sourcePostPath: string | undefined;
     let cardBg: string | undefined;
     let kind: string | undefined;
+    let playables: ScarcePlayableMedia[] | undefined;
     if (typeof meta.extra === 'string' && meta.extra.trim()) {
       try {
         const extra = asRecord(JSON.parse(meta.extra));
@@ -246,6 +317,8 @@ function parseTemplate(
         if (typeof extra?.kind === 'string' && extra.kind.trim()) {
           kind = extra.kind.trim().toLowerCase();
         }
+        const parsedPlayables = playablesFromExtraRecord(extra);
+        if (parsedPlayables.length > 0) playables = parsedPlayables;
       } catch {
         // ignore malformed extra
       }
@@ -258,6 +331,7 @@ function parseTemplate(
       ...(sourcePostPath ? { sourcePostPath } : {}),
       ...(cardBg ? { cardBg } : {}),
       ...(kind ? { kind } : {}),
+      ...(playables ? { playables } : {}),
     };
   } catch {
     return fallback;
@@ -319,7 +393,12 @@ export function toCollectionView(
     soldOut: totalSupply > 0 && remaining === 0,
     allowlistOnly: allowlistYocto !== '0' || record.mint_mode === 'allowlist',
     appId: record.app_id?.trim() || null,
+    appCommissionBps: parseAppCommissionBps(
+      record.app_commission_bps,
+      Boolean(record.app_id?.trim())
+    ),
     kind: template.kind ?? null,
+    playables: template.playables ?? [],
     transferable: record.transferable !== false,
     renewable: Boolean(record.renewable),
     maxRedeems,
@@ -327,6 +406,7 @@ export function toCollectionView(
     randomAssignment: Boolean(record.random_assignment),
     seriesId: series?.id ?? null,
     seriesTitle: series?.title ?? null,
+    royalty: parseRoyalty(record.royalty),
     ...(template.sourcePostPath
       ? { sourcePostPath: template.sourcePostPath }
       : {}),
@@ -491,5 +571,26 @@ export async function fetchWalletMintRemaining(
     return Number.isFinite(n) ? Math.max(0, n) : null;
   } catch {
     return null;
+  }
+}
+
+/** Remaining allowlist allocation for a wallet (0 = none / exhausted). */
+export async function fetchAllowlistRemaining(
+  collectionId: string,
+  accountId: string
+): Promise<number> {
+  const id = collectionId.trim();
+  const account = accountId.trim();
+  if (!id || !account) return 0;
+  try {
+    const remaining = await viewNearContract<number>(
+      SCARCES_CONTRACT,
+      'get_allowlist_remaining',
+      { collection_id: id, account_id: account }
+    );
+    const n = Math.floor(Number(remaining));
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+  } catch {
+    return 0;
   }
 }

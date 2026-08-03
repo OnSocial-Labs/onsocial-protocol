@@ -5,6 +5,7 @@ import {
   formatEarningKindLine,
   postHrefFromSourcePath,
   saleTitleFromRow,
+  scarceEarningsKindSubtotals,
   sourcePostPathFromExtra,
   type ScarceCreatorEarningRow,
 } from '@/lib/scarce-creator-earnings';
@@ -110,6 +111,38 @@ describe('formatEarningKindLine', () => {
         '20 Jul'
       )
     ).toBe('Sale · Hello · 20 Jul');
+  });
+});
+
+describe('scarceEarningsKindSubtotals', () => {
+  it('joins sales and royalties like Support kind totals', () => {
+    expect(
+      scarceEarningsKindSubtotals([
+        {
+          kind: 'sale',
+          paymentYocto: '2500000000000000000000000',
+        },
+        {
+          kind: 'royalty',
+          paymentYocto: '620000000000000000000000',
+        },
+        {
+          kind: 'sale',
+          paymentYocto: '500000000000000000000000',
+        },
+      ])
+    ).toBe('Sales 3.00 · Royalties 0.62');
+  });
+
+  it('omits kinds with no credit', () => {
+    expect(
+      scarceEarningsKindSubtotals([
+        {
+          kind: 'royalty',
+          paymentYocto: '100000000000000000000000',
+        },
+      ])
+    ).toBe('Royalties 0.10');
   });
 });
 

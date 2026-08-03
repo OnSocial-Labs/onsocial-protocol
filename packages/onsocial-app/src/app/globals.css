@@ -156,6 +156,29 @@
   flex: 0 1 auto;
 }
 
+/* Allowlist account edit — short content-hug (must stay unlayered). */
+.glass-sheet-panel.collection-allowlist-edit-sheet-panel {
+  height: auto;
+  max-height: min(72dvh, 22rem);
+  --glass-header-scrim-height: min(4rem, 22%);
+  --glass-sheet-body-opacity: 0.64;
+}
+
+.glass-sheet-panel.collection-allowlist-edit-sheet-panel > .glass-sheet-body {
+  flex: 0 1 auto;
+}
+
+.glass-sheet-panel.collection-allowlist-edit-sheet-panel > .glass-sheet-footer {
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .glass-sheet-panel.collection-allowlist-edit-sheet-panel {
+    height: auto;
+    max-width: 28rem;
+  }
+}
+
 .glass-sheet-panel.portfolio-support-collect-info-panel {
   height: auto;
   max-height: min(88dvh, 36rem);
@@ -278,6 +301,34 @@
   width: 1.25rem;
   height: 1.25rem;
   color: rgb(255 255 255 / 0.96);
+}
+
+/*
+ * Scarce card lightbox — unlayered so it beats glass-sheet.css
+ * (.glass-sheet-icon-action uses --fg, black in light mode; focus paints
+ * a 1px ring). Icon only — no fill, border, or ring on the dark scrim.
+ */
+.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close,
+.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
+.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:focus,
+.scarce-card-lightbox
+  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible,
+.scarce-card-lightbox
+  .glass-sheet-icon-action.scarce-card-lightbox-close:active {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: rgb(255 255 255 / 0.88);
+}
+
+.scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
+.scarce-card-lightbox
+  .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible {
+  color: rgb(255 255 255 / 1);
 }
 
 .os-app-screen[data-immersive-header='true']
@@ -5100,6 +5151,46 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .portfolio-payout-kind-filter-wrap {
+    display: inline;
+  }
+
+  .portfolio-payout-kind-sep {
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .portfolio-payout-kind-filter {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+    cursor: pointer;
+    transition: color 140ms ease;
+  }
+
+  .portfolio-payout-kind-filter:hover,
+  .portfolio-payout-kind-filter:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.78);
+    outline: none;
+  }
+
+  .portfolio-payout-kind-filter.is-active {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .portfolio-payout-kind-filter.is-dimmed {
+    color: rgb(var(--fg-rgb) / 0.28);
+  }
+
+  .portfolio-payout-kind-filter.is-dimmed:hover,
+  .portfolio-payout-kind-filter.is-dimmed:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
   .standing-sheet-actions--payout {
     display: inline-flex;
     align-items: center;
@@ -5361,13 +5452,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
-  .portfolio-support-collect-info-subtotals {
-    margin: 0 0 0.35rem;
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
   /* Quiet one-line disclosure — same weight as section notes, not a card. */
   .portfolio-support-collect-earlier-toggle {
     display: inline-flex;
@@ -5465,6 +5549,13 @@ a.os-surface-row {
   }
 
   .portfolio-scarce-earnings-post-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .portfolio-scarce-earnings-avatar-link {
+    flex-shrink: 0;
+    line-height: 0;
     color: inherit;
     text-decoration: none;
   }
@@ -7188,6 +7279,43 @@ a.os-surface-row {
     margin: 0 auto;
   }
 
+  /*
+   * Screen footer dock — GlassSheet overlay-footer recipe: out of the scroll
+   * flow, pinned above the summon pill. Drops to the safe-area edge when the
+   * launcher scroll-hides (same 260ms). Body padding stays on the larger
+   * clearance so scroll height does not jump.
+   */
+  .os-app-screen-footer {
+    position: absolute;
+    inset-inline: 0;
+    bottom: var(--portfolio-dock-clearance, 4.75rem);
+    z-index: 5;
+    width: 100%;
+    flex: none;
+    pointer-events: none;
+    transition: bottom 260ms ease;
+  }
+
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .os-app-screen-footer {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .os-app-screen-footer > * {
+    pointer-events: auto;
+  }
+
+  .os-app-screen[data-screen-footer='true'] .os-app-screen-body {
+    /* Always the launcher-visible clearance — stable scroll height. */
+    padding-bottom: calc(
+      var(--portfolio-dock-clearance, 4.75rem) + 6.75rem
+    );
+  }
+
+  .os-app-screen[data-screen-footer='true'] .collection-page {
+    padding-bottom: 0.35rem;
+  }
+
   /* Keep dock fixed/overlay — never `relative` or it eats a bottom strip. */
   .os-app-screen > .portfolio-summon-dock {
     z-index: 40;
@@ -7337,7 +7465,10 @@ a.os-surface-row {
   }
 
   .os-app-screen[data-immersive-header='true'] .guild-hero h2,
-  .os-app-screen[data-immersive-header='true'] .app-page-hero .app-page-title {
+  .os-app-screen[data-immersive-header='true'] .app-page-hero .app-page-title,
+  .os-app-screen[data-immersive-header='true']
+    .collection-hero
+    .collection-title {
     opacity: calc(1 - var(--title-handoff, 0));
     will-change: opacity;
   }
@@ -9723,8 +9854,8 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding: 0 max(1rem, env(safe-area-inset-right, 0px)) 0.65rem
-      max(1rem, env(safe-area-inset-left, 0px));
+    padding: 0 max(1.15rem, env(safe-area-inset-right, 0px)) 0.65rem
+      max(1.15rem, env(safe-area-inset-left, 0px));
   }
 
   .discover-sheet-title-row {
@@ -10582,7 +10713,9 @@ a.os-surface-row {
   }
 
   .standing-row:hover .standing-row-avatar-slot,
-  .standing-row:focus-within .standing-row-avatar-slot {
+  .standing-row:focus-within .standing-row-avatar-slot,
+  .endorsement-row:hover .standing-row-avatar-slot,
+  .endorsement-row:focus-within .standing-row-avatar-slot {
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
   }
 
@@ -13499,6 +13632,7 @@ a.os-surface-row {
   .market-page,
   .apps-directory,
   .app-page,
+  .collection-page,
   .drop-create-form,
   .drop-studio,
   .guild-create-form {
@@ -15580,14 +15714,63 @@ a.os-surface-row {
     z-index: 2;
   }
 
-  .scarce-card-lightbox-close {
-    color: rgb(255 255 255 / 0.88);
+  .scarce-card-lightbox-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    padding: 0 1.25rem;
+    pointer-events: none;
   }
 
-  .scarce-card-lightbox-close:hover,
-  .scarce-card-lightbox-close:focus-visible {
-    color: rgb(255 255 255 / 1);
+  .scarce-card-lightbox-footer > * {
+    pointer-events: auto;
   }
+
+  /* Lightbox CTA — solid pill on the dark scrim (frost alone reads as plain text). */
+  .scarce-card-lightbox-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5rem;
+    padding: 0.55rem 1.25rem;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.94);
+    color: rgb(6 6 8 / 0.92);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.45);
+  }
+
+  .scarce-card-lightbox-action:hover:not(:disabled),
+  .scarce-card-lightbox-action:focus-visible:not(:disabled) {
+    background: rgb(255 255 255 / 1);
+    color: rgb(6 6 8 / 1);
+    outline: none;
+  }
+
+  .scarce-card-lightbox-action:disabled {
+    opacity: 0.5;
+    cursor: default;
+    box-shadow: none;
+  }
+
+  .scarce-card-lightbox-action.is-selected {
+    background: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95);
+    color: rgb(6 6 8 / 0.92);
+    cursor: default;
+  }
+
+  /* Color override lives unlayered below — @layer loses to glass-sheet.css. */
 
   .scarce-card-lightbox-asset {
     display: block;
@@ -16501,8 +16684,118 @@ a.os-surface-row {
     line-height: 0;
   }
 
+  .scarce-clip-player-play-glyph {
+    width: 1.15rem;
+    height: 1.15rem;
+    display: block;
+  }
+
+  .scarce-clip-player-play-glyph--play {
+    transform: translateX(0.08rem);
+  }
+
   .scarce-clip-player--video.is-playing .scarce-clip-player-play {
     display: none;
+  }
+
+  .scarce-clip-player-shell {
+    margin: 0 auto 0.7rem;
+    width: min(100%, 15rem);
+  }
+
+  .scarce-clip-player-shell .scarce-clip-player {
+    margin: 0;
+    width: 100%;
+  }
+
+  .scarce-clip-track-list {
+    list-style: none;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .scarce-clip-track {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Own control — hover only when the pointer is on the chip (create-drop). */
+  button.scarce-clip-track-play {
+    box-sizing: border-box;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--os-surface-fill-strong);
+    color: inherit;
+    cursor: pointer;
+    line-height: 0;
+  }
+
+  button.scarce-clip-track-play:hover,
+  button.scarce-clip-track-play:focus-visible,
+  .scarce-clip-track:has(.scarce-clip-track-title:hover)
+    button.scarce-clip-track-play,
+  .scarce-clip-track:has(.scarce-clip-track-title:focus-visible)
+    button.scarce-clip-track-play {
+    background: rgb(var(--fg-rgb) / 0.14);
+    outline: none;
+  }
+
+  button.scarce-clip-track-play.is-playing,
+  .scarce-clip-track.is-playing button.scarce-clip-track-play {
+    background: rgb(var(--fg-rgb) / 0.16);
+  }
+
+  .scarce-clip-track-play-icon {
+    width: 0.72rem;
+    height: 0.72rem;
+    display: block;
+  }
+
+  /* Play triangle is left-weighted — nudge so it reads centered in the chip. */
+  .scarce-clip-track-play-icon--play {
+    transform: translateX(0.06rem);
+  }
+
+  button.scarce-clip-track-title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0.15rem 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 400;
+    line-height: 1.25;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  button.scarce-clip-track-title:hover,
+  button.scarce-clip-track-title:focus-visible {
+    background: transparent;
+    outline: none;
   }
 
   .scarce-bid-history {
@@ -16728,15 +17021,21 @@ a.os-surface-row {
   .collection-page {
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
-    padding-bottom: 2rem;
+    gap: 0.85rem;
+  }
+
+  .collection-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
   }
 
   .collection-cover {
     position: relative;
+    z-index: 0;
     width: 100%;
     aspect-ratio: 16 / 10;
-    border-radius: 1.15rem;
+    border-radius: 1rem;
     overflow: hidden;
     background: rgb(var(--fg-rgb) / 0.05);
     display: flex;
@@ -16744,7 +17043,56 @@ a.os-surface-row {
     justify-content: center;
   }
 
+  .collection-cover.is-square:not(.is-immersive) {
+    aspect-ratio: 1 / 1;
+    max-width: min(100%, 22rem);
+    margin-inline: auto;
+  }
+
+  /* Edge-bleed cover under immersive nav — guild / hub recipe. */
+  .collection-cover.is-immersive {
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
+    max-width: none;
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
+    border-radius: 0;
+    aspect-ratio: auto;
+    height: calc(
+      env(safe-area-inset-top, 0px) + clamp(10rem, 42vw, 14.5rem)
+    );
+  }
+
+  /*
+   * Music: square crop via object-fit, not a full-bleed 1:1 layout.
+   * Cap ~half the viewport so title / tracks / Collect stay one glance away.
+   */
+  .collection-cover.is-immersive.is-square {
+    aspect-ratio: auto;
+    max-width: none;
+    margin-inline: calc(-1 * var(--os-screen-body-pad-x, 1rem));
+    height: calc(
+      env(safe-area-inset-top, 0px) + min(52dvh, clamp(12rem, 78vw, 20rem))
+    );
+  }
+
+  /* Soft top scrim so back / shop icons stay readable on bright covers. */
+  .collection-cover.is-immersive::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+    height: calc(env(safe-area-inset-top, 0px) + 4.25rem);
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.48) 0%,
+      rgb(0 0 0 / 0.22) 55%,
+      transparent 100%
+    );
+  }
+
   .collection-cover img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -16752,18 +17100,26 @@ a.os-surface-row {
 
   .collection-status {
     position: absolute;
-    top: 0.7rem;
-    left: 0.7rem;
+    z-index: 2;
+    top: 0.65rem;
+    left: 0.65rem;
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.6rem;
+    padding: 0.2rem 0.55rem;
     border-radius: 9999px;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.01em;
     backdrop-filter: blur(8px);
     background: rgb(0 0 0 / 0.42);
     color: #fff;
+  }
+
+  /* Keep Live clear of immersive back / shop chips. */
+  .collection-cover.is-immersive .collection-status {
+    top: auto;
+    bottom: 0.7rem;
+    left: 0.7rem;
   }
 
   .collection-status.is-live {
@@ -16779,90 +17135,237 @@ a.os-surface-row {
   .collection-head {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.25rem;
+  }
+
+  .collection-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.15rem;
   }
 
   .collection-title {
     margin: 0;
-    font-size: 1.35rem;
+    flex: 1;
+    min-width: 0;
+    font-size: 1.25rem;
     font-weight: 700;
     line-height: 1.2;
     color: var(--os-surface-emphasis);
   }
 
-  .collection-creator {
-    align-self: flex-start;
-    font-size: 0.85rem;
+  .collection-title-row .guild-hero-facts-button {
+    margin-top: 0.12rem;
+  }
+
+  .collection-meta {
+    margin: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .collection-meta-avatar-link {
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+    line-height: 0;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .collection-meta-avatar {
+    width: 1.55rem;
+    height: 1.55rem;
+  }
+
+  .collection-meta-copy {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.05rem;
+  }
+
+  .collection-meta-creator-name {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.88rem;
     font-weight: 600;
-    color: var(--os-surface-muted-strong);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: var(--os-surface-emphasis);
     text-decoration: none;
   }
 
-  .collection-series-note {
-    margin: 0;
-    font-size: 0.8rem;
+  .collection-meta-sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 0.78rem;
     font-weight: 500;
+    line-height: 1.3;
     color: var(--os-surface-muted);
   }
 
-  .collection-series-note a {
-    color: inherit;
-    font-weight: 600;
+  .collection-meta-sep {
+    color: var(--os-surface-muted);
+    opacity: 0.7;
+  }
+
+  .collection-meta-handle,
+  .collection-meta-link {
+    color: var(--os-surface-muted-strong);
+    font-weight: 500;
     text-decoration: none;
   }
 
-  .collection-series-note a:hover,
-  .collection-series-note a:focus-visible {
+  .collection-meta-handle {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .collection-meta-time {
+    color: var(--os-surface-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .collection-meta-creator-name:hover,
+  .collection-meta-creator-name:focus-visible,
+  a.collection-meta-handle:hover,
+  a.collection-meta-handle:focus-visible,
+  .collection-meta-link:hover,
+  .collection-meta-link:focus-visible {
     color: var(--os-surface-emphasis);
   }
 
-  .collection-creator:hover,
-  .collection-creator:focus-visible {
-    color: var(--os-surface-emphasis);
-  }
-
-  .collection-description {
-    margin: 0.15rem 0 0;
-    font-size: 0.92rem;
-    line-height: 1.5;
-    color: var(--os-surface-muted-strong);
-    white-space: pre-wrap;
-  }
-
-  .collection-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-  }
-
-  .collection-progress {
+  .collection-action-band {
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
   }
 
-  .collection-progress-head {
+  /*
+   * Mint dock frost — same elevate recipe as Discover/Home header.
+   * Extends through launcher clearance; retracts with the dock when the
+   * pill scroll-hides (footer moves — body padding does not).
+   */
+  .os-app-screen-footer .collection-action-band {
+    position: relative;
+    padding: 0.5rem var(--os-screen-body-pad-x, 1rem) 0.45rem;
+    border-top: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .os-app-screen-footer .collection-action-band::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    inset-inline: 0;
+    bottom: calc(-1 * var(--portfolio-dock-clearance, 4.75rem));
+    z-index: 0;
+    pointer-events: none;
+    background: rgb(var(--bg-rgb) / 0.72);
+    backdrop-filter: blur(20px) saturate(1.3);
+    transition: bottom 260ms ease;
+  }
+
+  .os-app-screen:has(> .portfolio-summon-dock.is-scroll-hidden)
+    .os-app-screen-footer
+    .collection-action-band::before {
+    bottom: 0;
+  }
+
+  .os-app-screen-footer .collection-action-band > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .os-app-screen-footer .collection-action-band::before {
+      background: rgb(var(--bg-rgb) / 0.94);
+      backdrop-filter: none;
+    }
+  }
+
+  .collection-commerce {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 0.28rem;
+  }
+
+  .collection-commerce-line {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  .collection-commerce-meta {
+    display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    font-size: 0.82rem;
+    gap: 0.3rem;
+    min-width: 0;
+    flex: 1;
   }
 
-  .collection-progress-count {
-    font-weight: 600;
+  .collection-commerce-supply {
+    font-weight: 650;
     color: var(--os-surface-emphasis);
-    font-variant-numeric: tabular-nums;
   }
 
-  .collection-progress-remaining {
+  .collection-commerce-chips {
     color: var(--os-surface-muted);
-    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  .collection-commerce-share {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: -0.15rem -0.1rem -0.15rem 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.42);
+    cursor: pointer;
+    line-height: 0;
+    transition: color 160ms ease;
+  }
+
+  .collection-commerce-share:hover,
+  .collection-commerce-share:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.78);
+    outline: none;
+  }
+
+  .collection-commerce-share-icon {
+    display: block;
+    width: 0.88rem;
+    height: 0.88rem;
   }
 
   .collection-progress-track {
     position: relative;
     width: 100%;
-    height: 0.4rem;
+    height: 0.22rem;
     border-radius: 9999px;
     background: rgb(var(--fg-rgb) / 0.1);
     overflow: hidden;
@@ -16876,114 +17379,456 @@ a.os-surface-row {
     transition: width 320ms ease;
   }
 
-  .collection-facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.4rem;
-    margin: 0;
-  }
-
-  .collection-facts div {
+  .collection-owner-tools {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.45rem;
   }
 
-  .collection-facts dt {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--os-surface-muted);
-  }
-
-  .collection-facts dd {
+  .collection-section-label {
     margin: 0;
-    font-size: 0.92rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    color: var(--os-surface-emphasis);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .collection-owner {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding: 0.85rem 0.95rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-  }
-
-  .collection-owner-note {
-    margin: 0;
-    font-size: 0.82rem;
+    letter-spacing: 0.02em;
     color: var(--os-surface-muted);
   }
 
-  .collection-allowlist-toggle,
-  .collection-allowlist-close {
+  .collection-tracks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: -0.15rem;
+  }
+
+  .collection-tracks .scarce-clip-track-list {
+    margin-top: 0;
+    gap: 0.35rem;
+  }
+
+  .collection-tracks .scarce-clip-track {
+    padding-block: 0;
+  }
+
+  .collection-allowlist-toggle {
     align-self: flex-start;
     border: 0;
     background: transparent;
     padding: 0;
     font: inherit;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    color: var(--os-surface-emphasis);
+    color: var(--os-surface-muted-strong);
     text-decoration: underline;
     text-underline-offset: 0.15em;
     cursor: pointer;
   }
 
-  .collection-allowlist {
+  .collection-allowlist-sheet {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.75rem;
   }
 
-  .collection-allowlist-head {
+  .collection-allowlist-footer {
     display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.35rem 1.15rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .collection-allowlist-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding-top: 0.15rem;
+  }
+
+  .collection-allowlist-search {
+    width: 100%;
+  }
+
+  .collection-allowlist-member.is-selected {
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  /*
+   * Removable tokens — lighter than os-surface-chip fill-strong.
+   * Type scale matches surface chips; × matches SearchField clear (no bg).
+   */
+  .collection-allowlist-selected {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .collection-allowlist-chip {
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 0.12rem;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: 1.3rem;
+    padding: 0.08rem 0.1rem 0.08rem 0.14rem;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--os-surface-fill, rgb(var(--fg-rgb) / 0.05));
+    color: var(--os-surface-muted);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+
+  .collection-allowlist-chip-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .collection-allowlist-chip-main:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .collection-allowlist-chip-avatar {
+    width: 0.95rem;
+    height: 0.95rem;
+  }
+
+  .collection-allowlist-chip-label {
+    white-space: nowrap;
+  }
+
+  .collection-allowlist-chip-cap {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.05rem;
+    height: 1.05rem;
+    margin: 0;
+    padding: 0 0.2rem;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.72);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .collection-allowlist-chip.is-remove {
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .collection-allowlist-chip-remove {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.45);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .collection-allowlist-chip-remove:hover,
+  .collection-allowlist-chip-remove:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    background: transparent;
+    outline: none;
+  }
+
+  .collection-allowlist-chip-remove:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .collection-allowlist-chip-remove-icon {
+    width: 0.7rem;
+    height: 0.7rem;
+  }
+
+  /* Trailing add affordance — borderless green Mage, row stays the hit target. */
+  .collection-allowlist-row-add {
+    flex-shrink: 0;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-left: auto;
+    color: var(--protocol-green);
+    opacity: 0.88;
+  }
+
+  .guild-add-member-result:hover .collection-allowlist-row-add,
+  .guild-add-member-result:focus-visible .collection-allowlist-row-add {
+    color: var(--protocol-green-hover, var(--protocol-green));
+    opacity: 1;
+  }
+
+  .collection-allowlist-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .collection-allowlist-section-label {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-allowlist-copy,
+  .collection-allowlist-known,
+  .collection-allowlist-note {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-allowlist-known {
+    color: var(--os-surface-muted-strong);
   }
 
   .collection-allowlist-guilds {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.35rem;
   }
 
-  .collection-mint {
+  .collection-allowlist-members-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .collection-allowlist-member-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .collection-allowlist-text-btn {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--os-surface-muted-strong);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+  }
+
+  .collection-allowlist-text-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .collection-allowlist-member-list {
+    margin: 0;
+  }
+
+  .collection-allowlist-member {
+    width: 100%;
+  }
+
+  .collection-allowlist-check {
+    flex-shrink: 0;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-left: auto;
+    border-radius: 9999px;
+    border: 1.5px solid rgb(var(--fg-rgb) / 0.22);
+    background: transparent;
+  }
+
+  .collection-allowlist-check.is-on {
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95);
+    background:
+      radial-gradient(
+        circle at center,
+        rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95) 0 35%,
+        transparent 36%
+      );
+  }
+
+  .collection-allowlist-field {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.3rem;
+  }
+
+  .collection-allowlist-field textarea {
+    width: 100%;
+    min-height: 2.75rem;
+    resize: vertical;
+    padding: 0.55rem 0.7rem;
+    border: 0;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    color: var(--os-surface-emphasis);
+    font: inherit;
+    font-size: 0.84rem;
+    line-height: 1.4;
+  }
+
+  .collection-allowlist-field textarea::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
+  }
+
+  .collection-allowlist-field textarea:focus {
+    outline: none;
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .collection-allowlist-field small {
+    font-size: 0.72rem;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-allowlist-paste-add {
+    align-self: flex-start;
+    margin-top: 0.15rem;
+  }
+
+  .collection-allowlist-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .collection-allowlist-edit-row {
+    /* standing-row + create-drop track aside rhythm */
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.15rem 0;
+  }
+
+  .collection-allowlist-edit-row.is-removing {
+    opacity: 0.72;
+  }
+
+  .collection-allowlist-edit-main {
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    pointer-events: none;
+  }
+
+  /* Beat standing-row-aside column + min-width (time stacked over amount). */
+  .collection-allowlist-edit-aside.standing-row-aside {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    min-width: 0;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .collection-allowlist-edit-qty {
+    flex-shrink: 0;
+  }
+
+  .collection-allowlist-edit-sheet-body {
+    flex: 0 1 auto;
+    min-height: 0;
+    padding: 0.35rem 1.15rem 0.55rem;
+  }
+
+  /* Content-hug like Add member / guild-facts — grows with list, cap 88dvh. */
+  .glass-sheet-panel.collection-allowlist-sheet-panel {
+    height: auto;
+    max-height: min(88dvh, 36rem);
+    max-width: 100%;
+    --glass-header-scrim-height: min(5rem, 24%);
+    --glass-sheet-body-opacity: 0.64;
+  }
+
+  @media (min-width: 768px) {
+    .glass-sheet-panel.collection-allowlist-sheet-panel {
+      max-width: 36rem;
+    }
+  }
+
+  /* Same inset as guild-facts / Add member sheets. */
+  .collection-allowlist-sheet-body {
+    flex: 0 1 auto;
+    min-height: 0;
+    padding: 0.15rem 1.15rem 1.35rem;
+  }
+
+  .collection-allowlist-sheet-panel .discover-sheet-subtitle {
+    font-size: 0.8rem;
+  }
+
+  .collection-mint-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .collection-mint-actions {
+    flex: 1;
+    min-width: 0;
   }
 
   .collection-qty {
     display: inline-flex;
     align-items: center;
-    align-self: flex-start;
-    gap: 0.15rem;
-    padding: 0.2rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    flex-shrink: 0;
+    gap: 0.12rem;
+    padding: 0.14rem;
+    border: 0;
     border-radius: 9999px;
+    background: var(--os-surface-fill, rgb(var(--fg-rgb) / 0.05));
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
   }
 
   .collection-qty-btn {
-    width: 2rem;
-    height: 2rem;
+    width: 1.7rem;
+    height: 1.7rem;
     border: 0;
     border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.05);
+    background: transparent;
     color: var(--os-surface-emphasis);
-    font-size: 1.1rem;
+    font-size: 1rem;
     line-height: 1;
     cursor: pointer;
     transition: background 160ms ease;
   }
 
-  .collection-qty-btn:hover:not(:disabled) {
-    background: rgb(var(--fg-rgb) / 0.1);
+  .collection-qty-btn:hover:not(:disabled),
+  .collection-qty-btn:focus-visible:not(:disabled) {
+    background: var(--os-surface-fill-hover, rgb(var(--fg-rgb) / 0.1));
+    outline: none;
   }
 
   .collection-qty-btn:disabled {
@@ -16992,26 +17837,24 @@ a.os-surface-row {
   }
 
   .collection-qty-value {
-    min-width: 2rem;
+    min-width: 1.45rem;
     text-align: center;
+    font-size: 0.86rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    color: var(--os-surface-emphasis);
   }
 
   .collection-mint-hint {
     margin: 0;
-    font-size: 0.82rem;
+    font-size: 0.74rem;
     color: var(--os-surface-muted);
-  }
-
-  .collection-source-link,
-  .collection-activity .market-listing-handle {
-    font-size: 0.85rem;
-    color: var(--os-surface-muted-strong);
   }
 
   .collection-source-link {
     align-self: flex-start;
+    font-size: 0.82rem;
+    color: var(--os-surface-muted-strong);
     text-decoration: underline;
     text-underline-offset: 0.15em;
   }
@@ -17019,42 +17862,80 @@ a.os-surface-row {
   .collection-activity {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.3rem;
+    margin-top: 0.15rem;
   }
 
-  .collection-activity-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .collection-activity-head {
     display: flex;
-    flex-direction: column;
-  }
-
-  .collection-activity-row {
-    display: flex;
+    align-items: baseline;
     justify-content: space-between;
-    align-items: baseline;
     gap: 0.75rem;
-    padding: 0.55rem 0;
-    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.06);
-    font-size: 0.85rem;
+    margin-top: 0.15rem;
   }
 
-  .collection-activity-row:last-child {
-    border-bottom: 0;
-  }
-
-  .collection-activity-label {
+  .collection-activity-more {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-size: 0.72rem;
     font-weight: 600;
-    color: var(--os-surface-emphasis);
+    color: var(--os-surface-muted-strong);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
   }
 
-  .collection-activity-meta {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.6rem;
+  .collection-activity-sheet-panel {
+    max-width: 32rem;
+  }
+
+  /* Content-hug like allowlist / Add member — grows with accounts, no full void. */
+  .glass-sheet-panel.collection-activity-sheet-panel {
+    height: auto;
+    max-height: min(88dvh, 36rem);
+    max-width: 100%;
+    --glass-header-scrim-height: min(5rem, 24%);
+    --glass-sheet-body-opacity: 0.64;
+  }
+
+  @media (min-width: 768px) {
+    .glass-sheet-panel.collection-activity-sheet-panel {
+      max-width: 32rem;
+    }
+  }
+
+  .collection-activity-sheet-body {
+    flex: 0 1 auto;
+    min-height: 0;
+    padding: 0.15rem 1.15rem 1.35rem;
+  }
+
+  .collection-activity-empty {
+    margin: 0.35rem 0 0;
+    font-size: 0.86rem;
     color: var(--os-surface-muted);
-    font-variant-numeric: tabular-nums;
+  }
+
+  .collection-activity-standing {
+    margin-top: 0.1rem;
+  }
+
+  .collection-activity-standing-row {
+    padding-block: 0.35rem;
+  }
+
+  .collection-activity-standing-system {
+    padding-inline-start: 0;
+  }
+
+  .collection-activity-standing-kind {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--os-surface-muted);
   }
 
   /* ── Start a drop form ─── */
@@ -17334,6 +18215,88 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  .drop-track-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .drop-track-list.is-reordering {
+    cursor: grabbing;
+  }
+
+  .drop-track-list-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  /* Same compact red × as hub publish decline. */
+  .drop-track-list-remove-actions.os-sheet-actions--row-compact {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .drop-track-list-row.is-dragging {
+    opacity: 0.35;
+  }
+
+  /* In-flow slot so Divider keeps its gradient-fade (not a solid bar). */
+  .drop-track-insert-slot {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    line-height: 0;
+    pointer-events: none;
+  }
+
+  .drop-track-insert-slot > [role='separator'] {
+    width: 100%;
+    height: 1px;
+    margin: 0;
+    border: 0;
+    background-color: transparent;
+    background-image: var(--divider-h-detail);
+  }
+
+  .drop-track-list-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 400;
+    line-height: 1.25;
+    text-align: left;
+  }
+
+  .drop-track-list-title.is-sortable {
+    cursor: grab;
+  }
+
+  .drop-track-list.is-reordering .drop-track-list-title.is-sortable {
+    cursor: grabbing;
+  }
+
+  /* Visually hidden but still a real media element (play() stays allowed). */
+  .drop-track-preview-audio {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    pointer-events: none;
+  }
+
   /* Variation set picker — thumbnails of the uploaded pieces. */
   /* Cover piece selector — tap a thumbnail to front the drop with it. */
   .drop-cover-seat-grid {
@@ -17342,8 +18305,17 @@ a.os-surface-row {
     gap: 0.4rem;
   }
 
+  .drop-cover-seat-shell {
+    position: relative;
+    aspect-ratio: 1;
+    min-width: 0;
+  }
+
   .drop-cover-seat {
     position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
     padding: 0;
     aspect-ratio: 1;
     border: 2px solid transparent;
@@ -17352,6 +18324,40 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.04);
     cursor: pointer;
     transition: border-color 160ms ease;
+  }
+
+  .drop-cover-seat-remove {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.55);
+    color: rgb(255 255 255 / 0.9);
+    cursor: pointer;
+  }
+
+  .drop-cover-seat-remove:hover:not(:disabled),
+  .drop-cover-seat-remove:focus-visible {
+    background: rgb(0 0 0 / 0.72);
+    outline: none;
+  }
+
+  .drop-cover-seat-remove:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .drop-cover-seat-remove-icon {
+    width: 0.75rem;
+    height: 0.75rem;
   }
 
   .drop-cover-seat img {
@@ -17369,6 +18375,11 @@ a.os-surface-row {
 
   .drop-cover-seat.is-selected {
     border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+  }
+
+  /* One-artwork thumb — same seat tile, zoom instead of cover-pick. */
+  .drop-cover-seat.drop-cover-seat--zoom {
+    cursor: zoom-in;
   }
 
   /* Large-set sample tiles — preview only, not a cover picker. */
@@ -17977,6 +18988,7 @@ a.os-surface-row {
   }
 
   /* ── Generative drop builder — layered art generator ─── */
+  /* Matches create-drop: soft fills, no nested cards, Mage icon tools. */
 
   .gen-builder {
     display: flex;
@@ -17984,41 +18996,18 @@ a.os-surface-row {
     gap: 0.85rem;
   }
 
-  .gen-builder-hint {
-    margin: 0;
-    font-size: 0.74rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  /* Builder inputs sit outside .guild-field — mirror its input treatment. */
-  .gen-layer-head input,
-  .gen-trait-card input,
-  .gen-trait-weight input {
-    border: 1px solid rgb(var(--fg-rgb) / 0.09);
-    border-radius: 0.7rem;
-    background: rgb(0 0 0 / 0.22);
-    color: inherit;
-    font: inherit;
-    font-size: 0.85rem;
-    outline: none;
-    padding: 0.5rem 0.6rem;
-  }
-
-  .gen-layer-head input:focus,
-  .gen-trait-card input:focus,
-  .gen-trait-weight input:focus {
-    border-color: rgb(var(--fg-rgb) / 0.18);
-  }
-
-  .gen-layer-card {
-    display: flex;
-    flex-direction: column;
+  /*
+   * Soft layer wash — restores grouping after we dropped bordered cards.
+   * Override .drop-studio .guild-field (border/padding/bg: none) without
+   * bringing back 1px card chrome.
+   */
+  .drop-studio .guild-field.gen-layer {
     gap: 0.65rem;
     padding: 0.75rem;
+    border: 0;
     border-radius: 1rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    background: rgb(var(--fg-rgb) / 0.03);
+    background: rgb(var(--fg-rgb) / 0.035);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.05);
   }
 
   .gen-layer-head {
@@ -18027,9 +19016,26 @@ a.os-surface-row {
     gap: 0.5rem;
   }
 
-  .gen-layer-head input {
+  /* Soft fill — same shell as .drop-create-form .guild-field > input. */
+  .gen-layer-head input,
+  .gen-trait-edit > input {
     flex: 1;
     min-width: 0;
+    border: 0;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .gen-layer-head input:focus,
+  .gen-trait-edit > input:focus {
+    background: rgb(var(--fg-rgb) / 0.055);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
   }
 
   .gen-layer-tools {
@@ -18039,115 +19045,170 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
-  .gen-layer-tools button {
-    padding: 0.35rem 0.55rem;
-    border-radius: 0.65rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: var(--os-surface-muted-strong);
-    font-size: 0.78rem;
-    line-height: 1;
+  .gen-tool {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.7rem;
+    height: 1.7rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--os-surface-fill-strong);
+    color: var(--os-surface-muted);
     cursor: pointer;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
   }
 
-  .gen-layer-tools button:disabled {
+  .gen-tool:not(:disabled):hover,
+  .gen-tool:not(:disabled):focus-visible {
+    background: rgb(var(--fg-rgb) / 0.1);
+    color: var(--os-surface-emphasis);
+    outline: none;
+  }
+
+  .gen-tool:disabled {
     opacity: 0.4;
     cursor: default;
   }
 
+  .gen-tool-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .gen-tool-icon.is-up {
+    transform: rotate(180deg);
+  }
+
+  /* Cover-seat density — image tiles, not trait cards. */
   .gen-trait-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-    gap: 0.6rem;
+    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    gap: 0.4rem;
   }
 
-  .gen-trait-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.45rem;
-    border-radius: 0.85rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    background: rgb(var(--fg-rgb) / 0.04);
-  }
-
-  .gen-trait-card img {
-    width: 100%;
+  .gen-trait-tile {
+    position: relative;
     aspect-ratio: 1;
-    object-fit: contain;
-    border-radius: 0.6rem;
-    background: repeating-conic-gradient(
-        rgb(var(--fg-rgb) / 0.08) 0% 25%,
-        transparent 0% 50%
-      )
-      0 0 / 16px 16px;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    /* Slightly stronger checker so transparent PNGs read on the soft layer wash. */
+    background:
+      repeating-conic-gradient(
+          rgb(var(--fg-rgb) / 0.12) 0% 25%,
+          transparent 0% 50%
+        )
+        0 0 / 10px 10px,
+      rgb(var(--fg-rgb) / 0.04);
   }
 
-  .gen-trait-card input {
+  .gen-trait-tile-hit {
+    display: block;
     width: 100%;
-    min-width: 0;
-    font-size: 0.8rem;
-    padding: 0.3rem 0.45rem;
+    height: 100%;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 0.75rem;
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 160ms ease;
   }
 
-  .gen-trait-weight {
+  .gen-trait-tile-hit img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .gen-trait-tile-hit:hover:not(:disabled),
+  .gen-trait-tile-hit:focus-visible {
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.5);
+    outline: none;
+  }
+
+  .gen-trait-tile.is-selected .gen-trait-tile-hit {
+    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.9);
+  }
+
+  .gen-trait-tile-hit:disabled {
+    cursor: default;
+  }
+
+  .gen-trait-weight-badge {
+    position: absolute;
+    left: 0.3rem;
+    bottom: 0.3rem;
+    z-index: 1;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.55);
+    color: rgb(255 255 255 / 0.92);
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  .gen-trait-remove {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(0 0 0 / 0.55);
+    color: rgb(255 255 255 / 0.9);
+    cursor: pointer;
+  }
+
+  .gen-trait-remove:hover:not(:disabled),
+  .gen-trait-remove:focus-visible {
+    background: rgb(0 0 0 / 0.72);
+    outline: none;
+  }
+
+  .gen-trait-remove:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .gen-trait-edit {
     display: flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.45rem;
   }
 
-  .gen-trait-weight input {
-    flex: 1;
+  .gen-trait-weight-field {
+    flex: 0 0 6.5rem;
     min-width: 0;
+  }
+
+  .gen-trait-weight-field input {
     font-variant-numeric: tabular-nums;
   }
 
-  .gen-trait-weight button {
-    flex-shrink: 0;
-    padding: 0.3rem 0.5rem;
-    border-radius: 0.6rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    background: transparent;
-    color: var(--os-surface-muted);
-    font-size: 0.72rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .gen-add-traits,
-  .gen-add-layer,
-  .gen-generate {
-    padding: 0.6rem 0.85rem;
-    border-radius: 0.85rem;
-    border: 1px dashed rgb(var(--fg-rgb) / 0.2);
-    background: rgb(var(--fg-rgb) / 0.03);
+  .gen-progress-note {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    font-size: 0.78rem;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
     color: var(--os-surface-muted-strong);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition:
-      border-color 160ms ease,
-      background 160ms ease;
-  }
-
-  .gen-add-traits:hover:not(:disabled),
-  .gen-add-layer:hover:not(:disabled),
-  .gen-generate:hover:not(:disabled) {
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.7);
-    background: rgb(var(--fg-rgb) / 0.05);
-  }
-
-  .gen-generate {
-    border-style: solid;
-    border-color: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.45);
-    color: var(--os-surface-emphasis);
-  }
-
-  .gen-add-traits:disabled,
-  .gen-add-layer:disabled,
-  .gen-generate:disabled {
-    opacity: 0.5;
-    cursor: default;
   }
 
   .gen-preview-grid {
@@ -18161,7 +19222,7 @@ a.os-surface-row {
     aspect-ratio: 1;
     object-fit: cover;
     border-radius: 0.75rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    background: rgb(var(--fg-rgb) / 0.04);
   }
 
   .drop-generated-note {
@@ -24017,3 +25078,59 @@ a.os-surface-row {
   height: 1.35rem;
   flex-shrink: 0;
 }
+
+/*
+ * Music create — track preview play control.
+ * Unlayered so width/height beat unlayered button resets from @onsocial/ui.
+ */
+button.drop-track-list-play {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  max-width: 1.5rem;
+  max-height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--os-surface-fill-strong);
+  color: inherit;
+  cursor: pointer;
+  line-height: 0;
+}
+
+button.drop-track-list-play:hover:not(:disabled),
+button.drop-track-list-play:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.14);
+  outline: none;
+}
+
+button.drop-track-list-play:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button.drop-track-list-play.is-playing {
+  background: rgb(var(--fg-rgb) / 0.16);
+}
+
+button.drop-track-list-play .drop-track-list-icon {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+button.drop-track-list-play .drop-track-list-play-icon {
+  width: 0.72rem;
+  height: 0.72rem;
+  display: block;
+}
+
+button.drop-track-list-play .drop-track-list-play-icon--play {
+  transform: translateX(0.06rem);
+}
+

@@ -14,11 +14,14 @@
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   type ChangeEvent,
+  type Ref,
 } from 'react';
 import { zipSync } from 'fflate';
+import { ChevronDownIcon, MultiplyIcon, TrashIcon } from '@onsocial/ui';
 import type {
   GenerateSetJob,
   GenerativeLayerSpec,
@@ -68,6 +71,15 @@ export interface BuilderDesignSummary {
   traits: number;
   /** True while rendering / uploading / pinning. */
   working: boolean;
+  /** True when the design is complete enough to generate. */
+  canGenerate: boolean;
+  /** Progress line while working (e.g. "Rendering 40/100…"). */
+  statusLabel: string | null;
+}
+
+/** Imperative surface so the host can put Generate in the screen header. */
+export interface GenerativeBuilderHandle {
+  generate: () => void;
 }
 
 export interface GeneratedSet {
@@ -92,18 +104,12 @@ interface GenerativeDropBuilderProps {
   onGenerated: (result: GeneratedSet) => void;
   /** Reports design progress so the host can summarize the studio while it's hidden. */
   onDesignChange?: (design: BuilderDesignSummary) => void;
+  /** Exposes {@link GenerativeBuilderHandle} for the host's header CTA. */
+  ref?: Ref<GenerativeBuilderHandle>;
 }
 
 function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36);
-}
-
-/** "cool-hat_v2.png" → "cool hat v2" */
-function traitNameFromFile(file: File): string {
-  return file.name
-    .replace(/\.[a-z0-9]+$/i, '')
-    .replace(/[-_]+/g, ' ')
-    .trim();
 }
 
 function cryptoRand(): number {
@@ -130,6 +136,7 @@ export function GenerativeDropBuilder({
   remotePoll,
   onGenerated,
   onDesignChange,
+  ref,
 }: GenerativeDropBuilderProps) {
   const [layers, setLayers] = useState<BuilderLayer[]>([
     { id: newId(), name: 'Background', optional: false, traits: [] },
@@ -138,8 +145,14 @@ export function GenerativeDropBuilder({
   const [status, setStatus] = useState<BuilderStatus>({ kind: 'idle' });
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** Which trait tile is open for name / weight editing. */
+  const [editingTrait, setEditingTrait] = useState<{
+    layerId: string;
+    traitId: string;
+  } | null>(null);
   const traitInputRef = useRef<HTMLInputElement>(null);
   const traitTargetLayerRef = useRef<string | null>(null);
+  const traitNameInputRef = useRef<HTMLInputElement>(null);
 
   const working = status.kind === 'working';
   const supply = Number.parseInt(supplyInput, 10);
@@ -159,9 +172,23 @@ export function GenerativeDropBuilder({
     0
   );
   const readyLayerCount = readyLayers.length;
+  const statusLabel = status.kind === 'working' ? status.label : null;
   useEffect(() => {
-    onDesignChange?.({ layers: readyLayerCount, traits: traitCount, working });
-  }, [onDesignChange, readyLayerCount, traitCount, working]);
+    onDesignChange?.({
+      layers: readyLayerCount,
+      traits: traitCount,
+      working,
+      canGenerate,
+      statusLabel,
+    });
+  }, [
+    onDesignChange,
+    readyLayerCount,
+    traitCount,
+    working,
+    canGenerate,
+    statusLabel,
+  ]);
 
   const pickTraitFiles = useCallback((layerId: string) => {
     traitTargetLayerRef.current = layerId;
@@ -190,9 +217,11 @@ export function GenerativeDropBuilder({
       prev.map((layer) => {
         if (layer.id !== layerId) return layer;
         const room = MAX_TRAITS_PER_LAYER - layer.traits.length;
-        const added = files.slice(0, room).map((file) => ({
+        const start = layer.traits.length;
+        const added = files.slice(0, room).map((file, index) => ({
           id: newId(),
-          name: traitNameFromFile(file),
+          // Stable defaults — export filenames (e.g. "Adobe Express") stay out.
+          name: `Trait ${start + index + 1}`,
           weight: '1',
           file,
           url: URL.createObjectURL(file),
@@ -203,6 +232,11 @@ export function GenerativeDropBuilder({
   }, []);
 
   const removeTrait = useCallback((layerId: string, traitId: string) => {
+    setEditingTrait((current) =>
+      current?.layerId === layerId && current.traitId === traitId
+        ? null
+        : current
+    );
     setLayers((prev) =>
       prev.map((layer) => {
         if (layer.id !== layerId) return layer;
@@ -254,12 +288,20 @@ export function GenerativeDropBuilder({
   }, []);
 
   const removeLayer = useCallback((layerId: string) => {
+    setEditingTrait((current) =>
+      current?.layerId === layerId ? null : current
+    );
     setLayers((prev) => {
       const target = prev.find((layer) => layer.id === layerId);
       target?.traits.forEach((trait) => URL.revokeObjectURL(trait.url));
       return prev.filter((layer) => layer.id !== layerId);
     });
   }, []);
+
+  useEffect(() => {
+    if (!editingTrait) return;
+    traitNameInputRef.current?.focus();
+  }, [editingTrait]);
 
   const moveLayer = useCallback((layerId: string, delta: -1 | 1) => {
     setLayers((prev) => {
@@ -352,7 +394,7 @@ export function GenerativeDropBuilder({
             label:
               job.state === 'pinning'
                 ? 'Pinning to IPFS…'
-                : `Rendering ${job.progress.done.toLocaleString()}/${job.progress.total.toLocaleString()} on our servers…`,
+                : `Rendering ${job.progress.done.toLocaleString()}/${job.progress.total.toLocaleString()} on OnSocial…`,
           });
           await new Promise((resolve) => setTimeout(resolve, REMOTE_POLL_MS));
           job = await remotePoll(job.jobId);
@@ -441,117 +483,178 @@ export function GenerativeDropBuilder({
     onGenerated,
   ]);
 
+  useImperativeHandle(ref, () => ({ generate: () => void generate() }), [
+    generate,
+  ]);
+
   return (
     <div className="gen-builder">
-      <p className="gen-builder-hint">
-        Layers paint in order — the first layer is the background, later layers
-        stack on top. Use transparent PNGs so lower layers show through.
-      </p>
-      {layers.map((layer, layerIndex) => (
-        <div key={layer.id} className="gen-layer-card">
-          <div className="gen-layer-head">
-            <input
-              value={layer.name}
-              onChange={(event) =>
-                updateLayer(layer.id, { name: event.target.value })
-              }
-              placeholder={`Layer ${layerIndex + 1} — e.g. Background`}
-              maxLength={32}
-              aria-label={`Layer ${layerIndex + 1} name`}
-              disabled={working}
-            />
-            <div className="gen-layer-tools">
-              <button
-                type="button"
-                onClick={() => moveLayer(layer.id, -1)}
-                disabled={working || layerIndex === 0}
-                aria-label="Paint this layer earlier"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => moveLayer(layer.id, 1)}
-                disabled={working || layerIndex === layers.length - 1}
-                aria-label="Paint this layer later"
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                className={`os-surface-chip${layer.optional ? ' is-selected' : ''}`}
-                onClick={() =>
-                  updateLayer(layer.id, { optional: !layer.optional })
+      {layers.map((layer, layerIndex) => {
+        const editing =
+          editingTrait?.layerId === layer.id
+            ? (layer.traits.find((t) => t.id === editingTrait.traitId) ?? null)
+            : null;
+
+        return (
+          <div key={layer.id} className="guild-field gen-layer">
+            <div className="gen-layer-head">
+              <input
+                value={layer.name}
+                onChange={(event) =>
+                  updateLayer(layer.id, { name: event.target.value })
                 }
+                placeholder={`Layer ${layerIndex + 1} — e.g. Background`}
+                maxLength={32}
+                aria-label={`Layer ${layerIndex + 1} name`}
                 disabled={working}
-              >
-                Optional
-              </button>
-              {layers.length > 1 ? (
+              />
+              <div className="gen-layer-tools">
                 <button
                   type="button"
-                  onClick={() => removeLayer(layer.id)}
-                  disabled={working}
-                  aria-label={`Remove layer ${layerIndex + 1}`}
+                  className="gen-tool"
+                  onClick={() => moveLayer(layer.id, -1)}
+                  disabled={working || layerIndex === 0}
+                  aria-label="Paint this layer earlier"
                 >
-                  ✕
+                  <ChevronDownIcon
+                    className="gen-tool-icon is-up"
+                    aria-hidden
+                  />
                 </button>
-              ) : null}
+                <button
+                  type="button"
+                  className="gen-tool"
+                  onClick={() => moveLayer(layer.id, 1)}
+                  disabled={working || layerIndex === layers.length - 1}
+                  aria-label="Paint this layer later"
+                >
+                  <ChevronDownIcon className="gen-tool-icon" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  className={`os-surface-chip${layer.optional ? ' is-selected' : ''}`}
+                  onClick={() =>
+                    updateLayer(layer.id, { optional: !layer.optional })
+                  }
+                  disabled={working}
+                >
+                  Optional
+                </button>
+                {layers.length > 1 ? (
+                  <button
+                    type="button"
+                    className="gen-tool"
+                    onClick={() => removeLayer(layer.id)}
+                    disabled={working}
+                    aria-label={`Remove layer ${layerIndex + 1}`}
+                  >
+                    <TrashIcon className="gen-tool-icon" aria-hidden />
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
 
-          {layer.traits.length > 0 ? (
-            <div className="gen-trait-grid">
-              {layer.traits.map((trait) => (
-                <div key={trait.id} className="gen-trait-card">
-                  <img src={trait.url} alt={trait.name} />
+            {layer.traits.length > 0 ? (
+              <div
+                className="gen-trait-grid"
+                role="listbox"
+                aria-label={`${layer.name || `Layer ${layerIndex + 1}`} traits`}
+              >
+                {layer.traits.map((trait) => {
+                  const selected = editing?.id === trait.id;
+                  return (
+                    <div
+                      key={trait.id}
+                      className={`gen-trait-tile${selected ? ' is-selected' : ''}`}
+                      role="option"
+                      aria-selected={selected}
+                    >
+                      <button
+                        type="button"
+                        className="gen-trait-tile-hit"
+                        disabled={working}
+                        aria-label={`Edit ${trait.name}`}
+                        onClick={() =>
+                          setEditingTrait(
+                            selected
+                              ? null
+                              : { layerId: layer.id, traitId: trait.id }
+                          )
+                        }
+                      >
+                        <img src={trait.url} alt="" />
+                        <span className="gen-trait-weight-badge">
+                          {trait.weight || '1'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="gen-trait-remove"
+                        disabled={working}
+                        aria-label={`Remove ${trait.name}`}
+                        onClick={() => removeTrait(layer.id, trait.id)}
+                      >
+                        <MultiplyIcon className="gen-tool-icon" aria-hidden />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {editing ? (
+              <div className="gen-trait-edit">
+                <input
+                  ref={traitNameInputRef}
+                  value={editing.name}
+                  onChange={(event) =>
+                    updateTrait(layer.id, editing.id, {
+                      name: event.target.value,
+                    })
+                  }
+                  maxLength={32}
+                  placeholder="Trait name"
+                  aria-label="Trait name"
+                  disabled={working}
+                />
+                <div className="drop-create-suffix-field gen-trait-weight-field">
                   <input
-                    value={trait.name}
+                    value={editing.weight}
+                    inputMode="decimal"
                     onChange={(event) =>
-                      updateTrait(layer.id, trait.id, {
-                        name: event.target.value,
+                      updateTrait(layer.id, editing.id, {
+                        weight: event.target.value.replace(/[^\d.]/g, ''),
                       })
                     }
-                    maxLength={32}
-                    aria-label="Trait name"
+                    aria-label="Rarity weight"
                     disabled={working}
                   />
-                  <div className="gen-trait-weight">
-                    <input
-                      value={trait.weight}
-                      inputMode="decimal"
-                      onChange={(event) =>
-                        updateTrait(layer.id, trait.id, {
-                          weight: event.target.value.replace(/[^\d.]/g, ''),
-                        })
-                      }
-                      aria-label="Rarity weight"
-                      disabled={working}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeTrait(layer.id, trait.id)}
-                      disabled={working}
-                      aria-label={`Remove trait ${trait.name}`}
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  <span>weight</span>
                 </div>
-              ))}
-            </div>
-          ) : null}
+              </div>
+            ) : null}
 
-          <button
-            type="button"
-            className="gen-add-traits"
-            onClick={() => pickTraitFiles(layer.id)}
-            disabled={working || layer.traits.length >= MAX_TRAITS_PER_LAYER}
-          >
-            {layer.traits.length > 0 ? 'Add more images' : 'Add trait images'}
-          </button>
-        </div>
-      ))}
+            <div
+              className="app-storage-presets"
+              role="group"
+              aria-label={`Layer ${layerIndex + 1} actions`}
+            >
+              <button
+                type="button"
+                className="os-surface-chip"
+                onClick={() => pickTraitFiles(layer.id)}
+                disabled={
+                  working || layer.traits.length >= MAX_TRAITS_PER_LAYER
+                }
+              >
+                {layer.traits.length > 0
+                  ? 'Add more images'
+                  : 'Add trait images'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
 
       <input
         ref={traitInputRef}
@@ -565,14 +668,16 @@ export function GenerativeDropBuilder({
       />
 
       {layers.length < MAX_LAYERS ? (
-        <button
-          type="button"
-          className="gen-add-layer"
-          onClick={addLayer}
-          disabled={working}
-        >
-          Add layer
-        </button>
+        <div className="app-storage-presets" role="group" aria-label="Layers">
+          <button
+            type="button"
+            className="os-surface-chip"
+            onClick={addLayer}
+            disabled={working}
+          >
+            Add layer
+          </button>
+        </div>
       ) : null}
 
       <div className="guild-field">
@@ -596,8 +701,8 @@ export function GenerativeDropBuilder({
           {possible > 0
             ? supplyValid
               ? isRemoteSet
-                ? `Big set — rendered on our servers (a few minutes). Keep this screen open while it runs.`
-                : `${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} unique pieces possible with these layers · higher weight = more common`
+                ? `Big set — rendered on OnSocial (a few minutes). Keep this screen open while it runs.`
+                : `${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} unique pieces possible with these layers · higher weight = more common · tap a tile to rename`
               : `Pick ${MIN_PIECES}–${Math.min(possible, MAX_REMOTE_PIECES).toLocaleString()} pieces — that's the most unique combinations these layers allow.`
             : 'Add trait images to each layer to unlock generating.'}
         </small>
@@ -613,14 +718,11 @@ export function GenerativeDropBuilder({
 
       {error ? <p className="guild-form-error">{error}</p> : null}
 
-      <button
-        type="button"
-        className="gen-generate"
-        onClick={() => void generate()}
-        disabled={!canGenerate}
-      >
-        {working ? status.label : 'Generate & pin set'}
-      </button>
+      {working ? (
+        <p className="gen-progress-note" role="status">
+          {status.label}
+        </p>
+      ) : null}
     </div>
   );
 }

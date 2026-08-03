@@ -72,6 +72,11 @@ export class ScarcesCollectionsApi {
   /**
    * Create a collection for batch / drop minting.
    *
+   * With wallet broadcast, pass `relay.depositYocto` so the contract can fund
+   * scarces storage from the attached deposit (unused NEAR is refunded). Hub
+   * drops (`appId`) cannot use platform storage — without a funded app pool
+   * or personal storage balance, create fails unless a deposit is attached.
+   *
    * ```ts
    * await os.scarces.collections.create({
    *   collectionId: 'genesis',
@@ -81,10 +86,18 @@ export class ScarcesCollectionsApi {
    * });
    * ```
    */
-  async create(options: CollectionOptions): Promise<RelayResponse> {
+  async create(
+    options: CollectionOptions,
+    relay?: { depositYocto?: string }
+  ): Promise<RelayResponse> {
     // Every minted token carries drop / series / creator provenance in its
     // NEP-177 `extra` — wallets and marketplaces can attribute it anywhere.
     const opts = withCollectionProvenance(options, this._http.actorId);
+    const relayOpts = this._relayOpts(
+      relay?.depositYocto !== undefined
+        ? { depositYocto: relay.depositYocto }
+        : undefined
+    );
     // Variation sets, trait directories, and random drops always go through
     // the gateway — directory pins and CID liveness checks happen server-side.
     const needsGatewayCompose =
@@ -92,10 +105,14 @@ export class ScarcesCollectionsApi {
       Boolean(opts.variationsCid) ||
       Boolean(opts.referenceCid) ||
       Boolean(opts.randomAssignment);
-    if (
+    // Client-built action when cover is a local file *or* already pinned
+    // (`mediaCid`) — skip gateway FormData so the wallet prompt can follow
+    // uploads immediately (album audio pins first, then one sign).
+    const canClientBuild =
       !needsGatewayCompose &&
-      hasLocalUpload(this._storage, opts.image, opts.mediaCid)
-    ) {
+      (Boolean(opts.mediaCid?.trim()) ||
+        hasLocalUpload(this._storage, opts.image, opts.mediaCid));
+    if (canClientBuild) {
       const { mediaCid, mediaHash } = await resolveScarceMedia(
         opts,
         this._storage
@@ -111,7 +128,7 @@ export class ScarcesCollectionsApi {
         action as Record<string, unknown>,
         this._scarcesContract,
         'scarces.collections.create',
-        this._relayOpts()
+        relayOpts
       );
     }
 
@@ -161,7 +178,7 @@ export class ScarcesCollectionsApi {
       SCARCES_VERBS.CREATE_COLLECTION,
       form,
       'scarces.collections.create',
-      this._relayOpts()
+      relayOpts
     );
     return result.relay;
   }

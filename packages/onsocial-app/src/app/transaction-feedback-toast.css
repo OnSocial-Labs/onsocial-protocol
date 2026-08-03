@@ -154,14 +154,14 @@
 
 /*
  * Colored dismiss hairline — icon + line carry status; glass fill stays stable.
+ * Progress is driven by JS (pauses on hover / press-hold); no CSS animation.
  */
 .app-tx-toast-progress {
   height: 1px;
+  transform: scaleX(1);
   transform-origin: left center;
   opacity: 0.55;
-  animation-name: app-tx-toast-progress;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
+  will-change: transform;
 }
 
 .app-tx-toast-progress--success {
@@ -172,16 +172,6 @@
   background: var(--protocol-red);
 }
 
-@keyframes app-tx-toast-progress {
-  from {
-    transform: scaleX(1);
-  }
-
-  to {
-    transform: scaleX(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .app-tx-toast {
     animation: none;
@@ -189,7 +179,6 @@
 
   .app-tx-toast-progress--success,
   .app-tx-toast-progress--error {
-    animation: none;
     transform: scaleX(0);
   }
 }

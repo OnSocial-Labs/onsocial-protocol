@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Check, ExternalLink, RefreshCw, X } from 'lucide-react';
 import { TX_TOAST_EYEBROW } from '@/lib/transaction-toast-copy';
+import { useToastDismissTimer } from '@/hooks/use-toast-dismiss-timer';
 import { cn } from '@/lib/utils';
 
 export type TransactionFeedback = {
@@ -89,20 +90,17 @@ export function TransactionFeedbackToast({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useEffect(() => {
-    if (!result || result.type === 'pending') return;
-    const timeout = DISMISS_MS[result.type];
-    const timer = window.setTimeout(() => onCloseRef.current(), timeout);
-    return () => window.clearTimeout(timer);
-  }, [result]);
+  const canAutoDismiss = Boolean(result && result.type !== 'pending');
+  const dismissMs =
+    result && result.type !== 'pending' ? DISMISS_MS[result.type] : 0;
+  const { barRef, pauseProps } = useToastDismissTimer({
+    active: canAutoDismiss,
+    durationMs: dismissMs,
+    onDone: () => onCloseRef.current(),
+  });
 
   if (typeof document === 'undefined') return null;
 
-  const duration =
-    result && result.type !== 'pending' ? DISMISS_MS[result.type] : 0;
-  const dismissKey = result
-    ? `${result.type}:${result.eyebrow ?? ''}:${result.msg}:${result.subtitle ?? ''}:${result.explorerHref ?? ''}`
-    : 'none';
   const stateMotion = reduceMotion
     ? { initial: false, animate: undefined, exit: undefined }
     : {
@@ -127,7 +125,10 @@ export function TransactionFeedbackToast({
           }}
           className={TOAST_POSITION_CLASS}
         >
-          <div className="portal-toast pointer-events-auto relative overflow-hidden rounded-xl">
+          <div
+            className="portal-toast pointer-events-auto relative overflow-hidden rounded-xl"
+            {...pauseProps}
+          >
             <div
               className={cn(
                 'absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent transition-opacity duration-300',
@@ -200,18 +201,16 @@ export function TransactionFeedbackToast({
             </div>
 
             {result.type !== 'pending' ? (
-              <motion.div
-                key={dismissKey}
-                initial={{ scaleX: 1 }}
-                animate={{ scaleX: 0 }}
-                transition={{ duration: duration / 1000, ease: 'linear' }}
+              <div
+                ref={barRef}
                 className={cn(
                   'h-px origin-left transition-colors duration-300',
                   result.type === 'success'
                     ? 'bg-[var(--portal-green)]'
                     : 'bg-[var(--portal-red)]'
                 )}
-                style={{ opacity: 0.45 }}
+                style={{ opacity: 0.45, transform: 'scaleX(1)' }}
+                aria-hidden
               />
             ) : null}
           </div>

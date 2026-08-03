@@ -567,6 +567,7 @@ export function MarketPagePanel() {
             : {}),
           ...(item.postHref ? { postHref: item.postHref } : {}),
           ...(item.playable ? { playable: item.playable } : {}),
+          ...(item.playables?.length ? { playables: item.playables } : {}),
           ...(item.blockTimestamp > 0
             ? { listedAtMs: item.blockTimestamp }
             : {}),
@@ -589,6 +590,7 @@ export function MarketPagePanel() {
             : {}),
           ...(item.postHref ? { postHref: item.postHref } : {}),
           ...(item.playable ? { playable: item.playable } : {}),
+          ...(item.playables?.length ? { playables: item.playables } : {}),
           ...(item.blockTimestamp > 0
             ? { listedAtMs: item.blockTimestamp }
             : {}),
@@ -610,6 +612,7 @@ export function MarketPagePanel() {
         ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
         ...(item.postHref ? { postHref: item.postHref } : {}),
         ...(item.playable ? { playable: item.playable } : {}),
+        ...(item.playables?.length ? { playables: item.playables } : {}),
         ...(item.blockTimestamp > 0 ? { listedAtMs: item.blockTimestamp } : {}),
       });
     },

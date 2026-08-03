@@ -35,6 +35,12 @@ import {
 } from '@/features/scarces/scarce-card-mood-picker';
 import { ScarceChoiceField } from '@/features/scarces/scarce-choice-field';
 import {
+  DEFAULT_ROYALTY_BPS,
+  formatRoyaltyPercent,
+  parseCustomRoyaltyBps,
+} from '@/features/scarces/scarce-royalty';
+import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
+import {
   ScarceCoverIcon,
   ScarceFormatSwatch,
   type ScarceCoverMode,
@@ -73,21 +79,11 @@ const NEAR_INPUT_DECIMALS = 5;
 const MIN_PRICE_NEAR = '0.01';
 const PRESETS = ['0.1', '1', '5', '10'] as const;
 
-/** Resale royalty presets in basis points (1000 = 10%). Paid to the post author. */
-const ROYALTY_PRESETS = [
-  { percent: 0, bps: 0 },
-  { percent: 5, bps: 500 },
-  { percent: 10, bps: 1000 },
-  { percent: 15, bps: 1500 },
-] as const;
-const DEFAULT_ROYALTY_BPS = 1000;
-
 /** Edition size — one listing, N purchases until sold out. */
 const COPIES_PRESETS = [1, 5, 10, 25] as const;
 const MIN_COPIES = 1;
 const MAX_COPIES = 100;
 const DEFAULT_COPIES = 1;
-const MAX_ROYALTY_BPS = 5_000;
 
 function parseCustomCopies(raw: string): number | null {
   const value = raw.trim();
@@ -98,29 +94,6 @@ function parseCustomCopies(raw: string): number | null {
     copies <= MAX_COPIES
     ? copies
     : null;
-}
-
-function parseCustomRoyaltyBps(raw: string): number | null {
-  const value = raw.trim();
-  if (!/^\d+(?:\.(?:0|5))?$/.test(value)) return null;
-  const [whole, fraction = ''] = value.split('.');
-  const bps = Number(whole) * 100 + Number(`${fraction}00`.slice(0, 2));
-  return Number.isSafeInteger(bps) && bps <= MAX_ROYALTY_BPS ? bps : null;
-}
-
-function normalizeCustomRoyaltyInput(raw: string): string {
-  const sanitized = raw.replace(/[^\d.]/g, '');
-  if (!sanitized) return '';
-  const [whole, ...fractions] = sanitized.split('.');
-  if (fractions.length === 0) return whole;
-  return `${whole || '0'}.${fractions.join('').slice(0, 1)}`;
-}
-
-function formatRoyaltyPercent(bps: number): string {
-  const whole = Math.floor(bps / 100);
-  const fraction = bps % 100;
-  if (fraction === 0) return String(whole);
-  return `${whole}.${String(fraction).padStart(2, '0').replace(/0$/, '')}`;
 }
 
 const DEFAULT_CARD_THEME: ScarceCardThemeOptions = {
@@ -1028,79 +1001,20 @@ export function ScarceListForm({
         </p>
       </div>
 
-      <div className="scarce-royalty-field">
-        <p className="scarce-mood-picker-label">Resale royalty</p>
-        <div
-          className="app-storage-presets"
-          role="group"
-          aria-label="Resale royalty"
-        >
-          {ROYALTY_PRESETS.map((preset) => (
-            <button
-              key={preset.bps}
-              type="button"
-              className={`os-surface-chip${
-                !isCustomRoyalty && royaltyBps === preset.bps
-                  ? ' is-selected'
-                  : ''
-              }`}
-              disabled={pending}
-              onClick={() => {
-                setRoyaltyBps(preset.bps);
-                setIsCustomRoyalty(false);
-              }}
-            >
-              {preset.percent === 0 ? 'None' : `${preset.percent}%`}
-            </button>
-          ))}
-          <button
-            type="button"
-            className={`os-surface-chip${isCustomRoyalty ? ' is-selected' : ''}`}
-            disabled={pending}
-            onClick={() => setIsCustomRoyalty(true)}
-          >
-            {isCustomRoyalty && customRoyaltyInput
-              ? `Custom · ${customRoyaltyInput}%`
-              : 'Custom'}
-          </button>
-        </div>
-        {isCustomRoyalty ? (
-          <div className="app-storage-amount-field profile-support-amount-field">
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={customRoyaltyInput}
-              onChange={(event) =>
-                setCustomRoyaltyInput((current) => {
-                  const next = normalizeCustomRoyaltyInput(event.target.value);
-                  if (!next) return '';
-                  if (next.endsWith('.')) {
-                    return Number(next.slice(0, -1)) <= MAX_ROYALTY_BPS / 100
-                      ? next
-                      : current;
-                  }
-                  const bps = parseCustomRoyaltyBps(next);
-                  return bps == null ? current : formatRoyaltyPercent(bps);
-                })
-              }
-              placeholder="0–50"
-              aria-label="Custom resale royalty percentage from 0 to 50"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              %
-            </span>
-          </div>
-        ) : null}
-        <p className="profile-support-hint scarce-royalty-hint">
-          Keep first sales after 2%.
-          {resolvedRoyaltyBps && resolvedRoyaltyBps > 0
+      <ScarceRoyaltyField
+        royaltyBps={royaltyBps}
+        isCustomRoyalty={isCustomRoyalty}
+        customRoyaltyInput={customRoyaltyInput}
+        pending={pending}
+        hint={`Keep first sales after 2%.${
+          resolvedRoyaltyBps && resolvedRoyaltyBps > 0
             ? ` Author earns ${formatRoyaltyPercent(resolvedRoyaltyBps)}% on resales.`
-            : ' No resale cut.'}
-        </p>
-      </div>
+            : ' No resale cut.'
+        }`}
+        onRoyaltyBpsChange={setRoyaltyBps}
+        onCustomRoyaltyChange={setCustomRoyaltyInput}
+        onCustomToggle={setIsCustomRoyalty}
+      />
 
       {fieldError || amountError ? (
         <p className="profile-support-error" role="alert">

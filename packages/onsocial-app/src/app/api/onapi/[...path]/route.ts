@@ -9,6 +9,10 @@ type ProxyBodyKind = 'none' | 'json' | 'form';
 
 interface AllowedProxyRoute {
   method: 'GET' | 'POST';
+  /**
+   * Exact path, or a single-segment wildcard with a trailing `/*`
+   * (e.g. `compose/generate/variation-set/*` → `…/variation-set/<jobId>`).
+   */
   path: string;
   body: ProxyBodyKind;
 }
@@ -84,6 +88,27 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'compose/prepare/cancel-offer', body: 'json' },
   { method: 'POST', path: 'compose/prepare/accept-offer', body: 'json' },
 
+  // Scarces — create drop (single / music / variation / generative).
+  {
+    method: 'POST',
+    path: 'compose/prepare/create-collection',
+    body: 'form',
+  },
+  { method: 'POST', path: 'compose/upload/variation-set', body: 'form' },
+  { method: 'POST', path: 'compose/generate/variation-set', body: 'form' },
+  {
+    method: 'GET',
+    path: 'compose/generate/variation-set/*',
+    body: 'none',
+  },
+  // Scarces — primary mint from a collection page + allowlist edits.
+  {
+    method: 'POST',
+    path: 'compose/prepare/purchase-from-collection',
+    body: 'json',
+  },
+  { method: 'POST', path: 'compose/prepare/set-allowlist', body: 'json' },
+
   // Hubs (apps) — register / config / creators / ownership.
   { method: 'POST', path: 'compose/prepare/register-app', body: 'json' },
   { method: 'POST', path: 'compose/prepare/set-app-config', body: 'json' },
@@ -111,6 +136,16 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;
 
+function pathMatchesAllowed(routePath: string, path: string): boolean {
+  if (routePath.endsWith('/*')) {
+    const prefix = routePath.slice(0, -2);
+    if (!path.startsWith(`${prefix}/`)) return false;
+    // Exactly one wildcard segment (job id, etc.).
+    return path.slice(prefix.length + 1).split('/').length === 1;
+  }
+  return routePath === path;
+}
+
 function findAllowedRoute(
   method: string,
   pathSegments: string[]
@@ -118,7 +153,8 @@ function findAllowedRoute(
   const path = pathSegments.join('/');
   return (
     ALLOWED_PROXY_ROUTES.find(
-      (route) => route.method === method && route.path === path
+      (route) =>
+        route.method === method && pathMatchesAllowed(route.path, path)
     ) ?? null
   );
 }

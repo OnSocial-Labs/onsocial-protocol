@@ -70,6 +70,7 @@ interface ScarceBuyFormProps {
     postHref?: string | null;
     listedAtMs?: number;
     playable?: ScarcePlayableMedia;
+    playables?: ScarcePlayableMedia[];
   } | null;
   embed?: PostScarceEmbed | null;
   /** Profile display name for text-card preview byline. */
@@ -125,6 +126,9 @@ export function ScarceBuyForm({
   >(null);
   const [hydratedPlayable, setHydratedPlayable] =
     useState<ScarcePlayableMedia | null>(null);
+  const [hydratedPlayables, setHydratedPlayables] = useState<
+    ScarcePlayableMedia[] | null
+  >(null);
   const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
   const [creatorProfileName, setCreatorProfileName] = useState<string | null>(
@@ -148,6 +152,8 @@ export function ScarceBuyForm({
   const resolvedSourcePostPath =
     listing?.sourcePostPath?.trim() || hydratedSourcePostPath || null;
   const resolvedPlayable = listing?.playable ?? hydratedPlayable;
+  const resolvedPlayables =
+    listing?.playables ?? hydratedPlayables ?? undefined;
   const sellerId = listing?.creatorId ?? post?.accountId;
   const authorHandle = sellerId ? fallbackLabel(sellerId) : null;
   const authorHref = post
@@ -200,11 +206,19 @@ export function ScarceBuyForm({
     const needsMedia = !listing?.mediaUrl?.trim() && !embed?.mediaUrl?.trim();
     const needsSource = !listing?.sourcePostPath?.trim();
     const needsPlayable = !listing?.playable;
-    if (!needsDescription && !needsMedia && !needsSource && !needsPlayable) {
+    const needsPlayables = !listing?.playables?.length;
+    if (
+      !needsDescription &&
+      !needsMedia &&
+      !needsSource &&
+      !needsPlayable &&
+      !needsPlayables
+    ) {
       setHydratedDescription(null);
       setHydratedMediaUrl(null);
       setHydratedSourcePostPath(null);
       setHydratedPlayable(null);
+      setHydratedPlayables(null);
       return;
     }
     let cancelled = false;
@@ -223,6 +237,9 @@ export function ScarceBuyForm({
       if (needsPlayable && meta.playable) {
         setHydratedPlayable(meta.playable);
       }
+      if (needsPlayables && meta.playables?.length) {
+        setHydratedPlayables(meta.playables);
+      }
     })();
     return () => {
       cancelled = true;
@@ -234,6 +251,7 @@ export function ScarceBuyForm({
     listing?.mediaUrl,
     listing?.sourcePostPath,
     listing?.playable,
+    listing?.playables,
     embed?.mediaUrl,
   ]);
 
@@ -409,6 +427,9 @@ export function ScarceBuyForm({
         <ScarceClipPlayer
           key={resolvedPlayable.url}
           clip={resolvedPlayable}
+          {...(resolvedPlayables?.length
+            ? { tracks: resolvedPlayables }
+            : {})}
           poster={resolvedMediaUrl}
         />
       ) : post ? (

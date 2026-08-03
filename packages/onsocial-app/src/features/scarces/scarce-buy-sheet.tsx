@@ -37,6 +37,8 @@ export interface ScarceBuyListing {
   listedAtMs?: number;
   /** Clip behind a video scarce — cover stays the still frame. */
   playable?: ScarcePlayableMedia;
+  /** Album / multi-track playables; `playable` is the first. */
+  playables?: ScarcePlayableMedia[];
 }
 
 interface ScarceBuySheetProps {
