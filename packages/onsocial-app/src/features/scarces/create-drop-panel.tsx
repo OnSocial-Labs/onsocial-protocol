@@ -65,8 +65,12 @@ import {
   type SaleWindowField,
 } from '@/features/scarces/drop-sale-window-sheet';
 import {
+  buildRoyaltyMap,
   DEFAULT_ROYALTY_BPS,
+  defaultRoyaltyShares,
   parseCustomRoyaltyBps,
+  validateRoyaltyShares,
+  type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
 import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
@@ -174,6 +178,7 @@ export function CreateDropPanel() {
   const [royaltyBps, setRoyaltyBps] = useState(DEFAULT_ROYALTY_BPS);
   const [isCustomRoyalty, setIsCustomRoyalty] = useState(false);
   const [customRoyaltyInput, setCustomRoyaltyInput] = useState('');
+  const [royaltyShares, setRoyaltyShares] = useState<RoyaltySplitShare[]>([]);
   const [transferable, setTransferable] = useState(true);
   const [renewable, setRenewable] = useState(false);
   const [maxRedeemsInput, setMaxRedeemsInput] = useState('');
@@ -309,6 +314,10 @@ export function CreateDropPanel() {
     !isMusic || musicTracksValid(musicFormat, trackFiles.length);
   const customRoyaltyBps = parseCustomRoyaltyBps(customRoyaltyInput);
   const resolvedRoyaltyBps = isCustomRoyalty ? customRoyaltyBps : royaltyBps;
+  const resolvedRoyaltyShares =
+    royaltyShares.length > 0
+      ? royaltyShares
+      : defaultRoyaltyShares(accountId ?? '');
   const canSubmit =
     isConnected &&
     !pending &&
@@ -644,6 +653,13 @@ export function CreateDropPanel() {
         setError('Enter a royalty between 0 and 50%.');
         return;
       }
+      if (resolvedRoyaltyBps > 0) {
+        const shareError = validateRoyaltyShares(resolvedRoyaltyShares);
+        if (shareError) {
+          setError(shareError);
+          return;
+        }
+      }
       const perWallet = Number.parseInt(maxPerWallet, 10);
 
       const trimmedSeries = seriesName.trim();
@@ -804,7 +820,13 @@ export function CreateDropPanel() {
               : {}),
             ...(allowlistOnly ? { mintMode: 'allowlist' } : {}),
             ...(resolvedRoyaltyBps > 0
-              ? { royalty: { [signerId]: resolvedRoyaltyBps } }
+              ? (() => {
+                  const royalty = buildRoyaltyMap(
+                    resolvedRoyaltyBps,
+                    resolvedRoyaltyShares
+                  );
+                  return royalty ? { royalty } : {};
+                })()
               : {}),
             ...(appId ? { appId } : {}),
           },
@@ -867,6 +889,7 @@ export function CreateDropPanel() {
       maxRedeems,
       allowlistOnly,
       resolvedRoyaltyBps,
+      resolvedRoyaltyShares,
       appId,
       template,
       isMusic,
@@ -1696,6 +1719,9 @@ export function CreateDropPanel() {
           isCustomRoyalty={isCustomRoyalty}
           customRoyaltyInput={customRoyaltyInput}
           pending={pending}
+          primaryAccountId={accountId ?? ''}
+          shares={resolvedRoyaltyShares}
+          onSharesChange={setRoyaltyShares}
           onRoyaltyBpsChange={setRoyaltyBps}
           onCustomRoyaltyChange={setCustomRoyaltyInput}
           onCustomToggle={setIsCustomRoyalty}

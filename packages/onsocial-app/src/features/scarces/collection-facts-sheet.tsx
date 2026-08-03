@@ -20,7 +20,10 @@ import {
   totalRoyaltyBps,
 } from '@/features/scarces/scarce-royalty';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
-import { ACTIVE_NEAR_EXPLORER_URL, ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import {
+  ACTIVE_NEAR_EXPLORER_URL,
+  ACTIVE_NEAR_NETWORK,
+} from '@/lib/app-config';
 import { appPath, seriesPagePath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
@@ -226,9 +229,40 @@ export function CollectionFactsSheet({
           <FactRow
             label="Resale royalty"
             value={
-              totalRoyaltyBps(view.royalty) > 0
-                ? `${formatRoyaltyPercent(totalRoyaltyBps(view.royalty))}%`
-                : 'None'
+              totalRoyaltyBps(view.royalty) > 0 ? (
+                <span className="scarce-royalty-facts">
+                  <span>
+                    {formatRoyaltyPercent(totalRoyaltyBps(view.royalty))}%
+                  </span>
+                  {view.royalty
+                    ? (() => {
+                        const entries = Object.entries(view.royalty)
+                          .filter(([, bps]) => Number(bps) > 0)
+                          .sort((a, b) => Number(b[1]) - Number(a[1]));
+                        const showRecipients =
+                          entries.length > 1 ||
+                          (entries.length === 1 &&
+                            entries[0][0].toLowerCase() !==
+                              view.creatorId.trim().toLowerCase());
+                        if (!showRecipients) return null;
+                        return (
+                          <span className="scarce-royalty-facts-split">
+                            {entries.map(([account, bps]) => (
+                              <span key={account}>
+                                @{fallbackLabel(account)}
+                                {entries.length > 1
+                                  ? ` · ${formatRoyaltyPercent(Number(bps))}%`
+                                  : ''}
+                              </span>
+                            ))}
+                          </span>
+                        );
+                      })()
+                    : null}
+                </span>
+              ) : (
+                'None'
+              )
             }
           />
           {rightsParts.length > 0 ? (
@@ -292,9 +326,7 @@ export function CollectionFactsSheet({
           {view.kind ? (
             <FactRow
               label="Kind"
-              value={
-                view.kind.charAt(0).toUpperCase() + view.kind.slice(1)
-              }
+              value={view.kind.charAt(0).toUpperCase() + view.kind.slice(1)}
             />
           ) : null}
           {createdLabel ? (
@@ -302,9 +334,7 @@ export function CollectionFactsSheet({
           ) : null}
           <FactRow
             label="ID"
-            value={
-              <span className="guild-facts-id">{view.collectionId}</span>
-            }
+            value={<span className="guild-facts-id">{view.collectionId}</span>}
           />
         </FactSection>
 

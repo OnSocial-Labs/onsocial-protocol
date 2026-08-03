@@ -24,6 +24,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
+import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -662,29 +663,16 @@ export function CollectionPagePanel({
       {!isOwner ? (
         <div className="collection-mint-row">
           {mintable && maxQuantity > 1 ? (
-            <div className="collection-qty" role="group" aria-label="Quantity">
-              <button
-                type="button"
-                className="collection-qty-btn"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                disabled={pending || quantity <= 1}
-                aria-label="Decrease quantity"
-              >
-                −
-              </button>
-              <span className="collection-qty-value" aria-live="polite">
-                {quantity}
-              </span>
-              <button
-                type="button"
-                className="collection-qty-btn"
-                onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))}
-                disabled={pending || quantity >= maxQuantity}
-                aria-label="Increase quantity"
-              >
-                +
-              </button>
-            </div>
+            <CollectionQtyStepper
+              value={quantity}
+              min={1}
+              max={maxQuantity}
+              disabled={pending}
+              aria-label="Quantity"
+              decreaseLabel="Decrease quantity"
+              increaseLabel="Increase quantity"
+              onChange={setQuantity}
+            />
           ) : null}
           <OsSheetActions
             layout="stack"

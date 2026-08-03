@@ -23,6 +23,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
+import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -168,7 +169,7 @@ function AllowlistAccountEditBody({
   return (
     <div className="collection-allowlist-edit">
       <div
-        className={`standing-row collection-allowlist-edit-row${
+        className={`collection-allowlist-edit-row${
           confirmingRemove ? ' is-removing' : ''
         }`}
       >
@@ -181,33 +182,17 @@ function AllowlistAccountEditBody({
         </div>
 
         <div className="standing-row-aside collection-allowlist-edit-aside">
-          <div
-            className="collection-qty collection-allowlist-edit-qty"
-            role="group"
+          <CollectionQtyStepper
+            className="collection-allowlist-edit-qty"
+            value={face.allocation}
+            min={1}
+            max={capMax}
+            disabled={confirmingRemove}
             aria-label="Mint cap"
-          >
-            <button
-              type="button"
-              className="collection-qty-btn"
-              disabled={confirmingRemove || face.allocation <= 1}
-              aria-label="Decrease mint cap"
-              onClick={() => onSetCap(face.accountId, face.allocation - 1)}
-            >
-              −
-            </button>
-            <span className="collection-qty-value" aria-live="polite">
-              {face.allocation}
-            </span>
-            <button
-              type="button"
-              className="collection-qty-btn"
-              disabled={confirmingRemove || face.allocation >= capMax}
-              aria-label="Increase mint cap"
-              onClick={() => onSetCap(face.accountId, face.allocation + 1)}
-            >
-              +
-            </button>
-          </div>
+            decreaseLabel="Decrease mint cap"
+            increaseLabel="Increase mint cap"
+            onChange={(next) => onSetCap(face.accountId, next)}
+          />
           <OsSheetActions
             layout="row-compact"
             tone="frosted-primary"
@@ -1155,7 +1140,7 @@ function CollectionAllowlistSheet({
                         type="button"
                         role="option"
                         aria-selected={false}
-                        className="standing-row guild-add-member-result"
+                        className="guild-add-member-result"
                         disabled={pending || pasteBusy}
                         onClick={() =>
                           toggleAccount(profile.accountId, {
@@ -1308,7 +1293,7 @@ function CollectionAllowlistSheet({
                                       type="button"
                                       role="option"
                                       aria-selected={false}
-                                      className="standing-row guild-add-member-result"
+                                      className="guild-add-member-result"
                                       disabled={pending || pasteBusy}
                                       onClick={() =>
                                         toggleAccount(row.memberId, {

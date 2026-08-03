@@ -35,9 +35,13 @@ import {
 } from '@/features/scarces/scarce-card-mood-picker';
 import { ScarceChoiceField } from '@/features/scarces/scarce-choice-field';
 import {
+  buildRoyaltyMap,
   DEFAULT_ROYALTY_BPS,
+  defaultRoyaltyShares,
   formatRoyaltyPercent,
   parseCustomRoyaltyBps,
+  validateRoyaltyShares,
+  type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
 import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
 import {
@@ -242,6 +246,9 @@ export function ScarceListForm({
   const [customCopiesInput, setCustomCopiesInput] = useState('');
   const [isCustomRoyalty, setIsCustomRoyalty] = useState(false);
   const [customRoyaltyInput, setCustomRoyaltyInput] = useState('');
+  const [royaltyShares, setRoyaltyShares] = useState<RoyaltySplitShare[]>(() =>
+    defaultRoyaltyShares(post.accountId)
+  );
   const [cardTheme, setCardTheme] =
     useState<ScarceCardThemeOptions>(DEFAULT_CARD_THEME);
   const [photoCardFormat, setPhotoCardFormat] = useState<
@@ -574,6 +581,17 @@ export function ScarceListForm({
       return;
     }
     if (editionCount == null || resolvedRoyaltyBps == null) return;
+    if (resolvedRoyaltyBps > 0) {
+      const shares =
+        royaltyShares.length > 0
+          ? royaltyShares
+          : defaultRoyaltyShares(post.accountId);
+      const shareError = validateRoyaltyShares(shares);
+      if (shareError) {
+        setFieldError(shareError);
+        return;
+      }
+    }
 
     setPending(true);
     try {
@@ -584,7 +602,14 @@ export function ScarceListForm({
       const response = await client.scarces.fromPost.list(post, priceNear, {
         copies: editionCount,
         ...(resolvedRoyaltyBps > 0
-          ? { royalty: { [post.accountId]: resolvedRoyaltyBps } }
+          ? (() => {
+              const shares =
+                royaltyShares.length > 0
+                  ? royaltyShares
+                  : defaultRoyaltyShares(post.accountId);
+              const royalty = buildRoyaltyMap(resolvedRoyaltyBps, shares);
+              return royalty ? { royalty } : {};
+            })()
           : {}),
         ...(listAppId ? { appId: listAppId } : {}),
         // Video posts have no still to mint — the chosen frame or photo
@@ -1006,9 +1031,15 @@ export function ScarceListForm({
         isCustomRoyalty={isCustomRoyalty}
         customRoyaltyInput={customRoyaltyInput}
         pending={pending}
+        primaryAccountId={post.accountId}
+        shares={royaltyShares}
+        onSharesChange={setRoyaltyShares}
+        splitZIndex={62}
         hint={`Keep first sales after 2%.${
           resolvedRoyaltyBps && resolvedRoyaltyBps > 0
-            ? ` Author earns ${formatRoyaltyPercent(resolvedRoyaltyBps)}% on resales.`
+            ? royaltyShares.length > 1
+              ? ` ${formatRoyaltyPercent(resolvedRoyaltyBps)}% on resales · split ${royaltyShares.length} accounts.`
+              : ` Author earns ${formatRoyaltyPercent(resolvedRoyaltyBps)}% on resales.`
             : ' No resale cut.'
         }`}
         onRoyaltyBpsChange={setRoyaltyBps}
