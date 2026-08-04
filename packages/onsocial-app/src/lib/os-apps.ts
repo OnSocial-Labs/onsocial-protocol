@@ -2,6 +2,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_APPS_PATH,
   APP_COLLECTION_PATH,
+  APP_COLLECTIBLES_PATH,
   APP_DISCOVER_PATH,
   APP_GROUPS_PATH,
   APP_HOME_PATH,
@@ -49,6 +50,12 @@ export function resolveActiveOsAppId(
   }
   if (path === APP_MARKET_PATH || path.startsWith(`${APP_MARKET_PATH}/`)) {
     return 'market';
+  }
+  if (
+    path === APP_COLLECTIBLES_PATH ||
+    path.startsWith(`${APP_COLLECTIBLES_PATH}/`)
+  ) {
+    return 'collectibles';
   }
   if (path === APP_GROUPS_PATH || path.startsWith(`${APP_GROUPS_PATH}/`)) {
     return 'groups';
@@ -112,6 +119,13 @@ const HUBS_APP: OsAppLink = {
   href: APP_APPS_PATH,
 };
 
+const COLLECTIBLES_APP: OsAppLink = {
+  id: 'collectibles',
+  label: 'Collectibles',
+  kind: 'app',
+  href: APP_COLLECTIBLES_PATH,
+};
+
 export function gateOsApps(): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
@@ -124,6 +138,7 @@ export function gateOsApps(): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    COLLECTIBLES_APP,
     HUBS_APP,
     {
       id: 'groups',
@@ -161,6 +176,7 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    COLLECTIBLES_APP,
     HUBS_APP,
     {
       id: 'groups',
@@ -219,6 +235,10 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
   ];
 
   if (accountId) {
+    // Vault sits after Market — own & use, separate from create/sell.
+    const marketIdx = apps.findIndex((app) => app.id === 'market');
+    const insertAt = marketIdx >= 0 ? marketIdx + 1 : apps.length;
+    apps.splice(insertAt, 0, COLLECTIBLES_APP);
     apps.push({ id: 'page', label: 'Page', kind: 'open-page' });
   }
 

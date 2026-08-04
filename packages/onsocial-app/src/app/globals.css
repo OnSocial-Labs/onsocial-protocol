@@ -442,6 +442,56 @@
   min-height: 1.1rem;
 }
 
+/*
+ * Play title Sell — unlayered so it beats os-sheet-action row-compact (2.75rem).
+ * Hug label width (no min-width pad); Market compact padding → true capsule.
+ */
+.collectibles-play-sell-action.os-sheet-actions--row-compact {
+  flex-shrink: 0;
+  width: auto;
+  min-width: 0;
+  gap: 0;
+  align-items: center;
+}
+
+.collectibles-play-sell-action.os-sheet-actions--row-compact .os-sheet-action,
+.collectibles-play-sell-action.os-sheet-actions--row-compact
+  .os-sheet-action--primary {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  padding: 0.28rem 0.72rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  border-radius: 9999px;
+  box-shadow: none;
+}
+
+.collectibles-play-sell-action.os-sheet-actions--borderless
+  .os-sheet-action__shell {
+  width: auto;
+  min-height: 0;
+}
+
+.collectibles-play-sell-action
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
+.collectibles-play-sell-action
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
+  border-color: rgb(var(--fg-rgb) / 0.12);
+  background: rgb(var(--fg-rgb) / 0.07);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.collectibles-play-sell-action
+  .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover {
+  border-color: rgb(var(--fg-rgb) / 0.16);
+  background: rgb(var(--fg-rgb) / 0.1);
+}
+
 /* Create-drop header Start pill — same compact family as the market Buy pill. */
 .drop-create-header-cta.os-sheet-actions--row-compact {
   flex-shrink: 0;
@@ -7468,7 +7518,8 @@ a.os-surface-row {
   .os-app-screen[data-immersive-header='true'] .app-page-hero .app-page-title,
   .os-app-screen[data-immersive-header='true']
     .collection-hero
-    .collection-title {
+    .collection-title,
+  .os-app-screen[data-immersive-header='true'] .collectibles-play-title-row {
     opacity: calc(1 - var(--title-handoff, 0));
     will-change: opacity;
   }
@@ -9172,15 +9223,22 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.5);
   }
 
+  /* Same stack rhythm as `.portfolio-store` (rail → CTA). */
+  .page-drawer-peek-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
   .page-drawer-scarce-rail {
     display: grid;
-    grid-auto-columns: minmax(7.5rem, 42%);
+    grid-auto-columns: minmax(8.5rem, 44%);
     grid-auto-flow: column;
     gap: 0.55rem;
     margin-inline: -0.1rem;
     overflow-x: auto;
     overscroll-behavior-x: contain;
-    padding: 0.05rem 0.1rem 0.4rem;
+    padding: 0.05rem 0.1rem 0.35rem;
     scroll-padding-inline: 0.1rem;
     scroll-snap-type: x proximity;
     scrollbar-width: none;
@@ -9208,16 +9266,22 @@ a.os-surface-row {
   .page-drawer-scarce-cover {
     aspect-ratio: 1;
     overflow: hidden;
-    border-radius: 0.8rem;
+    border-radius: 0.85rem;
     background: linear-gradient(
       145deg,
       rgb(var(--fg-rgb) / 0.1),
       rgb(var(--fg-rgb) / 0.03)
     );
+    transition: transform 180ms ease;
   }
 
   .page-drawer-scarce-cover.has-media {
     background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .page-drawer-scarce-card:hover .page-drawer-scarce-cover,
+  .page-drawer-scarce-card:focus-visible .page-drawer-scarce-cover {
+    transform: translateY(-2px);
   }
 
   .page-drawer-scarce-cover img {
@@ -9231,7 +9295,7 @@ a.os-surface-row {
     display: flex;
     min-width: 0;
     flex-direction: column;
-    gap: 0.12rem;
+    gap: 0.1rem;
     padding-inline: 0.1rem;
   }
 
@@ -9239,7 +9303,7 @@ a.os-surface-row {
     font-size: 0.78rem;
     font-weight: 600;
     line-height: 1.3;
-    color: rgb(var(--fg-rgb) / 0.88);
+    color: rgb(var(--fg-rgb) / 0.9);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -16742,6 +16806,16 @@ a.os-surface-row {
     width: min(100%, 15rem);
   }
 
+  /* Stable width for audio — avoid 15↔22 rem jumps when scrub/lyrics mount. */
+  .scarce-clip-player-shell--audio {
+    width: min(100%, 22rem);
+  }
+
+  .scarce-clip-player-shell--audio .scarce-clip-player {
+    width: min(100%, 15rem);
+    margin-inline: auto;
+  }
+
   .scarce-clip-player-shell .scarce-clip-player {
     margin: 0;
     width: 100%;
@@ -16835,6 +16909,225 @@ a.os-surface-row {
   button.scarce-clip-track-title:focus-visible {
     background: transparent;
     outline: none;
+  }
+
+  .scarce-clip-track.is-active .scarce-clip-track-title {
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.96);
+  }
+
+  .scarce-clip-progress {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    margin-top: 0.65rem;
+    min-height: 1.25rem;
+  }
+
+  .scarce-clip-progress-time {
+    min-width: 2.25rem;
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    color: var(--os-surface-muted);
+    line-height: 1;
+  }
+
+  .scarce-clip-progress-time:last-child {
+    text-align: right;
+  }
+
+  .scarce-clip-progress-track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    height: 1.35rem;
+    margin: 0;
+    cursor: pointer;
+    touch-action: none;
+  }
+
+  .scarce-clip-progress-track.is-disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  /*
+   * Visual rail — progress via --scarce-clip-p (0–1) on the compositor.
+   * Knob hidden until hover / scrub / brief peek after interaction.
+   */
+  .scarce-clip-progress-rail {
+    --scarce-clip-p: 0;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 0.16rem;
+    transform: translateY(-50%);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.1);
+    pointer-events: none;
+  }
+
+  .scarce-clip-progress-fill {
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    background: color-mix(
+      in srgb,
+      var(--signal-reputation, var(--protocol-green)) 72%,
+      transparent
+    );
+    transform: scaleX(var(--scarce-clip-p));
+    transform-origin: left center;
+    will-change: transform;
+  }
+
+  .scarce-clip-progress-knob {
+    position: absolute;
+    top: 50%;
+    left: calc(var(--scarce-clip-p) * 100%);
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 9999px;
+    background: var(--signal-reputation, var(--protocol-green));
+    box-shadow:
+      0 0 0 1.5px rgb(var(--bg-rgb) / 0.55),
+      0 1px 2px rgb(0 0 0 / 0.14);
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center;
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity 180ms ease,
+      transform 120ms ease;
+    will-change: transform, opacity;
+  }
+
+  /* Hover / scrub / brief peek — not :focus-within (pointer focus stuck the knob). */
+  .scarce-clip-progress-track:hover .scarce-clip-progress-knob,
+  .scarce-clip-progress-track.is-scrubbing .scarce-clip-progress-knob,
+  .scarce-clip-progress-track.is-knob-peek .scarce-clip-progress-knob,
+  .scarce-clip-progress-track:has(.scarce-clip-progress-scrub:focus-visible)
+    .scarce-clip-progress-knob {
+    opacity: 1;
+  }
+
+  /* Press-only grow — rail height stays fixed (no breathing). */
+  .scarce-clip-progress-track.is-scrubbing .scarce-clip-progress-knob {
+    transform: translate(-50%, -50%) scale(1.35);
+  }
+
+  /* Invisible hit control over the rail — native thumb fully hidden. */
+  .scarce-clip-progress-scrub {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: inherit;
+  }
+
+  .scarce-clip-progress-scrub:disabled {
+    cursor: default;
+  }
+
+  .scarce-clip-progress-scrub::-webkit-slider-runnable-track {
+    height: 1.35rem;
+    background: transparent;
+    border: 0;
+  }
+
+  .scarce-clip-progress-scrub::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+  }
+
+  .scarce-clip-progress-scrub::-moz-range-track {
+    height: 1.35rem;
+    background: transparent;
+    border: 0;
+  }
+
+  .scarce-clip-progress-scrub::-moz-range-thumb {
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    opacity: 0;
+  }
+
+  .scarce-clip-progress-scrub:focus-visible {
+    outline: 2px solid rgb(var(--signal-reputation-rgb, 0 236 151) / 0.45);
+    outline-offset: 2px;
+    border-radius: 0.35rem;
+  }
+
+  .scarce-clip-lyrics {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+    width: 100%;
+  }
+
+  .scarce-clip-lyrics-toggle {
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.06);
+    padding: 0.32rem 0.7rem;
+    color: rgb(var(--fg-rgb) / 0.72);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background 160ms ease,
+      color 160ms ease;
+  }
+
+  .scarce-clip-lyrics-toggle:hover,
+  .scarce-clip-lyrics-toggle:focus-visible,
+  .scarce-clip-lyrics-toggle.is-open {
+    background: rgb(var(--fg-rgb) / 0.1);
+    color: rgb(var(--fg-rgb) / 0.9);
+    outline: none;
+  }
+
+  .scarce-clip-lyrics-body {
+    margin: 0;
+    width: 100%;
+    max-height: 14rem;
+    overflow: auto;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    padding: 0.7rem 0.8rem;
+    color: rgb(var(--fg-rgb) / 0.82);
+    font: inherit;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .scarce-bid-history {
@@ -16997,6 +17290,383 @@ a.os-surface-row {
     gap: 0.85rem;
     min-height: 40vh;
     justify-content: center;
+  }
+
+  .collectibles-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  /*
+   * Global now-playing mini bar — above summon dock clearance, below dock z.
+   * Continues Collectibles audio after View drop.
+   */
+  .collectibles-now-playing {
+    position: fixed;
+    left: 50%;
+    bottom: var(--portfolio-dock-clearance, 4.75rem);
+    z-index: 35;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: min(
+      calc(100% - 1.5rem),
+      calc(var(--os-column-width, 28rem) - 1.5rem)
+    );
+    transform: translateX(-50%);
+    padding: 0.4rem 0.45rem 0.4rem 0.4rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.1);
+    border-radius: 1rem;
+    background: rgb(var(--bg-rgb) / 0.72);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    box-shadow: 0 8px 28px rgb(0 0 0 / 0.18);
+  }
+
+  a.collectibles-now-playing-main {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    flex: 1;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .collectibles-now-playing-cover {
+    flex-shrink: 0;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.45rem;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .collectibles-now-playing-cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .collectibles-now-playing-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+
+  .collectibles-now-playing-title,
+  .collectibles-now-playing-album {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .collectibles-now-playing-title {
+    font-size: 0.82rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .collectibles-now-playing-album {
+    font-size: 0.68rem;
+    color: var(--os-surface-muted);
+    line-height: 1.2;
+  }
+
+  .collectibles-now-playing-toggle,
+  .collectibles-now-playing-close {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .collectibles-now-playing-toggle:hover,
+  .collectibles-now-playing-toggle:focus-visible,
+  .collectibles-now-playing-close:hover,
+  .collectibles-now-playing-close:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.14);
+    outline: none;
+  }
+
+  .collectibles-now-playing-toggle-icon {
+    width: 0.95rem;
+    height: 0.95rem;
+    display: block;
+  }
+
+  .collectibles-now-playing-toggle-icon--play {
+    transform: translateX(0.06rem);
+  }
+
+  .collectibles-now-playing-close-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+    display: block;
+  }
+
+  .collectibles-play-page {
+    align-items: center;
+  }
+
+  .collectibles-play-body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+    width: min(100%, 22rem);
+  }
+
+  .collectibles-play-page.is-immersive {
+    align-items: stretch;
+  }
+
+  .collectibles-play-page.is-immersive .collectibles-play-body {
+    width: 100%;
+    max-width: none;
+    gap: 0.65rem;
+  }
+
+  /*
+   * Immersive album cover — edge-bleed under nav (collection music recipe).
+   * Scrubber / tracks stay padded below.
+   */
+  .collectibles-play-page.is-immersive .scarce-clip-player-shell {
+    width: 100%;
+    margin: 0;
+  }
+
+  .collectibles-play-page.is-immersive .scarce-clip-player {
+    width: calc(100% + (2 * var(--os-screen-body-pad-x, 1rem)));
+    max-width: none;
+    margin: 0 calc(-1 * var(--os-screen-body-pad-x, 1rem));
+    height: calc(
+      env(safe-area-inset-top, 0px) + min(52dvh, clamp(12rem, 78vw, 20rem))
+    );
+  }
+
+  .collectibles-play-page.is-immersive .scarce-clip-player-cover,
+  .collectibles-play-page.is-immersive .scarce-clip-player-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    border-radius: 0;
+    object-fit: cover;
+  }
+
+  .collectibles-play-page.is-immersive .scarce-clip-player::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 1;
+    height: calc(env(safe-area-inset-top, 0px) + 4.25rem);
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.48) 0%,
+      rgb(0 0 0 / 0.22) 55%,
+      transparent 100%
+    );
+  }
+
+  .collectibles-play-page.is-immersive .scarce-clip-player-play {
+    z-index: 2;
+  }
+
+  .collectibles-play-page.is-immersive .scarce-clip-progress,
+  .collectibles-play-page.is-immersive .scarce-clip-track-list,
+  .collectibles-play-page.is-immersive .scarce-clip-lyrics {
+    width: min(100%, 22rem);
+    margin-inline: auto;
+  }
+
+  .collectibles-play-title-row.collection-title-row {
+    align-items: center;
+    gap: 0.65rem;
+    margin: 0.15rem 0 0;
+    width: 100%;
+  }
+
+  .collectibles-play-title {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+    font-size: 1.15rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+
+  .collectibles-play-page.is-immersive .collectibles-play-creator,
+  .collectibles-play-page.is-immersive .collectibles-play-gestures,
+  .collectibles-play-page.is-immersive .collection-about-teaser,
+  .collectibles-play-page.is-immersive .collectibles-play-title-row {
+    width: min(100%, 22rem);
+    margin-inline: auto;
+  }
+
+  .collectibles-play-creator {
+    margin-top: 0.15rem;
+  }
+
+  .collectibles-play-listed {
+    flex-shrink: 0;
+    margin: 0;
+    color: var(--os-surface-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  /* Meta row: optical nudge — Mage circle glyph reads high vs type. */
+  .collectibles-play-creator .collection-meta-sub {
+    align-items: center;
+  }
+
+  .collectibles-play-facts.guild-hero-facts-button {
+    width: 0.95rem;
+    height: 0.95rem;
+    margin: 0;
+    transform: translateY(0.1em);
+  }
+
+  .collectibles-play-facts .guild-hero-facts-icon {
+    width: 0.78rem;
+    height: 0.78rem;
+  }
+
+  .collectibles-play-kind {
+    flex-shrink: 0;
+    color: var(--os-surface-muted);
+    font-weight: 600;
+  }
+
+  .collectibles-play-gestures {
+    margin-top: -0.1rem;
+  }
+
+  .collectibles-play-gestures .portfolio-identity-gestures {
+    margin-top: 0;
+  }
+
+  /* Header chip — denser, borderless soft pill (not a bordered drawer CTA). */
+  .os-app-screen-actions a.collectibles-play-drop-action {
+    gap: 0.32rem;
+    padding: 0.34rem 0.62rem;
+    border: 0;
+    font-size: 0.72rem;
+  }
+
+  .os-app-screen-actions a.collectibles-play-drop-action:hover,
+  .os-app-screen-actions a.collectibles-play-drop-action:focus-visible {
+    border: 0;
+  }
+
+  .collectibles-play-drop-live {
+    flex-shrink: 0;
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 9999px;
+    background: rgb(var(--signal-reputation-rgb, 0 236 151));
+  }
+
+  .collectibles-play-drop-live-label {
+    color: rgb(var(--signal-reputation-rgb, 0 236 151));
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  /* On cover: frosted dark pill so the chip stays readable (← / shop recipe). */
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header:not(.is-elevated)
+    a.collectibles-play-drop-action {
+    border: 0;
+    background: rgb(0 0 0 / 0.42);
+    color: rgb(255 255 255 / 0.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header:not(.is-elevated)
+    a.collectibles-play-drop-action:hover,
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header:not(.is-elevated)
+    a.collectibles-play-drop-action:focus-visible {
+    border: 0;
+    background: rgb(0 0 0 / 0.55);
+    color: rgb(255 255 255 / 1);
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header:not(.is-elevated)
+    .collectibles-play-drop-live-label {
+    color: rgb(var(--signal-reputation-rgb, 0 236 151));
+  }
+
+  .os-app-screen[data-immersive-header='true']
+    .os-app-screen-header.is-elevated
+    a.collectibles-play-drop-action {
+    filter: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  a.collectibles-holding-row {
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  a.collectibles-holding-row:focus-visible {
+    outline: none;
+    background: var(--os-surface-row-hover);
+  }
+
+  /* Match `.market-listing-action` compact primary pills (Buy / Sell). */
+  .collectibles-holding-action {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 4.5rem;
+    min-height: 1.65rem;
+    padding: 0.28rem 0.72rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.14);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.07);
+    color: rgb(var(--fg-rgb) / 0.78);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.2;
+    pointer-events: none;
+    transition:
+      background 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  a.collectibles-holding-row:hover .collectibles-holding-action,
+  a.collectibles-holding-row:focus-visible .collectibles-holding-action {
+    border-color: rgb(var(--fg-rgb) / 0.22);
+    background: rgb(var(--fg-rgb) / 0.1);
+    color: rgb(var(--fg-rgb) / 0.92);
   }
 
   .market-creator-filter {
@@ -18552,6 +19222,14 @@ a.os-surface-row {
 
   .drop-track-list-row {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .drop-track-list-main {
+    display: flex;
     align-items: center;
     gap: 0.45rem;
     min-width: 0;
@@ -18565,6 +19243,73 @@ a.os-surface-row {
 
   .drop-track-list-row.is-dragging {
     opacity: 0.35;
+  }
+
+  .drop-track-lyrics-toggle {
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    padding: 0.28rem 0.55rem;
+    color: var(--os-surface-muted);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      color 160ms ease,
+      background 160ms ease;
+  }
+
+  .drop-track-lyrics-toggle:hover:not(:disabled),
+  .drop-track-lyrics-toggle:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.88);
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .drop-track-lyrics-toggle.has-lyrics,
+  .drop-track-lyrics-toggle.is-open {
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .drop-track-lyrics-toggle:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .drop-track-lyrics-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0 0.1rem 0.15rem;
+  }
+
+  .drop-track-lyrics-input {
+    width: 100%;
+    min-height: 6.5rem;
+    resize: vertical;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    padding: 0.65rem 0.75rem;
+    color: inherit;
+    font: inherit;
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .drop-track-lyrics-input:focus {
+    outline: none;
+    border-color: rgb(var(--fg-rgb) / 0.22);
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .drop-track-lyrics-meta {
+    margin: 0;
+    font-size: 0.66rem;
+    color: var(--os-surface-muted);
+    letter-spacing: 0.02em;
   }
 
   /* In-flow slot so Divider keeps its gradient-fade (not a solid bar). */
@@ -18586,7 +19331,7 @@ a.os-surface-row {
   }
 
   .drop-track-list-title {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;

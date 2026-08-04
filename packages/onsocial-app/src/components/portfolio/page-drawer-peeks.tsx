@@ -8,7 +8,7 @@ import {
 import type { ProfilePostPeek, ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import { personalPostPath } from '@/lib/post-routes';
-import { APP_MARKET_PATH, marketCreatorPath } from '@/lib/app-routes';
+import { APP_COLLECTIBLES_PATH, marketCreatorPath } from '@/lib/app-routes';
 
 export function PageDrawerPostPeekList({
   pageAccountId,
@@ -64,15 +64,15 @@ export function PageDrawerHoldingsRail({
           key={item.tokenId}
           href={item.href}
           scroll={false}
-          className="page-drawer-scarce-card"
+          className="page-drawer-scarce-card group"
           title={`${item.title} · ${item.actionLabel}`}
         >
-          <div
+          <span
             className={`page-drawer-scarce-cover${item.mediaUrl ? ' has-media' : ''}`}
             aria-hidden
           >
             {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
-          </div>
+          </span>
           <span className="page-drawer-scarce-body">
             <span className="page-drawer-scarce-title">{item.title}</span>
             <span className="page-drawer-scarce-meta">
@@ -100,28 +100,36 @@ export function PageDrawerCreatedRail({
 
   return (
     <div className="page-drawer-scarce-rail" aria-label="Created scarces">
-      {created.map((item) => (
-        <Link
-          key={item.tokenId}
-          href={item.href}
-          scroll={false}
-          className="page-drawer-scarce-card"
-          title={item.title}
-        >
-          <div
-            className={`page-drawer-scarce-cover${item.mediaUrl ? ' has-media' : ''}`}
-            aria-hidden
+      {created.map((item) => {
+        const titleHint = item.kindLabel
+          ? `${item.title} · ${item.kindLabel}`
+          : item.title;
+        return (
+          <Link
+            key={item.tokenId}
+            href={item.href}
+            scroll={false}
+            className="page-drawer-scarce-card group"
+            title={titleHint}
           >
-            {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
-          </div>
-          <span className="page-drawer-scarce-body">
-            <span className="page-drawer-scarce-title">{item.title}</span>
-            <span className="page-drawer-scarce-meta">
-              <span className="page-drawer-scarce-action">View</span>
+            <span
+              className={`page-drawer-scarce-cover${item.mediaUrl ? ' has-media' : ''}`}
+              aria-hidden
+            >
+              {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
             </span>
-          </span>
-        </Link>
-      ))}
+            <span className="page-drawer-scarce-body">
+              <span className="page-drawer-scarce-title">{item.title}</span>
+              <span className="page-drawer-scarce-meta">
+                {item.kindLabel ? (
+                  <span className="page-drawer-scarce-kind">{item.kindLabel}</span>
+                ) : null}
+                <span className="page-drawer-scarce-action">Open</span>
+              </span>
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -135,6 +143,7 @@ export function PageDrawerCreatedSeeAll({
     <Link
       className="page-drawer-section-action"
       href={marketCreatorPath(pageAccountId)}
+      scroll={false}
     >
       See in Market
     </Link>
@@ -143,8 +152,12 @@ export function PageDrawerCreatedSeeAll({
 
 export function PageDrawerHoldingsSeeAll() {
   return (
-    <Link className="page-drawer-section-action" href={APP_MARKET_PATH}>
-      Manage in Market
+    <Link
+      className="page-drawer-section-action"
+      href={APP_COLLECTIBLES_PATH}
+      scroll={false}
+    >
+      Open Collectibles
     </Link>
   );
 }

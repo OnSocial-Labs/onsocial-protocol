@@ -96,12 +96,14 @@ export {
   buildCreateLazyListingAction,
   buildPurchaseLazyListingAction,
   extractPostMedia,
+  inferPostScarceKind,
   nearToYocto,
 } from './builders/scarces/index.js';
 export type {
   ExtractedPost,
   MintFromPostOptions,
   PlayableMediaRef,
+  PostScarceKind,
   PostSource,
   BatchTransferEntry,
   TokenMetadata,

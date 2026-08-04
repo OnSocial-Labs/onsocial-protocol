@@ -2,6 +2,10 @@ export const APP_HOME_PATH = '/home';
 export const APP_DISCOVER_PATH = '/discover';
 export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';
+/** Owner vault — use holdings (Read / Play / Show pass). Create stays on Market. */
+export const APP_COLLECTIBLES_PATH = '/collectibles';
+/** Focused Collectibles player for music / video holdings. */
+export const APP_COLLECTIBLES_PLAY_PATH = '/collectibles/play';
 export const APP_COLLECTION_PATH = '/collection';
 export const APP_DROP_CREATE_PATH = '/market/create';
 export const APP_APPS_PATH = '/apps';
@@ -14,8 +18,13 @@ export const MARKET_CREATOR_PARAM = 'creator';
 /** Query key that pre-filters Market to one app / store. */
 export const MARKET_APP_PARAM = 'app';
 
-/** Query key that pre-filters Market by medium (`art` | `writing` | `music`). */
+/** Query key that pre-filters Market / Collectibles by medium (`art` | `writing` | `music`). */
 export const MARKET_KIND_PARAM = 'kind';
+
+/** Query key for Collectibles focused player (`?c=collectionId`). */
+export const COLLECTIBLES_PLAY_PARAM = 'c';
+/** Optional owned edition for Sell on the focused player (`?t=tokenId`). */
+export const COLLECTIBLES_PLAY_TOKEN_PARAM = 't';
 
 /** Market pre-filtered to a single creator's live listings. */
 export function marketCreatorPath(accountId: string): string {
@@ -36,6 +45,27 @@ export function marketKindPath(kind: string): string {
   const value = kind.trim().toLowerCase();
   if (!value) return APP_MARKET_PATH;
   return `${APP_MARKET_PATH}?${MARKET_KIND_PARAM}=${encodeURIComponent(value)}`;
+}
+
+/** Collectibles hub pre-filtered to one medium kind. */
+export function collectiblesKindPath(kind: string): string {
+  const value = kind.trim().toLowerCase();
+  if (!value || value === 'all') return APP_COLLECTIBLES_PATH;
+  return `${APP_COLLECTIBLES_PATH}?${MARKET_KIND_PARAM}=${encodeURIComponent(value)}`;
+}
+
+/** Focused player for a music / video collection holding. */
+export function collectiblesPlayPath(
+  collectionId: string,
+  opts?: { tokenId?: string | null }
+): string {
+  const id = collectionId.trim();
+  if (!id) return APP_COLLECTIBLES_PATH;
+  const params = new URLSearchParams();
+  params.set(COLLECTIBLES_PLAY_PARAM, id);
+  const tokenId = opts?.tokenId?.trim();
+  if (tokenId) params.set(COLLECTIBLES_PLAY_TOKEN_PARAM, tokenId);
+  return `${APP_COLLECTIBLES_PLAY_PATH}?${params.toString()}`;
 }
 
 /** Public collection (drop) page. */
@@ -70,6 +100,8 @@ export function isAppRoutePath(pathname: string): boolean {
     pathname.startsWith(`${APP_GROUPS_PATH}/`) ||
     pathname === APP_MARKET_PATH ||
     pathname.startsWith(`${APP_MARKET_PATH}/`) ||
+    pathname === APP_COLLECTIBLES_PATH ||
+    pathname.startsWith(`${APP_COLLECTIBLES_PATH}/`) ||
     pathname === APP_COLLECTION_PATH ||
     pathname.startsWith(`${APP_COLLECTION_PATH}/`) ||
     pathname === APP_APPS_PATH ||

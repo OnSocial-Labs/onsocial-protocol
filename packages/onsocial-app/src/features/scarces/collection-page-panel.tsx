@@ -884,6 +884,10 @@ export function CollectionPagePanel({
               tracks={playables}
               poster={view.mediaUrl}
               layout="tracks"
+              persist={{
+                collectionId: view.collectionId,
+                title: view.title,
+              }}
             />
           </section>
         ) : null}

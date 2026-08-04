@@ -20,6 +20,12 @@ export interface PlayableMediaRef {
   title?: string;
 }
 
+/**
+ * Medium taxonomy written to `extra.kind` when minting/listing from a post.
+ * Aligns with Market / Collectibles filters (`thought` / `art` / `music` / `video`).
+ */
+export type PostScarceKind = 'thought' | 'art' | 'music' | 'video';
+
 /** Parsed projection of a post body — text + first usable media CID. */
 export interface ExtractedPost {
   text: string;
@@ -95,6 +101,27 @@ export function extractPostMedia(
   const result: ExtractedPost = { text, media: rawMedia, mediaCids, playable };
   if (mediaCids.length > 0) result.mediaCid = mediaCids[0];
   return result;
+}
+
+/**
+ * Infer Collectibles / Market medium for a post scarce.
+ *
+ * Priority: video clip → `video`, audio → `music`, still(s) → `art`,
+ * otherwise `thought` (text-only social edition).
+ */
+export function inferPostScarceKind(
+  extracted: Pick<ExtractedPost, 'mediaCids' | 'playable'>
+): PostScarceKind {
+  const hasVideo = extracted.playable.some((entry) =>
+    /^video\//i.test(entry.mime)
+  );
+  if (hasVideo) return 'video';
+  const hasAudio = extracted.playable.some((entry) =>
+    /^audio\//i.test(entry.mime)
+  );
+  if (hasAudio) return 'music';
+  if (extracted.mediaCids.length > 0) return 'art';
+  return 'thought';
 }
 
 export function isPostRow(p: PostSource): p is PostRow {

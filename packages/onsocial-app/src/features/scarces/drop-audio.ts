@@ -4,6 +4,8 @@
 
 export const DROP_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 export const DROP_AUDIO_MAX_TRACKS = 30;
+/** Soft cap for optional per-track lyrics (plain text). */
+export const DROP_LYRICS_MAX_CHARS = 8_000;
 
 const DROP_AUDIO_MIMES = new Set([
   'audio/mpeg',
@@ -52,4 +54,16 @@ export function musicTracksValid(
 ): boolean {
   if (format === 'single') return count === 1;
   return count >= 2 && count <= DROP_AUDIO_MAX_TRACKS;
+}
+
+/** Trim and clamp lyrics for `extra.playable[].lyrics`; empty → undefined. */
+export function normalizeTrackLyrics(
+  raw: string | null | undefined,
+  maxChars = DROP_LYRICS_MAX_CHARS
+): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.replace(/\r\n/g, '\n').trimEnd();
+  if (!trimmed.trim()) return undefined;
+  if (trimmed.length <= maxChars) return trimmed;
+  return trimmed.slice(0, maxChars);
 }

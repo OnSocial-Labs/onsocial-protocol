@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DROP_LYRICS_MAX_CHARS,
   isDropAudioMime,
   musicTracksValid,
+  normalizeTrackLyrics,
   sha256BlobBase64,
   trackTitleFromFile,
 } from './drop-audio';
@@ -43,5 +45,21 @@ describe('sha256BlobBase64', () => {
   it('returns base64 of a 32-byte digest', async () => {
     const hash = await sha256BlobBase64(new Blob(['onsocial']));
     expect(hash).toMatch(/^[A-Za-z0-9+/]{43}=$/);
+  });
+});
+
+describe('normalizeTrackLyrics', () => {
+  it('omits blank lyrics', () => {
+    expect(normalizeTrackLyrics('')).toBeUndefined();
+    expect(normalizeTrackLyrics('   \n  ')).toBeUndefined();
+    expect(normalizeTrackLyrics(null)).toBeUndefined();
+  });
+
+  it('keeps plain text and clamps length', () => {
+    expect(normalizeTrackLyrics('  verse one\r\nverse two  ')).toBe(
+      '  verse one\nverse two'
+    );
+    const long = 'a'.repeat(DROP_LYRICS_MAX_CHARS + 40);
+    expect(normalizeTrackLyrics(long)?.length).toBe(DROP_LYRICS_MAX_CHARS);
   });
 });

@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest';
+import {
+  APP_COLLECTIBLES_PATH,
+  collectiblesKindPath,
+  collectiblesPlayPath,
+  isAppRoutePath,
+} from '@/lib/app-routes';
+import {
+  appShellOsApps,
+  gateOsApps,
+  ownerPortfolioOsApps,
+  resolveActiveOsAppId,
+  visitorPortfolioOsApps,
+} from '@/lib/os-apps';
+
+describe('collectibles routes', () => {
+  it('registers /collectibles as an app shell path', () => {
+    expect(APP_COLLECTIBLES_PATH).toBe('/collectibles');
+    expect(isAppRoutePath('/collectibles')).toBe(true);
+    expect(isAppRoutePath('/collectibles/play')).toBe(true);
+    expect(collectiblesKindPath('writing')).toBe('/collectibles?kind=writing');
+    expect(collectiblesKindPath('all')).toBe('/collectibles');
+    expect(collectiblesPlayPath('night-drive')).toBe(
+      '/collectibles/play?c=night-drive'
+    );
+    expect(collectiblesPlayPath('night-drive', { tokenId: 'night-drive:2' })).toBe(
+      '/collectibles/play?c=night-drive&t=night-drive%3A2'
+    );
+  });
+});
+
+describe('collectibles os apps', () => {
+  it('marks collectibles active on the vault route', () => {
+    expect(resolveActiveOsAppId('/collectibles')).toBe('collectibles');
+    expect(resolveActiveOsAppId('/collectibles?kind=music')).toBe(
+      'collectibles'
+    );
+    expect(resolveActiveOsAppId('/collectibles/play?c=album')).toBe(
+      'collectibles'
+    );
+  });
+
+  it('exposes Collectibles for gate and owner, not visitors', () => {
+    expect(gateOsApps().some((app) => app.id === 'collectibles')).toBe(true);
+    expect(
+      ownerPortfolioOsApps('alice.near').some((app) => app.id === 'collectibles')
+    ).toBe(true);
+    expect(
+      visitorPortfolioOsApps('alice.near').some(
+        (app) => app.id === 'collectibles'
+      )
+    ).toBe(false);
+  });
+
+  it('inserts Collectibles after Market when the wallet is connected', () => {
+    const disconnected = appShellOsApps(null).map((app) => app.id);
+    expect(disconnected).not.toContain('collectibles');
+
+    const connected = appShellOsApps('alice.near').map((app) => app.id);
+    const marketIdx = connected.indexOf('market');
+    expect(connected[marketIdx + 1]).toBe('collectibles');
+  });
+});

@@ -207,7 +207,7 @@ export function PageContentSections({
               ) : null}
 
               {showCreated ? (
-                <>
+                <div className="page-drawer-peek-stack">
                   <PageDrawerCreatedRail created={createdPeeks} />
                   {createdPeeks.length === 0 ? (
                     <p className="page-drawer-section-empty">
@@ -215,14 +215,14 @@ export function PageContentSections({
                     </p>
                   ) : null}
                   <PageDrawerCreatedSeeAll pageAccountId={pageAccountId} />
-                </>
+                </div>
               ) : null}
 
               {showHoldings ? (
-                <>
+                <div className="page-drawer-peek-stack">
                   <PageDrawerHoldingsRail holdings={holdings} />
                   <PageDrawerHoldingsSeeAll />
-                </>
+                </div>
               ) : null}
 
               {showLinks ? <PageDrawerLinksList links={links} /> : null}

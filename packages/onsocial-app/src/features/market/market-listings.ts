@@ -51,6 +51,8 @@ export interface ScarcePlayableMedia {
   mime: string;
   /** Track / clip label when present in `extra.playable`. */
   title?: string;
+  /** Optional plain-text lyrics for this track (`extra.playable[].lyrics`). */
+  lyrics?: string;
 }
 
 export interface MarketListingItem {
@@ -257,7 +259,7 @@ function priceNearFromRow(row: ScarcesEventRow): string {
  * `media` is always a still — this is the clip behind it, so buy/bid sheets
  * can play what is actually being sold.
  */
-/** Medium taxonomy (`art` / `writing` / `music`) from NEP-177 `extra.kind`. */
+/** Medium taxonomy (`art` / `writing` / `music` / `thought` / `video` / …) from NEP-177 `extra.kind`. */
 export function mediumKindFromExtra(
   extra: Record<string, unknown> | null
 ): string | undefined {
@@ -287,15 +289,16 @@ function playablesFromExtra(
     const url = resolveScarceMediaUrl(cid);
     if (!url) continue;
     const title = stringField(record, 'title') ?? undefined;
-    out.push({ url, mime, ...(title ? { title } : {}) });
+    const lyricsRaw = stringField(record, 'lyrics');
+    const lyrics = lyricsRaw?.trim() ? lyricsRaw : undefined;
+    out.push({
+      url,
+      mime,
+      ...(title ? { title } : {}),
+      ...(lyrics ? { lyrics } : {}),
+    });
   }
   return out;
-}
-
-function playableFromExtra(
-  extra: Record<string, unknown> | null
-): ScarcePlayableMedia | undefined {
-  return playablesFromExtra(extra)[0];
 }
 
 function sourcePostPathFromExtra(
@@ -953,6 +956,64 @@ function ownedItemsFromTokens(
       };
     })
     .filter((item): item is OwnedScarceItem => item != null);
+}
+
+/**
+ * Load one owned scarce by token id (nft_token + owner sales). Used when the
+ * Collectibles player deep-links with `?t=` so Sell targets the right edition.
+ */
+export async function fetchOwnedScarceByTokenId(
+  accountId: string,
+  tokenId: string
+): Promise<OwnedScarceItem | null> {
+  const owner = accountId.trim();
+  const id = tokenId.trim();
+  if (!owner || !id) return null;
+
+  const token = await fetchTokenRecord(id);
+  if (!token?.token_id?.trim()) return null;
+  const tokenOwner = token.owner_id?.trim() || '';
+  if (
+    tokenOwner &&
+    tokenOwner.toLowerCase() !== owner.toLowerCase()
+  ) {
+    return null;
+  }
+
+  const listedByToken = await fetchOwnerListedStates(owner);
+  return ownedItemsFromTokens([token], owner, listedByToken)[0] ?? null;
+}
+
+/**
+ * Find the viewer’s owned edition for a drop (newest pages first).
+ * Fallback when the play URL has no `?t=` token id.
+ */
+export async function fetchOwnedScarceForCollection(
+  accountId: string,
+  collectionId: string
+): Promise<OwnedScarceItem | null> {
+  const owner = accountId.trim();
+  const target = collectionId.trim();
+  if (!owner || !target) return null;
+
+  let fromEnd = 0;
+  for (let i = 0; i < 8; i++) {
+    const page = await fetchOwnedScarcesPage(owner, {
+      fromEnd,
+      pageSize: OWNED_PAGE_SIZE,
+    });
+    const hit = page.items.find((item) => {
+      const id =
+        item.collectionId?.trim() ||
+        collectionIdFromTokenId(item.tokenId) ||
+        '';
+      return id === target;
+    });
+    if (hit) return hit;
+    if (!page.hasMore) break;
+    fromEnd = page.nextFromEnd;
+  }
+  return null;
 }
 
 /**

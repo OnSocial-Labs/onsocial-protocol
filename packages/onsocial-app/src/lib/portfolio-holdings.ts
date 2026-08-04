@@ -2,8 +2,11 @@ import {
   collectionIdFromTokenId,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
-import { marketMediumLabel } from '@/features/market/market-medium';
-import { APP_MARKET_PATH, collectionPath } from '@/lib/app-routes';
+import {
+  marketMediumLabel,
+  type MarketMediumFilter,
+} from '@/features/market/market-medium';
+import { APP_MARKET_PATH, collectionPath, collectiblesPlayPath } from '@/lib/app-routes';
 
 /** Max holdings cards in the portfolio Collectibles rail. */
 export const PAGE_DRAWER_HOLDINGS_PEEK = 6;
@@ -31,12 +34,16 @@ export function holdingsActionLabel(
       return 'Read';
     case 'music':
       return 'Play';
+    case 'video':
+      return 'Watch';
     case 'ticket':
       return 'Show pass';
     case 'coupon':
       return 'Redeem';
     case 'membership':
       return 'Open pass';
+    case 'thought':
+    case 'art':
     default:
       return 'Open';
   }
@@ -52,9 +59,15 @@ export function holdingsHrefForOwned(item: {
   tokenId: string;
   collectionId?: string | null;
   sourcePostPath?: string;
+  mediumKind?: string | null;
 }): string {
   const collectionId =
     item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
+  const medium = (item.mediumKind ?? '').trim().toLowerCase();
+  // Music / video holdings open the focused Collectibles player (lyrics live there).
+  if (collectionId && (medium === 'music' || medium === 'video')) {
+    return collectiblesPlayPath(collectionId, { tokenId: item.tokenId });
+  }
   if (collectionId) return collectionPath(collectionId);
   const postPath = item.sourcePostPath?.trim();
   if (postPath) {
@@ -75,8 +88,38 @@ export function toPortfolioHoldingPeek(
     mediaUrl: item.mediaUrl ?? null,
     collectionId,
     mediumKind,
-    href: holdingsHrefForOwned(item),
+    href: holdingsHrefForOwned({
+      tokenId: item.tokenId,
+      collectionId,
+      sourcePostPath: item.sourcePostPath,
+      mediumKind,
+    }),
     actionLabel: holdingsActionLabel(mediumKind),
     kindLabel: holdingsKindLabel(mediumKind),
   };
+}
+
+/** Kind-tab filter for the Collectibles hub (unknown kinds only appear in All). */
+export function filterHoldingsByMedium<
+  T extends { mediumKind: string | null },
+>(items: T[], medium: MarketMediumFilter): T[] {
+  if (medium === 'all') return items;
+  return items.filter((item) => item.mediumKind === medium);
+}
+
+/** Client search for the Collectibles hub search field. */
+export function holdingsMatchQuery(
+  item: Pick<
+    PortfolioHoldingPeek,
+    'title' | 'kindLabel' | 'actionLabel' | 'tokenId'
+  >,
+  query: string
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [item.title, item.kindLabel, item.actionLabel, item.tokenId]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
 }

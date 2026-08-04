@@ -6,6 +6,7 @@ import {
   AppAccountSheetHost,
   AppAccountSheetProvider,
 } from '@/contexts/app-account-sheet-context';
+import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-playing-context';
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
 import { AppWalletProvider } from '@/contexts/app-wallet-context';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
@@ -24,8 +25,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                 <AppRewardsProvider>
                   <PortfolioCustomizeProvider>
                     <ComposeLauncherProvider>
-                      {children}
-                      <AppAccountSheetHost />
+                      <CollectiblesNowPlayingProvider>
+                        {children}
+                        <AppAccountSheetHost />
+                      </CollectiblesNowPlayingProvider>
                     </ComposeLauncherProvider>
                   </PortfolioCustomizeProvider>
                 </AppRewardsProvider>

@@ -3,6 +3,7 @@ import type { PostRow } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { parsePostText } from '@/lib/post-display';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
+import { marketMediumLabel } from '@/features/market/market-medium';
 import { holdingsHrefForOwned } from '@/lib/portfolio-holdings';
 
 export const PAGE_DRAWER_POST_PEEK = 3;
@@ -24,6 +25,8 @@ export interface ProfileCreatedPeek {
   mediaUrl: string | null;
   blockTimestamp: number;
   href: string;
+  /** Medium badge when `extra.kind` is known. */
+  kindLabel: string | null;
 }
 
 /** Mint-event fields used for Created peeks (SDK `ScarcesEventRow`). */
@@ -86,6 +89,19 @@ function mediaFromScarceRow(row: ScarceMintRow): string | null {
   return null;
 }
 
+function kindFromScarceRow(row: ScarceMintRow): string | null {
+  if (!row.extraData) return null;
+  try {
+    const extra = JSON.parse(row.extraData) as { kind?: unknown };
+    if (typeof extra.kind === 'string' && extra.kind.trim()) {
+      return marketMediumLabel(extra.kind);
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 function sourcePostPathFromScarceRow(row: ScarceMintRow): string | undefined {
   if (!row.extraData) return undefined;
   try {
@@ -135,6 +151,7 @@ export function toProfileCreatedPeek(
       collectionId: collectionIdFromTokenId(tokenId),
       sourcePostPath: sourcePostPathFromScarceRow(row),
     }),
+    kindLabel: kindFromScarceRow(row),
   };
 }
 

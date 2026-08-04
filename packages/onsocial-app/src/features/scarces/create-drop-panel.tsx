@@ -42,6 +42,7 @@ import {
   DROP_AUDIO_MAX_TRACKS,
   isDropAudioMime,
   musicTracksValid,
+  normalizeTrackLyrics,
   sha256BlobBase64,
   trackTitleFromFile,
   type MusicReleaseFormat,
@@ -190,6 +191,8 @@ export function CreateDropPanel() {
   const [artMode, setArtMode] = useState<DropArtMode>('single');
   const [musicFormat, setMusicFormat] = useState<MusicReleaseFormat>('single');
   const [trackFiles, setTrackFiles] = useState<File[]>([]);
+  /** Parallel to `trackFiles` — optional lyrics draft per track. */
+  const [trackLyrics, setTrackLyrics] = useState<string[]>([]);
   const [writingFormat, setWritingFormat] =
     useState<WritingReleaseFormat>('article');
   const [chapterFiles, setChapterFiles] = useState<File[]>([]);
@@ -221,7 +224,12 @@ export function CreateDropPanel() {
    * keeps the user gesture so the approve sheet actually pops.
    */
   const [pinnedMusic, setPinnedMusic] = useState<{
-    playable: Array<{ cid: string; mime: string; title?: string }>;
+    playable: Array<{
+      cid: string;
+      mime: string;
+      title?: string;
+      lyrics?: string;
+    }>;
     coverCid: string;
     coverHash: string;
   } | null>(null);
@@ -252,7 +260,7 @@ export function CreateDropPanel() {
   // Invalidate pins if the creator changes files after prepare.
   useEffect(() => {
     setPinnedMusic(null);
-  }, [trackFiles, imageFile, musicFormat]);
+  }, [trackFiles, trackLyrics, imageFile, musicFormat]);
 
   useEffect(() => {
     setPinnedWriting(null);
@@ -404,22 +412,41 @@ export function CreateDropPanel() {
         const next = [...prev, ...picked].slice(0, DROP_AUDIO_MAX_TRACKS);
         return next;
       });
+      setTrackLyrics((prev) => {
+        if (musicFormat === 'single') {
+          return [''];
+        }
+        const added = picked.map(() => '');
+        return [...prev, ...added].slice(0, DROP_AUDIO_MAX_TRACKS);
+      });
     },
     [musicFormat]
   );
 
   const removeTrackAt = useCallback((index: number) => {
     setTrackFiles((prev) => prev.filter((_, i) => i !== index));
+    setTrackLyrics((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const reorderTracks = useCallback((next: File[]) => {
+  const reorderTracks = useCallback((next: File[], nextLyrics: string[]) => {
     setTrackFiles(next);
+    setTrackLyrics(nextLyrics);
+  }, []);
+
+  const setTrackLyricsAt = useCallback((index: number, value: string) => {
+    setTrackLyrics((prev) => {
+      const next = prev.slice();
+      while (next.length <= index) next.push('');
+      next[index] = value;
+      return next;
+    });
   }, []);
 
   const setMusicReleaseFormat = useCallback((format: MusicReleaseFormat) => {
     setMusicFormat(format);
     if (format === 'single') {
       setTrackFiles((prev) => prev.slice(0, 1));
+      setTrackLyrics((prev) => prev.slice(0, 1));
     }
     setError(null);
   }, []);
@@ -786,10 +813,12 @@ export function CreateDropPanel() {
           const playable = uploaded.map((ref, index) => {
             const file = trackFiles[index]!;
             const trackTitle = trackTitleFromFile(file);
+            const lyrics = normalizeTrackLyrics(trackLyrics[index]);
             return {
               cid: ref.cid,
               mime: file.type || 'audio/mpeg',
               ...(trackTitle ? { title: trackTitle } : {}),
+              ...(lyrics ? { lyrics } : {}),
             };
           });
           setPendingLabel('Uploading cover…');
@@ -1062,6 +1091,7 @@ export function CreateDropPanel() {
       isMusic,
       musicFormat,
       trackFiles,
+      trackLyrics,
       isWriting,
       writingFormat,
       chapterFiles,
@@ -1673,10 +1703,12 @@ export function CreateDropPanel() {
             {trackFiles.length > 0 ? (
               <DropTrackPreviewList
                 files={trackFiles}
+                lyrics={trackLyrics}
                 disabled={pending}
                 sortable={musicFormat === 'album'}
                 onRemove={removeTrackAt}
                 onReorder={reorderTracks}
+                onLyricsChange={setTrackLyricsAt}
               />
             ) : null}
             <div
@@ -1710,6 +1742,7 @@ export function CreateDropPanel() {
                   disabled={pending}
                   onClick={() => {
                     setTrackFiles([]);
+                    setTrackLyrics([]);
                     setError(null);
                   }}
                 >

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractPostMedia } from './from-post.js';
+import { extractPostMedia, inferPostScarceKind } from './from-post.js';
 
 describe('extractPostMedia', () => {
   it('parses string body and surfaces first MediaRef cid', () => {
@@ -107,5 +107,49 @@ describe('extractPostMedia', () => {
       JSON.stringify({ text: 'old-format', media: ['ipfs://oldFormatOne'] })
     );
     expect(out.mediaCids).toEqual(['oldFormatOne']);
+  });
+});
+
+describe('inferPostScarceKind', () => {
+  it('maps text-only posts to thought', () => {
+    expect(inferPostScarceKind({ mediaCids: [], playable: [] })).toBe(
+      'thought'
+    );
+  });
+
+  it('maps image posts to art', () => {
+    expect(inferPostScarceKind({ mediaCids: ['bafyImg'], playable: [] })).toBe(
+      'art'
+    );
+  });
+
+  it('maps audio playable to music', () => {
+    expect(
+      inferPostScarceKind({
+        mediaCids: ['bafyCover'],
+        playable: [{ cid: 'bafyAud', mime: 'audio/mpeg' }],
+      })
+    ).toBe('music');
+  });
+
+  it('maps video playable to video (over art cover)', () => {
+    expect(
+      inferPostScarceKind({
+        mediaCids: ['bafyFrame'],
+        playable: [{ cid: 'bafyVid', mime: 'video/mp4' }],
+      })
+    ).toBe('video');
+  });
+
+  it('prefers video when both video and audio are present', () => {
+    expect(
+      inferPostScarceKind({
+        mediaCids: [],
+        playable: [
+          { cid: 'bafyAud', mime: 'audio/mpeg' },
+          { cid: 'bafyVid', mime: 'video/webm' },
+        ],
+      })
+    ).toBe('video');
   });
 });

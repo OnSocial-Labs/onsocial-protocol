@@ -97,6 +97,7 @@ describe('ScarcesModule.fromPost.mint', () => {
       postId: '123',
       path: 'alice.near/post/123',
     });
+    expect(extra.kind).toBe('art');
     expect(JSON.parse(form.get('creator') as string)).toEqual({
       accountId: 'alice.near',
     });
@@ -184,6 +185,42 @@ describe('ScarcesModule.fromPost.mint', () => {
     expect(form.get('title')).toBe('Post 123');
   });
 
+  it('tags text-only posts as thought', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({ text: 'just a thought' }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(JSON.parse(form.get('extra') as string).kind).toBe('thought');
+  });
+
+  it('tags video posts as video', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({
+        text: 'clip',
+        media: [{ cid: 'bafyVid', mime: 'video/mp4' }],
+      }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(JSON.parse(form.get('extra') as string).kind).toBe('video');
+  });
+
+  it('tags audio posts as music', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.mint({
+      ...ROW,
+      value: JSON.stringify({
+        text: 'track',
+        media: [{ cid: 'bafyAud', mime: 'audio/mpeg' }],
+      }),
+    });
+    const [, , form] = spies.requestForm.mock.calls[0];
+    expect(JSON.parse(form.get('extra') as string).kind).toBe('music');
+  });
+
   it('caller overrides win (title, mediaCid, extra)', async () => {
     const { mod, spies } = makeMod();
     const overrides: MintFromPostOptions = {
@@ -201,6 +238,8 @@ describe('ScarcesModule.fromPost.mint', () => {
     const extra = JSON.parse(form.get('extra') as string);
     expect(extra.campaign).toBe('genesis');
     expect(extra.sourcePost.postId).toBe('123');
+    // Inferred kind survives when caller extra omits `kind`.
+    expect(extra.kind).toBe('art');
   });
 
   it('reads body via SocialModule when given a PostRef', async () => {

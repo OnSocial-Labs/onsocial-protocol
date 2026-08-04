@@ -198,7 +198,16 @@ function playablesFromExtraRecord(
       typeof record?.title === 'string' && record.title.trim()
         ? record.title.trim()
         : undefined;
-    out.push({ url, mime, ...(title ? { title } : {}) });
+    const lyrics =
+      typeof record?.lyrics === 'string' && record.lyrics.trim()
+        ? record.lyrics
+        : undefined;
+    out.push({
+      url,
+      mime,
+      ...(title ? { title } : {}),
+      ...(lyrics ? { lyrics } : {}),
+    });
   }
   return out;
 }

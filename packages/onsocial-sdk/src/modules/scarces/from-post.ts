@@ -11,6 +11,7 @@ import type {
 } from '../../types.js';
 import {
   extractPostMedia,
+  inferPostScarceKind,
   isPostRow,
   postCoords,
   type ExtractedPost,
@@ -695,6 +696,9 @@ export class ScarcesFromPostApi {
           ...(source.groupId ? { groupId: source.groupId } : {}),
         },
         mintedAt: Date.now(),
+        // Medium for Collectibles / Market tabs. Callers may override via
+        // `opts.extra.kind`.
+        kind: inferPostScarceKind(extracted),
         ...(galleryExtra ?? {}),
         ...(playableExtra ?? {}),
         ...(opts.extra ?? {}),
