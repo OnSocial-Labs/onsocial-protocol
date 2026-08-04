@@ -206,7 +206,9 @@ describe('PagesModule', () => {
       await pages.setVisibility('events', true);
       const written = JSON.parse(findComposeBody(post).value);
       expect(written.sections).toContain('events');
-      expect(written.sections).toContain('profile');
+      expect(written.sections).toContain('posts');
+      expect(written.sections).toContain('created');
+      expect(written.sections).toContain('collectibles');
     });
   });
 
