@@ -42,12 +42,12 @@ export const DEFAULT_PAGE_SECTIONS: PageSection[] = [
 ];
 
 /** Showcase chapters always available when they have content (older activate configs). */
-const ENSURED_PAGE_SECTIONS: PageSection[] = [
+const ENSURED_PAGE_SECTIONS = [
   'store',
   'created',
   'groups',
   'collectibles',
-];
+] as const satisfies ReadonlyArray<PageSection>;
 
 /** Max guild cards in the drawer rail before “See all”. */
 export const PAGE_DRAWER_GUILD_PEEK = 6;
@@ -65,10 +65,10 @@ export function resolvePageSections(config: PublicPageConfig): PageSection[] {
     .filter((section) => section !== 'profile' && section !== 'support');
 
   if (configured.length === 0) {
-    return DEFAULT_PAGE_SECTIONS;
+    return [...DEFAULT_PAGE_SECTIONS];
   }
 
-  const merged = [...configured];
+  const merged: PageSection[] = [...configured];
   for (const section of ENSURED_PAGE_SECTIONS) {
     if (!merged.includes(section)) {
       merged.push(section);
