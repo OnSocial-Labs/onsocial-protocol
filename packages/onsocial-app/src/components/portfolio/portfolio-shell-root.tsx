@@ -26,8 +26,8 @@ import type {
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
 import type {
+  ProfileCreatedPeek,
   ProfilePostPeek,
-  ProfileScarcePeek,
 } from '@/lib/fetch-profile-peeks';
 import {
   EMPTY_PROFILE_STORE,
@@ -54,7 +54,7 @@ interface PortfolioShellRootProps {
   profileLinks?: unknown;
   drawerMeta: PageDrawerMeta;
   postPeeks?: ProfilePostPeek[];
-  scarcePeeks?: ProfileScarcePeek[];
+  createdPeeks?: ProfileCreatedPeek[];
   storeShelf?: ProfileStoreShelf;
   children: ReactNode;
 }
@@ -72,7 +72,7 @@ function PortfolioShellPreviewBridge({
   profileLinks = null,
   drawerMeta,
   postPeeks = [],
-  scarcePeeks = [],
+  createdPeeks = [],
   storeShelf = EMPTY_PROFILE_STORE,
   children,
 }: Omit<
@@ -151,7 +151,7 @@ function PortfolioShellPreviewBridge({
           config={config}
           stats={stats}
           guilds={guilds}
-          scarcePeeks={scarcePeeks}
+          createdPeeks={createdPeeks}
           storeShelf={storeShelf}
         />
         <PortfolioFacePreviewBar

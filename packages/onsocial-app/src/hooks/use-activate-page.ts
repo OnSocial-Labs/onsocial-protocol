@@ -37,7 +37,15 @@ export function useActivatePage(pageAccountId: string) {
       await client.pages.setConfig(
         {
           template: 'minimal',
-          sections: ['profile', 'links', 'posts', 'badges'],
+          sections: [
+            'posts',
+            'store',
+            'created',
+            'groups',
+            'collectibles',
+            'links',
+            'badges',
+          ],
           tagline: 'Welcome to my OnSocial page.',
         },
         { wait: true }

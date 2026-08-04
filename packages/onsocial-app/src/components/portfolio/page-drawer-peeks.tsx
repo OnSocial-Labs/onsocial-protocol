@@ -5,11 +5,10 @@ import {
   formatRelativePostTimestamp,
   postTimestampIso,
 } from '@/lib/post-display';
-import type {
-  ProfilePostPeek,
-  ProfileScarcePeek,
-} from '@/lib/fetch-profile-peeks';
+import type { ProfilePostPeek, ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
+import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import { personalPostPath } from '@/lib/post-routes';
+import { APP_MARKET_PATH, marketCreatorPath } from '@/lib/app-routes';
 
 export function PageDrawerPostPeekList({
   pageAccountId,
@@ -48,38 +47,104 @@ export function PageDrawerPostPeekList({
   );
 }
 
-export function PageDrawerScarcePeekRail({
-  scarces,
+/** Owner wallet holdings — deep-link into Read / Play / Show pass / etc. */
+export function PageDrawerHoldingsRail({
+  holdings,
 }: {
-  scarces: ProfileScarcePeek[];
+  holdings: PortfolioHoldingPeek[];
 }) {
-  if (scarces.length === 0) {
+  if (holdings.length === 0) {
     return null;
   }
 
   return (
-    <div className="page-drawer-scarce-rail" aria-label="Scarces">
-      {scarces.map((scarce) => (
-        <article
-          key={scarce.tokenId}
+    <div className="page-drawer-scarce-rail" aria-label="Your collectibles">
+      {holdings.map((item) => (
+        <Link
+          key={item.tokenId}
+          href={item.href}
+          scroll={false}
           className="page-drawer-scarce-card"
-          title={scarce.tokenId}
+          title={`${item.title} · ${item.actionLabel}`}
         >
           <div
-            className={`page-drawer-scarce-cover${scarce.mediaUrl ? ' has-media' : ''}`}
+            className={`page-drawer-scarce-cover${item.mediaUrl ? ' has-media' : ''}`}
             aria-hidden
           >
-            {scarce.mediaUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={scarce.mediaUrl} alt="" />
-            ) : null}
+            {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
           </div>
           <span className="page-drawer-scarce-body">
-            <span className="page-drawer-scarce-title">{scarce.title}</span>
-            <span className="page-drawer-scarce-id">{scarce.tokenId}</span>
+            <span className="page-drawer-scarce-title">{item.title}</span>
+            <span className="page-drawer-scarce-meta">
+              {item.kindLabel ? (
+                <span className="page-drawer-scarce-kind">{item.kindLabel}</span>
+              ) : null}
+              <span className="page-drawer-scarce-action">{item.actionLabel}</span>
+            </span>
           </span>
-        </article>
+        </Link>
       ))}
     </div>
+  );
+}
+
+/** Public mint showcase — editions this account created. */
+export function PageDrawerCreatedRail({
+  created,
+}: {
+  created: ProfileCreatedPeek[];
+}) {
+  if (created.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="page-drawer-scarce-rail" aria-label="Created scarces">
+      {created.map((item) => (
+        <Link
+          key={item.tokenId}
+          href={item.href}
+          scroll={false}
+          className="page-drawer-scarce-card"
+          title={item.title}
+        >
+          <div
+            className={`page-drawer-scarce-cover${item.mediaUrl ? ' has-media' : ''}`}
+            aria-hidden
+          >
+            {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
+          </div>
+          <span className="page-drawer-scarce-body">
+            <span className="page-drawer-scarce-title">{item.title}</span>
+            <span className="page-drawer-scarce-meta">
+              <span className="page-drawer-scarce-action">View</span>
+            </span>
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+export function PageDrawerCreatedSeeAll({
+  pageAccountId,
+}: {
+  pageAccountId: string;
+}) {
+  return (
+    <Link
+      className="page-drawer-section-action"
+      href={marketCreatorPath(pageAccountId)}
+    >
+      See in Market
+    </Link>
+  );
+}
+
+export function PageDrawerHoldingsSeeAll() {
+  return (
+    <Link className="page-drawer-section-action" href={APP_MARKET_PATH}>
+      Manage in Market
+    </Link>
   );
 }

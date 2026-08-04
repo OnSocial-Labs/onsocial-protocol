@@ -33,7 +33,7 @@ import {
 } from '@/lib/page-drawer-meta';
 import type { PublicPageConfig, PublicPageStats } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
-import type { ProfileScarcePeek } from '@/lib/fetch-profile-peeks';
+import type { ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
 import {
   EMPTY_PROFILE_STORE,
   type ProfileStoreShelf,
@@ -45,6 +45,14 @@ import {
   resolveVisiblePageSections,
 } from '@/lib/page-sections';
 import { resolvePortfolioSocialLinks } from '@/lib/profile-social-links';
+import { accountIdsEqual } from '@/lib/account-match';
+import { useAppWallet } from '@/contexts/app-wallet-context';
+import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
+import {
+  PAGE_DRAWER_HOLDINGS_PEEK,
+  toPortfolioHoldingPeek,
+  type PortfolioHoldingPeek,
+} from '@/lib/portfolio-holdings';
 
 /** Tall page sheet — thin mood-face strip above (~95dvh). */
 const PAGE_DRAWER_PEEK_RATIO = 0.95;
@@ -69,7 +77,7 @@ interface PageContentDrawerProps {
   config: PublicPageConfig;
   stats: PublicPageStats;
   guilds?: ProfileGuildSummary[];
-  scarcePeeks?: ProfileScarcePeek[];
+  createdPeeks?: ProfileCreatedPeek[];
   storeShelf?: ProfileStoreShelf;
 }
 
@@ -193,11 +201,19 @@ export function PageContentDrawer({
   config,
   stats,
   guilds = [],
-  scarcePeeks = [],
+  createdPeeks = [],
   storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentDrawerProps) {
   const { isOpen, close } = usePageContentDrawer();
   const { postPeeks } = usePortfolioPostPeeks();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const isOwner =
+    isConnected &&
+    Boolean(viewerAccountId) &&
+    accountIdsEqual(viewerAccountId!, pageAccountId);
+  const [ownedHoldings, setOwnedHoldings] = useState<PortfolioHoldingPeek[]>(
+    []
+  );
   const [scrollNode, setScrollNode] = useState<HTMLDivElement | null>(null);
   const [closing, setClosing] = useState(false);
   const [joinedFactsOpen, setJoinedFactsOpen] = useState(false);
@@ -225,9 +241,29 @@ export function PageContentDrawer({
     [drawerMeta.guildCount, drawerMeta.postCount, postPeeks.length, stats]
   );
 
-  const scarceCount = Math.max(
-    drawerMeta.scarceMintCount,
-    scarcePeeks.length
+  useEffect(() => {
+    if (!isOwner || !isOpen) return;
+    let cancelled = false;
+    void fetchOwnedScarcesPage(pageAccountId, {
+      pageSize: PAGE_DRAWER_HOLDINGS_PEEK,
+    })
+      .then((page) => {
+        if (cancelled) return;
+        setOwnedHoldings(page.items.map(toPortfolioHoldingPeek));
+      })
+      .catch(() => {
+        if (!cancelled) setOwnedHoldings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, isOpen, pageAccountId]);
+
+  const holdings = isOwner ? ownedHoldings : [];
+  const holdingsCount = holdings.length;
+  const createdCount = Math.max(
+    createdPeeks.length,
+    drawerMeta.scarceMintCount
   );
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
 
@@ -243,7 +279,8 @@ export function PageContentDrawer({
           stats: drawerStats,
           guilds,
           links,
-          scarceCount,
+          scarceCount: holdingsCount,
+          createdCount,
           storeListingCount,
           postPeekCount: postPeeks.length,
         })
@@ -254,7 +291,8 @@ export function PageContentDrawer({
       guilds,
       links,
       postPeeks.length,
-      scarceCount,
+      holdingsCount,
+      createdCount,
       storeListingCount,
     ]
   );
@@ -475,8 +513,9 @@ export function PageContentDrawer({
           stats={drawerStats}
           guilds={guilds}
           postPeeks={postPeeks}
-          scarcePeeks={scarcePeeks}
-          scarceCount={scarceCount}
+          createdPeeks={createdPeeks}
+          createdMintCount={drawerMeta.scarceMintCount}
+          holdings={holdings}
           storeShelf={storeShelf}
         />
       </GlassSheet>

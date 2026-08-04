@@ -6,8 +6,11 @@ import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
 import { GuildSummaryCard } from '@/features/guilds/guild-summary-card';
 import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
 import {
+  PageDrawerCreatedRail,
+  PageDrawerCreatedSeeAll,
+  PageDrawerHoldingsRail,
+  PageDrawerHoldingsSeeAll,
   PageDrawerPostPeekList,
-  PageDrawerScarcePeekRail,
 } from '@/components/portfolio/page-drawer-peeks';
 import { PortfolioStoreShelf } from '@/components/portfolio/portfolio-store-shelf';
 import {
@@ -18,9 +21,10 @@ import {
   resolveVisiblePageSections,
 } from '@/lib/page-sections';
 import type {
+  ProfileCreatedPeek,
   ProfilePostPeek,
-  ProfileScarcePeek,
 } from '@/lib/fetch-profile-peeks';
+import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import {
   EMPTY_PROFILE_STORE,
   type ProfileStoreShelf,
@@ -42,8 +46,12 @@ interface PageContentSectionsProps {
   stats: PublicPageStats;
   guilds?: ProfileGuildSummary[];
   postPeeks?: ProfilePostPeek[];
-  scarcePeeks?: ProfileScarcePeek[];
-  scarceCount?: number;
+  /** Public minted-by peeks for Created. */
+  createdPeeks?: ProfileCreatedPeek[];
+  /** Indexed mint total for Created count chip (may exceed peeks). */
+  createdMintCount?: number;
+  /** Owner wallet holdings for Collectibles (empty for visitors). */
+  holdings?: PortfolioHoldingPeek[];
   storeShelf?: ProfileStoreShelf;
 }
 
@@ -88,8 +96,9 @@ export function PageContentSections({
   stats,
   guilds = [],
   postPeeks = [],
-  scarcePeeks = [],
-  scarceCount = 0,
+  createdPeeks = [],
+  createdMintCount = 0,
+  holdings = [],
   storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentSectionsProps) {
   const links = useMemo(
@@ -97,7 +106,8 @@ export function PageContentSections({
     [profileLinks]
   );
 
-  const effectiveScarceCount = Math.max(scarceCount, scarcePeeks.length);
+  const holdingsCount = holdings.length;
+  const createdCount = Math.max(createdPeeks.length, createdMintCount);
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
 
   const sections = useMemo(
@@ -106,7 +116,8 @@ export function PageContentSections({
         stats,
         guilds,
         links,
-        scarceCount: effectiveScarceCount,
+        scarceCount: holdingsCount,
+        createdCount,
         storeListingCount,
         postPeekCount: postPeeks.length,
       }),
@@ -115,7 +126,8 @@ export function PageContentSections({
       stats,
       guilds,
       links,
-      effectiveScarceCount,
+      holdingsCount,
+      createdCount,
       storeListingCount,
       postPeeks.length,
     ]
@@ -138,15 +150,17 @@ export function PageContentSections({
     <div className="page-drawer-sections">
       {sections.map((section, index) => {
         const count = pageSectionCountHint(section, stats, {
-          scarceCount: effectiveScarceCount,
+          scarceCount: holdingsCount,
+          createdCount,
+          createdCountHint: createdCount,
           storeListingCount,
         });
         const showGuildRail = section === 'groups' && peekGuilds.length > 0;
         const showLinks = section === 'links' && links.length > 0;
         const showPosts = section === 'posts';
         const showStore = section === 'store' && storeListingCount > 0;
-        const showScarces =
-          section === 'collectibles' && scarcePeeks.length > 0;
+        const showCreated = section === 'created' && createdCount > 0;
+        const showHoldings = section === 'collectibles' && holdingsCount > 0;
 
         return (
           <Fragment key={section}>
@@ -192,14 +206,23 @@ export function PageContentSections({
                 />
               ) : null}
 
-              {showScarces ? (
-                <PageDrawerScarcePeekRail scarces={scarcePeeks} />
+              {showCreated ? (
+                <>
+                  <PageDrawerCreatedRail created={createdPeeks} />
+                  {createdPeeks.length === 0 ? (
+                    <p className="page-drawer-section-empty">
+                      Created editions open in Market.
+                    </p>
+                  ) : null}
+                  <PageDrawerCreatedSeeAll pageAccountId={pageAccountId} />
+                </>
               ) : null}
 
-              {section === 'collectibles' && scarcePeeks.length === 0 ? (
-                <p className="page-drawer-section-empty">
-                  Collectibles will show here when indexed.
-                </p>
+              {showHoldings ? (
+                <>
+                  <PageDrawerHoldingsRail holdings={holdings} />
+                  <PageDrawerHoldingsSeeAll />
+                </>
               ) : null}
 
               {showLinks ? <PageDrawerLinksList links={links} /> : null}

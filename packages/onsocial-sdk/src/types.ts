@@ -869,6 +869,7 @@ export type PageSection =
   | 'posts'
   | 'events'
   | 'store'
+  | 'created'
   | 'collectibles'
   | 'badges'
   | 'groups';

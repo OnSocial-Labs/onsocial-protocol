@@ -20,6 +20,7 @@ describe('resolvePageSections', () => {
     expect(resolvePageSections({})).toEqual([
       'posts',
       'store',
+      'created',
       'groups',
       'collectibles',
       'links',
@@ -27,12 +28,18 @@ describe('resolvePageSections', () => {
     ]);
   });
 
-  it('honours owner order and drops profile and support from the drawer', () => {
+  it('honours owner order and still ensures store / created / collectibles / groups', () => {
     expect(
       resolvePageSections({
         sections: ['profile', 'support', 'collectibles', 'posts'],
       })
-    ).toEqual(['collectibles', 'posts']);
+    ).toEqual([
+      'collectibles',
+      'posts',
+      'store',
+      'created',
+      'groups',
+    ]);
   });
 });
 
@@ -166,7 +173,7 @@ describe('isPageSectionVisible', () => {
     ).toBe(false);
   });
 
-  it('shows collectibles from scarce count and hides badges and support', () => {
+  it('shows collectibles from holdings count and hides badges and support', () => {
     expect(
       isPageSectionVisible('collectibles', {
         stats: emptyStats,
@@ -175,6 +182,21 @@ describe('isPageSectionVisible', () => {
         scarceCount: 3,
       })
     ).toBe(true);
+    expect(
+      isPageSectionVisible('created', {
+        stats: emptyStats,
+        guilds: [],
+        links: [],
+        createdCount: 2,
+      })
+    ).toBe(true);
+    expect(
+      isPageSectionVisible('created', {
+        stats: emptyStats,
+        guilds: [],
+        links: [],
+      })
+    ).toBe(false);
     expect(
       isPageSectionVisible('badges', {
         stats: { ...emptyStats, badgeCount: 4 },

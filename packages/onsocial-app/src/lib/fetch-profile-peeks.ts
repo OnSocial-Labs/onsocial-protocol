@@ -2,17 +2,12 @@ import { cache } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import { parsePostText } from '@/lib/post-display';
+import { collectionIdFromTokenId } from '@/features/market/market-listings';
+import { holdingsHrefForOwned } from '@/lib/portfolio-holdings';
 
 export const PAGE_DRAWER_POST_PEEK = 3;
-export const PAGE_DRAWER_SCARCE_PEEK = 6;
-
-/** Mint-event fields used for drawer peeks (SDK `ScarcesEventRow`). */
-interface ScarceMintRow {
-  tokenId?: string | null;
-  memo?: string | null;
-  extraData?: string | null;
-  blockTimestamp?: number | string | null;
-}
+/** Public Created rail — recent editions this account minted. */
+export const PAGE_DRAWER_CREATED_PEEK = 6;
 
 export interface ProfilePostPeek {
   accountId: string;
@@ -22,11 +17,21 @@ export interface ProfilePostPeek {
   kind: string | null;
 }
 
-export interface ProfileScarcePeek {
+/** Minted-by peek for the public Created drawer section. */
+export interface ProfileCreatedPeek {
   tokenId: string;
   title: string;
   mediaUrl: string | null;
   blockTimestamp: number;
+  href: string;
+}
+
+/** Mint-event fields used for Created peeks (SDK `ScarcesEventRow`). */
+interface ScarceMintRow {
+  tokenId?: string | null;
+  memo?: string | null;
+  extraData?: string | null;
+  blockTimestamp?: number | string | null;
 }
 
 function truncatePeekText(text: string, max = 140): string {
@@ -81,6 +86,28 @@ function mediaFromScarceRow(row: ScarceMintRow): string | null {
   return null;
 }
 
+function sourcePostPathFromScarceRow(row: ScarceMintRow): string | undefined {
+  if (!row.extraData) return undefined;
+  try {
+    const extra = JSON.parse(row.extraData) as {
+      sourcePost?: { path?: unknown };
+      sourcePostPath?: unknown;
+      postPath?: unknown;
+    };
+    const nested =
+      typeof extra.sourcePost?.path === 'string'
+        ? extra.sourcePost.path.trim()
+        : '';
+    if (nested) return nested;
+    for (const value of [extra.sourcePostPath, extra.postPath]) {
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
+
 export function toProfilePostPeek(post: PostRow): ProfilePostPeek {
   return {
     accountId: post.accountId,
@@ -91,7 +118,9 @@ export function toProfilePostPeek(post: PostRow): ProfilePostPeek {
   };
 }
 
-export function toProfileScarcePeek(row: ScarceMintRow): ProfileScarcePeek | null {
+export function toProfileCreatedPeek(
+  row: ScarceMintRow
+): ProfileCreatedPeek | null {
   const tokenId = row.tokenId?.trim();
   if (!tokenId) {
     return null;
@@ -101,6 +130,11 @@ export function toProfileScarcePeek(row: ScarceMintRow): ProfileScarcePeek | nul
     title: titleFromScarceRow(row),
     mediaUrl: mediaFromScarceRow(row),
     blockTimestamp: Number(row.blockTimestamp) || 0,
+    href: holdingsHrefForOwned({
+      tokenId,
+      collectionId: collectionIdFromTokenId(tokenId),
+      sourcePostPath: sourcePostPathFromScarceRow(row),
+    }),
   };
 }
 
@@ -122,20 +156,21 @@ export const fetchProfilePostPeeks = cache(
   }
 );
 
-export const fetchProfileScarcePeeks = cache(
+/** Recent editions minted by this account — public Created shelf. */
+export const fetchProfileCreatedPeeks = cache(
   async (
     accountId: string,
-    limit = PAGE_DRAWER_SCARCE_PEEK
-  ): Promise<ProfileScarcePeek[]> => {
+    limit = PAGE_DRAWER_CREATED_PEEK
+  ): Promise<ProfileCreatedPeek[]> => {
     try {
       const os = createServerOnSocialClient();
       const mints = await os.query.scarces.mintsBy(accountId, {
         limit: Math.max(limit * 2, 12),
       });
       const seen = new Set<string>();
-      const peeks: ProfileScarcePeek[] = [];
+      const peeks: ProfileCreatedPeek[] = [];
       for (const row of mints) {
-        const peek = toProfileScarcePeek(row);
+        const peek = toProfileCreatedPeek(row);
         if (!peek || seen.has(peek.tokenId)) {
           continue;
         }

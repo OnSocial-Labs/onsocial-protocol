@@ -11,6 +11,7 @@ export const PAGE_SECTION_LABELS: Record<PageSection, string> = {
   posts: 'Posts',
   events: 'Events',
   store: 'Store',
+  created: 'Created',
   collectibles: 'Collectibles',
   badges: 'Badges',
   groups: 'Guilds',
@@ -23,19 +24,29 @@ export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
   posts: 'Public posts and updates.',
   events: 'Events they host or attend.',
   store: 'Scarces they have for sale right now.',
-  collectibles: 'Scarces and collectibles.',
+  created: 'Editions they minted — public showcase.',
+  collectibles: 'Editions you hold — tickets, writing, music, and more.',
   badges: 'Earned badges and credentials.',
   groups: 'Guilds they belong to.',
 };
 
 /** Visitor-friendly defaults — browse chapters only; gestures sit after. */
-const DEFAULT_PAGE_SECTIONS: PageSection[] = [
+export const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'posts',
   'store',
+  'created',
   'groups',
   'collectibles',
   'links',
   'badges',
+];
+
+/** Showcase chapters always available when they have content (older activate configs). */
+const ENSURED_PAGE_SECTIONS: PageSection[] = [
+  'store',
+  'created',
+  'groups',
+  'collectibles',
 ];
 
 /** Max guild cards in the drawer rail before “See all”. */
@@ -53,17 +64,28 @@ export function resolvePageSections(config: PublicPageConfig): PageSection[] {
     .filter(isPageSection)
     .filter((section) => section !== 'profile' && section !== 'support');
 
-  if (configured.length > 0) {
-    return configured;
+  if (configured.length === 0) {
+    return DEFAULT_PAGE_SECTIONS;
   }
 
-  return DEFAULT_PAGE_SECTIONS;
+  const merged = [...configured];
+  for (const section of ENSURED_PAGE_SECTIONS) {
+    if (!merged.includes(section)) {
+      merged.push(section);
+    }
+  }
+  return merged;
 }
 
 export function pageSectionCountHint(
   section: PageSection,
   stats: PublicPageStats,
-  options: { scarceCount?: number; storeListingCount?: number } = {}
+  options: {
+    scarceCount?: number;
+    createdCount?: number;
+    createdCountHint?: number;
+    storeListingCount?: number;
+  } = {}
 ): string | null {
   switch (section) {
     case 'posts':
@@ -75,6 +97,11 @@ export function pageSectionCountHint(
     case 'store': {
       const storeCount = options.storeListingCount ?? 0;
       return storeCount > 0 ? formatCompactCount(storeCount) : null;
+    }
+    case 'created': {
+      const createdCount =
+        options.createdCountHint ?? options.createdCount ?? 0;
+      return createdCount > 0 ? formatCompactCount(createdCount) : null;
     }
     case 'collectibles': {
       const scarceCount = options.scarceCount ?? 0;
@@ -89,8 +116,12 @@ export interface PageSectionVisibilityInput {
   stats: PublicPageStats;
   guilds: ProfileGuildSummary[];
   links: PortfolioSocialLink[];
-  /** Indexed scarce mints for collectibles visibility. */
+  /** Owner wallet holdings count for Collectibles visibility. */
   scarceCount?: number;
+  /** Public Created visibility (peeks and/or indexed mint count). */
+  createdCount?: number;
+  /** Count chip for Created — may be higher than the peek rail. */
+  createdCountHint?: number;
   /** Live listings from this account for Store shelf visibility. */
   storeListingCount?: number;
   /** Recent post peeks already loaded for the drawer. */
@@ -111,6 +142,8 @@ export function isPageSectionVisible(
       return input.guilds.length > 0 || input.stats.groupCount > 0;
     case 'store':
       return (input.storeListingCount ?? 0) > 0;
+    case 'created':
+      return (input.createdCount ?? 0) > 0;
     case 'collectibles':
       return (input.scarceCount ?? 0) > 0;
     case 'badges':

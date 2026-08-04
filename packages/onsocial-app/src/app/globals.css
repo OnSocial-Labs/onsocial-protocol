@@ -9196,6 +9196,13 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.4rem;
     scroll-snap-align: start;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .page-drawer-scarce-card:hover .page-drawer-scarce-action,
+  .page-drawer-scarce-card:focus-visible .page-drawer-scarce-action {
+    color: var(--os-surface-emphasis);
   }
 
   .page-drawer-scarce-cover {
@@ -9238,13 +9245,30 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
-  .page-drawer-scarce-id {
+  .page-drawer-scarce-meta {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 0.35rem;
     font-size: 0.66rem;
     letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.4);
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .page-drawer-scarce-kind {
+    flex-shrink: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .page-drawer-scarce-action {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.62);
   }
 
   /* ── Creator Store shelf (portfolio drawer) ─── */

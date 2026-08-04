@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MARKET_MEDIUM_FILTERS } from '@/features/market/market-medium-menu';
+import { MARKET_MEDIUM_FILTERS } from '@/features/market/market-medium';
 import { DROP_TEMPLATES } from './drop-templates';
 
 describe('DROP_TEMPLATES', () => {

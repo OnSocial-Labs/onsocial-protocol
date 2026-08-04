@@ -43,7 +43,7 @@ import {
  * await os.pages.setConfig({
  *   template: 'creator',
  *   theme: { primary: '#ff6b00', background: '#0a0a0a' },
- *   sections: ['profile', 'links', 'support', 'posts', 'badges'],
+ *   sections: ['posts', 'store', 'created', 'groups', 'collectibles', 'links', 'badges'],
  * });
  *
  * // Read aggregated page data
@@ -194,10 +194,12 @@ export class PagesModule {
   ): Promise<RelayResponse> {
     const current = await this.getConfig();
     const sections = current.sections ?? [
-      'profile',
-      'links',
-      'support',
       'posts',
+      'store',
+      'created',
+      'groups',
+      'collectibles',
+      'links',
       'badges',
     ];
     const filtered = sections.filter((s) => s !== section);

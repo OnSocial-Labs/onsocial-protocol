@@ -112,6 +112,12 @@ export interface OwnedScarceItem {
   description?: string;
   mediaUrl?: string | null;
   ownerId: string;
+  /**
+   * Drop id when `tokenId` is `collectionId:edition` (not post `s:` scarces).
+   */
+  collectionId?: string | null;
+  /** Medium taxonomy from metadata `extra.kind` when set. */
+  mediumKind?: string | null;
   /** Listing state for an owned native scarce. */
   listingKind: 'fixed' | 'auction' | null;
   /** Set when this token is already listed for resale or auction. */
@@ -122,6 +128,16 @@ export interface OwnedScarceItem {
   expiresAtNs?: number | null;
   /** Original post path from token `metadata.extra` when present. */
   sourcePostPath?: string;
+}
+
+/** `drop-1:3` → `drop-1`; post scarces (`s:…`) have no collection page. */
+export function collectionIdFromTokenId(tokenId: string): string | null {
+  const id = tokenId.trim();
+  if (!id || id.startsWith('s:')) return null;
+  const colon = id.lastIndexOf(':');
+  if (colon <= 0) return null;
+  const collectionId = id.slice(0, colon).trim();
+  return collectionId || null;
 }
 
 interface ContractSaleRecord {
@@ -914,6 +930,8 @@ function ownedItemsFromTokens(
       const description = token.metadata?.description?.trim() || undefined;
       const extra = parseExtra(token.metadata?.extra ?? null);
       const sourcePostPath = sourcePostPathFromExtra(extra);
+      const collectionId = collectionIdFromTokenId(tokenId);
+      const mediumKind = mediumKindFromExtra(extra) ?? null;
       const listed = listedByToken.get(tokenId);
       return {
         tokenId,
@@ -921,6 +939,8 @@ function ownedItemsFromTokens(
         ...(description && description !== displayTitle ? { description } : {}),
         mediaUrl: resolveScarceMediaUrl(token.metadata?.media ?? null),
         ownerId: token.owner_id?.trim() || owner,
+        collectionId,
+        mediumKind,
         listingKind: listed?.kind ?? null,
         listedPriceNear: listed?.priceNear ?? null,
         ...(listed?.kind === 'auction' && listed.bidCount != null

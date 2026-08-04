@@ -9,8 +9,8 @@ import { fetchProfileSignals } from '@/lib/profile-signals';
 import { fetchProfileGuilds } from '@/lib/profile-guilds';
 import { fetchPageDrawerMeta } from '@/lib/fetch-page-drawer-meta';
 import {
+  fetchProfileCreatedPeeks,
   fetchProfilePostPeeks,
-  fetchProfileScarcePeeks,
 } from '@/lib/fetch-profile-peeks';
 import { fetchProfileStoreShelf } from '@/lib/fetch-profile-store';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
@@ -73,13 +73,13 @@ export default async function AccountPage({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  const [shell, signals, guilds, postPeeks, scarcePeeks, storeShelf] =
+  const [shell, signals, guilds, postPeeks, createdPeeks, storeShelf] =
     await Promise.all([
       loadProfileShell(accountId),
       fetchProfileSignals(accountId),
       fetchProfileGuilds(accountId),
       fetchProfilePostPeeks(accountId),
-      fetchProfileScarcePeeks(accountId),
+      fetchProfileCreatedPeeks(accountId),
       fetchProfileStoreShelf(accountId),
     ]);
   const name = displayName(accountId, shell?.name ?? undefined);
@@ -123,7 +123,7 @@ export default async function AccountPage({
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
         postPeeks={postPeeks}
-        scarcePeeks={scarcePeeks}
+        createdPeeks={createdPeeks}
         storeShelf={storeShelf}
       >
         <PortfolioIdentity
