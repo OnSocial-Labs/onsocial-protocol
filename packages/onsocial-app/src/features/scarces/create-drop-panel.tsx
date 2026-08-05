@@ -49,11 +49,13 @@ import {
 } from '@/features/scarces/drop-audio';
 import { DropTrackPreviewList } from '@/features/scarces/drop-track-preview-list';
 import {
-  DROP_WRITING_MAX_BYTES,
   DROP_WRITING_MAX_CHAPTERS,
+  DROP_WRITING_PDF_MAX_BYTES,
   buildWritingManifest,
   chaptersFromPinnedFiles,
+  dropWritingMaxBytes,
   isDropWritingMime,
+  isWritingPdfMime,
   writingChaptersValid,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
@@ -458,11 +460,15 @@ export function CreateDropPanel() {
       if (picked.length === 0) return;
       for (const file of picked) {
         if (!isDropWritingMime(file.type, file.name)) {
-          setError('Use Markdown (.md) or plain text (.txt) files.');
+          setError('Use Markdown (.md), plain text (.txt), or PDF (.pdf).');
           return;
         }
-        if (file.size > DROP_WRITING_MAX_BYTES) {
-          setError('Each chapter must be 500 KB or smaller.');
+        if (file.size > dropWritingMaxBytes(file)) {
+          setError(
+            isWritingPdfMime(file.type, file.name)
+              ? `Each PDF must be ${Math.round(DROP_WRITING_PDF_MAX_BYTES / (1024 * 1024))} MB or smaller.`
+              : 'Each Markdown / text chapter must be 500 KB or smaller.'
+          );
           return;
         }
       }
@@ -1830,13 +1836,13 @@ export function CreateDropPanel() {
             </div>
             <small>
               {writingFormat === 'article'
-                ? '.md or .txt · file name becomes the title · ≤500 KB'
-                : `Drag to reorder · file name → title · 2–${DROP_WRITING_MAX_CHAPTERS} · ≤500 KB each`}
+                ? '.md, .txt, or .pdf · file name becomes the title · ≤500 KB text / 20 MB PDF'
+                : `Drag to reorder · file name → title · 2–${DROP_WRITING_MAX_CHAPTERS} · ≤500 KB text / 20 MB PDF`}
             </small>
             <input
               ref={chaptersInputRef}
               type="file"
-              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              accept=".md,.markdown,.txt,.pdf,text/markdown,text/plain,application/pdf"
               multiple={writingFormat === 'book'}
               className="scarce-cover-file-input"
               tabIndex={-1}

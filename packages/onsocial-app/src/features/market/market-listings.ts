@@ -49,6 +49,8 @@ interface LazyListingRecord {
 export interface ScarcePlayableMedia {
   url: string;
   mime: string;
+  /** IPFS CID when known — used for same-origin download via `/api/ipfs`. */
+  cid?: string;
   /** Track / clip label when present in `extra.playable`. */
   title?: string;
   /** Optional plain-text lyrics for this track (`extra.playable[].lyrics`). */
@@ -294,6 +296,7 @@ function playablesFromExtra(
     out.push({
       url,
       mime,
+      cid,
       ...(title ? { title } : {}),
       ...(lyrics ? { lyrics } : {}),
     });

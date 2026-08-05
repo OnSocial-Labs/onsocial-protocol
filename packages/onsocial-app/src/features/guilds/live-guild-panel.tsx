@@ -10,7 +10,7 @@ import {
 } from '@onsocial/sdk';
 import {
   Divider,
-  InformationCircleFillIcon,
+  InformationCircleIcon,
   SettingsIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
@@ -1343,7 +1343,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                       aria-label="Guild facts"
                       onClick={() => setFactsSheetOpen(true)}
                     >
-                      <InformationCircleFillIcon
+                      <InformationCircleIcon
                         className="guild-hero-facts-icon"
                         aria-hidden
                       />

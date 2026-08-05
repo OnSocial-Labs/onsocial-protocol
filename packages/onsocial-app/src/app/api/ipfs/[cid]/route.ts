@@ -11,11 +11,11 @@ const CDN_BASE =
     : 'https://cdn.testnet.onsocial.id/ipfs';
 
 /**
- * Same-origin IPFS proxy for Writing manifesto / chapter bodies.
- * Avoids browser CORS failures when fetching Markdown from the CDN.
+ * Same-origin IPFS proxy — streams upstream so download progress is real.
+ * `?download=1&filename=` sets Content-Disposition for save-as.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ cid: string }> }
 ) {
   const { cid: raw } = await context.params;
@@ -29,9 +29,8 @@ export async function GET(
 
   const upstream = await fetch(`${CDN_BASE}/${cid}`, {
     headers: { Accept: '*/*' },
-    next: { revalidate: 86_400 },
   });
-  if (!upstream.ok) {
+  if (!upstream.ok || !upstream.body) {
     return NextResponse.json(
       { error: 'Content not found' },
       { status: upstream.status === 404 ? 404 : 502 }
@@ -40,12 +39,31 @@ export async function GET(
 
   const contentType =
     upstream.headers.get('content-type') || 'application/octet-stream';
-  const bytes = await upstream.arrayBuffer();
-  return new NextResponse(bytes, {
+  const contentLength = upstream.headers.get('content-length');
+  const wantDownload =
+    request.nextUrl.searchParams.get('download') === '1' ||
+    request.nextUrl.searchParams.get('download') === 'true';
+  const rawName = request.nextUrl.searchParams.get('filename')?.trim() || '';
+  const safeName = rawName
+    .replace(/["\r\n\\/]/g, '')
+    .replace(/[^\w\s.-]+/g, '')
+    .trim()
+    .slice(0, 120);
+  const headers = new Headers({
+    'Content-Type': contentType,
+    'Cache-Control': 'public, max-age=86400, immutable',
+  });
+  if (contentLength) headers.set('Content-Length', contentLength);
+  if (wantDownload) {
+    const filename = safeName || 'download';
+    headers.set(
+      'Content-Disposition',
+      `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
+  }
+
+  return new NextResponse(upstream.body, {
     status: 200,
-    headers: {
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=86400, immutable',
-    },
+    headers,
   });
 }

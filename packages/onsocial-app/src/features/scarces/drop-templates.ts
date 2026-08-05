@@ -58,7 +58,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     label: 'Writing',
     tagline:
       'A written work as a supply-capped edition — books, poems, essays, and more.',
-    hint: 'Cover + Markdown: Article (one file) or Book (ordered chapters, up to 100). We pin the text for you — holders open the reader on the drop page. About stays public. Tradable by default; turn off transferable in Advanced for soulbound copies.',
+    hint: 'Cover + Markdown / PDF: Article (one file) or Book (ordered chapters, up to 100). We pin files for you — holders open the reader (and can download) on the drop page. About stays public. Tradable by default; turn off transferable in Advanced for soulbound copies.',
     kind: 'writing',
     unit: 'copies',
     unitSingular: 'copy',

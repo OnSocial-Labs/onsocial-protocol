@@ -4,7 +4,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import {
   Divider,
   GlassSheet,
-  InformationCircleFillIcon,
+  InformationCircleIcon,
   PlusIcon,
   ProtocolMotionArrow,
   SheetHeader,
@@ -307,7 +307,7 @@ export function GuildFeedFilterList({
                 >
                   <span className="guild-feed-filter-label">{space.title}</span>
                   {isActive ? (
-                    <InformationCircleFillIcon
+                    <InformationCircleIcon
                       className="guild-feed-filter-chip-info"
                       aria-hidden
                     />

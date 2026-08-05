@@ -205,6 +205,7 @@ function playablesFromExtraRecord(
     out.push({
       url,
       mime,
+      cid,
       ...(title ? { title } : {}),
       ...(lyrics ? { lyrics } : {}),
     });

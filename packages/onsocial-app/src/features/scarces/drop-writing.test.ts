@@ -18,9 +18,10 @@ function mdFile(name: string, type = 'text/markdown'): File {
 }
 
 describe('isDropWritingMime', () => {
-  it('accepts markdown and plain text', () => {
+  it('accepts markdown, plain text, and PDF', () => {
     expect(isDropWritingMime('text/markdown')).toBe(true);
     expect(isDropWritingMime('text/plain')).toBe(true);
+    expect(isDropWritingMime('application/pdf')).toBe(true);
     expect(isDropWritingMime('audio/mpeg')).toBe(false);
   });
 
@@ -29,6 +30,7 @@ describe('isDropWritingMime', () => {
     expect(isDropWritingMime('application/octet-stream', 'notes.txt')).toBe(
       true
     );
+    expect(isDropWritingMime('', 'zine.pdf')).toBe(true);
     expect(isDropWritingMime('', 'track.mp3')).toBe(false);
   });
 });
@@ -37,6 +39,9 @@ describe('chapterTitleFromFile', () => {
   it('strips numeric prefixes and extensions', () => {
     expect(chapterTitleFromFile(mdFile('01-the-road.md'))).toBe('The road');
     expect(chapterTitleFromFile(mdFile('02_intro.markdown'))).toBe('Intro');
+    expect(
+      chapterTitleFromFile(new File(['%PDF'], '03-folio.pdf', { type: 'application/pdf' }))
+    ).toBe('Folio');
   });
 });
 
@@ -151,6 +156,7 @@ describe('writing manifesto', () => {
 describe('writingContentUrl', () => {
   it('builds same-origin proxy URLs for CIDs', () => {
     expect(isLikelyIpfsCid('bafybeigabcdefghijklmnopqrstuv')).toBe(true);
+    expect(isLikelyIpfsCid('bafkreigdabcdefghijklmnopqrstuvwx')).toBe(true);
     expect(writingContentUrl('bafybeigabcdefghijklmnopqrstuv')).toBe(
       '/api/ipfs/bafybeigabcdefghijklmnopqrstuv'
     );

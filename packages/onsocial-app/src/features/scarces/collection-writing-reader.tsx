@@ -4,8 +4,13 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
-import type { ScarceReadableMedia } from '@/features/scarces/drop-writing';
-import { writingLastChapterStorageKey } from '@/features/scarces/drop-writing';
+import { MediaDownloadControl } from '@/components/ui/media-download-control';
+import {
+  isWritingPdfMime,
+  type ScarceReadableMedia,
+  writingLastChapterStorageKey,
+} from '@/features/scarces/drop-writing';
+import { downloadIpfsMedia } from '@/lib/media-download';
 
 function readablesKey(readables: ScarceReadableMedia[]): string {
   return readables.map((entry) => entry.url).join('\0');
@@ -63,20 +68,29 @@ export function CollectionWritingReader({
     setChapterIndex(safeIndex);
   }
   const chapter = readables[safeIndex] ?? null;
+  const chapterIsPdf = chapter
+    ? isWritingPdfMime(chapter.mime, chapter.title)
+    : false;
   const chapterUrl = canRead ? (chapter?.url ?? null) : null;
   const body =
+    !chapterIsPdf &&
     chapterUrl &&
     fetchState.status === 'ok' &&
     fetchState.url === chapterUrl
       ? fetchState.text
       : null;
   const loadError =
+    !chapterIsPdf &&
     chapterUrl &&
     fetchState.status === 'error' &&
     fetchState.url === chapterUrl
       ? fetchState.message
       : null;
-  const loading = Boolean(chapterUrl) && body == null && loadError == null;
+  const loading =
+    Boolean(chapterUrl) &&
+    !chapterIsPdf &&
+    body == null &&
+    loadError == null;
 
   useEffect(() => {
     if (!storageKey) return;
@@ -88,7 +102,7 @@ export function CollectionWritingReader({
   }, [storageKey, safeIndex]);
 
   useEffect(() => {
-    if (!chapterUrl) return;
+    if (!chapterUrl || chapterIsPdf) return;
     let cancelled = false;
     const url = chapterUrl;
     void fetch(url)
@@ -114,13 +128,13 @@ export function CollectionWritingReader({
     return () => {
       cancelled = true;
     };
-  }, [chapterUrl]);
+  }, [chapterUrl, chapterIsPdf]);
 
-  // Prefetch next chapter (book only).
+  // Prefetch next Markdown chapter (book only).
   useEffect(() => {
     if (!canRead || !isBook) return;
     const next = readables[safeIndex + 1];
-    if (!next?.url) return;
+    if (!next?.url || isWritingPdfMime(next.mime, next.title)) return;
     const controller = new AbortController();
     void fetch(next.url, { signal: controller.signal }).catch(() => {
       // best-effort
@@ -132,11 +146,34 @@ export function CollectionWritingReader({
 
   return (
     <section className="collection-writing" aria-label="Reading">
-      <p className="collection-section-label">
-        {isBook
-          ? `${readables.length} chapters`
-          : readables[0]?.title?.trim() || 'Manuscript'}
-      </p>
+      <div className="collection-writing-head">
+        <p className="collection-section-label">
+          {isBook
+            ? `${readables.length} chapters`
+            : readables[0]?.title?.trim() ||
+              (chapterIsPdf ? 'PDF' : 'Manuscript')}
+        </p>
+        {canRead && chapter ? (
+          <MediaDownloadControl
+            className="collection-writing-download-control"
+            ariaLabel={
+              chapter.title?.trim()
+                ? `Download ${chapter.title.trim()}`
+                : 'Download chapter'
+            }
+            onDownload={(onProgress) =>
+              downloadIpfsMedia({
+                cid: chapter.cid,
+                url: chapter.url,
+                mime: chapter.mime,
+                title: chapter.title,
+                fallbackName: `chapter-${safeIndex + 1}`,
+                onProgress,
+              })
+            }
+          />
+        ) : null}
+      </div>
 
       {!canRead ? (
         <p className="collection-writing-locked">{lockedHint}</p>
@@ -158,6 +195,12 @@ export function CollectionWritingReader({
                     </span>
                     <span className="collection-writing-toc-title">
                       {entry.title?.trim() || `Chapter ${index + 1}`}
+                      {isWritingPdfMime(entry.mime, entry.title) ? (
+                        <span className="collection-writing-toc-kind">
+                          {' '}
+                          PDF
+                        </span>
+                      ) : null}
                     </span>
                   </button>
                 </li>
@@ -171,7 +214,17 @@ export function CollectionWritingReader({
                 {chapter.title?.trim() || `Chapter ${safeIndex + 1}`}
               </h3>
             ) : null}
-            {loading && body == null ? (
+            {chapterIsPdf && chapterUrl ? (
+              <iframe
+                className="collection-writing-pdf"
+                title={
+                  chapter.title?.trim() ||
+                  `PDF chapter ${safeIndex + 1}`
+                }
+                src={chapterUrl}
+              />
+            ) : null}
+            {loading ? (
               <p className="collection-writing-status">Loading…</p>
             ) : null}
             {loadError ? (

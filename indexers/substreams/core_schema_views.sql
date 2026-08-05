@@ -61,6 +61,16 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_standing_dedup
 CREATE INDEX IF NOT EXISTS idx_data_updates_reaction_dedup
   ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'reaction';
 
+-- Album fan counts: current loves for one creator + collection_id extract.
+CREATE INDEX IF NOT EXISTS idx_data_updates_scarce_track_love
+  ON data_updates (
+    target_account,
+    (SUBSTRING(path FROM '/scarce/([^/]+)/track/'))
+  )
+  WHERE data_type = 'reaction'
+    AND reaction_kind = 'love'
+    AND path LIKE '%/scarce/%/track/%';
+
 CREATE INDEX IF NOT EXISTS idx_data_updates_claims_dedup
   ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'claims';
 
@@ -399,6 +409,26 @@ SELECT
 FROM reactions_current
 WHERE operation = 'set'
 GROUP BY post_owner, reaction_kind, SUBSTRING(path FROM '/reaction/[^/]+/[^/]+/(.+)$');
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5b. scarce_album_love_fans — distinct non-creator loves per music drop
+-- ────────────────────────────────────────────────────────────────────────────
+-- One row per (creator, collection). Filter by post_owner + collection_id.
+-- Summing reaction_counts across tracks would double-count multi-track fans.
+
+CREATE OR REPLACE VIEW scarce_album_love_fans AS
+SELECT
+  post_owner,
+  SUBSTRING(path FROM '/scarce/([^/]+)/track/') AS collection_id,
+  COUNT(DISTINCT account_id) FILTER (
+    WHERE lower(account_id) IS DISTINCT FROM lower(post_owner)
+  ) AS fan_count,
+  MAX(block_height) AS last_love_block
+FROM reactions_current
+WHERE operation = 'set'
+  AND reaction_kind = 'love'
+  AND path LIKE '%/scarce/%/track/%'
+GROUP BY post_owner, SUBSTRING(path FROM '/scarce/([^/]+)/track/');
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6. standing_counts — incoming standing counts per account

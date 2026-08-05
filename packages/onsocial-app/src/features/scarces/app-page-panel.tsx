@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  InformationCircleFillIcon,
+  InformationCircleIcon,
   SettingsIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
@@ -540,7 +540,7 @@ export function AppPagePanel({
                   aria-label="Hub facts"
                   onClick={() => setFactsOpen(true)}
                 >
-                  <InformationCircleFillIcon
+                  <InformationCircleIcon
                     className="guild-hero-facts-icon"
                     aria-hidden
                   />

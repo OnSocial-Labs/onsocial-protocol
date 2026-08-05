@@ -10,6 +10,7 @@ import {
   ChevronRightIcon,
   CopyIcon,
   DotsCircleIcon,
+  DownloadIcon,
   DotsHorizontalIcon,
   DotsVerticalIcon,
   EditIcon,
@@ -21,6 +22,7 @@ import {
   GlobeIcon,
   HeartIcon,
   ImageIcon,
+  InformationCircleIcon,
   LinkIcon,
   LogoutIcon,
   MessageIcon,
@@ -31,6 +33,9 @@ import {
   QuestionMarkCircleIcon,
   RefreshIcon,
   RepeatIcon,
+  SaveIcon,
+  ScaleDownIcon,
+  ScaleUpIcon,
   SearchIcon,
   SettingsIcon,
   ShareIcon,
@@ -63,6 +68,7 @@ describe('mage stroke icons', () => {
     expect(typeof FireIcon).toBe('function');
     expect(typeof HeartIcon).toBe('function');
     expect(typeof ImageIcon).toBe('function');
+    expect(typeof InformationCircleIcon).toBe('function');
     expect(typeof LinkIcon).toBe('function');
     expect(typeof MessageIcon).toBe('function');
     expect(typeof MessageRoundIcon).toBe('function');
@@ -71,6 +77,9 @@ describe('mage stroke icons', () => {
     expect(typeof QuestionMarkCircleIcon).toBe('function');
     expect(typeof RefreshIcon).toBe('function');
     expect(typeof RepeatIcon).toBe('function');
+    expect(typeof SaveIcon).toBe('function');
+    expect(typeof ScaleDownIcon).toBe('function');
+    expect(typeof ScaleUpIcon).toBe('function');
     expect(typeof GiftIcon).toBe('function');
     expect(typeof GlobeIcon).toBe('function');
     expect(typeof LogoutIcon).toBe('function');
@@ -86,6 +95,7 @@ describe('mage stroke icons', () => {
     expect(typeof ShopIcon).toBe('function');
     expect(typeof StarMovingIcon).toBe('function');
     expect(typeof DotsCircleIcon).toBe('function');
+    expect(typeof DownloadIcon).toBe('function');
     expect(typeof DotsHorizontalIcon).toBe('function');
     expect(typeof DotsVerticalIcon).toBe('function');
     expect(typeof SlidersHorizontalIcon).toBe('function');

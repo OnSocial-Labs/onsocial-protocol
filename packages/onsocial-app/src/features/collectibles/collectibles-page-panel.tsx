@@ -27,6 +27,10 @@ import {
   MARKET_KIND_PARAM,
 } from '@/lib/app-routes';
 import {
+  listOfflineAlbums,
+  offlineAlbumToHoldingPeek,
+} from '@/lib/collectibles-offline';
+import {
   filterHoldingsByMedium,
   holdingsMatchQuery,
   toPortfolioHoldingPeek,
@@ -69,6 +73,9 @@ export function CollectiblesPagePanel() {
   const [holdings, setHoldings] = useState<HoldingsState>(EMPTY_HOLDINGS);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [offlineHoldings, setOfflineHoldings] = useState<
+    PortfolioHoldingPeek[]
+  >([]);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   /** Same chrome scroll-hide motion as Market filter rail. */
   const toolbarHidden = useDockAutoHide(false);
@@ -124,6 +131,21 @@ export function CollectiblesPagePanel() {
     };
   }, [viewerAccountId, loadKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void listOfflineAlbums()
+      .then((albums) => {
+        if (cancelled) return;
+        setOfflineHoldings(albums.map(offlineAlbumToHoldingPeek));
+      })
+      .catch(() => {
+        if (!cancelled) setOfflineHoldings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [retryKey]);
+
   const status: LoadStatus = !viewerAccountId
     ? 'idle'
     : holdings.loadKey !== loadKey
@@ -162,29 +184,37 @@ export function CollectiblesPagePanel() {
       .finally(() => setLoadingMore(false));
   }, [viewerAccountId, holdings.hasMore, holdings.nextFromEnd, loadingMore]);
 
+  const vaultItems =
+    status === 'ready' && holdings.items.length > 0
+      ? holdings.items
+      : offlineHoldings;
+  const usingOfflineLibrary =
+    vaultItems === offlineHoldings && offlineHoldings.length > 0;
+
   const filtered = useMemo(() => {
-    const byKind = filterHoldingsByMedium(holdings.items, mediumFilter);
+    const byKind = filterHoldingsByMedium(vaultItems, mediumFilter);
     if (!trimmedSearch) return byKind;
     return byKind.filter((item) => holdingsMatchQuery(item, trimmedSearch));
-  }, [holdings.items, mediumFilter, trimmedSearch]);
+  }, [vaultItems, mediumFilter, trimmedSearch]);
 
-  const showTabs = isConnected && Boolean(viewerAccountId);
+  const showTabs =
+    (isConnected && Boolean(viewerAccountId)) || usingOfflineLibrary;
   const emptyVault =
+    !usingOfflineLibrary &&
     status === 'ready' &&
     Boolean(viewerAccountId) &&
     holdings.items.length === 0;
   const emptySearch =
-    status === 'ready' &&
-    Boolean(viewerAccountId) &&
-    holdings.items.length > 0 &&
+    vaultItems.length > 0 &&
     trimmedSearch.length > 0 &&
     filtered.length === 0;
   const emptyFilter =
-    status === 'ready' &&
-    Boolean(viewerAccountId) &&
-    holdings.items.length > 0 &&
+    vaultItems.length > 0 &&
     !trimmedSearch &&
     filtered.length === 0;
+  const showOfflineOnly =
+    usingOfflineLibrary &&
+    (!viewerAccountId || status === 'error' || status === 'idle');
   const emptyFilterLabel =
     MARKET_MEDIUM_FILTERS.find((tab) => tab.id === mediumFilter)?.label ??
     'items';
@@ -266,7 +296,7 @@ export function CollectiblesPagePanel() {
       }
     >
       <div className="market-page collectibles-page">
-        {!isConnected || !viewerAccountId ? (
+        {(!isConnected || !viewerAccountId) && !usingOfflineLibrary ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
               Connect your wallet to open your Collectibles vault.
@@ -277,11 +307,11 @@ export function CollectiblesPagePanel() {
           </div>
         ) : null}
 
-        {viewerAccountId && status === 'loading' ? (
+        {viewerAccountId && status === 'loading' && !usingOfflineLibrary ? (
           <MarketListSkeleton rows={6} />
         ) : null}
 
-        {viewerAccountId && status === 'error' ? (
+        {viewerAccountId && status === 'error' && !usingOfflineLibrary ? (
           <div className="market-page-status">
             <p>Couldn’t load your collectibles.</p>
             <button
@@ -292,6 +322,12 @@ export function CollectiblesPagePanel() {
               Try again
             </button>
           </div>
+        ) : null}
+
+        {showOfflineOnly ? (
+          <p className="market-page-status">
+            Downloaded music — available offline.
+          </p>
         ) : null}
 
         {emptyVault ? (
@@ -347,7 +383,8 @@ export function CollectiblesPagePanel() {
           </div>
         ) : null}
 
-        {viewerAccountId && status === 'ready' && filtered.length > 0 ? (
+        {filtered.length > 0 &&
+        (status === 'ready' || usingOfflineLibrary) ? (
           <section
             className="market-section"
             aria-labelledby="collectibles-results"

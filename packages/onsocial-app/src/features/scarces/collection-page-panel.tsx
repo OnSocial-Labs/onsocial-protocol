@@ -12,7 +12,7 @@ import Link from 'next/link';
 import {
   Divider,
   GlassSheet,
-  InformationCircleFillIcon,
+  InformationCircleIcon,
   ProfileAvatar,
   ShareIcon,
   SheetHeader,
@@ -246,7 +246,8 @@ export function CollectionPagePanel({
     let cancelled = false;
     const needsHoldCheck =
       (view?.readables.length ?? 0) > 0 ||
-      Boolean(view?.writingManifestCid?.trim());
+      Boolean(view?.writingManifestCid?.trim()) ||
+      (view?.playables.length ?? 0) > 0;
     void Promise.all([
       fetchWalletMintRemaining(collectionId, viewerAccountId),
       fetchAllowlistRemaining(collectionId, viewerAccountId),
@@ -268,6 +269,7 @@ export function CollectionPagePanel({
     refreshKey,
     view?.readables.length,
     view?.writingManifestCid,
+    view?.playables.length,
   ]);
 
   useEffect(() => {
@@ -747,14 +749,21 @@ export function CollectionPagePanel({
       scrollRootRef={scrollRootRef}
       footer={pinCollect ? collectBand : undefined}
       actions={
-        <Link
-          href={marketCreatorPath(view.creatorId)}
-          scroll={false}
-          className={osIconActionClassName}
-          aria-label="Shop this creator"
-        >
-          <ShopFillIcon aria-hidden />
-        </Link>
+        <>
+          <span
+            className={`collection-header-status ${statusTone(status)}`}
+          >
+            {collectionStatusLabel(status)}
+          </span>
+          <Link
+            href={marketCreatorPath(view.creatorId)}
+            scroll={false}
+            className={osIconActionClassName}
+            aria-label="Shop this creator"
+          >
+            <ShopFillIcon aria-hidden />
+          </Link>
+        </>
       }
     >
       {immersive ? (
@@ -765,36 +774,53 @@ export function CollectionPagePanel({
       ) : null}
       <div className="collection-page">
         <section className="collection-hero" aria-label="Drop cover">
-          <div
-            className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
-              isMusic ? ' is-square' : ''
-            }${immersive ? ' is-immersive' : ''}`}
-            {...(view.cardBg && !view.mediaUrl
-              ? { style: { background: view.cardBg } }
-              : {})}
-          >
-            {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
-            <span className={`collection-status ${statusTone(status)}`}>
-              {collectionStatusLabel(status)}
-            </span>
-          </div>
+          {isMusic && hasPlayables ? (
+            <div
+              className={`collection-music-hero${
+                immersive ? ' is-immersive' : ''
+              }`}
+            >
+              <ScarceClipPlayer
+                key={`cover-${playables[0]!.url}`}
+                clip={playables[0]!}
+                tracks={playables}
+                poster={view.mediaUrl}
+                layout="cover"
+                showTracks={false}
+                persist={{
+                  collectionId: view.collectionId,
+                  title: view.title,
+                }}
+                creatorId={view.creatorId}
+                canKeepOffline={
+                  isOwner
+                    ? true
+                    : !viewerAccountId
+                      ? false
+                      : holdsEdition == null
+                        ? null
+                        : holdsEdition
+                }
+              />
+            </div>
+          ) : (
+            <div
+              className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
+                isMusic ? ' is-square' : ''
+              }${immersive ? ' is-immersive' : ''}`}
+              {...(view.cardBg && !view.mediaUrl
+                ? { style: { background: view.cardBg } }
+                : {})}
+            >
+              {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
+            </div>
+          )}
 
           <header className="collection-head">
             <div className="collection-title-row">
               <h1 className="collection-title" ref={heroTitleRef}>
                 {view.title}
               </h1>
-              <button
-                type="button"
-                className="guild-hero-facts-button"
-                aria-label="Drop facts"
-                onClick={() => setFactsOpen(true)}
-              >
-                <InformationCircleFillIcon
-                  className="guild-hero-facts-icon"
-                  aria-hidden
-                />
-              </button>
             </div>
             <div className="collection-meta">
               <Link
@@ -859,6 +885,20 @@ export function CollectionPagePanel({
                       <span className="collection-meta-time">{createdRel}</span>
                     </>
                   ) : null}
+                  <span className="collection-meta-sep" aria-hidden>
+                    ·
+                  </span>
+                  <button
+                    type="button"
+                    className="guild-hero-facts-button collectibles-play-facts"
+                    aria-label="Drop facts"
+                    onClick={() => setFactsOpen(true)}
+                  >
+                    <InformationCircleIcon
+                      className="guild-hero-facts-icon"
+                      aria-hidden
+                    />
+                  </button>
                 </div>
               </div>
             </div>
@@ -879,15 +919,26 @@ export function CollectionPagePanel({
                 : `${playables.length} tracks`}
             </p>
             <ScarceClipPlayer
-              key={playables[0]!.url}
+              key={`tracks-${playables[0]!.url}`}
               clip={playables[0]!}
               tracks={playables}
               poster={view.mediaUrl}
               layout="tracks"
+              showTransport={false}
               persist={{
                 collectionId: view.collectionId,
                 title: view.title,
               }}
+              creatorId={view.creatorId}
+              canKeepOffline={
+                isOwner
+                  ? true
+                  : !viewerAccountId
+                    ? false
+                    : holdsEdition == null
+                      ? null
+                      : holdsEdition
+              }
             />
           </section>
         ) : null}

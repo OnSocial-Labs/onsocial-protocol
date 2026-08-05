@@ -4,6 +4,8 @@ import {
   TrashFillIcon,
   PlayFillIcon,
   PauseFillIcon,
+  PreviousFillIcon,
+  NextFillIcon,
   PlayCircleFillIcon,
   UserFillIcon,
   UserMinusFillIcon,
@@ -34,6 +36,8 @@ describe('mage fill icons', () => {
     expect(typeof TrashFillIcon).toBe('function');
     expect(typeof PlayFillIcon).toBe('function');
     expect(typeof PauseFillIcon).toBe('function');
+    expect(typeof PreviousFillIcon).toBe('function');
+    expect(typeof NextFillIcon).toBe('function');
     expect(typeof PlayCircleFillIcon).toBe('function');
     expect(typeof UserFillIcon).toBe('function');
     expect(typeof UserMinusFillIcon).toBe('function');

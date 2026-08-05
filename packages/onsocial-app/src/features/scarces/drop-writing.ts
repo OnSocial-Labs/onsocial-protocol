@@ -1,9 +1,12 @@
 /**
- * Writing drops — Article / Book manuscripts pinned as Markdown chapters
+ * Writing drops — Article / Book manuscripts pinned as Markdown / PDF chapters
  * plus an `onsocial.writing.v1` manifesto CID in metadata.extra.
  */
 
+/** Markdown / plain text chapter cap. */
 export const DROP_WRITING_MAX_BYTES = 500 * 1024;
+/** PDF chapters — print / ebook files (same ballpark as audio tracks). */
+export const DROP_WRITING_PDF_MAX_BYTES = 20 * 1024 * 1024;
 /** Comfortably supports long-form books; manifesto lives on IPFS, not in token extra. */
 export const DROP_WRITING_MAX_CHAPTERS = 100;
 
@@ -13,6 +16,7 @@ const DROP_WRITING_MIMES = new Set([
   'text/markdown',
   'text/x-markdown',
   'text/plain',
+  'application/pdf',
 ]);
 
 export type WritingReleaseFormat = 'article' | 'book';
@@ -38,8 +42,9 @@ export interface WritingManifestV1 {
   chapters: ScarceReadableRef[];
 }
 
+/** CIDv0 (`Qm…`) and CIDv1 base32 (`bafy…` unixfs, `bafk…` raw audio/pdf). */
 const CID_RE =
-  /^(bafy[a-z0-9]{20,}|Qm[1-9A-HJ-NP-Za-km-z]{44,})$/i;
+  /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[a-z0-9]{20,})$/i;
 
 export function isLikelyIpfsCid(value: string): boolean {
   return CID_RE.test(value.trim());
@@ -58,15 +63,36 @@ export function isDropWritingMime(mime: string, fileName?: string): boolean {
   const normalized = mime.toLowerCase().trim();
   if (DROP_WRITING_MIMES.has(normalized)) return true;
   if (normalized === 'application/octet-stream' || !normalized) {
-    return Boolean(fileName && /\.(md|markdown|txt)$/i.test(fileName));
+    return Boolean(fileName && /\.(md|markdown|txt|pdf)$/i.test(fileName));
   }
   return false;
+}
+
+export function isWritingPdfMime(mime: string, fileName?: string): boolean {
+  const normalized = mime.toLowerCase().trim();
+  if (normalized === 'application/pdf') return true;
+  return Boolean(fileName && /\.pdf$/i.test(fileName));
+}
+
+/** Per-file size cap — PDFs get the larger budget. */
+export function dropWritingMaxBytes(file: File): number {
+  return isWritingPdfMime(file.type, file.name)
+    ? DROP_WRITING_PDF_MAX_BYTES
+    : DROP_WRITING_MAX_BYTES;
+}
+
+export function writingMimeForFile(file: File): string {
+  const type = file.type.trim().toLowerCase();
+  if (type && DROP_WRITING_MIMES.has(type)) return type;
+  if (/\.pdf$/i.test(file.name)) return 'application/pdf';
+  if (/\.txt$/i.test(file.name)) return 'text/plain';
+  return type || 'text/markdown';
 }
 
 /** "01-the-road.md" → "The road" */
 export function chapterTitleFromFile(file: File): string {
   const base = file.name
-    .replace(/\.(md|markdown|txt)$/i, '')
+    .replace(/\.(md|markdown|txt|pdf)$/i, '')
     .replace(/^\d+[-_.\s]+/, '')
     .replace(/[-_]+/g, ' ')
     .trim();
@@ -125,7 +151,7 @@ export function chaptersFromPinnedFiles(
     const title = chapterTitleFromFile(file);
     chapters.push({
       cid,
-      mime: file.type || 'text/markdown',
+      mime: writingMimeForFile(file),
       ...(title ? { title } : {}),
     });
   }

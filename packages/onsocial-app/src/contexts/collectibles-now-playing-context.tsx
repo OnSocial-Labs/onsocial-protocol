@@ -20,6 +20,15 @@ import {
   collectiblesPlayPath,
   collectionPath,
 } from '@/lib/app-routes';
+import {
+  cachedTrackCids,
+  clearPersistedNowPlayingSession,
+  isTrackCached,
+  persistNowPlayingSession,
+  readPersistedNowPlayingSession,
+  resolvePlayableSrc,
+  trackCidFromPlayable,
+} from '@/lib/collectibles-offline';
 import { isRenderablePostAudioMime } from '@/lib/post-media';
 
 export interface CollectiblesNowPlayingSession {
@@ -27,6 +36,8 @@ export interface CollectiblesNowPlayingSession {
   title: string;
   poster: string | null;
   tracks: ScarcePlayableMedia[];
+  /** Restored offline library — skip uncached tracks. */
+  localOnly?: boolean;
 }
 
 interface CollectiblesNowPlayingContextValue {
@@ -59,6 +70,7 @@ export function CollectiblesNowPlayingProvider({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<CollectiblesNowPlayingSession | null>(null);
   const activeIndexRef = useRef(0);
+  const blobUrlsRef = useRef<Map<string, string>>(new Map());
   const [session, setSession] = useState<CollectiblesNowPlayingSession | null>(
     null
   );
@@ -66,6 +78,19 @@ export function CollectiblesNowPlayingProvider({
   const [playing, setPlaying] = useState(false);
   /** True after the user has started playback at least once this session. */
   const [engaged, setEngaged] = useState(false);
+
+  const resolveSrc = useCallback(async (track: ScarcePlayableMedia) => {
+    const cid = trackCidFromPlayable(track);
+    if (cid) {
+      const existing = blobUrlsRef.current.get(cid);
+      if (existing) return existing;
+    }
+    const src = await resolvePlayableSrc(track);
+    if (cid && src.startsWith('blob:')) {
+      blobUrlsRef.current.set(cid, src);
+    }
+    return src;
+  }, []);
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
@@ -89,18 +114,39 @@ export function CollectiblesNowPlayingProvider({
         setPlaying(false);
         return;
       }
-      if (index < current.tracks.length - 1) {
-        const next = index + 1;
-        activeIndexRef.current = next;
-        setActiveIndex(next);
-        const track = current.tracks[next];
-        if (!track) return;
-        audio.src = track.url;
-        audio.load();
-        void audio.play().catch(() => setPlaying(false));
-        return;
-      }
-      setPlaying(false);
+      void (async () => {
+        const restrict = Boolean(current.localOnly) || navigator.onLine === false;
+        let next = index + 1;
+        while (next < current.tracks.length) {
+          const track = current.tracks[next];
+          if (!track || !isRenderablePostAudioMime(track.mime)) {
+            next += 1;
+            continue;
+          }
+          if (restrict) {
+            const cid = trackCidFromPlayable(track);
+            if (!cid || !(await isTrackCached(cid))) {
+              next += 1;
+              continue;
+            }
+          }
+          if (sessionRef.current !== current) return;
+          activeIndexRef.current = next;
+          setActiveIndex(next);
+          const src = await resolveSrc(track);
+          if (sessionRef.current !== current) return;
+          if (activeIndexRef.current !== next) return;
+          audio.src = src;
+          audio.load();
+          persistNowPlayingSession({
+            ...current,
+            activeIndex: next,
+          });
+          void audio.play().catch(() => setPlaying(false));
+          return;
+        }
+        setPlaying(false);
+      })();
     };
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
@@ -110,7 +156,7 @@ export function CollectiblesNowPlayingProvider({
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [getAudio]);
+  }, [getAudio, resolveSrc]);
 
   const ensureSession = useCallback(
     (next: CollectiblesNowPlayingSession) => {
@@ -126,21 +172,41 @@ export function CollectiblesNowPlayingProvider({
         (prev!.poster ?? null) === (next.poster ?? null);
 
       // No-op when nothing changed — avoids setState loops from mount effects.
-      if (sameMeta) return;
+      if (sameMeta) {
+        if (prev?.localOnly) {
+          const live = { ...next, localOnly: false };
+          sessionRef.current = live;
+          setSession(live);
+        }
+        persistNowPlayingSession({
+          ...next,
+          localOnly: false,
+          activeIndex: activeIndexRef.current,
+        });
+        return;
+      }
 
-      sessionRef.current = next;
-      setSession(next);
+      const live = { ...next, localOnly: false };
+      sessionRef.current = live;
+      setSession(live);
+      persistNowPlayingSession({
+        ...live,
+        activeIndex: sameAlbum ? activeIndexRef.current : 0,
+      });
       if (!sameAlbum) {
         activeIndexRef.current = 0;
         setActiveIndex(0);
         const first = next.tracks[0];
         if (first && isRenderablePostAudioMime(first.mime)) {
-          audio.src = first.url;
-          audio.load();
+          void resolveSrc(first).then((src) => {
+            if (sessionRef.current !== live) return;
+            audio.src = src;
+            audio.load();
+          });
         }
       }
     },
-    [getAudio]
+    [getAudio, resolveSrc]
   );
 
   const setTrack = useCallback(
@@ -155,16 +221,20 @@ export function CollectiblesNowPlayingProvider({
         activeIndexRef.current = index;
         setActiveIndex(index);
       }
-      if (indexChanged || !audio.src) {
-        audio.src = track.url;
-        audio.load();
-      }
-      if (autoplay) {
-        setEngaged(true);
-        void audio.play().catch(() => setPlaying(false));
-      }
+      persistNowPlayingSession({ ...current, activeIndex: index });
+      const apply = async () => {
+        if (indexChanged || !audio.src) {
+          audio.src = await resolveSrc(track);
+          audio.load();
+        }
+        if (autoplay) {
+          setEngaged(true);
+          await audio.play().catch(() => setPlaying(false));
+        }
+      };
+      void apply();
     },
-    [getAudio]
+    [getAudio, resolveSrc]
   );
 
   const toggle = useCallback(async () => {
@@ -178,7 +248,7 @@ export function CollectiblesNowPlayingProvider({
     if (!audio.src) {
       const track = current.tracks[activeIndexRef.current] ?? current.tracks[0];
       if (!track) return;
-      audio.src = track.url;
+      audio.src = await resolveSrc(track);
       audio.load();
     }
     try {
@@ -187,7 +257,7 @@ export function CollectiblesNowPlayingProvider({
     } catch {
       setPlaying(false);
     }
-  }, [getAudio]);
+  }, [getAudio, resolveSrc]);
 
   const pause = useCallback(() => {
     getAudio().pause();
@@ -213,7 +283,54 @@ export function CollectiblesNowPlayingProvider({
     setActiveIndex(0);
     setPlaying(false);
     setEngaged(false);
+    clearPersistedNowPlayingSession();
+    for (const url of blobUrlsRef.current.values()) {
+      URL.revokeObjectURL(url);
+    }
+    blobUrlsRef.current.clear();
   }, [getAudio]);
+
+  useEffect(() => {
+    const saved = readPersistedNowPlayingSession();
+    if (!saved || sessionRef.current) return;
+    let cancelled = false;
+    void (async () => {
+      const audio = getAudio();
+      const cids = saved.tracks
+        .map((track) => trackCidFromPlayable(track))
+        .filter((cid): cid is string => Boolean(cid));
+      const cached = await cachedTrackCids(cids);
+      if (cancelled || cached.size === 0) return;
+      let index = Math.min(
+        Math.max(0, saved.activeIndex),
+        Math.max(0, saved.tracks.length - 1)
+      );
+      const indexCid = trackCidFromPlayable(saved.tracks[index] ?? {});
+      if (!indexCid || !cached.has(indexCid)) {
+        const fallback = saved.tracks.findIndex((track) => {
+          const cid = trackCidFromPlayable(track);
+          return Boolean(cid && cached.has(cid));
+        });
+        if (fallback < 0) return;
+        index = fallback;
+      }
+      const track = saved.tracks[index];
+      if (!track || !isRenderablePostAudioMime(track.mime)) return;
+      const restored = { ...saved, localOnly: true };
+      const src = await resolveSrc(track);
+      if (cancelled) return;
+      sessionRef.current = restored;
+      activeIndexRef.current = index;
+      setSession(restored);
+      setActiveIndex(index);
+      setEngaged(true);
+      audio.src = src;
+      audio.load();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getAudio, resolveSrc]);
 
   const value = useMemo(
     () => ({

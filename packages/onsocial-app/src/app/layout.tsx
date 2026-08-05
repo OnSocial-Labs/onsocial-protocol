@@ -7,6 +7,7 @@ import {
   Newsreader,
   Space_Grotesk,
 } from 'next/font/google';
+import { ServiceWorkerRegister } from '@/components/app/service-worker-register';
 import { AppProviders } from '@/components/providers/app-providers';
 import { ThemeInitScript } from '@/components/theme-init-script';
 import './globals.css';
@@ -96,6 +97,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <ThemeInitScript />
         <AppProviders>{children}</AppProviders>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

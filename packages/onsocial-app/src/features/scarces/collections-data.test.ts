@@ -97,6 +97,11 @@ describe('toCollectionView cover seat', () => {
       expect.stringContaining('bafy2'),
       expect.stringContaining('bafy3'),
     ]);
+    expect(view?.playables.map((t) => t.cid)).toEqual([
+      'bafy1',
+      'bafy2',
+      'bafy3',
+    ]);
   });
 
   it('keeps album playable order after skipping a bad entry', () => {

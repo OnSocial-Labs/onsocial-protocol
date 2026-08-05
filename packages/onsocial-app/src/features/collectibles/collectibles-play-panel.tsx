@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
-  InformationCircleFillIcon,
+  InformationCircleIcon,
   OsSheetAction,
   OsSheetActions,
   ProfileAvatar,
@@ -38,6 +38,10 @@ import {
   COLLECTIBLES_PLAY_TOKEN_PARAM,
   collectionPath,
 } from '@/lib/app-routes';
+import {
+  getOfflineAlbum,
+  playablesFromOfflineAlbum,
+} from '@/lib/collectibles-offline';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel, resolveProfileMediaUrl } from '@/lib/profile-display';
@@ -46,8 +50,49 @@ interface PlayLoadState {
   collectionId: string;
   view: CollectionView | null;
   failed: boolean;
+  offline: boolean;
   creatorAvatarUrl: string | null;
   creatorDisplayName: string | null;
+}
+
+function collectionViewFromOfflineAlbum(
+  album: NonNullable<Awaited<ReturnType<typeof getOfflineAlbum>>>
+): CollectionView {
+  return {
+    collectionId: album.collectionId,
+    creatorId: '',
+    title: album.title,
+    mediaUrl: album.poster,
+    priceNear: null,
+    priceYocto: '0',
+    totalSupply: 0,
+    minted: 0,
+    remaining: 0,
+    startTimeMs: null,
+    endTimeMs: null,
+    createdAtMs: album.updatedAt,
+    maxPerWallet: null,
+    mintMode: '',
+    paused: false,
+    cancelled: false,
+    soldOut: false,
+    hasAllowlist: false,
+    appId: null,
+    appCommissionBps: null,
+    kind: 'music',
+    playables: playablesFromOfflineAlbum(album),
+    readables: [],
+    writingFormat: null,
+    writingManifestCid: null,
+    transferable: true,
+    renewable: false,
+    maxRedeems: null,
+    isVariations: false,
+    randomAssignment: false,
+    seriesId: null,
+    seriesTitle: null,
+    royalty: null,
+  };
 }
 
 async function loadCreatorFace(creatorId: string): Promise<{
@@ -124,10 +169,24 @@ export function CollectiblesPlayPanel() {
         const view = await fetchCollection(collectionId);
         if (cancelled) return;
         if (!view) {
+          const offline = await getOfflineAlbum(collectionId);
+          if (cancelled) return;
+          if (offline) {
+            setLoad({
+              collectionId,
+              view: collectionViewFromOfflineAlbum(offline),
+              failed: false,
+              offline: true,
+              creatorAvatarUrl: null,
+              creatorDisplayName: null,
+            });
+            return;
+          }
           setLoad({
             collectionId,
             view: null,
             failed: true,
+            offline: false,
             creatorAvatarUrl: null,
             creatorDisplayName: null,
           });
@@ -139,15 +198,29 @@ export function CollectiblesPlayPanel() {
           collectionId,
           view,
           failed: false,
+          offline: false,
           creatorAvatarUrl: face.avatarUrl,
           creatorDisplayName: face.displayName,
         });
       } catch {
+        const offline = await getOfflineAlbum(collectionId);
         if (cancelled) return;
+        if (offline) {
+          setLoad({
+            collectionId,
+            view: collectionViewFromOfflineAlbum(offline),
+            failed: false,
+            offline: true,
+            creatorAvatarUrl: null,
+            creatorDisplayName: null,
+          });
+          return;
+        }
         setLoad({
           collectionId,
           view: null,
           failed: true,
+          offline: false,
           creatorAvatarUrl: null,
           creatorDisplayName: null,
         });
@@ -161,6 +234,9 @@ export function CollectiblesPlayPanel() {
   // Resolve owned edition for quiet Sell — prefer `?t=` (exact edition).
   useEffect(() => {
     if (!ownershipKey || !viewerAccountId || !collectionId) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return;
+    }
     let cancelled = false;
     void (async () => {
       let item: OwnedScarceItem | null = null;
@@ -189,6 +265,8 @@ export function CollectiblesPlayPanel() {
           ? 'error'
           : 'ready';
   const view = load?.collectionId === collectionId ? load.view : null;
+  const offlinePlayback =
+    load?.collectionId === collectionId ? Boolean(load.offline) : false;
   const creatorAvatarUrl =
     load?.collectionId === collectionId ? load.creatorAvatarUrl : null;
   const creatorDisplayName =
@@ -286,7 +364,7 @@ export function CollectiblesPlayPanel() {
       glassChrome={!immersive}
       scrollRootRef={scrollRootRef}
       actions={
-        status === 'ready' && view ? (
+        status === 'ready' && view && !offlinePlayback ? (
           <Link
             className={`page-drawer-section-action collectibles-play-drop-action${
               dropIsLive ? ' is-live' : ''
@@ -350,6 +428,18 @@ export function CollectiblesPlayPanel() {
                   collectionId: view.collectionId,
                   title: view.title,
                 }}
+                creatorId={offlinePlayback ? null : view.creatorId}
+                canKeepOffline={
+                  offlinePlayback
+                    ? true
+                    : isSelf
+                      ? true
+                      : !isConnected
+                        ? false
+                        : !ownershipKey || ownedByKey?.key !== ownershipKey
+                          ? null
+                          : ownedItem != null
+                }
               />
             ) : (
               <div className="market-page-empty">
@@ -384,6 +474,7 @@ export function CollectiblesPlayPanel() {
               ) : null}
             </div>
 
+            {offlinePlayback ? null : (
             <div className="collectibles-play-creator collection-meta">
               <Link
                 href={portfolioPath(view.creatorId)}
@@ -453,7 +544,7 @@ export function CollectiblesPlayPanel() {
                       setFactsOpen(true);
                     }}
                   >
-                    <InformationCircleFillIcon
+                    <InformationCircleIcon
                       className="guild-hero-facts-icon"
                       aria-hidden
                     />
@@ -461,6 +552,7 @@ export function CollectiblesPlayPanel() {
                 </div>
               </div>
             </div>
+            )}
 
             {showCreatorGestures ? (
               <div className="collectibles-play-gestures">
