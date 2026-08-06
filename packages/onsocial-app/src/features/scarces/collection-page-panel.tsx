@@ -592,7 +592,8 @@ export function CollectionPagePanel({
   const pinCollect = status === 'live' || status === 'upcoming';
   const playables = view.playables;
   const hasPlayables = playables.length > 0;
-  const isMusic = view.kind === 'music' || hasPlayables;
+  const isAudio =
+    hasPlayables || view.kind === 'audio' || view.kind === 'music';
   const readables = view.readables;
   const hasReadables = readables.length > 0;
   const canReadWriting =
@@ -774,7 +775,7 @@ export function CollectionPagePanel({
       ) : null}
       <div className="collection-page">
         <section className="collection-hero" aria-label="Drop cover">
-          {isMusic && hasPlayables ? (
+          {isAudio && hasPlayables ? (
             <div
               className={`collection-music-hero${
                 immersive ? ' is-immersive' : ''
@@ -806,7 +807,7 @@ export function CollectionPagePanel({
           ) : (
             <div
               className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
-                isMusic ? ' is-square' : ''
+                isAudio ? ' is-square' : ''
               }${immersive ? ' is-immersive' : ''}`}
               {...(view.cardBg && !view.mediaUrl
                 ? { style: { background: view.cardBg } }

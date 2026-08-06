@@ -3,6 +3,7 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import {
+  isAudioMediumKind,
   marketMediumLabel,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
@@ -29,11 +30,11 @@ export interface PortfolioHoldingPeek {
 export function holdingsActionLabel(
   mediumKind: string | null | undefined
 ): string {
-  switch ((mediumKind ?? '').trim().toLowerCase()) {
+  const key = (mediumKind ?? '').trim().toLowerCase();
+  if (isAudioMediumKind(key)) return 'Play';
+  switch (key) {
     case 'writing':
       return 'Read';
-    case 'music':
-      return 'Play';
     case 'video':
       return 'Watch';
     case 'ticket':
@@ -64,8 +65,8 @@ export function holdingsHrefForOwned(item: {
   const collectionId =
     item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
   const medium = (item.mediumKind ?? '').trim().toLowerCase();
-  // Music / video holdings open the focused Collectibles player (lyrics live there).
-  if (collectionId && (medium === 'music' || medium === 'video')) {
+  // Audio / video holdings open the focused Collectibles player.
+  if (collectionId && (isAudioMediumKind(medium) || medium === 'video')) {
     return collectiblesPlayPath(collectionId, { tokenId: item.tokenId });
   }
   if (collectionId) return collectionPath(collectionId);
@@ -104,6 +105,9 @@ export function filterHoldingsByMedium<
   T extends { mediumKind: string | null },
 >(items: T[], medium: MarketMediumFilter): T[] {
   if (medium === 'all') return items;
+  if (medium === 'audio') {
+    return items.filter((item) => isAudioMediumKind(item.mediumKind));
+  }
   return items.filter((item) => item.mediumKind === medium);
 }
 

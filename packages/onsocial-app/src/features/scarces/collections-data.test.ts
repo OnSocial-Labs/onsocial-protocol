@@ -67,7 +67,7 @@ describe('toCollectionView cover seat', () => {
     expect(view?.mediaUrl).toContain('/2.png');
   });
 
-  it('reads music playables from the token template extra', () => {
+  it('reads audio playables from the token template extra', () => {
     const view = toCollectionView({
       collection_id: 'album-1',
       creator_id: 'alice.near',
@@ -77,7 +77,7 @@ describe('toCollectionView cover seat', () => {
         title: 'Album',
         media: 'https://cdn.example/ipfs/bafycover',
         extra: JSON.stringify({
-          kind: 'music',
+          kind: 'audio',
           playable: [
             { cid: 'bafy1', mime: 'audio/mpeg', title: 'One' },
             { cid: 'bafy2', mime: 'audio/mpeg', title: 'Two' },
@@ -86,7 +86,7 @@ describe('toCollectionView cover seat', () => {
         }),
       }),
     });
-    expect(view?.kind).toBe('music');
+    expect(view?.kind).toBe('audio');
     expect(view?.playables.map((t) => t.title)).toEqual([
       'One',
       'Two',
@@ -114,7 +114,7 @@ describe('toCollectionView cover seat', () => {
         title: 'Album',
         media: 'https://cdn.example/ipfs/bafycover',
         extra: JSON.stringify({
-          kind: 'music',
+          kind: 'audio',
           playable: [
             { cid: 'bafy1', mime: 'audio/mpeg', title: 'One' },
             { cid: '', mime: 'audio/mpeg', title: 'Broken' },

@@ -3,7 +3,7 @@
  * Kept in a server-safe module (no `'use client'`) so portfolio peeks can import it.
  *
  * Includes post-scarce kinds (`thought` / `video`) inferred at mint/list time,
- * plus drop templates (`art` / `writing` / `music` / `ticket` / …).
+ * plus drop templates (`art` / `writing` / `audio` / `ticket` / …).
  */
 
 export type MarketMediumFilter =
@@ -11,7 +11,7 @@ export type MarketMediumFilter =
   | 'thought'
   | 'art'
   | 'writing'
-  | 'music'
+  | 'audio'
   | 'video'
   | 'ticket'
   | 'coupon'
@@ -25,17 +25,36 @@ export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
   { id: 'thought', label: 'Thoughts' },
   { id: 'art', label: 'Art' },
   { id: 'writing', label: 'Writing' },
-  { id: 'music', label: 'Music' },
+  { id: 'audio', label: 'Audio' },
   { id: 'video', label: 'Video' },
   { id: 'ticket', label: 'Tickets' },
   { id: 'coupon', label: 'Coupons' },
   { id: 'membership', label: 'Memberships' },
 ];
 
+/**
+ * Playable-audio scarce kind. Writes are `audio` only; `music` remains a
+ * temporary read alias for the one testnet drop until it is recreated.
+ */
+export function isAudioMediumKind(kind: string | null | undefined): boolean {
+  const key = (kind ?? '').trim().toLowerCase();
+  return key === 'audio' || key === 'music';
+}
+
+/** Normalize stored kind for filters (legacy `music` → `audio`). */
+export function normalizeMediumKind(
+  kind: string | null | undefined
+): string | null {
+  const key = (kind ?? '').trim().toLowerCase();
+  if (!key) return null;
+  if (key === 'music') return 'audio';
+  return key;
+}
+
 export function marketMediumLabel(
   mediumKind: string | null | undefined
 ): string | null {
-  const key = (mediumKind ?? '').trim().toLowerCase();
+  const key = normalizeMediumKind(mediumKind);
   if (!key) return null;
   const match = MARKET_MEDIUM_FILTERS.find((entry) => entry.id === key);
   return match?.label ?? key;

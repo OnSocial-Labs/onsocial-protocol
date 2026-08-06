@@ -216,7 +216,7 @@ describe('scarces builders — collections', () => {
         title: 'Album',
         mediaCid: 'bafyCover',
         mediaHash: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-        extra: { kind: 'music', playable },
+        extra: { kind: 'audio', playable },
       },
       'alice.near'
     );

@@ -18,7 +18,7 @@ export const MARKET_CREATOR_PARAM = 'creator';
 /** Query key that pre-filters Market to one app / store. */
 export const MARKET_APP_PARAM = 'app';
 
-/** Query key that pre-filters Market / Collectibles by medium (`art` | `writing` | `music`). */
+/** Query key that pre-filters Market / Collectibles by medium (`art` | `writing` | `audio`). */
 export const MARKET_KIND_PARAM = 'kind';
 
 /** Query key for Collectibles focused player (`?c=collectionId`). */
@@ -40,7 +40,7 @@ export function marketAppPath(appId: string): string {
   return `${APP_MARKET_PATH}?${MARKET_APP_PARAM}=${encodeURIComponent(id)}`;
 }
 
-/** Market pre-filtered to one medium kind (art / writing / music). */
+/** Market pre-filtered to one medium kind (art / writing / audio). */
 export function marketKindPath(kind: string): string {
   const value = kind.trim().toLowerCase();
   if (!value) return APP_MARKET_PATH;

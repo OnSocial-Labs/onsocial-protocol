@@ -208,7 +208,7 @@ describe('ScarcesModule.fromPost.mint', () => {
     expect(JSON.parse(form.get('extra') as string).kind).toBe('video');
   });
 
-  it('tags audio posts as music', async () => {
+  it('tags audio posts as audio', async () => {
     const { mod, spies } = makeMod();
     await mod.fromPost.mint({
       ...ROW,
@@ -218,7 +218,7 @@ describe('ScarcesModule.fromPost.mint', () => {
       }),
     });
     const [, , form] = spies.requestForm.mock.calls[0];
-    expect(JSON.parse(form.get('extra') as string).kind).toBe('music');
+    expect(JSON.parse(form.get('extra') as string).kind).toBe('audio');
   });
 
   it('caller overrides win (title, mediaCid, extra)', async () => {

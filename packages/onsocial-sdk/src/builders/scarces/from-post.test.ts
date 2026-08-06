@@ -123,13 +123,13 @@ describe('inferPostScarceKind', () => {
     );
   });
 
-  it('maps audio playable to music', () => {
+  it('maps audio playable to audio', () => {
     expect(
       inferPostScarceKind({
         mediaCids: ['bafyCover'],
         playable: [{ cid: 'bafyAud', mime: 'audio/mpeg' }],
       })
-    ).toBe('music');
+    ).toBe('audio');
   });
 
   it('maps video playable to video (over art cover)', () => {

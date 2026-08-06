@@ -32,7 +32,7 @@ describe('collectibles routes', () => {
 describe('collectibles os apps', () => {
   it('marks collectibles active on the vault route', () => {
     expect(resolveActiveOsAppId('/collectibles')).toBe('collectibles');
-    expect(resolveActiveOsAppId('/collectibles?kind=music')).toBe(
+    expect(resolveActiveOsAppId('/collectibles?kind=audio')).toBe(
       'collectibles'
     );
     expect(resolveActiveOsAppId('/collectibles/play?c=album')).toBe(

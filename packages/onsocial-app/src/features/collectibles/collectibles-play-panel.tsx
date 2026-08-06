@@ -79,7 +79,7 @@ function collectionViewFromOfflineAlbum(
     hasAllowlist: false,
     appId: null,
     appCommissionBps: null,
-    kind: 'music',
+    kind: 'audio',
     playables: playablesFromOfflineAlbum(album),
     readables: [],
     writingFormat: null,

@@ -292,7 +292,7 @@ export function CreateDropPanel() {
       if (!next.presets.renewable) setAccessEnds('');
     }
     if (next.openAdvanced) setShowAdvanced(true);
-    if (next.id === 'music') {
+    if (next.id === 'audio') {
       setArtMode('single');
       setMusicFormat('single');
     }
@@ -303,9 +303,9 @@ export function CreateDropPanel() {
     setError(null);
   }, []);
 
-  const isMusic = templateId === 'music';
+  const isAudio = templateId === 'audio';
   const isWriting = templateId === 'writing';
-  const isVariations = !isMusic && !isWriting && artMode === 'variations';
+  const isVariations = !isAudio && !isWriting && artMode === 'variations';
   const isPinnedSet = isVariations && variationSource === 'cid';
   const isGeneratedSet = isVariations && variationSource === 'generate';
   /** Upload too big to attach directly — zipped and pinned at submit. */
@@ -344,7 +344,7 @@ export function CreateDropPanel() {
       (!supplyValid || coverSeat <= supply));
 
   const tracksReady =
-    !isMusic || musicTracksValid(musicFormat, trackFiles.length);
+    !isAudio || musicTracksValid(musicFormat, trackFiles.length);
   const chaptersReady =
     !isWriting || writingChaptersValid(writingFormat, chapterFiles.length);
   const customRoyaltyBps = parseCustomRoyaltyBps(customRoyaltyInput);
@@ -679,13 +679,13 @@ export function CreateDropPanel() {
       }
       if (!isVariations && !imageFile) {
         setError(
-          isMusic
+          isAudio
             ? 'Add cover art for the release.'
             : 'Add artwork for the drop.'
         );
         return;
       }
-      if (isMusic && !musicTracksValid(musicFormat, trackFiles.length)) {
+      if (isAudio && !musicTracksValid(musicFormat, trackFiles.length)) {
         setError(
           musicFormat === 'single'
             ? 'Add one track for this single.'
@@ -808,7 +808,7 @@ export function CreateDropPanel() {
       // Phase 1 — pin heavy media without touching the wallet. The browser
       // drops the click gesture after a long await, so wallet approve must be
       // a separate click (phase 2).
-      if (isMusic && !pinnedMusic) {
+      if (isAudio && !pinnedMusic) {
         setPending(true);
         setPendingLabel(
           trackFiles.length > 1 ? 'Uploading tracks…' : 'Uploading track…'
@@ -1094,7 +1094,7 @@ export function CreateDropPanel() {
       resolvedRoyaltyShares,
       appId,
       template,
-      isMusic,
+      isAudio,
       musicFormat,
       trackFiles,
       trackLyrics,
@@ -1113,7 +1113,7 @@ export function CreateDropPanel() {
   );
 
   const needsWalletConfirm =
-    (isMusic && pinnedMusic != null) ||
+    (isAudio && pinnedMusic != null) ||
     (isWriting && pinnedWriting != null) ||
     (isLargeUpload && pinnedLargeSet != null);
 
@@ -1262,7 +1262,7 @@ export function CreateDropPanel() {
         style={studioOpen ? { display: 'none' } : undefined}
         onSubmit={handleSubmit}
       >
-        {isMusic ? (
+        {isAudio ? (
           <div className="guild-field">
             <span>Release</span>
             <div
@@ -1651,14 +1651,14 @@ export function CreateDropPanel() {
               <DropArtworkPreview
                 src={imagePreview}
                 label={
-                  isMusic || isWriting ? 'Cover preview' : 'Artwork preview'
+                  isAudio || isWriting ? 'Cover preview' : 'Artwork preview'
                 }
               />
               <div
                 className="app-storage-presets"
                 role="group"
                 aria-label={
-                  isMusic || isWriting ? 'Cover actions' : 'Artwork actions'
+                  isAudio || isWriting ? 'Cover actions' : 'Artwork actions'
                 }
               >
                 <button
@@ -1680,7 +1680,7 @@ export function CreateDropPanel() {
             >
               <span className="drop-cover-placeholder">
                 <strong>
-                  {isMusic || isWriting ? 'Add cover' : 'Add artwork'}
+                  {isAudio || isWriting ? 'Add cover' : 'Add artwork'}
                 </strong>
                 <small>JPG, PNG, or WebP · ≤5 MB</small>
               </span>
@@ -1699,7 +1699,7 @@ export function CreateDropPanel() {
             onChange={onImageChange}
           />
         ) : null}
-        {isMusic ? (
+        {isAudio ? (
           <div className="guild-field">
             <span>
               {musicFormat === 'single'
@@ -1875,7 +1875,7 @@ export function CreateDropPanel() {
             placeholder={
               isWriting
                 ? 'The Quiet Hours'
-                : isMusic
+                : isAudio
                   ? 'Night Drive'
                   : 'Genesis Prints'
             }
@@ -1893,7 +1893,7 @@ export function CreateDropPanel() {
               derivedSlug ||
               (isWriting
                 ? 'the-quiet-hours'
-                : isMusic
+                : isAudio
                   ? 'night-drive'
                   : 'genesis-prints')
             }

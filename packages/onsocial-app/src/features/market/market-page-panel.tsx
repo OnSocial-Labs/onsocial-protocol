@@ -114,8 +114,10 @@ const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
 
 function parseMediumFilter(raw: string | null): MarketMediumFilter {
   const value = raw?.trim().toLowerCase() ?? '';
+  // Legacy query `?kind=music` → audio.
+  const normalized = value === 'music' ? 'audio' : value;
   const known = MARKET_MEDIUM_FILTERS.find(
-    (entry) => entry.id !== 'all' && entry.id === value
+    (entry) => entry.id !== 'all' && entry.id === normalized
   );
   return known ? known.id : 'all';
 }
@@ -512,9 +514,13 @@ export function MarketPagePanel() {
   const mediumFilteredListings =
     mediumFilter === 'all'
       ? filteredListings
-      : filteredListings.filter(
-          (item) => (item.mediumKind ?? '').toLowerCase() === mediumFilter
-        );
+      : filteredListings.filter((item) => {
+          const kind = (item.mediumKind ?? '').toLowerCase();
+          if (mediumFilter === 'audio') {
+            return kind === 'audio' || kind === 'music';
+          }
+          return kind === mediumFilter;
+        });
 
   const hasLiveAuctionClocks =
     mediumFilteredListings.some(

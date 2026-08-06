@@ -22,9 +22,9 @@ export interface PlayableMediaRef {
 
 /**
  * Medium taxonomy written to `extra.kind` when minting/listing from a post.
- * Aligns with Market / Collectibles filters (`thought` / `art` / `music` / `video`).
+ * Aligns with Market / Collectibles filters (`thought` / `art` / `audio` / `video`).
  */
-export type PostScarceKind = 'thought' | 'art' | 'music' | 'video';
+export type PostScarceKind = 'thought' | 'art' | 'audio' | 'video';
 
 /** Parsed projection of a post body — text + first usable media CID. */
 export interface ExtractedPost {
@@ -119,7 +119,7 @@ export function inferPostScarceKind(
   const hasAudio = extracted.playable.some((entry) =>
     /^audio\//i.test(entry.mime)
   );
-  if (hasAudio) return 'music';
+  if (hasAudio) return 'audio';
   if (extracted.mediaCids.length > 0) return 'art';
   return 'thought';
 }

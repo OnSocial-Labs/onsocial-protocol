@@ -20,6 +20,7 @@ describe('collectionIdFromTokenId', () => {
 describe('holdingsActionLabel', () => {
   it('maps medium kinds to use actions', () => {
     expect(holdingsActionLabel('writing')).toBe('Read');
+    expect(holdingsActionLabel('audio')).toBe('Play');
     expect(holdingsActionLabel('music')).toBe('Play');
     expect(holdingsActionLabel('video')).toBe('Watch');
     expect(holdingsActionLabel('ticket')).toBe('Show pass');
@@ -57,13 +58,13 @@ describe('toPortfolioHoldingPeek', () => {
     expect(peek.kindLabel).toBe('Writing');
   });
 
-  it('routes music holdings to the Collectibles player', () => {
+  it('routes audio holdings to the Collectibles player', () => {
     const peek = toPortfolioHoldingPeek({
       tokenId: 'album:1',
       title: 'Night Drive',
       ownerId: 'alice.near',
       collectionId: 'album',
-      mediumKind: 'music',
+      mediumKind: 'audio',
       listingKind: null,
     });
     expect(peek.href).toBe('/collectibles/play?c=album&t=album%3A1');
@@ -113,7 +114,7 @@ describe('filterHoldingsByMedium', () => {
       filterHoldingsByMedium(items, 'writing').map((i) => i.tokenId)
     ).toEqual(['a']);
     expect(
-      filterHoldingsByMedium(items, 'music').map((i) => i.tokenId)
+      filterHoldingsByMedium(items, 'audio').map((i) => i.tokenId)
     ).toEqual(['b']);
     expect(filterHoldingsByMedium(items, 'ticket')).toEqual([]);
     expect(
