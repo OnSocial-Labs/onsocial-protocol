@@ -14,6 +14,7 @@ import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-conte
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { accountIdsEqual } from '@/lib/account-match';
+import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { SummonLauncher } from '@/components/os/summon-launcher';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
 import {
@@ -172,6 +173,7 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
               <span className="portfolio-summon-grip" aria-hidden />
             </button>
           }
+          nowPlaying={<CollectiblesNowPlayingDockChip />}
           action={
             compose ? (
               <button

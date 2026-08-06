@@ -148,7 +148,11 @@ export function ScarceTrackOptionsMenu({
         open={open}
         onClose={() => setOpen(false)}
         label={label}
-        copy="Save a file copy, or keep it in the app to play offline."
+        copy={
+          canKeepOffline || offlineUnknown
+            ? 'Save a file copy, or keep it in the app to play offline.'
+            : 'Save a file copy to your device.'
+        }
         listAriaLabel={`${label} options`}
         items={items}
       />

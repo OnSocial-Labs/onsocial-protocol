@@ -142,3 +142,53 @@ export function nextFanCountAfterLoveToggle(opts: {
   if (hadAny && !hasAny) return Math.max(0, opts.fanCount - 1);
   return opts.fanCount;
 }
+
+/**
+ * Recent-first fan account ids from reactions rows. Creator excluded.
+ */
+export function dedupeAlbumFanIds(
+  rows: ReadonlyArray<{ accountId?: string | null }>,
+  creatorId: string
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of rows) {
+    const id = row.accountId?.trim() || '';
+    if (!id || accountIdsEqual(id, creatorId)) continue;
+    const key = id.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(id);
+  }
+  return out;
+}
+
+/** Keep facepile ids in sync with album fan-count transitions. */
+export function nextFanIdsAfterLoveToggle(opts: {
+  fanIds: readonly string[];
+  creatorId: string;
+  viewerId: string | null;
+  viewerLovedCids: ReadonlySet<string>;
+  targetCid: string;
+  nextLoved: boolean;
+}): string[] {
+  const viewerId = opts.viewerId?.trim() || '';
+  if (!viewerId || accountIdsEqual(viewerId, opts.creatorId)) {
+    return [...opts.fanIds];
+  }
+  const hadAny = opts.viewerLovedCids.size > 0;
+  const nextSize = opts.nextLoved
+    ? opts.viewerLovedCids.has(opts.targetCid)
+      ? opts.viewerLovedCids.size
+      : opts.viewerLovedCids.size + 1
+    : opts.viewerLovedCids.has(opts.targetCid)
+      ? opts.viewerLovedCids.size - 1
+      : opts.viewerLovedCids.size;
+  const hasAny = nextSize > 0;
+  const withoutViewer = opts.fanIds.filter(
+    (id) => !accountIdsEqual(id, viewerId)
+  );
+  if (!hadAny && hasAny) return [viewerId, ...withoutViewer];
+  if (hadAny && !hasAny) return withoutViewer;
+  return [...opts.fanIds];
+}

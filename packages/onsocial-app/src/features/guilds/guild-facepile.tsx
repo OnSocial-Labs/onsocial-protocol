@@ -3,7 +3,7 @@
 import { ProfileAvatar } from '@onsocial/ui';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 
-/** Reserved overlapped avatar slots — keep in sync with `.guild-facepile-avatars--slots`. */
+/** Default overlapped avatar slots — keep in sync with `.guild-facepile-avatars--slots`. */
 export const GUILD_FACEPILE_SLOTS = 3;
 
 export function buildGuildFacepileIds(
@@ -44,6 +44,17 @@ export function GuildFacepile({
   className?: string;
   'aria-label'?: string;
 }) {
+  const maxSlots = Math.max(1, slots);
+  const ids = memberIds.slice(0, maxSlots);
+  // Width tracks filled avatars (or shimmer count while loading) — no empty
+  // reserved slots that push the count label away.
+  const renderSlots = loading
+    ? Math.min(
+        maxSlots,
+        Math.max(1, memberCount && memberCount > 0 ? memberCount : maxSlots)
+      )
+    : ids.length;
+
   const countLabel =
     memberCount == null
       ? null
@@ -59,42 +70,44 @@ export function GuildFacepile({
         ? `${countLabel}. View roster.`
         : `View ${countUnit.other}`);
 
+  const classes = `guild-facepile guild-facepile--stable${
+    className ? ` ${className}` : ''
+  }`;
+  const avatarsStyle =
+    renderSlots > 0
+      ? {
+          ['--guild-facepile-slot-count' as string]: String(renderSlots),
+        }
+      : undefined;
+
   const body = (
     <>
-      <span
-        className="guild-facepile-avatars guild-facepile-avatars--slots"
-        aria-hidden
-      >
-        {Array.from({ length: slots }, (_, i) => {
-          if (loading) {
-            return (
-              <span
-                key={i}
-                className="standing-row-shimmer guild-facepile-avatar-shimmer"
-              />
-            );
-          }
-          const memberId = memberIds[i];
-          if (!memberId) {
-            return (
-              <span
-                key={`empty-${i}`}
-                className="guild-facepile-slot is-empty"
-                aria-hidden
-              />
-            );
-          }
-          return (
-            <ProfileAvatar
-              key={memberId}
-              src={profiles[memberId]?.avatarUrl ?? null}
-              fallbackInitial={profiles[memberId]?.displayName ?? memberId}
-              size="sm"
-              className="guild-facepile-avatar"
-            />
-          );
-        })}
-      </span>
+      {renderSlots > 0 ? (
+        <span
+          className="guild-facepile-avatars guild-facepile-avatars--slots"
+          style={avatarsStyle}
+          aria-hidden
+        >
+          {loading
+            ? Array.from({ length: renderSlots }, (_, i) => (
+                <span
+                  key={i}
+                  className="standing-row-shimmer guild-facepile-avatar-shimmer"
+                />
+              ))
+            : ids.map((memberId) => (
+                <ProfileAvatar
+                  key={memberId}
+                  src={profiles[memberId]?.avatarUrl ?? null}
+                  fallbackInitial={
+                    profiles[memberId]?.displayName ?? memberId
+                  }
+                  size="sm"
+                  className="guild-facepile-avatar"
+                />
+              ))}
+        </span>
+      ) : null}
       {showCount ? (
         <span
           className={`guild-facepile-count${
@@ -113,10 +126,6 @@ export function GuildFacepile({
       ) : null}
     </>
   );
-
-  const classes = `guild-facepile guild-facepile--stable${
-    className ? ` ${className}` : ''
-  }`;
 
   if (onClick) {
     return (

@@ -10,16 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { MultiplyIcon, PauseFillIcon, PlayFillIcon } from '@onsocial/ui';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
-import {
-  APP_COLLECTIBLES_PLAY_PATH,
-  APP_COLLECTION_PATH,
-  collectiblesPlayPath,
-  collectionPath,
-} from '@/lib/app-routes';
 import {
   cachedTrackCids,
   clearPersistedNowPlayingSession,
@@ -364,7 +355,6 @@ export function CollectiblesNowPlayingProvider({
   return (
     <CollectiblesNowPlayingContext.Provider value={value}>
       {children}
-      <CollectiblesNowPlayingMiniBar />
     </CollectiblesNowPlayingContext.Provider>
   );
 }
@@ -381,69 +371,4 @@ export function useCollectiblesNowPlaying() {
 
 export function useCollectiblesNowPlayingOptional() {
   return useContext(CollectiblesNowPlayingContext);
-}
-
-function CollectiblesNowPlayingMiniBar() {
-  const np = useCollectiblesNowPlayingOptional();
-  const pathname = usePathname();
-  if (!np?.session || !np.engaged) return null;
-
-  const { session, activeIndex, playing, toggle, stop } = np;
-  const onPlaySurface =
-    pathname === APP_COLLECTIBLES_PLAY_PATH ||
-    pathname.startsWith(`${APP_COLLECTIBLES_PLAY_PATH}/`);
-  const onThisDrop =
-    pathname === collectionPath(session.collectionId) ||
-    pathname === `${APP_COLLECTION_PATH}/${session.collectionId}`;
-  // Full controls live on play + this drop’s track list — hide mini chrome there.
-  if (onPlaySurface || onThisDrop) return null;
-  const track = session.tracks[activeIndex] ?? session.tracks[0];
-  const trackTitle = track?.title?.trim() || session.title;
-  const href = collectiblesPlayPath(session.collectionId);
-  const cover = session.poster?.trim() || null;
-
-  return (
-    <div className="collectibles-now-playing" role="region" aria-label="Now playing">
-      <Link
-        href={href}
-        scroll={false}
-        className="collectibles-now-playing-main"
-      >
-        <span
-          className={`collectibles-now-playing-cover${cover ? ' has-media' : ''}`}
-        >
-          {cover ? <img src={cover} alt="" /> : null}
-        </span>
-        <span className="collectibles-now-playing-copy">
-          <span className="collectibles-now-playing-title">{trackTitle}</span>
-          <span className="collectibles-now-playing-album">{session.title}</span>
-        </span>
-      </Link>
-      <button
-        type="button"
-        className="collectibles-now-playing-toggle"
-        aria-label={playing ? 'Pause' : 'Play'}
-        onClick={() => {
-          void toggle();
-        }}
-      >
-        {playing ? (
-          <PauseFillIcon className="collectibles-now-playing-toggle-icon" />
-        ) : (
-          <PlayFillIcon className="collectibles-now-playing-toggle-icon collectibles-now-playing-toggle-icon--play" />
-        )}
-      </button>
-      <button
-        type="button"
-        className="collectibles-now-playing-close"
-        aria-label="Stop playback"
-        onClick={() => stop()}
-      >
-        <MultiplyIcon
-          className="collectibles-now-playing-close-icon"
-          aria-hidden
-        />
-      </button>
-    </div>
-  );
 }

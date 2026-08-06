@@ -11,8 +11,10 @@ import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   albumTrackLovePathLike,
+  dedupeAlbumFanIds,
   deriveLovedStateFromLedger,
   nextFanCountAfterLoveToggle,
+  nextFanIdsAfterLoveToggle,
   recordTrackLove,
   scarceTrackContentPath,
   SCARCE_TRACK_LOVE_KIND,
@@ -25,12 +27,14 @@ interface LoveState {
   counts: Record<string, number>;
   viewerLoved: Set<string>;
   fanCount: number;
+  fanIds: string[];
 }
 
 const EMPTY: LoveState = {
   counts: {},
   viewerLoved: new Set(),
   fanCount: 0,
+  fanIds: [],
 };
 
 export function useScarceTrackLoves(opts: {
@@ -44,6 +48,7 @@ export function useScarceTrackLoves(opts: {
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
   const [state, setState] = useState<LoveState>(EMPTY);
+  const [fansLoading, setFansLoading] = useState(false);
   const [pendingCids, setPendingCids] = useState<Set<string>>(() => new Set());
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -65,11 +70,16 @@ export function useScarceTrackLoves(opts: {
     const trackCids = trackKey ? trackKey.split('\n') : [];
     if (!creatorId || !collectionId || trackCids.length === 0) {
       setState(EMPTY);
+      setFansLoading(false);
       return;
     }
     const loadId = ++loadIdRef.current;
+    setFansLoading(true);
     const client = createReadOnlyOnSocialClient();
+    const like = albumTrackLovePathLike(collectionId);
     try {
+      // Love counts / viewer / fanCount stay independent of the roster query so a
+      // facepile GraphQL miss cannot wipe hearts (Promise.all used to).
       const [countRows, viewerRows, fanRows] = await Promise.all([
         client.query.graphql<{
           reactionCounts: Array<{ postPath: string; reactionCount: number }>;
@@ -107,7 +117,7 @@ export function useScarceTrackLoves(opts: {
               variables: {
                 viewer: accountId,
                 owner: creatorId,
-                like: albumTrackLovePathLike(collectionId),
+                like,
                 kind: SCARCE_TRACK_LOVE_KIND,
               },
             })
@@ -154,15 +164,89 @@ export function useScarceTrackLoves(opts: {
         creatorId,
         viewerId: accountId,
       });
+
+      const applyLedgerFanIds = (baseIds: string[]) => {
+        let fanIds = baseIds;
+        const rollingLoved = new Set(apiLoved);
+        for (const [cid, loved] of ledgerRef.current) {
+          if (loved === rollingLoved.has(cid)) continue;
+          fanIds = nextFanIdsAfterLoveToggle({
+            fanIds,
+            creatorId,
+            viewerId: accountId,
+            viewerLovedCids: rollingLoved,
+            targetCid: cid,
+            nextLoved: loved,
+          });
+          if (loved) rollingLoved.add(cid);
+          else rollingLoved.delete(cid);
+        }
+        return fanIds;
+      };
+
+      // Paint hearts + fan count immediately — don't block the player on roster.
+      const needFanRoster =
+        derived.fanCount > 0 ||
+        derived.hasLedgerOverride ||
+        stateRef.current.fanIds.length > 0;
       setState({
         counts: derived.counts,
         viewerLoved: derived.viewerLoved,
         fanCount: derived.fanCount,
+        fanIds: needFanRoster
+          ? applyLedgerFanIds(stateRef.current.fanIds)
+          : [],
       });
       if (!derived.hasLedgerOverride) clearRetryTimers();
+      // Facepile can resolve after loves; clear shimmer once ids exist or none needed.
+      if (!needFanRoster || stateRef.current.fanIds.length > 0) {
+        setFansLoading(false);
+      }
+
+      if (!needFanRoster) return;
+
+      try {
+        const fanAccountRows = await client.query.graphql<{
+          reactionsCurrent: Array<{
+            accountId: string;
+            blockHeight: number | string;
+          }>;
+        }>({
+          query: `query ScarceAlbumFanAccounts($owner: String!, $like: String!, $kind: String!) {
+            reactionsCurrent(where: {
+              postOwner: {_eq: $owner},
+              reactionKind: {_eq: $kind},
+              operation: {_eq: "set"},
+              path: {_like: $like}
+            }, orderBy: [{blockHeight: DESC}], limit: 80) {
+              accountId
+              blockHeight
+            }
+          }`,
+          variables: {
+            owner: creatorId,
+            like,
+            kind: SCARCE_TRACK_LOVE_KIND,
+          },
+        });
+        if (loadId !== loadIdRef.current) return;
+        const apiFanIds = dedupeAlbumFanIds(
+          fanAccountRows.data?.reactionsCurrent ?? [],
+          creatorId
+        );
+        setState((previous) => ({
+          ...previous,
+          fanIds: applyLedgerFanIds(apiFanIds),
+        }));
+      } catch {
+        // Keep previous roster; loves already painted.
+        if (loadId !== loadIdRef.current) return;
+      }
     } catch {
+      // Preserve optimistic / last-good love state — never wipe hearts on miss.
       if (loadId !== loadIdRef.current) return;
-      if (ledgerRef.current.size === 0) setState(EMPTY);
+    } finally {
+      if (loadId === loadIdRef.current) setFansLoading(false);
     }
   }, [accountId, clearRetryTimers, collectionId, creatorId, trackKey]);
 
@@ -203,6 +287,14 @@ export function useScarceTrackLoves(opts: {
         viewerLoved: nextLovedCids,
         fanCount: nextFanCountAfterLoveToggle({
           fanCount: previous.fanCount,
+          creatorId,
+          viewerId: accountId,
+          viewerLovedCids: previous.viewerLoved,
+          targetCid: cid,
+          nextLoved,
+        }),
+        fanIds: nextFanIdsAfterLoveToggle({
+          fanIds: previous.fanIds,
           creatorId,
           viewerId: accountId,
           viewerLovedCids: previous.viewerLoved,
@@ -268,6 +360,8 @@ export function useScarceTrackLoves(opts: {
 
   return {
     fanCount: state.fanCount,
+    fanIds: state.fanIds,
+    fansLoading,
     loveCountFor: (track: ScarcePlayableMedia) => {
       const cid = trackCidFromPlayable(track);
       return cid ? (state.counts[cid] ?? 0) : 0;

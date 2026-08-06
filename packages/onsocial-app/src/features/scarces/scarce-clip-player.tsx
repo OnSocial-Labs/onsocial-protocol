@@ -20,9 +20,12 @@ import { MediaDownloadControl } from '@/components/ui/media-download-control';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useCollectiblesNowPlayingOptional } from '@/contexts/collectibles-now-playing-context';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
+import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceClipListenSheet } from '@/features/scarces/scarce-clip-listen-sheet';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
+import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import { ScarceTrackOptionsMenu } from '@/features/scarces/scarce-track-options-menu';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceTrackLoves } from '@/hooks/use-scarce-track-loves';
 import {
   albumHasAllTracksCached,
@@ -162,6 +165,7 @@ export function ScarceClipPlayer({
   const [duration, setDuration] = useState(0);
   const [scrubbing, setScrubbing] = useState(false);
   const [knobPeek, setKnobPeek] = useState(false);
+  const [fansOpen, setFansOpen] = useState(false);
   const tracksOnly = layout === 'tracks' && isAudio;
   const coverChrome = isAudio && !tracksOnly;
   const activeLyrics = active.lyrics?.trim() || '';
@@ -180,9 +184,13 @@ export function ScarceClipPlayer({
     setChromeVisible(true);
     clearChromeHideTimer();
     if (scrubbingRef.current) return;
+    // Stay visible while paused / not started — hide only during playback.
+    if (!playingRef.current) return;
     chromeHideTimerRef.current = setTimeout(() => {
       chromeHideTimerRef.current = null;
-      if (!scrubbingRef.current) setChromeVisible(false);
+      if (!scrubbingRef.current && playingRef.current) {
+        setChromeVisible(false);
+      }
     }, holdMs);
   }
 
@@ -201,9 +209,18 @@ export function ScarceClipPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- scrubbing edge only
   }, [coverChrome, scrubbing]);
 
+  // Keep ref in sync before chrome logic so pokeChrome sees the latest state.
   useEffect(() => {
     playingRef.current = playing;
-  }, [playing]);
+    if (!coverChrome) return;
+    if (!playing) {
+      clearChromeHideTimer();
+      setChromeVisible(true);
+      return;
+    }
+    pokeChrome();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- playing edge only
+  }, [coverChrome, playing]);
 
   useEffect(() => {
     durationRef.current = duration;
@@ -222,6 +239,21 @@ export function ScarceClipPlayer({
     collectionId: persist?.collectionId,
     tracks: playlist,
   });
+  const facepileIds = loves.fanIds.slice(0, 5);
+  const facepileProfiles = usePostAuthorProfiles(facepileIds);
+  const showFansFacepile = loves.fanCount > 0;
+  const fansFacepile = showFansFacepile ? (
+    <GuildFacepile
+      memberIds={facepileIds}
+      profiles={facepileProfiles}
+      memberCount={loves.fanCount}
+      countUnit={{ one: 'fan', other: 'fans' }}
+      slots={Math.min(5, Math.max(1, loves.fanCount))}
+      loading={loves.fansLoading && facepileIds.length === 0}
+      className="scarce-clip-fans-facepile"
+      onClick={() => setFansOpen(true)}
+    />
+  ) : null;
   const ensureSession = nowPlaying?.ensureSession;
   const getAudio = nowPlaying?.getAudio;
   const setHostTrack = nowPlaying?.setTrack;
@@ -718,9 +750,18 @@ export function ScarceClipPlayer({
                 type="button"
                 className="scarce-clip-player-cover-hit"
                 aria-label={
-                  chromeVisible ? 'Hide player controls' : 'Show player controls'
+                  !playing
+                    ? 'Player controls'
+                    : chromeVisible
+                      ? 'Hide player controls'
+                      : 'Show player controls'
                 }
                 onClick={() => {
+                  // Paused / idle — chrome stays up; cover tap does not hide it.
+                  if (!playingRef.current) {
+                    setChromeVisible(true);
+                    return;
+                  }
                   if (chromeVisible) {
                     clearChromeHideTimer();
                     setChromeVisible(false);
@@ -968,14 +1009,10 @@ export function ScarceClipPlayer({
         </div>
       )}
 
-      {tracksOnly && (playlist.length > 1 || loves.fanCount > 0) ? (
+      {tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
         <div className="scarce-clip-tracks-head">
             <div className="scarce-clip-download-bar">
-              {loves.fanCount > 0 ? (
-                <p className="scarce-clip-fans">
-                  {loves.fanCount === 1 ? '1 fan' : `${loves.fanCount} fans`}
-                </p>
-              ) : null}
+              {fansFacepile}
               {playlist.length > 1 ? (
                 <>
                   <MediaDownloadControl
@@ -1215,13 +1252,9 @@ export function ScarceClipPlayer({
 
       {showTrackList ? (
         <>
-          {!tracksOnly && (playlist.length > 1 || loves.fanCount > 0) ? (
+          {!tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
             <div className="scarce-clip-download-bar">
-              {loves.fanCount > 0 ? (
-                <p className="scarce-clip-fans">
-                  {loves.fanCount === 1 ? '1 fan' : `${loves.fanCount} fans`}
-                </p>
-              ) : null}
+              {fansFacepile}
               {playlist.length > 1 ? (
                 <>
                   <MediaDownloadControl
@@ -1500,11 +1533,7 @@ export function ScarceClipPlayer({
       {/* Single-track cover downloads — skip when drop defers list under meta. */}
       {canDownloadAudio && !showTrackList && showTracks !== false ? (
         <div className="scarce-clip-download-bar">
-          {loves.fanCount > 0 ? (
-            <p className="scarce-clip-fans">
-              {loves.fanCount === 1 ? '1 fan' : `${loves.fanCount} fans`}
-            </p>
-          ) : null}
+          {fansFacepile}
           {persist?.collectionId && creatorId ? (
             <button
               type="button"
@@ -1682,6 +1711,17 @@ export function ScarceClipPlayer({
           elapsedRef={listenElapsedRef}
           railRef={listenRailRef}
           scrubInputRef={listenScrubInputRef}
+          shareTitle={persist?.collectionId ? persist.title : null}
+          loved={loves.viewerLoves(active)}
+          loveCount={loves.loveCountFor(active)}
+          lovePending={loves.isLovePending(active)}
+          onToggleLove={
+            persist?.collectionId && creatorId
+              ? () => {
+                  void loves.toggleLove(active);
+                }
+              : null
+          }
           onTogglePlay={() => {
             void togglePlayback();
           }}
@@ -1723,6 +1763,13 @@ export function ScarceClipPlayer({
           }}
         />
       ) : null}
+      <ScarceFansSheet
+        open={fansOpen}
+        onClose={() => setFansOpen(false)}
+        fanIds={loves.fanIds}
+        fanCount={loves.fanCount}
+        dropTitle={persist?.title}
+      />
     </div>
   );
 }

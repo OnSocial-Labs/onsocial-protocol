@@ -40,6 +40,7 @@ import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { ThemeToggle } from '@/components/os/theme-toggle';
+import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -289,6 +290,7 @@ export function SummonLauncher({
                 <span className="portfolio-summon-grip" aria-hidden />
               </button>
             }
+            nowPlaying={<CollectiblesNowPlayingDockChip />}
             action={
               compose ? (
                 <button

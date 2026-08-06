@@ -38,6 +38,9 @@ import {
   CollectionActivityRows,
   type CollectionActivityRow,
 } from '@/features/scarces/collection-activity-rows';
+import {
+  CollectionActivitySkeleton,
+} from '@/features/scarces/collection-page-skeleton';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
 import {
   collectionStatusLabel,
@@ -79,6 +82,8 @@ const MINT_ACTIVITY_OPS = new Set([
 ]);
 
 const ACTIVITY_PREVIEW_LIMIT = 3;
+
+const EMPTY_ACTIVITY: CollectionActivityRow[] = [];
 
 const NEAR_DECIMALS = 24;
 
@@ -148,7 +153,6 @@ export function CollectionPagePanel({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [view, setView] = useState<CollectionView | null>(initial);
   const [notFound, setNotFound] = useState(initial == null);
-  const [activity, setActivity] = useState<CollectionActivityRow[]>([]);
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
   /** null = not checked yet / N/A; number = remaining allowlist mints. */
   const [allowlistRemaining, setAllowlistRemaining] = useState<number | null>(
@@ -161,11 +165,17 @@ export function CollectionPagePanel({
   const [shareCopied, setShareCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [refreshKey, setRefreshKey] = useState(0);
+  const activityRequestKey = `${collectionId}:${refreshKey}`;
+  const [activityFetched, setActivityFetched] = useState<{
+    key: string;
+    rows: CollectionActivityRow[];
+  } | null>(null);
   const [headerElevated, setHeaderElevated] = useState(false);
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(
     null
   );
+  const [creatorResolvedKey, setCreatorResolvedKey] = useState('');
   const [activityOpen, setActivityOpen] = useState(false);
   const [activityClosing, setActivityClosing] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
@@ -201,13 +211,15 @@ export function CollectionPagePanel({
 
   useEffect(() => {
     let cancelled = false;
+    const key = activityRequestKey;
     const client = createReadOnlyOnSocialClient();
     void client.query.scarces
       .collection(collectionId, { limit: 48 })
       .then((rows) => {
         if (cancelled) return;
-        setActivity(
-          rows.map((row, index) => {
+        setActivityFetched({
+          key,
+          rows: rows.map((row, index) => {
             const operation = row.operation?.trim() || 'unknown';
             const isCreate = operation === 'create';
             return {
@@ -225,16 +237,16 @@ export function CollectionPagePanel({
                 ? null
                 : yoctoToNearDisplay(row.price ?? row.amount),
             };
-          })
-        );
+          }),
+        });
       })
       .catch(() => {
-        if (!cancelled) setActivity([]);
+        if (!cancelled) setActivityFetched({ key, rows: [] });
       });
     return () => {
       cancelled = true;
     };
-  }, [collectionId, refreshKey]);
+  }, [activityRequestKey, collectionId]);
 
   useEffect(() => {
     if (!viewerAccountId) {
@@ -274,14 +286,8 @@ export function CollectionPagePanel({
 
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
-    if (!creatorId) {
-      setCreatorAvatarUrl(null);
-      setCreatorDisplayName(null);
-      return;
-    }
+    if (!creatorId) return;
     let cancelled = false;
-    setCreatorAvatarUrl(null);
-    setCreatorDisplayName(null);
     void (async () => {
       try {
         const client = createReadOnlyOnSocialClient();
@@ -315,6 +321,8 @@ export function CollectionPagePanel({
           setCreatorAvatarUrl(null);
           setCreatorDisplayName(null);
         }
+      } finally {
+        if (!cancelled) setCreatorResolvedKey(creatorId);
       }
     })();
     return () => {
@@ -509,6 +517,8 @@ export function CollectionPagePanel({
     }
   }, [setTxResult, view]);
 
+  const activityLoaded = activityFetched?.key === activityRequestKey;
+  const activity = activityLoaded ? activityFetched.rows : EMPTY_ACTIVITY;
   const sheetActivity = useMemo(
     () => activity.filter((row) => row.operation !== 'create'),
     [activity]
@@ -528,6 +538,15 @@ export function CollectionPagePanel({
     [sheetActivity]
   );
   const activityProfiles = usePostAuthorProfiles(activityAccountIds);
+  const creatorId = view?.creatorId?.trim() || '';
+  const creatorShellLoading =
+    Boolean(creatorId) && creatorResolvedKey !== creatorId;
+  const resolvedCreatorAvatar = creatorShellLoading
+    ? null
+    : creatorAvatarUrl;
+  const resolvedCreatorName = creatorShellLoading
+    ? null
+    : creatorDisplayName;
   const requestActivityClose = useCallback(() => {
     setActivityClosing(true);
   }, []);
@@ -626,8 +645,10 @@ export function CollectionPagePanel({
     view.createdAtMs > 0
       ? formatMarketRelativeTime(view.createdAtMs)
       : '';
-  const showActivitySection = mintPreview.length > 0 || sheetActivity.length > 0;
-  const showActivitySeeAll = sheetActivity.length > mintPreview.length;
+  const showActivitySection =
+    !activityLoaded || mintPreview.length > 0 || sheetActivity.length > 0;
+  const showActivitySeeAll =
+    activityLoaded && sheetActivity.length > mintPreview.length;
 
   const collectBand = (
     <section
@@ -828,30 +849,36 @@ export function CollectionPagePanel({
                 href={portfolioPath(view.creatorId)}
                 scroll={false}
                 className="collection-meta-avatar-link"
-                tabIndex={creatorDisplayName ? -1 : undefined}
-                aria-hidden={creatorDisplayName ? true : undefined}
+                tabIndex={resolvedCreatorName ? -1 : undefined}
+                aria-hidden={resolvedCreatorName ? true : undefined}
               >
                 <ProfileAvatar
-                  src={creatorAvatarUrl}
+                  src={resolvedCreatorAvatar}
                   fallbackInitial={
-                    creatorDisplayName || fallbackLabel(view.creatorId)
+                    resolvedCreatorName || fallbackLabel(view.creatorId)
                   }
+                  shellLoading={creatorShellLoading}
                   size="sm"
                   className="collection-meta-avatar"
                 />
               </Link>
               <div className="collection-meta-copy">
-                {creatorDisplayName ? (
+                {creatorShellLoading ? (
+                  <span
+                    className="standing-row-shimmer collection-skeleton-line"
+                    aria-hidden
+                  />
+                ) : resolvedCreatorName ? (
                   <Link
                     href={portfolioPath(view.creatorId)}
                     scroll={false}
                     className="collection-meta-creator-name"
                   >
-                    by {creatorDisplayName}
+                    by {resolvedCreatorName}
                   </Link>
                 ) : null}
                 <div className="collection-meta-sub">
-                  {creatorDisplayName ? (
+                  {resolvedCreatorName ? (
                     <span className="collection-meta-handle">
                       @{fallbackLabel(view.creatorId)}
                     </span>
@@ -990,12 +1017,16 @@ export function CollectionPagePanel({
                 </button>
               ) : null}
             </div>
-            {mintPreview.length > 0 ? (
-              <CollectionActivityRows
-                rows={mintPreview}
-                profiles={activityProfiles}
-              />
-            ) : null}
+            {activityLoaded ? (
+              mintPreview.length > 0 ? (
+                <CollectionActivityRows
+                  rows={mintPreview}
+                  profiles={activityProfiles}
+                />
+              ) : null
+            ) : (
+              <CollectionActivitySkeleton rows={3} />
+            )}
           </section>
         ) : null}
 

@@ -7332,8 +7332,8 @@ a.os-surface-row {
   /*
    * Screen footer dock — GlassSheet overlay-footer recipe: out of the scroll
    * flow, pinned above the summon pill. Drops to the safe-area edge when the
-   * launcher scroll-hides (same 260ms). Body padding stays on the larger
-   * clearance so scroll height does not jump.
+   * launcher scroll-hides (same 260ms). Body padding tracks that so Activity
+   * doesn’t leave a dead strip under the last row.
    */
   .os-app-screen-footer {
     position: absolute;
@@ -7355,10 +7355,24 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
+  .os-app-screen[data-screen-footer='true'] {
+    /* Commerce + mint CTA + footer pad (was a loose 6.75rem). */
+    --os-screen-footer-band: 5.5rem;
+  }
+
   .os-app-screen[data-screen-footer='true'] .os-app-screen-body {
-    /* Always the launcher-visible clearance — stable scroll height. */
     padding-bottom: calc(
-      var(--portfolio-dock-clearance, 4.75rem) + 6.75rem
+      var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
+    );
+    transition: padding-bottom 260ms ease;
+  }
+
+  .os-app-screen[data-screen-footer='true']:has(
+      > .portfolio-summon-dock.is-scroll-hidden
+    )
+    .os-app-screen-body {
+    padding-bottom: calc(
+      env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band)
     );
   }
 
@@ -8403,6 +8417,88 @@ a.os-surface-row {
     transition:
       background 180ms ease,
       color 180ms ease;
+  }
+
+  /**
+   * Dock-native now-playing — cover between grip and compose.
+   * Tap play/pause; long-press opens full player. Clean cover, no ring.
+   */
+  .portfolio-summon-now-playing {
+    flex-shrink: 0;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 180ms ease;
+  }
+
+  .portfolio-summon-now-playing:hover,
+  .portfolio-summon-now-playing:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.06);
+    outline: none;
+  }
+
+  .portfolio-summon-now-playing:active {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .portfolio-summon-now-playing-cover {
+    position: relative;
+    display: block;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 0.4rem;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .portfolio-summon-now-playing.has-media .portfolio-summon-now-playing-cover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgb(0 0 0 / 0.32);
+    pointer-events: none;
+  }
+
+  .portfolio-summon-now-playing-cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  .portfolio-summon-now-playing-glyph {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .portfolio-summon-now-playing-icon {
+    width: 0.72rem;
+    height: 0.72rem;
+    display: block;
+    color: rgb(var(--fg-rgb) / 0.82);
+  }
+
+  .portfolio-summon-now-playing.has-media .portfolio-summon-now-playing-icon {
+    color: #fff;
+    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.55));
+  }
+
+  .portfolio-summon-now-playing-icon--play {
+    transform: translateX(0.05rem);
   }
 
   .portfolio-summon-compose:hover {
@@ -17018,9 +17114,26 @@ a.os-surface-row {
 
   .scarce-clip-fans {
     margin: 0 auto 0 0;
-    font-size: 0.78rem;
-    font-weight: 500;
+    font-size: 0.72rem;
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
     color: var(--os-surface-muted);
+    line-height: 1.2;
+  }
+
+  button.scarce-clip-fans-facepile.guild-facepile {
+    margin: 0 auto 0 0;
+    padding: 0.1rem 0.15rem 0.1rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--os-surface-muted);
+  }
+
+  button.scarce-clip-fans-facepile.guild-facepile:hover,
+  button.scarce-clip-fans-facepile.guild-facepile:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .scarce-clip-track-love {
@@ -17280,10 +17393,12 @@ a.os-surface-row {
   }
 
   .scarce-clip-progress-time {
-    min-width: 2.25rem;
+    min-width: 2.75rem;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
     font-size: 0.68rem;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.01em;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: 0;
     color: var(--os-surface-muted);
     line-height: 1;
   }
@@ -17570,6 +17685,74 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  .scarce-clip-listen-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem 0.35rem;
+    width: min(100%, 26rem);
+    margin-inline: auto;
+    margin-top: -0.2rem;
+  }
+
+  .scarce-clip-listen-love {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    min-width: 2.15rem;
+    margin: 0;
+    padding: 0.28rem 0.35rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--os-surface-muted);
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .scarce-clip-listen-love:hover,
+  .scarce-clip-listen-love:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
+  }
+
+  .scarce-clip-listen-love.is-loved {
+    color: var(--signal-reputation, var(--protocol-green));
+  }
+
+  .scarce-clip-listen-love.is-pending {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .scarce-clip-listen-love-icon {
+    width: 1rem;
+    height: 1rem;
+    display: block;
+  }
+
+  .scarce-clip-listen-love-count {
+    font-size: 0.72rem;
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scarce-clip-listen-share.media-download-control {
+    width: 2.15rem;
+    height: 2.15rem;
+    color: var(--os-surface-muted);
+    background: transparent;
+  }
+
+  .scarce-clip-listen-share.media-download-control:hover,
+  .scarce-clip-listen-share.media-download-control:focus-visible {
+    color: var(--os-surface-emphasis);
+    background: transparent;
+    outline: none;
+  }
+
   .scarce-clip-listen-lyrics {
     margin: 0;
     flex: 1 1 auto;
@@ -17618,28 +17801,6 @@ a.os-surface-row {
   .scarce-clip-listen-controls .scarce-clip-progress-track {
     width: auto;
     margin-inline: 0.45rem;
-  }
-
-  .scarce-clip-listen-time-pill {
-    color: var(--os-surface-emphasis);
-    background: var(--os-surface-fill-strong);
-    filter: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  button.scarce-clip-listen-contract {
-    color: var(--os-surface-emphasis);
-    background: var(--os-surface-fill-strong);
-    filter: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  button.scarce-clip-listen-contract:hover,
-  button.scarce-clip-listen-contract:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.14);
-    outline: none;
   }
 
   .scarce-clip-listen-controls .scarce-clip-progress-rail {
@@ -17878,125 +18039,6 @@ a.os-surface-row {
     flex-wrap: wrap;
     align-items: center;
     gap: 0.55rem;
-  }
-
-  /*
-   * Global now-playing mini bar — above summon dock clearance, below dock z.
-   * Continues Collectibles audio after View drop.
-   */
-  .collectibles-now-playing {
-    position: fixed;
-    left: 50%;
-    bottom: var(--portfolio-dock-clearance, 4.75rem);
-    z-index: 35;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    width: min(
-      calc(100% - 1.5rem),
-      calc(var(--os-column-width, 28rem) - 1.5rem)
-    );
-    transform: translateX(-50%);
-    padding: 0.4rem 0.45rem 0.4rem 0.4rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 1rem;
-    background: rgb(var(--bg-rgb) / 0.72);
-    backdrop-filter: blur(16px) saturate(1.2);
-    -webkit-backdrop-filter: blur(16px) saturate(1.2);
-    box-shadow: 0 8px 28px rgb(0 0 0 / 0.18);
-  }
-
-  a.collectibles-now-playing-main {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    min-width: 0;
-    flex: 1;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .collectibles-now-playing-cover {
-    flex-shrink: 0;
-    width: 2.35rem;
-    height: 2.35rem;
-    border-radius: 0.45rem;
-    overflow: hidden;
-    background: rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .collectibles-now-playing-cover img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .collectibles-now-playing-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    min-width: 0;
-  }
-
-  .collectibles-now-playing-title,
-  .collectibles-now-playing-album {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .collectibles-now-playing-title {
-    font-size: 0.82rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    line-height: 1.2;
-  }
-
-  .collectibles-now-playing-album {
-    font-size: 0.68rem;
-    color: var(--os-surface-muted);
-    line-height: 1.2;
-  }
-
-  .collectibles-now-playing-toggle,
-  .collectibles-now-playing-close {
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-    width: 2rem;
-    height: 2rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: inherit;
-    cursor: pointer;
-  }
-
-  .collectibles-now-playing-toggle:hover,
-  .collectibles-now-playing-toggle:focus-visible,
-  .collectibles-now-playing-close:hover,
-  .collectibles-now-playing-close:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.14);
-    outline: none;
-  }
-
-  .collectibles-now-playing-toggle-icon {
-    width: 0.95rem;
-    height: 0.95rem;
-    display: block;
-  }
-
-  .collectibles-now-playing-toggle-icon--play {
-    transform: translateX(0.06rem);
-  }
-
-  .collectibles-now-playing-close-icon {
-    width: 0.85rem;
-    height: 0.85rem;
-    display: block;
   }
 
   .collectibles-play-page {
@@ -18321,6 +18363,133 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+  }
+
+  /* Drop cold-load / secondary-band shimmers — match hero + tracks geometry. */
+  .collection-skeleton-cover {
+    width: min(100%, 15rem);
+    aspect-ratio: 1 / 1;
+    margin-inline: auto;
+    border-radius: 1rem;
+  }
+
+  .collection-skeleton-title {
+    display: block;
+    width: min(100%, 16rem);
+    height: 1.35rem;
+    border-radius: 9999px;
+  }
+
+  .collection-skeleton-avatar,
+  .collection-skeleton-activity-avatar {
+    flex: 0 0 auto;
+    width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+  }
+
+  .collection-skeleton-activity-avatar {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .collection-skeleton-line,
+  .collection-skeleton-line-sm {
+    display: block;
+    height: 0.72rem;
+    border-radius: 9999px;
+  }
+
+  .collection-skeleton-line {
+    width: min(100%, 9.5rem);
+  }
+
+  .collection-skeleton-line-sm {
+    width: min(100%, 6.5rem);
+  }
+
+  .collection-skeleton-section-label {
+    display: block;
+    width: 4.5rem;
+    height: 0.7rem;
+    border-radius: 9999px;
+    margin-bottom: 0.35rem;
+  }
+
+  .collection-skeleton-track-list,
+  .collection-skeleton-activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .collection-skeleton-track {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+  }
+
+  .collection-skeleton-track-play {
+    flex: 0 0 auto;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+  }
+
+  .collection-skeleton-track-title {
+    flex: 1;
+    min-width: 0;
+    height: 0.85rem;
+    border-radius: 9999px;
+  }
+
+  .collection-skeleton-track-love {
+    flex: 0 0 auto;
+    width: 2.2rem;
+    height: 0.85rem;
+    border-radius: 9999px;
+  }
+
+  .collection-skeleton-activity-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.5rem;
+  }
+
+  .collection-skeleton-activity-copy {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+  }
+
+  .collection-skeleton-mint {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.35rem;
+  }
+
+  .collection-skeleton-progress {
+    display: block;
+    width: 100%;
+    height: 0.35rem;
+    border-radius: 9999px;
+  }
+
+  .collection-skeleton-mint-btn {
+    display: block;
+    width: 100%;
+    height: 2.75rem;
+    border-radius: 9999px;
+  }
+
+  .collection-meta-copy .collection-skeleton-line,
+  .collection-meta-copy .collection-skeleton-line-sm {
+    margin-top: 0.12rem;
   }
 
   .collection-hero {
@@ -19682,6 +19851,40 @@ a.os-surface-row {
   }
 
   .collection-activity-standing {
+    margin-top: 0.1rem;
+  }
+
+  .scarce-fans-sheet-panel {
+    max-width: 32rem;
+  }
+
+  .glass-sheet-panel.scarce-fans-sheet-panel {
+    height: auto;
+    max-height: min(88dvh, 36rem);
+    max-width: 100%;
+    --glass-header-scrim-height: min(5rem, 24%);
+    --glass-sheet-body-opacity: 0.64;
+  }
+
+  @media (min-width: 768px) {
+    .glass-sheet-panel.scarce-fans-sheet-panel {
+      max-width: 32rem;
+    }
+  }
+
+  .scarce-fans-sheet-body {
+    flex: 0 1 auto;
+    min-height: 0;
+    padding: 0.15rem 1.15rem 1.35rem;
+  }
+
+  .scarce-fans-empty {
+    margin: 0.35rem 0 0;
+    font-size: 0.86rem;
+    color: var(--os-surface-muted);
+  }
+
+  .scarce-fans-standing {
     margin-top: 0.1rem;
   }
 
@@ -24097,12 +24300,19 @@ a.os-surface-row {
     display: inline-flex;
   }
 
-  /* Fixed 3 overlapped ProfileAvatar sm slots (1.35rem) — CLS-stable width. */
+  /* Fixed overlapped ProfileAvatar sm slots — width from --guild-facepile-slot-count. */
   .guild-facepile-avatars--slots {
     display: inline-flex;
     flex: 0 0 auto;
-    width: calc(1.35rem + 2 * (1.35rem - 0.4rem)); /* 3 overlapped */
-    height: 1.35rem;
+    --guild-facepile-slot-count: 3;
+    --guild-facepile-avatar-size: 1.35rem;
+    --guild-facepile-overlap: 0.4rem;
+    width: calc(
+      var(--guild-facepile-avatar-size) +
+        (var(--guild-facepile-slot-count) - 1) *
+        (var(--guild-facepile-avatar-size) - var(--guild-facepile-overlap))
+    );
+    height: var(--guild-facepile-avatar-size);
     align-items: center;
   }
 
@@ -27036,36 +27246,73 @@ button.scarce-clip-cover-expand {
 }
 
 /*
- * Time chip — denser than expand circle. Fixed ch columns so elapsed
- * digits never shift `/` or total (tabular nums alone still jitter some fonts).
+ * Time chip — JetBrains Mono so every digit is equal-width.
+ * (DM Sans tnum still lets 1/0 shift next to `/`; ch-grid alone is not enough.)
  */
 .scarce-clip-cover-time-pill {
   display: inline-grid;
-  grid-template-columns: 5ch auto 5ch;
+  grid-template-columns: 5ch 1.1ch 5ch;
   align-items: center;
-  column-gap: 0.1rem;
+  justify-items: stretch;
+  column-gap: 0;
   min-height: 1.45rem;
-  padding: 0.2rem 0.45rem;
+  padding: 0.2rem 0.5rem;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
   font-size: 0.68rem;
-  font-weight: 600;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
+.scarce-clip-time-elapsed,
+.scarce-clip-time-total,
+.scarce-clip-time-sep {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
 .scarce-clip-time-elapsed {
+  width: 5ch;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 .scarce-clip-time-sep {
+  width: 1.1ch;
   text-align: center;
   opacity: 0.72;
 }
 
 .scarce-clip-time-total {
+  width: 5ch;
   text-align: left;
-  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Listen sheet — same lighter fill as the play control.
+ * Unlayered so these win over the dark frosted cover-chrome defaults above.
+ */
+.scarce-clip-cover-time-pill.scarce-clip-listen-time-pill,
+button.scarce-clip-cover-expand.scarce-clip-listen-contract {
+  color: var(--os-surface-emphasis);
+  background: var(--os-surface-fill-strong);
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+button.scarce-clip-cover-expand.scarce-clip-listen-contract:hover,
+button.scarce-clip-cover-expand.scarce-clip-listen-contract:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.16);
+  color: var(--os-surface-emphasis);
+  outline: none;
 }
 
 /* Immersive back / shop icon circle. */

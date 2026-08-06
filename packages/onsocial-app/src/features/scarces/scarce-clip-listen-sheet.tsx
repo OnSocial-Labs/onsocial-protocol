@@ -12,12 +12,15 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  HeartFillIcon,
+  HeartIcon,
   NextFillIcon,
   PauseFillIcon,
   PlayFillIcon,
   PreviousFillIcon,
   ScaleDownIcon,
 } from '@onsocial/ui';
+import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
@@ -49,6 +52,11 @@ export function ScarceClipListenSheet({
   elapsedRef,
   railRef,
   scrubInputRef,
+  shareTitle = null,
+  loved = false,
+  loveCount = 0,
+  lovePending = false,
+  onToggleLove = null,
   onTogglePlay,
   onSkip,
   onLyricsOpenChange,
@@ -78,6 +86,11 @@ export function ScarceClipListenSheet({
   elapsedRef: RefObject<HTMLSpanElement | null>;
   railRef: RefObject<HTMLDivElement | null>;
   scrubInputRef: RefObject<HTMLInputElement | null>;
+  shareTitle?: string | null;
+  loved?: boolean;
+  loveCount?: number;
+  lovePending?: boolean;
+  onToggleLove?: (() => void) | null;
   onTogglePlay: () => void;
   onSkip: (delta: -1 | 1) => void;
   onLyricsOpenChange: (open: boolean) => void;
@@ -99,6 +112,10 @@ export function ScarceClipListenSheet({
     getClientMountedSnapshot,
     getServerMountedSnapshot
   );
+
+  const showLove = Boolean(onToggleLove);
+  const showShare = Boolean(shareTitle?.trim());
+  const showActions = showLove || showShare;
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -141,8 +158,8 @@ export function ScarceClipListenSheet({
 
   useEffect(() => {
     if (!lightboxOpen) return;
-    const frame = window.requestAnimationFrame(() => setEntered(true));
-    return () => window.cancelAnimationFrame(frame);
+    const id = window.requestAnimationFrame(() => setEntered(true));
+    return () => window.cancelAnimationFrame(id);
   }, [lightboxOpen]);
 
   useEffect(() => {
@@ -186,6 +203,48 @@ export function ScarceClipListenSheet({
             />
           )}
         </div>
+
+        {showActions ? (
+          <div className="scarce-clip-listen-actions">
+            {showLove ? (
+              <button
+                type="button"
+                className={`scarce-clip-listen-love${
+                  loved ? ' is-loved' : ''
+                }${lovePending ? ' is-pending' : ''}`}
+                aria-label={
+                  loved ? `Unlove ${trackTitle}` : `Love ${trackTitle}`
+                }
+                aria-pressed={loved}
+                disabled={lovePending}
+                onClick={() => onToggleLove?.()}
+              >
+                {loved ? (
+                  <HeartFillIcon
+                    className="scarce-clip-listen-love-icon"
+                    aria-hidden
+                  />
+                ) : (
+                  <HeartIcon
+                    className="scarce-clip-listen-love-icon"
+                    aria-hidden
+                  />
+                )}
+                {loveCount > 0 ? (
+                  <span className="scarce-clip-listen-love-count">
+                    {loveCount}
+                  </span>
+                ) : null}
+              </button>
+            ) : null}
+            {showShare ? (
+              <ScarceClipShareButton
+                title={shareTitle!.trim()}
+                className="scarce-clip-listen-share"
+              />
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="scarce-clip-listen-copy">
           <p className="scarce-clip-listen-track">{trackTitle}</p>

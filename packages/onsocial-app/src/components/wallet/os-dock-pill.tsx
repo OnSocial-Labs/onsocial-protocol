@@ -7,12 +7,23 @@ import { OsDockAccountZone } from '@/components/wallet/os-dock-account-zone';
 interface OsDockPillProps {
   pageAccountId?: string;
   grip: ReactNode;
+  /**
+   * Optional now-playing segment (between grip and compose).
+   * Pass `CollectiblesNowPlayingDockChip` — it owns its leading divider and
+   * returns null when idle.
+   */
+  nowPlaying?: ReactNode;
   /** Optional trailing segment, e.g. the compose pen on composable surfaces. */
   action?: ReactNode;
 }
 
-/** Unified OS dock — account segment, gradient divider, summon grip. */
-export function OsDockPill({ pageAccountId, grip, action }: OsDockPillProps) {
+/** Unified OS dock — account, summon grip, optional now-playing, optional compose. */
+export function OsDockPill({
+  pageAccountId,
+  grip,
+  nowPlaying,
+  action,
+}: OsDockPillProps) {
   return (
     <div className={`${osDockPillClassName} portfolio-summon`}>
       <OsDockAccountZone pageAccountId={pageAccountId} />
@@ -22,6 +33,7 @@ export function OsDockPill({ pageAccountId, grip, action }: OsDockPillProps) {
         className="portfolio-summon-divider"
       />
       {grip}
+      {nowPlaying}
       {action ? (
         <>
           <Divider
