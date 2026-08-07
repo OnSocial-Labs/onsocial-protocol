@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  dropFacetFieldLabel,
   dropFacetSuggestionsForMedium,
   type DropFacetMedium,
 } from '@/features/scarces/drop-facets';
@@ -80,7 +81,7 @@ export function MarketFacetRail({
         <div
           className="discover-tab-bar market-facet-rail-row"
           role="group"
-          aria-label={medium === 'audio' ? 'Genre' : 'Subject'}
+          aria-label={dropFacetFieldLabel(medium)}
         >
           <div className="discover-tab-bar-scroller">
             {suggestions.map((entry) => {

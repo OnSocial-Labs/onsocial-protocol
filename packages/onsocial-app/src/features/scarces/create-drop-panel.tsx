@@ -68,8 +68,10 @@ import {
 import { DropChapterPreviewList } from '@/features/scarces/drop-chapter-preview-list';
 import { DropFacetsEditor } from '@/features/scarces/drop-facets-editor';
 import {
+  dropFacetFieldLabel,
   dropFacetsExtraFields,
   dropFacetsLabel,
+  normalizeDropFacetMedium,
   normalizeDropFacets,
 } from '@/features/scarces/drop-facets';
 import {
@@ -463,6 +465,11 @@ export function CreateDropPanel() {
 
   const isAudio = templateId === 'audio';
   const isWriting = templateId === 'writing';
+  const createFacetMedium = isAudio
+    ? ('audio' as const)
+    : isWriting
+      ? ('writing' as const)
+      : normalizeDropFacetMedium(template.kind ?? templateId);
   const isVariations = !isAudio && !isWriting && artMode === 'variations';
   const isPinnedSet = isVariations && variationSource === 'cid';
   const isGeneratedSet = isVariations && variationSource === 'generate';
@@ -976,11 +983,11 @@ export function CreateDropPanel() {
       });
     }
     const facetLabel = dropFacetsLabel(
-      normalizeDropFacets(facets, isAudio ? 'audio' : isWriting ? 'writing' : null)
+      normalizeDropFacets(facets, createFacetMedium)
     );
-    if (facetLabel) {
+    if (facetLabel && createFacetMedium) {
       rows.push({
-        label: isAudio ? 'Genre' : 'Subject',
+        label: dropFacetFieldLabel(createFacetMedium),
         value: facetLabel,
       });
     }
@@ -1018,6 +1025,7 @@ export function CreateDropPanel() {
     maxPerWallet,
     draftAllowlist.length,
     facets,
+    createFacetMedium,
   ]);
 
   const openStartConfirm = useCallback(async () => {
@@ -1488,10 +1496,7 @@ export function CreateDropPanel() {
                     chapterCount: writingPin.chapterCount,
                   }
                 : {}),
-              ...dropFacetsExtraFields(
-                facets,
-                isAudio ? 'audio' : isWriting ? 'writing' : null
-              ),
+              ...dropFacetsExtraFields(facets, createFacetMedium),
             },
             ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
             ...(price ? { priceNear: price } : {}),
@@ -1926,17 +1931,9 @@ export function CreateDropPanel() {
           </div>
         )}
 
-        {isAudio ? (
+        {createFacetMedium ? (
           <DropFacetsEditor
-            medium="audio"
-            facets={facets}
-            onChange={setFacets}
-            disabled={pending}
-          />
-        ) : null}
-        {isWriting ? (
-          <DropFacetsEditor
-            medium="writing"
+            medium={createFacetMedium}
             facets={facets}
             onChange={setFacets}
             disabled={pending}

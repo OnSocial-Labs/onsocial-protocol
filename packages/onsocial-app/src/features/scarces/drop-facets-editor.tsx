@@ -2,6 +2,7 @@
 
 import {
   DROP_MAX_FACETS,
+  dropFacetFieldLabel,
   dropFacetLabel,
   dropFacetSuggestionsForMedium,
   normalizeDropFacets,
@@ -18,15 +19,15 @@ interface DropFacetsEditorProps {
 }
 
 /**
- * Controlled facet chips for create-drop — genres (audio) or subjects (writing).
- * Closed vocab only (no free-type) so market discovery filters stay reliable.
+ * Controlled facet chips for create-drop — closed vocab only (no free-type)
+ * so market discovery filters stay reliable.
  */
 export function DropFacetsEditor({
   medium,
   facets,
   onChange,
   disabled = false,
-  label = medium === 'audio' ? 'Genre' : 'Subject',
+  label = dropFacetFieldLabel(medium),
 }: DropFacetsEditorProps) {
   const suggestions = dropFacetSuggestionsForMedium(medium);
   const selected = normalizeDropFacets(facets, medium);

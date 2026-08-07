@@ -61,9 +61,9 @@ describe('DROP_TEMPLATES', () => {
     }
   });
 
-  it('custom leaves the form untouched with no kind', () => {
+  it('custom leaves rights presets untouched and stamps kind custom', () => {
     const custom = DROP_TEMPLATES.find((t) => t.id === 'custom');
     expect(custom?.presets).toBeNull();
-    expect(custom?.kind).toBeNull();
+    expect(custom?.kind).toBe('custom');
   });
 });

@@ -23,6 +23,7 @@ import {
 } from '@/features/market/market-medium';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
 import {
+  normalizeDropFacetMedium,
   normalizeDropFacets,
   parseAudioFormat,
 } from '@/features/scarces/drop-facets';
@@ -81,10 +82,7 @@ export function CollectiblesPagePanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
-  const facetMedium =
-    mediumFilter === 'audio' || mediumFilter === 'writing'
-      ? mediumFilter
-      : null;
+  const facetMedium = normalizeDropFacetMedium(mediumFilter);
   const selectedFacets = facetMedium
     ? normalizeDropFacets(
         parseMarketFacetsParam(searchParams.get(MARKET_FACETS_PARAM)),

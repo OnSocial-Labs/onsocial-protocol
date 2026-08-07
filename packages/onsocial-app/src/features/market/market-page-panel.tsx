@@ -79,6 +79,7 @@ import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
+  normalizeDropFacetMedium,
   normalizeDropFacets,
   parseAudioFormat,
 } from '@/features/scarces/drop-facets';
@@ -207,10 +208,7 @@ export function MarketPagePanel() {
     searchParams.get(MARKET_CREATOR_PARAM)?.trim().toLowerCase() ?? '';
   const appFilter = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
   const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
-  const facetMedium =
-    mediumFilter === 'audio' || mediumFilter === 'writing'
-      ? mediumFilter
-      : null;
+  const facetMedium = normalizeDropFacetMedium(mediumFilter);
   const selectedFacets = facetMedium
     ? normalizeDropFacets(
         parseMarketFacetsParam(searchParams.get(MARKET_FACETS_PARAM)),

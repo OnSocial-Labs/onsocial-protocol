@@ -1,7 +1,7 @@
 /**
  * Controlled discovery facets for drops — stamped into NEP-177 `extra.facets`.
- * Medium (`extra.kind`) stays the primary taxonomy; facets are secondary chips
- * (music genres, writing subjects). Closed vocab so market filters stay clean.
+ * Medium (`extra.kind`) is primary; facets are secondary browse chips.
+ * Closed vocab per medium (no free-type) so market filters stay reliable.
  */
 
 import { topicLabel } from '@/lib/topic-slug';
@@ -44,33 +44,189 @@ export const WRITING_SUBJECT_SUGGESTIONS = [
   { id: 'comics', label: 'Comics' },
 ] as const;
 
-const MUSIC_IDS = new Set(MUSIC_GENRE_SUGGESTIONS.map((entry) => entry.id));
-const WRITING_IDS = new Set(
-  WRITING_SUBJECT_SUGGESTIONS.map((entry) => entry.id)
-);
+export const ART_STYLE_SUGGESTIONS = [
+  { id: 'digital', label: 'Digital' },
+  { id: 'illustration', label: 'Illustration' },
+  { id: 'photo', label: 'Photo' },
+  { id: 'generative', label: 'Generative' },
+  { id: '3d', label: '3D' },
+  { id: 'paint', label: 'Paint' },
+  { id: 'print', label: 'Print' },
+  { id: 'collage', label: 'Collage' },
+  { id: 'abstract', label: 'Abstract' },
+  { id: 'figurative', label: 'Figurative' },
+  { id: 'pixel', label: 'Pixel' },
+  { id: 'animation', label: 'Animation' },
+] as const;
+
+export const TICKET_EVENT_SUGGESTIONS = [
+  { id: 'music', label: 'Music' },
+  { id: 'nightlife', label: 'Nightlife' },
+  { id: 'sports', label: 'Sports' },
+  { id: 'theatre', label: 'Theatre' },
+  { id: 'comedy', label: 'Comedy' },
+  { id: 'conference', label: 'Conference' },
+  { id: 'festival', label: 'Festival' },
+  { id: 'workshop', label: 'Workshop' },
+  { id: 'film', label: 'Film' },
+  { id: 'community', label: 'Community' },
+] as const;
+
+export const COUPON_OFFER_SUGGESTIONS = [
+  { id: 'discount', label: 'Discount' },
+  { id: 'freebie', label: 'Freebie' },
+  { id: 'merch', label: 'Merch' },
+  { id: 'food', label: 'Food & drink' },
+  { id: 'experience', label: 'Experience' },
+  { id: 'digital', label: 'Digital' },
+  { id: 'shipping', label: 'Shipping' },
+  { id: 'bundle', label: 'Bundle' },
+] as const;
+
+export const MEMBERSHIP_ACCESS_SUGGESTIONS = [
+  { id: 'community', label: 'Community' },
+  { id: 'patron', label: 'Patron' },
+  { id: 'season', label: 'Season' },
+  { id: 'vip', label: 'VIP' },
+  { id: 'club', label: 'Club' },
+  { id: 'education', label: 'Education' },
+  { id: 'creator', label: 'Creator' },
+  { id: 'dao', label: 'DAO' },
+] as const;
+
+/** Light theme set for Custom drops — not a free-tag dump. */
+export const CUSTOM_THEME_SUGGESTIONS = [
+  { id: 'collectible', label: 'Collectible' },
+  { id: 'utility', label: 'Utility' },
+  { id: 'access', label: 'Access' },
+  { id: 'reward', label: 'Reward' },
+  { id: 'identity', label: 'Identity' },
+  { id: 'experiment', label: 'Experiment' },
+] as const;
+
+const MUSIC_IDS = new Set(MUSIC_GENRE_SUGGESTIONS.map((e) => e.id));
+const WRITING_IDS = new Set(WRITING_SUBJECT_SUGGESTIONS.map((e) => e.id));
+const ART_IDS = new Set(ART_STYLE_SUGGESTIONS.map((e) => e.id));
+const TICKET_IDS = new Set(TICKET_EVENT_SUGGESTIONS.map((e) => e.id));
+const COUPON_IDS = new Set(COUPON_OFFER_SUGGESTIONS.map((e) => e.id));
+const MEMBERSHIP_IDS = new Set(MEMBERSHIP_ACCESS_SUGGESTIONS.map((e) => e.id));
+const CUSTOM_IDS = new Set(CUSTOM_THEME_SUGGESTIONS.map((e) => e.id));
+
 const ALL_SUGGESTIONS = [
   ...MUSIC_GENRE_SUGGESTIONS,
   ...WRITING_SUBJECT_SUGGESTIONS,
+  ...ART_STYLE_SUGGESTIONS,
+  ...TICKET_EVENT_SUGGESTIONS,
+  ...COUPON_OFFER_SUGGESTIONS,
+  ...MEMBERSHIP_ACCESS_SUGGESTIONS,
+  ...CUSTOM_THEME_SUGGESTIONS,
 ] as const;
 
-export type DropFacetMedium = 'audio' | 'writing';
+export type DropFacetMedium =
+  | 'audio'
+  | 'writing'
+  | 'art'
+  | 'ticket'
+  | 'coupon'
+  | 'membership'
+  | 'custom';
+
+export function isDropFacetMedium(
+  medium: string | null | undefined
+): medium is DropFacetMedium {
+  return normalizeDropFacetMedium(medium) != null;
+}
+
+/** Normalize filter/create medium keys (`music` → `audio`). */
+export function normalizeDropFacetMedium(
+  medium: string | null | undefined
+): DropFacetMedium | null {
+  const key = (medium ?? '').trim().toLowerCase();
+  if (key === 'music' || key === 'audio') return 'audio';
+  if (
+    key === 'writing' ||
+    key === 'art' ||
+    key === 'ticket' ||
+    key === 'coupon' ||
+    key === 'membership' ||
+    key === 'custom'
+  ) {
+    return key;
+  }
+  return null;
+}
 
 export function dropFacetSuggestionsForMedium(
   medium: DropFacetMedium | string | null | undefined
 ): ReadonlyArray<{ id: string; label: string }> {
-  const key = (medium ?? '').trim().toLowerCase();
-  if (key === 'audio' || key === 'music') return MUSIC_GENRE_SUGGESTIONS;
-  if (key === 'writing') return WRITING_SUBJECT_SUGGESTIONS;
-  return [];
+  const key = normalizeDropFacetMedium(medium);
+  switch (key) {
+    case 'audio':
+      return MUSIC_GENRE_SUGGESTIONS;
+    case 'writing':
+      return WRITING_SUBJECT_SUGGESTIONS;
+    case 'art':
+      return ART_STYLE_SUGGESTIONS;
+    case 'ticket':
+      return TICKET_EVENT_SUGGESTIONS;
+    case 'coupon':
+      return COUPON_OFFER_SUGGESTIONS;
+    case 'membership':
+      return MEMBERSHIP_ACCESS_SUGGESTIONS;
+    case 'custom':
+      return CUSTOM_THEME_SUGGESTIONS;
+    default:
+      return [];
+  }
 }
 
 export function dropFacetsAllowedForMedium(
   medium: DropFacetMedium | string | null | undefined
 ): Set<string> {
-  const key = (medium ?? '').trim().toLowerCase();
-  if (key === 'audio' || key === 'music') return MUSIC_IDS;
-  if (key === 'writing') return WRITING_IDS;
-  return new Set();
+  const key = normalizeDropFacetMedium(medium);
+  switch (key) {
+    case 'audio':
+      return MUSIC_IDS;
+    case 'writing':
+      return WRITING_IDS;
+    case 'art':
+      return ART_IDS;
+    case 'ticket':
+      return TICKET_IDS;
+    case 'coupon':
+      return COUPON_IDS;
+    case 'membership':
+      return MEMBERSHIP_IDS;
+    case 'custom':
+      return CUSTOM_IDS;
+    default:
+      return new Set();
+  }
+}
+
+/** Chip-group label on create + market rails. */
+export function dropFacetFieldLabel(
+  medium: DropFacetMedium | string | null | undefined
+): string {
+  const key = normalizeDropFacetMedium(medium);
+  switch (key) {
+    case 'audio':
+      return 'Genre';
+    case 'writing':
+      return 'Subject';
+    case 'art':
+      return 'Style';
+    case 'ticket':
+      return 'Event';
+    case 'coupon':
+      return 'Offer';
+    case 'membership':
+      return 'Access';
+    case 'custom':
+      return 'Theme';
+    default:
+      return 'Category';
+  }
 }
 
 /** Keep only known slugs for the medium, capped. */
@@ -97,7 +253,10 @@ export function parseDropFacets(
   medium: string | null | undefined
 ): string[] {
   if (!extra) return [];
-  return normalizeDropFacets(extra.facets, medium);
+  const normalized = normalizeDropFacetMedium(medium);
+  if (normalized) return normalizeDropFacets(extra.facets, normalized);
+  // Untyped / legacy custom drops (no kind): accept Theme facets only.
+  return normalizeDropFacets(extra.facets, 'custom');
 }
 
 export function dropFacetLabel(slug: string | null | undefined): string | null {

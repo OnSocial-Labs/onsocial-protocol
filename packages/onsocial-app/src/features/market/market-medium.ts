@@ -15,7 +15,8 @@ export type MarketMediumFilter =
   | 'video'
   | 'ticket'
   | 'coupon'
-  | 'membership';
+  | 'membership'
+  | 'custom';
 
 export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
   id: MarketMediumFilter;
@@ -30,6 +31,7 @@ export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
   { id: 'ticket', label: 'Tickets' },
   { id: 'coupon', label: 'Coupons' },
   { id: 'membership', label: 'Memberships' },
+  { id: 'custom', label: 'Custom' },
 ];
 
 /**

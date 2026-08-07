@@ -118,7 +118,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     label: 'Custom',
     tagline: 'Every switch open — configure the drop yourself.',
     hint: 'Transfer, renewals, redeems, allowlists, sale windows — you pick the rights.',
-    kind: null,
+    kind: 'custom',
     unit: 'editions',
     unitSingular: 'edition',
     presets: null,

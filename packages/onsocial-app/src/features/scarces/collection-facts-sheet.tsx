@@ -13,7 +13,10 @@ import {
   deriveCollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import { dropFacetsLabel } from '@/features/scarces/drop-facets';
+import {
+  dropFacetFieldLabel,
+  dropFacetsLabel,
+} from '@/features/scarces/drop-facets';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import {
   formatRoyaltyPercent,
@@ -334,13 +337,7 @@ export function CollectionFactsSheet({
           ) : null}
           {facetsLabel ? (
             <FactRow
-              label={
-                view.kind === 'writing'
-                  ? 'Subject'
-                  : view.kind === 'audio' || view.kind === 'music'
-                    ? 'Genre'
-                    : 'Facets'
-              }
+              label={dropFacetFieldLabel(view.kind)}
               value={facetsLabel}
             />
           ) : null}
