@@ -873,5 +873,72 @@
         }
       }
     ]
+  },
+  {
+    "name": "scarces_collection_created_catalog",
+    "contract": "scarces",
+    "receiver_id": "scarces.onsocial.testnet",
+    "block_height": 245000030,
+    "block_timestamp": 1776000010,
+    "receipt_seed": [110, 111],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "COLLECTION_UPDATE",
+        "data": [
+          {
+            "operation": "create",
+            "author": "creator.onsocial.testnet",
+            "creator_id": "creator.onsocial.testnet",
+            "collection_id": "drop:catalog-1",
+            "app_id": "test_app_01",
+            "total_supply": 10,
+            "minted_count": 0,
+            "remaining": 10,
+            "price_near": "1000000000000000000000000",
+            "mint_mode": "open",
+            "title": "Catalog Shell",
+            "media": "ipfs://catalog-shell",
+            "kind": "audio",
+            "metadata_template": "{\"title\":\"Catalog Shell\",\"media\":\"ipfs://catalog-shell\"}"
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "scarces_events": 1,
+      "scarces_collections_current": 1
+    },
+    "expected_rows": [
+      {
+        "table": "scarces_events",
+        "fields": {
+          "event_type": "COLLECTION_UPDATE",
+          "operation": "create",
+          "author": "creator.onsocial.testnet",
+          "collection_id": "drop:catalog-1",
+          "creator_id": "creator.onsocial.testnet"
+        }
+      },
+      {
+        "table": "scarces_collections_current",
+        "fields": {
+          "collection_id": "drop:catalog-1",
+          "creator_id": "creator.onsocial.testnet",
+          "app_id": "test_app_01",
+          "title": "Catalog Shell",
+          "media": "ipfs://catalog-shell",
+          "kind": "audio",
+          "total_supply": "10",
+          "minted_count": "0",
+          "remaining": "10",
+          "mint_mode": "open",
+          "paused": "false",
+          "cancelled": "false",
+          "banned": "false"
+        }
+      }
+    ]
   }
 ]
