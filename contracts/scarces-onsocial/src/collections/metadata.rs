@@ -1,6 +1,24 @@
 use crate::*;
+use near_sdk::serde_json;
 
 impl Contract {
+    fn collection_browse_meta<'a>(
+        collection: &'a LazyCollection,
+        parsed: Option<&'a TokenMetadata>,
+        royalty_json: Option<&'a str>,
+        kind: Option<&'a str>,
+    ) -> events::CollectionBrowseMeta<'a> {
+        events::CollectionBrowseMeta {
+            title: parsed.and_then(|m| m.title.as_deref()),
+            media: parsed.and_then(|m| m.media.as_deref()),
+            description: parsed.and_then(|m| m.description.as_deref()),
+            kind,
+            metadata_template: Some(collection.metadata_template.as_str()),
+            metadata: collection.metadata.as_deref(),
+            royalty_json,
+        }
+    }
+
     pub(crate) fn set_collection_metadata(
         &mut self,
         actor_id: &AccountId,
@@ -50,7 +68,22 @@ impl Contract {
             std::cmp::Ordering::Equal => {}
         }
 
-        events::emit_collection_metadata_update(actor_id, collection_id);
+        let parsed = serde_json::from_str::<TokenMetadata>(&collection.metadata_template).ok();
+        let kind = events::kind_from_extra(parsed.as_ref().and_then(|m| m.extra.as_deref()));
+        let royalty_json = collection
+            .royalty
+            .as_ref()
+            .and_then(|r| serde_json::to_string(r).ok());
+        events::emit_collection_metadata_update(
+            actor_id,
+            collection_id,
+            Self::collection_browse_meta(
+                &collection,
+                parsed.as_ref(),
+                royalty_json.as_deref(),
+                kind.as_deref(),
+            ),
+        );
         Ok(())
     }
 
@@ -119,7 +152,12 @@ impl Contract {
             std::cmp::Ordering::Equal => {}
         }
 
-        events::emit_collection_app_metadata_update(actor_id, app_id, collection_id);
+        events::emit_collection_app_metadata_update(
+            actor_id,
+            app_id,
+            collection_id,
+            collection.app_metadata.as_deref(),
+        );
         Ok(())
     }
 }

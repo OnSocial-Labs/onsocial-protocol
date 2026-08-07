@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { MediaDownloadControl } from '@/components/ui/media-download-control';
+import { CollectionWritingBodySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
   isWritingPdfMime,
   type ScarceReadableMedia,
@@ -276,9 +277,7 @@ export function CollectionWritingReader({
                 src={chapterUrl}
               />
             ) : null}
-            {loading ? (
-              <p className="collection-writing-status">Loading…</p>
-            ) : null}
+            {loading ? <CollectionWritingBodySkeleton /> : null}
             {loadError ? (
               <p className="collection-writing-status is-error">{loadError}</p>
             ) : null}

@@ -570,6 +570,100 @@ export function isCollectionMintable(status: CollectionStatus): boolean {
   return status === 'live';
 }
 
+/**
+ * Map indexer `scarces_collections_current` row → CollectionView.
+ * Banned / incomplete shells return null (caller falls back to RPC).
+ */
+export function collectionCurrentRowToView(row: {
+  collectionId: string;
+  creatorId: string;
+  appId: string | null;
+  price: string | null;
+  allowlistPrice: string | null;
+  totalSupply: number;
+  mintedCount: number;
+  remaining: number;
+  startTime: number | null;
+  endTime: number | null;
+  createdAt: number | null;
+  mintMode: string | null;
+  maxPerWallet: number | null;
+  paused: boolean;
+  cancelled: boolean;
+  banned: boolean;
+  transferable: boolean | null;
+  renewable: boolean | null;
+  maxRedeems: number | null;
+  randomAssignment: boolean;
+  appCommissionBps: number | null;
+  title: string | null;
+  media: string | null;
+  description: string | null;
+  kind: string | null;
+  metadataTemplate: string | null;
+  metadata: string | null;
+  extraJson: string | null;
+  royaltyJson: string | null;
+}): CollectionView | null {
+  if (row.banned) return null;
+  let royalty: Record<string, number> | null = null;
+  if (row.royaltyJson?.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(row.royaltyJson);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        royalty = parsed as Record<string, number>;
+      }
+    } catch {
+      royalty = null;
+    }
+  }
+
+  let metadataTemplate = row.metadataTemplate?.trim() || '';
+  if (!metadataTemplate) {
+    // Thin historical rows: synthesize enough template for first paint.
+    if (!row.title?.trim() && !row.media?.trim()) return null;
+    const extra =
+      row.extraJson?.trim() ||
+      (row.kind?.trim()
+        ? JSON.stringify({ kind: row.kind.trim() })
+        : undefined);
+    metadataTemplate = JSON.stringify({
+      ...(row.title?.trim() ? { title: row.title.trim() } : {}),
+      ...(row.description?.trim()
+        ? { description: row.description.trim() }
+        : {}),
+      ...(row.media?.trim() ? { media: row.media.trim() } : {}),
+      ...(extra ? { extra } : {}),
+    });
+  }
+
+  return toCollectionView({
+    collection_id: row.collectionId,
+    creator_id: row.creatorId,
+    total_supply: row.totalSupply,
+    minted_count: row.mintedCount,
+    metadata_template: metadataTemplate,
+    price_near: row.price,
+    allowlist_price: row.allowlistPrice,
+    start_time: row.startTime,
+    end_time: row.endTime,
+    created_at: row.createdAt,
+    max_per_wallet: row.maxPerWallet,
+    mint_mode: row.mintMode,
+    paused: row.paused,
+    cancelled: row.cancelled,
+    banned: row.banned,
+    app_id: row.appId,
+    app_commission_bps: row.appCommissionBps,
+    transferable: row.transferable ?? true,
+    renewable: row.renewable ?? false,
+    max_redeems: row.maxRedeems,
+    metadata: row.metadata,
+    random_assignment: row.randomAssignment,
+    royalty,
+  });
+}
+
 /** One collection record from the contract, or null when missing. */
 export async function fetchCollection(
   collectionId: string
@@ -589,6 +683,28 @@ export async function fetchCollection(
   } catch {
     return null;
   }
+}
+
+/** Indexer-first shell; RPC fallback when the catalog row is missing/thin. */
+export async function fetchCollectionPreferIndexer(
+  collectionId: string
+): Promise<CollectionView | null> {
+  const id = collectionId.trim();
+  if (!id) return null;
+  try {
+    const { createReadOnlyOnSocialClient } = await import(
+      '@/lib/create-readonly-onsocial-client'
+    );
+    const client = createReadOnlyOnSocialClient();
+    const row = await client.query.scarces.collectionCurrent(id);
+    if (row) {
+      const view = collectionCurrentRowToView(row);
+      if (view) return hydrateWritingManifest(view);
+    }
+  } catch {
+    // Fall through to RPC.
+  }
+  return fetchCollection(id);
 }
 
 /** Load onsocial.writing.v1 chapters when manifesto CID is present. */
@@ -631,11 +747,34 @@ export async function fetchCollectionsByCreator(
 ): Promise<CollectionView[]> {
   const creator = creatorId.trim();
   if (!creator) return [];
+  const limit = opts.limit ?? 24;
+
+  try {
+    const { createReadOnlyOnSocialClient } = await import(
+      '@/lib/create-readonly-onsocial-client'
+    );
+    const client = createReadOnlyOnSocialClient();
+    const catalog = await client.query.scarces.collectionsCurrent({
+      creatorId: creator,
+      limit,
+      includeUnavailable: true,
+    });
+    if (catalog.length > 0) {
+      const views = catalog
+        .map((row) => collectionCurrentRowToView(row))
+        .filter((view): view is CollectionView => view != null)
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+      if (views.length > 0) return views;
+    }
+  } catch {
+    // Fall through to contract scan.
+  }
+
   try {
     const records = await viewNearContract<LazyCollectionRecord[]>(
       SCARCES_CONTRACT,
       'get_collections_by_creator',
-      { creator_id: creator, from_index: 0, limit: opts.limit ?? 24 }
+      { creator_id: creator, from_index: 0, limit: limit }
     );
     if (!Array.isArray(records)) return [];
     return records
@@ -648,8 +787,8 @@ export async function fetchCollectionsByCreator(
 }
 
 /**
- * Drops published under a store. Prefer indexer create events (app_id),
- * then hydrate live records from the contract.
+ * Drops published under a store. Prefer live catalog (`collectionsCurrent`),
+ * then create-event ids + RPC, then contract scan.
  */
 export async function fetchCollectionsByApp(
   appId: string,
@@ -664,6 +803,19 @@ export async function fetchCollectionsByApp(
       '@/lib/create-readonly-onsocial-client'
     );
     const client = createReadOnlyOnSocialClient();
+    const catalog = await client.query.scarces.collectionsCurrent({
+      appId: id,
+      limit,
+    });
+    if (catalog.length > 0) {
+      const views = catalog
+        .map((row) => collectionCurrentRowToView(row))
+        .filter((view): view is CollectionView => view != null)
+        .filter((view) => !view.appId || view.appId === id)
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+      if (views.length > 0) return views;
+    }
+
     const events = await client.query.scarces.events({
       appId: id,
       eventType: 'COLLECTION_UPDATE',

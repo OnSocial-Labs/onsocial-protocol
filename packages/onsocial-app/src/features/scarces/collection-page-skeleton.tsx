@@ -1,5 +1,6 @@
 /**
- * Drop page cold-load shell — geometry matches collection hero + tracks + mint band.
+ * Drop page cold-load shell — immersive cover + meta + compact body bands
+ * reserve final geometry so the screen does not jump when the drop resolves.
  */
 export function CollectionPageSkeleton() {
   return (
@@ -10,15 +11,19 @@ export function CollectionPageSkeleton() {
     >
       <p className="sr-only">Loading drop…</p>
       <section className="collection-hero" aria-hidden>
-        <div className="collection-music-hero">
-          <div className="standing-row-shimmer collection-skeleton-cover" />
+        <div className="collection-music-hero is-immersive">
+          <div className="scarce-clip-player-shell">
+            <div className="scarce-clip-player">
+              <div className="standing-row-shimmer scarce-clip-player-cover collection-skeleton-cover" />
+            </div>
+          </div>
         </div>
         <header className="collection-head">
           <div className="standing-row-shimmer collection-skeleton-title" />
           <div className="collection-meta">
             <span className="standing-row-shimmer collection-skeleton-avatar" />
             <div className="collection-meta-copy">
-              <span className="standing-row-shimmer collection-skeleton-line" />
+              <span className="standing-row-shimmer collection-skeleton-creator-name" />
               <span className="standing-row-shimmer collection-skeleton-line-sm" />
             </div>
           </div>
@@ -28,7 +33,7 @@ export function CollectionPageSkeleton() {
       <section className="collection-tracks" aria-hidden>
         <span className="standing-row-shimmer collection-skeleton-section-label" />
         <div className="collection-skeleton-track-list">
-          {Array.from({ length: 5 }, (_, index) => (
+          {Array.from({ length: 3 }, (_, index) => (
             <div key={index} className="collection-skeleton-track">
               <span className="standing-row-shimmer collection-skeleton-track-play" />
               <span className="standing-row-shimmer collection-skeleton-track-title" />
@@ -78,6 +83,27 @@ export function CollectionActivitySkeleton({ rows = 3 }: { rows?: number }) {
             <span className="standing-row-shimmer collection-skeleton-line-sm" />
           </div>
         </div>
+      ))}
+    </div>
+  );
+}
+
+/** Writing chapter body placeholders — reserve markdown height. */
+export function CollectionWritingBodySkeleton({ lines = 5 }: { lines?: number }) {
+  return (
+    <div
+      className="collection-writing-body-skeleton"
+      aria-busy="true"
+      aria-label="Loading chapter"
+    >
+      {Array.from({ length: lines }, (_, index) => (
+        <span
+          key={index}
+          className={`standing-row-shimmer collection-writing-skeleton-line${
+            index === lines - 1 ? ' is-short' : ''
+          }`}
+          aria-hidden
+        />
       ))}
     </div>
   );

@@ -29,6 +29,11 @@ import {
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
 import { marketMediumLabel } from '@/features/market/market-medium';
+import { CollectiblesPlaySkeleton } from '@/features/collectibles/collectibles-play-skeleton';
+import {
+  fetchCollectionCreatorFace,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -44,7 +49,7 @@ import {
 } from '@/lib/collectibles-offline';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel, resolveProfileMediaUrl } from '@/lib/profile-display';
+import { fallbackLabel } from '@/lib/profile-display';
 
 interface PlayLoadState {
   collectionId: string;
@@ -103,54 +108,52 @@ function collectionViewFromOfflineAlbum(
   };
 }
 
-async function loadCreatorFace(creatorId: string): Promise<{
-  avatarUrl: string | null;
-  displayName: string | null;
-}> {
-  try {
-    const client = createReadOnlyOnSocialClient();
-    const [profile, statsRows] = await Promise.all([
-      client.profiles.get(creatorId),
-      client.query.profiles.statsForAccounts([creatorId]),
-    ]);
-    const media = profile ? client.profiles.avatarMedia(profile) : null;
-    const faceFromProfile =
-      media?.kind === 'image'
-        ? media.url
-        : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
-    const stats = statsRows[0];
-    const avatarUrl =
-      faceFromProfile ||
-      (stats?.avatar ? resolveProfileMediaUrl(stats.avatar) : null);
-    const handle = fallbackLabel(creatorId);
-    const rawName = profile?.name?.trim() || stats?.name?.trim() || null;
-    const hasDisplayName =
-      Boolean(rawName) &&
-      rawName!.toLowerCase() !== handle.toLowerCase() &&
-      rawName!.toLowerCase() !== creatorId.toLowerCase();
-    return {
-      avatarUrl,
-      displayName: hasDisplayName ? rawName : null,
-    };
-  } catch {
-    return { avatarUrl: null, displayName: null };
-  }
-}
-
 /**
  * Focused Collectibles player — music / video holdings land here from the vault
  * (Play / Watch). Immersive cover under nav; title hands off on scroll.
  */
-export function CollectiblesPlayPanel() {
+export function CollectiblesPlayPanel({
+  initialCollectionId = null,
+  initialTokenId = null,
+  initialView = null,
+  initialCreator = null,
+}: {
+  initialCollectionId?: string | null;
+  initialTokenId?: string | null;
+  initialView?: CollectionView | null;
+  initialCreator?: CollectionCreatorFace | null;
+} = {}) {
   const searchParams = useSearchParams();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const collectionId =
     searchParams.get(COLLECTIBLES_PLAY_PARAM)?.trim() ||
     searchParams.get('collection')?.trim() ||
+    initialCollectionId?.trim() ||
     '';
   const tokenIdParam =
-    searchParams.get(COLLECTIBLES_PLAY_TOKEN_PARAM)?.trim() || '';
-  const [load, setLoad] = useState<PlayLoadState | null>(null);
+    searchParams.get(COLLECTIBLES_PLAY_TOKEN_PARAM)?.trim() ||
+    initialTokenId?.trim() ||
+    '';
+  const hasSsrLoad =
+    Boolean(collectionId) &&
+    initialCollectionId?.trim() === collectionId &&
+    initialView != null;
+  const ssrLoad: PlayLoadState | null = hasSsrLoad
+    ? {
+        collectionId,
+        view: initialView,
+        failed: false,
+        offline: false,
+        creatorAvatarUrl: initialCreator?.avatarUrl ?? null,
+        creatorDisplayName: initialCreator?.displayName ?? null,
+      }
+    : null;
+  const [clientLoad, setClientLoad] = useState<PlayLoadState | null>(null);
+  // Prefer soft RPC refresh when present; keep SSR shell until then.
+  const load =
+    clientLoad?.collectionId === collectionId
+      ? clientLoad
+      : (ssrLoad ?? null);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -167,20 +170,33 @@ export function CollectiblesPlayPanel() {
       ? `${viewerAccountId}:${collectionId}:${tokenIdParam || '*'}`
       : '';
 
+  // Soft RPC when SSR painted; full client load when landing without shell.
   useEffect(() => {
-    if (!collectionId) {
-      return;
-    }
+    if (!collectionId) return;
     let cancelled = false;
     void (async () => {
+      if (hasSsrLoad) {
+        const next = await fetchCollection(collectionId);
+        if (cancelled || !next) return;
+        setClientLoad({
+          collectionId,
+          view: next,
+          failed: false,
+          offline: false,
+          creatorAvatarUrl: initialCreator?.avatarUrl ?? null,
+          creatorDisplayName: initialCreator?.displayName ?? null,
+        });
+        return;
+      }
       try {
+        const client = createReadOnlyOnSocialClient();
         const view = await fetchCollection(collectionId);
         if (cancelled) return;
         if (!view) {
           const offline = await getOfflineAlbum(collectionId);
           if (cancelled) return;
           if (offline) {
-            setLoad({
+            setClientLoad({
               collectionId,
               view: collectionViewFromOfflineAlbum(offline),
               failed: false,
@@ -190,7 +206,7 @@ export function CollectiblesPlayPanel() {
             });
             return;
           }
-          setLoad({
+          setClientLoad({
             collectionId,
             view: null,
             failed: true,
@@ -200,9 +216,9 @@ export function CollectiblesPlayPanel() {
           });
           return;
         }
-        const face = await loadCreatorFace(view.creatorId);
+        const face = await fetchCollectionCreatorFace(client, view.creatorId);
         if (cancelled) return;
-        setLoad({
+        setClientLoad({
           collectionId,
           view,
           failed: false,
@@ -214,7 +230,7 @@ export function CollectiblesPlayPanel() {
         const offline = await getOfflineAlbum(collectionId);
         if (cancelled) return;
         if (offline) {
-          setLoad({
+          setClientLoad({
             collectionId,
             view: collectionViewFromOfflineAlbum(offline),
             failed: false,
@@ -224,7 +240,7 @@ export function CollectiblesPlayPanel() {
           });
           return;
         }
-        setLoad({
+        setClientLoad({
           collectionId,
           view: null,
           failed: true,
@@ -237,7 +253,7 @@ export function CollectiblesPlayPanel() {
     return () => {
       cancelled = true;
     };
-  }, [collectionId]);
+  }, [collectionId, hasSsrLoad, initialCreator]);
 
   // Resolve owned edition for quiet Sell — prefer `?t=` (exact edition).
   useEffect(() => {
@@ -304,7 +320,8 @@ export function CollectiblesPlayPanel() {
   const dropIsLive =
     view != null && deriveCollectionStatus(view, nowMs) === 'live';
   const screenTitle = view?.title?.trim() || 'Player';
-  const immersive = status === 'ready' && view != null;
+  // Immersive chrome while loading so the cover shell matches ready geometry.
+  const immersive = status === 'loading' || (status === 'ready' && view != null);
 
   // Keep Live chip honest while the mint window can flip.
   useEffect(() => {
@@ -403,9 +420,7 @@ export function CollectiblesPlayPanel() {
           immersive ? ' is-immersive' : ''
         }`}
       >
-        {status === 'loading' ? (
-          <p className="market-page-status">Loading player…</p>
-        ) : null}
+        {status === 'loading' ? <CollectiblesPlaySkeleton /> : null}
 
         {status === 'error' || !view ? (
           status !== 'loading' ? (

@@ -18,6 +18,7 @@ pub(crate) fn scarces_db_out_impl(output: ScarcesOutput) -> DatabaseChanges {
         apply_active_listing(&mut tables, event);
         apply_active_offer(&mut tables, event);
         apply_app_pool(&mut tables, event);
+        apply_collections_current(&mut tables, event);
     }
 
     tables.to_database_changes()
@@ -170,6 +171,18 @@ fn json_u64(data: &Value, key: &str) -> Option<u64> {
     data.get(key).and_then(|v| match v {
         Value::Number(n) => n.as_u64(),
         Value::String(s) => s.parse().ok(),
+        _ => None,
+    })
+}
+
+fn json_bool(data: &Value, key: &str) -> Option<bool> {
+    data.get(key).and_then(|v| match v {
+        Value::Bool(b) => Some(*b),
+        Value::String(s) => match s.as_str() {
+            "true" | "1" => Some(true),
+            "false" | "0" => Some(false),
+            _ => None,
+        },
         _ => None,
     })
 }
@@ -641,6 +654,245 @@ fn delete_app_creator(tables: &mut Tables, app_id: &str, role: &str, e: &Scarces
         "scarces_app_creators",
         app_creator_key(app_id, role, account_id),
     );
+}
+
+fn set_collection_identity(tables: &mut Tables, collection_id: &str, e: &ScarcesEvent) {
+    let row = tables.upsert_row("scarces_collections_current", collection_id);
+    row.set("collection_id", collection_id);
+    let creator = non_empty(&e.creator_id)
+        .or_else(|| non_empty(&e.author))
+        .unwrap_or("unknown");
+    row.set("creator_id", creator);
+}
+
+fn set_collection_updated(tables: &mut Tables, collection_id: &str, e: &ScarcesEvent) {
+    let row = tables.upsert_row("scarces_collections_current", collection_id);
+    row.set("updated_block_height", e.block_height);
+    row.set("updated_block_timestamp", e.block_timestamp);
+}
+
+fn set_collection_browse(tables: &mut Tables, collection_id: &str, data: &Value) {
+    let row = tables.upsert_row("scarces_collections_current", collection_id);
+    if let Some(title) = json_str(data, "title") {
+        row.set("title", title);
+    }
+    if let Some(media) = json_str(data, "media") {
+        row.set("media", media);
+    }
+    if let Some(description) = json_str(data, "description") {
+        row.set("description", description);
+    }
+    if let Some(kind) = json_str(data, "kind") {
+        row.set("kind", kind);
+    }
+    if let Some(template) = json_str(data, "metadata_template") {
+        row.set("metadata_template", template);
+    }
+    if let Some(metadata) = json_str(data, "metadata") {
+        row.set("metadata", metadata);
+    }
+    if let Some(royalty) = json_str(data, "royalty_json") {
+        row.set("royalty_json", royalty);
+    }
+    // Prefer explicit extra_json; else store template.extra for facets/kind fallback.
+    if let Some(extra) = json_str(data, "extra_json").or_else(|| json_str(data, "extra")) {
+        row.set("extra_json", extra);
+    }
+}
+
+/// Live drop catalog — first-paint shell for drop/player pages.
+pub(crate) fn apply_collections_current(tables: &mut Tables, e: &ScarcesEvent) {
+    if e.event_type != "COLLECTION_UPDATE" {
+        return;
+    }
+    let Some(collection_id) = non_empty(&e.collection_id) else {
+        return;
+    };
+    let data: Value = serde_json::from_str(&e.extra_data).unwrap_or(Value::Null);
+
+    match e.operation.as_str() {
+        "create" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                let total_supply = if e.total_supply > 0 {
+                    e.total_supply
+                } else {
+                    json_u32(&data, "total_supply").unwrap_or(0)
+                };
+                let minted = json_u32(&data, "minted_count").unwrap_or(0);
+                let remaining = json_u32(&data, "remaining").unwrap_or(total_supply);
+                let price = non_empty(&e.price)
+                    .map(|s| s.to_string())
+                    .or_else(|| json_str(&data, "price_near"))
+                    .or_else(|| json_str(&data, "price"))
+                    .unwrap_or_default();
+                row.set("total_supply", total_supply);
+                row.set("minted_count", minted);
+                row.set("remaining", remaining);
+                if !price.is_empty() {
+                    row.set("price", price);
+                }
+                if let Some(alp) = json_str(&data, "allowlist_price") {
+                    row.set("allowlist_price", alp);
+                }
+                let start = if e.start_time > 0 {
+                    Some(e.start_time)
+                } else {
+                    json_u64(&data, "start_time")
+                };
+                if let Some(v) = start {
+                    row.set("start_time", v);
+                }
+                let end = if e.end_time > 0 {
+                    Some(e.end_time)
+                } else {
+                    json_u64(&data, "end_time")
+                };
+                if let Some(v) = end {
+                    row.set("end_time", v);
+                }
+                if let Some(created_at) = json_u64(&data, "created_at") {
+                    row.set("created_at", created_at);
+                } else {
+                    row.set("created_at", e.block_timestamp);
+                }
+                if let Some(mode) = json_str(&data, "mint_mode") {
+                    row.set("mint_mode", mode);
+                }
+                if let Some(max) = json_u32(&data, "max_per_wallet") {
+                    row.set("max_per_wallet", max);
+                }
+                if let Some(v) = json_bool(&data, "transferable") {
+                    row.set("transferable", v);
+                }
+                if let Some(v) = json_bool(&data, "renewable") {
+                    row.set("renewable", v);
+                }
+                if let Some(max) = json_u32(&data, "max_redeems") {
+                    row.set("max_redeems", max);
+                }
+                if let Some(v) = json_bool(&data, "random_assignment") {
+                    row.set("random_assignment", v);
+                } else {
+                    row.set("random_assignment", false);
+                }
+                row.set("paused", false);
+                row.set("cancelled", false);
+                row.set("banned", false);
+                let app_owned = json_str(&data, "app_id");
+                if let Some(app) = non_empty(&e.app_id).or(app_owned.as_deref()) {
+                    row.set("app_id", app);
+                }
+                if let Some(v) = json_u32(&data, "app_commission_bps") {
+                    row.set("app_commission_bps", v);
+                }
+                row.set("created_block_height", e.block_height);
+                row.set("created_block_timestamp", e.block_timestamp);
+            }
+            set_collection_browse(tables, collection_id, &data);
+            set_collection_updated(tables, collection_id, e);
+        }
+        "purchase" | "creator_mint" | "airdrop" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                if let Some(minted) = json_u32(&data, "minted_count") {
+                    row.set("minted_count", minted);
+                }
+                if let Some(remaining) = json_u32(&data, "remaining") {
+                    row.set("remaining", remaining);
+                }
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "price_update" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                let price = non_empty(&e.new_price)
+                    .map(|s| s.to_string())
+                    .or_else(|| json_str(&data, "new_price"))
+                    .unwrap_or_default();
+                if !price.is_empty() {
+                    row.set("price", price);
+                }
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "timing_update" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                let start = if e.start_time > 0 {
+                    Some(e.start_time)
+                } else {
+                    json_u64(&data, "start_time")
+                };
+                if let Some(v) = start {
+                    row.set("start_time", v);
+                }
+                let end = if e.end_time > 0 {
+                    Some(e.end_time)
+                } else {
+                    json_u64(&data, "end_time")
+                };
+                if let Some(v) = end {
+                    row.set("end_time", v);
+                }
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "pause" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                row.set("paused", true);
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "resume" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                row.set("paused", false);
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "cancel" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                row.set("cancelled", true);
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "ban" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                row.set("banned", true);
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "unban" => {
+            set_collection_identity(tables, collection_id, e);
+            {
+                let row = tables.upsert_row("scarces_collections_current", collection_id);
+                row.set("banned", false);
+            }
+            set_collection_updated(tables, collection_id, e);
+        }
+        "metadata_update" => {
+            set_collection_identity(tables, collection_id, e);
+            set_collection_browse(tables, collection_id, &data);
+            set_collection_updated(tables, collection_id, e);
+        }
+        "delete" => {
+            tables.delete_row("scarces_collections_current", collection_id);
+        }
+        _ => {}
+    }
 }
 
 /// Live app catalog + membership roster. `fund`/`withdraw` stay events-only —

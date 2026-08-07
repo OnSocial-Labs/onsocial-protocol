@@ -3070,6 +3070,45 @@ describe('QueryModule', () => {
       );
     });
 
+    it('collectionCurrent queries scarcesCollectionsCurrent by id', async () => {
+      const { os, fetch } = makeOs({
+        data: { scarcesCollectionsCurrent: [{ collectionId: 'drop-1' }] },
+      });
+      const row = await os.query.scarces.collectionCurrent('drop-1');
+
+      expect(row?.collectionId).toBe('drop-1');
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toContain('scarcesCollectionsCurrent');
+      expect(body.variables).toEqual({ collectionId: 'drop-1' });
+    });
+
+    it('collectionsCurrent filters creator/app/kind and hides unavailable', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
+      await os.query.scarces.collectionsCurrent({
+        creatorId: 'a.near',
+        appId: 'hub',
+        kind: 'audio',
+        limit: 12,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/paused: \{_eq: false\}/);
+      expect(body.query).toMatch(/creatorId: \{_eq: \$creatorId\}/);
+      expect(body.query).toMatch(/appId: \{_eq: \$appId\}/);
+      expect(body.query).toMatch(/kind: \{_eq: \$kind\}/);
+      expect(body.variables).toEqual({
+        limit: 12,
+        offset: 0,
+        creatorId: 'a.near',
+        appId: 'hub',
+        kind: 'audio',
+      });
+    });
+
     it('activeOffers queries scarcesActiveOffers by tokenId', async () => {
       const { os, fetch } = makeOs({ data: { scarcesActiveOffers: [] } });
       await os.query.scarces.activeOffers({ tokenId: 's:1', limit: 20 });

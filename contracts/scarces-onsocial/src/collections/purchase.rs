@@ -240,6 +240,16 @@ impl Contract {
 
         self.pending_attached_balance += deposit.saturating_sub(total_price);
 
+        let minted_count = self
+            .collections
+            .get(&collection_id)
+            .map(|c| c.minted_count)
+            .unwrap_or(0);
+        let total_supply = self
+            .collections
+            .get(&collection_id)
+            .map(|c| c.total_supply)
+            .unwrap_or(0);
         events::emit_collection_purchase(&events::CollectionPurchase {
             buyer_id,
             creator_id: &creator_id,
@@ -251,6 +261,8 @@ impl Contract {
             app_commission: U128(result.app_commission),
             app_id: result.app_id.as_deref(),
             token_ids: &token_ids,
+            minted_count,
+            remaining: total_supply.saturating_sub(minted_count),
         });
         Ok(())
     }
@@ -354,7 +366,25 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_collection_mint(actor_id, recipient, collection_id, quantity, &token_ids);
+        let minted_count = self
+            .collections
+            .get(collection_id)
+            .map(|c| c.minted_count)
+            .unwrap_or(0);
+        let total_supply = self
+            .collections
+            .get(collection_id)
+            .map(|c| c.total_supply)
+            .unwrap_or(0);
+        events::emit_collection_mint(
+            actor_id,
+            recipient,
+            collection_id,
+            quantity,
+            &token_ids,
+            minted_count,
+            total_supply.saturating_sub(minted_count),
+        );
         Ok(())
     }
 
@@ -459,7 +489,25 @@ impl Contract {
             return Err(e);
         }
 
-        events::emit_collection_airdrop(actor_id, collection_id, count, &token_ids, &receivers);
+        let minted_count = self
+            .collections
+            .get(collection_id)
+            .map(|c| c.minted_count)
+            .unwrap_or(0);
+        let total_supply = self
+            .collections
+            .get(collection_id)
+            .map(|c| c.total_supply)
+            .unwrap_or(0);
+        events::emit_collection_airdrop(
+            actor_id,
+            collection_id,
+            count,
+            &token_ids,
+            &receivers,
+            minted_count,
+            total_supply.saturating_sub(minted_count),
+        );
         Ok(())
     }
 }

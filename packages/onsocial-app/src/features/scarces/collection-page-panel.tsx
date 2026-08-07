@@ -34,10 +34,15 @@ import {
   CollectionAboutTeaser,
 } from '@/features/scarces/collection-about-sheet';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
+import { mapCollectionActivityRows } from '@/features/scarces/collection-activity-map';
 import {
   CollectionActivityRows,
   type CollectionActivityRow,
 } from '@/features/scarces/collection-activity-rows';
+import {
+  fetchCollectionCreatorFace,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
 import {
   CollectionActivitySkeleton,
 } from '@/features/scarces/collection-page-skeleton';
@@ -66,7 +71,7 @@ import {
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel, resolveProfileMediaUrl } from '@/lib/profile-display';
+import { fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
   txToastError,
@@ -98,19 +103,6 @@ function yoctoToNearDisplay(raw: string | null | undefined): string | null {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-const OPERATION_LABEL: Record<string, string> = {
-  create: 'Drop created',
-  purchase: 'Minted',
-  creator_mint: 'Minted',
-  mint_from_collection: 'Minted',
-  airdrop: 'Airdropped',
-  cancel: 'Cancelled',
-  refund: 'Refunded',
-  set_allowlist: 'Allowlist updated',
-  pause: 'Paused',
-  resume: 'Resumed',
-};
-
 function statusTone(status: CollectionStatus): string {
   if (status === 'live') return 'is-live';
   if (status === 'sold_out' || status === 'ended' || status === 'cancelled') {
@@ -141,9 +133,13 @@ function scheduleLine(
 export function CollectionPagePanel({
   collectionId,
   initial,
+  initialCreator = null,
+  initialActivity = EMPTY_ACTIVITY,
 }: {
   collectionId: string;
   initial: CollectionView | null;
+  initialCreator?: CollectionCreatorFace | null;
+  initialActivity?: CollectionActivityRow[];
 }) {
   const {
     accountId: viewerAccountId,
@@ -166,16 +162,26 @@ export function CollectionPagePanel({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [refreshKey, setRefreshKey] = useState(0);
   const activityRequestKey = `${collectionId}:${refreshKey}`;
+  const ssrActivityKey = `${collectionId}:0`;
   const [activityFetched, setActivityFetched] = useState<{
     key: string;
     rows: CollectionActivityRow[];
-  } | null>(null);
-  const [headerElevated, setHeaderElevated] = useState(false);
-  const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
-  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(
-    null
+  } | null>(() =>
+    initial != null
+      ? { key: ssrActivityKey, rows: initialActivity }
+      : null
   );
-  const [creatorResolvedKey, setCreatorResolvedKey] = useState('');
+  const [headerElevated, setHeaderElevated] = useState(false);
+  const initialCreatorId = initial?.creatorId?.trim() || '';
+  const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(
+    () => initialCreator?.avatarUrl ?? null
+  );
+  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(
+    () => initialCreator?.displayName ?? null
+  );
+  const [creatorResolvedKey, setCreatorResolvedKey] = useState(() =>
+    initialCreator != null && initialCreatorId ? initialCreatorId : ''
+  );
   const [activityOpen, setActivityOpen] = useState(false);
   const [activityClosing, setActivityClosing] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
@@ -192,7 +198,7 @@ export function CollectionPagePanel({
     accountIdsEqual(viewerAccountId!, view.creatorId);
   const hasImmersiveCover = Boolean(view?.mediaUrl || view?.cardBg);
 
-  // Refresh the live record on mount and after a mint.
+  // Soft RPC after first paint (minted/remaining/paused/price); hard refresh after mint.
   useEffect(() => {
     let cancelled = false;
     void fetchCollection(collectionId).then((next) => {
@@ -210,6 +216,8 @@ export function CollectionPagePanel({
   }, [collectionId, initial, refreshKey]);
 
   useEffect(() => {
+    // SSR already seeded activity for first paint — refetch only after mint.
+    if (refreshKey === 0 && initial != null) return;
     let cancelled = false;
     const key = activityRequestKey;
     const client = createReadOnlyOnSocialClient();
@@ -219,25 +227,7 @@ export function CollectionPagePanel({
         if (cancelled) return;
         setActivityFetched({
           key,
-          rows: rows.map((row, index) => {
-            const operation = row.operation?.trim() || 'unknown';
-            const isCreate = operation === 'create';
-            return {
-              key: `${operation}:${row.blockTimestamp}:${index}`,
-              operation,
-              label: OPERATION_LABEL[operation] ?? operation,
-              actor:
-                row.buyerId?.trim() ||
-                row.ownerId?.trim() ||
-                row.author?.trim() ||
-                null,
-              time: formatMarketRelativeTime(row.blockTimestamp) ?? '',
-              // Create is not a sale — never show a price on that row.
-              priceNear: isCreate
-                ? null
-                : yoctoToNearDisplay(row.price ?? row.amount),
-            };
-          }),
+          rows: mapCollectionActivityRows(rows),
         });
       })
       .catch(() => {
@@ -246,7 +236,7 @@ export function CollectionPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [activityRequestKey, collectionId]);
+  }, [activityRequestKey, collectionId, initial, refreshKey]);
 
   useEffect(() => {
     if (!viewerAccountId) {
@@ -287,48 +277,20 @@ export function CollectionPagePanel({
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
     if (!creatorId) return;
+    if (creatorResolvedKey === creatorId) return;
     let cancelled = false;
     void (async () => {
-      try {
-        const client = createReadOnlyOnSocialClient();
-        // Prefer profilesCurrent (full field rows). profileSearch can omit
-        // accounts that still have a name/avatar on-chain.
-        const [profile, statsRows] = await Promise.all([
-          client.profiles.get(creatorId),
-          client.query.profiles.statsForAccounts([creatorId]),
-        ]);
-        if (cancelled) return;
-        const media = profile ? client.profiles.avatarMedia(profile) : null;
-        const faceFromProfile =
-          media?.kind === 'image'
-            ? media.url
-            : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
-        const stats = statsRows[0];
-        const faceUrl =
-          faceFromProfile ||
-          (stats?.avatar ? resolveProfileMediaUrl(stats.avatar) : null);
-        setCreatorAvatarUrl(faceUrl);
-        const handle = fallbackLabel(creatorId);
-        const rawName =
-          profile?.name?.trim() || stats?.name?.trim() || null;
-        const hasDisplayName =
-          Boolean(rawName) &&
-          rawName!.toLowerCase() !== handle.toLowerCase() &&
-          rawName!.toLowerCase() !== creatorId.toLowerCase();
-        setCreatorDisplayName(hasDisplayName ? rawName : null);
-      } catch {
-        if (!cancelled) {
-          setCreatorAvatarUrl(null);
-          setCreatorDisplayName(null);
-        }
-      } finally {
-        if (!cancelled) setCreatorResolvedKey(creatorId);
-      }
+      const client = createReadOnlyOnSocialClient();
+      const face = await fetchCollectionCreatorFace(client, creatorId);
+      if (cancelled) return;
+      setCreatorAvatarUrl(face.avatarUrl);
+      setCreatorDisplayName(face.displayName);
+      setCreatorResolvedKey(creatorId);
     })();
     return () => {
       cancelled = true;
     };
-  }, [view?.creatorId]);
+  }, [view?.creatorId, creatorResolvedKey]);
 
   const status = view ? deriveCollectionStatus(view, nowMs) : 'ended';
   // Before Opens, minting is allowlist-gated on-chain when a list exists.
@@ -865,7 +827,7 @@ export function CollectionPagePanel({
               <div className="collection-meta-copy">
                 {creatorShellLoading ? (
                   <span
-                    className="standing-row-shimmer collection-skeleton-line"
+                    className="standing-row-shimmer collection-skeleton-creator-name"
                     aria-hidden
                   />
                 ) : resolvedCreatorName ? (

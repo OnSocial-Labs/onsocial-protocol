@@ -4,7 +4,12 @@ import { APP_MARKET_PATH } from '@/lib/app-routes';
 
 export default function CollectionLoading() {
   return (
-    <OsAppScreen title="Drop" backFallbackHref={APP_MARKET_PATH}>
+    <OsAppScreen
+      title="Drop"
+      backFallbackHref={APP_MARKET_PATH}
+      immersiveHeader
+    >
+      <div aria-hidden className="os-chrome-glass" />
       <CollectionPageSkeleton />
     </OsAppScreen>
   );

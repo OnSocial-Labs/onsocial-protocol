@@ -9,6 +9,8 @@
 //
 // Historical activity: `events()` / helpers → `scarces_events`.
 // Live Market catalog: `activeListings()` → `scarces_active_listings`
+// Live drop catalog: `collectionCurrent()` / `collectionsCurrent()` →
+//   `scarces_collections_current`
 // Open offers: `activeOffers()` → `scarces_active_offers`
 // (sink-maintained). Buy/bid still verify against the scarces contract.
 // ---------------------------------------------------------------------------
@@ -130,6 +132,81 @@ const SCARCES_ACTIVE_LISTING_FIELDS = `
   extraJson
   listedBlockHeight
   listedBlockTimestamp
+  updatedBlockHeight
+  updatedBlockTimestamp
+`;
+
+/** Live drop shell from sink-maintained `scarces_collections_current`. */
+export interface ScarcesCollectionCurrentRow {
+  collectionId: string;
+  creatorId: string;
+  appId: string | null;
+  /** Ask per edition in yoctoNEAR. */
+  price: string | null;
+  allowlistPrice: string | null;
+  totalSupply: number;
+  mintedCount: number;
+  remaining: number;
+  /** Nanoseconds when set. */
+  startTime: number | null;
+  endTime: number | null;
+  createdAt: number | null;
+  mintMode: string | null;
+  maxPerWallet: number | null;
+  paused: boolean;
+  cancelled: boolean;
+  banned: boolean;
+  transferable: boolean | null;
+  renewable: boolean | null;
+  maxRedeems: number | null;
+  randomAssignment: boolean;
+  appCommissionBps: number | null;
+  title: string | null;
+  media: string | null;
+  description: string | null;
+  kind: string | null;
+  metadataTemplate: string | null;
+  metadata: string | null;
+  extraJson: string | null;
+  royaltyJson: string | null;
+  createdBlockHeight: number;
+  createdBlockTimestamp: number;
+  updatedBlockHeight: number;
+  updatedBlockTimestamp: number;
+}
+
+const SCARCES_COLLECTION_CURRENT_FIELDS = `
+  collectionId
+  creatorId
+  appId
+  price
+  allowlistPrice
+  totalSupply
+  mintedCount
+  remaining
+  startTime
+  endTime
+  createdAt
+  mintMode
+  maxPerWallet
+  paused
+  cancelled
+  banned
+  transferable
+  renewable
+  maxRedeems
+  randomAssignment
+  appCommissionBps
+  title
+  media
+  description
+  kind
+  metadataTemplate
+  metadata
+  extraJson
+  royaltyJson
+  createdBlockHeight
+  createdBlockTimestamp
   updatedBlockHeight
   updatedBlockTimestamp
 `;
@@ -633,6 +710,92 @@ export class ScarcesQuery {
       variables,
     });
     return res.data?.scarcesActiveListings ?? [];
+  }
+
+  /**
+   * Live drop shell for one collection id. Backed by
+   * `scarces_collections_current` — not the event log. Returns null when
+   * missing or banned rows should be treated as unavailable by the caller.
+   */
+  async collectionCurrent(
+    collectionId: string
+  ): Promise<ScarcesCollectionCurrentRow | null> {
+    const id = collectionId.trim();
+    if (!id) return null;
+    const res = await this._q.graphql<{
+      scarcesCollectionsCurrent: ScarcesCollectionCurrentRow[];
+    }>({
+      query: `query ScarcesCollectionCurrent($collectionId: String!) {
+        scarcesCollectionsCurrent(
+          where: { collectionId: {_eq: $collectionId} },
+          limit: 1
+        ) { ${SCARCES_COLLECTION_CURRENT_FIELDS} }
+      }`,
+      variables: { collectionId: id },
+    });
+    return res.data?.scarcesCollectionsCurrent?.[0] ?? null;
+  }
+
+  /**
+   * Live drop catalog (newest created first). Filter by creator / app / kind.
+   *
+   * ```ts
+   * const drops = await os.query.scarces.collectionsCurrent({ creatorId: 'a.near' });
+   * ```
+   */
+  async collectionsCurrent(
+    opts: {
+      limit?: number;
+      offset?: number;
+      creatorId?: string;
+      appId?: string;
+      kind?: string;
+      /** When false (default), hide paused/cancelled/banned shells. */
+      includeUnavailable?: boolean;
+    } = {}
+  ): Promise<ScarcesCollectionCurrentRow[]> {
+    const limit = opts.limit ?? 40;
+    const offset = opts.offset ?? 0;
+    const variables: Record<string, unknown> = { limit, offset };
+    const params = ['$limit: Int!', '$offset: Int!'];
+    const where: string[] = [];
+
+    if (!opts.includeUnavailable) {
+      where.push('paused: {_eq: false}');
+      where.push('cancelled: {_eq: false}');
+      where.push('banned: {_eq: false}');
+    }
+    if (opts.creatorId?.trim()) {
+      params.push('$creatorId: String!');
+      variables.creatorId = opts.creatorId.trim();
+      where.push('creatorId: {_eq: $creatorId}');
+    }
+    if (opts.appId?.trim()) {
+      params.push('$appId: String!');
+      variables.appId = opts.appId.trim();
+      where.push('appId: {_eq: $appId}');
+    }
+    if (opts.kind?.trim()) {
+      params.push('$kind: String!');
+      variables.kind = opts.kind.trim();
+      where.push('kind: {_eq: $kind}');
+    }
+
+    const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';
+    const res = await this._q.graphql<{
+      scarcesCollectionsCurrent: ScarcesCollectionCurrentRow[];
+    }>({
+      query: `query ScarcesCollectionsCurrent(${params.join(', ')}) {
+        scarcesCollectionsCurrent(
+          ${whereClause}
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{createdAt: DESC_NULLS_LAST}, {createdBlockTimestamp: DESC}]
+        ) { ${SCARCES_COLLECTION_CURRENT_FIELDS} }
+      }`,
+      variables,
+    });
+    return res.data?.scarcesCollectionsCurrent ?? [];
   }
 
   /**

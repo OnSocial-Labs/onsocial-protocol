@@ -1,6 +1,7 @@
 use crate::tests::test_utils::*;
 use crate::*;
 use near_sdk::json_types::U128;
+use near_sdk::test_utils::get_logs;
 
 fn minimal_config(id: &str) -> CollectionConfig {
     CollectionConfig {
@@ -42,6 +43,33 @@ fn create_collection_happy_path() {
     assert_eq!(col.creator_id, creator());
     assert_eq!(col.total_supply, 10);
     assert_eq!(col.minted_count, 0);
+}
+
+#[test]
+fn create_collection_emits_catalog_shell_fields() {
+    let mut contract = new_contract();
+    let mut config = minimal_config("shell-drop");
+    config.metadata_template =
+        r#"{"title":"Shell","description":"Desc","media":"ipfs://cover","extra":"{\"kind\":\"audio\"}"}"#
+            .to_string();
+    config.price_near = U128(1_000_000_000_000_000_000_000_000);
+    config.start_time = Some(1_000);
+    config.end_time = Some(2_000);
+
+    contract.create_collection(&creator(), config).unwrap();
+
+    let logs = get_logs();
+    let create_log = logs
+        .iter()
+        .find(|l| l.contains("COLLECTION_UPDATE") && l.contains("\"create\""))
+        .expect("create event");
+    assert!(create_log.contains("\"title\":\"Shell\""));
+    assert!(create_log.contains("\"media\":\"ipfs://cover\""));
+    assert!(create_log.contains("\"kind\":\"audio\""));
+    assert!(create_log.contains("\"minted_count\":0"));
+    assert!(create_log.contains("\"remaining\":10"));
+    assert!(create_log.contains("\"mint_mode\":\"open\""));
+    assert!(create_log.contains("\"metadata_template\""));
 }
 
 #[test]

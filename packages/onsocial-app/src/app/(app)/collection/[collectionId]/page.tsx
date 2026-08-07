@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
-import { fetchCollection } from '@/features/scarces/collections-data';
 import { CollectionPagePanel } from '@/features/scarces/collection-page-panel';
+import {
+  fetchCollectionCached,
+  loadCollectionPageData,
+} from '@/lib/load-collection-page';
 
 type CollectionPageProps = {
   params: Promise<{ collectionId: string }>;
@@ -11,7 +14,7 @@ export async function generateMetadata({
 }: CollectionPageProps): Promise<Metadata> {
   const { collectionId } = await params;
   const id = decodeURIComponent(collectionId);
-  const view = await fetchCollection(id);
+  const view = await fetchCollectionCached(id);
   if (!view) {
     return { title: 'Drop • OnSocial' };
   }
@@ -24,6 +27,13 @@ export async function generateMetadata({
 export default async function CollectionPage({ params }: CollectionPageProps) {
   const { collectionId } = await params;
   const id = decodeURIComponent(collectionId);
-  const view = await fetchCollection(id);
-  return <CollectionPagePanel collectionId={id} initial={view} />;
+  const { view, creator, activity } = await loadCollectionPageData(id);
+  return (
+    <CollectionPagePanel
+      collectionId={id}
+      initial={view}
+      initialCreator={creator}
+      initialActivity={activity}
+    />
+  );
 }

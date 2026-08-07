@@ -1,7 +1,7 @@
 use crate::pb::scarces::v1::*;
 use crate::scarces_db_out::{
-    apply_active_listing, apply_active_offer, apply_app_pool, scarces_db_out_impl,
-    write_scarces_event,
+    apply_active_listing, apply_active_offer, apply_app_pool, apply_collections_current,
+    scarces_db_out_impl, write_scarces_event,
 };
 use substreams_database_change::pb::database::table_change::Operation;
 use substreams_database_change::pb::database::DatabaseChanges;
@@ -954,4 +954,149 @@ fn active_listing_create_without_app_id_leaves_column_unset() {
         find_field_for_pk(&changes, "scarces_active_listings", "native:s:1", "app_id"),
         None
     );
+}
+
+#[test]
+fn collections_current_create_upserts_shell() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-COLLECTION_UPDATE-create".into(),
+        block_height: 20,
+        block_timestamp: 200,
+        receipt_id: "r".into(),
+        event_type: "COLLECTION_UPDATE".into(),
+        operation: "create".into(),
+        author: "creator.near".into(),
+        collection_id: "drop-1".into(),
+        creator_id: "creator.near".into(),
+        price: "1000".into(),
+        total_supply: 10,
+        extra_data: r#"{"collection_id":"drop-1","creator_id":"creator.near","total_supply":10,"price_near":"1000","minted_count":0,"remaining":10,"mint_mode":"open","title":"Shell","media":"ipfs://x","kind":"audio","metadata_template":"{\"title\":\"Shell\"}"}"#.into(),
+        ..Default::default()
+    };
+    apply_collections_current(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "scarces_collections_current"), 1);
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "title"),
+        Some("Shell")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "kind"),
+        Some("audio")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "remaining"),
+        Some("10")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "mint_mode"),
+        Some("open")
+    );
+}
+
+#[test]
+fn collections_current_purchase_updates_minted() {
+    let mut tables = Tables::new();
+    let create = ScarcesEvent {
+        id: "r-0-COLLECTION_UPDATE-create".into(),
+        block_height: 20,
+        block_timestamp: 200,
+        receipt_id: "r0".into(),
+        event_type: "COLLECTION_UPDATE".into(),
+        operation: "create".into(),
+        author: "creator.near".into(),
+        collection_id: "drop-2".into(),
+        creator_id: "creator.near".into(),
+        price: "1".into(),
+        total_supply: 5,
+        extra_data: r#"{"collection_id":"drop-2","total_supply":5,"minted_count":0,"remaining":5,"title":"A"}"#.into(),
+        ..Default::default()
+    };
+    let purchase = ScarcesEvent {
+        id: "r-1-COLLECTION_UPDATE-purchase".into(),
+        block_height: 21,
+        block_timestamp: 210,
+        receipt_id: "r1".into(),
+        event_type: "COLLECTION_UPDATE".into(),
+        operation: "purchase".into(),
+        author: "buyer.near".into(),
+        collection_id: "drop-2".into(),
+        extra_data: r#"{"collection_id":"drop-2","minted_count":2,"remaining":3,"quantity":2}"#.into(),
+        ..Default::default()
+    };
+    apply_collections_current(&mut tables, &create);
+    apply_collections_current(&mut tables, &purchase);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_collections_current", "drop-2", "minted_count"),
+        Some("2")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_collections_current", "drop-2", "remaining"),
+        Some("3")
+    );
+}
+
+#[test]
+fn collections_current_ban_and_delete() {
+    let mut tables = Tables::new();
+    let create = ScarcesEvent {
+        id: "r-0-COLLECTION_UPDATE-create".into(),
+        block_height: 1,
+        block_timestamp: 1,
+        receipt_id: "r0".into(),
+        event_type: "COLLECTION_UPDATE".into(),
+        operation: "create".into(),
+        author: "creator.near".into(),
+        collection_id: "drop-3".into(),
+        creator_id: "creator.near".into(),
+        total_supply: 1,
+        extra_data: r#"{"collection_id":"drop-3","total_supply":1,"remaining":1}"#.into(),
+        ..Default::default()
+    };
+    apply_collections_current(&mut tables, &create);
+    let ban = ScarcesEvent {
+        id: "r-1-COLLECTION_UPDATE-ban".into(),
+        block_height: 2,
+        block_timestamp: 2,
+        receipt_id: "r1".into(),
+        event_type: "COLLECTION_UPDATE".into(),
+        operation: "ban".into(),
+        author: "owner.near".into(),
+        collection_id: "drop-3".into(),
+        extra_data: r#"{"collection_id":"drop-3"}"#.into(),
+        ..Default::default()
+    };
+    apply_collections_current(&mut tables, &ban);
+    let changes = tables.to_database_changes();
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_collections_current", "drop-3", "banned"),
+        Some("true")
+    );
+
+    let mut tables = Tables::new();
+    apply_collections_current(&mut tables, &create);
+    let delete = ScarcesEvent {
+        id: "r-2-COLLECTION_UPDATE-delete".into(),
+        block_height: 3,
+        block_timestamp: 3,
+        receipt_id: "r2".into(),
+        event_type: "COLLECTION_UPDATE".into(),
+        operation: "delete".into(),
+        author: "creator.near".into(),
+        collection_id: "drop-3".into(),
+        extra_data: r#"{"collection_id":"drop-3"}"#.into(),
+        ..Default::default()
+    };
+    apply_collections_current(&mut tables, &delete);
+    let changes = tables.to_database_changes();
+    let deleted = changes.table_changes.iter().any(|tc| {
+        tc.table == "scarces_collections_current"
+            && format!("{:?}", tc.primary_key).contains("drop-3")
+            && matches!(tc.operation(), Operation::Delete)
+    });
+    assert!(deleted, "expected delete for drop-3");
 }

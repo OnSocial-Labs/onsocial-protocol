@@ -156,6 +156,16 @@ impl Contract {
             ));
         }
 
+        let title = parsed_template.title.clone();
+        let media = parsed_template.media.clone();
+        let description = parsed_template.description.clone();
+        let kind = events::kind_from_extra(parsed_template.extra.as_deref());
+        let royalty_json = merged_royalty
+            .as_ref()
+            .and_then(|r| serde_json::to_string(r).ok());
+        let created_at = env::block_timestamp();
+        let mint_mode_str = events::mint_mode_label(&mint_mode);
+
         let collection = LazyCollection {
             creator_id: creator_id.clone(),
             collection_id: collection_id.clone(),
@@ -166,7 +176,7 @@ impl Contract {
             start_price,
             start_time,
             end_time,
-            created_at: env::block_timestamp(),
+            created_at,
             app_id: app_id.clone(),
             royalty: merged_royalty,
             renewable,
@@ -227,14 +237,40 @@ impl Contract {
             self.track_app_creator(app, creator_id);
         }
 
-        events::emit_collection_created(
+        // Re-read after insert so emit uses the stored shell (template / metadata).
+        let stored = self
+            .collections
+            .get(&collection_id)
+            .expect("collection just inserted");
+        events::emit_collection_created(&events::CollectionCreated {
             creator_id,
-            &collection_id,
-            total_supply,
-            price_near,
-            app_id.as_deref(),
+            collection_id: &collection_id,
+            total_supply: stored.total_supply,
+            price_near: stored.price_near,
+            allowlist_price: stored.allowlist_price,
+            start_time: stored.start_time,
+            end_time: stored.end_time,
+            created_at: stored.created_at,
+            mint_mode: mint_mode_str,
+            max_per_wallet: stored.max_per_wallet,
+            transferable: stored.transferable,
+            renewable: stored.renewable,
+            max_redeems: stored.max_redeems,
+            random_assignment: stored.random_assignment,
+            minted_count: 0,
+            remaining: stored.total_supply,
+            app_id: stored.app_id.as_deref(),
             app_commission_bps,
-        );
+            browse: events::CollectionBrowseMeta {
+                title: title.as_deref(),
+                media: media.as_deref(),
+                description: description.as_deref(),
+                kind: kind.as_deref(),
+                metadata_template: Some(stored.metadata_template.as_str()),
+                metadata: stored.metadata.as_deref(),
+                royalty_json: royalty_json.as_deref(),
+            },
+        });
         Ok(())
     }
 }
