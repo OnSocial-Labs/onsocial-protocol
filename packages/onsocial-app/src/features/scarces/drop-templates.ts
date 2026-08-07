@@ -3,6 +3,10 @@
  * itself. Templates preset rights toggles and surface the fields that
  * matter, but never lock anything: Advanced stays editable, so every
  * template is a starting point rather than a straitjacket.
+ *
+ * Copy bar (hub-create style):
+ * - tagline: one product sentence — shown under the kind tabs
+ * - hint: presets + one “why” — InfoDrawer detail only (no field tours)
  */
 
 export type DropTemplateId =
@@ -17,9 +21,9 @@ export type DropTemplateId =
 export interface DropTemplate {
   id: DropTemplateId;
   label: string;
-  /** One-line summary shown in the hint drawer. */
+  /** One product sentence — kind lede + InfoDrawer summary. */
   tagline: string;
-  /** Longer hint drawer copy — what the template presets and why. */
+  /** Presets + one why — InfoDrawer detail only. */
   hint: string;
   /** Token provenance kind; null = derive from rights (custom). */
   kind: string | null;
@@ -44,9 +48,8 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'art',
     label: 'Artwork',
-    tagline:
-      'A supply-capped edition set fans mint until it sells out — with an optional open window.',
-    hint: 'Every edition is tradable and permanent. Add a sale window in Advanced to run a timed drop, or leave it open until the supply runs out.',
+    tagline: 'Supply-capped editions fans mint until sold out.',
+    hint: 'Tradable and permanent by default. Optional sale window in Advanced.',
     kind: 'art',
     unit: 'editions',
     unitSingular: 'edition',
@@ -56,9 +59,8 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'writing',
     label: 'Writing',
-    tagline:
-      'A written work as a supply-capped edition — books, poems, essays, and more.',
-    hint: 'Cover + Markdown / PDF: Article (one file) or Book (ordered chapters, up to 100). We pin files for you — holders open the reader (and can download) on the drop page. About stays public. Tradable by default; turn off transferable in Advanced for soulbound copies.',
+    tagline: 'A written work as capped editions — books, poems, essays.',
+    hint: 'Article or Book with a cover. Tradable by default; soulbound in Advanced.',
     kind: 'writing',
     unit: 'copies',
     unitSingular: 'copy',
@@ -68,9 +70,8 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'audio',
     label: 'Audio',
-    tagline:
-      'A single or album — one cover, playable tracks, editions collectors keep.',
-    hint: 'Pick Single (one track) or Album (two or more). Cover art fronts the drop in wallets; tracks play in OnSocial. Every edition shares the same release.',
+    tagline: 'A single or album — one cover, playable tracks, shared release.',
+    hint: 'Every edition gets the same tracks. Cover fronts wallets; play in OnSocial.',
     kind: 'audio',
     unit: 'editions',
     unitSingular: 'edition',
@@ -80,8 +81,8 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'ticket',
     label: 'Tickets',
-    tagline: 'Event entry — one redeem per ticket. Set when sales close below.',
-    hint: 'Each ticket redeems once at the door. Set the sale close to your event date, and cap per-wallet buys to stop scalping. Tickets stay tradable until they’re redeemed.',
+    tagline: 'Event entry — one redeem per ticket.',
+    hint: 'Set sale close to the event. Cap per wallet to limit scalping. Tradable until redeemed.',
     kind: 'ticket',
     unit: 'tickets',
     unitSingular: 'ticket',
@@ -92,8 +93,8 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'coupon',
     label: 'Coupons',
-    tagline: 'Redeemable perks with an expiry — set when they expire below.',
-    hint: 'Coupons redeem once and stop working after the access-end date. Good for discounts, freebies, and perks — the holder redeems, you honor it.',
+    tagline: 'Redeemable perks with an expiry.',
+    hint: 'Redeems once, then expires. Set access end in Advanced.',
     kind: 'coupon',
     unit: 'coupons',
     unitSingular: 'coupon',
@@ -105,7 +106,7 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     id: 'membership',
     label: 'Membership',
     tagline: 'Renewable passes that stay with the member.',
-    hint: 'Passes are soulbound and renewable — members keep theirs and extend it. Set an access end in Advanced to run seasons or billing periods.',
+    hint: 'Soulbound and renewable. Optional access end for seasons.',
     kind: 'membership',
     unit: 'passes',
     unitSingular: 'pass',
@@ -115,8 +116,8 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'custom',
     label: 'Custom',
-    tagline: 'Every switch exposed — configure the drop yourself.',
-    hint: 'Start from every switch open: transferability, renewals, redeems, allowlists, and sale windows. The rights you pick decide how the drop behaves in wallets.',
+    tagline: 'Every switch open — configure the drop yourself.',
+    hint: 'Transfer, renewals, redeems, allowlists, sale windows — you pick the rights.',
     kind: null,
     unit: 'editions',
     unitSingular: 'edition',

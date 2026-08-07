@@ -18,6 +18,10 @@ export interface PortfolioHoldingPeek {
   mediaUrl: string | null;
   collectionId: string | null;
   mediumKind: string | null;
+  /** Audio release format when known. */
+  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  /** Discovery facets (genres / subjects). */
+  facets?: string[];
   /** Deep link into the drop (or market fallback). */
   href: string;
   /** Primary use action for this medium. */
@@ -89,6 +93,10 @@ export function toPortfolioHoldingPeek(
     mediaUrl: item.mediaUrl ?? null,
     collectionId,
     mediumKind,
+    ...(item.audioFormat !== undefined
+      ? { audioFormat: item.audioFormat }
+      : {}),
+    ...(item.facets && item.facets.length > 0 ? { facets: item.facets } : {}),
     href: holdingsHrefForOwned({
       tokenId: item.tokenId,
       collectionId,

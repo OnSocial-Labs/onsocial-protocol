@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
+import { writingPinFingerprint } from '@/features/scarces/drop-pin-draft';
 import {
+  bookPdfFromManifest,
+  bookPdfRefFromPinnedFile,
   buildWritingManifest,
   chapterTitleFromFile,
   chaptersFromPinnedFiles,
+  isDropWritingChapterMime,
   isDropWritingMime,
   isLikelyIpfsCid,
   parseWritingFormat,
@@ -15,6 +19,10 @@ import {
 
 function mdFile(name: string, type = 'text/markdown'): File {
   return new File(['# hi'], name, { type });
+}
+
+function pdfFile(name: string): File {
+  return new File(['%PDF'], name, { type: 'application/pdf' });
 }
 
 describe('isDropWritingMime', () => {
@@ -35,13 +43,27 @@ describe('isDropWritingMime', () => {
   });
 });
 
+describe('isDropWritingChapterMime', () => {
+  it('allows PDF chapters for articles only', () => {
+    expect(
+      isDropWritingChapterMime('application/pdf', 'essay.pdf', 'article')
+    ).toBe(true);
+    expect(
+      isDropWritingChapterMime('application/pdf', 'essay.pdf', 'book')
+    ).toBe(false);
+    expect(
+      isDropWritingChapterMime('text/markdown', '01-road.md', 'book')
+    ).toBe(true);
+    expect(isDropWritingChapterMime('', 'notes.txt', 'book')).toBe(true);
+    expect(isDropWritingChapterMime('', 'folio.pdf', 'book')).toBe(false);
+  });
+});
+
 describe('chapterTitleFromFile', () => {
   it('strips numeric prefixes and extensions', () => {
     expect(chapterTitleFromFile(mdFile('01-the-road.md'))).toBe('The road');
     expect(chapterTitleFromFile(mdFile('02_intro.markdown'))).toBe('Intro');
-    expect(
-      chapterTitleFromFile(new File(['%PDF'], '03-folio.pdf', { type: 'application/pdf' }))
-    ).toBe('Folio');
+    expect(chapterTitleFromFile(pdfFile('03-folio.pdf'))).toBe('Folio');
   });
 });
 
@@ -90,6 +112,96 @@ describe('writing manifesto', () => {
       'Two',
     ]);
     expect(readablesFromManifest(parsed!)[0]?.url).toMatch(/^\/api\/ipfs\//);
+    expect(parsed?.bookPdf).toBeUndefined();
+    expect(bookPdfFromManifest(parsed!)).toBeNull();
+  });
+
+  it('round-trips optional whole-book PDF without folding into chapters', () => {
+    const built = buildWritingManifest({
+      title: 'Novella',
+      chapters: [
+        {
+          cid: 'bafychapteroneaaaaaaaaaaaaaaaaaa',
+          mime: 'text/markdown',
+          title: 'One',
+        },
+        {
+          cid: 'bafychaptertwoaaaaaaaaaaaaaaaaaa',
+          mime: 'text/markdown',
+          title: 'Two',
+        },
+      ],
+      bookPdf: {
+        cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa',
+        mime: 'application/pdf',
+        title: 'Print edition',
+      },
+    });
+    expect(built.bookPdf?.cid).toBe('bafybookpdfaaaaaaaaaaaaaaaaaaaaa');
+    const parsed = parseWritingManifest(built);
+    expect(parsed?.chapters).toHaveLength(2);
+    expect(parsed?.bookPdf?.mime).toBe('application/pdf');
+    expect(readablesFromManifest(parsed!).map((c) => c.title)).toEqual([
+      'One',
+      'Two',
+    ]);
+    expect(bookPdfFromManifest(parsed!)?.cid).toBe(
+      'bafybookpdfaaaaaaaaaaaaaaaaaaaaa'
+    );
+    expect(bookPdfFromManifest(parsed!)?.url).toMatch(/^\/api\/ipfs\//);
+  });
+
+  it('ignores non-PDF bookPdf and never folds it into chapters', () => {
+    const parsed = parseWritingManifest({
+      format: 'onsocial.writing.v1',
+      chapters: [
+        {
+          cid: 'bafychapteroneaaaaaaaaaaaaaaaaaa',
+          mime: 'text/markdown',
+          title: 'One',
+        },
+      ],
+      bookPdf: {
+        cid: 'bafynotpdfaaaaaaaaaaaaaaaaaaaaaa',
+        mime: 'text/markdown',
+        title: 'Nope',
+      },
+    });
+    expect(parsed?.bookPdf).toBeUndefined();
+    expect(parsed?.chapters).toHaveLength(1);
+    expect(bookPdfFromManifest(parsed!)).toBeNull();
+  });
+
+  it('omits bookPdf from build when mime is not PDF', () => {
+    const built = buildWritingManifest({
+      chapters: [
+        {
+          cid: 'bafychapteroneaaaaaaaaaaaaaaaaaa',
+          mime: 'text/markdown',
+        },
+      ],
+      bookPdf: {
+        cid: 'bafynotpdfaaaaaaaaaaaaaaaaaaaaaa',
+        mime: 'text/plain',
+      },
+    });
+    expect(built.bookPdf).toBeUndefined();
+  });
+
+  it('builds bookPdf ref from a pinned PDF file', () => {
+    const file = pdfFile('print-edition.pdf');
+    expect(
+      bookPdfRefFromPinnedFile(file, { cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa' })
+    ).toEqual({
+      cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa',
+      mime: 'application/pdf',
+      title: 'Print edition',
+    });
+    expect(
+      bookPdfRefFromPinnedFile(mdFile('nope.md'), {
+        cid: 'bafybookpdfaaaaaaaaaaaaaaaaaaaaa',
+      })
+    ).toBeNull();
   });
 
   it('rejects unknown manifesto formats', () => {
@@ -150,6 +262,27 @@ describe('writing manifesto', () => {
       'bafynightchapteraaaaaaaaaaaaaaa',
       'bafyprologuechapteraaaaaaaaaaaa',
     ]);
+  });
+});
+
+describe('writingPinFingerprint', () => {
+  it('includes bookPdf when present', () => {
+    const cover = new File(['img'], 'cover.png', { type: 'image/png' });
+    const chapters = [mdFile('01.md'), mdFile('02.md')];
+    const bookPdf = pdfFile('book.pdf');
+    const without = writingPinFingerprint({
+      format: 'book',
+      chapters,
+      cover,
+    });
+    const withPdf = writingPinFingerprint({
+      format: 'book',
+      chapters,
+      cover,
+      bookPdf,
+    });
+    expect(withPdf).not.toBe(without);
+    expect(withPdf).toContain(bookPdf.name);
   });
 });
 

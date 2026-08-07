@@ -18,6 +18,11 @@ import {
   osIconActionClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@/components/ui/info-drawer';
+import {
+  DropFieldInfoDrawer,
+  DropFieldLabel,
+  type DropFieldInfoKey,
+} from '@/features/scarces/drop-field-info';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
@@ -51,15 +56,22 @@ import { DropTrackPreviewList } from '@/features/scarces/drop-track-preview-list
 import {
   DROP_WRITING_MAX_CHAPTERS,
   DROP_WRITING_PDF_MAX_BYTES,
+  bookPdfRefFromPinnedFile,
   buildWritingManifest,
   chaptersFromPinnedFiles,
   dropWritingMaxBytes,
-  isDropWritingMime,
+  isDropWritingChapterMime,
   isWritingPdfMime,
   writingChaptersValid,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { DropChapterPreviewList } from '@/features/scarces/drop-chapter-preview-list';
+import { DropFacetsEditor } from '@/features/scarces/drop-facets-editor';
+import {
+  dropFacetsExtraFields,
+  dropFacetsLabel,
+  normalizeDropFacets,
+} from '@/features/scarces/drop-facets';
 import {
   DROP_TEMPLATES,
   type DropTemplate,
@@ -75,6 +87,20 @@ import {
 } from '@/features/scarces/generative-drop-builder';
 import { GenerativeStudioHelpDrawer } from '@/features/scarces/generative-studio-help-drawer';
 import {
+  clearDropPinDraft,
+  clearDropPinDraftIfKind,
+  largeSetPinFingerprint,
+  loadDropPinDraft,
+  musicPinFingerprint,
+  saveDropPinDraft,
+  writingPinFingerprint,
+} from '@/features/scarces/drop-pin-draft';
+import {
+  DropStartConfirmSheet,
+  type DropStartConfirmPhase,
+  type DropStartSummaryRow,
+} from '@/features/scarces/drop-start-confirm-sheet';
+import {
   DropSaleWindowSheet,
   formatScheduleLabel,
   localDateTimeToMs,
@@ -85,6 +111,7 @@ import {
   buildRoyaltyMap,
   DEFAULT_ROYALTY_BPS,
   defaultRoyaltyShares,
+  formatRoyaltyPercent,
   parseCustomRoyaltyBps,
   validateRoyaltyShares,
   type RoyaltySplitShare,
@@ -197,7 +224,9 @@ export function CreateDropPanel() {
   const [trackLyrics, setTrackLyrics] = useState<string[]>([]);
   const [writingFormat, setWritingFormat] =
     useState<WritingReleaseFormat>('article');
+  const [facets, setFacets] = useState<string[]>([]);
   const [chapterFiles, setChapterFiles] = useState<File[]>([]);
+  const [bookPdfFile, setBookPdfFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [variationFiles, setVariationFiles] = useState<File[]>([]);
@@ -241,16 +270,32 @@ export function CreateDropPanel() {
     chapterCount: number;
     coverCid: string;
     coverHash: string;
+    hasBookPdf?: boolean;
   } | null>(null);
   const [pinnedLargeSet, setPinnedLargeSet] = useState<{
     cid: string;
     ext: string;
+    pieceCount: number;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [fieldInfoKey, setFieldInfoKey] = useState<DropFieldInfoKey | null>(
+    null
+  );
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmPhase, setConfirmPhase] =
+    useState<DropStartConfirmPhase>('review');
+  const [uploadLabel, setUploadLabel] = useState('Uploading…');
+  const pinHydratedRef = useRef(false);
+  const prevAccountIdRef = useRef<string | null | undefined>(undefined);
+  const startInFlightRef = useRef(false);
+  const skipMusicPinInvalidate = useRef(true);
+  const skipWritingPinInvalidate = useRef(true);
+  const skipLargePinInvalidate = useRef(true);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const tracksInputRef = useRef<HTMLInputElement>(null);
   const chaptersInputRef = useRef<HTMLInputElement>(null);
+  const bookPdfInputRef = useRef<HTMLInputElement>(null);
   const variationsInputRef = useRef<HTMLInputElement>(null);
   /** Replace wipes the set; append adds to the end (same format). */
   const variationPickModeRef = useRef<'replace' | 'append'>('replace');
@@ -259,18 +304,123 @@ export function CreateDropPanel() {
   const errorRef = useRef<HTMLParagraphElement>(null);
   const toolbarHidden = useDockAutoHide();
 
-  // Invalidate pins if the creator changes files after prepare.
-  useEffect(() => {
+  const clearPins = useCallback(() => {
     setPinnedMusic(null);
+    setPinnedWriting(null);
+    setPinnedLargeSet(null);
+    clearDropPinDraft();
+  }, []);
+
+  // Invalidate pins if the creator changes files after prepare — keep when
+  // the local fingerprint still matches the saved draft for this account.
+  useEffect(() => {
+    if (skipMusicPinInvalidate.current) {
+      skipMusicPinInvalidate.current = false;
+      return;
+    }
+    if (trackFiles.length === 0 || !imageFile) return;
+    if (accountId) {
+      const fingerprint = musicPinFingerprint({
+        format: musicFormat,
+        tracks: trackFiles,
+        lyrics: trackLyrics,
+        cover: imageFile,
+      });
+      const draft = loadDropPinDraft(accountId);
+      if (draft?.kind === 'music' && draft.fingerprint === fingerprint) {
+        setPinnedMusic(draft.pinned);
+        return;
+      }
+    }
+    setPinnedMusic(null);
+    clearDropPinDraftIfKind(accountId, 'music');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackFiles, trackLyrics, imageFile, musicFormat]);
 
   useEffect(() => {
+    if (skipWritingPinInvalidate.current) {
+      skipWritingPinInvalidate.current = false;
+      return;
+    }
+    if (chapterFiles.length === 0 || !imageFile) return;
+    if (accountId) {
+      const fingerprint = writingPinFingerprint({
+        format: writingFormat,
+        chapters: chapterFiles,
+        cover: imageFile,
+        bookPdf: bookPdfFile,
+      });
+      const draft = loadDropPinDraft(accountId);
+      if (draft?.kind === 'writing' && draft.fingerprint === fingerprint) {
+        setPinnedWriting(draft.pinned);
+        return;
+      }
+    }
     setPinnedWriting(null);
-  }, [chapterFiles, imageFile, writingFormat]);
+    clearDropPinDraftIfKind(accountId, 'writing');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterFiles, bookPdfFile, imageFile, writingFormat]);
 
   useEffect(() => {
+    if (skipLargePinInvalidate.current) {
+      skipLargePinInvalidate.current = false;
+      return;
+    }
+    if (variationFiles.length === 0) return;
+    if (accountId) {
+      const fingerprint = largeSetPinFingerprint(variationFiles);
+      const draft = loadDropPinDraft(accountId);
+      if (draft?.kind === 'large-set' && draft.fingerprint === fingerprint) {
+        setPinnedLargeSet(draft.pinned);
+        return;
+      }
+    }
     setPinnedLargeSet(null);
+    clearDropPinDraftIfKind(accountId, 'large-set');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variationFiles]);
+
+  // Resume a successful pin after refresh / reopen (same account, unexpired).
+  useEffect(() => {
+    const prev = prevAccountIdRef.current;
+    prevAccountIdRef.current = accountId;
+
+    if (!accountId) {
+      clearPins();
+      pinHydratedRef.current = false;
+      return;
+    }
+
+    if (prev && prev !== accountId) {
+      clearPins();
+      pinHydratedRef.current = false;
+    }
+
+    if (pinHydratedRef.current) return;
+    pinHydratedRef.current = true;
+    const draft = loadDropPinDraft(accountId);
+    if (!draft) return;
+
+    if (draft.kind === 'music') {
+      setTemplateId('audio');
+      setMusicFormat(draft.musicFormat);
+      setPinnedMusic(draft.pinned);
+      return;
+    }
+
+    if (draft.kind === 'writing') {
+      setTemplateId('writing');
+      setWritingFormat(draft.pinned.writingFormat || draft.writingFormat);
+      setPinnedWriting(draft.pinned);
+      return;
+    }
+
+    setTemplateId(draft.templateId === 'custom' ? 'custom' : 'art');
+    setArtMode('variations');
+    setVariationSource('upload');
+    setPinnedLargeSet(draft.pinned);
+    setSupplyInput(String(draft.pinned.pieceCount));
+  }, [accountId, clearPins]);
 
   const template =
     DROP_TEMPLATES.find((entry) => entry.id === templateId) ??
@@ -283,25 +433,33 @@ export function CreateDropPanel() {
     }
   }, [error]);
 
-  const applyTemplate = useCallback((next: DropTemplate) => {
-    setTemplateId(next.id);
-    if (next.presets) {
-      setTransferable(next.presets.transferable);
-      setRenewable(next.presets.renewable);
-      setMaxRedeemsInput(next.presets.maxRedeems);
-      if (!next.presets.renewable) setAccessEnds('');
-    }
-    if (next.openAdvanced) setShowAdvanced(true);
-    if (next.id === 'audio') {
-      setArtMode('single');
-      setMusicFormat('single');
-    }
-    if (next.id === 'writing') {
-      setArtMode('single');
-      setWritingFormat('article');
-    }
-    setError(null);
-  }, []);
+  const applyTemplate = useCallback(
+    (next: DropTemplate) => {
+      clearPins();
+      setTemplateId(next.id);
+      setFacets([]);
+      if (next.presets) {
+        setTransferable(next.presets.transferable);
+        setRenewable(next.presets.renewable);
+        setMaxRedeemsInput(next.presets.maxRedeems);
+        if (!next.presets.renewable) setAccessEnds('');
+      }
+      if (next.openAdvanced) setShowAdvanced(true);
+      if (next.id === 'audio') {
+        setArtMode('single');
+        setMusicFormat('single');
+      }
+      if (next.id === 'writing') {
+        setArtMode('single');
+        setWritingFormat('article');
+        setBookPdfFile(null);
+      } else {
+        setBookPdfFile(null);
+      }
+      setError(null);
+    },
+    [clearPins]
+  );
 
   const isAudio = templateId === 'audio';
   const isWriting = templateId === 'writing';
@@ -321,12 +479,18 @@ export function CreateDropPanel() {
   );
   const editionSupply = Number.parseInt(supplyInput, 10);
   const supply =
-    isVariations && !isPinnedSet ? variationFiles.length : editionSupply;
+    isVariations && !isPinnedSet
+      ? variationFiles.length > 0
+        ? variationFiles.length
+        : (pinnedLargeSet?.pieceCount ?? 0)
+      : editionSupply;
   const price = finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS);
   const supplyValid =
     isVariations && !isPinnedSet
-      ? variationFiles.length >= MIN_VARIATIONS &&
-        variationFiles.length <= MAX_SET_PIECES
+      ? pinnedLargeSet != null
+        ? supply >= MIN_VARIATIONS && supply <= MAX_SET_PIECES
+        : variationFiles.length >= MIN_VARIATIONS &&
+          variationFiles.length <= MAX_SET_PIECES
       : Number.isSafeInteger(editionSupply) &&
         editionSupply >= (isPinnedSet ? MIN_VARIATIONS : MIN_SUPPLY) &&
         editionSupply <= MAX_SUPPLY;
@@ -344,9 +508,13 @@ export function CreateDropPanel() {
       (!supplyValid || coverSeat <= supply));
 
   const tracksReady =
-    !isAudio || musicTracksValid(musicFormat, trackFiles.length);
+    !isAudio ||
+    musicTracksValid(musicFormat, trackFiles.length) ||
+    pinnedMusic != null;
   const chaptersReady =
-    !isWriting || writingChaptersValid(writingFormat, chapterFiles.length);
+    !isWriting ||
+    writingChaptersValid(writingFormat, chapterFiles.length) ||
+    pinnedWriting != null;
   const customRoyaltyBps = parseCustomRoyaltyBps(customRoyaltyInput);
   const resolvedRoyaltyBps = isCustomRoyalty ? customRoyaltyBps : royaltyBps;
   const resolvedRoyaltyShares =
@@ -368,8 +536,8 @@ export function CreateDropPanel() {
     (isVariations
       ? isPinnedSet
         ? pinnedCidValid
-        : variationFiles.length >= MIN_VARIATIONS
-      : imageFile != null);
+        : variationFiles.length >= MIN_VARIATIONS || pinnedLargeSet != null
+      : imageFile != null || pinnedMusic != null || pinnedWriting != null);
 
   const onImageChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -459,8 +627,21 @@ export function CreateDropPanel() {
       event.target.value = '';
       if (picked.length === 0) return;
       for (const file of picked) {
-        if (!isDropWritingMime(file.type, file.name)) {
-          setError('Use Markdown (.md), plain text (.txt), or PDF (.pdf).');
+        if (!isDropWritingChapterMime(file.type, file.name, writingFormat)) {
+          if (
+            writingFormat === 'book' &&
+            isWritingPdfMime(file.type, file.name)
+          ) {
+            setError(
+              'Books use Markdown chapters — add a whole-book PDF below.'
+            );
+          } else {
+            setError(
+              writingFormat === 'book'
+                ? 'Use Markdown (.md) or plain text (.txt) for chapters.'
+                : 'Use Markdown (.md), plain text (.txt), or PDF (.pdf).'
+            );
+          }
           return;
         }
         if (file.size > dropWritingMaxBytes(file)) {
@@ -483,6 +664,27 @@ export function CreateDropPanel() {
     [writingFormat]
   );
 
+  const onBookPdfChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] ?? null;
+      event.target.value = '';
+      if (!file) return;
+      if (!isWritingPdfMime(file.type, file.name)) {
+        setError('Whole-book file must be a PDF (.pdf).');
+        return;
+      }
+      if (file.size > DROP_WRITING_PDF_MAX_BYTES) {
+        setError(
+          `Book PDF must be ${Math.round(DROP_WRITING_PDF_MAX_BYTES / (1024 * 1024))} MB or smaller.`
+        );
+        return;
+      }
+      setError(null);
+      setBookPdfFile(file);
+    },
+    []
+  );
+
   const removeChapterAt = useCallback((index: number) => {
     setChapterFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
@@ -496,6 +698,13 @@ export function CreateDropPanel() {
       setWritingFormat(format);
       if (format === 'article') {
         setChapterFiles((prev) => prev.slice(0, 1));
+        setBookPdfFile(null);
+      } else if (format === 'book') {
+        setChapterFiles((prev) =>
+          prev.filter((file) =>
+            isDropWritingChapterMime(file.type, file.name, 'book')
+          )
+        );
       }
       setError(null);
     },
@@ -654,81 +863,545 @@ export function CreateDropPanel() {
     setStudioOpen(false);
   }, []);
 
-  const handleSubmit = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      setError(null);
+  const needsWalletConfirm =
+    (isAudio && pinnedMusic != null) ||
+    (isWriting && pinnedWriting != null) ||
+    (isVariations &&
+      variationSource === 'upload' &&
+      pinnedLargeSet != null);
 
-      if (!isConnected) {
+  const startSummaryRows = useMemo((): DropStartSummaryRow[] => {
+    const kindParts = [template.label];
+    if (isAudio) {
+      kindParts.push(musicFormat === 'album' ? 'Album' : 'Single');
+      if (trackFiles.length > 0) {
+        kindParts.push(
+          `${trackFiles.length} ${trackFiles.length === 1 ? 'track' : 'tracks'}`
+        );
+      } else if (pinnedMusic) {
+        kindParts.push(
+          `${pinnedMusic.playable.length} ${
+            pinnedMusic.playable.length === 1 ? 'track' : 'tracks'
+          }`
+        );
+      }
+    } else if (isWriting) {
+      kindParts.push(writingFormat === 'book' ? 'Book' : 'Article');
+      const chapterCount =
+        chapterFiles.length > 0
+          ? chapterFiles.length
+          : (pinnedWriting?.chapterCount ?? 0);
+      if (chapterCount > 0) {
+        kindParts.push(
+          `${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'}`
+        );
+      }
+      if (writingFormat === 'book' && (bookPdfFile != null || pinnedWriting?.hasBookPdf)) {
+        kindParts.push('PDF');
+      }
+    } else if (isVariations) {
+      kindParts.push('Set');
+      if (supplyValid) {
+        kindParts.push(`${supply} pieces`);
+      }
+    }
+
+    const royaltyValue =
+      resolvedRoyaltyBps == null
+        ? '—'
+        : resolvedRoyaltyBps <= 0
+          ? 'None'
+          : `${formatRoyaltyPercent(resolvedRoyaltyBps)}%${
+              resolvedRoyaltyShares.length > 1
+                ? ` · ${resolvedRoyaltyShares.length} recipients`
+                : ''
+            }`;
+
+    const rows: DropStartSummaryRow[] = [
+      { label: 'Kind', value: kindParts.join(' · ') },
+      { label: 'Title', value: title.trim() || '—' },
+      {
+        label: 'Drop ID',
+        value: collectionId || derivedSlug || '—',
+      },
+      { label: 'Supply', value: `${supply} ${template.unit}` },
+      { label: 'Price', value: price ? `${price} NEAR` : 'Free' },
+      {
+        label: 'Transferable',
+        value: transferable ? 'Yes' : 'Soulbound',
+      },
+      { label: 'Renewable', value: renewable ? 'Yes' : 'No' },
+      { label: 'Royalty', value: royaltyValue },
+      {
+        label: 'Sale',
+        value:
+          startTime || endTime
+            ? `${startTime ? formatScheduleLabel(startTime) : 'Now'} → ${
+                endTime ? formatScheduleLabel(endTime) : 'Sold out'
+              }`
+            : 'Now → sold out',
+      },
+    ];
+
+    if (appId) {
+      rows.push({ label: 'Hub', value: appId });
+    }
+    const trimmedSeries = seriesName.trim();
+    if (trimmedSeries) {
+      rows.push({ label: 'Series', value: trimmedSeries });
+    }
+    if (renewable && accessEnds.trim()) {
+      rows.push({
+        label: 'Access ends',
+        value: formatScheduleLabel(accessEnds),
+      });
+    }
+    if (maxRedeemsInput.trim() && Number.isSafeInteger(maxRedeems)) {
+      rows.push({
+        label: 'Max redeems',
+        value: String(maxRedeems),
+      });
+    }
+    const perWallet = Number.parseInt(maxPerWallet, 10);
+    if (Number.isSafeInteger(perWallet) && perWallet > 0) {
+      rows.push({
+        label: 'Max per wallet',
+        value: `${perWallet} ${template.unit}`,
+      });
+    }
+    if (draftAllowlist.length > 0) {
+      rows.push({
+        label: 'Allowlist',
+        value: `${draftAllowlist.length} accounts`,
+      });
+    }
+    const facetLabel = dropFacetsLabel(
+      normalizeDropFacets(facets, isAudio ? 'audio' : isWriting ? 'writing' : null)
+    );
+    if (facetLabel) {
+      rows.push({
+        label: isAudio ? 'Genre' : 'Subject',
+        value: facetLabel,
+      });
+    }
+    return rows;
+  }, [
+    template.label,
+    template.unit,
+    isAudio,
+    musicFormat,
+    trackFiles.length,
+    pinnedMusic,
+    isWriting,
+    writingFormat,
+    chapterFiles.length,
+    bookPdfFile,
+    pinnedWriting,
+    isVariations,
+    supplyValid,
+    supply,
+    title,
+    collectionId,
+    derivedSlug,
+    appId,
+    price,
+    transferable,
+    renewable,
+    resolvedRoyaltyBps,
+    resolvedRoyaltyShares.length,
+    startTime,
+    endTime,
+    seriesName,
+    accessEnds,
+    maxRedeemsInput,
+    maxRedeems,
+    maxPerWallet,
+    draftAllowlist.length,
+    facets,
+  ]);
+
+  const openStartConfirm = useCallback(async () => {
+    setError(null);
+
+    if (!isConnected) {
+      await connect();
+      return;
+    }
+    if (isVariations && isPinnedSet && !pinnedCidValid) {
+      setError('Paste the IPFS folder CID of your pinned set.');
+      return;
+    }
+    if (
+      isVariations &&
+      !isPinnedSet &&
+      variationFiles.length < MIN_VARIATIONS &&
+      !pinnedLargeSet
+    ) {
+      setError(
+        `Add ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — one per piece.`
+      );
+      return;
+    }
+    if (!isVariations && !imageFile && !pinnedMusic && !pinnedWriting) {
+      setError(
+        isAudio || isWriting
+          ? 'Add cover art for the release.'
+          : 'Add artwork for the drop.'
+      );
+      return;
+    }
+    if (
+      isAudio &&
+      !pinnedMusic &&
+      !musicTracksValid(musicFormat, trackFiles.length)
+    ) {
+      setError(
+        musicFormat === 'single'
+          ? 'Add one track for this single.'
+          : `Add 2–${DROP_AUDIO_MAX_TRACKS} tracks for an album.`
+      );
+      return;
+    }
+    if (
+      isWriting &&
+      !pinnedWriting &&
+      !writingChaptersValid(writingFormat, chapterFiles.length)
+    ) {
+      setError(
+        writingFormat === 'article'
+          ? 'Add a manuscript for this article.'
+          : `Add 2–${DROP_WRITING_MAX_CHAPTERS} chapters for a book.`
+      );
+      return;
+    }
+    if (!traitsCidValid) {
+      setError('The traits folder CID doesn’t look like an IPFS CID.');
+      return;
+    }
+    if (!supplyValid) {
+      setError(
+        isVariations && !isPinnedSet
+          ? `Variation sets are ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} pieces.`
+          : isPinnedSet
+            ? `Supply must be between ${MIN_VARIATIONS} and ${MAX_SUPPLY}.`
+            : `Supply must be between ${MIN_SUPPLY} and ${MAX_SUPPLY}.`
+      );
+      return;
+    }
+    if (!maxRedeemsValid) {
+      setError('Max redeems must be a positive whole number.');
+      return;
+    }
+    if (!coverSeatValid) {
+      setError(`Cover piece must be between 1 and ${supply}.`);
+      return;
+    }
+    if (!canSubmit) {
+      setError('Add a title, cover art, and supply to start the drop.');
+      return;
+    }
+    if (template.requiresEndTime && !endTime) {
+      setError(
+        'Set when sales close in Sale window — tickets need an event date.'
+      );
+      return;
+    }
+    if (template.requiresAccessEnd && !(renewable && accessEnds)) {
+      setError(`Set when access ends — ${template.unit} need an expiry date.`);
+      return;
+    }
+
+    const startNs = localDateTimeToNs(startTime);
+    const endNs = localDateTimeToNs(endTime);
+    const expiresAtMs =
+      renewable && accessEnds ? localDateTimeToMs(accessEnds) : undefined;
+    const nowNs = BigInt(Date.now()) * 1_000_000n;
+    if (startNs && BigInt(startNs) <= nowNs) {
+      setError('The open time must be in the future. Clear it for Now.');
+      return;
+    }
+    if (endNs && BigInt(endNs) <= nowNs) {
+      setError('The close time must be in the future.');
+      return;
+    }
+    if (startNs && endNs && BigInt(endNs) <= BigInt(startNs)) {
+      setError('The close time must be after the open time.');
+      return;
+    }
+    if (expiresAtMs != null && expiresAtMs <= Date.now()) {
+      setError('Access end must be in the future.');
+      return;
+    }
+    if (resolvedRoyaltyBps == null) {
+      setError('Enter a royalty between 0 and 50%.');
+      return;
+    }
+    if (resolvedRoyaltyBps > 0) {
+      const shareError = validateRoyaltyShares(resolvedRoyaltyShares);
+      if (shareError) {
+        setError(shareError);
+        return;
+      }
+    }
+    if (draftAllowlist.length > 0 && !startTime.trim()) {
+      setError(
+        'Set Opens in Sale window so the allowlist can mint early — or clear the list.'
+      );
+      return;
+    }
+
+    if (!collectionId) {
+      setError('Add a title so OnSocial can build a drop ID.');
+      return;
+    }
+
+    const uploaderAccountId = accountId?.trim();
+    if (!uploaderAccountId) {
+      await connect();
+      return;
+    }
+
+    setConfirmPhase(needsWalletConfirm ? 'ready' : 'review');
+    setConfirmOpen(true);
+  }, [
+    isConnected,
+    connect,
+    isVariations,
+    isPinnedSet,
+    pinnedCidValid,
+    variationFiles.length,
+    pinnedLargeSet,
+    imageFile,
+    pinnedMusic,
+    pinnedWriting,
+    isAudio,
+    isWriting,
+    musicFormat,
+    trackFiles.length,
+    writingFormat,
+    chapterFiles.length,
+    traitsCidValid,
+    supplyValid,
+    maxRedeemsValid,
+    coverSeatValid,
+    supply,
+    canSubmit,
+    template,
+    endTime,
+    renewable,
+    accessEnds,
+    startTime,
+    resolvedRoyaltyBps,
+    resolvedRoyaltyShares,
+    draftAllowlist.length,
+    collectionId,
+    accountId,
+    needsWalletConfirm,
+  ]);
+
+  const executeStartDrop = useCallback(async () => {
+    if (startInFlightRef.current) return;
+    startInFlightRef.current = true;
+    try {
+      const uploaderAccountId = accountId?.trim();
+      if (!uploaderAccountId) {
         await connect();
         return;
       }
-      if (isVariations && isPinnedSet && !pinnedCidValid) {
-        setError('Paste the IPFS folder CID of your pinned set.');
+      if (!collectionId) {
+        setError('Add a title so OnSocial can build a drop ID.');
+        setConfirmPhase('review');
         return;
       }
-      if (
-        isVariations &&
-        !isPinnedSet &&
-        variationFiles.length < MIN_VARIATIONS
-      ) {
-        setError(
-          `Add ${MIN_VARIATIONS}–${MAX_VARIATIONS} images — one per piece.`
-        );
+
+      // Ignore cross-kind leftover pins — only the active template may use them.
+      const musicPin = isAudio ? pinnedMusic : null;
+      const writingPin = isWriting ? pinnedWriting : null;
+      const largePin =
+        isVariations && variationSource === 'upload' ? pinnedLargeSet : null;
+      const hasMatchingPin =
+        musicPin != null || writingPin != null || largePin != null;
+
+      // Phase 1 — pin heavy media without touching the wallet. Sheet stays open;
+      // wallet approve is a separate confirm once phase is ready.
+      if (isAudio && !musicPin) {
+        const trackLabel =
+          trackFiles.length > 1 ? 'Uploading tracks…' : 'Uploading track…';
+        setConfirmPhase('uploading');
+        setUploadLabel(trackLabel);
+        setPending(true);
+        setPendingLabel(trackLabel);
+        try {
+          const uploadClient = createAppOnSocialClient(uploaderAccountId);
+          const uploaded = await uploadClient.storage.uploadMany(trackFiles);
+          const playable = uploaded.map((ref, index) => {
+            const file = trackFiles[index]!;
+            const trackTitle = trackTitleFromFile(file);
+            const lyrics = normalizeTrackLyrics(trackLyrics[index]);
+            return {
+              cid: ref.cid,
+              mime: file.type || 'audio/mpeg',
+              ...(trackTitle ? { title: trackTitle } : {}),
+              ...(lyrics ? { lyrics } : {}),
+            };
+          });
+          setUploadLabel('Uploading cover…');
+          setPendingLabel('Uploading cover…');
+          const cover = await uploadClient.storage.upload(imageFile!);
+          const coverHash = await sha256BlobBase64(imageFile!);
+          const pinned = {
+            playable,
+            coverCid: cover.cid,
+            coverHash,
+          };
+          setPinnedMusic(pinned);
+          if (imageFile) {
+            saveDropPinDraft({
+              kind: 'music',
+              templateId: 'audio',
+              musicFormat,
+              accountId: uploaderAccountId,
+              fingerprint: musicPinFingerprint({
+                format: musicFormat,
+                tracks: trackFiles,
+                lyrics: trackLyrics,
+                cover: imageFile,
+              }),
+              savedAt: Date.now(),
+              pinned,
+            });
+          }
+          setConfirmPhase('ready');
+          setUploadLabel('Uploading…');
+        } catch (cause) {
+          setConfirmPhase('review');
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : txToastError.createCollectionFailed
+          );
+        } finally {
+          setPending(false);
+          setPendingLabel('Starting…');
+        }
         return;
       }
-      if (!isVariations && !imageFile) {
-        setError(
-          isAudio
-            ? 'Add cover art for the release.'
-            : 'Add artwork for the drop.'
-        );
+
+      if (isWriting && !writingPin) {
+        const chapterLabel =
+          chapterFiles.length > 1
+            ? 'Uploading chapters…'
+            : 'Uploading manuscript…';
+        setConfirmPhase('uploading');
+        setUploadLabel(chapterLabel);
+        setPending(true);
+        setPendingLabel(chapterLabel);
+        try {
+          const uploadClient = createAppOnSocialClient(uploaderAccountId);
+          const uploaded = await uploadClient.storage.uploadMany(chapterFiles);
+          const chapters = chaptersFromPinnedFiles(chapterFiles, uploaded);
+          let bookPdf:
+            | ReturnType<typeof bookPdfRefFromPinnedFile>
+            | undefined;
+          if (bookPdfFile && writingFormat === 'book') {
+            setUploadLabel('Uploading book PDF…');
+            setPendingLabel('Uploading book PDF…');
+            const pdfPinned = await uploadClient.storage.upload(bookPdfFile);
+            bookPdf = bookPdfRefFromPinnedFile(bookPdfFile, pdfPinned);
+          }
+          setUploadLabel('Uploading manifesto…');
+          setPendingLabel('Uploading manifesto…');
+          const manifesto = buildWritingManifest({
+            title: title.trim() || undefined,
+            chapters,
+            ...(bookPdf ? { bookPdf } : {}),
+          });
+          const manifestoPinned =
+            await uploadClient.storage.uploadJson(manifesto);
+          setUploadLabel('Uploading cover…');
+          setPendingLabel('Uploading cover…');
+          const cover = await uploadClient.storage.upload(imageFile!);
+          const coverHash = await sha256BlobBase64(imageFile!);
+          const pinned = {
+            writingManifestCid: manifestoPinned.cid,
+            writingFormat,
+            chapterCount: chapters.length,
+            coverCid: cover.cid,
+            coverHash,
+            hasBookPdf: Boolean(bookPdf),
+          };
+          setPinnedWriting(pinned);
+          if (imageFile) {
+            saveDropPinDraft({
+              kind: 'writing',
+              templateId: 'writing',
+              writingFormat,
+              accountId: uploaderAccountId,
+              fingerprint: writingPinFingerprint({
+                format: writingFormat,
+                chapters: chapterFiles,
+                cover: imageFile,
+                bookPdf: bookPdfFile,
+              }),
+              savedAt: Date.now(),
+              pinned,
+            });
+          }
+          setConfirmPhase('ready');
+          setUploadLabel('Uploading…');
+        } catch (cause) {
+          setConfirmPhase('review');
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : txToastError.createCollectionFailed
+          );
+        } finally {
+          setPending(false);
+          setPendingLabel('Starting…');
+        }
         return;
       }
-      if (isAudio && !musicTracksValid(musicFormat, trackFiles.length)) {
-        setError(
-          musicFormat === 'single'
-            ? 'Add one track for this single.'
-            : `Add 2–${DROP_AUDIO_MAX_TRACKS} tracks for an album.`
-        );
-        return;
-      }
-      if (!traitsCidValid) {
-        setError('The traits folder CID doesn’t look like an IPFS CID.');
-        return;
-      }
-      if (!supplyValid) {
-        setError(
-          isVariations && !isPinnedSet
-            ? `Variation sets are ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} pieces.`
-            : isPinnedSet
-              ? `Supply must be between ${MIN_VARIATIONS} and ${MAX_SUPPLY}.`
-              : `Supply must be between ${MIN_SUPPLY} and ${MAX_SUPPLY}.`
-        );
-        return;
-      }
-      if (!maxRedeemsValid) {
-        setError('Max redeems must be a positive whole number.');
-        return;
-      }
-      if (!coverSeatValid) {
-        setError(`Cover piece must be between 1 and ${supply}.`);
-        return;
-      }
-      if (!canSubmit) {
-        setError('Add a title, cover art, and supply to start the drop.');
-        return;
-      }
-      if (template.requiresEndTime && !endTime) {
-        setError(
-          'Set when sales close in Sale window — tickets need an event date.'
-        );
-        return;
-      }
-      if (template.requiresAccessEnd && !(renewable && accessEnds)) {
-        setError(
-          `Set when access ends — ${template.unit} need an expiry date.`
-        );
+
+      if (isLargeUpload && !largePin) {
+        setConfirmPhase('uploading');
+        setUploadLabel('Uploading set…');
+        setPending(true);
+        setPendingLabel('Uploading set…');
+        try {
+          const uploadClient = createAppOnSocialClient(uploaderAccountId);
+          const { imagesZip } = await buildVariationSetZip(variationFiles);
+          const uploaded =
+            await uploadClient.scarces.collections.uploadVariationSet({
+              imagesZip,
+            });
+          const pinned = {
+            cid: uploaded.variations.cid,
+            ext: uploaded.variations.ext,
+            pieceCount: variationFiles.length,
+          };
+          setPinnedLargeSet(pinned);
+          saveDropPinDraft({
+            kind: 'large-set',
+            templateId,
+            accountId: uploaderAccountId,
+            fingerprint: largeSetPinFingerprint(variationFiles),
+            savedAt: Date.now(),
+            pinned,
+          });
+          setConfirmPhase('ready');
+          setUploadLabel('Uploading…');
+        } catch (cause) {
+          setConfirmPhase('review');
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : txToastError.createCollectionFailed
+          );
+        } finally {
+          setPending(false);
+          setPendingLabel('Starting…');
+        }
         return;
       }
 
@@ -736,40 +1409,6 @@ export function CreateDropPanel() {
       const endNs = localDateTimeToNs(endTime);
       const expiresAtMs =
         renewable && accessEnds ? localDateTimeToMs(accessEnds) : undefined;
-      const nowNs = BigInt(Date.now()) * 1_000_000n;
-      if (startNs && BigInt(startNs) <= nowNs) {
-        setError('The open time must be in the future. Clear it for Now.');
-        return;
-      }
-      if (endNs && BigInt(endNs) <= nowNs) {
-        setError('The close time must be in the future.');
-        return;
-      }
-      if (startNs && endNs && BigInt(endNs) <= BigInt(startNs)) {
-        setError('The close time must be after the open time.');
-        return;
-      }
-      if (expiresAtMs != null && expiresAtMs <= Date.now()) {
-        setError('Access end must be in the future.');
-        return;
-      }
-      if (resolvedRoyaltyBps == null) {
-        setError('Enter a royalty between 0 and 50%.');
-        return;
-      }
-      if (resolvedRoyaltyBps > 0) {
-        const shareError = validateRoyaltyShares(resolvedRoyaltyShares);
-        if (shareError) {
-          setError(shareError);
-          return;
-        }
-      }
-      if (draftAllowlist.length > 0 && !startTime.trim()) {
-        setError(
-          'Set Opens in Sale window so the allowlist can mint early — or clear the list.'
-        );
-        return;
-      }
       const perWallet = Number.parseInt(maxPerWallet, 10);
 
       const trimmedSeries = seriesName.trim();
@@ -794,129 +1433,8 @@ export function CreateDropPanel() {
             }
           : null;
 
-      if (!collectionId) {
-        setError('Add a title so OnSocial can build a drop ID.');
-        return;
-      }
-
-      const uploaderAccountId = accountId?.trim();
-      if (!uploaderAccountId) {
-        await connect();
-        return;
-      }
-
-      // Phase 1 — pin heavy media without touching the wallet. The browser
-      // drops the click gesture after a long await, so wallet approve must be
-      // a separate click (phase 2).
-      if (isAudio && !pinnedMusic) {
-        setPending(true);
-        setPendingLabel(
-          trackFiles.length > 1 ? 'Uploading tracks…' : 'Uploading track…'
-        );
-        try {
-          const uploadClient = createAppOnSocialClient(uploaderAccountId);
-          const uploaded = await uploadClient.storage.uploadMany(trackFiles);
-          const playable = uploaded.map((ref, index) => {
-            const file = trackFiles[index]!;
-            const trackTitle = trackTitleFromFile(file);
-            const lyrics = normalizeTrackLyrics(trackLyrics[index]);
-            return {
-              cid: ref.cid,
-              mime: file.type || 'audio/mpeg',
-              ...(trackTitle ? { title: trackTitle } : {}),
-              ...(lyrics ? { lyrics } : {}),
-            };
-          });
-          setPendingLabel('Uploading cover…');
-          const cover = await uploadClient.storage.upload(imageFile!);
-          const coverHash = await sha256BlobBase64(imageFile!);
-          setPinnedMusic({
-            playable,
-            coverCid: cover.cid,
-            coverHash,
-          });
-        } catch (cause) {
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : txToastError.createCollectionFailed
-          );
-        } finally {
-          setPending(false);
-          setPendingLabel('Starting…');
-        }
-        return;
-      }
-
-      if (isWriting && !pinnedWriting) {
-        setPending(true);
-        setPendingLabel(
-          chapterFiles.length > 1
-            ? 'Uploading chapters…'
-            : 'Uploading manuscript…'
-        );
-        try {
-          const uploadClient = createAppOnSocialClient(uploaderAccountId);
-          const uploaded = await uploadClient.storage.uploadMany(chapterFiles);
-          const chapters = chaptersFromPinnedFiles(chapterFiles, uploaded);
-          setPendingLabel('Uploading manifesto…');
-          const manifesto = buildWritingManifest({
-            title: title.trim() || undefined,
-            chapters,
-          });
-          const manifestoPinned =
-            await uploadClient.storage.uploadJson(manifesto);
-          setPendingLabel('Uploading cover…');
-          const cover = await uploadClient.storage.upload(imageFile!);
-          const coverHash = await sha256BlobBase64(imageFile!);
-          setPinnedWriting({
-            writingManifestCid: manifestoPinned.cid,
-            writingFormat,
-            chapterCount: chapters.length,
-            coverCid: cover.cid,
-            coverHash,
-          });
-        } catch (cause) {
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : txToastError.createCollectionFailed
-          );
-        } finally {
-          setPending(false);
-          setPendingLabel('Starting…');
-        }
-        return;
-      }
-
-      if (isLargeUpload && !pinnedLargeSet) {
-        setPending(true);
-        setPendingLabel('Uploading set…');
-        try {
-          const uploadClient = createAppOnSocialClient(uploaderAccountId);
-          const { imagesZip } = await buildVariationSetZip(variationFiles);
-          const pinned =
-            await uploadClient.scarces.collections.uploadVariationSet({
-              imagesZip,
-            });
-          setPinnedLargeSet({
-            cid: pinned.variations.cid,
-            ext: pinned.variations.ext,
-          });
-        } catch (cause) {
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : txToastError.createCollectionFailed
-          );
-        } finally {
-          setPending(false);
-          setPendingLabel('Starting…');
-        }
-        return;
-      }
-
-      // Phase 2 — user just clicked again; open wallet + sign immediately.
+      // Phase 2 — pins ready (or light path); open wallet + sign immediately.
+      setConfirmPhase('listing');
       setPending(true);
       setPendingLabel('Confirm in wallet…');
       try {
@@ -934,23 +1452,23 @@ export function CreateDropPanel() {
                     variationsCid: variationsCid.trim(),
                     ...(variationsExt !== 'png' ? { variationsExt } : {}),
                   }
-                : pinnedLargeSet
+                : largePin
                   ? {
-                      variationsCid: pinnedLargeSet.cid,
-                      ...(pinnedLargeSet.ext !== 'png'
-                        ? { variationsExt: pinnedLargeSet.ext }
+                      variationsCid: largePin.cid,
+                      ...(largePin.ext !== 'png'
+                        ? { variationsExt: largePin.ext }
                         : {}),
                     }
                   : { images: variationFiles }
-              : pinnedMusic
+              : isAudio && musicPin
                 ? {
-                    mediaCid: pinnedMusic.coverCid,
-                    mediaHash: pinnedMusic.coverHash,
+                    mediaCid: musicPin.coverCid,
+                    mediaHash: musicPin.coverHash,
                   }
-                : pinnedWriting
+                : isWriting && writingPin
                   ? {
-                      mediaCid: pinnedWriting.coverCid,
-                      mediaHash: pinnedWriting.coverHash,
+                      mediaCid: writingPin.coverCid,
+                      mediaHash: writingPin.coverHash,
                     }
                   : { image: imageFile! }),
             ...(isPinnedSet && traitsCid.trim()
@@ -961,14 +1479,19 @@ export function CreateDropPanel() {
             renewable,
             extra: {
               ...(template.kind ? { kind: template.kind } : {}),
-              ...(pinnedMusic ? { playable: pinnedMusic.playable } : {}),
-              ...(pinnedWriting
+              ...(isAudio ? { audioFormat: musicFormat } : {}),
+              ...(isAudio && musicPin ? { playable: musicPin.playable } : {}),
+              ...(isWriting && writingPin
                 ? {
-                    writingFormat: pinnedWriting.writingFormat,
-                    writingManifest: pinnedWriting.writingManifestCid,
-                    chapterCount: pinnedWriting.chapterCount,
+                    writingFormat: writingPin.writingFormat,
+                    writingManifest: writingPin.writingManifestCid,
+                    chapterCount: writingPin.chapterCount,
                   }
                 : {}),
+              ...dropFacetsExtraFields(
+                facets,
+                isAudio ? 'audio' : isWriting ? 'writing' : null
+              ),
             },
             ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
             ...(price ? { priceNear: price } : {}),
@@ -982,7 +1505,7 @@ export function CreateDropPanel() {
             ...(Number.isSafeInteger(maxRedeems) && maxRedeems >= 1
               ? { maxRedeems }
               : {}),
-            ...(resolvedRoyaltyBps > 0
+            ...(resolvedRoyaltyBps != null && resolvedRoyaltyBps > 0
               ? (() => {
                   const royalty = buildRoyaltyMap(
                     resolvedRoyaltyBps,
@@ -1001,7 +1524,10 @@ export function CreateDropPanel() {
           successMessage: txToastSuccess.collectionCreated,
           failureMessage: txToastError.createCollectionFailed,
         });
-        if (!confirmed) return;
+        if (!confirmed) {
+          setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
+          return;
+        }
 
         if (draftAllowlist.length > 0) {
           setPendingLabel('Saving allowlist…');
@@ -1041,81 +1567,93 @@ export function CreateDropPanel() {
           }
         }
 
+        clearDropPinDraft();
         setPinnedMusic(null);
         setPinnedWriting(null);
         setPinnedLargeSet(null);
+        setConfirmOpen(false);
         router.push(collectionPath(collectionId));
       } catch (cause) {
-        if (isWalletUserCancellation(cause)) return;
+        if (isWalletUserCancellation(cause)) {
+          setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
+          return;
+        }
         setError(
           cause instanceof Error
             ? cause.message
             : txToastError.createCollectionFailed
         );
+        setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
       } finally {
         setPending(false);
         setPendingLabel('Starting…');
       }
-    },
-    [
-      isConnected,
-      connect,
-      imageFile,
-      isVariations,
-      isPinnedSet,
-      isLargeUpload,
-      pinnedCidValid,
-      variationsCid,
-      variationsExt,
-      traitsCid,
-      traitsCidValid,
-      randomAssign,
-      variationFiles,
-      seriesName,
-      supplyValid,
-      maxRedeemsValid,
-      coverSeat,
-      coverSeatValid,
-      canSubmit,
-      startTime,
-      endTime,
-      accessEnds,
-      maxPerWallet,
-      collectionId,
-      supply,
-      title,
-      price,
-      description,
-      transferable,
-      renewable,
-      maxRedeems,
-      draftAllowlist,
-      resolvedRoyaltyBps,
-      resolvedRoyaltyShares,
-      appId,
-      template,
-      isAudio,
-      musicFormat,
-      trackFiles,
-      trackLyrics,
-      isWriting,
-      writingFormat,
-      chapterFiles,
-      accountId,
-      pinnedMusic,
-      pinnedWriting,
-      pinnedLargeSet,
-      getSigningWallet,
-      trackTransaction,
-      setTxResult,
-      router,
-    ]
-  );
+    } finally {
+      startInFlightRef.current = false;
+    }
+  }, [
+    accountId,
+    connect,
+    collectionId,
+    isAudio,
+    pinnedMusic,
+    trackFiles,
+    trackLyrics,
+    imageFile,
+    musicFormat,
+    isWriting,
+    pinnedWriting,
+    chapterFiles,
+    bookPdfFile,
+    writingFormat,
+    facets,
+    title,
+    isLargeUpload,
+    pinnedLargeSet,
+    variationFiles,
+    variationSource,
+    templateId,
+    startTime,
+    endTime,
+    renewable,
+    accessEnds,
+    maxPerWallet,
+    seriesName,
+    isVariations,
+    coverSeat,
+    getSigningWallet,
+    supply,
+    isPinnedSet,
+    variationsCid,
+    variationsExt,
+    traitsCid,
+    randomAssign,
+    transferable,
+    template,
+    price,
+    description,
+    maxRedeems,
+    resolvedRoyaltyBps,
+    resolvedRoyaltyShares,
+    appId,
+    trackTransaction,
+    draftAllowlist,
+    setTxResult,
+    router,
+  ]);
 
-  const needsWalletConfirm =
-    (isAudio && pinnedMusic != null) ||
-    (isWriting && pinnedWriting != null) ||
-    (isLargeUpload && pinnedLargeSet != null);
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void openStartConfirm();
+  };
+
+  const openFieldInfo = useCallback((key: DropFieldInfoKey) => {
+    setFieldInfoKey(key);
+  }, []);
+
+  const closeFieldInfo = useCallback(() => {
+    setFieldInfoKey(null);
+  }, []);
 
   return (
     <OsAppScreen
@@ -1172,8 +1710,7 @@ export function CreateDropPanel() {
               className="drop-create-header-cta"
             >
               <OsSheetAction
-                type="submit"
-                form={fieldId('form')}
+                type="button"
                 variant="primary"
                 ready={canSubmit || needsWalletConfirm}
                 pending={pending}
@@ -1181,11 +1718,14 @@ export function CreateDropPanel() {
                 disabled={
                   pending || (isConnected && !canSubmit && !needsWalletConfirm)
                 }
+                onClick={() => {
+                  void openStartConfirm();
+                }}
               >
                 {!isConnected && !isLoading
                   ? 'Connect'
                   : needsWalletConfirm
-                    ? 'Confirm in wallet'
+                    ? 'Continue'
                     : 'Start drop'}
               </OsSheetAction>
             </OsSheetActions>
@@ -1262,9 +1802,21 @@ export function CreateDropPanel() {
         style={studioOpen ? { display: 'none' } : undefined}
         onSubmit={handleSubmit}
       >
+        <p className="drop-kind-lede" aria-live="polite">
+          {template.tagline}
+        </p>
+        {needsWalletConfirm ? (
+          <p className="drop-media-ready-chip" aria-live="polite">
+            Media ready · confirm in wallet to list
+          </p>
+        ) : null}
         {isAudio ? (
           <div className="guild-field">
-            <span>Release</span>
+            <DropFieldLabel
+              label="Release"
+              infoKey="release"
+              onOpenInfo={openFieldInfo}
+            />
             <div
               className="app-access-options"
               role="radiogroup"
@@ -1295,15 +1847,14 @@ export function CreateDropPanel() {
                 Album
               </button>
             </div>
-            <small>
-              {musicFormat === 'single'
-                ? 'One cover, one track — every edition shares the same release.'
-                : 'One cover for the album · add every track below. Editions share the full release.'}
-            </small>
           </div>
         ) : isWriting ? (
           <div className="guild-field">
-            <span>Format</span>
+            <DropFieldLabel
+              label="Format"
+              infoKey="format"
+              onOpenInfo={openFieldInfo}
+            />
             <div
               className="app-access-options"
               role="radiogroup"
@@ -1334,15 +1885,14 @@ export function CreateDropPanel() {
                 Book
               </button>
             </div>
-            <small>
-              {writingFormat === 'article'
-                ? 'One cover, one Markdown file — every edition shares the same piece.'
-                : 'One cover · ordered chapters — holders read one chapter at a time.'}
-            </small>
           </div>
         ) : (
           <div className="guild-field">
-            <span>Artwork</span>
+            <DropFieldLabel
+              label="Artwork"
+              infoKey="artwork"
+              onOpenInfo={openFieldInfo}
+            />
             <div
               className="app-access-options"
               role="radiogroup"
@@ -1373,17 +1923,33 @@ export function CreateDropPanel() {
                 Set of variations
               </button>
             </div>
-            <small>
-              {isVariations
-                ? 'One image per piece — every piece is unique. The set is sealed when the drop starts.'
-                : 'Every edition shares the same artwork.'}
-            </small>
           </div>
         )}
 
+        {isAudio ? (
+          <DropFacetsEditor
+            medium="audio"
+            facets={facets}
+            onChange={setFacets}
+            disabled={pending}
+          />
+        ) : null}
+        {isWriting ? (
+          <DropFacetsEditor
+            medium="writing"
+            facets={facets}
+            onChange={setFacets}
+            disabled={pending}
+          />
+        ) : null}
+
         {isVariations ? (
           <div className="guild-field">
-            <span>Set source</span>
+            <DropFieldLabel
+              label="Set source"
+              infoKey="setSource"
+              onOpenInfo={openFieldInfo}
+            />
             <div
               className="app-access-options"
               role="radiogroup"
@@ -1414,11 +1980,6 @@ export function CreateDropPanel() {
                 Generate layers
               </button>
             </div>
-            <small>
-              {isGeneratedSet || isPinnedSet
-                ? 'Stack transparent PNG layers, weight rarities — OnSocial mixes and pins the set, up to 10,000 pieces.'
-                : `Upload up to ${MAX_SET_PIECES.toLocaleString()} finished images — large sets pin when you start the drop.`}
-            </small>
           </div>
         ) : null}
 
@@ -1836,19 +2397,71 @@ export function CreateDropPanel() {
             </div>
             <small>
               {writingFormat === 'article'
-                ? '.md, .txt, or .pdf · file name becomes the title · ≤500 KB text / 20 MB PDF'
-                : `Drag to reorder · file name → title · 2–${DROP_WRITING_MAX_CHAPTERS} · ≤500 KB text / 20 MB PDF`}
+                ? '.md for the reader · PDF ok · ≤500 KB text / 20 MB PDF'
+                : `Drag title to reorder · 2–${DROP_WRITING_MAX_CHAPTERS} · .md for reading`}
             </small>
             <input
               ref={chaptersInputRef}
               type="file"
-              accept=".md,.markdown,.txt,.pdf,text/markdown,text/plain,application/pdf"
+              accept={
+                writingFormat === 'book'
+                  ? '.md,.markdown,.txt,text/markdown,text/plain'
+                  : '.md,.markdown,.txt,.pdf,text/markdown,text/plain,application/pdf'
+              }
               multiple={writingFormat === 'book'}
               className="scarce-cover-file-input"
               tabIndex={-1}
               aria-hidden
               disabled={pending}
               onChange={onChaptersChange}
+            />
+          </div>
+        ) : null}
+        {isWriting && writingFormat === 'book' ? (
+          <div className="guild-field">
+            <DropFieldLabel
+              label="Book PDF"
+              infoKey="bookPdf"
+              onOpenInfo={openFieldInfo}
+            />
+            {bookPdfFile ? <small>{bookPdfFile.name}</small> : null}
+            <div
+              className="app-storage-presets"
+              role="group"
+              aria-label="Book PDF actions"
+            >
+              <button
+                type="button"
+                className="os-surface-chip"
+                disabled={pending}
+                onClick={() => bookPdfInputRef.current?.click()}
+              >
+                {bookPdfFile ? 'Replace' : 'Add PDF'}
+              </button>
+              {bookPdfFile ? (
+                <button
+                  type="button"
+                  className="os-surface-chip"
+                  disabled={pending}
+                  onClick={() => {
+                    setBookPdfFile(null);
+                    setError(null);
+                  }}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            <small>Optional · holders download the full book · ≤20 MB</small>
+            <input
+              ref={bookPdfInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="scarce-cover-file-input"
+              tabIndex={-1}
+              aria-hidden
+              disabled={pending}
+              onChange={onBookPdfChange}
             />
           </div>
         ) : null}
@@ -1883,8 +2496,12 @@ export function CreateDropPanel() {
           />
         </label>
 
-        <label className="guild-field" htmlFor={fieldId('id')}>
-          <span>Drop ID</span>
+        <div className="guild-field">
+          <DropFieldLabel
+            label="Drop ID"
+            infoKey="dropId"
+            onOpenInfo={openFieldInfo}
+          />
           <input
             id={fieldId('id')}
             value={slug}
@@ -1899,15 +2516,17 @@ export function CreateDropPanel() {
             }
             maxLength={32}
           />
-          <small>
-            {collectionId
-              ? `Public link: ${collectionPath(collectionId)}`
-              : 'From your title — a short unique tag keeps the link yours.'}
-          </small>
-        </label>
+          {collectionId ? (
+            <small>Public link: {collectionPath(collectionId)}</small>
+          ) : null}
+        </div>
 
-        <label className="guild-field" htmlFor={fieldId('description')}>
-          <span>Description</span>
+        <div className="guild-field">
+          <DropFieldLabel
+            label="Description"
+            infoKey="description"
+            onOpenInfo={openFieldInfo}
+          />
           <textarea
             id={fieldId('description')}
             value={description}
@@ -1922,10 +2541,14 @@ export function CreateDropPanel() {
           <small>
             {description.length}/{MAX_DESCRIPTION}
           </small>
-        </label>
+        </div>
 
-        <label className="guild-field" htmlFor={fieldId('series')}>
-          <span>Series (optional)</span>
+        <div className="guild-field">
+          <DropFieldLabel
+            label="Series (optional)"
+            infoKey="series"
+            onOpenInfo={openFieldInfo}
+          />
           <input
             id={fieldId('series')}
             value={seriesName}
@@ -1934,15 +2557,15 @@ export function CreateDropPanel() {
             maxLength={48}
             disabled={pending}
           />
-          <small>
-            Group this drop with future drops under one ongoing series. Each
-            drop stays sealed — the series just keeps them together.
-          </small>
-        </label>
+        </div>
 
         {isPinnedSet ? (
           <div className="guild-field">
-            <span>Supply</span>
+            <DropFieldLabel
+              label="Supply"
+              infoKey="supplyPinned"
+              onOpenInfo={openFieldInfo}
+            />
             <div className="drop-create-suffix-field">
               <input
                 type="text"
@@ -1958,10 +2581,6 @@ export function CreateDropPanel() {
               />
               <span>pieces</span>
             </div>
-            <small>
-              Must match the number of files in your pinned folder — the first
-              and last files are verified before the drop starts.
-            </small>
           </div>
         ) : isGeneratedSet ? (
           <div className="guild-field">
@@ -2094,7 +2713,11 @@ export function CreateDropPanel() {
         {showAdvanced ? (
           <>
             <div className="guild-field">
-              <span>Sale window</span>
+              <DropFieldLabel
+                label="Sale window"
+                infoKey="saleWindow"
+                onOpenInfo={openFieldInfo}
+              />
               <div className="drop-schedule-pair">
                 <div
                   className={`drop-schedule-cell${
@@ -2151,9 +2774,6 @@ export function CreateDropPanel() {
                   ) : null}
                 </div>
               </div>
-              <small>
-                Live until sold out — tap a side to set, ✕ to clear.
-              </small>
             </div>
 
             <label className="guild-field" htmlFor={fieldId('per-wallet')}>
@@ -2177,7 +2797,11 @@ export function CreateDropPanel() {
             </label>
 
             <div className="guild-field">
-              <span>Transferable</span>
+              <DropFieldLabel
+                label="Transferable"
+                infoKey="transferable"
+                onOpenInfo={openFieldInfo}
+              />
               <div
                 className="app-access-options"
                 role="radiogroup"
@@ -2208,15 +2832,14 @@ export function CreateDropPanel() {
                   Soulbound
                 </button>
               </div>
-              <small>
-                {transferable
-                  ? 'Collectors can transfer and resell their edition.'
-                  : 'Stays with the buyer — they can’t resell it.'}
-              </small>
             </div>
 
             <div className="guild-field">
-              <span>Renewable</span>
+              <DropFieldLabel
+                label="Renewable"
+                infoKey="renewable"
+                onOpenInfo={openFieldInfo}
+              />
               <div
                 className="app-access-options"
                 role="radiogroup"
@@ -2250,16 +2873,15 @@ export function CreateDropPanel() {
                   No
                 </button>
               </div>
-              <small>
-                {renewable
-                  ? 'You can extend each edition’s access end date later.'
-                  : 'Access end dates can’t be extended later.'}
-              </small>
             </div>
 
             {renewable ? (
               <div className="guild-field">
-                <span>Access ends (optional)</span>
+                <DropFieldLabel
+                  label="Access ends (optional)"
+                  infoKey="accessEnds"
+                  onOpenInfo={openFieldInfo}
+                />
                 <div
                   className={`drop-schedule-cell${
                     accessEnds ? ' has-value' : ''
@@ -2290,14 +2912,15 @@ export function CreateDropPanel() {
                     </button>
                   ) : null}
                 </div>
-                <small>
-                  Same end date on every edition. Leave blank for no expiry.
-                </small>
               </div>
             ) : null}
 
-            <label className="guild-field" htmlFor={fieldId('max-redeems')}>
-              <span>Max redeems (optional)</span>
+            <div className="guild-field">
+              <DropFieldLabel
+                label="Max redeems (optional)"
+                infoKey="maxRedeems"
+                onOpenInfo={openFieldInfo}
+              />
               <div className="drop-create-suffix-field">
                 <input
                   id={fieldId('max-redeems')}
@@ -2314,13 +2937,14 @@ export function CreateDropPanel() {
                 />
                 <span>redeems</span>
               </div>
-              <small>
-                How many times each edition can be redeemed. Blank = no cap.
-              </small>
-            </label>
+            </div>
 
             <div className="guild-field">
-              <span>Allowlist</span>
+              <DropFieldLabel
+                label="Allowlist"
+                infoKey="allowlist"
+                onOpenInfo={openFieldInfo}
+              />
               <div className="app-storage-presets scarce-choice-chip-row">
                 <button
                   type="button"
@@ -2351,15 +2975,6 @@ export function CreateDropPanel() {
                   </span>
                 </button>
               </div>
-              <small>
-                {draftAllowlist.length === 0
-                  ? startTime.trim()
-                    ? 'Optional. Listed accounts mint before Opens; then anyone can.'
-                    : 'Optional. Needs Opens in Sale window — otherwise the list never gates minting.'
-                  : startTime.trim()
-                    ? 'Listed accounts mint before Opens. After that, anyone can.'
-                    : 'Set Opens in Sale window so this list can mint early — or clear it.'}
-              </small>
             </div>
           </>
         ) : null}
@@ -2377,6 +2992,12 @@ export function CreateDropPanel() {
         title={`${template.label} drops`}
         summary={template.tagline}
         detail={template.hint}
+      />
+
+      <DropFieldInfoDrawer
+        infoKey={fieldInfoKey}
+        open={fieldInfoKey != null}
+        onClose={closeFieldInfo}
       />
 
       <GenerativeStudioHelpDrawer
@@ -2403,6 +3024,27 @@ export function CreateDropPanel() {
           if (scheduleField === 'closes') setEndTime(next);
           else if (scheduleField === 'access') setAccessEnds(next);
           else setStartTime(next);
+        }}
+      />
+
+      <DropStartConfirmSheet
+        open={confirmOpen}
+        phase={confirmPhase}
+        rows={startSummaryRows}
+        note={
+          needsWalletConfirm
+            ? 'Media is already uploaded.'
+            : isAudio || isWriting || isLargeUpload
+              ? 'Media uploads first, then you confirm in your wallet.'
+              : null
+        }
+        uploadLabel={uploadLabel}
+        onClose={() => {
+          if (confirmPhase === 'uploading' || confirmPhase === 'listing') return;
+          setConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          void executeStartDrop();
         }}
       />
 

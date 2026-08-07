@@ -614,7 +614,7 @@ export function CollectionPagePanel({
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
   const readables = view.readables;
-  const hasReadables = readables.length > 0;
+  const hasReadables = readables.length > 0 || view.bookPdf != null;
   const canReadWriting =
     isOwner || holdsEdition === true;
   const writingLockedHint = !isConnected
@@ -976,6 +976,7 @@ export function CollectionPagePanel({
             collectionId={view.collectionId}
             accountId={viewerAccountId}
             readables={readables}
+            bookPdf={view.bookPdf}
             writingFormat={view.writingFormat}
             canRead={canReadWriting}
             lockedHint={writingLockedHint}

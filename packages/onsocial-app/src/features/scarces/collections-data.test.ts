@@ -87,6 +87,8 @@ describe('toCollectionView cover seat', () => {
       }),
     });
     expect(view?.kind).toBe('audio');
+    expect(view?.audioFormat).toBe('album');
+    expect(view?.facets).toEqual([]);
     expect(view?.playables.map((t) => t.title)).toEqual([
       'One',
       'Two',
@@ -148,9 +150,12 @@ describe('toCollectionView cover seat', () => {
     });
     expect(view?.kind).toBe('writing');
     expect(view?.writingFormat).toBe('book');
+    expect(view?.audioFormat).toBeNull();
+    expect(view?.facets).toEqual([]);
     expect(view?.writingManifestCid).toBe('bafymanifestaaaaaaaaaaaaaaaaaaaa');
     expect(view?.readables.map((t) => t.title)).toEqual(['One', 'Two']);
     expect(view?.readables[0]?.url).toMatch(/^\/api\/ipfs\//);
+    expect(view?.bookPdf).toBeNull();
   });
 
   it('reads manifesto-only writing drops without inline chapters', () => {
@@ -174,5 +179,26 @@ describe('toCollectionView cover seat', () => {
     expect(view?.writingFormat).toBe('article');
     expect(view?.writingManifestCid).toBe('bafymanifestaaaaaaaaaaaaaaaaaaaa');
     expect(view?.readables).toEqual([]);
+  });
+
+  it('reads audioFormat and facets from extra', () => {
+    const view = toCollectionView({
+      collection_id: 'single-1',
+      creator_id: 'alice.near',
+      total_supply: 10,
+      minted_count: 0,
+      metadata_template: JSON.stringify({
+        title: 'Track',
+        media: 'https://cdn.example/ipfs/bafycover',
+        extra: JSON.stringify({
+          kind: 'audio',
+          audioFormat: 'single',
+          facets: ['jazz', 'soul', 'not-a-genre'],
+          playable: [{ cid: 'bafy1', mime: 'audio/mpeg', title: 'One' }],
+        }),
+      }),
+    });
+    expect(view?.audioFormat).toBe('single');
+    expect(view?.facets).toEqual(['jazz', 'soul']);
   });
 });

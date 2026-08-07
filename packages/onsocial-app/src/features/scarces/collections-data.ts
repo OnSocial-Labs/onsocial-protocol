@@ -7,6 +7,7 @@ import {
 import {
   DROP_WRITING_MAX_CHAPTERS,
   isLikelyIpfsCid,
+  bookPdfFromManifest,
   parseWritingFormat,
   parseWritingManifest,
   readablesFromManifest,
@@ -14,6 +15,11 @@ import {
   type ScarceReadableMedia,
   type WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
+import {
+  inferAudioFormatFromPlayableCount,
+  parseAudioFormat,
+  parseDropFacets,
+} from '@/features/scarces/drop-facets';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
 
 export type { ScarceReadableMedia, WritingReleaseFormat };
@@ -97,10 +103,16 @@ export interface CollectionView {
   appCommissionBps: number | null;
   /** Medium taxonomy from metadata.extra.kind when set. */
   kind: string | null;
+  /** Audio release format from `extra.audioFormat` (or inferred from playables). */
+  audioFormat: 'single' | 'album' | 'podcast' | null;
+  /** Discovery facets (genres / subjects) from `extra.facets`. */
+  facets: string[];
   /** Audio / video clips from metadata.extra.playable (music albums, etc.). */
   playables: ScarcePlayableMedia[];
   /** Markdown chapters (from writing manifesto or legacy extra.readable). */
   readables: ScarceReadableMedia[];
+  /** Optional whole-book PDF for holder download (manifest only — not a TOC chapter). */
+  bookPdf: ScarceReadableMedia | null;
   /** Article vs book when kind is writing. */
   writingFormat: WritingReleaseFormat | null;
   /** IPFS CID of onsocial.writing.v1 manifesto (preferred for books). */
@@ -253,6 +265,8 @@ interface TemplateMeta {
   sourcePostPath?: string;
   cardBg?: string;
   kind?: string;
+  audioFormat?: 'single' | 'album' | 'podcast';
+  facets?: string[];
   playables?: ScarcePlayableMedia[];
   readables?: ScarceReadableMedia[];
   writingFormat?: WritingReleaseFormat;
@@ -367,6 +381,8 @@ function parseTemplate(
     let sourcePostPath: string | undefined;
     let cardBg: string | undefined;
     let kind: string | undefined;
+    let audioFormat: 'single' | 'album' | 'podcast' | undefined;
+    let facets: string[] | undefined;
     let playables: ScarcePlayableMedia[] | undefined;
     let readables: ScarceReadableMedia[] | undefined;
     let writingFormat: WritingReleaseFormat | undefined;
@@ -387,6 +403,10 @@ function parseTemplate(
         }
         const parsedPlayables = playablesFromExtraRecord(extra);
         if (parsedPlayables.length > 0) playables = parsedPlayables;
+        const parsedAudioFormat = parseAudioFormat(extra?.audioFormat);
+        if (parsedAudioFormat) audioFormat = parsedAudioFormat;
+        const parsedFacets = parseDropFacets(extra, kind);
+        if (parsedFacets.length > 0) facets = parsedFacets;
         const manifestCid = writingManifestCidFromExtra(extra);
         if (manifestCid) writingManifestCid = manifestCid;
         // Legacy v1: chapters listed inline in extra.readable.
@@ -406,6 +426,8 @@ function parseTemplate(
       ...(sourcePostPath ? { sourcePostPath } : {}),
       ...(cardBg ? { cardBg } : {}),
       ...(kind ? { kind } : {}),
+      ...(audioFormat ? { audioFormat } : {}),
+      ...(facets ? { facets } : {}),
       ...(playables ? { playables } : {}),
       ...(readables ? { readables } : {}),
       ...(writingFormat ? { writingFormat } : {}),
@@ -447,6 +469,15 @@ export function toCollectionView(
       ? Math.floor(record.max_redeems)
       : null;
 
+  const kind = template.kind ?? null;
+  const playables = template.playables ?? [];
+  const isAudioKind = kind === 'audio' || kind === 'music';
+  const audioFormat = isAudioKind
+    ? (template.audioFormat ??
+      inferAudioFormatFromPlayableCount(playables.length))
+    : null;
+  const facets = template.facets ?? [];
+
   return {
     collectionId,
     creatorId,
@@ -475,9 +506,12 @@ export function toCollectionView(
       record.app_commission_bps,
       Boolean(record.app_id?.trim())
     ),
-    kind: template.kind ?? null,
-    playables: template.playables ?? [],
+    kind,
+    audioFormat,
+    facets,
+    playables,
     readables: template.readables ?? [],
+    bookPdf: null,
     writingFormat:
       template.writingFormat ??
       (template.readables && template.readables.length > 1
@@ -574,14 +608,16 @@ export async function hydrateWritingManifest(
     const json: unknown = await response.json();
     const manifest = parseWritingManifest(json);
     if (!manifest) return view;
+    const bookPdf = bookPdfFromManifest(manifest);
     const readables = readablesFromManifest(manifest);
-    if (readables.length === 0) return view;
+    if (readables.length === 0 && !bookPdf) return view;
     return {
       ...view,
       readables,
+      bookPdf,
       writingFormat:
         view.writingFormat ??
-        (readables.length > 1 ? 'book' : 'article'),
+        (readables.length > 1 ? 'book' : bookPdf ? 'book' : 'article'),
     };
   } catch {
     return view;

@@ -11,7 +11,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
-import { chapterTitleFromFile } from '@/features/scarces/drop-writing';
+import { chapterTitleFromFile, isWritingPdfMime } from '@/features/scarces/drop-writing';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 
 interface DropChapterPreviewListProps {
@@ -153,48 +153,53 @@ export function DropChapterPreviewList({
                 isDragging ? ' is-dragging' : ''
               }`}
             >
-              <span
-                className={`drop-track-list-title${
-                  canSort ? ' is-sortable' : ''
-                }`}
-                title={
-                  canSort ? `${file.name} · drag to reorder` : file.name
-                }
-                {...(canSort && !disabled
-                  ? {
-                      draggable: true,
-                      role: 'button',
-                      tabIndex: 0,
-                      'aria-label': `Drag to reorder ${title}`,
-                      onDragStart: (event: ReactDragEvent) =>
-                        onTitleDragStart(index, event),
-                      onDragEnd: onTitleDragEnd,
-                    }
-                  : {})}
-              >
-                {index + 1}. {title}
-              </span>
-              <OsSheetActions
-                layout="row-compact"
-                tone="frosted-primary"
-                borderless
-                className="hub-publish-request-actions drop-track-list-remove-actions"
-              >
-                <OsSheetAction
-                  type="button"
-                  variant="danger"
-                  ready={!disabled}
-                  disabled={disabled}
-                  aria-label={`Remove ${title}`}
-                  className="hub-publish-request-dismiss"
-                  onClick={() => onRemove(index)}
+              <div className="drop-track-list-main">
+                <span
+                  className={`drop-track-list-title${
+                    canSort ? ' is-sortable' : ''
+                  }`}
+                  title={
+                    canSort ? `${file.name} · drag to reorder` : file.name
+                  }
+                  {...(canSort && !disabled
+                    ? {
+                        draggable: true,
+                        role: 'button',
+                        tabIndex: 0,
+                        'aria-label': `Drag to reorder ${title}`,
+                        onDragStart: (event: ReactDragEvent) =>
+                          onTitleDragStart(index, event),
+                        onDragEnd: onTitleDragEnd,
+                      }
+                    : {})}
                 >
-                  <MultiplyIcon
-                    className="hub-publish-request-dismiss-icon"
-                    aria-hidden
-                  />
-                </OsSheetAction>
-              </OsSheetActions>
+                  {index + 1}. {title}
+                </span>
+                <span className="drop-chapter-kind" aria-hidden>
+                  {isWritingPdfMime(file.type, file.name) ? 'PDF' : 'MD'}
+                </span>
+                <OsSheetActions
+                  layout="row-compact"
+                  tone="frosted-primary"
+                  borderless
+                  className="hub-publish-request-actions drop-track-list-remove-actions"
+                >
+                  <OsSheetAction
+                    type="button"
+                    variant="danger"
+                    ready={!disabled}
+                    disabled={disabled}
+                    aria-label={`Remove ${title}`}
+                    className="hub-publish-request-dismiss"
+                    onClick={() => onRemove(index)}
+                  >
+                    <MultiplyIcon
+                      className="hub-publish-request-dismiss-icon"
+                      aria-hidden
+                    />
+                  </OsSheetAction>
+                </OsSheetActions>
+              </div>
             </li>
           </Fragment>
         );

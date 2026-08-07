@@ -4,6 +4,12 @@ import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { resolvePostThreadHrefsFromSourcePaths } from '@/lib/post-routes';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
+import {
+  inferAudioFormatFromPlayableCount,
+  parseAudioFormat,
+  parseDropFacets,
+} from '@/features/scarces/drop-facets';
+import { isAudioMediumKind } from '@/features/market/market-medium';
 
 /**
  * Market data plane (indexer-first, same pattern as feed/standings):
@@ -99,6 +105,10 @@ export interface MarketListingItem {
    * Distinct from listing `kind` (lazy / native / auction).
    */
   mediumKind?: string | null;
+  /** Audio release format from `extra.audioFormat` (or inferred). */
+  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  /** Discovery facets (genres / subjects) from `extra.facets`. */
+  facets?: string[];
 }
 
 /** Browse sort for Market listings. */
@@ -122,6 +132,10 @@ export interface OwnedScarceItem {
   collectionId?: string | null;
   /** Medium taxonomy from metadata `extra.kind` when set. */
   mediumKind?: string | null;
+  /** Audio release format from `extra.audioFormat` (or inferred). */
+  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  /** Discovery facets (genres / subjects) from `extra.facets`. */
+  facets?: string[];
   /** Listing state for an owned native scarce. */
   listingKind: 'fixed' | 'auction' | null;
   /** Set when this token is already listed for resale or auction. */
@@ -275,6 +289,28 @@ export function mediumKindFromExtraJson(
   extraJson: string | null | undefined
 ): string | undefined {
   return mediumKindFromExtra(parseExtra(extraJson ?? null));
+}
+
+/** Audio format + facets stamped on NEP-177 `extra` for discovery filters. */
+function discoveryFieldsFromExtra(
+  extra: Record<string, unknown> | null,
+  playableCount = 0
+): {
+  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  facets?: string[];
+} {
+  const mediumKind = mediumKindFromExtra(extra);
+  const facets = parseDropFacets(extra, mediumKind);
+  const audioFormat = isAudioMediumKind(mediumKind)
+    ? (parseAudioFormat(extra?.audioFormat) ??
+      inferAudioFormatFromPlayableCount(playableCount))
+    : null;
+  return {
+    ...(audioFormat != null || isAudioMediumKind(mediumKind)
+      ? { audioFormat: audioFormat ?? null }
+      : {}),
+    ...(facets.length > 0 ? { facets } : {}),
+  };
 }
 
 function playablesFromExtra(
@@ -463,6 +499,7 @@ function listingFromRecord(
   const copies = copiesSafe != null && copiesSafe > 0 ? copiesSafe : undefined;
   const remaining = remainingForListing(record, copies);
   const mediumKind = mediumKindFromExtra(extra);
+  const discovery = discoveryFieldsFromExtra(extra, playables.length);
 
   return {
     kind: 'lazy',
@@ -480,6 +517,7 @@ function listingFromRecord(
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
     ...(mediumKind ? { mediumKind } : {}),
+    ...discovery,
   };
 }
 
@@ -704,6 +742,7 @@ function listingFromNativeSale(
   const mediumKind = mediumKindFromExtra(extra);
   const playables = playablesFromExtra(extra);
   const playable = playables[0];
+  const discovery = discoveryFieldsFromExtra(extra, playables.length);
   return {
     kind: isAuction ? 'auction' : 'native',
     tokenId,
@@ -718,6 +757,7 @@ function listingFromNativeSale(
     ...(playable ? { playable } : {}),
     ...(playables.length > 0 ? { playables } : {}),
     ...(mediumKind ? { mediumKind } : {}),
+    ...discovery,
     ...(isAuction
       ? {
           expiresAtNs: saleExpiresAtNs(sale),
@@ -938,6 +978,8 @@ function ownedItemsFromTokens(
       const sourcePostPath = sourcePostPathFromExtra(extra);
       const collectionId = collectionIdFromTokenId(tokenId);
       const mediumKind = mediumKindFromExtra(extra) ?? null;
+      const playables = playablesFromExtra(extra);
+      const discovery = discoveryFieldsFromExtra(extra, playables.length);
       const listed = listedByToken.get(tokenId);
       return {
         tokenId,
@@ -947,6 +989,7 @@ function ownedItemsFromTokens(
         ownerId: token.owner_id?.trim() || owner,
         collectionId,
         mediumKind,
+        ...discovery,
         listingKind: listed?.kind ?? null,
         listedPriceNear: listed?.priceNear ?? null,
         ...(listed?.kind === 'auction' && listed.bidCount != null
@@ -1323,6 +1366,9 @@ function listingFromActiveRow(
         : undefined;
 
   const mediumKind = mediumKindFromExtraJson(row.extraJson);
+  const extra = parseExtra(row.extraJson ?? null);
+  const playableCount = playablesFromExtra(extra).length;
+  const discovery = discoveryFieldsFromExtra(extra, playableCount);
 
   return {
     kind,
@@ -1341,6 +1387,7 @@ function listingFromActiveRow(
       : {}),
     ...(row.cardBg?.trim() ? { cardBg: row.cardBg.trim() } : {}),
     ...(mediumKind ? { mediumKind } : {}),
+    ...discovery,
     ...(copies != null ? { copies } : {}),
     ...(remaining != null ? { remaining } : {}),
     ...(kind === 'auction'

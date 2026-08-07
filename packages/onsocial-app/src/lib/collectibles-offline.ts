@@ -278,7 +278,8 @@ export function offlineAlbumToHoldingPeek(
     title: album.title,
     mediaUrl: album.poster,
     collectionId: album.collectionId,
-    mediumKind: 'music',
+    // Offline manifests omit facets/audioFormat; genre/format filters hide them.
+    mediumKind: 'audio',
     href: collectiblesPlayPath(album.collectionId),
     actionLabel: 'Play',
     kindLabel: 'Downloaded',

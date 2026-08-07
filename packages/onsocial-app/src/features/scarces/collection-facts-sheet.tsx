@@ -13,6 +13,7 @@ import {
   deriveCollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { dropFacetsLabel } from '@/features/scarces/drop-facets';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import {
   formatRoyaltyPercent,
@@ -132,6 +133,7 @@ export function CollectionFactsSheet({
 
   const status = deriveCollectionStatus(view, nowMs);
   const schedule = scheduleCopy(view, nowMs);
+  const facetsLabel = dropFacetsLabel(view.facets);
   const createdLabel =
     view.createdAtMs > 0
       ? formatPageDrawerJoinedFullLabel(view.createdAtMs)
@@ -328,6 +330,18 @@ export function CollectionFactsSheet({
             <FactRow
               label="Kind"
               value={view.kind.charAt(0).toUpperCase() + view.kind.slice(1)}
+            />
+          ) : null}
+          {facetsLabel ? (
+            <FactRow
+              label={
+                view.kind === 'writing'
+                  ? 'Subject'
+                  : view.kind === 'audio' || view.kind === 'music'
+                    ? 'Genre'
+                    : 'Facets'
+              }
+              value={facetsLabel}
             />
           ) : null}
           {createdLabel ? (

@@ -19103,6 +19103,12 @@ a.os-surface-row {
     margin: 0;
   }
 
+  .collection-writing-downloads {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
   .collection-writing-download-control {
     flex-shrink: 0;
     margin-top: -0.1rem;
@@ -20314,6 +20320,15 @@ a.os-surface-row {
     font-weight: 400;
     line-height: 1.25;
     text-align: left;
+  }
+
+  .drop-chapter-kind {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
   }
 
   .drop-track-list-title.is-sortable {
@@ -22252,6 +22267,65 @@ a.os-surface-row {
     margin: 0;
   }
 
+  /* Kind one-liner under the tabs — updates on pick; detail stays in header ?. */
+  .drop-kind-lede {
+    margin: 0 0 0.85rem;
+    font-size: 0.875rem;
+    line-height: 1.35;
+    color: var(--os-text-secondary, rgba(15, 23, 42, 0.62));
+  }
+
+  .drop-media-ready-chip {
+    margin: -0.45rem 0 0.85rem;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .drop-start-confirm-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .drop-start-confirm-summary {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .drop-start-confirm-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .drop-start-confirm-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .drop-start-confirm-label {
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .drop-start-confirm-value {
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .drop-start-confirm-note {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
   .market-listing-filter-stack {
     flex: 1 1 auto;
     min-width: 0;
@@ -22264,6 +22338,26 @@ a.os-surface-row {
     flex: 1 1 auto;
     min-width: 0;
     margin: 0;
+  }
+
+  .market-facet-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .market-facet-rail-row {
+    margin: 0;
+  }
+
+  .drop-facets-optional {
+    font-weight: 400;
+    opacity: 0.55;
+  }
+
+  .drop-facets-chip-row {
+    flex-wrap: wrap;
   }
 
   .market-listing-sort-menu {
@@ -26230,6 +26324,24 @@ a.os-surface-row {
     font-size: 0.76rem;
     font-weight: 650;
     color: rgb(var(--fg-rgb) / 0.74);
+  }
+
+  .drop-field-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    max-width: 100%;
+  }
+
+  .drop-field-label-text {
+    font-size: 0.76rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.74);
+  }
+
+  .drop-field-label .guild-hero-facts-button {
+    flex: 0 0 auto;
+    color: rgb(var(--fg-rgb) / 0.38);
   }
 
   .guild-field input,

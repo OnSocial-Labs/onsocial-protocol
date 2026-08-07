@@ -23,6 +23,10 @@ import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
 import {
+  MarketFacetRail,
+  type MarketAudioFormatFilter,
+} from '@/features/market/market-facet-rail';
+import {
   MARKET_MEDIUM_FILTERS,
   MarketMediumMenu,
   type MarketMediumFilter,
@@ -74,6 +78,10 @@ import {
 import { ScarceOffersSheet } from '@/features/scarces/scarce-offers-sheet';
 import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import {
+  normalizeDropFacets,
+  parseAudioFormat,
+} from '@/features/scarces/drop-facets';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_APPS_PATH,
@@ -83,6 +91,10 @@ import {
   MARKET_CREATOR_PARAM,
   MARKET_APP_PARAM,
   MARKET_KIND_PARAM,
+  MARKET_FACETS_PARAM,
+  MARKET_AUDIO_FORMAT_PARAM,
+  marketFacetsParamValue,
+  parseMarketFacetsParam,
   appPath,
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -195,6 +207,19 @@ export function MarketPagePanel() {
     searchParams.get(MARKET_CREATOR_PARAM)?.trim().toLowerCase() ?? '';
   const appFilter = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
   const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
+  const facetMedium =
+    mediumFilter === 'audio' || mediumFilter === 'writing'
+      ? mediumFilter
+      : null;
+  const selectedFacets = facetMedium
+    ? normalizeDropFacets(
+        parseMarketFacetsParam(searchParams.get(MARKET_FACETS_PARAM)),
+        facetMedium
+      )
+    : [];
+  const audioFormatFilter: MarketAudioFormatFilter = facetMedium === 'audio'
+    ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
+    : null;
   const [retryKey, setRetryKey] = useState(0);
   const [listingsState, setListingsState] =
     useState<ListingsState>(EMPTY_LISTINGS);
@@ -270,12 +295,37 @@ export function MarketPagePanel() {
       } else {
         params.set(MARKET_KIND_PARAM, next);
       }
+      params.delete(MARKET_FACETS_PARAM);
+      params.delete(MARKET_AUDIO_FORMAT_PARAM);
       const qs = params.toString();
       router.replace(qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH, {
         scroll: false,
       });
     },
     [router, searchParams]
+  );
+
+  const replaceDiscoveryParams = useCallback(
+    (next: {
+      facets?: string[];
+      audioFormat?: MarketAudioFormatFilter;
+    }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const facets =
+        next.facets !== undefined ? next.facets : selectedFacets;
+      const audioFormat =
+        next.audioFormat !== undefined ? next.audioFormat : audioFormatFilter;
+      const facetsValue = marketFacetsParamValue(facets);
+      if (facetsValue) params.set(MARKET_FACETS_PARAM, facetsValue);
+      else params.delete(MARKET_FACETS_PARAM);
+      if (audioFormat) params.set(MARKET_AUDIO_FORMAT_PARAM, audioFormat);
+      else params.delete(MARKET_AUDIO_FORMAT_PARAM);
+      const qs = params.toString();
+      router.replace(qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH, {
+        scroll: false,
+      });
+    },
+    [router, searchParams, selectedFacets, audioFormatFilter]
   );
 
   // First catalog page; previous items stay rendered while params refine.
@@ -522,8 +572,52 @@ export function MarketPagePanel() {
           return kind === mediumFilter;
         });
 
+  const discoveryFilteredListings =
+    facetMedium == null
+      ? mediumFilteredListings
+      : mediumFilteredListings.filter((item) => {
+          if (
+            facetMedium === 'audio' &&
+            audioFormatFilter &&
+            item.audioFormat !== audioFormatFilter
+          ) {
+            return false;
+          }
+          if (selectedFacets.length === 0) return true;
+          return selectedFacets.some((facet) => item.facets?.includes(facet));
+        });
+
+  /** Client-only discovery filters applied on already-fetched pages. */
+  const clientDiscoveryFilterActive =
+    searching ||
+    listingFilter !== 'all' ||
+    mediumFilter !== 'all' ||
+    (facetMedium != null &&
+      (selectedFacets.length > 0 || Boolean(audioFormatFilter)));
+
+  // Keep paging while client filters hide the current window — matches may
+  // exist on later catalog pages. Defer so setState isn't synchronous in effect.
+  useEffect(() => {
+    if (status !== 'ready' || !listingsReady || listingsFailed) return;
+    if (!clientDiscoveryFilterActive) return;
+    if (!listingsState.hasMore || loadingMore) return;
+    if (discoveryFilteredListings.length > 0) return;
+    queueMicrotask(() => {
+      loadMoreListings();
+    });
+  }, [
+    status,
+    listingsReady,
+    listingsFailed,
+    clientDiscoveryFilterActive,
+    listingsState.hasMore,
+    loadingMore,
+    discoveryFilteredListings.length,
+    loadMoreListings,
+  ]);
+
   const hasLiveAuctionClocks =
-    mediumFilteredListings.some(
+    discoveryFilteredListings.some(
       (item) =>
         item.kind === 'auction' &&
         item.expiresAtNs != null &&
@@ -883,8 +977,13 @@ export function MarketPagePanel() {
     listingsReady &&
     !listingsFailed &&
     !showEmptyBrowse &&
-    (searching || listingFilter !== 'all' || mediumFilter !== 'all') &&
-    mediumFilteredListings.length === 0;
+    clientDiscoveryFilterActive &&
+    discoveryFilteredListings.length === 0 &&
+    !listingsState.hasMore &&
+    !loadingMore;
+  const facetOrFormatActive =
+    facetMedium != null &&
+    (selectedFacets.length > 0 || Boolean(audioFormatFilter));
   const visibleSales =
     salesExpanded || salesRows.length <= RECENT_SALES_PREVIEW
       ? salesRows
@@ -911,13 +1010,13 @@ export function MarketPagePanel() {
     status === 'ready' &&
     listingsReady &&
     !listingsFailed &&
-    mediumFilteredListings.length === 0;
+    discoveryFilteredListings.length === 0;
   const appEmpty =
     Boolean(appFilter) &&
     status === 'ready' &&
     listingsReady &&
     !listingsFailed &&
-    mediumFilteredListings.length === 0;
+    discoveryFilteredListings.length === 0;
 
   const titleForToken = useCallback(
     (tokenId: string): { title: string; mediaUrl?: string | null } => {
@@ -1005,6 +1104,19 @@ export function MarketPagePanel() {
                   ))}
                 </div>
               </div>
+              {facetMedium ? (
+                <MarketFacetRail
+                  medium={facetMedium}
+                  audioFormat={audioFormatFilter}
+                  selectedFacets={selectedFacets}
+                  onAudioFormatChange={(format) =>
+                    replaceDiscoveryParams({ audioFormat: format })
+                  }
+                  onFacetsChange={(facets) =>
+                    replaceDiscoveryParams({ facets })
+                  }
+                />
+              ) : null}
             </div>
             <MarketMediumMenu
               medium={mediumFilter}
@@ -1130,19 +1242,21 @@ export function MarketPagePanel() {
           <p className="market-page-status">
             {searching
               ? `No listings match “${listingQuery.trim()}”.`
-              : mediumFilter !== 'all'
-                ? `Nothing in ${
-                    MARKET_MEDIUM_FILTERS.find(
-                      (tab) => tab.id === mediumFilter
-                    )?.label ?? mediumFilter
-                  } right now.`
-                : `Nothing in ${
-                    listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
-                  } right now.`}
+              : facetOrFormatActive
+                ? 'No matches for these filters.'
+                : mediumFilter !== 'all'
+                  ? `Nothing in ${
+                      MARKET_MEDIUM_FILTERS.find(
+                        (tab) => tab.id === mediumFilter
+                      )?.label ?? mediumFilter
+                    } right now.`
+                  : `Nothing in ${
+                      listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
+                    } right now.`}
           </p>
         ) : null}
 
-        {mediumFilteredListings.length > 0 ? (
+        {discoveryFilteredListings.length > 0 ? (
           <section
             id="market-listing-results"
             role="tabpanel"
@@ -1157,7 +1271,7 @@ export function MarketPagePanel() {
                   : 'Listings'}
             </h2>
             <div className="market-listing-list" role="list">
-              {mediumFilteredListings.map((item) => {
+              {discoveryFilteredListings.map((item) => {
                 const rowKey = marketListingRowKey(item);
                 const offerSummary = item.tokenId
                   ? offerByToken.get(item.tokenId)
@@ -1182,15 +1296,27 @@ export function MarketPagePanel() {
                 );
               })}
             </div>
-            {loadingMore ? <MarketListSkeleton rows={2} /> : null}
-            {listingsState.hasMore ? (
-              <div
-                ref={listingsSentinelRef}
-                className="market-listing-sentinel"
-                aria-hidden
-              />
-            ) : null}
           </section>
+        ) : null}
+
+        {clientDiscoveryFilterActive &&
+        listingsState.hasMore &&
+        discoveryFilteredListings.length === 0 &&
+        !showEmptyFilter ? (
+          <p className="market-page-status">Looking for matches…</p>
+        ) : null}
+
+        {(discoveryFilteredListings.length > 0 ||
+          (clientDiscoveryFilterActive && listingsState.hasMore)) &&
+        listingsState.hasMore ? (
+          <>
+            {loadingMore ? <MarketListSkeleton rows={2} /> : null}
+            <div
+              ref={listingsSentinelRef}
+              className="market-listing-sentinel"
+              aria-hidden
+            />
+          </>
         ) : null}
 
         {showOwnedSection ? (

@@ -21,6 +21,12 @@ export const MARKET_APP_PARAM = 'app';
 /** Query key that pre-filters Market / Collectibles by medium (`art` | `writing` | `audio`). */
 export const MARKET_KIND_PARAM = 'kind';
 
+/** Query key for secondary discovery facets (CSV of genre / subject slugs). */
+export const MARKET_FACETS_PARAM = 'facets';
+
+/** Query key for audio release format (`single` | `album` | `podcast`). */
+export const MARKET_AUDIO_FORMAT_PARAM = 'audioFormat';
+
 /** Query key for Collectibles focused player (`?c=collectionId`). */
 export const COLLECTIBLES_PLAY_PARAM = 'c';
 /** Optional owned edition for Sell on the focused player (`?t=tokenId`). */
@@ -52,6 +58,23 @@ export function collectiblesKindPath(kind: string): string {
   const value = kind.trim().toLowerCase();
   if (!value || value === 'all') return APP_COLLECTIBLES_PATH;
   return `${APP_COLLECTIBLES_PATH}?${MARKET_KIND_PARAM}=${encodeURIComponent(value)}`;
+}
+
+/** CSV facets query value, or null when empty. */
+export function marketFacetsParamValue(facets: string[]): string | null {
+  const cleaned = facets.map((slug) => slug.trim()).filter(Boolean);
+  return cleaned.length > 0 ? cleaned.join(',') : null;
+}
+
+/** Parse `?facets=a,b` into slug list (no vocab filter — caller normalizes). */
+export function parseMarketFacetsParam(
+  raw: string | null | undefined
+): string[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split(',')
+    .map((slug) => slug.trim())
+    .filter(Boolean);
 }
 
 /** Focused player for a music / video collection holding. */

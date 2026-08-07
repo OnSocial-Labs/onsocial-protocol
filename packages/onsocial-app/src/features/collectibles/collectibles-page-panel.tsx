@@ -14,10 +14,18 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
+  MarketFacetRail,
+  type MarketAudioFormatFilter,
+} from '@/features/market/market-facet-rail';
+import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
+import {
+  normalizeDropFacets,
+  parseAudioFormat,
+} from '@/features/scarces/drop-facets';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import {
@@ -25,6 +33,10 @@ import {
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
   MARKET_KIND_PARAM,
+  MARKET_FACETS_PARAM,
+  MARKET_AUDIO_FORMAT_PARAM,
+  marketFacetsParamValue,
+  parseMarketFacetsParam,
 } from '@/lib/app-routes';
 import {
   listOfflineAlbums,
@@ -69,6 +81,20 @@ export function CollectiblesPagePanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
+  const facetMedium =
+    mediumFilter === 'audio' || mediumFilter === 'writing'
+      ? mediumFilter
+      : null;
+  const selectedFacets = facetMedium
+    ? normalizeDropFacets(
+        parseMarketFacetsParam(searchParams.get(MARKET_FACETS_PARAM)),
+        facetMedium
+      )
+    : [];
+  const audioFormatFilter: MarketAudioFormatFilter =
+    facetMedium === 'audio'
+      ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
+      : null;
   const [retryKey, setRetryKey] = useState(0);
   const [holdings, setHoldings] = useState<HoldingsState>(EMPTY_HOLDINGS);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -91,6 +117,8 @@ export function CollectiblesPagePanel() {
       } else {
         params.set(MARKET_KIND_PARAM, next);
       }
+      params.delete(MARKET_FACETS_PARAM);
+      params.delete(MARKET_AUDIO_FORMAT_PARAM);
       const qs = params.toString();
       router.replace(
         qs ? `${APP_COLLECTIBLES_PATH}?${qs}` : APP_COLLECTIBLES_PATH,
@@ -98,6 +126,30 @@ export function CollectiblesPagePanel() {
       );
     },
     [router, searchParams]
+  );
+
+  const replaceDiscoveryParams = useCallback(
+    (next: {
+      facets?: string[];
+      audioFormat?: MarketAudioFormatFilter;
+    }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      const facets =
+        next.facets !== undefined ? next.facets : selectedFacets;
+      const audioFormat =
+        next.audioFormat !== undefined ? next.audioFormat : audioFormatFilter;
+      const facetsValue = marketFacetsParamValue(facets);
+      if (facetsValue) params.set(MARKET_FACETS_PARAM, facetsValue);
+      else params.delete(MARKET_FACETS_PARAM);
+      if (audioFormat) params.set(MARKET_AUDIO_FORMAT_PARAM, audioFormat);
+      else params.delete(MARKET_AUDIO_FORMAT_PARAM);
+      const qs = params.toString();
+      router.replace(
+        qs ? `${APP_COLLECTIBLES_PATH}?${qs}` : APP_COLLECTIBLES_PATH,
+        { scroll: false }
+      );
+    },
+    [router, searchParams, selectedFacets, audioFormatFilter]
   );
 
   useEffect(() => {
@@ -192,10 +244,54 @@ export function CollectiblesPagePanel() {
     vaultItems === offlineHoldings && offlineHoldings.length > 0;
 
   const filtered = useMemo(() => {
-    const byKind = filterHoldingsByMedium(vaultItems, mediumFilter);
+    let byKind = filterHoldingsByMedium(vaultItems, mediumFilter);
+    if (facetMedium === 'audio' && audioFormatFilter) {
+      byKind = byKind.filter((item) => item.audioFormat === audioFormatFilter);
+    }
+    if (selectedFacets.length > 0) {
+      byKind = byKind.filter((item) =>
+        selectedFacets.some((facet) => item.facets?.includes(facet))
+      );
+    }
     if (!trimmedSearch) return byKind;
     return byKind.filter((item) => holdingsMatchQuery(item, trimmedSearch));
-  }, [vaultItems, mediumFilter, trimmedSearch]);
+  }, [
+    vaultItems,
+    mediumFilter,
+    facetMedium,
+    audioFormatFilter,
+    selectedFacets,
+    trimmedSearch,
+  ]);
+
+  /** Client-only discovery filters applied on already-fetched pages. */
+  const clientDiscoveryFilterActive =
+    trimmedSearch.length > 0 ||
+    mediumFilter !== 'all' ||
+    (facetMedium != null &&
+      (selectedFacets.length > 0 || Boolean(audioFormatFilter)));
+  const facetOrFormatActive =
+    facetMedium != null &&
+    (selectedFacets.length > 0 || Boolean(audioFormatFilter));
+
+  // Keep paging while client filters hide the current window — matches may
+  // exist later in the vault. Defer so setState isn't synchronous in effect.
+  useEffect(() => {
+    if (status !== 'ready') return;
+    if (!clientDiscoveryFilterActive) return;
+    if (!holdings.hasMore || loadingMore) return;
+    if (filtered.length > 0) return;
+    queueMicrotask(() => {
+      loadMore();
+    });
+  }, [
+    status,
+    clientDiscoveryFilterActive,
+    holdings.hasMore,
+    loadingMore,
+    filtered.length,
+    loadMore,
+  ]);
 
   const showTabs =
     (isConnected && Boolean(viewerAccountId)) || usingOfflineLibrary;
@@ -207,11 +303,16 @@ export function CollectiblesPagePanel() {
   const emptySearch =
     vaultItems.length > 0 &&
     trimmedSearch.length > 0 &&
-    filtered.length === 0;
+    filtered.length === 0 &&
+    !holdings.hasMore &&
+    !loadingMore;
   const emptyFilter =
     vaultItems.length > 0 &&
     !trimmedSearch &&
-    filtered.length === 0;
+    clientDiscoveryFilterActive &&
+    filtered.length === 0 &&
+    !holdings.hasMore &&
+    !loadingMore;
   const showOfflineOnly =
     usingOfflineLibrary &&
     (!viewerAccountId || status === 'error' || status === 'idle');
@@ -290,6 +391,19 @@ export function CollectiblesPagePanel() {
                   ))}
                 </div>
               </div>
+              {facetMedium ? (
+                <MarketFacetRail
+                  medium={facetMedium}
+                  audioFormat={audioFormatFilter}
+                  selectedFacets={selectedFacets}
+                  onAudioFormatChange={(format) =>
+                    replaceDiscoveryParams({ audioFormat: format })
+                  }
+                  onFacetsChange={(facets) =>
+                    replaceDiscoveryParams({ facets })
+                  }
+                />
+              ) : null}
             </div>
           </div>
         ) : undefined
@@ -371,7 +485,9 @@ export function CollectiblesPagePanel() {
         {emptyFilter ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
-              No {emptyFilterLabel.toLowerCase()} in your vault.
+              {facetOrFormatActive
+                ? 'No matches for these filters.'
+                : `No ${emptyFilterLabel.toLowerCase()} in your vault.`}
             </p>
             <button
               type="button"
@@ -398,17 +514,29 @@ export function CollectiblesPagePanel() {
                 <CollectiblesHoldingRow key={item.tokenId} item={item} />
               ))}
             </div>
-            {holdings.hasMore ? (
-              <button
-                type="button"
-                className="market-sales-more"
-                disabled={loadingMore}
-                onClick={loadMore}
-              >
-                {loadingMore ? 'Loading…' : 'Show more'}
-              </button>
-            ) : null}
           </section>
+        ) : null}
+
+        {clientDiscoveryFilterActive &&
+        holdings.hasMore &&
+        filtered.length === 0 &&
+        !emptyFilter &&
+        !emptySearch ? (
+          <p className="market-page-status">Looking for matches…</p>
+        ) : null}
+
+        {(filtered.length > 0 ||
+          (clientDiscoveryFilterActive && holdings.hasMore)) &&
+        holdings.hasMore &&
+        (status === 'ready' || usingOfflineLibrary) ? (
+          <button
+            type="button"
+            className="market-sales-more"
+            disabled={loadingMore}
+            onClick={loadMore}
+          >
+            {loadingMore ? 'Loading…' : 'Show more'}
+          </button>
         ) : null}
       </div>
     </OsAppScreen>

@@ -15,6 +15,15 @@ describe('DROP_TEMPLATES', () => {
     }
   });
 
+  it('keeps kind help hub-tight (one-liner + short detail)', () => {
+    for (const template of DROP_TEMPLATES) {
+      expect(template.tagline.length).toBeLessThanOrEqual(80);
+      expect(template.hint.length).toBeLessThanOrEqual(140);
+      expect(template.tagline.includes('\n')).toBe(false);
+      expect(template.hint.includes('\n')).toBe(false);
+    }
+  });
+
   it('every template kind is filterable in the market medium menu', () => {
     const filterIds = new Set(MARKET_MEDIUM_FILTERS.map((f) => f.id));
     for (const template of DROP_TEMPLATES) {

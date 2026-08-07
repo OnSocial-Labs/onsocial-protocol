@@ -20,6 +20,7 @@ export function CollectionWritingReader({
   collectionId,
   accountId,
   readables,
+  bookPdf,
   writingFormat,
   canRead,
   lockedHint,
@@ -27,6 +28,7 @@ export function CollectionWritingReader({
   collectionId: string;
   accountId?: string | null;
   readables: ScarceReadableMedia[];
+  bookPdf?: ScarceReadableMedia | null;
   writingFormat?: 'article' | 'book' | null;
   canRead: boolean;
   lockedHint: string;
@@ -142,7 +144,37 @@ export function CollectionWritingReader({
     return () => controller.abort();
   }, [canRead, isBook, readables, safeIndex]);
 
-  if (readables.length === 0) return null;
+  if (readables.length === 0) {
+    if (!bookPdf) return null;
+    return (
+      <section className="collection-writing" aria-label="Reading">
+        <div className="collection-writing-head">
+          <p className="collection-section-label">Book PDF</p>
+          {canRead ? (
+            <div className="collection-writing-downloads">
+              <MediaDownloadControl
+                className="collection-writing-download-control"
+                ariaLabel="Download book PDF"
+                onDownload={(onProgress) =>
+                  downloadIpfsMedia({
+                    cid: bookPdf.cid,
+                    url: bookPdf.url,
+                    mime: bookPdf.mime,
+                    title: bookPdf.title,
+                    fallbackName: 'book',
+                    onProgress,
+                  })
+                }
+              />
+            </div>
+          ) : null}
+        </div>
+        {!canRead ? (
+          <p className="collection-writing-locked">{lockedHint}</p>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section className="collection-writing" aria-label="Reading">
@@ -153,25 +185,45 @@ export function CollectionWritingReader({
             : readables[0]?.title?.trim() ||
               (chapterIsPdf ? 'PDF' : 'Manuscript')}
         </p>
-        {canRead && chapter ? (
-          <MediaDownloadControl
-            className="collection-writing-download-control"
-            ariaLabel={
-              chapter.title?.trim()
-                ? `Download ${chapter.title.trim()}`
-                : 'Download chapter'
-            }
-            onDownload={(onProgress) =>
-              downloadIpfsMedia({
-                cid: chapter.cid,
-                url: chapter.url,
-                mime: chapter.mime,
-                title: chapter.title,
-                fallbackName: `chapter-${safeIndex + 1}`,
-                onProgress,
-              })
-            }
-          />
+        {(canRead && chapter) || (canRead && bookPdf) ? (
+          <div className="collection-writing-downloads">
+            {canRead && chapter ? (
+              <MediaDownloadControl
+                className="collection-writing-download-control"
+                ariaLabel={
+                  chapter.title?.trim()
+                    ? `Download ${chapter.title.trim()}`
+                    : 'Download chapter'
+                }
+                onDownload={(onProgress) =>
+                  downloadIpfsMedia({
+                    cid: chapter.cid,
+                    url: chapter.url,
+                    mime: chapter.mime,
+                    title: chapter.title,
+                    fallbackName: `chapter-${safeIndex + 1}`,
+                    onProgress,
+                  })
+                }
+              />
+            ) : null}
+            {canRead && bookPdf ? (
+              <MediaDownloadControl
+                className="collection-writing-download-control"
+                ariaLabel="Download book PDF"
+                onDownload={(onProgress) =>
+                  downloadIpfsMedia({
+                    cid: bookPdf.cid,
+                    url: bookPdf.url,
+                    mime: bookPdf.mime,
+                    title: bookPdf.title,
+                    fallbackName: 'book',
+                    onProgress,
+                  })
+                }
+              />
+            ) : null}
+          </div>
         ) : null}
       </div>
 

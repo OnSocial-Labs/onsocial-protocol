@@ -80,8 +80,16 @@ function collectionViewFromOfflineAlbum(
     appId: null,
     appCommissionBps: null,
     kind: 'audio',
+    audioFormat:
+      album.tracks.length >= 2
+        ? 'album'
+        : album.tracks.length === 1
+          ? 'single'
+          : null,
+    facets: [],
     playables: playablesFromOfflineAlbum(album),
     readables: [],
+    bookPdf: null,
     writingFormat: null,
     writingManifestCid: null,
     transferable: true,
