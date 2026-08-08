@@ -1,12 +1,13 @@
 # Resources
 
-This directory contains additional guides and resources for working with the OnSocial Protocol.
+Supplementary guides for developing and deploying OnSocial Protocol.
 
-## Available Resources
+## Guides
 
-- **[Deployment Guide](deployment-guide.md):** Step-by-step instructions for deploying contracts using Docker.
+- **[Deployment Guide](deployment-guide.md)** — Deploy contracts with Docker
+- **[Make Targets](MAKE_TARGETS.md)** — Build, test, and utility targets
 
-## Notifications Testnet Promotion
+## Notifications testnet promotion
 
 Use testnet as the complete rehearsal environment for managed notifications before promoting the same flow to mainnet.
 
@@ -47,23 +48,6 @@ pnpm --filter @onsocial/sdk exec vitest run tests/integration/notifications.inte
 
 Mainnet is ready for notification promotion when the same test path passes without code changes and source-table coverage matches the deployed contracts.
 
-## AI Prompts
+## More docs
 
-Guides for AI-assisted development:
-
-- **General Project**: [project.md](prompts/project.md)
-- **Contracts**:
-  - [auth-onsocial](prompts/contracts/auth-onsocial.md)
-  - [scarces-onsocial](prompts/contracts/scarces-onsocial.md)
-  - [core-onsocial](prompts/contracts/core-onsocial.md)
-- [App](prompts/app.md)
-- [SDK](prompts/sdk.md)
-- [Relayer](prompts/relayer.md)
-- [Tests](prompts/tests.md)
-- [Docs](prompts/docs.md)
-
-## Purpose
-
-The `Resources/` folder is designed to provide supplementary documentation and tools to support development, deployment, and testing of the OnSocial Protocol.
-
-For contract-specific details, refer to the individual `README.md` files in the `contracts/` directory or the [repo map](../README.md#repo-map) in the root `README.md`.
+Contract and package details live in each package `README.md`, indexed from the root [repo map](../README.md#repo-map).
