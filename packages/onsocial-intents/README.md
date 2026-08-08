@@ -26,6 +26,7 @@ const { quote } = await client.getQuote({
   destinationAsset: 'near',
   amount: '100000000',
   refundTo: 'alice.near',
+  refundType: 'ORIGIN_CHAIN',
   recipient: 'alice.near',
   recipientType: 'DESTINATION_CHAIN',
   deadline: client.createDeadline(),

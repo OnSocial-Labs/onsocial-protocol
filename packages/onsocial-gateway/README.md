@@ -18,29 +18,29 @@ Configure via environment variables (see `src/config/index.ts`). Default port **
 
 Tiers come from **Revolut subscriptions** (or admin wallets → `service`), not from staked SOCIAL:
 
-| Tier | Rate limit (req/min) | Graph row limit |
-|---|---|---|
-| `free` | 60 | 100 |
-| `pro` | 600 | 1_000 |
-| `scale` | 3_000 | 10_000 |
-| `service` | 10_000 | 10_000 |
+| Tier      | Rate limit (req/min) | Graph row limit |
+| --------- | -------------------- | --------------- |
+| `free`    | 60                   | 100             |
+| `pro`     | 600                  | 1_000           |
+| `scale`   | 3_000                | 10_000          |
+| `service` | 10_000               | 10_000          |
 
 `ADMIN_WALLETS` always resolve to `service`.
 
 ## Surfaces (selection)
 
-| Area | Paths | Role |
-|---|---|---|
-| Auth | `/auth/*` | NEAR signature → JWT; refresh; me; tier |
-| Graph | `/graph/*` | Hasura GraphQL proxy + health |
-| Storage | `/storage/*` | IPFS upload / fetch (Lighthouse) |
-| Relay | `/relay/*` | Submit / meta-tx / status |
-| Compose | `/compose/*` | Scarces mint, listings, collections, preview |
-| Notifications | `/notifications/*` | List / read / rules; worker fans out events |
-| Webhooks | `/webhooks/*` | Outbound delivery |
-| Subscription | `/subscription/*` | Revolut billing plans |
-| Developer | `/developer/*` | OnAPI / developer tooling |
-| Analytics | `/analytics/*` | Usage metrics |
+| Area          | Paths              | Role                                         |
+| ------------- | ------------------ | -------------------------------------------- |
+| Auth          | `/auth/*`          | NEAR signature → JWT; refresh; me; tier      |
+| Graph         | `/graph/*`         | Hasura GraphQL proxy + health                |
+| Storage       | `/storage/*`       | IPFS upload / fetch (Lighthouse)             |
+| Relay         | `/relay/*`         | Submit / meta-tx / status                    |
+| Compose       | `/compose/*`       | Scarces mint, listings, collections, preview |
+| Notifications | `/notifications/*` | List / read / rules; worker fans out events  |
+| Webhooks      | `/webhooks/*`      | Outbound delivery                            |
+| Subscription  | `/subscription/*`  | Revolut billing plans                        |
+| Developer     | `/developer/*`     | OnAPI / developer tooling                    |
+| Analytics     | `/analytics/*`     | Usage metrics                                |
 
 Prefer the [@onsocial/sdk](../onsocial-sdk) over calling these routes raw.
 
