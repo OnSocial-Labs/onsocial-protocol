@@ -242,6 +242,22 @@ SQLEOF
         fi
       done
 
+      for column_name in medium_kind source_post_path; do
+        exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = '"'"'public'"'"'
+              AND table_name = '"'"'scarces_collections_current'"'"'
+              AND column_name = '"'"'${column_name}'"'"'
+          );
+        ")"
+        if [ "$exists" != "t" ]; then
+          echo "error: expected scarces_collections_current.${column_name} after upgrade in $db" >&2
+          exit 1
+        fi
+      done
+
       for relation in scarces_apps scarces_app_creators; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${relation}'"'"') IS NOT NULL;
@@ -260,6 +276,8 @@ SQLEOF
         idx_scarces_active_listings_medium_kind \
         idx_scarces_active_listings_audio_format \
         idx_scarces_active_listings_facets \
+        idx_scarces_collections_current_medium_kind \
+        idx_scarces_collections_current_source_post \
         idx_scarces_apps_owner \
         idx_scarces_app_creators_app_role
       do

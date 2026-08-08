@@ -718,6 +718,13 @@ CREATE TABLE IF NOT EXISTS scarces_collections_current (
   updated_block_timestamp BIGINT NOT NULL DEFAULT 0
 );
 
+-- Existing deployments skip CREATE TABLE; ensure added columns before indexes.
+ALTER TABLE scarces_collections_current
+  ADD COLUMN IF NOT EXISTS medium_kind TEXT;
+
+ALTER TABLE scarces_collections_current
+  ADD COLUMN IF NOT EXISTS source_post_path TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_created
   ON scarces_collections_current(created_at DESC NULLS LAST);
 CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_creator
