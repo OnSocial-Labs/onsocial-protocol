@@ -7,8 +7,8 @@ to PostgreSQL via `substreams-sink-sql`.
 ## Indexed Contracts
 
 This package indexes **5 contracts**. Other contracts in the workspace
-(`manager-proxy-onsocial`, `mock-ft`, `intents-onsocial`, `vesting-onsocial`,
-and `staking-onsocial`) are intentionally **not** included here.
+(`manager-proxy-onsocial`, `mock-ft`, `intents-onsocial`, and `vesting-onsocial`)
+are intentionally **not** included here.
 
 | Contract            | Standard       | Event types | Decoder                  | DB sink module   | Schema                     |
 | ------------------- | -------------- | ----------- | ------------------------ | ---------------- | -------------------------- |

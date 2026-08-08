@@ -214,8 +214,6 @@ const CONTRACT_SHORT_NAMES: Record<string, string> = {
   'staking-governance.onsocial.near': 'Staking governance',
   'staking-treasury.onsocial.testnet': 'Staking treasury',
   'staking-treasury.onsocial.near': 'Staking treasury',
-  'staking.onsocial.testnet': 'Staking',
-  'staking.onsocial.near': 'Staking',
 };
 
 function getProposalKindKey(kind: unknown): string | null {

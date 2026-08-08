@@ -229,7 +229,6 @@ authRouter.get('/config', (_req: Request, res: Response) => {
     rateLimits: config.rateLimits,
     contracts: {
       socialToken: config.socialTokenContract,
-      staking: config.stakingContract,
     },
   });
 });

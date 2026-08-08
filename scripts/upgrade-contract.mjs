@@ -23,7 +23,7 @@ async function main() {
   const contractName = process.argv[2];
   if (!contractName) {
     console.error('Usage: node scripts/upgrade-contract.mjs <contract-name>');
-    console.error('Example: node scripts/upgrade-contract.mjs staking-onsocial');
+    console.error('Example: node scripts/upgrade-contract.mjs boost-onsocial');
     process.exit(1);
   }
 
@@ -142,12 +142,12 @@ async function main() {
       console.log('Status:', finalStatus || 'completed');
     }
 
-    // Query new version — core uses get_version, scarces uses get_contract_info, staking uses get_stats
+    // Query new version — core uses get_version, scarces uses get_contract_info, boost uses get_stats
     console.log('');
     console.log('Querying contract version...');
     const versionMethod = contractName === 'core-onsocial'
       ? 'get_version'
-      : ['boost-onsocial', 'staking-onsocial'].includes(contractName)
+      : contractName === 'boost-onsocial'
         ? 'get_stats'
         : 'get_contract_info';
     const viewResult = await provider.query({

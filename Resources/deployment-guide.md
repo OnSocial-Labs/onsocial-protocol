@@ -38,7 +38,10 @@ make deploy-contract-core-onsocial NETWORK=sandbox
 **Available contracts:**
 - `core-onsocial` — Core social graph and storage
 - `scarces-onsocial` — Marketplace for digital assets
-- `staking-onsocial` — Staking and rewards
+- `boost-onsocial` — SOCIAL boost locks and rewards
+- `social-spend-onsocial` — Support, amplify, seasons
+- `token-onsocial` — SOCIAL (NEP-141)
+- `rewards-onsocial` — Partner reward pool
 
 **Deployment options:**
 ```bash
@@ -77,7 +80,10 @@ Contracts are deployed to these subaccounts:
 
 - `core.$NETWORK` — core-onsocial
 - `marketplace.$NETWORK` — scarces-onsocial
-- `staking.$NETWORK` — staking-onsocial
+- `boost.$NETWORK` — boost-onsocial
+- `token.$NETWORK` — token-onsocial
+- `rewards.$NETWORK` — rewards-onsocial
+- `social-spend.$NETWORK` — social-spend-onsocial
 
 Where `$NETWORK` is `sandbox`, `testnet`, or `mainnet`.
 

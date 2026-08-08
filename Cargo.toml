@@ -16,7 +16,6 @@ members = [
     "contracts/boost-onsocial",
     "contracts/social-spend-onsocial",
     "contracts/scarces-onsocial",
-    "contracts/staking-onsocial",
     "contracts/vesting-onsocial",
     "contracts/core-onsocial",
     "contracts/manager-proxy-onsocial",

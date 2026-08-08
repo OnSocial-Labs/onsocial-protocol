@@ -51,7 +51,6 @@ Clients talk HTTP to the **gateway**. Indexed reads come from **Hasura/Postgres*
 | **Contracts** | |
 | [contracts/core-onsocial](contracts/core-onsocial) | Posts, groups, profiles, permissions |
 | [contracts/token-onsocial](contracts/token-onsocial) | SOCIAL (NEP-141) |
-| [contracts/staking-onsocial](contracts/staking-onsocial) | Stake SOCIAL → rewards |
 | [contracts/boost-onsocial](contracts/boost-onsocial) | Lock SOCIAL, boost-seconds rewards |
 | [contracts/social-spend-onsocial](contracts/social-spend-onsocial) | Support, amplify, seasons, endorsements |
 | [contracts/scarces-onsocial](contracts/scarces-onsocial) | Listings & commerce |

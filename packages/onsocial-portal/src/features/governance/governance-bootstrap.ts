@@ -4,7 +4,6 @@ import {
   REWARDS_CONTRACT,
   SCARCES_CONTRACT,
   SOCIAL_SPEND_CONTRACT,
-  STAKING_CONTRACT,
   TOKEN_CONTRACT,
 } from '@/lib/near-rpc';
 import {
@@ -26,7 +25,6 @@ import type {
 } from '@/features/governance/types';
 
 const SPUTNIK_DAO_STAKING_ACCOUNTS = new Set([
-  STAKING_CONTRACT,
   STAKING_GOVERNANCE_DAO_ACCOUNT,
   STAKING_TREASURY_DAO_ACCOUNT,
   'staking-governance.onsocial.near',

@@ -20,7 +20,7 @@ WARNING="⚠️  \033[0;33m"
 RESET="\033[0m"
 
 # List of contracts to test and report on
-CONTRACT_LIST=("scarces-onsocial" "staking-onsocial" "boost-onsocial" "social-spend-onsocial" "vesting-onsocial" "core-onsocial" "token-onsocial" "rewards-onsocial")
+CONTRACT_LIST=("scarces-onsocial" "boost-onsocial" "social-spend-onsocial" "vesting-onsocial" "core-onsocial" "token-onsocial" "rewards-onsocial")
 
 # List of JS/TS/RS packages to test and report on
 PACKAGES_LIST=("onsocial-client" "app" "relayer")
@@ -128,7 +128,7 @@ test_integration() {
     # Build contract in release mode if a specific contract is being tested
     if [ -n "$module" ]; then
         case $module in
-            scarces-onsocial|staking-onsocial|boost-onsocial|social-spend-onsocial|vesting-onsocial|core-onsocial|token-onsocial|rewards-onsocial)
+            scarces-onsocial|boost-onsocial|social-spend-onsocial|vesting-onsocial|core-onsocial|token-onsocial|rewards-onsocial)
                 echo "Building $module in release mode for integration test..."
                 cd "$BASE_DIR/$module" || { echo -e "${ERROR}Directory $module not found${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 local features_flag=""
@@ -181,41 +181,8 @@ test_integration() {
                 else
                     # Run core-onsocial tests only: skip other contract-specific and relayer-only modules
                     # (their WASM artifacts aren't built when targeting core-onsocial, or they don't exercise core).
-                    run_integration_test "" "--skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests --skip boost_onsocial_tests --skip scarces:: --skip rewards:: --skip intents_onsocial_tests --skip vesting:: --skip relayer_key_pool_tests --skip storage_batch_tests::test_update_config_via_manager_contract"
+                    run_integration_test "" "--skip token_onsocial_tests --skip boost_onsocial_tests --skip scarces:: --skip rewards:: --skip intents_onsocial_tests --skip vesting:: --skip relayer_key_pool_tests --skip storage_batch_tests::test_update_config_via_manager_contract"
                 fi
-                local test_exit_code=$?
-                
-                if [ $test_exit_code -ne 0 ]; then
-                    echo -e "${ERROR}Integration tests failed for $module${test_name:+ (test: $test_name)}${RESET}"
-                    INTEGRATION_RESULTS["$module"]="Failed"
-                    ((INTEGRATION_FAILURES++))
-                    return 1
-                else
-                    echo -e "${SUCCESS}Integration tests passed for $module${test_name:+ (test: $test_name)}${RESET}"
-                    INTEGRATION_RESULTS["$module"]="Passed"
-                fi
-                ;;
-            staking-onsocial)
-                # Run near-workspaces integration tests for staking-onsocial
-                # Clean up any stale sandbox temp files first
-                rm -rf /tmp/.tmp* 2>/dev/null || true
-                
-                # Build mock-ft for FT integration tests
-                echo "Building mock-ft contract for staking integration tests..."
-                if [ -d "$BASE_DIR/mock-ft" ]; then
-                    cd "$BASE_DIR/mock-ft" || { echo -e "${WARNING}mock-ft contract not found, FT tests will be skipped${RESET}"; }
-                    cargo near build non-reproducible-wasm || { echo -e "${ERROR}Failed to build mock-ft${RESET}"; }
-                fi
-                cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
-                
-                # Run staking tests
-                local test_filter="staking_onsocial_tests"
-                if [ -n "$test_name" ]; then
-                    test_filter="$test_name"
-                    echo "Running specific integration test: $test_name"
-                fi
-                
-                run_integration_test "$test_filter"
                 local test_exit_code=$?
                 
                 if [ $test_exit_code -ne 0 ]; then
