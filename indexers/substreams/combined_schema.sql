@@ -565,6 +565,10 @@ CREATE TABLE IF NOT EXISTS scarces_active_listings (
   source_post_path TEXT,
   card_bg TEXT,
   extra_json TEXT,
+  -- Discovery columns extracted from NEP-177 extra (not listing kind).
+  medium_kind TEXT,
+  audio_format TEXT,
+  facets TEXT[],
   listed_block_height BIGINT NOT NULL DEFAULT 0,
   listed_block_timestamp BIGINT NOT NULL DEFAULT 0,
   updated_block_height BIGINT NOT NULL DEFAULT 0,
@@ -579,6 +583,15 @@ ALTER TABLE scarces_active_listings
 
 ALTER TABLE scarces_active_listings
   ADD COLUMN IF NOT EXISTS app_id TEXT;
+
+ALTER TABLE scarces_active_listings
+  ADD COLUMN IF NOT EXISTS medium_kind TEXT;
+
+ALTER TABLE scarces_active_listings
+  ADD COLUMN IF NOT EXISTS audio_format TEXT;
+
+ALTER TABLE scarces_active_listings
+  ADD COLUMN IF NOT EXISTS facets TEXT[];
 
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_listed
   ON scarces_active_listings(listed_block_timestamp DESC);
@@ -598,6 +611,12 @@ CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_kind_listed
   ON scarces_active_listings(kind, listed_block_timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_app
   ON scarces_active_listings(app_id);
+CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_medium_kind
+  ON scarces_active_listings(medium_kind);
+CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_audio_format
+  ON scarces_active_listings(audio_format);
+CREATE INDEX IF NOT EXISTS idx_scarces_active_listings_facets
+  ON scarces_active_listings USING GIN (facets);
 
 -- Sink-maintained open offers (upsert on made, delete on cancel/accept).
 CREATE TABLE IF NOT EXISTS scarces_active_offers (

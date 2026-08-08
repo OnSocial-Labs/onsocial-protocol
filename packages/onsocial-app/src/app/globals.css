@@ -22315,11 +22315,109 @@ a.os-surface-row {
 
   .market-listing-toolbar {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.45rem;
     min-width: 0;
     margin: 0;
     overflow: visible;
+  }
+
+  /* Search + Drops escape — one heading line under Market title. */
+  .market-heading-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .market-heading-row .os-app-screen-search {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Quiet discovery escape — must not compete with search or Filter. */
+  .market-drops-link {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .market-drops-link:hover,
+  .market-drops-link:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
+  }
+
+  .market-filter-sheet {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .market-filter-sheet-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .market-filter-chip-row {
+    margin: 0;
+  }
+
+  /* Genres wrap so the full set is visible without a second horizontal hunt. */
+  .market-filter-chip-wrap {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+
+  /* Clear = small text action on the Filter title; X stays alone on the right. */
+  .market-filter-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .market-filter-title-row .glass-sheet-header-title {
+    margin: 0;
+  }
+
+  .market-filter-title-clear {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.45);
+    cursor: pointer;
+  }
+
+  .market-filter-title-clear:hover,
+  .market-filter-title-clear:focus-visible {
+    color: var(--os-surface-emphasis);
+    outline: none;
+  }
+
+  .market-filter-sheet-body {
+    /* Footer owns the bottom inset — don't double-pad under Done. */
+    padding-bottom: 0.35rem;
+  }
+
+  .market-filter-sheet-footer {
+    padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
+      calc(0.35rem + env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
   }
 
   /* Drop template pills under the create-drop header — same rail as Market. */

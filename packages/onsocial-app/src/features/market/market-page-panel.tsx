@@ -22,13 +22,10 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
-import {
-  MarketFacetRail,
-  type MarketAudioFormatFilter,
-} from '@/features/market/market-facet-rail';
+import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import {
   MARKET_MEDIUM_FILTERS,
-  MarketMediumMenu,
   type MarketMediumFilter,
 } from '@/features/market/market-medium-menu';
 import {
@@ -91,6 +88,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_APPS_PATH,
   APP_DROP_CREATE_PATH,
+  APP_DROPS_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
   MARKET_CREATOR_PARAM,
@@ -1075,17 +1073,26 @@ export function MarketPagePanel({
         </>
       }
       heading={
-        <SearchField
-          value={listingQuery}
-          onValueChange={setListingQuery}
-          placeholder="Search listings"
-          clearAriaLabel="Clear search"
-          ariaLabel="Search Market listings"
-          className="discover-nav-search-field os-app-screen-search"
-          leadingIcon={
-            <ShopFillIcon className="search-field-icon" aria-hidden />
-          }
-        />
+        <div className="market-heading-row">
+          <SearchField
+            value={listingQuery}
+            onValueChange={setListingQuery}
+            placeholder="Search listings"
+            clearAriaLabel="Clear search"
+            ariaLabel="Search Market listings"
+            className="discover-nav-search-field os-app-screen-search"
+            leadingIcon={
+              <ShopFillIcon className="search-field-icon" aria-hidden />
+            }
+          />
+          <Link
+            href={APP_DROPS_PATH}
+            scroll={false}
+            className="market-drops-link"
+          >
+            Drops
+          </Link>
+        </div>
       }
       toolbar={
         showListingToolbar ? (
@@ -1094,48 +1101,43 @@ export function MarketPagePanel({
               toolbarHidden ? ' is-scroll-hidden' : ''
             }`}
           >
-            <div className="market-listing-filter-stack">
-              <div
-                className="discover-tab-bar market-listing-filters"
-                role="tablist"
-                aria-label="Listing type"
-              >
-                <div className="discover-tab-bar-scroller">
-                  {LISTING_FILTERS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      id={`market-listing-tab-${tab.id}`}
-                      aria-controls="market-listing-results"
-                      aria-selected={listingFilter === tab.id}
-                      className={
-                        listingFilter === tab.id ? 'is-active' : undefined
-                      }
-                      onClick={() => setFilter(tab.id)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+            <div
+              className="discover-tab-bar market-listing-filters"
+              role="tablist"
+              aria-label="Listing type"
+            >
+              <div className="discover-tab-bar-scroller">
+                {LISTING_FILTERS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    id={`market-listing-tab-${tab.id}`}
+                    aria-controls="market-listing-results"
+                    aria-selected={listingFilter === tab.id}
+                    className={
+                      listingFilter === tab.id ? 'is-active' : undefined
+                    }
+                    onClick={() => setFilter(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-              {facetMedium ? (
-                <MarketFacetRail
-                  medium={facetMedium}
-                  audioFormat={audioFormatFilter}
-                  selectedFacets={selectedFacets}
-                  onAudioFormatChange={(format) =>
-                    replaceDiscoveryParams({ audioFormat: format })
-                  }
-                  onFacetsChange={(facets) =>
-                    replaceDiscoveryParams({ facets })
-                  }
-                />
-              ) : null}
             </div>
-            <MarketMediumMenu
+            <MarketFilterMenu
               medium={mediumFilter}
               onMediumChange={setMediumFilter}
+              facetMedium={facetMedium}
+              audioFormat={audioFormatFilter}
+              selectedFacets={selectedFacets}
+              onAudioFormatChange={(format) =>
+                replaceDiscoveryParams({ audioFormat: format })
+              }
+              onFacetsChange={(facets) =>
+                replaceDiscoveryParams({ facets })
+              }
+              onClear={() => setMediumFilter('all')}
               onOpenChange={setSortMenuOpen}
             />
             <MarketListingSortMenu

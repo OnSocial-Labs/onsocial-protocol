@@ -3074,6 +3074,30 @@ describe('QueryModule', () => {
       );
     });
 
+    it('activeListings filters mediumKind / facets / audioFormat on columns', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesActiveListings: [] } });
+      await os.query.scarces.activeListings({
+        mediumKind: 'music',
+        facets: ['Jazz', 'indie'],
+        audioFormat: 'album',
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/mediumKind: \{_eq: \$mediumKind\}/);
+      expect(body.query).toMatch(/facets: \{_contains: \$facets\}/);
+      expect(body.query).toMatch(/audioFormat: \{_eq: \$audioFormat\}/);
+      expect(body.query).not.toMatch(/extraJson: \{_ilike/);
+      expect(body.variables).toEqual({
+        limit: 40,
+        offset: 0,
+        mediumKind: 'audio',
+        facets: ['jazz', 'indie'],
+        audioFormat: 'album',
+      });
+    });
+
     it('collectionCurrent queries scarcesCollectionsCurrent by id', async () => {
       const { os, fetch } = makeOs({
         data: { scarcesCollectionsCurrent: [{ collectionId: 'drop-1' }] },

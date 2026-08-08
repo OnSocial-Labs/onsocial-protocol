@@ -226,7 +226,7 @@ SQLEOF
 
     validate_scarces_catalog_upgrade_shape() {
       db="$1"
-      for column_name in price_numeric app_id; do
+      for column_name in price_numeric app_id medium_kind audio_format facets; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT EXISTS (
             SELECT 1
@@ -257,6 +257,9 @@ SQLEOF
         idx_scarces_active_listings_expires \
         idx_scarces_active_listings_kind_listed \
         idx_scarces_active_listings_app \
+        idx_scarces_active_listings_medium_kind \
+        idx_scarces_active_listings_audio_format \
+        idx_scarces_active_listings_facets \
         idx_scarces_apps_owner \
         idx_scarces_app_creators_app_role
       do

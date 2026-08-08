@@ -102,6 +102,10 @@ export interface ScarcesActiveListingRow {
   sourcePostPath: string | null;
   cardBg: string | null;
   extraJson: string | null;
+  /** NEP-177 medium (`art` / `audio` / …) — not listing kind. */
+  mediumKind: string | null;
+  audioFormat: string | null;
+  facets: string[] | null;
   listedBlockHeight: number;
   listedBlockTimestamp: number;
   updatedBlockHeight: number;
@@ -131,6 +135,9 @@ const SCARCES_ACTIVE_LISTING_FIELDS = `
   sourcePostPath
   cardBg
   extraJson
+  mediumKind
+  audioFormat
+  facets
   listedBlockHeight
   listedBlockTimestamp
   updatedBlockHeight
@@ -672,12 +679,12 @@ export class ScarcesQuery {
       search?: string;
       /**
        * Medium taxonomy from NEP-177 `extra.kind` (`art` | `audio` | …).
-       * Matched via `extraJson` text contains (indexer column is TEXT).
+       * Indexer column `medium_kind` (legacy `music` normalized to `audio`).
        */
       mediumKind?: string;
-      /** Discovery facet ids that must all appear in `extra.facets`. */
+      /** Discovery facet ids that must all appear in `facets` (Hasura `_contains`). */
       facets?: string[];
-      /** Audio release format from `extra.audioFormat`. */
+      /** Audio release format column (`single` | `album` | …). */
       audioFormat?: 'single' | 'album' | 'podcast' | string;
       /** Server-side sort; defaults to newest listed first. */
       orderBy?: 'listed_desc' | 'price_asc' | 'price_desc' | 'ending_asc';
@@ -717,35 +724,24 @@ export class ScarcesQuery {
     }
     const mediumKind = opts.mediumKind?.trim().toLowerCase();
     if (mediumKind) {
-      // `extra.kind` in the TEXT blob. Audio also matches legacy `music`.
-      if (mediumKind === 'audio') {
-        params.push('$mediumAudio: String!', '$mediumMusic: String!');
-        variables.mediumAudio = '%"kind":"audio"%';
-        variables.mediumMusic = '%"kind":"music"%';
-        where.push(
-          '_or: [{extraJson: {_ilike: $mediumAudio}}, {extraJson: {_ilike: $mediumMusic}}]'
-        );
-      } else {
-        params.push('$mediumKindNeedle: String!');
-        variables.mediumKindNeedle = `%"kind":"${mediumKind}"%`;
-        where.push('extraJson: {_ilike: $mediumKindNeedle}');
-      }
+      // Sink normalizes legacy `music` → `audio` on write/backfill.
+      params.push('$mediumKind: String!');
+      variables.mediumKind = mediumKind === 'music' ? 'audio' : mediumKind;
+      where.push('mediumKind: {_eq: $mediumKind}');
     }
     const facets = (opts.facets ?? [])
       .map((facet) => facet.trim().toLowerCase())
       .filter(Boolean);
-    for (let i = 0; i < facets.length; i += 1) {
-      const key = `facetNeedle${i}`;
-      params.push(`$${key}: String!`);
-      // Facet ids are closed-vocab slugs; quote-bound to avoid loose matches.
-      variables[key] = `%"${facets[i]}"%`;
-      where.push(`extraJson: {_ilike: $${key}}`);
+    if (facets.length > 0) {
+      params.push('$facets: [String!]!');
+      variables.facets = facets;
+      where.push('facets: {_contains: $facets}');
     }
     const audioFormat = opts.audioFormat?.trim().toLowerCase();
     if (audioFormat) {
-      params.push('$audioFormatNeedle: String!');
-      variables.audioFormatNeedle = `%"audioFormat":"${audioFormat}"%`;
-      where.push('extraJson: {_ilike: $audioFormatNeedle}');
+      params.push('$audioFormat: String!');
+      variables.audioFormat = audioFormat;
+      where.push('audioFormat: {_eq: $audioFormat}');
     }
 
     const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';

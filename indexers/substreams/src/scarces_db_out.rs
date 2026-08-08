@@ -213,6 +213,48 @@ fn card_bg(data: &Value) -> Option<String> {
     json_str(theme, "bg")
 }
 
+/// Normalize NEP-177 `extra.kind` for Market discovery (`music` → `audio`).
+fn medium_kind_from_extra(extra: &Value) -> Option<String> {
+    let raw = json_str(extra, "kind")?;
+    let key = raw.trim().to_ascii_lowercase();
+    if key.is_empty() {
+        return None;
+    }
+    if key == "music" {
+        return Some("audio".into());
+    }
+    Some(key)
+}
+
+fn audio_format_from_extra(extra: &Value) -> Option<String> {
+    let raw = json_str(extra, "audioFormat")?;
+    let key = raw.trim().to_ascii_lowercase();
+    if key.is_empty() {
+        None
+    } else {
+        Some(key)
+    }
+}
+
+/// Closed-vocab facet ids from `extra.facets` (lowercase, de-duped, ordered).
+fn facets_from_extra(extra: &Value) -> Vec<String> {
+    let Some(Value::Array(items)) = extra.get("facets") else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for item in items {
+        let Some(raw) = item.as_str() else {
+            continue;
+        };
+        let key = raw.trim().to_ascii_lowercase();
+        if key.is_empty() || out.iter().any(|existing| existing == &key) {
+            continue;
+        }
+        out.push(key);
+    }
+    out
+}
+
 fn seller_hint(e: &ScarcesEvent) -> &str {
     non_empty(&e.creator_id)
         .or_else(|| non_empty(&e.seller_id))
@@ -248,6 +290,18 @@ fn set_browse_meta(tables: &mut Tables, key: &str, data: &Value) {
     }
     if let Some(extra) = json_str(data, "extra") {
         row.set("extra_json", extra);
+    }
+    if let Some(extra) = parse_extra_blob(data) {
+        if let Some(medium) = medium_kind_from_extra(&extra) {
+            row.set("medium_kind", medium);
+        }
+        if let Some(format) = audio_format_from_extra(&extra) {
+            row.set("audio_format", format);
+        }
+        let facets = facets_from_extra(&extra);
+        if !facets.is_empty() {
+            row.set_psql_array("facets", facets);
+        }
     }
 }
 

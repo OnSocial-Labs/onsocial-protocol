@@ -313,7 +313,7 @@ fn active_listing_lazy_create_upserts_catalog() {
         listing_id: "ll:1".into(),
         creator_id: "creator.near".into(),
         price: "1000000000000000000000000".into(),
-        extra_data: r#"{"listing_id":"ll:1","creator_id":"creator.near","price":"1000000000000000000000000","copies":3,"title":"Drop","media":"ipfs://x","extra":"{\"sourcePost\":{\"path\":\"a.near/post/1\"},\"theme\":{\"bg\":\"dusk\"}}"}"#.into(),
+        extra_data: r#"{"listing_id":"ll:1","creator_id":"creator.near","price":"1000000000000000000000000","copies":3,"title":"Drop","media":"ipfs://x","extra":"{\"kind\":\"audio\",\"audioFormat\":\"album\",\"facets\":[\"jazz\",\"indie\"],\"sourcePost\":{\"path\":\"a.near/post/1\"},\"theme\":{\"bg\":\"dusk\"}}"}"#.into(),
         ..Default::default()
     };
     apply_active_listing(&mut tables, &event);
@@ -340,6 +340,28 @@ fn active_listing_lazy_create_upserts_catalog() {
             "source_post_path"
         ),
         Some("a.near/post/1")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "lazy:ll:1",
+            "medium_kind"
+        ),
+        Some("audio")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "lazy:ll:1",
+            "audio_format"
+        ),
+        Some("album")
+    );
+    assert_eq!(
+        find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:1", "facets"),
+        Some("'{jazz,indie}'")
     );
 }
 
@@ -927,6 +949,46 @@ fn active_listing_create_tags_app_id() {
     assert_eq!(
         find_field_for_pk(&changes, "scarces_active_listings", "lazy:ll:app", "app_id"),
         Some("my_app")
+    );
+}
+
+#[test]
+fn active_listing_normalizes_legacy_music_medium() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-list_native".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "list_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        token_id: "s:music".into(),
+        price: "1".into(),
+        extra_data: r#"{"token_id":"s:music","price":"1","title":"Track","extra":"{\"kind\":\"music\",\"audioFormat\":\"single\"}"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:s:music",
+            "medium_kind"
+        ),
+        Some("audio")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:s:music",
+            "audio_format"
+        ),
+        Some("single")
     );
 }
 
