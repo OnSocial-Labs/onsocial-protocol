@@ -670,6 +670,15 @@ export class ScarcesQuery {
       appId?: string;
       /** Case-insensitive substring match on title / seller / creator. */
       search?: string;
+      /**
+       * Medium taxonomy from NEP-177 `extra.kind` (`art` | `audio` | …).
+       * Matched via `extraJson` text contains (indexer column is TEXT).
+       */
+      mediumKind?: string;
+      /** Discovery facet ids that must all appear in `extra.facets`. */
+      facets?: string[];
+      /** Audio release format from `extra.audioFormat`. */
+      audioFormat?: 'single' | 'album' | 'podcast' | string;
       /** Server-side sort; defaults to newest listed first. */
       orderBy?: 'listed_desc' | 'price_asc' | 'price_desc' | 'ending_asc';
     } = {}
@@ -705,6 +714,38 @@ export class ScarcesQuery {
       where.push(
         '_or: [{title: {_ilike: $search}}, {sellerId: {_ilike: $search}}, {creatorId: {_ilike: $search}}]'
       );
+    }
+    const mediumKind = opts.mediumKind?.trim().toLowerCase();
+    if (mediumKind) {
+      // `extra.kind` in the TEXT blob. Audio also matches legacy `music`.
+      if (mediumKind === 'audio') {
+        params.push('$mediumAudio: String!', '$mediumMusic: String!');
+        variables.mediumAudio = '%"kind":"audio"%';
+        variables.mediumMusic = '%"kind":"music"%';
+        where.push(
+          '_or: [{extraJson: {_ilike: $mediumAudio}}, {extraJson: {_ilike: $mediumMusic}}]'
+        );
+      } else {
+        params.push('$mediumKindNeedle: String!');
+        variables.mediumKindNeedle = `%"kind":"${mediumKind}"%`;
+        where.push('extraJson: {_ilike: $mediumKindNeedle}');
+      }
+    }
+    const facets = (opts.facets ?? [])
+      .map((facet) => facet.trim().toLowerCase())
+      .filter(Boolean);
+    for (let i = 0; i < facets.length; i += 1) {
+      const key = `facetNeedle${i}`;
+      params.push(`$${key}: String!`);
+      // Facet ids are closed-vocab slugs; quote-bound to avoid loose matches.
+      variables[key] = `%"${facets[i]}"%`;
+      where.push(`extraJson: {_ilike: $${key}}`);
+    }
+    const audioFormat = opts.audioFormat?.trim().toLowerCase();
+    if (audioFormat) {
+      params.push('$audioFormatNeedle: String!');
+      variables.audioFormatNeedle = `%"audioFormat":"${audioFormat}"%`;
+      where.push('extraJson: {_ilike: $audioFormatNeedle}');
     }
 
     const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';
@@ -774,6 +815,13 @@ export class ScarcesQuery {
       kind?: string;
       /** When false (default), hide paused/cancelled/banned shells. */
       includeUnavailable?: boolean;
+      /**
+       * `new` = newest created; `minting` = still available, most minted;
+       * `volume` = most minted overall.
+       */
+      orderBy?: 'new' | 'minting' | 'volume';
+      /** When true, only rows with remaining supply (`remaining > 0`). */
+      mintingOnly?: boolean;
     } = {}
   ): Promise<ScarcesCollectionCurrentRow[]> {
     const limit = opts.limit ?? 40;
@@ -786,6 +834,9 @@ export class ScarcesQuery {
       where.push('paused: {_eq: false}');
       where.push('cancelled: {_eq: false}');
       where.push('banned: {_eq: false}');
+    }
+    if (opts.mintingOnly || opts.orderBy === 'minting') {
+      where.push('remaining: {_gt: 0}');
     }
     if (opts.creatorId?.trim()) {
       params.push('$creatorId: String!');
@@ -804,6 +855,10 @@ export class ScarcesQuery {
     }
 
     const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';
+    const orderClause =
+      opts.orderBy === 'minting' || opts.orderBy === 'volume'
+        ? '[{mintedCount: DESC_NULLS_LAST}, {remaining: ASC_NULLS_LAST}, {createdAt: DESC_NULLS_LAST}]'
+        : '[{createdAt: DESC_NULLS_LAST}, {createdBlockTimestamp: DESC}]';
     const res = await this._q.graphql<{
       scarcesCollectionsCurrent: ScarcesCollectionCurrentRow[];
     }>({
@@ -812,12 +867,105 @@ export class ScarcesQuery {
           ${whereClause}
           limit: $limit,
           offset: $offset,
-          orderBy: [{createdAt: DESC_NULLS_LAST}, {createdBlockTimestamp: DESC}]
+          orderBy: ${orderClause}
         ) { ${SCARCES_COLLECTION_CURRENT_FIELDS} }
       }`,
       variables,
     });
     return res.data?.scarcesCollectionsCurrent ?? [];
+  }
+
+  /**
+   * Most-loved albums from `scarce_album_love_fans` (fan_count desc).
+   */
+  async albumLoveFans(
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      postOwner: string;
+      collectionId: string;
+      fanCount: number;
+      lastLoveBlock: number | null;
+    }>
+  > {
+    const limit = opts.limit ?? 40;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      scarceAlbumLoveFans: Array<{
+        postOwner: string;
+        collectionId: string;
+        fanCount: number;
+        lastLoveBlock: number | null;
+      }>;
+    }>({
+      query: `query ScarceAlbumLoveFans($limit: Int!, $offset: Int!) {
+        scarceAlbumLoveFans(
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{fanCount: DESC}, {lastLoveBlock: DESC_NULLS_LAST}]
+        ) {
+          postOwner
+          collectionId
+          fanCount
+          lastLoveBlock
+        }
+      }`,
+      variables: { limit, offset },
+    });
+    return res.data?.scarceAlbumLoveFans ?? [];
+  }
+
+  /**
+   * Creator / collector activity leaderboard (`scarces_activity`).
+   */
+  async activityLeaderboard(
+    opts: {
+      limit?: number;
+      offset?: number;
+      orderBy?: 'revenue' | 'created' | 'sold';
+    } = {}
+  ): Promise<
+    Array<{
+      accountId: string;
+      itemsCreated: number;
+      itemsSold: number;
+      revenueEarned: string | null;
+      collectionsCreated: number;
+    }>
+  > {
+    const limit = opts.limit ?? 40;
+    const offset = opts.offset ?? 0;
+    const orderClause =
+      opts.orderBy === 'created'
+        ? '[{itemsCreated: DESC}, {collectionsCreated: DESC}]'
+        : opts.orderBy === 'sold'
+          ? '[{itemsSold: DESC}, {revenueEarned: DESC_NULLS_LAST}]'
+          : '[{revenueEarned: DESC_NULLS_LAST}, {itemsSold: DESC}]';
+    const res = await this._q.graphql<{
+      scarcesActivity: Array<{
+        accountId: string;
+        itemsCreated: number;
+        itemsSold: number;
+        revenueEarned: string | null;
+        collectionsCreated: number;
+      }>;
+    }>({
+      query: `query ScarcesActivityLeaderboard($limit: Int!, $offset: Int!) {
+        scarcesActivity(
+          limit: $limit,
+          offset: $offset,
+          orderBy: ${orderClause}
+        ) {
+          accountId
+          itemsCreated
+          itemsSold
+          revenueEarned
+          collectionsCreated
+        }
+      }`,
+      variables: { limit, offset },
+    });
+    return res.data?.scarcesActivity ?? [];
   }
 
   /**

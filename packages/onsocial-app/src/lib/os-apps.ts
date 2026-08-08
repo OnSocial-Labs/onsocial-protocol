@@ -4,6 +4,7 @@ import {
   APP_COLLECTION_PATH,
   APP_COLLECTIBLES_PATH,
   APP_DISCOVER_PATH,
+  APP_DROPS_PATH,
   APP_GROUPS_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
@@ -50,6 +51,9 @@ export function resolveActiveOsAppId(
   }
   if (path === APP_MARKET_PATH || path.startsWith(`${APP_MARKET_PATH}/`)) {
     return 'market';
+  }
+  if (path === APP_DROPS_PATH || path.startsWith(`${APP_DROPS_PATH}/`)) {
+    return 'drops';
   }
   if (
     path === APP_COLLECTIBLES_PATH ||
@@ -138,6 +142,12 @@ export function gateOsApps(): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    {
+      id: 'drops',
+      label: 'Drops',
+      kind: 'app',
+      href: APP_DROPS_PATH,
+    },
     COLLECTIBLES_APP,
     HUBS_APP,
     {
@@ -176,6 +186,12 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    {
+      id: 'drops',
+      label: 'Drops',
+      kind: 'app',
+      href: APP_DROPS_PATH,
+    },
     COLLECTIBLES_APP,
     HUBS_APP,
     {
@@ -203,6 +219,12 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_MARKET_PATH,
     },
+    {
+      id: 'drops',
+      label: 'Drops',
+      kind: 'app',
+      href: APP_DROPS_PATH,
+    },
     HUBS_APP,
     {
       id: 'groups',
@@ -223,6 +245,12 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       label: 'Market',
       kind: 'app',
       href: APP_MARKET_PATH,
+    },
+    {
+      id: 'drops',
+      label: 'Drops',
+      kind: 'app',
+      href: APP_DROPS_PATH,
     },
     HUBS_APP,
     {

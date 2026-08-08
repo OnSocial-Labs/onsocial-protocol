@@ -15,6 +15,10 @@ import {
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
 import { isAudioMediumKind } from '@/features/market/market-medium';
+import {
+  peekOwnedVaultPage,
+  putOwnedVaultPage,
+} from '@/features/market/owned-vault-cache';
 
 /**
  * Market data plane (indexer-first, same pattern as feed/standings):
@@ -1422,7 +1426,12 @@ async function fetchOwnedScarcesPageFromRpc(
 
 export async function fetchOwnedScarcesPage(
   accountId: string,
-  opts: { fromEnd?: number; pageSize?: number } = {}
+  opts: {
+    fromEnd?: number;
+    pageSize?: number;
+    /** Skip shared first-page cache (force refresh). */
+    bypassCache?: boolean;
+  } = {}
 ): Promise<OwnedScarcesPage> {
   const owner = accountId.trim();
   const fromEnd = Math.max(0, opts.fromEnd ?? 0);
@@ -1434,18 +1443,26 @@ export async function fetchOwnedScarcesPage(
   };
   if (!owner || fromEnd >= OWNED_MAX_TOKENS) return empty;
 
+  if (fromEnd === 0 && !opts.bypassCache) {
+    const cached = peekOwnedVaultPage(owner);
+    if (cached) return cached;
+  }
+
+  let page: OwnedScarcesPage | null = null;
   try {
-    const indexed = await fetchOwnedScarcesPageFromIndexer(
-      owner,
-      fromEnd,
-      pageSize
-    );
-    if (indexed) return indexed;
+    page = await fetchOwnedScarcesPageFromIndexer(owner, fromEnd, pageSize);
   } catch {
     // Hasura / OnAPI unavailable — fall through to RPC.
   }
+  if (!page) {
+    // Bound RPC degrade — same page size cap, no catalog walk.
+    page = await fetchOwnedScarcesPageFromRpc(owner, fromEnd, pageSize);
+  }
 
-  return fetchOwnedScarcesPageFromRpc(owner, fromEnd, pageSize);
+  if (fromEnd === 0) {
+    putOwnedVaultPage(owner, page);
+  }
+  return page;
 }
 
 /**
@@ -1793,6 +1810,9 @@ function sortToIndexerOrder(
  * Empty catalog → empty UI. RPC degrade only on true query failure, and only
  * for the first page. Buy/bid/verify still use contract views at action time.
  */
+/** Cap RPC degrade so Hasura flaps don't fan out unbounded chain reads. */
+const MARKET_RPC_FALLBACK_LIMIT = 24;
+
 export async function fetchMarketListings(
   opts: {
     limit?: number;
@@ -1804,12 +1824,25 @@ export async function fetchMarketListings(
     sellerId?: string;
     /** Restrict to one app / store slug. */
     appId?: string;
+    /** Medium taxonomy (`extra.kind`) — server-filtered via indexer. */
+    mediumKind?: string;
+    /** Discovery facet ids — all must match. */
+    facets?: string[];
+    /** Audio release format (`extra.audioFormat`). */
+    audioFormat?: 'single' | 'album' | 'podcast' | string;
     /** Server/browser client; defaults to the browser gateway proxy. */
     client?: OnSocial;
   } = {}
 ): Promise<MarketListingsPage> {
   const limit = opts.limit ?? 40;
   const offset = opts.offset ?? 0;
+  const mediumKind = opts.mediumKind?.trim().toLowerCase();
+  const facets = (opts.facets ?? [])
+    .map((facet) => facet.trim().toLowerCase())
+    .filter(Boolean);
+  const audioFormat = opts.audioFormat?.trim().toLowerCase();
+  const discoveryFiltered =
+    Boolean(mediumKind) || facets.length > 0 || Boolean(audioFormat);
   try {
     const client = opts.client ?? createReadOnlyOnSocialClient();
     const rows = await client.query.scarces.activeListings({
@@ -1819,6 +1852,9 @@ export async function fetchMarketListings(
       ...(opts.search?.trim() ? { search: opts.search.trim() } : {}),
       ...(opts.sellerId?.trim() ? { sellerId: opts.sellerId.trim() } : {}),
       ...(opts.appId?.trim() ? { appId: opts.appId.trim() } : {}),
+      ...(mediumKind ? { mediumKind } : {}),
+      ...(facets.length ? { facets } : {}),
+      ...(audioFormat ? { audioFormat } : {}),
       orderBy: sortToIndexerOrder(opts.sort),
     });
     const items = rows
@@ -1833,10 +1869,13 @@ export async function fetchMarketListings(
   } catch {
     // Catalog missing / Hasura unavailable — degrade to RPC hydrate.
     if (offset > 0) return { items: [], nextOffset: offset, hasMore: false };
-    // RPC-hydrated rows carry no app_id — can't honor an app filter, so skip
-    // the fallback rather than show unrelated listings.
-    if (opts.appId?.trim()) return { items: [], nextOffset: 0, hasMore: false };
-    const fallbackAll = await fetchMarketListingsViaRpc(limit);
+    // RPC hydrate can't honor app / discovery filters — prefer empty over wrong.
+    if (opts.appId?.trim() || discoveryFiltered) {
+      return { items: [], nextOffset: 0, hasMore: false };
+    }
+    const fallbackAll = await fetchMarketListingsViaRpc(
+      Math.min(limit, MARKET_RPC_FALLBACK_LIMIT)
+    );
     const seller = opts.sellerId?.trim();
     const fallback = seller
       ? fallbackAll.filter((item) =>

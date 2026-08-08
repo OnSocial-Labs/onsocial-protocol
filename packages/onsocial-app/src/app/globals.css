@@ -22467,6 +22467,27 @@ a.os-surface-row {
     list-style: none;
   }
 
+  .drops-discovery-row {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .drops-creators-list {
+    list-style: none;
+  }
+
+  .drops-creator-row {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .market-section-title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
   .market-listing-row,
   .market-sale-row {
     display: flex;

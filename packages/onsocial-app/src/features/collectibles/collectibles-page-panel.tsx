@@ -21,7 +21,11 @@ import {
   MARKET_MEDIUM_FILTERS,
   type MarketMediumFilter,
 } from '@/features/market/market-medium';
-import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
+import {
+  fetchOwnedScarcesPage,
+  type OwnedScarceItem,
+} from '@/features/market/market-listings';
+import { peekOwnedVaultPage } from '@/features/market/owned-vault-cache';
 import {
   normalizeDropFacetMedium,
   normalizeDropFacets,
@@ -77,7 +81,32 @@ function parseMediumFilter(raw: string | null): MarketMediumFilter {
   return known ? known.id : 'all';
 }
 
-export function CollectiblesPagePanel() {
+function holdingsStateFromItems(
+  items: OwnedScarceItem[],
+  nextFromEnd: number,
+  hasMore: boolean,
+  loadKey: string
+): HoldingsState {
+  return {
+    items: items.map(toPortfolioHoldingPeek),
+    nextFromEnd,
+    hasMore,
+    loadKey,
+    failed: false,
+  };
+}
+
+export function CollectiblesPagePanel({
+  initialAccountId = null,
+  initialHoldings = null,
+}: {
+  initialAccountId?: string | null;
+  initialHoldings?: {
+    items: OwnedScarceItem[];
+    nextFromEnd: number;
+    hasMore: boolean;
+  } | null;
+} = {}) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,7 +123,33 @@ export function CollectiblesPagePanel() {
       ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
       : null;
   const [retryKey, setRetryKey] = useState(0);
-  const [holdings, setHoldings] = useState<HoldingsState>(EMPTY_HOLDINGS);
+  const [holdings, setHoldings] = useState<HoldingsState>(() => {
+    const account = viewerAccountId ?? initialAccountId;
+    if (!account) return EMPTY_HOLDINGS;
+    const loadKey = `${account}:0`;
+    if (
+      initialHoldings &&
+      initialAccountId &&
+      initialAccountId === account
+    ) {
+      return holdingsStateFromItems(
+        initialHoldings.items,
+        initialHoldings.nextFromEnd,
+        initialHoldings.hasMore,
+        loadKey
+      );
+    }
+    const cached = peekOwnedVaultPage(account);
+    if (cached) {
+      return holdingsStateFromItems(
+        cached.items,
+        cached.nextFromEnd,
+        cached.hasMore,
+        loadKey
+      );
+    }
+    return EMPTY_HOLDINGS;
+  });
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [offlineHoldings, setOfflineHoldings] = useState<
@@ -286,24 +341,7 @@ export function CollectiblesPagePanel() {
     facetMedium != null &&
     (selectedFacets.length > 0 || Boolean(audioFormatFilter));
 
-  // Keep paging while client filters hide the current window — matches may
-  // exist later in the vault. Defer so setState isn't synchronous in effect.
-  useEffect(() => {
-    if (status !== 'ready') return;
-    if (!clientDiscoveryFilterActive) return;
-    if (!holdings.hasMore || loadingMore) return;
-    if (filtered.length > 0) return;
-    queueMicrotask(() => {
-      loadMore();
-    });
-  }, [
-    status,
-    clientDiscoveryFilterActive,
-    holdings.hasMore,
-    loadingMore,
-    filtered.length,
-    loadMore,
-  ]);
+  // No auto load-more storm under client filters — user scrolls / taps More.
 
   const showTabs =
     (isConnected && Boolean(viewerAccountId)) || usingOfflineLibrary;

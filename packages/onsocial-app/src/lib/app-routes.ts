@@ -2,6 +2,8 @@ export const APP_HOME_PATH = '/home';
 export const APP_DISCOVER_PATH = '/discover';
 export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';
+/** Social drop discovery — New / Minting / Loved / Volume. */
+export const APP_DROPS_PATH = '/drops';
 /** Owner vault — use holdings (Read / Play / Show pass). Create stays on Market. */
 export const APP_COLLECTIBLES_PATH = '/collectibles';
 /** Focused Collectibles player for music / video holdings. */

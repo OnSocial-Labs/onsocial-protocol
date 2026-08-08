@@ -39,12 +39,14 @@ import {
   fetchOwnedScarcesPage,
   invalidateLiveListingsCache,
 } from '@/features/market/market-listings';
+import { invalidateOwnedVaultCache } from '@/features/market/owned-vault-cache';
 
 const ONE_NEAR_YOCTO = '1000000000000000000000000';
 
 describe('indexer-first market listings', () => {
   beforeEach(() => {
     invalidateLiveListingsCache();
+    invalidateOwnedVaultCache();
     activeListings.mockReset();
     ownedBy.mockReset();
     collectionCurrent.mockReset();
@@ -54,6 +56,7 @@ describe('indexer-first market listings', () => {
 
   afterEach(() => {
     invalidateLiveListingsCache();
+    invalidateOwnedVaultCache();
   });
 
   it('fetchLiveListingsForCreator uses activeListings and never RPC', async () => {
@@ -298,7 +301,9 @@ describe('indexer-first market listings', () => {
     // Indexer listed-state path fails with ownedBy; RPC sales path used after.
     activeListings.mockRejectedValue(new Error('hasura down'));
 
-    const page = await fetchOwnedScarcesPage('bob.near');
+    const page = await fetchOwnedScarcesPage('bob.near', {
+      bypassCache: true,
+    });
 
     expect(viewNearContract).toHaveBeenCalledWith(
       expect.any(String),

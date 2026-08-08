@@ -46,7 +46,10 @@ import {
   type MarketSaleItem,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import { invalidateOwnedVaultCache } from '@/features/market/owned-vault-cache';
+import { MarketOfferRow } from '@/features/market/market-offer-row';
 import { MarketOwnedRow } from '@/features/market/market-owned-row';
+import { MarketSaleRow } from '@/features/market/market-sale-row';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import type { ScarceBidSuccessDetail } from '@/features/scarces/scarce-bid-form';
@@ -200,8 +203,8 @@ function sourcePostCoords(
   return { author: match[1], postId: match[2] };
 }
 
-/** Default browse key: retry 0 · all · newest · no search/creator/app. */
-const DEFAULT_LISTINGS_PARAMS_KEY = '0|all|newest|||';
+/** Default browse key: retry 0 · all · newest · no search/creator/app/discovery. */
+const DEFAULT_LISTINGS_PARAMS_KEY = '0|all|newest||||all||';
 
 export function MarketPagePanel({
   initialListings = null,
@@ -306,7 +309,8 @@ export function MarketPagePanel({
     }
   }, []);
 
-  const listingsParamsKey = `${retryKey}|${listingFilter}|${listingSort}|${debouncedQuery.toLowerCase()}|${creatorFilter}|${appFilter}`;
+  const discoveryParamsKey = `${mediumFilter}|${selectedFacets.join(',')}|${audioFormatFilter ?? ''}`;
+  const listingsParamsKey = `${retryKey}|${listingFilter}|${listingSort}|${debouncedQuery.toLowerCase()}|${creatorFilter}|${appFilter}|${discoveryParamsKey}`;
 
   const clearNarrowFilter = useCallback(() => {
     router.replace(APP_MARKET_PATH, { scroll: false });
@@ -375,6 +379,9 @@ export function MarketPagePanel({
       ...(debouncedQuery ? { search: debouncedQuery } : {}),
       ...(creatorFilter ? { sellerId: creatorFilter } : {}),
       ...(appFilter ? { appId: appFilter } : {}),
+      ...(mediumFilter !== 'all' ? { mediumKind: mediumFilter } : {}),
+      ...(selectedFacets.length ? { facets: selectedFacets } : {}),
+      ...(audioFormatFilter ? { audioFormat: audioFormatFilter } : {}),
       sort: listingSort,
     }).then(
       (page) => {
@@ -406,6 +413,9 @@ export function MarketPagePanel({
     debouncedQuery,
     creatorFilter,
     appFilter,
+    mediumFilter,
+    selectedFacets,
+    audioFormatFilter,
   ]);
 
   const listingsReady = listingsState.paramsKey === listingsParamsKey;
@@ -426,6 +436,9 @@ export function MarketPagePanel({
       ...(debouncedQuery ? { search: debouncedQuery } : {}),
       ...(creatorFilter ? { sellerId: creatorFilter } : {}),
       ...(appFilter ? { appId: appFilter } : {}),
+      ...(mediumFilter !== 'all' ? { mediumKind: mediumFilter } : {}),
+      ...(selectedFacets.length ? { facets: selectedFacets } : {}),
+      ...(audioFormatFilter ? { audioFormat: audioFormatFilter } : {}),
       sort: listingSort,
     })
       .then((page) => {
@@ -462,6 +475,9 @@ export function MarketPagePanel({
     debouncedQuery,
     creatorFilter,
     appFilter,
+    mediumFilter,
+    selectedFacets,
+    audioFormatFilter,
     listingsParamsKey,
   ]);
 
@@ -599,60 +615,15 @@ export function MarketPagePanel({
         listingMatchesQuery(item, normalizedListingQuery)
       )
     : typedListings;
-  const mediumFilteredListings =
-    mediumFilter === 'all'
-      ? filteredListings
-      : filteredListings.filter((item) => {
-          const kind = (item.mediumKind ?? '').toLowerCase();
-          if (mediumFilter === 'audio') {
-            return kind === 'audio' || kind === 'music';
-          }
-          return kind === mediumFilter;
-        });
+  // Medium / facets / audioFormat are server-filtered via activeListings.
+  const discoveryFilteredListings = filteredListings;
 
-  const discoveryFilteredListings =
-    facetMedium == null
-      ? mediumFilteredListings
-      : mediumFilteredListings.filter((item) => {
-          if (
-            facetMedium === 'audio' &&
-            audioFormatFilter &&
-            item.audioFormat !== audioFormatFilter
-          ) {
-            return false;
-          }
-          if (selectedFacets.length === 0) return true;
-          return selectedFacets.some((facet) => item.facets?.includes(facet));
-        });
-
-  /** Client-only discovery filters applied on already-fetched pages. */
   const clientDiscoveryFilterActive =
     searching ||
     listingFilter !== 'all' ||
     mediumFilter !== 'all' ||
     (facetMedium != null &&
       (selectedFacets.length > 0 || Boolean(audioFormatFilter)));
-
-  // Keep paging while client filters hide the current window — matches may
-  // exist on later catalog pages. Defer so setState isn't synchronous in effect.
-  useEffect(() => {
-    if (status !== 'ready' || !listingsReady || listingsFailed) return;
-    if (!clientDiscoveryFilterActive) return;
-    if (!listingsState.hasMore || loadingMore) return;
-    if (discoveryFilteredListings.length > 0) return;
-    queueMicrotask(() => {
-      loadMoreListings();
-    });
-  }, [
-    status,
-    listingsReady,
-    listingsFailed,
-    clientDiscoveryFilterActive,
-    listingsState.hasMore,
-    loadingMore,
-    discoveryFilteredListings.length,
-    loadMoreListings,
-  ]);
 
   const hasLiveAuctionClocks =
     discoveryFilteredListings.some(
@@ -761,8 +732,9 @@ export function MarketPagePanel({
 
   const handlePurchased = useCallback(() => {
     setBuyListing(null);
+    if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
     setRetryKey((value) => value + 1);
-  }, []);
+  }, [viewerAccountId]);
 
   const handleBid = useCallback(
     (detail?: ScarceBidSuccessDetail) => {
@@ -811,8 +783,9 @@ export function MarketPagePanel({
 
   const handleListed = useCallback(() => {
     setSellItem(null);
+    if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
     setRetryKey((value) => value + 1);
-  }, []);
+  }, [viewerAccountId]);
 
   const handleCancel = useCallback(
     async (item: MarketListingItem) => {
@@ -856,6 +829,7 @@ export function MarketPagePanel({
         }));
 
         invalidateLiveListingsCache(item.creatorId);
+        invalidateOwnedVaultCache(item.creatorId);
         const coords = sourcePostCoords(item.sourcePostPath);
         if (coords && item.kind === 'lazy') {
           setScarceEmbedOverride(postScarceKey(coords.author, coords.postId), {
@@ -904,6 +878,7 @@ export function MarketPagePanel({
           failureMessage: txToastError.cancelScarceListingFailed,
         });
         if (!confirmed) return;
+        if (viewerAccountId) invalidateOwnedVaultCache(viewerAccountId);
         setRetryKey((value) => value + 1);
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
@@ -1419,69 +1394,28 @@ export function MarketPagePanel({
             <div className="market-listing-list" role="list">
               {myOffers.map((offer) => {
                 const meta = titleForToken(offer.tokenId);
-                const priceLabel = Number.parseFloat(offer.amountNear);
-                const priceNear = Number.isFinite(priceLabel)
-                  ? priceLabel.toLocaleString('en-US', {
-                      maximumFractionDigits: 4,
-                    })
-                  : offer.amountNear;
                 return (
-                  <div
+                  <MarketOfferRow
                     key={`my-offer:${offer.tokenId}`}
-                    className="market-listing-row"
-                    role="listitem"
-                  >
-                    <div
-                      className={`market-listing-thumb${meta.mediaUrl ? ' has-media' : ''}`}
-                      aria-hidden
-                    >
-                      {meta.mediaUrl ? (
-                        <img src={meta.mediaUrl} alt="" />
-                      ) : (
-                        <span className="market-listing-thumb-fallback" />
-                      )}
-                    </div>
-                    <div className="market-listing-copy">
-                      <div className="market-listing-head">
-                        <p className="market-listing-title">{meta.title}</p>
-                      </div>
-                      <p className="market-listing-meta">
-                        <span className="market-listing-price">
-                          Offer · {priceNear} NEAR
-                        </span>
-                        <span className="market-listing-own"> · Open</span>
-                      </p>
-                    </div>
-                    <OsSheetActions
-                      layout="row-compact"
-                      tone="frosted-primary"
-                      borderless
-                      className="market-listing-action"
-                    >
-                      <OsSheetAction
-                        type="button"
-                        variant="primary"
-                        ready
-                        onClick={() => {
-                          const listingOwner =
-                            listings.find(
-                              (row) => row.tokenId === offer.tokenId
-                            )?.creatorId ?? '';
-                          setOfferListing({
-                            tokenId: offer.tokenId,
-                            title: meta.title,
-                            mediaUrl: meta.mediaUrl,
-                            ownerId: listingOwner || viewerAccountId || '',
-                            askNear: listings.find(
-                              (row) => row.tokenId === offer.tokenId
-                            )?.priceNear,
-                          });
-                        }}
-                      >
-                        Manage
-                      </OsSheetAction>
-                    </OsSheetActions>
-                  </div>
+                    tokenId={offer.tokenId}
+                    title={meta.title}
+                    mediaUrl={meta.mediaUrl}
+                    amountNear={offer.amountNear}
+                    onManage={() => {
+                      const listingOwner =
+                        listings.find((row) => row.tokenId === offer.tokenId)
+                          ?.creatorId ?? '';
+                      setOfferListing({
+                        tokenId: offer.tokenId,
+                        title: meta.title,
+                        mediaUrl: meta.mediaUrl,
+                        ownerId: listingOwner || viewerAccountId || '',
+                        askNear: listings.find(
+                          (row) => row.tokenId === offer.tokenId
+                        )?.priceNear,
+                      });
+                    }}
+                  />
                 );
               })}
             </div>
@@ -1494,64 +1428,12 @@ export function MarketPagePanel({
               Recent sales
             </h2>
             <ul className="market-sales-list">
-              {visibleSales.map((sale, index) => {
-                const seller =
-                  sale.sellerId?.trim() || sale.creatorId?.trim() || '';
-                const saleTime = formatMarketRelativeTime(sale.blockTimestamp);
-                const title = sale.postHref ? (
-                  <Link
-                    href={sale.postHref}
-                    scroll={false}
-                    className="market-listing-title-link"
-                  >
-                    {sale.title}
-                  </Link>
-                ) : (
-                  sale.title
-                );
-                return (
-                  <li
-                    key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
-                    className="market-sale-row"
-                  >
-                    <div
-                      className={`market-listing-thumb${
-                        sale.mediaUrl ? ' has-media' : ''
-                      }`}
-                      aria-hidden
-                    >
-                      {sale.mediaUrl ? (
-                        <img src={sale.mediaUrl} alt="" />
-                      ) : (
-                        <span className="market-listing-thumb-fallback" />
-                      )}
-                    </div>
-                    <div className="market-listing-copy">
-                      <div className="market-listing-head">
-                        <p className="market-sale-title">{title}</p>
-                      </div>
-                      <p className="market-sale-meta">
-                        <span className="market-listing-price">
-                          {sale.priceNear} NEAR
-                        </span>
-                        <span className="market-listing-own"> · </span>
-                        {seller ? (
-                          <Link
-                            href={portfolioPath(seller)}
-                            scroll={false}
-                            className="market-listing-handle"
-                          >
-                            @{fallbackLabel(seller)}
-                          </Link>
-                        ) : (
-                          'Sale'
-                        )}
-                        {saleTime ? ` · ${saleTime}` : ''}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
+              {visibleSales.map((sale, index) => (
+                <MarketSaleRow
+                  key={`${sale.listingId ?? sale.tokenId ?? 'sale'}:${sale.blockTimestamp}:${index}`}
+                  sale={sale}
+                />
+              ))}
             </ul>
             {hiddenSalesCount > 0 ? (
               <button
