@@ -1,130 +1,72 @@
-# OnSocial Gateway
+# onsocial-gateway
 
-Unified API gateway for OnSocial services with token-gated access tiers.
+Unified HTTP API for OnSocial — GraphQL (Hasura), storage, relay, compose, notifications, webhooks, and subscriptions.
 
-## Features
+Default port: **4000**. Live: [api.onsocial.id](https://api.onsocial.id) · Testnet: [testnet.onsocial.id](https://testnet.onsocial.id)
 
-- **Unified API**: Single endpoint for graph, storage, and relay services
-- **Token-Gated Access**: Rate limits based on SOCIAL token holdings
-- **JWT Authentication**: NEAR wallet signature → JWT token
-- **Tier-Based Rate Limiting**: Free, Staker, and Builder tiers
-
-## Quick Start
+## Quick start
 
 ```bash
-# Install dependencies
+# from repo root
 pnpm install
-
-# Copy environment variables
-cp .env.example .env
-# Edit .env with your values
-
-# Start development server
-pnpm dev
+pnpm --filter onsocial-gateway dev
 ```
 
-## API Endpoints
+Configure via environment variables (see `src/config/index.ts`). Default port **4000**.
 
-### Auth
+## Access tiers
 
-| Endpoint                | Method | Description                      |
-| ----------------------- | ------ | -------------------------------- |
-| `/auth/login`           | POST   | Authenticate with NEAR signature |
-| `/auth/refresh`         | POST   | Refresh JWT token                |
-| `/auth/me`              | GET    | Get current user info            |
-| `/auth/tier/:accountId` | GET    | Get tier for any account         |
+Tiers come from **Revolut subscriptions** (or admin wallets → `service`), not from staked SOCIAL:
 
-### Graph (Hasura Proxy)
+| Tier | Rate limit (req/min) | Graph row limit |
+|---|---|---|
+| `free` | 60 | 100 |
+| `pro` | 600 | 1_000 |
+| `scale` | 3_000 | 10_000 |
+| `service` | 10_000 | 10_000 |
 
-| Endpoint             | Method | Description                      |
-| -------------------- | ------ | -------------------------------- |
-| `/graph/query`       | POST   | GraphQL query                    |
-| `/graph/health`      | GET    | Hasura health check              |
-| `/graph/token-stats` | GET    | Public SOCIAL token holder stats |
+`ADMIN_WALLETS` always resolve to `service`.
 
-### Storage (Lighthouse/IPFS)
+## Surfaces (selection)
 
-| Endpoint               | Method | Description         |
-| ---------------------- | ------ | ------------------- |
-| `/storage/upload`      | POST   | Upload file to IPFS |
-| `/storage/upload-json` | POST   | Upload JSON to IPFS |
-| `/storage/:cid`        | GET    | Get file by CID     |
+| Area | Paths | Role |
+|---|---|---|
+| Auth | `/auth/*` | NEAR signature → JWT; refresh; me; tier |
+| Graph | `/graph/*` | Hasura GraphQL proxy + health |
+| Storage | `/storage/*` | IPFS upload / fetch (Lighthouse) |
+| Relay | `/relay/*` | Submit / meta-tx / status |
+| Compose | `/compose/*` | Scarces mint, listings, collections, preview |
+| Notifications | `/notifications/*` | List / read / rules; worker fans out events |
+| Webhooks | `/webhooks/*` | Outbound delivery |
+| Subscription | `/subscription/*` | Revolut billing plans |
+| Developer | `/developer/*` | OnAPI / developer tooling |
+| Analytics | `/analytics/*` | Usage metrics |
 
-### Relay
+Prefer the [@onsocial/sdk](../onsocial-sdk) over calling these routes raw.
 
-| Endpoint                | Method | Description                       |
-| ----------------------- | ------ | --------------------------------- |
-| `/relay/submit`         | POST   | Submit signed transaction         |
-| `/relay/meta-tx`        | POST   | Submit meta-transaction (Staker+) |
-| `/relay/status/:txHash` | GET    | Get transaction status            |
-| `/relay/health`         | GET    | Relay health check                |
+## Auth flow
 
-## Tiers
+1. Client signs `OnSocial Auth: <timestamp>` (ISO-8601 preferred).
+2. `POST /auth/login` → JWT with tier.
+3. Send `Authorization: Bearer <token>` (or OnAPI key for service paths).
 
-| Tier    | Rate Limit | Requirements                                                |
-| ------- | ---------- | ----------------------------------------------------------- |
-| Free    | 60/min     | None                                                        |
-| Staker  | 600/min    | Stake SOCIAL tokens (tier based on USD value at stake time) |
-| Builder | 6000/min   | Stake more SOCIAL tokens                                    |
+## Revolut (sandbox vs production)
 
-### Tier Architecture
+Set `REVOLUT_ENVIRONMENT=sandbox` or `production`. Prefer suffixed secrets:
 
-Tiers are determined by **staked** tokens, not wallet balance:
+- `REVOLUT_SECRET_KEY_SANDBOX` / `_PRODUCTION`
+- `REVOLUT_PUBLIC_KEY_*`, `REVOLUT_WEBHOOK_SIGNING_SECRET_*`
+- `REVOLUT_PRO_VARIATION_ID_*`, `REVOLUT_SCALE_VARIATION_ID_*`
 
-1. **Staking Contract**: Stores locked token amounts (price-agnostic)
-2. **Gateway**: Queries staking contract for `locked_amount` via `get_account()`
-3. **Indexer** (Phase 2): Tracks tier assignment based on USD value at stake time
+Unsuffixed `REVOLUT_*` remains a fallback.
 
-This design ensures tiers remain stable regardless of SOCIAL token price fluctuations,
-since the tier is locked in at the moment of staking based on USD value.
-
-## Authentication Flow
-
-1. Client signs message: `"OnSocial Auth: <timestamp>"`
-2. POST to `/auth/login` with signature
-3. Receive JWT token with embedded tier
-4. Include `Authorization: Bearer <token>` in requests
-5. Refresh token before expiry via `/auth/refresh`
-
-`<timestamp>` can be an ISO-8601 string (recommended) or a unix timestamp (seconds or milliseconds).
-
-## Environment Variables
-
-See `.env.example` for all options.
-
-### Revolut sandbox vs production
-
-For reliable billing tests, set `REVOLUT_ENVIRONMENT=sandbox` or `REVOLUT_ENVIRONMENT=production` and keep credentials split by environment:
-
-- `REVOLUT_SECRET_KEY_SANDBOX` / `REVOLUT_SECRET_KEY_PRODUCTION`
-- `REVOLUT_PUBLIC_KEY_SANDBOX` / `REVOLUT_PUBLIC_KEY_PRODUCTION`
-- `REVOLUT_WEBHOOK_SIGNING_SECRET_SANDBOX` / `REVOLUT_WEBHOOK_SIGNING_SECRET_PRODUCTION`
-- `REVOLUT_PRO_VARIATION_ID_SANDBOX` / `REVOLUT_PRO_VARIATION_ID_PRODUCTION`
-- `REVOLUT_SCALE_VARIATION_ID_SANDBOX` / `REVOLUT_SCALE_VARIATION_ID_PRODUCTION`
-
-The gateway prefers environment-specific values and falls back to the existing unsuffixed `REVOLUT_*` variables for backward compatibility.
-
-### CI/CD Secrets Required
-
-The GitHub Actions workflow requires these secrets:
-
-- `LIGHTHOUSE_API_KEY`: Lighthouse storage API key
-- `HASURA_ADMIN_SECRET`: Hasura admin secret for GraphQL access
-- `NEARBLOCKS_API_KEY`: Optional Nearblocks API key for higher token stats rate limits
-
-## Development
+## Scripts
 
 ```bash
-# Run with hot reload
-pnpm dev
-
-# Type check
-pnpm build
-
-# Run tests
-pnpm test
+pnpm --filter onsocial-gateway test
+pnpm --filter onsocial-gateway check
 ```
 
-## License
+## Related
 
-MIT
+- [SDK](../onsocial-sdk) · [Relayer](../onsocial-relayer) · [Portal](../onsocial-portal)

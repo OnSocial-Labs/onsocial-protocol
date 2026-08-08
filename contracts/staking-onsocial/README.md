@@ -13,10 +13,11 @@ NEAR smart contract for SOCIAL token staking with Synthetix-style pro-rata rewar
 
 | Lock Period | Bonus |
 |-------------|-------|
-| 1-6 months  | +10%  |
-| 7-12 months | +20%  |
-| 13-24 months| +35%  |
-| 25-48 months| +50%  |
+| 1 month | +5% |
+| 2–6 months | +10% |
+| 7–12 months | +20% |
+| 13–24 months | +35% |
+| 25+ months | +50% |
 
 ## Build
 

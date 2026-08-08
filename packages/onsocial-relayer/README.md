@@ -7,8 +7,8 @@ for the outer `Action::Delegate(...)` transaction.
 ## Quick Start
 
 ```bash
-# Run locally
-cargo run --bin relayer
+# Run locally (binary name is onsocial-relayer)
+cargo run --bin onsocial-relayer
 
 # Run with Docker
 docker compose up relayer

@@ -117,6 +117,8 @@ const bot = createRewardsBot({ botToken, apiKey, appId, store });
 3. **Users interact** → SDK credits rewards via the gasless relayer
 4. **Users claim** → tokens transfer from pool to user (zero gas)
 
+Production Telegram bot, partner APIs, and season helpers live in [`onsocial-backend`](../onsocial-backend). On-chain pool: [`rewards-onsocial`](../../contracts/rewards-onsocial).
+
 ## License
 
 MIT — [OnSocial Labs](https://portal.onsocial.id)
