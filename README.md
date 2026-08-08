@@ -2,7 +2,7 @@
 
 **Own the Graph.**
 
-Identity, relationships, and social state — portable across dApps. OnSocial is an open social graph and SOCIAL economy on [NEAR](https://near.org) — profiles, posts, groups, scarces, boosts, and spend actions — with a gateway SDK for apps.
+Identity, relationships, and social state — portable across dApps. Profiles, posts, groups, scarces, boosts, and spend — with a gateway SDK on [NEAR](https://near.org).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![NEAR](https://img.shields.io/badge/NEAR-Protocol-000000?logo=near)](https://near.org)

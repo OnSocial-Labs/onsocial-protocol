@@ -1,71 +1,40 @@
-# OnSocial Portal
+# @onsocial/portal
 
-> Modern, minimalistic web portal for OnSocial Protocol
+Protocol portal — **Own the Graph.** Governance, partners, seasons/rally, boost, transparency, OnAPI, and SDK docs surfaces.
 
-## 🎨 Features
+Live: [portal.onsocial.id](https://portal.onsocial.id) · Testnet: [testnet.onsocial.id](https://testnet.onsocial.id)
 
-- ⚡ **Next.js 16** - App Router with React 19
-- 🎭 **Framer Motion** - Smooth, modern animations
-- 🪶 **Lenis** - Butter-smooth scrolling
-- 🎨 **Tailwind CSS** - Utility-first styling
-- 🌙 **Dark Mode** - Seamless theme switching
-- 📱 **Responsive** - Mobile-first design
-- ♿ **Accessible** - WCAG compliant components
-- 🚀 **Optimized** - Lighthouse 100 performance
-
-## 🏗️ Structure
-
-```
-src/
-├── app/                    # Next.js App Router
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Landing page
-│   └── globals.css        # Global styles
-├── components/
-│   ├── navigation/        # Navigation components
-│   ├── sections/          # Page sections (Hero, Features, etc.)
-│   ├── providers/         # Context providers
-│   ├── ui/                # Reusable UI components
-│   └── theme-toggle.tsx   # Theme switcher
-└── lib/
-    └── utils.ts           # Utility functions
-```
-
-## 🚀 Getting Started
-
-### Install Dependencies
+## Quick start
 
 ```bash
+# from repo root
 pnpm install
+pnpm --filter @onsocial/portal dev   # http://localhost:3000
 ```
 
-### Development
+Network helpers:
 
 ```bash
-pnpm dev
+pnpm --filter @onsocial/portal dev:testnet
+pnpm --filter @onsocial/portal dev:mainnet
+pnpm --filter @onsocial/portal dev:both          # testnet :3000, mainnet :3001
+pnpm --filter @onsocial/portal dev:local-sandbox  # local gateway + Revolut sandbox
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Config
 
-### Runtime Config
+Browser values: `src/lib/portal-config.ts`  
+Server-only: `src/lib/portal-server-config.ts`
 
-The portal is single-network per deployment. Browser-facing values live in
-`src/lib/portal-config.ts` and server-only admin proxy values live in
-`src/lib/portal-server-config.ts`.
+| Variable | Notes |
+|---|---|
+| `NEXT_PUBLIC_NEAR_NETWORK` | `testnet` \| `mainnet` |
+| `NEXT_PUBLIC_API_URL` | Gateway (testnet: `https://testnet.onsocial.id`, mainnet: `https://api.onsocial.id`) |
+| `NEXT_PUBLIC_BACKEND_URL` | Backend / same host as gateway in many deploys |
+| `ONSOCIAL_API_KEY` | Server-only service OnAPI key (never `NEXT_PUBLIC_*`) |
+| `ONSOCIAL_PORTAL_REWARDS_API_KEY` | Server-only; maps to `ONSOCIAL_PORTAL_REWARDS_APP_ID` in backend `partner_keys` |
 
-Recommended local scripts:
-
-```bash
-pnpm dev:local-sandbox
-pnpm dev:testnet
-pnpm dev:mainnet
-pnpm dev:both
-```
-
-`pnpm dev:both` runs testnet on `localhost:3000` and mainnet on
-`localhost:3001`.
-
-Local sandbox billing against a local gateway:
+Local gateway + billing sandbox:
 
 ```bash
 NEXT_PUBLIC_NEAR_NETWORK=testnet
@@ -73,139 +42,33 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 ```
 
-Use `pnpm dev:local-sandbox` when the gateway is running locally in Revolut
-sandbox mode and you want the portal checkout flow to stay entirely on your
-machine.
-
-Testnet / staging:
+Sync secrets from GSM (requires `gcloud` auth):
 
 ```bash
-NEXT_PUBLIC_NEAR_NETWORK=testnet
-NEXT_PUBLIC_API_URL=https://testnet.onsocial.id
-NEXT_PUBLIC_BACKEND_URL=https://testnet.onsocial.id
-```
-
-Mainnet / production:
-
-```bash
-NEXT_PUBLIC_NEAR_NETWORK=mainnet
-NEXT_PUBLIC_API_URL=https://api.onsocial.id
-NEXT_PUBLIC_BACKEND_URL=https://api.onsocial.id
-ONSOCIAL_API_KEY=onsocial_...
-ONSOCIAL_PORTAL_REWARDS_API_KEY=os_live_...
-ONSOCIAL_PORTAL_REWARDS_APP_ID=onsocial_portal
-```
-
-`ONSOCIAL_API_KEY` is server-only. It is used by portal API routes to create
-the OnSocial SDK client for indexed `os.query` reads and other trusted server
-calls. Do not expose it as a `NEXT_PUBLIC_*` value. In Vercel, configure it as
-a secret/environment variable for the portal deployment (from GSM
-`ONSOCIAL_SERVICE_ONAPI_KEY`). `GATEWAY_SERVICE_KEY` is only a dev fallback and
-logs a deprecation warning.
-
-`ONSOCIAL_PORTAL_REWARDS_API_KEY` is also server-only. It must map to
-`ONSOCIAL_PORTAL_REWARDS_APP_ID` in the backend `partner_keys` table. Provision
-it with `bash scripts/provision-portal-rewards-key.sh` from the repo root, then
-add the same value to the Portal deployment environment.
-
-For local development, align `.env.local` with Google Secret Manager (same
-service OnAPI key as testnet gateway / portal server):
-
-```bash
-# from repo root (requires gcloud auth)
 NEAR_NETWORK=testnet ./scripts/sync-portal-env-from-gsm.sh
 ```
 
-This sets `ONSOCIAL_API_KEY` from GSM secret `ONSOCIAL_SERVICE_ONAPI_KEY`
-(testnet) or `ONSOCIAL_MAINNET_SERVICE_ONAPI_KEY` (mainnet). Restart
-`pnpm --filter @onsocial/portal dev` after syncing.
+Provision portal rewards key: `bash scripts/provision-portal-rewards-key.sh` from repo root.
 
-The same sync can write `ADMIN_WALLETS` and `SEASON_SETTLEMENT_ADMIN_KEY` for
-Genesis Rally settlement ops. Authorized wallets use **Internal → Season 0
-settlement** (`/season-zero/admin`) to finalize and publish after the season
-ends. The admin key stays on the portal server and is forwarded to the backend
-as `x-admin-key`.
+## Layout
 
-You can still edit `.env.local` manually; the shared config automatically drives wallet network,
-Nearblocks links, admin contract targets, relayer account selection, gateway
-health checks, transparency data, and partner backend calls.
+```
+src/
+├── app/                 # App Router pages (home, governance, season, partners, …)
+├── components/          # Nav, hero sections, providers, shared UI
+├── features/            # Governance, season/rally, partners, boost, transparency
+├── contexts/            # Wallet, profile, season participation, rewards
+└── lib/                 # portal-config, toast copy, near helpers
+```
 
-If your URLs and `NEXT_PUBLIC_NEAR_NETWORK` drift apart, the portal logs a
-startup warning in the browser console so the mismatch is visible early.
-
-### Build
+## Scripts
 
 ```bash
-pnpm build
+pnpm --filter @onsocial/portal check
+pnpm --filter @onsocial/portal build
 ```
 
-### Production
+## Related
 
-```bash
-pnpm start
-```
-
-## 🎯 Deployment
-
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import project to Vercel
-3. Deploy automatically
-
-Or use Vercel CLI:
-
-```bash
-npx vercel
-```
-
-## 🎨 Customization
-
-### Theme Colors
-
-Edit `src/app/globals.css` to customize the color palette:
-
-```css
-:root {
-  --primary: 222.2 47.4% 11.2%;
-  --secondary: 210 40% 96.1%;
-  /* ... */
-}
-```
-
-### Animations
-
-Framer Motion animations are configured in each component. Adjust timing and easing in component files.
-
-### Content
-
-Update content in:
-
-- `src/components/sections/hero.tsx` - Hero section
-- `src/components/sections/features.tsx` - Features
-- `src/components/sections/stats.tsx` - Statistics
-- `src/components/sections/cta.tsx` - Call to action
-
-## 📝 Tech Stack
-
-- **Framework**: Next.js 16
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Animations**: Framer Motion, Lenis
-- **Icons**: Lucide React
-- **Theme**: next-themes
-- **Deployment**: Vercel
-
-## 🤝 Contributing
-
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) in the root directory.
-
-## 📄 License
-
-See [LICENSE.md](../../LICENSE.md) in the root directory.
-
-## 🔗 Links
-
-- [Documentation](https://docs.onsocial.xyz)
-- [GitHub](https://github.com/OnSocial-Labs)
-- [Website](https://onsocial.xyz)
+- [App](../onsocial-app) — consumer product
+- [SDK](../onsocial-sdk) · [Gateway](../onsocial-gateway) · [Backend](../onsocial-backend)
