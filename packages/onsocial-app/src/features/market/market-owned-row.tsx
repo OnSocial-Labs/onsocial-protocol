@@ -82,6 +82,12 @@ export function MarketOwnedRow({
     mediumKind: item.mediumKind,
   });
   const useAction = holdingsActionLabel(item.mediumKind);
+  const [thumbBroken, setThumbBroken] = useState(false);
+  const showThumb = Boolean(item.mediaUrl) && !thumbBroken;
+
+  useEffect(() => {
+    setThumbBroken(false);
+  }, [item.mediaUrl]);
 
   useEffect(() => {
     return () => {
@@ -118,11 +124,15 @@ export function MarketOwnedRow({
       <Link
         href={useHref}
         scroll={false}
-        className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
+        className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
         aria-label={`${useAction} ${item.title}`}
       >
-        {item.mediaUrl ? (
-          <img src={item.mediaUrl} alt="" />
+        {showThumb ? (
+          <img
+            src={item.mediaUrl!}
+            alt=""
+            onError={() => setThumbBroken(true)}
+          />
         ) : (
           <span className="market-listing-thumb-fallback" aria-hidden />
         )}

@@ -816,6 +816,8 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'media',
       'description',
       'kind',
+      'medium_kind',
+      'source_post_path',
       'metadata_template',
       'metadata',
       'extra_json',

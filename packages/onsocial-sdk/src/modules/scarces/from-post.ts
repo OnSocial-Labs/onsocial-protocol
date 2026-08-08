@@ -8,6 +8,7 @@ import type {
   LazyListingOptions,
   MintOptions,
   MintResponse,
+  RelayResponse,
 } from '../../types.js';
 import {
   extractPostMedia,
@@ -21,8 +22,25 @@ import {
 import type { SocialModule } from '../social.js';
 import type { ScarcesTokensApi, ScarceTokenView } from './tokens.js';
 import type { ScarcesLazyApi } from './lazy.js';
+import type { ScarcesCollectionsApi } from './collections.js';
 import type { QueryModule } from '../../query/index.js';
-import type { ScarcesEventRow } from '../../query/scarces.js';
+import type {
+  ScarcesCollectionCurrentRow,
+  ScarcesEventRow,
+} from '../../query/scarces.js';
+
+function priceNearFromYocto(raw: string): string | undefined {
+  try {
+    const yocto = BigInt(raw);
+    const whole = yocto / 1_000_000_000_000_000_000_000_000n;
+    const frac = yocto % 1_000_000_000_000_000_000_000_000n;
+    if (frac === 0n) return whole.toString();
+    const fracStr = frac.toString().padStart(24, '0').replace(/0+$/, '');
+    return `${whole}.${fracStr}`;
+  } catch {
+    return undefined;
+  }
+}
 
 /** Title length above which we hard-truncate (keeps wallet grids tidy). */
 const TITLE_MAX = 108;
@@ -223,18 +241,35 @@ function tokenSourcePost(token: ScarceTokenView | null): SourcePostLink | null {
  */
 export interface PostScarceEmbed {
   /** High-level state, easy to switch on for in-feed rendering. */
-  status: 'none' | 'lazy_listing' | 'listed' | 'auction' | 'sold' | 'minted';
+  status:
+    | 'none'
+    | 'lazy_listing'
+    | 'drop'
+    | 'listed'
+    | 'auction'
+    | 'sold'
+    | 'minted';
   /** Token id, if a real (non-lazy) NFT exists. */
   tokenId?: string;
   /** Listing id (fixed-price market or lazy listing). */
   listingId?: string;
+  /** Primary-sale Drop (collection) when this post backs a Drop edition. */
+  collectionId?: string;
+  /** Hub / app attribution when known. */
+  appId?: string;
+  /** Soft Series branding id when the Drop carries `metadata.series`. */
+  seriesId?: string;
+  /** Series display title when known. */
+  seriesTitle?: string;
+  /** Medium taxonomy (`art` / `video` / `audio` / `thought` / …). */
+  mediumKind?: string;
   /** Active auction id, if any. */
   auctionId?: string;
   /** Current asking / bid price in NEAR (string, decimal). */
   priceNear?: string;
-  /** Edition size when known (NEP-177 copies). */
+  /** Edition size when known (NEP-177 copies / Drop total supply). */
   copies?: number;
-  /** Unsold editions still on the live lazy listing. */
+  /** Unsold editions still on the live lazy listing or Drop. */
   remaining?: number;
   /**
    * Auto text-card mood key (`extra.theme.bg`) when the listing has no
@@ -281,12 +316,13 @@ function remainingFromEventExtra(
 export function derivePostScarceStatus(
   row: Pick<
     ScarcesEventRow,
-    'operation' | 'eventType' | 'tokenId' | 'extraData'
+    'operation' | 'eventType' | 'tokenId' | 'extraData' | 'collectionId'
   >
 ): PostScarceEmbed['status'] {
   const op = (row.operation ?? '').toLowerCase();
   const et = (row.eventType ?? '').toLowerCase();
   const lazyFamily = et.includes('lazy');
+  const collectionFamily = et.includes('collection');
 
   if (
     op === 'purchased' ||
@@ -298,6 +334,10 @@ export function derivePostScarceStatus(
     if (lazyFamily && op !== 'sold_out') {
       const remaining = remainingFromEventExtra(row.extraData);
       if (remaining != null && remaining > 0) return 'lazy_listing';
+    }
+    if (collectionFamily && op !== 'sold_out') {
+      const remaining = remainingFromEventExtra(row.extraData);
+      if (remaining != null && remaining > 0) return 'drop';
     }
     return 'sold';
   }
@@ -322,6 +362,17 @@ export function derivePostScarceStatus(
     return 'lazy_listing';
   }
 
+  // Primary-sale Drop created from (or linked to) this post.
+  if (
+    collectionFamily ||
+    op === 'create_collection' ||
+    (op === 'create' && Boolean(row.collectionId))
+  ) {
+    const remaining = remainingFromEventExtra(row.extraData);
+    if (remaining === 0) return 'sold';
+    return 'drop';
+  }
+
   if (
     et.includes('listing') ||
     op === 'list' ||
@@ -334,12 +385,115 @@ export function derivePostScarceStatus(
   return 'minted';
 }
 
+function seriesFromJson(value: unknown): {
+  seriesId?: string;
+  seriesTitle?: string;
+} {
+  const parsed = parseJsonObject(value);
+  if (!parsed) return {};
+  const nested = asRecord(parsed.series);
+  if (nested) {
+    const seriesId = stringField(nested, 'id');
+    const seriesTitle = stringField(nested, 'title');
+    return {
+      ...(seriesId ? { seriesId } : {}),
+      ...(seriesTitle ? { seriesTitle } : {}),
+    };
+  }
+  const seriesId = stringField(parsed, 'series');
+  return seriesId ? { seriesId } : {};
+}
+
+function mediumKindFromJson(value: unknown): string | undefined {
+  const parsed = parseJsonObject(value);
+  if (!parsed) return undefined;
+  const raw = stringField(parsed, 'kind')?.trim().toLowerCase();
+  if (!raw) return undefined;
+  return raw === 'music' ? 'audio' : raw;
+}
+
+function promoteIdentityFromEvent(
+  out: PostScarceEmbed,
+  latest: ScarcesEventRow
+): void {
+  const collectionId = latest.collectionId?.trim();
+  const appId = latest.appId?.trim();
+  if (collectionId) out.collectionId = collectionId;
+  if (appId) out.appId = appId;
+  const medium = mediumKindFromJson(latest.extraData);
+  if (medium) out.mediumKind = medium;
+  const series = seriesFromJson(latest.extraData);
+  if (series.seriesId) out.seriesId = series.seriesId;
+  if (series.seriesTitle) out.seriesTitle = series.seriesTitle;
+}
+
+function embedFromCollectionRow(
+  row: ScarcesCollectionCurrentRow
+): PostScarceEmbed {
+  const remaining =
+    typeof row.remaining === 'number' && Number.isFinite(row.remaining)
+      ? Math.max(0, Math.floor(row.remaining))
+      : undefined;
+  const copies =
+    typeof row.totalSupply === 'number' && Number.isFinite(row.totalSupply)
+      ? Math.max(0, Math.floor(row.totalSupply))
+      : undefined;
+  const priceNear =
+    row.price?.trim() && /^\d+$/.test(row.price.trim())
+      ? priceNearFromYocto(row.price.trim())
+      : undefined;
+  const medium =
+    row.mediumKind?.trim().toLowerCase() ||
+    (row.kind?.trim().toLowerCase() === 'music'
+      ? 'audio'
+      : row.kind?.trim().toLowerCase()) ||
+    mediumKindFromJson(row.extraJson) ||
+    undefined;
+  const series = {
+    ...seriesFromJson(row.extraJson),
+    ...seriesFromJson(row.metadata),
+  };
+  const status: PostScarceEmbed['status'] =
+    remaining === 0 || row.cancelled || row.banned
+      ? 'sold'
+      : row.paused
+        ? 'minted'
+        : 'drop';
+  return {
+    status,
+    collectionId: row.collectionId,
+    ...(row.appId?.trim() ? { appId: row.appId.trim() } : {}),
+    ...(series.seriesId ? { seriesId: series.seriesId } : {}),
+    ...(series.seriesTitle ? { seriesTitle: series.seriesTitle } : {}),
+    ...(medium ? { mediumKind: medium } : {}),
+    ...(priceNear ? { priceNear } : {}),
+    ...(copies != null ? { copies } : {}),
+    ...(remaining != null ? { remaining } : {}),
+    ...(row.media?.trim() ? { mediaUrl: row.media.trim() } : {}),
+    events: [],
+  };
+}
+
+function collectionSourcePost(
+  row: ScarcesCollectionCurrentRow
+): SourcePostLink | null {
+  if (row.sourcePostPath?.trim()) {
+    return { path: row.sourcePostPath.trim() };
+  }
+  const fromExtra = sourcePostFromJson(row.extraJson);
+  if (fromExtra) return fromExtra;
+  const template = parseJsonObject(row.metadataTemplate);
+  if (!template) return null;
+  return sourcePostFromJson(template.extra) ?? sourcePostFromObject(template);
+}
+
 export class ScarcesFromPostApi {
   constructor(
     private _tokens: ScarcesTokensApi,
     private _lazy: ScarcesLazyApi,
     private _social?: SocialModule,
-    private _query?: QueryModule
+    private _query?: QueryModule,
+    private _collections?: ScarcesCollectionsApi
   ) {}
 
   /**
@@ -417,6 +571,91 @@ export class ScarcesFromPostApi {
       ...(opts.expiresAt ? { expiresAt: opts.expiresAt } : {}),
     };
     return this._lazy.create(lazyOpts);
+  }
+
+  /**
+   * Create a primary-sale Drop from a post (collection edition set).
+   * Stamps `extra.sourcePost` + inferred medium (`art` / `video` / …) so the
+   * Drop is discoverable on `/drops` and the post CTA can mint via
+   * `collections.purchaseFrom`.
+   *
+   * ```ts
+   * await os.scarces.fromPost.createDrop(row, '1', {
+   *   copies: 25,
+   *   collectionId: 'sunset-prints-a1b2c3',
+   * });
+   * ```
+   */
+  async createDrop(
+    post: PostSource,
+    priceNear: string,
+    opts: MintFromPostOptions & {
+      /** Globally unique collection id (required). */
+      collectionId: string;
+      transferable?: boolean;
+      burnable?: boolean;
+      startTime?: string;
+      endTime?: string;
+      series?: { id: string; title?: string };
+      /** Storage buffer for create_collection (yoctoNEAR). */
+      depositYocto?: string;
+    }
+  ): Promise<RelayResponse & { collectionId: string }> {
+    if (!this._collections) {
+      throw new Error(
+        'scarces.fromPost.createDrop: requires ScarcesCollectionsApi. Construct via the OnSocial client.'
+      );
+    }
+    const { author, postId } = postCoords(post);
+    const extracted = await this._readPost(post);
+    const base = this._buildMintOpts(
+      author,
+      postId,
+      extracted,
+      opts,
+      sourcePostContext(post)
+    );
+    const totalSupply = opts.copies ?? base.copies ?? 1;
+    const seriesMeta = opts.series?.id?.trim()
+      ? {
+          series: {
+            id: opts.series.id.trim(),
+            ...(opts.series.title?.trim()
+              ? { title: opts.series.title.trim() }
+              : {}),
+          },
+        }
+      : undefined;
+    const response = await this._collections.create(
+      {
+        collectionId: opts.collectionId,
+        totalSupply,
+        title: base.title,
+        ...(priceNear ? { priceNear } : {}),
+        ...(base.description ? { description: base.description } : {}),
+        ...(base.mediaCid ? { mediaCid: base.mediaCid } : {}),
+        ...(base.image ? { image: base.image } : {}),
+        ...(base.royalty ? { royalty: base.royalty } : {}),
+        ...(base.appId ? { appId: base.appId } : {}),
+        ...(opts.transferable != null
+          ? { transferable: opts.transferable }
+          : {}),
+        ...(opts.burnable != null ? { burnable: opts.burnable } : {}),
+        ...(opts.startTime ? { startTime: opts.startTime } : {}),
+        ...(opts.endTime ? { endTime: opts.endTime } : {}),
+        ...(seriesMeta ? { metadata: seriesMeta } : {}),
+        extra: {
+          ...(base.extra ?? {}),
+          kind:
+            (typeof base.extra?.kind === 'string' && base.extra.kind) ||
+            inferPostScarceKind(extracted),
+        },
+      },
+      opts.depositYocto !== undefined
+        ? { depositYocto: opts.depositYocto }
+        : undefined
+    );
+    return { ...response, collectionId: opts.collectionId };
   }
 
   /**
@@ -513,7 +752,16 @@ export class ScarcesFromPostApi {
     if (matched.length === 0) {
       matched = await this._matchByTokenMetadata(all, author, postId, wantPath);
     }
-    if (matched.length === 0) return { status: 'none', events: [] };
+
+    // Primary Drop path — live catalog keyed by source_post_path / template extra.
+    const dropEmbed = await this._matchCollectionEmbed(
+      author,
+      postId,
+      wantPath
+    );
+    if (matched.length === 0) {
+      return dropEmbed ?? { status: 'none', events: [] };
+    }
 
     const latest = matched[0]!;
     const out: PostScarceEmbed = {
@@ -523,6 +771,7 @@ export class ScarcesFromPostApi {
     };
     if (latest.tokenId) out.tokenId = latest.tokenId;
     if (latest.listingId) out.listingId = latest.listingId;
+    promoteIdentityFromEvent(out, latest);
 
     // Pull price / theme / remaining from extraData if present (best-effort).
     try {
@@ -538,7 +787,7 @@ export class ScarcesFromPostApi {
         const remaining = remainingFromEventExtra(latest.extraData);
         if (remaining != null) out.remaining = remaining;
 
-        const copiesRaw = extra['copies'];
+        const copiesRaw = extra['copies'] ?? extra['total_supply'];
         if (typeof copiesRaw === 'number' && Number.isFinite(copiesRaw)) {
           out.copies = Math.max(0, Math.floor(copiesRaw));
         }
@@ -552,7 +801,68 @@ export class ScarcesFromPostApi {
     } catch {
       /* noop */
     }
+
+    // Drop catalog wins identity when events lack collectionId (lazy list).
+    if (dropEmbed?.collectionId && !out.collectionId) {
+      out.collectionId = dropEmbed.collectionId;
+      if (dropEmbed.appId && !out.appId) out.appId = dropEmbed.appId;
+      if (dropEmbed.seriesId && !out.seriesId)
+        out.seriesId = dropEmbed.seriesId;
+      if (dropEmbed.seriesTitle && !out.seriesTitle) {
+        out.seriesTitle = dropEmbed.seriesTitle;
+      }
+      if (dropEmbed.mediumKind && !out.mediumKind) {
+        out.mediumKind = dropEmbed.mediumKind;
+      }
+    }
+    // Prefer Drop status when the post's primary product is a minting Drop.
+    if (
+      dropEmbed &&
+      dropEmbed.status === 'drop' &&
+      (out.status === 'none' || out.status === 'minted')
+    ) {
+      return { ...dropEmbed, events: matched, latest };
+    }
     return out;
+  }
+
+  private async _matchCollectionEmbed(
+    author: string,
+    postId: string,
+    wantPath: string
+  ): Promise<PostScarceEmbed | null> {
+    if (!this._query?.scarces?.collectionsCurrent) return null;
+    // Prefer indexed source_post_path when the column is live.
+    try {
+      const byPath = await this._query.scarces.collectionsCurrent({
+        sourcePostPath: wantPath,
+        includeUnavailable: true,
+        limit: 5,
+      });
+      const pathHit = byPath.find((row) => {
+        const source = collectionSourcePost(row);
+        return sourcePostMatches(source, author, postId, wantPath);
+      });
+      if (pathHit) return embedFromCollectionRow(pathHit);
+    } catch {
+      /* column / Hasura may not expose sourcePostPath yet */
+    }
+
+    // Fallback: creator catalog + client parse of template/extra.
+    try {
+      const byCreator = await this._query.scarces.collectionsCurrent({
+        creatorId: author,
+        includeUnavailable: true,
+        limit: 40,
+      });
+      const hit = byCreator.find((row) => {
+        const source = collectionSourcePost(row);
+        return sourcePostMatches(source, author, postId, wantPath);
+      });
+      return hit ? embedFromCollectionRow(hit) : null;
+    } catch {
+      return null;
+    }
   }
 
   private async _matchByTokenMetadata(

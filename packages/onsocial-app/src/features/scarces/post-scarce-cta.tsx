@@ -7,6 +7,7 @@ import {
   collectionPath,
   marketAppPath,
   marketCreatorPath,
+  seriesPagePath,
 } from '@/lib/app-routes';
 
 interface PostScarceCtaProps {
@@ -45,15 +46,27 @@ function commerceLinks(
   authorAccountId?: string
 ): { href: string; label: string }[] {
   const links: { href: string; label: string }[] = [];
-  const collectionId = embed.latest?.collectionId?.trim();
-  const appId = embed.latest?.appId?.trim();
+  const collectionId =
+    embed.collectionId?.trim() || embed.latest?.collectionId?.trim();
+  const appId = embed.appId?.trim() || embed.latest?.appId?.trim();
+  const seriesId = embed.seriesId?.trim();
+  // Drop link only for real collections — never invent one for lazy listings.
   if (collectionId) {
     links.push({ href: collectionPath(collectionId), label: 'Drop' });
+  }
+  if (seriesId && authorAccountId?.trim()) {
+    links.push({
+      href: seriesPagePath(authorAccountId, seriesId),
+      label: embed.seriesTitle?.trim() || 'Series',
+    });
   }
   if (appId) {
     links.push({ href: appPath(appId), label: 'Hub' });
   }
-  // Market only when it narrows something (store or creator) — not a bare /market.
+  // Market for listing commerce only — not the home for primary Drop mints.
+  if (embed.status === 'drop') {
+    return links;
+  }
   if (appId) {
     links.push({ href: marketAppPath(appId), label: 'Market' });
   } else if (
@@ -209,13 +222,20 @@ export function PostScarceCta({
   const canBuy =
     !isAuthor &&
     ((embed.status === 'lazy_listing' && Boolean(embed.listingId)) ||
+      (embed.status === 'drop' && Boolean(embed.collectionId)) ||
       (embed.status === 'listed' && Boolean(embed.tokenId)));
 
   if (isAuthor) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">
-          {price ? `Yours · ${price} NEAR` : 'Yours'}
+          {embed.status === 'drop'
+            ? price
+              ? `Your Drop · ${price} NEAR`
+              : 'Your Drop'
+            : price
+              ? `Yours · ${price} NEAR`
+              : 'Yours'}
         </span>
         {edition ? (
           <span className="post-card-scarce-cta-meta">{edition}</span>
@@ -229,7 +249,13 @@ export function PostScarceCta({
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">
-          {price ? `Listing · ${price} NEAR…` : 'Listing…'}
+          {embed.status === 'drop'
+            ? price
+              ? `Drop · ${price} NEAR…`
+              : 'Drop…'
+            : price
+              ? `Listing · ${price} NEAR…`
+              : 'Listing…'}
         </span>
         <CommerceLinkRow links={links} />
       </div>
@@ -248,7 +274,13 @@ export function PostScarceCta({
         }}
       >
         <span className="post-card-scarce-buy-main">
-          {price ? `Buy · ${price} NEAR` : 'Buy'}
+          {embed.status === 'drop'
+            ? price
+              ? `Mint · ${price} NEAR`
+              : 'Mint'
+            : price
+              ? `Buy · ${price} NEAR`
+              : 'Buy'}
         </span>
         {edition ? (
           <span className="post-card-scarce-buy-meta">{edition}</span>

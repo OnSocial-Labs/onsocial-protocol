@@ -66,6 +66,10 @@ import {
 } from '@/features/scarces/scarce-post-preview';
 import { ScarceVideoFramePicker } from '@/features/scarces/scarce-video-frame-picker';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import {
+  buildCollectionId,
+  randomDropIdSuffix,
+} from '@/features/scarces/drop-collection-id';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
@@ -77,7 +81,21 @@ import {
   txToastError,
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
+import { STORAGE_DEPOSIT_PRESETS_NEAR } from '@/lib/user-storage-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+type FromPostCommerceMode = 'drop' | 'market';
+
+const CREATE_DROP_STORAGE_NEAR = STORAGE_DEPOSIT_PRESETS_NEAR[0];
+
+function slugifyDropTitle(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+}
 
 const NEAR_INPUT_DECIMALS = 5;
 const MIN_PRICE_NEAR = '0.01';
@@ -275,6 +293,15 @@ export function ScarceListForm({
   const [mintPreviewError, setMintPreviewError] = useState<string | null>(null);
   const [storeOptions, setStoreOptions] = useState<AppView[]>([]);
   const [listAppId, setListAppId] = useState('');
+  /** Create Drop (primary) vs quick Market lazy listing. */
+  const [commerceMode, setCommerceMode] =
+    useState<FromPostCommerceMode>('drop');
+  const [seriesInput, setSeriesInput] = useState('');
+  const [existingDrops, setExistingDrops] = useState<
+    Array<{ collectionId: string; title: string }>
+  >([]);
+  const [attachCollectionId, setAttachCollectionId] = useState('');
+  const dropIdSuffixRef = useRef(randomDropIdSuffix());
   /** Last Frame scrub — survives Cover switches to Text / Photo. */
   const [frameSeek, setFrameSeek] = useState<number | null>(null);
   const frameCoverRef = useRef<File | null>(null);
@@ -312,6 +339,8 @@ export function ScarceListForm({
     if (!accountId) {
       setStoreOptions([]);
       setListAppId('');
+      setExistingDrops([]);
+      setAttachCollectionId('');
       return;
     }
     let cancelled = false;
@@ -322,6 +351,24 @@ export function ScarceListForm({
         current && apps.some((app) => app.appId === current) ? current : ''
       );
     });
+    void createReadOnlyOnSocialClient()
+      .query.scarces.collectionsCurrent({
+        creatorId: accountId,
+        mintingOnly: true,
+        limit: 20,
+      })
+      .then((rows) => {
+        if (cancelled) return;
+        setExistingDrops(
+          rows.map((row) => ({
+            collectionId: row.collectionId,
+            title: row.title?.trim() || row.collectionId,
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setExistingDrops([]);
+      });
     return () => {
       cancelled = true;
     };
@@ -550,15 +597,22 @@ export function ScarceListForm({
               : null;
 
   const footerState = useMemo((): CommerceSheetFooterState => {
+    const isDrop = commerceMode === 'drop';
     return {
       visible: true,
-      primaryLabel: isConnected ? 'List for sale' : 'Connect wallet',
-      primaryPendingLabel: 'Listing…',
+      primaryLabel: isConnected
+        ? isDrop
+          ? attachCollectionId
+            ? 'Attach Drop'
+            : 'Create Drop'
+          : 'List on Market'
+        : 'Connect wallet',
+      primaryPendingLabel: isDrop ? 'Creating Drop…' : 'Listing…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
       disabled: pending || (isConnected && !canSubmit),
     };
-  }, [canSubmit, isConnected, pending]);
+  }, [attachCollectionId, canSubmit, commerceMode, isConnected, pending]);
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
@@ -597,11 +651,13 @@ export function ScarceListForm({
     try {
       const { accountId, wallet } = await getSigningWallet();
       const client = createAppScarcesWalletClient(accountId, wallet);
-      // Posts keep their original cover by default. Receipt/Proof explicitly
-      // turn a photo into a deterministic card with the image embedded.
-      const response = await client.scarces.fromPost.list(post, priceNear, {
-        copies: editionCount,
-        ...(resolvedRoyaltyBps > 0
+      const key = postScarceKey(post.accountId, post.postId);
+      const coverMedia =
+        (usesGeneratedCard ? mintPreviewUrl : null)?.trim() ||
+        coverPreviewUrl?.trim() ||
+        undefined;
+      const royaltyOpts =
+        resolvedRoyaltyBps > 0
           ? (() => {
               const shares =
                 royaltyShares.length > 0
@@ -610,10 +666,8 @@ export function ScarceListForm({
               const royalty = buildRoyaltyMap(resolvedRoyaltyBps, shares);
               return royalty ? { royalty } : {};
             })()
-          : {}),
-        ...(listAppId ? { appId: listAppId } : {}),
-        // Video posts have no still to mint — the chosen frame or photo
-        // becomes the cover the wallet renders.
+          : {};
+      const mediaOpts = {
         ...(coverFile && !usesPhotoCard ? { image: coverFile } : {}),
         ...(usesGeneratedCard
           ? {
@@ -625,6 +679,81 @@ export function ScarceListForm({
               cardTitleAlign: cardTheme.cardTitleAlign,
             }
           : {}),
+      };
+
+      if (commerceMode === 'drop' && attachCollectionId) {
+        const shell = await createReadOnlyOnSocialClient()
+          .query.scarces.collectionCurrent(attachCollectionId)
+          .catch(() => null);
+        setScarceEmbedOverride(key, {
+          status: 'drop',
+          collectionId: attachCollectionId,
+          priceNear,
+          copies: editionCount,
+          remaining: shell?.remaining ?? editionCount,
+          ...(listAppId
+            ? { appId: listAppId }
+            : shell?.appId?.trim()
+              ? { appId: shell.appId.trim() }
+              : {}),
+          ...(coverMedia ? { mediaUrl: coverMedia } : {}),
+          events: [],
+        });
+        onSuccess?.({ priceNear, listingId: undefined });
+        return;
+      }
+
+      if (commerceMode === 'drop') {
+        const slug =
+          slugifyDropTitle(mintTitle) || `post-${post.postId}`.slice(0, 48);
+        const collectionId = buildCollectionId(slug, dropIdSuffixRef.current);
+        const seriesId = slugifyDropTitle(seriesInput);
+        const response = await client.scarces.fromPost.createDrop(
+          post,
+          priceNear,
+          {
+            collectionId,
+            copies: editionCount,
+            ...royaltyOpts,
+            ...(listAppId ? { appId: listAppId } : {}),
+            ...mediaOpts,
+            ...(seriesId
+              ? { series: { id: seriesId, title: seriesInput.trim() } }
+              : {}),
+            depositYocto: nearToYocto(CREATE_DROP_STORAGE_NEAR),
+          }
+        );
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage: txToastConfirming.creatingCollection,
+          successMessage: txToastSuccess.collectionCreated,
+          failureMessage: txToastError.createCollectionFailed,
+        });
+        if (!confirmed) return;
+
+        setScarceEmbedOverride(key, {
+          status: 'drop',
+          collectionId,
+          priceNear,
+          copies: editionCount,
+          remaining: editionCount,
+          ...(listAppId ? { appId: listAppId } : {}),
+          ...(seriesId ? { seriesId } : {}),
+          ...(seriesInput.trim() ? { seriesTitle: seriesInput.trim() } : {}),
+          ...(usesGeneratedCard ? { cardBg: cardTheme.cardBg as MoodKey } : {}),
+          ...(coverMedia ? { mediaUrl: coverMedia } : {}),
+          events: [],
+        });
+        onSuccess?.({ priceNear, listingId: undefined });
+        return;
+      }
+
+      // Quick Market ask — mint-on-purchase lazy listing (not a Drop).
+      const response = await client.scarces.fromPost.list(post, priceNear, {
+        copies: editionCount,
+        ...royaltyOpts,
+        ...(listAppId ? { appId: listAppId } : {}),
+        ...mediaOpts,
       });
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
@@ -645,17 +774,13 @@ export function ScarceListForm({
       }
 
       invalidateLiveListingsCache(post.accountId);
-      const key = postScarceKey(post.accountId, post.postId);
-      const coverMedia =
-        (usesGeneratedCard ? mintPreviewUrl : null)?.trim() ||
-        coverPreviewUrl?.trim() ||
-        undefined;
       setScarceEmbedOverride(key, {
         status: 'lazy_listing',
         priceNear,
         copies: editionCount,
         remaining: editionCount,
         ...(listingId ? { listingId } : {}),
+        ...(listAppId ? { appId: listAppId } : {}),
         ...(usesGeneratedCard ? { cardBg: cardTheme.cardBg as MoodKey } : {}),
         ...(coverMedia ? { mediaUrl: coverMedia } : {}),
         events: [],
@@ -668,7 +793,9 @@ export function ScarceListForm({
         msg:
           cause instanceof Error
             ? cause.message
-            : txToastError.listScarceFailed,
+            : commerceMode === 'drop'
+              ? txToastError.createCollectionFailed
+              : txToastError.listScarceFailed,
       });
     } finally {
       setPending(false);
@@ -872,13 +999,110 @@ export function ScarceListForm({
         ) : null}
       </div>
 
-      {storeOptions.length > 0 ? (
+      <div className="scarce-royalty-field">
+        <p className="scarce-mood-picker-label">Edition type</p>
+        <div
+          className="app-storage-presets"
+          role="group"
+          aria-label="Create Drop or list on Market"
+        >
+          <button
+            type="button"
+            className={`os-surface-chip${
+              commerceMode === 'drop' ? ' is-selected' : ''
+            }`}
+            disabled={pending}
+            onClick={() => setCommerceMode('drop')}
+          >
+            Create Drop
+          </button>
+          <button
+            type="button"
+            className={`os-surface-chip${
+              commerceMode === 'market' ? ' is-selected' : ''
+            }`}
+            disabled={pending}
+            onClick={() => {
+              setCommerceMode('market');
+              setAttachCollectionId('');
+            }}
+          >
+            List on Market
+          </button>
+        </div>
+        <p className="scarce-mood-picker-hint">
+          {commerceMode === 'drop'
+            ? 'Primary edition on /drops — image becomes art, video becomes video.'
+            : 'Quick mint-on-purchase ask on Market. Not a Drop.'}
+        </p>
+      </div>
+
+      {commerceMode === 'drop' && existingDrops.length > 0 ? (
         <div className="scarce-royalty-field">
-          <p className="scarce-mood-picker-label">List to hub</p>
+          <p className="scarce-mood-picker-label">Attach existing Drop</p>
           <div
             className="app-storage-presets"
             role="group"
-            aria-label="Hub for this listing"
+            aria-label="Attach an existing Drop"
+          >
+            <button
+              type="button"
+              className={`os-surface-chip${!attachCollectionId ? ' is-selected' : ''}`}
+              disabled={pending}
+              onClick={() => setAttachCollectionId('')}
+            >
+              New Drop
+            </button>
+            {existingDrops.map((drop) => (
+              <button
+                key={drop.collectionId}
+                type="button"
+                className={`os-surface-chip${
+                  attachCollectionId === drop.collectionId ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setAttachCollectionId(drop.collectionId)}
+              >
+                {drop.title}
+              </button>
+            ))}
+          </div>
+          <p className="scarce-mood-picker-hint">
+            Optional. Link this post’s CTA to a Drop you already have minting.
+          </p>
+        </div>
+      ) : null}
+
+      {commerceMode === 'drop' && !attachCollectionId ? (
+        <div className="scarce-royalty-field">
+          <p className="scarce-mood-picker-label">Series</p>
+          <div className="app-storage-amount-field profile-support-amount-field">
+            <input
+              type="text"
+              autoComplete="off"
+              value={seriesInput}
+              onChange={(event) => setSeriesInput(event.target.value)}
+              placeholder="Optional series name"
+              aria-label="Series name"
+              className="app-storage-amount-input"
+              disabled={pending}
+            />
+          </div>
+          <p className="scarce-mood-picker-hint">
+            Soft branding across Drops. Leave blank for a standalone Drop.
+          </p>
+        </div>
+      ) : null}
+
+      {storeOptions.length > 0 ? (
+        <div className="scarce-royalty-field">
+          <p className="scarce-mood-picker-label">
+            {commerceMode === 'drop' ? 'Hub' : 'List to hub'}
+          </p>
+          <div
+            className="app-storage-presets"
+            role="group"
+            aria-label="Hub for this edition"
           >
             <button
               type="button"
@@ -903,7 +1127,9 @@ export function ScarceListForm({
             ))}
           </div>
           <p className="scarce-mood-picker-hint">
-            Optional. Ties this listing to a storefront for Market filters.
+            {commerceMode === 'drop'
+              ? 'Optional. Ties this Drop to a storefront.'
+              : 'Optional. Ties this listing to a storefront for Market filters.'}
           </p>
         </div>
       ) : null}

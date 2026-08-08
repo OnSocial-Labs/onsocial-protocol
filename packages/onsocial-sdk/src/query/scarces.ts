@@ -173,6 +173,10 @@ export interface ScarcesCollectionCurrentRow {
   media: string | null;
   description: string | null;
   kind: string | null;
+  /** Normalized discovery medium (`art` / `audio` / `video` / …). */
+  mediumKind: string | null;
+  /** `author/post/{id}` when the Drop was created from a post. */
+  sourcePostPath: string | null;
   metadataTemplate: string | null;
   metadata: string | null;
   extraJson: string | null;
@@ -209,6 +213,8 @@ const SCARCES_COLLECTION_CURRENT_FIELDS = `
   media
   description
   kind
+  mediumKind
+  sourcePostPath
   metadataTemplate
   metadata
   extraJson
@@ -809,6 +815,10 @@ export class ScarcesQuery {
       creatorId?: string;
       appId?: string;
       kind?: string;
+      /** Normalized medium filter (`art` / `audio` / `video` / …). */
+      mediumKind?: string;
+      /** Exact source post path (`author/post/{id}`). */
+      sourcePostPath?: string;
       /** When false (default), hide paused/cancelled/banned shells. */
       includeUnavailable?: boolean;
       /**
@@ -848,6 +858,17 @@ export class ScarcesQuery {
       params.push('$kind: String!');
       variables.kind = opts.kind.trim();
       where.push('kind: {_eq: $kind}');
+    }
+    const mediumKind = opts.mediumKind?.trim().toLowerCase();
+    if (mediumKind) {
+      params.push('$mediumKind: String!');
+      variables.mediumKind = mediumKind === 'music' ? 'audio' : mediumKind;
+      where.push('mediumKind: {_eq: $mediumKind}');
+    }
+    if (opts.sourcePostPath?.trim()) {
+      params.push('$sourcePostPath: String!');
+      variables.sourcePostPath = opts.sourcePostPath.trim();
+      where.push('sourcePostPath: {_eq: $sourcePostPath}');
     }
 
     const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';

@@ -286,6 +286,8 @@ CREATE TABLE IF NOT EXISTS scarces_collections_current (
   media TEXT,
   description TEXT,
   kind TEXT,
+  medium_kind TEXT,
+  source_post_path TEXT,
   metadata_template TEXT,
   metadata TEXT,
   extra_json TEXT,
@@ -304,6 +306,10 @@ CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_app
   ON scarces_collections_current(app_id);
 CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_kind
   ON scarces_collections_current(kind);
+CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_medium_kind
+  ON scarces_collections_current(medium_kind);
+CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_source_post
+  ON scarces_collections_current(source_post_path);
 CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_flags
   ON scarces_collections_current(paused, cancelled, banned);
 CREATE INDEX IF NOT EXISTS idx_scarces_collections_current_updated

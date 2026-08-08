@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import { MarketLoadingScreen } from '@/features/market/market-loading-screen';
 import { MarketPagePanel } from '@/features/market/market-page-panel';
 import { loadMarketPageData } from '@/lib/load-market-page';
 
@@ -12,7 +13,7 @@ export default async function MarketPage() {
   const initial = await loadMarketPageData();
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<MarketLoadingScreen />}>
       <MarketPagePanel
         initialListings={initial?.listings ?? null}
         initialSales={initial?.sales ?? null}

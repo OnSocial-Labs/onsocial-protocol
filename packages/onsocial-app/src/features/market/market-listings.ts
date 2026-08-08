@@ -241,6 +241,11 @@ export function displayFromOwnedCollectionCatalog(
     }
   }
 
+  // Unresolved placeholders become bogus ipfs:// URLs and skip token hydrate.
+  if (media && VARIATION_MEDIA_PLACEHOLDER.test(media)) {
+    media = null;
+  }
+
   // Kind often only lives in template extra.
   if (!kind && extraJson) {
     const extra = parseExtra(extraJson);
@@ -256,6 +261,17 @@ export function displayFromOwnedCollectionCatalog(
   };
 }
 
+/** True when media still looks like an unresolved template / empty art. */
+function ownedMediaNeedsHydrate(mediaUrl: string | null | undefined): boolean {
+  const url = mediaUrl?.trim() || '';
+  if (!url) return true;
+  if (VARIATION_MEDIA_PLACEHOLDER.test(url)) return true;
+  // Failed seat sub often yields `ipfs://…/{seat_number}` encoded oddly; also
+  // reject curly braces that slipped through resolveScarceMediaUrl.
+  if (url.includes('{') || url.includes('}')) return true;
+  return false;
+}
+
 function ownedItemNeedsTokenMeta(item: OwnedScarceItem): boolean {
   const title = item.title?.trim() || '';
   const thinTitle =
@@ -263,7 +279,7 @@ function ownedItemNeedsTokenMeta(item: OwnedScarceItem): boolean {
     title === 'Scarce' ||
     title === item.tokenId ||
     (Boolean(item.collectionId) && title === item.collectionId);
-  return thinTitle || !item.mediaUrl;
+  return thinTitle || ownedMediaNeedsHydrate(item.mediaUrl);
 }
 
 interface ContractSaleRecord {

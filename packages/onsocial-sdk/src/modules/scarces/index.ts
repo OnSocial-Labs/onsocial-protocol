@@ -121,7 +121,8 @@ export class ScarcesModule {
       this.tokens,
       this.lazy,
       social,
-      query
+      query,
+      this.collections
     );
     this.apps = new ScarcesAppsApi(_http, getSession, getBroadcast);
   }

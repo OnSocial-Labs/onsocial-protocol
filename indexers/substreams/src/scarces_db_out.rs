@@ -725,6 +725,45 @@ fn set_collection_updated(tables: &mut Tables, collection_id: &str, e: &ScarcesE
     row.set("updated_block_timestamp", e.block_timestamp);
 }
 
+/// Extra blob for a collection create/update event — top-level `extra` /
+/// `extra_json`, else NEP-177 `metadata_template.extra` (string or object).
+fn collection_extra_blob(data: &Value) -> Option<Value> {
+    if let Some(extra) = parse_extra_blob(data) {
+        return Some(extra);
+    }
+    if let Some(raw) = json_str(data, "extra_json") {
+        if let Ok(parsed) = serde_json::from_str::<Value>(&raw) {
+            return Some(parsed);
+        }
+    }
+    let template_raw = json_str(data, "metadata_template")?;
+    let template: Value = serde_json::from_str(&template_raw).ok()?;
+    match template.get("extra") {
+        Some(Value::String(s)) => serde_json::from_str(s).ok(),
+        Some(obj) if obj.is_object() => Some(obj.clone()),
+        _ => None,
+    }
+}
+
+fn collection_source_post_path(data: &Value) -> Option<String> {
+    if let Some(path) = source_post_path(data) {
+        return Some(path);
+    }
+    let extra = collection_extra_blob(data)?;
+    if let Some(path) =
+        json_str(&extra, "postPath").or_else(|| json_str(&extra, "sourcePostPath"))
+    {
+        return Some(path);
+    }
+    let nested = extra.get("sourcePost")?;
+    if let Some(path) = json_str(nested, "path") {
+        return Some(path);
+    }
+    let author = json_str(nested, "author")?;
+    let post_id = json_str(nested, "postId")?;
+    Some(format!("{author}/post/{post_id}"))
+}
+
 fn set_collection_browse(tables: &mut Tables, collection_id: &str, data: &Value) {
     let row = tables.upsert_row("scarces_collections_current", collection_id);
     if let Some(title) = json_str(data, "title") {
@@ -751,6 +790,27 @@ fn set_collection_browse(tables: &mut Tables, collection_id: &str, data: &Value)
     // Prefer explicit extra_json; else store template.extra for facets/kind fallback.
     if let Some(extra) = json_str(data, "extra_json").or_else(|| json_str(data, "extra")) {
         row.set("extra_json", extra);
+    }
+    if let Some(path) = collection_source_post_path(data) {
+        row.set("source_post_path", path);
+    }
+    // medium_kind: top-level kind, else extra.kind (music → audio).
+    let medium = json_str(data, "kind")
+        .and_then(|raw| {
+            let key = raw.trim().to_ascii_lowercase();
+            if key.is_empty() {
+                None
+            } else if key == "music" {
+                Some("audio".into())
+            } else {
+                Some(key)
+            }
+        })
+        .or_else(|| {
+            collection_extra_blob(data).and_then(|extra| medium_kind_from_extra(&extra))
+        });
+    if let Some(medium) = medium {
+        row.set("medium_kind", medium);
     }
 }
 

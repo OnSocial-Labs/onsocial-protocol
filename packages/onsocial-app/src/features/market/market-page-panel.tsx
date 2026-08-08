@@ -226,9 +226,10 @@ export function MarketPagePanel({
         facetMedium
       )
     : [];
-  const audioFormatFilter: MarketAudioFormatFilter = facetMedium === 'audio'
-    ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
-    : null;
+  const audioFormatFilter: MarketAudioFormatFilter =
+    facetMedium === 'audio'
+      ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
+      : null;
   const [retryKey, setRetryKey] = useState(0);
   // Seed only the default unfiltered browse; URL creator/app narrows refetch.
   const canSeedDefaultBrowse =
@@ -333,13 +334,9 @@ export function MarketPagePanel({
   );
 
   const replaceDiscoveryParams = useCallback(
-    (next: {
-      facets?: string[];
-      audioFormat?: MarketAudioFormatFilter;
-    }) => {
+    (next: { facets?: string[]; audioFormat?: MarketAudioFormatFilter }) => {
       const params = new URLSearchParams(searchParams.toString());
-      const facets =
-        next.facets !== undefined ? next.facets : selectedFacets;
+      const facets = next.facets !== undefined ? next.facets : selectedFacets;
       const audioFormat =
         next.audioFormat !== undefined ? next.audioFormat : audioFormatFilter;
       const facetsValue = marketFacetsParamValue(facets);
@@ -1089,6 +1086,7 @@ export function MarketPagePanel({
             href={APP_DROPS_PATH}
             scroll={false}
             className="market-drops-link"
+            title="Primary edition Drops"
           >
             Drops
           </Link>
@@ -1134,9 +1132,7 @@ export function MarketPagePanel({
               onAudioFormatChange={(format) =>
                 replaceDiscoveryParams({ audioFormat: format })
               }
-              onFacetsChange={(facets) =>
-                replaceDiscoveryParams({ facets })
-              }
+              onFacetsChange={(facets) => replaceDiscoveryParams({ facets })}
               onClear={() => setMediumFilter('all')}
               onOpenChange={setSortMenuOpen}
             />

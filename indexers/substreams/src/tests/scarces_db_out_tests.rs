@@ -1049,12 +1049,62 @@ fn collections_current_create_upserts_shell() {
         Some("audio")
     );
     assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_collections_current",
+            "drop-1",
+            "medium_kind"
+        ),
+        Some("audio")
+    );
+    assert_eq!(
         find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "remaining"),
         Some("10")
     );
     assert_eq!(
         find_field_for_pk(&changes, "scarces_collections_current", "drop-1", "mint_mode"),
         Some("open")
+    );
+}
+
+#[test]
+fn collections_current_create_indexes_source_post_from_extra() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-COLLECTION_UPDATE-create".into(),
+        block_height: 21,
+        block_timestamp: 210,
+        receipt_id: "r".into(),
+        event_type: "COLLECTION_UPDATE".into(),
+        operation: "create".into(),
+        author: "alice.near".into(),
+        collection_id: "post-drop-1".into(),
+        creator_id: "alice.near".into(),
+        price: "1".into(),
+        total_supply: 5,
+        extra_data: r#"{"collection_id":"post-drop-1","total_supply":5,"remaining":5,"title":"From post","extra":"{\"kind\":\"art\",\"sourcePost\":{\"author\":\"alice.near\",\"postId\":\"99\",\"path\":\"alice.near/post/99\"}}"}"#.into(),
+        ..Default::default()
+    };
+    apply_collections_current(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_collections_current",
+            "post-drop-1",
+            "source_post_path"
+        ),
+        Some("alice.near/post/99")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_collections_current",
+            "post-drop-1",
+            "medium_kind"
+        ),
+        Some("art")
     );
 }
 

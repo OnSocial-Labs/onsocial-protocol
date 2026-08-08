@@ -59,15 +59,21 @@ function rowToDiscoveryItem(
 export async function fetchDropsPage(
   opts: {
     sort?: DropsSort;
+    mediumKind?: string | null;
     limit?: number;
     offset?: number;
     client?: OnSocial;
   } = {}
 ): Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }> {
   const sort = opts.sort ?? 'new';
+  const mediumKind = opts.mediumKind?.trim().toLowerCase() || null;
   const limit = opts.limit ?? DROPS_PAGE_SIZE;
   const offset = opts.offset ?? 0;
   const client = opts.client ?? createReadOnlyOnSocialClient();
+  const mediumFilter =
+    mediumKind && mediumKind !== 'all'
+      ? { mediumKind: mediumKind === 'music' ? 'audio' : mediumKind }
+      : {};
 
   if (sort === 'loved') {
     const loves = await client.query.scarces.albumLoveFans({ limit, offset });
@@ -83,6 +89,15 @@ export async function fetchDropsPage(
     for (const love of loves) {
       const shell = byId.get(love.collectionId.trim());
       if (!shell) continue;
+      if (mediumFilter.mediumKind) {
+        const rowMedium =
+          shell.mediumKind?.trim().toLowerCase() ||
+          (shell.kind?.trim().toLowerCase() === 'music'
+            ? 'audio'
+            : shell.kind?.trim().toLowerCase()) ||
+          '';
+        if (rowMedium !== mediumFilter.mediumKind) continue;
+      }
       items.push(
         rowToDiscoveryItem(shell, {
           fanCount: love.fanCount,
@@ -98,6 +113,7 @@ export async function fetchDropsPage(
     orderBy:
       sort === 'minting' ? 'minting' : sort === 'volume' ? 'volume' : 'new',
     mintingOnly: sort === 'minting',
+    ...mediumFilter,
   });
   return {
     items: rows.map((row) => rowToDiscoveryItem(row)),

@@ -70,7 +70,7 @@ describe('displayFromOwnedCollectionCatalog', () => {
       catalog({
         collectionId: 'drop-1',
         metadataTemplate: JSON.stringify({
-          title: 'Seat #{id}',
+          title: 'Edition',
           media: 'ipfs://bafy/{seat_number}.png',
         }),
       }),
@@ -78,7 +78,24 @@ describe('displayFromOwnedCollectionCatalog', () => {
     );
 
     expect(editionSeatFromTokenId('drop-1:3')).toBe(3);
-    expect(face.title).toBe('Seat #3');
+    expect(face.title).toBe('Edition');
     expect(face.mediaUrl).toContain('/3.png');
+  });
+
+  it('returns null media when variation placeholders cannot be resolved', () => {
+    const face = displayFromOwnedCollectionCatalog(
+      catalog({
+        collectionId: 'drop-1',
+        metadataTemplate: JSON.stringify({
+          title: 'Solo face',
+          media: 'ipfs://bafy/{seat_number}.png',
+        }),
+      }),
+      's:solo'
+    );
+
+    expect(editionSeatFromTokenId('s:solo')).toBeNull();
+    expect(face.mediaUrl).toBeNull();
+    expect(face.title).toBe('Solo face');
   });
 });

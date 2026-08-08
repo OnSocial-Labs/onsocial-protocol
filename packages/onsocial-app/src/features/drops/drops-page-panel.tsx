@@ -12,6 +12,10 @@ import {
   type DropsSort,
 } from '@/features/drops/drops-data';
 import {
+  MARKET_MEDIUM_FILTERS,
+  type MarketMediumFilter,
+} from '@/features/market/market-medium';
+import {
   APP_APPS_PATH,
   APP_MARKET_PATH,
   collectionPath,
@@ -25,6 +29,20 @@ const SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
   { id: 'loved', label: 'Loved' },
   { id: 'volume', label: 'Volume' },
 ];
+
+/** Primary Drop mediums — same taxonomy as Market, minus listing-only noise. */
+const DROP_MEDIUM_FILTERS = MARKET_MEDIUM_FILTERS.filter((entry) =>
+  (
+    [
+      'all',
+      'thought',
+      'art',
+      'writing',
+      'audio',
+      'video',
+    ] as MarketMediumFilter[]
+  ).includes(entry.id)
+);
 
 function DropRow({ item }: { item: DropDiscoveryItem }) {
   const supply =
@@ -59,7 +77,8 @@ function DropRow({ item }: { item: DropDiscoveryItem }) {
           <span className="market-listing-title">{item.title}</span>
         </span>
         <span className="market-listing-creator">
-          <span className="market-listing-own">by </span>@{fallbackLabel(item.creatorId)}
+          <span className="market-listing-own">by </span>@
+          {fallbackLabel(item.creatorId)}
         </span>
         <span className="market-listing-meta market-listing-meta--price">
           {item.priceNear ? (
@@ -84,43 +103,60 @@ export function DropsPagePanel({
   initialCreators?: CreatorLeaderRow[];
 }) {
   const [sort, setSort] = useState<DropsSort>(initialSort);
+  const [medium, setMedium] = useState<MarketMediumFilter>('all');
   const [items, setItems] = useState(initialItems);
   const [creators, setCreators] = useState(initialCreators);
   const [offset, setOffset] = useState(initialItems.length);
-  const [hasMore, setHasMore] = useState(initialItems.length >= DROPS_PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(
+    initialItems.length >= DROPS_PAGE_SIZE
+  );
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const reload = useCallback(async (nextSort: DropsSort) => {
-    setLoading(true);
-    setFailed(false);
-    try {
-      const [page, leaders] = await Promise.all([
-        fetchDropsPage({ sort: nextSort, limit: DROPS_PAGE_SIZE }),
-        fetchCreatorLeaders({ limit: 8 }),
-      ]);
-      setItems(page.items);
-      setOffset(page.items.length);
-      setHasMore(page.hasMore);
-      setCreators(leaders);
-    } catch {
-      setFailed(true);
-      setItems([]);
-      setHasMore(false);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const reload = useCallback(
+    async (nextSort: DropsSort, nextMedium: MarketMediumFilter) => {
+      setLoading(true);
+      setFailed(false);
+      try {
+        const [page, leaders] = await Promise.all([
+          fetchDropsPage({
+            sort: nextSort,
+            mediumKind: nextMedium === 'all' ? null : nextMedium,
+            limit: DROPS_PAGE_SIZE,
+          }),
+          fetchCreatorLeaders({ limit: 8 }),
+        ]);
+        setItems(page.items);
+        setOffset(page.items.length);
+        setHasMore(page.hasMore);
+        setCreators(leaders);
+      } catch {
+        setFailed(true);
+        setItems([]);
+        setHasMore(false);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
-    if (sort === initialSort && initialItems.length > 0) return;
-    void reload(sort);
-  }, [sort, initialSort, initialItems.length, reload]);
+    if (sort === initialSort && medium === 'all' && initialItems.length > 0) {
+      return;
+    }
+    void reload(sort, medium);
+  }, [sort, medium, initialSort, initialItems.length, reload]);
 
   const loadMore = () => {
     if (!hasMore || loading) return;
     setLoading(true);
-    void fetchDropsPage({ sort, limit: DROPS_PAGE_SIZE, offset })
+    void fetchDropsPage({
+      sort,
+      mediumKind: medium === 'all' ? null : medium,
+      limit: DROPS_PAGE_SIZE,
+      offset,
+    })
       .then((page) => {
         setItems((current) => [...current, ...page.items]);
         setOffset((value) => value + page.items.length);
@@ -149,6 +185,24 @@ export function DropsPagePanel({
                 aria-selected={sort === entry.id}
                 className={`discover-tab${sort === entry.id ? ' is-active' : ''}`}
                 onClick={() => setSort(entry.id)}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+          <div
+            className="discover-tab-bar market-listing-filters"
+            role="tablist"
+            aria-label="Drop medium"
+          >
+            {DROP_MEDIUM_FILTERS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                role="tab"
+                aria-selected={medium === entry.id}
+                className={`discover-tab${medium === entry.id ? ' is-active' : ''}`}
+                onClick={() => setMedium(entry.id)}
               >
                 {entry.label}
               </button>
@@ -223,7 +277,8 @@ export function DropsPagePanel({
         </section>
 
         <p className="market-page-status">
-          Looking for listings? <Link href={APP_MARKET_PATH}>Open Market</Link>
+          Looking for secondary listings?{' '}
+          <Link href={APP_MARKET_PATH}>Open Market</Link>
         </p>
       </div>
     </OsAppScreen>

@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { findLiveListingForPost, fetchScarceTokenMeta } from '@/features/market/market-listings';
+import {
+  findLiveListingForPost,
+  fetchScarceTokenMeta,
+} from '@/features/market/market-listings';
 import {
   fetchScarceAuctionView,
   minNextBidNear,
@@ -26,6 +29,7 @@ function isActivelyListed(embed: PostScarceEmbed | null): boolean {
   if (!embed) return false;
   return (
     embed.status === 'lazy_listing' ||
+    embed.status === 'drop' ||
     embed.status === 'listed' ||
     embed.status === 'auction'
   );
@@ -200,11 +204,7 @@ export function usePostScarceEmbed(
     ).then((live) => {
       if (cancelled || !live?.listingId) return;
       const current = getScarceEmbedOverride(key);
-      if (
-        !current ||
-        current.status !== 'lazy_listing' ||
-        current.listingId
-      ) {
+      if (!current || current.status !== 'lazy_listing' || current.listingId) {
         return;
       }
       setScarceEmbedOverride(key, {
@@ -218,8 +218,7 @@ export function usePostScarceEmbed(
     };
   }, [override, shouldFetch, key, post.accountId, post.postId]);
 
-  const baseline =
-    fetchedKey === key && fetched != null ? fetched : seed;
+  const baseline = fetchedKey === key && fetched != null ? fetched : seed;
   const embed = resolveScarceEmbed(key, baseline);
 
   const status: PostScarceEmbedStatus =

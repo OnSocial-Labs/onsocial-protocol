@@ -98,9 +98,28 @@ export function reconcileScarceEmbedFromApi(
     }
   }
 
+  if (override.status === 'drop') {
+    if (
+      fetched.status === 'drop' &&
+      fetched.collectionId &&
+      (!override.collectionId || override.collectionId === fetched.collectionId)
+    ) {
+      clearScarceEmbedOverride(key);
+      return true;
+    }
+    if (fetched.status === 'sold' && fetched.collectionId) {
+      clearScarceEmbedOverride(key);
+      return true;
+    }
+  }
+
   if (override.status === 'sold') {
     // Multi-copy: chain still has the listing — drop the premature sold hint.
-    if (fetched.status === 'lazy_listing' || fetched.status === 'listed') {
+    if (
+      fetched.status === 'lazy_listing' ||
+      fetched.status === 'listed' ||
+      fetched.status === 'drop'
+    ) {
       clearScarceEmbedOverride(key);
       return true;
     }
@@ -168,10 +187,34 @@ export function resolveScarceEmbed(
     };
   }
 
-  // Optimistic sold must not hide a still-live multi-copy listing.
+  if (
+    override.status === 'drop' &&
+    (fetched.status === 'drop' || fetched.status === 'none')
+  ) {
+    const sameDrop =
+      !override.collectionId ||
+      !fetched.collectionId ||
+      override.collectionId === fetched.collectionId;
+    return {
+      ...fetched,
+      ...override,
+      collectionId: override.collectionId ?? fetched.collectionId,
+      appId: override.appId ?? fetched.appId,
+      seriesId: override.seriesId ?? fetched.seriesId,
+      priceNear: override.priceNear ?? fetched.priceNear,
+      mediaUrl: override.mediaUrl ?? (sameDrop ? fetched.mediaUrl : undefined),
+      copies: override.copies ?? fetched.copies,
+      remaining: override.remaining ?? fetched.remaining,
+      events: fetched.events.length > 0 ? fetched.events : override.events,
+    };
+  }
+
+  // Optimistic sold must not hide a still-live multi-copy listing / Drop.
   if (
     override.status === 'sold' &&
-    (fetched.status === 'lazy_listing' || fetched.status === 'listed')
+    (fetched.status === 'lazy_listing' ||
+      fetched.status === 'listed' ||
+      fetched.status === 'drop')
   ) {
     return fetched;
   }

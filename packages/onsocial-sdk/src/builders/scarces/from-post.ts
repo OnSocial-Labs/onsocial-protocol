@@ -133,7 +133,7 @@ export function postCoords(p: PostSource): { author: string; postId: string } {
   return { author: p.author, postId: p.postId };
 }
 
-/** Options for `os.scarces.fromPost.mint` / `os.scarces.fromPost.list`. */
+/** Options for `os.scarces.fromPost.mint` / `.list` / `.createDrop`. */
 export interface MintFromPostOptions {
   /** Override NFT title (default: post text truncated to 100 chars). */
   title?: string;

@@ -57,6 +57,7 @@ interface ScarceBuyFormProps {
   listing?: {
     listingId?: string;
     tokenId?: string;
+    collectionId?: string;
     status: PostScarceEmbed['status'];
     priceNear?: string;
     title?: string;
@@ -138,6 +139,7 @@ export function ScarceBuyForm({
   const status = listing?.status ?? embed?.status ?? 'none';
   const listingId = listing?.listingId ?? embed?.listingId;
   const tokenId = listing?.tokenId ?? embed?.tokenId;
+  const collectionId = listing?.collectionId ?? embed?.collectionId;
   const priceNear = listing?.priceNear ?? embed?.priceNear;
   const copies = listing?.copies ?? embed?.copies;
   const remaining = listing?.remaining ?? embed?.remaining;
@@ -277,8 +279,9 @@ export function ScarceBuyForm({
     accountIdsEqual(viewerAccountId!, sellerId!);
 
   const isLazyBuy = status === 'lazy_listing' && Boolean(listingId);
+  const isDropBuy = status === 'drop' && Boolean(collectionId);
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
-  const isBuyable = !isOwnListing && (isLazyBuy || isMarketBuy);
+  const isBuyable = !isOwnListing && (isLazyBuy || isDropBuy || isMarketBuy);
 
   const canSubmit = isConnected && !pending && isBuyable;
 
@@ -286,8 +289,12 @@ export function ScarceBuyForm({
     if (isOwnListing) return null;
     return {
       visible: true,
-      primaryLabel: isConnected ? 'Buy' : 'Connect wallet',
-      primaryPendingLabel: 'Buying…',
+      primaryLabel: isConnected
+        ? isDropBuy
+          ? 'Mint'
+          : 'Buy'
+        : 'Connect wallet',
+      primaryPendingLabel: isDropBuy ? 'Minting…' : 'Buying…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
       disabled: pending || (isConnected && !canSubmit),
@@ -300,7 +307,15 @@ export function ScarceBuyForm({
             }
           : null,
     };
-  }, [canSubmit, isConnected, isMarketBuy, isOwnListing, onMakeOffer, pending]);
+  }, [
+    canSubmit,
+    isConnected,
+    isDropBuy,
+    isMarketBuy,
+    isOwnListing,
+    onMakeOffer,
+    pending,
+  ]);
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
@@ -312,9 +327,9 @@ export function ScarceBuyForm({
       return;
     }
 
-    if (!isLazyBuy && !isMarketBuy) {
+    if (!isLazyBuy && !isDropBuy && !isMarketBuy) {
       setFieldError(
-        status === 'lazy_listing' || status === 'listed'
+        status === 'lazy_listing' || status === 'listed' || status === 'drop'
           ? 'Listing isn’t ready yet. Try again in a moment.'
           : 'This scarce isn’t for sale.'
       );
@@ -337,6 +352,16 @@ export function ScarceBuyForm({
         response = await client.scarces.lazy.purchase(listingId!, {
           depositYocto,
         });
+      } else if (isDropBuy) {
+        if (!fallbackDeposit || fallbackDeposit === '0' || !priceNear) {
+          setFieldError('Could not load Drop price. Try again.');
+          return;
+        }
+        response = await client.scarces.collections.purchaseFrom(
+          collectionId!,
+          priceNear,
+          { quantity: 1, depositYocto: fallbackDeposit }
+        );
       } else {
         if (!fallbackDeposit || fallbackDeposit === '0') {
           setFieldError('Could not load listing price. Try again.');
@@ -357,34 +382,62 @@ export function ScarceBuyForm({
 
       if (post) {
         const key = postScarceKey(post.accountId, post.postId);
-        // Multi-copy: keep Buy live while the listing still has editions.
-        const live =
-          isLazyBuy && listingId
-            ? await findLiveListingForPost(
-                post.accountId,
-                post.accountId,
-                post.postId
-              )
-            : null;
-        if (live?.listingId) {
-          setScarceEmbedOverride(key, {
-            status: 'lazy_listing',
-            listingId: live.listingId,
-            ...(priceNear || live.priceNear
-              ? { priceNear: live.priceNear || priceNear }
-              : {}),
-            ...(live.copies != null ? { copies: live.copies } : {}),
-            ...(live.remaining != null ? { remaining: live.remaining } : {}),
-            events: [],
-          });
+        if (isDropBuy && collectionId) {
+          const shell = await createReadOnlyOnSocialClient()
+            .query.scarces.collectionCurrent(collectionId)
+            .catch(() => null);
+          const nextRemaining = shell?.remaining;
+          if (nextRemaining != null && nextRemaining > 0) {
+            setScarceEmbedOverride(key, {
+              status: 'drop',
+              collectionId,
+              ...(priceNear ? { priceNear } : {}),
+              ...(shell?.totalSupply != null
+                ? { copies: shell.totalSupply }
+                : copies != null
+                  ? { copies }
+                  : {}),
+              remaining: nextRemaining,
+              events: [],
+            });
+          } else {
+            setScarceEmbedOverride(key, {
+              status: 'sold',
+              collectionId,
+              ...(priceNear ? { priceNear } : {}),
+              events: [],
+            });
+          }
         } else {
-          setScarceEmbedOverride(key, {
-            status: 'sold',
-            ...(listingId ? { listingId } : {}),
-            ...(tokenId ? { tokenId } : {}),
-            ...(priceNear ? { priceNear } : {}),
-            events: [],
-          });
+          // Multi-copy: keep Buy live while the listing still has editions.
+          const live =
+            isLazyBuy && listingId
+              ? await findLiveListingForPost(
+                  post.accountId,
+                  post.accountId,
+                  post.postId
+                )
+              : null;
+          if (live?.listingId) {
+            setScarceEmbedOverride(key, {
+              status: 'lazy_listing',
+              listingId: live.listingId,
+              ...(priceNear || live.priceNear
+                ? { priceNear: live.priceNear || priceNear }
+                : {}),
+              ...(live.copies != null ? { copies: live.copies } : {}),
+              ...(live.remaining != null ? { remaining: live.remaining } : {}),
+              events: [],
+            });
+          } else {
+            setScarceEmbedOverride(key, {
+              status: 'sold',
+              ...(listingId ? { listingId } : {}),
+              ...(tokenId ? { tokenId } : {}),
+              ...(priceNear ? { priceNear } : {}),
+              events: [],
+            });
+          }
         }
       }
 
@@ -427,9 +480,7 @@ export function ScarceBuyForm({
         <ScarceClipPlayer
           key={resolvedPlayable.url}
           clip={resolvedPlayable}
-          {...(resolvedPlayables?.length
-            ? { tracks: resolvedPlayables }
-            : {})}
+          {...(resolvedPlayables?.length ? { tracks: resolvedPlayables } : {})}
           poster={resolvedMediaUrl}
         />
       ) : post ? (

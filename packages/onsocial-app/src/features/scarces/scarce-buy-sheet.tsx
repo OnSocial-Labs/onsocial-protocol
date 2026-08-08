@@ -20,6 +20,7 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 export interface ScarceBuyListing {
   listingId?: string;
   tokenId?: string;
+  collectionId?: string;
   status: PostScarceEmbed['status'];
   priceNear?: string;
   title?: string;
@@ -52,7 +53,7 @@ interface ScarceBuySheetProps {
   onMakeOffer?: () => void;
 }
 
-/** Buyer sheet for lazy listing / fixed-price scarce purchase. */
+/** Buyer sheet for Drop mint / lazy listing / fixed-price purchase. */
 export function ScarceBuySheet({
   open,
   post = null,

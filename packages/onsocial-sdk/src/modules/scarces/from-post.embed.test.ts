@@ -105,9 +105,11 @@ describe('ScarcesFromPostApi.embed', () => {
         eventType: 'LAZY_LISTING_UPDATE',
         operation: 'created',
         listingId: 'll:1',
+        appId: 'hub.near',
         extraData: JSON.stringify({
           sourcePost: { path: 'alice.near/post/42' },
           priceNear: '5',
+          kind: 'art',
         }),
       }),
     ]);
@@ -115,6 +117,32 @@ describe('ScarcesFromPostApi.embed', () => {
     expect(r.status).toBe('lazy_listing');
     expect(r.listingId).toBe('ll:1');
     expect(r.priceNear).toBe('5');
+    expect(r.appId).toBe('hub.near');
+    expect(r.mediumKind).toBe('art');
+  });
+
+  it("derives 'drop' from COLLECTION_UPDATE create", async () => {
+    const { api } = makeApi([
+      row({
+        eventType: 'COLLECTION_UPDATE',
+        operation: 'create',
+        collectionId: 'sunset-a1b2c3',
+        appId: 'store.near',
+        extraData: JSON.stringify({
+          sourcePost: { path: 'alice.near/post/42' },
+          priceNear: '1',
+          remaining: 10,
+          copies: 10,
+          kind: 'video',
+        }),
+      }),
+    ]);
+    const r = await api.embed(POST);
+    expect(r.status).toBe('drop');
+    expect(r.collectionId).toBe('sunset-a1b2c3');
+    expect(r.appId).toBe('store.near');
+    expect(r.mediumKind).toBe('video');
+    expect(r.remaining).toBe(10);
   });
 
   it("derives 'lazy_listing' from legacy lazy_create op", async () => {

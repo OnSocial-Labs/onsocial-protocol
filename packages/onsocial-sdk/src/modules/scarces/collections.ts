@@ -105,12 +105,14 @@ export class ScarcesCollectionsApi {
       Boolean(opts.variationsCid) ||
       Boolean(opts.referenceCid) ||
       Boolean(opts.randomAssignment);
-    // Client-built action when cover is a local file *or* already pinned
-    // (`mediaCid`) — skip gateway FormData so the wallet prompt can follow
+    // Client-built action when cover is a local file *or* a pinned CID with
+    // `mediaHash` — skip gateway FormData so the wallet prompt can follow
     // uploads immediately (album audio pins first, then one sign).
+    // Bare `mediaCid` (e.g. fromPost) goes through the gateway so it can
+    // hash the existing CID bytes.
     const canClientBuild =
       !needsGatewayCompose &&
-      (Boolean(opts.mediaCid?.trim()) ||
+      ((Boolean(opts.mediaCid?.trim()) && Boolean(opts.mediaHash?.trim())) ||
         hasLocalUpload(this._storage, opts.image, opts.mediaCid));
     if (canClientBuild) {
       const { mediaCid, mediaHash } = await resolveScarceMedia(
