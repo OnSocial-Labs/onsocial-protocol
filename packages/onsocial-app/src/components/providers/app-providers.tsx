@@ -13,6 +13,7 @@ import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
 import { PortfolioCustomizeProvider } from '@/contexts/portfolio-customize-context';
 import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-context';
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
+import { DropComposeHost } from '@/features/scarces/drop-compose-host';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -27,6 +28,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                     <ComposeLauncherProvider>
                       <CollectiblesNowPlayingProvider>
                         {children}
+                        <DropComposeHost />
                         <AppAccountSheetHost />
                       </CollectiblesNowPlayingProvider>
                     </ComposeLauncherProvider>

@@ -58,6 +58,7 @@ import {
   type CollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -649,19 +650,35 @@ export function CollectionPagePanel({
             ) : null}
           </div>
           {isOwner ? (
-            <button
-              type="button"
-              className="collection-commerce-share"
-              aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
-              onClick={() => {
-                void handleShare();
-              }}
-            >
-              <ShareIcon
-                aria-hidden
-                className="collection-commerce-share-icon"
-              />
-            </button>
+            <div className="collection-commerce-share-row">
+              <button
+                type="button"
+                className="collection-commerce-post-feed"
+                onClick={() => {
+                  requestDropCompose({
+                    collectionId: view.collectionId,
+                    title: view.title,
+                    ...(view.mediaUrl ? { mediaUrl: view.mediaUrl } : {}),
+                    ...(view.kind ? { mediumKind: view.kind } : {}),
+                  });
+                }}
+              >
+                Post to feed
+              </button>
+              <button
+                type="button"
+                className="collection-commerce-share"
+                aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
+                onClick={() => {
+                  void handleShare();
+                }}
+              >
+                <ShareIcon
+                  aria-hidden
+                  className="collection-commerce-share-icon"
+                />
+              </button>
+            </div>
           ) : null}
         </div>
         <div

@@ -1,7 +1,9 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { PostScarceEmbed } from '@onsocial/sdk';
+import { resolvePostDropCta } from '@/features/scarces/post-drop-cta';
 import {
   appPath,
   collectionPath,
@@ -21,6 +23,8 @@ interface PostScarceCtaProps {
   onList?: () => void;
   onBuy: () => void;
   onBid?: () => void;
+  /** Compact Listen control rendered beside commerce CTAs when playable. */
+  listenSlot?: ReactNode;
 }
 
 function formatPriceNear(priceNear: string | undefined): string | null {
@@ -108,9 +112,22 @@ function CommerceLinkRow({
   );
 }
 
+function OpenDropButton({ collectionId }: { collectionId: string }) {
+  return (
+    <Link
+      href={collectionPath(collectionId)}
+      className="post-card-scarce-buy"
+      scroll={false}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span className="post-card-scarce-buy-main">Open Drop</span>
+    </Link>
+  );
+}
+
 /**
  * One-line commerce CTA under post media / above engagement.
- * Vocabulary: Buy · List · Amplify (Amplify lives in engagement row).
+ * Vocabulary: Mint · Buy · Open Drop · List (Amplify lives in engagement row).
  */
 export function PostScarceCta({
   embed,
@@ -120,10 +137,20 @@ export function PostScarceCta({
   onList,
   onBuy,
   onBid,
+  listenSlot = null,
 }: PostScarceCtaProps) {
   const links = commerceLinks(embed, authorAccountId);
   const price = formatPriceNear(embed.priceNear);
   const edition = editionMeta(embed);
+  const collectionId =
+    embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';
+  const isDropFamily =
+    Boolean(collectionId) &&
+    (embed.status === 'drop' ||
+      embed.status === 'sold' ||
+      embed.status === 'minted' ||
+      ((embed.status === 'listed' || embed.status === 'auction') &&
+        Boolean(embed.tokenId)));
 
   if (embed.status === 'none') {
     if (isAuthor && canList && onList) {
@@ -144,6 +171,85 @@ export function PostScarceCta({
       );
     }
     return null;
+  }
+
+  if (isDropFamily) {
+    const dropCta = resolvePostDropCta({ embed, isPostAuthor: isAuthor });
+    if (dropCta.kind === 'muted') {
+      return (
+        <div className="post-card-scarce-cta post-card-scarce-cta--muted">
+          <span className="post-card-scarce-cta-main">
+            {price
+              ? `${dropCta.mutedLabel} · ${price} NEAR`
+              : dropCta.mutedLabel}
+          </span>
+          {edition ? (
+            <span className="post-card-scarce-cta-meta">{edition}</span>
+          ) : null}
+          {listenSlot}
+          <CommerceLinkRow links={links} />
+        </div>
+      );
+    }
+    if (dropCta.kind === 'open') {
+      return (
+        <div className="post-card-scarce-cta">
+          {collectionId ? <OpenDropButton collectionId={collectionId} /> : null}
+          {listenSlot}
+          <CommerceLinkRow links={links} />
+        </div>
+      );
+    }
+    if (dropCta.kind === 'bid') {
+      return (
+        <div className="post-card-scarce-cta">
+          <button
+            type="button"
+            className="post-card-scarce-buy"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onBid?.();
+            }}
+          >
+            <span className="post-card-scarce-buy-main">
+              {price ? `Bid · ${price} NEAR` : 'Bid'}
+            </span>
+          </button>
+          {listenSlot}
+          <CommerceLinkRow links={links} />
+        </div>
+      );
+    }
+    // mint | buy
+    return (
+      <div className="post-card-scarce-cta">
+        <button
+          type="button"
+          className="post-card-scarce-buy"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onBuy();
+          }}
+        >
+          <span className="post-card-scarce-buy-main">
+            {dropCta.kind === 'mint'
+              ? price
+                ? `Mint · ${price} NEAR`
+                : 'Mint'
+              : price
+                ? `Buy · ${price} NEAR`
+                : 'Buy'}
+          </span>
+          {edition && dropCta.kind === 'mint' ? (
+            <span className="post-card-scarce-buy-meta">{edition}</span>
+          ) : null}
+        </button>
+        {listenSlot}
+        <CommerceLinkRow links={links} />
+      </div>
+    );
   }
 
   if (embed.status === 'minted') {
@@ -222,20 +328,13 @@ export function PostScarceCta({
   const canBuy =
     !isAuthor &&
     ((embed.status === 'lazy_listing' && Boolean(embed.listingId)) ||
-      (embed.status === 'drop' && Boolean(embed.collectionId)) ||
       (embed.status === 'listed' && Boolean(embed.tokenId)));
 
   if (isAuthor) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">
-          {embed.status === 'drop'
-            ? price
-              ? `Your Drop · ${price} NEAR`
-              : 'Your Drop'
-            : price
-              ? `Yours · ${price} NEAR`
-              : 'Yours'}
+          {price ? `Yours · ${price} NEAR` : 'Yours'}
         </span>
         {edition ? (
           <span className="post-card-scarce-cta-meta">{edition}</span>
@@ -249,13 +348,7 @@ export function PostScarceCta({
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">
-          {embed.status === 'drop'
-            ? price
-              ? `Drop · ${price} NEAR…`
-              : 'Drop…'
-            : price
-              ? `Listing · ${price} NEAR…`
-              : 'Listing…'}
+          {price ? `Listing · ${price} NEAR…` : 'Listing…'}
         </span>
         <CommerceLinkRow links={links} />
       </div>
@@ -274,13 +367,7 @@ export function PostScarceCta({
         }}
       >
         <span className="post-card-scarce-buy-main">
-          {embed.status === 'drop'
-            ? price
-              ? `Mint · ${price} NEAR`
-              : 'Mint'
-            : price
-              ? `Buy · ${price} NEAR`
-              : 'Buy'}
+          {price ? `Buy · ${price} NEAR` : 'Buy'}
         </span>
         {edition ? (
           <span className="post-card-scarce-buy-meta">{edition}</span>

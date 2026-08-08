@@ -2,7 +2,7 @@ import type { Paginated, PostRow } from '@onsocial/sdk';
 import type { HomeFeedSort } from '@/features/home/home-feed-sort';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
-  hydrateLazyScarceEmbedsForPosts,
+  hydrateScarceEmbedsForPosts,
   loadPostEngagementMap,
   type PostEngagementMap,
   type PostScarceEmbedMap,
@@ -32,7 +32,7 @@ export async function loadHomeFeedPage(opts?: {
     const items = page.items ?? [];
     const [engagement, scarceEmbeds] = await Promise.all([
       loadPostEngagementMap(os, items),
-      hydrateLazyScarceEmbedsForPosts(os, items),
+      hydrateScarceEmbedsForPosts(os, items),
     ]);
     return { page, engagement, scarceEmbeds };
   } catch {

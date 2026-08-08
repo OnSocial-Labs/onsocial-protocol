@@ -6,11 +6,16 @@ import {
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { inheritedGuildReplyFeedMeta } from '@/features/guilds/guild-post-feed-meta';
 import type {
+  ComposerDropDraft,
   ComposerMode,
   ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import {
+  postKindFromDropMedium,
+  scarcesContractIdForNetwork,
+} from '@/features/scarces/drop-compose-draft';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -56,6 +61,32 @@ function toastCopy(mode: ComposerMode) {
   };
 }
 
+function collectionEmbedFromDraft(drop: ComposerDropDraft) {
+  return {
+    kind: 'collection' as const,
+    chain: 'near',
+    contract: scarcesContractIdForNetwork(),
+    collectionId: drop.collectionId.trim(),
+    ...(drop.tokenId?.trim() ? { tokenId: drop.tokenId.trim() } : {}),
+  };
+}
+
+function dropSnapshotExtra(drop: ComposerDropDraft) {
+  return {
+    onsocial: {
+      drop: {
+        collectionId: drop.collectionId.trim(),
+        ...(drop.tokenId?.trim() ? { tokenId: drop.tokenId.trim() } : {}),
+        title: drop.title.trim() || drop.collectionId.trim(),
+        ...(drop.mediaUrl?.trim() ? { mediaUrl: drop.mediaUrl.trim() } : {}),
+        ...(drop.mediumKind?.trim()
+          ? { mediumKind: drop.mediumKind.trim().toLowerCase() }
+          : {}),
+      },
+    },
+  };
+}
+
 function buildOptimisticPost(args: {
   accountId: string;
   newPostId: string;
@@ -68,12 +99,18 @@ function buildOptimisticPost(args: {
     options: string[];
     closesAt?: number;
   } | null;
+  drop: ComposerDropDraft | null;
   files?: File[];
 }): PostRow {
-  const { accountId, newPostId, text, mode, target, pollEmbed, files } = args;
+  const { accountId, newPostId, text, mode, target, pollEmbed, drop, files } =
+    args;
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
+  const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+  const dropKind = drop ? postKindFromDropMedium(drop.mediumKind) : undefined;
   const mediaKind =
-    !pollEmbed && files?.length ? mediaKindFromFile(files[0]!) : undefined;
+    !pollEmbed && !drop && files?.length
+      ? mediaKindFromFile(files[0]!)
+      : undefined;
   const base: PostRow = {
     accountId,
     postId: newPostId,
@@ -81,7 +118,12 @@ function buildOptimisticPost(args: {
       v: 1,
       text,
       ...postMetaFromText(text),
-      ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
+      ...(pollEmbed
+        ? { embeds: [pollEmbed] }
+        : collectionEmbed
+          ? { embeds: [collectionEmbed] }
+          : {}),
+      ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
       ...(media ? { media } : {}),
     }),
     blockHeight: 0,
@@ -92,7 +134,13 @@ function buildOptimisticPost(args: {
     return {
       ...base,
       isGroupContent: false,
-      ...(pollEmbed ? { kind: 'poll' } : mediaKind ? { kind: mediaKind } : {}),
+      ...(pollEmbed
+        ? { kind: 'poll' }
+        : dropKind
+          ? { kind: dropKind }
+          : mediaKind
+            ? { kind: mediaKind }
+            : {}),
     };
   }
 
@@ -146,7 +194,11 @@ export async function submitPersonalPost(args: {
   const { client, accountId, mode, target, payload, trackTransaction } = args;
   const text = payload.text.trim();
   const files = payload.files ?? [];
-  if (!text && !files.length) {
+  const drop =
+    mode === 'post' && payload.drop?.collectionId?.trim()
+      ? payload.drop
+      : null;
+  if (!text && !files.length && !drop) {
     return { confirmed: false, optimisticPost: null };
   }
   if (mode !== 'post' && !target) {
@@ -154,7 +206,7 @@ export async function submitPersonalPost(args: {
   }
 
   const pollEmbed =
-    mode === 'post' && payload.poll
+    mode === 'post' && payload.poll && !drop
       ? {
           kind: 'poll' as const,
           question: text,
@@ -165,6 +217,9 @@ export async function submitPersonalPost(args: {
         }
       : null;
 
+  const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+  const dropKind = drop ? postKindFromDropMedium(drop.mediumKind) : undefined;
+
   const newPostId = Date.now().toString();
   const filePayload = files.length ? { files } : {};
   const tags = postMetaFromText(text);
@@ -173,10 +228,16 @@ export async function submitPersonalPost(args: {
   if (mode === 'post') {
     response = await client.posts.create(
       {
-        text,
+        text: text || (drop ? drop.title || 'Drop' : ''),
         timestamp: Date.now(),
         ...tags,
-        ...(pollEmbed ? { embeds: [pollEmbed] } : {}),
+        ...(pollEmbed
+          ? { embeds: [pollEmbed] }
+          : collectionEmbed
+            ? { embeds: [collectionEmbed] }
+            : {}),
+        ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
+        ...(dropKind ? { kind: dropKind } : {}),
         ...filePayload,
       },
       newPostId
@@ -245,10 +306,11 @@ export async function submitPersonalPost(args: {
     optimisticPost: buildOptimisticPost({
       accountId,
       newPostId,
-      text,
+      text: text || (drop ? drop.title || 'Drop' : ''),
       mode,
       target,
       pollEmbed,
+      drop,
       files: files.length ? files : undefined,
     }),
   };

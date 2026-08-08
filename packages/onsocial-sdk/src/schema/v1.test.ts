@@ -454,6 +454,53 @@ describe('inferKind', () => {
       })
     ).toBe('poll');
   });
+  it('does not treat collection embeds as link', () => {
+    expect(
+      inferKind({
+        text: 'check this Drop',
+        embeds: [
+          {
+            kind: 'collection',
+            chain: 'near',
+            contract: 'scarces.onsocial.testnet',
+            collectionId: 'drop-1',
+          },
+        ],
+      })
+    ).toBe('text');
+  });
+  it('validates collection embeds', () => {
+    expect(
+      validatePostV1({
+        v: 1,
+        text: 'drop',
+        timestamp: 1,
+        embeds: [
+          {
+            kind: 'collection',
+            chain: 'near',
+            contract: 'scarces.onsocial.testnet',
+            collectionId: 'drop-1',
+            tokenId: 'drop-1:1',
+          },
+        ],
+      })
+    ).toBeNull();
+    expect(
+      validatePostV1({
+        v: 1,
+        text: 'drop',
+        timestamp: 1,
+        embeds: [
+          {
+            kind: 'collection',
+            chain: 'near',
+            contract: 'scarces.onsocial.testnet',
+          },
+        ],
+      })
+    ).toBe('post.embeds[*].collection.collectionId required');
+  });
   it('detects video by mime', () => {
     expect(inferKind({ media: [{ cid: 'bafy', mime: 'video/mp4' }] })).toBe(
       'video'

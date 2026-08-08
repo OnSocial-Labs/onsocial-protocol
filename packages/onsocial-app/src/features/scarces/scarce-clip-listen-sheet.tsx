@@ -53,6 +53,8 @@ export function ScarceClipListenSheet({
   railRef,
   scrubInputRef,
   shareTitle = null,
+  shareCollectionId = null,
+  shareMediaUrl = null,
   loved = false,
   loveCount = 0,
   lovePending = false,
@@ -87,6 +89,8 @@ export function ScarceClipListenSheet({
   railRef: RefObject<HTMLDivElement | null>;
   scrubInputRef: RefObject<HTMLInputElement | null>;
   shareTitle?: string | null;
+  shareCollectionId?: string | null;
+  shareMediaUrl?: string | null;
   loved?: boolean;
   loveCount?: number;
   lovePending?: boolean;
@@ -241,6 +245,9 @@ export function ScarceClipListenSheet({
               <ScarceClipShareButton
                 title={shareTitle!.trim()}
                 className="scarce-clip-listen-share"
+                collectionId={shareCollectionId}
+                mediaUrl={shareMediaUrl}
+                mediumKind="audio"
               />
             ) : null}
           </div>

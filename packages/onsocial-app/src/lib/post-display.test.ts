@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   formatPostTimestamp,
   formatRelativePostTimestamp,
+  parseDropPaintSnapshot,
+  parsePostCollectionEmbed,
   parsePostText,
   postFeedPreviewLimit,
   postPreviewNeedsExpand,
@@ -12,6 +14,80 @@ import {
   POST_TEXT_MAX_LENGTH,
   truncatePostPreview,
 } from './post-display';
+
+describe('parsePostCollectionEmbed', () => {
+  it('reads collection embeds from schema v1 bodies', () => {
+    expect(
+      parsePostCollectionEmbed(
+        JSON.stringify({
+          v: 1,
+          text: 'my drop',
+          embeds: [
+            {
+              kind: 'collection',
+              chain: 'near',
+              contract: 'scarces.onsocial.testnet',
+              collectionId: 'drop-1',
+              tokenId: 'drop-1:3',
+            },
+          ],
+        })
+      )
+    ).toEqual({
+      kind: 'collection',
+      chain: 'near',
+      contract: 'scarces.onsocial.testnet',
+      collectionId: 'drop-1',
+      tokenId: 'drop-1:3',
+    });
+  });
+
+  it('returns null when collectionId is missing', () => {
+    expect(
+      parsePostCollectionEmbed(
+        JSON.stringify({
+          v: 1,
+          text: 'x',
+          embeds: [
+            {
+              kind: 'collection',
+              chain: 'near',
+              contract: 'scarces.onsocial.testnet',
+            },
+          ],
+        })
+      )
+    ).toBeNull();
+  });
+});
+
+describe('parseDropPaintSnapshot', () => {
+  it('reads x.onsocial.drop paint fields', () => {
+    expect(
+      parseDropPaintSnapshot(
+        JSON.stringify({
+          v: 1,
+          text: '',
+          x: {
+            onsocial: {
+              drop: {
+                collectionId: 'drop-1',
+                title: 'Night',
+                mediaUrl: 'https://ipfs.io/ipfs/bafy',
+                mediumKind: 'audio',
+              },
+            },
+          },
+        })
+      )
+    ).toEqual({
+      collectionId: 'drop-1',
+      title: 'Night',
+      mediaUrl: 'https://ipfs.io/ipfs/bafy',
+      mediumKind: 'audio',
+    });
+  });
+});
 
 describe('parsePostText', () => {
   it('reads text from schema v1 post bodies', () => {

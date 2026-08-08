@@ -60,9 +60,19 @@ export interface ComposerPollDraft {
 /** @deprecated Prefer `ComposerPollDraft`. */
 export type GuildComposerPollDraft = ComposerPollDraft;
 
+/** Drop reference attached to a personal post (“Post this Drop”). */
+export interface ComposerDropDraft {
+  collectionId: string;
+  tokenId?: string;
+  title: string;
+  mediaUrl?: string | null;
+  mediumKind?: string | null;
+}
+
 export interface ComposerSubmit {
   text: string;
   poll?: ComposerPollDraft;
+  drop?: ComposerDropDraft;
   /** Attached image/video files (uploaded by SDK on write). */
   files?: File[];
 }
@@ -140,6 +150,10 @@ interface ComposerSheetProps {
   onModeChange?: (mode: ComposerMode) => void;
   /** Destination picker for `post` mode. */
   destination?: ComposerDestination;
+  /** Prefill a Drop reference chip (“Post this Drop”). */
+  initialDrop?: ComposerDropDraft | null;
+  /** Prefill caption when opening with a Drop. */
+  initialText?: string;
   pending: boolean;
   error?: string | null;
   onClose: () => void;
@@ -213,6 +227,8 @@ export function ComposerSheet({
   targetAuthorProfile,
   onModeChange,
   destination,
+  initialDrop = null,
+  initialText = '',
   pending,
   error,
   onClose,
@@ -227,6 +243,7 @@ export function ComposerSheet({
   const [pollEnabled, setPollEnabled] = useState(false);
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollDurationMs, setPollDurationMs] = useState<number | undefined>();
+  const [dropDraft, setDropDraft] = useState<ComposerDropDraft | null>(null);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<
     { url: string; mime: string }[]
@@ -240,8 +257,8 @@ export function ComposerSheet({
   const mediaStripRef = useRef<HTMLDivElement>(null);
   const sheetOpen = open && !closing;
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
-  const canUsePoll = mode === 'post';
-  const canUseMedia = !pollEnabled;
+  const canUsePoll = mode === 'post' && !dropDraft;
+  const canUseMedia = !pollEnabled && !dropDraft;
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -262,10 +279,11 @@ export function ComposerSheet({
     setWasOpen(open);
     if (open) {
       setFormKey((key) => key + 1);
-      setText('');
+      setText(initialText.trim());
       setPollEnabled(false);
       setPollOptions(['', '']);
       setPollDurationMs(undefined);
+      setDropDraft(initialDrop);
       setMediaFiles([]);
       setMediaPreviews((current) => {
         for (const preview of current) URL.revokeObjectURL(preview.url);
@@ -324,7 +342,7 @@ export function ComposerSheet({
     event.preventDefault();
     const trimmed = text.trim();
     if (pending || !pollReady) return;
-    if (!trimmed && mediaFiles.length === 0) return;
+    if (!trimmed && mediaFiles.length === 0 && !dropDraft) return;
     if (trimmed.length > POST_TEXT_MAX_LENGTH) {
       setMediaError(
         `Posts can be at most ${POST_TEXT_MAX_LENGTH.toLocaleString()} characters.`
@@ -332,7 +350,13 @@ export function ComposerSheet({
       return;
     }
     onSubmit({
-      text: trimmed || (mediaFiles.length > 0 ? ' ' : ''),
+      text:
+        trimmed ||
+        (mediaFiles.length > 0 || dropDraft
+          ? dropDraft
+            ? ''
+            : ' '
+          : ''),
       ...(canUsePoll && pollEnabled
         ? {
             poll: {
@@ -341,6 +365,7 @@ export function ComposerSheet({
             },
           }
         : {}),
+      ...(dropDraft ? { drop: dropDraft } : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
     });
   };
@@ -476,7 +501,7 @@ export function ComposerSheet({
   const showTextCount = textLength > 0;
 
   const canPost =
-    (Boolean(text.trim()) || mediaFiles.length > 0) &&
+    (Boolean(text.trim()) || mediaFiles.length > 0 || Boolean(dropDraft)) &&
     !pending &&
     pollReady &&
     !textOverLimit;
@@ -522,6 +547,35 @@ export function ComposerSheet({
                 />
               </div>
             ))}
+          </div>
+        ) : null}
+        {dropDraft ? (
+          <div className="guild-composer-drop-chip" aria-label="Attached Drop">
+            <span
+              className={`guild-composer-drop-thumb${
+                dropDraft.mediaUrl ? ' has-media' : ''
+              }`}
+              aria-hidden
+            >
+              {dropDraft.mediaUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={dropDraft.mediaUrl} alt="" />
+              ) : null}
+            </span>
+            <span className="guild-composer-drop-copy">
+              <span className="guild-composer-drop-label">Drop</span>
+              <span className="guild-composer-drop-title">{dropDraft.title}</span>
+            </span>
+            {!pending ? (
+              <button
+                type="button"
+                className="guild-composer-poll-remove"
+                aria-label="Remove Drop"
+                onClick={() => setDropDraft(null)}
+              >
+                ×
+              </button>
+            ) : null}
           </div>
         ) : null}
         {canUsePoll && pollEnabled ? (

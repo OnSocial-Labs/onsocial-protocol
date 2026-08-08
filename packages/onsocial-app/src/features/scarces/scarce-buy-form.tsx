@@ -156,7 +156,8 @@ export function ScarceBuyForm({
   const resolvedPlayable = listing?.playable ?? hydratedPlayable;
   const resolvedPlayables =
     listing?.playables ?? hydratedPlayables ?? undefined;
-  const sellerId = listing?.creatorId ?? post?.accountId;
+  const sellerId =
+    listing?.creatorId ?? embed?.creatorId ?? post?.accountId;
   const authorHandle = sellerId ? fallbackLabel(sellerId) : null;
   const authorHref = post
     ? postThreadPath(post)

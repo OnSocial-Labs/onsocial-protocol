@@ -53,6 +53,9 @@ import {
   postScarceCoverImage,
   ScarcePostPreview,
 } from '@/features/scarces/scarce-post-preview';
+import { PostDropListenButton } from '@/features/scarces/post-drop-listen';
+import { postDropIsPlayable } from '@/features/scarces/post-drop-cta';
+import { usePostCollectionEmbed } from '@/features/scarces/use-post-collection-embed';
 import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -68,6 +71,8 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   formatPostTimestamp,
+  parseDropPaintSnapshot,
+  parsePostCollectionEmbed,
   parsePostPollEmbed,
   parsePostText,
   postFeedPreviewLimit,
@@ -791,12 +796,35 @@ export function PostCard({
   const isSelf =
     Boolean(viewerAccountId) &&
     accountIdsEqual(viewerAccountId!, post.accountId);
+  const hasCollectionEmbed = Boolean(parsePostCollectionEmbed(post.value));
+  const {
+    rootRef: collectionEmbedRef,
+    embed: collectionEmbed,
+    playables: collectionPlayables,
+    dropTitle: collectionDropTitle,
+    retry: retryCollectionEmbed,
+  } = usePostCollectionEmbed(post, {
+    force: isSelf || menuForceEmbed,
+  });
   // Own posts: fetch embed immediately so ⋮ already knows list vs cancel.
+  // Skip fromPost resolve when this post is a Drop reference embed.
   const {
     rootRef: scarceEmbedRef,
-    embed: scarceEmbed,
-    retry: retryScarceEmbed,
-  } = usePostScarceEmbed(post, { force: isSelf || menuForceEmbed });
+    embed: fromPostScarceEmbed,
+    retry: retryFromPostScarceEmbed,
+  } = usePostScarceEmbed(post, {
+    enabled: !hasCollectionEmbed,
+    force: isSelf || menuForceEmbed,
+  });
+  const scarceEmbed = collectionEmbed ?? fromPostScarceEmbed;
+  const scarceEmbedMergedRef = (node: HTMLElement | null) => {
+    scarceEmbedRef.current = node;
+    collectionEmbedRef.current = node;
+  };
+  const retryScarceEmbed = () => {
+    retryCollectionEmbed();
+    retryFromPostScarceEmbed();
+  };
   const activelyListed =
     scarceEmbed?.status === 'lazy_listing' ||
     scarceEmbed?.status === 'listed' ||
@@ -804,10 +832,15 @@ export function PostCard({
   // Show List as soon as we don't know of an active listing. Waiting on
   // `ready` made the menu feel broken on own posts while indexer/contract
   // checks ran. Optimistic ledger + reconcile still flip to Cancel once
-  // a listing is confirmed.
-  const canListScarce = isConnected && isSelf && !activelyListed;
+  // a listing is confirmed. Collection-reference posts are not listable
+  // from the post (they point at an existing Drop / edition).
+  const canListScarce =
+    isConnected && isSelf && !hasCollectionEmbed && !activelyListed;
   const canCancelScarce =
-    isConnected && isSelf && canCancelPostScarce(scarceEmbed);
+    isConnected &&
+    isSelf &&
+    !hasCollectionEmbed &&
+    canCancelPostScarce(scarceEmbed);
 
   async function handleCancelScarce() {
     if (!scarceEmbed || cancelScarcePending) return;
@@ -848,6 +881,7 @@ export function PostCard({
 
   const text = parsePostText(post.value);
   const poll = parsePostPollEmbed(post.value);
+  const dropPaint = parseDropPaintSnapshot(post.value);
   const mediaItems = parsePostMedia(post.value);
   const hasMedia = mediaItems.length > 0;
   const photoCover = postScarceCoverImage(post);
@@ -855,9 +889,19 @@ export function PostCard({
     !photoCover &&
     Boolean(scarceEmbed) &&
     (scarceEmbed?.status === 'lazy_listing' ||
+      scarceEmbed?.status === 'drop' ||
       scarceEmbed?.status === 'listed' ||
       scarceEmbed?.status === 'sold' ||
-      scarceEmbed?.status === 'auction');
+      scarceEmbed?.status === 'auction' ||
+      scarceEmbed?.status === 'minted');
+  const listenPlayables = collectionPlayables;
+  const showDropListen =
+    Boolean(scarceEmbed?.collectionId) &&
+    (listenPlayables.length > 0 || postDropIsPlayable(scarceEmbed));
+  const dropListenTitle =
+    collectionDropTitle?.trim() ||
+    dropPaint?.title?.trim() ||
+    'Drop';
   const fallback = fallbackLabel(post.accountId);
   const name = authorProfile?.displayName?.trim() || fallback;
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
@@ -883,7 +927,7 @@ export function PostCard({
     .join(' ');
 
   return (
-    <article className={cardClassName} ref={scarceEmbedRef}>
+    <article className={cardClassName} ref={scarceEmbedMergedRef}>
       {actionHref ? (
         <Link
           href={actionHref}
@@ -1000,7 +1044,7 @@ export function PostCard({
           <ScarcePostPreview
             post={post}
             variant="feed"
-            mediaUrl={scarceEmbed.mediaUrl}
+            mediaUrl={scarceEmbed.mediaUrl ?? dropPaint?.mediaUrl}
             cardBg={scarceEmbed.cardBg}
             creatorDisplayName={authorProfile?.displayName}
           />
@@ -1021,11 +1065,23 @@ export function PostCard({
               }
             }
             isAuthor={isSelf}
-            authorAccountId={post.accountId}
+            authorAccountId={
+              scarceEmbed?.creatorId?.trim() || post.accountId
+            }
             canList={canListScarce}
             onList={() => setListScarceOpen(true)}
             onBuy={() => setBuyScarceOpen(true)}
             onBid={() => setBidScarceOpen(true)}
+            listenSlot={
+              showDropListen && listenPlayables.length > 0 ? (
+                <PostDropListenButton
+                  title={dropListenTitle}
+                  cover={scarceEmbed?.mediaUrl ?? dropPaint?.mediaUrl}
+                  playables={listenPlayables}
+                  creatorId={scarceEmbed?.creatorId}
+                />
+              ) : null
+            }
           />
         ) : null}
         {detailLayout ? (

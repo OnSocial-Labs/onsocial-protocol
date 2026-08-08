@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PostRow, ScarcesActiveListingRow } from '@onsocial/sdk';
+import type {
+  PostRow,
+  ScarcesActiveListingRow,
+  ScarcesCollectionCurrentRow,
+} from '@onsocial/sdk';
 import {
+  hydrateCollectionEmbedsForPosts,
   hydrateLazyScarceEmbedsForPosts,
   loadPostEngagementMap,
 } from '@/lib/feed-paint-hydrate';
@@ -19,13 +24,19 @@ function post(accountId: string, postId: string): PostRow {
 
 describe('feed-paint-hydrate', () => {
   const activeListings = vi.fn();
+  const collectionsCurrent = vi.fn();
+  const collectionsCurrentByIds = vi.fn();
   const countsByPaths = vi.fn();
   const statesForPosts = vi.fn();
   const amplifyCountsForPostPaths = vi.fn();
 
   const os = {
     query: {
-      scarces: { activeListings },
+      scarces: {
+        activeListings,
+        collectionsCurrent,
+        collectionsCurrentByIds,
+      },
       threads: { countsByPaths },
       reactions: { statesForPosts },
       socialSpend: { amplifyCountsForPostPaths },
@@ -34,9 +45,12 @@ describe('feed-paint-hydrate', () => {
 
   beforeEach(() => {
     activeListings.mockReset();
+    collectionsCurrent.mockReset();
+    collectionsCurrentByIds.mockReset();
     countsByPaths.mockReset();
     statesForPosts.mockReset();
     amplifyCountsForPostPaths.mockReset();
+    collectionsCurrent.mockResolvedValue([]);
   });
 
   it('loadPostEngagementMap batches thread/reaction/amplify counts', async () => {
@@ -122,5 +136,71 @@ describe('feed-paint-hydrate', () => {
       copies: 10,
     });
     expect(map['alice.near/post/p2']).toBeUndefined();
+  });
+
+  it('hydrateCollectionEmbedsForPosts batches collectionsCurrentByIds', async () => {
+    const row = {
+      collectionId: 'drop-1',
+      creatorId: 'creator.near',
+      appId: null,
+      price: ONE_NEAR,
+      allowlistPrice: null,
+      totalSupply: 10,
+      mintedCount: 2,
+      remaining: 8,
+      startTime: null,
+      endTime: null,
+      createdAt: 1,
+      createdBlockTimestamp: 1,
+      mintMode: 'open',
+      maxPerWallet: null,
+      paused: false,
+      cancelled: false,
+      banned: false,
+      transferable: true,
+      renewable: false,
+      maxRedeems: null,
+      randomAssignment: false,
+      appCommissionBps: null,
+      title: 'Night',
+      media: 'ipfs://bafycover',
+      description: null,
+      kind: 'audio',
+      mediumKind: 'audio',
+      metadataTemplate: null,
+      metadata: null,
+      extraJson: null,
+      royaltyJson: null,
+      sourcePostPath: null,
+    } as unknown as ScarcesCollectionCurrentRow;
+    collectionsCurrentByIds.mockResolvedValue([row]);
+    activeListings.mockResolvedValue([]);
+
+    const map = await hydrateCollectionEmbedsForPosts(os as never, [
+      {
+        ...post('alice.near', 'p1'),
+        value: JSON.stringify({
+          v: 1,
+          text: 'night',
+          embeds: [
+            {
+              kind: 'collection',
+              chain: 'near',
+              contract: 'scarces.onsocial.testnet',
+              collectionId: 'drop-1',
+            },
+          ],
+        }),
+      },
+    ]);
+
+    expect(collectionsCurrentByIds).toHaveBeenCalledWith(['drop-1']);
+    expect(map['alice.near/post/p1']).toMatchObject({
+      status: 'drop',
+      collectionId: 'drop-1',
+      creatorId: 'creator.near',
+      remaining: 8,
+      mediumKind: 'audio',
+    });
   });
 });

@@ -71,7 +71,8 @@ export function ScarceBuySheet({
   const [wasOpen, setWasOpen] = useState(open);
   const [footerState, setFooterState] =
     useState<CommerceSheetFooterState | null>(null);
-  const creatorId = listing?.creatorId ?? post?.accountId ?? '';
+  const creatorId =
+    listing?.creatorId ?? embed?.creatorId ?? post?.accountId ?? '';
   const sheetOpen =
     open && !closing && (post != null || listing != null) && Boolean(creatorId);
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);

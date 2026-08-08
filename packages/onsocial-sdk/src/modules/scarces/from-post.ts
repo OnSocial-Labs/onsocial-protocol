@@ -255,6 +255,8 @@ export interface PostScarceEmbed {
   listingId?: string;
   /** Primary-sale Drop (collection) when this post backs a Drop edition. */
   collectionId?: string;
+  /** Drop / listing creator (catalog), not necessarily the post author. */
+  creatorId?: string;
   /** Hub / app attribution when known. */
   appId?: string;
   /** Soft Series branding id when the Drop carries `metadata.series`. */

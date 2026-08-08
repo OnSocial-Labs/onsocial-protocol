@@ -87,6 +87,117 @@ export function parsePostPollEmbed(value: string): PostPollEmbed | null {
   return null;
 }
 
+/** Collection (Drop) embed stored on post JSON (`embeds[].kind === 'collection'`). */
+export interface PostCollectionEmbed {
+  kind: 'collection';
+  chain: string;
+  contract: string;
+  collectionId: string;
+  /** Holder edition when the post is about a specific seat / token. */
+  tokenId?: string;
+}
+
+export function parsePostCollectionEmbed(
+  value: string
+): PostCollectionEmbed | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as { embeds?: unknown };
+    if (!Array.isArray(parsed.embeds)) return null;
+
+    for (const entry of parsed.embeds) {
+      if (!entry || typeof entry !== 'object') continue;
+      const embed = entry as Record<string, unknown>;
+      if (embed.kind !== 'collection') continue;
+      if (typeof embed.chain !== 'string' || !embed.chain.trim()) continue;
+      if (typeof embed.contract !== 'string' || !embed.contract.trim()) {
+        continue;
+      }
+      if (
+        typeof embed.collectionId !== 'string' ||
+        !embed.collectionId.trim()
+      ) {
+        continue;
+      }
+      const tokenId =
+        typeof embed.tokenId === 'string' && embed.tokenId.trim()
+          ? embed.tokenId.trim()
+          : undefined;
+      return {
+        kind: 'collection',
+        chain: embed.chain.trim(),
+        contract: embed.contract.trim(),
+        collectionId: embed.collectionId.trim(),
+        ...(tokenId ? { tokenId } : {}),
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+/** Optional first-paint snapshot under `x.onsocial.drop`. */
+export interface DropPaintSnapshot {
+  collectionId: string;
+  tokenId?: string;
+  title?: string;
+  mediaUrl?: string;
+  mediumKind?: string;
+}
+
+export function parseDropPaintSnapshot(
+  value: string
+): DropPaintSnapshot | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as {
+      x?: { onsocial?: { drop?: unknown } };
+    };
+    const drop = parsed.x?.onsocial?.drop;
+    if (!drop || typeof drop !== 'object' || Array.isArray(drop)) return null;
+    const record = drop as Record<string, unknown>;
+    if (
+      typeof record.collectionId !== 'string' ||
+      !record.collectionId.trim()
+    ) {
+      return null;
+    }
+    const tokenId =
+      typeof record.tokenId === 'string' && record.tokenId.trim()
+        ? record.tokenId.trim()
+        : undefined;
+    const title =
+      typeof record.title === 'string' && record.title.trim()
+        ? record.title.trim()
+        : undefined;
+    const mediaUrl =
+      typeof record.mediaUrl === 'string' && record.mediaUrl.trim()
+        ? record.mediaUrl.trim()
+        : typeof record.mediaCid === 'string' && record.mediaCid.trim()
+          ? record.mediaCid.trim()
+          : undefined;
+    const mediumKind =
+      typeof record.mediumKind === 'string' && record.mediumKind.trim()
+        ? record.mediumKind.trim().toLowerCase()
+        : undefined;
+    return {
+      collectionId: record.collectionId.trim(),
+      ...(tokenId ? { tokenId } : {}),
+      ...(title ? { title } : {}),
+      ...(mediaUrl ? { mediaUrl } : {}),
+      ...(mediumKind ? { mediumKind } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function formatPostTimestamp(blockTimestamp: number | string): string {
   const date = resolvePostDate(blockTimestamp);
   if (!date) return 'Unknown time';

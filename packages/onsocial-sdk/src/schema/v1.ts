@@ -124,6 +124,14 @@ export type Embed =
       image?: MediaRef;
     }
   | { kind: 'token'; chain: string; contract: string; tokenId?: string }
+  | {
+      kind: 'collection';
+      chain: string;
+      contract: string;
+      collectionId: string;
+      /** Holder edition when posting a specific seat / token. */
+      tokenId?: string;
+    }
   | { kind: 'poll'; question: string; options: string[]; closesAt?: number };
 
 // ── Reactions ──────────────────────────────────────────────────────────────
@@ -340,6 +348,8 @@ export function inferKind(input: {
   if (mimes.some((m) => m.startsWith('audio/'))) return 'audio';
   if (media.length > 0) return 'image';
 
+  // Collection (Drop) embeds are not links — fall through to text/longform
+  // unless the caller passed an explicit PostKind (handled above).
   const hasLinkEmbed = embeds.some((e) => e && e.kind === 'link');
   const text = input.text ?? '';
   if (hasLinkEmbed && text.trim().length < 40) return 'link';
@@ -456,8 +466,27 @@ export function validatePostV1(post: unknown): string | null {
     for (const e of post.embeds) {
       if (!isPlainObj(e) || !isStr(e.kind))
         return 'post.embeds[*].kind required';
-      if (e.kind !== 'link' && e.kind !== 'token' && e.kind !== 'poll') {
+      if (
+        e.kind !== 'link' &&
+        e.kind !== 'token' &&
+        e.kind !== 'collection' &&
+        e.kind !== 'poll'
+      ) {
         return `post.embeds[*].kind unknown: ${e.kind}`;
+      }
+      if (e.kind === 'collection') {
+        if (!isStr(e.chain) || !e.chain.trim()) {
+          return 'post.embeds[*].collection.chain required';
+        }
+        if (!isStr(e.contract) || !e.contract.trim()) {
+          return 'post.embeds[*].collection.contract required';
+        }
+        if (!isStr(e.collectionId) || !e.collectionId.trim()) {
+          return 'post.embeds[*].collection.collectionId required';
+        }
+        if (e.tokenId !== undefined && !isStr(e.tokenId)) {
+          return 'post.embeds[*].collection.tokenId must be string';
+        }
       }
     }
   }

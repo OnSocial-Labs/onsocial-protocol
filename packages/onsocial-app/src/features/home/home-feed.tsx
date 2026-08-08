@@ -57,6 +57,7 @@ import {
 } from '@/features/home/personal-feed-list';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
+import { subscribePersonalPostConfirmed } from '@/features/scarces/drop-compose-host';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   applyOptimisticAmplifyHeat,
@@ -715,6 +716,8 @@ export function HomePagePanel({
       return [post, ...current];
     });
   }, []);
+
+  useEffect(() => subscribePersonalPostConfirmed(onConfirmed), [onConfirmed]);
 
   const { openReply, openQuote, sheet } = usePersonalComposer({
     registerPen: Boolean(isConnected && accountId),

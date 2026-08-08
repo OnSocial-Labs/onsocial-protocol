@@ -2,7 +2,7 @@ import { cache } from 'react';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
-  hydrateLazyScarceEmbedsForPosts,
+  hydrateScarceEmbedsForPosts,
   loadPostEngagementMap,
   type PostEngagementMap,
   type PostScarceEmbedMap,
@@ -68,7 +68,7 @@ export const loadPersonalPostPageData = cache(
       ];
       const [engagement, scarceEmbeds] = await Promise.all([
         loadPostEngagementMap(os, paintPosts),
-        hydrateLazyScarceEmbedsForPosts(os, paintPosts),
+        hydrateScarceEmbedsForPosts(os, paintPosts),
       ]);
       return {
         root,

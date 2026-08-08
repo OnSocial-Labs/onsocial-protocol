@@ -1125,6 +1125,9 @@ export function ScarceClipPlayer({
                     <ScarceClipShareButton
                       className="scarce-clip-download-control"
                       title={persist.title}
+                      collectionId={persist.collectionId}
+                      mediaUrl={poster}
+                      mediumKind="audio"
                     />
                   ) : null}
                 </>
@@ -1367,6 +1370,9 @@ export function ScarceClipPlayer({
                     <ScarceClipShareButton
                       className="scarce-clip-download-control"
                       title={persist.title}
+                      collectionId={persist.collectionId}
+                      mediaUrl={poster}
+                      mediumKind="audio"
                     />
                   ) : null}
                 </>
@@ -1680,6 +1686,9 @@ export function ScarceClipPlayer({
             <ScarceClipShareButton
               className="scarce-clip-download-control"
               title={persist.title}
+              collectionId={persist.collectionId}
+              mediaUrl={poster}
+              mediumKind="audio"
             />
           ) : null}
         </div>
@@ -1728,6 +1737,8 @@ export function ScarceClipPlayer({
           railRef={listenRailRef}
           scrubInputRef={listenScrubInputRef}
           shareTitle={persist?.collectionId ? persist.title : null}
+          shareCollectionId={persist?.collectionId ?? null}
+          shareMediaUrl={cover}
           loved={loves.viewerLoves(active)}
           loveCount={loves.loveCountFor(active)}
           lovePending={loves.isLovePending(active)}

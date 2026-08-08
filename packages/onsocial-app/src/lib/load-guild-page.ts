@@ -4,7 +4,7 @@ import type { GuildConfigSnapshot } from '@/features/guilds/guild-config';
 import { guildConfigFromIndexedRow } from '@/features/guilds/guild-facts';
 import { reconcileGuildMemberRoster } from '@/features/guilds/guild-member-roster';
 import {
-  hydrateLazyScarceEmbedsForPosts,
+  hydrateScarceEmbedsForPosts,
   loadPostEngagementMap,
   type PostEngagementMap,
   type PostScarceEmbedMap,
@@ -73,7 +73,7 @@ export const loadGuildPageData = cache(
       const posts = feed.items ?? [];
       const [engagement, scarceEmbeds] = await Promise.all([
         loadPostEngagementMap(os, posts),
-        hydrateLazyScarceEmbedsForPosts(os, posts),
+        hydrateScarceEmbedsForPosts(os, posts),
       ]);
 
       return {

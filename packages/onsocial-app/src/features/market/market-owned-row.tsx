@@ -10,6 +10,7 @@ import {
   auctionExpiresAtMs,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
   holdingsActionLabel,
   holdingsHrefForOwned,
@@ -184,6 +185,26 @@ export function MarketOwnedRow({
         borderless
         className="market-listing-action"
       >
+        {item.collectionId?.trim() ? (
+          <OsSheetAction
+            type="button"
+            variant="ghost"
+            ready
+            onClick={() => {
+              requestDropCompose({
+                collectionId: item.collectionId!.trim(),
+                tokenId: item.tokenId,
+                title: item.title,
+                ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
+                ...(item.mediumKind
+                  ? { mediumKind: item.mediumKind }
+                  : {}),
+              });
+            }}
+          >
+            Post
+          </OsSheetAction>
+        ) : null}
         {showOffers ? (
           <OsSheetAction
             type="button"

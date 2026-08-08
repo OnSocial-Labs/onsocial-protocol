@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { parsePostPollEmbed } from '@/lib/post-display';
+import {
+  parsePostCollectionEmbed,
+  parsePostPollEmbed,
+} from '@/lib/post-display';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import type { OnSocial, PostRow } from '@onsocial/sdk';
 
@@ -22,6 +25,50 @@ function mockClient(overrides: {
 }
 
 describe('submitPersonalPost', () => {
+  it('creates a Drop reference post with collection embed + paint', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'drop-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'listen up',
+        drop: {
+          collectionId: 'drop-1',
+          tokenId: 'drop-1:2',
+          title: 'Night',
+          mediaUrl: 'https://ipfs.io/ipfs/bafy',
+          mediumKind: 'audio',
+        },
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.embeds?.[0]).toMatchObject({
+      kind: 'collection',
+      chain: 'near',
+      collectionId: 'drop-1',
+      tokenId: 'drop-1:2',
+    });
+    expect(postData.x?.onsocial?.drop).toMatchObject({
+      collectionId: 'drop-1',
+      title: 'Night',
+      mediumKind: 'audio',
+    });
+    expect(result.optimisticPost?.kind).toBe('audio');
+    const collection = parsePostCollectionEmbed(
+      result.optimisticPost!.value
+    );
+    expect(collection?.collectionId).toBe('drop-1');
+    expect(collection?.tokenId).toBe('drop-1:2');
+  });
+
   it('creates a poll post with embed + optimistic kind', async () => {
     const create = vi.fn().mockResolvedValue({ txHash: 'poll-tx' });
     const client = mockClient({ create });

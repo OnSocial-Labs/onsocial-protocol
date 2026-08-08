@@ -11,7 +11,11 @@ import { postScarceKey } from '@/features/scarces/scarce-embed-ledger';
 import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { EMPTY_POST_ENGAGEMENT } from '@/hooks/use-post-engagement';
 import { yoctoToNear } from '@/lib/app-near-rpc';
-import { postKey } from '@/lib/post-display';
+import {
+  parseDropPaintSnapshot,
+  parsePostCollectionEmbed,
+  postKey,
+} from '@/lib/post-display';
 
 export type PostEngagementMap = Record<string, PostEngagement>;
 export type PostScarceEmbedMap = Record<string, PostScarceEmbed>;
@@ -98,9 +102,11 @@ function dropEmbedFromCollectionRow(
         ? 'minted'
         : 'drop';
   const mediaUrl = resolveScarceMediaUrl(row.media ?? null) ?? undefined;
+  const creatorId = row.creatorId?.trim() || undefined;
   return {
     status,
     collectionId,
+    ...(creatorId ? { creatorId } : {}),
     ...(appId ? { appId } : {}),
     ...(seriesId ? { seriesId } : {}),
     ...(seriesTitle ? { seriesTitle } : {}),
@@ -111,6 +117,152 @@ function dropEmbedFromCollectionRow(
     ...(mediaUrl ? { mediaUrl } : {}),
     events: [],
   };
+}
+
+function paintSnapshotToEmbed(
+  snapshot: NonNullable<ReturnType<typeof parseDropPaintSnapshot>>,
+  tokenId?: string
+): PostScarceEmbed {
+  return {
+    status: 'drop',
+    collectionId: snapshot.collectionId,
+    ...(tokenId || snapshot.tokenId
+      ? { tokenId: tokenId || snapshot.tokenId }
+      : {}),
+    ...(snapshot.mediumKind ? { mediumKind: snapshot.mediumKind } : {}),
+    ...(snapshot.mediaUrl
+      ? { mediaUrl: resolveScarceMediaUrl(snapshot.mediaUrl) ?? snapshot.mediaUrl }
+      : {}),
+    events: [],
+  };
+}
+
+/**
+ * Resolve durable `embeds[].kind === 'collection'` references via
+ * `collectionsCurrentByIds`. Optional holder `tokenId` upgrades to Buy when
+ * that edition is actively listed by the post author.
+ */
+export async function hydrateCollectionEmbedsForPosts(
+  os: OnSocial,
+  posts: readonly PostRow[]
+): Promise<PostScarceEmbedMap> {
+  if (posts.length === 0) return {};
+
+  const refs: {
+    key: string;
+    collectionId: string;
+    tokenId?: string;
+    paint: ReturnType<typeof parseDropPaintSnapshot>;
+    sellerId: string;
+  }[] = [];
+
+  for (const post of posts) {
+    const parsed = parsePostCollectionEmbed(post.value);
+    if (!parsed) continue;
+    const paint = parseDropPaintSnapshot(post.value);
+    refs.push({
+      key: postScarceKey(post.accountId, post.postId),
+      collectionId: parsed.collectionId,
+      ...(parsed.tokenId ? { tokenId: parsed.tokenId } : {}),
+      paint,
+      sellerId: post.accountId,
+    });
+  }
+  if (refs.length === 0) return {};
+
+  const collectionIds = [
+    ...new Set(refs.map((ref) => ref.collectionId).filter(Boolean)),
+  ];
+  let rows: ScarcesCollectionCurrentRow[] = [];
+  try {
+    rows = await os.query.scarces.collectionsCurrentByIds(collectionIds);
+  } catch {
+    rows = [];
+  }
+  const byCollectionId = new Map(
+    rows.map((row) => [row.collectionId.trim(), row] as const)
+  );
+
+  const sellersWithTokens = [
+    ...new Set(
+      refs
+        .filter((ref) => ref.tokenId)
+        .map((ref) => ref.sellerId.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const listingsBySeller = new Map<string, ScarcesActiveListingRow[]>();
+  await Promise.all(
+    sellersWithTokens.map(async (sellerId) => {
+      try {
+        const listed = await os.query.scarces.activeListings({
+          sellerId,
+          kinds: ['native', 'auction'],
+          limit: 40,
+        });
+        listingsBySeller.set(sellerId, listed);
+      } catch {
+        listingsBySeller.set(sellerId, []);
+      }
+    })
+  );
+
+  const out: PostScarceEmbedMap = {};
+  for (const ref of refs) {
+    const row = byCollectionId.get(ref.collectionId);
+    let embed = row
+      ? dropEmbedFromCollectionRow(row)
+      : ref.paint
+        ? paintSnapshotToEmbed(ref.paint, ref.tokenId)
+        : null;
+    if (!embed) continue;
+
+    if (ref.tokenId) {
+      embed = { ...embed, tokenId: ref.tokenId };
+      const listed = (listingsBySeller.get(ref.sellerId) ?? []).find(
+        (entry) =>
+          entry.tokenId?.trim() === ref.tokenId &&
+          (entry.kind === 'native' || entry.kind === 'auction')
+      );
+      if (listed?.kind === 'native' && listed.tokenId) {
+        const priceNear = priceNearFromYocto(listed.price) ?? embed.priceNear;
+        embed = {
+          ...embed,
+          status: 'listed',
+          tokenId: listed.tokenId.trim(),
+          ...(listed.listingId?.trim()
+            ? { listingId: listed.listingId.trim() }
+            : {}),
+          ...(priceNear ? { priceNear } : {}),
+        };
+      } else if (listed?.kind === 'auction' && listed.tokenId) {
+        const priceNear =
+          priceNearFromYocto(listed.highestBid ?? listed.reservePrice) ??
+          embed.priceNear;
+        embed = {
+          ...embed,
+          status: 'auction',
+          tokenId: listed.tokenId.trim(),
+          ...(priceNear ? { priceNear } : {}),
+        };
+      }
+    }
+
+    out[ref.key] = embed;
+  }
+  return out;
+}
+
+/** Merge fromPost/lazy hydrate with collection-reference embeds (refs win). */
+export async function hydrateScarceEmbedsForPosts(
+  os: OnSocial,
+  posts: readonly PostRow[]
+): Promise<PostScarceEmbedMap> {
+  const [fromPost, collectionRefs] = await Promise.all([
+    hydrateLazyScarceEmbedsForPosts(os, posts),
+    hydrateCollectionEmbedsForPosts(os, posts),
+  ]);
+  return { ...fromPost, ...collectionRefs };
 }
 
 /**
