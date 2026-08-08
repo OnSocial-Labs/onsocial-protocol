@@ -4,9 +4,7 @@ import { PERMISSION } from '@onsocial/sdk';
 import {
   allowlistLeaders,
   allowlistWriterCandidates,
-  fetchGuildMemberRoleFlags,
   readGuildOwnerId,
-  reconcileGuildMemberRolesFromChain,
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
 import {
@@ -171,21 +169,10 @@ export async function loadGuildSpaceWriterCounts(
     client.query.groups.membersOf(groupId, { limit: 120 }),
   ]);
   const ownerId = readGuildOwnerId(config);
+  // Indexer membership flags for leader vs candidate split — no N× role RPCs.
   const reconciled = reconcileGuildMemberRoster(page.items ?? [], ownerId);
-  const roleFlags = await fetchGuildMemberRoleFlags(
-    client,
-    groupId,
-    reconciled
-      .filter((member) => member.memberId !== ownerId)
-      .map((member) => member.memberId)
-  );
-  const withRoles = reconcileGuildMemberRolesFromChain(
-    reconciled,
-    ownerId,
-    roleFlags
-  );
-  const leaders = allowlistLeaders(withRoles, ownerId);
-  const roster = allowlistWriterCandidates(withRoles, ownerId);
+  const leaders = allowlistLeaders(reconciled, ownerId);
+  const roster = allowlistWriterCandidates(reconciled, ownerId);
   if (roster.length === 0) {
     return { grantedCount: 0, leaderCount: leaders.length };
   }

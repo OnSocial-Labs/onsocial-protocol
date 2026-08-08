@@ -3113,6 +3113,41 @@ describe('QueryModule', () => {
       });
     });
 
+    it('ownedBy queries scarcesTokenOwners for unburned tokens', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          scarcesTokenOwners: [
+            {
+              tokenId: 's:1',
+              ownerId: 'alice.near',
+              burned: false,
+              collectionId: 'drop-1',
+              appId: null,
+              mintedBlockTimestamp: 1,
+              updatedBlockTimestamp: 2,
+            },
+          ],
+        },
+      });
+      const page = await os.query.scarces.ownedBy('alice.near', { limit: 24 });
+
+      expect(page.items).toHaveLength(1);
+      expect(page.nextOffset).toBeUndefined();
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toContain('scarcesTokenOwners');
+      expect(body.query).toMatch(/burned: \{_eq: false\}/);
+      expect(body.query).toMatch(
+        /orderBy: \[\{updatedBlockTimestamp: DESC\}\]/
+      );
+      expect(body.variables).toEqual({
+        ownerId: 'alice.near',
+        limit: 24,
+        offset: 0,
+      });
+    });
+
     it('activeOffers queries scarcesActiveOffers by tokenId', async () => {
       const { os, fetch } = makeOs({ data: { scarcesActiveOffers: [] } });
       await os.query.scarces.activeOffers({ tokenId: 's:1', limit: 20 });

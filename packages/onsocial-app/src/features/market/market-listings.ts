@@ -20,7 +20,8 @@ import { isAudioMediumKind } from '@/features/market/market-medium';
  *
  * - Browse / sales / activity → OnAPI `os.query.scarces.*` (Hasura catalog + events)
  * - Buy / bid / cancel verify → NEAR contract views at action time
- * - “Yours” owned inventory → RPC (`nft_tokens_for_owner`) — no owned sink yet
+ * - “Yours” owned inventory → indexer `scarces_token_owners` (RPC fallback)
+ * - Feed scarce hydrate → `activeListings` (verify at buy/bid with RPC)
  * - RPC browse fallback → only on true OnAPI/Hasura failure, never on empty catalog
  *
  * Times: listed = `listedBlockTimestamp` / event time; minted = first mint-family
@@ -900,17 +901,55 @@ export interface OwnedScarcesPage {
   hasMore: boolean;
 }
 
-async function fetchOwnerListedStates(owner: string): Promise<
-  Map<
-    string,
-    {
-      kind: 'fixed' | 'auction';
-      priceNear: string;
-      bidCount?: number;
-      expiresAtNs?: number | null;
+type OwnedListedState = {
+  kind: 'fixed' | 'auction';
+  priceNear: string;
+  bidCount?: number;
+  expiresAtNs?: number | null;
+};
+
+async function fetchOwnerListedStates(
+  owner: string
+): Promise<Map<string, OwnedListedState>> {
+  // Indexer active listings first — no get_sales_by_owner_id on the happy path.
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const rows = await client.query.scarces.activeListings({
+      sellerId: owner,
+      kinds: ['native', 'auction'],
+      limit: 50,
+    });
+    const listedByToken = new Map<string, OwnedListedState>();
+    for (const row of rows) {
+      const tokenId = row.tokenId?.trim();
+      if (!tokenId) continue;
+      if (row.kind === 'native') {
+        const priceNear = priceNearFromYocto(row.price);
+        if (priceNear) listedByToken.set(tokenId, { kind: 'fixed', priceNear });
+        continue;
+      }
+      if (row.kind === 'auction') {
+        const displayYocto =
+          row.highestBid &&
+          /^\d+$/.test(row.highestBid) &&
+          BigInt(row.highestBid) > 0n
+            ? row.highestBid
+            : row.price;
+        const priceNear = priceNearFromYocto(displayYocto);
+        if (!priceNear) continue;
+        listedByToken.set(tokenId, {
+          kind: 'auction',
+          priceNear,
+          ...(typeof row.bidCount === 'number' ? { bidCount: row.bidCount } : {}),
+          ...(row.expiresAt != null ? { expiresAtNs: row.expiresAt } : {}),
+        });
+      }
     }
-  >
-> {
+    return listedByToken;
+  } catch {
+    // Fall through to contract sales enumeration.
+  }
+
   let ownerSales: ContractSaleRecord[] = [];
   try {
     ownerSales = await viewNearContract<ContractSaleRecord[]>(
@@ -922,15 +961,7 @@ async function fetchOwnerListedStates(owner: string): Promise<
     ownerSales = [];
   }
 
-  const listedByToken = new Map<
-    string,
-    {
-      kind: 'fixed' | 'auction';
-      priceNear: string;
-      bidCount?: number;
-      expiresAtNs?: number | null;
-    }
-  >();
+  const listedByToken = new Map<string, OwnedListedState>();
   for (const sale of ownerSales) {
     const tokenId = nativeTokenIdFromSale(sale);
     if (!tokenId) continue;
@@ -1073,19 +1104,111 @@ export async function fetchOwnedScarceForCollection(
  * yet. Contract enumeration is oldest→newest, so pages are cut from the end
  * of the range and flipped; `hasMore` stops at `OWNED_MAX_TOKENS`.
  */
-export async function fetchOwnedScarcesPage(
-  accountId: string,
-  opts: { fromEnd?: number; pageSize?: number } = {}
+async function fetchOwnedScarcesPageFromIndexer(
+  owner: string,
+  fromEnd: number,
+  pageSize: number
+): Promise<OwnedScarcesPage | null> {
+  const client = createReadOnlyOnSocialClient();
+  const take = Math.min(pageSize, OWNED_MAX_TOKENS - fromEnd);
+  if (take <= 0) {
+    return { items: [], nextFromEnd: fromEnd, hasMore: false };
+  }
+
+  const page = await client.query.scarces.ownedBy(owner, {
+    limit: take,
+    offset: fromEnd,
+  });
+  const rows = page.items ?? [];
+  const collectionIds = [
+    ...new Set(
+      rows
+        .map(
+          (row) =>
+            row.collectionId?.trim() ||
+            collectionIdFromTokenId(row.tokenId?.trim() || '')
+        )
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const collections = await Promise.all(
+    collectionIds.map(async (collectionId) => {
+      try {
+        const row = await client.query.scarces.collectionCurrent(collectionId);
+        return [collectionId, row] as const;
+      } catch {
+        return [collectionId, null] as const;
+      }
+    })
+  );
+  const collectionById = new Map(collections);
+
+  const listedByToken = await fetchOwnerListedStates(owner);
+  const items: OwnedScarceItem[] = [];
+  for (const row of rows) {
+    const tokenId = row.tokenId?.trim();
+    if (!tokenId) continue;
+    const collectionId =
+      row.collectionId?.trim() || collectionIdFromTokenId(tokenId);
+    const catalog = collectionId
+      ? collectionById.get(collectionId) ?? null
+      : null;
+    const extra = parseExtra(catalog?.extraJson ?? null);
+    const playables = playablesFromExtra(extra);
+    const discovery = discoveryFieldsFromExtra(extra, playables.length);
+    const mediumKind =
+      mediumKindFromExtra(extra) ??
+      (catalog?.kind?.trim() ? catalog.kind.trim() : null);
+    const rawTitle =
+      catalog?.title?.trim() ||
+      (tokenId.includes(':') && !tokenId.startsWith('s:')
+        ? tokenId
+        : 'Scarce');
+    const displayTitle = resolveTokenDisplayTitle(rawTitle, tokenId);
+    const description = catalog?.description?.trim() || undefined;
+    const listed = listedByToken.get(tokenId);
+    items.push({
+      tokenId,
+      title: displayTitle,
+      ...(description && description !== displayTitle ? { description } : {}),
+      mediaUrl: resolveScarceMediaUrl(catalog?.media ?? null),
+      ownerId: row.ownerId?.trim() || owner,
+      collectionId,
+      mediumKind,
+      ...discovery,
+      listingKind: listed?.kind ?? null,
+      listedPriceNear: listed?.priceNear ?? null,
+      ...(listed?.kind === 'auction' && listed.bidCount != null
+        ? { bidCount: listed.bidCount }
+        : {}),
+      ...(listed?.kind === 'auction' && listed.expiresAtNs != null
+        ? { expiresAtNs: listed.expiresAtNs }
+        : {}),
+      ...(sourcePostPathFromExtra(extra)
+        ? { sourcePostPath: sourcePostPathFromExtra(extra)! }
+        : {}),
+    });
+  }
+
+  const nextFromEnd = fromEnd + rows.length;
+  return {
+    items,
+    nextFromEnd,
+    hasMore:
+      page.nextOffset != null && nextFromEnd < OWNED_MAX_TOKENS,
+  };
+}
+
+async function fetchOwnedScarcesPageFromRpc(
+  owner: string,
+  fromEnd: number,
+  pageSize: number
 ): Promise<OwnedScarcesPage> {
-  const owner = accountId.trim();
-  const fromEnd = Math.max(0, opts.fromEnd ?? 0);
-  const pageSize = Math.max(1, opts.pageSize ?? OWNED_PAGE_SIZE);
   const empty: OwnedScarcesPage = {
     items: [],
     nextFromEnd: fromEnd,
     hasMore: false,
   };
-  if (!owner || fromEnd >= OWNED_MAX_TOKENS) return empty;
 
   let total = 0;
   try {
@@ -1125,6 +1248,34 @@ export async function fetchOwnedScarcesPage(
     nextFromEnd,
     hasMore: nextFromEnd < Math.min(total, OWNED_MAX_TOKENS),
   };
+}
+
+export async function fetchOwnedScarcesPage(
+  accountId: string,
+  opts: { fromEnd?: number; pageSize?: number } = {}
+): Promise<OwnedScarcesPage> {
+  const owner = accountId.trim();
+  const fromEnd = Math.max(0, opts.fromEnd ?? 0);
+  const pageSize = Math.max(1, opts.pageSize ?? OWNED_PAGE_SIZE);
+  const empty: OwnedScarcesPage = {
+    items: [],
+    nextFromEnd: fromEnd,
+    hasMore: false,
+  };
+  if (!owner || fromEnd >= OWNED_MAX_TOKENS) return empty;
+
+  try {
+    const indexed = await fetchOwnedScarcesPageFromIndexer(
+      owner,
+      fromEnd,
+      pageSize
+    );
+    if (indexed) return indexed;
+  } catch {
+    // Hasura / OnAPI unavailable — fall through to RPC.
+  }
+
+  return fetchOwnedScarcesPageFromRpc(owner, fromEnd, pageSize);
 }
 
 /**
@@ -1259,34 +1410,22 @@ export async function fetchLiveListingsForCreator(
     return hit.promise;
   }
 
-  // Prefer per-id loads from indexer discovery. Full-map views
-  // (`get_lazy_listings_by_creator`) currently trap if any sibling row is
-  // corrupt, which would hide healthy listings for every creator.
-  // In-flight + short TTL cache: a feed of own posts must not N× this work.
+  // Indexer `scarces_active_listings` — same catalog as Market browse.
+  // Never N× get_lazy_listing on feed hydrate; verify at buy/bid time only.
   const promise = (async (): Promise<MarketListingItem[]> => {
     try {
       const client = createReadOnlyOnSocialClient();
-      const created = await client.query.scarces.events({
-        eventType: 'LAZY_LISTING_UPDATE',
-        operation: 'created',
-        author: creatorId,
+      const rows = await client.query.scarces.activeListings({
+        sellerId: creatorId,
+        kinds: ['lazy'],
         limit: 40,
       });
-      const ids: string[] = [];
-      const seen = new Set<string>();
-      for (const row of created) {
-        const listingId = row.listingId?.trim();
-        if (!listingId || seen.has(listingId)) continue;
-        seen.add(listingId);
-        ids.push(listingId);
-      }
-      const loaded = await Promise.all(
-        ids.map((id) => fetchLazyListingById(id))
-      );
-      const items = loaded.filter((item): item is MarketListingItem => {
-        if (!item || !isLiveLazyListing(item)) return false;
-        return accountIdsEqualSafe(item.creatorId, creatorId);
-      });
+      const items = rows
+        .map((row) => listingFromActiveRow(row))
+        .filter((item): item is MarketListingItem => {
+          if (!item || !isLiveLazyListing(item)) return false;
+          return accountIdsEqualSafe(item.creatorId, creatorId);
+        });
       return withResolvedPostHrefs(items);
     } catch {
       return [];

@@ -18041,6 +18041,19 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
+  /* Host audio must stay in the document (not display:none) for audible play. */
+  .collectibles-now-playing-host-audio {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+    z-index: -1;
+  }
+
   .collectibles-play-page {
     align-items: center;
   }

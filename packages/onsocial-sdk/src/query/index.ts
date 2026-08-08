@@ -122,6 +122,7 @@ export type {
   ScarcesActiveListingRow,
   ScarcesActiveOfferRow,
   ScarcesEventRow,
+  ScarcesOwnedTokenRow,
 } from './scarces.js';
 export { SCARCES_OPERATIONS } from './scarces.js';
 export {

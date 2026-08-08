@@ -25,10 +25,10 @@ import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
 export type { ScarceReadableMedia, WritingReleaseFormat };
 
 /**
- * Collection (drop) reads for Phase 2 — supply-capped, optionally timed /
- * allowlisted edition sets minted on purchase. Indexer covers activity
- * (`os.query.scarces.collection`); the live record is read from the contract
- * so supply / price / schedule are always current.
+ * Collection (drop) reads — supply-capped, optionally timed / allowlisted
+ * edition sets. Browse + soft refresh prefer `scarces_collections_current`;
+ * contract `get_collection` only when the catalog row is missing/thin.
+ * Wallet mint / allowlist remaining stay on RPC (viewer-scoped).
  */
 
 const SCARCES_CONTRACT =

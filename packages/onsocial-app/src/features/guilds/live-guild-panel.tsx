@@ -213,6 +213,10 @@ export function LiveGuildPanel({
     Boolean(initial?.structureResolved)
   );
   const structureRetryTimersRef = useRef<number[]>([]);
+  /** Skip one auto feed refresh when SSR already painted the default feed. */
+  const skipSsrFeedRefreshRef = useRef(
+    Boolean(initial && initial.posts != null)
+  );
   const configRef = useRef<GuildConfigSnapshot | null>(
     initial?.config ?? null
   );
@@ -793,6 +797,7 @@ export function LiveGuildPanel({
       setHasMorePosts(initial.hasMorePosts);
       setLoadState('ready');
       structureHydratedRef.current = Boolean(initial.structureResolved);
+      skipSsrFeedRefreshRef.current = true;
       setState({
         config: initial.config,
         stats: initial.stats,
@@ -809,6 +814,7 @@ export function LiveGuildPanel({
     }
     ssrGroupIdRef.current = null;
     structureHydratedRef.current = false;
+    skipSsrFeedRefreshRef.current = false;
     setShellPreview(readGuildShellCache(groupId) ?? null);
     setShellExtrasResolved(false);
     setViewerAccessResolved(false);
@@ -874,8 +880,19 @@ export function LiveGuildPanel({
 
   useEffect(() => {
     if (walletLoading || !hasLoadedRef.current) return;
+    // Soft SSR already seeded the default "all" feed — skip the duplicate
+    // keyed query. Filter changes and later mounts still refresh.
+    if (
+      skipSsrFeedRefreshRef.current &&
+      selectedFeedFilterId === 'all' &&
+      ssrGroupIdRef.current === groupId
+    ) {
+      skipSsrFeedRefreshRef.current = false;
+      return;
+    }
+    skipSsrFeedRefreshRef.current = false;
     void refreshFeed();
-  }, [refreshFeed, selectedFeedFilterId, walletLoading]);
+  }, [refreshFeed, selectedFeedFilterId, walletLoading, groupId]);
 
   useEffect(() => {
     if (viewer?.pendingJoinProposalId || viewer?.isMember) {

@@ -245,6 +245,9 @@ export function HomePagePanel({
   const isRefreshingRef = useRef(false);
   const isLoadingRef = useRef(initialPage == null);
   const ssrBootstrapDoneRef = useRef(initialPage != null);
+  /** Skip duplicate global/hot fetch after SSR seed; cleared on lens/sort/focus. */
+  const ssrHotGlobalSkipRef = useRef(initialPage != null);
+  const ssrHotGlobalReloadNonceRef = useRef(0);
 
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
@@ -354,9 +357,30 @@ export function HomePagePanel({
       setSsrBootstrapDone(true);
       ssrBootstrapDoneRef.current = true;
       setIsLoading(false);
+      // Assume SSR hot matches until standing lens needs a client upgrade.
+      ssrHotGlobalSkipRef.current = true;
+      ssrHotGlobalReloadNonceRef.current = reloadNonce;
       // Soft-upgrade standing once wallet + lens are ready.
       if (walletLoading || !lensReady) return;
       if (activeLens !== 'standing' || !accountId) return;
+      ssrHotGlobalSkipRef.current = false;
+    }
+
+    if (focus || sort !== 'hot' || activeLens !== 'global') {
+      ssrHotGlobalSkipRef.current = false;
+    }
+
+    // Second effect run after wallet/lens ready still skips duplicate global/hot.
+    if (
+      ssrHotGlobalSkipRef.current &&
+      !focus &&
+      sort === 'hot' &&
+      activeLens === 'global' &&
+      reloadNonce === ssrHotGlobalReloadNonceRef.current
+    ) {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
     }
 
     // Stored Recent (or other non-hot): keep hot SSR rows visible while
@@ -373,6 +397,16 @@ export function HomePagePanel({
 
     if (walletLoading || !lensReady) {
       return;
+    }
+
+    // Explicit reload (amplify reconcile, pull) may refresh global hot once.
+    if (
+      ssrHotGlobalSkipRef.current &&
+      activeLens === 'global' &&
+      sort === 'hot' &&
+      !focus
+    ) {
+      ssrHotGlobalReloadNonceRef.current = reloadNonce;
     }
 
     const loadId = ++loadIdRef.current;

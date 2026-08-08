@@ -19,7 +19,7 @@ import {
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
 import {
   deriveCollectionStatus,
-  fetchCollection,
+  fetchCollectionPreferIndexer,
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import {
@@ -176,7 +176,7 @@ export function CollectiblesPlayPanel({
     let cancelled = false;
     void (async () => {
       if (hasSsrLoad) {
-        const next = await fetchCollection(collectionId);
+        const next = await fetchCollectionPreferIndexer(collectionId);
         if (cancelled || !next) return;
         setClientLoad({
           collectionId,
@@ -190,7 +190,7 @@ export function CollectiblesPlayPanel({
       }
       try {
         const client = createReadOnlyOnSocialClient();
-        const view = await fetchCollection(collectionId);
+        const view = await fetchCollectionPreferIndexer(collectionId);
         if (cancelled) return;
         if (!view) {
           const offline = await getOfflineAlbum(collectionId);

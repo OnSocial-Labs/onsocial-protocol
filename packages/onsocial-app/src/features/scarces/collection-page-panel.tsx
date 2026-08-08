@@ -51,7 +51,7 @@ import {
   collectionStatusLabel,
   deriveCollectionStatus,
   fetchAllowlistRemaining,
-  fetchCollection,
+  fetchCollectionPreferIndexer,
   fetchOwnsCollectionEdition,
   fetchWalletMintRemaining,
   isCollectionMintable,
@@ -198,10 +198,10 @@ export function CollectionPagePanel({
     accountIdsEqual(viewerAccountId!, view.creatorId);
   const hasImmersiveCover = Boolean(view?.mediaUrl || view?.cardBg);
 
-  // Soft RPC after first paint (minted/remaining/paused/price); hard refresh after mint.
+  // Soft indexer refresh after paint (minted/remaining/paused/price); RPC only if thin.
   useEffect(() => {
     let cancelled = false;
-    void fetchCollection(collectionId).then((next) => {
+    void fetchCollectionPreferIndexer(collectionId).then((next) => {
       if (cancelled) return;
       if (next) {
         setView(next);

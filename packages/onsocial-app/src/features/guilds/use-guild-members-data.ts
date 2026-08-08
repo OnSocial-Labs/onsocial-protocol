@@ -6,14 +6,11 @@ import type { GuildMemberRowActionId } from '@/features/guilds/guild-member-row-
 import { listActivePermissionChangeProposals } from '@/features/guilds/guild-member-pending-roles';
 import type { GuildMemberPendingRole } from '@/features/guilds/guild-member-pending-roles';
 import {
-  fetchGuildMemberRoleFlags,
   patchGuildMemberRosterAction,
-  reconcileGuildMemberRolesFromChain,
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-
-const MEMBER_ROLE_SOFT_RETRY_MS = [2000, 5000] as const;
+import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 
 export interface GuildMembersDataState {
   members: GroupMemberRow[];
@@ -65,7 +62,8 @@ export function useGuildMembersData(
 
       try {
         const client = createReadOnlyOnSocialClient();
-        // Indexer roster first — paint/refresh without N× role RPCs.
+        // Indexer `group_members_current` is authoritative for roster roles —
+        // never N× isAdmin/canModerate under the API key.
         const [shellRows, page, proposals] = await Promise.all([
           client.query.groups.byIds([groupId]).catch(() => []),
           client.query.groups.membersOf(groupId, { limit: 120 }),
@@ -86,25 +84,6 @@ export function useGuildMembersData(
             : new Map()
         );
         setHasLoaded(true);
-
-        // Soft chain role reconcile after indexer paint (manage accuracy).
-        const memberIds = roster
-          .filter((member) => member.memberId !== shellOwner)
-          .map((member) => member.memberId);
-        if (memberIds.length > 0) {
-          try {
-            const roleFlags = await fetchGuildMemberRoleFlags(
-              client,
-              groupId,
-              memberIds
-            );
-            setMembers(
-              reconcileGuildMemberRolesFromChain(roster, shellOwner, roleFlags)
-            );
-          } catch {
-            // Keep indexer flags.
-          }
-        }
       } catch (cause) {
         setLoadError(
           cause instanceof Error ? cause.message : 'Could not load members.'
@@ -120,9 +99,10 @@ export function useGuildMembersData(
     [groupId, memberDriven, ownerId]
   );
 
+  /** After role actions: optimistic patch, then catch up indexer flags. */
   const scheduleSoftRetries = useCallback(() => {
     clearRetryTimers();
-    retryTimersRef.current = MEMBER_ROLE_SOFT_RETRY_MS.map((delay) =>
+    retryTimersRef.current = INDEXER_SOFT_RETRY_MS.map((delay) =>
       window.setTimeout(() => {
         void fetchMembers(true);
       }, delay)

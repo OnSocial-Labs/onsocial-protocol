@@ -303,17 +303,31 @@ export function ScarceClipPlayer({
     let cancelled = false;
     const network = active.url;
     setLocalSrc(network);
-    void resolvePlayableSrc({
-      url: active.url,
-      mime: active.mime,
-      cid: active.cid,
-    }).then((src) => {
+    void resolvePlayableSrc(
+      {
+        url: active.url,
+        mime: active.mime,
+        cid: active.cid,
+      },
+      {
+        preferOffline:
+          Boolean(nowPlaying?.session?.localOnly) || browserOnline === false,
+      }
+    ).then((src) => {
       if (!cancelled) setLocalSrc(src);
     });
     return () => {
       cancelled = true;
     };
-  }, [persistMode, active.url, active.cid, active.mime, cachedCids]);
+  }, [
+    persistMode,
+    active.url,
+    active.cid,
+    active.mime,
+    cachedCids,
+    browserOnline,
+    nowPlaying?.session?.localOnly,
+  ]);
 
   // Bind local mediaRef + UI to the shared <audio> element.
   useEffect(() => {
@@ -569,6 +583,8 @@ export function ScarceClipPlayer({
     }
     setStarted(true);
     try {
+      media.muted = false;
+      media.volume = 1;
       await media.play();
       setPlaying(true);
     } catch {

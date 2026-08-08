@@ -71,13 +71,18 @@ export function CollectiblesNowPlayingProvider({
   const [engaged, setEngaged] = useState(false);
 
   const resolveSrc = useCallback(async (track: ScarcePlayableMedia) => {
+    const preferOffline =
+      Boolean(sessionRef.current?.localOnly) ||
+      (typeof navigator !== 'undefined' && navigator.onLine === false);
     const cid = trackCidFromPlayable(track);
-    if (cid) {
+    // Never reuse a blob URL while online — stale/corrupt OPFS can decode with
+    // a timeline but no audible samples.
+    if (preferOffline && cid) {
       const existing = blobUrlsRef.current.get(cid);
       if (existing) return existing;
     }
-    const src = await resolvePlayableSrc(track);
-    if (cid && src.startsWith('blob:')) {
+    const src = await resolvePlayableSrc(track, { preferOffline });
+    if (preferOffline && cid && src.startsWith('blob:')) {
       blobUrlsRef.current.set(cid, src);
     }
     return src;
@@ -85,10 +90,17 @@ export function CollectiblesNowPlayingProvider({
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
+      // Fallback before the host <audio> mounts (should be rare).
       audioRef.current = new Audio();
       audioRef.current.preload = 'metadata';
     }
     return audioRef.current;
+  }, []);
+
+  /** Detached / restored hosts can end up muted — arm before every play. */
+  const armAudible = useCallback((audio: HTMLAudioElement) => {
+    audio.muted = false;
+    audio.volume = 1;
   }, []);
 
   useEffect(() => {
@@ -133,6 +145,7 @@ export function CollectiblesNowPlayingProvider({
             ...current,
             activeIndex: next,
           });
+          armAudible(audio);
           void audio.play().catch(() => setPlaying(false));
           return;
         }
@@ -147,7 +160,7 @@ export function CollectiblesNowPlayingProvider({
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
     };
-  }, [getAudio, resolveSrc]);
+  }, [armAudible, getAudio, resolveSrc]);
 
   const ensureSession = useCallback(
     (next: CollectiblesNowPlayingSession) => {
@@ -220,12 +233,13 @@ export function CollectiblesNowPlayingProvider({
         }
         if (autoplay) {
           setEngaged(true);
+          armAudible(audio);
           await audio.play().catch(() => setPlaying(false));
         }
       };
       void apply();
     },
-    [getAudio, resolveSrc]
+    [armAudible, getAudio, resolveSrc]
   );
 
   const toggle = useCallback(async () => {
@@ -244,11 +258,12 @@ export function CollectiblesNowPlayingProvider({
     }
     try {
       setEngaged(true);
+      armAudible(audio);
       await audio.play();
     } catch {
       setPlaying(false);
     }
-  }, [getAudio, resolveSrc]);
+  }, [armAudible, getAudio, resolveSrc]);
 
   const pause = useCallback(() => {
     getAudio().pause();
@@ -308,20 +323,22 @@ export function CollectiblesNowPlayingProvider({
       const track = saved.tracks[index];
       if (!track || !isRenderablePostAudioMime(track.mime)) return;
       const restored = { ...saved, localOnly: true };
+      // Mark localOnly before resolve so OPFS blobs are eligible offline-first.
+      sessionRef.current = restored;
       const src = await resolveSrc(track);
       if (cancelled) return;
-      sessionRef.current = restored;
       activeIndexRef.current = index;
       setSession(restored);
       setActiveIndex(index);
       setEngaged(true);
+      armAudible(audio);
       audio.src = src;
       audio.load();
     })();
     return () => {
       cancelled = true;
     };
-  }, [getAudio, resolveSrc]);
+  }, [armAudible, getAudio, resolveSrc]);
 
   const value = useMemo(
     () => ({
@@ -355,6 +372,16 @@ export function CollectiblesNowPlayingProvider({
   return (
     <CollectiblesNowPlayingContext.Provider value={value}>
       {children}
+      {/* Keep the host in the document — detached `new Audio()` can advance
+          currentTime with no audible output on some browsers. */}
+      <audio
+        ref={(node) => {
+          if (node) audioRef.current = node;
+        }}
+        preload="metadata"
+        className="collectibles-now-playing-host-audio"
+        aria-hidden
+      />
     </CollectiblesNowPlayingContext.Provider>
   );
 }

@@ -20,9 +20,7 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   allowlistLeaders,
   allowlistWriterCandidates,
-  fetchGuildMemberRoleFlags,
   readGuildOwnerId,
-  reconcileGuildMemberRolesFromChain,
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
 import {
@@ -111,21 +109,10 @@ export function GuildSpaceWritersSheet({
         client.query.groups.membersOf(groupId, { limit: 120 }),
       ]);
       const ownerId = readGuildOwnerId(config);
+      // Indexer isAdmin/canModerate — leaders vs grant candidates without N× RPCs.
       const reconciled = reconcileGuildMemberRoster(page.items ?? [], ownerId);
-      const roleFlags = await fetchGuildMemberRoleFlags(
-        client,
-        groupId,
-        reconciled
-          .filter((member) => member.memberId !== ownerId)
-          .map((member) => member.memberId)
-      );
-      const withRoles = reconcileGuildMemberRolesFromChain(
-        reconciled,
-        ownerId,
-        roleFlags
-      );
-      const leaderRows = allowlistLeaders(withRoles, ownerId);
-      const roster = allowlistWriterCandidates(withRoles, ownerId);
+      const leaderRows = allowlistLeaders(reconciled, ownerId);
+      const roster = allowlistWriterCandidates(reconciled, ownerId);
       setLeaders(leaderRows);
       setMembers(roster);
 

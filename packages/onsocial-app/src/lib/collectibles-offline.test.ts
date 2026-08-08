@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   albumHasAllTracksCached,
   mergeTrackIntoManifest,
   offlineAlbumToHoldingPeek,
   playableToOfflineMeta,
   playablesFromOfflineAlbum,
+  resolvePlayableSrc,
 } from '@/lib/collectibles-offline';
 
 describe('mergeTrackIntoManifest', () => {
@@ -83,5 +84,29 @@ describe('playableToOfflineMeta', () => {
       title: 'Night',
       lyrics: 'go',
     });
+  });
+});
+
+describe('resolvePlayableSrc', () => {
+  const track = {
+    url: '/api/ipfs/bafkreigdabcdefghijklmnopqrstuvwx',
+    mime: 'audio/mpeg',
+    cid: 'bafkreigdabcdefghijklmnopqrstuvwx',
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('uses the network URL while online', async () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    await expect(resolvePlayableSrc(track)).resolves.toBe(track.url);
+  });
+
+  it('still uses the network URL online even when preferOffline is false', async () => {
+    vi.stubGlobal('navigator', { onLine: true });
+    await expect(
+      resolvePlayableSrc(track, { preferOffline: false })
+    ).resolves.toBe(track.url);
   });
 });

@@ -11,6 +11,7 @@
 // Live Market catalog: `activeListings()` → `scarces_active_listings`
 // Live drop catalog: `collectionCurrent()` / `collectionsCurrent()` →
 //   `scarces_collections_current`
+// Owned inventory: `ownedBy()` → `scarces_token_owners`
 // Open offers: `activeOffers()` → `scarces_active_offers`
 // (sink-maintained). Buy/bid still verify against the scarces contract.
 // ---------------------------------------------------------------------------
@@ -208,6 +209,27 @@ const SCARCES_COLLECTION_CURRENT_FIELDS = `
   createdBlockHeight
   createdBlockTimestamp
   updatedBlockHeight
+  updatedBlockTimestamp
+`;
+
+/** Current ownership row from live view `scarces_token_owners`. */
+export interface ScarcesOwnedTokenRow {
+  tokenId: string;
+  ownerId: string | null;
+  burned: boolean;
+  collectionId: string | null;
+  appId: string | null;
+  mintedBlockTimestamp: number | null;
+  updatedBlockTimestamp: number;
+}
+
+const SCARCES_OWNED_TOKEN_FIELDS = `
+  tokenId
+  ownerId
+  burned
+  collectionId
+  appId
+  mintedBlockTimestamp
   updatedBlockTimestamp
 `;
 
@@ -933,5 +955,45 @@ export class ScarcesQuery {
       eventType: SCARCES_EVENT_TYPES.APP_POOL,
       limit: opts.limit,
     });
+  }
+
+  /**
+   * Current unburned tokens owned by an account (newest updates first).
+   * Backed by `scarces_token_owners` — prefer this over `nft_tokens_for_owner`
+   * for vault browse; enrich media via `collectionCurrent` in the app.
+   *
+   * ```ts
+   * const { items } = await os.query.scarces.ownedBy('alice.near', { limit: 24 });
+   * ```
+   */
+  async ownedBy(
+    ownerId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<{ items: ScarcesOwnedTokenRow[]; nextOffset?: number }> {
+    const owner = ownerId.trim();
+    if (!owner) return { items: [] };
+    const limit = opts.limit ?? 24;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      scarcesTokenOwners: ScarcesOwnedTokenRow[];
+    }>({
+      query: `query ScarcesOwnedBy($ownerId: String!, $limit: Int!, $offset: Int!) {
+        scarcesTokenOwners(
+          where: {
+            ownerId: {_eq: $ownerId},
+            burned: {_eq: false}
+          },
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{updatedBlockTimestamp: DESC}]
+        ) { ${SCARCES_OWNED_TOKEN_FIELDS} }
+      }`,
+      variables: { ownerId: owner, limit, offset },
+    });
+    const items = res.data?.scarcesTokenOwners ?? [];
+    return {
+      items,
+      nextOffset: items.length >= limit ? offset + limit : undefined,
+    };
   }
 }

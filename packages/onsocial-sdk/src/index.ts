@@ -183,6 +183,7 @@ export type {
   ScarcesActiveListingRow,
   ScarcesActiveOfferRow,
   ScarcesEventRow,
+  ScarcesOwnedTokenRow,
 } from './query/index.js';
 export {
   parseLegacyEndorsementSpendTargetId,

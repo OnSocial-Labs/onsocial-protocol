@@ -8,7 +8,6 @@ import {
   guildMemberRolesFromPermissionLevel,
   patchGuildMemberRosterAction,
   readGuildOwnerId,
-  reconcileGuildMemberRolesFromChain,
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
 import {
@@ -95,26 +94,6 @@ describe('guild member roster reconciliation', () => {
       'admin.a.testnet',
       'admin.b.testnet',
     ]);
-  });
-
-  it('reconciles mod/admin flags from chain role views without downgrading', () => {
-    const roster = [
-      member({ memberId: 'writer.testnet', canModerate: true }),
-      member({ memberId: 'mod.testnet' }),
-    ];
-    const roleFlags = new Map([
-      ['writer.testnet', { isAdmin: false, canModerate: false }],
-      ['mod.testnet', { isAdmin: false, canModerate: true }],
-    ]);
-
-    const reconciled = reconcileGuildMemberRolesFromChain(
-      roster,
-      'owner.testnet',
-      roleFlags
-    );
-
-    expect(guildMemberRoleBucket(reconciled[0]!)).toBe('moderator');
-    expect(guildMemberRoleBucket(reconciled[1]!)).toBe('moderator');
   });
 
   it('maps permission levels to roster role flags', () => {

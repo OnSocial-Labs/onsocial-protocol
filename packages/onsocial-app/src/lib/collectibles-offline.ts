@@ -301,11 +301,21 @@ export async function blobUrlForTrack(cid: string): Promise<string | null> {
   }
 }
 
+/**
+ * Pick a playable URL. Online: always use the network URL so a bad/stale OPFS
+ * cache cannot silence the player while the scrubber still advances. Offline
+ * (or `preferOffline`): use the cached blob when present.
+ */
 export async function resolvePlayableSrc(
-  track: Pick<ScarcePlayableMedia, 'cid' | 'url' | 'mime'>
+  track: Pick<ScarcePlayableMedia, 'cid' | 'url' | 'mime'>,
+  options?: { preferOffline?: boolean }
 ): Promise<string> {
   const cid = trackCidFromPlayable(track);
   if (!cid) return track.url;
+  const offline =
+    Boolean(options?.preferOffline) ||
+    (typeof navigator !== 'undefined' && navigator.onLine === false);
+  if (!offline) return track.url;
   return (await blobUrlForTrack(cid)) ?? track.url;
 }
 
