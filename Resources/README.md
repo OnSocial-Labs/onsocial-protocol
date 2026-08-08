@@ -56,7 +56,6 @@ Guides for AI-assisted development:
   - [auth-onsocial](prompts/contracts/auth-onsocial.md)
   - [scarces-onsocial](prompts/contracts/scarces-onsocial.md)
   - [core-onsocial](prompts/contracts/core-onsocial.md)
-  - [staking-onsocial](prompts/contracts/staking-onsocial.md)
 - [App](prompts/app.md)
 - [SDK](prompts/sdk.md)
 - [Relayer](prompts/relayer.md)

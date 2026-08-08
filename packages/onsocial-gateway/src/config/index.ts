@@ -193,11 +193,6 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'token.onsocial.near'
       : 'token.onsocial.testnet'),
-  stakingContract:
-    process.env.STAKING_CONTRACT ||
-    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
-      ? 'staking.onsocial.near'
-      : 'staking.onsocial.testnet'),
   boostContract:
     process.env.BOOST_CONTRACT ||
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'

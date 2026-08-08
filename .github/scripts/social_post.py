@@ -71,7 +71,6 @@ COMPONENT_MAP = {
     "contracts/boost-onsocial": "boost contract (boost-onsocial)",
     "contracts/core-onsocial": "social data contract (core-onsocial)",
     "contracts/token-onsocial": "SOCIAL token contract (token-onsocial)",
-    "contracts/staking-onsocial": "staking contract (staking-onsocial)",
     "contracts/rewards-onsocial": "rewards contract (rewards-onsocial)",
     "contracts/manager-proxy-onsocial": "manager proxy contract",
     "packages/onsocial-relayer": "gasless transaction relayer",
@@ -294,7 +293,6 @@ CONTRACT_NEARBLOCKS = {
     "contracts/scarces-onsocial": "https://testnet.nearblocks.io/address/scarces.onsocial.testnet",
     "contracts/boost-onsocial": "https://testnet.nearblocks.io/address/boost.onsocial.testnet",
     "contracts/core-onsocial": "https://testnet.nearblocks.io/address/core.onsocial.testnet",
-    "contracts/staking-onsocial": "https://testnet.nearblocks.io/address/staking.onsocial.testnet",
     "contracts/token-onsocial": "https://testnet.nearblocks.io/address/token.onsocial.testnet",
     "contracts/rewards-onsocial": "https://testnet.nearblocks.io/address/rewards.onsocial.testnet",
 }

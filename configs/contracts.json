@@ -18,12 +18,6 @@
         "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"social_token\": \"token.${AUTH_ACCOUNT}\", \"treasury_id\": \"${AUTH_ACCOUNT}\", \"boost_contract_id\": \"boost.${AUTH_ACCOUNT}\"}'"
     },
     {
-        "name": "staking-onsocial",
-        "id": "staking.${AUTH_ACCOUNT}",
-        "account": "${AUTH_ACCOUNT}",
-        "init": "new '{\"token_id\": \"token.${AUTH_ACCOUNT}\", \"owner_id\": \"${AUTH_ACCOUNT}\"}'"
-    },
-    {
         "name": "vesting-onsocial",
         "id": "founder-vesting.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",

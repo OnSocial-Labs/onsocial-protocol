@@ -26,9 +26,6 @@ export const CORE_CONTRACT =
 export const SCARCES_CONTRACT =
   NETWORK === 'mainnet' ? 'scarces.onsocial.near' : 'scarces.onsocial.testnet';
 
-export const STAKING_CONTRACT =
-  NETWORK === 'mainnet' ? 'staking.onsocial.near' : 'staking.onsocial.testnet';
-
 export const BOOST_CONTRACT =
   NETWORK === 'mainnet' ? 'boost.onsocial.near' : 'boost.onsocial.testnet';
 
