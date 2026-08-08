@@ -1,0 +1,53 @@
+---
+description: Indexer-first paint and API-key hygiene for @onsocial/app (thousands-ready)
+globs: packages/onsocial-app/**/*.{ts,tsx},packages/onsocial-sdk/src/query/**/*.ts
+alwaysApply: false
+---
+
+# App indexer-first paint
+
+For `@onsocial/app` (and SDK query helpers it consumes), browse/list/detail first paint must be **indexer-first**. Do not reintroduce chain RPC fan-out on critical paths.
+
+## Source of truth by concern
+
+| Concern | Prefer | Keep on RPC |
+|--------|--------|-------------|
+| Feeds, lists, shells, counts, catalog, owned inventory browse | Hasura / `os.query.*` / Substreams views | — |
+| Buy / bid / cancel / offer verify | — | Contract views at action time |
+| Wallet balances, spend configs, wallet mint/allowlist remaining | — | Contract / BFF |
+| Privileged guild ACL at action time | Indexer hint for paint | Chain roles before mutate |
+| Writes / wallet submit | — | Always chain |
+
+## Required patterns
+
+1. **SSR critical path** — batch indexer reads only (`createServerOnSocialClient`). No `viewNearContract`, `get_collection`, `nft_tokens_for_owner`, `social.getOne`, or N× `getConfig` before first paint on the happy path.
+2. **Soft-fill after paint** — structure, brand, ACL, sheet detail may reconcile client-side; never blank a painted shell for it.
+3. **No duplicate keyed refetch** — if SSR seed matches the active lens/sort/filter, skip the immediate client re-query (home hot/global and guild default feed are the model).
+4. **No N× RPC under the API key** — lists use batch/indexed helpers (`activeListings`, `memberCountsFor`, `ownedBy`, `enrichIndexedGuildSummaryCards`). Never N× `get_lazy_listing`, `isAdmin`/`canModerate`, or `getConfig` per row for browse.
+5. **Owned vault** — `os.query.scarces.ownedBy` + catalog enrich; RPC `nft_tokens_for_owner` only on Hasura failure.
+6. **Feed scarce CTAs** — `activeListings` / post path match; `get_lazy_listing` only in buy/bid verify sheets.
+7. **Drop counters** — soft refresh via `collectionCurrent` / `fetchCollectionPreferIndexer`; RPC only if catalog thin/missing.
+8. **Browser OnAPI** — all client graph traffic still burns `ONSOCIAL_API_KEY` via `/api/onapi`. Treat extra soft-fetches as load. Prefer fewer, batched queries.
+
+## Explicitly OK soft paths (not first paint)
+
+- Guild `getConfig` after SSR for structure/ACL
+- Series brand `social.getOne` after drops paint
+- DAO roles via `/api/profile/dao-roles` after portfolio paint
+- Sheet-open verify (`get_lazy_listing`, auction/offer views, `nft_token` traits)
+
+## When adding a feature
+
+1. Can first paint come from an existing Substreams view / SDK query? Use it.
+2. If not, add/extend the indexer + SDK query — do not paper over with browse RPC.
+3. Soft-fill or action-time RPC only for money, permissions to mutate, or true lag catch-up.
+4. Skip client refetch when SSR already matches.
+5. Add a unit test that mocks the indexer client and asserts RPC is **not** called on the happy path (see `market-listings-indexer.test.ts`).
+
+## Not “100% done” yet (do not regress; prefer closing these)
+
+- Portfolio SSR chain fallback when indexed `page/main` is empty
+- Owned page N× `collectionCurrent` (batch when SDK allows)
+- Series catalog heading N× brand soft-fill
+- Market/app post-SSR double-fetch of browse data
+- Guild writers sheet N× `permissions.has`
