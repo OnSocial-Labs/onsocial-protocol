@@ -17,16 +17,27 @@ const client = new IntentsClient({
   jwtToken: process.env.NEAR_INTENTS_JWT, // optional — reduces protocol fee
 });
 
-const quote = await client.getQuote({
-  originAsset: 'nep141:usdc.near', // use live token ids from getTokens()
+const { quote } = await client.getQuote({
+  dry: false,
+  swapType: 'EXACT_INPUT',
+  slippageTolerance: 100,
+  originAsset: 'nep141:usdc.near', // use live ids from getTokens()
+  depositType: 'ORIGIN_CHAIN',
   destinationAsset: 'near',
   amount: '100000000',
-  recipient: 'alice.near',
   refundTo: 'alice.near',
+  recipient: 'alice.near',
+  recipientType: 'DESTINATION_CHAIN',
+  deadline: client.createDeadline(),
 });
 
-await client.submitDeposit(quote.depositAddress, userTxHash);
-const status = await client.getSwapStatus(quote.depositAddress);
+await client.submitDeposit({
+  depositAddress: quote.depositAddress!,
+  txHash: userTxHash,
+  nearSenderAccount: 'alice.near',
+});
+
+const status = await client.getStatus(quote.depositAddress!);
 ```
 
 ## API
@@ -35,10 +46,11 @@ const status = await client.getSwapStatus(quote.depositAddress);
 class IntentsClient {
   getTokens(): Promise<Token[]>;
   getQuote(request: QuoteRequest): Promise<QuoteResponse>;
-  submitDeposit(depositAddress: string, txHash: string): Promise<SubmitDepositResponse>;
-  getSwapStatus(depositAddress: string): Promise<StatusResponse>;
-  pollSwapStatus(/* … */): Promise<StatusResponse>;
-  // + ANY_INPUT withdrawal helpers
+  submitDeposit(request: SubmitDepositRequest): Promise<SubmitDepositResponse>;
+  getStatus(depositAddress: string, depositMemo?: string): Promise<StatusResponse>;
+  pollStatus(/* … */): Promise<StatusResponse>;
+  getAnyInputWithdrawals(/* … */): Promise<AnyInputWithdrawalsResponse>;
+  createDeadline(offsetMs?: number): string;
 }
 ```
 
