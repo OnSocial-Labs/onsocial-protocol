@@ -34,6 +34,8 @@ function catalog(
     media: null,
     description: null,
     kind: null,
+    mediumKind: null,
+    sourcePostPath: null,
     metadataTemplate: null,
     metadata: null,
     extraJson: null,
