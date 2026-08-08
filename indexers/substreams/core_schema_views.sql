@@ -296,7 +296,25 @@ SELECT
     (config_json ->> 'member_driven') = 'true',
     (config_json ->> 'memberDriven') = 'true',
     false
-  )                            AS is_member_driven
+  )                            AS is_member_driven,
+  -- Topics from latest config JSON (card / shell first paint; no RPC).
+  COALESCE(
+    (
+      SELECT ARRAY(
+        SELECT NULLIF(BTRIM(t.topic), '')
+        FROM jsonb_array_elements_text(
+          CASE
+            WHEN jsonb_typeof(config_json -> 'topics') = 'array'
+              THEN config_json -> 'topics'
+            ELSE '[]'::jsonb
+          END
+        ) WITH ORDINALITY AS t(topic, ord)
+        WHERE NULLIF(BTRIM(t.topic), '') IS NOT NULL
+        ORDER BY t.ord
+      )
+    ),
+    '{}'::text[]
+  )                            AS group_topics
 FROM latest;
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -372,7 +390,8 @@ SELECT
   groups_current.group_description,
   groups_current.group_avatar_cid,
   groups_current.group_banner_cid,
-  groups_current.is_member_driven
+  groups_current.is_member_driven,
+  groups_current.group_topics
 FROM latest
 LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
 WHERE latest.operation IN ('create_group', 'add_member');

@@ -100,7 +100,7 @@ async function resolveStandingSources(accountId: string): Promise<string[]> {
   return Array.from(new Set([accountId, ...standing]));
 }
 
-async function loadHomeFeedPage(
+async function fetchHomeFeedPageClient(
   lens: HomeFeedLens,
   accountId: string | null,
   offset: number,
@@ -189,13 +189,19 @@ function HomeFeedLoadMoreFooter({
   );
 }
 
-export function HomePagePanel() {
+export function HomePagePanel({
+  initialPage = null,
+}: {
+  initialPage?: Paginated<PostRow> | null;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
-  const [posts, setPosts] = useState<PostRow[]>([]);
-  const [nextOffset, setNextOffset] = useState<number | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
+  const [posts, setPosts] = useState<PostRow[]>(() => initialPage?.items ?? []);
+  const [nextOffset, setNextOffset] = useState<number | undefined>(
+    () => initialPage?.nextOffset
+  );
+  const [isLoading, setIsLoading] = useState(() => initialPage == null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -205,6 +211,9 @@ export function HomePagePanel() {
   const [lens, setLens] = useState<HomeFeedLens>('global');
   const [lensReady, setLensReady] = useState(false);
   const [sort, setSort] = useState<HomeFeedSort>('hot');
+  const [ssrBootstrapDone, setSsrBootstrapDone] = useState(
+    () => initialPage != null
+  );
   const [savedFeeds, setSavedFeeds] = useState<HomeSavedFeed[]>([]);
   const [savedFeedSheetOpen, setSavedFeedSheetOpen] = useState(false);
   const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
@@ -227,14 +236,15 @@ export function HomePagePanel() {
   const loadIdRef = useRef(0);
   const appendInFlightRef = useRef(false);
   const standingSourcesRef = useRef<string[] | null>(null);
-  const nextOffsetRef = useRef<number | undefined>(undefined);
-  const postsLengthRef = useRef(0);
+  const nextOffsetRef = useRef<number | undefined>(initialPage?.nextOffset);
+  const postsLengthRef = useRef(initialPage?.items.length ?? 0);
   const amplifyReconcileTimerRef = useRef<number | null>(null);
   const amplifyHeatFloorsRef = useRef<Map<string, AmplifyHeatFloor>>(new Map());
   const seenPostKeysRef = useRef<Set<string>>(new Set());
   const newPostsProbeInFlightRef = useRef(false);
   const isRefreshingRef = useRef(false);
-  const isLoadingRef = useRef(true);
+  const isLoadingRef = useRef(initialPage == null);
+  const ssrBootstrapDoneRef = useRef(initialPage != null);
 
   useEffect(() => {
     nextOffsetRef.current = nextOffset;
@@ -254,11 +264,26 @@ export function HomePagePanel() {
   }, [isLoading]);
 
   useEffect(() => {
+    ssrBootstrapDoneRef.current = ssrBootstrapDone;
+  }, [ssrBootstrapDone]);
+
+  useEffect(() => {
     if (walletLoading) return;
     setLens(readStoredHomeFeedLens(isConnected));
-    setSort(readHomeFeedSort());
+    const storedSort = readHomeFeedSort();
+    setSort(storedSort);
+    // SSR seed is always hot — if the user prefers Recent, soft-refetch
+    // without treating the hot seed as a finished bootstrap for that sort.
+    if (
+      storedSort !== 'hot' &&
+      initialPage != null &&
+      ssrBootstrapDoneRef.current
+    ) {
+      setSsrBootstrapDone(false);
+      ssrBootstrapDoneRef.current = false;
+    }
     setLensReady(true);
-  }, [isConnected, walletLoading]);
+  }, [isConnected, walletLoading, initialPage]);
 
   useEffect(() => {
     setSavedFeeds(readHomeSavedFeeds());
@@ -315,6 +340,37 @@ export function HomePagePanel() {
   );
 
   useEffect(() => {
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
+
+    // Paint SSR hot feed immediately; standing / non-hot sorts soft-upgrade.
+    const canUseSsrBootstrap =
+      !ssrBootstrapDoneRef.current &&
+      initialPage != null &&
+      !focus &&
+      sort === 'hot' &&
+      (walletLoading || !lensReady || activeLens === 'global');
+
+    if (canUseSsrBootstrap) {
+      setSsrBootstrapDone(true);
+      ssrBootstrapDoneRef.current = true;
+      setIsLoading(false);
+      // Soft-upgrade standing once wallet + lens are ready.
+      if (walletLoading || !lensReady) return;
+      if (activeLens !== 'standing' || !accountId) return;
+    }
+
+    // Stored Recent (or other non-hot): keep hot SSR rows visible while
+    // soft-refreshing into the preferred sort.
+    if (
+      !focus &&
+      initialPage != null &&
+      sort !== 'hot' &&
+      !ssrBootstrapDoneRef.current &&
+      postsLengthRef.current > 0
+    ) {
+      // Fall through with keepPrevious below.
+    }
+
     if (walletLoading || !lensReady) {
       return;
     }
@@ -324,8 +380,6 @@ export function HomePagePanel() {
     const previousStandingSources = standingSourcesRef.current;
     const previousNextOffset = nextOffsetRef.current;
     standingSourcesRef.current = null;
-    setNextOffset(undefined);
-    nextOffsetRef.current = undefined;
     setEngagementError(null);
     setLoadError(null);
     setNewPostCount(0);
@@ -337,10 +391,10 @@ export function HomePagePanel() {
     } else {
       setIsLoading(true);
       setIsRefreshing(false);
+      setNextOffset(undefined);
+      nextOffsetRef.current = undefined;
     }
     setIsLoadingMore(false);
-
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
 
     void (async () => {
       try {
@@ -349,7 +403,13 @@ export function HomePagePanel() {
               page: await loadFocusedFeedPage(focus, 0, { sort }),
               standingSources: null as string[] | null,
             }
-          : await loadHomeFeedPage(activeLens, accountId, 0, null, sort);
+          : await fetchHomeFeedPageClient(
+              activeLens,
+              accountId,
+              0,
+              null,
+              sort
+            );
 
         if (loadIdRef.current !== loadId) return;
 
@@ -365,6 +425,8 @@ export function HomePagePanel() {
         });
         setNextOffset(result.page.nextOffset);
         nextOffsetRef.current = result.page.nextOffset;
+        setSsrBootstrapDone(true);
+        ssrBootstrapDoneRef.current = true;
       } catch (cause) {
         if (loadIdRef.current !== loadId) return;
         const message =
@@ -395,6 +457,7 @@ export function HomePagePanel() {
     accountId,
     activeFocusKey,
     activeLens,
+    initialPage,
     lensReady,
     reloadNonce,
     sort,
@@ -421,7 +484,7 @@ export function HomePagePanel() {
               page: await loadFocusedFeedPage(focus, offset, { sort }),
               standingSources: standingSourcesRef.current,
             }
-          : await loadHomeFeedPage(
+          : await fetchHomeFeedPageClient(
               activeLens,
               accountId,
               offset,
@@ -550,7 +613,7 @@ export function HomePagePanel() {
               limit: HOME_FEED_NEW_PROBE_SIZE,
             }),
           }
-        : await loadHomeFeedPage(
+        : await fetchHomeFeedPageClient(
             activeLens,
             accountId,
             0,

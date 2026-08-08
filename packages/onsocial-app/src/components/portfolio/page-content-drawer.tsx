@@ -20,6 +20,7 @@ import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioPostPeeks } from '@/contexts/portfolio-post-peeks-context';
+import { usePortfolioShelf } from '@/contexts/portfolio-shelf-context';
 import { PageContentSections } from '@/components/portfolio/page-content-sections';
 import { PageDrawerGestures } from '@/components/portfolio/page-drawer-gestures';
 import { PageDrawerJumpRail } from '@/components/portfolio/page-drawer-jump-rail';
@@ -206,6 +207,14 @@ export function PageContentDrawer({
 }: PageContentDrawerProps) {
   const { isOpen, close } = usePageContentDrawer();
   const { postPeeks } = usePortfolioPostPeeks();
+  const shelf = usePortfolioShelf();
+  const createdPeeksResolved =
+    shelf.createdPeeks.length > 0 ? shelf.createdPeeks : createdPeeks;
+  const storeShelfResolved =
+    shelf.storeShelf.listingCount + shelf.storeShelf.drops.length > 0 ||
+    shelf.storeShelf.sales.length > 0
+      ? shelf.storeShelf
+      : storeShelf;
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const isOwner =
     isConnected &&
@@ -262,10 +271,11 @@ export function PageContentDrawer({
   const holdings = isOwner ? ownedHoldings : [];
   const holdingsCount = holdings.length;
   const createdCount = Math.max(
-    createdPeeks.length,
+    createdPeeksResolved.length,
     drawerMeta.scarceMintCount
   );
-  const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
+  const storeListingCount =
+    storeShelfResolved.listingCount + storeShelfResolved.drops.length;
 
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),
@@ -513,10 +523,10 @@ export function PageContentDrawer({
           stats={drawerStats}
           guilds={guilds}
           postPeeks={postPeeks}
-          createdPeeks={createdPeeks}
+          createdPeeks={createdPeeksResolved}
           createdMintCount={drawerMeta.scarceMintCount}
           holdings={holdings}
-          storeShelf={storeShelf}
+          storeShelf={storeShelfResolved}
         />
       </GlassSheet>
 

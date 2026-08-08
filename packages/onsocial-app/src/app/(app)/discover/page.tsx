@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
+import { parseDiscoverTab } from '@/features/discover/discover-tabs';
 import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
+import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
+import { loadDiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
 export const metadata: Metadata = {
   title: 'Discover • OnSocial',
@@ -12,6 +14,7 @@ export const metadata: Metadata = {
 type DiscoverPageProps = {
   searchParams?: Promise<{
     q?: string | string[];
+    tab?: string | string[];
   }>;
 };
 
@@ -22,13 +25,29 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       ? resolvedSearchParams.q[0]
       : resolvedSearchParams?.q
   );
-  const initialPage = await loadDiscoverProfilesPage(initialQuery, null, 0).catch(
-    () => null
+  const tab = parseDiscoverTab(
+    Array.isArray(resolvedSearchParams?.tab)
+      ? resolvedSearchParams.tab[0]
+      : resolvedSearchParams?.tab
   );
+
+  const needsProfiles =
+    tab === 'profiles' || Boolean(initialQuery.trim());
+  const [initialPage, initialTrending] = await Promise.all([
+    needsProfiles
+      ? loadDiscoverProfilesPage(initialQuery, null, 0).catch(() => null)
+      : Promise.resolve(null),
+    tab === 'trending' || tab === 'profiles'
+      ? loadDiscoverTrendingSeed()
+      : Promise.resolve(null),
+  ]);
 
   return (
     <Suspense fallback={null}>
-      <DiscoverPagePanel initialPage={initialPage} />
+      <DiscoverPagePanel
+        initialPage={initialPage}
+        initialTrending={initialTrending}
+      />
     </Suspense>
   );
 }

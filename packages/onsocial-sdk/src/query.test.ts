@@ -803,6 +803,7 @@ describe('QueryModule', () => {
       expect(body.query).toContain('groupDescription');
       expect(body.query).toContain('groupAvatarCid');
       expect(body.query).toContain('groupBannerCid');
+      expect(body.query).toContain('groupTopics');
       expect(body.variables).toMatchObject({
         accountId: 'alice.near',
         limit: 5,
@@ -823,6 +824,7 @@ describe('QueryModule', () => {
               groupBannerCid: 'bafyBanner',
               isPublic: true,
               isMemberDriven: false,
+              groupTopics: ['builders', 'near'],
               blockHeight: 12,
               blockTimestamp: 120,
             },
@@ -833,9 +835,11 @@ describe('QueryModule', () => {
       const page = await os.query.groups.browse({ query: 'rebel', limit: 10 });
       expect(page.items).toHaveLength(1);
       expect(page.items[0].groupId).toBe('rebels');
+      expect(page.items[0].groupTopics).toEqual(['builders', 'near']);
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('groupsCurrent');
+      expect(body.query).toContain('groupTopics');
       expect(body.query).toContain('groupName: {_ilike: $queryLike}');
       expect(body.variables).toMatchObject({
         queryLike: '%rebel%',

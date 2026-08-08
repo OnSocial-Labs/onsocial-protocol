@@ -100,6 +100,7 @@ export function CollectiblesPagePanel() {
   const [offlineHoldings, setOfflineHoldings] = useState<
     PortfolioHoldingPeek[]
   >([]);
+  const [offlineReady, setOfflineReady] = useState(false);
   const scrollRootRef = useRef<HTMLElement | null>(null);
   /** Same chrome scroll-hide motion as Market filter rail. */
   const toolbarHidden = useDockAutoHide(false);
@@ -155,6 +156,8 @@ export function CollectiblesPagePanel() {
       return;
     }
 
+    // Other-wallet rows are ignored at render (`sameWalletHoldings`); this
+    // effect only fetches. Soft retry keeps same-wallet items until replace.
     let cancelled = false;
     void fetchOwnedScarcesPage(viewerAccountId)
       .then((page) => {
@@ -187,9 +190,12 @@ export function CollectiblesPagePanel() {
       .then((albums) => {
         if (cancelled) return;
         setOfflineHoldings(albums.map(offlineAlbumToHoldingPeek));
+        setOfflineReady(true);
       })
       .catch(() => {
-        if (!cancelled) setOfflineHoldings([]);
+        if (cancelled) return;
+        setOfflineHoldings([]);
+        setOfflineReady(true);
       });
     return () => {
       cancelled = true;
@@ -234,12 +240,20 @@ export function CollectiblesPagePanel() {
       .finally(() => setLoadingMore(false));
   }, [viewerAccountId, holdings.hasMore, holdings.nextFromEnd, loadingMore]);
 
-  const vaultItems =
-    status === 'ready' && holdings.items.length > 0
-      ? holdings.items
-      : offlineHoldings;
+  // Same-wallet soft refresh keeps RPC rows; otherwise offline / skeleton.
+  const sameWalletHoldings =
+    Boolean(viewerAccountId) &&
+    holdings.loadKey != null &&
+    holdings.loadKey.startsWith(`${viewerAccountId}:`) &&
+    holdings.items.length > 0;
+  const vaultItems = sameWalletHoldings ? holdings.items : offlineHoldings;
   const usingOfflineLibrary =
-    vaultItems === offlineHoldings && offlineHoldings.length > 0;
+    !sameWalletHoldings && offlineHoldings.length > 0;
+  const showVaultSkeleton =
+    (!offlineReady && !viewerAccountId) ||
+    (Boolean(viewerAccountId) &&
+      status === 'loading' &&
+      vaultItems.length === 0);
 
   const filtered = useMemo(() => {
     let byKind = filterHoldingsByMedium(vaultItems, mediumFilter);
@@ -408,7 +422,11 @@ export function CollectiblesPagePanel() {
       }
     >
       <div className="market-page collectibles-page">
-        {(!isConnected || !viewerAccountId) && !usingOfflineLibrary ? (
+        {showVaultSkeleton ? <MarketListSkeleton rows={6} /> : null}
+
+        {offlineReady &&
+        (!isConnected || !viewerAccountId) &&
+        !usingOfflineLibrary ? (
           <div className="market-page-empty">
             <p className="market-page-empty-copy">
               Connect your wallet to open your Collectibles vault.
@@ -417,10 +435,6 @@ export function CollectiblesPagePanel() {
               Browse Market
             </Link>
           </div>
-        ) : null}
-
-        {viewerAccountId && status === 'loading' && !usingOfflineLibrary ? (
-          <MarketListSkeleton rows={6} />
         ) : null}
 
         {viewerAccountId && status === 'error' && !usingOfflineLibrary ? (

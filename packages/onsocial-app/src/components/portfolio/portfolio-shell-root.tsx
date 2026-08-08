@@ -1,6 +1,11 @@
 'use client';
 
-import { useEffect, type CSSProperties, type ReactNode } from 'react';
+import {
+  Fragment,
+  useEffect,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { PortfolioFacePreviewProvider } from '@/contexts/portfolio-face-preview-context';
 import {
   PortfolioMoodPreviewProvider,
@@ -8,6 +13,7 @@ import {
 } from '@/contexts/portfolio-mood-preview-context';
 import { PageContentDrawerProvider } from '@/contexts/page-content-drawer-context';
 import { PortfolioPostPeeksProvider } from '@/contexts/portfolio-post-peeks-context';
+import { PortfolioShelfProvider } from '@/contexts/portfolio-shelf-context';
 import { PortfolioFacePreviewBar } from '@/components/portfolio/portfolio-face-preview-bar';
 import { PortfolioMoodPreviewBar } from '@/components/portfolio/portfolio-mood-preview-bar';
 import { PageContentDrawer } from '@/components/portfolio/page-content-drawer';
@@ -25,14 +31,6 @@ import type {
 } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
-import type {
-  ProfileCreatedPeek,
-  ProfilePostPeek,
-} from '@/lib/fetch-profile-peeks';
-import {
-  EMPTY_PROFILE_STORE,
-  type ProfileStoreShelf,
-} from '@/lib/profile-store-types';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { resolvePageFace } from '@/lib/page-face';
@@ -53,9 +51,8 @@ interface PortfolioShellRootProps {
   bio?: string | null;
   profileLinks?: unknown;
   drawerMeta: PageDrawerMeta;
-  postPeeks?: ProfilePostPeek[];
-  createdPeeks?: ProfileCreatedPeek[];
-  storeShelf?: ProfileStoreShelf;
+  /** Streamed below-fold peeks (Suspense). */
+  deferredShelf?: ReactNode;
   children: ReactNode;
 }
 
@@ -71,9 +68,7 @@ function PortfolioShellPreviewBridge({
   bio = null,
   profileLinks = null,
   drawerMeta,
-  postPeeks = [],
-  createdPeeks = [],
-  storeShelf = EMPTY_PROFILE_STORE,
+  deferredShelf = null,
   children,
 }: Omit<
   PortfolioShellRootProps,
@@ -102,67 +97,72 @@ function PortfolioShellPreviewBridge({
   const hasBanner = Boolean(hero);
 
   return (
-    <PortfolioPostPeeksProvider initialPostPeeks={postPeeks}>
-      <PortfolioShell
-        mood={effectiveMood}
-        config={previewConfig}
-        avatarMode={effectiveAvatarMode}
-        avatarMedia={avatarMedia}
-        bannerMedia={bannerMedia}
-        isPreviewing={isPreviewing}
-        isPreviewingMood={isPreviewingMood}
-      >
-        {children}
-      </PortfolioShell>
-      <ViewerWalletMoodSync
-        pageAccountId={pageAccountId}
-        mood={effectiveMood}
-      />
-      <div
-        className="portfolio-os-layer"
-        data-mood={effectiveMood.id}
-        data-mood-preview={isPreviewingMood ? 'true' : undefined}
-        data-has-banner={hasBanner ? 'true' : undefined}
-        data-mood-only={hasBanner ? undefined : 'true'}
-        style={
-          portfolioMoodShellStyle(effectiveMood.cssVars, {
-            preview: isPreviewingMood,
-          }) as CSSProperties
-        }
-      >
-        <PortfolioCustomize
-          pageAccountId={pageAccountId}
-          config={config}
-          mood={committedMood}
-          avatarUrl={avatarMedia?.url ?? null}
-          bannerUrl={bannerMedia?.url ?? null}
-          bannerKind={bannerMedia?.kind ?? null}
-        />
-        <PortfolioPersonalComposer pageAccountId={pageAccountId} />
-        <PortfolioPageDock pageAccountId={pageAccountId} />
-        <PageContentDrawer
-          pageAccountId={pageAccountId}
-          mood={effectiveMood}
-          profileName={profileName}
-          bio={bio}
-          profileLinks={profileLinks}
-          drawerMeta={drawerMeta}
-          avatarUrl={avatarMedia?.url ?? null}
-          config={config}
-          stats={stats}
-          guilds={guilds}
-          createdPeeks={createdPeeks}
-          storeShelf={storeShelf}
-        />
-        <PortfolioFacePreviewBar
-          pageAccountId={pageAccountId}
-          config={config}
-        />
-        <PortfolioMoodPreviewBar
-          pageAccountId={pageAccountId}
-          config={config}
-        />
-      </div>
+    <PortfolioPostPeeksProvider initialPostPeeks={[]}>
+      <PortfolioShelfProvider>
+        <>
+          <PortfolioShell
+            mood={effectiveMood}
+            config={previewConfig}
+            avatarMode={effectiveAvatarMode}
+            avatarMedia={avatarMedia}
+            bannerMedia={bannerMedia}
+            isPreviewing={isPreviewing}
+            isPreviewingMood={isPreviewingMood}
+          >
+            {children}
+          </PortfolioShell>
+          <ViewerWalletMoodSync
+            pageAccountId={pageAccountId}
+            mood={effectiveMood}
+          />
+          <div
+            className="portfolio-os-layer"
+            data-mood={effectiveMood.id}
+            data-mood-preview={isPreviewingMood ? 'true' : undefined}
+            data-has-banner={hasBanner ? 'true' : undefined}
+            data-mood-only={hasBanner ? undefined : 'true'}
+            style={
+              portfolioMoodShellStyle(effectiveMood.cssVars, {
+                preview: isPreviewingMood,
+              }) as CSSProperties
+            }
+          >
+            <PortfolioCustomize
+              pageAccountId={pageAccountId}
+              config={config}
+              mood={committedMood}
+              avatarUrl={avatarMedia?.url ?? null}
+              bannerUrl={bannerMedia?.url ?? null}
+              bannerKind={bannerMedia?.kind ?? null}
+            />
+            <PortfolioPersonalComposer pageAccountId={pageAccountId} />
+            <PortfolioPageDock pageAccountId={pageAccountId} />
+            <PageContentDrawer
+              pageAccountId={pageAccountId}
+              mood={effectiveMood}
+              profileName={profileName}
+              bio={bio}
+              profileLinks={profileLinks}
+              drawerMeta={drawerMeta}
+              avatarUrl={avatarMedia?.url ?? null}
+              config={config}
+              stats={stats}
+              guilds={guilds}
+            />
+            <PortfolioFacePreviewBar
+              pageAccountId={pageAccountId}
+              config={config}
+            />
+            <PortfolioMoodPreviewBar
+              pageAccountId={pageAccountId}
+              config={config}
+            />
+            {deferredShelf != null ? (
+              <Fragment key="portfolio-deferred-shelf">{deferredShelf}</Fragment>
+            ) : null}
+          </div>
+        </>
+      </PortfolioShelfProvider>
     </PortfolioPostPeeksProvider>
   );
 }

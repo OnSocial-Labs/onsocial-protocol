@@ -89,19 +89,29 @@ function monogram(title: string): string {
 export function AppPagePanel({
   appId,
   initial,
+  initialStats = null,
+  initialDrops = null,
 }: {
   appId: string;
   initial: AppView | null;
+  initialStats?: AppStatsView | null;
+  initialDrops?: CollectionView[] | null;
 }) {
   const router = useRouter();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const [app, setApp] = useState<AppView | null>(initial);
   const [notFound, setNotFound] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [stats, setStats] = useState<AppStatsView | null>(null);
+  const [stats, setStats] = useState<AppStatsView | null>(
+    () => initialStats
+  );
   const [catalogTab, setCatalogTab] = useState<StoreCatalogTab>('drops');
-  const [drops, setDrops] = useState<CollectionView[]>([]);
-  const [dropsLoadedKey, setDropsLoadedKey] = useState<string | null>(null);
+  const [drops, setDrops] = useState<CollectionView[]>(
+    () => initialDrops ?? []
+  );
+  const [dropsLoadedKey, setDropsLoadedKey] = useState<string | null>(() =>
+    initialDrops != null ? `${appId}:0` : null
+  );
   const [dropsIndexerCatchUp, setDropsIndexerCatchUp] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishAccessOpen, setPublishAccessOpen] = useState(false);
@@ -161,8 +171,9 @@ export function AppPagePanel({
     };
   }, [appId, refreshKey]);
 
-  // Rolled-up hub stats — indexer only.
+  // Rolled-up hub stats — soft refresh after SSR seed.
   useEffect(() => {
+    if (refreshKey === 0 && initialStats != null) return;
     let cancelled = false;
     void fetchAppStats(appId).then((next) => {
       if (!cancelled) setStats(next);
@@ -170,9 +181,15 @@ export function AppPagePanel({
     return () => {
       cancelled = true;
     };
-  }, [appId, refreshKey]);
+  }, [appId, refreshKey, initialStats]);
 
   useEffect(() => {
+    // SSR drops already painted — refetch only after publish / refresh.
+    if (refreshKey === 0 && initialDrops != null) {
+      if (initialDrops.length > 0) return;
+      // Empty seed: soft indexer catch-up below.
+    }
+
     let cancelled = false;
     const timers: number[] = [];
 
@@ -217,7 +234,7 @@ export function AppPagePanel({
       cancelled = true;
       for (const timer of timers) window.clearTimeout(timer);
     };
-  }, [appId, dropsKey]);
+  }, [appId, dropsKey, initialDrops, refreshKey]);
 
   // Title handoff: elevate the immersive nav once the hero name scrolls
   // under it — same recipe as the guild page, minus the room-filter rail.
@@ -619,7 +636,7 @@ export function AppPagePanel({
         {catalogTab === 'drops' ? (
           <StoreDropsList
             drops={drops}
-            loading={dropsLoading}
+            loading={dropsLoading && drops.length === 0}
             indexerCatchUp={dropsIndexerCatchUp}
             canCreate={canCreate}
             spotlight

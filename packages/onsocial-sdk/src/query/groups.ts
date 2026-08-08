@@ -13,10 +13,64 @@ import type {
 } from './types.js';
 import type { ThreadTree, ThreadTreeOptions } from './threads.js';
 import {
+  GraphQLValidationError,
   POST_ROW_FIELDS,
   audienceLikeValue,
   groupPostPathValue,
 } from './_shared.js';
+
+const GROUP_CURRENT_SHELL_FIELDS = `
+  groupId
+  ownerId
+  groupName
+  groupDescription
+  groupAvatarCid
+  groupBannerCid
+  isPublic
+  isMemberDriven
+  blockHeight
+  blockTimestamp
+`;
+
+const GROUP_CURRENT_SHELL_FIELDS_WITH_TOPICS = `
+  ${GROUP_CURRENT_SHELL_FIELDS}
+  groupTopics
+`;
+
+const GROUP_MEMBERSHIP_SHELL_FIELDS = `
+  groupId
+  memberId
+  role
+  level
+  isOwner
+  isAdmin
+  canModerate
+  groupName
+  groupDescription
+  groupAvatarCid
+  groupBannerCid
+  isPublic
+  isMemberDriven
+  blockHeight
+  blockTimestamp
+`;
+
+const GROUP_MEMBERSHIP_SHELL_FIELDS_WITH_TOPICS = `
+  ${GROUP_MEMBERSHIP_SHELL_FIELDS}
+  groupTopics
+`;
+
+function isGroupTopicsUnavailableError(error: unknown): boolean {
+  if (!(error instanceof GraphQLValidationError)) return false;
+  const hay =
+    `${error.message} ${error.errors.map((e) => e.message ?? '').join(' ')}`.toLowerCase();
+  return (
+    hay.includes('grouptopics') ||
+    hay.includes('group_topics') ||
+    hay.includes('field "grouptopics"') ||
+    hay.includes("field 'grouptopics'")
+  );
+}
 
 export interface GroupMembershipCurrentRow {
   groupId: string;
@@ -32,6 +86,8 @@ export interface GroupMembershipCurrentRow {
   groupBannerCid: string | null;
   isPublic: boolean | null;
   isMemberDriven: boolean;
+  /** Indexed topics from `groups_current.group_topics`. */
+  groupTopics: string[] | null;
   blockHeight: number;
   blockTimestamp: number;
 }
@@ -58,8 +114,21 @@ export interface GroupCurrentRow {
   groupBannerCid: string | null;
   isPublic: boolean | null;
   isMemberDriven: boolean;
+  /** Indexed topics from latest group config JSON. */
+  groupTopics: string[] | null;
   blockHeight: number;
   blockTimestamp: number;
+}
+
+/** Normalize Hasura `groupTopics` (text[] / null) for card shells. */
+export function groupTopicsFromRow(
+  row: { groupTopics?: string[] | null } | null | undefined
+): string[] {
+  if (!row?.groupTopics?.length) return [];
+  return row.groupTopics
+    .filter((topic): topic is string => typeof topic === 'string')
+    .map((topic) => topic.trim())
+    .filter(Boolean);
 }
 
 export class GroupsQuery {
@@ -79,35 +148,30 @@ export class GroupsQuery {
   ): Promise<Paginated<GroupMembershipCurrentRow>> {
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;
-    const res = await this._q.graphql<{
-      groupMembersCurrent: GroupMembershipCurrentRow[];
-    }>({
-      query: `query GroupMembershipsBy($accountId: String!, $limit: Int!, $offset: Int!) {
-        groupMembersCurrent(
-          where: { memberId: {_eq: $accountId} },
-          limit: $limit,
-          offset: $offset,
-          orderBy: [{blockHeight: DESC}]
-        ) {
-          groupId
-          memberId
-          role
-          level
-          isOwner
-          isAdmin
-          canModerate
-          groupName
-          groupDescription
-          groupAvatarCid
-          groupBannerCid
-          isPublic
-          isMemberDriven
-          blockHeight
-          blockTimestamp
-        }
-      }`,
-      variables: { accountId, limit, offset },
-    });
+    const run = (fields: string) =>
+      this._q.graphql<{
+        groupMembersCurrent: GroupMembershipCurrentRow[];
+      }>({
+        query: `query GroupMembershipsBy($accountId: String!, $limit: Int!, $offset: Int!) {
+          groupMembersCurrent(
+            where: { memberId: {_eq: $accountId} },
+            limit: $limit,
+            offset: $offset,
+            orderBy: [{blockHeight: DESC}]
+          ) {
+            ${fields}
+          }
+        }`,
+        variables: { accountId, limit, offset },
+      });
+
+    let res;
+    try {
+      res = await run(GROUP_MEMBERSHIP_SHELL_FIELDS_WITH_TOPICS);
+    } catch (error) {
+      if (!isGroupTopicsUnavailableError(error)) throw error;
+      res = await run(GROUP_MEMBERSHIP_SHELL_FIELDS);
+    }
     const rows = res.data?.groupMembersCurrent ?? [];
     return {
       items: rows,
@@ -314,27 +378,27 @@ export class GroupsQuery {
     );
     if (ids.length === 0) return [];
 
-    const res = await this._q.graphql<{ groupsCurrent: GroupCurrentRow[] }>({
-      query: `query GroupsByIds($ids: [String!]!, $limit: Int!) {
-        groupsCurrent(
-          where: { groupId: { _in: $ids } },
-          limit: $limit
-        ) {
-          groupId
-          ownerId
-          groupName
-          groupDescription
-          groupAvatarCid
-          groupBannerCid
-          isPublic
-          isMemberDriven
-          blockHeight
-          blockTimestamp
-        }
-      }`,
-      variables: { ids, limit: ids.length },
-    });
-    return res.data?.groupsCurrent ?? [];
+    const run = (fields: string) =>
+      this._q.graphql<{ groupsCurrent: GroupCurrentRow[] }>({
+        query: `query GroupsByIds($ids: [String!]!, $limit: Int!) {
+          groupsCurrent(
+            where: { groupId: { _in: $ids } },
+            limit: $limit
+          ) {
+            ${fields}
+          }
+        }`,
+        variables: { ids, limit: ids.length },
+      });
+
+    try {
+      const res = await run(GROUP_CURRENT_SHELL_FIELDS_WITH_TOPICS);
+      return res.data?.groupsCurrent ?? [];
+    } catch (error) {
+      if (!isGroupTopicsUnavailableError(error)) throw error;
+      const res = await run(GROUP_CURRENT_SHELL_FIELDS);
+      return res.data?.groupsCurrent ?? [];
+    }
   }
 
   /**
@@ -367,32 +431,32 @@ export class GroupsQuery {
     }
     const whereClause =
       filters.length > 0 ? `where: {_and: [${filters.join(', ')}]},` : '';
-    const res = await this._q.graphql<{ groupsCurrent: GroupCurrentRow[] }>({
-      query: `query BrowseGroups($limit: Int!, $offset: Int!${queryLike !== undefined ? ', $queryLike: String!' : ''}) {
-        groupsCurrent(
-          ${whereClause}
-          limit: $limit,
-          offset: $offset,
-          orderBy: [{blockHeight: DESC}]
-        ) {
-          groupId
-          ownerId
-          groupName
-          groupDescription
-          groupAvatarCid
-          groupBannerCid
-          isPublic
-          isMemberDriven
-          blockHeight
-          blockTimestamp
-        }
-      }`,
-      variables: {
-        limit,
-        offset,
-        ...(queryLike !== undefined ? { queryLike } : {}),
-      },
-    });
+    const run = (fields: string) =>
+      this._q.graphql<{ groupsCurrent: GroupCurrentRow[] }>({
+        query: `query BrowseGroups($limit: Int!, $offset: Int!${queryLike !== undefined ? ', $queryLike: String!' : ''}) {
+          groupsCurrent(
+            ${whereClause}
+            limit: $limit,
+            offset: $offset,
+            orderBy: [{blockHeight: DESC}]
+          ) {
+            ${fields}
+          }
+        }`,
+        variables: {
+          limit,
+          offset,
+          ...(queryLike !== undefined ? { queryLike } : {}),
+        },
+      });
+
+    let res;
+    try {
+      res = await run(GROUP_CURRENT_SHELL_FIELDS_WITH_TOPICS);
+    } catch (error) {
+      if (!isGroupTopicsUnavailableError(error)) throw error;
+      res = await run(GROUP_CURRENT_SHELL_FIELDS);
+    }
     const rows = res.data?.groupsCurrent ?? [];
     return {
       items: rows,

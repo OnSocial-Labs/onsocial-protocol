@@ -156,7 +156,12 @@ export type {
 export type { SocialSpendEventType } from './social-spend-events.js';
 export type { DataRow } from './raw.js';
 export type { PageCurrentRow } from './pages.js';
-export type { GroupMembershipCurrentRow, GroupMemberRow } from './groups.js';
+export type {
+  GroupCurrentRow,
+  GroupMembershipCurrentRow,
+  GroupMemberRow,
+} from './groups.js';
+export { groupTopicsFromRow } from './groups.js';
 
 export class QueryModule {
   /** @internal — used by sub-namespace classes. */

@@ -24,21 +24,25 @@ export function DiscoverPanelContent() {
     showListSkeleton,
     isListRefreshing,
     isLoadingMore,
-    relationshipSynced,
-    showLoadMoreSentinel,
-    loadMoreRef,
-    footerSummary,
-    listKey,
-    clearSearch,
-    retryLoad,
-    isStandingPendingForTarget,
-    handleUpdateStanding,
+  relationshipSynced,
+  showLoadMoreSentinel,
+  loadMoreRef,
+  footerSummary,
+  listKey,
+  clearSearch,
+  retryLoad,
+  isStandingPendingForTarget,
+  handleUpdateStanding,
+  initialTrending,
   } = useDiscoverPanel();
 
   return (
     <div className="standing-panel discover-panel">
       {tab === 'trending' ? (
-        <DiscoverTrendingPanel onOpenTab={setTab} />
+        <DiscoverTrendingPanel
+          onOpenTab={setTab}
+          initial={initialTrending}
+        />
       ) : null}
 
       {tab === 'profiles' ? (

@@ -792,17 +792,17 @@ export async function fetchCollectionsByCreator(
  */
 export async function fetchCollectionsByApp(
   appId: string,
-  opts: { limit?: number } = {}
+  opts: { limit?: number; client?: import('@onsocial/sdk').OnSocial } = {}
 ): Promise<CollectionView[]> {
   const id = appId.trim();
   if (!id) return [];
   const limit = opts.limit ?? 40;
 
   try {
-    const { createReadOnlyOnSocialClient } = await import(
-      '@/lib/create-readonly-onsocial-client'
-    );
-    const client = createReadOnlyOnSocialClient();
+    const client =
+      opts.client ??
+      (await import('@/lib/create-readonly-onsocial-client'))
+        .createReadOnlyOnSocialClient();
     const catalog = await client.query.scarces.collectionsCurrent({
       appId: id,
       limit,

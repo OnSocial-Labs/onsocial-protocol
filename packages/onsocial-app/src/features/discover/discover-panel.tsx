@@ -9,13 +9,16 @@ import {
 } from '@/features/discover/discover-panel-context';
 import { DiscoverSheetHeader } from '@/features/discover/discover-sheet-header';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
+import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
 export function DiscoverOverlaySheet({
   accountId: _accountId,
   initialPage = null,
+  initialTrending = null,
 }: {
   accountId: string;
   initialPage?: DiscoverProfilesResponse | null;
+  initialTrending?: DiscoverTrendingSeed | null;
 }) {
   const scrollRootRef = useRef<HTMLDivElement>(null);
 
@@ -24,6 +27,7 @@ export function DiscoverOverlaySheet({
       shellVariant="overlay"
       scrollRootRef={scrollRootRef}
       initialPage={initialPage}
+      initialTrending={initialTrending}
     >
       <OverlayPanelChrome
         ariaTitle="Discover"
@@ -40,11 +44,13 @@ export function DiscoverPanelRoot({
   shellVariant,
   scrollRootRef,
   initialPage = null,
+  initialTrending = null,
   children,
 }: {
   shellVariant: DiscoverShellVariant;
   scrollRootRef: RefObject<HTMLElement | null>;
   initialPage?: DiscoverProfilesResponse | null;
+  initialTrending?: DiscoverTrendingSeed | null;
   children: ReactNode;
 }) {
   return (
@@ -52,6 +58,7 @@ export function DiscoverPanelRoot({
       shellVariant={shellVariant}
       scrollRootRef={scrollRootRef}
       initialPage={initialPage}
+      initialTrending={initialTrending}
     >
       {children}
     </DiscoverPanelProvider>

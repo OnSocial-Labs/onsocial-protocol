@@ -1,4 +1,8 @@
-import type { ScarcesActiveListingRow, ScarcesEventRow } from '@onsocial/sdk';
+import type {
+  OnSocial,
+  ScarcesActiveListingRow,
+  ScarcesEventRow,
+} from '@onsocial/sdk';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -1486,12 +1490,14 @@ export async function fetchMarketListings(
     sellerId?: string;
     /** Restrict to one app / store slug. */
     appId?: string;
+    /** Server/browser client; defaults to the browser gateway proxy. */
+    client?: OnSocial;
   } = {}
 ): Promise<MarketListingsPage> {
   const limit = opts.limit ?? 40;
   const offset = opts.offset ?? 0;
   try {
-    const client = createReadOnlyOnSocialClient();
+    const client = opts.client ?? createReadOnlyOnSocialClient();
     const rows = await client.query.scarces.activeListings({
       limit,
       offset,
@@ -1538,10 +1544,12 @@ export async function fetchMarketListings(
 export async function fetchMarketSales(
   opts: {
     limit?: number;
+    /** Server/browser client; defaults to the browser gateway proxy. */
+    client?: OnSocial;
   } = {}
 ): Promise<MarketSaleItem[]> {
   const limit = opts.limit ?? 20;
-  const client = createReadOnlyOnSocialClient();
+  const client = opts.client ?? createReadOnlyOnSocialClient();
   let merged: ScarcesEventRow[] = [];
   try {
     merged = await client.query.scarces.recentSales({ limit });

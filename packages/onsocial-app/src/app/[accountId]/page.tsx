@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import { displayName } from '@/lib/profile-display';
 import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
@@ -8,12 +9,8 @@ import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { fetchProfileGuilds } from '@/lib/profile-guilds';
 import { fetchPageDrawerMeta } from '@/lib/fetch-page-drawer-meta';
-import {
-  fetchProfileCreatedPeeks,
-  fetchProfilePostPeeks,
-} from '@/lib/fetch-profile-peeks';
-import { fetchProfileStoreShelf } from '@/lib/fetch-profile-store';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
+import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
 import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root';
@@ -73,27 +70,30 @@ export default async function AccountPage({
     data.config,
     search?.avatarMode ?? search?.avatar ?? null
   );
-  const [shell, signals, guilds, postPeeks, createdPeeks, storeShelf] =
-    await Promise.all([
-      loadProfileShell(accountId),
-      fetchProfileSignals(accountId),
-      fetchProfileGuilds(accountId),
-      fetchProfilePostPeeks(accountId),
-      fetchProfileCreatedPeeks(accountId),
-      fetchProfileStoreShelf(accountId),
-    ]);
+  // Hero-critical path only — drawer peeks stream via Suspense.
+  const [shell, signals, guilds, drawerMetaBase] = await Promise.all([
+    loadProfileShell(accountId),
+    fetchProfileSignals(accountId),
+    fetchProfileGuilds(accountId),
+    fetchPageDrawerMeta(accountId, {
+      profileName: accountId,
+      profileTags: [],
+      guildCount: data.stats.groupCount ?? 0,
+      postCount: data.stats.postCount ?? 0,
+    }),
+  ]);
   const name = displayName(accountId, shell?.name ?? undefined);
   const postCount = Math.max(
     signals?.postCount ?? 0,
-    data.stats.postCount ?? 0,
-    postPeeks.length
+    data.stats.postCount ?? 0
   );
-  const drawerMeta = await fetchPageDrawerMeta(accountId, {
-    profileName: name,
-    profileTags: [],
-    guildCount: guilds.length,
-    postCount,
-  });
+  const drawerMeta = {
+    ...drawerMetaBase,
+    name,
+    tags: shell?.tags?.length ? shell.tags : drawerMetaBase.tags,
+    guildCount: Math.max(guilds.length, drawerMetaBase.guildCount ?? 0),
+    postCount: Math.max(postCount, drawerMetaBase.postCount ?? 0),
+  };
 
   return (
     <>
@@ -122,30 +122,34 @@ export default async function AccountPage({
         bio={shell?.bio}
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
-        postPeeks={postPeeks}
-        createdPeeks={createdPeeks}
-        storeShelf={storeShelf}
+        deferredShelf={
+          <Suspense key="portfolio-deferred-shelf" fallback={null}>
+            <PortfolioDeferredShelf accountId={accountId} />
+          </Suspense>
+        }
       >
-        <PortfolioIdentity
-          accountId={accountId}
-          profileName={shell?.name}
-          bio={shell?.bio}
-          tagline={tagline}
-          avatarUrl={shell?.avatarUrl}
-          mood={mood}
-        />
+        <>
+          <PortfolioIdentity
+            accountId={accountId}
+            profileName={shell?.name}
+            bio={shell?.bio}
+            tagline={tagline}
+            avatarUrl={shell?.avatarUrl}
+            mood={mood}
+          />
 
-        <PortfolioActivateStrip
-          pageAccountId={accountId}
-          activated={Boolean(data.activated)}
-        />
+          <PortfolioActivateStrip
+            pageAccountId={accountId}
+            activated={Boolean(data.activated)}
+          />
 
-        {signals ? (
-          <PortfolioSignalsShell accountId={accountId} signals={signals} />
-        ) : (
-          <PortfolioStatsRow accountId={accountId} stats={data.stats} />
-        )}
-        <PortfolioLinks links={shell?.links} />
+          {signals ? (
+            <PortfolioSignalsShell accountId={accountId} signals={signals} />
+          ) : (
+            <PortfolioStatsRow accountId={accountId} stats={data.stats} />
+          )}
+          <PortfolioLinks links={shell?.links} />
+        </>
       </PortfolioShellRoot>
     </>
   );

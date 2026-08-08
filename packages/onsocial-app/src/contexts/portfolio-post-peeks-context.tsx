@@ -16,6 +16,7 @@ import {
 interface PortfolioPostPeeksContextValue {
   postPeeks: ProfilePostPeek[];
   prependPostPeek: (peek: ProfilePostPeek) => void;
+  hydratePostPeeks: (next: ProfilePostPeek[]) => void;
 }
 
 const PortfolioPostPeeksContext =
@@ -40,9 +41,13 @@ export function PortfolioPostPeeksProvider({
     });
   }, []);
 
+  const hydratePostPeeks = useCallback((next: ProfilePostPeek[]) => {
+    setPostPeeks(next);
+  }, []);
+
   const value = useMemo(
-    () => ({ postPeeks, prependPostPeek }),
-    [postPeeks, prependPostPeek]
+    () => ({ postPeeks, prependPostPeek, hydratePostPeeks }),
+    [hydratePostPeeks, postPeeks, prependPostPeek]
   );
 
   return (
@@ -60,6 +65,16 @@ export function usePortfolioPostPeeks(): PortfolioPostPeeksContextValue {
     );
   }
   return context;
+}
+
+export function usePortfolioPostPeeksHydrate(): PortfolioPostPeeksContextValue['hydratePostPeeks'] {
+  const context = useContext(PortfolioPostPeeksContext);
+  if (!context) {
+    throw new Error(
+      'usePortfolioPostPeeksHydrate must be used within PortfolioPostPeeksProvider'
+    );
+  }
+  return context.hydratePostPeeks;
 }
 
 /** Optional read for surfaces that may render outside the provider. */

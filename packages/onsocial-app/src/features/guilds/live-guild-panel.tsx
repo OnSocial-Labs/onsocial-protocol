@@ -98,8 +98,10 @@ import {
   guildCoverStyle,
   guildHeroCoverClassName,
 } from '@/features/guilds/guild-visual';
+import type { GuildPageData } from '@/lib/load-guild-page';
 import {
   guildAccessLabel,
+  guildConfigFromIndexedRow,
   readGroupStatsCreatedAt,
   resolveGuildMemberCount,
 } from '@/features/guilds/guild-facts';
@@ -140,6 +142,7 @@ interface LiveGuildModerationState {
 interface LiveGuildState {
   config: GuildConfigSnapshot | null;
   stats: GroupStats | null;
+  indexedMemberCount: number | null;
   postCount: number | null;
   members: GroupMemberRow[];
   posts: PostRow[];
@@ -155,7 +158,13 @@ function pendingJoinRequest(request: JoinRequest | null): boolean {
   return request?.status === 'pending';
 }
 
-export function LiveGuildPanel({ groupId }: { groupId: string }) {
+export function LiveGuildPanel({
+  groupId,
+  initial = null,
+}: {
+  groupId: string;
+  initial?: GuildPageData | null;
+}) {
   const {
     accountId,
     isConnected,
@@ -171,19 +180,44 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     storageRefreshKey
   );
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
-  const [loadState, setLoadState] = useState<LoadState>('loading');
-  const [state, setState] = useState<LiveGuildState>({
-    config: null,
-    stats: null,
-    postCount: null,
-    members: [],
-    posts: [],
-    feedError: null,
-    viewer: null,
-    moderation: null,
-  });
+  const [loadState, setLoadState] = useState<LoadState>(() =>
+    initial ? 'ready' : 'loading'
+  );
+  const [state, setState] = useState<LiveGuildState>(() =>
+    initial
+      ? {
+          config: initial.config,
+          stats: initial.stats,
+          indexedMemberCount: initial.indexedMemberCount,
+          postCount: initial.postCount,
+          members: initial.members,
+          posts: initial.posts,
+          feedError: null,
+          viewer: null,
+          moderation: null,
+        }
+      : {
+          config: null,
+          stats: null,
+          indexedMemberCount: null,
+          postCount: null,
+          members: [],
+          posts: [],
+          feedError: null,
+          viewer: null,
+          moderation: null,
+        }
+  );
+  const structureHydratedRef = useRef(
+    Boolean(initial?.structureResolved)
+  );
+  const configRef = useRef<GuildConfigSnapshot | null>(
+    initial?.config ?? null
+  );
   const [localPosts, setLocalPosts] = useState<PostRow[]>([]);
-  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(
+    () => initial?.hasMorePosts ?? false
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const [isFeedRefreshing, setIsFeedRefreshing] = useState(false);
   const [actionPendingLocal, setActionPendingLocal] = useState(false);
@@ -205,10 +239,15 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [optimisticJoinPending, setOptimisticJoinPending] = useState(false);
   const [headerElevated, setHeaderElevated] = useState(false);
   const [shellPreview, setShellPreview] = useState<GuildShellCacheEntry | null>(
-    () => readGuildShellCache(groupId) ?? null
+    () => initial?.shell ?? readGuildShellCache(groupId) ?? null
   );
-  const [shellExtrasResolved, setShellExtrasResolved] = useState(false);
-  const [feedPending, setFeedPending] = useState(true);
+  const [shellExtrasResolved, setShellExtrasResolved] = useState(
+    () => Boolean(initial)
+  );
+  /** ACL resolved — separate from shell paint so join/leave never guess. */
+  const [viewerAccessResolved, setViewerAccessResolved] = useState(false);
+  const [feedPending, setFeedPending] = useState(() => !initial);
+  const ssrGroupIdRef = useRef(initial ? groupId : null);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [manageSheet, setManageSheet] = useState<GuildManageSheetId | null>(
     null
@@ -228,7 +267,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const [allowlistSpaceIds, setAllowlistSpaceIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(Boolean(initial));
   const reconcileTimersRef = useRef<number[]>([]);
   const confirmLeaveTimerRef = useRef<number | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
@@ -237,6 +276,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const loadMoreInFlightRef = useRef(false);
 
   const config = state.config;
+  configRef.current = config;
   const viewer = state.viewer;
   const joinRequestPending = pendingJoinRequest(viewer?.joinRequest ?? null);
   const joinProposalPending = Boolean(viewer?.pendingJoinProposalId);
@@ -428,16 +468,237 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
   }, [groupId, selectedFeedSpace]);
 
+  const applyViewerAccess = useCallback(
+    async (
+      client: ReturnType<typeof createReadOnlyOnSocialClient>,
+      normalizedConfig: GuildConfigSnapshot
+    ) => {
+      if (!accountId) {
+        setAllowlistSpaceIds(new Set());
+        setState((current) => ({
+          ...current,
+          viewer: null,
+          moderation: null,
+        }));
+        setShellExtrasResolved(true);
+        setViewerAccessResolved(true);
+        return;
+      }
+
+      // Fast membership hint from indexer before heavier ACL RPCs.
+      try {
+        const membership = await client.query.groups.membershipFor(
+          groupId,
+          accountId
+        );
+        if (membership) {
+          writeGuildMembershipCache(accountId, groupId, {
+            isMember: true,
+            joinPending: false,
+          });
+        }
+      } catch {
+        // Cache hint is best-effort.
+      }
+
+      const resolved = await resolveGuildViewerAccess(
+        client,
+        groupId,
+        accountId,
+        {
+          memberDriven: normalizedConfig.memberDriven,
+          accessGated: normalizedConfig.accessGated,
+        }
+      );
+      const viewerState = resolved?.viewer ?? null;
+      const moderationState = resolved?.moderation ?? null;
+
+      if (viewerState?.isMember) {
+        try {
+          const granted = await resolveViewerAllowlistSpaceIds(
+            client,
+            groupId,
+            accountId,
+            normalizedConfig.structure,
+            viewerState
+          );
+          setAllowlistSpaceIds(granted);
+        } catch {
+          setAllowlistSpaceIds(new Set());
+        }
+      } else {
+        setAllowlistSpaceIds(new Set());
+      }
+
+      setState((current) => ({
+        ...current,
+        viewer: viewerState,
+        moderation: moderationState,
+      }));
+
+      const joinPendingFromViewer =
+        pendingJoinRequest(viewerState?.joinRequest ?? null) ||
+        Boolean(viewerState?.pendingJoinProposalId);
+      writeGuildMembershipCache(accountId, groupId, {
+        isMember: Boolean(viewerState?.isMember),
+        joinPending: joinPendingFromViewer,
+      });
+      setShellExtrasResolved(true);
+      setViewerAccessResolved(true);
+    },
+    [accountId, groupId]
+  );
+
+  /** Soft path after SSR: ACL + structure only — keep indexer shell/feed. */
+  const refreshViewerAccess = useCallback(async () => {
+    setError(null);
+    const client = createReadOnlyOnSocialClient();
+    const currentConfig = configRef.current;
+    if (!currentConfig) {
+      setShellExtrasResolved(true);
+      setViewerAccessResolved(!accountId);
+      return;
+    }
+
+    if (!structureHydratedRef.current) {
+      try {
+        const rawConfig = await client.groups.getConfig(groupId);
+        if (rawConfig) {
+          const fromRpc = normalizeGuildConfig(groupId, rawConfig);
+          structureHydratedRef.current = true;
+          setState((current) => ({
+            ...current,
+            config: {
+              ...(current.config ?? currentConfig),
+              structure: fromRpc.structure,
+              // Prefer RPC for name/topics if indexer lagged, keep painted shell otherwise.
+              name: fromRpc.name || (current.config ?? currentConfig).name,
+              description:
+                fromRpc.description ||
+                (current.config ?? currentConfig).description,
+              topics:
+                fromRpc.topics.length > 0
+                  ? fromRpc.topics
+                  : (current.config ?? currentConfig).topics,
+              accessGated: fromRpc.accessGated,
+              memberDriven: fromRpc.memberDriven,
+              ownerId:
+                fromRpc.ownerId ?? (current.config ?? currentConfig).ownerId,
+              avatarUrl:
+                fromRpc.avatarUrl ??
+                (current.config ?? currentConfig).avatarUrl,
+              bannerUrl:
+                fromRpc.bannerUrl ??
+                (current.config ?? currentConfig).bannerUrl,
+            },
+          }));
+          await applyViewerAccess(client, fromRpc);
+          return;
+        }
+      } catch {
+        // Keep default structure; still resolve ACL.
+      }
+    }
+
+    await applyViewerAccess(client, currentConfig);
+  }, [accountId, applyViewerAccess, groupId]);
+
+  /** Client navigation / cold load — indexer shell first, then ACL. */
   const refreshShell = useCallback(async () => {
     setError(null);
-
     const client = createReadOnlyOnSocialClient();
-    const rawConfig = await client.groups.getConfig(groupId);
 
-    if (!rawConfig) {
+    const [indexedRows, feedResult, membersResult, countResult, postCountResult] =
+      await Promise.all([
+        client.query.groups.byIds([groupId]).catch(() => []),
+        client.query.groups
+          .feed({ groupId, limit: 20 })
+          .catch(() => ({ items: [] as PostRow[], nextOffset: undefined })),
+        client.query.groups
+          .membersOf(groupId, { limit: 8 })
+          .catch(() => ({ items: [] as GroupMemberRow[] })),
+        client.query.groups
+          .memberCountsFor([groupId])
+          .catch(() => new Map<string, number>()),
+        client.query.groups.postCountFor(groupId).catch(() => null),
+      ]);
+
+    const indexed = indexedRows[0] ?? null;
+    if (indexed) {
+      const fromIndexer = guildConfigFromIndexedRow(groupId, indexed);
+      const shellEntry: GuildShellCacheEntry = {
+        name: fromIndexer.name,
+        avatarUrl: fromIndexer.avatarUrl,
+        bannerUrl: fromIndexer.bannerUrl,
+        accessGated: fromIndexer.accessGated,
+        memberDriven: fromIndexer.memberDriven,
+        description: fromIndexer.description,
+        topics: fromIndexer.topics,
+      };
+      writeGuildShellCache(groupId, shellEntry);
+      setShellPreview(shellEntry);
+      setState((current) => ({
+        ...current,
+        config: current.config
+          ? {
+              ...fromIndexer,
+              structure: structureHydratedRef.current
+                ? current.config.structure
+                : fromIndexer.structure,
+            }
+          : fromIndexer,
+        indexedMemberCount: countResult.get(groupId) ?? null,
+        postCount: postCountResult,
+        members: reconcileGuildMemberRoster(
+          membersResult.items ?? [],
+          fromIndexer.ownerId
+        ),
+        posts: feedResult.items ?? [],
+        feedError: null,
+      }));
+      setHasMorePosts(feedResult.nextOffset !== undefined);
+      setLoadState('ready');
+    }
+
+    let normalizedConfig: GuildConfigSnapshot | null = indexed
+      ? guildConfigFromIndexedRow(groupId, indexed)
+      : null;
+
+    try {
+      const rawConfig = await client.groups.getConfig(groupId);
+      if (rawConfig) {
+        normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
+        structureHydratedRef.current = true;
+        const shellEntry: GuildShellCacheEntry = {
+          name: normalizedConfig.name,
+          avatarUrl: normalizedConfig.avatarUrl,
+          bannerUrl: normalizedConfig.bannerUrl,
+          accessGated: normalizedConfig.accessGated,
+          memberDriven: normalizedConfig.memberDriven,
+          description: normalizedConfig.description,
+          topics: normalizedConfig.topics,
+        };
+        writeGuildShellCache(groupId, shellEntry);
+        setShellPreview(shellEntry);
+        setState((current) => ({
+          ...current,
+          config: normalizedConfig!,
+          members: reconcileGuildMemberRoster(
+            current.members,
+            readGuildOwnerId(rawConfig)
+          ),
+        }));
+        setLoadState('ready');
+      }
+    } catch {
+      // Indexer shell may already be enough.
+    }
+
+    if (!normalizedConfig && !indexed) {
       setState({
         config: null,
         stats: null,
+        indexedMemberCount: null,
         postCount: null,
         members: [],
         posts: [],
@@ -447,96 +708,27 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       });
       setLoadState('missing');
       setShellExtrasResolved(true);
+      setViewerAccessResolved(!accountId);
       return false;
     }
 
-    const normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
-    const shellEntry: GuildShellCacheEntry = {
-      name: normalizedConfig.name,
-      avatarUrl: normalizedConfig.avatarUrl,
-      bannerUrl: normalizedConfig.bannerUrl,
-      accessGated: normalizedConfig.accessGated,
-      memberDriven: normalizedConfig.memberDriven,
-      description: normalizedConfig.description,
-      topics: normalizedConfig.topics,
-    };
-    writeGuildShellCache(groupId, shellEntry);
-    setShellPreview(shellEntry);
-
-    // Paint hero/description as soon as config is known; stats/viewer follow.
-    setState((current) => ({
-      ...current,
-      config: normalizedConfig,
-    }));
-    setLoadState('ready');
-
-    const [statsResult, membersResult, viewerResult, postCountResult] =
-      await Promise.allSettled([
-        client.groups.getStats(groupId),
-        client.query.groups.membersOf(groupId, { limit: 8 }),
-        accountId
-          ? resolveGuildViewerAccess(client, groupId, accountId, {
-              memberDriven: normalizedConfig.memberDriven,
-              accessGated: normalizedConfig.accessGated,
-            })
-          : Promise.resolve(null),
-        client.query.groups.postCountFor(groupId),
-      ]);
-
-    const viewerState =
-      viewerResult.status === 'fulfilled' && viewerResult.value
-        ? viewerResult.value.viewer
-        : null;
-    const moderationState =
-      viewerResult.status === 'fulfilled'
-        ? (viewerResult.value?.moderation ?? null)
-        : null;
-
-    if (accountId && viewerState?.isMember) {
-      try {
-        const granted = await resolveViewerAllowlistSpaceIds(
-          client,
-          groupId,
-          accountId,
-          normalizedConfig.structure,
-          viewerState
-        );
-        setAllowlistSpaceIds(granted);
-      } catch {
-        setAllowlistSpaceIds(new Set());
-      }
-    } else {
-      setAllowlistSpaceIds(new Set());
+    if (!normalizedConfig) {
+      setShellExtrasResolved(true);
+      setViewerAccessResolved(!accountId);
+      return true;
     }
 
-    setState((current) => ({
-      ...current,
-      config: normalizedConfig,
-      stats: statsResult.status === 'fulfilled' ? statsResult.value : null,
-      postCount:
-        postCountResult.status === 'fulfilled' ? postCountResult.value : null,
-      members: reconcileGuildMemberRoster(
-        membersResult.status === 'fulfilled'
-          ? (membersResult.value.items ?? [])
-          : [],
-        readGuildOwnerId(rawConfig)
-      ),
-      viewer: viewerState,
-      moderation: moderationState,
-    }));
+    // Optional chain stats for facts (created_at); do not block paint.
+    void client.groups
+      .getStats(groupId)
+      .then((stats) => {
+        setState((current) => ({ ...current, stats }));
+      })
+      .catch(() => {});
 
-    if (accountId) {
-      const joinPendingFromViewer =
-        pendingJoinRequest(viewerState?.joinRequest ?? null) ||
-        Boolean(viewerState?.pendingJoinProposalId);
-      writeGuildMembershipCache(accountId, groupId, {
-        isMember: Boolean(viewerState?.isMember),
-        joinPending: joinPendingFromViewer,
-      });
-    }
-    setShellExtrasResolved(true);
+    await applyViewerAccess(client, normalizedConfig);
     return true;
-  }, [accountId, groupId]);
+  }, [accountId, applyViewerAccess, groupId]);
 
   const refresh = useCallback(async () => {
     if (hasLoadedRef.current) {
@@ -570,8 +762,35 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   }, [refreshFeed, refreshShell]);
 
   useEffect(() => {
+    // Keep SSR shell for the seeded guild; wipe only on client navigation.
+    if (ssrGroupIdRef.current === groupId && initial) {
+      writeGuildShellCache(groupId, initial.shell);
+      setShellPreview(initial.shell);
+      setShellExtrasResolved(true);
+      setViewerAccessResolved(false);
+      setFeedPending(false);
+      setHasMorePosts(initial.hasMorePosts);
+      setLoadState('ready');
+      structureHydratedRef.current = Boolean(initial.structureResolved);
+      setState({
+        config: initial.config,
+        stats: initial.stats,
+        indexedMemberCount: initial.indexedMemberCount,
+        postCount: initial.postCount,
+        members: initial.members,
+        posts: initial.posts,
+        feedError: null,
+        viewer: null,
+        moderation: null,
+      });
+      hasLoadedRef.current = true;
+      return;
+    }
+    ssrGroupIdRef.current = null;
+    structureHydratedRef.current = false;
     setShellPreview(readGuildShellCache(groupId) ?? null);
     setShellExtrasResolved(false);
+    setViewerAccessResolved(false);
     setHeaderElevated(false);
     setFeedPending(true);
     setLocalPosts([]);
@@ -583,31 +802,52 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       // Avoid painting the previous guild's membership on the new shell.
       config: null,
       stats: null,
+      indexedMemberCount: null,
       postCount: null,
       members: [],
       viewer: null,
       moderation: null,
     }));
     setAllowlistSpaceIds(new Set());
-  }, [groupId]);
+  }, [groupId, initial]);
 
   useEffect(() => {
-    setShellExtrasResolved(false);
     // Drop previous wallet's membership before extras resolve for the new one.
     setState((current) => ({
       ...current,
       viewer: null,
       moderation: null,
     }));
-  }, [accountId]);
+    setViewerAccessResolved(false);
+    // Soft SSR keeps painted shell; ACL still re-resolves for the new wallet.
+    const softSsr = ssrGroupIdRef.current === groupId && Boolean(initial);
+    if (!softSsr) {
+      setShellExtrasResolved(false);
+    }
+  }, [accountId, groupId, initial]);
 
   useEffect(() => {
     if (walletLoading) return;
+    // Soft-reconcile viewer/ACL after SSR; full reload on client guild switch.
+    const softSsr = ssrGroupIdRef.current === groupId && Boolean(initial);
+    if (!accountId) {
+      setViewerAccessResolved(true);
+      if (softSsr) {
+        hasLoadedRef.current = true;
+        void refreshViewerAccess();
+        return;
+      }
+    }
+    if (softSsr) {
+      hasLoadedRef.current = true;
+      void refreshViewerAccess();
+      return;
+    }
     hasLoadedRef.current = false;
     void refresh();
     // Shell + feed load is scoped to guild/account changes; tab switches use refreshFeed.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshFeed intentionally excluded
-  }, [accountId, groupId, walletLoading]);
+  }, [accountId, groupId, walletLoading, initial]);
 
   useEffect(() => {
     if (walletLoading || !hasLoadedRef.current) return;
@@ -756,6 +996,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
   const memberCount =
     resolveGuildMemberCount({
       chainStats: state.stats,
+      indexedCount: state.indexedMemberCount,
       rosterFloor: facepileIds.length,
     }) ?? 0;
   const membershipHint = accountId
@@ -765,32 +1006,52 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     walletLoading ||
     (isConnected &&
       Boolean(accountId) &&
-      !shellExtrasResolved &&
+      !viewerAccessResolved &&
       membershipHint == null);
+  const effectiveIsMember = viewerAccessResolved
+    ? Boolean(viewer?.isMember)
+    : Boolean(membershipHint?.isMember);
+  const effectiveJoinPending = viewerAccessResolved
+    ? joinPending
+    : Boolean(membershipHint?.joinPending);
+  const effectiveIsOwner = viewerAccessResolved
+    ? Boolean(viewer?.isOwner)
+    : false;
+  // Mutations require ACL; hint is label-only until viewerAccessResolved.
+  const membershipActionReady = !viewerAccessResolved
+    ? !isConnected
+    : effectiveIsMember
+      ? !confirmingLeave
+      : effectiveJoinPending
+        ? joinCancelReady
+        : Boolean(config) && !effectiveIsMember;
   const actionLabel = useMemo(
     () =>
       guildMembershipJoinLabel({
         isConnected,
         accessGated: Boolean(config?.accessGated),
-        joinPending,
+        joinPending: effectiveJoinPending,
         joinCancelReady,
-        isMember: viewer?.isMember,
-        isOwner: viewer?.isOwner,
+        isMember: effectiveIsMember,
+        isOwner: effectiveIsOwner,
         confirmingLeave,
         needsStorage: needsCollaborativeStorage,
         loadGuild: !config,
-        hintMember: !viewer && Boolean(membershipHint?.isMember),
-        hintJoinPending: !viewer && Boolean(membershipHint?.joinPending),
+        hintMember: !viewerAccessResolved && Boolean(membershipHint?.isMember),
+        hintJoinPending:
+          !viewerAccessResolved && Boolean(membershipHint?.joinPending),
       }),
     [
       config,
       confirmingLeave,
+      effectiveIsMember,
+      effectiveIsOwner,
+      effectiveJoinPending,
       isConnected,
-      joinPending,
       joinCancelReady,
       membershipHint,
       needsCollaborativeStorage,
-      viewer,
+      viewerAccessResolved,
     ]
   );
 
@@ -811,8 +1072,10 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     }
 
     if (!config) return;
+    // Never join/leave from a guessed label — wait for ACL (hint is display-only).
+    if (!viewerAccessResolved) return;
 
-    if (viewer?.isMember && viewer.isOwner) {
+    if (effectiveIsMember && effectiveIsOwner) {
       setManageSheet('members');
       return;
     }
@@ -821,9 +1084,9 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
     setGuildMembershipActionPending(accountId, groupId, true);
     try {
       const { client } = await getClient();
-      const response = viewer?.isMember
+      const response = effectiveIsMember
         ? await client.groups.leave(groupId)
-        : joinPending
+        : effectiveJoinPending
           ? config.memberDriven && viewer?.pendingJoinProposalId
             ? await client.groups.cancelProposal(
                 groupId,
@@ -835,16 +1098,16 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       const txHashes = collectRelayTxHashes(response);
       const confirmed = await trackTransaction({
         txHashes,
-        submittedMessage: viewer?.isMember
+        submittedMessage: effectiveIsMember
           ? txToastConfirming.leavingGuild
-          : joinPending
+          : effectiveJoinPending
             ? txToastConfirming.cancelingGuildRequest
             : config.accessGated
               ? txToastConfirming.requestingGuildAccess
               : txToastConfirming.joiningGuild,
-        successMessage: viewer?.isMember
+        successMessage: effectiveIsMember
           ? txToastSuccess.guildLeft
-          : joinPending
+          : effectiveJoinPending
             ? txToastSuccess.guildRequestCanceled
             : config.accessGated
               ? txToastSuccess.guildAccessRequested
@@ -853,9 +1116,23 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       });
 
       if (confirmed) {
-        if (config.memberDriven && !viewer?.isMember && !joinPending) {
+        if (accountId) {
+          writeGuildMembershipCache(accountId, groupId, {
+            isMember: effectiveIsMember
+              ? false
+              : effectiveJoinPending
+                ? false
+                : !config.accessGated,
+            joinPending: effectiveIsMember
+              ? false
+              : effectiveJoinPending
+                ? false
+                : config.accessGated,
+          });
+        }
+        if (config.memberDriven && !effectiveIsMember && !effectiveJoinPending) {
           setOptimisticJoinPending(true);
-        } else if (joinPending) {
+        } else if (effectiveJoinPending) {
           setOptimisticJoinPending(false);
         }
         await refresh();
@@ -882,10 +1159,13 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       setStorageSheetOpen(true);
       return;
     }
-    if (joinPending && !joinCancelReady) {
+    if (effectiveJoinPending && !joinCancelReady) {
       return;
     }
-    if (viewer?.isMember && !confirmingLeave) {
+    if (isConnected && !viewerAccessResolved) {
+      return;
+    }
+    if (effectiveIsMember && !confirmingLeave) {
       setConfirmingLeave(true);
       confirmLeaveTimerRef.current = window.setTimeout(() => {
         confirmLeaveTimerRef.current = null;
@@ -894,7 +1174,7 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
       return;
     }
     clearConfirmLeave();
-    if (viewer?.isMember && viewer.isOwner) {
+    if (effectiveIsMember && effectiveIsOwner) {
       setManageSheet('members');
       return;
     }
@@ -1364,24 +1644,19 @@ export function LiveGuildPanel({ groupId }: { groupId: string }) {
                       label={actionLabel}
                       variant={confirmingLeave ? 'danger' : 'primary'}
                       ready={
-                        !confirmingLeave &&
-                        (Boolean(viewer?.isMember) ||
-                          (!joinPending &&
-                            !needsCollaborativeStorage &&
-                            isConnected &&
-                            Boolean(config)))
+                        membershipActionReady && !needsCollaborativeStorage
                       }
                       pending={actionPending}
                       pendingLabel={guildMembershipJoinPendingLabel({
                         accessGated: Boolean(config?.accessGated),
-                        canceling: joinPending,
-                        leaving: Boolean(viewer?.isMember),
+                        canceling: effectiveJoinPending,
+                        leaving: effectiveIsMember,
                       })}
                       disabled={
-                        (joinPending && !joinCancelReady) ||
-                        (!viewer &&
-                          Boolean(membershipHint) &&
-                          !shellExtrasResolved)
+                        (effectiveJoinPending && !joinCancelReady) ||
+                        (isConnected &&
+                          !viewerAccessResolved &&
+                          !effectiveIsMember)
                       }
                       onClick={handleMembershipClick}
                       onBlur={

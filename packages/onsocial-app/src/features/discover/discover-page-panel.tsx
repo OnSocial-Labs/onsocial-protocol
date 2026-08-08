@@ -9,6 +9,7 @@ import {
 } from '@/features/discover/discover-screen-chrome';
 import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
+import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
 function DiscoverPageScreen({
   scrollRootRef,
@@ -34,10 +35,12 @@ function DiscoverPageScreen({
 export function DiscoverPagePanel({
   backFallbackHref: _backFallbackHref,
   initialPage = null,
+  initialTrending = null,
 }: {
   /** Ignored — Discover root uses section mark + launcher. */
   backFallbackHref?: string;
   initialPage?: DiscoverProfilesResponse | null;
+  initialTrending?: DiscoverTrendingSeed | null;
 }) {
   const scrollRootRef = useRef<HTMLElement>(null);
 
@@ -46,6 +49,7 @@ export function DiscoverPagePanel({
       shellVariant="page"
       scrollRootRef={scrollRootRef}
       initialPage={initialPage}
+      initialTrending={initialTrending}
     >
       <DiscoverPageScreen scrollRootRef={scrollRootRef} />
     </DiscoverPanelRoot>

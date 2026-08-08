@@ -1,3 +1,4 @@
+import type { OnSocial } from '@onsocial/sdk';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { viewNearContract } from '@/lib/app-near-rpc';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
@@ -197,16 +198,16 @@ export function creatorAccessShort(access: CreatorAccess): string {
  * hub page. No roster; `fetchApp` reconciles owner/moderators/creators after.
  */
 export async function fetchAppIndexerRow(
-  appId: string
+  appId: string,
+  client?: OnSocial
 ): Promise<AppView | null> {
   const id = appId.trim();
   if (!id) return null;
   try {
-    const { createReadOnlyOnSocialClient } = await import(
-      '@/lib/create-readonly-onsocial-client'
-    );
-    const client = createReadOnlyOnSocialClient();
-    const res = await client.query.graphql<{
+    const os =
+      client ??
+      (await import('@/lib/create-readonly-onsocial-client')).createReadOnlyOnSocialClient();
+    const res = await os.query.graphql<{
       scarcesApps: Array<{
         appId: string;
         ownerId: string;
@@ -258,16 +259,16 @@ function toCount(value: unknown): number {
 
 /** Per-hub stats — indexer only; null when the view is unavailable. */
 export async function fetchAppStats(
-  appId: string
+  appId: string,
+  client?: OnSocial
 ): Promise<AppStatsView | null> {
   const id = appId.trim();
   if (!id) return null;
   try {
-    const { createReadOnlyOnSocialClient } = await import(
-      '@/lib/create-readonly-onsocial-client'
-    );
-    const client = createReadOnlyOnSocialClient();
-    const res = await client.query.graphql<{
+    const os =
+      client ??
+      (await import('@/lib/create-readonly-onsocial-client')).createReadOnlyOnSocialClient();
+    const res = await os.query.graphql<{
       scarcesAppStats: Array<{
         appId: string;
         dropsTotal: number | string | null;

@@ -1,4 +1,4 @@
-import type { GroupStats } from '@onsocial/sdk';
+import { groupTopicsFromRow, type GroupStats } from '@onsocial/sdk';
 import {
   deriveGuildAccessGated,
   normalizeGuildTagList,
@@ -8,8 +8,36 @@ import {
   guildModeLabel,
   guildRoleFromFlags,
 } from '@/features/guilds/guild-card-display';
+import { DEFAULT_GUILD_STRUCTURE } from '@/features/guilds/guild-structure';
 import { guildMediaUrlFromCid } from '@/features/guilds/guild-visual';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
+
+/** Indexer `groups_current` → app config shell (default structure until RPC). */
+export function guildConfigFromIndexedRow(
+  groupId: string,
+  row: {
+    ownerId?: string | null;
+    groupName?: string | null;
+    groupDescription?: string | null;
+    groupAvatarCid?: string | null;
+    groupBannerCid?: string | null;
+    isPublic?: boolean | null;
+    isMemberDriven?: boolean;
+    groupTopics?: string[] | null;
+  }
+): GuildConfigSnapshot {
+  return {
+    name: row.groupName?.trim() || groupId,
+    description: row.groupDescription?.trim() || '',
+    avatarUrl: guildMediaUrlFromCid(row.groupAvatarCid),
+    bannerUrl: guildMediaUrlFromCid(row.groupBannerCid),
+    ownerId: row.ownerId?.trim() || null,
+    accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
+    memberDriven: Boolean(row.isMemberDriven),
+    topics: normalizeGuildTagList(groupTopicsFromRow(row)),
+    structure: DEFAULT_GUILD_STRUCTURE,
+  };
+}
 
 /** Chain stats expose `total_members`; older typings used `member_count`. */
 export function readGroupStatsMemberCount(
@@ -86,6 +114,8 @@ function membershipRowToCardBase(row: {
   groupBannerCid?: string | null;
   isPublic?: boolean | null;
   isMemberDriven?: boolean;
+  groupTopics?: string[] | null;
+  memberCount?: number | null;
   isOwner?: boolean;
   isAdmin?: boolean;
   canModerate?: boolean;
@@ -98,8 +128,11 @@ function membershipRowToCardBase(row: {
     bannerUrl: guildMediaUrlFromCid(row.groupBannerCid),
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
     memberDriven: Boolean(row.isMemberDriven),
-    memberCount: null,
-    topics: [],
+    memberCount:
+      typeof row.memberCount === 'number' && Number.isFinite(row.memberCount)
+        ? Math.max(0, Math.floor(row.memberCount))
+        : null,
+    topics: normalizeGuildTagList(groupTopicsFromRow(row)),
     role: guildRoleFromFlags(row),
   };
 }
@@ -118,11 +151,62 @@ export function guildSummaryCardFromBrowse(row: {
   groupBannerCid?: string | null;
   isPublic?: boolean | null;
   isMemberDriven?: boolean;
+  groupTopics?: string[] | null;
+  memberCount?: number | null;
 }): GuildSummaryCardModel {
   return {
     ...membershipRowToCardBase(row),
     role: null,
   };
+}
+
+/** Attach indexed member counts without RPC enrichment. */
+export function applyIndexedMemberCounts(
+  cards: GuildSummaryCardModel[],
+  counts: Map<string, number>
+): GuildSummaryCardModel[] {
+  if (cards.length === 0 || counts.size === 0) return cards;
+  return cards.map((card) => {
+    const indexed = counts.get(card.groupId);
+    if (typeof indexed !== 'number' || !Number.isFinite(indexed)) {
+      return card;
+    }
+    const memberCount = resolveGuildMemberCount({
+      indexedCount: indexed,
+      rosterFloor: card.memberCount ?? 0,
+    });
+    return memberCount === card.memberCount
+      ? card
+      : { ...card, memberCount };
+  });
+}
+
+/**
+ * Indexer-only card fill (member counts). Prefer this over
+ * {@link enrichGuildSummaryCards} for list first paint — no N× RPC.
+ */
+export async function enrichIndexedGuildSummaryCards<
+  TClient extends {
+    query: {
+      groups: {
+        memberCountsFor: (groupIds: string[]) => Promise<Map<string, number>>;
+      };
+    };
+  },
+>(client: TClient, cards: GuildSummaryCardModel[]): Promise<GuildSummaryCardModel[]> {
+  if (cards.length === 0) return cards;
+  const missing = cards.filter(
+    (card) => card.memberCount == null || !Number.isFinite(card.memberCount)
+  );
+  if (missing.length === 0) return cards;
+  try {
+    const counts = await client.query.groups.memberCountsFor(
+      missing.map((card) => card.groupId)
+    );
+    return applyIndexedMemberCounts(cards, counts);
+  } catch {
+    return cards;
+  }
 }
 
 export function applyChainGuildFacts(

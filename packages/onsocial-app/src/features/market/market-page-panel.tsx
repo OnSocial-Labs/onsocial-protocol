@@ -41,6 +41,7 @@ import {
   invalidateLiveListingsCache,
   marketListingRowKey,
   type MarketListingItem,
+  type MarketListingsPage,
   type MarketListingSort,
   type MarketSaleItem,
   type OwnedScarceItem,
@@ -199,7 +200,16 @@ function sourcePostCoords(
   return { author: match[1], postId: match[2] };
 }
 
-export function MarketPagePanel() {
+/** Default browse key: retry 0 · all · newest · no search/creator/app. */
+const DEFAULT_LISTINGS_PARAMS_KEY = '0|all|newest|||';
+
+export function MarketPagePanel({
+  initialListings = null,
+  initialSales = null,
+}: {
+  initialListings?: MarketListingsPage | null;
+  initialSales?: MarketSaleItem[] | null;
+} = {}) {
   const { accountId: viewerAccountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const router = useRouter();
@@ -219,10 +229,24 @@ export function MarketPagePanel() {
     ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
     : null;
   const [retryKey, setRetryKey] = useState(0);
-  const [listingsState, setListingsState] =
-    useState<ListingsState>(EMPTY_LISTINGS);
+  // Seed only the default unfiltered browse; URL creator/app narrows refetch.
+  const canSeedDefaultBrowse =
+    initialListings != null && !creatorFilter && !appFilter;
+  const [listingsState, setListingsState] = useState<ListingsState>(() =>
+    canSeedDefaultBrowse
+      ? {
+          paramsKey: DEFAULT_LISTINGS_PARAMS_KEY,
+          items: initialListings.items,
+          nextOffset: initialListings.nextOffset,
+          hasMore: initialListings.hasMore,
+          failed: false,
+        }
+      : EMPTY_LISTINGS
+  );
   const [loadingMore, setLoadingMore] = useState(false);
-  const [sales, setSales] = useState<MarketSaleItem[] | null>(null);
+  const [sales, setSales] = useState<MarketSaleItem[] | null>(
+    () => initialSales
+  );
   const [ownedState, setOwnedState] = useState<OwnedState>(EMPTY_OWNED);
   const [ownedLoadingMore, setOwnedLoadingMore] = useState(false);
   const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);

@@ -8,12 +8,14 @@ import {
 } from 'react';
 import { useDiscoverProfiles } from '@/hooks/use-discover-profiles';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
+import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
 export type DiscoverShellVariant = 'overlay' | 'page';
 
 type DiscoverPanelContextValue = ReturnType<typeof useDiscoverProfiles> & {
   shellVariant: DiscoverShellVariant;
   scrollRootRef?: RefObject<Element | null>;
+  initialTrending: DiscoverTrendingSeed | null;
 };
 
 const DiscoverPanelContext = createContext<DiscoverPanelContextValue | null>(
@@ -24,18 +26,25 @@ export function DiscoverPanelProvider({
   shellVariant,
   scrollRootRef,
   initialPage = null,
+  initialTrending = null,
   children,
 }: {
   shellVariant: DiscoverShellVariant;
   scrollRootRef?: RefObject<Element | null>;
   initialPage?: DiscoverProfilesResponse | null;
+  initialTrending?: DiscoverTrendingSeed | null;
   children: ReactNode;
 }) {
   const discover = useDiscoverProfiles(scrollRootRef, { initialPage });
 
   return (
     <DiscoverPanelContext.Provider
-      value={{ ...discover, shellVariant, scrollRootRef }}
+      value={{
+        ...discover,
+        shellVariant,
+        scrollRootRef,
+        initialTrending,
+      }}
     >
       {children}
     </DiscoverPanelContext.Provider>

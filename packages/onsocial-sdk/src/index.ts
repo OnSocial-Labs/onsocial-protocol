@@ -140,7 +140,7 @@ export type {
   CreditPlatformRewardInput,
   PlatformRewardCreditEvent,
 } from './platform-rewards-credit.js';
-export { QueryModule } from './query/index.js';
+export { QueryModule, groupTopicsFromRow } from './query/index.js';
 export {
   SubscribeModule,
   ScarcesSubscribeApi,
@@ -158,6 +158,8 @@ export type {
   HashtagCount,
   TickerCount,
   GroupConversation,
+  GroupCurrentRow,
+  GroupMembershipCurrentRow,
   GroupMemberRow,
   ThreadCounts,
   ThreadEdge,

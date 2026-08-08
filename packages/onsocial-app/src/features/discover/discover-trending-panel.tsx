@@ -27,13 +27,12 @@ import {
   profileListAccountToStandingSummary,
   type ProfileListAccount,
 } from '@/lib/profile-list-account';
+import type {
+  DiscoverTrendingGuild,
+  DiscoverTrendingSeed,
+} from '@/lib/discover-trending-server';
 
 const SECTION_LIMIT = 6;
-
-type TrendingGuild = {
-  groupId: string;
-  groupName: string | null;
-};
 
 /**
  * Default Discover landing: mixed trending sections. Profiles use the same
@@ -42,8 +41,10 @@ type TrendingGuild = {
  */
 export function DiscoverTrendingPanel({
   onOpenTab,
+  initial = null,
 }: {
   onOpenTab: (tab: DiscoverTab) => void;
+  initial?: DiscoverTrendingSeed | null;
 }) {
   const {
     accountId: viewerAccountId,
@@ -53,42 +54,66 @@ export function DiscoverTrendingPanel({
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding('discover');
 
-  const [tickers, setTickers] = useState<TickerCount[] | null>(null);
-  const [topics, setTopics] = useState<HashtagCount[] | null>(null);
-  const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(null);
-  const [guilds, setGuilds] = useState<TrendingGuild[] | null>(null);
+  const [tickers, setTickers] = useState<TickerCount[] | null>(
+    () => initial?.tickers ?? null
+  );
+  const [topics, setTopics] = useState<HashtagCount[] | null>(
+    () => initial?.topics ?? null
+  );
+  const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(
+    () => initial?.profiles ?? null
+  );
+  const [guilds, setGuilds] = useState<DiscoverTrendingGuild[] | null>(
+    () => initial?.guilds ?? null
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
     () => new Set()
   );
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const viewerKey = viewerAccountId ?? null;
+  // Soft-refresh whenever we already have painted rows (SSR or prior fetch).
+  const hasPaintedRef = useRef(
+    initial != null &&
+      (initial.tickers.length > 0 ||
+        initial.topics.length > 0 ||
+        initial.profiles.length > 0 ||
+        initial.guilds.length > 0)
+  );
 
   useEffect(() => {
     let cancelled = false;
     const client = createReadOnlyOnSocialClient();
+    const soft = hasPaintedRef.current;
 
-    setTickers(null);
-    setTopics(null);
-    setProfiles(null);
-    setGuilds(null);
+    // Never blank a painted trending shell on wallet reconcile.
+    if (!soft) {
+      setTickers(null);
+      setTopics(null);
+      setProfiles(null);
+      setGuilds(null);
+    }
 
     void client.query.tickers
       .trending({ limit: SECTION_LIMIT })
       .then((rows) => {
-        if (!cancelled) setTickers(rows);
+        if (cancelled) return;
+        setTickers(rows);
+        hasPaintedRef.current = true;
       })
       .catch(() => {
-        if (!cancelled) setTickers([]);
+        if (!cancelled && !soft) setTickers([]);
       });
 
     void client.query.hashtags
       .trending({ limit: SECTION_LIMIT })
       .then((rows) => {
-        if (!cancelled) setTopics(rows);
+        if (cancelled) return;
+        setTopics(rows);
+        hasPaintedRef.current = true;
       })
       .catch(() => {
-        if (!cancelled) setTopics([]);
+        if (!cancelled && !soft) setTopics([]);
       });
 
     void fetchDiscoverProfiles('', viewerKey, 0)
@@ -99,9 +124,10 @@ export function DiscoverTrendingPanel({
             .slice(0, SECTION_LIMIT)
             .map(discoverProfileToProfileListAccount)
         );
+        hasPaintedRef.current = true;
       })
       .catch(() => {
-        if (!cancelled) setProfiles([]);
+        if (!cancelled && !soft) setProfiles([]);
       });
 
     void client.query.groups
@@ -114,9 +140,10 @@ export function DiscoverTrendingPanel({
             groupName: g.groupName,
           }))
         );
+        hasPaintedRef.current = true;
       })
       .catch(() => {
-        if (!cancelled) setGuilds([]);
+        if (!cancelled && !soft) setGuilds([]);
       });
 
     return () => {

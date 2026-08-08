@@ -13,7 +13,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import {
-  enrichGuildSummaryCards,
+  enrichIndexedGuildSummaryCards,
   guildSummaryCardFromBrowse,
   guildSummaryCardFromMembership,
 } from '@/features/guilds/guild-facts';
@@ -59,24 +59,36 @@ function guildMatchesTopic(
   return (card.topics ?? []).some((tag) => tag === topic);
 }
 
-export function LiveGuildsIndexPanel() {
+export function LiveGuildsIndexPanel({
+  initialGuilds = null,
+}: {
+  initialGuilds?: GuildSummaryCardModel[] | null;
+} = {}) {
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
   const [search, setSearch] = useState('');
   const [topicFilter, setTopicFilter] = useState<'all' | string>('all');
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
-    'loading'
+    () => (initialGuilds != null ? 'ready' : 'loading')
   );
   const [searchState, setSearchState] = useState<'idle' | 'loading'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [guilds, setGuilds] = useState<GuildSummaryCardModel[]>([]);
+  const [guilds, setGuilds] = useState<GuildSummaryCardModel[]>(
+    () => initialGuilds ?? []
+  );
   const [searchResults, setSearchResults] = useState<
     GuildSummaryCardModel[] | null
   >(null);
   const searchRequestRef = useRef(0);
+  const hasPaintedRef = useRef(
+    initialGuilds != null && initialGuilds.length > 0
+  );
   const toolbarHidden = useDockAutoHide(false);
 
-  const load = useCallback(async () => {
-    setLoadState('loading');
+  const load = useCallback(async (opts?: { soft?: boolean }) => {
+    const soft = Boolean(opts?.soft) || hasPaintedRef.current;
+    if (!soft) {
+      setLoadState('loading');
+    }
     setError(null);
     setSearchResults(null);
     try {
@@ -103,22 +115,27 @@ export function LiveGuildsIndexPanel() {
 
       setGuilds(merged);
       setLoadState('ready');
+      hasPaintedRef.current = merged.length > 0;
 
-      void enrichGuildSummaryCards(client, merged).then((withFacts) => {
-        setGuilds(withFacts);
+      // Indexer counts only — never N× getConfig/getStats on the list.
+      void enrichIndexedGuildSummaryCards(client, merged).then((withCounts) => {
+        setGuilds(withCounts);
       });
     } catch (cause) {
-      setLoadState('error');
-      setError(
-        cause instanceof Error ? cause.message : 'Could not load guilds.'
-      );
+      if (!soft) {
+        setLoadState('error');
+        setError(
+          cause instanceof Error ? cause.message : 'Could not load guilds.'
+        );
+      }
     }
   }, [accountId]);
 
+  // Paint SSR public browse immediately; soft-merge memberships after wallet.
   useEffect(() => {
     if (walletLoading) return;
     queueMicrotask(() => {
-      void load();
+      void load({ soft: hasPaintedRef.current });
     });
   }, [load, walletLoading]);
 
@@ -143,11 +160,11 @@ export function LiveGuildsIndexPanel() {
             limit: 24,
           });
           if (searchRequestRef.current !== requestId) return;
+          const searchCards = items.map((row) =>
+            guildSummaryCardFromBrowse(row)
+          );
           setSearchResults(
-            await enrichGuildSummaryCards(
-              client,
-              items.map((row) => guildSummaryCardFromBrowse(row))
-            )
+            await enrichIndexedGuildSummaryCards(client, searchCards)
           );
           setSearchState('idle');
         } catch {

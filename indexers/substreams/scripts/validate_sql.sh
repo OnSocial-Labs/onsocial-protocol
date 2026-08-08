@@ -125,7 +125,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         WHERE table_schema = '"'"'public'"'"'
           AND table_name = '"'"'groups_current'"'"';
       ")"
-      expected_groups_columns="group_id,owner_id,group_name,is_public,creator_role,storage_allocation,block_height,block_timestamp,operation,group_description,group_avatar_cid,group_banner_cid,is_member_driven"
+      expected_groups_columns="group_id,owner_id,group_name,is_public,creator_role,storage_allocation,block_height,block_timestamp,operation,group_description,group_avatar_cid,group_banner_cid,is_member_driven,group_topics"
       if [ "$groups_columns" != "$expected_groups_columns" ]; then
         echo "error: unexpected groups_current column order in $db" >&2
         echo "  expected: $expected_groups_columns" >&2
@@ -139,7 +139,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         WHERE table_schema = '"'"'public'"'"'
           AND table_name = '"'"'group_members_current'"'"';
       ")"
-      expected_members_columns="group_id,member_id,role,level,is_owner,is_admin,can_moderate,group_name,is_public,block_height,block_timestamp,group_description,group_avatar_cid,group_banner_cid,is_member_driven"
+      expected_members_columns="group_id,member_id,role,level,is_owner,is_admin,can_moderate,group_name,is_public,block_height,block_timestamp,group_description,group_avatar_cid,group_banner_cid,is_member_driven,group_topics"
       if [ "$members_columns" != "$expected_members_columns" ]; then
         echo "error: unexpected group_members_current column order in $db" >&2
         echo "  expected: $expected_members_columns" >&2

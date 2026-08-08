@@ -332,7 +332,8 @@ export function StoreDropsList({
   /** Render the first drop as a large spotlight card. */
   spotlight?: boolean;
 }) {
-  if (loading) {
+  // Soft refresh: keep painted drops; skeleton only on cold empty load.
+  if (loading && drops.length === 0) {
     return (
       <div className="market-section" aria-busy="true" aria-live="polite">
         <p className="sr-only">Loading drops…</p>
