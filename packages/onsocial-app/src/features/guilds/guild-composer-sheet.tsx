@@ -150,6 +150,15 @@ interface ComposerSheetProps {
   onModeChange?: (mode: ComposerMode) => void;
   /** Destination picker for `post` mode. */
   destination?: ComposerDestination;
+  /**
+   * Optional Public / Guild switcher for Drop compose (and similar
+   * cross-surface posts). Rendered above room chips when present.
+   */
+  feedTargets?: {
+    options: { id: string; label: string }[];
+    selectedId: string;
+    onChange: (id: string) => void;
+  };
   /** Prefill a Drop reference chip (“Post this Drop”). */
   initialDrop?: ComposerDropDraft | null;
   /** Prefill caption when opening with a Drop. */
@@ -227,6 +236,7 @@ export function ComposerSheet({
   targetAuthorProfile,
   onModeChange,
   destination,
+  feedTargets,
   initialDrop = null,
   initialText = '',
   pending,
@@ -701,6 +711,35 @@ export function ComposerSheet({
                 />
               </div>
             </div>
+            {mode === 'post' &&
+            feedTargets &&
+            feedTargets.options.length > 1 ? (
+              <div className="standing-sheet-toolbar-row">
+                <div
+                  className="guild-composer-mode"
+                  role="radiogroup"
+                  aria-label="Feed"
+                >
+                  {feedTargets.options.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={feedTargets.selectedId === option.id}
+                      className={
+                        feedTargets.selectedId === option.id
+                          ? 'is-active'
+                          : undefined
+                      }
+                      disabled={pending}
+                      onClick={() => feedTargets.onChange(option.id)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {mode === 'post' &&
             destination?.kind === 'guild' &&
             destination.channels.length > 1 ? (

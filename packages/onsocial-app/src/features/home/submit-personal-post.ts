@@ -13,9 +13,11 @@ import type {
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import {
-  postKindFromDropMedium,
-  scarcesContractIdForNetwork,
-} from '@/features/scarces/drop-compose-draft';
+  collectionEmbedFromDraft,
+  dropPostKind,
+  dropSnapshotExtra,
+  resolvedDropPostText,
+} from '@/features/scarces/drop-post-payload';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -61,32 +63,6 @@ function toastCopy(mode: ComposerMode) {
   };
 }
 
-function collectionEmbedFromDraft(drop: ComposerDropDraft) {
-  return {
-    kind: 'collection' as const,
-    chain: 'near',
-    contract: scarcesContractIdForNetwork(),
-    collectionId: drop.collectionId.trim(),
-    ...(drop.tokenId?.trim() ? { tokenId: drop.tokenId.trim() } : {}),
-  };
-}
-
-function dropSnapshotExtra(drop: ComposerDropDraft) {
-  return {
-    onsocial: {
-      drop: {
-        collectionId: drop.collectionId.trim(),
-        ...(drop.tokenId?.trim() ? { tokenId: drop.tokenId.trim() } : {}),
-        title: drop.title.trim() || drop.collectionId.trim(),
-        ...(drop.mediaUrl?.trim() ? { mediaUrl: drop.mediaUrl.trim() } : {}),
-        ...(drop.mediumKind?.trim()
-          ? { mediumKind: drop.mediumKind.trim().toLowerCase() }
-          : {}),
-      },
-    },
-  };
-}
-
 function buildOptimisticPost(args: {
   accountId: string;
   newPostId: string;
@@ -106,7 +82,7 @@ function buildOptimisticPost(args: {
     args;
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
   const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
-  const dropKind = drop ? postKindFromDropMedium(drop.mediumKind) : undefined;
+  const dropKind = dropPostKind(drop);
   const mediaKind =
     !pollEmbed && !drop && files?.length
       ? mediaKindFromFile(files[0]!)
@@ -218,17 +194,18 @@ export async function submitPersonalPost(args: {
       : null;
 
   const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
-  const dropKind = drop ? postKindFromDropMedium(drop.mediumKind) : undefined;
+  const dropKind = dropPostKind(drop);
+  const bodyText = resolvedDropPostText(text, drop);
 
   const newPostId = Date.now().toString();
   const filePayload = files.length ? { files } : {};
-  const tags = postMetaFromText(text);
+  const tags = postMetaFromText(bodyText);
   let response: unknown;
 
   if (mode === 'post') {
     response = await client.posts.create(
       {
-        text: text || (drop ? drop.title || 'Drop' : ''),
+        text: bodyText,
         timestamp: Date.now(),
         ...tags,
         ...(pollEmbed
@@ -306,7 +283,7 @@ export async function submitPersonalPost(args: {
     optimisticPost: buildOptimisticPost({
       accountId,
       newPostId,
-      text: text || (drop ? drop.title || 'Drop' : ''),
+      text: bodyText,
       mode,
       target,
       pollEmbed,
