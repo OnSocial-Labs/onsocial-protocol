@@ -273,6 +273,9 @@ export function MarketPagePanel({
   const toolbarHidden = useDockAutoHide(sortMenuOpen);
   const listingsSentinelRef = useRef<HTMLDivElement | null>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
+  // Soft SSR already seeded default browse — skip one duplicate keyed query.
+  const ssrDefaultBrowseSkipRef = useRef(canSeedDefaultBrowse);
+  const ssrSalesSkipRef = useRef(initialSales != null);
   const normalizedListingQuery = listingQuery.trim().toLowerCase();
   const searching = normalizedListingQuery.length > 0;
 
@@ -352,6 +355,14 @@ export function MarketPagePanel({
 
   // First catalog page; previous items stay rendered while params refine.
   useEffect(() => {
+    if (
+      ssrDefaultBrowseSkipRef.current &&
+      listingsParamsKey === DEFAULT_LISTINGS_PARAMS_KEY
+    ) {
+      ssrDefaultBrowseSkipRef.current = false;
+      return;
+    }
+    ssrDefaultBrowseSkipRef.current = false;
     let cancelled = false;
     // Ending sort always queries auctions, even mid-tab transition.
     const kinds =
@@ -467,6 +478,11 @@ export function MarketPagePanel({
   });
 
   useEffect(() => {
+    if (ssrSalesSkipRef.current && retryKey === 0) {
+      ssrSalesSkipRef.current = false;
+      return;
+    }
+    ssrSalesSkipRef.current = false;
     let cancelled = false;
     setSalesExpanded(false);
     fetchMarketSales().then(

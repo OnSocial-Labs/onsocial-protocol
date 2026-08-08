@@ -44,10 +44,11 @@ For `@onsocial/app` (and SDK query helpers it consumes), browse/list/detail firs
 4. Skip client refetch when SSR already matches.
 5. Add a unit test that mocks the indexer client and asserts RPC is **not** called on the happy path (see `market-listings-indexer.test.ts`).
 
-## Not “100% done” yet (do not regress; prefer closing these)
+## Closed hardening (do not regress)
 
-- Portfolio SSR chain fallback when indexed `page/main` is empty
-- Owned page N× `collectionCurrent` (batch when SDK allows)
-- Series catalog heading N× brand soft-fill
-- Market/app post-SSR double-fetch of browse data
-- Guild writers sheet N× `permissions.has`
+- Portfolio SSR trusts indexer only; empty `page/main` soft-fills client-side
+- Owned vault catalog enrich uses `collectionsCurrentByIds` (one round-trip)
+- Series catalog headings prefetch brands with one `social.get` per creator
+- Market default browse + sales skip duplicate SSR refetch; collection skips first soft refresh when SSR solid
+- Guild writers sheet / counts paint from `permissions.forPath` fold; `permissions.has` stay mutate-time
+- DAO `get_policy` soft-fill uses short process TTL cache (never SSR)

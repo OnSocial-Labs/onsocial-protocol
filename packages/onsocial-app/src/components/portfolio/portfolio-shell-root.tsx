@@ -3,6 +3,7 @@
 import {
   Suspense,
   useEffect,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from 'react';
@@ -34,7 +35,11 @@ import type { PageDrawerMeta } from '@/lib/page-drawer-meta';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { resolvePageFace } from '@/lib/page-face';
-import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
+import {
+  portfolioMoodShellStyle,
+  resolvePortfolioMood,
+} from '@/lib/moods/resolve';
+import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 
 interface PortfolioShellRootProps {
   mood: ResolvedMood;
@@ -174,14 +179,37 @@ export function PortfolioShellRoot({
   initialAvatarMode,
   mood,
   config,
+  pageAccountId,
   ...props
 }: PortfolioShellRootProps) {
+  const [liveConfig, setLiveConfig] = useState(config);
+  const [liveMood, setLiveMood] = useState(mood);
+
   useEffect(() => {
     document.body.dataset.portfolioClientReady = 'true';
     return () => {
       delete document.body.dataset.portfolioClientReady;
     };
   }, []);
+
+  // Indexer page/main lag — soft-fill theme/mood from chain once when SSR was empty.
+  useEffect(() => {
+    if (Object.keys(config).length > 0) return;
+    let cancelled = false;
+    void fetchPageConfigFromBrowserProxy(pageAccountId)
+      .then((next) => {
+        if (cancelled || Object.keys(next).length === 0) return;
+        const filled = next as PublicPageConfig;
+        setLiveConfig(filled);
+        setLiveMood(resolvePortfolioMood(filled));
+      })
+      .catch(() => {
+        // Keep SSR default mood/theme.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [config, pageAccountId]);
 
   return (
     <PageContentDrawerProvider>
@@ -190,8 +218,16 @@ export function PortfolioShellRoot({
         committedHeroSource={committedHeroSource}
         initialAvatarMode={initialAvatarMode}
       >
-        <PortfolioMoodPreviewProvider committedMood={mood} config={config}>
-          <PortfolioShellPreviewBridge mood={mood} config={config} {...props} />
+        <PortfolioMoodPreviewProvider
+          committedMood={liveMood}
+          config={liveConfig}
+        >
+          <PortfolioShellPreviewBridge
+            mood={liveMood}
+            config={liveConfig}
+            pageAccountId={pageAccountId}
+            {...props}
+          />
         </PortfolioMoodPreviewProvider>
       </PortfolioFacePreviewProvider>
     </PageContentDrawerProvider>

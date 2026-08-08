@@ -1,5 +1,5 @@
 import type { NearWalletBase } from '@hot-labs/near-connect';
-import type { OnSocial, RelayResponse } from '@onsocial/sdk';
+import type { OnSocial, PermissionEventRow, RelayResponse } from '@onsocial/sdk';
 import { PERMISSION } from '@onsocial/sdk';
 import {
   allowlistLeaders,
@@ -14,6 +14,51 @@ import {
   type GuildViewerAccess,
 } from '@/features/guilds/guild-structure';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
+
+/** Fold newest-first permission events into current WRITE+ grantees. */
+export function foldSpaceWriteGrantees(
+  events: ReadonlyArray<PermissionEventRow>,
+  minLevel: number = PERMISSION.WRITE
+): Set<string> {
+  const granted = new Set<string>();
+  const resolved = new Set<string>();
+  for (const event of events) {
+    const target = event.targetId?.trim();
+    if (!target || resolved.has(target)) continue;
+    resolved.add(target);
+    const op = event.operation?.trim().toLowerCase() ?? '';
+    const isAccountGrant = op === 'grant';
+    if (
+      isAccountGrant &&
+      !event.deleted &&
+      typeof event.level === 'number' &&
+      event.level >= minLevel
+    ) {
+      granted.add(target);
+    }
+  }
+  return granted;
+}
+
+/**
+ * Indexer paint for space WRITE grants — one `forPath` fold. Keep
+ * `permissions.has` for mutate-time verify only.
+ */
+export async function loadGuildSpaceWriteGrantees(
+  client: OnSocial,
+  groupId: string,
+  spaceId: string
+): Promise<Set<string>> {
+  const path = guildSpaceWritePath(groupId, spaceId);
+  try {
+    const events = await client.query.permissions.forPath(path, {
+      limit: 200,
+    });
+    return foldSpaceWriteGrantees(events);
+  } catch {
+    return new Set();
+  }
+}
 
 /** Owner-led allowlist grants hit `execute_admin` and need wallet broadcast. */
 function walletPermissionsClient(
@@ -43,24 +88,19 @@ export async function resolveViewerAllowlistSpaceIds(
   );
   if (allowlistSpaces.length === 0) return new Set();
 
-  const granted = await Promise.all(
+  // One forPath per allowlist room (usually few) — no N× chain has.
+  const flags = await Promise.all(
     allowlistSpaces.map(async (space) => {
-      const path = guildSpaceWritePath(groupId, space.id);
-      try {
-        const ok = await client.permissions.has(
-          groupId,
-          accountId,
-          path,
-          PERMISSION.WRITE
-        );
-        return ok ? space.id : null;
-      } catch {
-        return null;
-      }
+      const grantees = await loadGuildSpaceWriteGrantees(
+        client,
+        groupId,
+        space.id
+      );
+      return grantees.has(accountId) ? space.id : null;
     })
   );
 
-  return new Set(granted.filter((id): id is string => Boolean(id)));
+  return new Set(flags.filter((id): id is string => Boolean(id)));
 }
 
 export async function grantGuildSpaceWrite(input: {
@@ -177,13 +217,12 @@ export async function loadGuildSpaceWriterCounts(
     return { grantedCount: 0, leaderCount: leaders.length };
   }
 
-  const flags = await Promise.all(
-    roster.map((member) =>
-      memberHasGuildSpaceWrite(client, groupId, member.memberId, spaceId)
-    )
-  );
+  const grantees = await loadGuildSpaceWriteGrantees(client, groupId, spaceId);
+  const grantedCount = roster.filter((member) =>
+    grantees.has(member.memberId)
+  ).length;
   return {
-    grantedCount: flags.filter(Boolean).length,
+    grantedCount,
     leaderCount: leaders.length,
   };
 }

@@ -25,7 +25,7 @@ import {
 } from '@/features/guilds/guild-member-roster';
 import {
   grantGuildSpaceWrite,
-  memberHasGuildSpaceWrite,
+  loadGuildSpaceWriteGrantees,
   revokeGuildSpaceWrite,
 } from '@/features/guilds/guild-space-write';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -116,19 +116,11 @@ export function GuildSpaceWritersSheet({
       setLeaders(leaderRows);
       setMembers(roster);
 
-      const grantFlags = await Promise.all(
-        roster.map(async (member) => {
-          const ok = await memberHasGuildSpaceWrite(
-            client,
-            groupId,
-            member.memberId,
-            spaceId
-          );
-          return ok ? member.memberId : null;
-        })
-      );
-      const granted = new Set(
-        grantFlags.filter((id): id is string => Boolean(id))
+      // Indexer forPath fold — paint without N× permissions.has RPCs.
+      const granted = await loadGuildSpaceWriteGrantees(
+        client,
+        groupId,
+        spaceId
       );
       setGrantedIds(granted);
       setSelectedIds(new Set(granted));

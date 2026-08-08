@@ -1099,10 +1099,9 @@ export async function fetchOwnedScarceForCollection(
 
 /**
  * One newest-first page of scarces owned by `accountId`, with listed price
- * when already for sale. Intentional RPC path (`nft_supply_for_owner` +
- * `nft_tokens_for_owner` + owner sales) — no owned-inventory indexer sink
- * yet. Contract enumeration is oldest→newest, so pages are cut from the end
- * of the range and flipped; `hasMore` stops at `OWNED_MAX_TOKENS`.
+ * when already for sale. Indexer-first (`ownedBy` + batch
+ * `collectionsCurrentByIds`); RPC `nft_tokens_for_owner` only on Hasura
+ * failure. `hasMore` stops at `OWNED_MAX_TOKENS`.
  */
 async function fetchOwnedScarcesPageFromIndexer(
   owner: string,
@@ -1131,17 +1130,24 @@ async function fetchOwnedScarcesPageFromIndexer(
         .filter((id): id is string => Boolean(id))
     ),
   ];
-  const collections = await Promise.all(
-    collectionIds.map(async (collectionId) => {
-      try {
-        const row = await client.query.scarces.collectionCurrent(collectionId);
-        return [collectionId, row] as const;
-      } catch {
-        return [collectionId, null] as const;
+  const collectionById = new Map<
+    string,
+    Awaited<
+      ReturnType<typeof client.query.scarces.collectionsCurrentByIds>
+    >[number]
+  >();
+  if (collectionIds.length > 0) {
+    try {
+      const catalogRows =
+        await client.query.scarces.collectionsCurrentByIds(collectionIds);
+      for (const row of catalogRows) {
+        const id = row.collectionId?.trim();
+        if (id) collectionById.set(id, row);
       }
-    })
-  );
-  const collectionById = new Map(collections);
+    } catch {
+      // Thin vault without titles still paints; RPC path covers hard failure.
+    }
+  }
 
   const listedByToken = await fetchOwnerListedStates(owner);
   const items: OwnedScarceItem[] = [];

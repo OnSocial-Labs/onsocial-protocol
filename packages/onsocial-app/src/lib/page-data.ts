@@ -3,8 +3,6 @@ import { unstable_noStore as noStore } from 'next/cache';
 import type { OnSocial } from '@onsocial/sdk';
 import { ACTIVE_API_URL } from '@/lib/app-config';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
-import { fetchPageConfigFromChain } from '@/lib/read-page-config';
-
 export interface PublicPageProfile {
   name?: string;
   bio?: string;
@@ -208,7 +206,7 @@ async function fetchPublicPageDataFromIndexer(
   os: OnSocial,
   accountId: string
 ): Promise<PublicPageData | null> {
-  // Indexer page/main for first paint — chain get-one only as empty fallback.
+  // Indexer page/main only — empty/lag soft-fills client-side; never SSR chain.
   const [exists, materialisedProfile, indexedConfig] = await Promise.all([
     fetchAccountExists(accountId),
     os.profiles.get(accountId),
@@ -219,10 +217,7 @@ async function fetchPublicPageDataFromIndexer(
     return null;
   }
 
-  let config = (indexedConfig ?? {}) as PublicPageConfig;
-  if (!indexedConfig || Object.keys(config).length === 0) {
-    config = await fetchPageConfigFromChain(accountId);
-  }
+  const config = (indexedConfig ?? {}) as PublicPageConfig;
 
   const activated = hasPageActivationData(
     materialisedProfile

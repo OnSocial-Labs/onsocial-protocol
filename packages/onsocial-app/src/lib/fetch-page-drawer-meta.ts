@@ -77,12 +77,36 @@ async function viewContractJson<T>(
   }
 }
 
-/** DAO policy roles — client soft-fill only; never block portfolio SSR. */
-export async function fetchDaoRoleLabels(accountId: string): Promise<string[]> {
+/** DAO policies change rarely — reuse across sheet opens / concurrent lookups. */
+const DAO_POLICY_TTL_MS = 5 * 60 * 1000;
+let daoPolicyCache: {
+  at: number;
+  governance: DaoPolicy | null;
+  treasury: DaoPolicy | null;
+} | null = null;
+
+async function loadDaoPolicies(): Promise<{
+  governance: DaoPolicy | null;
+  treasury: DaoPolicy | null;
+}> {
+  const now = Date.now();
+  if (daoPolicyCache && now - daoPolicyCache.at < DAO_POLICY_TTL_MS) {
+    return {
+      governance: daoPolicyCache.governance,
+      treasury: daoPolicyCache.treasury,
+    };
+  }
   const [governance, treasury] = await Promise.all([
     viewContractJson<DaoPolicy>(GOVERNANCE_DAO_ACCOUNT, 'get_policy'),
     viewContractJson<DaoPolicy>(TREASURY_DAO_ACCOUNT, 'get_policy'),
   ]);
+  daoPolicyCache = { at: now, governance, treasury };
+  return { governance, treasury };
+}
+
+/** DAO policy roles — client soft-fill only; never block portfolio SSR. */
+export async function fetchDaoRoleLabels(accountId: string): Promise<string[]> {
+  const { governance, treasury } = await loadDaoPolicies();
 
   const roleIds = sortDaoRoleIds([
     ...roleIdsForAccount(governance, accountId),

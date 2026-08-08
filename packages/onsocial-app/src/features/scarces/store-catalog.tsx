@@ -14,6 +14,7 @@ import {
 } from '@/features/market/market-listings';
 import {
   fetchSeriesBrandingCached,
+  prefetchSeriesBrandingForGroups,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
 import {
@@ -273,6 +274,11 @@ function SeriesSectionHeading({ group }: { group: DropGroup }) {
 /** Drops list with series sections; consecutive standalone drops share one list. */
 function GroupedDropsList({ drops }: { drops: CollectionView[] }) {
   const groups = groupDropsBySeries(drops);
+
+  useEffect(() => {
+    void prefetchSeriesBrandingForGroups(groupDropsBySeries(drops));
+  }, [drops]);
+
   const blocks: ReactNode[] = [];
   let standalone: CollectionView[] = [];
 

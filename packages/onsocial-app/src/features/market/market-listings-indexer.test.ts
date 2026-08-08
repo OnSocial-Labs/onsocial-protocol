@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const activeListings = vi.fn();
 const ownedBy = vi.fn();
 const collectionCurrent = vi.fn();
+const collectionsCurrentByIds = vi.fn();
 const viewNearContract = vi.fn();
 
 vi.mock('@/lib/create-readonly-onsocial-client', () => ({
@@ -12,6 +13,7 @@ vi.mock('@/lib/create-readonly-onsocial-client', () => ({
         activeListings,
         ownedBy,
         collectionCurrent,
+        collectionsCurrentByIds,
       },
     },
   }),
@@ -45,6 +47,7 @@ describe('indexer-first market listings', () => {
     activeListings.mockReset();
     ownedBy.mockReset();
     collectionCurrent.mockReset();
+    collectionsCurrentByIds.mockReset();
     viewNearContract.mockReset();
   });
 
@@ -103,7 +106,7 @@ describe('indexer-first market listings', () => {
     });
   });
 
-  it('fetchOwnedScarcesPage uses ownedBy + collectionCurrent without nft_tokens_for_owner', async () => {
+  it('fetchOwnedScarcesPage uses ownedBy + collectionsCurrentByIds without nft_tokens_for_owner', async () => {
     ownedBy.mockResolvedValue({
       items: [
         {
@@ -115,40 +118,82 @@ describe('indexer-first market listings', () => {
           mintedBlockTimestamp: 1,
           updatedBlockTimestamp: 2,
         },
+        {
+          tokenId: 'drop-2:1',
+          ownerId: 'bob.near',
+          burned: false,
+          collectionId: 'drop-2',
+          appId: null,
+          mintedBlockTimestamp: 1,
+          updatedBlockTimestamp: 2,
+        },
       ],
       nextOffset: undefined,
     });
-    collectionCurrent.mockResolvedValue({
-      collectionId: 'drop-1',
-      creatorId: 'alice.near',
-      appId: null,
-      price: ONE_NEAR_YOCTO,
-      allowlistPrice: null,
-      totalSupply: 10,
-      mintedCount: 2,
-      remaining: 8,
-      startTime: null,
-      endTime: null,
-      createdAt: null,
-      mintMode: null,
-      maxPerWallet: null,
-      paused: false,
-      cancelled: false,
-      banned: false,
-      transferable: true,
-      renewable: false,
-      maxRedeems: null,
-      randomAssignment: false,
-      appCommissionBps: null,
-      title: 'Drop One',
-      media: 'bafymediaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      description: 'A drop',
-      kind: 'audio',
-      metadataTemplate: null,
-      metadata: null,
-      extraJson: JSON.stringify({ kind: 'audio', audioFormat: 'single' }),
-      royaltyJson: null,
-    });
+    collectionsCurrentByIds.mockResolvedValue([
+      {
+        collectionId: 'drop-1',
+        creatorId: 'alice.near',
+        appId: null,
+        price: ONE_NEAR_YOCTO,
+        allowlistPrice: null,
+        totalSupply: 10,
+        mintedCount: 2,
+        remaining: 8,
+        startTime: null,
+        endTime: null,
+        createdAt: null,
+        mintMode: null,
+        maxPerWallet: null,
+        paused: false,
+        cancelled: false,
+        banned: false,
+        transferable: true,
+        renewable: false,
+        maxRedeems: null,
+        randomAssignment: false,
+        appCommissionBps: null,
+        title: 'Drop One',
+        media: 'bafymediaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        description: 'A drop',
+        kind: 'audio',
+        metadataTemplate: null,
+        metadata: null,
+        extraJson: JSON.stringify({ kind: 'audio', audioFormat: 'single' }),
+        royaltyJson: null,
+      },
+      {
+        collectionId: 'drop-2',
+        creatorId: 'alice.near',
+        appId: null,
+        price: ONE_NEAR_YOCTO,
+        allowlistPrice: null,
+        totalSupply: 5,
+        mintedCount: 1,
+        remaining: 4,
+        startTime: null,
+        endTime: null,
+        createdAt: null,
+        mintMode: null,
+        maxPerWallet: null,
+        paused: false,
+        cancelled: false,
+        banned: false,
+        transferable: true,
+        renewable: false,
+        maxRedeems: null,
+        randomAssignment: false,
+        appCommissionBps: null,
+        title: 'Drop Two',
+        media: 'bafymediabbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        description: 'B drop',
+        kind: 'image',
+        metadataTemplate: null,
+        metadata: null,
+        extraJson: JSON.stringify({ kind: 'image' }),
+        royaltyJson: null,
+      },
+    ]);
     activeListings.mockResolvedValue([]);
 
     const page = await fetchOwnedScarcesPage('bob.near');
@@ -157,9 +202,11 @@ describe('indexer-first market listings', () => {
       limit: 24,
       offset: 0,
     });
-    expect(collectionCurrent).toHaveBeenCalledWith('drop-1');
+    expect(collectionsCurrentByIds).toHaveBeenCalledTimes(1);
+    expect(collectionsCurrentByIds).toHaveBeenCalledWith(['drop-1', 'drop-2']);
+    expect(collectionCurrent).not.toHaveBeenCalled();
     expect(viewNearContract).not.toHaveBeenCalled();
-    expect(page.items).toHaveLength(1);
+    expect(page.items).toHaveLength(2);
     expect(page.items[0]).toMatchObject({
       tokenId: 'drop-1:2',
       title: 'Drop One',

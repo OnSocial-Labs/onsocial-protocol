@@ -3088,6 +3088,32 @@ describe('QueryModule', () => {
       expect(body.variables).toEqual({ collectionId: 'drop-1' });
     });
 
+    it('collectionsCurrentByIds batches collectionId _in', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          scarcesCollectionsCurrent: [
+            { collectionId: 'drop-1' },
+            { collectionId: 'drop-2' },
+          ],
+        },
+      });
+      const rows = await os.query.scarces.collectionsCurrentByIds([
+        'drop-1',
+        'drop-2',
+        'drop-1',
+      ]);
+
+      expect(rows).toHaveLength(2);
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/collectionId: \{_in: \$ids\}/);
+      expect(body.variables).toEqual({
+        ids: ['drop-1', 'drop-2'],
+        limit: 2,
+      });
+    });
+
     it('collectionsCurrent filters creator/app/kind and hides unavailable', async () => {
       const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
       await os.query.scarces.collectionsCurrent({

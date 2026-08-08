@@ -9,8 +9,8 @@
 //
 // Historical activity: `events()` / helpers → `scarces_events`.
 // Live Market catalog: `activeListings()` → `scarces_active_listings`
-// Live drop catalog: `collectionCurrent()` / `collectionsCurrent()` →
-//   `scarces_collections_current`
+// Live drop catalog: `collectionCurrent()` / `collectionsCurrent()` /
+//   `collectionsCurrentByIds()` → `scarces_collections_current`
 // Owned inventory: `ownedBy()` → `scarces_token_owners`
 // Open offers: `activeOffers()` → `scarces_active_offers`
 // (sink-maintained). Buy/bid still verify against the scarces contract.
@@ -816,6 +816,37 @@ export class ScarcesQuery {
         ) { ${SCARCES_COLLECTION_CURRENT_FIELDS} }
       }`,
       variables,
+    });
+    return res.data?.scarcesCollectionsCurrent ?? [];
+  }
+
+  /**
+   * Live drop shells for many collection ids (one Hasura round-trip).
+   * Includes paused/cancelled/banned rows so vault enrich can still title
+   * inventory the owner already holds.
+   *
+   * ```ts
+   * const rows = await os.query.scarces.collectionsCurrentByIds(['drop-1', 'drop-2']);
+   * ```
+   */
+  async collectionsCurrentByIds(
+    collectionIds: string[]
+  ): Promise<ScarcesCollectionCurrentRow[]> {
+    const ids = Array.from(
+      new Set(collectionIds.map((id) => id.trim()).filter(Boolean))
+    );
+    if (ids.length === 0) return [];
+
+    const res = await this._q.graphql<{
+      scarcesCollectionsCurrent: ScarcesCollectionCurrentRow[];
+    }>({
+      query: `query ScarcesCollectionsCurrentByIds($ids: [String!]!, $limit: Int!) {
+        scarcesCollectionsCurrent(
+          where: { collectionId: {_in: $ids} },
+          limit: $limit
+        ) { ${SCARCES_COLLECTION_CURRENT_FIELDS} }
+      }`,
+      variables: { ids, limit: ids.length },
     });
     return res.data?.scarcesCollectionsCurrent ?? [];
   }

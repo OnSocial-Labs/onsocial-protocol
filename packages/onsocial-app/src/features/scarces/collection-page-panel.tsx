@@ -199,7 +199,9 @@ export function CollectionPagePanel({
   const hasImmersiveCover = Boolean(view?.mediaUrl || view?.cardBg);
 
   // Soft indexer refresh after paint (minted/remaining/paused/price); RPC only if thin.
+  // SSR already seeded a solid shell — skip the first keyed refetch.
   useEffect(() => {
+    if (refreshKey === 0 && initial != null) return;
     let cancelled = false;
     void fetchCollectionPreferIndexer(collectionId).then((next) => {
       if (cancelled) return;

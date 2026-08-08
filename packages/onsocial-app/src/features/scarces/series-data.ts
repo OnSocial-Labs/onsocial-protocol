@@ -93,17 +93,52 @@ export async function fetchSeriesBranding(
   const creator = creatorId.trim();
   const id = seriesId.trim();
   if (!creator || !id) return null;
+  const map = await fetchSeriesBrandingBatch(creator, [id]);
+  return map.get(id) ?? null;
+}
+
+/**
+ * One `social.get` per creator for many series ids — avoids N× getOne on
+ * hub catalog headings.
+ */
+export async function fetchSeriesBrandingBatch(
+  creatorId: string,
+  seriesIds: string[]
+): Promise<Map<string, SeriesBranding | null>> {
+  const creator = creatorId.trim();
+  const ids = Array.from(
+    new Set(seriesIds.map((id) => id.trim()).filter(Boolean))
+  );
+  const out = new Map<string, SeriesBranding | null>();
+  if (!creator || ids.length === 0) return out;
+
   try {
     const { createReadOnlyOnSocialClient } = await import(
       '@/lib/create-readonly-onsocial-client'
     );
     const client = createReadOnlyOnSocialClient();
-    const entry = await client.social.getOne(seriesDataPath(id), creator);
-    if (!entry || entry.deleted || entry.value == null) return null;
-    return parseBranding(creator, id, entry.value);
+    const keys = ids.map((id) => seriesDataPath(id));
+    const entries = await client.social.get(keys, creator);
+    const byKey = new Map<string, (typeof entries)[number]>();
+    for (const entry of entries) {
+      const requested = entry.requested_key?.trim();
+      const full = entry.full_key?.trim();
+      if (requested) byKey.set(requested, entry);
+      if (full) byKey.set(full, entry);
+    }
+    for (const id of ids) {
+      const path = seriesDataPath(id);
+      const entry = byKey.get(path);
+      if (!entry || entry.deleted || entry.value == null) {
+        out.set(id, null);
+        continue;
+      }
+      out.set(id, parseBranding(creator, id, entry.value));
+    }
   } catch {
-    return null;
+    for (const id of ids) out.set(id, null);
   }
+  return out;
 }
 
 // Per-session cache so catalog series headings don't refetch on re-render.
@@ -121,6 +156,52 @@ export function fetchSeriesBrandingCached(
     brandingCache.set(key, pending);
   }
   return pending;
+}
+
+/**
+ * Prefetch brands for catalog groups — one get() per creator, fills the
+ * session cache so section headings resolve without N× getOne.
+ */
+export function prefetchSeriesBrandingForGroups(
+  groups: ReadonlyArray<{ creatorId: string; seriesId: string | null }>
+): Promise<void> {
+  const byCreator = new Map<string, string[]>();
+  for (const group of groups) {
+    const creator = group.creatorId.trim();
+    const seriesId = group.seriesId?.trim();
+    if (!creator || !seriesId) continue;
+    const key = `${creator}:${seriesId}`;
+    if (brandingCache.has(key)) continue;
+    const list = byCreator.get(creator) ?? [];
+    list.push(seriesId);
+    byCreator.set(creator, list);
+  }
+
+  return Promise.all(
+    [...byCreator.entries()].map(async ([creator, seriesIds]) => {
+      const unique = [...new Set(seriesIds)];
+      // Reserve cache slots so headings don't race a second getOne.
+      const resolvers = new Map<
+        string,
+        (value: SeriesBranding | null) => void
+      >();
+      for (const id of unique) {
+        const key = `${creator}:${id}`;
+        if (brandingCache.has(key)) continue;
+        brandingCache.set(
+          key,
+          new Promise<SeriesBranding | null>((resolve) => {
+            resolvers.set(id, resolve);
+          })
+        );
+      }
+      if (resolvers.size === 0) return;
+      const map = await fetchSeriesBrandingBatch(creator, [...resolvers.keys()]);
+      for (const [id, resolve] of resolvers) {
+        resolve(map.get(id) ?? null);
+      }
+    })
+  ).then(() => undefined);
 }
 
 /** Drop the cached entry after the creator saves new branding. */
