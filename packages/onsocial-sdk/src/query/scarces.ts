@@ -878,9 +878,7 @@ export class ScarcesQuery {
   /**
    * Most-loved albums from `scarce_album_love_fans` (fan_count desc).
    */
-  async albumLoveFans(
-    opts: { limit?: number; offset?: number } = {}
-  ): Promise<
+  async albumLoveFans(opts: { limit?: number; offset?: number } = {}): Promise<
     Array<{
       postOwner: string;
       collectionId: string;
