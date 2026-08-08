@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
@@ -23,20 +23,33 @@ export function DiscoverFocusListPanel({
   kind,
   filterPrefix,
   tabId,
+  initialRows = null,
 }: {
   kind: TopicKind;
   filterPrefix: string;
   tabId: string;
+  /** SSR trending seed when the filter is empty. */
+  initialRows?: Array<HashtagCount | TickerCount> | null;
 }) {
-  const [rows, setRows] = useState<Array<HashtagCount | TickerCount>>([]);
-  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<Array<HashtagCount | TickerCount>>(
+    () => (!filterPrefix && initialRows ? initialRows : [])
+  );
+  const [loading, setLoading] = useState(
+    () => !(!filterPrefix && initialRows != null)
+  );
   const [error, setError] = useState<string | null>(null);
+  const hasPaintedRef = useRef(
+    Boolean(!filterPrefix && initialRows && initialRows.length > 0)
+  );
 
   useEffect(() => {
     let cancelled = false;
+    const soft = !filterPrefix && hasPaintedRef.current;
     const timer = window.setTimeout(() => {
       void (async () => {
-        setLoading(true);
+        if (!soft) {
+          setLoading(true);
+        }
         setError(null);
         try {
           const client = createReadOnlyOnSocialClient();
@@ -52,17 +65,22 @@ export function DiscoverFocusListPanel({
                     limit: LIST_LIMIT,
                   })
                 : await client.query.hashtags.trending({ limit: LIST_LIMIT });
-          if (!cancelled) setRows(next);
+          if (!cancelled) {
+            setRows(next);
+            hasPaintedRef.current = next.length > 0 && !filterPrefix;
+          }
         } catch (cause) {
           if (cancelled) return;
-          setRows([]);
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : kind === 'ticker'
-                ? 'Could not load tickers.'
-                : 'Could not load topics.'
-          );
+          if (!soft) {
+            setRows([]);
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : kind === 'ticker'
+                  ? 'Could not load tickers.'
+                  : 'Could not load topics.'
+            );
+          }
         } finally {
           if (!cancelled) setLoading(false);
         }

@@ -21,6 +21,7 @@ interface EndorsementsPanelProps {
   accountId: string;
   profileName?: string | null;
   avatarUrl?: string | null;
+  initial?: EndorsementsPanelResponse | null;
 }
 
 async function fetchEndorsements(
@@ -55,11 +56,14 @@ export function EndorsementsPanel({
   accountId,
   profileName = null,
   avatarUrl = null,
+  initial = null,
 }: EndorsementsPanelProps) {
   const { accountId: viewerAccountId, isConnected, connect } = useAppWallet();
   const [mode, setMode] = useState<EndorsementsMode>('received');
-  const [data, setData] = useState<EndorsementsPanelResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<EndorsementsPanelResponse | null>(
+    () => initial
+  );
+  const [loading, setLoading] = useState(() => !initial);
   const [error, setError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
 
@@ -68,24 +72,31 @@ export function EndorsementsPanel({
     accountIdsEqual(viewerAccountId!, accountId);
   const label = displayName(accountId, profileName ?? undefined);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { soft?: boolean }) => {
+    const soft = Boolean(opts?.soft);
+    if (!soft) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const next = await fetchEndorsements(accountId);
       setData(next);
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : 'Could not load endorsements.'
-      );
+      if (!soft) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Could not load endorsements.'
+        );
+      }
     } finally {
       setLoading(false);
     }
   }, [accountId]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load({ soft: Boolean(initial) });
+  }, [accountId, initial, load]);
 
   const items = mode === 'received' ? (data?.received ?? []) : (data?.given ?? []);
   const receivedCount = data?.counts.received ?? 0;

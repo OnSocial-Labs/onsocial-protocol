@@ -30,6 +30,20 @@ import {
 import { pageContentDrawerPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 
+async function fetchDaoRoleLabelsClient(
+  accountId: string
+): Promise<string[]> {
+  const response = await fetch(
+    `/api/profile/dao-roles?accountId=${encodeURIComponent(accountId)}`,
+    { cache: 'no-store' }
+  );
+  if (!response.ok) return [];
+  const body = (await response.json().catch(() => null)) as {
+    daoRoleLabels?: string[];
+  } | null;
+  return Array.isArray(body?.daoRoleLabels) ? body.daoRoleLabels : [];
+}
+
 interface PageJoinedFactsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -113,6 +127,11 @@ export function PageJoinedFactsSheet({
   const [closing, setClosing] = useState(false);
   const [creation, setCreation] = useState<AppNearAccountCreation | null>(null);
   const [creationLoading, setCreationLoading] = useState(false);
+  const [fetchedDaoRoles, setFetchedDaoRoles] = useState<string[] | null>(null);
+  const daoRoleLabels =
+    meta.daoRoleLabels.length > 0
+      ? meta.daoRoleLabels
+      : (fetchedDaoRoles ?? []);
   const sheetOpen = open && !closing;
   const joinedShort = formatPageDrawerJoinedLabel(meta.joinedAt);
   const joinedFull = formatPageDrawerJoinedFullLabel(meta.joinedAt);
@@ -157,10 +176,21 @@ export function PageJoinedFactsSheet({
         }
       });
 
+    // Soft-fill DAO credentials after sheet open (not on portfolio SSR).
+    if (meta.daoRoleLabels.length === 0) {
+      void fetchDaoRoleLabelsClient(pageAccountId)
+        .then((labels) => {
+          if (!cancelled && labels.length > 0) {
+            setFetchedDaoRoles(labels);
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [open, pageAccountId]);
+  }, [meta.daoRoleLabels.length, open, pageAccountId]);
 
   const posts =
     meta.postCount > 0
@@ -235,12 +265,12 @@ export function PageJoinedFactsSheet({
         value={<CountValue count={scarces.count} unit={scarces.unit} />}
       />
     );
-  if (meta.daoRoleLabels.length > 0) {
+  if (daoRoleLabels.length > 0) {
     onSocialRows.push(
       <FactRow
         key="roles"
         label="Roles"
-        value={meta.daoRoleLabels.join(' · ')}
+        value={daoRoleLabels.join(' · ')}
       />
     );
   }

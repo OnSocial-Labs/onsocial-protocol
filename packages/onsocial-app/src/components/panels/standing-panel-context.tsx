@@ -756,10 +756,12 @@ export function StandingPanelProvider({
     [initialList, activeKind, kind, query, initialQuery]
   );
   const hasListRows = filteredAccounts.length > 0;
+  // Never blank painted rows while the wallet hydrates — soft-refresh instead.
   const showListSkeleton =
-    walletLoading ||
-    (!listBootstrapReady && isLoading && !hasListRows) ||
-    (!listBootstrapReady && !relationshipSynced && !hasListRows);
+    !hasListRows &&
+    (walletLoading ||
+      (!listBootstrapReady && isLoading) ||
+      (!listBootstrapReady && !relationshipSynced));
   const showLoadMoreSentinel =
     hasMore && !query.trim() && filteredAccounts.length > 0;
 

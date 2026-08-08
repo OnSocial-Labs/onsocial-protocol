@@ -208,14 +208,20 @@ async function fetchPublicPageDataFromIndexer(
   os: OnSocial,
   accountId: string
 ): Promise<PublicPageData | null> {
-  const [exists, materialisedProfile, config] = await Promise.all([
+  // Indexer page/main for first paint — chain get-one only as empty fallback.
+  const [exists, materialisedProfile, indexedConfig] = await Promise.all([
     fetchAccountExists(accountId),
     os.profiles.get(accountId),
-    fetchPageConfigFromChain(accountId),
+    os.query.pages.getConfig(accountId).catch(() => null),
   ]);
 
   if (exists === false) {
     return null;
+  }
+
+  let config = (indexedConfig ?? {}) as PublicPageConfig;
+  if (!indexedConfig || Object.keys(config).length === 0) {
+    config = await fetchPageConfigFromChain(accountId);
   }
 
   const activated = hasPageActivationData(

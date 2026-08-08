@@ -7,7 +7,8 @@ import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client'
 import { mapDiscoverPageToResponse } from '@/lib/discover-profiles-server-map';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 
-const SECTION_LIMIT = 6;
+/** Enough for Topics/Tickers tabs; trending sections slice locally. */
+const SECTION_LIMIT = 24;
 
 export type DiscoverTrendingGuild = {
   groupId: string;

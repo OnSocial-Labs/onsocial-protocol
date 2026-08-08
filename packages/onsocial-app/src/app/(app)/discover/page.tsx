@@ -33,13 +33,17 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
   const needsProfiles =
     tab === 'profiles' || Boolean(initialQuery.trim());
+  // Topics/tickers tabs also need the trending seed for first paint.
+  const needsTrending =
+    tab === 'trending' ||
+    tab === 'profiles' ||
+    tab === 'topics' ||
+    tab === 'tickers';
   const [initialPage, initialTrending] = await Promise.all([
     needsProfiles
       ? loadDiscoverProfilesPage(initialQuery, null, 0).catch(() => null)
       : Promise.resolve(null),
-    tab === 'trending' || tab === 'profiles'
-      ? loadDiscoverTrendingSeed()
-      : Promise.resolve(null),
+    needsTrending ? loadDiscoverTrendingSeed() : Promise.resolve(null),
   ]);
 
   return (

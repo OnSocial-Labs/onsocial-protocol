@@ -151,6 +151,7 @@ export function DiscoverPanelContent() {
           kind="hashtag"
           filterPrefix={topicFilterPrefix}
           tabId="discover-panel-topics"
+          initialRows={initialTrending?.topics ?? null}
         />
       ) : null}
 
@@ -159,6 +160,7 @@ export function DiscoverPanelContent() {
           kind="ticker"
           filterPrefix={topicFilterPrefix}
           tabId="discover-panel-tickers"
+          initialRows={initialTrending?.tickers ?? null}
         />
       ) : null}
     </div>

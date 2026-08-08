@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Fragment,
+  Suspense,
   useEffect,
   type CSSProperties,
   type ReactNode,
@@ -157,10 +157,11 @@ function PortfolioShellPreviewBridge({
               pageAccountId={pageAccountId}
               config={config}
             />
-            {deferredShelf != null ? (
-              <Fragment key="portfolio-deferred-shelf">{deferredShelf}</Fragment>
-            ) : null}
           </div>
+          {/* Suspense owned here — keys on prop-passed elements are ignored. */}
+          {deferredShelf != null ? (
+            <Suspense fallback={null}>{deferredShelf}</Suspense>
+          ) : null}
         </>
       </PortfolioShelfProvider>
     </PortfolioPostPeeksProvider>

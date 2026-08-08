@@ -30,6 +30,13 @@ import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useAncestorChain, useQuotedPosts } from '@/hooks/use-quoted-posts';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
+import {
+  THREAD_QUOTE_PAGE_SIZE,
+  THREAD_REPLY_PAGE_SIZE,
+  THREAD_REPLY_TREE_DEPTH,
+  THREAD_REPLY_TREE_MAX_NODES,
+  type PersonalPostPageData,
+} from '@/lib/load-personal-post-page';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   personalPostContentPath,
@@ -48,15 +55,16 @@ import { readPostMediaUnmuteIndex } from '@/lib/post-media';
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 type ThreadTab = 'replies' | 'quotes';
 
-const REPLY_PAGE_SIZE = 50;
-const QUOTE_PAGE_SIZE = 12;
-const REPLY_TREE_DEPTH = 6;
-const REPLY_TREE_MAX_NODES = 300;
+const REPLY_PAGE_SIZE = THREAD_REPLY_PAGE_SIZE;
+const QUOTE_PAGE_SIZE = THREAD_QUOTE_PAGE_SIZE;
+const REPLY_TREE_DEPTH = THREAD_REPLY_TREE_DEPTH;
+const REPLY_TREE_MAX_NODES = THREAD_REPLY_TREE_MAX_NODES;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
 
 interface LivePersonalPostPanelProps {
   author: string;
   postId: string;
+  initial?: PersonalPostPageData | null;
 }
 
 interface PersonalConversation {
@@ -68,6 +76,7 @@ interface PersonalConversation {
 export function LivePersonalPostPanel({
   author,
   postId,
+  initial = null,
 }: LivePersonalPostPanelProps) {
   const {
     accountId,
@@ -80,13 +89,21 @@ export function LivePersonalPostPanel({
   const searchParams = useSearchParams();
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
-  const [loadState, setLoadState] = useState<LoadState>('loading');
-  const [conversation, setConversation] = useState<PersonalConversation>({
-    root: null,
-    replies: [],
-    quotes: [],
-  });
-  const [replyTree, setReplyTree] = useState<ThreadNode[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>(() =>
+    initial ? 'ready' : 'loading'
+  );
+  const [conversation, setConversation] = useState<PersonalConversation>(() =>
+    initial
+      ? {
+          root: initial.root,
+          replies: initial.replies,
+          quotes: initial.quotes,
+        }
+      : { root: null, replies: [], quotes: [] }
+  );
+  const [replyTree, setReplyTree] = useState<ThreadNode[]>(
+    () => initial?.replyTree ?? []
+  );
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [modalTarget, setModalTarget] = useState<PostRow | null>(null);
@@ -98,12 +115,17 @@ export function LivePersonalPostPanel({
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set()
   );
-  const [hasMoreReplies, setHasMoreReplies] = useState(false);
-  const [hasMoreQuotes, setHasMoreQuotes] = useState(false);
+  const [hasMoreReplies, setHasMoreReplies] = useState(
+    () => initial?.hasMoreReplies ?? false
+  );
+  const [hasMoreQuotes, setHasMoreQuotes] = useState(
+    () => initial?.hasMoreQuotes ?? false
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
+  const ssrSeedRef = useRef(Boolean(initial));
 
   const rootPath = personalPostContentPath(author, postId);
   const treePosts = useMemo(() => flattenTreePosts(replyTree), [replyTree]);
@@ -210,6 +232,10 @@ export function LivePersonalPostPanel({
         }
 
         const root = rootResult.value;
+        // Soft refresh must not blank a painted SSR thread on a null miss.
+        if (options.background && !root) {
+          return;
+        }
         const fetchedQuotes =
           quotesResult.status === 'fulfilled' ? quotesResult.value : [];
         const fetchedTree =
@@ -252,8 +278,14 @@ export function LivePersonalPostPanel({
 
   useEffect(() => {
     if (walletLoading) return;
+    // Soft reconcile after SSR — never blank a painted thread on wallet.
+    if (ssrSeedRef.current) {
+      ssrSeedRef.current = false;
+      void refresh({ background: true });
+      return;
+    }
     void refresh();
-  }, [refresh, walletLoading]);
+  }, [author, postId, walletLoading, refresh]);
 
   useEffect(() => {
     setActiveThreadTab('replies');

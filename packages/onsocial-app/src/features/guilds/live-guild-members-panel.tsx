@@ -1,20 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { GuildMembersRoster } from '@/features/guilds/guild-members-roster';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { useGuildMembersData } from '@/features/guilds/use-guild-members-data';
 import { useGuildMembersManageContext } from '@/features/guilds/use-guild-members-manage-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import type { GuildMembersPageData } from '@/lib/load-guild-members-page';
 
 interface LiveGuildMembersPanelProps {
   groupId: string;
+  initial?: GuildMembersPageData | null;
 }
 
-export function LiveGuildMembersPanel({ groupId }: LiveGuildMembersPanelProps) {
-  const [memberDriven, setMemberDriven] = useState(false);
+export function LiveGuildMembersPanel({
+  groupId,
+  initial = null,
+}: LiveGuildMembersPanelProps) {
+  const memberDriven = Boolean(initial?.memberDriven);
   const {
     members,
     pendingRolesByMemberId,
@@ -25,33 +29,21 @@ export function LiveGuildMembersPanel({ groupId }: LiveGuildMembersPanelProps) {
     bootstrap,
     reload,
     applyMemberActionPatch,
-  } = useGuildMembersData(groupId, { memberDriven });
+  } = useGuildMembersData(groupId, {
+    memberDriven,
+    ownerId: initial?.ownerId ?? null,
+  });
   const manageContext = useGuildMembersManageContext(groupId, memberDriven);
 
   useEffect(() => {
-    void bootstrap();
-  }, [bootstrap]);
+    void bootstrap(initial?.members ?? []);
+    // Seed once per group load; soft fetch follows inside bootstrap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial seed is mount/group scoped
+  }, [bootstrap, groupId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const client = createReadOnlyOnSocialClient();
-        const config = await client.groups.getConfig(groupId);
-        if (cancelled || !config) return;
-        setMemberDriven(
-          config.member_driven === true || config.memberDriven === true
-        );
-      } catch {
-        if (!cancelled) setMemberDriven(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [groupId]);
-
-  const profiles = usePostAuthorProfiles(members.map((member) => member.memberId));
+  const profiles = usePostAuthorProfiles(
+    members.map((member) => member.memberId)
+  );
 
   return (
     <OsAppScreen

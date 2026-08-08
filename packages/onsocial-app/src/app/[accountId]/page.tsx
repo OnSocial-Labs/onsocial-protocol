@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import { displayName } from '@/lib/profile-display';
 import { fetchPublicPageData, resolvePageAvatarMode } from '@/lib/page-data';
@@ -123,33 +122,29 @@ export default async function AccountPage({
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
         deferredShelf={
-          <Suspense key="portfolio-deferred-shelf" fallback={null}>
-            <PortfolioDeferredShelf accountId={accountId} />
-          </Suspense>
+          <PortfolioDeferredShelf accountId={accountId} />
         }
       >
-        <>
-          <PortfolioIdentity
-            accountId={accountId}
-            profileName={shell?.name}
-            bio={shell?.bio}
-            tagline={tagline}
-            avatarUrl={shell?.avatarUrl}
-            mood={mood}
-          />
+        <PortfolioIdentity
+          accountId={accountId}
+          profileName={shell?.name}
+          bio={shell?.bio}
+          tagline={tagline}
+          avatarUrl={shell?.avatarUrl}
+          mood={mood}
+        />
 
-          <PortfolioActivateStrip
-            pageAccountId={accountId}
-            activated={Boolean(data.activated)}
-          />
+        <PortfolioActivateStrip
+          pageAccountId={accountId}
+          activated={Boolean(data.activated)}
+        />
 
-          {signals ? (
-            <PortfolioSignalsShell accountId={accountId} signals={signals} />
-          ) : (
-            <PortfolioStatsRow accountId={accountId} stats={data.stats} />
-          )}
-          <PortfolioLinks links={shell?.links} />
-        </>
+        {signals ? (
+          <PortfolioSignalsShell accountId={accountId} signals={signals} />
+        ) : (
+          <PortfolioStatsRow accountId={accountId} stats={data.stats} />
+        )}
+        <PortfolioLinks links={shell?.links} />
       </PortfolioShellRoot>
     </>
   );

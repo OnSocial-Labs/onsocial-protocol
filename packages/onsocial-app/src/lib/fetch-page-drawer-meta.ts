@@ -77,7 +77,8 @@ async function viewContractJson<T>(
   }
 }
 
-async function fetchDaoRoleLabels(accountId: string): Promise<string[]> {
+/** DAO policy roles — client soft-fill only; never block portfolio SSR. */
+export async function fetchDaoRoleLabels(accountId: string): Promise<string[]> {
   const [governance, treasury] = await Promise.all([
     viewContractJson<DaoPolicy>(GOVERNANCE_DAO_ACCOUNT, 'get_policy'),
     viewContractJson<DaoPolicy>(TREASURY_DAO_ACCOUNT, 'get_policy'),
@@ -164,13 +165,13 @@ export const fetchPageDrawerMeta = cache(
 
     try {
       const os = createServerOnSocialClient();
-      const [row, daoRoleLabels, scarceMintCount, updateMeta] =
-        await Promise.all([
-          os.query.profiles.lookup(accountId),
-          fetchDaoRoleLabels(accountId),
-          fetchScarceMintCount(accountId),
-          fetchProfileUpdateMeta(accountId),
-        ]);
+      // Indexer-only on the critical path — DAO policy RPCs are drawer chrome
+      // and must not block portfolio first paint.
+      const [row, scarceMintCount, updateMeta] = await Promise.all([
+        os.query.profiles.lookup(accountId),
+        fetchScarceMintCount(accountId),
+        fetchProfileUpdateMeta(accountId),
+      ]);
 
       return {
         name: display,
@@ -180,7 +181,7 @@ export const fetchPageDrawerMeta = cache(
         postCount: options.postCount ?? 0,
         guildCount: options.guildCount ?? 0,
         scarceMintCount,
-        daoRoleLabels,
+        daoRoleLabels: [],
         tags: normalizeProfileTags(options.profileTags),
       };
     } catch {

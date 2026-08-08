@@ -265,7 +265,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <div className="discover-trending-chips">
-            {tickers.map((item) => (
+            {tickers.slice(0, 6).map((item) => (
               <Link
                 key={`k-${item.ticker}`}
                 href={homeTickerPath(item.ticker)}
@@ -296,7 +296,7 @@ export function DiscoverTrendingPanel({
             </button>
           </div>
           <div className="discover-trending-chips">
-            {topics.map((item) => (
+            {topics.slice(0, 6).map((item) => (
               <Link
                 key={`h-${item.hashtag}`}
                 href={homeHashtagPath(item.hashtag)}

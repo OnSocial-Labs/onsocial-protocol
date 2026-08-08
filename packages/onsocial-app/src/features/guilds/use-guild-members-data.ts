@@ -8,7 +8,6 @@ import type { GuildMemberPendingRole } from '@/features/guilds/guild-member-pend
 import {
   fetchGuildMemberRoleFlags,
   patchGuildMemberRosterAction,
-  readGuildOwnerId,
   reconcileGuildMemberRolesFromChain,
   reconcileGuildMemberRoster,
 } from '@/features/guilds/guild-member-roster';
@@ -34,9 +33,13 @@ export interface GuildMembersDataState {
 
 export function useGuildMembersData(
   groupId: string,
-  options: { memberDriven?: boolean } = {}
+  options: {
+    memberDriven?: boolean;
+    ownerId?: string | null;
+  } = {}
 ): GuildMembersDataState {
   const memberDriven = options.memberDriven ?? false;
+  const ownerId = options.ownerId ?? null;
   const [members, setMembers] = useState<GroupMemberRow[]>([]);
   const [pendingRolesByMemberId, setPendingRolesByMemberId] = useState<
     Map<string, GuildMemberPendingRole>
@@ -62,30 +65,46 @@ export function useGuildMembersData(
 
       try {
         const client = createReadOnlyOnSocialClient();
-        const [config, page, proposals] = await Promise.all([
-          client.groups.getConfig(groupId),
+        // Indexer roster first — paint/refresh without N× role RPCs.
+        const [shellRows, page, proposals] = await Promise.all([
+          client.query.groups.byIds([groupId]).catch(() => []),
           client.query.groups.membersOf(groupId, { limit: 120 }),
           memberDriven
             ? client.groups.listProposals(groupId, { limit: 40 })
             : Promise.resolve([]),
         ]);
-        const ownerId = readGuildOwnerId(config);
-        const roster = reconcileGuildMemberRoster(page.items ?? [], ownerId);
-        const memberIds = roster
-          .filter((member) => member.memberId !== ownerId)
-          .map((member) => member.memberId);
-        const roleFlags = await fetchGuildMemberRoleFlags(
-          client,
-          groupId,
-          memberIds
+        const shellOwner =
+          shellRows[0]?.ownerId?.trim() || ownerId?.trim() || null;
+        const roster = reconcileGuildMemberRoster(
+          page.items ?? [],
+          shellOwner
         );
-        setMembers(
-          reconcileGuildMemberRolesFromChain(roster, ownerId, roleFlags)
-        );
+        setMembers(roster);
         setPendingRolesByMemberId(
-          memberDriven ? listActivePermissionChangeProposals(proposals) : new Map()
+          memberDriven
+            ? listActivePermissionChangeProposals(proposals)
+            : new Map()
         );
         setHasLoaded(true);
+
+        // Soft chain role reconcile after indexer paint (manage accuracy).
+        const memberIds = roster
+          .filter((member) => member.memberId !== shellOwner)
+          .map((member) => member.memberId);
+        if (memberIds.length > 0) {
+          try {
+            const roleFlags = await fetchGuildMemberRoleFlags(
+              client,
+              groupId,
+              memberIds
+            );
+            setMembers(
+              reconcileGuildMemberRolesFromChain(roster, shellOwner, roleFlags)
+            );
+          } catch {
+            // Keep indexer flags.
+          }
+        }
       } catch (cause) {
         setLoadError(
           cause instanceof Error ? cause.message : 'Could not load members.'
@@ -98,7 +117,7 @@ export function useGuildMembersData(
         setIsListRefreshing(false);
       }
     },
-    [groupId, memberDriven]
+    [groupId, memberDriven, ownerId]
   );
 
   const scheduleSoftRetries = useCallback(() => {
@@ -137,7 +156,9 @@ export function useGuildMembersData(
       actionId: GuildMemberRowActionId,
       options?: { scheduleRetry?: boolean }
     ) => {
-      setMembers((current) => patchGuildMemberRosterAction(current, memberId, actionId));
+      setMembers((current) =>
+        patchGuildMemberRosterAction(current, memberId, actionId)
+      );
       if (options?.scheduleRetry !== false) {
         scheduleSoftRetries();
       }

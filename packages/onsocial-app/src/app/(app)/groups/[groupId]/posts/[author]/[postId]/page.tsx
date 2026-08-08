@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getGuildBlueprint } from '@/features/guilds/guilds-data';
 import { LiveGuildPostPanel } from '@/features/guilds/live-guild-post-panel';
+import { loadGuildPostPageData } from '@/lib/load-guild-post-page';
 
 type GuildPostPageProps = {
   params: Promise<{
@@ -13,23 +14,34 @@ type GuildPostPageProps = {
 export async function generateMetadata({
   params,
 }: GuildPostPageProps): Promise<Metadata> {
-  const { groupId } = await params;
-  const guild = getGuildBlueprint(decodeURIComponent(groupId));
+  const { groupId, author, postId } = await params;
+  const id = decodeURIComponent(groupId);
+  const initial = await loadGuildPostPageData(
+    id,
+    decodeURIComponent(author),
+    decodeURIComponent(postId)
+  );
+  const name = initial?.guildName ?? getGuildBlueprint(id).name;
 
   return {
-    title: `${guild.name} Thread • OnSocial`,
-    description: `Threaded discussion in ${guild.name}.`,
+    title: `${name} Thread • OnSocial`,
+    description: `Threaded discussion in ${name}.`,
   };
 }
 
 export default async function GuildPostPage({ params }: GuildPostPageProps) {
   const { groupId, author, postId } = await params;
+  const id = decodeURIComponent(groupId);
+  const authorId = decodeURIComponent(author);
+  const post = decodeURIComponent(postId);
+  const initial = await loadGuildPostPageData(id, authorId, post);
 
   return (
     <LiveGuildPostPanel
-      groupId={decodeURIComponent(groupId)}
-      author={decodeURIComponent(author)}
-      postId={decodeURIComponent(postId)}
+      groupId={id}
+      author={authorId}
+      postId={post}
+      initial={initial}
     />
   );
 }

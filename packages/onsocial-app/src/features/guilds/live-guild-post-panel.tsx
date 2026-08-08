@@ -77,20 +77,28 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { playPostFocusVideo } from '@/hooks/use-post-list-video';
+import type { GuildPostPageData } from '@/lib/load-guild-post-page';
+import {
+  THREAD_QUOTE_PAGE_SIZE,
+  THREAD_REPLY_PAGE_SIZE,
+  THREAD_REPLY_TREE_DEPTH,
+  THREAD_REPLY_TREE_MAX_NODES,
+} from '@/lib/load-personal-post-page';
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'error';
 type ThreadTab = 'replies' | 'quotes';
 
-const REPLY_PAGE_SIZE = 50;
-const QUOTE_PAGE_SIZE = 12;
-const REPLY_TREE_DEPTH = 6;
-const REPLY_TREE_MAX_NODES = 300;
+const REPLY_PAGE_SIZE = THREAD_REPLY_PAGE_SIZE;
+const QUOTE_PAGE_SIZE = THREAD_QUOTE_PAGE_SIZE;
+const REPLY_TREE_DEPTH = THREAD_REPLY_TREE_DEPTH;
+const REPLY_TREE_MAX_NODES = THREAD_REPLY_TREE_MAX_NODES;
 const RECONCILE_DELAYS_MS = [2_000, 5_000];
 
 interface LiveGuildPostPanelProps {
   groupId: string;
   author: string;
   postId: string;
+  initial?: GuildPostPageData | null;
 }
 
 function groupPostContentPath(
@@ -105,6 +113,7 @@ export function LiveGuildPostPanel({
   groupId,
   author,
   postId,
+  initial = null,
 }: LiveGuildPostPanelProps) {
   const {
     accountId,
@@ -119,18 +128,28 @@ export function LiveGuildPostPanel({
   const mediaUnmuted = searchParams.get('media') === 'unmute';
   const mediaResumeIndex = readPostMediaUnmuteIndex(searchParams);
   const confirmLeaveTimerRef = useRef<number | null>(null);
-  const [loadState, setLoadState] = useState<LoadState>('loading');
-  const [conversation, setConversation] = useState<GroupConversation>({
-    root: null,
-    replies: [],
-    quotes: [],
-  });
-  const [replyTree, setReplyTree] = useState<ThreadNode[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>(() =>
+    initial ? 'ready' : 'loading'
+  );
+  const [conversation, setConversation] = useState<GroupConversation>(() =>
+    initial
+      ? {
+          root: initial.root,
+          replies: initial.replies,
+          quotes: initial.quotes,
+        }
+      : { root: null, replies: [], quotes: [] }
+  );
+  const [replyTree, setReplyTree] = useState<ThreadNode[]>(
+    () => initial?.replyTree ?? []
+  );
   const [localReplies, setLocalReplies] = useState<PostRow[]>([]);
   const [localQuotes, setLocalQuotes] = useState<PostRow[]>([]);
   const [guildStructure, setGuildStructure] =
     useState<GuildStructureDocument | null>(null);
-  const [guildName, setGuildName] = useState<string | null>(null);
+  const [guildName, setGuildName] = useState<string | null>(
+    () => initial?.guildName ?? null
+  );
   const [viewerAccess, setViewerAccess] = useState<GuildViewerAccess>({
     isMember: false,
     isOwner: false,
@@ -138,8 +157,12 @@ export function LiveGuildPostPanel({
     canModerate: false,
   });
   const [isMember, setIsMember] = useState(false);
-  const [accessGated, setAccessGated] = useState(false);
-  const [memberDriven, setMemberDriven] = useState(false);
+  const [accessGated, setAccessGated] = useState(
+    () => initial?.accessGated ?? false
+  );
+  const [memberDriven, setMemberDriven] = useState(
+    () => initial?.memberDriven ?? false
+  );
   const [joinPending, setJoinPending] = useState(false);
   const [joinCancelReady, setJoinCancelReady] = useState(false);
   const [pendingJoinProposalId, setPendingJoinProposalId] = useState<
@@ -157,12 +180,17 @@ export function LiveGuildPostPanel({
   const [expandedBranches, setExpandedBranches] = useState<Set<string>>(
     () => new Set()
   );
-  const [hasMoreReplies, setHasMoreReplies] = useState(false);
-  const [hasMoreQuotes, setHasMoreQuotes] = useState(false);
+  const [hasMoreReplies, setHasMoreReplies] = useState(
+    () => initial?.hasMoreReplies ?? false
+  );
+  const [hasMoreQuotes, setHasMoreQuotes] = useState(
+    () => initial?.hasMoreQuotes ?? false
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const paginatedRef = useRef(false);
   const reconcileTimersRef = useRef<number[]>([]);
+  const ssrSeedRef = useRef(Boolean(initial));
 
   const rootPath = groupPostContentPath(author, groupId, postId);
   const channelTitleById = useMemo(() => {
@@ -286,6 +314,10 @@ export function LiveGuildPostPanel({
         }
 
         const root = rootResult.value;
+        // Soft refresh must not blank a painted SSR thread on a null miss.
+        if (options.background && !root) {
+          return;
+        }
         const fetchedQuotes =
           quotesResult.status === 'fulfilled' ? quotesResult.value : [];
         const fetchedTree =
@@ -404,6 +436,12 @@ export function LiveGuildPostPanel({
   useEffect(() => {
     if (walletLoading) return;
     setViewerAccessResolved(false);
+    // Soft reconcile after SSR — keep thread painted while ACL hydrates.
+    if (ssrSeedRef.current) {
+      ssrSeedRef.current = false;
+      void refresh({ background: true });
+      return;
+    }
     void refresh();
   }, [refresh, walletLoading]);
 
