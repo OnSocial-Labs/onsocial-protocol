@@ -118,6 +118,7 @@ import {
   setGuildMembershipActionPending,
   useGuildMembershipActionPending,
 } from '@/lib/guild-membership-action-pending';
+import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
   txToastConfirming,
   txToastError,
@@ -211,6 +212,7 @@ export function LiveGuildPanel({
   const structureHydratedRef = useRef(
     Boolean(initial?.structureResolved)
   );
+  const structureRetryTimersRef = useRef<number[]>([]);
   const configRef = useRef<GuildConfigSnapshot | null>(
     initial?.config ?? null
   );
@@ -549,6 +551,13 @@ export function LiveGuildPanel({
     [accountId, groupId]
   );
 
+  const clearStructureRetryTimers = useCallback(() => {
+    for (const timer of structureRetryTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    structureRetryTimersRef.current = [];
+  }, []);
+
   /** Soft path after SSR: ACL + structure only — keep indexer shell/feed. */
   const refreshViewerAccess = useCallback(async () => {
     setError(null);
@@ -566,6 +575,7 @@ export function LiveGuildPanel({
         if (rawConfig) {
           const fromRpc = normalizeGuildConfig(groupId, rawConfig);
           structureHydratedRef.current = true;
+          clearStructureRetryTimers();
           setState((current) => ({
             ...current,
             config: {
@@ -598,10 +608,19 @@ export function LiveGuildPanel({
       } catch {
         // Keep default structure; still resolve ACL.
       }
+      // Soft retry so a transient getConfig miss doesn't stick on defaults.
+      if (structureRetryTimersRef.current.length === 0) {
+        structureRetryTimersRef.current = INDEXER_SOFT_RETRY_MS.map((delay) =>
+          window.setTimeout(() => {
+            if (structureHydratedRef.current) return;
+            void refreshViewerAccess();
+          }, delay)
+        );
+      }
     }
 
     await applyViewerAccess(client, currentConfig);
-  }, [accountId, applyViewerAccess, groupId]);
+  }, [accountId, applyViewerAccess, clearStructureRetryTimers, groupId]);
 
   /** Client navigation / cold load — indexer shell first, then ACL. */
   const refreshShell = useCallback(async () => {
@@ -669,6 +688,7 @@ export function LiveGuildPanel({
       if (rawConfig) {
         normalizedConfig = normalizeGuildConfig(groupId, rawConfig);
         structureHydratedRef.current = true;
+        clearStructureRetryTimers();
         const shellEntry: GuildShellCacheEntry = {
           name: normalizedConfig.name,
           avatarUrl: normalizedConfig.avatarUrl,
@@ -728,7 +748,7 @@ export function LiveGuildPanel({
 
     await applyViewerAccess(client, normalizedConfig);
     return true;
-  }, [accountId, applyViewerAccess, groupId]);
+  }, [accountId, applyViewerAccess, clearStructureRetryTimers, groupId]);
 
   const refresh = useCallback(async () => {
     if (hasLoadedRef.current) {
@@ -762,6 +782,7 @@ export function LiveGuildPanel({
   }, [refreshFeed, refreshShell]);
 
   useEffect(() => {
+    clearStructureRetryTimers();
     // Keep SSR shell for the seeded guild; wipe only on client navigation.
     if (ssrGroupIdRef.current === groupId && initial) {
       writeGuildShellCache(groupId, initial.shell);
@@ -809,7 +830,9 @@ export function LiveGuildPanel({
       moderation: null,
     }));
     setAllowlistSpaceIds(new Set());
-  }, [groupId, initial]);
+  }, [clearStructureRetryTimers, groupId, initial]);
+
+  useEffect(() => clearStructureRetryTimers, [clearStructureRetryTimers]);
 
   useEffect(() => {
     // Drop previous wallet's membership before extras resolve for the new one.

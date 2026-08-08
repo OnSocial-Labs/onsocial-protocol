@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import {
-  enrichGuildSummaryCards,
+  enrichIndexedGuildSummaryCards,
   guildSummaryCardFromMembership,
 } from '@/features/guilds/guild-facts';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
@@ -24,7 +24,8 @@ export const fetchProfileGuilds = cache(
           role: card.role ?? 'Member',
         } satisfies ProfileGuildSummary;
       });
-      const enriched = await enrichGuildSummaryCards(os, cards);
+      // Indexer counts only — never N× getConfig on the drawer.
+      const enriched = await enrichIndexedGuildSummaryCards(os, cards);
       return enriched.map((card) => ({
         ...card,
         role: card.role ?? 'Member',

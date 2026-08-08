@@ -79,9 +79,8 @@ export function LiveGuildsIndexPanel({
     GuildSummaryCardModel[] | null
   >(null);
   const searchRequestRef = useRef(0);
-  const hasPaintedRef = useRef(
-    initialGuilds != null && initialGuilds.length > 0
-  );
+  // Empty SSR list still counts as painted — soft-refresh, don't blank.
+  const hasPaintedRef = useRef(initialGuilds != null);
   const toolbarHidden = useDockAutoHide(false);
 
   const load = useCallback(async (opts?: { soft?: boolean }) => {
@@ -115,7 +114,7 @@ export function LiveGuildsIndexPanel({
 
       setGuilds(merged);
       setLoadState('ready');
-      hasPaintedRef.current = merged.length > 0;
+      hasPaintedRef.current = true;
 
       // Indexer counts only — never N× getConfig/getStats on the list.
       void enrichIndexedGuildSummaryCards(client, merged).then((withCounts) => {

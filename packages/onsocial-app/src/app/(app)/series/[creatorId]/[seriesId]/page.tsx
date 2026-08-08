@@ -1,5 +1,4 @@
 import { fetchCollectionsByCreator } from '@/features/scarces/collections-data';
-import { fetchSeriesBranding } from '@/features/scarces/series-data';
 import { SeriesPagePanel } from '@/features/scarces/series-page-panel';
 import { loadProfileShell } from '@/lib/profile-shell';
 
@@ -11,8 +10,8 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
   const { creatorId, seriesId } = await params;
   const creator = decodeURIComponent(creatorId);
   const id = decodeURIComponent(seriesId);
-  const [branding, collections, profile] = await Promise.all([
-    fetchSeriesBranding(creator, id),
+  // Indexer collections + profile shell only — brand soft-fills from chain.
+  const [collections, profile] = await Promise.all([
     fetchCollectionsByCreator(creator, { limit: 48 }),
     loadProfileShell(creator),
   ]);
@@ -21,7 +20,7 @@ export default async function SeriesPage({ params }: SeriesPageProps) {
     <SeriesPagePanel
       creatorId={creator}
       seriesId={id}
-      initialBranding={branding}
+      initialBranding={null}
       creatorAvatarUrl={profile?.avatarUrl ?? null}
       drops={drops}
     />

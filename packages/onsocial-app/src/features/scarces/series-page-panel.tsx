@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { SeriesEditSheet } from '@/features/scarces/series-edit-sheet';
-import type { SeriesBranding } from '@/features/scarces/series-data';
+import {
+  fetchSeriesBrandingCached,
+  type SeriesBranding,
+} from '@/features/scarces/series-data';
 import { StoreDropCard } from '@/features/scarces/store-catalog';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
@@ -34,6 +37,17 @@ export function SeriesPagePanel({
   const { accountId } = useAppWallet();
   const [branding, setBranding] = useState(initialBranding);
   const [editing, setEditing] = useState(false);
+
+  // Brand lives on chain (`social.getOne`); soft-fill after indexer drops paint.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchSeriesBrandingCached(creatorId, seriesId).then((next) => {
+      if (!cancelled && next) setBranding(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [creatorId, seriesId]);
 
   const isOwner = accountId != null && accountIdsEqual(accountId, creatorId);
   const fallbackTitle = drops.find((drop) => drop.seriesTitle)?.seriesTitle;
