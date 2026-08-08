@@ -1,8 +1,15 @@
 import { cache } from 'react';
 import type { PostRow, ThreadNode } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import {
+  hydrateLazyScarceEmbedsForPosts,
+  loadPostEngagementMap,
+  type PostEngagementMap,
+  type PostScarceEmbedMap,
+} from '@/lib/feed-paint-hydrate';
 import { fetchPersonalPost } from '@/lib/fetch-personal-post';
 import { personalPostContentPath } from '@/lib/post-routes';
+import { flattenTreePosts } from '@/lib/thread-display';
 
 export const THREAD_REPLY_PAGE_SIZE = 50;
 export const THREAD_QUOTE_PAGE_SIZE = 12;
@@ -16,6 +23,8 @@ export type PersonalPostPageData = {
   replyTree: ThreadNode[];
   hasMoreReplies: boolean;
   hasMoreQuotes: boolean;
+  engagement: PostEngagementMap;
+  scarceEmbeds: PostScarceEmbedMap;
 };
 
 /** SSR personal thread shell from indexer (wallet/ACL still client). */
@@ -51,13 +60,25 @@ export const loadPersonalPostPageData = cache(
 
       if (!root) return null;
       const replyTree = treeResult.replies ?? [];
+      const quotes = quotesResult;
+      const paintPosts = [
+        root,
+        ...quotes,
+        ...flattenTreePosts(replyTree),
+      ];
+      const [engagement, scarceEmbeds] = await Promise.all([
+        loadPostEngagementMap(os, paintPosts),
+        hydrateLazyScarceEmbedsForPosts(os, paintPosts),
+      ]);
       return {
         root,
         replies: replyTree.map((node) => node.post),
-        quotes: quotesResult,
+        quotes,
         replyTree,
         hasMoreReplies: replyTree.length >= THREAD_REPLY_PAGE_SIZE,
-        hasMoreQuotes: quotesResult.length >= THREAD_QUOTE_PAGE_SIZE,
+        hasMoreQuotes: quotes.length >= THREAD_QUOTE_PAGE_SIZE,
+        engagement,
+        scarceEmbeds,
       };
     } catch {
       return null;

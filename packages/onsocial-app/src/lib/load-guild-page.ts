@@ -3,6 +3,12 @@ import type { GroupMemberRow, GroupStats, PostRow } from '@onsocial/sdk';
 import type { GuildConfigSnapshot } from '@/features/guilds/guild-config';
 import { guildConfigFromIndexedRow } from '@/features/guilds/guild-facts';
 import { reconcileGuildMemberRoster } from '@/features/guilds/guild-member-roster';
+import {
+  hydrateLazyScarceEmbedsForPosts,
+  loadPostEngagementMap,
+  type PostEngagementMap,
+  type PostScarceEmbedMap,
+} from '@/lib/feed-paint-hydrate';
 import type { GuildShellCacheEntry } from '@/lib/guild-shell-cache';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 
@@ -18,6 +24,8 @@ export type GuildPageData = {
   postCount: number | null;
   /** False when structure is the default placeholder (RPC not loaded yet). */
   structureResolved: boolean;
+  engagement: PostEngagementMap;
+  scarceEmbeds: PostScarceEmbedMap;
 };
 
 /** SSR guild shell + first feed page from indexer (viewer/ACL still client). */
@@ -62,11 +70,16 @@ export const loadGuildPageData = cache(
         countResult.status === 'fulfilled'
           ? (countResult.value.get(id) ?? null)
           : null;
+      const posts = feed.items ?? [];
+      const [engagement, scarceEmbeds] = await Promise.all([
+        loadPostEngagementMap(os, posts),
+        hydrateLazyScarceEmbedsForPosts(os, posts),
+      ]);
 
       return {
         config,
         shell,
-        posts: feed.items ?? [],
+        posts,
         hasMorePosts: feed.nextOffset !== undefined,
         stats: null,
         indexedMemberCount,
@@ -76,6 +89,8 @@ export const loadGuildPageData = cache(
             ? postCountResult.value
             : null,
         structureResolved: false,
+        engagement,
+        scarceEmbeds,
       };
     } catch {
       return null;

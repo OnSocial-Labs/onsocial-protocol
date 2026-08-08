@@ -10,8 +10,9 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { Paginated, PostRow } from '@onsocial/sdk';
+import type { Paginated, PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { OnSocialMark, ProtocolMotionArrow } from '@onsocial/ui';
+import type { PostEngagement } from '@/hooks/use-post-engagement';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -191,8 +192,12 @@ function HomeFeedLoadMoreFooter({
 
 export function HomePagePanel({
   initialPage = null,
+  initialEngagement = null,
+  initialScarceEmbeds = null,
 }: {
   initialPage?: Paginated<PostRow> | null;
+  initialEngagement?: Record<string, PostEngagement> | null;
+  initialScarceEmbeds?: Record<string, PostScarceEmbed> | null;
 } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -803,6 +808,8 @@ export function HomePagePanel({
                 includeForeignReplies={Boolean(activeFocus)}
                 showGuildAttribution
                 className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}
+                initialEngagement={initialEngagement}
+                initialScarceEmbeds={initialScarceEmbeds}
                 onReply={replyHandler}
                 onQuote={quoteHandler}
                 onAmplified={handleAmplified}

@@ -35,16 +35,24 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
 /**
  * Batched engagement state (reply/quote/reaction/amplify + viewer flags)
  * for a list of visible posts, plus an optimistic reaction toggle.
+ * Pass `initial` from SSR so counts paint with the feed (viewer flags
+ * soft-upgrade after wallet).
  */
 export function usePostEngagement(
   posts: PostRow[],
-  opts: { onError?: (message: string) => void } = {}
+  opts: {
+    initial?: EngagementMap | null;
+    onError?: (message: string) => void;
+  } = {}
 ) {
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
-  const [engagement, setEngagement] = useState<EngagementMap>({});
+  const [engagement, setEngagement] = useState<EngagementMap>(
+    () => opts.initial ?? {}
+  );
   const [pendingKeys, setPendingKeys] = useState<Set<string>>(() => new Set());
   const loadIdRef = useRef(0);
+  const ssrSkipRef = useRef(Boolean(opts.initial && Object.keys(opts.initial).length > 0));
   const onErrorRef = useRef(opts.onError);
   onErrorRef.current = opts.onError;
 
@@ -65,6 +73,13 @@ export function usePostEngagement(
 
   useEffect(() => {
     if (targets.length === 0) return;
+
+    // SSR already seeded public counts — skip one duplicate until wallet/viewer.
+    if (ssrSkipRef.current && !accountId) {
+      ssrSkipRef.current = false;
+      return;
+    }
+    ssrSkipRef.current = false;
 
     const loadId = ++loadIdRef.current;
     const client = createReadOnlyOnSocialClient();

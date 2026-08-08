@@ -118,6 +118,8 @@ import {
   setGuildMembershipActionPending,
   useGuildMembershipActionPending,
 } from '@/lib/guild-membership-action-pending';
+import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
+import { hydrateLazyScarceEmbedsForPosts } from '@/lib/feed-paint-hydrate';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 import {
   txToastConfirming,
@@ -423,8 +425,10 @@ export function LiveGuildPanel({
     [feedPosts, quotedPosts, facepileIds]
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
+  seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const { engagement, toggleReaction, isReactionPending, confirmAmplify } =
     usePostEngagement(feedPosts, {
+      initial: initial?.engagement ?? null,
       onError: (message) => setTxResult({ type: 'error', msg: message }),
     });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
@@ -433,6 +437,19 @@ export function LiveGuildPanel({
       onError: (message) => setTxResult({ type: 'error', msg: message }),
     }
   );
+
+  // Soft-fill scarce CTAs when the feed changes (space filter / refresh).
+  useEffect(() => {
+    if (feedPosts.length === 0) return;
+    const client = createReadOnlyOnSocialClient();
+    let cancelled = false;
+    void hydrateLazyScarceEmbedsForPosts(client, feedPosts).then((map) => {
+      if (!cancelled) seedScarceEmbedsFromSsr(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [feedPosts]);
 
   const refreshFeed = useCallback(async () => {
     setIsFeedRefreshing(true);

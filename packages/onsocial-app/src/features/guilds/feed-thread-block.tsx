@@ -6,7 +6,10 @@ import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form
 import { PostCard, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
-import type { PostEngagement } from '@/hooks/use-post-engagement';
+import {
+  EMPTY_POST_ENGAGEMENT,
+  type PostEngagement,
+} from '@/hooks/use-post-engagement';
 import type { PollTally } from '@/lib/poll-votes';
 import { postThreadPath } from '@/lib/post-routes';
 
@@ -124,7 +127,7 @@ export function FeedThreadBlock({
       .filter(Boolean)
       .join(' ');
 
-    const stats = engagement[postKey(post)];
+    const stats = engagement[postKey(post)] ?? EMPTY_POST_ENGAGEMENT;
     const quoted = post.refPath ? quotedPosts[post.refPath] : undefined;
     const actionHref = resolveThreadHref(post, groupId);
     const quotedHref = quoted

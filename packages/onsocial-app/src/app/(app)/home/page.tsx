@@ -9,11 +9,15 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const initialPage = await loadHomeFeedPage({ sort: 'hot' });
+  const paint = await loadHomeFeedPage({ sort: 'hot' });
 
   return (
     <Suspense fallback={null}>
-      <HomePagePanel initialPage={initialPage} />
+      <HomePagePanel
+        initialPage={paint?.page ?? null}
+        initialEngagement={paint?.engagement ?? null}
+        initialScarceEmbeds={paint?.scarceEmbeds ?? null}
+      />
     </Suspense>
   );
 }

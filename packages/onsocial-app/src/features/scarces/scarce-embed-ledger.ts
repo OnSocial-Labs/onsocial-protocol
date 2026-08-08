@@ -3,6 +3,8 @@ import type { PostScarceEmbed } from '@onsocial/sdk';
 type Listener = () => void;
 
 const overrides = new Map<string, PostScarceEmbed>();
+/** SSR / page-level activeListings seed — first paint before per-card IO. */
+const ssrSeeds = new Map<string, PostScarceEmbed>();
 const listeners = new Set<Listener>();
 
 function emit() {
@@ -11,6 +13,24 @@ function emit() {
 
 export function postScarceKey(accountId: string, postId: string): string {
   return `${accountId}/post/${postId}`;
+}
+
+/** Seed lazy CTAs from SSR / page hydrate (safe during render; emits on change). */
+export function seedScarceEmbedsFromSsr(
+  map: Record<string, PostScarceEmbed> | null | undefined
+): void {
+  if (!map) return;
+  let changed = false;
+  for (const [key, embed] of Object.entries(map)) {
+    if (!key || !embed || ssrSeeds.has(key)) continue;
+    ssrSeeds.set(key, embed);
+    changed = true;
+  }
+  if (changed) emit();
+}
+
+export function getScarceEmbedSeed(key: string): PostScarceEmbed | null {
+  return ssrSeeds.get(key) ?? null;
 }
 
 export function getScarceEmbedOverride(key: string): PostScarceEmbed | null {

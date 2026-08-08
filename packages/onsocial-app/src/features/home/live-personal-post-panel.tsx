@@ -20,6 +20,7 @@ import {
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
+import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
@@ -78,6 +79,7 @@ export function LivePersonalPostPanel({
   postId,
   initial = null,
 }: LivePersonalPostPanelProps) {
+  seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const {
     accountId,
     isConnected,
@@ -195,6 +197,7 @@ export function LivePersonalPostPanel({
     isReactionPending,
     confirmAmplify,
   } = usePostEngagement(engagementPosts, {
+    initial: initial?.engagement ?? null,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
@@ -735,7 +738,10 @@ export function LivePersonalPostPanel({
                                 ? 'post-card--chain-cont'
                                 : undefined
                             }
-                            engagement={engagement[postKey(row.post)]}
+                            engagement={
+                              engagement[postKey(row.post)] ??
+                              EMPTY_POST_ENGAGEMENT
+                            }
                             reactionPending={isReactionPending(row.post)}
                             onToggleReaction={toggleReaction}
                             onAmplifyConfirmed={confirmAmplify}
@@ -776,7 +782,9 @@ export function LivePersonalPostPanel({
                           ? postAuthorProfiles[conversation.root.accountId]
                           : undefined
                       }
-                      engagement={engagement[postKey(quote)]}
+                      engagement={
+                        engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
+                      }
                       reactionPending={isReactionPending(quote)}
                       onToggleReaction={toggleReaction}
                       onAmplifyConfirmed={confirmAmplify}

@@ -2,10 +2,11 @@
 
 import { useMemo } from 'react';
 import { Divider } from '@onsocial/ui';
-import type { PostRow } from '@onsocial/sdk';
+import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { FeedThreadBlock } from '@/features/guilds/feed-thread-block';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { postKey } from '@/features/home/post-card';
+import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
   seedPostAuthorProfilesFromFeed,
   usePostAuthorProfiles,
@@ -14,7 +15,10 @@ import {
   seedGuildDisplayNamesFromFeed,
   useGuildDisplayNames,
 } from '@/hooks/use-guild-display-names';
-import { usePostEngagement } from '@/hooks/use-post-engagement';
+import {
+  usePostEngagement,
+  type PostEngagement,
+} from '@/hooks/use-post-engagement';
 import { usePollVotes } from '@/hooks/use-poll-votes';
 import { useQuotedPosts } from '@/hooks/use-quoted-posts';
 import type { AmplifySuccessDetail } from '@/lib/amplify-heat';
@@ -32,6 +36,10 @@ interface PersonalFeedListProps {
   includeForeignReplies?: boolean;
   /** Home / hashtag mixed feed — guild source chip on group posts. */
   showGuildAttribution?: boolean;
+  /** SSR engagement seed — counts on first paint. */
+  initialEngagement?: Record<string, PostEngagement> | null;
+  /** SSR scarce CTA seed — Buy/Bid without IntersectionObserver wait. */
+  initialScarceEmbeds?: Record<string, PostScarceEmbed> | null;
 }
 
 /** Shared home/profile feed rendering — thread blocks + quote insets + polls. */
@@ -44,9 +52,12 @@ export function PersonalFeedList({
   className,
   includeForeignReplies = false,
   showGuildAttribution = false,
+  initialEngagement = null,
+  initialScarceEmbeds = null,
 }: PersonalFeedListProps) {
   seedPostAuthorProfilesFromFeed(posts);
   seedGuildDisplayNamesFromFeed(posts);
+  seedScarceEmbedsFromSsr(initialScarceEmbeds);
 
   const feedBlocks = useMemo(
     () => coalesceFeedThreads(posts, { includeForeignReplies }),
@@ -77,7 +88,10 @@ export function PersonalFeedList({
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
   const { engagement, toggleReaction, isReactionPending, confirmAmplify } =
-    usePostEngagement(posts, { onError: onEngagementError });
+    usePostEngagement(posts, {
+      initial: initialEngagement,
+      onError: onEngagementError,
+    });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(posts, {
     onError: onEngagementError,
   });

@@ -9,6 +9,7 @@ import {
 } from '@/features/scarces/scarce-auction';
 import {
   getScarceEmbedOverride,
+  getScarceEmbedSeed,
   postScarceKey,
   reconcileScarceEmbedFromApi,
   resolveScarceEmbed,
@@ -31,9 +32,9 @@ function isActivelyListed(embed: PostScarceEmbed | null): boolean {
 }
 
 /**
- * Lazy-loads `os.scarces.fromPost.embed` when the card enters view (or when
- * `force` is set — e.g. author opens the ⋮ menu). Optimistic ledger overrides
- * win until the indexer catches up; soft-retries at 2s/5s while overridden.
+ * Resolves post scarce CTAs. SSR / page seeds paint immediately; otherwise
+ * lazy-loads when the card enters view (or `force` — author ⋮ menu).
+ * Optimistic ledger overrides win until the indexer catches up.
  */
 export function usePostScarceEmbed(
   post: PostRow,
@@ -53,6 +54,11 @@ export function usePostScarceEmbed(
     subscribeScarceEmbedLedger,
     () => getScarceEmbedOverride(key),
     () => null
+  );
+  const seed = useSyncExternalStore(
+    subscribeScarceEmbedLedger,
+    () => getScarceEmbedSeed(key),
+    () => getScarceEmbedSeed(key)
   );
 
   const shouldFetch = enabled && (force || inView);
@@ -212,10 +218,12 @@ export function usePostScarceEmbed(
     };
   }, [override, shouldFetch, key, post.accountId, post.postId]);
 
-  const embed = resolveScarceEmbed(key, fetchedKey === key ? fetched : null);
+  const baseline =
+    fetchedKey === key && fetched != null ? fetched : seed;
+  const embed = resolveScarceEmbed(key, baseline);
 
   const status: PostScarceEmbedStatus =
-    fetchedKey === key
+    fetchedKey === key || seed != null
       ? 'ready'
       : errorKey === key
         ? 'error'
