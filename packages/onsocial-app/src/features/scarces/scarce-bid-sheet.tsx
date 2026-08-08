@@ -81,7 +81,10 @@ export function ScarceBidSheet({
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setFormKey((key) => key + 1);
+    if (open) {
+      setClosing(false);
+      setFormKey((key) => key + 1);
+    }
   }
 
   useScrollLock(open || closing);

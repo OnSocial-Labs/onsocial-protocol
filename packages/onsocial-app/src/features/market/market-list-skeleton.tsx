@@ -20,11 +20,14 @@ export function MarketListSkeleton({ rows = 5 }: MarketListSkeletonProps) {
           <div className="market-listing-copy">
             <div className="market-listing-head">
               <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-title" />
-              <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-price" />
             </div>
+            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-identity" />
             <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-meta" />
           </div>
-          <span className="standing-row-shimmer market-listing-shimmer-action" />
+          <div className="market-listing-action-col">
+            <span className="standing-row-shimmer standing-row-shimmer-line market-listing-shimmer-time" />
+            <span className="standing-row-shimmer market-listing-shimmer-action" />
+          </div>
         </div>
       ))}
     </div>

@@ -692,9 +692,11 @@ export function MarketPagePanel({
       if (isOwn && !auctionEnded) {
         return;
       }
-      if (item.kind === 'auction' && item.tokenId) {
+      if (item.kind === 'auction') {
+        const tokenId = item.tokenId?.trim();
+        if (!tokenId) return;
         setBidListing({
-          tokenId: item.tokenId,
+          tokenId,
           title: item.title,
           ...(item.description ? { description: item.description } : {}),
           mediaUrl: item.mediaUrl,
@@ -1320,11 +1322,18 @@ export function MarketPagePanel({
                     item={item}
                     nowMs={nowMs}
                     highestOfferNear={offerSummary?.highestAmountNear ?? null}
-                    isOwnListing={
-                      Boolean(viewerAccountId) &&
-                      item.kind === 'lazy' &&
-                      accountIdsEqual(viewerAccountId!, item.creatorId)
-                    }
+                    isOwnListing={(() => {
+                      if (
+                        !viewerAccountId ||
+                        !accountIdsEqual(viewerAccountId, item.creatorId)
+                      ) {
+                        return false;
+                      }
+                      // Own ended auctions keep Bid/Settle; live own rows are Listed.
+                      if (item.kind !== 'auction') return true;
+                      const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
+                      return endsAtMs == null || endsAtMs > Date.now();
+                    })()}
                     cancelPending={cancelRowKey === rowKey}
                     onBuy={handleBuy}
                     onCancel={(row) => {
@@ -1435,12 +1444,12 @@ export function MarketPagePanel({
                     <div className="market-listing-copy">
                       <div className="market-listing-head">
                         <p className="market-listing-title">{meta.title}</p>
-                        <p className="market-listing-price">
-                          Offer · {priceNear} NEAR
-                        </p>
                       </div>
                       <p className="market-listing-meta">
-                        <span className="market-listing-own">Open offer</span>
+                        <span className="market-listing-price">
+                          Offer · {priceNear} NEAR
+                        </span>
+                        <span className="market-listing-own"> · Open</span>
                       </p>
                     </div>
                     <OsSheetActions
@@ -1520,11 +1529,12 @@ export function MarketPagePanel({
                     <div className="market-listing-copy">
                       <div className="market-listing-head">
                         <p className="market-sale-title">{title}</p>
-                        <p className="market-listing-price">
-                          {sale.priceNear} NEAR
-                        </p>
                       </div>
                       <p className="market-sale-meta">
+                        <span className="market-listing-price">
+                          {sale.priceNear} NEAR
+                        </span>
+                        <span className="market-listing-own"> · </span>
                         {seller ? (
                           <Link
                             href={portfolioPath(seller)}

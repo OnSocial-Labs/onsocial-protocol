@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -9,6 +10,10 @@ import {
   auctionExpiresAtMs,
   type OwnedScarceItem,
 } from '@/features/market/market-listings';
+import {
+  holdingsActionLabel,
+  holdingsHrefForOwned,
+} from '@/lib/portfolio-holdings';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
@@ -33,7 +38,7 @@ function formatPriceNear(priceNear: string): string {
 
 const CONFIRM_LEAVE_MS = 4_000;
 
-/** Owned scarce in Market “Yours” — the canonical owner-management surface. */
+/** Owned scarce in Market “Yours” — manage here; title/thumb open Collectibles use. */
 export function MarketOwnedRow({
   item,
   delistPending = false,
@@ -70,6 +75,14 @@ export function MarketOwnedRow({
   const confirmingDelist =
     confirmTokenId === item.tokenId && listed && !delistPending && !needsSettle;
 
+  const useHref = holdingsHrefForOwned({
+    tokenId: item.tokenId,
+    collectionId: item.collectionId,
+    sourcePostPath: item.sourcePostPath,
+    mediumKind: item.mediumKind,
+  });
+  const useAction = holdingsActionLabel(item.mediumKind);
+
   useEffect(() => {
     return () => {
       if (confirmTimerRef.current !== null) {
@@ -102,27 +115,40 @@ export function MarketOwnedRow({
 
   return (
     <div className="market-listing-row" role="listitem">
-      <div
+      <Link
+        href={useHref}
+        scroll={false}
         className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
-        aria-hidden
+        aria-label={`${useAction} ${item.title}`}
       >
         {item.mediaUrl ? (
           <img src={item.mediaUrl} alt="" />
         ) : (
-          <span className="market-listing-thumb-fallback" />
+          <span className="market-listing-thumb-fallback" aria-hidden />
         )}
-      </div>
+      </Link>
       <div className="market-listing-copy">
         <div className="market-listing-head">
-          <p className="market-listing-title">{item.title}</p>
-          {listed && item.listedPriceNear ? (
-            <p className="market-listing-price">
-              {auction ? 'Reserve' : 'Ask'} ·{' '}
-              {formatPriceNear(item.listedPriceNear)} NEAR
-            </p>
-          ) : null}
+          <p className="market-listing-title">
+            <Link
+              href={useHref}
+              scroll={false}
+              className="market-listing-title-link"
+            >
+              {item.title}
+            </Link>
+          </p>
         </div>
         <p className="market-listing-meta">
+          {listed && item.listedPriceNear ? (
+            <>
+              <span className="market-listing-price">
+                {auction ? 'Reserve' : 'Ask'} ·{' '}
+                {formatPriceNear(item.listedPriceNear)} NEAR
+              </span>
+              <span className="market-listing-own"> · </span>
+            </>
+          ) : null}
           {auction ? (
             <span className="market-listing-own">
               {needsSettle
@@ -179,7 +205,7 @@ export function MarketOwnedRow({
             variant={
               confirmingDelist ? 'danger' : showOffers ? 'ghost' : 'primary'
             }
-            ready={!confirmingDelist && !delistPending}
+            ready={!delistPending}
             pending={delistPending}
             pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
             aria-label={

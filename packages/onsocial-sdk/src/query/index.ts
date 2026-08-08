@@ -121,6 +121,7 @@ export { GOVERNANCE_OPERATIONS } from './governance.js';
 export type {
   ScarcesActiveListingRow,
   ScarcesActiveOfferRow,
+  ScarcesCollectionCurrentRow,
   ScarcesEventRow,
   ScarcesOwnedTokenRow,
 } from './scarces.js';

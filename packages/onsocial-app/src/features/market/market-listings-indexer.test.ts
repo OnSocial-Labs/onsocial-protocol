@@ -35,6 +35,7 @@ vi.mock('@/lib/post-routes', () => ({
 
 import {
   fetchLiveListingsForCreator,
+  fetchMarketListings,
   fetchOwnedScarcesPage,
   invalidateLiveListingsCache,
 } from '@/features/market/market-listings';
@@ -104,6 +105,48 @@ describe('indexer-first market listings', () => {
       remaining: 7,
       sourcePostPath: 'alice.near/post/p1',
     });
+    expect(items[0]?.artistId).toBeUndefined();
+  });
+
+  it('sets artistId when seller differs from mint creator', async () => {
+    activeListings.mockResolvedValue([
+      {
+        listingKey: 'native:drop-1:2',
+        kind: 'native',
+        listingId: null,
+        tokenId: 'drop-1:2',
+        sellerId: 'bob.near',
+        creatorId: 'alice.near',
+        appId: null,
+        price: ONE_NEAR_YOCTO,
+        priceNumeric: '1',
+        reservePrice: null,
+        buyNowPrice: null,
+        highestBid: null,
+        bidCount: null,
+        copies: null,
+        remaining: null,
+        mintedCount: null,
+        expiresAt: null,
+        title: 'Night Drive #2',
+        media: null,
+        sourcePostPath: 'alice.near/post/p1',
+        cardBg: null,
+        extraJson: null,
+        listedBlockHeight: 1,
+        listedBlockTimestamp: Date.now(),
+        updatedBlockHeight: 1,
+        updatedBlockTimestamp: Date.now(),
+      },
+    ]);
+
+    const page = await fetchMarketListings({ limit: 10 });
+    expect(page.items[0]).toMatchObject({
+      kind: 'native',
+      creatorId: 'bob.near',
+      artistId: 'alice.near',
+      title: 'Night Drive #2',
+    });
   });
 
   it('fetchOwnedScarcesPage uses ownedBy + collectionsCurrentByIds without nft_tokens_for_owner', async () => {
@@ -153,13 +196,19 @@ describe('indexer-first market listings', () => {
         maxRedeems: null,
         randomAssignment: false,
         appCommissionBps: null,
-        title: 'Drop One',
-        media: 'bafymediaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-        description: 'A drop',
-        kind: 'audio',
-        metadataTemplate: null,
+        // Thin columns — real face lives in metadataTemplate (production shape).
+        title: null,
+        media: null,
+        description: null,
+        kind: null,
+        metadataTemplate: JSON.stringify({
+          title: 'Drop One',
+          media: 'bafymediaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          description: 'A drop',
+          extra: JSON.stringify({ kind: 'audio', audioFormat: 'single' }),
+        }),
         metadata: null,
-        extraJson: JSON.stringify({ kind: 'audio', audioFormat: 'single' }),
+        extraJson: null,
         royaltyJson: null,
       },
       {
@@ -184,13 +233,18 @@ describe('indexer-first market listings', () => {
         maxRedeems: null,
         randomAssignment: false,
         appCommissionBps: null,
-        title: 'Drop Two',
-        media: 'bafymediabbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        description: 'B drop',
-        kind: 'image',
-        metadataTemplate: null,
+        title: null,
+        media: null,
+        description: null,
+        kind: null,
+        metadataTemplate: JSON.stringify({
+          title: 'Drop Two',
+          media: 'bafymediabbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          description: 'B drop',
+          extra: JSON.stringify({ kind: 'image' }),
+        }),
         metadata: null,
-        extraJson: JSON.stringify({ kind: 'image' }),
+        extraJson: null,
         royaltyJson: null,
       },
     ]);
@@ -215,6 +269,7 @@ describe('indexer-first market listings', () => {
       mediumKind: 'audio',
       listingKind: null,
     });
+    expect(page.items[0]?.mediaUrl).toBeTruthy();
     expect(page.hasMore).toBe(false);
   });
 

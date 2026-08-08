@@ -765,8 +765,9 @@ export function LiveGuildPostPanel({
     isOwner: effectiveIsOwner,
     confirmingLeave,
   });
+  // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = effectiveIsMember
-    ? !confirmingLeave
+    ? true
     : effectiveJoinPending
       ? joinCancelReady
       : !isConnected || (viewerAccessResolved && !effectiveIsMember);

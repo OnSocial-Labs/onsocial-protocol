@@ -1,6 +1,7 @@
 import type {
   OnSocial,
   ScarcesActiveListingRow,
+  ScarcesCollectionCurrentRow,
   ScarcesEventRow,
 } from '@onsocial/sdk';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -75,8 +76,13 @@ export interface MarketListingItem {
   listingId?: string;
   /** Native token id (`s:…`) for secondary listings / auctions. */
   tokenId?: string;
-  /** Seller: creator for lazy, current owner for native/auction. */
+  /** Seller: mint creator for lazy, current owner for native/auction. */
   creatorId: string;
+  /**
+   * Original mint creator when different from seller.
+   * Omitted when equal to `creatorId` (primary listings).
+   */
+  artistId?: string;
   title: string;
   /** NEP-177 description — full post text when minted from a post. */
   description?: string;
@@ -161,6 +167,99 @@ export function collectionIdFromTokenId(tokenId: string): string | null {
   if (colon <= 0) return null;
   const collectionId = id.slice(0, colon).trim();
   return collectionId || null;
+}
+
+/** `drop-1:3` → 3 for variation media / edition titles. */
+export function editionSeatFromTokenId(tokenId: string): number | null {
+  const id = tokenId.trim();
+  if (!id || id.startsWith('s:')) return null;
+  const part = id.slice(id.lastIndexOf(':') + 1).trim();
+  const seat = Number(part);
+  return Number.isSafeInteger(seat) && seat >= 1 ? seat : null;
+}
+
+const VARIATION_MEDIA_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
+
+/**
+ * Title/media for an owned edition from `scarces_collections_current`.
+ * Prefer `metadataTemplate` (where drop art actually lives) over thin
+ * top-level title/media columns; substitute variation seats per token.
+ */
+export function displayFromOwnedCollectionCatalog(
+  catalog: ScarcesCollectionCurrentRow,
+  tokenId: string
+): {
+  title: string | null;
+  mediaUrl: string | null;
+  description?: string;
+  extraJson: string | null;
+  kind: string | null;
+} {
+  const collectionId = catalog.collectionId?.trim() || '';
+  let title = catalog.title?.trim() || null;
+  let media = catalog.media?.trim() || null;
+  let description = catalog.description?.trim() || undefined;
+  let extraJson = catalog.extraJson?.trim() || null;
+  let kind = catalog.kind?.trim() || null;
+
+  const templateRaw = catalog.metadataTemplate?.trim();
+  if (templateRaw) {
+    try {
+      const meta = JSON.parse(templateRaw) as Record<string, unknown>;
+      if (typeof meta.title === 'string' && meta.title.trim()) {
+        title = meta.title.trim();
+      }
+      if (typeof meta.description === 'string' && meta.description.trim()) {
+        description = meta.description.trim();
+      }
+      if (typeof meta.media === 'string' && meta.media.trim()) {
+        media = meta.media.trim();
+      }
+      if (typeof meta.extra === 'string' && meta.extra.trim()) {
+        extraJson = meta.extra.trim();
+      }
+    } catch {
+      // Keep column-level fields.
+    }
+  }
+
+  if (
+    media &&
+    collectionId &&
+    VARIATION_MEDIA_PLACEHOLDER.test(media)
+  ) {
+    const seat = editionSeatFromTokenId(tokenId);
+    if (seat != null) {
+      media = media
+        .replace(/\{seat_number\}/g, String(seat))
+        .replace(/\{index\}/g, String(seat - 1))
+        .replace(/\{token_id\}/g, tokenId);
+    }
+  }
+
+  // Kind often only lives in template extra.
+  if (!kind && extraJson) {
+    const extra = parseExtra(extraJson);
+    kind = mediumKindFromExtra(extra) ?? null;
+  }
+
+  return {
+    title: title ? resolveTokenDisplayTitle(title, tokenId) : null,
+    mediaUrl: resolveScarceMediaUrl(media),
+    ...(description ? { description } : {}),
+    extraJson,
+    kind,
+  };
+}
+
+function ownedItemNeedsTokenMeta(item: OwnedScarceItem): boolean {
+  const title = item.title?.trim() || '';
+  const thinTitle =
+    !title ||
+    title === 'Scarce' ||
+    title === item.tokenId ||
+    (Boolean(item.collectionId) && title === item.collectionId);
+  return thinTitle || !item.mediaUrl;
 }
 
 interface ContractSaleRecord {
@@ -391,6 +490,27 @@ function accountFromRow(
   return undefined;
 }
 
+function authorFromSourcePostPath(
+  path: string | null | undefined
+): string | undefined {
+  if (!path?.trim()) return undefined;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  const author = match?.[1]?.trim();
+  return author || undefined;
+}
+
+/** Provenance account when it differs from the seller. */
+function artistIdDistinctFromSeller(
+  sellerId: string,
+  ...candidates: Array<string | null | undefined>
+): string | undefined {
+  for (const candidate of candidates) {
+    const id = candidate?.trim();
+    if (id && !accountIdsEqualSafe(id, sellerId)) return id;
+  }
+  return undefined;
+}
+
 export function hasUnresolvedTitleTemplate(title: string): boolean {
   return /#\{[^}]+\}|\{[a-z_]+\}/i.test(title);
 }
@@ -505,17 +625,23 @@ function listingFromRecord(
   const remaining = remainingForListing(record, copies);
   const mediumKind = mediumKindFromExtra(extra);
   const discovery = discoveryFieldsFromExtra(extra, playables.length);
+  const sourcePostPath = sourcePostPathFromExtra(extra);
+  const artistId = artistIdDistinctFromSeller(
+    creatorId,
+    authorFromSourcePostPath(sourcePostPath)
+  );
 
   return {
     kind: 'lazy',
     listingId,
     creatorId,
+    ...(artistId ? { artistId } : {}),
     title,
     ...(description && description !== title ? { description } : {}),
     priceNear,
     blockTimestamp,
     mediaUrl,
-    sourcePostPath: sourcePostPathFromExtra(extra),
+    sourcePostPath,
     ...(cardBg ? { cardBg } : {}),
     ...(playable ? { playable } : {}),
     ...(playables.length > 0 ? { playables } : {}),
@@ -748,17 +874,23 @@ function listingFromNativeSale(
   const playables = playablesFromExtra(extra);
   const playable = playables[0];
   const discovery = discoveryFieldsFromExtra(extra, playables.length);
+  const sourcePostPath = sourcePostPathFromExtra(extra);
+  const artistId = artistIdDistinctFromSeller(
+    sellerId,
+    authorFromSourcePostPath(sourcePostPath)
+  );
   return {
     kind: isAuction ? 'auction' : 'native',
     tokenId,
     creatorId: sellerId,
+    ...(artistId ? { artistId } : {}),
     title,
     ...(description && description !== title ? { description } : {}),
     priceNear,
     priceLabel: isAuction ? auctionPriceLabel(sale) : 'Ask',
     blockTimestamp: timestampMs(sale.created_at),
     mediaUrl,
-    sourcePostPath: sourcePostPathFromExtra(extra),
+    sourcePostPath,
     ...(playable ? { playable } : {}),
     ...(playables.length > 0 ? { playables } : {}),
     ...(mediumKind ? { mediumKind } : {}),
@@ -1159,25 +1291,28 @@ async function fetchOwnedScarcesPageFromIndexer(
     const catalog = collectionId
       ? collectionById.get(collectionId) ?? null
       : null;
-    const extra = parseExtra(catalog?.extraJson ?? null);
+    const face = catalog
+      ? displayFromOwnedCollectionCatalog(catalog, tokenId)
+      : null;
+    const extra = parseExtra(face?.extraJson ?? catalog?.extraJson ?? null);
     const playables = playablesFromExtra(extra);
     const discovery = discoveryFieldsFromExtra(extra, playables.length);
     const mediumKind =
+      face?.kind ??
       mediumKindFromExtra(extra) ??
       (catalog?.kind?.trim() ? catalog.kind.trim() : null);
-    const rawTitle =
-      catalog?.title?.trim() ||
+    const displayTitle =
+      face?.title ||
       (tokenId.includes(':') && !tokenId.startsWith('s:')
         ? tokenId
         : 'Scarce');
-    const displayTitle = resolveTokenDisplayTitle(rawTitle, tokenId);
-    const description = catalog?.description?.trim() || undefined;
+    const description = face?.description;
     const listed = listedByToken.get(tokenId);
     items.push({
       tokenId,
       title: displayTitle,
       ...(description && description !== displayTitle ? { description } : {}),
-      mediaUrl: resolveScarceMediaUrl(catalog?.media ?? null),
+      mediaUrl: face?.mediaUrl ?? null,
       ownerId: row.ownerId?.trim() || owner,
       collectionId,
       mediumKind,
@@ -1194,6 +1329,35 @@ async function fetchOwnedScarcesPageFromIndexer(
         ? { sourcePostPath: sourcePostPathFromExtra(extra)! }
         : {}),
     });
+  }
+
+  // Solo tokens / thin catalog rows — token metadata has the real title/art.
+  const thinIndexes = items
+    .map((item, index) => (ownedItemNeedsTokenMeta(item) ? index : -1))
+    .filter((index) => index >= 0);
+  if (thinIndexes.length > 0) {
+    await Promise.all(
+      thinIndexes.map(async (index) => {
+        const item = items[index]!;
+        const meta = await fetchScarceTokenMeta(item.tokenId);
+        if (!meta) return;
+        const nextTitle =
+          meta.title?.trim() && meta.title.trim() !== item.tokenId
+            ? resolveTokenDisplayTitle(meta.title.trim(), item.tokenId)
+            : item.title;
+        items[index] = {
+          ...item,
+          title: nextTitle,
+          ...(meta.description && meta.description !== nextTitle
+            ? { description: meta.description }
+            : {}),
+          mediaUrl: meta.mediaUrl ?? item.mediaUrl,
+          ...(meta.sourcePostPath && !item.sourcePostPath
+            ? { sourcePostPath: meta.sourcePostPath }
+            : {}),
+        };
+      })
+    );
   }
 
   const nextFromEnd = fromEnd + rows.length;
@@ -1518,6 +1682,12 @@ function listingFromActiveRow(
   const extra = parseExtra(row.extraJson ?? null);
   const playableCount = playablesFromExtra(extra).length;
   const discovery = discoveryFieldsFromExtra(extra, playableCount);
+  const sourcePostPath = row.sourcePostPath?.trim() || undefined;
+  const artistId = artistIdDistinctFromSeller(
+    sellerId,
+    row.creatorId,
+    authorFromSourcePostPath(sourcePostPath)
+  );
 
   return {
     kind,
@@ -1526,14 +1696,13 @@ function listingFromActiveRow(
       : {}),
     ...(row.tokenId?.trim() ? { tokenId: row.tokenId.trim() } : {}),
     creatorId: sellerId,
+    ...(artistId ? { artistId } : {}),
     title: resolveTokenDisplayTitle(title, row.tokenId?.trim() || ''),
     priceNear,
     ...(priceLabel ? { priceLabel } : {}),
     blockTimestamp,
     mediaUrl: resolveScarceMediaUrl(row.media),
-    ...(row.sourcePostPath?.trim()
-      ? { sourcePostPath: row.sourcePostPath.trim() }
-      : {}),
+    ...(sourcePostPath ? { sourcePostPath } : {}),
     ...(row.cardBg?.trim() ? { cardBg: row.cardBg.trim() } : {}),
     ...(mediumKind ? { mediumKind } : {}),
     ...discovery,

@@ -182,6 +182,7 @@ export type {
   BoostCreditPurchaseRow,
   ScarcesActiveListingRow,
   ScarcesActiveOfferRow,
+  ScarcesCollectionCurrentRow,
   ScarcesEventRow,
   ScarcesOwnedTokenRow,
 } from './query/index.js';

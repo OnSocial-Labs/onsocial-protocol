@@ -7,6 +7,7 @@ import {
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
 import {
+  collectionIdFromTokenId,
   marketListingRowKey,
   formatMarketRelativeTime,
   type MarketListingItem,
@@ -16,6 +17,7 @@ import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { personalPostPath } from '@/lib/post-routes';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -83,9 +85,22 @@ export function MarketListingRow({
   onCancel,
 }: MarketListingRowProps) {
   const rowKey = marketListingRowKey(item);
-  const handle = fallbackLabel(item.creatorId);
-  const profileHref = portfolioPath(item.creatorId);
+  const sellerId = item.creatorId;
+  const sellerHandle = fallbackLabel(sellerId);
+  const sellerHref = portfolioPath(sellerId);
+  // Provenance: distinct mint creator when set, else the seller is the creator.
+  const creatorId = item.artistId?.trim() || sellerId;
+  const creatorHandle = fallbackLabel(creatorId);
+  const creatorHref = portfolioPath(creatorId);
+  const showSeller = Boolean(item.artistId?.trim());
   const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
+  // Social post when listed from a post; else drop page for edition tokens.
+  const detailHref =
+    postHref ??
+    (() => {
+      const collectionId = collectionIdFromTokenId(item.tokenId ?? '');
+      return collectionId ? collectionPath(collectionId) : null;
+    })();
   const [confirmRowKey, setConfirmRowKey] = useState<string | null>(null);
   const confirmTimerRef = useRef<number | null>(null);
   const confirmingCancel =
@@ -109,6 +124,11 @@ export function MarketListingRow({
           ? 'Ended'
           : `Ends in ${auctionCountdown}`;
   const listedTime = formatMarketRelativeTime(item.blockTimestamp);
+  const timeLabel = auctionClockLabel
+    ? auctionClockLabel
+    : item.kind !== 'auction' && listedTime
+      ? `Listed ${listedTime}`
+      : null;
 
   useEffect(() => {
     return () => {
@@ -140,12 +160,14 @@ export function MarketListingRow({
     onCancel(item);
   };
 
-  const titleNode = postHref ? (
+  const titleNode = detailHref ? (
     <Link
-      href={postHref}
+      href={detailHref}
       scroll={false}
       className="market-listing-title-link"
-      onClick={() => seedListedEmbed(item)}
+      onClick={() => {
+        if (postHref) seedListedEmbed(item);
+      }}
     >
       {item.title}
     </Link>
@@ -155,13 +177,19 @@ export function MarketListingRow({
 
   return (
     <div className="market-listing-row" role="listitem">
-      {postHref ? (
+      {detailHref ? (
         <Link
-          href={postHref}
+          href={detailHref}
           scroll={false}
           className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
-          aria-label={`Open post for ${item.title}`}
-          onClick={() => seedListedEmbed(item)}
+          aria-label={
+            postHref
+              ? `Open post for ${item.title}`
+              : `Open drop for ${item.title}`
+          }
+          onClick={() => {
+            if (postHref) seedListedEmbed(item);
+          }}
         >
           {item.mediaUrl ? (
             <img src={item.mediaUrl} alt="" />
@@ -201,116 +229,112 @@ export function MarketListingRow({
       <div className="market-listing-copy">
         <div className="market-listing-head">
           <p className="market-listing-title">{titleNode}</p>
-          <p className="market-listing-price">
-            {item.priceLabel ? `${item.priceLabel} · ` : ''}
-            {formatPriceNear(item.priceNear)} NEAR
-          </p>
         </div>
-        <p className="market-listing-meta">
+        <p className="market-listing-creator">
+          <span className="market-listing-own">by </span>
           <Link
-            href={profileHref}
+            href={creatorHref}
             scroll={false}
             className="market-listing-handle"
+            aria-label={`Creator @${creatorHandle}`}
           >
-            @{handle}
+            @{creatorHandle}
           </Link>
-          {item.kind === 'native' ? (
-            <span className="market-listing-own"> · Resale</span>
+        </p>
+        <p className="market-listing-meta market-listing-meta--price">
+          {showSeller ? (
+            <>
+              <Link
+                href={sellerHref}
+                scroll={false}
+                className="market-listing-handle"
+                aria-label={`Seller @${sellerHandle}`}
+              >
+                @{sellerHandle}
+              </Link>
+              <span className="market-listing-own"> · </span>
+            </>
           ) : null}
-          {item.kind === 'auction' ? (
-            <span className="market-listing-own"> · Auction</span>
-          ) : null}
-          {item.kind === 'auction' && item.buyNowNear ? (
-            <span className="market-listing-own">
-              {' · '}
-              Buy now {formatPriceNear(item.buyNowNear)} NEAR
-            </span>
-          ) : null}
+          <span className="market-listing-price">
+            {item.priceLabel ? `${item.priceLabel} · ` : ''}
+            {formatPriceNear(item.priceNear)} NEAR
+          </span>
           {bidCount != null ? (
             <span className="market-listing-own">
               {' · '}
               {bidCount === 1 ? '1 bid' : `${bidCount} bids`}
             </span>
-          ) : null}
-          {highestOfferNear?.trim() &&
-          (item.kind === 'native' || item.kind === 'auction') ? (
+          ) : highestOfferNear?.trim() ? (
             <span className="market-listing-own">
               {' · '}
               Offer {formatPriceNear(highestOfferNear)} NEAR
             </span>
-          ) : null}
-          {auctionClockLabel ? (
-            <span className="market-listing-own">
-              {' · '}
-              {auctionClockLabel}
-            </span>
-          ) : null}
-          {listedTime ? (
-            <span className="market-listing-own">
-              {' · '}
-              Listed {listedTime}
-            </span>
-          ) : null}
-          {isOwnListing ? (
+          ) : item.kind === 'native' ? (
+            <span className="market-listing-own"> · Resale</span>
+          ) : isOwnListing ? (
             <span className="market-listing-own"> · Yours</span>
-          ) : null}
-          {item.copies != null && item.copies > 1 ? (
+          ) : item.copies != null &&
+            item.remaining != null &&
+            item.remaining < item.copies ? (
             <span className="market-listing-own">
               {' · '}
-              {item.remaining != null && item.remaining < item.copies
-                ? `${item.remaining} of ${item.copies} left`
-                : `${item.copies} copies`}
+              {item.remaining} of {item.copies} left
             </span>
           ) : null}
         </p>
       </div>
-      <OsSheetActions
-        layout="row-compact"
-        tone="frosted-primary"
-        borderless
-        className="market-listing-action"
-      >
-        {isOwnListing ? (
-          <OsSheetAction
-            type="button"
-            variant={confirmingCancel ? 'danger' : 'primary'}
-            ready={!confirmingCancel}
-            pending={cancelPending}
-            pendingLabel="Canceling…"
-            aria-label={
-              cancelPending
-                ? 'Canceling listing'
-                : confirmingCancel
-                  ? 'Confirm cancel listing'
-                  : 'Cancel listing'
-            }
-            onClick={handleOwnClick}
-            onBlur={confirmingCancel ? clearConfirm : undefined}
-          >
-            {confirmingCancel ? 'Cancel?' : 'Listed'}
-          </OsSheetAction>
-        ) : (
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready
-            aria-label={
-              item.kind === 'auction'
+      <div className="market-listing-action-col">
+        {timeLabel ? (
+          <p className="market-listing-meta-right">{timeLabel}</p>
+        ) : null}
+        <OsSheetActions
+          layout="row-compact"
+          tone="frosted-primary"
+          borderless
+          className="market-listing-action"
+        >
+          {isOwnListing ? (
+            <OsSheetAction
+              type="button"
+              variant={confirmingCancel ? 'danger' : 'primary'}
+              ready
+              pending={cancelPending}
+              pendingLabel="Canceling…"
+              aria-label={
+                cancelPending
+                  ? 'Canceling listing'
+                  : confirmingCancel
+                    ? 'Confirm cancel listing'
+                    : 'Cancel listing'
+              }
+              onClick={handleOwnClick}
+              onBlur={confirmingCancel ? clearConfirm : undefined}
+            >
+              {confirmingCancel ? 'Cancel?' : 'Listed'}
+            </OsSheetAction>
+          ) : (
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              aria-label={
+                item.kind === 'auction'
+                  ? auctionCountdown === 'Ended'
+                    ? `Settle auction for ${item.title}`
+                    : `Bid on ${item.title}`
+                  : `Buy ${item.title}`
+              }
+              onClick={() => onBuy(item)}
+            >
+              {item.kind === 'auction'
                 ? auctionCountdown === 'Ended'
-                  ? `Settle auction for ${item.title}`
-                  : `Bid on ${item.title}`
-                : `Buy ${item.title}`
-            }
-            onClick={() => onBuy(item)}
-          >
-            {item.kind === 'auction'
-              ? auctionCountdown === 'Ended'
-                ? 'Settle'
-                : 'Bid'
-              : 'Buy'}
-          </OsSheetAction>
-        )}
-      </OsSheetActions>
+                  ? 'Settle'
+                  : 'Bid'
+                : 'Buy'}
+            </OsSheetAction>
+          )}
+        </OsSheetActions>
+      </div>
     </div>
   );
 }

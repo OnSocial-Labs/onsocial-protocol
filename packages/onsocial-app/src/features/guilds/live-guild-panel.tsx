@@ -1075,10 +1075,11 @@ export function LiveGuildPanel({
     ? Boolean(viewer?.isOwner)
     : false;
   // Mutations require ACL; hint is label-only until viewerAccessResolved.
+  // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = !viewerAccessResolved
     ? !isConnected
     : effectiveIsMember
-      ? !confirmingLeave
+      ? true
       : effectiveJoinPending
         ? joinCancelReady
         : Boolean(config) && !effectiveIsMember;
