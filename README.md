@@ -1,68 +1,83 @@
-## Social, the way it should be. What will you build?
+# OnSocial Protocol
 
+**Own the Graph.**
+
+Identity, relationships, and social state — portable across dApps. OnSocial is an open social graph and SOCIAL economy on [NEAR](https://near.org) — profiles, posts, groups, scarces, boosts, and spend actions — with a gateway SDK for apps.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![NEAR](https://img.shields.io/badge/NEAR-Protocol-000000?logo=near)](https://near.org)
+[![Deploy Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
 
+**Live:** [onsocial.id](https://onsocial.id) · [App](https://app.onsocial.id) · [Portal](https://portal.onsocial.id) · [API](https://api.onsocial.id)  
+**Testnet:** [testnet.onsocial.id](https://testnet.onsocial.id) · [testnet app](https://testnet.app.onsocial.id) · [core](https://testnet.nearblocks.io/address/core.onsocial.testnet) · [token](https://testnet.nearblocks.io/address/token.onsocial.testnet) · [boost](https://testnet.nearblocks.io/address/boost.onsocial.testnet) · [social-spend](https://testnet.nearblocks.io/address/social-spend.onsocial.testnet) · [scarces](https://testnet.nearblocks.io/address/marketplace.onsocial.testnet)
 
-### Contracts
-[![Core CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
-[![Scarces CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/scarces-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/scarces-onsocial-ci.yml)
-[![Token CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml)
+---
 
-### Services
-[![Gateway CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml)
-[![Relayer CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml)
-[![Substreams CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml)
+## Quick start
 
-### Deploy
-[![Deploy Services (Testnet)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
+```bash
+pnpm install
+make setup                 # Docker images for contracts / Node
+pnpm --filter @onsocial/portal dev   # http://localhost:3000
+pnpm --filter @onsocial/app dev      # http://localhost:3060
+```
 
-### Live Testnet
-[![Core Contract](https://img.shields.io/badge/Core_Contract-testnet-brightgreen)](https://testnet.nearblocks.io/address/core.onsocial.testnet)
-[![Scarces Contract](https://img.shields.io/badge/Scarces_Contract-testnet-brightgreen)](https://testnet.nearblocks.io/address/marketplace.onsocial.testnet)
-[![Token Contract](https://img.shields.io/badge/Token_Contract-testnet-brightgreen)](https://testnet.nearblocks.io/address/token.onsocial.testnet)
-
-### Monitoring
-[![Relayer Balance](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/monitor-relayer-balance.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/monitor-relayer-balance.yml)
+Build against the SDK and gateway first; contract and indexer details live in their package READMEs. Full make targets: [Resources/MAKE_TARGETS.md](Resources/MAKE_TARGETS.md).
 
 ---
 
 ## Architecture
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://mermaid.ink/svg/Z3JhcGggVEQKICAgIENbQ2xpZW50c10gLS0-fEhUVFBTfCBDRFtDYWRkeV0KICAgIENEIC0tPiBHV1tHYXRld2F5XQogICAgR1cgLS0-IEhbSGFzdXJhXQogICAgR1cgLS0-IExIW0xpZ2h0aG91c2VdCiAgICBHVyAtLT4gTEJbUmVsYXllciBMQl0KICAgIEggLS0-IFBHWyhQb3N0Z3JlcyldCiAgICBMQiAtLT4gUjBbUmVsYXkgMF0KICAgIExCIC0tPiBSMVtSZWxheSAxXQogICAgUjAgJiBSMSAtLT58dHh8IE5FQVIKICAgIFNTW1N1YnN0cmVhbXNdIC0tPnxGaXJlaG9zZXwgTkVBUgogICAgU1MgLS0-IFBHCiAgICBzdWJncmFwaCBORUFSW05FQVIgUHJvdG9jb2xdCiAgICAgICAgQ29yZSAmIFN0YWtpbmcgJiBUb2tlbiAmIE1hcmtldHBsYWNlCiAgICBlbmQ?bgColor=0d1117">
-  <img alt="OnSocial Architecture" src="https://mermaid.ink/svg/Z3JhcGggVEQKICAgIENbQ2xpZW50c10gLS0-fEhUVFBTfCBDRFtDYWRkeV0KICAgIENEIC0tPiBHV1tHYXRld2F5XQogICAgR1cgLS0-IEhbSGFzdXJhXQogICAgR1cgLS0-IExIW0xpZ2h0aG91c2VdCiAgICBHVyAtLT4gTEJbUmVsYXllciBMQl0KICAgIEggLS0-IFBHWyhQb3N0Z3JlcyldCiAgICBMQiAtLT4gUjBbUmVsYXkgMF0KICAgIExCIC0tPiBSMVtSZWxheSAxXQogICAgUjAgJiBSMSAtLT58dHh8IE5FQVIKICAgIFNTW1N1YnN0cmVhbXNdIC0tPnxGaXJlaG9zZXwgTkVBUgogICAgU1MgLS0-IFBHCiAgICBzdWJncmFwaCBORUFSW05FQVIgUHJvdG9jb2xdCiAgICAgICAgQ29yZSAmIFN0YWtpbmcgJiBUb2tlbiAmIE1hcmtldHBsYWNlCiAgICBlbmQ">
-</picture>
+```mermaid
+flowchart LR
+  Clients[App / Portal / SDK] --> GW[Gateway]
+  GW --> Hasura[Hasura]
+  GW --> Relayer[Relayer]
+  GW --> Storage[Storage]
+  Hasura --> PG[(Postgres)]
+  Substreams[Substreams] --> PG
+  Relayer --> NEAR[NEAR]
+  Substreams --> NEAR
+```
+
+Clients talk HTTP to the **gateway**. Indexed reads come from **Hasura/Postgres** (fed by **substreams**). Writes go on-chain via wallets or the **relayer**. Contracts on NEAR hold the graph, token, boost, social-spend, and scarces logic.
 
 ---
 
-## Monorepo Layout
+## Repo map
 
-| Directory | Description | Docs |
-|---|---|---|
-| **Smart Contracts** | | |
-| [contracts/core-onsocial](contracts/core-onsocial) | Posts, groups, stores, permissions | [README](contracts/core-onsocial/README.md) |
-| [contracts/staking-onsocial](contracts/staking-onsocial) | Stake SOCIAL → earn rewards | [README](contracts/staking-onsocial/README.md) |
-| [contracts/token-onsocial](contracts/token-onsocial) | SOCIAL token (NEP-141) | [README](contracts/token-onsocial/README.md) |
-| [contracts/scarces-onsocial](contracts/scarces-onsocial) | Listings & commerce | [README](contracts/scarces-onsocial/README.md) |
-| **Backend Services** | | |
-| [packages/onsocial-sdk](packages/onsocial-sdk) | Gateway-first TypeScript SDK for protocol writes and indexed reads | [README](packages/onsocial-sdk/README.md) |
-| [packages/onsocial-gateway](packages/onsocial-gateway) | API gateway (GraphQL, storage, relay) | [README](packages/onsocial-gateway/README.md) |
-| [packages/onsocial-relayer](packages/onsocial-relayer) | Tx relayer (Rust, KMS-backed signing) | [README](packages/onsocial-relayer/README.md) |
-| [packages/onsocial-rpc](packages/onsocial-rpc) | NEAR RPC client | — |
-| [packages/onsocial-portal](packages/onsocial-portal) | Portal UI | [README](packages/onsocial-portal/README.md) |
-| **Indexing** | | |
-| [indexers/substreams](indexers/substreams) | Real-time blockchain indexing (3 sinks) | [README](indexers/substreams/README.md) |
-| **Infrastructure** | | |
-| [deployment/](deployment) | Docker Compose, Caddy, systemd | — |
+| Path | Role |
+|---|---|
+| **Contracts** | |
+| [contracts/core-onsocial](contracts/core-onsocial) | Posts, groups, profiles, permissions |
+| [contracts/token-onsocial](contracts/token-onsocial) | SOCIAL (NEP-141) |
+| [contracts/staking-onsocial](contracts/staking-onsocial) | Stake SOCIAL → rewards |
+| [contracts/boost-onsocial](contracts/boost-onsocial) | Lock SOCIAL, boost-seconds rewards |
+| [contracts/social-spend-onsocial](contracts/social-spend-onsocial) | Support, amplify, seasons, endorsements |
+| [contracts/scarces-onsocial](contracts/scarces-onsocial) | Listings & commerce |
+| [contracts/intents-onsocial](contracts/intents-onsocial) | Outcome bounties / escrow |
+| [contracts/vesting-onsocial](contracts/vesting-onsocial) | Token vesting vaults |
+| **Packages** | |
+| [packages/onsocial-sdk](packages/onsocial-sdk) | Gateway-first TypeScript SDK |
+| [packages/onsocial-gateway](packages/onsocial-gateway) | GraphQL, storage, relay API |
+| [packages/onsocial-relayer](packages/onsocial-relayer) | Tx relayer (Rust, KMS signing) |
+| [packages/onsocial-rpc](packages/onsocial-rpc) | NEAR RPC client (failover / retry) |
+| [packages/onsocial-app](packages/onsocial-app) | Consumer app |
+| [packages/onsocial-portal](packages/onsocial-portal) | Portal UI (governance, partners, seasons) |
+| [packages/onsocial-pages](packages/onsocial-pages) | `*.onsocial.id` subdomain router |
+| [packages/onsocial-backend](packages/onsocial-backend) | Rewards bot & crediting |
+| [packages/onsocial-ui](packages/onsocial-ui) | Shared UI primitives |
+| [packages/onsocial-text-card](packages/onsocial-text-card) | SVG text-card generator |
+| [packages/onsocial-intents](packages/onsocial-intents) | NEAR Intents / pricing client |
+| [packages/onsocial-rewards](packages/onsocial-rewards) | Rewards credit SDK |
+| **Indexing & infra** | |
+| [indexers/substreams](indexers/substreams) | Real-time chain indexing |
+| [deployment/](deployment) | Docker Compose, Caddy, systemd |
 
 ---
 
 ## Links
 
-[Contributing](CONTRIBUTING.md) · [Deployment Guide](Resources/deployment-guide.md) · [Make Targets](Resources/MAKE_TARGETS.md) · [Resources](Resources/README.md)
-
----
+[Contributing](CONTRIBUTING.md) · [Deployment](Resources/deployment-guide.md) · [Make targets](Resources/MAKE_TARGETS.md) · [Resources](Resources/README.md)
 
 MIT — [LICENSE.md](LICENSE.md)

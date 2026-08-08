@@ -67,4 +67,4 @@ Guides for AI-assisted development:
 
 The `Resources/` folder is designed to provide supplementary documentation and tools to support development, deployment, and testing of the OnSocial Protocol.
 
-For contract-specific details, refer to the individual `README.md` files in the `contracts/` directory or the [Documentation Index](../README.md#documentation-index) in the root `README.md`.
+For contract-specific details, refer to the individual `README.md` files in the `contracts/` directory or the [repo map](../README.md#repo-map) in the root `README.md`.
