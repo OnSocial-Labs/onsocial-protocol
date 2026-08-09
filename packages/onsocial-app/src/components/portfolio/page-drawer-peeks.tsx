@@ -9,6 +9,8 @@ import type { ProfilePostPeek, ProfileCreatedPeek } from '@/lib/fetch-profile-pe
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import { personalPostPath } from '@/lib/post-routes';
 import { APP_COLLECTIBLES_PATH, marketCreatorPath } from '@/lib/app-routes';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
+import { safeModePeekText } from '@/lib/post-content-labels';
 
 export function PageDrawerPostPeekList({
   pageAccountId,
@@ -17,6 +19,8 @@ export function PageDrawerPostPeekList({
   pageAccountId: string;
   posts: ProfilePostPeek[];
 }) {
+  const { safeMode } = useViewerSafeMode();
+
   if (posts.length === 0) {
     return null;
   }
@@ -27,10 +31,20 @@ export function PageDrawerPostPeekList({
         const href = personalPostPath(post.accountId || pageAccountId, post.postId);
         const relative = formatRelativePostTimestamp(post.blockTimestamp);
         const iso = postTimestampIso(post.blockTimestamp);
+        const displayText = safeModePeekText(
+          post.text,
+          {
+            ...(post.contentWarning
+              ? { contentWarning: post.contentWarning }
+              : {}),
+            ...(post.nsfw ? { nsfw: true } : {}),
+          },
+          safeMode
+        );
         return (
           <li key={`${post.accountId}:${post.postId}`}>
             <Link className="page-drawer-post-peek-card" href={href} scroll={false}>
-              <span className="page-drawer-post-peek-text">{post.text}</span>
+              <span className="page-drawer-post-peek-text">{displayText}</span>
               <span className="page-drawer-post-peek-meta">
                 {post.kind ? (
                   <span className="page-drawer-post-peek-kind">{post.kind}</span>

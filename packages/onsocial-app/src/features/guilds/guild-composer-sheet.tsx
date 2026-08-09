@@ -43,7 +43,13 @@ import {
   POST_TEXT_WARN_REMAINING,
 } from '@/lib/post-display';
 import { POST_MEDIA_MAX_FILES, validatePostMediaFile } from '@/lib/post-media';
+import {
+  normalizeComposerContentLabels,
+  parsePostContentLabels,
+} from '@/lib/post-content-labels';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 
 export type ComposerMode = 'post' | 'reply' | 'quote';
 /** @deprecated Prefer `ComposerMode`. */
@@ -197,6 +203,8 @@ function ReplyTargetPreview({
   post: PostRow;
   authorProfile?: PostAuthorProfile;
 }) {
+  const { safeMode } = useViewerSafeMode();
+  const labels = parsePostContentLabels(post.value);
   const name =
     authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
 
@@ -214,9 +222,11 @@ function ReplyTargetPreview({
           handle={post.accountId}
           timestamp={post.blockTimestamp}
         />
-        <p className="guild-composer-reply-text">
-          <PostRichText text={parsePostText(post.value)} />
-        </p>
+        <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
+          <p className="guild-composer-reply-text">
+            <PostRichText text={parsePostText(post.value)} />
+          </p>
+        </PostSensitiveGate>
       </div>
     </div>
   );
@@ -369,7 +379,10 @@ export function ComposerSheet({
       );
       return;
     }
-    const warning = contentWarning.trim();
+    const labels = normalizeComposerContentLabels({
+      contentWarning,
+      nsfw,
+    });
     onSubmit({
       text:
         trimmed ||
@@ -384,8 +397,7 @@ export function ComposerSheet({
         : {}),
       ...(dropDraft ? { drop: dropDraft } : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
-      ...(warning ? { contentWarning: warning } : {}),
-      ...(nsfw ? { nsfw: true } : {}),
+      ...labels,
     });
   };
 

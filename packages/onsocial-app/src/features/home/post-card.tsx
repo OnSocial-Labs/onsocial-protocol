@@ -1389,13 +1389,6 @@ export function PostCard({
               }
             />
           ) : null}
-          {quotedPost ? (
-            <QuotedPostInset
-              post={quotedPost}
-              authorProfile={quotedAuthorProfile}
-              href={quotedHref}
-            />
-          ) : null}
           {scarceEmbed || canListScarce ? (
             <PostScarceCta
               embed={
@@ -1428,6 +1421,13 @@ export function PostCard({
             />
           ) : null}
         </PostSensitiveGate>
+        {quotedPost ? (
+          <QuotedPostInset
+            post={quotedPost}
+            authorProfile={quotedAuthorProfile}
+            href={quotedHref}
+          />
+        ) : null}
         {detailLayout ? (
           <time
             className="post-card-detail-time"

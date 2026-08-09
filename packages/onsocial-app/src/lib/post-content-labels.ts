@@ -49,3 +49,16 @@ export function sensitiveGateLabel(labels: PostContentLabels): string {
   if (labels.nsfw) return 'Sensitive content';
   return 'Sensitive content';
 }
+
+/**
+ * Peek / compact preview copy under Safe mode — never leaks labeled body text.
+ * Open the full post to reveal.
+ */
+export function safeModePeekText(
+  text: string,
+  labels: PostContentLabels,
+  safeMode: boolean
+): string {
+  if (!safeMode || !postHasContentLabels(labels)) return text;
+  return sensitiveGateLabel(labels);
+}

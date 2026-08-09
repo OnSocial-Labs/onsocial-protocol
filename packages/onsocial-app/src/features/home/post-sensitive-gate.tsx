@@ -8,8 +8,10 @@ import {
 } from '@/lib/post-content-labels';
 
 /**
- * When Safe mode is on, hide NSFW / content-warning bodies behind a reveal.
- * When Safe mode is off, show optional label chips above the content.
+ * When Safe mode is on:
+ * - spoilers (`contentWarning` only) hide behind Show
+ * - NSFW blurs in place until Show
+ * When Safe mode is off (or after reveal), label chips sit above the content.
  */
 export function PostSensitiveGate({
   labels,
@@ -20,15 +22,49 @@ export function PostSensitiveGate({
   labels: PostContentLabels;
   safeMode: boolean;
   children: ReactNode;
-  /** Quote insets — shorter chrome. */
+  /** Quote insets / reply targets — shorter chrome. */
   compact?: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
   const hasLabels = postHasContentLabels(labels);
   const gated = safeMode && hasLabels && !revealed;
+  const useBlur = Boolean(labels.nsfw);
 
   if (!hasLabels) {
     return <>{children}</>;
+  }
+
+  const reveal = (event: {
+    preventDefault(): void;
+    stopPropagation(): void;
+  }) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setRevealed(true);
+  };
+
+  if (gated && useBlur) {
+    return (
+      <div
+        className={`post-sensitive-blur${compact ? ' is-compact' : ''}`}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <div className="post-sensitive-blur-content" aria-hidden>
+          {children}
+        </div>
+        <div className="post-sensitive-blur-overlay">
+          <p className="post-sensitive-gate-label">{sensitiveGateLabel(labels)}</p>
+          <button
+            type="button"
+            className="post-sensitive-gate-reveal"
+            onClick={reveal}
+          >
+            Show
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (gated) {
@@ -42,11 +78,7 @@ export function PostSensitiveGate({
         <button
           type="button"
           className="post-sensitive-gate-reveal"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setRevealed(true);
-          }}
+          onClick={reveal}
         >
           Show
         </button>

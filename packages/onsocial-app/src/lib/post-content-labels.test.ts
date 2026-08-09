@@ -3,6 +3,7 @@ import {
   normalizeComposerContentLabels,
   parsePostContentLabels,
   postHasContentLabels,
+  safeModePeekText,
   sensitiveGateLabel,
 } from './post-content-labels';
 
@@ -55,5 +56,21 @@ describe('sensitiveGateLabel', () => {
     expect(postHasContentLabels({})).toBe(false);
     expect(postHasContentLabels({ nsfw: true })).toBe(true);
     expect(postHasContentLabels({ contentWarning: 'x' })).toBe(true);
+  });
+});
+
+describe('safeModePeekText', () => {
+  it('returns body text when Safe mode is off or unlabeled', () => {
+    expect(safeModePeekText('hello', {}, true)).toBe('hello');
+    expect(safeModePeekText('hello', { nsfw: true }, false)).toBe('hello');
+  });
+
+  it('replaces labeled body under Safe mode', () => {
+    expect(
+      safeModePeekText('secret ending', { contentWarning: 'Spoilers' }, true)
+    ).toBe('Spoilers');
+    expect(safeModePeekText('nsfw body', { nsfw: true }, true)).toBe(
+      'Sensitive content'
+    );
   });
 });

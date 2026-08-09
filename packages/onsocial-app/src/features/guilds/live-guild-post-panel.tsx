@@ -70,7 +70,10 @@ import {
   buildOptimisticMediaEntries,
   readPostMediaUnmuteIndex,
 } from '@/lib/post-media';
-import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
+import {
+  normalizeComposerContentLabels,
+  type PostContentLabels,
+} from '@/lib/post-content-labels';
 import {
   txToastConfirming,
   txToastError,
@@ -557,7 +560,7 @@ export function LiveGuildPostPanel({
     mode: GuildComposerMode,
     text: string,
     files: File[] = [],
-    contentLabels: { contentWarning?: string; nsfw?: boolean } = {}
+    contentLabels: PostContentLabels = {}
   ): Promise<{ confirmed: boolean; newPostId: string }> => {
     const newPostId = Date.now().toString();
     const { client } = await getClient();
@@ -614,7 +617,7 @@ export function LiveGuildPostPanel({
     text: string,
     newPostId: string,
     files: File[] = [],
-    contentLabels: { contentWarning?: string; nsfw?: boolean } = {}
+    contentLabels: PostContentLabels = {}
   ) => {
     if (!accountId) return;
     const feedMeta = applyMediaKindOverride(

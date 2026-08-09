@@ -23,7 +23,10 @@ import {
   buildOptimisticMediaEntries,
   mediaKindFromFile,
 } from '@/lib/post-media';
-import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
+import {
+  normalizeComposerContentLabels,
+  type PostContentLabels,
+} from '@/lib/post-content-labels';
 import {
   txToastConfirming,
   txToastError,
@@ -78,7 +81,7 @@ function buildOptimisticPost(args: {
   } | null;
   drop: ComposerDropDraft | null;
   files?: File[];
-  contentLabels?: { contentWarning?: string; nsfw?: boolean };
+  contentLabels?: PostContentLabels;
 }): PostRow {
   const {
     accountId,

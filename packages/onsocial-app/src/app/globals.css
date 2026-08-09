@@ -15157,6 +15157,44 @@ a.os-surface-row {
     outline-offset: 2px;
   }
 
+  .post-sensitive-blur {
+    position: relative;
+    margin-top: 0.15rem;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 0.65rem;
+  }
+
+  .post-sensitive-blur.is-compact {
+    border-radius: 0.5rem;
+  }
+
+  .post-sensitive-blur-content {
+    filter: blur(14px);
+    transform: scale(1.02);
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .post-sensitive-blur-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.7rem 0.85rem;
+    background: rgb(var(--bg-rgb) / 0.42);
+    text-align: center;
+  }
+
+  .post-sensitive-blur.is-compact .post-sensitive-blur-overlay {
+    padding: 0.5rem 0.65rem;
+    gap: 0.3rem;
+  }
+
   .post-media-strip {
     margin-top: 0.35rem;
     min-width: 0;
