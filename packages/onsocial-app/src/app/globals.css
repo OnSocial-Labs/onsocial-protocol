@@ -18999,6 +18999,18 @@ a.os-surface-row {
     object-fit: cover;
   }
 
+  .collection-cover.has-read .collection-cover-read-expand {
+    position: absolute;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    z-index: 2;
+  }
+
+  .collection-cover.is-immersive.has-read .collection-cover-read-expand {
+    right: max(0.85rem, env(safe-area-inset-right, 0px));
+    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px));
+  }
+
   .collection-status {
     position: absolute;
     z-index: 2;
@@ -19569,6 +19581,46 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0;
     margin-top: -0.15rem;
+  }
+
+  .collection-reading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: -0.15rem;
+  }
+
+  .collection-reading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 1.45rem;
+  }
+
+  .collection-reading-row .collection-section-label {
+    margin: 0;
+  }
+
+  .collection-reading-open {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .collection-reading-open:hover,
+  .collection-reading-open:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
   }
 
   .collection-tracks > .collection-section-label {

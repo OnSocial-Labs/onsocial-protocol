@@ -73,6 +73,10 @@ export function holdingsHrefForOwned(item: {
   if (collectionId && (isAudioMediumKind(medium) || medium === 'video')) {
     return collectiblesPlayPath(collectionId, { tokenId: item.tokenId });
   }
+  // Writing holdings open the collection with the immersive reader.
+  if (collectionId && (medium === 'writing' || medium === 'book')) {
+    return collectionPath(collectionId, { read: true });
+  }
   if (collectionId) return collectionPath(collectionId);
   const postPath = item.sourcePostPath?.trim();
   if (postPath) {

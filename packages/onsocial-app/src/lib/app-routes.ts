@@ -129,11 +129,19 @@ export function collectiblesPlayPath(
   return `${APP_COLLECTIBLES_PLAY_PATH}?${params.toString()}`;
 }
 
+/** Open immersive writing reader on the collection page (`?read=1`). */
+export const COLLECTION_READ_QUERY = 'read';
+
 /** Public collection (drop) page. */
-export function collectionPath(collectionId: string): string {
+export function collectionPath(
+  collectionId: string,
+  opts?: { read?: boolean }
+): string {
   const id = collectionId.trim();
   if (!id) return APP_MARKET_PATH;
-  return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}`;
+  const base = `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}`;
+  if (!opts?.read) return base;
+  return `${base}?${COLLECTION_READ_QUERY}=1`;
 }
 
 /** Public app (store) page. */

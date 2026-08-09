@@ -297,6 +297,14 @@ export function bookPdfFromManifest(
   return readableFromRef(manifest.bookPdf);
 }
 
+/** Section label on the collection page (tracks-style). */
+export function writingReadingSectionLabel(chapterCount: number): string {
+  const n = Number.isFinite(chapterCount) ? Math.max(0, Math.floor(chapterCount)) : 0;
+  if (n <= 0) return 'Writing';
+  if (n === 1) return '1 chapter';
+  return `${n} chapters`;
+}
+
 export function writingLastChapterStorageKey(
   collectionId: string,
   accountId: string
