@@ -21,6 +21,7 @@ export function LiveGuildMembersPanel({
   const memberDriven = Boolean(initial?.memberDriven);
   const {
     members,
+    banned,
     pendingRolesByMemberId,
     loadError,
     showListSkeleton,
@@ -36,14 +37,15 @@ export function LiveGuildMembersPanel({
   const manageContext = useGuildMembersManageContext(groupId, memberDriven);
 
   useEffect(() => {
-    void bootstrap(initial?.members ?? []);
+    void bootstrap(initial?.members ?? [], initial?.banned ?? []);
     // Seed once per group load; soft fetch follows inside bootstrap.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial seed is mount/group scoped
   }, [bootstrap, groupId]);
 
-  const profiles = usePostAuthorProfiles(
-    members.map((member) => member.memberId)
-  );
+  const profiles = usePostAuthorProfiles([
+    ...members.map((member) => member.memberId),
+    ...banned.map((row) => row.memberId),
+  ]);
 
   return (
     <OsAppScreen
@@ -58,6 +60,7 @@ export function LiveGuildMembersPanel({
       <GuildMembersRoster
         groupId={groupId}
         members={members}
+        banned={banned}
         profiles={profiles}
         manageContext={manageContext}
         onMembersChanged={(input) => {

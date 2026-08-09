@@ -161,6 +161,7 @@ export type {
   GroupCurrentRow,
   GroupMembershipCurrentRow,
   GroupMemberRow,
+  GroupBannedRow,
   ThreadCounts,
   ThreadEdge,
   ThreadNode,

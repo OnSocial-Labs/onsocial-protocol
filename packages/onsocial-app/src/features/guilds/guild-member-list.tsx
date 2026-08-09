@@ -11,7 +11,10 @@ import type {
   GuildMembersManageContext,
   GuildMemberRowActionId,
 } from '@/features/guilds/guild-member-row-actions';
-import { guildMemberRowActions } from '@/features/guilds/guild-member-row-actions';
+import {
+  guildBannedMemberRowActions,
+  guildMemberRowActions,
+} from '@/features/guilds/guild-member-row-actions';
 import { guildMemberTimeMeta } from '@/features/guilds/guild-member-time-meta';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -23,6 +26,7 @@ interface GuildMemberListProps {
   profiles: Record<string, PostAuthorProfile>;
   pendingRolesByMemberId?: Map<string, GuildMemberPendingRole>;
   manageContext?: GuildMembersManageContext | null;
+  listMode?: 'members' | 'banned';
   onMembersChanged?: (input?: {
     memberId: string;
     actionId: GuildMemberRowActionId;
@@ -36,6 +40,7 @@ export function GuildMemberList({
   profiles,
   pendingRolesByMemberId,
   manageContext,
+  listMode = 'members',
   onMembersChanged,
 }: GuildMemberListProps) {
   const showManageMenu = Boolean(manageContext?.viewerAccountId);
@@ -47,17 +52,22 @@ export function GuildMemberList({
         const name = profile?.displayName ?? displayName(member.memberId);
         const handle = fallbackLabel(member.memberId);
         const timeMeta = guildMemberTimeMeta(member.blockTimestamp, {
-          isOwner: member.isOwner,
+          isOwner: listMode === 'banned' ? false : member.isOwner,
         });
         const href = portfolioPath(member.memberId);
         const pendingRoleLevel =
-          pendingRolesByMemberId?.get(member.memberId)?.level ?? null;
+          listMode === 'banned'
+            ? null
+            : (pendingRolesByMemberId?.get(member.memberId)?.level ?? null);
         const showRoleBadge =
-          guildMemberRoleBucket(member) !== 'member' ||
-          (pendingRoleLevel != null && pendingRoleLevel > 0);
+          listMode !== 'banned' &&
+          (guildMemberRoleBucket(member) !== 'member' ||
+            (pendingRoleLevel != null && pendingRoleLevel > 0));
         const rowActions =
           showManageMenu && manageContext
-            ? guildMemberRowActions(member, manageContext)
+            ? listMode === 'banned'
+              ? guildBannedMemberRowActions(member.memberId, manageContext)
+              : guildMemberRowActions(member, manageContext)
             : [];
         const showRowMenu = rowActions.length > 0;
         const asideEmpty = !timeMeta && !showRowMenu;
@@ -108,6 +118,7 @@ export function GuildMemberList({
                     member={member}
                     manageContext={manageContext}
                     memberLabel={name}
+                    listMode={listMode}
                     onActionComplete={onMembersChanged}
                   />
                 ) : null}

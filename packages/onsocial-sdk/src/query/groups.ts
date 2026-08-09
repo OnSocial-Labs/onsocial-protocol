@@ -105,6 +105,14 @@ export type GroupMemberRow = Pick<
   | 'blockTimestamp'
 >;
 
+/** Active guild ban row from `group_blacklist_current`. */
+export interface GroupBannedRow {
+  groupId: string;
+  memberId: string;
+  blockHeight: number;
+  blockTimestamp: number;
+}
+
 export interface GroupCurrentRow {
   groupId: string;
   ownerId: string;
@@ -217,6 +225,45 @@ export class GroupsQuery {
       variables: { groupId, limit, offset },
     });
     const rows = res.data?.groupMembersCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
+
+  /**
+   * Active bans for a guild, backed by `group_blacklist_current`
+   * (latest add_to_blacklist without a later remove_from_blacklist).
+   *
+   * ```ts
+   * const { items } = await os.query.groups.bannedOf('dao', { limit: 40 });
+   * ```
+   */
+  async bannedOf(
+    groupId: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<Paginated<GroupBannedRow>> {
+    const limit = opts.limit ?? 40;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      groupBlacklistCurrent: GroupBannedRow[];
+    }>({
+      query: `query GroupBannedOf($groupId: String!, $limit: Int!, $offset: Int!) {
+        groupBlacklistCurrent(
+          where: { groupId: {_eq: $groupId} },
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          groupId
+          memberId
+          blockHeight
+          blockTimestamp
+        }
+      }`,
+      variables: { groupId, limit, offset },
+    });
+    const rows = res.data?.groupBlacklistCurrent ?? [];
     return {
       items: rows,
       nextOffset: rows.length >= limit ? offset + limit : undefined,

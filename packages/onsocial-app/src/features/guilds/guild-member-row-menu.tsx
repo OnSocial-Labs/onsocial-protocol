@@ -21,6 +21,7 @@ import {
 import { executeGuildMemberAction } from '@/features/guilds/execute-guild-member-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
+  guildBannedMemberRowActions,
   guildMemberActionConfirmCopy,
   guildMemberRowActions,
   type GuildMembersManageContext,
@@ -42,6 +43,7 @@ interface GuildMemberRowMenuProps {
   member: GroupMemberRow;
   manageContext: GuildMembersManageContext;
   memberLabel: string;
+  listMode?: 'members' | 'banned';
   onActionComplete?: (input: {
     memberId: string;
     actionId: GuildMemberRowActionId;
@@ -55,6 +57,10 @@ function actionIcon(id: GuildMemberRowActionId): ReactNode {
       return <CopyIcon className="action-drawer-icon" aria-hidden />;
     case 'remove-from-guild':
       return <TrashIcon className="action-drawer-icon" aria-hidden />;
+    case 'ban-from-guild':
+      return <TrashIcon className="action-drawer-icon" aria-hidden />;
+    case 'unban-from-guild':
+      return <UserIcon className="action-drawer-icon" aria-hidden />;
     case 'transfer-ownership':
       return <UserCircleFillIcon className="action-drawer-icon" aria-hidden />;
     case 'make-mod':
@@ -98,6 +104,34 @@ function toastCopyForAction(action: GuildMemberRowAction): {
         };
   }
 
+  if (action.id === 'ban-from-guild') {
+    return action.propose
+      ? {
+          confirming: txToastConfirming.proposingGuildUpdate,
+          success: txToastSuccess.guildUpdateProposed,
+          failure: txToastError.guildSettingsFailed,
+        }
+      : {
+          confirming: txToastConfirming.banningGuildMember,
+          success: txToastSuccess.guildMemberBanned,
+          failure: txToastError.guildBanMemberFailed,
+        };
+  }
+
+  if (action.id === 'unban-from-guild') {
+    return action.propose
+      ? {
+          confirming: txToastConfirming.proposingGuildUpdate,
+          success: txToastSuccess.guildUpdateProposed,
+          failure: txToastError.guildSettingsFailed,
+        }
+      : {
+          confirming: txToastConfirming.unbanningGuildMember,
+          success: txToastSuccess.guildMemberUnbanned,
+          failure: txToastError.guildUnbanMemberFailed,
+        };
+  }
+
   if (action.propose) {
     return {
       confirming: txToastConfirming.proposingGuildUpdate,
@@ -118,6 +152,7 @@ export function GuildMemberRowMenu({
   member,
   manageContext,
   memberLabel,
+  listMode = 'members',
   onActionComplete,
 }: GuildMemberRowMenuProps) {
   const { getClient } = useAppOnSocialClient();
@@ -133,7 +168,10 @@ export function GuildMemberRowMenu({
   const [actionError, setActionError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  const actions = guildMemberRowActions(member, manageContext);
+  const actions =
+    listMode === 'banned'
+      ? guildBannedMemberRowActions(member.memberId, manageContext)
+      : guildMemberRowActions(member, manageContext);
   const menuLabel = `Manage ${memberLabel}`;
   const handle = fallbackLabel(member.memberId);
   const whoLabel = memberLabel.trim()

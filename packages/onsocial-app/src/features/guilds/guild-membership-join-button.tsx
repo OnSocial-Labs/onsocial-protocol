@@ -63,6 +63,7 @@ export function guildMembershipJoinLabel(args: {
   joinCancelReady?: boolean;
   isMember?: boolean;
   isOwner?: boolean;
+  isBlacklisted?: boolean;
   confirmingLeave?: boolean;
   needsStorage?: boolean;
   loadGuild?: boolean;
@@ -76,6 +77,7 @@ export function guildMembershipJoinLabel(args: {
     return args.isOwner ? 'Transfer?' : 'Leave?';
   }
   if (args.hintMember) return 'Joined';
+  if (args.isBlacklisted) return 'Banned';
   if (args.hintJoinPending || (args.joinPending && !args.joinCancelReady)) {
     return 'Pending';
   }

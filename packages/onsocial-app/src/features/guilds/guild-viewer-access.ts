@@ -10,6 +10,7 @@ export interface ResolvedGuildViewer {
   isOwner: boolean;
   isAdmin: boolean;
   canModerate: boolean;
+  isBlacklisted: boolean;
   joinRequest: JoinRequest | null;
   pendingJoinProposalId: string | null;
 }
@@ -94,6 +95,15 @@ export async function resolveGuildViewerAccess(
     membership
   );
 
+  let isBlacklisted = false;
+  if (!roles.isMember) {
+    try {
+      isBlacklisted = await client.groups.isBlacklisted(groupId, accountId);
+    } catch {
+      isBlacklisted = false;
+    }
+  }
+
   const canManage =
     roles.isOwner || roles.isAdmin || roles.canModerate;
 
@@ -112,6 +122,7 @@ export async function resolveGuildViewerAccess(
 
   const viewer: ResolvedGuildViewer = {
     ...roles,
+    isBlacklisted,
     joinRequest,
     pendingJoinProposalId: pendingJoinProposal?.id ?? null,
   };
