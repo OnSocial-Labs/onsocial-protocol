@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 import {
   PROTOCOL_COMMUNITY_DAO_SEED,
   isValidProtocolDaoAccountId,
@@ -21,12 +21,10 @@ export function ProtocolCommunityRegistry({
 }) {
   const fieldId = useId();
   const [draft, setDraft] = useState('');
-  const [recent, setRecent] = useState<string[]>([]);
+  const [recent, setRecent] = useState<string[]>(() =>
+    typeof window === 'undefined' ? [] : readRecentCommunityDaos()
+  );
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setRecent(readRecentCommunityDaos());
-  }, []);
 
   const openAccount = (raw: string) => {
     const account = normalizeProtocolDaoAccountId(raw);
