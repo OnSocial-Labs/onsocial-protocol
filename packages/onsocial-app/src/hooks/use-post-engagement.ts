@@ -35,6 +35,8 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
 /**
  * Batched engagement state (reply/quote/reaction/amplify + viewer flags)
  * for a list of visible posts, plus an optimistic reaction toggle.
+ * Reaction writes use `wait: true` so the faded pending state lasts until
+ * chain confirmation (icon still flips immediately — not pulsing dots).
  * Pass `initial` from SSR so counts paint with the feed (viewer flags
  * soft-upgrade after wallet).
  */
@@ -162,7 +164,7 @@ export function usePostEngagement(
         await client.reactions.toggle(
           { author: post.accountId, postId: post.postId },
           DEFAULT_REACTION_KIND,
-          { viewer: accountId }
+          { viewer: accountId, wait: true }
         );
       } catch (cause) {
         setEngagement((current) => ({ ...current, [key]: previous }));
