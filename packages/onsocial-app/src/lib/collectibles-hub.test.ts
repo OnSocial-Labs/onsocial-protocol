@@ -44,6 +44,12 @@ describe('collectibles os apps', () => {
     expect(isAppRoutePath('/protocol')).toBe(true);
     expect(resolveActiveOsAppId('/protocol')).toBe('protocol');
     expect(resolveActiveOsAppId('/protocol?dao=treasury')).toBe('protocol');
+    expect(resolveActiveOsAppId('/protocol?dao=community')).toBe('protocol');
+    expect(
+      resolveActiveOsAppId(
+        '/protocol?dao=community&account=example.sputnik-dao.near'
+      )
+    ).toBe('protocol');
     const protocol = gateOsApps().find((app) => app.id === 'protocol');
     expect(protocol?.kind).toBe('app');
     expect(protocol?.href).toBe('/protocol');

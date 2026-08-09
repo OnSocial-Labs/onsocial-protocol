@@ -7,6 +7,7 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   PROTOCOL_DAO_BOARD_OPTIONS,
+  rememberCommunityDao,
   resolveProtocolDaoAccountId,
 } from '@/features/protocol/dao-accounts';
 import { actOnProtocolProposal } from '@/features/protocol/protocol-act';
@@ -15,12 +16,23 @@ import {
   applyOptimisticVote,
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
+import { submitProtocolSignalProposal } from '@/features/protocol/protocol-create';
+import { ProtocolActionSheet } from '@/features/protocol/protocol-action-sheet';
+import { ProtocolCommunityRegistry } from '@/features/protocol/protocol-community-registry';
+import { ProtocolCreateSheet } from '@/features/protocol/protocol-create-sheet';
 import {
   fetchProtocolFeed,
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
-import { ProtocolActionSheet } from '@/features/protocol/protocol-action-sheet';
 import { ProtocolProposalCard } from '@/features/protocol/protocol-proposal-card';
+import { ProtocolStakeSheet } from '@/features/protocol/protocol-stake-sheet';
+import {
+  buildProtocolDelegationPlan,
+  prepareProtocolDelegation,
+  undelegateProtocolStake,
+  withdrawProtocolStake,
+} from '@/features/protocol/protocol-staking';
+import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import type {
   ProtocolApplication,
   ProtocolDaoAction,
@@ -28,6 +40,7 @@ import type {
   ProtocolDaoVote,
 } from '@/features/protocol/types';
 import {
+  PROTOCOL_DAO_ACCOUNT_PARAM,
   PROTOCOL_DAO_BOARD_PARAM,
   parseProtocolDaoBoard,
   protocolPath,
@@ -46,7 +59,9 @@ export function ProtocolPagePanel() {
   const board = parseProtocolDaoBoard(
     searchParams.get(PROTOCOL_DAO_BOARD_PARAM)
   );
-  const daoAccountId = resolveProtocolDaoAccountId(board);
+  const communityAccount = searchParams.get(PROTOCOL_DAO_ACCOUNT_PARAM);
+  const daoAccountId = resolveProtocolDaoAccountId(board, communityAccount);
+  const showRegistry = board === 'community' && !daoAccountId;
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const titleId = useId();
@@ -61,6 +76,10 @@ export function ProtocolPagePanel() {
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
     null
   );
+  const [createOpen, setCreateOpen] = useState(false);
+  const [stakeOpen, setStakeOpen] = useState(false);
+  const [createPending, setCreatePending] = useState(false);
+  const [stakePending, setStakePending] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   const actionApplication = useMemo(
@@ -73,7 +92,20 @@ export function ProtocolPagePanel() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (board === 'community' && daoAccountId) {
+      rememberCommunityDao(daoAccountId);
+    }
+  }, [board, daoAccountId]);
+
   const loadFeed = useCallback(async () => {
+    if (!daoAccountId) {
+      setApplications([]);
+      setDaoPolicy(null);
+      setLoadState('ready');
+      setLoadError(null);
+      return;
+    }
     setLoadState('loading');
     setLoadError(null);
     try {
@@ -93,10 +125,15 @@ export function ProtocolPagePanel() {
     void loadFeed();
   }, [loadFeed]);
 
-  const setBoard = useCallback(
-    (next: ProtocolDaoBoard) => {
+  const navigateBoard = useCallback(
+    (next: { board: ProtocolDaoBoard; account?: string | null }) => {
       setActionAppId(null);
-      router.replace(protocolPath({ board: next }), { scroll: false });
+      setCreateOpen(false);
+      setStakeOpen(false);
+      router.replace(
+        protocolPath({ board: next.board, account: next.account }),
+        { scroll: false }
+      );
     },
     [router]
   );
@@ -130,7 +167,7 @@ export function ProtocolPagePanel() {
 
   const handleAct = useCallback(
     async (action: ProtocolDaoAction) => {
-      if (!actionApplication) return;
+      if (!actionApplication || !daoAccountId) return;
       const proposal = resolveLiveProposal(actionApplication);
       const proposalId =
         proposal?.id ?? actionApplication.governance_proposal?.proposal_id;
@@ -210,15 +247,250 @@ export function ProtocolPagePanel() {
     },
     [
       actionApplication,
+      daoAccountId,
       isConnected,
       connect,
       getSigningWallet,
-      daoAccountId,
       mergeProposal,
       trackTransaction,
       setTxResult,
     ]
   );
+
+  const handleCreate = useCallback(
+    async (description: string) => {
+      if (!daoAccountId) return;
+      if (!isConnected) {
+        await connect();
+        return;
+      }
+      setCreatePending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const { txHashes } = await submitProtocolSignalProposal({
+          wallet,
+          accountId: signerId,
+          daoAccountId,
+          description,
+        });
+        await trackTransaction({
+          txHashes,
+          submittedMessage: txToastGovPending.actionSubmitted('signal proposal'),
+          successMessage: txToastGovSuccess.actionConfirmed('signal proposal'),
+          failureMessage: txToastGovError.actionFailed('signal proposal'),
+        });
+        setCreateOpen(false);
+        await loadFeed();
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          setTxResult({
+            type: 'error',
+            msg:
+              error instanceof Error
+                ? error.message
+                : txToastGovError.actionFailed('signal proposal'),
+          });
+        }
+      } finally {
+        setCreatePending(false);
+      }
+    },
+    [
+      daoAccountId,
+      isConnected,
+      connect,
+      getSigningWallet,
+      trackTransaction,
+      setTxResult,
+      loadFeed,
+    ]
+  );
+
+  const handleDelegate = useCallback(
+    async (amountYocto: string) => {
+      if (!daoAccountId) return;
+      if (!isConnected) {
+        await connect();
+        return;
+      }
+      setStakePending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const eligibility = await getProtocolGovernanceEligibility(
+          signerId,
+          daoAccountId
+        );
+        if (!eligibility.stakingContractId) {
+          throw new Error('This DAO has no staking contract.');
+        }
+        const plan = buildProtocolDelegationPlan(
+          eligibility,
+          BigInt(amountYocto)
+        );
+        if (
+          BigInt(plan.depositAmount) > BigInt(eligibility.walletBalance)
+        ) {
+          throw new Error('Not enough SOCIAL in wallet to deposit.');
+        }
+        if (
+          BigInt(plan.storageDeposit) > 0n &&
+          BigInt(plan.storageDeposit) > BigInt(eligibility.nearBalance)
+        ) {
+          throw new Error('Not enough NEAR for staking storage.');
+        }
+        const txHashes = await prepareProtocolDelegation({
+          wallet,
+          accountId: signerId,
+          stakingContractId: eligibility.stakingContractId,
+          storageDeposit: plan.storageDeposit,
+          depositAmount: plan.depositAmount,
+          delegateAmount: plan.delegateAmount,
+        });
+        await trackTransaction({
+          txHashes,
+          submittedMessage: txToastGovPending.actionSubmitted('delegation'),
+          successMessage: txToastGovSuccess.actionConfirmed('delegation'),
+          failureMessage: txToastGovError.actionFailed('delegation'),
+        });
+        setStakeOpen(false);
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          setTxResult({
+            type: 'error',
+            msg:
+              error instanceof Error
+                ? error.message
+                : txToastGovError.actionFailed('delegation'),
+          });
+        }
+      } finally {
+        setStakePending(false);
+      }
+    },
+    [
+      daoAccountId,
+      isConnected,
+      connect,
+      getSigningWallet,
+      trackTransaction,
+      setTxResult,
+    ]
+  );
+
+  const handleUndelegate = useCallback(
+    async (amounts: string[]) => {
+      if (!daoAccountId) return;
+      if (!isConnected) {
+        await connect();
+        return;
+      }
+      setStakePending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const eligibility = await getProtocolGovernanceEligibility(
+          signerId,
+          daoAccountId
+        );
+        if (!eligibility.stakingContractId) {
+          throw new Error('This DAO has no staking contract.');
+        }
+        const txHashes = await undelegateProtocolStake({
+          wallet,
+          accountId: signerId,
+          stakingContractId: eligibility.stakingContractId,
+          amounts,
+        });
+        await trackTransaction({
+          txHashes,
+          submittedMessage: txToastGovPending.actionSubmitted('undelegation'),
+          successMessage: txToastGovSuccess.actionConfirmed('undelegation'),
+          failureMessage: txToastGovError.actionFailed('undelegation'),
+        });
+        setStakeOpen(false);
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          setTxResult({
+            type: 'error',
+            msg:
+              error instanceof Error
+                ? error.message
+                : txToastGovError.actionFailed('undelegation'),
+          });
+        }
+      } finally {
+        setStakePending(false);
+      }
+    },
+    [
+      daoAccountId,
+      isConnected,
+      connect,
+      getSigningWallet,
+      trackTransaction,
+      setTxResult,
+    ]
+  );
+
+  const handleWithdraw = useCallback(
+    async (amountYocto: string) => {
+      if (!daoAccountId) return;
+      if (!isConnected) {
+        await connect();
+        return;
+      }
+      setStakePending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const eligibility = await getProtocolGovernanceEligibility(
+          signerId,
+          daoAccountId
+        );
+        if (!eligibility.stakingContractId) {
+          throw new Error('This DAO has no staking contract.');
+        }
+        const txHashes = await withdrawProtocolStake({
+          wallet,
+          accountId: signerId,
+          stakingContractId: eligibility.stakingContractId,
+          amount: amountYocto,
+        });
+        await trackTransaction({
+          txHashes,
+          submittedMessage: txToastGovPending.actionSubmitted('stake withdrawal'),
+          successMessage: txToastGovSuccess.actionConfirmed('stake withdrawal'),
+          failureMessage: txToastGovError.actionFailed('stake withdrawal'),
+        });
+        setStakeOpen(false);
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          setTxResult({
+            type: 'error',
+            msg:
+              error instanceof Error
+                ? error.message
+                : txToastGovError.actionFailed('stake withdrawal'),
+          });
+        }
+      } finally {
+        setStakePending(false);
+      }
+    },
+    [
+      daoAccountId,
+      isConnected,
+      connect,
+      getSigningWallet,
+      trackTransaction,
+      setTxResult,
+    ]
+  );
+
+  const lede =
+    board === 'community'
+      ? daoAccountId
+        ? `Community DAO · @${daoAccountId}`
+        : 'Open any Sputnik DAO by account.'
+      : 'Governance and treasury decisions for OnSocial.';
 
   return (
     <OsAppScreen title="Protocol" glassChrome>
@@ -227,9 +499,7 @@ export function ProtocolPagePanel() {
           <h1 id={titleId} className="sr-only">
             Protocol
           </h1>
-          <p className="protocol-page-lede">
-            Governance and treasury decisions for OnSocial.
-          </p>
+          <p className="protocol-page-lede">{lede}</p>
           <div
             className="protocol-board-rail"
             role="tablist"
@@ -244,19 +514,57 @@ export function ProtocolPagePanel() {
                   role="tab"
                   aria-selected={active}
                   className={`protocol-board-chip${active ? ' is-active' : ''}`}
-                  onClick={() => setBoard(option.value)}
+                  onClick={() => navigateBoard({ board: option.value })}
                 >
                   {option.label}
                 </button>
               );
             })}
           </div>
+
+          {!showRegistry && daoAccountId ? (
+            <div className="protocol-tools">
+              <button
+                type="button"
+                className="protocol-tool"
+                onClick={() => {
+                  setStakeOpen(false);
+                  setCreateOpen(true);
+                }}
+              >
+                Propose
+              </button>
+              <button
+                type="button"
+                className="protocol-tool"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setStakeOpen(true);
+                }}
+              >
+                Stake
+              </button>
+              {board === 'community' ? (
+                <button
+                  type="button"
+                  className="protocol-tool is-ghost"
+                  onClick={() => navigateBoard({ board: 'community' })}
+                >
+                  Registry
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </header>
 
-        {loadState === 'loading' ? (
+        {showRegistry ? (
+          <ProtocolCommunityRegistry onOpenDao={navigateBoard} />
+        ) : null}
+
+        {!showRegistry && loadState === 'loading' ? (
           <p className="protocol-empty">Loading proposals…</p>
         ) : null}
-        {loadState === 'error' ? (
+        {!showRegistry && loadState === 'error' ? (
           <div className="protocol-empty">
             <p>{loadError || 'Could not load proposals.'}</p>
             <button
@@ -268,10 +576,10 @@ export function ProtocolPagePanel() {
             </button>
           </div>
         ) : null}
-        {loadState === 'ready' && applications.length === 0 ? (
+        {!showRegistry && loadState === 'ready' && applications.length === 0 ? (
           <p className="protocol-empty">No open protocol proposals.</p>
         ) : null}
-        {loadState === 'ready' && applications.length > 0 ? (
+        {!showRegistry && loadState === 'ready' && applications.length > 0 ? (
           <div className="protocol-card-list">
             {applications.map((application) => (
               <ProtocolProposalCard
@@ -297,6 +605,38 @@ export function ProtocolPagePanel() {
         nowMs={nowMs}
         onAct={(action) => {
           void handleAct(action);
+        }}
+      />
+
+      <ProtocolCreateSheet
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        pending={createPending}
+        onSubmit={(description) => {
+          void handleCreate(description);
+        }}
+        onOpenStake={() => {
+          setCreateOpen(false);
+          setStakeOpen(true);
+        }}
+      />
+
+      <ProtocolStakeSheet
+        open={stakeOpen}
+        onClose={() => setStakeOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        pending={stakePending}
+        onDelegate={(amountYocto) => {
+          void handleDelegate(amountYocto);
+        }}
+        onUndelegate={(amounts) => {
+          void handleUndelegate(amounts);
+        }}
+        onWithdraw={(amountYocto) => {
+          void handleWithdraw(amountYocto);
         }}
       />
     </OsAppScreen>

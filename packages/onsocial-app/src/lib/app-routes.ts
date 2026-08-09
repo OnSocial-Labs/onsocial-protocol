@@ -72,23 +72,41 @@ export const COLLECTIBLES_PLAY_PARAM = 'c';
 /** Optional owned edition for Sell on the focused player (`?t=tokenId`). */
 export const COLLECTIBLES_PLAY_TOKEN_PARAM = 't';
 
-/** Query key for Protocol board (`governance` | `treasury`). */
+/** Query key for Protocol board (`governance` | `treasury` | `community`). */
 export const PROTOCOL_DAO_BOARD_PARAM = 'dao';
 
-export type ProtocolDaoBoard = 'governance' | 'treasury';
+/** Query key for community / arbitrary Sputnik DAO account. */
+export const PROTOCOL_DAO_ACCOUNT_PARAM = 'account';
+
+export type ProtocolDaoBoard = 'governance' | 'treasury' | 'community';
 
 export function parseProtocolDaoBoard(
   raw: string | null | undefined
 ): ProtocolDaoBoard {
-  return raw?.trim().toLowerCase() === 'treasury' ? 'treasury' : 'governance';
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (value === 'treasury') return 'treasury';
+  if (value === 'community') return 'community';
+  return 'governance';
 }
 
-/** Protocol home, optionally deep-linked to a DAO board. */
-export function protocolPath(opts?: { board?: ProtocolDaoBoard | null }): string {
-  if (opts?.board === 'treasury') {
-    return `${APP_PROTOCOL_PATH}?${PROTOCOL_DAO_BOARD_PARAM}=treasury`;
+/** Protocol home, optionally deep-linked to a DAO board or community account. */
+export function protocolPath(opts?: {
+  board?: ProtocolDaoBoard | null;
+  account?: string | null;
+}): string {
+  const board = opts?.board ?? 'governance';
+  const account = opts?.account?.trim().toLowerCase() ?? '';
+  const params = new URLSearchParams();
+  if (board === 'treasury') {
+    params.set(PROTOCOL_DAO_BOARD_PARAM, 'treasury');
+  } else if (board === 'community') {
+    params.set(PROTOCOL_DAO_BOARD_PARAM, 'community');
+    if (account) {
+      params.set(PROTOCOL_DAO_ACCOUNT_PARAM, account);
+    }
   }
-  return APP_PROTOCOL_PATH;
+  const query = params.toString();
+  return query ? `${APP_PROTOCOL_PATH}?${query}` : APP_PROTOCOL_PATH;
 }
 
 /** Market pre-filtered to a single creator's live listings. */

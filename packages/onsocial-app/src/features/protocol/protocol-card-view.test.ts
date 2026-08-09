@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  normalizeProtocolDaoAccountId,
+  resolveKnownBoardForDaoAccount,
   resolveProtocolDaoAccountId,
   resolveProtocolDaoBoard,
 } from '@/features/protocol/dao-accounts';
@@ -9,24 +11,90 @@ import {
   statusLabel,
   sumVoteCounts,
 } from '@/features/protocol/protocol-card-view';
+import { buildProtocolSignalProposalPayload } from '@/features/protocol/protocol-create';
+import { buildProtocolDelegationPlan } from '@/features/protocol/protocol-staking';
 import type {
   ProtocolApplication,
   ProtocolDaoPolicy,
   ProtocolDaoProposal,
 } from '@/features/protocol/types';
+import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { GOVERNANCE_DAO_ACCOUNT, TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import { parseProtocolDaoBoard, protocolPath } from '@/lib/app-routes';
 
 describe('protocol dao boards', () => {
-  it('resolves governance and treasury accounts', () => {
+  it('resolves governance, treasury, and community accounts', () => {
     expect(resolveProtocolDaoAccountId('governance')).toBe(
       GOVERNANCE_DAO_ACCOUNT
     );
     expect(resolveProtocolDaoAccountId('treasury')).toBe(TREASURY_DAO_ACCOUNT);
+    expect(resolveProtocolDaoAccountId('community')).toBeNull();
+    expect(
+      resolveProtocolDaoAccountId('community', 'example.sputnik-dao.near')
+    ).toBe('example.sputnik-dao.near');
     expect(resolveProtocolDaoBoard(TREASURY_DAO_ACCOUNT)).toBe('treasury');
-    expect(parseProtocolDaoBoard('treasury')).toBe('treasury');
+    expect(resolveKnownBoardForDaoAccount(GOVERNANCE_DAO_ACCOUNT)).toBe(
+      'governance'
+    );
+    expect(resolveKnownBoardForDaoAccount('other.near')).toBeNull();
+    expect(normalizeProtocolDaoAccountId('!!!')).toBeNull();
+    expect(normalizeProtocolDaoAccountId('Bad Account')).toBeNull();
+    expect(normalizeProtocolDaoAccountId('  Example.near  ')).toBe(
+      'example.near'
+    );
+    expect(parseProtocolDaoBoard('community')).toBe('community');
     expect(protocolPath({ board: 'treasury' })).toBe('/protocol?dao=treasury');
+    expect(protocolPath({ board: 'community' })).toBe(
+      '/protocol?dao=community'
+    );
+    expect(
+      protocolPath({ board: 'community', account: 'example.sputnik-dao.near' })
+    ).toBe('/protocol?dao=community&account=example.sputnik-dao.near');
     expect(protocolPath()).toBe('/protocol');
+  });
+});
+
+describe('protocol create + stake helpers', () => {
+  it('builds a signal proposal payload', () => {
+    expect(buildProtocolSignalProposalPayload(' Ship the upgrade ')).toEqual({
+      proposal: {
+        description: 'Ship the upgrade',
+        kind: { Vote: null },
+      },
+    });
+    expect(() => buildProtocolSignalProposalPayload('   ')).toThrow(
+      /Signal description/
+    );
+  });
+
+  it('plans delegation deposit when stake balance is short', () => {
+    const eligibility: ProtocolGovernanceEligibility = {
+      daoAccountId: GOVERNANCE_DAO_ACCOUNT,
+      stakingContractId: 'staking-governance.onsocial.testnet',
+      requiredWeight: '100',
+      delegatedWeight: '0',
+      remainingToThreshold: '100',
+      walletBalance: '80',
+      nearBalance: '1000000000000000000000000',
+      voteAmount: '20',
+      availableToDelegate: '20',
+      selfDelegatedWeight: '0',
+      selfDelegationEntries: [],
+      isRegistered: true,
+      registrationStorageDeposit: '0',
+      delegateActionNearStorageNeeded: '0',
+      depositNeeded: '80',
+      delegateNeeded: '20',
+      isInCooldown: false,
+      availableToWithdraw: '20',
+      canPropose: false,
+      proposalBond: '0',
+    };
+    const plan = buildProtocolDelegationPlan(eligibility, 100n);
+    expect(plan.depositAmount).toBe('80');
+    expect(plan.delegateAmount).toBe('100');
+    expect(plan.storageDeposit).toBe('0');
+    expect(plan.needsBatch).toBe(true);
   });
 });
 

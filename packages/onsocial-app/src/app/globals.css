@@ -29110,3 +29110,182 @@ button.scarce-clip-cover-expand:focus-visible {
   font-size: 0.86rem;
   color: rgb(var(--fg-rgb) / 0.86);
 }
+
+.protocol-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.protocol-tool {
+  border: 0;
+  margin: 0;
+  padding: 0.42rem 0.78rem;
+  border-radius: 999px;
+  background: rgb(var(--fg-rgb) / 0.1);
+  color: rgb(var(--fg-rgb) / 0.92);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.protocol-tool.is-ghost {
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.62);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  padding-inline: 0.35rem;
+}
+
+.protocol-tool:hover,
+.protocol-tool:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.16);
+  outline: none;
+}
+
+.protocol-tool.is-ghost:hover,
+.protocol-tool.is-ghost:focus-visible {
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.88);
+}
+
+.protocol-mode-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.protocol-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.protocol-compose-note {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.58);
+}
+
+.protocol-compose-note.is-warn {
+  color: rgb(160 110 30 / 0.98);
+  font-weight: 650;
+}
+
+.protocol-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.62);
+}
+
+.protocol-field textarea,
+.protocol-field input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  border: 1px solid rgb(var(--fg-rgb) / 0.12);
+  border-radius: 0.75rem;
+  background: rgb(var(--fg-rgb) / 0.04);
+  color: rgb(var(--fg-rgb) / 0.92);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.7rem 0.8rem;
+  resize: vertical;
+}
+
+.protocol-field textarea:focus-visible,
+.protocol-field input:focus-visible {
+  outline: 2px solid rgb(var(--fg-rgb) / 0.28);
+  outline-offset: 1px;
+}
+
+.protocol-community {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.protocol-community-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.protocol-community-row input {
+  flex: 1 1 auto;
+}
+
+.protocol-community-row .protocol-card-act {
+  flex: 0 0 auto;
+  align-self: stretch;
+}
+
+.protocol-community-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.protocol-community-heading {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.protocol-community-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.protocol-community-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  border: 0;
+  margin: 0;
+  padding: 0.7rem 0.15rem;
+  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.protocol-community-item:hover,
+.protocol-community-item:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.04);
+  outline: none;
+}
+
+.protocol-community-item-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: rgb(var(--fg-rgb) / 0.94);
+}
+
+.protocol-community-item-meta {
+  font-size: 0.76rem;
+  color: rgb(var(--fg-rgb) / 0.5);
+}
+
+.protocol-community-item-desc {
+  font-size: 0.8rem;
+  color: rgb(var(--fg-rgb) / 0.62);
+  line-height: 1.4;
+}
