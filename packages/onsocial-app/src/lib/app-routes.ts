@@ -67,6 +67,11 @@ export const MARKET_FACETS_PARAM = 'facets';
 /** Query key for audio release format (`single` | `album` | `podcast`). */
 export const MARKET_AUDIO_FORMAT_PARAM = 'audioFormat';
 
+/** Query key for Collectibles focused player (`?c=collectionId`). */
+export const COLLECTIBLES_PLAY_PARAM = 'c';
+/** Optional owned edition for Sell on the focused player (`?t=tokenId`). */
+export const COLLECTIBLES_PLAY_TOKEN_PARAM = 't';
+
 /** Query key for Protocol board (`governance` | `treasury`). */
 export const PROTOCOL_DAO_BOARD_PARAM = 'dao';
 
