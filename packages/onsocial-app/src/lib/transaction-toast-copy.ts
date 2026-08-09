@@ -242,3 +242,16 @@ export const txToastError = {
   muteAccountFailed: 'Could not mute account.',
   unmuteAccountFailed: 'Could not unmute account.',
 } as const;
+
+/** Governance / partners — formal one-liners for DAO act_proposal flows. */
+export const txToastGovPending = {
+  actionSubmitted: (actionLabel: string) => `${actionLabel} submitted…`,
+} as const;
+
+export const txToastGovSuccess = {
+  actionConfirmed: (actionLabel: string) => `${actionLabel} confirmed.`,
+} as const;
+
+export const txToastGovError = {
+  actionFailed: (actionLabel: string) => `${actionLabel} failed.`,
+} as const;
