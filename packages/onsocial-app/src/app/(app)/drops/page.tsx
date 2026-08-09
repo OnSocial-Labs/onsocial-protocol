@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { DropsPagePanel } from '@/features/drops/drops-page-panel';
 import {
@@ -24,10 +25,12 @@ export default async function DropsPage() {
   ]);
 
   return (
-    <DropsPagePanel
-      initialSort="new"
-      initialItems={page.items}
-      initialCreators={creators}
-    />
+    <Suspense fallback={null}>
+      <DropsPagePanel
+        initialSort="new"
+        initialItems={page.items}
+        initialCreators={creators}
+      />
+    </Suspense>
   );
 }
