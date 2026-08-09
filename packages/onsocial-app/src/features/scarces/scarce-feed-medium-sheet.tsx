@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
@@ -28,30 +29,26 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
+import {
+  resolveScarceFeedMediumMode,
+  type ScarceFeedMediumMode,
+} from '@/features/scarces/scarce-feed-medium-mode';
 
 const VIEWER_EXIT_MS = 180;
 
-export type ScarceFeedMediumMode = 'audio' | 'writing' | 'viewer';
+export type { ScarceFeedMediumMode };
+export { resolveScarceFeedMediumMode };
 
-export function resolveScarceFeedMediumMode(
-  mediumKind: string | null | undefined
-): ScarceFeedMediumMode {
-  const key = (mediumKind ?? '').trim().toLowerCase();
-  if (key === 'audio' || key === 'music') return 'audio';
-  if (
-    key === 'writing' ||
-    key === 'article' ||
-    key === 'book' ||
-    key === 'text'
-  ) {
-    return 'writing';
-  }
-  return 'viewer';
+function inlineSvgMarkup(svg: string): string {
+  return svg.replace(/^<\?xml[^>]*>\s*/i, '');
 }
 
 /**
- * Feed cover tap → medium experience (player / reader / art shell).
- * Not the old zoom lightbox.
+ * Feed cover tap → post-origin medium shell.
+ *
+ * Audio opens the same full-screen listen enlarge (28rem cover, love/share,
+ * transport) with Mint/Buy + post engagement under the track actions.
+ * Viewer uses the same canvas size with cover + post chrome.
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -68,6 +65,8 @@ export function ScarceFeedMediumSheet({
   writingFormat: writingFormatProp = null,
   bookPdf: bookPdfProp = null,
   viewerAccountId = null,
+  commerce = null,
+  engagement = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,6 +83,10 @@ export function ScarceFeedMediumSheet({
   writingFormat?: WritingReleaseFormat | null;
   bookPdf?: ScarceReadableMedia | null;
   viewerAccountId?: string | null;
+  /** Post Mint/Buy row (green price). */
+  commerce?: ReactNode;
+  /** Post reply / quote / like / boost row. */
+  engagement?: ReactNode;
 }) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -109,7 +112,10 @@ export function ScarceFeedMediumSheet({
   const writingFormat = writingFormatProp ?? hydratedWritingFormat;
   const bookPdf = bookPdfProp ?? hydratedBookPdf;
   const sheetOpen = open && !closing;
-  const isViewer = mode === 'viewer';
+  const clip = playables[0] ?? null;
+  /** Audio with a playable uses the real listen enlarge (no custom lightbox). */
+  const immersiveAudio = mode === 'audio' && clip != null && open;
+  const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
   const requestClose = useCallback(() => setClosing(true), []);
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
   useScrollLock(open || closing);
@@ -219,25 +225,25 @@ export function ScarceFeedMediumSheet({
   }, [sheetOpen, mode, collectionId, viewerAccountId, isCreator]);
 
   useEffect(() => {
-    if (!sheetOpen || !isViewer) return;
+    if (!sheetOpen || !isOverlay) return;
     const frame = window.requestAnimationFrame(() => {
       setEntered(true);
       closeRef.current?.focus();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [sheetOpen, isViewer]);
+  }, [sheetOpen, isOverlay]);
 
   useEffect(() => {
-    if (!isViewer || !closing) return;
+    if (!isOverlay || !closing) return;
     const timer = window.setTimeout(() => {
       setClosing(false);
       onOpenChange(false);
     }, VIEWER_EXIT_MS);
     return () => window.clearTimeout(timer);
-  }, [closing, isViewer, onOpenChange]);
+  }, [closing, isOverlay, onOpenChange]);
 
   useEffect(() => {
-    if (!isViewer || !sheetOpen) return;
+    if (!isOverlay || !sheetOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -246,7 +252,7 @@ export function ScarceFeedMediumSheet({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isViewer, sheetOpen, requestClose]);
+  }, [isOverlay, sheetOpen, requestClose]);
 
   const lightboxStyle = useMemo((): CSSProperties | undefined => {
     if (typeof window === 'undefined') return undefined;
@@ -262,7 +268,6 @@ export function ScarceFeedMediumSheet({
   }, [viewport.height, viewport.isMobile]);
 
   const name = title.trim() || 'Drop';
-  const clip = playables[0] ?? null;
   const hasWriting = readables.length > 0 || bookPdf != null;
   const canReadWriting = isCreator || holdsEdition === true;
   const writingLockedHint = !viewerAccountId?.trim()
@@ -270,77 +275,97 @@ export function ScarceFeedMediumSheet({
     : holdsEdition === null
       ? 'Checking your edition…'
       : 'Collect an edition to unlock the full text.';
-  const inlineSvg = coverSvg?.trim() || null;
+  const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
+  const postChrome =
+    commerce || engagement ? (
+      <div
+        className="scarce-post-medium-chrome"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {commerce}
+        {engagement}
+      </div>
+    ) : null;
 
-  if (isViewer) {
+  const coverArt =
+    inlineSvg && !rasterCover ? (
+      <div
+        className="scarce-clip-listen-cover scarce-post-medium-cover--svg"
+        dangerouslySetInnerHTML={{ __html: inlineSvg }}
+      />
+    ) : rasterCover ? (
+      <img src={rasterCover} alt="" className="scarce-clip-listen-cover" />
+    ) : (
+      <div
+        className="scarce-clip-listen-cover scarce-clip-listen-cover--empty"
+        aria-hidden
+      />
+    );
+
+  if (immersiveAudio) {
+    if (!open) return null;
+    return (
+      <ScarceClipPlayer
+        clip={clip}
+        tracks={playables}
+        poster={rasterCover}
+        layout="cover"
+        creatorId={creatorId}
+        showTransport
+        showTracks={false}
+        immersiveListen
+        listenFooter={postChrome}
+        onListenClose={() => onOpenChange(false)}
+        {...(collectionId
+          ? { persist: { collectionId, title: name } }
+          : {})}
+      />
+    );
+  }
+
+  if (isOverlay) {
     if (typeof document === 'undefined') return null;
     if (!open && !closing) return null;
     return createPortal(
       <div
-        className={`scarce-card-lightbox scarce-clip-listen-lightbox${
+        className={`scarce-card-lightbox scarce-clip-listen-lightbox scarce-post-medium-lightbox${
           entered && !closing ? ' is-open' : ''
         }${closing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         style={lightboxStyle}
-        onClick={requestClose}
       >
-        {inlineSvg && !rasterCover ? (
-          <>
-            <p id={titleId} className="sr-only">
-              {name}
-            </p>
-            <div className="scarce-card-lightbox-chrome">
-              <SheetCloseButton
-                ref={closeRef}
-                onClick={requestClose}
-                ariaLabel="Close preview"
-                className="scarce-card-lightbox-close"
-              />
-            </div>
-            <div
-              className="scarce-card-lightbox-asset scarce-card-lightbox-svg"
-              dangerouslySetInnerHTML={{ __html: inlineSvg }}
-              onClick={(event) => event.stopPropagation()}
+        <div className="scarce-clip-listen scarce-post-medium-listen">
+          <p id={titleId} className="sr-only">
+            {name}
+          </p>
+          <div className="scarce-post-medium-top">
+            <SheetCloseButton
+              ref={closeRef}
+              onClick={requestClose}
+              ariaLabel="Close preview"
+              className="scarce-post-medium-close"
             />
-          </>
-        ) : (
-          <div
-            className="scarce-clip-listen"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <p id={titleId} className="sr-only">
-              {name}
+          </div>
+          <div className="scarce-clip-listen-art">{coverArt}</div>
+          {mode === 'audio' ? (
+            <p className="scarce-feed-medium-empty">
+              {hydrateSettled
+                ? 'Audio unavailable for this Drop.'
+                : 'Loading audio…'}
             </p>
-            <div className="scarce-card-lightbox-chrome">
-              <SheetCloseButton
-                ref={closeRef}
-                onClick={requestClose}
-                ariaLabel="Close preview"
-                className="scarce-card-lightbox-close"
-              />
-            </div>
-            <div className="scarce-clip-listen-art">
-              {rasterCover ? (
-                <img
-                  src={rasterCover}
-                  alt=""
-                  className="scarce-clip-listen-cover"
-                />
-              ) : (
-                <div
-                  className="scarce-clip-listen-cover scarce-clip-listen-cover--empty"
-                  aria-hidden
-                />
-              )}
-            </div>
+          ) : null}
+          {postChrome ? (
+            <div className="scarce-clip-listen-footer">{postChrome}</div>
+          ) : null}
+          {name ? (
             <div className="scarce-clip-listen-copy">
               <p className="scarce-clip-listen-track">{name}</p>
             </div>
-          </div>
-        )}
+          ) : null}
+        </div>
       </div>,
       document.body
     );
@@ -359,47 +384,26 @@ export function ScarceFeedMediumSheet({
       peekRatio={1}
       zIndex={56}
       ariaLabelledBy={titleId}
-      backdropLabel={mode === 'audio' ? 'Close listen' : 'Close reader'}
+      backdropLabel="Close reader"
       bodyClassName="profile-support-sheet-body"
       header={
         <>
           <GestureSheetHeader
             titleId={titleId}
-            verb={mode === 'audio' ? 'Listen' : 'Read'}
+            verb="Read"
             personName=""
             handle={name}
             signal="reputation"
-            closeAriaLabel={mode === 'audio' ? 'Close listen' : 'Close reader'}
+            closeAriaLabel="Close reader"
             onClose={requestClose}
-            whisper={
-              mode === 'audio' ? 'Preview this Drop' : 'Drop writing'
-            }
+            whisper="Drop writing"
           />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
     >
-      {sheetOpen && mode === 'audio' && clip ? (
-        <ScarceClipPlayer
-          clip={clip}
-          tracks={playables}
-          poster={rasterCover}
-          layout="cover"
-          creatorId={creatorId}
-          showTransport
-          {...(collectionId
-            ? { persist: { collectionId, title: name } }
-            : {})}
-        />
-      ) : null}
-      {sheetOpen && mode === 'audio' && !clip ? (
-        <p className="scarce-feed-medium-empty">
-          {hydrateSettled
-            ? 'Audio unavailable for this Drop.'
-            : 'Loading audio…'}
-        </p>
-      ) : null}
-      {sheetOpen && mode === 'writing' && collectionId && hasWriting ? (
+      {postChrome}
+      {sheetOpen && collectionId && hasWriting ? (
         <CollectionWritingReader
           collectionId={collectionId}
           accountId={viewerAccountId}
@@ -410,9 +414,7 @@ export function ScarceFeedMediumSheet({
           lockedHint={writingLockedHint}
         />
       ) : null}
-      {sheetOpen &&
-      mode === 'writing' &&
-      (!hasWriting || !collectionId) ? (
+      {sheetOpen && (!hasWriting || !collectionId) ? (
         <p className="scarce-feed-medium-empty">
           {!collectionId
             ? 'Open the Drop to read this release.'

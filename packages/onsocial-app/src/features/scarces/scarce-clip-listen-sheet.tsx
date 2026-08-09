@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type ReactNode,
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -69,6 +70,7 @@ export function ScarceClipListenSheet({
   onScrubChange,
   onProgressPointerEnter,
   onProgressPointerLeave,
+  footer = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -105,6 +107,8 @@ export function ScarceClipListenSheet({
   onScrubChange: (value: number) => void;
   onProgressPointerEnter: () => void;
   onProgressPointerLeave: () => void;
+  /** Optional post chrome under love/share (Mint/Buy + engagement). */
+  footer?: ReactNode;
 }) {
   const titleId = useId();
   const lyricsId = useId();
@@ -251,6 +255,10 @@ export function ScarceClipListenSheet({
               />
             ) : null}
           </div>
+        ) : null}
+
+        {footer ? (
+          <div className="scarce-clip-listen-footer">{footer}</div>
         ) : null}
 
         <div className="scarce-clip-listen-copy">
