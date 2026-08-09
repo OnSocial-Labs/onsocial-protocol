@@ -25,6 +25,7 @@ const clientMountedSubscribe = () => () => {};
 const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
 const LIGHTBOX_EXIT_MS = 180;
+const CHROME_QUIET_MS = 900;
 
 function inlineSvgMarkup(svg: string): string {
   return svg.replace(/^<\?xml[^>]*>\s*/i, '');
@@ -32,7 +33,7 @@ function inlineSvgMarkup(svg: string): string {
 
 /**
  * Full-screen writing reader — same dark lightbox chrome as listen,
- * with a compact cover and a calm manuscript body.
+ * with a compact portrait cover and a calm manuscript body.
  */
 export function WritingReadSheet({
   open,
@@ -65,9 +66,12 @@ export function WritingReadSheet({
 }) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const quietTimerRef = useRef<number | null>(null);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
+  const [scrollRatio, setScrollRatio] = useState(0);
+  const [chromeQuiet, setChromeQuiet] = useState(false);
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
@@ -79,6 +83,8 @@ export function WritingReadSheet({
     if (open) {
       setClosing(false);
       setEntered(false);
+      setScrollRatio(0);
+      setChromeQuiet(false);
     }
   }
 
@@ -99,10 +105,45 @@ export function WritingReadSheet({
     };
   }, [viewport.height, viewport.isMobile]);
 
+  const clearQuietTimer = useCallback(() => {
+    if (quietTimerRef.current != null) {
+      window.clearTimeout(quietTimerRef.current);
+      quietTimerRef.current = null;
+    }
+  }, []);
+
+  const wakeChrome = useCallback(() => {
+    clearQuietTimer();
+    setChromeQuiet(false);
+  }, [clearQuietTimer]);
+
   const requestClose = useCallback(() => {
     setClosing(true);
     setEntered(false);
   }, []);
+
+  const onReadingProgress = useCallback((ratio: number) => {
+    setScrollRatio(ratio);
+  }, []);
+
+  const onReadingScroll = useCallback(
+    (deltaY: number) => {
+      if (deltaY > 2) {
+        clearQuietTimer();
+        setChromeQuiet(true);
+        return;
+      }
+      if (deltaY < -2) {
+        wakeChrome();
+        quietTimerRef.current = window.setTimeout(() => {
+          setChromeQuiet(true);
+        }, CHROME_QUIET_MS);
+      }
+    },
+    [clearQuietTimer, wakeChrome]
+  );
+
+  useEffect(() => () => clearQuietTimer(), [clearQuietTimer]);
 
   useEffect(() => {
     if (!closing) return;
@@ -138,6 +179,7 @@ export function WritingReadSheet({
   const inlineSvg = coverSvg?.trim() ? inlineSvgMarkup(coverSvg.trim()) : null;
   const rasterCover = cover?.trim() || null;
   const hasWriting = readables.length > 0 || bookPdf != null;
+  const progressPct = Math.round(Math.min(1, Math.max(0, scrollRatio)) * 100);
 
   if (!mounted || (!open && !closing)) return null;
 
@@ -151,7 +193,24 @@ export function WritingReadSheet({
       aria-labelledby={titleId}
       style={lightboxStyle}
     >
-      <div className="scarce-writing-read">
+      <div
+        className={`scarce-writing-read${chromeQuiet ? ' is-chrome-quiet' : ''}`}
+        onPointerDownCapture={wakeChrome}
+      >
+        <div
+          className="scarce-writing-read-progress"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progressPct}
+          aria-label="Reading progress"
+        >
+          <span
+            className="scarce-writing-read-progress-fill"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
         <div className="scarce-writing-read-top">
           <SheetCloseButton
             ref={closeRef}
@@ -169,8 +228,11 @@ export function WritingReadSheet({
                 dangerouslySetInnerHTML={{ __html: inlineSvg }}
               />
             ) : rasterCover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={rasterCover} alt="" className="scarce-writing-read-cover" />
+              <img
+                src={rasterCover}
+                alt=""
+                className="scarce-writing-read-cover"
+              />
             ) : (
               <div
                 className="scarce-writing-read-cover scarce-writing-read-cover--empty"
@@ -179,10 +241,10 @@ export function WritingReadSheet({
             )}
           </div>
           <div className="scarce-writing-read-copy">
+            <p className="scarce-writing-read-eyebrow">Read</p>
             <p id={titleId} className="scarce-writing-read-title">
               {name}
             </p>
-            <p className="scarce-writing-read-eyebrow">Read</p>
           </div>
         </div>
 
@@ -197,6 +259,8 @@ export function WritingReadSheet({
               canRead={canRead}
               lockedHint={lockedHint}
               immersive
+              onProgress={onReadingProgress}
+              onScrollDelta={onReadingScroll}
             />
           ) : (
             <p className="scarce-feed-medium-empty">
