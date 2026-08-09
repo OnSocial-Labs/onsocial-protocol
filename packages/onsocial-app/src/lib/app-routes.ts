@@ -2,8 +2,44 @@ export const APP_HOME_PATH = '/home';
 export const APP_DISCOVER_PATH = '/discover';
 export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';
-/** Social drop discovery — New / Minting / Loved / Volume. */
+/** Social drop discovery — New / Minting / Loved / Volume / Saved. */
 export const APP_DROPS_PATH = '/drops';
+/** Query key for Drops catalog sort (`new` | `minting` | `loved` | `volume` | `saved`). */
+export const DROPS_SORT_PARAM = 'sort';
+
+export type DropsSortParam =
+  | 'new'
+  | 'minting'
+  | 'loved'
+  | 'volume'
+  | 'saved';
+
+const DROPS_SORT_VALUES = new Set<string>([
+  'new',
+  'minting',
+  'loved',
+  'volume',
+  'saved',
+]);
+
+/** Parse `?sort=` for Drops; defaults to `new`. */
+export function parseDropsSortParam(
+  raw: string | null | undefined
+): DropsSortParam {
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (DROPS_SORT_VALUES.has(value)) return value as DropsSortParam;
+  return 'new';
+}
+
+/** Drops catalog path, optionally deep-linked to a sort tab. */
+export function dropsPath(opts?: { sort?: DropsSortParam | null }): string {
+  const sort = opts?.sort?.trim().toLowerCase() ?? '';
+  if (!sort || sort === 'new' || !DROPS_SORT_VALUES.has(sort)) {
+    return APP_DROPS_PATH;
+  }
+  return `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=${encodeURIComponent(sort)}`;
+}
+
 /** Owner vault — use holdings (Read / Play / Show pass). Create stays on Market. */
 export const APP_COLLECTIBLES_PATH = '/collectibles';
 /** Focused Collectibles player for music / video holdings. */

@@ -22639,6 +22639,13 @@ a.os-surface-row {
   }
 
   /* Quiet discovery escape — must not compete with search or Filter. */
+  .market-heading-links {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
   .market-drops-link {
     flex: 0 0 auto;
     font-size: 0.72rem;
