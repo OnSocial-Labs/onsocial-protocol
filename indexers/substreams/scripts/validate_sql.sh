@@ -163,6 +163,20 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         echo "  actual:   ${members_columns:-missing}" >&2
         exit 1
       fi
+
+      blacklist_columns="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT string_agg(column_name, '"'"','"'"' ORDER BY ordinal_position)
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'group_blacklist_current'"'"';
+      ")"
+      expected_blacklist_columns="group_id,member_id,block_height,block_timestamp,group_name,is_public,is_member_driven"
+      if [ "$blacklist_columns" != "$expected_blacklist_columns" ]; then
+        echo "error: unexpected group_blacklist_current column order in $db" >&2
+        echo "  expected: $expected_blacklist_columns" >&2
+        echo "  actual:   ${blacklist_columns:-missing}" >&2
+        exit 1
+      fi
     }
 
     validate_reputation_view_upgrade() {
@@ -206,9 +220,10 @@ SQLEOF
       db="$1"
       echo ">>> Guild view upgrade (append-only columns)"
       psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
--- Dependents of groups_current must drop first (posts_feed joins guild name).
+-- Dependents of groups_current must drop first (posts_feed / members / bans).
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS group_members_current;
+DROP VIEW IF EXISTS group_blacklist_current;
 DROP VIEW IF EXISTS groups_current;
 CREATE VIEW groups_current AS
 SELECT
