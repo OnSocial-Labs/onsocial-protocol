@@ -3,6 +3,7 @@ import {
   normalizeComposerContentLabels,
   parsePostContentLabels,
   postHasContentLabels,
+  resolveSensitiveGateMode,
   safeModePeekText,
   sensitiveGateLabel,
 } from './post-content-labels';
@@ -56,6 +57,36 @@ describe('sensitiveGateLabel', () => {
     expect(postHasContentLabels({})).toBe(false);
     expect(postHasContentLabels({ nsfw: true })).toBe(true);
     expect(postHasContentLabels({ contentWarning: 'x' })).toBe(true);
+  });
+});
+
+describe('resolveSensitiveGateMode', () => {
+  it('passes through unlabeled posts', () => {
+    expect(resolveSensitiveGateMode({}, true, false)).toBe('passthrough');
+  });
+
+  it('hides spoilers under Safe mode until revealed', () => {
+    const labels = { contentWarning: 'Spoilers' };
+    expect(resolveSensitiveGateMode(labels, true, false)).toBe('hide');
+    expect(resolveSensitiveGateMode(labels, true, true)).toBe('labeled');
+    expect(resolveSensitiveGateMode(labels, false, false)).toBe('labeled');
+  });
+
+  it('blurs NSFW under Safe mode (even with a warning)', () => {
+    expect(resolveSensitiveGateMode({ nsfw: true }, true, false)).toBe('blur');
+    expect(
+      resolveSensitiveGateMode(
+        { nsfw: true, contentWarning: '18+' },
+        true,
+        false
+      )
+    ).toBe('blur');
+    expect(resolveSensitiveGateMode({ nsfw: true }, true, true)).toBe(
+      'labeled'
+    );
+    expect(resolveSensitiveGateMode({ nsfw: true }, false, false)).toBe(
+      'labeled'
+    );
   });
 });
 

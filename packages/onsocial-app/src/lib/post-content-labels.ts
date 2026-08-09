@@ -43,6 +43,20 @@ export function postHasContentLabels(labels: PostContentLabels): boolean {
   return Boolean(labels.nsfw || labels.contentWarning);
 }
 
+/** How `PostSensitiveGate` should render for the current viewer state. */
+export type SensitiveGateMode = 'passthrough' | 'labeled' | 'hide' | 'blur';
+
+export function resolveSensitiveGateMode(
+  labels: PostContentLabels,
+  safeMode: boolean,
+  revealed: boolean
+): SensitiveGateMode {
+  if (!postHasContentLabels(labels)) return 'passthrough';
+  if (!safeMode || revealed) return 'labeled';
+  if (labels.nsfw) return 'blur';
+  return 'hide';
+}
+
 /** Gate copy when Safe mode hides the body. */
 export function sensitiveGateLabel(labels: PostContentLabels): string {
   if (labels.contentWarning) return labels.contentWarning;

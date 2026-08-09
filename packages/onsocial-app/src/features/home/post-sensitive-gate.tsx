@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import {
-  postHasContentLabels,
+  resolveSensitiveGateMode,
   sensitiveGateLabel,
   type PostContentLabels,
 } from '@/lib/post-content-labels';
@@ -26,11 +26,9 @@ export function PostSensitiveGate({
   compact?: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
-  const hasLabels = postHasContentLabels(labels);
-  const gated = safeMode && hasLabels && !revealed;
-  const useBlur = Boolean(labels.nsfw);
+  const mode = resolveSensitiveGateMode(labels, safeMode, revealed);
 
-  if (!hasLabels) {
+  if (mode === 'passthrough') {
     return <>{children}</>;
   }
 
@@ -43,7 +41,7 @@ export function PostSensitiveGate({
     setRevealed(true);
   };
 
-  if (gated && useBlur) {
+  if (mode === 'blur') {
     return (
       <div
         className={`post-sensitive-blur${compact ? ' is-compact' : ''}`}
@@ -67,7 +65,7 @@ export function PostSensitiveGate({
     );
   }
 
-  if (gated) {
+  if (mode === 'hide') {
     return (
       <div
         className={`post-sensitive-gate${compact ? ' is-compact' : ''}`}
