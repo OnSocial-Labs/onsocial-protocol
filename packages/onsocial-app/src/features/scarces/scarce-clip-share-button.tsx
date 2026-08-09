@@ -4,39 +4,7 @@ import { useState } from 'react';
 import { CheckIcon, ShareIcon } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
-
-async function shareCurrentPage(input: {
-  title: string;
-  text: string;
-}): Promise<'shared' | 'copied' | 'aborted' | 'failed'> {
-  const url = typeof window === 'undefined' ? '' : window.location.href;
-  if (!url) return 'failed';
-
-  if (typeof navigator.share === 'function') {
-    try {
-      await navigator.share({
-        title: input.title,
-        text: input.text,
-        url,
-      });
-      return 'shared';
-    } catch (cause) {
-      if (
-        cause instanceof DOMException &&
-        (cause.name === 'AbortError' || cause.name === 'NotAllowedError')
-      ) {
-        return 'aborted';
-      }
-    }
-  }
-
-  try {
-    await navigator.clipboard.writeText(url);
-    return 'copied';
-  } catch {
-    return 'failed';
-  }
-}
+import { shareUrl } from '@/lib/share-url';
 
 export function ScarceClipShareButton({
   title,
@@ -86,7 +54,10 @@ export function ScarceClipShareButton({
         aria-label={copied ? 'Link copied' : 'Share'}
         onClick={() => {
           void (async () => {
-            const result = await shareCurrentPage({
+            const pageUrl =
+              typeof window === 'undefined' ? '' : window.location.href;
+            const result = await shareUrl({
+              url: pageUrl,
               title: name,
               text: `Check out ${name} on OnSocial`,
             });
