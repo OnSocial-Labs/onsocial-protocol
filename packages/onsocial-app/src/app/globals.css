@@ -19718,6 +19718,125 @@ a.os-surface-row {
     min-width: 0;
   }
 
+  .collection-writing.is-immersive {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .collection-writing.is-immersive .collection-writing-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.15rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .collection-writing.is-immersive .collection-writing-toc {
+    max-height: 7.5rem;
+    overflow: auto;
+  }
+
+  .collection-writing.is-immersive .collection-writing-markdown {
+    font-size: 1.02rem;
+    line-height: 1.7;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .scarce-writing-read-lightbox .scarce-writing-read {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    width: min(100%, 42rem);
+    max-height: min(var(--scarce-lightbox-vh, 100dvh), 100%);
+    margin: 0 auto;
+    padding: 0.85rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    min-height: 0;
+  }
+
+  .scarce-writing-read-top {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .scarce-writing-read-hero {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    min-width: 0;
+  }
+
+  .scarce-writing-read-art {
+    flex-shrink: 0;
+  }
+
+  .scarce-writing-read-cover {
+    display: block;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 0.65rem;
+    object-fit: cover;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .scarce-writing-read-cover--svg {
+    overflow: hidden;
+  }
+
+  .scarce-writing-read-cover--svg svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .scarce-writing-read-cover--empty {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .scarce-writing-read-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .scarce-writing-read-eyebrow {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .scarce-writing-read-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.96);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .scarce-writing-read-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .scarce-writing-read-footer {
+    flex-shrink: 0;
+  }
+
   .collection-writing-chapter-title {
     margin: 0;
     font-size: 1.05rem;

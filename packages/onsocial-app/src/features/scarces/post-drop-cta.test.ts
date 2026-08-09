@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { PostScarceEmbed } from '@onsocial/sdk';
 import {
   isPrimaryMintStatus,
+  postDropIsPlayable,
+  postDropIsReadable,
   resolvePostDropCta,
 } from '@/features/scarces/post-drop-cta';
 
@@ -73,5 +75,14 @@ describe('isPrimaryMintStatus', () => {
     expect(isPrimaryMintStatus('lazy_listing')).toBe(true);
     expect(isPrimaryMintStatus('listed')).toBe(false);
     expect(isPrimaryMintStatus('auction')).toBe(false);
+  });
+});
+
+describe('postDropIsReadable', () => {
+  it('detects writing media kinds', () => {
+    expect(postDropIsReadable(drop({ mediumKind: 'writing' }))).toBe(true);
+    expect(postDropIsReadable(drop({ mediumKind: 'book' }))).toBe(true);
+    expect(postDropIsReadable(drop({ mediumKind: 'audio' }))).toBe(false);
+    expect(postDropIsPlayable(drop({ mediumKind: 'audio' }))).toBe(true);
   });
 });

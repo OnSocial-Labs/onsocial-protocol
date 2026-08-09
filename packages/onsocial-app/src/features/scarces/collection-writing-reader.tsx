@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
@@ -8,8 +8,11 @@ import { MediaDownloadControl } from '@/components/ui/media-download-control';
 import { CollectionWritingBodySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
   isWritingPdfMime,
+  readWritingChapterIndex,
+  readWritingScrollRatio,
+  writeWritingChapterIndex,
+  writeWritingScrollRatio,
   type ScarceReadableMedia,
-  writingLastChapterStorageKey,
 } from '@/features/scarces/drop-writing';
 import { downloadIpfsMedia } from '@/lib/media-download';
 
@@ -25,6 +28,8 @@ export function CollectionWritingReader({
   writingFormat,
   canRead,
   lockedHint,
+  /** Immersive read sheet — denser chrome, body scrolls inside the shell. */
+  immersive = false,
 }: {
   collectionId: string;
   accountId?: string | null;
@@ -33,22 +38,16 @@ export function CollectionWritingReader({
   writingFormat?: 'article' | 'book' | null;
   canRead: boolean;
   lockedHint: string;
+  immersive?: boolean;
 }) {
   const isBook =
     writingFormat === 'book' ||
     (writingFormat == null && readables.length > 1);
 
-  const storageKey =
-    accountId && collectionId
-      ? writingLastChapterStorageKey(collectionId, accountId)
-      : null;
-
-  const [chapterIndex, setChapterIndex] = useState(() => {
-    if (!storageKey || typeof window === 'undefined') return 0;
-    const raw = window.localStorage.getItem(storageKey);
-    const n = Number.parseInt(raw ?? '', 10);
-    return Number.isSafeInteger(n) && n >= 0 ? n : 0;
-  });
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [chapterIndex, setChapterIndex] = useState(() =>
+    readWritingChapterIndex(collectionId, accountId)
+  );
   const [listKey, setListKey] = useState(() => readablesKey(readables));
   const [fetchState, setFetchState] = useState<
     | { status: 'idle' }
@@ -59,7 +58,7 @@ export function CollectionWritingReader({
   const nextKey = readablesKey(readables);
   if (nextKey !== listKey) {
     setListKey(nextKey);
-    setChapterIndex(0);
+    setChapterIndex(readWritingChapterIndex(collectionId, accountId));
     setFetchState({ status: 'idle' });
   }
 
@@ -96,13 +95,8 @@ export function CollectionWritingReader({
     loadError == null;
 
   useEffect(() => {
-    if (!storageKey) return;
-    try {
-      window.localStorage.setItem(storageKey, String(safeIndex));
-    } catch {
-      // ignore quota / private mode
-    }
-  }, [storageKey, safeIndex]);
+    writeWritingChapterIndex(collectionId, accountId, safeIndex);
+  }, [collectionId, accountId, safeIndex]);
 
   useEffect(() => {
     if (!chapterUrl || chapterIsPdf) return;
@@ -133,6 +127,21 @@ export function CollectionWritingReader({
     };
   }, [chapterUrl, chapterIsPdf]);
 
+  // Restore scroll after markdown paints.
+  useEffect(() => {
+    if (!body || !bodyRef.current) return;
+    const ratio = readWritingScrollRatio(collectionId, accountId, safeIndex);
+    const el = bodyRef.current;
+    const apply = () => {
+      const max = el.scrollHeight - el.clientHeight;
+      if (max <= 0) return;
+      el.scrollTop = ratio * max;
+    };
+    apply();
+    const frame = window.requestAnimationFrame(apply);
+    return () => window.cancelAnimationFrame(frame);
+  }, [body, collectionId, accountId, safeIndex]);
+
   // Prefetch next Markdown chapter (book only).
   useEffect(() => {
     if (!canRead || !isBook) return;
@@ -145,10 +154,21 @@ export function CollectionWritingReader({
     return () => controller.abort();
   }, [canRead, isBook, readables, safeIndex]);
 
+  const onBodyScroll = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    const ratio = max > 0 ? el.scrollTop / max : 0;
+    writeWritingScrollRatio(collectionId, accountId, safeIndex, ratio);
+  };
+
   if (readables.length === 0) {
     if (!bookPdf) return null;
     return (
-      <section className="collection-writing" aria-label="Reading">
+      <section
+        className={`collection-writing${immersive ? ' is-immersive' : ''}`}
+        aria-label="Reading"
+      >
         <div className="collection-writing-head">
           <p className="collection-section-label">Book PDF</p>
           {canRead ? (
@@ -178,7 +198,10 @@ export function CollectionWritingReader({
   }
 
   return (
-    <section className="collection-writing" aria-label="Reading">
+    <section
+      className={`collection-writing${immersive ? ' is-immersive' : ''}`}
+      aria-label="Reading"
+    >
       <div className="collection-writing-head">
         <p className="collection-section-label">
           {isBook
@@ -261,7 +284,11 @@ export function CollectionWritingReader({
             </ol>
           ) : null}
 
-          <div className="collection-writing-body">
+          <div
+            ref={bodyRef}
+            className="collection-writing-body"
+            onScroll={onBodyScroll}
+          >
             {isBook && chapter ? (
               <h3 className="collection-writing-chapter-title">
                 {chapter.title?.trim() || `Chapter ${safeIndex + 1}`}
@@ -271,8 +298,7 @@ export function CollectionWritingReader({
               <iframe
                 className="collection-writing-pdf"
                 title={
-                  chapter.title?.trim() ||
-                  `PDF chapter ${safeIndex + 1}`
+                  chapter.title?.trim() || `PDF chapter ${safeIndex + 1}`
                 }
                 src={chapterUrl}
               />

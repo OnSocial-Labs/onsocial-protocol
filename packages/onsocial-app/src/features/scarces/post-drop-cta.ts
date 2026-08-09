@@ -57,3 +57,14 @@ export function postDropIsPlayable(embed: PostScarceEmbed | null): boolean {
   const medium = (embed.mediumKind ?? '').trim().toLowerCase();
   return medium === 'audio' || medium === 'music';
 }
+
+export function postDropIsReadable(embed: PostScarceEmbed | null): boolean {
+  if (!embed) return false;
+  const medium = (embed.mediumKind ?? '').trim().toLowerCase();
+  return (
+    medium === 'writing' ||
+    medium === 'article' ||
+    medium === 'book' ||
+    medium === 'text'
+  );
+}

@@ -18,6 +18,7 @@ import { fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
   collectionCurrentRowToView,
   fetchOwnsCollectionEdition,
+  hydrateWritingManifest,
 } from '@/features/scarces/collections-data';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
@@ -25,6 +26,7 @@ import type {
   WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
@@ -46,8 +48,9 @@ function inlineSvgMarkup(svg: string): string {
 /**
  * Feed cover tap → post-origin medium shell.
  *
- * Audio opens the same full-screen listen enlarge (28rem cover, love/share,
+ * Audio opens the full-screen listen enlarge (28rem cover, love/share,
  * transport) with Mint/Buy + post engagement under the track actions.
+ * Writing opens the immersive read lightbox (compact cover + manuscript).
  * Viewer uses the same canvas size with cover + post chrome.
  */
 export function ScarceFeedMediumSheet({
@@ -115,6 +118,8 @@ export function ScarceFeedMediumSheet({
   const clip = playables[0] ?? null;
   /** Audio with a playable uses the real listen enlarge (no custom lightbox). */
   const immersiveAudio = mode === 'audio' && clip != null && open;
+  /** Writing uses the dedicated read lightbox (cover + manuscript). */
+  const immersiveWriting = mode === 'writing' && open;
   const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
   const requestClose = useCallback(() => setClosing(true), []);
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
@@ -168,13 +173,15 @@ export function ScarceFeedMediumSheet({
               setHydratedPlayables(view.playables);
             }
             if (needsWriting) {
-              if (view.readables.length > 0) {
-                setHydratedReadables(view.readables);
+              const hydrated = await hydrateWritingManifest(view);
+              if (cancelled) return;
+              if (hydrated.readables.length > 0) {
+                setHydratedReadables(hydrated.readables);
               }
-              if (view.writingFormat) {
-                setHydratedWritingFormat(view.writingFormat);
+              if (hydrated.writingFormat) {
+                setHydratedWritingFormat(hydrated.writingFormat);
               }
-              if (view.bookPdf) setHydratedBookPdf(view.bookPdf);
+              if (hydrated.bookPdf) setHydratedBookPdf(hydrated.bookPdf);
             }
           }
         } else if (needsAudio && tokenId) {
@@ -320,6 +327,30 @@ export function ScarceFeedMediumSheet({
         {...(collectionId
           ? { persist: { collectionId, title: name } }
           : {})}
+      />
+    );
+  }
+
+  if (immersiveWriting && collectionId) {
+    return (
+      <WritingReadSheet
+        open={open}
+        onClose={() => onOpenChange(false)}
+        title={name}
+        cover={rasterCover}
+        coverSvg={coverSvg}
+        collectionId={collectionId}
+        accountId={viewerAccountId}
+        readables={readables}
+        bookPdf={bookPdf}
+        writingFormat={writingFormat}
+        canRead={canReadWriting}
+        lockedHint={
+          !hydrateSettled && !hasWriting
+            ? 'Loading writing…'
+            : writingLockedHint
+        }
+        footer={postChrome}
       />
     );
   }
