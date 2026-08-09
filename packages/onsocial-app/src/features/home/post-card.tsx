@@ -41,6 +41,7 @@ import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import {
   canCancelPostScarce,
   cancelPostScarceListing,
@@ -74,7 +75,9 @@ import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerBlock } from '@/hooks/use-viewer-block';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
+import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
 import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -520,6 +523,8 @@ export function QuotedPostInset({
   href?: string;
 }) {
   const router = useRouter();
+  const { safeMode } = useViewerSafeMode();
+  const labels = parsePostContentLabels(post.value);
   const name =
     authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
   const text = truncateQuoteText(parsePostText(post.value));
@@ -576,35 +581,37 @@ export function QuotedPostInset({
             timestamp={post.blockTimestamp}
           />
         </span>
-        {thumb || collage || text ? (
-          <div
-            className={[
-              'post-card-quote-inset-body-row',
-              thumb ? 'has-media' : '',
-              collage ? 'is-stacked' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {/* Multi: text above mini-collage. Single: thumb beside text. */}
-            {collage && text ? (
-              <p className="post-card-quote-inset-body">
-                <PostRichText text={text} />
-              </p>
-            ) : null}
-            {collage ? (
-              <PostMediaStrip items={collage} size="quote" playbackDisabled />
-            ) : null}
-            {thumb ? <QuoteMediaThumb item={thumb} /> : null}
-            {!collage && text ? (
-              <p className="post-card-quote-inset-body">
-                <PostRichText text={text} />
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <p className="post-card-quote-inset-body">…</p>
-        )}
+        <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
+          {thumb || collage || text ? (
+            <div
+              className={[
+                'post-card-quote-inset-body-row',
+                thumb ? 'has-media' : '',
+                collage ? 'is-stacked' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {/* Multi: text above mini-collage. Single: thumb beside text. */}
+              {collage && text ? (
+                <p className="post-card-quote-inset-body">
+                  <PostRichText text={text} />
+                </p>
+              ) : null}
+              {collage ? (
+                <PostMediaStrip items={collage} size="quote" playbackDisabled />
+              ) : null}
+              {thumb ? <QuoteMediaThumb item={thumb} /> : null}
+              {!collage && text ? (
+                <p className="post-card-quote-inset-body">
+                  <PostRichText text={text} />
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="post-card-quote-inset-body">…</p>
+          )}
+        </PostSensitiveGate>
       </div>
     </div>
   );
@@ -1077,6 +1084,7 @@ export function PostCard({
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const { safeMode } = useViewerSafeMode();
   const [amplifyOpen, setAmplifyOpen] = useState(false);
   const [listScarceOpen, setListScarceOpen] = useState(false);
   const [buyScarceOpen, setBuyScarceOpen] = useState(false);
@@ -1179,6 +1187,7 @@ export function PostCard({
   }
 
   const text = parsePostText(post.value);
+  const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
   const dropPaint = parseDropPaintSnapshot(post.value);
   const mediaItems = parsePostMedia(post.value);
@@ -1315,106 +1324,108 @@ export function PostCard({
             />
           </div>
         </header>
-        <PostCardBody
-          relationContext={relationContext}
-          badges={badges}
-          text={text}
-          hasMedia={hasMedia}
-          expandDisabled={mediaFocused}
-          hideText={
-            (Boolean(poll) && text === poll?.question) ||
-            (mediaItems.length > 0 && !text.trim())
-          }
-        />
-        {poll ? (
-          <PostPollEmbedCard
-            poll={poll}
-            tally={pollTally}
-            pending={pollVotePending}
-            onVote={
-              onPollVote
-                ? (optionIndex) => onPollVote(post, optionIndex)
-                : undefined
+        <PostSensitiveGate labels={labels} safeMode={safeMode}>
+          <PostCardBody
+            relationContext={relationContext}
+            badges={badges}
+            text={text}
+            hasMedia={hasMedia}
+            expandDisabled={mediaFocused}
+            hideText={
+              (Boolean(poll) && text === poll?.question) ||
+              (mediaItems.length > 0 && !text.trim())
             }
           />
-        ) : null}
-        {mediaItems.length > 0 ? (
-          <PostMediaStrip
-            items={mediaItems}
-            size={mediaFocused ? 'page' : 'compact'}
-            focused={mediaFocused}
-            focusedVideoMuted={!mediaUnmuted}
-            resumeFocusedVideo={mediaUnmuted}
-            resumeMediaIndex={mediaResumeIndex}
-            onActivate={
-              !mediaFocused && actionHref && hasMedia
-                ? (index) => {
-                    const item = mediaItems[index];
-                    const unmute = Boolean(
-                      item && isRenderablePostVideoMime(item.mime)
-                    );
-                    router.push(
-                      unmute
-                        ? appendPostMediaUnmute(actionHref, index)
-                        : appendPostMediaIndex(actionHref, index)
-                    );
-                  }
-                : undefined
-            }
-          />
-        ) : showScarceArt && scarceEmbed ? (
-          <ScarcePostPreview
-            post={post}
-            variant="feed"
-            mediaUrl={scarceCoverUrl}
-            cardBg={scarceEmbed.cardBg}
-            creatorDisplayName={authorProfile?.displayName}
-            onActivate={({ coverSvg }) =>
-              openFeedMedium(
-                resolveScarceFeedMediumMode(
-                  scarceEmbed.mediumKind ?? dropPaint?.mediumKind
-                ),
-                coverSvg
-              )
-            }
-          />
-        ) : null}
+          {poll ? (
+            <PostPollEmbedCard
+              poll={poll}
+              tally={pollTally}
+              pending={pollVotePending}
+              onVote={
+                onPollVote
+                  ? (optionIndex) => onPollVote(post, optionIndex)
+                  : undefined
+              }
+            />
+          ) : null}
+          {mediaItems.length > 0 ? (
+            <PostMediaStrip
+              items={mediaItems}
+              size={mediaFocused ? 'page' : 'compact'}
+              focused={mediaFocused}
+              focusedVideoMuted={!mediaUnmuted}
+              resumeFocusedVideo={mediaUnmuted}
+              resumeMediaIndex={mediaResumeIndex}
+              onActivate={
+                !mediaFocused && actionHref && hasMedia
+                  ? (index) => {
+                      const item = mediaItems[index];
+                      const unmute = Boolean(
+                        item && isRenderablePostVideoMime(item.mime)
+                      );
+                      router.push(
+                        unmute
+                          ? appendPostMediaUnmute(actionHref, index)
+                          : appendPostMediaIndex(actionHref, index)
+                      );
+                    }
+                  : undefined
+              }
+            />
+          ) : showScarceArt && scarceEmbed ? (
+            <ScarcePostPreview
+              post={post}
+              variant="feed"
+              mediaUrl={scarceCoverUrl}
+              cardBg={scarceEmbed.cardBg}
+              creatorDisplayName={authorProfile?.displayName}
+              onActivate={({ coverSvg }) =>
+                openFeedMedium(
+                  resolveScarceFeedMediumMode(
+                    scarceEmbed.mediumKind ?? dropPaint?.mediumKind
+                  ),
+                  coverSvg
+                )
+              }
+            />
+          ) : null}
+          {scarceEmbed || canListScarce ? (
+            <PostScarceCta
+              embed={
+                scarceEmbed ?? {
+                  status: 'none',
+                  events: [],
+                }
+              }
+              isAuthor={isSelf}
+              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
+              canList={canListScarce}
+              onList={() => setListScarceOpen(true)}
+              onBuy={() => setBuyScarceOpen(true)}
+              onBid={() => setBidScarceOpen(true)}
+              listenSlot={
+                showDropListen ? (
+                  <button
+                    type="button"
+                    className="post-card-scarce-listen"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      openFeedMedium('audio');
+                    }}
+                  >
+                    Listen
+                  </button>
+                ) : null
+              }
+            />
+          ) : null}
+        </PostSensitiveGate>
         {quotedPost ? (
           <QuotedPostInset
             post={quotedPost}
             authorProfile={quotedAuthorProfile}
             href={quotedHref}
-          />
-        ) : null}
-        {scarceEmbed || canListScarce ? (
-          <PostScarceCta
-            embed={
-              scarceEmbed ?? {
-                status: 'none',
-                events: [],
-              }
-            }
-            isAuthor={isSelf}
-            authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
-            canList={canListScarce}
-            onList={() => setListScarceOpen(true)}
-            onBuy={() => setBuyScarceOpen(true)}
-            onBid={() => setBidScarceOpen(true)}
-            listenSlot={
-              showDropListen ? (
-                <button
-                  type="button"
-                  className="post-card-scarce-listen"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    openFeedMedium('audio');
-                  }}
-                >
-                  Listen
-                </button>
-              ) : null
-            }
           />
         ) : null}
         {detailLayout ? (

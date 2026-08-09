@@ -439,6 +439,8 @@ interface AccountActionListProps {
   onEditProfile: () => void;
   onCustomize?: () => void;
   onMutedBlocked?: () => void;
+  safeMode?: boolean;
+  onToggleSafeMode?: () => void;
 }
 
 /** Primary account actions — compact list rows (tertiary links live in AccountShortcutDock). */
@@ -449,6 +451,8 @@ export function AccountActionList({
   onEditProfile,
   onCustomize,
   onMutedBlocked,
+  safeMode,
+  onToggleSafeMode,
 }: AccountActionListProps) {
   const showCustomize = isOwnerOnPage && Boolean(onCustomize);
 
@@ -495,6 +499,26 @@ export function AccountActionList({
       {rows.map((row) => (
         <AccountActionRow key={row.label} {...row} />
       ))}
+      {onToggleSafeMode != null && safeMode != null ? (
+        <button
+          type="button"
+          className="os-surface-row account-safe-mode-row"
+          role="switch"
+          aria-checked={safeMode}
+          onClick={onToggleSafeMode}
+        >
+          <span className="os-surface-row-copy">
+            <span className="os-surface-row-label">Safe mode</span>
+            <span className="os-surface-row-description">
+              Hide NSFW and content warnings until you reveal them
+            </span>
+          </span>
+          <span
+            className={`account-safe-mode-switch${safeMode ? ' is-on' : ''}`}
+            aria-hidden
+          />
+        </button>
+      ) : null}
     </nav>
   );
 }

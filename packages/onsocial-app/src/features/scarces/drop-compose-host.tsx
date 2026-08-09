@@ -261,6 +261,8 @@ export function DropComposeHost() {
             space: selectedSpace,
             text: payload.text,
             drop,
+            contentWarning: payload.contentWarning,
+            nsfw: payload.nsfw,
             trackTransaction,
           });
           if (result.confirmed && result.optimisticPost) {

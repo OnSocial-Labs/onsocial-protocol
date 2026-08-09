@@ -64,4 +64,37 @@ describe('submitGuildDropPost', () => {
     expect(result.optimisticPost?.isGroupContent).toBe(true);
     expect(result.optimisticPost?.kind).toBe('audio');
   });
+
+  it('persists contentWarning + nsfw on guild Drop posts', async () => {
+    const post = vi.fn().mockResolvedValue({ txHash: 'guild-nsfw-tx' });
+    const client = {
+      groups: { post },
+    } as unknown as OnSocial;
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitGuildDropPost({
+      client,
+      accountId: 'alice.testnet',
+      groupId: 'builders',
+      space,
+      text: 'listen carefully',
+      drop: {
+        collectionId: 'drop-1',
+        title: 'Night',
+        mediumKind: 'audio',
+      },
+      contentWarning: 'Spoilers',
+      nsfw: true,
+      trackTransaction,
+    });
+
+    expect(post).toHaveBeenCalledOnce();
+    const [, postData] = post.mock.calls[0]!;
+    expect(postData).toMatchObject({
+      contentWarning: 'Spoilers',
+      nsfw: true,
+    });
+    expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
+    expect(result.optimisticPost?.value).toContain('"nsfw":true');
+  });
 });

@@ -43,7 +43,13 @@ import {
   POST_TEXT_WARN_REMAINING,
 } from '@/lib/post-display';
 import { POST_MEDIA_MAX_FILES, validatePostMediaFile } from '@/lib/post-media';
+import {
+  normalizeComposerContentLabels,
+  parsePostContentLabels,
+} from '@/lib/post-content-labels';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 
 export type ComposerMode = 'post' | 'reply' | 'quote';
 /** @deprecated Prefer `ComposerMode`. */
@@ -72,6 +78,10 @@ export interface ComposerSubmit {
   drop?: ComposerDropDraft;
   /** Attached image/video files (uploaded by SDK on write). */
   files?: File[];
+  /** Optional spoiler / content warning (PostV1 `contentWarning`). */
+  contentWarning?: string;
+  /** Hard NSFW flag (PostV1 `nsfw`). */
+  nsfw?: boolean;
 }
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
@@ -193,6 +203,8 @@ function ReplyTargetPreview({
   post: PostRow;
   authorProfile?: PostAuthorProfile;
 }) {
+  const { safeMode } = useViewerSafeMode();
+  const labels = parsePostContentLabels(post.value);
   const name =
     authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
 
@@ -210,9 +222,11 @@ function ReplyTargetPreview({
           handle={post.accountId}
           timestamp={post.blockTimestamp}
         />
-        <p className="guild-composer-reply-text">
-          <PostRichText text={parsePostText(post.value)} />
-        </p>
+        <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
+          <p className="guild-composer-reply-text">
+            <PostRichText text={parsePostText(post.value)} />
+          </p>
+        </PostSensitiveGate>
       </div>
     </div>
   );
@@ -261,6 +275,8 @@ export function ComposerSheet({
     { url: string; mime: string }[]
   >([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [contentWarning, setContentWarning] = useState('');
+  const [nsfw, setNsfw] = useState(false);
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -302,6 +318,8 @@ export function ComposerSheet({
         return [];
       });
       setMediaError(null);
+      setContentWarning('');
+      setNsfw(false);
       setClosing(false);
     }
   }
@@ -361,6 +379,10 @@ export function ComposerSheet({
       );
       return;
     }
+    const labels = normalizeComposerContentLabels({
+      contentWarning,
+      nsfw,
+    });
     onSubmit({
       text:
         trimmed ||
@@ -375,6 +397,7 @@ export function ComposerSheet({
         : {}),
       ...(dropDraft ? { drop: dropDraft } : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
+      ...labels,
     });
   };
 
@@ -670,6 +693,27 @@ export function ComposerSheet({
         {mode === 'quote' && target ? (
           <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
         ) : null}
+        <div className="guild-composer-labels" aria-label="Content labels">
+          <input
+            className="guild-composer-warning-input"
+            value={contentWarning}
+            maxLength={80}
+            disabled={pending}
+            placeholder="Content warning (optional)"
+            aria-label="Content warning"
+            onChange={(event) => setContentWarning(event.target.value)}
+            onFocus={scrollFieldIntoView}
+          />
+          <button
+            type="button"
+            className={`guild-composer-poll-chip${nsfw ? ' is-active' : ''}`}
+            disabled={pending}
+            aria-pressed={nsfw}
+            onClick={() => setNsfw((current) => !current)}
+          >
+            NSFW
+          </button>
+        </div>
       </div>
     </div>
   );

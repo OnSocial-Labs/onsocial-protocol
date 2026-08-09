@@ -6,10 +6,16 @@ import {
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import type { OnSocial, PostRow } from '@onsocial/sdk';
 
+vi.mock('@/features/home/assert-can-reply-to-guild-post', () => ({
+  assertCanReplyToGuildPost: vi.fn().mockResolvedValue(undefined),
+}));
+
 function mockClient(overrides: {
   create?: ReturnType<typeof vi.fn>;
   reply?: ReturnType<typeof vi.fn>;
   quote?: ReturnType<typeof vi.fn>;
+  replyToPost?: ReturnType<typeof vi.fn>;
+  quotePost?: ReturnType<typeof vi.fn>;
 }): OnSocial {
   return {
     posts: {
@@ -18,8 +24,10 @@ function mockClient(overrides: {
       quote: overrides.quote ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
     },
     groups: {
-      quotePost: vi.fn(),
-      replyToPost: vi.fn(),
+      quotePost:
+        overrides.quotePost ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
+      replyToPost:
+        overrides.replyToPost ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
     },
   } as unknown as OnSocial;
 }
@@ -285,5 +293,123 @@ describe('submitPersonalPost', () => {
     expect(result.optimisticPost?.value).toContain(
       '"mentions":["bob.testnet"]'
     );
+  });
+
+  it('persists contentWarning + nsfw on create and optimistic post', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'nsfw-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'behind the curtain',
+        contentWarning: 'Spoilers',
+        nsfw: true,
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.contentWarning).toBe('Spoilers');
+    expect(postData.nsfw).toBe(true);
+    expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
+    expect(result.optimisticPost?.value).toContain('"nsfw":true');
+  });
+
+  it('persists labels on personal reply and quote', async () => {
+    const reply = vi.fn().mockResolvedValue({ txHash: 'reply-label-tx' });
+    const quote = vi.fn().mockResolvedValue({ txHash: 'quote-label-tx' });
+    const client = mockClient({ reply, quote });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+    const target: PostRow = {
+      accountId: 'bob.testnet',
+      postId: '42',
+      value: '{"v":1,"text":"hi"}',
+      blockHeight: 1,
+      blockTimestamp: 1,
+      isGroupContent: false,
+    };
+
+    const replyResult = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'reply',
+      target,
+      payload: {
+        text: 'reply with warning',
+        contentWarning: 'Spoilers',
+      },
+      trackTransaction,
+    });
+    expect(reply).toHaveBeenCalledOnce();
+    expect(reply.mock.calls[0]![1]).toMatchObject({
+      text: 'reply with warning',
+      contentWarning: 'Spoilers',
+    });
+    expect(replyResult.optimisticPost?.value).toContain(
+      '"contentWarning":"Spoilers"'
+    );
+
+    const quoteResult = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'quote',
+      target,
+      payload: {
+        text: 'quote nsfw',
+        nsfw: true,
+      },
+      trackTransaction,
+    });
+    expect(quote).toHaveBeenCalledOnce();
+    expect(quote.mock.calls[0]![1]).toMatchObject({
+      text: 'quote nsfw',
+      nsfw: true,
+    });
+    expect(quoteResult.optimisticPost?.value).toContain('"nsfw":true');
+  });
+
+  it('persists labels on guild reply path', async () => {
+    const replyToPost = vi.fn().mockResolvedValue({ txHash: 'guild-reply-tx' });
+    const client = mockClient({ replyToPost });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+    const target: PostRow = {
+      accountId: 'bob.testnet',
+      postId: '7',
+      value: '{"v":1,"text":"guild"}',
+      blockHeight: 1,
+      blockTimestamp: 1,
+      groupId: 'builders',
+      isGroupContent: true,
+    };
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'reply',
+      target,
+      payload: {
+        text: 'guild reply',
+        contentWarning: 'Spoilers',
+        nsfw: true,
+      },
+      trackTransaction,
+    });
+
+    expect(replyToPost).toHaveBeenCalledOnce();
+    const [, , postData] = replyToPost.mock.calls[0]!;
+    expect(postData).toMatchObject({
+      text: 'guild reply',
+      contentWarning: 'Spoilers',
+      nsfw: true,
+      groupId: 'builders',
+    });
+    expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
+    expect(result.optimisticPost?.value).toContain('"nsfw":true');
   });
 });

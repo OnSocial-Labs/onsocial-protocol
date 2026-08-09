@@ -6,23 +6,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioPostPeeks } from '@/contexts/portfolio-post-peeks-context';
 import { usePersonalComposer } from '@/features/home/use-personal-composer';
 import { accountIdsEqual } from '@/lib/account-match';
-import { parsePostText } from '@/lib/post-display';
+import { toProfilePostPeek } from '@/lib/fetch-profile-peeks';
 
 interface PortfolioPersonalComposerProps {
   pageAccountId: string;
-}
-
-function peekFromOptimisticPost(post: PostRow) {
-  const text = parsePostText(post.value).trim() || '…';
-  const kind =
-    post.kind && post.kind !== 'text' ? post.kind : null;
-  return {
-    accountId: post.accountId,
-    postId: post.postId,
-    text: text.length > 140 ? `${text.slice(0, 139).trimEnd()}…` : text,
-    blockTimestamp: post.blockTimestamp,
-    kind,
-  };
 }
 
 /**
@@ -49,7 +36,7 @@ export function PortfolioPersonalComposer({
       // Drawer peeks are author roots + quotes, not replies into other threads.
       if (post.parentPath) return;
       if (post.accountId !== pageAccountId) return;
-      prependPostPeek(peekFromOptimisticPost(post));
+      prependPostPeek(toProfilePostPeek(post));
     },
     [pageAccountId, prependPostPeek]
   );

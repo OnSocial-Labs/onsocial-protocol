@@ -87,6 +87,7 @@ import {
   mediaKindFromFile,
   revokeDroppedOptimisticMedia,
 } from '@/lib/post-media';
+import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { topicLabel } from '@/lib/topic-slug';
 import {
@@ -1310,6 +1311,7 @@ export function LiveGuildPanel({
     const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
     const dropKind = dropPostKind(drop);
     const bodyText = resolvedDropPostText(text, drop);
+    const contentLabels = normalizeComposerContentLabels(payload);
 
     setModalError(null);
     setModalPending(true);
@@ -1352,6 +1354,7 @@ export function LiveGuildPanel({
                 : mediaKind
                   ? { kind: mediaKind }
                   : { kind: composerSpace.kind }),
+            ...contentLabels,
             ...filePayload,
           },
           newPostId
@@ -1381,6 +1384,7 @@ export function LiveGuildPanel({
           timestamp: Date.now(),
           ...tagPayload,
           ...feedMeta,
+          ...contentLabels,
           ...filePayload,
         };
         response =
@@ -1444,6 +1448,7 @@ export function LiveGuildPanel({
                     }
                   : {}),
               ...(media ? { media } : {}),
+              ...contentLabels,
             }),
             blockHeight: 0,
             blockTimestamp: Date.now(),

@@ -71,6 +71,10 @@ import {
   readPostMediaUnmuteIndex,
 } from '@/lib/post-media';
 import {
+  normalizeComposerContentLabels,
+  type PostContentLabels,
+} from '@/lib/post-content-labels';
+import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -555,7 +559,8 @@ export function LiveGuildPostPanel({
     target: PostRow,
     mode: GuildComposerMode,
     text: string,
-    files: File[] = []
+    files: File[] = [],
+    contentLabels: PostContentLabels = {}
   ): Promise<{ confirmed: boolean; newPostId: string }> => {
     const newPostId = Date.now().toString();
     const { client } = await getClient();
@@ -582,6 +587,7 @@ export function LiveGuildPostPanel({
       timestamp: Date.now(),
       ...tagPayload,
       ...feedMeta,
+      ...contentLabels,
       ...(files.length ? { files } : {}),
     };
     const response =
@@ -610,7 +616,8 @@ export function LiveGuildPostPanel({
     mode: GuildComposerMode,
     text: string,
     newPostId: string,
-    files: File[] = []
+    files: File[] = [],
+    contentLabels: PostContentLabels = {}
   ) => {
     if (!accountId) return;
     const feedMeta = applyMediaKindOverride(
@@ -628,6 +635,7 @@ export function LiveGuildPostPanel({
         text,
         ...tagPayload,
         ...(media ? { media } : {}),
+        ...contentLabels,
       }),
       blockHeight: 0,
       blockTimestamp: Date.now(),
@@ -661,6 +669,7 @@ export function LiveGuildPostPanel({
     const target = modalTarget;
     const text = payload.text.trim();
     const files = payload.files ?? [];
+    const contentLabels = normalizeComposerContentLabels(payload);
     if (!target || modalPending || (!text && !files.length)) return;
 
     const channel = target.channel ?? threadChannel;
@@ -681,13 +690,20 @@ export function LiveGuildPostPanel({
         target,
         modalMode,
         text,
-        files
+        files,
+        contentLabels
       );
       if (confirmed) {
         const targetsRoot =
           conversation.root && postKey(target) === postKey(conversation.root);
         if (targetsRoot) {
-          insertConfirmedRootChild(modalMode, text, newPostId, files);
+          insertConfirmedRootChild(
+            modalMode,
+            text,
+            newPostId,
+            files,
+            contentLabels
+          );
         } else {
           scheduleReconcile();
         }
