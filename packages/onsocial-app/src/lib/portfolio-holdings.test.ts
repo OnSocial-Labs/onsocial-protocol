@@ -53,7 +53,7 @@ describe('toPortfolioHoldingPeek', () => {
       mediumKind: 'writing',
       listingKind: null,
     });
-    expect(peek.href).toBe('/collection/quiet-hours');
+    expect(peek.href).toBe('/collection/quiet-hours?read=1');
     expect(peek.actionLabel).toBe('Read');
     expect(peek.kindLabel).toBe('Writing');
   });

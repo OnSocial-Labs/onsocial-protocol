@@ -16,6 +16,7 @@ import {
   ProfileAvatar,
   BookmarkFillIcon,
   BookmarkIcon,
+  ScaleUpIcon,
   ShareIcon,
   SheetHeader,
   ShopFillIcon,
@@ -35,7 +36,6 @@ import {
   CollectionAboutSheet,
   CollectionAboutTeaser,
 } from '@/features/scarces/collection-about-sheet';
-import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import { mapCollectionActivityRows } from '@/features/scarces/collection-activity-map';
 import {
   CollectionActivityRows,
@@ -61,7 +61,9 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
+import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
@@ -69,6 +71,7 @@ import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_MARKET_PATH,
+  COLLECTION_READ_QUERY,
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
@@ -196,6 +199,7 @@ export function CollectionPagePanel({
   const [activityClosing, setActivityClosing] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [writingReadOpen, setWritingReadOpen] = useState(false);
   const activityTitleId = useId();
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -285,6 +289,21 @@ export function CollectionPagePanel({
     view?.writingManifestCid,
     view?.playables.length,
   ]);
+
+  // Holdings "Read" deep-links with ?read=1 → open immersive reader once writing is present.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hasWriting =
+      (view?.readables.length ?? 0) > 0 || view?.bookPdf != null;
+    if (!hasWriting) return;
+    if (
+      new URLSearchParams(window.location.search).get(COLLECTION_READ_QUERY) !==
+      '1'
+    ) {
+      return;
+    }
+    setWritingReadOpen(true);
+  }, [collectionId, view?.readables.length, view?.bookPdf]);
 
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
@@ -891,12 +910,27 @@ export function CollectionPagePanel({
             <div
               className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
                 isAudio ? ' is-square' : ''
-              }${immersive ? ' is-immersive' : ''}`}
+              }${immersive ? ' is-immersive' : ''}${
+                hasReadables ? ' has-read' : ''
+              }`}
               {...(view.cardBg && !view.mediaUrl
                 ? { style: { background: view.cardBg } }
                 : {})}
             >
               {view.mediaUrl ? <img src={view.mediaUrl} alt="" /> : null}
+              {hasReadables ? (
+                <button
+                  type="button"
+                  className="scarce-clip-cover-expand collection-cover-read-expand"
+                  aria-label="Open reader"
+                  onClick={() => setWritingReadOpen(true)}
+                >
+                  <ScaleUpIcon
+                    className="scarce-clip-cover-expand-icon"
+                    aria-hidden
+                  />
+                </button>
+              ) : null}
             </div>
           )}
 
@@ -1034,15 +1068,23 @@ export function CollectionPagePanel({
         ) : null}
 
         {hasReadables ? (
-          <CollectionWritingReader
-            collectionId={view.collectionId}
-            accountId={viewerAccountId}
-            readables={readables}
-            bookPdf={view.bookPdf}
-            writingFormat={view.writingFormat}
-            canRead={canReadWriting}
-            lockedHint={writingLockedHint}
-          />
+          <section className="collection-reading" aria-label="Reading">
+            <div className="collection-reading-row">
+              <p className="collection-section-label">
+                {writingReadingSectionLabel(readables.length)}
+              </p>
+              <button
+                type="button"
+                className="collection-reading-open"
+                onClick={() => setWritingReadOpen(true)}
+              >
+                Read
+              </button>
+            </div>
+            {!canReadWriting ? (
+              <p className="collection-writing-locked">{writingLockedHint}</p>
+            ) : null}
+          </section>
         ) : null}
 
         {isOwner && status === 'upcoming' ? (
@@ -1143,6 +1185,20 @@ export function CollectionPagePanel({
         onClose={() => setFactsOpen(false)}
         view={view}
         nowMs={nowMs}
+      />
+
+      <WritingReadSheet
+        open={writingReadOpen}
+        onClose={() => setWritingReadOpen(false)}
+        title={view.title}
+        cover={view.mediaUrl}
+        collectionId={view.collectionId}
+        accountId={viewerAccountId}
+        readables={readables}
+        bookPdf={view.bookPdf}
+        writingFormat={view.writingFormat}
+        canRead={canReadWriting}
+        lockedHint={writingLockedHint}
       />
     </OsAppScreen>
   );

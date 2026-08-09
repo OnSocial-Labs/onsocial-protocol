@@ -297,9 +297,98 @@ export function bookPdfFromManifest(
   return readableFromRef(manifest.bookPdf);
 }
 
+/** Section label on the collection page (tracks-style). */
+export function writingReadingSectionLabel(chapterCount: number): string {
+  const n = Number.isFinite(chapterCount) ? Math.max(0, Math.floor(chapterCount)) : 0;
+  if (n <= 0) return 'Writing';
+  if (n === 1) return '1 chapter';
+  return `${n} chapters`;
+}
+
 export function writingLastChapterStorageKey(
   collectionId: string,
   accountId: string
 ): string {
   return `onsocial.writing.chapter:${collectionId.trim()}:${accountId.trim().toLowerCase()}`;
+}
+
+/** Scroll ratio (0–1) for a chapter body. */
+export function writingScrollRatioStorageKey(
+  collectionId: string,
+  accountId: string,
+  chapterIndex: number
+): string {
+  const index = Number.isSafeInteger(chapterIndex) && chapterIndex >= 0
+    ? chapterIndex
+    : 0;
+  return `onsocial.writing.scroll:${collectionId.trim()}:${accountId.trim().toLowerCase()}:${index}`;
+}
+
+export function readWritingChapterIndex(
+  collectionId: string,
+  accountId: string | null | undefined
+): number {
+  if (!accountId?.trim() || typeof window === 'undefined') return 0;
+  try {
+    const raw = window.localStorage.getItem(
+      writingLastChapterStorageKey(collectionId, accountId)
+    );
+    const n = Number.parseInt(raw ?? '', 10);
+    return Number.isSafeInteger(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function writeWritingChapterIndex(
+  collectionId: string,
+  accountId: string | null | undefined,
+  chapterIndex: number
+): void {
+  if (!accountId?.trim() || typeof window === 'undefined') return;
+  if (!Number.isSafeInteger(chapterIndex) || chapterIndex < 0) return;
+  try {
+    window.localStorage.setItem(
+      writingLastChapterStorageKey(collectionId, accountId),
+      String(chapterIndex)
+    );
+  } catch {
+    // ignore
+  }
+}
+
+export function readWritingScrollRatio(
+  collectionId: string,
+  accountId: string | null | undefined,
+  chapterIndex: number
+): number {
+  if (!accountId?.trim() || typeof window === 'undefined') return 0;
+  try {
+    const raw = window.localStorage.getItem(
+      writingScrollRatioStorageKey(collectionId, accountId, chapterIndex)
+    );
+    const r = Number.parseFloat(raw ?? '');
+    return Number.isFinite(r) && r >= 0 && r <= 1 ? r : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function writeWritingScrollRatio(
+  collectionId: string,
+  accountId: string | null | undefined,
+  chapterIndex: number,
+  scrollRatio: number
+): void {
+  if (!accountId?.trim() || typeof window === 'undefined') return;
+  if (!Number.isFinite(scrollRatio)) return;
+  const clamped = Math.min(1, Math.max(0, scrollRatio));
+  try {
+    window.localStorage.setItem(
+      writingScrollRatioStorageKey(collectionId, accountId, chapterIndex),
+      String(clamped)
+    );
+  } catch {
+    // ignore
+  }
 }

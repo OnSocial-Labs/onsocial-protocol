@@ -60,7 +60,7 @@ import {
   postScarceCoverImage,
   ScarcePostPreview,
 } from '@/features/scarces/scarce-post-preview';
-import { postDropIsPlayable } from '@/features/scarces/post-drop-cta';
+import { postDropIsPlayable, postDropIsReadable } from '@/features/scarces/post-drop-cta';
 import {
   resolveScarceFeedMediumMode,
   ScarceFeedMediumSheet,
@@ -1222,6 +1222,11 @@ export function PostCard({
   const showDropListen =
     listenPlayables.length > 0 ||
     (postDropIsPlayable(scarceEmbed) && canHydrateAudio);
+  const showDropRead =
+    collectionReadables.length > 0 ||
+    Boolean(collectionBookPdf) ||
+    (postDropIsReadable(scarceEmbed) &&
+      Boolean(scarceEmbed?.collectionId?.trim()));
   const dropListenTitle =
     collectionDropTitle?.trim() || dropPaint?.title?.trim() || 'Drop';
   const openFeedMedium = (
@@ -1404,18 +1409,35 @@ export function PostCard({
               onBuy={() => setBuyScarceOpen(true)}
               onBid={() => setBidScarceOpen(true)}
               listenSlot={
-                showDropListen ? (
-                  <button
-                    type="button"
-                    className="post-card-scarce-listen"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      openFeedMedium('audio');
-                    }}
-                  >
-                    Listen
-                  </button>
+                showDropListen || showDropRead ? (
+                  <>
+                    {showDropRead ? (
+                      <button
+                        type="button"
+                        className="post-card-scarce-listen"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          openFeedMedium('writing');
+                        }}
+                      >
+                        Read
+                      </button>
+                    ) : null}
+                    {showDropListen ? (
+                      <button
+                        type="button"
+                        className="post-card-scarce-listen"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          openFeedMedium('audio');
+                        }}
+                      >
+                        Listen
+                      </button>
+                    ) : null}
+                  </>
                 ) : null
               }
             />

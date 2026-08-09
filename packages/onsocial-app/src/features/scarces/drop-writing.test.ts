@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 import { writingPinFingerprint } from '@/features/scarces/drop-pin-draft';
 import {
@@ -12,9 +12,15 @@ import {
   isLikelyIpfsCid,
   parseWritingFormat,
   parseWritingManifest,
+  readWritingChapterIndex,
+  readWritingScrollRatio,
   readablesFromManifest,
   writingChaptersValid,
   writingContentUrl,
+  writingReadingSectionLabel,
+  writingScrollRatioStorageKey,
+  writeWritingChapterIndex,
+  writeWritingScrollRatio,
 } from '@/features/scarces/drop-writing';
 
 function mdFile(name: string, type = 'text/markdown'): File {
@@ -294,5 +300,52 @@ describe('writingContentUrl', () => {
       '/api/ipfs/bafybeigabcdefghijklmnopqrstuv'
     );
     expect(writingContentUrl('not-a-cid')).toBeNull();
+  });
+});
+
+describe('writingReadingSectionLabel', () => {
+  it('labels chapter counts for the collection section', () => {
+    expect(writingReadingSectionLabel(0)).toBe('Writing');
+    expect(writingReadingSectionLabel(1)).toBe('1 chapter');
+    expect(writingReadingSectionLabel(3)).toBe('3 chapters');
+  });
+});
+
+describe('writing read progress storage', () => {
+  const store = new Map<string, string>();
+
+  beforeEach(() => {
+    store.clear();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('persists chapter index and per-chapter scroll ratio', () => {
+    writeWritingChapterIndex('drop-1', 'alice.testnet', 2);
+    expect(readWritingChapterIndex('drop-1', 'alice.testnet')).toBe(2);
+    writeWritingScrollRatio('drop-1', 'alice.testnet', 2, 0.42);
+    expect(readWritingScrollRatio('drop-1', 'alice.testnet', 2)).toBe(0.42);
+    expect(readWritingScrollRatio('drop-1', 'alice.testnet', 0)).toBe(0);
+    expect(
+      writingScrollRatioStorageKey('drop-1', 'Alice.Testnet', 2)
+    ).toBe('onsocial.writing.scroll:drop-1:alice.testnet:2');
+  });
+
+  it('no-ops without an account', () => {
+    writeWritingChapterIndex('drop-1', null, 1);
+    expect(readWritingChapterIndex('drop-1', null)).toBe(0);
   });
 });
