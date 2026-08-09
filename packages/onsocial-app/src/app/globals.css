@@ -15754,8 +15754,9 @@ a.os-surface-row {
   }
 
   /*
-   * Post-origin scarce medium shell — feed-scale cover (300px = 1800÷6)
-   * with Mint/Buy + engagement under the art (viewer + audio player).
+   * Post-origin scarce medium shell — enlarge-scale cover
+   * (600px = 1800÷3, same as .scarce-card-lightbox-asset) with Mint/Buy
+   * + engagement under the art (viewer + audio player).
    */
   .scarce-card-lightbox.scarce-post-medium-lightbox,
   .scarce-card-lightbox.scarce-post-medium-lightbox.is-open,
@@ -15780,7 +15781,8 @@ a.os-surface-row {
     flex-direction: column;
     align-items: stretch;
     gap: 0.45rem;
-    width: min(100%, 300px);
+    /* Match old enlarge asset: min(92vw, 0.92×vh, 600px). */
+    width: min(92vw, calc(var(--scarce-lightbox-vh, 100dvh) * 0.92), 600px);
     max-height: min(calc(var(--scarce-lightbox-vh, 100dvh) * 0.94), 100%);
     overflow: auto;
     overscroll-behavior: contain;
