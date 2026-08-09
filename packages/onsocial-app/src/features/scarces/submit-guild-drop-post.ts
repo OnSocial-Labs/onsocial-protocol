@@ -15,6 +15,7 @@ import {
   dropSnapshotExtra,
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
+import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
 import {
   txToastConfirming,
   txToastError,
@@ -45,6 +46,8 @@ export async function submitGuildDropPost(args: {
   space: GuildSpace;
   text: string;
   drop: ComposerDropDraft;
+  contentWarning?: string;
+  nsfw?: boolean;
   trackTransaction: TrackTransaction;
 }): Promise<GuildDropPostSubmitResult> {
   const { client, accountId, groupId, space, drop, trackTransaction } = args;
@@ -54,6 +57,7 @@ export async function submitGuildDropPost(args: {
   const newPostId = Date.now().toString();
   const tags = postMetaFromText(bodyText);
   const channel = guildSpaceFeedChannel(space);
+  const contentLabels = normalizeComposerContentLabels(args);
 
   const response = await client.groups.post(
     groupId,
@@ -68,6 +72,7 @@ export async function submitGuildDropPost(args: {
       embeds: [collectionEmbed],
       x: dropSnapshotExtra(drop),
       kind: dropKind ?? space.kind,
+      ...contentLabels,
     },
     newPostId
   );
@@ -92,6 +97,7 @@ export async function submitGuildDropPost(args: {
       ...tags,
       embeds: [collectionEmbed],
       x: dropSnapshotExtra(drop),
+      ...contentLabels,
     }),
     blockHeight: 0,
     blockTimestamp: Date.now(),

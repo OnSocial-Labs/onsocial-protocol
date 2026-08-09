@@ -286,4 +286,30 @@ describe('submitPersonalPost', () => {
       '"mentions":["bob.testnet"]'
     );
   });
+
+  it('persists contentWarning + nsfw on create and optimistic post', async () => {
+    const create = vi.fn().mockResolvedValue({ txHash: 'nsfw-tx' });
+    const client = mockClient({ create });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+
+    const result = await submitPersonalPost({
+      client,
+      accountId: 'alice.testnet',
+      mode: 'post',
+      target: null,
+      payload: {
+        text: 'behind the curtain',
+        contentWarning: 'Spoilers',
+        nsfw: true,
+      },
+      trackTransaction,
+    });
+
+    expect(create).toHaveBeenCalledOnce();
+    const [postData] = create.mock.calls[0]!;
+    expect(postData.contentWarning).toBe('Spoilers');
+    expect(postData.nsfw).toBe(true);
+    expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
+    expect(result.optimisticPost?.value).toContain('"nsfw":true');
+  });
 });

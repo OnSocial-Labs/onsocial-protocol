@@ -72,6 +72,10 @@ export interface ComposerSubmit {
   drop?: ComposerDropDraft;
   /** Attached image/video files (uploaded by SDK on write). */
   files?: File[];
+  /** Optional spoiler / content warning (PostV1 `contentWarning`). */
+  contentWarning?: string;
+  /** Hard NSFW flag (PostV1 `nsfw`). */
+  nsfw?: boolean;
 }
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
@@ -261,6 +265,8 @@ export function ComposerSheet({
     { url: string; mime: string }[]
   >([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [contentWarning, setContentWarning] = useState('');
+  const [nsfw, setNsfw] = useState(false);
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -302,6 +308,8 @@ export function ComposerSheet({
         return [];
       });
       setMediaError(null);
+      setContentWarning('');
+      setNsfw(false);
       setClosing(false);
     }
   }
@@ -361,6 +369,7 @@ export function ComposerSheet({
       );
       return;
     }
+    const warning = contentWarning.trim();
     onSubmit({
       text:
         trimmed ||
@@ -375,6 +384,8 @@ export function ComposerSheet({
         : {}),
       ...(dropDraft ? { drop: dropDraft } : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
+      ...(warning ? { contentWarning: warning } : {}),
+      ...(nsfw ? { nsfw: true } : {}),
     });
   };
 
@@ -670,6 +681,27 @@ export function ComposerSheet({
         {mode === 'quote' && target ? (
           <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
         ) : null}
+        <div className="guild-composer-labels" aria-label="Content labels">
+          <input
+            className="guild-composer-warning-input"
+            value={contentWarning}
+            maxLength={80}
+            disabled={pending}
+            placeholder="Content warning (optional)"
+            aria-label="Content warning"
+            onChange={(event) => setContentWarning(event.target.value)}
+            onFocus={scrollFieldIntoView}
+          />
+          <button
+            type="button"
+            className={`guild-composer-poll-chip${nsfw ? ' is-active' : ''}`}
+            disabled={pending}
+            aria-pressed={nsfw}
+            onClick={() => setNsfw((current) => !current)}
+          >
+            NSFW
+          </button>
+        </div>
       </div>
     </div>
   );

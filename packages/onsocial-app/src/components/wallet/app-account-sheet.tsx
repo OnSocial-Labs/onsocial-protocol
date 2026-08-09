@@ -21,6 +21,7 @@ import {
 } from '@/contexts/portfolio-profile-seed-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { ACCOUNT_SHEET_PEEK_RATIO } from '@/lib/account-sheet-config';
 import { accountSheetPageMoodPanel } from '@/lib/account-sheet-page-mood';
@@ -59,6 +60,7 @@ export function AppAccountSheet({
   const profileSeed = usePortfolioProfileSeed(accountId ?? '');
   const patchProfileSeed = usePortfolioProfileSeedPatch();
   const viewerShell = useViewerProfileShellContext();
+  const { safeMode, toggleSafeMode } = useViewerSafeMode();
   const [closing, setClosing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
@@ -283,6 +285,8 @@ export function AppAccountSheet({
             onEditProfile={handleEditProfile}
             onCustomize={isOwnerOnPage ? handleCustomize : undefined}
             onMutedBlocked={handleMutedBlocked}
+            safeMode={safeMode}
+            onToggleSafeMode={toggleSafeMode}
           />
 
           <AccountShortcutDock

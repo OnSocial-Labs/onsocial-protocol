@@ -23,6 +23,7 @@ import {
   buildOptimisticMediaEntries,
   mediaKindFromFile,
 } from '@/lib/post-media';
+import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
 import {
   txToastConfirming,
   txToastError,
@@ -77,9 +78,19 @@ function buildOptimisticPost(args: {
   } | null;
   drop: ComposerDropDraft | null;
   files?: File[];
+  contentLabels?: { contentWarning?: string; nsfw?: boolean };
 }): PostRow {
-  const { accountId, newPostId, text, mode, target, pollEmbed, drop, files } =
-    args;
+  const {
+    accountId,
+    newPostId,
+    text,
+    mode,
+    target,
+    pollEmbed,
+    drop,
+    files,
+    contentLabels,
+  } = args;
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
   const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
@@ -101,6 +112,7 @@ function buildOptimisticPost(args: {
           : {}),
       ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
       ...(media ? { media } : {}),
+      ...contentLabels,
     }),
     blockHeight: 0,
     blockTimestamp: Date.now(),
@@ -196,6 +208,7 @@ export async function submitPersonalPost(args: {
   const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
   const bodyText = resolvedDropPostText(text, drop);
+  const contentLabels = normalizeComposerContentLabels(payload);
 
   const newPostId = Date.now().toString();
   const filePayload = files.length ? { files } : {};
@@ -215,6 +228,7 @@ export async function submitPersonalPost(args: {
             : {}),
         ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
         ...(dropKind ? { kind: dropKind } : {}),
+        ...contentLabels,
         ...filePayload,
       },
       newPostId
@@ -238,6 +252,7 @@ export async function submitPersonalPost(args: {
       timestamp: Date.now(),
       ...tags,
       ...feedMeta,
+      ...contentLabels,
       ...filePayload,
     };
     response =
@@ -261,6 +276,7 @@ export async function submitPersonalPost(args: {
       timestamp: Date.now(),
       ...tags,
       ...feedMeta,
+      ...contentLabels,
       ...filePayload,
     };
     response =
@@ -289,6 +305,7 @@ export async function submitPersonalPost(args: {
       pollEmbed,
       drop,
       files: files.length ? files : undefined,
+      contentLabels,
     }),
   };
 }
