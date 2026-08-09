@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveScarceFeedMediumMode } from '@/features/scarces/scarce-feed-medium-sheet';
+import { resolveScarceFeedMediumMode } from '@/features/scarces/scarce-feed-medium-mode';
 
 describe('resolveScarceFeedMediumMode', () => {
   it('maps audio / writing / other to shell modes', () => {

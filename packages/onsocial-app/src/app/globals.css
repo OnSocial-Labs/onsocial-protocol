@@ -15753,6 +15753,106 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.55);
   }
 
+  /*
+   * Post-origin scarce medium shell — feed-scale cover (300px = 1800÷6)
+   * with Mint/Buy + engagement under the art (viewer + audio player).
+   */
+  .scarce-card-lightbox.scarce-post-medium-lightbox,
+  .scarce-card-lightbox.scarce-post-medium-lightbox.is-open,
+  .scarce-card-lightbox.scarce-post-medium-lightbox.is-closing {
+    cursor: zoom-out;
+    align-items: center;
+    justify-content: center;
+    padding: max(1rem, env(safe-area-inset-top, 0px))
+      max(1rem, env(safe-area-inset-right, 0px))
+      max(1rem, env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
+    background: rgb(var(--bg-rgb) / 0.92);
+    opacity: 1;
+  }
+
+  .scarce-card-lightbox.scarce-post-medium-lightbox.is-closing {
+    opacity: 0;
+  }
+
+  .scarce-post-medium {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+    width: min(100%, 300px);
+    max-height: min(calc(var(--scarce-lightbox-vh, 100dvh) * 0.94), 100%);
+    overflow: auto;
+    overscroll-behavior: contain;
+    cursor: default;
+  }
+
+  .scarce-post-medium-top {
+    display: flex;
+    justify-content: flex-end;
+    min-height: 2rem;
+  }
+
+  .scarce-post-medium-close {
+    position: static;
+  }
+
+  .scarce-post-medium-stage {
+    width: 100%;
+  }
+
+  .scarce-post-medium-cover {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+  }
+
+  .scarce-post-medium-cover--svg {
+    overflow: hidden;
+  }
+
+  .scarce-post-medium-cover--svg svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .scarce-post-medium-cover--empty {
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .scarce-post-medium-player {
+    width: 100%;
+  }
+
+  .scarce-post-medium-player .scarce-clip-player {
+    width: 100%;
+  }
+
+  .scarce-post-medium-title {
+    margin: 0.15rem 0 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .scarce-post-medium-chrome {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .scarce-post-medium-chrome .post-card-scarce-cta,
+  .scarce-post-medium-chrome .post-card-engagement {
+    margin-top: 0;
+  }
+
   .post-card-scarce-buy-main {
     color: var(--protocol-green);
     /* Protocol green chrome — not a bold CTA. */

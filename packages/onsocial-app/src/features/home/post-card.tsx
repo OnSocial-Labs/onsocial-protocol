@@ -930,9 +930,7 @@ export function PostCard({
     listenPlayables.length > 0 ||
     (postDropIsPlayable(scarceEmbed) && canHydrateAudio);
   const dropListenTitle =
-    collectionDropTitle?.trim() ||
-    dropPaint?.title?.trim() ||
-    'Drop';
+    collectionDropTitle?.trim() || dropPaint?.title?.trim() || 'Drop';
   const openFeedMedium = (
     mode: ScarceFeedMediumMode,
     coverSvg: string | null = null
@@ -1112,9 +1110,7 @@ export function PostCard({
               }
             }
             isAuthor={isSelf}
-            authorAccountId={
-              scarceEmbed?.creatorId?.trim() || post.accountId
-            }
+            authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
             canList={canListScarce}
             onList={() => setListScarceOpen(true)}
             onBuy={() => setBuyScarceOpen(true)}
@@ -1249,6 +1245,108 @@ export function PostCard({
         writingFormat={collectionWritingFormat}
         bookPdf={collectionBookPdf}
         viewerAccountId={viewerAccountId}
+        commerce={
+          scarceEmbed || canListScarce ? (
+            <PostScarceCta
+              embed={
+                scarceEmbed ?? {
+                  status: 'none',
+                  events: [],
+                }
+              }
+              isAuthor={isSelf}
+              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
+              canList={canListScarce}
+              onList={() => {
+                setFeedMediumOpen(false);
+                setListScarceOpen(true);
+              }}
+              onBuy={() => {
+                setFeedMediumOpen(false);
+                setBuyScarceOpen(true);
+              }}
+              onBid={() => {
+                setFeedMediumOpen(false);
+                setBidScarceOpen(true);
+              }}
+            />
+          ) : null
+        }
+        engagement={
+          engagement ? (
+            <div className="post-card-engagement">
+              <EngagementStat
+                icon={<MessageRoundIcon aria-hidden />}
+                count={engagement.replyCount}
+                label="replies"
+                tone="reply"
+                actionLabel={onReply ? 'Reply to this post' : undefined}
+                onActivate={
+                  onReply
+                    ? () => {
+                        setFeedMediumOpen(false);
+                        onReply(post);
+                      }
+                    : undefined
+                }
+              />
+              <EngagementStat
+                icon={<RepeatIcon aria-hidden />}
+                count={engagement.quoteCount}
+                label="quotes"
+                tone="quote"
+                actionLabel={onQuote ? 'Quote this post' : undefined}
+                onActivate={
+                  onQuote
+                    ? () => {
+                        setFeedMediumOpen(false);
+                        onQuote(post);
+                      }
+                    : undefined
+                }
+              />
+              {onToggleReaction ? (
+                <EngagementStat
+                  icon={<ReactIcon filled={engagement.viewerReacted} />}
+                  count={engagement.reactionCount}
+                  label="reactions"
+                  className={`post-card-react${engagement.viewerReacted ? ' is-active' : ''}${reactionPending ? ' is-pending' : ''}`}
+                  disabled={reactionPending}
+                  ariaPressed={engagement.viewerReacted}
+                  actionLabel={
+                    engagement.viewerReacted
+                      ? 'Remove your reaction'
+                      : 'React to this post'
+                  }
+                  onActivate={() => onToggleReaction(post)}
+                />
+              ) : (
+                <EngagementStat
+                  icon={<ReactIcon filled={false} />}
+                  count={engagement.reactionCount}
+                  label="reactions"
+                />
+              )}
+              <EngagementStat
+                icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
+                count={engagement.amplifyCount}
+                label="amplifies"
+                tone="amplify"
+                className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
+                ariaPressed={engagement.viewerAmplified}
+                actionLabel={
+                  engagement.viewerAmplified
+                    ? 'Amplify again'
+                    : 'Amplify this post'
+                }
+                onActivate={() => {
+                  setFeedMediumOpen(false);
+                  setAmplifyOpen(true);
+                }}
+              />
+            </div>
+          ) : null
+        }
       />
     </article>
   );
