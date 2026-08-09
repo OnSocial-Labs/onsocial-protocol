@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildBlockRemoveData,
-  buildBlockSetData,
-} from '../builders/block.js';
+import { buildBlockRemoveData, buildBlockSetData } from '../builders/block.js';
 import { assertBlockV1, validateBlockV1 } from '../schema/v1.js';
 
 describe('BlockV1', () => {
