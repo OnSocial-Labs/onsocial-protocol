@@ -1,0 +1,9 @@
+{
+  "name": "onsocial-protocol",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh"
+}
