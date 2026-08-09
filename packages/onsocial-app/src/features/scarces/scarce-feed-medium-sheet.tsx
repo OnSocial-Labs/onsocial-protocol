@@ -14,13 +14,17 @@ import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
-import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
+import {
+  collectionCurrentRowToView,
+  fetchOwnsCollectionEdition,
+} from '@/features/scarces/collections-data';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
   ScarceReadableMedia,
   WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
@@ -55,6 +59,7 @@ export function ScarceFeedMediumSheet({
   mode,
   title,
   cover = null,
+  coverSvg = null,
   creatorId = null,
   collectionId = null,
   tokenId = null,
@@ -69,6 +74,8 @@ export function ScarceFeedMediumSheet({
   mode: ScarceFeedMediumMode;
   title: string;
   cover?: string | null;
+  /** Generated text-card SVG when there is no raster cover. */
+  coverSvg?: string | null;
   creatorId?: string | null;
   collectionId?: string | null;
   tokenId?: string | null;
@@ -92,6 +99,8 @@ export function ScarceFeedMediumSheet({
     useState<WritingReleaseFormat | null>(null);
   const [hydratedBookPdf, setHydratedBookPdf] =
     useState<ScarceReadableMedia | null>(null);
+  const [hydrateSettled, setHydrateSettled] = useState(false);
+  const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
   const [entered, setEntered] = useState(false);
   const playables =
     playablesProp.length > 0 ? playablesProp : hydratedPlayables;
@@ -105,6 +114,11 @@ export function ScarceFeedMediumSheet({
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
   useScrollLock(open || closing);
 
+  const isCreator =
+    Boolean(viewerAccountId?.trim()) &&
+    Boolean(creatorId?.trim()) &&
+    accountIdsEqual(viewerAccountId!, creatorId!);
+
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
@@ -114,12 +128,13 @@ export function ScarceFeedMediumSheet({
       setHydratedReadables([]);
       setHydratedWritingFormat(null);
       setHydratedBookPdf(null);
+      setHydrateSettled(false);
+      setHoldsEdition(null);
     }
   }
 
   useEffect(() => {
     if (!sheetOpen) return;
-    let cancelled = false;
     const needsAudio =
       mode === 'audio' && playables.length === 0 && (collectionId || tokenId);
     const needsWriting =
@@ -127,38 +142,45 @@ export function ScarceFeedMediumSheet({
       readables.length === 0 &&
       !bookPdf &&
       Boolean(collectionId);
-    if (!needsAudio && !needsWriting) return;
 
+    if (!needsAudio && !needsWriting) {
+      setHydrateSettled(true);
+      return;
+    }
+
+    let cancelled = false;
     void (async () => {
       try {
         if (collectionId) {
           const rows = await createReadOnlyOnSocialClient()
             .query.scarces.collectionsCurrentByIds([collectionId])
             .catch(() => []);
+          if (cancelled) return;
           const view = rows[0] ? collectionCurrentRowToView(rows[0]) : null;
-          if (cancelled || !view) return;
-          if (needsAudio && view.playables.length > 0) {
-            setHydratedPlayables(view.playables);
-          }
-          if (needsWriting) {
-            if (view.readables.length > 0) {
-              setHydratedReadables(view.readables);
+          if (view) {
+            if (needsAudio && view.playables.length > 0) {
+              setHydratedPlayables(view.playables);
             }
-            if (view.writingFormat) {
-              setHydratedWritingFormat(view.writingFormat);
+            if (needsWriting) {
+              if (view.readables.length > 0) {
+                setHydratedReadables(view.readables);
+              }
+              if (view.writingFormat) {
+                setHydratedWritingFormat(view.writingFormat);
+              }
+              if (view.bookPdf) setHydratedBookPdf(view.bookPdf);
             }
-            if (view.bookPdf) setHydratedBookPdf(view.bookPdf);
           }
-          return;
-        }
-        if (needsAudio && tokenId) {
+        } else if (needsAudio && tokenId) {
           const meta = await fetchScarceTokenMeta(tokenId);
           if (!cancelled && meta?.playables?.length) {
             setHydratedPlayables(meta.playables);
           }
         }
       } catch {
-        /* keep empty — shell still shows cover / empty state */
+        /* settled empty below */
+      } finally {
+        if (!cancelled) setHydrateSettled(true);
       }
     })();
 
@@ -174,6 +196,27 @@ export function ScarceFeedMediumSheet({
     collectionId,
     tokenId,
   ]);
+
+  useEffect(() => {
+    if (!sheetOpen || mode !== 'writing' || !collectionId) return;
+    if (isCreator) {
+      setHoldsEdition(true);
+      return;
+    }
+    if (!viewerAccountId?.trim()) {
+      setHoldsEdition(false);
+      return;
+    }
+    let cancelled = false;
+    void fetchOwnsCollectionEdition(collectionId, viewerAccountId).then(
+      (owns) => {
+        if (!cancelled) setHoldsEdition(owns);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [sheetOpen, mode, collectionId, viewerAccountId, isCreator]);
 
   useEffect(() => {
     if (!sheetOpen || !isViewer) return;
@@ -221,6 +264,14 @@ export function ScarceFeedMediumSheet({
   const name = title.trim() || 'Drop';
   const clip = playables[0] ?? null;
   const hasWriting = readables.length > 0 || bookPdf != null;
+  const canReadWriting = isCreator || holdsEdition === true;
+  const writingLockedHint = !viewerAccountId?.trim()
+    ? 'Connect your wallet and Collect an edition to read.'
+    : holdsEdition === null
+      ? 'Checking your edition…'
+      : 'Collect an edition to unlock the full text.';
+  const inlineSvg = coverSvg?.trim() || null;
+  const rasterCover = cover?.trim() || null;
 
   if (isViewer) {
     if (typeof document === 'undefined') return null;
@@ -236,35 +287,60 @@ export function ScarceFeedMediumSheet({
         style={lightboxStyle}
         onClick={requestClose}
       >
-        <div
-          className="scarce-clip-listen"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <p id={titleId} className="sr-only">
-            {name}
-          </p>
-          <div className="scarce-card-lightbox-chrome">
-            <SheetCloseButton
-              ref={closeRef}
-              onClick={requestClose}
-              ariaLabel="Close preview"
-              className="scarce-card-lightbox-close"
-            />
-          </div>
-          <div className="scarce-clip-listen-art">
-            {cover ? (
-              <img src={cover} alt="" className="scarce-clip-listen-cover" />
-            ) : (
-              <div
-                className="scarce-clip-listen-cover scarce-clip-listen-cover--empty"
-                aria-hidden
+        {inlineSvg && !rasterCover ? (
+          <>
+            <p id={titleId} className="sr-only">
+              {name}
+            </p>
+            <div className="scarce-card-lightbox-chrome">
+              <SheetCloseButton
+                ref={closeRef}
+                onClick={requestClose}
+                ariaLabel="Close preview"
+                className="scarce-card-lightbox-close"
               />
-            )}
+            </div>
+            <div
+              className="scarce-card-lightbox-asset scarce-card-lightbox-svg"
+              dangerouslySetInnerHTML={{ __html: inlineSvg }}
+              onClick={(event) => event.stopPropagation()}
+            />
+          </>
+        ) : (
+          <div
+            className="scarce-clip-listen"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p id={titleId} className="sr-only">
+              {name}
+            </p>
+            <div className="scarce-card-lightbox-chrome">
+              <SheetCloseButton
+                ref={closeRef}
+                onClick={requestClose}
+                ariaLabel="Close preview"
+                className="scarce-card-lightbox-close"
+              />
+            </div>
+            <div className="scarce-clip-listen-art">
+              {rasterCover ? (
+                <img
+                  src={rasterCover}
+                  alt=""
+                  className="scarce-clip-listen-cover"
+                />
+              ) : (
+                <div
+                  className="scarce-clip-listen-cover scarce-clip-listen-cover--empty"
+                  aria-hidden
+                />
+              )}
+            </div>
+            <div className="scarce-clip-listen-copy">
+              <p className="scarce-clip-listen-track">{name}</p>
+            </div>
           </div>
-          <div className="scarce-clip-listen-copy">
-            <p className="scarce-clip-listen-track">{name}</p>
-          </div>
-        </div>
+        )}
       </div>,
       document.body
     );
@@ -296,7 +372,7 @@ export function ScarceFeedMediumSheet({
             closeAriaLabel={mode === 'audio' ? 'Close listen' : 'Close reader'}
             onClose={requestClose}
             whisper={
-              mode === 'audio' ? 'Preview this Drop' : 'Preview this writing'
+              mode === 'audio' ? 'Preview this Drop' : 'Drop writing'
             }
           />
           <Divider variant="section" className="glass-sheet-header-divider" />
@@ -307,7 +383,7 @@ export function ScarceFeedMediumSheet({
         <ScarceClipPlayer
           clip={clip}
           tracks={playables}
-          poster={cover}
+          poster={rasterCover}
           layout="cover"
           creatorId={creatorId}
           showTransport
@@ -317,7 +393,11 @@ export function ScarceFeedMediumSheet({
         />
       ) : null}
       {sheetOpen && mode === 'audio' && !clip ? (
-        <p className="scarce-feed-medium-empty">Loading audio…</p>
+        <p className="scarce-feed-medium-empty">
+          {hydrateSettled
+            ? 'Audio unavailable for this Drop.'
+            : 'Loading audio…'}
+        </p>
       ) : null}
       {sheetOpen && mode === 'writing' && collectionId && hasWriting ? (
         <CollectionWritingReader
@@ -326,15 +406,19 @@ export function ScarceFeedMediumSheet({
           readables={readables}
           bookPdf={bookPdf}
           writingFormat={writingFormat}
-          canRead
-          lockedHint="Hold an edition to read."
+          canRead={canReadWriting}
+          lockedHint={writingLockedHint}
         />
       ) : null}
-      {sheetOpen && mode === 'writing' && !hasWriting ? (
+      {sheetOpen &&
+      mode === 'writing' &&
+      (!hasWriting || !collectionId) ? (
         <p className="scarce-feed-medium-empty">
-          {collectionId
-            ? 'Loading writing…'
-            : 'Open the Drop to read this release.'}
+          {!collectionId
+            ? 'Open the Drop to read this release.'
+            : hydrateSettled
+              ? 'Writing unavailable for this Drop.'
+              : 'Loading writing…'}
         </p>
       ) : null}
     </GlassSheet>

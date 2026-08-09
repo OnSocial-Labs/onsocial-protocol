@@ -259,6 +259,7 @@ export function PostScarceCta({
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">Owned</span>
+        {listenSlot}
         <CommerceLinkRow links={links} />
         {isAuthor && canList && onList ? (
           <button
@@ -281,6 +282,7 @@ export function PostScarceCta({
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--sold">
         <span>Sold</span>
+        {listenSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -294,6 +296,7 @@ export function PostScarceCta({
           <span className="post-card-scarce-cta-main">
             {price ? `Auction · ${price} NEAR` : 'Your auction'}
           </span>
+          {listenSlot}
           <CommerceLinkRow links={links} />
         </div>
       );
@@ -304,6 +307,7 @@ export function PostScarceCta({
           <span className="post-card-scarce-cta-main">
             {price ? `Auction · ${price} NEAR…` : 'Auction…'}
           </span>
+          {listenSlot}
           <CommerceLinkRow links={links} />
         </div>
       );
@@ -323,6 +327,7 @@ export function PostScarceCta({
             {price ? `Bid · ${price} NEAR` : 'Bid'}
           </span>
         </button>
+        {listenSlot}
         <CommerceLinkRow links={links} />
       </div>
     );

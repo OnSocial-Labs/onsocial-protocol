@@ -557,7 +557,7 @@ export function ScarceBuyForm({
           );
         })()}
         <p className="profile-support-hint">
-          {status === 'lazy_listing'
+          {isPrimaryMint
             ? 'Mints to you. Creator is paid after a 2% marketplace fee.'
             : 'Transfers to you. Seller is paid after a 2% marketplace fee.'}
         </p>

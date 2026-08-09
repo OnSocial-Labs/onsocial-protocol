@@ -76,7 +76,10 @@ interface ScarcePostPreviewProps {
    * When set (feed medium shell), tap calls this instead of the zoom
    * lightbox. Sheet / list pickers keep expand-to-zoom.
    */
-  onActivate?: () => void;
+  onActivate?: (detail: {
+    mediaUrl: string | null;
+    coverSvg: string | null;
+  }) => void;
 }
 
 function previewTitle(post: PostRow, format?: CardFormat): string {
@@ -308,7 +311,10 @@ export function ScarcePostPreview({
           event.preventDefault();
           event.stopPropagation();
           if (onActivate) {
-            onActivate();
+            onActivate({
+              mediaUrl: rasterSrc,
+              coverSvg: inlineSvg,
+            });
             return;
           }
           setClosing(false);

@@ -800,6 +800,9 @@ export function PostCard({
   const [feedMediumOpen, setFeedMediumOpen] = useState(false);
   const [feedMediumMode, setFeedMediumMode] =
     useState<ScarceFeedMediumMode>('viewer');
+  const [feedMediumCoverSvg, setFeedMediumCoverSvg] = useState<string | null>(
+    null
+  );
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -920,14 +923,22 @@ export function PostCard({
     : [];
   const listenPlayables =
     collectionPlayables.length > 0 ? collectionPlayables : postPlayables;
+  const canHydrateAudio =
+    Boolean(scarceEmbed?.collectionId?.trim()) ||
+    Boolean(scarceEmbed?.tokenId?.trim());
   const showDropListen =
-    postDropIsPlayable(scarceEmbed) || listenPlayables.length > 0;
+    listenPlayables.length > 0 ||
+    (postDropIsPlayable(scarceEmbed) && canHydrateAudio);
   const dropListenTitle =
     collectionDropTitle?.trim() ||
     dropPaint?.title?.trim() ||
     'Drop';
-  const openFeedMedium = (mode: ScarceFeedMediumMode) => {
+  const openFeedMedium = (
+    mode: ScarceFeedMediumMode,
+    coverSvg: string | null = null
+  ) => {
     setFeedMediumMode(mode);
+    setFeedMediumCoverSvg(coverSvg);
     setFeedMediumOpen(true);
   };
   const fallback = fallbackLabel(post.accountId);
@@ -1075,11 +1086,12 @@ export function PostCard({
             mediaUrl={scarceCoverUrl}
             cardBg={scarceEmbed.cardBg}
             creatorDisplayName={authorProfile?.displayName}
-            onActivate={() =>
+            onActivate={({ coverSvg }) =>
               openFeedMedium(
                 resolveScarceFeedMediumMode(
                   scarceEmbed.mediumKind ?? dropPaint?.mediumKind
-                )
+                ),
+                coverSvg
               )
             }
           />
@@ -1228,6 +1240,7 @@ export function PostCard({
         mode={feedMediumMode}
         title={dropListenTitle}
         cover={scarceCoverUrl}
+        coverSvg={feedMediumCoverSvg}
         creatorId={scarceEmbed?.creatorId ?? post.accountId}
         collectionId={scarceEmbed?.collectionId ?? null}
         tokenId={scarceEmbed?.tokenId ?? null}
