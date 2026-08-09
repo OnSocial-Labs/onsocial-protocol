@@ -1038,3 +1038,35 @@ SELECT DISTINCT ON (account_id, path)
 FROM data_updates
 WHERE data_type = 'endorsement'
 ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 16. blocks_current — hard account blocks (data_type = 'block')
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_data_updates_block_dedup
+  ON data_updates(account_id, target_account, block_height DESC) WHERE data_type = 'block';
+
+CREATE OR REPLACE VIEW blocks_current AS
+SELECT
+  account_id,
+  target_account,
+  value,
+  block_height,
+  block_timestamp
+FROM (
+  SELECT DISTINCT ON (account_id, target_account)
+    account_id,
+    target_account,
+    value,
+    block_height,
+    block_timestamp,
+    operation,
+    receipt_id,
+    id
+  FROM data_updates
+  WHERE data_type = 'block'
+    AND target_account IS NOT NULL
+    AND target_account != ''
+  ORDER BY account_id, target_account, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+) latest
+WHERE operation = 'set';

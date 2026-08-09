@@ -11,6 +11,7 @@ import {
 import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
+import { MuteBlockListsSheet } from '@/components/wallet/mute-block-lists-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
@@ -61,6 +62,7 @@ export function AppAccountSheet({
   const [closing, setClosing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
+  const [muteBlockOpen, setMuteBlockOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
   const [identityOverrides, setIdentityOverrides] = useState<
@@ -74,7 +76,12 @@ export function AppAccountSheet({
 
   // Re-attempt session restore when the drawer opens (same as page-load bootstrap).
   useEffect(() => {
-    if (!sheetOpen || !accountId || hasSocialSession || isBootstrappingSession) {
+    if (
+      !sheetOpen ||
+      !accountId ||
+      hasSocialSession ||
+      isBootstrappingSession
+    ) {
       return;
     }
     if (autoResumeAttemptedRef.current === accountId) return;
@@ -148,6 +155,10 @@ export function AppAccountSheet({
   const handleEditProfile = useCallback(() => {
     setEditorSession((current) => current + 1);
     setEditorOpen(true);
+  }, []);
+
+  const handleMutedBlocked = useCallback(() => {
+    setMuteBlockOpen(true);
   }, []);
 
   const handleEditorBack = useCallback(() => {
@@ -271,6 +282,7 @@ export function AppAccountSheet({
             onClose={requestClose}
             onEditProfile={handleEditProfile}
             onCustomize={isOwnerOnPage ? handleCustomize : undefined}
+            onMutedBlocked={handleMutedBlocked}
           />
 
           <AccountShortcutDock
@@ -300,6 +312,11 @@ export function AppAccountSheet({
         refreshKey={storageRefreshKey}
         onClose={handleStorageBack}
         onStorageChanged={handleStorageChanged}
+      />
+
+      <MuteBlockListsSheet
+        open={muteBlockOpen && open}
+        onClose={() => setMuteBlockOpen(false)}
       />
     </>
   );

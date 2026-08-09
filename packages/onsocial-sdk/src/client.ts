@@ -31,6 +31,8 @@ import { BoostModule } from './modules/boost.js';
 import { SocialSpendModule } from './modules/social-spend.js';
 import { PagesModule } from './modules/pages.js';
 import { StandingsModule } from './modules/standings.js';
+import { BlocksModule } from './modules/blocks.js';
+import { MutesModule } from './modules/mutes.js';
 import { StorageAccountModule } from './modules/storage-account.js';
 import type { Session } from './advanced/session.js';
 import { composeAndSign, signAndRelay } from './internal/session-bridge.js';
@@ -262,6 +264,10 @@ export class OnSocial {
   readonly attestations: AttestationsModule;
   /** Standings — account ↔ account "stand with" graph. */
   readonly standings: StandingsModule;
+  /** Blocks — hard on-chain account blocks. */
+  readonly blocks: BlocksModule;
+  /** Mutes — private off-chain mute prefs (gateway). */
+  readonly mutes: MutesModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
   /** Rewards (credit, claim, balance). */
@@ -504,6 +510,8 @@ export class OnSocial {
     this.endorsements = new EndorsementsModule(this.social, this.query);
     this.attestations = new AttestationsModule(this.social, this.query);
     this.standings = new StandingsModule(this.social, this.query);
+    this.blocks = new BlocksModule(this.social, this.query);
+    this.mutes = new MutesModule(this.http);
 
     // Grouped namespaces — same instances, organised for discoverability.
     this.content = {
@@ -514,6 +522,7 @@ export class OnSocial {
       endorsements: this.endorsements,
       attestations: this.attestations,
       standings: this.standings,
+      blocks: this.blocks,
       feed: this.query,
     };
     this.economy = {
@@ -527,6 +536,7 @@ export class OnSocial {
       storage: this.storage,
       permissions: this.permissions,
       notifications: this.notifications,
+      mutes: this.mutes,
       webhooks: this.webhooks,
       pages: this.pages,
     };

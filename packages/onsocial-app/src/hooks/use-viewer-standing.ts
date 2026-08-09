@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { creditAppPlatformReward, creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
+import {
+  creditAppPlatformReward,
+  creditAppPlatformSocialReward,
+} from '@/lib/app-platform-rewards';
 import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import type {
   StandingAccountSummary,
@@ -24,6 +27,7 @@ import {
   setGlobalStandingPending,
   subscribeGlobalViewerStandingLedger,
 } from '@/lib/viewer-standing-global';
+import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export function useViewerStanding(listAccountId: string) {
@@ -105,6 +109,10 @@ export function useViewerStanding(listAccountId: string) {
         throw new Error('You cannot stand with your own account.');
       }
 
+      if (shouldStand && isBlockEitherWay(targetAccount.accountId)) {
+        throw new Error('Standing is unavailable while a block is in place.');
+      }
+
       if (isGlobalStandingPending(targetAccount.accountId)) {
         return;
       }
@@ -148,7 +156,9 @@ export function useViewerStanding(listAccountId: string) {
             });
           }
         } else {
-          await client.standings.remove(targetAccount.accountId, { wait: true });
+          await client.standings.remove(targetAccount.accountId, {
+            wait: true,
+          });
         }
 
         recordViewerStanding(

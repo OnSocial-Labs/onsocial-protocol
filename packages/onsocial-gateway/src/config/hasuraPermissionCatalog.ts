@@ -286,6 +286,16 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'blocks_current',
+    columns: [
+      'account_id',
+      'target_account',
+      'value',
+      'block_height',
+      'block_timestamp',
+    ],
+  },
+  {
     name: 'mutual_standings_current',
     columns: [
       'account_id',
@@ -1082,6 +1092,7 @@ export const ADMIN_ONLY_TABLES = [
   'notification_delivery_attempts',
   'notification_counts',
   'notification_cursors',
+  'user_mutes',
 ];
 
 export const INTENTIONALLY_UNEXPOSED_RELATIONS = [

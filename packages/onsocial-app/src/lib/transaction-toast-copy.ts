@@ -58,6 +58,8 @@ export const txToastConfirming = {
   renewingBoost: 'Confirming renewal…',
   extendingBoost: 'Confirming extension…',
   releasingBoost: 'Confirming release…',
+  blockingAccount: 'Confirming block…',
+  unblockingAccount: 'Confirming unblock…',
 } as const;
 
 export const txToastPending = {
@@ -98,6 +100,8 @@ export const txToastPending = {
   acceptingScarceOffer: 'Accepting offer…',
   cancelingScarceOffer: 'Canceling offer…',
   cancelingScarceListing: 'Canceling listing…',
+  blockingAccount: 'Blocking…',
+  unblockingAccount: 'Unblocking…',
 } as const;
 
 export const txToastSuccess = {
@@ -169,6 +173,10 @@ export const txToastSuccess = {
   boostRenewed: 'Commitment renewed.',
   boostExtended: (periodLabel: string) => `Extended to ${periodLabel}.`,
   boostReleased: 'Position released. SOCIAL collected.',
+  accountBlocked: 'Account blocked.',
+  accountUnblocked: 'Account unblocked.',
+  accountMuted: 'Account muted.',
+  accountUnmuted: 'Account unmuted.',
 } as const;
 
 export const txToastError = {
@@ -229,4 +237,8 @@ export const txToastError = {
   renewBoostFailed: 'Could not renew the commitment.',
   extendBoostFailed: 'Could not extend the commitment.',
   releaseBoostFailed: 'Could not release the position.',
+  blockAccountFailed: 'Could not block account.',
+  unblockAccountFailed: 'Could not unblock account.',
+  muteAccountFailed: 'Could not mute account.',
+  unmuteAccountFailed: 'Could not unmute account.',
 } as const;

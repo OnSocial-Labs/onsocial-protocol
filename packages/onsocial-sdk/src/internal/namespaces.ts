@@ -20,6 +20,7 @@ import type { SavesModule } from '../modules/saves.js';
 import type { EndorsementsModule } from '../modules/endorsements.js';
 import type { AttestationsModule } from '../modules/attestations.js';
 import type { StandingsModule } from '../modules/standings.js';
+import type { BlocksModule } from '../modules/blocks.js';
 import type { QueryModule } from '../query/index.js';
 import type { ScarcesModule } from '../modules/scarces/index.js';
 import type { RewardsModule } from '../modules/rewards.js';
@@ -29,6 +30,7 @@ import type { SocialSpendModule } from '../modules/social-spend.js';
 import type { StorageModule } from '../storage/module.js';
 import type { PermissionsModule } from '../modules/permissions.js';
 import type { NotificationsModule } from '../modules/notifications.js';
+import type { MutesModule } from '../modules/mutes.js';
 import type { WebhooksModule } from '../modules/webhooks.js';
 import type { PagesModule } from '../modules/pages.js';
 import type { SocialModule } from '../modules/social.js';
@@ -56,6 +58,7 @@ export interface ContentNamespace {
   readonly endorsements: EndorsementsModule;
   readonly attestations: AttestationsModule;
   readonly standings: StandingsModule;
+  readonly blocks: BlocksModule;
   /** Indexed GraphQL reads (same instance as `os.query`). */
   readonly feed: QueryModule;
 }
@@ -83,6 +86,7 @@ export interface EconomyNamespace {
  * - `storage`       — IPFS file/JSON upload
  * - `permissions`   — account + key permissions
  * - `notifications` — push + in-app notifications (pro tier+)
+ * - `mutes`         — private mute prefs
  * - `webhooks`      — outbound webhook endpoints (pro tier+)
  * - `pages`         — onsocial.id page configuration
  */
@@ -90,6 +94,7 @@ export interface PlatformNamespace {
   readonly storage: StorageModule;
   readonly permissions: PermissionsModule;
   readonly notifications: NotificationsModule;
+  readonly mutes: MutesModule;
   readonly webhooks: WebhooksModule;
   readonly pages: PagesModule;
 }

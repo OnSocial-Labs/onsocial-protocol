@@ -51,6 +51,7 @@ import { ProfilesQuery } from './profiles.js';
 import { ReactionsQuery } from './reactions.js';
 import { GraphQuery } from './graph.js';
 import { StandingsQuery } from './standings.js';
+import { BlocksQuery } from './blocks.js';
 import { SavesQuery } from './saves.js';
 import { EndorsementsQuery } from './endorsements.js';
 import { AttestationsQuery } from './attestations.js';
@@ -176,6 +177,7 @@ export class QueryModule {
   readonly reactions: ReactionsQuery;
   readonly graph: GraphQuery;
   readonly standings: StandingsQuery;
+  readonly blocks: BlocksQuery;
   readonly saves: SavesQuery;
   readonly endorsements: EndorsementsQuery;
   readonly attestations: AttestationsQuery;
@@ -202,6 +204,7 @@ export class QueryModule {
     this.reactions = new ReactionsQuery(this);
     this.graph = new GraphQuery(this);
     this.standings = new StandingsQuery(this);
+    this.blocks = new BlocksQuery(this);
     this.saves = new SavesQuery(this);
     this.endorsements = new EndorsementsQuery(this);
     this.attestations = new AttestationsQuery(this);

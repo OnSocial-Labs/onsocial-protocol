@@ -77,6 +77,15 @@ import {
   homeFeedNewPostsLabel,
 } from '@/lib/home-feed-new-posts';
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
+import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
+import {
+  getGlobalViewerBlockLedgerVersion,
+  subscribeGlobalViewerBlockLedger,
+} from '@/lib/viewer-block-global';
+import {
+  getGlobalViewerMuteLedgerVersion,
+  subscribeGlobalViewerMuteLedger,
+} from '@/lib/viewer-mute-global';
 
 const HOME_FEED_PAGE_SIZE = 24;
 
@@ -89,9 +98,7 @@ async function fetchSavedFeedPage(
   const saves = await client.query.saves.list(accountId, { limit, offset });
   const refs = saves
     .map((row) => parseSaveContentPath(row.contentPath))
-    .filter(
-      (ref): ref is { author: string; postId: string } => ref != null
-    );
+    .filter((ref): ref is { author: string; postId: string } => ref != null);
   const byRef = await fetchIndexedPostsByRefs(refs);
   const items: PostRow[] = [];
   for (const ref of refs) {
@@ -235,6 +242,29 @@ export function HomePagePanel({
   const searchParams = useSearchParams();
   const { accountId, isConnected, isLoading: walletLoading } = useAppWallet();
   const [posts, setPosts] = useState<PostRow[]>(() => initialPage?.items ?? []);
+  const [muteBlockSyncVersion, setMuteBlockSyncVersion] = useState(
+    () =>
+      getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
+  );
+  useEffect(() => {
+    const bump = () => {
+      setMuteBlockSyncVersion(
+        getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
+      );
+    };
+    const unsubMute = subscribeGlobalViewerMuteLedger(bump);
+    const unsubBlock = subscribeGlobalViewerBlockLedger(bump);
+    return () => {
+      unsubMute();
+      unsubBlock();
+    };
+  }, []);
+  const visiblePosts = useMemo(
+    () => filterHiddenAuthors(posts),
+    // mute/block ledger version forces re-filter after mute/block confirms
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [posts, muteBlockSyncVersion]
+  );
   const [nextOffset, setNextOffset] = useState<number | undefined>(
     () => initialPage?.nextOffset
   );
@@ -474,13 +504,7 @@ export function HomePagePanel({
               page: await loadFocusedFeedPage(focus, 0, { sort }),
               standingSources: null as string[] | null,
             }
-          : await fetchHomeFeedPageClient(
-              activeLens,
-              accountId,
-              0,
-              null,
-              sort
-            );
+          : await fetchHomeFeedPageClient(activeLens, accountId, 0, null, sort);
 
         if (loadIdRef.current !== loadId) return;
 
@@ -589,7 +613,7 @@ export function HomePagePanel({
   }, [accountId, activeLens, sort, tagParam, tickerParam]);
 
   const hasMore = nextOffset !== undefined;
-  const showLoadMoreSentinel = hasMore && posts.length > 0;
+  const showLoadMoreSentinel = hasMore && visiblePosts.length > 0;
 
   useInfiniteScrollSentinel({
     scrollRootRef,
@@ -764,10 +788,10 @@ export function HomePagePanel({
     ? homeFeedFocusEmptyCopy(activeFocus)
     : homeFeedLensEmptyCopy(activeLens);
 
-  const showColdSkeleton = isLoading && posts.length === 0;
+  const showColdSkeleton = isLoading && visiblePosts.length === 0;
   const showEmpty =
-    !isLoading && !isRefreshing && !loadError && posts.length === 0;
-  const showFeed = posts.length > 0;
+    !isLoading && !isRefreshing && !loadError && visiblePosts.length === 0;
+  const showFeed = visiblePosts.length > 0;
   const newPostsLabel = homeFeedNewPostsLabel(newPostCount);
   const showNewPostsPill =
     Boolean(newPostsLabel) && showFeed && !isRefreshing && !isLoading;
@@ -841,7 +865,7 @@ export function HomePagePanel({
           {showFeed ? (
             <>
               <PersonalFeedList
-                posts={posts}
+                posts={visiblePosts}
                 includeForeignReplies={Boolean(activeFocus)}
                 showGuildAttribution
                 className={`home-feed-list${isRefreshing ? ' is-refreshing' : ''}`}

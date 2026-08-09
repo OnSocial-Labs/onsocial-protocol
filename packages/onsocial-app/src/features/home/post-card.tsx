@@ -17,6 +17,7 @@ import {
   HeartFillIcon,
   HeartIcon,
   MessageRoundIcon,
+  MultiplyIcon,
   ProfileAvatar,
   RepeatIcon,
   ShareIcon,
@@ -71,6 +72,9 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import { useViewerMute } from '@/hooks/use-viewer-mute';
+import { useViewerBlock } from '@/hooks/use-viewer-block';
+import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { accountIdsEqual } from '@/lib/account-match';
 import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
 import {
@@ -190,6 +194,8 @@ function PostCardMenu({
   const { updateStanding, isStandingPendingForTarget } = useViewerStanding(
     relationshipAccountId || accountId
   );
+  const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
+  const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
   const [supportOpen, setSupportOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -225,6 +231,14 @@ function PostCardMenu({
 
   async function handleStandToggle() {
     if (pending || isLoading || !gesturesArmed) return;
+    if (isBlockEitherWay(accountId)) {
+      setTxResult({
+        type: 'error',
+        msg: 'Standing is unavailable while a block is in place.',
+      });
+      close();
+      return;
+    }
     try {
       await updateStanding(
         {
@@ -247,6 +261,52 @@ function PostCardMenu({
     }
   }
 
+  async function handleMuteToggle() {
+    if (isMutePendingForTarget(accountId)) return;
+    const next = !isMuting(accountId);
+    try {
+      await updateMute(accountId, next);
+      setTxResult({
+        type: 'success',
+        msg: next ? txToastSuccess.accountMuted : txToastSuccess.accountUnmuted,
+      });
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : next
+              ? txToastError.muteAccountFailed
+              : txToastError.unmuteAccountFailed,
+      });
+    } finally {
+      close();
+    }
+  }
+
+  async function handleBlockToggle() {
+    if (isBlockPendingForTarget(accountId)) return;
+    const next = !isBlocking(accountId);
+    try {
+      await updateBlock(accountId, next);
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : next
+              ? txToastError.blockAccountFailed
+              : txToastError.unblockAccountFailed,
+      });
+    } finally {
+      close();
+    }
+  }
+
   const standLabel = isLoading
     ? '…'
     : pending
@@ -257,13 +317,18 @@ function PostCardMenu({
         ? 'Step back'
         : 'Stand with';
 
+  const muted = isMuting(accountId);
+  const blocked = isBlocking(accountId);
+  const mutePending = isMutePendingForTarget(accountId);
+  const blockPending = isBlockPendingForTarget(accountId);
+
   const menuItems = useMemo<ActionDrawerItem[]>(() => {
     const items: ActionDrawerItem[] = [];
     if (showGestures) {
       items.push({
         id: 'stand',
         label: standLabel,
-        disabled: pending || isLoading,
+        disabled: pending || isLoading || isBlockEitherWay(accountId),
         leading: viewerStanding ? (
           <UserMinusIcon className="action-drawer-icon" aria-hidden />
         ) : (
@@ -288,6 +353,33 @@ function PostCardMenu({
           requestClose();
           router.push(endorsementsHref, { scroll: false });
         },
+      });
+      items.push({
+        id: 'mute',
+        label: mutePending
+          ? muted
+            ? 'Unmuting…'
+            : 'Muting…'
+          : muted
+            ? 'Unmute'
+            : 'Mute',
+        disabled: mutePending,
+        leading: <UserMinusIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => void handleMuteToggle(),
+      });
+      items.push({
+        id: 'block',
+        label: blockPending
+          ? blocked
+            ? 'Unblocking…'
+            : 'Blocking…'
+          : blocked
+            ? 'Unblock'
+            : 'Block',
+        destructive: !blocked,
+        disabled: blockPending,
+        leading: <MultiplyIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => void handleBlockToggle(),
       });
     }
     // List is a primary card CTA (Buy · List · Amplify) — keep Cancel
@@ -328,6 +420,10 @@ function PostCardMenu({
     viewerStanding,
     pending,
     isLoading,
+    muted,
+    blocked,
+    mutePending,
+    blockPending,
     showCancelScarce,
     cancelScarcePending,
     href,

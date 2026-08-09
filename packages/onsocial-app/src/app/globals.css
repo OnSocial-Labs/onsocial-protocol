@@ -28079,3 +28079,67 @@ button.scarce-clip-cover-expand:focus-visible {
     0 1px 2px rgb(0 0 0 / 0.14);
 }
 
+
+/* Muted & blocked management sheet */
+.mute-block-lists-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0 1rem 0.5rem;
+}
+
+.mute-block-lists-tab {
+  flex: 1;
+  border: 0;
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgb(var(--fg-rgb) / 0.55);
+  background: rgb(var(--fg-rgb) / 0.06);
+  cursor: pointer;
+}
+
+.mute-block-lists-tab.is-active {
+  color: rgb(var(--fg-rgb) / 0.92);
+  background: rgb(var(--fg-rgb) / 0.12);
+}
+
+.mute-block-lists-empty {
+  margin: 0;
+  padding: 1rem 1.1rem 1.35rem;
+  font-size: 0.86rem;
+  color: rgb(var(--fg-rgb) / 0.5);
+}
+
+.mute-block-lists-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.55rem 1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.mute-block-lists-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border: 0;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.55rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mute-block-lists-row:hover {
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.mute-block-lists-row-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
