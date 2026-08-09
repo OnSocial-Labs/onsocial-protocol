@@ -11603,7 +11603,13 @@ a.os-surface-row {
   }
 
   .account-safe-mode-row {
+    appearance: none;
     width: 100%;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
     text-align: left;
     cursor: pointer;
   }
