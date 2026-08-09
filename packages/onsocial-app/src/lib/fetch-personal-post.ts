@@ -1,4 +1,4 @@
-import type { PostRow } from '@onsocial/sdk';
+import type { OnSocial, PostRow } from '@onsocial/sdk';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 const POST_ROW_SELECTION = `
@@ -8,11 +8,14 @@ const POST_ROW_SELECTION = `
 `;
 
 /** Indexed personal post by author + id (`isGroupContent: false`). */
-export async function fetchPersonalPost(ref: {
-  author: string;
-  postId: string;
-}): Promise<PostRow | null> {
-  const client = createReadOnlyOnSocialClient();
+export async function fetchPersonalPost(
+  ref: {
+    author: string;
+    postId: string;
+  },
+  /** Inject `createServerOnSocialClient()` on SSR; browser default is OnAPI proxy. */
+  client: OnSocial = createReadOnlyOnSocialClient()
+): Promise<PostRow | null> {
   const res = await client.query.graphql<{ postsCurrent: PostRow[] }>({
     query: `query PersonalPost($accountId: String!, $postId: String!) {
       postsCurrent(

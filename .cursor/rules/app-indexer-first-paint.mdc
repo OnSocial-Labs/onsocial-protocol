@@ -52,5 +52,5 @@ For `@onsocial/app` (and SDK query helpers it consumes), browse/list/detail firs
 - Market default browse + sales skip duplicate SSR refetch; collection skips first soft refresh when SSR solid
 - Guild writers sheet / counts paint from `permissions.forPath` fold; `permissions.has` stay mutate-time
 - DAO `get_policy` soft-fill uses short process TTL cache (never SSR)
-- Home + personal post SSR seed engagement counts and lazy scarce CTAs (`feed-paint-hydrate`) — no empty→fill for first page
+- Home + personal + guild post SSR seed engagement counts and lazy scarce CTAs (`feed-paint-hydrate`) — no empty→fill for first page
 - Feed engagement row always mounts (`EMPTY_POST_ENGAGEMENT` fallback); scarce seeds via `seedScarceEmbedsFromSsr`

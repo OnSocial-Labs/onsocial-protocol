@@ -21,7 +21,7 @@ export interface PostEngagement {
   viewerSaved: boolean;
 }
 
-interface EngagementMap {
+export interface EngagementMap {
   [key: string]: PostEngagement;
 }
 
@@ -34,6 +34,46 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   viewerAmplified: false,
   viewerSaved: false,
 };
+
+/**
+ * Merge indexer soft-upgrade into current engagement without clobbering
+ * in-flight optimistic reaction/save toggles (or a confirmed amplify that
+ * the indexer has not caught yet).
+ */
+export function mergeEngagementSoftUpgrade(
+  current: EngagementMap,
+  fetched: EngagementMap,
+  pendingReactionKeys: ReadonlySet<string>,
+  pendingSaveKeys: ReadonlySet<string>
+): EngagementMap {
+  const merged: EngagementMap = {};
+  for (const [key, row] of Object.entries(fetched)) {
+    const previous = current[key];
+    let next = row;
+    if (previous && pendingReactionKeys.has(key)) {
+      next = {
+        ...next,
+        viewerReacted: previous.viewerReacted,
+        reactionCount: previous.reactionCount,
+      };
+    }
+    if (previous && pendingSaveKeys.has(key)) {
+      next = {
+        ...next,
+        viewerSaved: previous.viewerSaved,
+      };
+    }
+    if (previous?.viewerAmplified && !next.viewerAmplified) {
+      next = {
+        ...next,
+        viewerAmplified: true,
+        amplifyCount: Math.max(next.amplifyCount, previous.amplifyCount),
+      };
+    }
+    merged[key] = next;
+  }
+  return merged;
+}
 
 /**
  * Batched engagement state (reply/quote/reaction/amplify/save + viewer flags)
@@ -61,6 +101,10 @@ export function usePostEngagement(
   const [pendingSaveKeys, setPendingSaveKeys] = useState<Set<string>>(
     () => new Set()
   );
+  const pendingReactionKeysRef = useRef(pendingReactionKeys);
+  const pendingSaveKeysRef = useRef(pendingSaveKeys);
+  pendingReactionKeysRef.current = pendingReactionKeys;
+  pendingSaveKeysRef.current = pendingSaveKeys;
   const loadIdRef = useRef(0);
   const ssrSkipRef = useRef(
     Boolean(opts.initial && Object.keys(opts.initial).length > 0)
@@ -108,7 +152,7 @@ export function usePostEngagement(
         accountId ? { viewer: accountId } : {}
       ),
       accountId
-        ? client.query.saves.list(accountId, { limit: 500 })
+        ? client.query.saves.forPaths(accountId, paths)
         : Promise.resolve([]),
     ]).then(([threadResult, reactionResult, amplifyResult, savesResult]) => {
       if (loadIdRef.current !== loadId) return;
@@ -147,7 +191,14 @@ export function usePostEngagement(
           viewerSaved: savedPaths.has(target.path),
         };
       }
-      setEngagement(next);
+      setEngagement((current) =>
+        mergeEngagementSoftUpgrade(
+          current,
+          next,
+          pendingReactionKeysRef.current,
+          pendingSaveKeysRef.current
+        )
+      );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetsSignature]);

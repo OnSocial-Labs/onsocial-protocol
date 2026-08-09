@@ -11,6 +11,7 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
   GuildComposerSheet,
   type GuildComposerMode,
@@ -119,6 +120,7 @@ export function LiveGuildPostPanel({
   postId,
   initial = null,
 }: LiveGuildPostPanelProps) {
+  seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const {
     accountId,
     isConnected,
@@ -280,6 +282,7 @@ export function LiveGuildPostPanel({
     isSavePending,
     confirmAmplify,
   } = usePostEngagement(engagementPosts, {
+    initial: initial?.engagement ?? null,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
