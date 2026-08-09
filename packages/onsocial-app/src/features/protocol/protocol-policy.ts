@@ -6,6 +6,7 @@ export type ProtocolPolicyActionId =
   | 'update_parameters'
   | 'update_config'
   | 'update_vote_policy'
+  | 'update_permissions'
   | 'add_role'
   | 'remove_role';
 
@@ -16,9 +17,20 @@ export const PROTOCOL_POLICY_ACTION_OPTIONS: Array<{
   { id: 'update_parameters', label: 'Parameters' },
   { id: 'update_config', label: 'Config' },
   { id: 'update_vote_policy', label: 'Vote policy' },
+  { id: 'update_permissions', label: 'Permissions' },
   { id: 'add_role', label: 'Add role' },
   { id: 'remove_role', label: 'Remove role' },
 ];
+
+export const PROTOCOL_EDITABLE_PERMISSIONS = [
+  { id: 'call:AddProposal', label: 'Function call' },
+  { id: 'add_member_to_role:AddProposal', label: 'Join' },
+  { id: 'remove_member_from_role:AddProposal', label: 'Leave' },
+  { id: 'vote:AddProposal', label: 'Signal' },
+  { id: 'transfer:AddProposal', label: 'Transfer' },
+  { id: 'policy_add_or_update_role:AddProposal', label: 'Role changes' },
+  { id: 'policy_update_parameters:AddProposal', label: 'Parameter changes' },
+] as const;
 
 export interface ProtocolDaoConfig {
   name: string;
@@ -217,6 +229,39 @@ export function buildProtocolPolicyRemoveRolePayload(opts: {
   };
 }
 
+export function buildProtocolPolicyPermissionsPayload(opts: {
+  policy: ProtocolDaoPolicy | null;
+  roleId: string;
+  permissions: string[];
+  description?: string;
+}): ProtocolProposalPayload {
+  const role = findProtocolRole(opts.policy, opts.roleId);
+  if (!role) throw new Error('Choose a role to update.');
+  if ((role.permissions ?? []).includes('*:*')) {
+    throw new Error('Full-access roles cannot be edited here.');
+  }
+  if (opts.permissions.length === 0) {
+    throw new Error('Select at least one permission.');
+  }
+  return {
+    proposal: {
+      description:
+        opts.description?.trim() ||
+        `Update ${opts.roleId.trim()} permissions.`,
+      kind: {
+        ChangePolicyAddOrUpdateRole: {
+          role: {
+            name: role.name,
+            kind: role.kind,
+            permissions: [...new Set(opts.permissions)],
+            vote_policy: role.vote_policy ?? {},
+          },
+        },
+      },
+    },
+  };
+}
+
 export function buildProtocolPolicyPayload(opts: {
   actionId: ProtocolPolicyActionId;
   policy: ProtocolDaoPolicy | null;
@@ -230,6 +275,8 @@ export function buildProtocolPolicyPayload(opts: {
   voteQuorum?: string;
   newRoleName?: string;
   removeRoleId?: string;
+  permissionsRoleId?: string;
+  permissions?: string[];
 }): ProtocolProposalPayload {
   switch (opts.actionId) {
     case 'update_parameters':
@@ -253,6 +300,13 @@ export function buildProtocolPolicyPayload(opts: {
         threshold: opts.voteThreshold,
         quorum: opts.voteQuorum,
         weightKind: opts.policy?.default_vote_policy?.weight_kind,
+        description: opts.description,
+      });
+    case 'update_permissions':
+      return buildProtocolPolicyPermissionsPayload({
+        policy: opts.policy,
+        roleId: opts.permissionsRoleId ?? '',
+        permissions: opts.permissions ?? [],
         description: opts.description,
       });
     case 'add_role':

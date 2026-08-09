@@ -29209,6 +29209,26 @@ button.scarce-clip-cover-expand:focus-visible {
   outline-offset: 1px;
 }
 
+.protocol-permission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.protocol-permission-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: rgb(var(--fg-rgb) / 0.82);
+}
+
+.protocol-permission-item input {
+  width: 1rem;
+  height: 1rem;
+}
+
 .protocol-compose-note {
   margin: 0;
   font-size: 0.8rem;

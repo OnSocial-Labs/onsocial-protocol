@@ -3,6 +3,12 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
+  PROTOCOL_CONTRACT_CONFIG_OPS,
+  PROTOCOL_MANAGED_CONTRACTS,
+  getProtocolUpgradableContracts,
+  type ProtocolContractConfigOpId,
+} from '@/features/protocol/protocol-contracts';
+import {
   PROTOCOL_CREATE_KIND_OPTIONS,
   buildProtocolCreatePayload,
   getCreatableProtocolRoleOptions,
@@ -15,8 +21,10 @@ import {
 } from '@/features/protocol/protocol-eligibility';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
+import { TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact } from '@/lib/format-social-balance';
+import { socialToYocto } from '@/lib/social-spend-profile';
 
 export function ProtocolCreateSheet({
   open,
@@ -38,12 +46,27 @@ export function ProtocolCreateSheet({
   onOpenStake: () => void;
 }) {
   const formId = useId();
+  const upgradable = useMemo(() => getProtocolUpgradableContracts(), []);
   const [kind, setKind] = useState<ProtocolCreateKind>('signal');
   const [description, setDescription] = useState('');
   const [roleId, setRoleId] = useState('');
   const [memberId, setMemberId] = useState('');
   const [receiverId, setReceiverId] = useState('');
   const [amountNear, setAmountNear] = useState('');
+  const [amountSocial, setAmountSocial] = useState('');
+  const [seasonId, setSeasonId] = useState('');
+  const [contractId, setContractId] = useState(
+    PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? ''
+  );
+  const [newOwnerId, setNewOwnerId] = useState('');
+  const [codeHash, setCodeHash] = useState('');
+  const [authorityId, setAuthorityId] = useState(TREASURY_DAO_ACCOUNT);
+  const [configOpId, setConfigOpId] =
+    useState<ProtocolContractConfigOpId>('support_profile');
+  const [treasuryBps, setTreasuryBps] = useState('100');
+  const [seasonPoolBps, setSeasonPoolBps] = useState('0');
+  const [targetBps, setTargetBps] = useState('9900');
+  const [burnBps, setBurnBps] = useState('0');
   const [eligibility, setEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
   const [loadState, setLoadState] = useState<
@@ -64,6 +87,17 @@ export function ProtocolCreateSheet({
       setMemberId('');
       setReceiverId('');
       setAmountNear('');
+      setAmountSocial('');
+      setSeasonId('');
+      setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
+      setNewOwnerId('');
+      setCodeHash('');
+      setAuthorityId(TREASURY_DAO_ACCOUNT);
+      setConfigOpId('support_profile');
+      setTreasuryBps('100');
+      setSeasonPoolBps('0');
+      setTargetBps('9900');
+      setBurnBps('0');
       setEligibility(null);
       setLoadState('idle');
       setFormError(null);
@@ -102,6 +136,17 @@ export function ProtocolCreateSheet({
       current && roles.includes(current) ? current : roles[0]!
     );
   }, [open, roles]);
+
+  useEffect(() => {
+    const op = PROTOCOL_CONTRACT_CONFIG_OPS.find(
+      (entry) => entry.id === configOpId
+    );
+    if (!op) return;
+    setTreasuryBps(String(op.defaults.treasuryBps));
+    setSeasonPoolBps(String(op.defaults.seasonPoolBps));
+    setTargetBps(String(op.defaults.targetBps));
+    setBurnBps(String(op.defaults.burnBps));
+  }, [configOpId]);
 
   const canPropose =
     loadState === 'error' ? true : eligibility?.canPropose === true;
@@ -157,7 +202,7 @@ export function ProtocolCreateSheet({
       onClose={onClose}
       verb="Propose"
       handle={daoAccountId ?? undefined}
-      whisper="Signal, membership, or treasury transfer on this DAO."
+      whisper="Pick a kind, fill the fields, submit on-chain."
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
       formId={formId}
@@ -170,16 +215,34 @@ export function ProtocolCreateSheet({
           event.preventDefault();
           if (needsStake || pending || !accountId) return;
           try {
-            const amountYocto =
-              kind === 'transfer' ? nearToYocto(amountNear.trim() || '0') : '';
+            const socialYocto =
+              kind === 'fund_season_pool' || kind === 'withdraw_boost_infra'
+                ? socialToYocto(amountSocial.trim() || '0')
+                : '';
             const payload = buildProtocolCreatePayload({
               kind,
               accountId,
               description,
               roleId,
               memberId,
-              receiverId,
-              amountYocto,
+              receiverId:
+                kind === 'withdraw_boost_infra'
+                  ? receiverId || TREASURY_DAO_ACCOUNT
+                  : receiverId,
+              amountYocto:
+                kind === 'transfer'
+                  ? nearToYocto(amountNear.trim() || '0')
+                  : socialYocto,
+              seasonId,
+              contractId,
+              newOwnerId,
+              codeHash,
+              authorityId,
+              configOpId,
+              treasuryBps: Number(treasuryBps),
+              seasonPoolBps: Number(seasonPoolBps),
+              targetBps: Number(targetBps),
+              burnBps: Number(burnBps),
             });
             setFormError(null);
             onSubmit(payload);
@@ -226,6 +289,12 @@ export function ProtocolCreateSheet({
               onClick={() => {
                 setKind(option.id);
                 setFormError(null);
+                if (option.id === 'contract_upgrade') {
+                  setContractId(upgradable[0]?.contractId ?? '');
+                }
+                if (option.id === 'transfer_ownership') {
+                  setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
+                }
               }}
               disabled={pending}
             >
@@ -300,6 +369,195 @@ export function ProtocolCreateSheet({
                 disabled={pending}
               />
             </label>
+          </>
+        ) : null}
+
+        {kind === 'fund_season_pool' ? (
+          <>
+            <label className="guild-field">
+              <span>Season id</span>
+              <input
+                type="text"
+                value={seasonId}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="season2"
+                onChange={(event) => setSeasonId(event.target.value)}
+                disabled={pending}
+              />
+            </label>
+            <label className="guild-field">
+              <span>Amount (SOCIAL)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amountSocial}
+                placeholder="0"
+                onChange={(event) => setAmountSocial(event.target.value)}
+                disabled={pending}
+              />
+            </label>
+          </>
+        ) : null}
+
+        {kind === 'withdraw_boost_infra' ? (
+          <>
+            <label className="guild-field">
+              <span>Amount (SOCIAL)</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amountSocial}
+                placeholder="0"
+                onChange={(event) => setAmountSocial(event.target.value)}
+                disabled={pending}
+              />
+            </label>
+            <label className="guild-field">
+              <span>Receiver</span>
+              <input
+                type="text"
+                value={receiverId || TREASURY_DAO_ACCOUNT}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(event) => setReceiverId(event.target.value)}
+                disabled={pending}
+              />
+            </label>
+          </>
+        ) : null}
+
+        {kind === 'set_boost_infra_authority' ? (
+          <label className="guild-field">
+            <span>Authority</span>
+            <input
+              type="text"
+              value={authorityId}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              onChange={(event) => setAuthorityId(event.target.value)}
+              disabled={pending}
+            />
+          </label>
+        ) : null}
+
+        {kind === 'transfer_ownership' || kind === 'contract_upgrade' ? (
+          <label className="guild-field">
+            <span>Contract</span>
+            <select
+              value={contractId}
+              onChange={(event) => setContractId(event.target.value)}
+              disabled={pending}
+            >
+              {(kind === 'contract_upgrade'
+                ? upgradable
+                : PROTOCOL_MANAGED_CONTRACTS
+              ).map((entry) => (
+                <option key={entry.contractId} value={entry.contractId}>
+                  {entry.label} · {entry.contractId}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        {kind === 'transfer_ownership' ? (
+          <label className="guild-field">
+            <span>New owner</span>
+            <input
+              type="text"
+              value={newOwnerId}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="alice.near"
+              onChange={(event) => setNewOwnerId(event.target.value)}
+              disabled={pending}
+            />
+          </label>
+        ) : null}
+
+        {kind === 'contract_upgrade' ? (
+          <label className="guild-field">
+            <span>Published code hash</span>
+            <input
+              type="text"
+              value={codeHash}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="Near base58 hash"
+              onChange={(event) => setCodeHash(event.target.value)}
+              disabled={pending}
+            />
+          </label>
+        ) : null}
+
+        {kind === 'contract_config' ? (
+          <>
+            <label className="guild-field">
+              <span>Setting</span>
+              <select
+                value={configOpId}
+                onChange={(event) =>
+                  setConfigOpId(event.target.value as ProtocolContractConfigOpId)
+                }
+                disabled={pending}
+              >
+                {PROTOCOL_CONTRACT_CONFIG_OPS.map((op) => (
+                  <option key={op.id} value={op.id}>
+                    {op.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="protocol-community-row">
+              <label className="guild-field">
+                <span>Treasury bps</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={treasuryBps}
+                  onChange={(event) => setTreasuryBps(event.target.value)}
+                  disabled={pending}
+                />
+              </label>
+              <label className="guild-field">
+                <span>Season bps</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={seasonPoolBps}
+                  onChange={(event) => setSeasonPoolBps(event.target.value)}
+                  disabled={pending}
+                />
+              </label>
+            </div>
+            <div className="protocol-community-row">
+              <label className="guild-field">
+                <span>Target bps</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={targetBps}
+                  onChange={(event) => setTargetBps(event.target.value)}
+                  disabled={pending}
+                />
+              </label>
+              <label className="guild-field">
+                <span>Burn bps</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={burnBps}
+                  onChange={(event) => setBurnBps(event.target.value)}
+                  disabled={pending}
+                />
+              </label>
+            </div>
           </>
         ) : null}
 

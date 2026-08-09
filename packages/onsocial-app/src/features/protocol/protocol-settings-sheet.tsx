@@ -9,6 +9,7 @@ import {
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import {
+  PROTOCOL_EDITABLE_PERMISSIONS,
   PROTOCOL_POLICY_ACTION_OPTIONS,
   buildProtocolPolicyPayload,
   daysToProposalPeriodNs,
@@ -19,6 +20,7 @@ import {
 } from '@/features/protocol/protocol-policy';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
+import { findProtocolRole } from '@/features/protocol/protocol-create';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 
@@ -54,6 +56,8 @@ export function ProtocolSettingsSheet({
   const [voteQuorum, setVoteQuorum] = useState('0');
   const [newRoleName, setNewRoleName] = useState('');
   const [removeRoleId, setRemoveRoleId] = useState('');
+  const [permissionsRoleId, setPermissionsRoleId] = useState('');
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [eligibility, setEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
   const [loadState, setLoadState] = useState<
@@ -79,6 +83,8 @@ export function ProtocolSettingsSheet({
       setVoteQuorum('0');
       setNewRoleName('');
       setRemoveRoleId('');
+      setPermissionsRoleId('');
+      setPermissions([]);
       setEligibility(null);
       setLoadState('idle');
       setFormError(null);
@@ -132,12 +138,25 @@ export function ProtocolSettingsSheet({
     if (!open) return;
     if (roles.length === 0) {
       setRemoveRoleId('');
+      setPermissionsRoleId('');
       return;
     }
     setRemoveRoleId((current) =>
       current && roles.includes(current) ? current : roles[0]!
     );
+    setPermissionsRoleId((current) =>
+      current && roles.includes(current) ? current : roles[0]!
+    );
   }, [open, roles]);
+
+  useEffect(() => {
+    if (!open || !permissionsRoleId) return;
+    const role = findProtocolRole(daoPolicy, permissionsRoleId);
+    const current = (role?.permissions ?? []).filter((permission) =>
+      PROTOCOL_EDITABLE_PERMISSIONS.some((option) => option.id === permission)
+    );
+    setPermissions(current);
+  }, [open, permissionsRoleId, daoPolicy]);
 
   const canPropose =
     loadState === 'error' ? true : eligibility?.canPropose === true;
@@ -222,6 +241,8 @@ export function ProtocolSettingsSheet({
               voteQuorum,
               newRoleName,
               removeRoleId,
+              permissionsRoleId,
+              permissions,
             });
             setFormError(null);
             onSubmit(payload);
@@ -353,6 +374,51 @@ export function ProtocolSettingsSheet({
                 disabled={pending}
               />
             </label>
+          </>
+        ) : null}
+
+        {actionId === 'update_permissions' ? (
+          <>
+            <label className="guild-field">
+              <span>Role</span>
+              <select
+                value={permissionsRoleId}
+                onChange={(event) => setPermissionsRoleId(event.target.value)}
+                disabled={pending || roles.length === 0}
+              >
+                {roles.length === 0 ? (
+                  <option value="">No roles</option>
+                ) : (
+                  roles.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            <div className="protocol-permission-list">
+              {PROTOCOL_EDITABLE_PERMISSIONS.map((option) => {
+                const checked = permissions.includes(option.id);
+                return (
+                  <label key={option.id} className="protocol-permission-item">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={pending}
+                      onChange={() => {
+                        setPermissions((current) =>
+                          checked
+                            ? current.filter((id) => id !== option.id)
+                            : [...current, option.id]
+                        );
+                      }}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                );
+              })}
+            </div>
           </>
         ) : null}
 

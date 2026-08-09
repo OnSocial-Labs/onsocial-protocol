@@ -4,6 +4,15 @@ import {
   GOVERNANCE_PROPOSAL_BOND,
 } from '@/lib/app-config';
 import { extractNearTransactionHashes, yoctoToNear } from '@/lib/app-near-rpc';
+import {
+  buildProtocolContractConfigPayload,
+  buildProtocolFundSeasonPayload,
+  buildProtocolOwnershipPayload,
+  buildProtocolSetBoostInfraAuthorityPayload,
+  buildProtocolUpgradePayload,
+  buildProtocolWithdrawBoostInfraPayload,
+  type ProtocolContractConfigOpId,
+} from '@/features/protocol/protocol-contracts';
 import { getProtocolProposalBond } from '@/features/protocol/protocol-eligibility';
 import type { ProtocolDaoPolicy, ProtocolDaoRole } from '@/features/protocol/types';
 
@@ -15,12 +24,18 @@ export type ProtocolCreateKind =
   | 'add_member'
   | 'leave_self'
   | 'remove_member'
-  | 'transfer';
+  | 'transfer'
+  | 'fund_season_pool'
+  | 'withdraw_boost_infra'
+  | 'set_boost_infra_authority'
+  | 'transfer_ownership'
+  | 'contract_upgrade'
+  | 'contract_config';
 
 export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
   id: ProtocolCreateKind;
   label: string;
-  group: 'signaling' | 'membership' | 'treasury';
+  group: 'signaling' | 'membership' | 'treasury' | 'contracts';
 }> = [
   { id: 'signal', label: 'Signal', group: 'signaling' },
   { id: 'join_self', label: 'Join role', group: 'membership' },
@@ -28,6 +43,16 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
   { id: 'leave_self', label: 'Leave role', group: 'membership' },
   { id: 'remove_member', label: 'Remove member', group: 'membership' },
   { id: 'transfer', label: 'Transfer', group: 'treasury' },
+  { id: 'fund_season_pool', label: 'Fund rally', group: 'treasury' },
+  { id: 'withdraw_boost_infra', label: 'Withdraw boost', group: 'treasury' },
+  {
+    id: 'set_boost_infra_authority',
+    label: 'Boost authority',
+    group: 'contracts',
+  },
+  { id: 'transfer_ownership', label: 'Ownership', group: 'contracts' },
+  { id: 'contract_upgrade', label: 'Upgrade', group: 'contracts' },
+  { id: 'contract_config', label: 'Configure', group: 'contracts' },
 ];
 
 export interface ProtocolProposalPayload {
@@ -129,6 +154,17 @@ export function buildProtocolCreatePayload(opts: {
   memberId?: string;
   receiverId?: string;
   amountYocto?: string;
+  seasonId?: string;
+  contractId?: string;
+  newOwnerId?: string;
+  codeHash?: string;
+  authorityId?: string;
+  configOpId?: ProtocolContractConfigOpId;
+  treasuryBps?: number;
+  seasonPoolBps?: number;
+  targetBps?: number;
+  burnBps?: number;
+  minAmountYocto?: string;
 }): ProtocolProposalPayload {
   switch (opts.kind) {
     case 'signal':
@@ -165,6 +201,45 @@ export function buildProtocolCreatePayload(opts: {
       return buildProtocolTransferProposalPayload({
         receiverId: opts.receiverId ?? '',
         amountYocto: opts.amountYocto ?? '',
+        description: opts.description,
+      });
+    case 'fund_season_pool':
+      return buildProtocolFundSeasonPayload({
+        seasonId: opts.seasonId ?? '',
+        amountYocto: opts.amountYocto ?? '',
+        description: opts.description,
+      });
+    case 'withdraw_boost_infra':
+      return buildProtocolWithdrawBoostInfraPayload({
+        amountYocto: opts.amountYocto ?? '',
+        receiverId: opts.receiverId,
+        description: opts.description,
+      });
+    case 'set_boost_infra_authority':
+      return buildProtocolSetBoostInfraAuthorityPayload({
+        authorityId: opts.authorityId,
+        description: opts.description,
+      });
+    case 'transfer_ownership':
+      return buildProtocolOwnershipPayload({
+        contractId: opts.contractId ?? '',
+        newOwnerId: opts.newOwnerId ?? '',
+        description: opts.description,
+      });
+    case 'contract_upgrade':
+      return buildProtocolUpgradePayload({
+        contractId: opts.contractId ?? '',
+        codeHash: opts.codeHash ?? '',
+        description: opts.description,
+      });
+    case 'contract_config':
+      return buildProtocolContractConfigPayload({
+        operationId: opts.configOpId ?? 'support_profile',
+        treasuryBps: opts.treasuryBps ?? 100,
+        seasonPoolBps: opts.seasonPoolBps ?? 0,
+        targetBps: opts.targetBps ?? 9_900,
+        burnBps: opts.burnBps ?? 0,
+        minAmountYocto: opts.minAmountYocto ?? '',
         description: opts.description,
       });
     default: {
@@ -215,7 +290,6 @@ export async function submitProtocolProposal(opts: {
   };
 }
 
-/** @deprecated Prefer submitProtocolProposal */
 export async function submitProtocolSignalProposal(opts: {
   wallet: NearWalletBase;
   accountId: string;

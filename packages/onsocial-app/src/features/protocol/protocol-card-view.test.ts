@@ -11,18 +11,24 @@ import {
   statusLabel,
   sumVoteCounts,
 } from '@/features/protocol/protocol-card-view';
-import { buildProtocolSignalProposalPayload } from '@/features/protocol/protocol-create';
 import {
   buildProtocolCreatePayload,
   buildProtocolMemberProposalPayload,
+  buildProtocolSignalProposalPayload,
   buildProtocolTransferProposalPayload,
 } from '@/features/protocol/protocol-create';
+import {
+  buildProtocolOwnershipPayload,
+  buildProtocolUpgradePayload,
+  normalizePublishedCodeHash,
+} from '@/features/protocol/protocol-contracts';
 import {
   buildProtocolPolicyPayload,
   daysToProposalPeriodNs,
   parseVoteThresholdInputs,
 } from '@/features/protocol/protocol-policy';
 import { buildProtocolDelegationPlan } from '@/features/protocol/protocol-staking';
+import { BOOST_CONTRACT } from '@/lib/app-config';
 import type {
   ProtocolApplication,
   ProtocolDaoPolicy,
@@ -136,6 +142,69 @@ describe('protocol create + stake helpers', () => {
     ).toMatchObject({
       ChangePolicyAddOrUpdateRole: {
         role: { name: 'reviewers', permissions: ['*:*'] },
+      },
+    });
+    const permissionsPolicy: ProtocolDaoPolicy = {
+      roles: [
+        {
+          name: 'proposers',
+          kind: { Group: ['alice.testnet'] },
+          permissions: ['vote:AddProposal'],
+        },
+      ],
+    };
+    expect(
+      buildProtocolPolicyPayload({
+        actionId: 'update_permissions',
+        policy: permissionsPolicy,
+        permissionsRoleId: 'proposers',
+        permissions: ['vote:AddProposal', 'transfer:AddProposal'],
+      }).proposal.kind
+    ).toMatchObject({
+      ChangePolicyAddOrUpdateRole: {
+        role: {
+          name: 'proposers',
+          permissions: ['vote:AddProposal', 'transfer:AddProposal'],
+        },
+      },
+    });
+  });
+
+  it('builds contract ownership and upgrade payloads', () => {
+    expect(
+      buildProtocolOwnershipPayload({
+        contractId: BOOST_CONTRACT,
+        newOwnerId: 'alice.testnet',
+      }).proposal.kind
+    ).toMatchObject({
+      FunctionCall: {
+        receiver_id: BOOST_CONTRACT,
+        actions: [{ method_name: 'set_owner' }],
+      },
+    });
+    expect(() => normalizePublishedCodeHash('bad')).toThrow(/code hash/);
+    const hash = '11111111111111111111111111111111111111111111';
+    expect(
+      buildProtocolUpgradePayload({
+        contractId: BOOST_CONTRACT,
+        codeHash: hash,
+      }).proposal.kind
+    ).toMatchObject({
+      FunctionCall: {
+        receiver_id: BOOST_CONTRACT,
+        actions: [{ method_name: 'update_contract_from_hash' }],
+      },
+    });
+    expect(
+      buildProtocolCreatePayload({
+        kind: 'set_boost_infra_authority',
+        accountId: 'alice.testnet',
+        description: '',
+        authorityId: 'treasury.onsocial.testnet',
+      }).proposal.kind
+    ).toMatchObject({
+      FunctionCall: {
+        actions: [{ method_name: 'set_infra_withdraw_authority' }],
       },
     });
   });
