@@ -15596,26 +15596,43 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .post-card-share {
+  .post-card-engagement-trailing {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .post-card-share,
+  .post-card-save {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    margin: -0.35rem -0.2rem -0.35rem auto;
     border: 0;
     background: transparent;
     padding: 0.35rem 0.2rem;
+    margin: -0.35rem -0.2rem;
     cursor: pointer;
     transition: color 160ms ease;
   }
 
-  .post-card-share.is-copied {
+  .post-card-share.is-copied,
+  .post-card-save.is-active {
     color: var(--signal-reputation, var(--protocol-green));
+  }
+
+  .post-card-save.is-pending,
+  .post-card-save:disabled {
+    opacity: 0.55;
+    cursor: default;
   }
 
   .post-card-stat,
   .post-card-react,
   .post-card-amplify,
-  .post-card-share {
+  .post-card-share,
+  .post-card-save {
     color: rgb(var(--fg-rgb) / 0.44);
     font-family: inherit;
     font-size: 0.72rem;
@@ -15642,7 +15659,8 @@ a.os-surface-row {
   .post-card-stat svg,
   .post-card-react svg,
   .post-card-amplify svg,
-  .post-card-share svg {
+  .post-card-share svg,
+  .post-card-save svg {
     /* Same box for every Mage glyph; stroke icons carry extra viewBox padding. */
     width: 1.05rem;
     height: 1.05rem;
@@ -15671,7 +15689,8 @@ a.os-surface-row {
   .post-card-stat-button:focus-visible,
   .post-card-react:focus-visible,
   .post-card-amplify:focus-visible,
-  .post-card-share:focus-visible {
+  .post-card-share:focus-visible,
+  .post-card-save:focus-visible {
     outline: none;
   }
 
@@ -15699,8 +15718,19 @@ a.os-surface-row {
   }
 
   .post-card-share:hover:not(:disabled),
-  .post-card-share:focus-visible {
+  .post-card-share:focus-visible,
+  .post-card-save:hover:not(:disabled),
+  .post-card-save:focus-visible {
     color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .post-card-save.is-active:hover:not(:disabled),
+  .post-card-save.is-active:focus-visible {
+    color: color-mix(
+      in srgb,
+      var(--signal-reputation, var(--protocol-green)) 72%,
+      white
+    );
   }
 
   /* Liked is persistent state: icon + count stay red. */

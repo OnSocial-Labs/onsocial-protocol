@@ -17,6 +17,8 @@ export interface PostEngagement {
   viewerReacted: boolean;
   amplifyCount: number;
   viewerAmplified: boolean;
+  /** Private bookmark — never a public count. */
+  viewerSaved: boolean;
 }
 
 interface EngagementMap {
@@ -30,11 +32,14 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   viewerReacted: false,
   amplifyCount: 0,
   viewerAmplified: false,
+  viewerSaved: false,
 };
 
 /**
- * Batched engagement state (reply/quote/reaction/amplify + viewer flags)
- * for a list of visible posts, plus an optimistic reaction toggle.
+ * Batched engagement state (reply/quote/reaction/amplify/save + viewer flags)
+ * for a list of visible posts, plus optimistic reaction / save toggles.
+ * Reaction and save writes use `wait: true` so the faded pending state lasts
+ * until chain confirmation (icons still flip immediately — not pulsing dots).
  * Pass `initial` from SSR so counts paint with the feed (viewer flags
  * soft-upgrade after wallet).
  */
@@ -50,9 +55,16 @@ export function usePostEngagement(
   const [engagement, setEngagement] = useState<EngagementMap>(
     () => opts.initial ?? {}
   );
-  const [pendingKeys, setPendingKeys] = useState<Set<string>>(() => new Set());
+  const [pendingReactionKeys, setPendingReactionKeys] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [pendingSaveKeys, setPendingSaveKeys] = useState<Set<string>>(
+    () => new Set()
+  );
   const loadIdRef = useRef(0);
-  const ssrSkipRef = useRef(Boolean(opts.initial && Object.keys(opts.initial).length > 0));
+  const ssrSkipRef = useRef(
+    Boolean(opts.initial && Object.keys(opts.initial).length > 0)
+  );
   const onErrorRef = useRef(opts.onError);
   onErrorRef.current = opts.onError;
 
@@ -95,7 +107,10 @@ export function usePostEngagement(
         paths,
         accountId ? { viewer: accountId } : {}
       ),
-    ]).then(([threadResult, reactionResult, amplifyResult]) => {
+      accountId
+        ? client.query.saves.list(accountId, { limit: 500 })
+        : Promise.resolve([]),
+    ]).then(([threadResult, reactionResult, amplifyResult, savesResult]) => {
       if (loadIdRef.current !== loadId) return;
       if (
         threadResult.status === 'rejected' &&
@@ -111,6 +126,11 @@ export function usePostEngagement(
         reactionResult.status === 'fulfilled' ? reactionResult.value : {};
       const amplifyCounts =
         amplifyResult.status === 'fulfilled' ? amplifyResult.value : {};
+      const savedPaths = new Set(
+        savesResult.status === 'fulfilled'
+          ? savesResult.value.map((row) => row.contentPath)
+          : []
+      );
 
       const next: EngagementMap = {};
       for (const target of targets) {
@@ -124,6 +144,7 @@ export function usePostEngagement(
           viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
           amplifyCount: amplify?.amplifyCount ?? 0,
           viewerAmplified: amplify?.viewerAmplified ?? false,
+          viewerSaved: savedPaths.has(target.path),
         };
       }
       setEngagement(next);
@@ -134,7 +155,7 @@ export function usePostEngagement(
   const toggleReaction = useCallback(
     async (post: PostRow) => {
       const key = postKey(post);
-      if (pendingKeys.has(key)) return;
+      if (pendingReactionKeys.has(key)) return;
 
       if (!isConnected || !accountId) {
         await connect();
@@ -144,7 +165,7 @@ export function usePostEngagement(
       const previous = engagement[key] ?? EMPTY_POST_ENGAGEMENT;
       const applied = !previous.viewerReacted;
 
-      setPendingKeys((current) => new Set(current).add(key));
+      setPendingReactionKeys((current) => new Set(current).add(key));
       setEngagement((current) => ({
         ...current,
         [key]: {
@@ -162,7 +183,7 @@ export function usePostEngagement(
         await client.reactions.toggle(
           { author: post.accountId, postId: post.postId },
           DEFAULT_REACTION_KIND,
-          { viewer: accountId }
+          { viewer: accountId, wait: true }
         );
       } catch (cause) {
         setEngagement((current) => ({ ...current, [key]: previous }));
@@ -174,14 +195,70 @@ export function usePostEngagement(
           );
         }
       } finally {
-        setPendingKeys((current) => {
+        setPendingReactionKeys((current) => {
           const next = new Set(current);
           next.delete(key);
           return next;
         });
       }
     },
-    [accountId, connect, engagement, getClient, isConnected, pendingKeys]
+    [
+      accountId,
+      connect,
+      engagement,
+      getClient,
+      isConnected,
+      pendingReactionKeys,
+    ]
+  );
+
+  const toggleSave = useCallback(
+    async (post: PostRow) => {
+      const key = postKey(post);
+      if (pendingSaveKeys.has(key)) return;
+
+      if (!isConnected || !accountId) {
+        await connect();
+        return;
+      }
+
+      const previous = engagement[key] ?? EMPTY_POST_ENGAGEMENT;
+      const applied = !previous.viewerSaved;
+      const contentPath = postContentPath(post);
+
+      setPendingSaveKeys((current) => new Set(current).add(key));
+      setEngagement((current) => ({
+        ...current,
+        [key]: {
+          ...previous,
+          viewerSaved: applied,
+        },
+      }));
+
+      try {
+        const { client } = await getClient();
+        // Use content path string so guild posts save under the same key
+        // engagement membership checks against.
+        await client.saves.toggle(contentPath, {
+          viewer: accountId,
+          wait: true,
+        });
+      } catch (cause) {
+        setEngagement((current) => ({ ...current, [key]: previous }));
+        if (!isWalletUserCancellation(cause)) {
+          onErrorRef.current?.(
+            cause instanceof Error ? cause.message : 'Could not update save.'
+          );
+        }
+      } finally {
+        setPendingSaveKeys((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [accountId, connect, engagement, getClient, isConnected, pendingSaveKeys]
   );
 
   const confirmAmplify = useCallback((post: PostRow) => {
@@ -209,14 +286,21 @@ export function usePostEngagement(
   }, []);
 
   const isReactionPending = useCallback(
-    (post: PostRow) => pendingKeys.has(postKey(post)),
-    [pendingKeys]
+    (post: PostRow) => pendingReactionKeys.has(postKey(post)),
+    [pendingReactionKeys]
+  );
+
+  const isSavePending = useCallback(
+    (post: PostRow) => pendingSaveKeys.has(postKey(post)),
+    [pendingSaveKeys]
   );
 
   return {
     engagement,
     toggleReaction,
+    toggleSave,
     isReactionPending,
+    isSavePending,
     confirmAmplify,
   };
 }

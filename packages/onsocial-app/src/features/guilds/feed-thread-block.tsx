@@ -34,7 +34,9 @@ interface FeedThreadBlockProps {
   quotedPosts: Record<string, PostRow>;
   engagement: Record<string, PostEngagement>;
   isReactionPending: (post: PostRow) => boolean;
+  isSavePending?: (post: PostRow) => boolean;
   onToggleReaction: (post: PostRow) => void;
+  onToggleSave?: (post: PostRow) => void;
   onAmplifyConfirmed?: (
     post: PostRow,
     detail: PostAmplifySuccessDetail
@@ -81,7 +83,9 @@ export function FeedThreadBlock({
   quotedPosts,
   engagement,
   isReactionPending,
+  isSavePending,
   onToggleReaction,
+  onToggleSave,
   onAmplifyConfirmed,
   pollTallyFor,
   isPollVotePending,
@@ -159,7 +163,9 @@ export function FeedThreadBlock({
           quotedHref={quotedHref}
           engagement={stats}
           reactionPending={isReactionPending(post)}
+          savePending={isSavePending?.(post)}
           onToggleReaction={onToggleReaction}
+          onToggleSave={onToggleSave}
           onAmplifyConfirmed={onAmplifyConfirmed}
           pollTally={pollTallyFor?.(post)}
           pollVotePending={isPollVotePending?.(post)}

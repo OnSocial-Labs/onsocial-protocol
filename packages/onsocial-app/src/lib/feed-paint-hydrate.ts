@@ -311,6 +311,7 @@ export async function loadPostEngagementMap(
       viewerReacted: false,
       amplifyCount: amplify?.amplifyCount ?? 0,
       viewerAmplified: false,
+      viewerSaved: false,
     };
   }
   return next;

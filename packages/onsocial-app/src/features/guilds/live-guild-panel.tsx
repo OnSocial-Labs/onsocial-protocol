@@ -433,7 +433,7 @@ export function LiveGuildPanel({
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
-  const { engagement, toggleReaction, isReactionPending, confirmAmplify } =
+  const { engagement, toggleReaction, toggleSave, isReactionPending, isSavePending, confirmAmplify } =
     usePostEngagement(feedPosts, {
       initial: initial?.engagement ?? null,
       onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -1815,7 +1815,9 @@ export function LiveGuildPanel({
                         quotedPosts={quotedPosts}
                         engagement={engagement}
                         isReactionPending={isReactionPending}
+                        isSavePending={isSavePending}
                         onToggleReaction={toggleReaction}
+                        onToggleSave={toggleSave}
                         onAmplifyConfirmed={confirmAmplify}
                         pollTallyFor={pollTallyFor}
                         isPollVotePending={isPollVotePending}
