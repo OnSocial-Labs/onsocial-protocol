@@ -8,13 +8,18 @@ export const dynamic = 'force-dynamic';
 type ProxyBodyKind = 'none' | 'json' | 'form';
 
 interface AllowedProxyRoute {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'DELETE';
   /**
    * Exact path, or a single-segment wildcard with a trailing `/*`
    * (e.g. `compose/generate/variation-set/*` → `…/variation-set/<jobId>`).
    */
   path: string;
   body: ProxyBodyKind;
+  /**
+   * Forward the browser `Authorization` bearer (viewer JWT) and skip the
+   * server API key. Required for private prefs like mutes.
+   */
+  forwardAuthorization?: boolean;
 }
 
 const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
@@ -132,6 +137,30 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     path: 'compose/prepare/remove-approved-creator',
     body: 'json',
   },
+
+  // Gateway wallet auth (NEP-413) — used to obtain a viewer JWT for mutes.
+  { method: 'POST', path: 'auth/challenge', body: 'json' },
+  { method: 'POST', path: 'auth/login', body: 'json' },
+
+  // Private mute prefs (viewer JWT — not the server API key).
+  {
+    method: 'GET',
+    path: 'developer/mutes',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/mutes',
+    body: 'json',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'DELETE',
+    path: 'developer/mutes/*',
+    body: 'none',
+    forwardAuthorization: true,
+  },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;
@@ -214,7 +243,20 @@ async function proxyOnApiRequest(
     );
   }
 
-  const headers = new Headers({ 'X-API-Key': apiKey });
+  const headers = new Headers();
+  if (route.forwardAuthorization) {
+    const authorization = request.headers.get('authorization');
+    if (!authorization?.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    headers.set('Authorization', authorization);
+  } else {
+    headers.set('X-API-Key', apiKey);
+  }
+
   if (route.body === 'json') {
     headers.set(
       'Content-Type',
@@ -273,11 +315,19 @@ export async function POST(
   return proxyOnApiRequest(request, path);
 }
 
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> }
+) {
+  const { path } = await context.params;
+  return proxyOnApiRequest(request, path);
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      Allow: 'GET, POST, OPTIONS',
+      Allow: 'GET, POST, DELETE, OPTIONS',
     },
   });
 }

@@ -31,7 +31,14 @@ import {
   ActionDrawer,
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
+import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
+import {
+  BLOCK_ACTION_DESCRIPTION,
+  MUTE_ACTION_DESCRIPTION,
+  blockConfirmCopy,
+} from '@/lib/block-confirm-copy';
+import { displayName } from '@/lib/profile-display';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -200,6 +207,7 @@ function PostCardMenu({
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
   const [supportOpen, setSupportOpen] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const isOpen = open && !closing;
@@ -209,8 +217,10 @@ function PostCardMenu({
   const handleClosed = useCallback(() => {
     setClosing(false);
     setOpen(false);
+    setConfirmBlock(false);
   }, []);
   const close = requestClose;
+  const authorLabel = displayName(accountId, authorProfile?.displayName);
 
   const isSelf =
     Boolean(viewerAccountId) && accountIdsEqual(viewerAccountId!, accountId);
@@ -225,9 +235,12 @@ function PostCardMenu({
     if (!href || typeof window === 'undefined') return;
     const url = new URL(href, window.location.origin).toString();
     try {
-      await navigator.clipboard.writeText(url);
+      if (!document.hasFocus()) window.focus?.();
+      if (document.hasFocus()) {
+        await navigator.clipboard.writeText(url);
+      }
     } catch {
-      // Clipboard can fail in insecure contexts — still close the menu.
+      // Clipboard can fail when unfocused or insecure — still close the menu.
     }
     close();
   };
@@ -289,11 +302,10 @@ function PostCardMenu({
     }
   }
 
-  async function handleBlockToggle() {
+  async function handleBlockToggle(shouldBlock: boolean) {
     if (isBlockPendingForTarget(accountId)) return;
-    const next = !isBlocking(accountId);
     try {
-      await updateBlock(accountId, next);
+      await updateBlock(accountId, shouldBlock);
     } catch (error) {
       if (isWalletUserCancellation(error)) return;
       setTxResult({
@@ -301,11 +313,12 @@ function PostCardMenu({
         msg:
           error instanceof Error
             ? error.message
-            : next
+            : shouldBlock
               ? txToastError.blockAccountFailed
               : txToastError.unblockAccountFailed,
       });
     } finally {
+      setConfirmBlock(false);
       close();
     }
   }
@@ -366,6 +379,7 @@ function PostCardMenu({
           : muted
             ? 'Unmute'
             : 'Mute',
+        description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
         disabled: mutePending,
         leading: <UserMinusIcon className="action-drawer-icon" aria-hidden />,
         onSelect: () => void handleMuteToggle(),
@@ -379,10 +393,17 @@ function PostCardMenu({
           : blocked
             ? 'Unblock'
             : 'Block',
+        description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
         destructive: !blocked,
         disabled: blockPending,
         leading: <MultiplyIcon className="action-drawer-icon" aria-hidden />,
-        onSelect: () => void handleBlockToggle(),
+        onSelect: () => {
+          if (blocked) {
+            void handleBlockToggle(false);
+            return;
+          }
+          setConfirmBlock(true);
+        },
       });
     }
     // List is a primary card CTA (Buy · List · Amplify) — keep Cancel
@@ -458,12 +479,35 @@ function PostCardMenu({
 
         <ActionDrawer
           open={isOpen}
-          onClose={requestClose}
+          onClose={
+            confirmBlock ? () => setConfirmBlock(false) : requestClose
+          }
           onClosed={handleClosed}
-          label="Post options"
+          label={
+            confirmBlock
+              ? blockConfirmCopy({
+                  accountId,
+                  profileName: authorProfile?.displayName,
+                }).title
+              : 'Post options'
+          }
+          copy={confirmBlock ? authorLabel : undefined}
           listAriaLabel="Post options"
-          items={menuItems}
-        />
+          closeAriaLabel={
+            confirmBlock ? 'Back to post options' : 'Close post options'
+          }
+          items={confirmBlock ? undefined : menuItems}
+        >
+          {confirmBlock ? (
+            <BlockConfirmPanel
+              accountId={accountId}
+              profileName={authorProfile?.displayName}
+              pending={blockPending}
+              onConfirm={() => void handleBlockToggle(true)}
+              onCancel={() => setConfirmBlock(false)}
+            />
+          ) : null}
+        </ActionDrawer>
       </div>
       <ProfileSupportSheet
         open={supportOpen}

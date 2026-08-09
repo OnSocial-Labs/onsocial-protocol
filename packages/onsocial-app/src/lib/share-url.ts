@@ -29,6 +29,14 @@ export async function shareUrl(input: {
   }
 
   try {
+    // Share / picker sheets often leave the document unfocused; writing then
+    // throws NotAllowedError. Refocus when we can, otherwise skip quietly.
+    if (typeof document !== 'undefined' && !document.hasFocus()) {
+      window.focus?.();
+    }
+    if (typeof document !== 'undefined' && !document.hasFocus()) {
+      return 'failed';
+    }
     await navigator.clipboard.writeText(url);
     return 'copied';
   } catch {

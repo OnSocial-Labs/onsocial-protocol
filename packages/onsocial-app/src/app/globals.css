@@ -28678,9 +28678,17 @@ button.scarce-clip-cover-expand:focus-visible {
   background: rgb(var(--fg-rgb) / 0.12);
 }
 
+.mute-block-lists-hint {
+  margin: 0;
+  padding: 0 1.1rem 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
 .mute-block-lists-empty {
   margin: 0;
-  padding: 1rem 1.1rem 1.35rem;
+  padding: 0.5rem 1.1rem 1.35rem;
   font-size: 0.86rem;
   color: rgb(var(--fg-rgb) / 0.5);
 }
@@ -28712,9 +28720,24 @@ button.scarce-clip-cover-expand:focus-visible {
   background: rgb(var(--fg-rgb) / 0.06);
 }
 
+.mute-block-lists-row-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .mute-block-lists-row-label {
   font-size: 0.88rem;
   font-weight: 600;
+}
+
+.mute-block-lists-row-handle {
+  font-size: 0.76rem;
+  color: rgb(var(--fg-rgb) / 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* —— Protocol (DAO governance / treasury) —— */

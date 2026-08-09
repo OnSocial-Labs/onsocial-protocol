@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { canonicalAccountId } from '@/lib/account-match';
+import {
+  ensureAppGatewayAuth,
+  getCachedAppGatewayAuth,
+} from '@/lib/app-gateway-auth';
 import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import {
   deriveMutedAccountIds,
@@ -61,17 +65,28 @@ export function useViewerMute(options: UseViewerMuteOptions = {}) {
       return;
     }
     try {
-      const { client, session } = await getClient();
+      const { client, session, wallet, accountId } = await getClient();
       if (!session) return;
+      // Cached JWT, else silent session-key auth only (no wallet popup on boot).
+      let token = getCachedAppGatewayAuth(accountId);
+      if (!token) {
+        token = await ensureAppGatewayAuth({
+          accountId,
+          wallet,
+          session,
+          allowWalletFallback: false,
+        });
+      }
+      client.auth.setToken(token);
       const { mutes } = await client.mutes.list();
       const ids = mutes.map((m) => canonicalAccountId(m.mutedAccountId));
       setGlobalApiMutedIds(ids);
       const apiSet = new Set(ids);
-      for (const [accountId] of [...ledgerRef.current.entries()]) {
+      for (const [accountIdKey] of [...ledgerRef.current.entries()]) {
         reconcileViewerMute(
           ledgerRef.current,
-          accountId,
-          apiSet.has(canonicalAccountId(accountId))
+          accountIdKey,
+          apiSet.has(canonicalAccountId(accountIdKey))
         );
       }
       bumpMuteSync();
@@ -127,10 +142,16 @@ export function useViewerMute(options: UseViewerMuteOptions = {}) {
 
       setGlobalMutePending(target, true);
       try {
-        const { client, session } = await getClient();
+        const { client, session, wallet, accountId } = await getClient();
         if (!session) {
           throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
         }
+        const token = await ensureAppGatewayAuth({
+          accountId,
+          wallet,
+          session,
+        });
+        client.auth.setToken(token);
         if (shouldMute) {
           await client.mutes.add(target);
         } else {

@@ -10,6 +10,7 @@ import {
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PortfolioOwnerPayoutMarks } from '@/components/portfolio/portfolio-owner-payout-marks';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
+import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerBlock } from '@/hooks/use-viewer-block';
@@ -17,6 +18,11 @@ import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
+import {
+  BLOCK_ACTION_DESCRIPTION,
+  MUTE_ACTION_DESCRIPTION,
+  blockConfirmCopy,
+} from '@/lib/block-confirm-copy';
 import { overlayPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -53,6 +59,7 @@ export function PortfolioIdentityGestures({
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
   const [supportOpen, setSupportOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
 
   const isSelf =
     Boolean(viewerAccountId) &&
@@ -66,6 +73,26 @@ export function PortfolioIdentityGestures({
   const blockPending = isBlockPendingForTarget(pageAccountId);
   const blockEitherWay = isBlockEitherWay(pageAccountId);
 
+  const runBlock = async (shouldBlock: boolean) => {
+    try {
+      await updateBlock(pageAccountId, shouldBlock);
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : shouldBlock
+              ? txToastError.blockAccountFailed
+              : txToastError.unblockAccountFailed,
+      });
+    } finally {
+      setConfirmBlock(false);
+      setMoreOpen(false);
+    }
+  };
+
   const moreItems = useMemo<ActionDrawerItem[]>(
     () => [
       {
@@ -77,6 +104,7 @@ export function PortfolioIdentityGestures({
           : muted
             ? 'Unmute'
             : 'Mute',
+        description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
         disabled: mutePending,
         onSelect: () => {
           void (async () => {
@@ -115,31 +143,21 @@ export function PortfolioIdentityGestures({
           : blocked
             ? 'Unblock'
             : 'Block',
+        description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
         destructive: !blocked,
         disabled: blockPending,
         onSelect: () => {
-          void (async () => {
-            const next = !blocked;
-            try {
-              await updateBlock(pageAccountId, next);
-            } catch (error) {
-              if (isWalletUserCancellation(error)) return;
-              setTxResult({
-                type: 'error',
-                msg:
-                  error instanceof Error
-                    ? error.message
-                    : next
-                      ? txToastError.blockAccountFailed
-                      : txToastError.unblockAccountFailed,
-              });
-            } finally {
-              setMoreOpen(false);
-            }
-          })();
+          if (blocked) {
+            void runBlock(false);
+            return;
+          }
+          setConfirmBlock(true);
         },
       },
     ],
+    // runBlock closes over latest updateBlock/pageAccountId; list itself
+    // only needs pending/muted/blocked state for labels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       blockPending,
       blocked,
@@ -147,7 +165,6 @@ export function PortfolioIdentityGestures({
       muted,
       pageAccountId,
       setTxResult,
-      updateBlock,
       updateMute,
     ]
   );
@@ -271,10 +288,39 @@ export function PortfolioIdentityGestures({
       />
       <ActionDrawer
         open={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        label="Account options"
-        items={moreItems}
-      />
+        onClose={
+          confirmBlock
+            ? () => setConfirmBlock(false)
+            : () => {
+                setConfirmBlock(false);
+                setMoreOpen(false);
+              }
+        }
+        onClosed={() => setConfirmBlock(false)}
+        label={
+          confirmBlock
+            ? blockConfirmCopy({
+                accountId: pageAccountId,
+                profileName,
+              }).title
+            : 'Account options'
+        }
+        copy={confirmBlock ? label : undefined}
+        closeAriaLabel={
+          confirmBlock ? 'Back to account options' : 'Close account options'
+        }
+        items={confirmBlock ? undefined : moreItems}
+      >
+        {confirmBlock ? (
+          <BlockConfirmPanel
+            accountId={pageAccountId}
+            profileName={profileName}
+            pending={blockPending}
+            onConfirm={() => void runBlock(true)}
+            onCancel={() => setConfirmBlock(false)}
+          />
+        ) : null}
+      </ActionDrawer>
     </div>
   );
 }

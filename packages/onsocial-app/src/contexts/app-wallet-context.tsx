@@ -16,6 +16,7 @@ import {
   bootstrapAppSocialSession,
   restoreAppSocialSession,
 } from '@/lib/app-social-session';
+import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -346,13 +347,15 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
   const disconnect = useCallback(async () => {
     const connector = connectorRef.current;
     if (!connector) return;
+    const previousAccountId = accountId;
     await connector.disconnect();
     setWallet(null);
     setAccountId(null);
     setHasSocialSession(false);
     writeStoredWalletAccountId(null);
     invalidateAppSocialSessionCache();
-  }, []);
+    clearAppGatewayAuth(previousAccountId);
+  }, [accountId]);
 
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
     const connector = connectorRef.current;

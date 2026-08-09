@@ -9,8 +9,13 @@ import {
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useViewerBlock } from '@/hooks/use-viewer-block';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
-import { fallbackLabel } from '@/lib/profile-display';
+import {
+  BLOCK_LIST_HINT,
+  MUTE_LIST_HINT,
+} from '@/lib/block-confirm-copy';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -69,6 +74,8 @@ export function MuteBlockListsSheet({
     muteSyncVersion,
     mutedAccountIds,
   ]);
+
+  const profiles = usePostAuthorProfiles(accounts);
 
   const rowItems = useMemo<ActionDrawerItem[]>(() => {
     if (!rowMenuAccountId) return [];
@@ -154,6 +161,13 @@ export function MuteBlockListsSheet({
     updateMute,
   ]);
 
+  const rowMenuLabel = rowMenuAccountId
+    ? displayName(
+        rowMenuAccountId,
+        profiles[rowMenuAccountId]?.displayName
+      )
+    : 'Account';
+
   return (
     <>
       <GlassSheet
@@ -193,6 +207,9 @@ export function MuteBlockListsSheet({
             Blocked
           </button>
         </div>
+        <p className="mute-block-lists-hint">
+          {kind === 'muted' ? MUTE_LIST_HINT : BLOCK_LIST_HINT}
+        </p>
         {accounts.length === 0 ? (
           <p className="mute-block-lists-empty">
             {kind === 'muted' ? 'No muted accounts.' : 'No blocked accounts.'}
@@ -204,30 +221,41 @@ export function MuteBlockListsSheet({
               kind === 'muted' ? 'Muted accounts' : 'Blocked accounts'
             }
           >
-            {accounts.map((accountId) => (
-              <li key={accountId}>
-                <button
-                  type="button"
-                  className="mute-block-lists-row"
-                  onClick={() => setRowMenuAccountId(accountId)}
-                >
-                  <ProfileAvatar
-                    fallbackInitial={fallbackLabel(accountId).slice(0, 1)}
-                    size="sm"
-                  />
-                  <span className="mute-block-lists-row-label">
-                    {fallbackLabel(accountId)}
-                  </span>
-                </button>
-              </li>
-            ))}
+            {accounts.map((accountId) => {
+              const profile = profiles[accountId];
+              const name = displayName(accountId, profile?.displayName);
+              const handle = fallbackLabel(accountId);
+              return (
+                <li key={accountId}>
+                  <button
+                    type="button"
+                    className="mute-block-lists-row"
+                    onClick={() => setRowMenuAccountId(accountId)}
+                  >
+                    <ProfileAvatar
+                      src={profile?.avatarUrl ?? undefined}
+                      fallbackInitial={name.slice(0, 1)}
+                      size="sm"
+                    />
+                    <span className="mute-block-lists-row-copy">
+                      <span className="mute-block-lists-row-label">{name}</span>
+                      {name !== handle ? (
+                        <span className="mute-block-lists-row-handle">
+                          @{handle}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </GlassSheet>
       <ActionDrawer
         open={Boolean(rowMenuAccountId)}
         onClose={() => setRowMenuAccountId(null)}
-        label={rowMenuAccountId ? fallbackLabel(rowMenuAccountId) : 'Account'}
+        label={rowMenuLabel}
         items={rowItems}
       />
     </>

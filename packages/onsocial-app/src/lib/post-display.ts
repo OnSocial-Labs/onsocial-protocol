@@ -198,12 +198,15 @@ export function parseDropPaintSnapshot(
   }
 }
 
+/** Fixed locale so SSR and the browser never disagree on month/day order. */
+const POST_TIMESTAMP_LOCALE = 'en-US';
+
 export function formatPostTimestamp(blockTimestamp: number | string): string {
   const date = resolvePostDate(blockTimestamp);
   if (!date) return 'Unknown time';
 
   // Always include the year — clearer on thread roots than “Jul 15, 4:12 PM”.
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(POST_TIMESTAMP_LOCALE, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -263,7 +266,7 @@ export function formatRelativePostTimestamp(
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(POST_TIMESTAMP_LOCALE, {
     month: 'short',
     day: 'numeric',
     ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),
