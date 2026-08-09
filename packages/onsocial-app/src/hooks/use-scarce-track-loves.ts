@@ -307,14 +307,20 @@ export function useScarceTrackLoves(opts: {
         const { client } = await getClient();
         const path = scarceTrackContentPath(collectionId, cid);
         if (nextLoved) {
-          await client.social.react(creatorId, path, {
-            type: SCARCE_TRACK_LOVE_KIND,
-          });
+          await client.social.react(
+            creatorId,
+            path,
+            {
+              type: SCARCE_TRACK_LOVE_KIND,
+            },
+            { wait: true }
+          );
         } else {
           await client.social.unreact(
             creatorId,
             SCARCE_TRACK_LOVE_KIND,
-            path
+            path,
+            { wait: true }
           );
         }
         clearRetryTimers();

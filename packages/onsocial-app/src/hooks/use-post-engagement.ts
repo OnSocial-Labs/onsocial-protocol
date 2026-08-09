@@ -38,6 +38,8 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
 /**
  * Batched engagement state (reply/quote/reaction/amplify/save + viewer flags)
  * for a list of visible posts, plus optimistic reaction / save toggles.
+ * Reaction and save writes use `wait: true` so the faded pending state lasts
+ * until chain confirmation (icons still flip immediately — not pulsing dots).
  * Pass `initial` from SSR so counts paint with the feed (viewer flags
  * soft-upgrade after wallet).
  */
@@ -181,7 +183,7 @@ export function usePostEngagement(
         await client.reactions.toggle(
           { author: post.accountId, postId: post.postId },
           DEFAULT_REACTION_KIND,
-          { viewer: accountId }
+          { viewer: accountId, wait: true }
         );
       } catch (cause) {
         setEngagement((current) => ({ ...current, [key]: previous }));
@@ -237,7 +239,10 @@ export function usePostEngagement(
         const { client } = await getClient();
         // Use content path string so guild posts save under the same key
         // engagement membership checks against.
-        await client.saves.toggle(contentPath, { viewer: accountId });
+        await client.saves.toggle(contentPath, {
+          viewer: accountId,
+          wait: true,
+        });
       } catch (cause) {
         setEngagement((current) => ({ ...current, [key]: previous }));
         if (!isWalletUserCancellation(cause)) {
