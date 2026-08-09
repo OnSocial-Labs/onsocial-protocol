@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -19,7 +20,10 @@ import {
 import {
   APP_APPS_PATH,
   APP_MARKET_PATH,
+  DROPS_SORT_PARAM,
   collectionPath,
+  dropsPath,
+  parseDropsSortParam,
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
@@ -104,12 +108,18 @@ export function DropsPagePanel({
   initialCreators?: CreatorLeaderRow[];
 }) {
   const { accountId, isConnected, connect } = useAppWallet();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlSort = parseDropsSortParam(searchParams.get(DROPS_SORT_PARAM));
+
   const sorts = useMemo(() => {
     if (!isConnected) return BASE_SORTS;
     return [...BASE_SORTS, { id: 'saved' as const, label: 'Saved' }];
   }, [isConnected]);
 
-  const [sort, setSort] = useState<DropsSort>(initialSort);
+  const [sort, setSort] = useState<DropsSort>(() =>
+    urlSort !== 'new' ? urlSort : initialSort
+  );
   const [medium, setMedium] = useState<MarketMediumFilter>('all');
   const [items, setItems] = useState(initialItems);
   const [creators, setCreators] = useState(initialCreators);
@@ -120,11 +130,29 @@ export function DropsPagePanel({
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  const selectSort = useCallback(
+    (next: DropsSort) => {
+      if (next === 'saved' && !isConnected) {
+        void connect();
+        return;
+      }
+      setSort(next);
+      router.replace(dropsPath({ sort: next }), { scroll: false });
+    },
+    [connect, isConnected, router]
+  );
+
+  // Deep-link / back-forward: keep local sort aligned with ?sort=.
   useEffect(() => {
-    if (sort === 'saved' && !isConnected) {
-      setSort('new');
+    if (urlSort === 'saved' && !isConnected) {
+      setSort((current) => (current === 'new' ? current : 'new'));
+      if (searchParams.get(DROPS_SORT_PARAM)) {
+        router.replace(dropsPath(), { scroll: false });
+      }
+      return;
     }
-  }, [isConnected, sort]);
+    setSort((current) => (current === urlSort ? current : urlSort));
+  }, [urlSort, isConnected, router, searchParams]);
 
   const reload = useCallback(
     async (nextSort: DropsSort, nextMedium: MarketMediumFilter) => {
@@ -213,11 +241,7 @@ export function DropsPagePanel({
                 aria-selected={sort === entry.id}
                 className={`discover-tab${sort === entry.id ? ' is-active' : ''}`}
                 onClick={() => {
-                  if (entry.id === 'saved' && !isConnected) {
-                    void connect();
-                    return;
-                  }
-                  setSort(entry.id);
+                  selectSort(entry.id);
                 }}
               >
                 {entry.label}

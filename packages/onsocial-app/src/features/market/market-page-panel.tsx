@@ -96,6 +96,7 @@ import {
   MARKET_KIND_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_AUDIO_FORMAT_PARAM,
+  dropsPath,
   marketFacetsParamValue,
   parseMarketFacetsParam,
   appPath,
@@ -1082,14 +1083,26 @@ export function MarketPagePanel({
               <ShopFillIcon className="search-field-icon" aria-hidden />
             }
           />
-          <Link
-            href={APP_DROPS_PATH}
-            scroll={false}
-            className="market-drops-link"
-            title="Primary edition Drops"
-          >
-            Drops
-          </Link>
+          <div className="market-heading-links">
+            <Link
+              href={APP_DROPS_PATH}
+              scroll={false}
+              className="market-drops-link"
+              title="Primary edition Drops"
+            >
+              Drops
+            </Link>
+            {viewerAccountId ? (
+              <Link
+                href={dropsPath({ sort: 'saved' })}
+                scroll={false}
+                className="market-drops-link"
+                title="Bookmarked drops"
+              >
+                Saved
+              </Link>
+            ) : null}
+          </div>
         </div>
       }
       toolbar={
