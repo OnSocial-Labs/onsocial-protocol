@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { PostScarceEmbed } from '@onsocial/sdk';
-import { resolvePostDropCta } from '@/features/scarces/post-drop-cta';
+import {
+  isPrimaryMintStatus,
+  resolvePostDropCta,
+} from '@/features/scarces/post-drop-cta';
 
 function drop(partial: Partial<PostScarceEmbed> = {}): PostScarceEmbed {
   return {
@@ -61,5 +64,14 @@ describe('resolvePostDropCta', () => {
         isPostAuthor: false,
       })
     ).toEqual({ kind: 'open' });
+  });
+});
+
+describe('isPrimaryMintStatus', () => {
+  it('treats drop and lazy listing as Mint, listed as Buy', () => {
+    expect(isPrimaryMintStatus('drop')).toBe(true);
+    expect(isPrimaryMintStatus('lazy_listing')).toBe(true);
+    expect(isPrimaryMintStatus('listed')).toBe(false);
+    expect(isPrimaryMintStatus('auction')).toBe(false);
   });
 });

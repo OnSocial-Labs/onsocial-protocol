@@ -282,6 +282,7 @@ export function ScarceBuyForm({
   const isLazyBuy = status === 'lazy_listing' && Boolean(listingId);
   const isDropBuy = status === 'drop' && Boolean(collectionId);
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
+  const isPrimaryMint = isLazyBuy || isDropBuy;
   const isBuyable = !isOwnListing && (isLazyBuy || isDropBuy || isMarketBuy);
 
   const canSubmit = isConnected && !pending && isBuyable;
@@ -291,11 +292,11 @@ export function ScarceBuyForm({
     return {
       visible: true,
       primaryLabel: isConnected
-        ? isDropBuy
+        ? isPrimaryMint
           ? 'Mint'
           : 'Buy'
         : 'Connect wallet',
-      primaryPendingLabel: isDropBuy ? 'Minting…' : 'Buying…',
+      primaryPendingLabel: isPrimaryMint ? 'Minting…' : 'Buying…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
       disabled: pending || (isConnected && !canSubmit),
@@ -311,7 +312,7 @@ export function ScarceBuyForm({
   }, [
     canSubmit,
     isConnected,
-    isDropBuy,
+    isPrimaryMint,
     isMarketBuy,
     isOwnListing,
     onMakeOffer,

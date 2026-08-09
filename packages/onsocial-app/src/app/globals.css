@@ -15745,6 +15745,14 @@ a.os-surface-row {
     outline: none;
   }
 
+  .scarce-feed-medium-empty {
+    margin: 1.25rem 0 0;
+    padding: 0 0.15rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
   .post-card-scarce-buy-main {
     color: var(--protocol-green);
     /* Protocol green chrome — not a bold CTA. */

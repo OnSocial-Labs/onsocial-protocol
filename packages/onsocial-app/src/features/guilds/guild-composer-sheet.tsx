@@ -42,10 +42,7 @@ import {
   POST_TEXT_MAX_LENGTH,
   POST_TEXT_WARN_REMAINING,
 } from '@/lib/post-display';
-import {
-  POST_MEDIA_MAX_FILES,
-  validatePostMediaFile,
-} from '@/lib/post-media';
+import { POST_MEDIA_MAX_FILES, validatePostMediaFile } from '@/lib/post-media';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 export type ComposerMode = 'post' | 'reply' | 'quote';
@@ -249,18 +246,23 @@ export function ComposerSheet({
   const { accountId } = useAppWallet();
   const viewerShell = useViewerProfileShellContext();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
-  const [text, setText] = useState('');
+  // Seed from props when the sheet mounts already open (DropComposeHost).
+  // `wasOpen` starts false so the open transition below always applies
+  // `initialDrop` / `initialText` on first paint.
+  const [text, setText] = useState(() => (open ? initialText.trim() : ''));
   const [pollEnabled, setPollEnabled] = useState(false);
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [pollDurationMs, setPollDurationMs] = useState<number | undefined>();
-  const [dropDraft, setDropDraft] = useState<ComposerDropDraft | null>(null);
+  const [dropDraft, setDropDraft] = useState<ComposerDropDraft | null>(() =>
+    open ? initialDrop : null
+  );
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
   const [mediaPreviews, setMediaPreviews] = useState<
     { url: string; mime: string }[]
   >([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
-  const [wasOpen, setWasOpen] = useState(open);
+  const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -362,11 +364,7 @@ export function ComposerSheet({
     onSubmit({
       text:
         trimmed ||
-        (mediaFiles.length > 0 || dropDraft
-          ? dropDraft
-            ? ''
-            : ' '
-          : ''),
+        (mediaFiles.length > 0 || dropDraft ? (dropDraft ? '' : ' ') : ''),
       ...(canUsePoll && pollEnabled
         ? {
             poll: {
@@ -489,7 +487,9 @@ export function ComposerSheet({
     setPollEnabled(false);
     setPollOptions(['', '']);
     setPollDurationMs(undefined);
-    setMediaFiles((current) => [...current, ...take].slice(0, POST_MEDIA_MAX_FILES));
+    setMediaFiles((current) =>
+      [...current, ...take].slice(0, POST_MEDIA_MAX_FILES)
+    );
     setMediaPreviews((current) =>
       [...current, ...takePreviews].slice(0, POST_MEDIA_MAX_FILES)
     );
@@ -551,9 +551,7 @@ export function ComposerSheet({
                 <PostMediaBlock
                   item={{ url: preview.url, mime: preview.mime }}
                   size="preview"
-                  onRemove={
-                    pending ? undefined : () => removeMediaAt(index)
-                  }
+                  onRemove={pending ? undefined : () => removeMediaAt(index)}
                 />
               </div>
             ))}
@@ -574,7 +572,9 @@ export function ComposerSheet({
             </span>
             <span className="guild-composer-drop-copy">
               <span className="guild-composer-drop-label">Drop</span>
-              <span className="guild-composer-drop-title">{dropDraft.title}</span>
+              <span className="guild-composer-drop-title">
+                {dropDraft.title}
+              </span>
             </span>
             {!pending ? (
               <button
@@ -592,7 +592,10 @@ export function ComposerSheet({
           <div className="guild-composer-poll">
             <div className="guild-composer-poll-options">
               {pollOptions.map((option, index) => (
-                <div key={`poll-option-${index}`} className="guild-composer-poll-row">
+                <div
+                  key={`poll-option-${index}`}
+                  className="guild-composer-poll-row"
+                >
                   <input
                     className="guild-composer-poll-input"
                     value={option}

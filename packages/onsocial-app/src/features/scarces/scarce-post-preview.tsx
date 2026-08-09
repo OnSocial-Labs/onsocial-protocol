@@ -72,6 +72,11 @@ interface ScarcePostPreviewProps {
   mediaUrl?: string | null;
   /** Sheet picker vs in-feed media slot. */
   variant?: 'sheet' | 'feed';
+  /**
+   * When set (feed medium shell), tap calls this instead of the zoom
+   * lightbox. Sheet / list pickers keep expand-to-zoom.
+   */
+  onActivate?: () => void;
 }
 
 function previewTitle(post: PostRow, format?: CardFormat): string {
@@ -125,6 +130,7 @@ export function ScarcePostPreview({
   creatorAvatarUrl = null,
   mediaUrl = null,
   variant = 'sheet',
+  onActivate,
 }: ScarcePostPreviewProps) {
   const titleId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -134,13 +140,16 @@ export function ScarcePostPreview({
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
   const [fallbackIssuedAt] = useState(() => Date.now());
+  const useMediumActivate = Boolean(onActivate);
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
     getServerMountedSnapshot
   );
-  const lightboxOpen = expanded && !closing;
-  const viewport = useVisualViewportSheetMetrics(expanded || closing);
+  const lightboxOpen = !useMediumActivate && expanded && !closing;
+  const viewport = useVisualViewportSheetMetrics(
+    !useMediumActivate && (expanded || closing)
+  );
   useScrollLock(lightboxOpen);
 
   const cover = postScarceCoverImage(post);
@@ -292,12 +301,16 @@ export function ScarcePostPreview({
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-label="Preview card"
-        aria-haspopup="dialog"
-        aria-expanded={lightboxOpen}
+        aria-label={useMediumActivate ? 'Open Drop preview' : 'Preview card'}
+        aria-haspopup={useMediumActivate ? undefined : 'dialog'}
+        aria-expanded={useMediumActivate ? undefined : lightboxOpen}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          if (onActivate) {
+            onActivate();
+            return;
+          }
           setClosing(false);
           setEntered(false);
           setExpanded(true);

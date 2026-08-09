@@ -3,7 +3,10 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { PostScarceEmbed } from '@onsocial/sdk';
-import { resolvePostDropCta } from '@/features/scarces/post-drop-cta';
+import {
+  isPrimaryMintStatus,
+  resolvePostDropCta,
+} from '@/features/scarces/post-drop-cta';
 import {
   appPath,
   collectionPath,
@@ -325,31 +328,47 @@ export function PostScarceCta({
     );
   }
 
-  const canBuy =
-    !isAuthor &&
-    ((embed.status === 'lazy_listing' && Boolean(embed.listingId)) ||
-      (embed.status === 'listed' && Boolean(embed.tokenId)));
+  const isLazyMint =
+    embed.status === 'lazy_listing' && Boolean(embed.listingId);
+  const isSecondaryBuy =
+    embed.status === 'listed' && Boolean(embed.tokenId);
+  const canCommerce = !isAuthor && (isLazyMint || isSecondaryBuy);
+  const primaryIsMint = isPrimaryMintStatus(embed.status);
 
   if (isAuthor) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">
-          {price ? `Yours · ${price} NEAR` : 'Yours'}
+          {embed.status === 'lazy_listing'
+            ? price
+              ? `Your Drop · ${price} NEAR`
+              : 'Your Drop'
+            : price
+              ? `Yours · ${price} NEAR`
+              : 'Yours'}
         </span>
         {edition ? (
           <span className="post-card-scarce-cta-meta">{edition}</span>
         ) : null}
+        {listenSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
   }
 
-  if (!canBuy) {
+  if (!canCommerce) {
     return (
       <div className="post-card-scarce-cta post-card-scarce-cta--muted">
         <span className="post-card-scarce-cta-main">
-          {price ? `Listing · ${price} NEAR…` : 'Listing…'}
+          {primaryIsMint
+            ? price
+              ? `Drop · ${price} NEAR…`
+              : 'Drop…'
+            : price
+              ? `Listing · ${price} NEAR…`
+              : 'Listing…'}
         </span>
+        {listenSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
@@ -367,12 +386,19 @@ export function PostScarceCta({
         }}
       >
         <span className="post-card-scarce-buy-main">
-          {price ? `Buy · ${price} NEAR` : 'Buy'}
+          {primaryIsMint
+            ? price
+              ? `Mint · ${price} NEAR`
+              : 'Mint'
+            : price
+              ? `Buy · ${price} NEAR`
+              : 'Buy'}
         </span>
-        {edition ? (
+        {edition && primaryIsMint ? (
           <span className="post-card-scarce-buy-meta">{edition}</span>
         ) : null}
       </button>
+      {listenSlot}
       <CommerceLinkRow links={links} />
     </div>
   );

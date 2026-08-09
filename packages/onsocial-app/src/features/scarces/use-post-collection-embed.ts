@@ -4,6 +4,10 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
+import type {
+  ScarceReadableMedia,
+  WritingReleaseFormat,
+} from '@/features/scarces/drop-writing';
 import {
   getScarceEmbedOverride,
   getScarceEmbedSeed,
@@ -62,6 +66,10 @@ export function usePostCollectionEmbed(
   const [inView, setInView] = useState(false);
   const [fetched, setFetched] = useState<PostScarceEmbed | null>(null);
   const [playables, setPlayables] = useState<ScarcePlayableMedia[]>([]);
+  const [readables, setReadables] = useState<ScarceReadableMedia[]>([]);
+  const [writingFormat, setWritingFormat] =
+    useState<WritingReleaseFormat | null>(null);
+  const [bookPdf, setBookPdf] = useState<ScarceReadableMedia | null>(null);
   const [dropTitle, setDropTitle] = useState<string | null>(null);
   const [fetchedKey, setFetchedKey] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -168,10 +176,16 @@ export function usePostCollectionEmbed(
 
           if (!cancelled) {
             setPlayables(view?.playables ?? []);
+            setReadables(view?.readables ?? []);
+            setWritingFormat(view?.writingFormat ?? null);
+            setBookPdf(view?.bookPdf ?? null);
             setDropTitle(view?.title?.trim() || paint?.title || null);
           }
         } else if (!cancelled) {
           setPlayables([]);
+          setReadables([]);
+          setWritingFormat(null);
+          setBookPdf(null);
           setDropTitle(paint?.title ?? null);
         }
 
@@ -275,6 +289,9 @@ export function usePostCollectionEmbed(
     rootRef,
     embed,
     playables,
+    readables,
+    writingFormat,
+    bookPdf,
     dropTitle,
     hasCollectionEmbed: Boolean(parsed),
     status,

@@ -50,13 +50,19 @@ import { ScarceBidSheet } from '@/features/scarces/scarce-bid-sheet';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
 import {
+  postScarceAudio,
   postScarceCoverImage,
   ScarcePostPreview,
 } from '@/features/scarces/scarce-post-preview';
-import { PostDropListenButton } from '@/features/scarces/post-drop-listen';
 import { postDropIsPlayable } from '@/features/scarces/post-drop-cta';
+import {
+  resolveScarceFeedMediumMode,
+  ScarceFeedMediumSheet,
+  type ScarceFeedMediumMode,
+} from '@/features/scarces/scarce-feed-medium-sheet';
 import { usePostCollectionEmbed } from '@/features/scarces/use-post-collection-embed';
 import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
+import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
@@ -791,6 +797,9 @@ export function PostCard({
   const [listScarceOpen, setListScarceOpen] = useState(false);
   const [buyScarceOpen, setBuyScarceOpen] = useState(false);
   const [bidScarceOpen, setBidScarceOpen] = useState(false);
+  const [feedMediumOpen, setFeedMediumOpen] = useState(false);
+  const [feedMediumMode, setFeedMediumMode] =
+    useState<ScarceFeedMediumMode>('viewer');
   const [menuForceEmbed, setMenuForceEmbed] = useState(false);
   const [cancelScarcePending, setCancelScarcePending] = useState(false);
   const isSelf =
@@ -801,6 +810,9 @@ export function PostCard({
     rootRef: collectionEmbedRef,
     embed: collectionEmbed,
     playables: collectionPlayables,
+    readables: collectionReadables,
+    writingFormat: collectionWritingFormat,
+    bookPdf: collectionBookPdf,
     dropTitle: collectionDropTitle,
     retry: retryCollectionEmbed,
   } = usePostCollectionEmbed(post, {
@@ -885,6 +897,8 @@ export function PostCard({
   const mediaItems = parsePostMedia(post.value);
   const hasMedia = mediaItems.length > 0;
   const photoCover = postScarceCoverImage(post);
+  const scarceCoverUrl =
+    scarceEmbed?.mediaUrl?.trim() || dropPaint?.mediaUrl?.trim() || null;
   const showScarceArt =
     !photoCover &&
     Boolean(scarceEmbed) &&
@@ -894,14 +908,28 @@ export function PostCard({
       scarceEmbed?.status === 'sold' ||
       scarceEmbed?.status === 'auction' ||
       scarceEmbed?.status === 'minted');
-  const listenPlayables = collectionPlayables;
+  const postAudio = postScarceAudio(post);
+  const postPlayables: ScarcePlayableMedia[] = postAudio?.url
+    ? [
+        {
+          url: postAudio.url,
+          mime: postAudio.mime || 'audio/mpeg',
+          ...(postAudio.cid ? { cid: postAudio.cid } : {}),
+        },
+      ]
+    : [];
+  const listenPlayables =
+    collectionPlayables.length > 0 ? collectionPlayables : postPlayables;
   const showDropListen =
-    Boolean(scarceEmbed?.collectionId) &&
-    (listenPlayables.length > 0 || postDropIsPlayable(scarceEmbed));
+    postDropIsPlayable(scarceEmbed) || listenPlayables.length > 0;
   const dropListenTitle =
     collectionDropTitle?.trim() ||
     dropPaint?.title?.trim() ||
     'Drop';
+  const openFeedMedium = (mode: ScarceFeedMediumMode) => {
+    setFeedMediumMode(mode);
+    setFeedMediumOpen(true);
+  };
   const fallback = fallbackLabel(post.accountId);
   const name = authorProfile?.displayName?.trim() || fallback;
   const badges = postBadges(post, Boolean(poll), mediaItems.length > 0);
@@ -1044,9 +1072,16 @@ export function PostCard({
           <ScarcePostPreview
             post={post}
             variant="feed"
-            mediaUrl={scarceEmbed.mediaUrl ?? dropPaint?.mediaUrl}
+            mediaUrl={scarceCoverUrl}
             cardBg={scarceEmbed.cardBg}
             creatorDisplayName={authorProfile?.displayName}
+            onActivate={() =>
+              openFeedMedium(
+                resolveScarceFeedMediumMode(
+                  scarceEmbed.mediumKind ?? dropPaint?.mediumKind
+                )
+              )
+            }
           />
         ) : null}
         {quotedPost ? (
@@ -1073,13 +1108,18 @@ export function PostCard({
             onBuy={() => setBuyScarceOpen(true)}
             onBid={() => setBidScarceOpen(true)}
             listenSlot={
-              showDropListen && listenPlayables.length > 0 ? (
-                <PostDropListenButton
-                  title={dropListenTitle}
-                  cover={scarceEmbed?.mediaUrl ?? dropPaint?.mediaUrl}
-                  playables={listenPlayables}
-                  creatorId={scarceEmbed?.creatorId}
-                />
+              showDropListen ? (
+                <button
+                  type="button"
+                  className="post-card-scarce-listen"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    openFeedMedium('audio');
+                  }}
+                >
+                  Listen
+                </button>
               ) : null
             }
           />
@@ -1181,6 +1221,21 @@ export function PostCard({
         embed={scarceEmbed}
         onOpenChange={setBidScarceOpen}
         onBid={() => retryScarceEmbed()}
+      />
+      <ScarceFeedMediumSheet
+        open={feedMediumOpen}
+        onOpenChange={setFeedMediumOpen}
+        mode={feedMediumMode}
+        title={dropListenTitle}
+        cover={scarceCoverUrl}
+        creatorId={scarceEmbed?.creatorId ?? post.accountId}
+        collectionId={scarceEmbed?.collectionId ?? null}
+        tokenId={scarceEmbed?.tokenId ?? null}
+        playables={listenPlayables}
+        readables={collectionReadables}
+        writingFormat={collectionWritingFormat}
+        bookPdf={collectionBookPdf}
+        viewerAccountId={viewerAccountId}
       />
     </article>
   );

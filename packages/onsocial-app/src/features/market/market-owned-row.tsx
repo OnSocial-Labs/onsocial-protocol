@@ -179,97 +179,106 @@ export function MarketOwnedRow({
           ) : null}
         </p>
       </div>
-      <OsSheetActions
-        layout="row-compact"
-        tone="frosted-primary"
-        borderless
-        className="market-listing-action"
-      >
-        {item.collectionId?.trim() ? (
-          <OsSheetAction
-            type="button"
-            variant="ghost"
-            ready
-            onClick={() => {
-              requestDropCompose({
-                collectionId: item.collectionId!.trim(),
-                tokenId: item.tokenId,
-                title: item.title,
-                ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
-                ...(item.mediumKind
-                  ? { mediumKind: item.mediumKind }
-                  : {}),
-              });
-            }}
-          >
-            Post
-          </OsSheetAction>
-        ) : null}
-        {showOffers ? (
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready
-            onClick={() => onOffers?.(item)}
-          >
-            {offersLabel}
-          </OsSheetAction>
-        ) : null}
-        {needsSettle ? (
-          <OsSheetAction
-            type="button"
-            variant={showOffers ? 'ghost' : 'primary'}
-            ready={!settlePending}
-            pending={settlePending}
-            pendingLabel="Settling…"
-            onClick={() => onSettle?.(item)}
-          >
-            Complete
-          </OsSheetAction>
-        ) : listed && !auctionHasBids ? (
-          <OsSheetAction
-            type="button"
-            variant={
-              confirmingDelist ? 'danger' : showOffers ? 'ghost' : 'primary'
-            }
-            ready={!delistPending}
-            pending={delistPending}
-            pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
-            aria-label={
-              delistPending
-                ? auction
-                  ? 'Canceling auction'
-                  : 'Delisting'
-                : confirmingDelist
+      <div className="market-listing-action-col">
+        <OsSheetActions
+          layout="row-compact"
+          tone="frosted-primary"
+          borderless
+          className="market-listing-action"
+        >
+          {showOffers ? (
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              onClick={() => onOffers?.(item)}
+            >
+              {offersLabel}
+            </OsSheetAction>
+          ) : null}
+          {needsSettle ? (
+            <OsSheetAction
+              type="button"
+              variant={showOffers ? 'ghost' : 'primary'}
+              ready={!settlePending}
+              pending={settlePending}
+              pendingLabel="Settling…"
+              onClick={() => onSettle?.(item)}
+            >
+              Complete
+            </OsSheetAction>
+          ) : listed && !auctionHasBids ? (
+            <OsSheetAction
+              type="button"
+              variant={
+                confirmingDelist ? 'danger' : showOffers ? 'ghost' : 'primary'
+              }
+              ready={!delistPending}
+              pending={delistPending}
+              pendingLabel={auction ? 'Canceling…' : 'Delisting…'}
+              aria-label={
+                delistPending
                   ? auction
-                    ? 'Confirm cancel auction'
-                    : 'Confirm delist'
-                  : auction
-                    ? 'Cancel auction'
-                    : 'Delist'
-            }
-            onClick={handleDelistClick}
-            onBlur={confirmingDelist ? clearConfirm : undefined}
+                    ? 'Canceling auction'
+                    : 'Delisting'
+                  : confirmingDelist
+                    ? auction
+                      ? 'Confirm cancel auction'
+                      : 'Confirm delist'
+                    : auction
+                      ? 'Cancel auction'
+                      : 'Delist'
+              }
+              onClick={handleDelistClick}
+              onBlur={confirmingDelist ? clearConfirm : undefined}
+            >
+              {confirmingDelist
+                ? auction
+                  ? 'Cancel?'
+                  : 'Delist?'
+                : auction
+                  ? 'Cancel auction'
+                  : 'Delist'}
+            </OsSheetAction>
+          ) : listed && auctionHasBids ? null : (
+            <OsSheetAction
+              type="button"
+              variant={showOffers ? 'ghost' : 'primary'}
+              ready
+              onClick={() => onSell(item)}
+            >
+              Sell
+            </OsSheetAction>
+          )}
+        </OsSheetActions>
+        {item.collectionId?.trim() ? (
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            borderless
+            className="market-listing-action"
           >
-            {confirmingDelist
-              ? auction
-                ? 'Cancel?'
-                : 'Delist?'
-              : auction
-                ? 'Cancel auction'
-                : 'Delist'}
-          </OsSheetAction>
-        ) : listed && auctionHasBids ? null : (
-          <OsSheetAction
-            type="button"
-            variant={showOffers ? 'ghost' : 'primary'}
-            ready
-            onClick={() => onSell(item)}
-          >
-            Sell
-          </OsSheetAction>
-        )}
-      </OsSheetActions>
+            <OsSheetAction
+              type="button"
+              variant="ghost"
+              ready
+              onClick={() => {
+                requestDropCompose({
+                  collectionId: item.collectionId!.trim(),
+                  tokenId: item.tokenId,
+                  title: item.title,
+                  ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
+                  ...(item.mediumKind
+                    ? { mediumKind: item.mediumKind }
+                    : {}),
+                });
+              }}
+            >
+              Post
+            </OsSheetAction>
+          </OsSheetActions>
+        ) : null}
+      </div>
     </div>
   );
 }

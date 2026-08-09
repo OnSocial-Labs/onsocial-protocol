@@ -14,6 +14,7 @@ import {
   ScarceBuyForm,
   type ScarceBuySuccessDetail,
 } from '@/features/scarces/scarce-buy-form';
+import { isPrimaryMintStatus } from '@/features/scarces/post-drop-cta';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
@@ -114,6 +115,9 @@ export function ScarceBuySheet({
     []
   );
 
+  const commerceStatus = listing?.status ?? embed?.status;
+  const isMint = isPrimaryMintStatus(commerceStatus);
+
   return (
     <GlassSheet
       open={sheetOpen}
@@ -128,22 +132,22 @@ export function ScarceBuySheet({
       panelStyle={panelStyle}
       zIndex={56}
       ariaLabelledBy={titleId}
-      backdropLabel="Close buy scarce"
+      backdropLabel={isMint ? 'Close mint scarce' : 'Close buy scarce'}
       bodyClassName="profile-support-sheet-body"
       header={
         <>
           <GestureSheetHeader
             titleId={titleId}
-            verb="Buy"
+            verb={isMint ? 'Mint' : 'Buy'}
             personName={personName}
             handle={handle}
             signal="reputation"
-            closeAriaLabel="Close buy scarce"
+            closeAriaLabel={isMint ? 'Close mint scarce' : 'Close buy scarce'}
             onClose={requestClose}
             whisper={
-              listing?.status === 'listed'
-                ? 'Pay with NEAR — scarce transfers to you.'
-                : 'Pay with NEAR — scarce mints to you.'
+              isMint
+                ? 'Pay with NEAR — scarce mints to you.'
+                : 'Pay with NEAR — scarce transfers to you.'
             }
           />
           <Divider variant="section" className="glass-sheet-header-divider" />

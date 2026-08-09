@@ -8,6 +8,13 @@ export interface PostDropCtaResolution {
   mutedLabel?: 'Your Drop' | 'Your edition';
 }
 
+/** Primary sale — Mint (not Buy). Secondary market uses Buy. */
+export function isPrimaryMintStatus(
+  status: PostScarceEmbed['status'] | null | undefined
+): boolean {
+  return status === 'drop' || status === 'lazy_listing';
+}
+
 /**
  * Creator vs holder CTA rules for durable collection embeds (and Drop
  * fromPost embeds treated the same when `collectionId` is present).
