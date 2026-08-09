@@ -25,6 +25,7 @@ import {
   GlobeFillIcon,
   GiftFillIcon,
   HeartFillIcon,
+  BookmarkFillIcon,
   PenFillIcon,
   MessageFillIcon,
   UserCircleFillIcon,
@@ -57,6 +58,7 @@ describe('mage fill icons', () => {
     expect(typeof GlobeFillIcon).toBe('function');
     expect(typeof GiftFillIcon).toBe('function');
     expect(typeof HeartFillIcon).toBe('function');
+    expect(typeof BookmarkFillIcon).toBe('function');
     expect(typeof PenFillIcon).toBe('function');
     expect(typeof MessageFillIcon).toBe('function');
     expect(typeof UserCircleFillIcon).toBe('function');

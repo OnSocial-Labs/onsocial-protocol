@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  BookmarkFillIcon,
+  BookmarkIcon,
   CheckIcon,
   CopyIcon,
   Divider,
@@ -131,7 +133,9 @@ interface PostCardProps {
   guildName?: string;
   engagement?: PostEngagement;
   reactionPending?: boolean;
+  savePending?: boolean;
   onToggleReaction?: (post: PostRow) => void;
+  onToggleSave?: (post: PostRow) => void;
   /** Optimistic amplify count / Hot heat after a confirmed spend. */
   onAmplifyConfirmed?: (
     post: PostRow,
@@ -576,6 +580,14 @@ function AmplifyIcon({ filled }: { filled: boolean }) {
   return filled ? <FireBFillIcon aria-hidden /> : <FireBIcon aria-hidden />;
 }
 
+function BookmarkGlyph({ filled }: { filled: boolean }) {
+  return filled ? (
+    <BookmarkFillIcon aria-hidden />
+  ) : (
+    <BookmarkIcon aria-hidden />
+  );
+}
+
 function absolutePostUrl(href: string): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -723,9 +735,11 @@ function PostEngagementRow({
   shareHref,
   shareTitle,
   reactionPending,
+  savePending,
   onReply,
   onQuote,
   onToggleReaction,
+  onToggleSave,
   onAmplify,
   post,
 }: {
@@ -733,9 +747,11 @@ function PostEngagementRow({
   shareHref: string;
   shareTitle?: string | null;
   reactionPending?: boolean;
+  savePending?: boolean;
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
   onToggleReaction?: (post: PostRow) => void;
+  onToggleSave?: (post: PostRow) => void;
   onAmplify: () => void;
   post: PostRow;
 }) {
@@ -793,7 +809,33 @@ function PostEngagementRow({
           onActivate={onAmplify}
         />
       </div>
-      <PostShareControl href={shareHref} title={shareTitle} />
+      <div className="post-card-engagement-trailing">
+        {onToggleSave ? (
+          <button
+            type="button"
+            className={`post-card-stat post-card-stat-button post-card-save${
+              engagement.viewerSaved ? ' is-active' : ''
+            }${savePending ? ' is-pending' : ''}`}
+            disabled={savePending}
+            aria-pressed={engagement.viewerSaved}
+            aria-label={
+              engagement.viewerSaved ? 'Remove from saved' : 'Save this post'
+            }
+            title={engagement.viewerSaved ? 'Saved' : 'Save'}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onToggleSave(post);
+            }}
+          >
+            <BookmarkGlyph filled={engagement.viewerSaved} />
+          </button>
+        ) : null}
+        <PostShareControl href={shareHref} title={shareTitle} />
+      </div>
     </div>
   );
 }
@@ -921,7 +963,9 @@ export function PostCard({
   guildName,
   engagement,
   reactionPending,
+  savePending,
   onToggleReaction,
+  onToggleSave,
   onAmplifyConfirmed,
   onReply,
   onQuote,
@@ -1292,9 +1336,11 @@ export function PostCard({
             shareHref={shareHref}
             shareTitle={name}
             reactionPending={reactionPending}
+            savePending={savePending}
             onReply={onReply}
             onQuote={onQuote}
             onToggleReaction={onToggleReaction}
+            onToggleSave={onToggleSave}
             onAmplify={() => setAmplifyOpen(true)}
             post={post}
           />
@@ -1381,6 +1427,7 @@ export function PostCard({
               shareHref={shareHref}
               shareTitle={name}
               reactionPending={reactionPending}
+              savePending={savePending}
               onReply={
                 onReply
                   ? (target) => {
@@ -1398,6 +1445,7 @@ export function PostCard({
                   : undefined
               }
               onToggleReaction={onToggleReaction}
+              onToggleSave={onToggleSave}
               onAmplify={() => {
                 setFeedMediumOpen(false);
                 setAmplifyOpen(true);

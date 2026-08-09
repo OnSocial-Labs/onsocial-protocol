@@ -67,6 +67,8 @@ import {
   type AmplifySuccessDetail,
 } from '@/lib/amplify-heat';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { fetchIndexedPostsByRefs } from '@/lib/fetch-personal-post';
+import { parseSaveContentPath } from '@/lib/save-content-path';
 import {
   countUnseenFeedPosts,
   feedPostKeySet,
@@ -77,6 +79,30 @@ import {
 import { revokeDroppedOptimisticMedia } from '@/lib/post-media';
 
 const HOME_FEED_PAGE_SIZE = 24;
+
+async function fetchSavedFeedPage(
+  accountId: string,
+  offset: number,
+  limit: number
+): Promise<Paginated<PostRow>> {
+  const client = createReadOnlyOnSocialClient();
+  const saves = await client.query.saves.list(accountId, { limit, offset });
+  const refs = saves
+    .map((row) => parseSaveContentPath(row.contentPath))
+    .filter(
+      (ref): ref is { author: string; postId: string } => ref != null
+    );
+  const byRef = await fetchIndexedPostsByRefs(refs);
+  const items: PostRow[] = [];
+  for (const ref of refs) {
+    const row = byRef.get(`${ref.author}\0${ref.postId}`);
+    if (row) items.push(row);
+  }
+  return {
+    items,
+    nextOffset: saves.length < limit ? undefined : offset + saves.length,
+  };
+}
 
 function mergeFeedPosts(current: PostRow[], incoming: PostRow[]): PostRow[] {
   if (incoming.length === 0) return current;
@@ -111,6 +137,11 @@ async function fetchHomeFeedPageClient(
   limit: number = HOME_FEED_PAGE_SIZE
 ): Promise<{ page: Paginated<PostRow>; standingSources: string[] | null }> {
   const client = createReadOnlyOnSocialClient();
+
+  if (lens === 'saved' && accountId) {
+    const page = await fetchSavedFeedPage(accountId, offset, limit);
+    return { page, standingSources: null };
+  }
 
   if (lens === 'standing' && accountId) {
     const sources =
@@ -633,6 +664,7 @@ export function HomePagePanel({
     if (
       !lensReady ||
       walletLoading ||
+      activeLens === 'saved' ||
       isLoadingRef.current ||
       isRefreshingRef.current ||
       newPostsProbeInFlightRef.current ||
@@ -759,7 +791,9 @@ export function HomePagePanel({
         }
         heading={<span className="home-feed-nav-empty" aria-hidden />}
         actions={
-          <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
+          activeLens === 'saved' ? null : (
+            <HomeFeedSortToggle sort={sort} onSortChange={handleSortChange} />
+          )
         }
         toolbar={
           <div

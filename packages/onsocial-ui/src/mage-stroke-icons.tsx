@@ -551,6 +551,22 @@ export function HeartIcon(props: MageStrokeIconProps) {
   );
 }
 
+/** Mage `bookmark` — save for later idle; pair with BookmarkFillIcon when saved. */
+export function BookmarkIcon(props: MageStrokeIconProps) {
+  return (
+    <MageStrokeSvg {...props}>
+      <path
+        d="m10.94 18.339l-3.43 2.548a1.71 1.71 0 0 1-2.76-1.23V6.35a3.735 3.735 0 0 1 3.87-3.597h6.76a3.74 3.74 0 0 1 3.87 3.597v13.309a1.708 1.708 0 0 1-2.76 1.229l-3.43-2.548a1.8 1.8 0 0 0-2.12 0"
+        stroke="currentColor"
+        strokeWidth={MAGE_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </MageStrokeSvg>
+  );
+}
+
 /** Mage `fire-a` — Hot sort idle; pair with FireFillIcon when Hot is selected. */
 export function FireIcon(props: MageStrokeIconProps) {
   return (

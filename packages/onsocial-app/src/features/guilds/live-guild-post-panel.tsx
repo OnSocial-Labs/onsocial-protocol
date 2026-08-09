@@ -271,7 +271,9 @@ export function LiveGuildPostPanel({
   const {
     engagement,
     toggleReaction,
+    toggleSave,
     isReactionPending,
+    isSavePending,
     confirmAmplify,
   } = usePostEngagement(engagementPosts, {
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -1010,7 +1012,9 @@ export function LiveGuildPostPanel({
                       engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
                     }
                     reactionPending={isReactionPending(ancestor)}
+                    savePending={isSavePending(ancestor)}
                     onToggleReaction={toggleReaction}
+                    onToggleSave={toggleSave}
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
@@ -1068,7 +1072,9 @@ export function LiveGuildPostPanel({
                     EMPTY_POST_ENGAGEMENT
                   }
                   reactionPending={isReactionPending(conversation.root)}
+                  savePending={isSavePending(conversation.root)}
                   onToggleReaction={toggleReaction}
+                  onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
@@ -1215,7 +1221,9 @@ export function LiveGuildPostPanel({
                             }
                             engagement={engagement[postKey(row.post)]}
                             reactionPending={isReactionPending(row.post)}
+                            savePending={isSavePending(row.post)}
                             onToggleReaction={toggleReaction}
+                            onToggleSave={toggleSave}
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
@@ -1260,7 +1268,9 @@ export function LiveGuildPostPanel({
                       }
                       engagement={engagement[postKey(quote)]}
                       reactionPending={isReactionPending(quote)}
+                      savePending={isSavePending(quote)}
                       onToggleReaction={toggleReaction}
+                      onToggleSave={toggleSave}
                       onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}

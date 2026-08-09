@@ -21,6 +21,7 @@ import {
   GiftIcon,
   GlobeIcon,
   HeartIcon,
+  BookmarkIcon,
   ImageIcon,
   InformationCircleIcon,
   LinkIcon,
@@ -67,6 +68,7 @@ describe('mage stroke icons', () => {
     expect(typeof FireBIcon).toBe('function');
     expect(typeof FireIcon).toBe('function');
     expect(typeof HeartIcon).toBe('function');
+    expect(typeof BookmarkIcon).toBe('function');
     expect(typeof ImageIcon).toBe('function');
     expect(typeof InformationCircleIcon).toBe('function');
     expect(typeof LinkIcon).toBe('function');

@@ -58,6 +58,7 @@ export {
   GlobeFillIcon,
   GiftFillIcon,
   HeartFillIcon,
+  BookmarkFillIcon,
   MessageFillIcon,
   PenFillIcon,
   UserCircleFillIcon,
@@ -77,6 +78,7 @@ export {
 export {
   ArrowLeftIcon,
   ArrowUpRightIcon,
+  BookmarkIcon,
   CameraIcon,
   CheckIcon,
   ChevronDownIcon,

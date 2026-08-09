@@ -78,6 +78,7 @@ describe('feed-paint-hydrate', () => {
       viewerReacted: false,
       amplifyCount: 3,
       viewerAmplified: false,
+      viewerSaved: false,
     });
     expect(countsByPaths).toHaveBeenCalledTimes(1);
     expect(statesForPosts).toHaveBeenCalledTimes(1);
