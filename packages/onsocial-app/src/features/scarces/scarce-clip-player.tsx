@@ -76,6 +76,14 @@ interface ScarceClipPlayerProps {
    * chrome instead. Set false when the cover player already owns transport.
    */
   showTransport?: boolean;
+  /**
+   * Open full-screen listen immediately and hide the compact cover shell
+   * (post-origin enlarge). Closing listen calls `onListenClose`.
+   */
+  immersiveListen?: boolean;
+  /** Mint/Buy + post engagement under love/share in listen mode. */
+  listenFooter?: ReactNode;
+  onListenClose?: () => void;
 }
 
 function useBrowserOnline(): boolean {
@@ -124,6 +132,9 @@ export function ScarceClipPlayer({
   coverBadge = null,
   showTracks,
   showTransport = true,
+  immersiveListen = false,
+  listenFooter = null,
+  onListenClose,
 }: ScarceClipPlayerProps) {
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const { setTxResult } = useAppTransactionFeedback();
@@ -156,7 +167,7 @@ export function ScarceClipPlayer({
   /** Bump to autoplay after a track change (tap or natural advance). */
   const [autoplayNonce, setAutoplayNonce] = useState(0);
   const [lyricsOpen, setLyricsOpen] = useState(false);
-  const [listenOpen, setListenOpen] = useState(false);
+  const [listenOpen, setListenOpen] = useState(immersiveListen);
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [downloadLock, setDownloadLock] = useState<string | null>(null);
@@ -232,6 +243,10 @@ export function ScarceClipPlayer({
     // Sync listen scrubber once the sheet mounts.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open only
   }, [listenOpen]);
+
+  useEffect(() => {
+    if (immersiveListen) setListenOpen(true);
+  }, [immersiveListen]);
 
   const playlistKey = playlist.map((t) => t.url).join('\0');
   const loves = useScarceTrackLoves({
@@ -736,7 +751,9 @@ export function ScarceClipPlayer({
     <div
       className={`scarce-clip-player-shell${
         tracksOnly ? ' scarce-clip-player-shell--tracks' : ''
-      }${isAudio ? ' scarce-clip-player-shell--audio' : ''}`}
+      }${isAudio ? ' scarce-clip-player-shell--audio' : ''}${
+        immersiveListen ? ' scarce-clip-player-shell--immersive' : ''
+      }`}
     >
       {tracksOnly ? (
         persistMode ? null : (
@@ -1719,7 +1736,10 @@ export function ScarceClipPlayer({
       {!tracksOnly && isAudio ? (
         <ScarceClipListenSheet
           open={listenOpen}
-          onClose={() => setListenOpen(false)}
+          onClose={() => {
+            setListenOpen(false);
+            onListenClose?.();
+          }}
           cover={cover}
           albumTitle={persist?.title?.trim() || 'Drop'}
           trackTitle={active.title?.trim() || persist?.title?.trim() || 'Track'}
@@ -1788,6 +1808,7 @@ export function ScarceClipPlayer({
           onProgressPointerLeave={() => {
             if (!scrubbingRef.current) showKnobPeek(1100);
           }}
+          footer={listenFooter}
         />
       ) : null}
       <ScarceFansSheet

@@ -45,8 +45,10 @@ function inlineSvgMarkup(svg: string): string {
 
 /**
  * Feed cover tap → post-origin medium shell.
- * Cover stays feed-scale; green Mint/Buy + engagement sit under the art
- * (including the audio player) for quick post actions.
+ *
+ * Audio opens the same full-screen listen enlarge (28rem cover, love/share,
+ * transport) with Mint/Buy + post engagement under the track actions.
+ * Viewer uses the same canvas size with cover + post chrome.
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -110,7 +112,10 @@ export function ScarceFeedMediumSheet({
   const writingFormat = writingFormatProp ?? hydratedWritingFormat;
   const bookPdf = bookPdfProp ?? hydratedBookPdf;
   const sheetOpen = open && !closing;
-  const isOverlay = mode === 'viewer' || mode === 'audio';
+  const clip = playables[0] ?? null;
+  /** Audio with a playable uses the real listen enlarge (no custom lightbox). */
+  const immersiveAudio = mode === 'audio' && clip != null && open;
+  const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
   const requestClose = useCallback(() => setClosing(true), []);
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
   useScrollLock(open || closing);
@@ -263,7 +268,6 @@ export function ScarceFeedMediumSheet({
   }, [viewport.height, viewport.isMobile]);
 
   const name = title.trim() || 'Drop';
-  const clip = playables[0] ?? null;
   const hasWriting = readables.length > 0 || bookPdf != null;
   const canReadWriting = isCreator || holdsEdition === true;
   const writingLockedHint = !viewerAccountId?.trim()
@@ -287,36 +291,53 @@ export function ScarceFeedMediumSheet({
   const coverArt =
     inlineSvg && !rasterCover ? (
       <div
-        className="scarce-post-medium-cover scarce-post-medium-cover--svg"
+        className="scarce-clip-listen-cover scarce-post-medium-cover--svg"
         dangerouslySetInnerHTML={{ __html: inlineSvg }}
       />
     ) : rasterCover ? (
-      <img src={rasterCover} alt="" className="scarce-post-medium-cover" />
+      <img src={rasterCover} alt="" className="scarce-clip-listen-cover" />
     ) : (
       <div
-        className="scarce-post-medium-cover scarce-post-medium-cover--empty"
+        className="scarce-clip-listen-cover scarce-clip-listen-cover--empty"
         aria-hidden
       />
     );
+
+  if (immersiveAudio) {
+    if (!open) return null;
+    return (
+      <ScarceClipPlayer
+        clip={clip}
+        tracks={playables}
+        poster={rasterCover}
+        layout="cover"
+        creatorId={creatorId}
+        showTransport
+        showTracks={false}
+        immersiveListen
+        listenFooter={postChrome}
+        onListenClose={() => onOpenChange(false)}
+        {...(collectionId
+          ? { persist: { collectionId, title: name } }
+          : {})}
+      />
+    );
+  }
 
   if (isOverlay) {
     if (typeof document === 'undefined') return null;
     if (!open && !closing) return null;
     return createPortal(
       <div
-        className={`scarce-card-lightbox scarce-post-medium-lightbox${
+        className={`scarce-card-lightbox scarce-clip-listen-lightbox scarce-post-medium-lightbox${
           entered && !closing ? ' is-open' : ''
         }${closing ? ' is-closing' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         style={lightboxStyle}
-        onClick={requestClose}
       >
-        <div
-          className="scarce-post-medium"
-          onClick={(event) => event.stopPropagation()}
-        >
+        <div className="scarce-clip-listen scarce-post-medium-listen">
           <p id={titleId} className="sr-only">
             {name}
           </p>
@@ -328,37 +349,22 @@ export function ScarceFeedMediumSheet({
               className="scarce-post-medium-close"
             />
           </div>
-          <div className="scarce-post-medium-stage">
-            {mode === 'audio' && clip ? (
-              <div className="scarce-post-medium-player">
-                <ScarceClipPlayer
-                  clip={clip}
-                  tracks={playables}
-                  poster={rasterCover}
-                  layout="cover"
-                  creatorId={creatorId}
-                  showTransport
-                  showTracks={false}
-                  {...(collectionId
-                    ? { persist: { collectionId, title: name } }
-                    : {})}
-                />
-              </div>
-            ) : mode === 'audio' && !clip ? (
-              <>
-                {coverArt}
-                <p className="scarce-feed-medium-empty">
-                  {hydrateSettled
-                    ? 'Audio unavailable for this Drop.'
-                    : 'Loading audio…'}
-                </p>
-              </>
-            ) : (
-              coverArt
-            )}
-          </div>
-          {name ? <p className="scarce-post-medium-title">{name}</p> : null}
-          {postChrome}
+          <div className="scarce-clip-listen-art">{coverArt}</div>
+          {mode === 'audio' ? (
+            <p className="scarce-feed-medium-empty">
+              {hydrateSettled
+                ? 'Audio unavailable for this Drop.'
+                : 'Loading audio…'}
+            </p>
+          ) : null}
+          {postChrome ? (
+            <div className="scarce-clip-listen-footer">{postChrome}</div>
+          ) : null}
+          {name ? (
+            <div className="scarce-clip-listen-copy">
+              <p className="scarce-clip-listen-track">{name}</p>
+            </div>
+          ) : null}
         </div>
       </div>,
       document.body
