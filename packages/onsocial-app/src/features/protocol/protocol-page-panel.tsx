@@ -13,14 +13,14 @@ import { actOnProtocolProposal } from '@/features/protocol/protocol-act';
 import {
   actionLabel,
   applyOptimisticVote,
-  deriveProtocolProposalActions,
-  proposalHeadline,
-  proposalKindKey,
   resolveLiveProposal,
-  statusLabel,
 } from '@/features/protocol/protocol-card-view';
-import { fetchProtocolFeed, fetchProtocolProposal } from '@/features/protocol/protocol-feed-client';
-import { ProtocolProposalSheet } from '@/features/protocol/protocol-proposal-sheet';
+import {
+  fetchProtocolFeed,
+  fetchProtocolProposal,
+} from '@/features/protocol/protocol-feed-client';
+import { ProtocolActionSheet } from '@/features/protocol/protocol-action-sheet';
+import { ProtocolProposalCard } from '@/features/protocol/protocol-proposal-card';
 import type {
   ProtocolApplication,
   ProtocolDaoAction,
@@ -33,67 +33,12 @@ import {
   protocolPath,
   type ProtocolDaoBoard,
 } from '@/lib/app-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 import {
   txToastGovError,
   txToastGovPending,
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-
-function ProtocolProposalRow({
-  application,
-  daoPolicy,
-  accountId,
-  onOpen,
-}: {
-  application: ProtocolApplication;
-  daoPolicy: ProtocolDaoPolicy | null;
-  accountId: string | null;
-  onOpen: () => void;
-}) {
-  const proposal = resolveLiveProposal(application);
-  const headline = proposalHeadline(application);
-  const kind = proposalKindKey(proposal);
-  const status = statusLabel(proposal?.status);
-  const actions = deriveProtocolProposalActions({
-    accountId,
-    daoPolicy,
-    proposal,
-  });
-  const proposer = proposal?.proposer?.trim() || '';
-
-  return (
-    <button
-      type="button"
-      className="protocol-proposal-row"
-      onClick={onOpen}
-    >
-      <span className="protocol-proposal-row-copy">
-        <span className="protocol-proposal-row-head">
-          <span className="protocol-proposal-row-title">{headline}</span>
-          <span className="protocol-pill is-status">{status}</span>
-        </span>
-        <span className="protocol-proposal-row-meta">
-          <span className="protocol-pill">{kind}</span>
-          {proposer ? (
-            <span className="protocol-proposal-row-muted">
-              @{fallbackLabel(proposer)}
-            </span>
-          ) : null}
-          <span className="protocol-proposal-row-muted">
-            {actions.approveVotes}·{actions.rejectVotes}
-          </span>
-          {actions.currentVote ? (
-            <span className="protocol-pill is-vote">
-              You · {actions.currentVote}
-            </span>
-          ) : null}
-        </span>
-      </span>
-    </button>
-  );
-}
 
 export function ProtocolPagePanel() {
   const router = useRouter();
@@ -112,15 +57,21 @@ export function ProtocolPagePanel() {
     'loading'
   );
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [actionAppId, setActionAppId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
     null
   );
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const selected = useMemo(
-    () => applications.find((row) => row.app_id === selectedId) ?? null,
-    [applications, selectedId]
+  const actionApplication = useMemo(
+    () => applications.find((row) => row.app_id === actionAppId) ?? null,
+    [applications, actionAppId]
   );
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const loadFeed = useCallback(async () => {
     setLoadState('loading');
@@ -144,14 +95,17 @@ export function ProtocolPagePanel() {
 
   const setBoard = useCallback(
     (next: ProtocolDaoBoard) => {
-      setSelectedId(null);
+      setActionAppId(null);
       router.replace(protocolPath({ board: next }), { scroll: false });
     },
     [router]
   );
 
   const mergeProposal = useCallback(
-    (appId: string, nextProposal: NonNullable<ReturnType<typeof resolveLiveProposal>>) => {
+    (
+      appId: string,
+      nextProposal: NonNullable<ReturnType<typeof resolveLiveProposal>>
+    ) => {
       setApplications((current) =>
         current.map((row) => {
           if (row.app_id !== appId) return row;
@@ -176,11 +130,15 @@ export function ProtocolPagePanel() {
 
   const handleAct = useCallback(
     async (action: ProtocolDaoAction) => {
-      if (!selected) return;
-      const proposal = resolveLiveProposal(selected);
-      const proposalId = proposal?.id ?? selected.governance_proposal?.proposal_id;
+      if (!actionApplication) return;
+      const proposal = resolveLiveProposal(actionApplication);
+      const proposalId =
+        proposal?.id ?? actionApplication.governance_proposal?.proposal_id;
       if (!proposal || proposalId == null) {
-        setTxResult({ type: 'error', msg: 'Proposal is missing on-chain data.' });
+        setTxResult({
+          type: 'error',
+          msg: 'Proposal is missing on-chain data.',
+        });
         return;
       }
       if (!isConnected) {
@@ -209,7 +167,7 @@ export function ProtocolPagePanel() {
                 ? 'Reject'
                 : 'Remove';
           mergeProposal(
-            selected.app_id,
+            actionApplication.app_id,
             applyOptimisticVote(proposal, signerId, vote)
           );
         }
@@ -221,6 +179,8 @@ export function ProtocolPagePanel() {
           failureMessage: txToastGovError.actionFailed(label),
         });
 
+        setActionAppId(null);
+
         try {
           const refreshed = await fetchProtocolProposal({
             daoAccountId,
@@ -228,7 +188,7 @@ export function ProtocolPagePanel() {
             live: true,
           });
           if (refreshed.proposal) {
-            mergeProposal(selected.app_id, refreshed.proposal);
+            mergeProposal(actionApplication.app_id, refreshed.proposal);
           }
           if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
         } catch {
@@ -249,7 +209,7 @@ export function ProtocolPagePanel() {
       }
     },
     [
-      selected,
+      actionApplication,
       isConnected,
       connect,
       getSigningWallet,
@@ -312,28 +272,29 @@ export function ProtocolPagePanel() {
           <p className="protocol-empty">No open protocol proposals.</p>
         ) : null}
         {loadState === 'ready' && applications.length > 0 ? (
-          <div className="protocol-proposal-list" role="list">
+          <div className="protocol-card-list">
             {applications.map((application) => (
-              <div key={application.app_id} role="listitem">
-                <ProtocolProposalRow
-                  application={application}
-                  daoPolicy={daoPolicy}
-                  accountId={accountId}
-                  onOpen={() => setSelectedId(application.app_id)}
-                />
-              </div>
+              <ProtocolProposalCard
+                key={application.app_id}
+                application={application}
+                daoPolicy={daoPolicy}
+                accountId={accountId}
+                nowMs={nowMs}
+                onOpenActions={() => setActionAppId(application.app_id)}
+              />
             ))}
           </div>
         ) : null}
       </div>
 
-      <ProtocolProposalSheet
-        open={selectedId != null}
-        onClose={() => setSelectedId(null)}
-        application={selected}
+      <ProtocolActionSheet
+        open={actionAppId != null}
+        onClose={() => setActionAppId(null)}
+        application={actionApplication}
         daoPolicy={daoPolicy}
         accountId={accountId}
         pendingAction={pendingAction}
+        nowMs={nowMs}
         onAct={(action) => {
           void handleAct(action);
         }}

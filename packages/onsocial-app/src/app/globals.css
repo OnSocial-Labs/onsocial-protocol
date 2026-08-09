@@ -28717,12 +28717,12 @@ button.scarce-clip-cover-expand:focus-visible {
   font-weight: 600;
 }
 
-  /* —— Protocol (DAO governance / treasury) —— */
+/* —— Protocol (DAO governance / treasury) —— */
 .protocol-page {
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
-  padding-bottom: 1.5rem;
+  padding-bottom: 1.75rem;
 }
 
 .protocol-page-head {
@@ -28767,66 +28767,258 @@ button.scarce-clip-cover-expand:focus-visible {
   outline-offset: 2px;
 }
 
-.protocol-proposal-list {
+.protocol-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.protocol-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.95rem 0.15rem 1rem;
+  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
+}
+
+.protocol-card.is-approved {
+  border-left: 3px solid color-mix(in srgb, var(--signal-reputation, var(--protocol-green)) 70%, transparent);
+  padding-left: 0.7rem;
+}
+
+.protocol-card.is-rejected {
+  border-left: 3px solid rgb(180 70 70 / 0.75);
+  padding-left: 0.7rem;
+}
+
+.protocol-card.is-expired {
+  border-left: 3px solid rgb(180 130 50 / 0.75);
+  padding-left: 0.7rem;
+}
+
+.protocol-card.is-review {
+  border-left: 3px solid rgb(var(--fg-rgb) / 0.28);
+  padding-left: 0.7rem;
+}
+
+.protocol-card-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.protocol-card-strip-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.protocol-card-id {
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.protocol-card-strip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-size: 0.72rem;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.protocol-card-strip-meta .is-urgent {
+  color: rgb(180 120 40 / 0.95);
+  font-weight: 650;
+}
+
+.protocol-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.protocol-card-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
+.protocol-card-proposer {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgb(var(--fg-rgb) / 0.52);
+}
+
+.protocol-card-targets {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.protocol-card-targets dt {
+  margin: 0;
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.4);
+}
+
+.protocol-card-targets dd {
+  margin: 0.1rem 0 0;
+  font-size: 0.84rem;
+  color: rgb(var(--fg-rgb) / 0.84);
+}
+
+.protocol-card-description {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: rgb(var(--fg-rgb) / 0.82);
+  white-space: pre-wrap;
+}
+
+.protocol-card-votes {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
 }
 
-.protocol-proposal-row {
-  display: flex;
-  width: 100%;
-  margin: 0;
-  padding: 0.85rem 0.15rem;
-  border: 0;
-  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.protocol-proposal-row:hover,
-.protocol-proposal-row:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.03);
-  outline: none;
-}
-
-.protocol-proposal-row-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-  width: 100%;
-}
-
-.protocol-proposal-row-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.65rem;
-}
-
-.protocol-proposal-row-title {
-  min-width: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  color: rgb(var(--fg-rgb) / 0.94);
-}
-
-.protocol-proposal-row-meta {
+.protocol-card-vote-counts {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem 0.55rem;
+  gap: 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 650;
 }
 
-.protocol-proposal-row-muted {
-  font-size: 0.74rem;
+.protocol-card-vote-counts .is-approve {
+  color: color-mix(in srgb, var(--signal-reputation, var(--protocol-green)) 85%, transparent);
+}
+
+.protocol-card-vote-counts .is-reject {
+  color: rgb(180 70 70 / 0.95);
+}
+
+.protocol-card-vote-counts .is-remove {
+  color: rgb(180 130 50 / 0.95);
+}
+
+.protocol-card-vote-rule {
   color: rgb(var(--fg-rgb) / 0.48);
+  font-weight: 600;
+}
+
+.protocol-card-vote-bar {
+  position: relative;
+  display: flex;
+  height: 0.28rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(var(--fg-rgb) / 0.08);
+}
+
+.protocol-card-vote-bar > span {
+  display: block;
+  height: 100%;
+}
+
+.protocol-card-vote-bar > span.is-approve {
+  background: color-mix(in srgb, var(--signal-reputation, var(--protocol-green)) 75%, transparent);
+}
+
+.protocol-card-vote-bar > span.is-reject {
+  background: rgb(180 70 70 / 0.85);
+}
+
+.protocol-card-vote-bar > span.is-remove {
+  background: rgb(180 130 50 / 0.85);
+}
+
+.protocol-card-vote-bar > span.is-pending {
+  background: transparent;
+}
+
+.protocol-card-vote-bar > i {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: rgb(var(--fg-rgb) / 0.45);
+}
+
+.protocol-card-your-vote {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.7);
+}
+
+.protocol-card-voters-toggle {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.58);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.protocol-card-voter-list {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.protocol-card-voter-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  font-size: 0.8rem;
+  color: rgb(var(--fg-rgb) / 0.78);
+}
+
+.protocol-card-voter-list li.is-abstain {
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.protocol-card-footer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.protocol-card-act {
+  border: 0;
+  margin: 0;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  background: rgb(var(--fg-rgb) / 0.1);
+  color: rgb(var(--fg-rgb) / 0.92);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.protocol-card-act:hover,
+.protocol-card-act:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.16);
+  outline: none;
 }
 
 .protocol-pill {
@@ -28842,18 +29034,26 @@ button.scarce-clip-cover-expand:focus-visible {
   white-space: nowrap;
 }
 
-.protocol-pill.is-status {
-  background: rgb(var(--fg-rgb) / 0.1);
-  color: rgb(var(--fg-rgb) / 0.78);
+.protocol-pill.is-status.is-approved,
+.protocol-pill.is-vote.is-approve {
+  background: color-mix(in srgb, var(--signal-reputation, var(--protocol-green)) 18%, transparent);
+  color: var(--os-surface-emphasis);
 }
 
-.protocol-pill.is-vote {
-  background: color-mix(
-    in srgb,
-    var(--signal-reputation, var(--protocol-green)) 18%,
-    transparent
-  );
-  color: var(--os-surface-emphasis);
+.protocol-pill.is-status.is-rejected,
+.protocol-pill.is-vote.is-reject {
+  background: rgb(180 70 70 / 0.14);
+  color: rgb(160 55 55);
+}
+
+.protocol-pill.is-status.is-expired {
+  background: rgb(180 130 50 / 0.16);
+  color: rgb(150 100 30);
+}
+
+.protocol-pill.is-status.is-review {
+  background: rgb(var(--fg-rgb) / 0.1);
+  color: rgb(var(--fg-rgb) / 0.78);
 }
 
 .protocol-empty {
@@ -28877,39 +29077,26 @@ button.scarce-clip-cover-expand:focus-visible {
   text-underline-offset: 0.12em;
 }
 
-.protocol-proposal-sheet-body {
+.protocol-action-sheet-body {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
 }
 
-.protocol-proposal-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-.protocol-proposal-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.protocol-proposal-description {
+.protocol-action-lede {
   margin: 0;
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: rgb(var(--fg-rgb) / 0.84);
-  white-space: pre-wrap;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.72);
 }
 
-.protocol-proposal-facts {
+.protocol-action-facts {
   display: grid;
   gap: 0.55rem;
   margin: 0;
 }
 
-.protocol-proposal-facts dt {
+.protocol-action-facts dt {
   margin: 0;
   font-size: 0.68rem;
   font-weight: 650;
@@ -28918,17 +29105,8 @@ button.scarce-clip-cover-expand:focus-visible {
   color: rgb(var(--fg-rgb) / 0.42);
 }
 
-.protocol-proposal-facts dd {
+.protocol-action-facts dd {
   margin: 0.15rem 0 0;
   font-size: 0.86rem;
   color: rgb(var(--fg-rgb) / 0.86);
-}
-
-.protocol-pending-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin: 0;
-  font-size: 0.8rem;
-  color: rgb(var(--fg-rgb) / 0.55);
 }
