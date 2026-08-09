@@ -26,8 +26,11 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 const SOFT_RETRY_MS = [2000, 5000] as const;
 
 export function useViewerMute() {
-  const { isConnected, hasSocialSession, accountId: viewerAccountId } =
-    useAppWallet();
+  const {
+    isConnected,
+    hasSocialSession,
+    accountId: viewerAccountId,
+  } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const ledgerRef = useRef(getGlobalViewerMuteLedger());
   const [muteSyncVersion, setMuteSyncVersion] = useState(
@@ -114,13 +117,7 @@ export function useViewerMute() {
         setGlobalMutePending(targetAccountId, false);
       }
     },
-    [
-      bumpMuteSync,
-      getClient,
-      isConnected,
-      softRetryRefresh,
-      viewerAccountId,
-    ]
+    [bumpMuteSync, getClient, isConnected, softRetryRefresh, viewerAccountId]
   );
 
   const mutedAccountIds = deriveMutedAccountIds(

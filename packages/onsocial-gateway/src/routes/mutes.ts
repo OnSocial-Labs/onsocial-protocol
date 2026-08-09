@@ -1,11 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth } from '../middleware/index.js';
-import {
-  addMute,
-  listMutes,
-  removeMute,
-} from '../services/mutes/index.js';
+import { addMute, listMutes, removeMute } from '../services/mutes/index.js';
 
 export const muteRouter = Router();
 

@@ -21,10 +21,7 @@ import { overlayPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
-import {
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 interface PortfolioIdentityGesturesProps {
@@ -187,9 +184,7 @@ export function PortfolioIdentityGestures({
       setTxResult({
         type: 'error',
         msg:
-          error instanceof Error
-            ? error.message
-            : 'Could not update standing.',
+          error instanceof Error ? error.message : 'Could not update standing.',
       });
     }
   }

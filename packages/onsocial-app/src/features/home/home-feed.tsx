@@ -98,9 +98,7 @@ async function fetchSavedFeedPage(
   const saves = await client.query.saves.list(accountId, { limit, offset });
   const refs = saves
     .map((row) => parseSaveContentPath(row.contentPath))
-    .filter(
-      (ref): ref is { author: string; postId: string } => ref != null
-    );
+    .filter((ref): ref is { author: string; postId: string } => ref != null);
   const byRef = await fetchIndexedPostsByRefs(refs);
   const items: PostRow[] = [];
   for (const ref of refs) {
@@ -506,13 +504,7 @@ export function HomePagePanel({
               page: await loadFocusedFeedPage(focus, 0, { sort }),
               standingSources: null as string[] | null,
             }
-          : await fetchHomeFeedPageClient(
-              activeLens,
-              accountId,
-              0,
-              null,
-              sort
-            );
+          : await fetchHomeFeedPageClient(activeLens, accountId, 0, null, sort);
 
         if (loadIdRef.current !== loadId) return;
 

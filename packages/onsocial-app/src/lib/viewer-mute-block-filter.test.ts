@@ -35,9 +35,9 @@ describe('viewer mute/block ledgers', () => {
     const ledger: ViewerMuteLedger = new Map();
     recordViewerMute(ledger, 'carol.near', true);
     recordViewerMute(ledger, 'bob.near', false);
-    expect(deriveMutedAccountIds(['bob.near', 'dave.near'], ledger).sort()).toEqual(
-      ['carol.near', 'dave.near'].sort()
-    );
+    expect(
+      deriveMutedAccountIds(['bob.near', 'dave.near'], ledger).sort()
+    ).toEqual(['carol.near', 'dave.near'].sort());
   });
 
   it('derives blocked ids similarly', () => {

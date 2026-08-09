@@ -506,10 +506,7 @@ export function useDiscoverProfiles(
     [discoverableTotal]
   );
 
-  const emptyState = useMemo(
-    () => buildDiscoverEmptyState(query),
-    [query]
-  );
+  const emptyState = useMemo(() => buildDiscoverEmptyState(query), [query]);
 
   const listBootstrapReady = useMemo(
     () =>
@@ -576,9 +573,7 @@ export function useDiscoverProfiles(
         );
       } catch (error) {
         setActionError(
-          error instanceof Error
-            ? error.message
-            : 'Could not update standing.'
+          error instanceof Error ? error.message : 'Could not update standing.'
         );
       } finally {
         setPendingStandingIds((prev) => {

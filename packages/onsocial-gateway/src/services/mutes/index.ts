@@ -58,7 +58,10 @@ class MemoryMuteStore implements MuteStore {
     return record;
   }
 
-  async remove(ownerAccountId: string, mutedAccountId: string): Promise<boolean> {
+  async remove(
+    ownerAccountId: string,
+    mutedAccountId: string
+  ): Promise<boolean> {
     return this.bucket(ownerAccountId).delete(mutedAccountId);
   }
 
@@ -162,7 +165,10 @@ class HasuraMuteStore implements MuteStore {
     };
   }
 
-  async remove(ownerAccountId: string, mutedAccountId: string): Promise<boolean> {
+  async remove(
+    ownerAccountId: string,
+    mutedAccountId: string
+  ): Promise<boolean> {
     const data = await this.gql<{
       deleteUserMutes: { affectedRows: number };
     }>(
@@ -213,9 +219,7 @@ function createStore(): MuteStore {
 
 const store = createStore();
 
-export async function listMutes(
-  ownerAccountId: string
-): Promise<MuteRecord[]> {
+export async function listMutes(ownerAccountId: string): Promise<MuteRecord[]> {
   return store.list(normalizeAccountId(ownerAccountId));
 }
 

@@ -356,7 +356,13 @@ function PostCardMenu({
       });
       items.push({
         id: 'mute',
-        label: mutePending ? (muted ? 'Unmuting…' : 'Muting…') : muted ? 'Unmute' : 'Mute',
+        label: mutePending
+          ? muted
+            ? 'Unmuting…'
+            : 'Muting…'
+          : muted
+            ? 'Unmute'
+            : 'Mute',
         disabled: mutePending,
         leading: <UserMinusIcon className="action-drawer-icon" aria-hidden />,
         onSelect: () => void handleMuteToggle(),

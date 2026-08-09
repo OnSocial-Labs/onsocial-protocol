@@ -76,7 +76,12 @@ export function AppAccountSheet({
 
   // Re-attempt session restore when the drawer opens (same as page-load bootstrap).
   useEffect(() => {
-    if (!sheetOpen || !accountId || hasSocialSession || isBootstrappingSession) {
+    if (
+      !sheetOpen ||
+      !accountId ||
+      hasSocialSession ||
+      isBootstrappingSession
+    ) {
       return;
     }
     if (autoResumeAttemptedRef.current === accountId) return;

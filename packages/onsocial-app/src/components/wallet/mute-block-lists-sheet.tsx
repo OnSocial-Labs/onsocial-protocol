@@ -12,10 +12,7 @@ import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { fallbackLabel } from '@/lib/profile-display';
 import { portfolioPath } from '@/lib/overlay-routes';
-import {
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 interface MuteBlockListsSheetProps {
@@ -198,12 +195,15 @@ export function MuteBlockListsSheet({
         </div>
         {accounts.length === 0 ? (
           <p className="mute-block-lists-empty">
-            {kind === 'muted'
-              ? 'No muted accounts.'
-              : 'No blocked accounts.'}
+            {kind === 'muted' ? 'No muted accounts.' : 'No blocked accounts.'}
           </p>
         ) : (
-          <ul className="mute-block-lists-rows" aria-label={kind === 'muted' ? 'Muted accounts' : 'Blocked accounts'}>
+          <ul
+            className="mute-block-lists-rows"
+            aria-label={
+              kind === 'muted' ? 'Muted accounts' : 'Blocked accounts'
+            }
+          >
             {accounts.map((accountId) => (
               <li key={accountId}>
                 <button

@@ -33,8 +33,11 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 const SOFT_RETRY_MS = [2000, 5000] as const;
 
 export function useViewerBlock() {
-  const { isConnected, hasSocialSession, accountId: viewerAccountId } =
-    useAppWallet();
+  const {
+    isConnected,
+    hasSocialSession,
+    accountId: viewerAccountId,
+  } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
   const ledgerRef = useRef(getGlobalViewerBlockLedger());
