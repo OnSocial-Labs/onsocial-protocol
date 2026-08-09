@@ -2,6 +2,8 @@ export const APP_HOME_PATH = '/home';
 export const APP_DISCOVER_PATH = '/discover';
 export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';
+/** Protocol DAO governance + treasury (in-app). */
+export const APP_PROTOCOL_PATH = '/protocol';
 /** Social drop discovery — New / Minting / Loved / Volume / Saved. */
 export const APP_DROPS_PATH = '/drops';
 /** Query key for Drops catalog sort (`new` | `minting` | `loved` | `volume` | `saved`). */
@@ -65,10 +67,24 @@ export const MARKET_FACETS_PARAM = 'facets';
 /** Query key for audio release format (`single` | `album` | `podcast`). */
 export const MARKET_AUDIO_FORMAT_PARAM = 'audioFormat';
 
-/** Query key for Collectibles focused player (`?c=collectionId`). */
-export const COLLECTIBLES_PLAY_PARAM = 'c';
-/** Optional owned edition for Sell on the focused player (`?t=tokenId`). */
-export const COLLECTIBLES_PLAY_TOKEN_PARAM = 't';
+/** Query key for Protocol board (`governance` | `treasury`). */
+export const PROTOCOL_DAO_BOARD_PARAM = 'dao';
+
+export type ProtocolDaoBoard = 'governance' | 'treasury';
+
+export function parseProtocolDaoBoard(
+  raw: string | null | undefined
+): ProtocolDaoBoard {
+  return raw?.trim().toLowerCase() === 'treasury' ? 'treasury' : 'governance';
+}
+
+/** Protocol home, optionally deep-linked to a DAO board. */
+export function protocolPath(opts?: { board?: ProtocolDaoBoard | null }): string {
+  if (opts?.board === 'treasury') {
+    return `${APP_PROTOCOL_PATH}?${PROTOCOL_DAO_BOARD_PARAM}=treasury`;
+  }
+  return APP_PROTOCOL_PATH;
+}
 
 /** Market pre-filtered to a single creator's live listings. */
 export function marketCreatorPath(accountId: string): string {
@@ -167,8 +183,12 @@ export function isAppRoutePath(pathname: string): boolean {
     pathname.startsWith(`${APP_DISCOVER_PATH}/`) ||
     pathname === APP_GROUPS_PATH ||
     pathname.startsWith(`${APP_GROUPS_PATH}/`) ||
+    pathname === APP_PROTOCOL_PATH ||
+    pathname.startsWith(`${APP_PROTOCOL_PATH}/`) ||
     pathname === APP_MARKET_PATH ||
     pathname.startsWith(`${APP_MARKET_PATH}/`) ||
+    pathname === APP_DROPS_PATH ||
+    pathname.startsWith(`${APP_DROPS_PATH}/`) ||
     pathname === APP_COLLECTIBLES_PATH ||
     pathname.startsWith(`${APP_COLLECTIBLES_PATH}/`) ||
     pathname === APP_COLLECTION_PATH ||

@@ -40,6 +40,18 @@ describe('collectibles os apps', () => {
     );
   });
 
+  it('exposes Protocol as an in-app launcher destination', () => {
+    expect(isAppRoutePath('/protocol')).toBe(true);
+    expect(resolveActiveOsAppId('/protocol')).toBe('protocol');
+    expect(resolveActiveOsAppId('/protocol?dao=treasury')).toBe('protocol');
+    const protocol = gateOsApps().find((app) => app.id === 'protocol');
+    expect(protocol?.kind).toBe('app');
+    expect(protocol?.href).toBe('/protocol');
+    expect(
+      appShellOsApps('alice.near').some((app) => app.id === 'protocol')
+    ).toBe(true);
+  });
+
   it('exposes Collectibles for gate and owner, not visitors', () => {
     expect(gateOsApps().some((app) => app.id === 'collectibles')).toBe(true);
     expect(

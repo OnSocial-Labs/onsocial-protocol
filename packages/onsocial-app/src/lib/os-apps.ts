@@ -8,6 +8,7 @@ import {
   APP_GROUPS_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
+  APP_PROTOCOL_PATH,
 } from '@/lib/app-routes';
 import { portalHref } from '@/lib/app-links';
 import type { OverlayPanel } from '@/lib/overlay-routes';
@@ -25,7 +26,7 @@ export interface OsAppLink {
 
 /**
  * Which launcher app is "here" for the current route.
- * External portals (Boost / Protocol) are never active in-app.
+ * External portals (Boost) are never active in-app.
  * Hubs covers `/apps` and drop pages under `/collection`.
  */
 export function resolveActiveOsAppId(
@@ -63,6 +64,12 @@ export function resolveActiveOsAppId(
   }
   if (path === APP_GROUPS_PATH || path.startsWith(`${APP_GROUPS_PATH}/`)) {
     return 'groups';
+  }
+  if (
+    path === APP_PROTOCOL_PATH ||
+    path.startsWith(`${APP_PROTOCOL_PATH}/`)
+  ) {
+    return 'protocol';
   }
 
   const portfolio = path.match(/^\/@([^/]+)(?:\/([^/]+))?/);
@@ -108,13 +115,14 @@ const OS_EXTERNAL_LINKS: OsAppLink[] = [
     kind: 'external',
     href: portalHref('/boost'),
   },
-  {
-    id: 'protocol',
-    label: 'Protocol',
-    kind: 'external',
-    href: portalHref('/'),
-  },
 ];
+
+const PROTOCOL_APP: OsAppLink = {
+  id: 'protocol',
+  label: 'Protocol',
+  kind: 'app',
+  href: APP_PROTOCOL_PATH,
+};
 
 const HUBS_APP: OsAppLink = {
   id: 'hubs',
@@ -162,12 +170,7 @@ export function gateOsApps(): OsAppLink[] {
       kind: 'external',
       href: portalHref('/boost'),
     },
-    {
-      id: 'protocol',
-      label: 'Protocol',
-      kind: 'external',
-      href: portalHref('/'),
-    },
+    PROTOCOL_APP,
   ];
 }
 
@@ -200,6 +203,7 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
 }
@@ -232,6 +236,7 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
 }
@@ -259,6 +264,7 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
 

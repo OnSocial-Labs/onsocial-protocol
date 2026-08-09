@@ -50,3 +50,17 @@ export const RELAYER_ACCOUNT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
     ? 'relayer.onsocial.near'
     : 'relayer.onsocial.testnet';
+
+/** Protocol governance DAO (Sputnik). */
+export const GOVERNANCE_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'governance.onsocial.near'
+    : 'governance.onsocial.testnet');
+
+/** Protocol treasury DAO (Sputnik). */
+export const TREASURY_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_TREASURY_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'treasury.onsocial.near'
+    : 'treasury.onsocial.testnet');
