@@ -6,7 +6,7 @@ export function recordViewerMute(
   targetAccountId: string,
   muted: boolean
 ): void {
-  ledger.set(targetAccountId, muted);
+  ledger.set(targetAccountId.trim().toLowerCase(), muted);
 }
 
 export function resolveViewerMute(
@@ -14,7 +14,7 @@ export function resolveViewerMute(
   targetAccountId: string,
   apiMuted: boolean
 ): boolean {
-  const entry = ledger.get(targetAccountId);
+  const entry = ledger.get(targetAccountId.trim().toLowerCase());
   if (entry === undefined) return apiMuted;
   return entry;
 }
@@ -24,9 +24,10 @@ export function reconcileViewerMute(
   targetAccountId: string,
   apiMuted: boolean
 ): boolean {
-  const entry = ledger.get(targetAccountId);
+  const key = targetAccountId.trim().toLowerCase();
+  const entry = ledger.get(key);
   if (entry === undefined || entry !== apiMuted) return false;
-  return ledger.delete(targetAccountId);
+  return ledger.delete(key);
 }
 
 export function deriveMutedAccountIds(

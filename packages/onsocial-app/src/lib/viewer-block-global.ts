@@ -39,15 +39,16 @@ export function setGlobalApiBlockIds(input: {
 }
 
 export function isGlobalBlockPending(targetAccountId: string): boolean {
-  return globalPendingTargets.has(targetAccountId);
+  return globalPendingTargets.has(targetAccountId.trim().toLowerCase());
 }
 
 export function setGlobalBlockPending(
   targetAccountId: string,
   pending: boolean
 ): void {
-  if (pending) globalPendingTargets.add(targetAccountId);
-  else globalPendingTargets.delete(targetAccountId);
+  const key = targetAccountId.trim().toLowerCase();
+  if (pending) globalPendingTargets.add(key);
+  else globalPendingTargets.delete(key);
   bumpGlobalViewerBlockLedger();
 }
 

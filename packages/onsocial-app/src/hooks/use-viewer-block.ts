@@ -5,6 +5,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { canonicalAccountId } from '@/lib/account-match';
 import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import {
   deriveBlockedAccountIds,
@@ -22,17 +23,24 @@ import {
   setGlobalBlockPending,
   subscribeGlobalViewerBlockLedger,
 } from '@/lib/viewer-block-global';
-import { isViewerBlocking } from '@/lib/viewer-mute-block-filter';
 import {
-  txToastConfirming,
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+  bumpGlobalViewerStandingLedger,
+  getGlobalViewerStandingLedger,
+} from '@/lib/viewer-standing-global';
+import { recordViewerStanding } from '@/lib/viewer-standing-ledger';
+import { isViewerBlocking } from '@/lib/viewer-mute-block-filter';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const SOFT_RETRY_MS = [2000, 5000] as const;
 
-export function useViewerBlock() {
+type UseViewerBlockOptions = {
+  /** When true, load edges on connect. Mount once from ViewerMuteBlockHost. */
+  bootstrap?: boolean;
+};
+
+export function useViewerBlock(options: UseViewerBlockOptions = {}) {
+  const bootstrap = options.bootstrap === true;
   const {
     isConnected,
     hasSocialSession,
@@ -44,6 +52,7 @@ export function useViewerBlock() {
   const [blockSyncVersion, setBlockSyncVersion] = useState(
     getGlobalViewerBlockLedgerVersion
   );
+  const softRetryTimersRef = useRef<number[]>([]);
 
   useEffect(() => {
     return subscribeGlobalViewerBlockLedger(() => {
@@ -63,13 +72,21 @@ export function useViewerBlock() {
     try {
       const { client, session } = await getClient();
       if (!session) return;
-      const [outgoing, incoming] = await Promise.all([
-        client.blocks.listOutgoing(viewerAccountId, { limit: 500 }),
-        client.blocks.listIncoming(viewerAccountId, { limit: 500 }),
+      const viewer = canonicalAccountId(viewerAccountId);
+      const [outgoingRaw, incomingRaw] = await Promise.all([
+        client.blocks.listOutgoing(viewer, { limit: 500 }),
+        client.blocks.listIncoming(viewer, { limit: 500 }),
       ]);
+      const outgoing = outgoingRaw.map((id) => canonicalAccountId(id));
+      const incoming = incomingRaw.map((id) => canonicalAccountId(id));
       setGlobalApiBlockIds({ outgoing, incoming });
-      for (const id of outgoing) {
-        reconcileViewerBlock(ledgerRef.current, id, true);
+      const apiSet = new Set(outgoing);
+      for (const [accountId] of [...ledgerRef.current.entries()]) {
+        reconcileViewerBlock(
+          ledgerRef.current,
+          accountId,
+          apiSet.has(canonicalAccountId(accountId))
+        );
       }
       bumpBlockSync();
     } catch {
@@ -78,51 +95,71 @@ export function useViewerBlock() {
   }, [bumpBlockSync, getClient, isConnected, viewerAccountId]);
 
   useEffect(() => {
+    if (!bootstrap) return;
     void refreshBlocks();
-  }, [refreshBlocks]);
+  }, [bootstrap, refreshBlocks]);
 
   useEffect(() => {
+    if (!bootstrap) return;
     if (!isConnected) clearGlobalViewerBlockState();
-  }, [isConnected]);
+  }, [bootstrap, isConnected]);
+
+  useEffect(() => {
+    return () => {
+      for (const timer of softRetryTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      softRetryTimersRef.current = [];
+    };
+  }, []);
 
   const softRetryRefresh = useCallback(() => {
-    for (const ms of SOFT_RETRY_MS) {
+    for (const timer of softRetryTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    softRetryTimersRef.current = SOFT_RETRY_MS.map((ms) =>
       window.setTimeout(() => {
         void refreshBlocks();
-      }, ms);
-    }
+      }, ms)
+    );
   }, [refreshBlocks]);
 
   const isBlockPendingForTarget = useCallback((targetAccountId: string) => {
-    return isGlobalBlockPending(targetAccountId);
+    return isGlobalBlockPending(canonicalAccountId(targetAccountId));
   }, []);
 
   const updateBlock = useCallback(
     async (targetAccountId: string, shouldBlock: boolean): Promise<boolean> => {
+      const target = canonicalAccountId(targetAccountId);
       if (!isConnected) {
         throw new Error('Connect your wallet before updating blocks.');
       }
-      if (viewerAccountId === targetAccountId) {
+      if (viewerAccountId && canonicalAccountId(viewerAccountId) === target) {
         throw new Error('You cannot block yourself.');
       }
-      if (isGlobalBlockPending(targetAccountId)) return false;
+      if (isGlobalBlockPending(target)) return false;
 
-      setGlobalBlockPending(targetAccountId, true);
+      setGlobalBlockPending(target, true);
       try {
         const { client, session } = await getClient();
         if (!session) {
           throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
         }
 
-        const response = shouldBlock
-          ? await client.blocks.add(targetAccountId)
-          : await client.blocks.remove(targetAccountId);
+        // Blocking clears the viewer's outbound stand so "no stands either way"
+        // is true from this account without waiting on the other party.
+        const actions = shouldBlock
+          ? [
+              client.blocks.add(target),
+              client.standings.remove(target).catch(() => null),
+            ]
+          : [client.blocks.remove(target)];
+
+        const [blockResponse] = await Promise.all(actions);
+        if (!blockResponse) return false;
 
         const confirmed = await trackTransaction({
-          txHashes: collectRelayTxHashes(response),
-          submittedMessage: shouldBlock
-            ? txToastConfirming.blockingAccount
-            : txToastConfirming.unblockingAccount,
+          txHashes: collectRelayTxHashes(blockResponse),
           successMessage: shouldBlock
             ? txToastSuccess.accountBlocked
             : txToastSuccess.accountUnblocked,
@@ -132,7 +169,11 @@ export function useViewerBlock() {
         });
         if (!confirmed) return false;
 
-        recordViewerBlock(ledgerRef.current, targetAccountId, shouldBlock);
+        recordViewerBlock(ledgerRef.current, target, shouldBlock);
+        if (shouldBlock) {
+          recordViewerStanding(getGlobalViewerStandingLedger(), target, false);
+          bumpGlobalViewerStandingLedger();
+        }
         bumpBlockSync();
         softRetryRefresh();
         return true;
@@ -140,7 +181,7 @@ export function useViewerBlock() {
         if (!isWalletUserCancellation(error)) throw error;
         return false;
       } finally {
-        setGlobalBlockPending(targetAccountId, false);
+        setGlobalBlockPending(target, false);
       }
     },
     [

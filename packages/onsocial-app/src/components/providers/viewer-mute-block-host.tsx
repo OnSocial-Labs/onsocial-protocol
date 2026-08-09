@@ -8,7 +8,7 @@ import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerBlock } from '@/hooks/use-viewer-block';
 
 export function ViewerMuteBlockHost() {
-  useViewerMute();
-  useViewerBlock();
+  useViewerMute({ bootstrap: true });
+  useViewerBlock({ bootstrap: true });
   return null;
 }

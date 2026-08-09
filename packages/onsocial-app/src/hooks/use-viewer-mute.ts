@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { canonicalAccountId } from '@/lib/account-match';
 import { APP_SOCIAL_SESSION_MISSING_MESSAGE } from '@/lib/app-social-session';
 import {
   deriveMutedAccountIds,
@@ -25,7 +26,13 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const SOFT_RETRY_MS = [2000, 5000] as const;
 
-export function useViewerMute() {
+type UseViewerMuteOptions = {
+  /** When true, load prefs on connect. Mount once from ViewerMuteBlockHost. */
+  bootstrap?: boolean;
+};
+
+export function useViewerMute(options: UseViewerMuteOptions = {}) {
+  const bootstrap = options.bootstrap === true;
   const {
     isConnected,
     hasSocialSession,
@@ -36,6 +43,7 @@ export function useViewerMute() {
   const [muteSyncVersion, setMuteSyncVersion] = useState(
     getGlobalViewerMuteLedgerVersion
   );
+  const softRetryTimersRef = useRef<number[]>([]);
 
   useEffect(() => {
     return subscribeGlobalViewerMuteLedger(() => {
@@ -56,10 +64,15 @@ export function useViewerMute() {
       const { client, session } = await getClient();
       if (!session) return;
       const { mutes } = await client.mutes.list();
-      const ids = mutes.map((m) => m.mutedAccountId);
+      const ids = mutes.map((m) => canonicalAccountId(m.mutedAccountId));
       setGlobalApiMutedIds(ids);
-      for (const id of ids) {
-        reconcileViewerMute(ledgerRef.current, id, true);
+      const apiSet = new Set(ids);
+      for (const [accountId] of [...ledgerRef.current.entries()]) {
+        reconcileViewerMute(
+          ledgerRef.current,
+          accountId,
+          apiSet.has(canonicalAccountId(accountId))
+        );
       }
       bumpMuteSync();
     } catch {
@@ -68,53 +81,68 @@ export function useViewerMute() {
   }, [bumpMuteSync, getClient, isConnected, viewerAccountId]);
 
   useEffect(() => {
+    if (!bootstrap) return;
     void refreshMutes();
-  }, [refreshMutes]);
+  }, [bootstrap, refreshMutes]);
 
   useEffect(() => {
+    if (!bootstrap) return;
     if (!isConnected) clearGlobalViewerMuteState();
-  }, [isConnected]);
+  }, [bootstrap, isConnected]);
+
+  useEffect(() => {
+    return () => {
+      for (const timer of softRetryTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      softRetryTimersRef.current = [];
+    };
+  }, []);
 
   const softRetryRefresh = useCallback(() => {
-    for (const ms of SOFT_RETRY_MS) {
+    for (const timer of softRetryTimersRef.current) {
+      window.clearTimeout(timer);
+    }
+    softRetryTimersRef.current = SOFT_RETRY_MS.map((ms) =>
       window.setTimeout(() => {
         void refreshMutes();
-      }, ms);
-    }
+      }, ms)
+    );
   }, [refreshMutes]);
 
   const isMutePendingForTarget = useCallback((targetAccountId: string) => {
-    return isGlobalMutePending(targetAccountId);
+    return isGlobalMutePending(canonicalAccountId(targetAccountId));
   }, []);
 
   const updateMute = useCallback(
     async (targetAccountId: string, shouldMute: boolean): Promise<void> => {
+      const target = canonicalAccountId(targetAccountId);
       if (!isConnected) {
         throw new Error('Connect your wallet before updating mutes.');
       }
-      if (viewerAccountId === targetAccountId) {
+      if (viewerAccountId && canonicalAccountId(viewerAccountId) === target) {
         throw new Error('You cannot mute yourself.');
       }
-      if (isGlobalMutePending(targetAccountId)) return;
+      if (isGlobalMutePending(target)) return;
 
-      setGlobalMutePending(targetAccountId, true);
+      setGlobalMutePending(target, true);
       try {
         const { client, session } = await getClient();
         if (!session) {
           throw new Error(APP_SOCIAL_SESSION_MISSING_MESSAGE);
         }
         if (shouldMute) {
-          await client.mutes.add(targetAccountId);
+          await client.mutes.add(target);
         } else {
-          await client.mutes.remove(targetAccountId);
+          await client.mutes.remove(target);
         }
-        recordViewerMute(ledgerRef.current, targetAccountId, shouldMute);
+        recordViewerMute(ledgerRef.current, target, shouldMute);
         bumpMuteSync();
         softRetryRefresh();
       } catch (error) {
         if (!isWalletUserCancellation(error)) throw error;
       } finally {
-        setGlobalMutePending(targetAccountId, false);
+        setGlobalMutePending(target, false);
       }
     },
     [bumpMuteSync, getClient, isConnected, softRetryRefresh, viewerAccountId]

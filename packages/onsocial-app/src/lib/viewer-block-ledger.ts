@@ -6,7 +6,7 @@ export function recordViewerBlock(
   targetAccountId: string,
   blocked: boolean
 ): void {
-  ledger.set(targetAccountId, blocked);
+  ledger.set(targetAccountId.trim().toLowerCase(), blocked);
 }
 
 export function resolveViewerBlock(
@@ -14,7 +14,7 @@ export function resolveViewerBlock(
   targetAccountId: string,
   apiBlocked: boolean
 ): boolean {
-  const entry = ledger.get(targetAccountId);
+  const entry = ledger.get(targetAccountId.trim().toLowerCase());
   if (entry === undefined) return apiBlocked;
   return entry;
 }
@@ -24,9 +24,10 @@ export function reconcileViewerBlock(
   targetAccountId: string,
   apiBlocked: boolean
 ): boolean {
-  const entry = ledger.get(targetAccountId);
+  const key = targetAccountId.trim().toLowerCase();
+  const entry = ledger.get(key);
   if (entry === undefined || entry !== apiBlocked) return false;
-  return ledger.delete(targetAccountId);
+  return ledger.delete(key);
 }
 
 export function deriveBlockedAccountIds(
