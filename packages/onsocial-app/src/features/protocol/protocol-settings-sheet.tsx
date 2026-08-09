@@ -3,24 +3,33 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
+import { findProtocolRole } from '@/features/protocol/protocol-create';
 import {
   getProtocolDaoConfig,
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import {
+  PROTOCOL_ADD_ROLE_ACCESS_OPTIONS,
   PROTOCOL_EDITABLE_PERMISSIONS,
   PROTOCOL_POLICY_ACTION_OPTIONS,
   buildProtocolPolicyPayload,
   daysToProposalPeriodNs,
-  getProtocolPolicyRoleOptions,
+  getAddRoleAccessBlockReason,
+  getEditableProtocolPolicyRoleOptions,
+  getRemovableProtocolPolicyRoleOptions,
   parseVoteThresholdInputs,
   proposalPeriodNsToDays,
+  type ProtocolAddRoleAccessMode,
   type ProtocolPolicyActionId,
 } from '@/features/protocol/protocol-policy';
+import {
+  canProposeProtocolPolicyAction,
+  getProtocolPolicyActionBlockReason,
+  isProtocolDaoGroupMember,
+} from '@/features/protocol/protocol-propose-gate';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
-import { findProtocolRole } from '@/features/protocol/protocol-create';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 
@@ -55,6 +64,11 @@ export function ProtocolSettingsSheet({
   const [voteDen, setVoteDen] = useState('2');
   const [voteQuorum, setVoteQuorum] = useState('0');
   const [newRoleName, setNewRoleName] = useState('');
+  const [addRoleAccessMode, setAddRoleAccessMode] =
+    useState<ProtocolAddRoleAccessMode>('full_access');
+  const [addRolePermissions, setAddRolePermissions] = useState<string[]>([
+    'call:AddProposal',
+  ]);
   const [removeRoleId, setRemoveRoleId] = useState('');
   const [permissionsRoleId, setPermissionsRoleId] = useState('');
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -65,10 +79,32 @@ export function ProtocolSettingsSheet({
   >('idle');
   const [formError, setFormError] = useState<string | null>(null);
 
-  const roles = useMemo(
-    () => getProtocolPolicyRoleOptions(daoPolicy),
+  const editableRoles = useMemo(
+    () => getEditableProtocolPolicyRoleOptions(daoPolicy),
     [daoPolicy]
   );
+  const removableRoles = useMemo(
+    () => getRemovableProtocolPolicyRoleOptions(daoPolicy),
+    [daoPolicy]
+  );
+  const delegatedWeight = eligibility?.delegatedWeight ?? '0';
+  const isGroupMember = useMemo(
+    () => isProtocolDaoGroupMember(daoPolicy, accountId),
+    [daoPolicy, accountId]
+  );
+  const availableActions = useMemo(() => {
+    if (!accountId || loadState !== 'ready') {
+      return PROTOCOL_POLICY_ACTION_OPTIONS;
+    }
+    return PROTOCOL_POLICY_ACTION_OPTIONS.filter((option) =>
+      canProposeProtocolPolicyAction(
+        daoPolicy,
+        accountId,
+        delegatedWeight,
+        option.id
+      )
+    );
+  }, [accountId, loadState, daoPolicy, delegatedWeight]);
 
   useEffect(() => {
     if (!open) {
@@ -82,6 +118,8 @@ export function ProtocolSettingsSheet({
       setVoteDen('2');
       setVoteQuorum('0');
       setNewRoleName('');
+      setAddRoleAccessMode('full_access');
+      setAddRolePermissions(['call:AddProposal']);
       setRemoveRoleId('');
       setPermissionsRoleId('');
       setPermissions([]);
@@ -136,18 +174,26 @@ export function ProtocolSettingsSheet({
 
   useEffect(() => {
     if (!open) return;
-    if (roles.length === 0) {
-      setRemoveRoleId('');
-      setPermissionsRoleId('');
-      return;
-    }
     setRemoveRoleId((current) =>
-      current && roles.includes(current) ? current : roles[0]!
+      current && removableRoles.includes(current)
+        ? current
+        : (removableRoles[0] ?? '')
     );
     setPermissionsRoleId((current) =>
-      current && roles.includes(current) ? current : roles[0]!
+      current && editableRoles.includes(current)
+        ? current
+        : (editableRoles[0] ?? '')
     );
-  }, [open, roles]);
+  }, [open, removableRoles, editableRoles]);
+
+  useEffect(() => {
+    if (!open || availableActions.length === 0) return;
+    setActionId((current) =>
+      availableActions.some((option) => option.id === current)
+        ? current
+        : availableActions[0]!.id
+    );
+  }, [open, availableActions]);
 
   useEffect(() => {
     if (!open || !permissionsRoleId) return;
@@ -158,14 +204,32 @@ export function ProtocolSettingsSheet({
     setPermissions(current);
   }, [open, permissionsRoleId, daoPolicy]);
 
-  const canPropose =
-    loadState === 'error' ? true : eligibility?.canPropose === true;
+  const canProposeSelected =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    canProposeProtocolPolicyAction(
+      daoPolicy,
+      accountId,
+      delegatedWeight,
+      actionId
+    );
   const needsStake =
-    loadState === 'ready' && eligibility != null && !eligibility.canPropose;
+    loadState === 'ready' &&
+    eligibility != null &&
+    !isGroupMember &&
+    !eligibility.canPropose;
   const shortfall =
     eligibility && BigInt(eligibility.remainingToThreshold) > 0n
       ? formatSocialCompact(eligibility.remainingToThreshold)
       : null;
+  const permissionBlock =
+    loadState === 'ready' && accountId && !needsStake && !canProposeSelected
+      ? getProtocolPolicyActionBlockReason(actionId)
+      : null;
+  const addRoleBlock =
+    actionId === 'add_role'
+      ? getAddRoleAccessBlockReason(daoPolicy, addRoleAccessMode)
+      : '';
 
   const footerState = useMemo((): CommerceSheetFooterState | null => {
     if (!open) return null;
@@ -187,10 +251,17 @@ export function ProtocolSettingsSheet({
       canSubmit:
         !pending &&
         Boolean(accountId) &&
-        loadState !== 'loading' &&
-        (canPropose || loadState === 'error'),
+        loadState === 'ready' &&
+        canProposeSelected &&
+        !addRoleBlock,
       pending,
-      disabled: pending || !accountId || loadState === 'loading',
+      disabled:
+        pending ||
+        !accountId ||
+        loadState === 'loading' ||
+        loadState === 'error' ||
+        !canProposeSelected ||
+        Boolean(addRoleBlock),
       primaryType: 'submit',
     };
   }, [
@@ -200,7 +271,8 @@ export function ProtocolSettingsSheet({
     onOpenStake,
     accountId,
     loadState,
-    canPropose,
+    canProposeSelected,
+    addRoleBlock,
   ]);
 
   return (
@@ -220,7 +292,15 @@ export function ProtocolSettingsSheet({
         className="protocol-compose protocol-task-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (needsStake || pending || !accountId) return;
+          if (
+            needsStake ||
+            pending ||
+            !accountId ||
+            !canProposeSelected ||
+            addRoleBlock
+          ) {
+            return;
+          }
           try {
             const payload = buildProtocolPolicyPayload({
               actionId,
@@ -240,6 +320,8 @@ export function ProtocolSettingsSheet({
                   : undefined,
               voteQuorum,
               newRoleName,
+              addRoleAccessMode,
+              addRolePermissions,
               removeRoleId,
               permissionsRoleId,
               permissions,
@@ -263,9 +345,28 @@ export function ProtocolSettingsSheet({
           <p className="protocol-empty">Loading DAO settings…</p>
         ) : null}
 
+        {accountId && loadState === 'error' ? (
+          <p className="protocol-compose-note is-warn">
+            Could not verify settings eligibility. Close and try again.
+          </p>
+        ) : null}
+
         {needsStake ? (
           <p className="protocol-compose-note is-warn">
             Need {shortfall ?? 'more'} SOCIAL delegated to propose settings.
+          </p>
+        ) : null}
+
+        {permissionBlock ? (
+          <p className="protocol-compose-note is-warn">{permissionBlock}</p>
+        ) : null}
+
+        {loadState === 'ready' &&
+        accountId &&
+        !needsStake &&
+        availableActions.length === 0 ? (
+          <p className="protocol-compose-note is-warn">
+            No settings actions are available for your roles on this DAO.
           </p>
         ) : null}
 
@@ -274,7 +375,7 @@ export function ProtocolSettingsSheet({
           role="tablist"
           aria-label="Settings action"
         >
-          {PROTOCOL_POLICY_ACTION_OPTIONS.map((option) => (
+          {availableActions.map((option) => (
             <button
               key={option.id}
               type="button"
@@ -285,7 +386,7 @@ export function ProtocolSettingsSheet({
                 setActionId(option.id);
                 setFormError(null);
               }}
-              disabled={pending}
+              disabled={pending || loadState === 'error'}
             >
               {option.label}
             </button>
@@ -384,12 +485,12 @@ export function ProtocolSettingsSheet({
               <select
                 value={permissionsRoleId}
                 onChange={(event) => setPermissionsRoleId(event.target.value)}
-                disabled={pending || roles.length === 0}
+                disabled={pending || editableRoles.length === 0}
               >
-                {roles.length === 0 ? (
-                  <option value="">No roles</option>
+                {editableRoles.length === 0 ? (
+                  <option value="">No editable roles</option>
                 ) : (
-                  roles.map((role) => (
+                  editableRoles.map((role) => (
                     <option key={role} value={role}>
                       {role}
                     </option>
@@ -423,19 +524,73 @@ export function ProtocolSettingsSheet({
         ) : null}
 
         {actionId === 'add_role' ? (
-          <label className="guild-field">
-            <span>New role name</span>
-            <input
-              type="text"
-              value={newRoleName}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              placeholder="reviewers"
-              onChange={(event) => setNewRoleName(event.target.value)}
-              disabled={pending}
-            />
-          </label>
+          <>
+            <label className="guild-field">
+              <span>New role name</span>
+              <input
+                type="text"
+                value={newRoleName}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="reviewers"
+                onChange={(event) => setNewRoleName(event.target.value)}
+                disabled={pending}
+              />
+            </label>
+            <label className="guild-field">
+              <span>Access</span>
+              <select
+                value={addRoleAccessMode}
+                onChange={(event) =>
+                  setAddRoleAccessMode(
+                    event.target.value as ProtocolAddRoleAccessMode
+                  )
+                }
+                disabled={pending}
+              >
+                {PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="protocol-compose-note">
+              {
+                PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.find(
+                  (option) => option.id === addRoleAccessMode
+                )?.hint
+              }
+            </p>
+            {addRoleAccessMode === 'custom' ? (
+              <div className="protocol-permission-list">
+                {PROTOCOL_EDITABLE_PERMISSIONS.map((option) => {
+                  const checked = addRolePermissions.includes(option.id);
+                  return (
+                    <label key={option.id} className="protocol-permission-item">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={pending}
+                        onChange={() => {
+                          setAddRolePermissions((current) =>
+                            checked
+                              ? current.filter((id) => id !== option.id)
+                              : [...current, option.id]
+                          );
+                        }}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : null}
+            {addRoleBlock ? (
+              <p className="protocol-compose-note is-warn">{addRoleBlock}</p>
+            ) : null}
+          </>
         ) : null}
 
         {actionId === 'remove_role' ? (
@@ -444,12 +599,12 @@ export function ProtocolSettingsSheet({
             <select
               value={removeRoleId}
               onChange={(event) => setRemoveRoleId(event.target.value)}
-              disabled={pending || roles.length === 0}
+              disabled={pending || removableRoles.length === 0}
             >
-              {roles.length === 0 ? (
-                <option value="">No roles</option>
+              {removableRoles.length === 0 ? (
+                <option value="">No removable roles</option>
               ) : (
-                roles.map((role) => (
+                removableRoles.map((role) => (
                   <option key={role} value={role}>
                     {role}
                   </option>

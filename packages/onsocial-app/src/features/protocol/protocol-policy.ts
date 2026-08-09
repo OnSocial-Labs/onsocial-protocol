@@ -1,6 +1,9 @@
-import type { ProtocolDaoPolicy, ProtocolDaoRole } from '@/features/protocol/types';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { findProtocolRole } from '@/features/protocol/protocol-create';
+import type {
+  ProtocolDaoPolicy,
+  ProtocolDaoRole,
+} from '@/features/protocol/types';
 
 export type ProtocolPolicyActionId =
   | 'update_parameters'
@@ -9,6 +12,8 @@ export type ProtocolPolicyActionId =
   | 'update_permissions'
   | 'add_role'
   | 'remove_role';
+
+export type ProtocolAddRoleAccessMode = 'full_access' | 'custom';
 
 export const PROTOCOL_POLICY_ACTION_OPTIONS: Array<{
   id: ProtocolPolicyActionId;
@@ -22,6 +27,23 @@ export const PROTOCOL_POLICY_ACTION_OPTIONS: Array<{
   { id: 'remove_role', label: 'Remove role' },
 ];
 
+export const PROTOCOL_ADD_ROLE_ACCESS_OPTIONS: Array<{
+  id: ProtocolAddRoleAccessMode;
+  label: string;
+  hint: string;
+}> = [
+  {
+    id: 'full_access',
+    label: 'Full access',
+    hint: 'Council role with *:* — copies guardians/council membership',
+  },
+  {
+    id: 'custom',
+    label: 'Choose permissions',
+    hint: 'Public proposer — copies SOCIAL gate and vote rules',
+  },
+];
+
 export const PROTOCOL_EDITABLE_PERMISSIONS = [
   { id: 'call:AddProposal', label: 'Function call' },
   { id: 'add_member_to_role:AddProposal', label: 'Join' },
@@ -31,6 +53,14 @@ export const PROTOCOL_EDITABLE_PERMISSIONS = [
   { id: 'policy_add_or_update_role:AddProposal', label: 'Role changes' },
   { id: 'policy_update_parameters:AddProposal', label: 'Parameter changes' },
 ] as const;
+
+const PROTOCOL_EDITABLE_PERMISSION_IDS = new Set<string>(
+  PROTOCOL_EDITABLE_PERMISSIONS.map((option) => option.id)
+);
+
+const DELEGATED_PROPOSERS_ROLE_ID = 'delegated_proposers';
+const GUARDIANS_ROLE_ID = 'guardians';
+const WILDCARD_ADD_PROPOSAL_PERMISSION = '*:AddProposal';
 
 export interface ProtocolDaoConfig {
   name: string;
@@ -91,13 +121,144 @@ export function getProtocolPolicyRoleOptions(
   );
 }
 
-function fullAccessRoleTemplate(): ProtocolDaoRole {
-  return {
-    name: 'council',
-    kind: { Group: [] },
-    permissions: ['*:*'],
-    vote_policy: {},
-  };
+export function roleHasWildcardPermissions(role: ProtocolDaoRole): boolean {
+  return (role.permissions ?? []).includes('*:*');
+}
+
+export function isFullAccessProtocolRole(role: ProtocolDaoRole): boolean {
+  return roleHasWildcardPermissions(role);
+}
+
+function isProtocolCouncilRole(role: ProtocolDaoRole): boolean {
+  const name = role.name?.trim().toLowerCase() ?? '';
+  if (name === GUARDIANS_ROLE_ID || name === 'council') return true;
+  return (
+    roleHasWildcardPermissions(role) &&
+    Array.isArray(role.kind?.Group) &&
+    (role.kind?.Group?.length ?? 0) > 0
+  );
+}
+
+export function isEditableProtocolPolicyRole(role: ProtocolDaoRole): boolean {
+  const name = role.name?.trim();
+  if (!name) return false;
+  if (roleHasWildcardPermissions(role)) return false;
+  if (isProtocolCouncilRole(role)) return false;
+  return true;
+}
+
+export function getEditableProtocolPolicyRoleOptions(
+  policy: ProtocolDaoPolicy | null | undefined
+): string[] {
+  return (
+    policy?.roles
+      ?.filter(isEditableProtocolPolicyRole)
+      .map((role) => role.name!.trim())
+      .filter(Boolean)
+      .sort((left, right) => left.localeCompare(right)) ?? []
+  );
+}
+
+export function getFullAccessProtocolRoleIds(
+  policy: ProtocolDaoPolicy | null | undefined
+): string[] {
+  const names =
+    policy?.roles
+      ?.filter(isFullAccessProtocolRole)
+      .map((role) => role.name?.trim())
+      .filter((name): name is string => Boolean(name)) ?? [];
+  return [...new Set(names)];
+}
+
+export function getRemoveProtocolPolicyRoleBlockReason(
+  policy: ProtocolDaoPolicy | null | undefined,
+  roleId: string
+): string {
+  const normalizedRoleId = roleId.trim();
+  if (!normalizedRoleId) return 'Choose a role to remove.';
+  const role = findProtocolRole(policy, normalizedRoleId);
+  if (!role) return `Role ${normalizedRoleId} is not in DAO policy.`;
+  if (!isFullAccessProtocolRole(role)) return '';
+  if (getFullAccessProtocolRoleIds(policy).length <= 1) {
+    return 'Cannot remove the only full-access role. Add another council role with full access (*:*) first.';
+  }
+  return '';
+}
+
+export function getRemovableProtocolPolicyRoleOptions(
+  policy: ProtocolDaoPolicy | null | undefined
+): string[] {
+  return getProtocolPolicyRoleOptions(policy).filter(
+    (roleId) => getRemoveProtocolPolicyRoleBlockReason(policy, roleId) === ''
+  );
+}
+
+export function findFullAccessProtocolRole(
+  policy: ProtocolDaoPolicy | null | undefined
+): ProtocolDaoRole | null {
+  const guardians = findProtocolRole(policy, GUARDIANS_ROLE_ID);
+  if (guardians && isFullAccessProtocolRole(guardians)) return guardians;
+  return policy?.roles?.find(isFullAccessProtocolRole) ?? null;
+}
+
+export function findDelegatedProposersRole(
+  policy: ProtocolDaoPolicy | null | undefined
+): ProtocolDaoRole | null {
+  const byName = findProtocolRole(policy, DELEGATED_PROPOSERS_ROLE_ID);
+  if (byName) return byName;
+  return (
+    policy?.roles?.find(
+      (role) =>
+        role.kind?.Member != null &&
+        role.kind.Member !== '' &&
+        (role.permissions ?? []).includes('call:AddProposal')
+    ) ?? null
+  );
+}
+
+export function resolveAddRoleSourceRole(
+  policy: ProtocolDaoPolicy | null | undefined,
+  accessMode: ProtocolAddRoleAccessMode
+): ProtocolDaoRole | null {
+  if (accessMode === 'full_access') {
+    return findFullAccessProtocolRole(policy);
+  }
+  return findDelegatedProposersRole(policy);
+}
+
+export function getAddRoleAccessBlockReason(
+  policy: ProtocolDaoPolicy | null | undefined,
+  accessMode: ProtocolAddRoleAccessMode
+): string {
+  if (resolveAddRoleSourceRole(policy, accessMode)) return '';
+  if (accessMode === 'full_access') {
+    return 'No council role in policy to copy full access from.';
+  }
+  return 'No public proposer role in policy to copy the SOCIAL gate from.';
+}
+
+function serializeProtocolRoleKind(
+  role: ProtocolDaoRole
+): { Group: string[] } | { Member: string } {
+  if (role.kind?.Group?.length) {
+    return { Group: role.kind.Group };
+  }
+  if (role.kind?.Member != null && role.kind.Member !== '') {
+    return { Member: role.kind.Member };
+  }
+  throw new Error(`Role ${role.name ?? 'unknown'} has no supported kind.`);
+}
+
+export function preserveNonEditableRolePermissions(
+  role: ProtocolDaoRole,
+  nextEditablePermissions: string[]
+): string[] {
+  const preserved = (role.permissions ?? []).filter(
+    (permission) =>
+      !PROTOCOL_EDITABLE_PERMISSION_IDS.has(permission) &&
+      permission !== WILDCARD_ADD_PROPOSAL_PERMISSION
+  );
+  return [...new Set([...preserved, ...nextEditablePermissions])];
 }
 
 export function buildProtocolPolicyParametersPayload(opts: {
@@ -186,21 +347,40 @@ export function buildProtocolPolicyVotePayload(opts: {
 }
 
 export function buildProtocolPolicyAddRolePayload(opts: {
+  policy: ProtocolDaoPolicy | null | undefined;
   newRoleName: string;
+  accessMode?: ProtocolAddRoleAccessMode;
+  permissions?: string[];
   description?: string;
 }): ProtocolProposalPayload {
   const name = normalizeProtocolRoleName(opts.newRoleName);
-  const source = fullAccessRoleTemplate();
+  const accessMode = opts.accessMode ?? 'full_access';
+  const source = resolveAddRoleSourceRole(opts.policy, accessMode);
+  if (!source) {
+    throw new Error(getAddRoleAccessBlockReason(opts.policy, accessMode));
+  }
+
+  const permissions = roleHasWildcardPermissions(source)
+    ? (source.permissions ?? ['*:*'])
+    : [...new Set(opts.permissions ?? [])];
+  if (permissions.length === 0) {
+    throw new Error('Select at least one permission.');
+  }
+
+  const accessLabel = roleHasWildcardPermissions(source)
+    ? 'full access'
+    : 'public permissions';
+
   return {
     proposal: {
       description:
-        opts.description?.trim() || `Add ${name} role (full access).`,
+        opts.description?.trim() || `Add ${name} role (${accessLabel}).`,
       kind: {
         ChangePolicyAddOrUpdateRole: {
           role: {
             name,
-            kind: source.kind,
-            permissions: source.permissions ?? ['*:*'],
+            kind: serializeProtocolRoleKind(source),
+            permissions,
             vote_policy: source.vote_policy ?? {},
           },
         },
@@ -215,10 +395,11 @@ export function buildProtocolPolicyRemoveRolePayload(opts: {
   description?: string;
 }): ProtocolProposalPayload {
   const roleId = opts.roleId.trim();
-  if (!roleId) throw new Error('Choose a role to remove.');
-  if (opts.policy && !findProtocolRole(opts.policy, roleId)) {
-    throw new Error(`Role ${roleId} was not found.`);
-  }
+  const blockReason = getRemoveProtocolPolicyRoleBlockReason(
+    opts.policy,
+    roleId
+  );
+  if (blockReason) throw new Error(blockReason);
   return {
     proposal: {
       description: opts.description?.trim() || `Remove ${roleId} from the DAO.`,
@@ -237,12 +418,16 @@ export function buildProtocolPolicyPermissionsPayload(opts: {
 }): ProtocolProposalPayload {
   const role = findProtocolRole(opts.policy, opts.roleId);
   if (!role) throw new Error('Choose a role to update.');
-  if ((role.permissions ?? []).includes('*:*')) {
-    throw new Error('Full-access roles cannot be edited here.');
+  if (!isEditableProtocolPolicyRole(role)) {
+    throw new Error('That role cannot be edited here.');
   }
   if (opts.permissions.length === 0) {
     throw new Error('Select at least one permission.');
   }
+  const mergedPermissions = preserveNonEditableRolePermissions(
+    role,
+    opts.permissions
+  );
   return {
     proposal: {
       description:
@@ -252,8 +437,8 @@ export function buildProtocolPolicyPermissionsPayload(opts: {
         ChangePolicyAddOrUpdateRole: {
           role: {
             name: role.name,
-            kind: role.kind,
-            permissions: [...new Set(opts.permissions)],
+            kind: serializeProtocolRoleKind(role),
+            permissions: mergedPermissions,
             vote_policy: role.vote_policy ?? {},
           },
         },
@@ -274,6 +459,8 @@ export function buildProtocolPolicyPayload(opts: {
   voteThreshold?: [number, number];
   voteQuorum?: string;
   newRoleName?: string;
+  addRoleAccessMode?: ProtocolAddRoleAccessMode;
+  addRolePermissions?: string[];
   removeRoleId?: string;
   permissionsRoleId?: string;
   permissions?: string[];
@@ -311,7 +498,10 @@ export function buildProtocolPolicyPayload(opts: {
       });
     case 'add_role':
       return buildProtocolPolicyAddRolePayload({
+        policy: opts.policy,
         newRoleName: opts.newRoleName ?? '',
+        accessMode: opts.addRoleAccessMode,
+        permissions: opts.addRolePermissions,
         description: opts.description,
       });
     case 'remove_role':

@@ -25,8 +25,14 @@ import {
 import {
   buildProtocolPolicyPayload,
   daysToProposalPeriodNs,
+  getRemoveProtocolPolicyRoleBlockReason,
   parseVoteThresholdInputs,
+  preserveNonEditableRolePermissions,
 } from '@/features/protocol/protocol-policy';
+import {
+  canProposeProtocolCreateKind,
+  canProposeProtocolPolicyAction,
+} from '@/features/protocol/protocol-propose-gate';
 import { buildProtocolDelegationPlan } from '@/features/protocol/protocol-staking';
 import { BOOST_CONTRACT } from '@/lib/app-config';
 import type {
@@ -133,30 +139,83 @@ describe('protocol create + stake helpers', () => {
         parameters: { proposal_bond: '1000000000000000000000000' },
       },
     });
-    expect(
-      buildProtocolPolicyPayload({
-        actionId: 'add_role',
-        policy: null,
-        newRoleName: 'Reviewers',
-      }).proposal.kind
-    ).toMatchObject({
-      ChangePolicyAddOrUpdateRole: {
-        role: { name: 'reviewers', permissions: ['*:*'] },
-      },
-    });
-    const permissionsPolicy: ProtocolDaoPolicy = {
+
+    const policy: ProtocolDaoPolicy = {
       roles: [
         {
+          name: 'guardians',
+          kind: { Group: ['alice.testnet', 'bob.testnet'] },
+          permissions: ['*:*'],
+        },
+        {
+          name: 'delegated_proposers',
+          kind: { Member: '100' },
+          permissions: ['call:AddProposal', 'vote:AddProposal'],
+          vote_policy: {},
+        },
+        {
           name: 'proposers',
-          kind: { Group: ['alice.testnet'] },
-          permissions: ['vote:AddProposal'],
+          kind: { Member: '50' },
+          permissions: [
+            'vote:AddProposal',
+            '*:VoteApprove',
+            '*:Finalize',
+          ],
         },
       ],
     };
+
+    expect(
+      buildProtocolPolicyPayload({
+        actionId: 'add_role',
+        policy,
+        newRoleName: 'Reviewers',
+        addRoleAccessMode: 'full_access',
+      }).proposal.kind
+    ).toMatchObject({
+      ChangePolicyAddOrUpdateRole: {
+        role: {
+          name: 'reviewers',
+          kind: { Group: ['alice.testnet', 'bob.testnet'] },
+          permissions: ['*:*'],
+        },
+      },
+    });
+
+    expect(
+      buildProtocolPolicyPayload({
+        actionId: 'add_role',
+        policy,
+        newRoleName: 'writers',
+        addRoleAccessMode: 'custom',
+        addRolePermissions: ['vote:AddProposal', 'transfer:AddProposal'],
+      }).proposal.kind
+    ).toMatchObject({
+      ChangePolicyAddOrUpdateRole: {
+        role: {
+          name: 'writers',
+          kind: { Member: '100' },
+          permissions: ['vote:AddProposal', 'transfer:AddProposal'],
+        },
+      },
+    });
+
+    expect(
+      preserveNonEditableRolePermissions(policy.roles![2]!, [
+        'vote:AddProposal',
+        'transfer:AddProposal',
+      ])
+    ).toEqual([
+      '*:VoteApprove',
+      '*:Finalize',
+      'vote:AddProposal',
+      'transfer:AddProposal',
+    ]);
+
     expect(
       buildProtocolPolicyPayload({
         actionId: 'update_permissions',
-        policy: permissionsPolicy,
+        policy,
         permissionsRoleId: 'proposers',
         permissions: ['vote:AddProposal', 'transfer:AddProposal'],
       }).proposal.kind
@@ -164,10 +223,79 @@ describe('protocol create + stake helpers', () => {
       ChangePolicyAddOrUpdateRole: {
         role: {
           name: 'proposers',
-          permissions: ['vote:AddProposal', 'transfer:AddProposal'],
+          permissions: [
+            '*:VoteApprove',
+            '*:Finalize',
+            'vote:AddProposal',
+            'transfer:AddProposal',
+          ],
         },
       },
     });
+
+    expect(
+      getRemoveProtocolPolicyRoleBlockReason(policy, 'guardians')
+    ).toMatch(/only full-access role/);
+    expect(() =>
+      buildProtocolPolicyPayload({
+        actionId: 'remove_role',
+        policy,
+        removeRoleId: 'guardians',
+      })
+    ).toThrow(/only full-access role/);
+    expect(
+      buildProtocolPolicyPayload({
+        actionId: 'remove_role',
+        policy,
+        removeRoleId: 'proposers',
+      }).proposal.kind
+    ).toEqual({ ChangePolicyRemoveRole: { role: 'proposers' } });
+  });
+
+  it('gates create and settings actions by role permissions', () => {
+    const policy: ProtocolDaoPolicy = {
+      roles: [
+        {
+          name: 'guardians',
+          kind: { Group: ['alice.testnet'] },
+          permissions: ['*:*'],
+        },
+        {
+          name: 'delegated_proposers',
+          kind: { Member: '100' },
+          permissions: ['vote:AddProposal', 'transfer:AddProposal'],
+        },
+      ],
+    };
+
+    expect(
+      canProposeProtocolCreateKind(policy, 'alice.testnet', '0', 'contract_upgrade')
+    ).toBe(true);
+    expect(
+      canProposeProtocolCreateKind(policy, 'bob.testnet', '50', 'signal')
+    ).toBe(false);
+    expect(
+      canProposeProtocolCreateKind(policy, 'bob.testnet', '100', 'signal')
+    ).toBe(true);
+    expect(
+      canProposeProtocolCreateKind(policy, 'bob.testnet', '100', 'contract_upgrade')
+    ).toBe(false);
+    expect(
+      canProposeProtocolPolicyAction(
+        policy,
+        'alice.testnet',
+        '0',
+        'update_permissions'
+      )
+    ).toBe(true);
+    expect(
+      canProposeProtocolPolicyAction(
+        policy,
+        'bob.testnet',
+        '100',
+        'update_permissions'
+      )
+    ).toBe(false);
   });
 
   it('builds contract ownership and upgrade payloads', () => {
