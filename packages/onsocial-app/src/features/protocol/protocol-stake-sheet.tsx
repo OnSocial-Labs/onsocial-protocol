@@ -1,15 +1,12 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+import { useEffect, useId, useMemo, useState } from 'react';
+import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
+import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
 import { socialToYocto } from '@/lib/social-spend-profile';
@@ -52,16 +49,16 @@ export function ProtocolStakeSheet({
   onUndelegate: (amounts: string[]) => void;
   onWithdraw: (amountYocto: string) => void;
 }) {
-  const titleId = useId();
-  const amountId = useId();
+  const formId = useId();
   const [mode, setMode] = useState<StakeMode>('delegate');
   const [amount, setAmount] = useState('');
   const [eligibility, setEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
-  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'error'>(
-    'idle'
-  );
+  const [loadState, setLoadState] = useState<
+    'idle' | 'loading' | 'ready' | 'error'
+  >('idle');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const refresh = async () => {
     if (!daoAccountId || !accountId) {
@@ -95,6 +92,7 @@ export function ProtocolStakeSheet({
       setEligibility(null);
       setLoadState('idle');
       setLoadError(null);
+      setFormError(null);
       return;
     }
     void refresh();
@@ -122,63 +120,67 @@ export function ProtocolStakeSheet({
         ? 'Undelegate'
         : 'Withdraw';
 
+  const footerState = useMemo((): CommerceSheetFooterState | null => {
+    if (!open) return null;
+    return {
+      visible: true,
+      primaryLabel: ctaLabel,
+      primaryPendingLabel: `${ctaLabel}…`,
+      canSubmit:
+        !pending &&
+        Boolean(accountId) &&
+        stakingReady &&
+        amountOk &&
+        loadState === 'ready',
+      pending,
+      disabled:
+        pending ||
+        !accountId ||
+        !stakingReady ||
+        !amountOk ||
+        loadState !== 'ready',
+      primaryType: 'submit',
+    };
+  }, [
+    open,
+    ctaLabel,
+    pending,
+    accountId,
+    stakingReady,
+    amountOk,
+    loadState,
+  ]);
+
   return (
-    <GlassSheet
+    <ProtocolTaskSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      initialDetent="peek"
-      peekRatio={0.62}
-      zIndex={58}
-      ariaLabelledBy={titleId}
+      verb="Stake"
+      handle={daoAccountId ?? undefined}
+      whisper="Delegate SOCIAL to meet the proposal threshold."
+      closeAriaLabel="Close stake"
       backdropLabel="Close stake"
-      bodyClassName="protocol-action-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Stake"
-            subtitle={daoAccountId ? `@${daoAccountId}` : undefined}
-            onClose={onClose}
-            closeAriaLabel="Close stake"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
-      footer={
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready={
-              !pending &&
-              Boolean(accountId) &&
-              stakingReady &&
-              amountOk &&
-              loadState === 'ready'
-            }
-            disabled={
-              pending ||
-              !accountId ||
-              !stakingReady ||
-              !amountOk ||
-              loadState !== 'ready'
-            }
-            pending={pending}
-            pendingLabel={`${ctaLabel}…`}
-            onClick={() => {
-              if (!eligibility?.stakingContractId) return;
-              if (mode === 'delegate') onDelegate(amountYocto);
-              else if (mode === 'undelegate') onUndelegate([amountYocto]);
-              else onWithdraw(amountYocto);
-            }}
-          >
-            {ctaLabel}
-          </OsSheetAction>
-        </OsSheetActions>
-      }
+      formId={formId}
+      footerState={footerState}
     >
-      <div className="protocol-compose">
+      <form
+        id={formId}
+        className="protocol-compose protocol-task-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!eligibility?.stakingContractId || !amountOk || pending) return;
+          setFormError(null);
+          try {
+            if (mode === 'delegate') onDelegate(amountYocto);
+            else if (mode === 'undelegate') onUndelegate([amountYocto]);
+            else onWithdraw(amountYocto);
+          } catch (error) {
+            setFormError(
+              error instanceof Error ? error.message : 'Could not submit.'
+            );
+          }
+        }}
+      >
         {!accountId ? (
           <p className="protocol-empty">Connect a wallet to stake.</p>
         ) : null}
@@ -226,7 +228,8 @@ export function ProtocolStakeSheet({
                 <dt>Available</dt>
                 <dd>
                   {formatSocialCompact(eligibility.availableToDelegate)} in
-                  stake · {formatSocialCompact(eligibility.walletBalance)} wallet
+                  stake · {formatSocialCompact(eligibility.walletBalance)}{' '}
+                  wallet
                 </dd>
               </div>
               <div>
@@ -267,10 +270,9 @@ export function ProtocolStakeSheet({
               </p>
             ) : null}
 
-            <label className="protocol-field" htmlFor={amountId}>
+            <label className="guild-field">
               <span>Amount (SOCIAL)</span>
               <input
-                id={amountId}
                 type="text"
                 inputMode="decimal"
                 value={amount}
@@ -281,7 +283,11 @@ export function ProtocolStakeSheet({
             </label>
           </>
         ) : null}
-      </div>
-    </GlassSheet>
+
+        {formError ? (
+          <p className="protocol-compose-note is-warn">{formError}</p>
+        ) : null}
+      </form>
+    </ProtocolTaskSheet>
   );
 }

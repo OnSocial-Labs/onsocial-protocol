@@ -12,6 +12,16 @@ import {
   sumVoteCounts,
 } from '@/features/protocol/protocol-card-view';
 import { buildProtocolSignalProposalPayload } from '@/features/protocol/protocol-create';
+import {
+  buildProtocolCreatePayload,
+  buildProtocolMemberProposalPayload,
+  buildProtocolTransferProposalPayload,
+} from '@/features/protocol/protocol-create';
+import {
+  buildProtocolPolicyPayload,
+  daysToProposalPeriodNs,
+  parseVoteThresholdInputs,
+} from '@/features/protocol/protocol-policy';
 import { buildProtocolDelegationPlan } from '@/features/protocol/protocol-staking';
 import type {
   ProtocolApplication,
@@ -65,6 +75,69 @@ describe('protocol create + stake helpers', () => {
     expect(() => buildProtocolSignalProposalPayload('   ')).toThrow(
       /Signal description/
     );
+  });
+
+  it('builds membership and transfer payloads', () => {
+    expect(
+      buildProtocolMemberProposalPayload({
+        add: true,
+        memberId: 'alice.testnet',
+        roleId: 'council',
+      }).proposal.kind
+    ).toEqual({
+      AddMemberToRole: { member_id: 'alice.testnet', role: 'council' },
+    });
+    expect(
+      buildProtocolCreatePayload({
+        kind: 'leave_self',
+        accountId: 'alice.testnet',
+        description: '',
+        roleId: 'council',
+      }).proposal.kind
+    ).toEqual({
+      RemoveMemberFromRole: { member_id: 'alice.testnet', role: 'council' },
+    });
+    expect(
+      buildProtocolTransferProposalPayload({
+        receiverId: 'bob.testnet',
+        amountYocto: '1000000000000000000000000',
+      }).proposal.kind
+    ).toMatchObject({
+      Transfer: {
+        receiver_id: 'bob.testnet',
+        amount: '1000000000000000000000000',
+        token_id: '',
+      },
+    });
+  });
+
+  it('builds settings proposals', () => {
+    expect(daysToProposalPeriodNs('7')).toBe(
+      String(7n * 24n * 60n * 60n * 1_000_000_000n)
+    );
+    expect(parseVoteThresholdInputs('1', '2')).toEqual([1, 2]);
+    expect(
+      buildProtocolPolicyPayload({
+        actionId: 'update_parameters',
+        policy: null,
+        proposalBondYocto: '1000000000000000000000000',
+      }).proposal.kind
+    ).toEqual({
+      ChangePolicyUpdateParameters: {
+        parameters: { proposal_bond: '1000000000000000000000000' },
+      },
+    });
+    expect(
+      buildProtocolPolicyPayload({
+        actionId: 'add_role',
+        policy: null,
+        newRoleName: 'Reviewers',
+      }).proposal.kind
+    ).toMatchObject({
+      ChangePolicyAddOrUpdateRole: {
+        role: { name: 'reviewers', permissions: ['*:*'] },
+      },
+    });
   });
 
   it('plans delegation deposit when stake balance is short', () => {

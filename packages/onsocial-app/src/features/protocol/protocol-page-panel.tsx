@@ -16,7 +16,8 @@ import {
   applyOptimisticVote,
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
-import { submitProtocolSignalProposal } from '@/features/protocol/protocol-create';
+import { submitProtocolProposal } from '@/features/protocol/protocol-create';
+import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { ProtocolActionSheet } from '@/features/protocol/protocol-action-sheet';
 import { ProtocolCommunityRegistry } from '@/features/protocol/protocol-community-registry';
 import { ProtocolCreateSheet } from '@/features/protocol/protocol-create-sheet';
@@ -25,6 +26,7 @@ import {
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
 import { ProtocolProposalCard } from '@/features/protocol/protocol-proposal-card';
+import { ProtocolSettingsSheet } from '@/features/protocol/protocol-settings-sheet';
 import { ProtocolStakeSheet } from '@/features/protocol/protocol-stake-sheet';
 import {
   buildProtocolDelegationPlan,
@@ -78,8 +80,10 @@ export function ProtocolPagePanel() {
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [stakeOpen, setStakeOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const [stakePending, setStakePending] = useState(false);
+  const [settingsPending, setSettingsPending] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   const actionApplication = useMemo(
@@ -130,6 +134,7 @@ export function ProtocolPagePanel() {
       setActionAppId(null);
       setCreateOpen(false);
       setStakeOpen(false);
+      setSettingsOpen(false);
       router.replace(
         protocolPath({ board: next.board, account: next.account }),
         { scroll: false }
@@ -258,7 +263,7 @@ export function ProtocolPagePanel() {
   );
 
   const handleCreate = useCallback(
-    async (description: string) => {
+    async (payload: ProtocolProposalPayload) => {
       if (!daoAccountId) return;
       if (!isConnected) {
         await connect();
@@ -267,17 +272,17 @@ export function ProtocolPagePanel() {
       setCreatePending(true);
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
-        const { txHashes } = await submitProtocolSignalProposal({
+        const { txHashes } = await submitProtocolProposal({
           wallet,
           accountId: signerId,
           daoAccountId,
-          description,
+          payload,
         });
         await trackTransaction({
           txHashes,
-          submittedMessage: txToastGovPending.actionSubmitted('signal proposal'),
-          successMessage: txToastGovSuccess.actionConfirmed('signal proposal'),
-          failureMessage: txToastGovError.actionFailed('signal proposal'),
+          submittedMessage: txToastGovPending.actionSubmitted('proposal'),
+          successMessage: txToastGovSuccess.actionConfirmed('proposal'),
+          failureMessage: txToastGovError.actionFailed('proposal'),
         });
         setCreateOpen(false);
         await loadFeed();
@@ -288,11 +293,64 @@ export function ProtocolPagePanel() {
             msg:
               error instanceof Error
                 ? error.message
-                : txToastGovError.actionFailed('signal proposal'),
+                : txToastGovError.actionFailed('proposal'),
           });
         }
       } finally {
         setCreatePending(false);
+      }
+    },
+    [
+      daoAccountId,
+      isConnected,
+      connect,
+      getSigningWallet,
+      trackTransaction,
+      setTxResult,
+      loadFeed,
+    ]
+  );
+
+  const handleSettings = useCallback(
+    async (payload: ProtocolProposalPayload) => {
+      if (!daoAccountId) return;
+      if (!isConnected) {
+        await connect();
+        return;
+      }
+      setSettingsPending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const { txHashes } = await submitProtocolProposal({
+          wallet,
+          accountId: signerId,
+          daoAccountId,
+          payload,
+        });
+        await trackTransaction({
+          txHashes,
+          submittedMessage: txToastGovPending.actionSubmitted(
+            'settings proposal'
+          ),
+          successMessage: txToastGovSuccess.actionConfirmed(
+            'settings proposal'
+          ),
+          failureMessage: txToastGovError.actionFailed('settings proposal'),
+        });
+        setSettingsOpen(false);
+        await loadFeed();
+      } catch (error) {
+        if (!isWalletUserCancellation(error)) {
+          setTxResult({
+            type: 'error',
+            msg:
+              error instanceof Error
+                ? error.message
+                : txToastGovError.actionFailed('settings proposal'),
+          });
+        }
+      } finally {
+        setSettingsPending(false);
       }
     },
     [
@@ -529,6 +587,7 @@ export function ProtocolPagePanel() {
                 className="protocol-tool"
                 onClick={() => {
                   setStakeOpen(false);
+                  setSettingsOpen(false);
                   setCreateOpen(true);
                 }}
               >
@@ -539,10 +598,22 @@ export function ProtocolPagePanel() {
                 className="protocol-tool"
                 onClick={() => {
                   setCreateOpen(false);
+                  setSettingsOpen(false);
                   setStakeOpen(true);
                 }}
               >
                 Stake
+              </button>
+              <button
+                type="button"
+                className="protocol-tool"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setStakeOpen(false);
+                  setSettingsOpen(true);
+                }}
+              >
+                Settings
               </button>
               {board === 'community' ? (
                 <button
@@ -613,12 +684,14 @@ export function ProtocolPagePanel() {
         onClose={() => setCreateOpen(false)}
         daoAccountId={daoAccountId}
         accountId={accountId}
+        daoPolicy={daoPolicy}
         pending={createPending}
-        onSubmit={(description) => {
-          void handleCreate(description);
+        onSubmit={(payload) => {
+          void handleCreate(payload);
         }}
         onOpenStake={() => {
           setCreateOpen(false);
+          setSettingsOpen(false);
           setStakeOpen(true);
         }}
       />
@@ -637,6 +710,23 @@ export function ProtocolPagePanel() {
         }}
         onWithdraw={(amountYocto) => {
           void handleWithdraw(amountYocto);
+        }}
+      />
+
+      <ProtocolSettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        pending={settingsPending}
+        onSubmit={(payload) => {
+          void handleSettings(payload);
+        }}
+        onOpenStake={() => {
+          setSettingsOpen(false);
+          setCreateOpen(false);
+          setStakeOpen(true);
         }}
       />
     </OsAppScreen>

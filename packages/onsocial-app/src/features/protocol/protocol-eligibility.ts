@@ -96,6 +96,16 @@ export async function getProtocolProposalBond(
   return policy?.proposal_bond ?? '0';
 }
 
+export async function getProtocolDaoConfig(
+  daoAccountId: string
+): Promise<{ name: string; purpose: string; metadata: string } | null> {
+  return tryViewNearContract<{
+    name: string;
+    purpose: string;
+    metadata: string;
+  }>(daoAccountId, 'get_config');
+}
+
 export async function getProtocolGovernanceEligibility(
   accountId: string,
   daoAccountId = GOVERNANCE_DAO_ACCOUNT
