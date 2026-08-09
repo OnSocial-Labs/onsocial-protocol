@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  CheckIcon,
   CopyIcon,
   Divider,
   DotsVerticalIcon,
@@ -16,6 +17,7 @@ import {
   MessageRoundIcon,
   ProfileAvatar,
   RepeatIcon,
+  ShareIcon,
   TrashIcon,
   UserIcon,
   UserMinusIcon,
@@ -97,6 +99,7 @@ import {
   type PostMediaItem,
 } from '@/lib/post-media';
 import { postThreadPath } from '@/lib/post-routes';
+import { shareUrl } from '@/lib/share-url';
 import type { PollTally } from '@/lib/poll-votes';
 import { fallbackLabel } from '@/lib/profile-display';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
@@ -573,6 +576,67 @@ function AmplifyIcon({ filled }: { filled: boolean }) {
   return filled ? <FireBFillIcon aria-hidden /> : <FireBIcon aria-hidden />;
 }
 
+function absolutePostUrl(href: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return new URL(href, window.location.origin).toString();
+  } catch {
+    return null;
+  }
+}
+
+function PostShareControl({
+  href,
+  title,
+}: {
+  href: string;
+  title?: string | null;
+}) {
+  const { setTxResult } = useAppTransactionFeedback();
+  const [copied, setCopied] = useState(false);
+  const label = title?.trim() || 'post';
+
+  return (
+    <button
+      type="button"
+      className={`post-card-stat post-card-stat-button post-card-share${
+        copied ? ' is-copied' : ''
+      }`}
+      aria-label={copied ? 'Link copied' : 'Share this post'}
+      title={copied ? 'Link copied' : 'Share'}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const url = absolutePostUrl(href);
+        if (!url) return;
+        void (async () => {
+          const result = await shareUrl({
+            url,
+            title: label,
+            text: `Check out this post on OnSocial`,
+          });
+          if (result === 'copied') {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1600);
+            return;
+          }
+          if (result === 'failed') {
+            setTxResult({
+              type: 'error',
+              msg: 'Couldn’t share this post.',
+            });
+          }
+        })();
+      }}
+    >
+      {copied ? <CheckIcon aria-hidden /> : <ShareIcon aria-hidden />}
+    </button>
+  );
+}
+
 function engagementStatClassName(
   tone: 'reply' | 'quote' | 'amplify' | undefined,
   interactive: boolean,
@@ -651,6 +715,86 @@ function EngagementStat({
       {icon}
       {countNode}
     </span>
+  );
+}
+
+function PostEngagementRow({
+  engagement,
+  shareHref,
+  shareTitle,
+  reactionPending,
+  onReply,
+  onQuote,
+  onToggleReaction,
+  onAmplify,
+  post,
+}: {
+  engagement: PostEngagement;
+  shareHref: string;
+  shareTitle?: string | null;
+  reactionPending?: boolean;
+  onReply?: (post: PostRow) => void;
+  onQuote?: (post: PostRow) => void;
+  onToggleReaction?: (post: PostRow) => void;
+  onAmplify: () => void;
+  post: PostRow;
+}) {
+  return (
+    <div className="post-card-engagement">
+      <div className="post-card-engagement-actions">
+        <EngagementStat
+          icon={<MessageRoundIcon aria-hidden />}
+          count={engagement.replyCount}
+          label="replies"
+          tone="reply"
+          actionLabel={onReply ? 'Reply to this post' : undefined}
+          onActivate={onReply ? () => onReply(post) : undefined}
+        />
+        <EngagementStat
+          icon={<RepeatIcon aria-hidden />}
+          count={engagement.quoteCount}
+          label="quotes"
+          tone="quote"
+          actionLabel={onQuote ? 'Quote this post' : undefined}
+          onActivate={onQuote ? () => onQuote(post) : undefined}
+        />
+        {onToggleReaction ? (
+          <EngagementStat
+            icon={<ReactIcon filled={engagement.viewerReacted} />}
+            count={engagement.reactionCount}
+            label="reactions"
+            className={`post-card-react${engagement.viewerReacted ? ' is-active' : ''}${reactionPending ? ' is-pending' : ''}`}
+            disabled={reactionPending}
+            ariaPressed={engagement.viewerReacted}
+            actionLabel={
+              engagement.viewerReacted
+                ? 'Remove your reaction'
+                : 'React to this post'
+            }
+            onActivate={() => onToggleReaction(post)}
+          />
+        ) : (
+          <EngagementStat
+            icon={<ReactIcon filled={false} />}
+            count={engagement.reactionCount}
+            label="reactions"
+          />
+        )}
+        <EngagementStat
+          icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
+          count={engagement.amplifyCount}
+          label="amplifies"
+          tone="amplify"
+          className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
+          ariaPressed={engagement.viewerAmplified}
+          actionLabel={
+            engagement.viewerAmplified ? 'Amplify again' : 'Amplify this post'
+          }
+          onActivate={onAmplify}
+        />
+      </div>
+      <PostShareControl href={shareHref} title={shareTitle} />
+    </div>
   );
 }
 
@@ -946,6 +1090,7 @@ export function PostCard({
     ? postRelationContext(post, Boolean(quotedPost))
     : null;
   const profileHref = portfolioPath(post.accountId);
+  const shareHref = actionHref ?? postThreadPath(post);
   const guildId = post.groupId?.trim() || null;
   const guildLabel =
     showGuildAttribution && guildId ? guildName?.trim() || guildId : null;
@@ -1014,7 +1159,7 @@ export function PostCard({
               }
               trailing={
                 <PostCardMenu
-                  href={actionHref ?? postThreadPath(post)}
+                  href={shareHref}
                   accountId={post.accountId}
                   authorProfile={authorProfile}
                   canCancelScarce={canCancelScarce}
@@ -1142,60 +1287,17 @@ export function PostCard({
           </time>
         ) : null}
         {engagement ? (
-          <div className="post-card-engagement">
-            <EngagementStat
-              icon={<MessageRoundIcon aria-hidden />}
-              count={engagement.replyCount}
-              label="replies"
-              tone="reply"
-              actionLabel={onReply ? 'Reply to this post' : undefined}
-              onActivate={onReply ? () => onReply(post) : undefined}
-            />
-            <EngagementStat
-              icon={<RepeatIcon aria-hidden />}
-              count={engagement.quoteCount}
-              label="quotes"
-              tone="quote"
-              actionLabel={onQuote ? 'Quote this post' : undefined}
-              onActivate={onQuote ? () => onQuote(post) : undefined}
-            />
-            {onToggleReaction ? (
-              <EngagementStat
-                icon={<ReactIcon filled={engagement.viewerReacted} />}
-                count={engagement.reactionCount}
-                label="reactions"
-                className={`post-card-react${engagement.viewerReacted ? ' is-active' : ''}${reactionPending ? ' is-pending' : ''}`}
-                disabled={reactionPending}
-                ariaPressed={engagement.viewerReacted}
-                actionLabel={
-                  engagement.viewerReacted
-                    ? 'Remove your reaction'
-                    : 'React to this post'
-                }
-                onActivate={() => onToggleReaction(post)}
-              />
-            ) : (
-              <EngagementStat
-                icon={<ReactIcon filled={false} />}
-                count={engagement.reactionCount}
-                label="reactions"
-              />
-            )}
-            <EngagementStat
-              icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
-              count={engagement.amplifyCount}
-              label="amplifies"
-              tone="amplify"
-              className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
-              ariaPressed={engagement.viewerAmplified}
-              actionLabel={
-                engagement.viewerAmplified
-                  ? 'Amplify again'
-                  : 'Amplify this post'
-              }
-              onActivate={() => setAmplifyOpen(true)}
-            />
-          </div>
+          <PostEngagementRow
+            engagement={engagement}
+            shareHref={shareHref}
+            shareTitle={name}
+            reactionPending={reactionPending}
+            onReply={onReply}
+            onQuote={onQuote}
+            onToggleReaction={onToggleReaction}
+            onAmplify={() => setAmplifyOpen(true)}
+            post={post}
+          />
         ) : null}
       </div>
       <PostAmplifySheet
@@ -1274,77 +1376,34 @@ export function PostCard({
         }
         engagement={
           engagement ? (
-            <div className="post-card-engagement">
-              <EngagementStat
-                icon={<MessageRoundIcon aria-hidden />}
-                count={engagement.replyCount}
-                label="replies"
-                tone="reply"
-                actionLabel={onReply ? 'Reply to this post' : undefined}
-                onActivate={
-                  onReply
-                    ? () => {
-                        setFeedMediumOpen(false);
-                        onReply(post);
-                      }
-                    : undefined
-                }
-              />
-              <EngagementStat
-                icon={<RepeatIcon aria-hidden />}
-                count={engagement.quoteCount}
-                label="quotes"
-                tone="quote"
-                actionLabel={onQuote ? 'Quote this post' : undefined}
-                onActivate={
-                  onQuote
-                    ? () => {
-                        setFeedMediumOpen(false);
-                        onQuote(post);
-                      }
-                    : undefined
-                }
-              />
-              {onToggleReaction ? (
-                <EngagementStat
-                  icon={<ReactIcon filled={engagement.viewerReacted} />}
-                  count={engagement.reactionCount}
-                  label="reactions"
-                  className={`post-card-react${engagement.viewerReacted ? ' is-active' : ''}${reactionPending ? ' is-pending' : ''}`}
-                  disabled={reactionPending}
-                  ariaPressed={engagement.viewerReacted}
-                  actionLabel={
-                    engagement.viewerReacted
-                      ? 'Remove your reaction'
-                      : 'React to this post'
-                  }
-                  onActivate={() => onToggleReaction(post)}
-                />
-              ) : (
-                <EngagementStat
-                  icon={<ReactIcon filled={false} />}
-                  count={engagement.reactionCount}
-                  label="reactions"
-                />
-              )}
-              <EngagementStat
-                icon={<AmplifyIcon filled={engagement.viewerAmplified} />}
-                count={engagement.amplifyCount}
-                label="amplifies"
-                tone="amplify"
-                className={`post-card-amplify${engagement.viewerAmplified ? ' is-active' : ''}`}
-                ariaPressed={engagement.viewerAmplified}
-                actionLabel={
-                  engagement.viewerAmplified
-                    ? 'Amplify again'
-                    : 'Amplify this post'
-                }
-                onActivate={() => {
-                  setFeedMediumOpen(false);
-                  setAmplifyOpen(true);
-                }}
-              />
-            </div>
+            <PostEngagementRow
+              engagement={engagement}
+              shareHref={shareHref}
+              shareTitle={name}
+              reactionPending={reactionPending}
+              onReply={
+                onReply
+                  ? (target) => {
+                      setFeedMediumOpen(false);
+                      onReply(target);
+                    }
+                  : undefined
+              }
+              onQuote={
+                onQuote
+                  ? (target) => {
+                      setFeedMediumOpen(false);
+                      onQuote(target);
+                    }
+                  : undefined
+              }
+              onToggleReaction={onToggleReaction}
+              onAmplify={() => {
+                setFeedMediumOpen(false);
+                setAmplifyOpen(true);
+              }}
+              post={post}
+            />
           ) : null
         }
       />

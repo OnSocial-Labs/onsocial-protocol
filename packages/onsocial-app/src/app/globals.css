@@ -15584,8 +15584,44 @@ a.os-surface-row {
   .post-card-engagement {
     display: flex;
     align-items: center;
-    gap: 1.1rem;
+    justify-content: space-between;
+    gap: 0.75rem;
     margin-top: 0.1rem;
+  }
+
+  .post-card-engagement-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.1rem;
+    min-width: 0;
+  }
+
+  .post-card-share {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin: -0.35rem -0.2rem -0.35rem auto;
+    border: 0;
+    background: transparent;
+    padding: 0.35rem 0.2rem;
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .post-card-share.is-copied {
+    color: var(--signal-reputation, var(--protocol-green));
+  }
+
+  .post-card-stat,
+  .post-card-react,
+  .post-card-amplify,
+  .post-card-share {
+    color: rgb(var(--fg-rgb) / 0.44);
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
   }
 
   .post-card-stat,
@@ -15594,12 +15630,6 @@ a.os-surface-row {
     display: inline-flex;
     align-items: center;
     gap: 0.32rem;
-    color: rgb(var(--fg-rgb) / 0.44);
-    font-family: inherit;
-    font-size: 0.72rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
   }
 
   .post-card-engagement-count {
@@ -15611,7 +15641,8 @@ a.os-surface-row {
 
   .post-card-stat svg,
   .post-card-react svg,
-  .post-card-amplify svg {
+  .post-card-amplify svg,
+  .post-card-share svg {
     /* Same box for every Mage glyph; stroke icons carry extra viewBox padding. */
     width: 1.05rem;
     height: 1.05rem;
@@ -15639,7 +15670,8 @@ a.os-surface-row {
 
   .post-card-stat-button:focus-visible,
   .post-card-react:focus-visible,
-  .post-card-amplify:focus-visible {
+  .post-card-amplify:focus-visible,
+  .post-card-share:focus-visible {
     outline: none;
   }
 
@@ -15664,6 +15696,11 @@ a.os-surface-row {
   .post-card-amplify:hover:not(:disabled),
   .post-card-amplify:focus-visible {
     color: var(--protocol-amber);
+  }
+
+  .post-card-share:hover:not(:disabled),
+  .post-card-share:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   /* Liked is persistent state: icon + count stay red. */
