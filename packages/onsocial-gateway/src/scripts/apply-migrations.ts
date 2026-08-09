@@ -28,6 +28,7 @@ const TABLES_BY_MIGRATION: Record<string, string[]> = {
     'notification_delivery_attempts',
   ],
   '009_app_notification_events.sql': ['app_notification_events'],
+  '010_user_mutes.sql': ['user_mutes'],
 };
 
 function requireDatabaseUrl(): string {

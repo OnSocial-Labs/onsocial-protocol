@@ -378,6 +378,9 @@ export type {
   PageMoodTier,
 } from './modules/pages/premium-moods.js';
 export { StandingsModule } from './modules/standings.js';
+export { BlocksModule } from './modules/blocks.js';
+export { MutesModule } from './modules/mutes.js';
+export type { MuteRecord, ListMutesResult } from './modules/mutes.js';
 export {
   StorageAccountModule,
   type AmountInput,
@@ -427,6 +430,7 @@ export {
   validatePostV1,
   validateReactionV1,
   validateStandingV1,
+  validateBlockV1,
   validateGroupConfigV1,
   validateSaveV1,
   validateEndorsementV1,
@@ -435,6 +439,7 @@ export {
   assertPostV1,
   assertReactionV1,
   assertStandingV1,
+  assertBlockV1,
   assertGroupConfigV1,
   assertSaveV1,
   assertEndorsementV1,
@@ -444,6 +449,7 @@ export {
   postV1,
   reactionV1,
   standingV1,
+  blockV1,
   groupConfigV1,
   saveV1,
   endorsementV1,
@@ -464,6 +470,7 @@ export type {
   ReactionV1,
   ReactionKind,
   StandingV1,
+  BlockV1,
   GroupConfigV1,
   SaveV1,
   EndorsementV1,

@@ -12,6 +12,15 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import {
+  getGlobalViewerBlockLedgerVersion,
+  subscribeGlobalViewerBlockLedger,
+} from '@/lib/viewer-block-global';
+import {
+  getGlobalViewerMuteLedgerVersion,
+  subscribeGlobalViewerMuteLedger,
+} from '@/lib/viewer-mute-global';
+import { filterHiddenAuthors } from '@/lib/viewer-mute-block-filter';
 import { buildDiscoverEmptyState } from '@/lib/discover-empty-state';
 import {
   discoverPeopleSearchQuery,
@@ -117,6 +126,23 @@ export function useDiscoverProfiles(
   } = useAppWallet();
   const { updateStanding, isStandingPendingForTarget, standingSyncVersion } =
     useViewerStanding('discover');
+  const [muteBlockSyncVersion, setMuteBlockSyncVersion] = useState(
+    () =>
+      getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
+  );
+  useEffect(() => {
+    const bump = () => {
+      setMuteBlockSyncVersion(
+        getGlobalViewerMuteLedgerVersion() + getGlobalViewerBlockLedgerVersion()
+      );
+    };
+    const unsubMute = subscribeGlobalViewerMuteLedger(bump);
+    const unsubBlock = subscribeGlobalViewerBlockLedger(bump);
+    return () => {
+      unsubMute();
+      unsubBlock();
+    };
+  }, []);
 
   const [query, setQueryState] = useState(() =>
     restoreDiscoverQueryFromUrl(
@@ -450,8 +476,10 @@ export function useDiscoverProfiles(
   const indexedProfileTotal = protocolPulseTotals?.profiles ?? null;
 
   const listAccounts = useMemo(
-    () => profiles.map(discoverProfileToProfileListAccount),
-    [profiles]
+    () =>
+      filterHiddenAuthors(profiles).map(discoverProfileToProfileListAccount),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profiles, muteBlockSyncVersion]
   );
 
   const footerSummary = useMemo(() => {

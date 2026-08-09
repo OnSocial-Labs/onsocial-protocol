@@ -126,6 +126,19 @@ fn core_data_update_with_standing_target() {
 }
 
 #[test]
+fn core_data_update_with_block_target() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"alice.near","path":"alice.near/block/bob.near","value":"{\"v\":1,\"since\":1}"}]}"#;
+    let block = MockBlockBuilder::new(100, 1000)
+        .add_receipt(CONTRACT, &[1], vec![json])
+        .build();
+
+    let output = run_core_pipeline(&block);
+    let du = &output.data_updates[0];
+    assert_eq!(du.data_type, "block");
+    assert_eq!(du.target_account, "bob.near");
+}
+
+#[test]
 fn core_data_update_batch() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"DATA_UPDATE","data":[{"operation":"set","author":"alice.near","path":"alice.near/post/1","value":"a"},{"operation":"set","author":"alice.near","path":"alice.near/post/2","value":"b"}]}"#;
     let block = MockBlockBuilder::new(100, 1000)

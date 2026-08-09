@@ -438,6 +438,7 @@ interface AccountActionListProps {
   onClose: () => void;
   onEditProfile: () => void;
   onCustomize?: () => void;
+  onMutedBlocked?: () => void;
 }
 
 /** Primary account actions — compact list rows (tertiary links live in AccountShortcutDock). */
@@ -447,6 +448,7 @@ export function AccountActionList({
   onClose,
   onEditProfile,
   onCustomize,
+  onMutedBlocked,
 }: AccountActionListProps) {
   const showCustomize = isOwnerOnPage && Boolean(onCustomize);
 
@@ -462,6 +464,15 @@ export function AccountActionList({
             label: 'Customize page',
             hint: 'Mood, layout, media',
             onClick: onCustomize,
+          },
+        ]
+      : []),
+    ...(onMutedBlocked
+      ? [
+          {
+            label: 'Muted & blocked',
+            hint: 'Hide accounts from your feeds',
+            onClick: onMutedBlocked,
           },
         ]
       : []),

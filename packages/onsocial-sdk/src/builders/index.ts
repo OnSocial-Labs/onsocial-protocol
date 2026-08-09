@@ -40,6 +40,7 @@ export {
 } from './group-post.js';
 
 export { buildStandingSetData, buildStandingRemoveData } from './standing.js';
+export { buildBlockSetData, buildBlockRemoveData } from './block.js';
 
 export { buildReactionSetData, buildReactionRemoveData } from './reaction.js';
 

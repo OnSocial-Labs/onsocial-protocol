@@ -51,6 +51,8 @@ import {
   buildQuoteSetData,
   buildStandingSetData,
   buildStandingRemoveData,
+  buildBlockSetData,
+  buildBlockRemoveData,
   buildReactionSetData,
   buildReactionRemoveData,
   buildSaveSetData,
@@ -90,6 +92,8 @@ export {
   buildGroupQuoteSetData,
   buildStandingSetData,
   buildStandingRemoveData,
+  buildBlockSetData,
+  buildBlockRemoveData,
   buildReactionSetData,
   buildReactionRemoveData,
   buildSaveSetData,
@@ -354,6 +358,43 @@ export class SocialModule {
         targetAccount: this._coreContract,
       },
       'social.unstand',
+      opts
+    );
+  }
+
+  // ── Blocks ──────────────────────────────────────────────────────────────
+  // Prefer `os.blocks.add() / .remove() / .toggle() / .has()` for app code.
+
+  /** @internal Use `os.blocks.add()`. */
+  async blockAccount(
+    targetAccount: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(buildBlockSetData(targetAccount));
+    return this._composeSet(
+      {
+        path,
+        value: encodeComposeValue(value),
+        targetAccount: this._coreContract,
+      },
+      'social.blockAccount',
+      opts
+    );
+  }
+
+  /** @internal Use `os.blocks.remove()`. */
+  async unblockAccount(
+    targetAccount: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    const [path, value] = getSingleEntry(buildBlockRemoveData(targetAccount));
+    return this._composeSet(
+      {
+        path,
+        value: encodeComposeValue(value),
+        targetAccount: this._coreContract,
+      },
+      'social.unblockAccount',
       opts
     );
   }
