@@ -20,13 +20,11 @@ export async function shareUrl(input: {
       });
       return 'shared';
     } catch (cause) {
-      if (
-        cause instanceof DOMException &&
-        (cause.name === 'AbortError' || cause.name === 'NotAllowedError')
-      ) {
+      // User dismissed the sheet — stay silent. Permission / policy failures
+      // fall through to clipboard so share still does something.
+      if (cause instanceof DOMException && cause.name === 'AbortError') {
         return 'aborted';
       }
-      // Fall through to clipboard when share isn’t available for this payload.
     }
   }
 

@@ -33,6 +33,20 @@ describe('shareUrl', () => {
     );
   });
 
+  it('falls back to clipboard on NotAllowedError', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', {
+      share: vi
+        .fn()
+        .mockRejectedValue(new DOMException('blocked', 'NotAllowedError')),
+      clipboard: { writeText },
+    });
+    await expect(shareUrl({ url: 'https://example.com/p' })).resolves.toBe(
+      'copied'
+    );
+    expect(writeText).toHaveBeenCalledWith('https://example.com/p');
+  });
+
   it('falls back to clipboard when share is missing', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { clipboard: { writeText } });
