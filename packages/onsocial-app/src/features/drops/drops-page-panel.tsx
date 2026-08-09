@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   DROPS_PAGE_SIZE,
   fetchCreatorLeaders,
@@ -23,7 +24,7 @@ import {
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
-const SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
+const BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
   { id: 'new', label: 'New' },
   { id: 'minting', label: 'Minting' },
   { id: 'loved', label: 'Loved' },
@@ -102,6 +103,12 @@ export function DropsPagePanel({
   initialItems?: DropDiscoveryItem[];
   initialCreators?: CreatorLeaderRow[];
 }) {
+  const { accountId, isConnected, connect } = useAppWallet();
+  const sorts = useMemo(() => {
+    if (!isConnected) return BASE_SORTS;
+    return [...BASE_SORTS, { id: 'saved' as const, label: 'Saved' }];
+  }, [isConnected]);
+
   const [sort, setSort] = useState<DropsSort>(initialSort);
   const [medium, setMedium] = useState<MarketMediumFilter>('all');
   const [items, setItems] = useState(initialItems);
@@ -113,18 +120,33 @@ export function DropsPagePanel({
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  useEffect(() => {
+    if (sort === 'saved' && !isConnected) {
+      setSort('new');
+    }
+  }, [isConnected, sort]);
+
   const reload = useCallback(
     async (nextSort: DropsSort, nextMedium: MarketMediumFilter) => {
       setLoading(true);
       setFailed(false);
       try {
+        if (nextSort === 'saved' && !accountId) {
+          setItems([]);
+          setOffset(0);
+          setHasMore(false);
+          return;
+        }
         const [page, leaders] = await Promise.all([
           fetchDropsPage({
             sort: nextSort,
             mediumKind: nextMedium === 'all' ? null : nextMedium,
             limit: DROPS_PAGE_SIZE,
+            viewerAccountId: accountId,
           }),
-          fetchCreatorLeaders({ limit: 8 }),
+          nextSort === 'saved'
+            ? Promise.resolve([] as CreatorLeaderRow[])
+            : fetchCreatorLeaders({ limit: 8 }),
         ]);
         setItems(page.items);
         setOffset(page.items.length);
@@ -138,15 +160,20 @@ export function DropsPagePanel({
         setLoading(false);
       }
     },
-    []
+    [accountId]
   );
 
   useEffect(() => {
-    if (sort === initialSort && medium === 'all' && initialItems.length > 0) {
+    if (
+      sort === initialSort &&
+      sort !== 'saved' &&
+      medium === 'all' &&
+      initialItems.length > 0
+    ) {
       return;
     }
     void reload(sort, medium);
-  }, [sort, medium, initialSort, initialItems.length, reload]);
+  }, [sort, medium, initialSort, initialItems.length, reload, accountId]);
 
   const loadMore = () => {
     if (!hasMore || loading) return;
@@ -156,6 +183,7 @@ export function DropsPagePanel({
       mediumKind: medium === 'all' ? null : medium,
       limit: DROPS_PAGE_SIZE,
       offset,
+      viewerAccountId: accountId,
     })
       .then((page) => {
         setItems((current) => [...current, ...page.items]);
@@ -177,14 +205,20 @@ export function DropsPagePanel({
             role="tablist"
             aria-label="Drop sort"
           >
-            {SORTS.map((entry) => (
+            {sorts.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
                 role="tab"
                 aria-selected={sort === entry.id}
                 className={`discover-tab${sort === entry.id ? ' is-active' : ''}`}
-                onClick={() => setSort(entry.id)}
+                onClick={() => {
+                  if (entry.id === 'saved' && !isConnected) {
+                    void connect();
+                    return;
+                  }
+                  setSort(entry.id);
+                }}
               >
                 {entry.label}
               </button>
@@ -251,12 +285,16 @@ export function DropsPagePanel({
 
         <section className="market-section" aria-labelledby="drops-catalog">
           <h2 id="drops-catalog" className="market-section-title">
-            {SORTS.find((entry) => entry.id === sort)?.label ?? 'Drops'}
+            {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
           </h2>
           {failed ? (
             <p className="market-page-status">Couldn’t load drops.</p>
           ) : items.length === 0 && !loading ? (
-            <p className="market-page-status">No drops yet.</p>
+            <p className="market-page-status">
+              {sort === 'saved'
+                ? 'No bookmarked drops yet.'
+                : 'No drops yet.'}
+            </p>
           ) : (
             <div className="market-listing-list" role="list">
               {items.map((item) => (

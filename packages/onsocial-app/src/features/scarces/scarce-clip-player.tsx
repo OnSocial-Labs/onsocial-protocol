@@ -27,6 +27,7 @@ import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import { ScarceTrackOptionsMenu } from '@/features/scarces/scarce-track-options-menu';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceTrackLoves } from '@/hooks/use-scarce-track-loves';
+import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import {
   albumHasAllTracksCached,
   cachedTrackCids,
@@ -253,6 +254,10 @@ export function ScarceClipPlayer({
     creatorId,
     collectionId: persist?.collectionId,
     tracks: playlist,
+  });
+  const collectionSaves = useScarceCollectionSaves({
+    collectionIds: persist?.collectionId ? [persist.collectionId] : [],
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const facepileIds = loves.fanIds.slice(0, 5);
   const facepileProfiles = usePostAuthorProfiles(facepileIds);
@@ -1766,6 +1771,23 @@ export function ScarceClipPlayer({
             persist?.collectionId && creatorId
               ? () => {
                   void loves.toggleLove(active);
+                }
+              : null
+          }
+          saved={
+            persist?.collectionId
+              ? collectionSaves.viewerSaved(persist.collectionId)
+              : false
+          }
+          savePending={
+            persist?.collectionId
+              ? collectionSaves.isSavePending(persist.collectionId)
+              : false
+          }
+          onToggleSave={
+            persist?.collectionId
+              ? () => {
+                  void collectionSaves.toggleSave(persist.collectionId!);
                 }
               : null
           }

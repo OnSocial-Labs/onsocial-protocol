@@ -14,6 +14,8 @@ import {
   GlassSheet,
   InformationCircleIcon,
   ProfileAvatar,
+  BookmarkFillIcon,
+  BookmarkIcon,
   ShareIcon,
   SheetHeader,
   ShopFillIcon,
@@ -62,6 +64,7 @@ import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -148,6 +151,12 @@ export function CollectionPagePanel({
     getSigningWallet,
   } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const collectionSaves = useScarceCollectionSaves({
+    collectionIds: [collectionId],
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
+  });
+  const collectionSaved = collectionSaves.viewerSaved(collectionId);
+  const collectionSavePending = collectionSaves.isSavePending(collectionId);
   const [view, setView] = useState<CollectionView | null>(initial);
   const [notFound, setNotFound] = useState(initial == null);
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
@@ -667,6 +676,34 @@ export function CollectionPagePanel({
               </button>
               <button
                 type="button"
+                className={`collection-commerce-save${
+                  collectionSaved ? ' is-saved' : ''
+                }${collectionSavePending ? ' is-pending' : ''}`}
+                aria-label={
+                  collectionSaved
+                    ? 'Remove drop bookmark'
+                    : 'Bookmark this drop'
+                }
+                aria-pressed={collectionSaved}
+                disabled={collectionSavePending}
+                onClick={() => {
+                  void collectionSaves.toggleSave(collectionId);
+                }}
+              >
+                {collectionSaved ? (
+                  <BookmarkFillIcon
+                    aria-hidden
+                    className="collection-commerce-save-icon"
+                  />
+                ) : (
+                  <BookmarkIcon
+                    aria-hidden
+                    className="collection-commerce-save-icon"
+                  />
+                )}
+              </button>
+              <button
+                type="button"
                 className="collection-commerce-share"
                 aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
                 onClick={() => {
@@ -679,7 +716,51 @@ export function CollectionPagePanel({
                 />
               </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="collection-commerce-share-row collection-commerce-share-row--viewer">
+              <button
+                type="button"
+                className={`collection-commerce-save${
+                  collectionSaved ? ' is-saved' : ''
+                }${collectionSavePending ? ' is-pending' : ''}`}
+                aria-label={
+                  collectionSaved
+                    ? 'Remove drop bookmark'
+                    : 'Bookmark this drop'
+                }
+                aria-pressed={collectionSaved}
+                disabled={collectionSavePending}
+                onClick={() => {
+                  void collectionSaves.toggleSave(collectionId);
+                }}
+              >
+                {collectionSaved ? (
+                  <BookmarkFillIcon
+                    aria-hidden
+                    className="collection-commerce-save-icon"
+                  />
+                ) : (
+                  <BookmarkIcon
+                    aria-hidden
+                    className="collection-commerce-save-icon"
+                  />
+                )}
+              </button>
+              <button
+                type="button"
+                className="collection-commerce-share"
+                aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
+                onClick={() => {
+                  void handleShare();
+                }}
+              >
+                <ShareIcon
+                  aria-hidden
+                  className="collection-commerce-share-icon"
+                />
+              </button>
+            </div>
+          )}
         </div>
         <div
           className="collection-progress-track"
