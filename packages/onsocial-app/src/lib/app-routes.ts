@@ -4,39 +4,50 @@ export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';
 /** Protocol DAO governance + treasury (in-app). */
 export const APP_PROTOCOL_PATH = '/protocol';
-/** Social drop discovery — New / Minting / Loved / Volume / Saved. */
+/** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
 export const APP_DROPS_PATH = '/drops';
-/** Query key for Drops catalog sort (`new` | `minting` | `loved` | `volume` | `saved`). */
+/** Query key for Drops catalog sort. */
 export const DROPS_SORT_PARAM = 'sort';
 
 export type DropsSortParam =
+  | 'live'
+  | 'closing'
+  | 'upcoming'
+  | 'finished'
   | 'new'
-  | 'minting'
   | 'loved'
-  | 'volume'
   | 'saved';
 
 const DROPS_SORT_VALUES = new Set<string>([
+  'live',
+  'closing',
+  'upcoming',
+  'finished',
   'new',
-  'minting',
   'loved',
-  'volume',
   'saved',
 ]);
 
-/** Parse `?sort=` for Drops; defaults to `new`. */
+/** Legacy URL aliases → Live (Minting / Minted tabs removed). */
+const DROPS_SORT_ALIASES: Record<string, DropsSortParam> = {
+  minting: 'live',
+  volume: 'live',
+};
+
+/** Parse `?sort=` for Drops; defaults to `live`. */
 export function parseDropsSortParam(
   raw: string | null | undefined
 ): DropsSortParam {
   const value = raw?.trim().toLowerCase() ?? '';
+  if (DROPS_SORT_ALIASES[value]) return DROPS_SORT_ALIASES[value];
   if (DROPS_SORT_VALUES.has(value)) return value as DropsSortParam;
-  return 'new';
+  return 'live';
 }
 
 /** Drops catalog path, optionally deep-linked to a sort tab. */
 export function dropsPath(opts?: { sort?: DropsSortParam | null }): string {
   const sort = opts?.sort?.trim().toLowerCase() ?? '';
-  if (!sort || sort === 'new' || !DROPS_SORT_VALUES.has(sort)) {
+  if (!sort || sort === 'live' || !DROPS_SORT_VALUES.has(sort)) {
     return APP_DROPS_PATH;
   }
   return `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=${encodeURIComponent(sort)}`;

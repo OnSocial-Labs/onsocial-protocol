@@ -822,12 +822,22 @@ export class ScarcesQuery {
       /** When false (default), hide paused/cancelled/banned shells. */
       includeUnavailable?: boolean;
       /**
-       * `new` = newest created; `minting` = still available, most minted;
-       * `volume` = most minted overall.
+       * `new` = newest created; `minting` / `volume` = most minted;
+       * `live` / `upcoming` / `finished` align with `lifecycle` defaults.
        */
-      orderBy?: 'new' | 'minting' | 'volume';
+      orderBy?: 'new' | 'minting' | 'volume' | 'live' | 'upcoming' | 'finished' | 'closing';
       /** When true, only rows with remaining supply (`remaining > 0`). */
       mintingOnly?: boolean;
+      /**
+       * Window + supply filter for Drops catalog tabs.
+       * Requires `nowNs` (collection start/end are nanoseconds).
+       * `closing` = live window ending within `closingNs` (defaults to now+24h when omitted).
+       */
+      lifecycle?: 'live' | 'upcoming' | 'finished' | 'closing';
+      /** Nanoseconds; required when `lifecycle` is set. */
+      nowNs?: number | string | bigint;
+      /** Nanoseconds deadline for Closing (defaults to nowNs + 24h). */
+      closingNs?: number | string | bigint;
     } = {}
   ): Promise<ScarcesCollectionCurrentRow[]> {
     const limit = opts.limit ?? 40;
@@ -835,13 +845,56 @@ export class ScarcesQuery {
     const variables: Record<string, unknown> = { limit, offset };
     const params = ['$limit: Int!', '$offset: Int!'];
     const where: string[] = [];
+    const lifecycle = opts.lifecycle;
+    const effectiveOrder =
+      opts.orderBy ??
+      (lifecycle === 'upcoming'
+        ? 'upcoming'
+        : lifecycle === 'finished'
+          ? 'finished'
+          : lifecycle === 'closing'
+            ? 'closing'
+            : lifecycle === 'live'
+              ? 'live'
+              : 'new');
 
     if (!opts.includeUnavailable) {
       where.push('paused: {_eq: false}');
       where.push('cancelled: {_eq: false}');
       where.push('banned: {_eq: false}');
     }
-    if (opts.mintingOnly || opts.orderBy === 'minting') {
+    if (lifecycle) {
+      if (opts.nowNs == null) {
+        throw new Error('collectionsCurrent: nowNs is required with lifecycle');
+      }
+      params.push('$nowNs: bigint!');
+      variables.nowNs = String(opts.nowNs);
+      // Hasura BigintComparisonExp uses `_isNull` (camelCase), not `_is_null`.
+      const liveWindow =
+        '_and: [{_or: [{startTime: {_isNull: true}}, {startTime: {_lte: $nowNs}}]}, {_or: [{endTime: {_isNull: true}}, {endTime: {_eq: "0"}}, {endTime: {_gt: $nowNs}}]}]';
+      if (lifecycle === 'live') {
+        where.push('remaining: {_gt: 0}');
+        where.push(liveWindow);
+      } else if (lifecycle === 'closing') {
+        const closingNs =
+          opts.closingNs != null
+            ? String(opts.closingNs)
+            : String(BigInt(String(opts.nowNs)) + 24n * 60n * 60n * 1_000_000_000n);
+        params.push('$closingNs: bigint!');
+        variables.closingNs = closingNs;
+        where.push('remaining: {_gt: 0}');
+        where.push(
+          '_and: [{_or: [{startTime: {_isNull: true}}, {startTime: {_lte: $nowNs}}]}, {endTime: {_gt: $nowNs}}, {endTime: {_neq: "0"}}, {endTime: {_lte: $closingNs}}]'
+        );
+      } else if (lifecycle === 'upcoming') {
+        where.push('remaining: {_gt: 0}');
+        where.push('startTime: {_gt: $nowNs}');
+      } else {
+        where.push(
+          '_or: [{remaining: {_eq: 0}}, {_and: [{endTime: {_isNull: false}}, {endTime: {_neq: "0"}}, {endTime: {_lte: $nowNs}}]}]'
+        );
+      }
+    } else if (opts.mintingOnly || opts.orderBy === 'minting') {
       where.push('remaining: {_gt: 0}');
     }
     if (opts.creatorId?.trim()) {
@@ -873,9 +926,15 @@ export class ScarcesQuery {
 
     const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';
     const orderClause =
-      opts.orderBy === 'minting' || opts.orderBy === 'volume'
+      effectiveOrder === 'minting' || effectiveOrder === 'volume'
         ? '[{mintedCount: DESC_NULLS_LAST}, {remaining: ASC_NULLS_LAST}, {createdAt: DESC_NULLS_LAST}]'
-        : '[{createdAt: DESC_NULLS_LAST}, {createdBlockTimestamp: DESC}]';
+        : effectiveOrder === 'upcoming'
+          ? '[{startTime: ASC_NULLS_LAST}, {createdAt: DESC_NULLS_LAST}]'
+          : effectiveOrder === 'finished'
+            ? '[{updatedBlockTimestamp: DESC}, {createdAt: DESC_NULLS_LAST}]'
+            : effectiveOrder === 'closing'
+              ? '[{endTime: ASC_NULLS_LAST}, {remaining: ASC_NULLS_LAST}, {createdAt: DESC_NULLS_LAST}]'
+              : '[{createdAt: DESC_NULLS_LAST}, {createdBlockTimestamp: DESC}]';
     const res = await this._q.graphql<{
       scarcesCollectionsCurrent: ScarcesCollectionCurrentRow[];
     }>({

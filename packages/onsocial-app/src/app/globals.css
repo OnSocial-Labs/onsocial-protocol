@@ -13979,6 +13979,8 @@ a.os-surface-row {
   .app-soon-page,
   .guilds-page,
   .market-page,
+  .market-page-body,
+  .drops-page-body,
   .apps-directory,
   .app-page,
   .collection-page,
@@ -23647,9 +23649,141 @@ a.os-surface-row {
     list-style: none;
   }
 
-  .drops-discovery-row {
+  .market-page-body,
+  .drops-page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+  }
+
+  .market-listing-row.drops-discovery-row {
     text-decoration: none;
     color: inherit;
+    gap: 0.9rem;
+    /* Beat Market’s shorthand so larger covers keep breathing room. */
+    padding: 0.85rem 0.45rem;
+  }
+
+  /* Guild-search card scale — larger than Market’s 3.1rem thumbs. */
+  .drops-discovery-row .drops-discovery-thumb.market-listing-thumb {
+    width: 4.85rem;
+    height: 4.85rem;
+    border: 0;
+    border-radius: 0.72rem;
+    outline: none;
+    box-shadow: none;
+  }
+
+  .drops-discovery-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .drops-discovery-row .market-listing-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.65rem;
+  }
+
+  .drops-discovery-row .market-listing-title {
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+  }
+
+  .drops-discovery-row .market-listing-meta,
+  .drops-discovery-row .market-listing-meta--price {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .drops-discovery-creator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* Mint-drawer party avatar — keep tiny vs cover. */
+  .drops-discovery-party-avatar.profile-avatar {
+    flex-shrink: 0;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .drops-discovery-party-text {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.02rem;
+  }
+
+  .drops-discovery-party-name,
+  .drops-discovery-party-handle {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .drops-discovery-party-name {
+    font-size: 0.82rem;
+    font-weight: 550;
+    line-height: 1.2;
+  }
+
+  .drops-discovery-party-handle {
+    font-size: 0.72rem;
+    line-height: 1.2;
+    opacity: 0.62;
+  }
+
+  .drops-discovery-blurb {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    opacity: 0.72;
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .drops-discovery-featured-eyebrow {
+    display: block;
+    margin: 0 0 0.15rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.55;
+  }
+
+  .drops-upcoming-group + .drops-upcoming-group {
+    margin-top: 1rem;
+  }
+
+  .drops-upcoming-label {
+    font-size: 0.8rem;
+    opacity: 0.72;
+    margin-bottom: 0.35rem;
+  }
+
+  .drops-discovery-row-menu {
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: 0.15rem;
   }
 
   .drops-creators-list {

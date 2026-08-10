@@ -3163,6 +3163,50 @@ describe('QueryModule', () => {
       });
     });
 
+    it('collectionsCurrent applies live lifecycle window filters', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
+      await os.query.scarces.collectionsCurrent({
+        lifecycle: 'live',
+        nowNs: 1_700_000_000_000_000_000n,
+        limit: 10,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/remaining: \{_gt: 0\}/);
+      expect(body.query).toMatch(/startTime: \{_isNull: true\}/);
+      expect(body.query).toMatch(/startTime: \{_lte: \$nowNs\}/);
+      expect(body.query).toMatch(/\$nowNs: bigint!/);
+      expect(body.variables).toEqual({
+        limit: 10,
+        offset: 0,
+        nowNs: '1700000000000000000',
+      });
+    });
+
+    it('collectionsCurrent applies closing lifecycle with closingNs', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
+      await os.query.scarces.collectionsCurrent({
+        lifecycle: 'closing',
+        nowNs: '1000',
+        closingNs: '2000',
+        limit: 5,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/endTime: \{_lte: \$closingNs\}/);
+      expect(body.query).toMatch(/\$closingNs: bigint!/);
+      expect(body.variables).toEqual({
+        limit: 5,
+        offset: 0,
+        nowNs: '1000',
+        closingNs: '2000',
+      });
+    });
+
     it('ownedBy queries scarcesTokenOwners for unburned tokens', async () => {
       const { os, fetch } = makeOs({
         data: {

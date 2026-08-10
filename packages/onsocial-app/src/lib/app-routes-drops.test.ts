@@ -7,26 +7,42 @@ import {
 } from '@/lib/app-routes';
 
 describe('dropsPath', () => {
-  it('returns bare /drops for default new', () => {
+  it('returns bare /drops for default live', () => {
     expect(dropsPath()).toBe(APP_DROPS_PATH);
-    expect(dropsPath({ sort: 'new' })).toBe(APP_DROPS_PATH);
+    expect(dropsPath({ sort: 'live' })).toBe(APP_DROPS_PATH);
   });
 
-  it('deep-links saved and other sorts', () => {
+  it('deep-links saved, new, and other sorts', () => {
     expect(dropsPath({ sort: 'saved' })).toBe(
       `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=saved`
     );
     expect(dropsPath({ sort: 'loved' })).toBe(
       `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=loved`
     );
+    expect(dropsPath({ sort: 'new' })).toBe(
+      `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=new`
+    );
+    expect(dropsPath({ sort: 'upcoming' })).toBe(
+      `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=upcoming`
+    );
+    expect(dropsPath({ sort: 'closing' })).toBe(
+      `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=closing`
+    );
   });
 });
 
 describe('parseDropsSortParam', () => {
-  it('parses known sorts and falls back to new', () => {
+  it('parses known sorts and defaults to live', () => {
     expect(parseDropsSortParam('saved')).toBe('saved');
-    expect(parseDropsSortParam('Minting')).toBe('minting');
-    expect(parseDropsSortParam(null)).toBe('new');
-    expect(parseDropsSortParam('nope')).toBe('new');
+    expect(parseDropsSortParam('upcoming')).toBe('upcoming');
+    expect(parseDropsSortParam('finished')).toBe('finished');
+    expect(parseDropsSortParam('closing')).toBe('closing');
+    expect(parseDropsSortParam(null)).toBe('live');
+    expect(parseDropsSortParam('nope')).toBe('live');
+  });
+
+  it('aliases minting and volume to live', () => {
+    expect(parseDropsSortParam('Minting')).toBe('live');
+    expect(parseDropsSortParam('volume')).toBe('live');
   });
 });
