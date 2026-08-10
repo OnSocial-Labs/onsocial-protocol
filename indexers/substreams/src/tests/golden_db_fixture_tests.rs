@@ -302,6 +302,9 @@ fn golden_db_fixtures_cover_all_sink_tables() {
         "scarces_apps",
         "scarces_app_creators",
         "scarces_collections_current",
+        "posts_current",
+        "reactions_current",
+        "saves_current",
         "social_spend_events",
     ]);
 

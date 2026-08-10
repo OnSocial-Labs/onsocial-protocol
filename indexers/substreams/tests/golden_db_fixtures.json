@@ -940,5 +940,169 @@
         }
       }
     ]
+  },
+  {
+    "name": "core_post_set_posts_current",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 245000100,
+    "block_timestamp": 1776000100,
+    "receipt_seed": [120, 121],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "DATA_UPDATE",
+        "data": [
+          {
+            "operation": "set",
+            "author": "alice.onsocial.testnet",
+            "path": "alice.onsocial.testnet/post/post1",
+            "value": {
+              "text": "Hello SOCIAL",
+              "channel": "main",
+              "kind": "text",
+              "parent": "bob.onsocial.testnet/post/root",
+              "parentType": "post"
+            }
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "data_updates": 1,
+      "posts_current": 1
+    },
+    "expected_rows": [
+      {
+        "table": "data_updates",
+        "fields": {
+          "operation": "set",
+          "author": "alice.onsocial.testnet",
+          "account_id": "alice.onsocial.testnet",
+          "data_type": "post",
+          "data_id": "post1",
+          "path": "alice.onsocial.testnet/post/post1",
+          "channel": "main",
+          "kind": "text",
+          "parent_path": "bob.onsocial.testnet/post/root",
+          "parent_author": "bob.onsocial.testnet",
+          "parent_type": "post"
+        }
+      },
+      {
+        "table": "posts_current",
+        "fields": {
+          "account_id": "alice.onsocial.testnet",
+          "post_id": "post1",
+          "channel": "main",
+          "kind": "text",
+          "parent_path": "bob.onsocial.testnet/post/root",
+          "parent_author": "bob.onsocial.testnet",
+          "parent_type": "post",
+          "block_height": "245000100"
+        }
+      }
+    ]
+  },
+  {
+    "name": "core_reaction_set_reactions_current",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 245000101,
+    "block_timestamp": 1776000101,
+    "receipt_seed": [122, 123],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "DATA_UPDATE",
+        "data": [
+          {
+            "operation": "set",
+            "author": "alice.onsocial.testnet",
+            "path": "alice.onsocial.testnet/reaction/bob.onsocial.testnet/love/bob.onsocial.testnet/post/1",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "data_updates": 1,
+      "reactions_current": 1
+    },
+    "expected_rows": [
+      {
+        "table": "data_updates",
+        "fields": {
+          "operation": "set",
+          "author": "alice.onsocial.testnet",
+          "account_id": "alice.onsocial.testnet",
+          "data_type": "reaction",
+          "path": "alice.onsocial.testnet/reaction/bob.onsocial.testnet/love/bob.onsocial.testnet/post/1",
+          "target_account": "bob.onsocial.testnet",
+          "reaction_kind": "love"
+        }
+      },
+      {
+        "table": "reactions_current",
+        "fields": {
+          "account_id": "alice.onsocial.testnet",
+          "path": "alice.onsocial.testnet/reaction/bob.onsocial.testnet/love/bob.onsocial.testnet/post/1",
+          "post_owner": "bob.onsocial.testnet",
+          "reaction_kind": "love",
+          "operation": "set",
+          "block_height": "245000101"
+        }
+      }
+    ]
+  },
+  {
+    "name": "core_saved_set_saves_current",
+    "contract": "core",
+    "receiver_id": "core.onsocial.testnet",
+    "block_height": 245000102,
+    "block_timestamp": 1776000102,
+    "receipt_seed": [124, 125],
+    "logs": [
+      {
+        "standard": "onsocial",
+        "version": "1.0.0",
+        "event": "DATA_UPDATE",
+        "data": [
+          {
+            "operation": "set",
+            "author": "alice.onsocial.testnet",
+            "path": "alice.onsocial.testnet/saved/bob.onsocial.testnet/post/42",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "expected_table_counts": {
+      "data_updates": 1,
+      "saves_current": 1
+    },
+    "expected_rows": [
+      {
+        "table": "data_updates",
+        "fields": {
+          "operation": "set",
+          "author": "alice.onsocial.testnet",
+          "account_id": "alice.onsocial.testnet",
+          "data_type": "saved",
+          "path": "alice.onsocial.testnet/saved/bob.onsocial.testnet/post/42"
+        }
+      },
+      {
+        "table": "saves_current",
+        "fields": {
+          "account_id": "alice.onsocial.testnet",
+          "content_path": "bob.onsocial.testnet/post/42",
+          "operation": "set",
+          "block_height": "245000102"
+        }
+      }
+    ]
   }
 ]
