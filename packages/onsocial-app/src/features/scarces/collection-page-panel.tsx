@@ -23,14 +23,9 @@ import {
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
-import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
+import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { CollectionAllowlistManager } from '@/features/scarces/collection-allowlist-manager';
 import {
   CollectionAboutSheet,
@@ -62,9 +57,9 @@ import {
 } from '@/features/scarces/collections-data';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
+import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
@@ -79,12 +74,6 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
-import {
-  txToastConfirming,
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const MINT_ACTIVITY_OPS = new Set([
   'purchase',
@@ -96,19 +85,6 @@ const MINT_ACTIVITY_OPS = new Set([
 const ACTIVITY_PREVIEW_LIMIT = 3;
 
 const EMPTY_ACTIVITY: CollectionActivityRow[] = [];
-
-const NEAR_DECIMALS = 24;
-
-function yoctoToNearDisplay(raw: string | null | undefined): string | null {
-  if (!raw || !/^\d+$/.test(raw)) return null;
-  const padded = raw.padStart(NEAR_DECIMALS + 1, '0');
-  const whole = padded.slice(0, padded.length - NEAR_DECIMALS) || '0';
-  const frac = padded.slice(padded.length - NEAR_DECIMALS).replace(/0+$/, '');
-  const near = frac ? `${whole}.${frac}` : whole;
-  const n = Number.parseFloat(near);
-  if (!Number.isFinite(n)) return near;
-  return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
-}
 
 function statusTone(status: CollectionStatus): string {
   if (status === 'live') return 'is-live';
@@ -148,12 +124,8 @@ export function CollectionPagePanel({
   initialCreator?: CollectionCreatorFace | null;
   initialActivity?: CollectionActivityRow[];
 }) {
-  const {
-    accountId: viewerAccountId,
-    isConnected,
-    getSigningWallet,
-  } = useAppWallet();
-  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { setTxResult } = useAppTransactionFeedback();
   const collectionSaves = useScarceCollectionSaves({
     collectionIds: [collectionId],
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -169,8 +141,7 @@ export function CollectionPagePanel({
   );
   /** null = unchecked; true/false after ownership scan for writing reader. */
   const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [pending, setPending] = useState(false);
+  const [mintOpen, setMintOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [refreshKey, setRefreshKey] = useState(0);
@@ -348,24 +319,6 @@ export function CollectionPagePanel({
     return () => window.clearInterval(id);
   }, [hasClock]);
 
-  const maxQuantity = useMemo(() => {
-    if (!view) return 1;
-    const caps = [view.remaining];
-    if (walletRemaining != null) caps.push(walletRemaining);
-    if (view.maxPerWallet != null) caps.push(view.maxPerWallet);
-    if (needsAllowlist && allowlistRemaining != null) {
-      caps.push(allowlistRemaining);
-    }
-    const positive = caps.filter((n) => n > 0);
-    if (positive.length === 0) return 1;
-    const cap = Math.min(...positive, 10);
-    return Math.max(1, Number.isFinite(cap) ? cap : 1);
-  }, [view, walletRemaining, allowlistRemaining, needsAllowlist]);
-
-  useEffect(() => {
-    setQuantity((q) => Math.min(Math.max(1, q), maxQuantity));
-  }, [maxQuantity]);
-
   // Title handoff: elevate immersive nav once the drop name scrolls under it
   // — same recipe as guild / hub (no room-filter rail).
   const handoffKey = hasImmersiveCover ? (view?.collectionId ?? null) : null;
@@ -417,61 +370,39 @@ export function CollectionPagePanel({
     };
   }, [handoffKey]);
 
-  const totalYocto = useMemo(() => {
-    if (!view) return '0';
-    try {
-      return (BigInt(view.priceYocto) * BigInt(quantity)).toString();
-    } catch {
-      return '0';
-    }
-  }, [view, quantity]);
-  const totalNear = yoctoToNearDisplay(totalYocto);
+  const allowlistPending =
+    needsAllowlist && isConnected && allowlistRemaining == null;
+  // Dock Mint: allowlist window only when remaining + not pending; live public
+  // when mintable and under wallet cap (show while disconnected — sheet connects).
+  const showMintCompose =
+    !isOwner &&
+    view != null &&
+    walletRemaining !== 0 &&
+    ((needsAllowlist && allowlistOk && !allowlistPending) ||
+      (status === 'live' && mintable));
 
-  const handleMint = useCallback(async () => {
-    if (!view || pending || !mintable) return;
-    setPending(true);
-    try {
-      const { accountId, wallet } = await getSigningWallet();
-      const client = createAppScarcesWalletClient(accountId, wallet);
-      const isFree = view.priceYocto === '0';
-      const response = await client.scarces.collections.purchaseFrom(
-        view.collectionId,
-        view.priceNear ?? '0',
-        {
-          quantity,
-          ...(isFree ? {} : { depositYocto: totalYocto }),
-        }
-      );
-      const confirmed = await trackTransaction({
-        txHashes: collectRelayTxHashes(response),
-        submittedMessage: txToastConfirming.mintingCollection,
-        successMessage: txToastSuccess.collectionMinted,
-        failureMessage: txToastError.mintCollectionFailed,
-      });
-      if (!confirmed) return;
-      setRefreshKey((k) => k + 1);
-    } catch (cause) {
-      if (isWalletUserCancellation(cause)) return;
-      setTxResult({
-        type: 'error',
-        msg:
-          cause instanceof Error
-            ? cause.message
-            : txToastError.mintCollectionFailed,
-      });
-    } finally {
-      setPending(false);
-    }
-  }, [
-    view,
-    pending,
-    mintable,
-    quantity,
-    totalYocto,
-    getSigningWallet,
-    trackTransaction,
-    setTxResult,
-  ]);
+  const openMintSheet = useCallback(() => {
+    setMintOpen(true);
+  }, []);
+  const openOwnerPost = useCallback(() => {
+    if (!view) return;
+    requestDropCompose({
+      collectionId: view.collectionId,
+      title: view.title,
+      ...(view.mediaUrl ? { mediaUrl: view.mediaUrl } : {}),
+      ...(view.kind ? { mediumKind: view.kind } : {}),
+    });
+  }, [view]);
+  useRegisterComposeAction(
+    isOwner
+      ? view
+        ? openOwnerPost
+        : null
+      : showMintCompose
+        ? openMintSheet
+        : null,
+    isOwner ? 'post' : 'mint'
+  );
 
   const handleShare = useCallback(async () => {
     if (!view) return;
@@ -494,7 +425,6 @@ export function CollectionPagePanel({
         ) {
           return;
         }
-        // Fall through to clipboard when share isn’t available for this payload.
       }
     }
 
@@ -509,6 +439,10 @@ export function CollectionPagePanel({
       });
     }
   }, [setTxResult, view]);
+
+  const handleMintPurchased = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const activityLoaded = activityFetched?.key === activityRequestKey;
   const activity = activityLoaded ? activityFetched.rows : EMPTY_ACTIVITY;
@@ -548,6 +482,47 @@ export function CollectionPagePanel({
     setActivityOpen(false);
   }, []);
 
+  const maxQuantity = useMemo(() => {
+    if (!view) return 1;
+    const caps = [view.remaining];
+    if (walletRemaining != null) caps.push(walletRemaining);
+    if (view.maxPerWallet != null) caps.push(view.maxPerWallet);
+    if (needsAllowlist && allowlistRemaining != null) {
+      caps.push(allowlistRemaining);
+    }
+    const positive = caps.filter((n) => n > 0);
+    if (positive.length === 0) return 1;
+    const cap = Math.min(...positive, 10);
+    return Math.max(1, Number.isFinite(cap) ? cap : 1);
+  }, [view, walletRemaining, allowlistRemaining, needsAllowlist]);
+
+  const mintListing = useMemo(() => {
+    if (!view) return null;
+    return {
+      status: 'drop' as const,
+      collectionId: view.collectionId,
+      priceNear: view.priceNear ?? '0',
+      title: view.title,
+      ...(view.description?.trim()
+        ? { description: view.description.trim() }
+        : {}),
+      mediaUrl: view.mediaUrl,
+      creatorId: view.creatorId,
+      ...(view.cardBg ? { cardBg: view.cardBg } : {}),
+      copies: view.totalSupply,
+      remaining: view.remaining,
+      maxQuantity,
+      ...(view.sourcePostPath ? { sourcePostPath: view.sourcePostPath } : {}),
+      ...(view.playables.length > 0
+        ? {
+            playable: view.playables[0],
+            playables: view.playables,
+          }
+        : {}),
+      alreadyOwnsEdition: holdsEdition === true,
+    };
+  }, [view, holdsEdition, maxQuantity]);
+
   if (notFound || !view) {
     return (
       <OsAppScreen title="Drop" backFallbackHref={APP_MARKET_PATH}>
@@ -573,8 +548,6 @@ export function CollectionPagePanel({
     isConnected &&
     allowlistRemaining != null &&
     allowlistRemaining < 1;
-  const allowlistPending =
-    needsAllowlist && isConnected && allowlistRemaining == null;
   const mintDisabledReason = !mintable
     ? status === 'sold_out'
       ? 'This drop is sold out.'
@@ -592,24 +565,13 @@ export function CollectionPagePanel({
       : allowlistBlocked
         ? 'You’re not on the allowlist.'
         : null;
-  const canMint =
-    isConnected &&
-    mintable &&
-    walletRemaining !== 0 &&
-    allowlistOk &&
-    !allowlistPending &&
-    !pending;
-  // Pin the commerce band while minting is still in play (collectors) or
-  // while the owner can share a live / upcoming drop.
-  const pinCollect = status === 'live' || status === 'upcoming';
   const playables = view.playables;
   const hasPlayables = playables.length > 0;
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
   const readables = view.readables;
   const hasReadables = readables.length > 0 || view.bookPdf != null;
-  const canReadWriting =
-    isOwner || holdsEdition === true;
+  const canReadWriting = isOwner || holdsEdition === true;
   const writingLockedHint = !isConnected
     ? 'Connect your wallet and Collect an edition to read.'
     : holdsEdition === null
@@ -643,206 +605,6 @@ export function CollectionPagePanel({
   const showActivitySeeAll =
     activityLoaded && sheetActivity.length > mintPreview.length;
 
-  const collectBand = (
-    <section
-      className="collection-action-band"
-      aria-label={isOwner ? 'Drop' : 'Mint'}
-    >
-      <div className="collection-commerce">
-        <div className="collection-commerce-line">
-          <div className="collection-commerce-meta">
-            <span className="collection-commerce-supply">
-              {view.minted}/{view.totalSupply}
-            </span>
-            {personalAllowlistLeft != null ? (
-              <>
-                <span className="collection-meta-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="collection-commerce-chips">
-                  {personalAllowlistLeft === 1
-                    ? '1 left for you'
-                    : `${personalAllowlistLeft} left for you`}
-                </span>
-              </>
-            ) : null}
-            {chipParts.length > 0 ? (
-              <>
-                <span className="collection-meta-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="collection-commerce-chips">
-                  {chipParts.join(' · ')}
-                </span>
-              </>
-            ) : null}
-          </div>
-          {isOwner ? (
-            <div className="collection-commerce-share-row">
-              <button
-                type="button"
-                className="collection-commerce-post-feed"
-                onClick={() => {
-                  requestDropCompose({
-                    collectionId: view.collectionId,
-                    title: view.title,
-                    ...(view.mediaUrl ? { mediaUrl: view.mediaUrl } : {}),
-                    ...(view.kind ? { mediumKind: view.kind } : {}),
-                  });
-                }}
-              >
-                Post to feed
-              </button>
-              <button
-                type="button"
-                className={`collection-commerce-save${
-                  collectionSaved ? ' is-saved' : ''
-                }${collectionSavePending ? ' is-pending' : ''}`}
-                aria-label={
-                  collectionSaved
-                    ? 'Remove drop bookmark'
-                    : 'Bookmark this drop'
-                }
-                aria-pressed={collectionSaved}
-                disabled={collectionSavePending}
-                onClick={() => {
-                  void collectionSaves.toggleSave(collectionId);
-                }}
-              >
-                {collectionSaved ? (
-                  <BookmarkFillIcon
-                    aria-hidden
-                    className="collection-commerce-save-icon"
-                  />
-                ) : (
-                  <BookmarkIcon
-                    aria-hidden
-                    className="collection-commerce-save-icon"
-                  />
-                )}
-              </button>
-              <button
-                type="button"
-                className="collection-commerce-share"
-                aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
-                onClick={() => {
-                  void handleShare();
-                }}
-              >
-                <ShareIcon
-                  aria-hidden
-                  className="collection-commerce-share-icon"
-                />
-              </button>
-            </div>
-          ) : (
-            <div className="collection-commerce-share-row collection-commerce-share-row--viewer">
-              <button
-                type="button"
-                className={`collection-commerce-save${
-                  collectionSaved ? ' is-saved' : ''
-                }${collectionSavePending ? ' is-pending' : ''}`}
-                aria-label={
-                  collectionSaved
-                    ? 'Remove drop bookmark'
-                    : 'Bookmark this drop'
-                }
-                aria-pressed={collectionSaved}
-                disabled={collectionSavePending}
-                onClick={() => {
-                  void collectionSaves.toggleSave(collectionId);
-                }}
-              >
-                {collectionSaved ? (
-                  <BookmarkFillIcon
-                    aria-hidden
-                    className="collection-commerce-save-icon"
-                  />
-                ) : (
-                  <BookmarkIcon
-                    aria-hidden
-                    className="collection-commerce-save-icon"
-                  />
-                )}
-              </button>
-              <button
-                type="button"
-                className="collection-commerce-share"
-                aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
-                onClick={() => {
-                  void handleShare();
-                }}
-              >
-                <ShareIcon
-                  aria-hidden
-                  className="collection-commerce-share-icon"
-                />
-              </button>
-            </div>
-          )}
-        </div>
-        <div
-          className="collection-progress-track"
-          role="progressbar"
-          aria-valuenow={progressPct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Editions minted"
-        >
-          <span
-            className="collection-progress-fill"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-      </div>
-
-      {!isOwner ? (
-        <div className="collection-mint-row">
-          {mintable && maxQuantity > 1 ? (
-            <CollectionQtyStepper
-              value={quantity}
-              min={1}
-              max={maxQuantity}
-              disabled={pending}
-              aria-label="Quantity"
-              decreaseLabel="Decrease quantity"
-              increaseLabel="Increase quantity"
-              onChange={setQuantity}
-            />
-          ) : null}
-          <OsSheetActions
-            layout="stack"
-            tone="frosted-primary"
-            borderless
-            className="collection-mint-actions"
-          >
-            <OsSheetAction
-              type="button"
-              variant="primary"
-              ready={canMint}
-              disabled={!canMint}
-              pending={pending}
-              pendingLabel="Minting…"
-              onClick={() => {
-                void handleMint();
-              }}
-            >
-              {!isConnected
-                ? 'Connect to mint'
-                : view.priceYocto === '0'
-                  ? 'Mint'
-                  : `Mint · ${totalNear} NEAR`}
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      ) : null}
-
-      {mintDisabledReason && !isOwner ? (
-        <p className="collection-mint-hint">{mintDisabledReason}</p>
-      ) : null}
-    </section>
-  );
-
   return (
     <OsAppScreen
       title={view.title}
@@ -850,7 +612,6 @@ export function CollectionPagePanel({
       immersiveHeader={immersive}
       headerElevated={immersive ? headerElevated : false}
       scrollRootRef={scrollRootRef}
-      footer={pinCollect ? collectBand : undefined}
       actions={
         <>
           <span
@@ -864,7 +625,7 @@ export function CollectionPagePanel({
             className={osIconActionClassName}
             aria-label="Shop this creator"
           >
-            <ShopFillIcon aria-hidden />
+            <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
           </Link>
         </>
       }
@@ -890,6 +651,9 @@ export function CollectionPagePanel({
                 poster={view.mediaUrl}
                 layout="cover"
                 showTracks={false}
+                showFeedPost={false}
+                showShare={false}
+                showDownloads={false}
                 persist={{
                   collectionId: view.collectionId,
                   title: view.title,
@@ -1026,6 +790,112 @@ export function CollectionPagePanel({
                 </div>
               </div>
             </div>
+            <div className="collection-product-row">
+              <p className="collection-product-line">
+                <span className={`collection-product-status ${statusTone(status)}`}>
+                  {collectionStatusLabel(status)}
+                </span>
+                <span className="collection-meta-sep" aria-hidden>
+                  ·
+                </span>
+                <span className="collection-commerce-supply">
+                  {view.minted}/{view.totalSupply}
+                </span>
+                {view.priceNear &&
+                view.priceNear !== '0' &&
+                view.priceYocto !== '0' ? (
+                  <>
+                    <span className="collection-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span className="collection-product-price">
+                      {view.priceNear} NEAR
+                    </span>
+                  </>
+                ) : null}
+                {personalAllowlistLeft != null ? (
+                  <>
+                    <span className="collection-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span className="collection-commerce-chips">
+                      {personalAllowlistLeft === 1
+                        ? '1 left for you'
+                        : `${personalAllowlistLeft} left for you`}
+                    </span>
+                  </>
+                ) : null}
+                {chipParts.length > 0 ? (
+                  <>
+                    <span className="collection-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span className="collection-commerce-chips">
+                      {chipParts.join(' · ')}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              <div className="collection-commerce-share-row collection-commerce-share-row--viewer">
+                <button
+                  type="button"
+                  className={`collection-commerce-save${
+                    collectionSaved ? ' is-saved' : ''
+                  }${collectionSavePending ? ' is-pending' : ''}`}
+                  aria-label={
+                    collectionSaved
+                      ? 'Remove drop bookmark'
+                      : 'Bookmark this drop'
+                  }
+                  aria-pressed={collectionSaved}
+                  disabled={collectionSavePending}
+                  onClick={() => {
+                    void collectionSaves.toggleSave(collectionId);
+                  }}
+                >
+                  {collectionSaved ? (
+                    <BookmarkFillIcon
+                      aria-hidden
+                      className="collection-commerce-save-icon"
+                    />
+                  ) : (
+                    <BookmarkIcon
+                      aria-hidden
+                      className="collection-commerce-save-icon"
+                    />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="collection-commerce-share"
+                  aria-label={shareCopied ? 'Link copied' : 'Share drop link'}
+                  onClick={() => {
+                    void handleShare();
+                  }}
+                >
+                  <ShareIcon
+                    aria-hidden
+                    className="collection-commerce-share-icon"
+                  />
+                </button>
+              </div>
+            </div>
+            <div
+              className="collection-progress-track"
+              role="progressbar"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Editions minted"
+            >
+              <span
+                className="collection-progress-fill"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            {mintDisabledReason && !isOwner ? (
+              <p className="collection-mint-hint">{mintDisabledReason}</p>
+            ) : null}
             {description ? (
               <CollectionAboutTeaser
                 text={description}
@@ -1049,6 +919,9 @@ export function CollectionPagePanel({
               poster={view.mediaUrl}
               layout="tracks"
               showTransport={false}
+              showFeedPost={false}
+              showShare={false}
+              showDownloads={false}
               persist={{
                 collectionId: view.collectionId,
                 title: view.title,
@@ -1135,8 +1008,6 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {/* Closed / owner: keep Mint in-flow. Live collectors use screen footer. */}
-        {!pinCollect ? collectBand : null}
       </div>
 
       <GlassSheet
@@ -1199,6 +1070,14 @@ export function CollectionPagePanel({
         writingFormat={view.writingFormat}
         canRead={canReadWriting}
         lockedHint={writingLockedHint}
+      />
+
+      <ScarceBuySheet
+        open={mintOpen}
+        listing={mintListing}
+        alreadyOwnsEdition={holdsEdition === true}
+        onOpenChange={setMintOpen}
+        onPurchased={handleMintPurchased}
       />
     </OsAppScreen>
   );

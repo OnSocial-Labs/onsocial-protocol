@@ -1,16 +1,24 @@
 /**
  * Cross-surface draft for “Post this Drop” — Drop page / clip / Market Yours
  * set a draft; the global DropComposeHost opens the personal composer.
+ *
+ * Collection mint announce: `collectionId` (± optional `tokenId` for a seat).
+ * Resale announce: listed edition — `tokenId` required; `collectionId` when
+ * Drop-backed, omitted for post-minted `s:` tokens.
  */
 
 export interface DropComposeDraft {
-  collectionId: string;
+  /** Drop collection when announcing a primary mint or Drop edition. */
+  collectionId?: string;
+  /** Specific edition — required for resale announces without a collection. */
   tokenId?: string;
   title: string;
   mediaUrl?: string | null;
   mediumKind?: string | null;
   /** Optional caption prefill. */
   text?: string;
+  /** Original mint post path (`author/post/id`) for See original on resale. */
+  sourcePostPath?: string | null;
 }
 
 type Listener = () => void;
@@ -28,19 +36,29 @@ export function scarcesContractIdForNetwork(): string {
     : 'scarces.onsocial.testnet';
 }
 
-/** Queue a Drop compose draft and notify the host. */
+export function isDropComposeDraftReady(
+  draft: Pick<DropComposeDraft, 'collectionId' | 'tokenId'> | null | undefined
+): boolean {
+  return Boolean(draft?.collectionId?.trim() || draft?.tokenId?.trim());
+}
+
+/** Queue a Drop / resale compose draft and notify the host. */
 export function requestDropCompose(draft: DropComposeDraft): void {
-  const collectionId = draft.collectionId.trim();
-  if (!collectionId) return;
+  const collectionId = draft.collectionId?.trim() || '';
+  const tokenId = draft.tokenId?.trim() || '';
+  if (!collectionId && !tokenId) return;
   pending = {
-    collectionId,
-    ...(draft.tokenId?.trim() ? { tokenId: draft.tokenId.trim() } : {}),
-    title: draft.title.trim() || collectionId,
+    ...(collectionId ? { collectionId } : {}),
+    ...(tokenId ? { tokenId } : {}),
+    title: draft.title.trim() || collectionId || tokenId,
     ...(draft.mediaUrl?.trim() ? { mediaUrl: draft.mediaUrl.trim() } : {}),
     ...(draft.mediumKind?.trim()
       ? { mediumKind: draft.mediumKind.trim().toLowerCase() }
       : {}),
     ...(draft.text?.trim() ? { text: draft.text.trim() } : {}),
+    ...(draft.sourcePostPath?.trim()
+      ? { sourcePostPath: draft.sourcePostPath.trim() }
+      : {}),
   };
   emit();
 }

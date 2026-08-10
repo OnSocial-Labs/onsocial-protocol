@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  isScarceOriginalSelf,
   resolveScarceBodyText,
   resolveScarceOriginalHref,
 } from '@/features/scarces/scarce-provenance-copy';
@@ -60,5 +61,43 @@ describe('resolveScarceOriginalHref', () => {
         sourcePostPath: 'alice.testnet/post/99',
       })
     ).toBe('/@alice.testnet/posts/99');
+  });
+});
+
+describe('isScarceOriginalSelf', () => {
+  const mintPost = {
+    accountId: 'alice.testnet',
+    postId: '99',
+    blockHeight: 1,
+    blockTimestamp: 1,
+    value: '{}',
+  } as PostRow;
+
+  const announcePost = {
+    accountId: 'bob.testnet',
+    postId: '7',
+    blockHeight: 1,
+    blockTimestamp: 1,
+    value: '{}',
+  } as PostRow;
+
+  it('hides original when source path is this post', () => {
+    expect(isScarceOriginalSelf(mintPost, 'alice.testnet/post/99')).toBe(true);
+  });
+
+  it('keeps original link on a resale announce post', () => {
+    expect(
+      isScarceOriginalSelf(announcePost, 'alice.testnet/post/99')
+    ).toBe(false);
+  });
+
+  it('matches via resolved postHref', () => {
+    expect(
+      isScarceOriginalSelf(mintPost, null, '/@alice.testnet/posts/99')
+    ).toBe(true);
+  });
+
+  it('is false without a live post', () => {
+    expect(isScarceOriginalSelf(null, 'alice.testnet/post/99')).toBe(false);
   });
 });

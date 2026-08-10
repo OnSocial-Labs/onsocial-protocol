@@ -10,7 +10,16 @@ import {
   type ComposerMode,
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
+import {
+  COMPOSER_PERSONAL_TARGET,
+  useComposerFeedTargets,
+} from '@/features/guilds/use-composer-feed-targets';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
+import {
+  dispatchGuildPostConfirmed,
+  submitGuildRootPost,
+} from '@/features/scarces/submit-guild-drop-post';
+import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
   usePostAuthorProfiles,
   type PostAuthorProfile,
@@ -21,20 +30,22 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 interface UsePersonalComposerOptions {
   /** When true, dock pen opens a new personal post. */
   registerPen: boolean;
-  /** Whisper under “New post”, e.g. `@alice.near · Public`. */
-  destinationLabel: string;
+  /**
+   * Fallback whisper when destination menus are unavailable.
+   * Kept for call-site compatibility; menus replace the identity line.
+   */
+  destinationLabel?: string;
   /** Optional author map already loaded by the host feed. */
   authorProfiles?: Record<string, PostAuthorProfile>;
   onConfirmed?: (post: PostRow) => void;
 }
 
 /**
- * Shared personal compose controller — same sheet UX as guild, personal
- * (or group-aware reply/quote) write path.
+ * Shared personal compose controller — same sheet UX as guild / Drop, with
+ * Public + joined-guild destination menus on new posts.
  */
 export function usePersonalComposer({
   registerPen,
-  destinationLabel,
   authorProfiles,
   onConfirmed,
 }: UsePersonalComposerOptions) {
@@ -47,6 +58,25 @@ export function usePersonalComposer({
   } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [targetId, setTargetId] = useState(COMPOSER_PERSONAL_TARGET);
+
+  const reportError = useCallback((message: string) => {
+    setError(message);
+  }, []);
+
+  const composingPost = Boolean(composer && composer.mode === 'post');
+  const {
+    feedTargetOptions,
+    destination,
+    selectedSpace,
+    guildLoading,
+    resetGuildState,
+  } = useComposerFeedTargets({
+    active: composingPost,
+    accountId,
+    targetId,
+    onError: reportError,
+  });
 
   const targetAuthorIds = useMemo(
     () => (composer?.target ? [composer.target.accountId] : []),
@@ -60,16 +90,20 @@ export function usePersonalComposer({
 
   const openPost = useCallback(() => {
     setError(null);
+    setTargetId(COMPOSER_PERSONAL_TARGET);
+    resetGuildState();
     setComposer({ mode: 'post', target: null });
-  }, []);
+  }, [resetGuildState]);
 
   const openReply = useCallback((target: PostRow) => {
     setError(null);
+    setTargetId(COMPOSER_PERSONAL_TARGET);
     setComposer({ mode: 'reply', target });
   }, []);
 
   const openQuote = useCallback((target: PostRow) => {
     setError(null);
+    setTargetId(COMPOSER_PERSONAL_TARGET);
     setComposer({ mode: 'quote', target });
   }, []);
 
@@ -82,7 +116,7 @@ export function usePersonalComposer({
       if (
         !payload.text.trim() &&
         !(payload.files?.length) &&
-        !payload.drop?.collectionId
+        !isDropComposeDraftReady(payload.drop)
       ) {
         return;
       }
@@ -97,6 +131,37 @@ export function usePersonalComposer({
       setPending(true);
       try {
         const { client } = await withClient();
+
+        if (mode === 'post' && targetId !== COMPOSER_PERSONAL_TARGET) {
+          if (guildLoading) {
+            setError('Loading guild rooms…');
+            return;
+          }
+          if (!selectedSpace) {
+            setError('Choose a room you can post in.');
+            return;
+          }
+          const result = await submitGuildRootPost({
+            client,
+            accountId,
+            groupId: targetId,
+            space: selectedSpace,
+            payload,
+            trackTransaction,
+          });
+          if (result.confirmed && result.optimisticPost) {
+            dispatchGuildPostConfirmed({
+              groupId: result.groupId,
+              post: result.optimisticPost,
+            });
+            onConfirmed?.(result.optimisticPost);
+            setComposer(null);
+            setTargetId(COMPOSER_PERSONAL_TARGET);
+            resetGuildState();
+          }
+          return;
+        }
+
         const result = await submitPersonalPost({
           client,
           accountId,
@@ -108,6 +173,8 @@ export function usePersonalComposer({
         if (result.confirmed && result.optimisticPost) {
           onConfirmed?.(result.optimisticPost);
           setComposer(null);
+          setTargetId(COMPOSER_PERSONAL_TARGET);
+          resetGuildState();
         }
       } catch (cause) {
         if (isWalletUserCancellation(cause)) return;
@@ -128,9 +195,13 @@ export function usePersonalComposer({
       accountId,
       composer,
       connect,
+      guildLoading,
       isConnected,
       onConfirmed,
       pending,
+      resetGuildState,
+      selectedSpace,
+      targetId,
       trackTransaction,
       withClient,
     ]
@@ -150,15 +221,32 @@ export function usePersonalComposer({
               )
           : undefined
       }
-      destination={
+      destination={composer.mode === 'post' ? destination : undefined}
+      feedTargets={
         composer.mode === 'post'
-          ? { kind: 'personal', label: destinationLabel }
+          ? {
+              options: feedTargetOptions,
+              selectedId: targetId,
+              onChange: (id) => {
+                setError(null);
+                setTargetId(id);
+              },
+            }
           : undefined
       }
-      pending={pending}
+      pending={
+        pending ||
+        (composer.mode === 'post' &&
+          targetId !== COMPOSER_PERSONAL_TARGET &&
+          guildLoading)
+      }
       error={error}
       onClose={() => {
-        if (!pending) setComposer(null);
+        if (!pending) {
+          setComposer(null);
+          setTargetId(COMPOSER_PERSONAL_TARGET);
+          resetGuildState();
+        }
       }}
       onSubmit={(payload) => void submit(payload)}
     />

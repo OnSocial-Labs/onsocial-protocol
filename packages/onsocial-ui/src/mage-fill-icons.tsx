@@ -93,6 +93,34 @@ export function ChartFillIcon(props: MageFillIconProps) {
   );
 }
 
+/** Mage `image-fill` — media tool selected state. */
+export function ImageFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M16.25 2.75h-8.5A5.76 5.76 0 0 0 2 8.5v7a5.76 5.76 0 0 0 5.75 5.75h8.5A5.76 5.76 0 0 0 22 15.5v-7a5.76 5.76 0 0 0-5.75-5.75M8 6.1a2.41 2.41 0 1 1-.922 4.635A2.41 2.41 0 0 1 8.01 6.1zm12.5 6.68l-2.18-1.69a3.26 3.26 0 0 0-4.17.37l-2.33 2.33a3 3 0 0 1-3.72.36a1.48 1.48 0 0 0-.94-.24a1.46 1.46 0 0 0-.88.42l-2.43 2.84a4.25 4.25 0 0 1-.35-1.91l1.68-1.95a3 3 0 0 1 3.76-.41a1.43 1.43 0 0 0 1.82-.18l2.33-2.32a4.77 4.77 0 0 1 6.13-.51l1.28 1z"
+        fill="currentColor"
+      />
+      <path
+        d="M8.91 8.51a.91.91 0 1 1-1.82 0a.91.91 0 0 1 1.82 0"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `chart-vertical-fill` — poll tool selected state (same glyph as stroke). */
+export function ChartVerticalFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M12.685 3.065h-5.51c-.84 0-1.52.68-1.52 1.52v1.77c0 .84.68 1.52 1.52 1.52h5.51c.84 0 1.52-.68 1.52-1.52v-1.77c0-.84-.68-1.52-1.52-1.52m9.14 8.05v1.77a1.53 1.53 0 0 1-1.53 1.52H7.175a1.52 1.52 0 0 1-1.52-1.52v-1.77a1.52 1.52 0 0 1 1.52-1.52h13.12a1.53 1.53 0 0 1 1.53 1.52m-3.32 6.53v1.77a1.53 1.53 0 0 1-1.53 1.52h-9.78a1.52 1.52 0 0 1-1.52-1.52v-1.77a1.52 1.52 0 0 1 1.52-1.52h9.78a1.53 1.53 0 0 1 1.53 1.52m-15.68 3.71a.65.65 0 0 1-.65-.65V3.295a.65.65 0 1 1 1.3 0v17.41a.65.65 0 0 1-.65.65"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
 /** Mage bulk `fire-a` — Hot sort / portal Boost surfaces. */
 export function FireFillIcon(props: MageFillIconProps) {
   return (

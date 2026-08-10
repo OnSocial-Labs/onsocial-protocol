@@ -87,6 +87,30 @@ describe('parseDropPaintSnapshot', () => {
       mediumKind: 'audio',
     });
   });
+
+  it('allows token-only paint without collectionId', () => {
+    expect(
+      parseDropPaintSnapshot(
+        JSON.stringify({
+          v: 1,
+          text: '',
+          x: {
+            onsocial: {
+              drop: {
+                tokenId: 's:post-1',
+                title: 'Night',
+                sourcePostPath: 'alice.near/post/p1',
+              },
+            },
+          },
+        })
+      )
+    ).toEqual({
+      tokenId: 's:post-1',
+      title: 'Night',
+      sourcePostPath: 'alice.near/post/p1',
+    });
+  });
 });
 
 describe('parsePostText', () => {

@@ -1676,7 +1676,10 @@ export function CreateDropPanel() {
               aria-haspopup="dialog"
               onClick={() => setStudioHelpOpen(true)}
             >
-              <QuestionMarkCircleFillIcon aria-hidden />
+              <QuestionMarkCircleFillIcon
+                aria-hidden
+                className="glass-sheet-close-icon"
+              />
             </button>
             <OsSheetActions
               layout="row-compact"
@@ -1706,7 +1709,10 @@ export function CreateDropPanel() {
               aria-haspopup="dialog"
               onClick={() => setHelpOpen(true)}
             >
-              <QuestionMarkCircleFillIcon aria-hidden />
+              <QuestionMarkCircleFillIcon
+                aria-hidden
+                className="glass-sheet-close-icon"
+              />
             </button>
             <OsSheetActions
               layout="row-compact"

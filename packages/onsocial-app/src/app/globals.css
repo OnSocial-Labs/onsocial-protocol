@@ -85,6 +85,18 @@
 }
 
 /*
+ * Screen header action glyphs — same 1.25rem as drawer × (.glass-sheet-close-icon).
+ * Unlayered so Mage width/height="24" attrs don't win. Search-field icons stay
+ * on .search-field-icon (smaller) and are outside this selector.
+ */
+.os-app-screen-nav-row .glass-sheet-icon-action > svg {
+  display: block;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/*
  * App chrome rail (Market filters / Discover tabs) — unlayered so scroll-hide
  * beats @layer components host overflow / margin rules.
  */
@@ -2286,6 +2298,105 @@ a.os-surface-row {
     color: inherit;
     text-decoration: none;
   }
+}
+
+/* Unlayered so it beats the `a { color: inherit }` reset above (@layer loses). */
+.scarce-provenance-original-link {
+  color: var(--protocol-green, #00ec97);
+  text-decoration: none;
+  font-weight: 550;
+}
+
+.scarce-provenance-original-link:hover,
+.scarce-provenance-original-link:focus-visible {
+  color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+  text-decoration: underline;
+}
+
+.guild-facts-link.scarce-facts-source-link {
+  color: var(--protocol-green, #00ec97);
+}
+
+.guild-facts-link.scarce-facts-source-link:hover,
+.guild-facts-link.scarce-facts-source-link:focus-visible {
+  color: var(--protocol-green-hover, var(--protocol-green, #00ec97));
+}
+
+/* Buy party identity — unlayered so stacked name/@handle always wins. */
+.scarce-buy-author-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.scarce-buy-author-label {
+  flex-shrink: 0;
+  min-width: 2.75rem;
+  padding-top: 0.2rem;
+  line-height: 1.25;
+}
+
+.scarce-buy-party {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.scarce-buy-party:hover .scarce-buy-party-name {
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
+.scarce-buy-party:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 0.8);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+.scarce-buy-party-avatar {
+  flex-shrink: 0;
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+
+.scarce-buy-party-text {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.06rem;
+}
+
+.scarce-buy-party-name,
+.scarce-buy-party-handle {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scarce-buy-party-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.scarce-buy-party-handle {
+  font-size: 0.68rem;
+  font-weight: 450;
+  line-height: 1.2;
+  color: rgb(var(--fg-rgb) / 0.42);
 }
 
 /* ─── App surface (OS column) ──────────────────────────── */
@@ -8519,6 +8630,17 @@ a.os-surface-row {
   .portfolio-summon-compose.is-drop:focus-visible {
     background: color-mix(in srgb, var(--protocol-purple) 12%, transparent);
     color: var(--protocol-purple);
+  }
+
+  /* Drop mint — protocol-green stars (collect path). */
+  .portfolio-summon-compose.is-mint {
+    color: color-mix(in srgb, var(--protocol-green) 88%, rgb(var(--fg-rgb)));
+  }
+
+  .portfolio-summon-compose.is-mint:hover,
+  .portfolio-summon-compose.is-mint:focus-visible {
+    background: color-mix(in srgb, var(--protocol-green) 12%, transparent);
+    color: var(--protocol-green);
   }
 
   .portfolio-summon-compose-icon {
@@ -17167,6 +17289,32 @@ a.os-surface-row {
     border-radius: 0.75rem;
   }
 
+  button.scarce-buy-media--zoom {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+  }
+
+  button.scarce-buy-media--zoom:focus-visible {
+    outline: 2px solid rgb(var(--primary-rgb) / 0.8);
+    outline-offset: 2px;
+    border-radius: 0.75rem;
+  }
+
+  button.scarce-sell-thumb-zoom {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+  }
+
+  button.scarce-sell-thumb-zoom:focus-visible {
+    outline: 2px solid rgb(var(--primary-rgb) / 0.8);
+    outline-offset: 2px;
+  }
+
   /* Video / audio scarce on a buy / bid sheet — cover with play control. */
   .scarce-clip-player {
     position: relative;
@@ -17336,6 +17484,22 @@ a.os-surface-row {
     width: 100%;
   }
 
+  /* Mint / Buy / Bid — same footprint as .scarce-buy-media; keep cover centered
+     when transport chrome appears (already playing / scrub visible). */
+  .scarce-clip-player-shell--commerce,
+  .scarce-clip-player-shell--commerce.scarce-clip-player-shell--audio {
+    width: min(100%, 180px);
+    overflow: hidden;
+  }
+
+  .scarce-clip-player-shell--commerce .scarce-clip-player,
+  .scarce-clip-player-shell--commerce.scarce-clip-player-shell--audio
+    .scarce-clip-player {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+
   .scarce-clip-tracks-head {
     display: flex;
     align-items: center;
@@ -17475,7 +17639,7 @@ a.os-surface-row {
     justify-content: flex-start;
     gap: 0.18rem;
     flex-shrink: 0;
-    min-width: 2.4rem;
+    min-width: 0;
     margin: 0;
     padding: 0.1rem 0.12rem;
     border: 0;
@@ -17508,15 +17672,10 @@ a.os-surface-row {
   }
 
   .scarce-clip-track-love-count {
-    min-width: 1.15rem;
     font-size: 0.7rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     text-align: start;
-  }
-
-  .scarce-clip-track-love-count.is-empty {
-    visibility: hidden;
   }
 
   .scarce-clip-track-menu {
@@ -18364,36 +18523,85 @@ a.os-surface-row {
     font-size: 0.78rem;
   }
 
-  .scarce-provenance-original-link {
-    color: var(--os-surface-accent, #2563eb);
-    text-decoration: none;
-    font-weight: 550;
-  }
-
-  .scarce-provenance-original-link:hover {
-    text-decoration: underline;
-  }
-
-  .scarce-buy-author-line {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.28rem;
-    margin: 0.1rem 0 0;
-    font-size: 0.72rem;
-    color: var(--os-surface-muted);
-  }
-
-  .scarce-buy-author-label {
-    flex-shrink: 0;
-  }
-
   .scarce-buy-price {
     margin: 0;
     font-size: 0.88rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .scarce-buy-price-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  /* Beat `.profile-support-hint` line-height so ⓘ centers like Drop hub meta. */
+  .profile-support-hint.scarce-buy-meta-with-facts,
+  .profile-support-hint.scarce-buy-meta-row,
+  .scarce-buy-meta-with-facts,
+  .scarce-buy-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: 100%;
+    line-height: 1;
+  }
+
+  .scarce-buy-meta-label {
+    display: inline-flex;
+    align-items: center;
+    height: 1em;
+    line-height: 1;
+  }
+
+  /*
+   * Flex-centered disc (not ·) — same mid-line as the ⓘ box.
+   * Use fg-rgb so dots stay visible outside os-surface token scopes.
+   */
+  .scarce-buy-meta-sep {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 0.45em;
+    height: 1em;
+  }
+
+  .scarce-buy-meta-sep::before {
+    content: '';
+    display: block;
+    width: 0.22em;
+    height: 0.22em;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.4);
+  }
+
+  .scarce-buy-facts-button {
+    flex-shrink: 0;
+  }
+
+  /* Same 1em box as the sep; lift ⓘ — Mage circle ink reads low vs the disc. */
+  .scarce-buy-meta-with-facts .scarce-buy-facts-button.collectibles-play-facts,
+  .scarce-buy-meta-row .scarce-buy-facts-button.collectibles-play-facts {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    margin: 0;
+    padding: 0;
+    line-height: 0;
+    transform: translateY(-0.1em);
+  }
+
+  .scarce-buy-meta-with-facts .guild-hero-facts-icon,
+  .scarce-buy-meta-row .guild-hero-facts-icon {
+    display: block;
+    width: 1em;
+    height: 1em;
   }
 
   .market-page {
@@ -19422,6 +19630,51 @@ a.os-surface-row {
     line-height: 1.2;
   }
 
+  .collection-product-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+  }
+
+  .collection-product-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem;
+    min-width: 0;
+    flex: 1;
+    margin: 0;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .collection-product-status.is-live {
+    color: var(--protocol-green, rgb(var(--fg-rgb) / 0.85));
+    font-weight: 650;
+  }
+
+  .collection-product-status.is-closed {
+    color: rgb(var(--fg-rgb) / 0.55);
+    font-weight: 600;
+  }
+
+  .collection-product-status.is-idle {
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.7);
+  }
+
+  .collection-product-price {
+    font-weight: 600;
+    color: var(--os-surface-emphasis);
+  }
+
+  .collection-product-row + .collection-progress-track {
+    margin-top: 0.35rem;
+  }
+
   .collection-commerce-meta {
     display: flex;
     flex-wrap: wrap;
@@ -19651,13 +19904,17 @@ a.os-surface-row {
     margin-top: 0;
   }
 
+  .collection-tracks .scarce-clip-tracks-head {
+    margin-bottom: 0.15rem;
+  }
+
   .collection-tracks .scarce-clip-track-list {
-    margin-top: 0.55rem;
-    gap: 0.35rem;
+    margin-top: 0.35rem;
+    gap: 0.22rem;
   }
 
   .collection-tracks .scarce-clip-track {
-    padding-block: 0;
+    padding-block: 0.08rem;
   }
 
   .collection-writing {
@@ -20597,6 +20854,17 @@ a.os-surface-row {
 
   .collection-mint-actions {
     flex: 1;
+    min-width: 0;
+  }
+
+  /* Mint drawer footer — keep qty + Mint on one row (same as page used to). */
+  .profile-support-sheet-footer .collection-mint-row {
+    width: 100%;
+  }
+
+  .profile-support-sheet-footer .collection-mint-actions.os-sheet-actions--stack {
+    width: auto;
+    flex: 1 1 auto;
     min-width: 0;
   }
 
@@ -23153,51 +23421,18 @@ a.os-surface-row {
     overflow: visible;
   }
 
-  .market-listing-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    min-width: 0;
-    margin: 0;
+  /* Search replaces title — same heading slot as Hubs. */
+  .os-app-screen-heading:has(.os-app-screen-search) {
     overflow: visible;
   }
 
-  /* Search + Drops escape — one heading line under Market title. */
-  .market-heading-row {
+  .market-listing-toolbar {
     display: flex;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.35rem;
     min-width: 0;
-    width: 100%;
-  }
-
-  .market-heading-row .os-app-screen-search {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  /* Quiet discovery escape — must not compete with search or Filter. */
-  .market-heading-links {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 0.55rem;
-  }
-
-  .market-drops-link {
-    flex: 0 0 auto;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.55);
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .market-drops-link:hover,
-  .market-drops-link:focus-visible {
-    color: var(--os-surface-emphasis);
-    outline: none;
+    margin: 0;
+    overflow: visible;
   }
 
   .market-filter-sheet {
@@ -26248,7 +26483,7 @@ a.os-surface-row {
   .guild-composer-tool:hover:not(:disabled),
   .guild-composer-tool:focus-visible:not(:disabled) {
     color: rgb(var(--fg-rgb) / 0.88);
-    background: rgb(var(--fg-rgb) / 0.06);
+    background: transparent;
     outline: none;
   }
 
@@ -26258,8 +26493,8 @@ a.os-surface-row {
   }
 
   .guild-composer-tool.is-active {
-    color: rgb(var(--fg-rgb) / 0.92);
-    background: rgb(var(--fg-rgb) / 0.1);
+    color: rgb(var(--fg-rgb) / 0.96);
+    background: transparent;
   }
 
   .guild-composer-tool-icon {
@@ -26338,12 +26573,12 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
-  /* Reply target — continued from above; thread line runs into your row. */
+  /* Same column metrics as `.post-card` / `.post-card-copy`. */
   .guild-composer-reply-target,
   .guild-composer-self {
     position: relative;
     display: flex;
-    gap: 0.6rem;
+    gap: 0.75rem;
     align-items: flex-start;
   }
 
@@ -26351,13 +26586,13 @@ a.os-surface-row {
     padding-bottom: 0.35rem;
   }
 
-  /* Line from below the target's 2rem (md) avatar down to 0.2rem above
+  /* Line from below the target's lg (2.25rem) avatar down to 0.2rem above
      your avatar in the next row — same 0.2rem rail gap as feed threads. */
   .guild-composer-reply-target::after {
     content: '';
     position: absolute;
-    left: calc(1rem - 1px);
-    top: 2.2rem;
+    left: calc(1.125rem - 1px);
+    top: 2.45rem;
     bottom: -0.35rem;
     width: 2px;
     border-radius: 9999px;
@@ -26373,7 +26608,7 @@ a.os-surface-row {
     min-width: 0;
     flex: 1;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.2rem;
   }
 
   .guild-composer-identity {
@@ -26650,56 +26885,116 @@ a.os-surface-row {
     opacity: 0.4;
   }
 
-  .guild-composer-drop-chip {
+  .guild-composer-sheet-header.is-compact .standing-sheet-subject-row {
+    min-height: 0;
+    padding-block: 0;
+    justify-content: flex-end;
+  }
+
+  .guild-composer-sheet-header.is-compact {
+    padding-top: 0.05rem;
+    padding-bottom: 0;
+    gap: 0;
+  }
+
+  .guild-composer-sheet-header.is-compact .standing-sheet-actions {
+    flex-shrink: 0;
+  }
+
+  @media (min-width: 768px) {
+    .guild-composer-sheet-header.is-compact.standing-sheet-header {
+      padding-top: 0.15rem;
+    }
+  }
+
+  .guild-composer-sheet-panel:has(.guild-composer-sheet-header.is-compact)
+    > .glass-sheet-body.guild-composer-sheet-body {
+    padding-top: 0;
+  }
+
+  .guild-composer-sheet-form:has(.guild-composer-self.has-destination-menus) {
+    gap: 0.35rem;
+  }
+
+  /* Same slot as IdentityLine — top of avatar, then Share something. */
+  .guild-composer-self.has-destination-menus .guild-composer-row-copy {
+    gap: 0.2rem;
+  }
+
+  .guild-composer-destination-menus {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 0.65rem;
-    margin-top: 0.35rem;
-    padding: 0.45rem 0.55rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.035);
+    gap: 0.15rem;
     min-width: 0;
+    width: 100%;
+    margin: 0;
+    /* Match .post-identity-name line box next to the avatar. */
+    min-height: calc(0.875rem * 1.25);
   }
 
-  .guild-composer-drop-thumb {
-    flex: 0 0 auto;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.55rem;
-    background: rgb(var(--fg-rgb) / 0.08);
+  .guild-composer-dest-menu {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .guild-composer-dest-menu .os-floating-panel-trigger {
+    max-width: min(9.5rem, 42vw);
+    min-height: 0;
+    height: auto;
+    gap: 0.2rem;
+    padding: 0.05rem 0.4rem 0.05rem 0.45rem;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    font-weight: 600;
+  }
+
+  .guild-composer-dest-menu .os-floating-panel-trigger-label {
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .guild-composer-dest-menu .os-floating-panel-trigger-chevron {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .guild-composer-drop-fallback-tile {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
     overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.08);
   }
 
-  .guild-composer-drop-thumb.has-media img {
+  .guild-composer-drop-preview-fallback {
     display: block;
     width: 100%;
     height: 100%;
+    background: linear-gradient(
+      145deg,
+      rgb(var(--fg-rgb) / 0.08),
+      rgb(var(--fg-rgb) / 0.16)
+    );
+  }
+
+  .guild-composer-drop-picker-thumb {
+    display: block;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.45rem;
     object-fit: cover;
+    background: rgb(var(--fg-rgb) / 0.08);
   }
 
-  .guild-composer-drop-copy {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .guild-composer-drop-label {
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .guild-composer-drop-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    line-height: 1.25;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .guild-composer-drop-picker-thumb.is-fallback {
+    background: linear-gradient(
+      145deg,
+      rgb(var(--fg-rgb) / 0.08),
+      rgb(var(--fg-rgb) / 0.16)
+    );
   }
 
   .guild-composer-poll-add {
@@ -28237,6 +28532,27 @@ a.os-surface-row {
 
   .profile-support-sheet-footer.is-keyboard-open {
     padding-bottom: 0.45rem;
+  }
+
+  .commerce-sheet-footer-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .commerce-sheet-footer-row.has-leading {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .commerce-sheet-footer-leading {
+    flex-shrink: 0;
+  }
+
+  .commerce-sheet-footer-actions {
+    flex: 1;
+    min-width: 0;
   }
 
   .profile-support-sheet-panel.is-keyboard-open .profile-support-sheet-body {

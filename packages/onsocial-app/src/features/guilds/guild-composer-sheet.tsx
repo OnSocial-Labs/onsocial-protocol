@@ -13,12 +13,21 @@ import {
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
-  CameraIcon,
+  ChartVerticalFillIcon,
+  ChartVerticalIcon,
   Divider,
   GlassSheet,
+  ImageFillIcon,
+  ImageIcon,
   ProfileAvatar,
   SheetCloseButton,
+  StarsCFillIcon,
+  StarsCIcon,
 } from '@onsocial/ui';
+import {
+  ChoiceDrawerMenu,
+  type ChoiceOption,
+} from '@/components/ui/choice-drawer';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -30,6 +39,8 @@ import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
+import { ComposerDropPicker } from '@/features/guilds/composer-drop-picker';
+import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
@@ -51,6 +62,10 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 
+/** Composer GlassSheet z-index — nested choice drawers stack above. */
+const COMPOSER_SHEET_Z = 58;
+const COMPOSER_NEST_Z = scarceNestZIndex(COMPOSER_SHEET_Z);
+
 export type ComposerMode = 'post' | 'reply' | 'quote';
 /** @deprecated Prefer `ComposerMode`. */
 export type GuildComposerMode = ComposerMode;
@@ -63,13 +78,17 @@ export interface ComposerPollDraft {
 /** @deprecated Prefer `ComposerPollDraft`. */
 export type GuildComposerPollDraft = ComposerPollDraft;
 
-/** Drop reference attached to a personal post (“Post this Drop”). */
+/** Drop / resale reference attached to a post (“Post this Drop”). */
 export interface ComposerDropDraft {
-  collectionId: string;
+  /** Drop collection when announcing a primary mint or Drop edition. */
+  collectionId?: string;
+  /** Specific edition — required for non-collection (`s:`) resale announces. */
   tokenId?: string;
   title: string;
   mediaUrl?: string | null;
   mediumKind?: string | null;
+  /** Original mint post path for See original on resale Buy/Bid. */
+  sourcePostPath?: string | null;
 }
 
 export interface ComposerSubmit {
@@ -109,28 +128,6 @@ const POLL_DURATION_OPTIONS = [
 const MIN_POLL_OPTIONS = 2;
 const MAX_POLL_OPTIONS = 4;
 
-/** Compact poll glyph — three bars (no Mage poll icon yet). */
-function PollComposeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      width="1.15rem"
-      height="1.15rem"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M6 19V11M12 19V5M18 19v-7"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 /** Where a new post lands — guild room or personal public feed. */
 export type ComposerDestination =
   | {
@@ -139,6 +136,8 @@ export type ComposerDestination =
       channels: { id: string; title: string }[];
       selectedChannelId: string;
       onChannelChange: (channelId: string) => void;
+      /** Rooms still fetching — show Room chip as Loading…. */
+      loading?: boolean;
     }
   | {
       kind: 'personal';
@@ -213,7 +212,7 @@ function ReplyTargetPreview({
       <ProfileAvatar
         src={authorProfile?.avatarUrl ?? null}
         fallbackInitial={name}
-        size="md"
+        size="lg"
         className="guild-composer-row-avatar"
       />
       <div className="guild-composer-row-copy">
@@ -277,6 +276,7 @@ export function ComposerSheet({
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [contentWarning, setContentWarning] = useState('');
   const [nsfw, setNsfw] = useState(false);
+  const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -287,6 +287,8 @@ export function ComposerSheet({
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
   const canUsePoll = mode === 'post' && !dropDraft;
   const canUseMedia = !pollEnabled && !dropDraft;
+  const canUseDrop =
+    mode === 'post' && !pollEnabled && mediaFiles.length === 0;
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -320,6 +322,7 @@ export function ComposerSheet({
       setMediaError(null);
       setContentWarning('');
       setNsfw(false);
+      setDropPickerOpen(false);
       setClosing(false);
     }
   }
@@ -450,8 +453,23 @@ export function ComposerSheet({
         return [];
       });
       setMediaError(null);
+      setDropDraft(null);
       return true;
     });
+  };
+
+  const selectDrop = (drop: ComposerDropDraft) => {
+    setDropDraft(drop);
+    setPollEnabled(false);
+    setPollOptions(['', '']);
+    setPollDurationMs(undefined);
+    setMediaFiles([]);
+    setMediaPreviews((previews) => {
+      for (const preview of previews) URL.revokeObjectURL(preview.url);
+      return [];
+    });
+    setMediaError(null);
+    setDropPickerOpen(false);
   };
 
   const removeMediaAt = (index: number) => {
@@ -539,18 +557,98 @@ export function ComposerSheet({
     pollReady &&
     !textOverLimit;
 
-  const selfRow = (
-    <div className="guild-composer-self">
+  const showDestinationMenus =
+    mode === 'post' && Boolean(feedTargets && feedTargets.options.length > 0);
+  const roomOptions: ChoiceOption<string>[] | null =
+    mode === 'post' && destination?.kind === 'guild'
+      ? destination.loading && destination.channels.length === 0
+        ? [{ value: '__loading__', label: 'Loading…', disabled: true }]
+        : destination.channels.length > 0
+          ? destination.channels.map((channel) => ({
+              value: channel.id,
+              label: channel.title,
+            }))
+          : [{ value: '__empty__', label: 'No rooms', disabled: true }]
+      : null;
+  const roomValue =
+    destination?.kind === 'guild'
+      ? destination.loading && destination.channels.length === 0
+        ? '__loading__'
+        : destination.selectedChannelId
+      : '';
+  // Only block while loading / posting — a single room must still open so
+  // the chevron menu is not a dead control.
+  const roomDisabled =
+    pending ||
+    (destination?.kind === 'guild' &&
+      (Boolean(destination.loading) || destination.channels.length === 0));
+
+  const destinationMenus =
+    showDestinationMenus && feedTargets ? (
+      <div
+        className="guild-composer-destination-menus"
+        role="group"
+        aria-label="Post destination"
+      >
+        <ChoiceDrawerMenu
+          label="Post to"
+          value={feedTargets.selectedId}
+          options={feedTargets.options.map(
+            (option): ChoiceOption<string> => ({
+              value: option.id,
+              label: option.label,
+            })
+          )}
+          onChange={feedTargets.onChange}
+          disabled={pending}
+          copy="Where this post appears"
+          ariaLabel={`Post to ${
+            feedTargets.options.find(
+              (option) => option.id === feedTargets.selectedId
+            )?.label ?? 'feed'
+          }`}
+          className="standing-view-menu guild-composer-dest-menu"
+          zIndex={COMPOSER_NEST_Z}
+        />
+        {destination?.kind === 'guild' && roomOptions ? (
+          <ChoiceDrawerMenu
+            label="Room"
+            value={roomValue}
+            options={roomOptions}
+            onChange={destination.onChannelChange}
+            disabled={roomDisabled}
+            copy="Guild room for this post"
+            ariaLabel={`Room ${
+              roomOptions.find((option) => option.value === roomValue)
+                ?.label ?? ''
+            }`}
+            className="standing-view-menu guild-composer-dest-menu"
+            zIndex={COMPOSER_NEST_Z}
+          />
+        ) : null}
+      </div>
+    ) : null;
+
+  const identitySlot = showDestinationMenus ? (
+    destinationMenus
+  ) : accountId ? (
+    <IdentityLine name={viewerName} handle={accountId} />
+  ) : null;
+
+  const selfBlock = (
+    <div
+      className={`guild-composer-self${
+        showDestinationMenus ? ' has-destination-menus' : ''
+      }`}
+    >
       <ProfileAvatar
         src={viewerShell?.avatarUrl ?? null}
         fallbackInitial={viewerName}
-        size="md"
+        size="lg"
         className="guild-composer-row-avatar"
       />
       <div className="guild-composer-row-copy">
-        {accountId ? (
-          <IdentityLine name={viewerName} handle={accountId} />
-        ) : null}
+        {identitySlot}
         <ComposerHashtagTextarea
           textareaRef={textareaRef}
           placeholder={inputPlaceholder}
@@ -581,34 +679,37 @@ export function ComposerSheet({
           </div>
         ) : null}
         {dropDraft ? (
-          <div className="guild-composer-drop-chip" aria-label="Attached Drop">
-            <span
-              className={`guild-composer-drop-thumb${
-                dropDraft.mediaUrl ? ' has-media' : ''
-              }`}
-              aria-hidden
-            >
+          <div
+            className="guild-composer-media-preview"
+            role="list"
+            aria-label={`Attached Drop: ${dropDraft.title}`}
+          >
+            <div role="listitem">
               {dropDraft.mediaUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={dropDraft.mediaUrl} alt="" />
-              ) : null}
-            </span>
-            <span className="guild-composer-drop-copy">
-              <span className="guild-composer-drop-label">Drop</span>
-              <span className="guild-composer-drop-title">
-                {dropDraft.title}
-              </span>
-            </span>
-            {!pending ? (
-              <button
-                type="button"
-                className="guild-composer-poll-remove"
-                aria-label="Remove Drop"
-                onClick={() => setDropDraft(null)}
-              >
-                ×
-              </button>
-            ) : null}
+                <PostMediaBlock
+                  item={{
+                    url: dropDraft.mediaUrl,
+                    mime: 'image/*',
+                  }}
+                  size="preview"
+                  onRemove={pending ? undefined : () => setDropDraft(null)}
+                />
+              ) : (
+                <div className="post-media-tile post-media-tile--preview guild-composer-drop-fallback-tile">
+                  <span className="guild-composer-drop-preview-fallback" />
+                  {!pending ? (
+                    <button
+                      type="button"
+                      className="post-media-remove"
+                      aria-label="Remove Drop"
+                      onClick={() => setDropDraft(null)}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
         {canUsePoll && pollEnabled ? (
@@ -719,13 +820,14 @@ export function ComposerSheet({
   );
 
   return (
+    <>
     <GlassSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
       initialDetent="full"
-      zIndex={58}
+      zIndex={COMPOSER_SHEET_Z}
       ariaLabelledBy={titleId}
       backdropLabel="Close composer"
       bodyClassName="guild-composer-sheet-body"
@@ -733,24 +835,25 @@ export function ComposerSheet({
       panelStyle={panelStyle}
       header={
         <>
-          <div className="standing-sheet-header guild-composer-sheet-header">
+          <div
+            className={`standing-sheet-header guild-composer-sheet-header${
+              mode === 'post' ? ' is-compact' : ''
+            }`}
+          >
             <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    {TITLE[mode]}
-                  </h2>
-                  {mode === 'post' && destination ? (
-                    <p className="discover-sheet-subtitle guild-composer-destination-whisper">
-                      {destination.kind === 'personal'
-                        ? destination.label
-                        : destination.channels.length === 1
-                          ? `${destination.name} · ${destination.channels[0]!.title}`
-                          : destination.name}
-                    </p>
-                  ) : null}
+              {mode === 'post' ? (
+                <h2 id={titleId} className="sr-only">
+                  {TITLE[mode]}
+                </h2>
+              ) : (
+                <div className="standing-sheet-subject">
+                  <div className="standing-sheet-subject-copy">
+                    <h2 id={titleId} className="standing-sheet-subject-name">
+                      {TITLE[mode]}
+                    </h2>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="standing-sheet-actions">
                 <SheetCloseButton
                   onClick={requestClose}
@@ -758,66 +861,7 @@ export function ComposerSheet({
                 />
               </div>
             </div>
-            {mode === 'post' &&
-            feedTargets &&
-            feedTargets.options.length > 1 ? (
-              <div className="standing-sheet-toolbar-row">
-                <div
-                  className="guild-composer-mode"
-                  role="radiogroup"
-                  aria-label="Feed"
-                >
-                  {feedTargets.options.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={feedTargets.selectedId === option.id}
-                      className={
-                        feedTargets.selectedId === option.id
-                          ? 'is-active'
-                          : undefined
-                      }
-                      disabled={pending}
-                      onClick={() => feedTargets.onChange(option.id)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {mode === 'post' &&
-            destination?.kind === 'guild' &&
-            destination.channels.length > 1 ? (
-              <div className="standing-sheet-toolbar-row">
-                <div
-                  className="guild-composer-mode"
-                  role="radiogroup"
-                  aria-label="Room"
-                >
-                  {destination.channels.map((channel) => (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={
-                        destination.selectedChannelId === channel.id
-                      }
-                      className={
-                        destination.selectedChannelId === channel.id
-                          ? 'is-active'
-                          : undefined
-                      }
-                      disabled={pending}
-                      onClick={() => destination.onChannelChange(channel.id)}
-                    >
-                      {channel.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : mode !== 'post' && onModeChange ? (
+            {mode !== 'post' && onModeChange ? (
               <div className="standing-sheet-toolbar-row">
                 <div
                   className="guild-composer-mode"
@@ -858,7 +902,9 @@ export function ComposerSheet({
             >
               <button
                 type="button"
-                className="guild-composer-tool"
+                className={`guild-composer-tool${
+                  mediaFiles.length > 0 ? ' is-active' : ''
+                }`}
                 disabled={
                   !canUseMedia ||
                   pending ||
@@ -866,9 +912,14 @@ export function ComposerSheet({
                 }
                 title="Add photo or video"
                 aria-label="Add photo or video"
+                aria-pressed={mediaFiles.length > 0}
                 onClick={() => mediaInputRef.current?.click()}
               >
-                <CameraIcon className="guild-composer-tool-icon" />
+                {mediaFiles.length > 0 ? (
+                  <ImageFillIcon className="guild-composer-tool-icon" />
+                ) : (
+                  <ImageIcon className="guild-composer-tool-icon" />
+                )}
               </button>
               <button
                 type="button"
@@ -893,7 +944,51 @@ export function ComposerSheet({
                 aria-pressed={pollEnabled}
                 onClick={togglePoll}
               >
-                <PollComposeIcon className="guild-composer-tool-icon" />
+                {pollEnabled ? (
+                  <ChartVerticalFillIcon className="guild-composer-tool-icon" />
+                ) : (
+                  <ChartVerticalIcon className="guild-composer-tool-icon" />
+                )}
+              </button>
+              <button
+                type="button"
+                className={`guild-composer-tool${
+                  dropDraft ? ' is-active' : ''
+                }`}
+                disabled={!canUseDrop || pending}
+                title={
+                  canUseDrop
+                    ? dropDraft
+                      ? 'Change Drop'
+                      : 'Post a Drop'
+                    : pollEnabled
+                      ? 'Remove poll to post a Drop'
+                      : mediaFiles.length > 0
+                        ? 'Remove photos to post a Drop'
+                        : 'Drops are for new posts'
+                }
+                aria-label={
+                  canUseDrop
+                    ? dropDraft
+                      ? 'Change Drop'
+                      : 'Post a Drop'
+                    : pollEnabled
+                      ? 'Remove poll to post a Drop'
+                      : mediaFiles.length > 0
+                        ? 'Remove photos to post a Drop'
+                        : 'Drops are for new posts'
+                }
+                aria-pressed={Boolean(dropDraft)}
+                onClick={() => {
+                  if (!canUseDrop || pending) return;
+                  setDropPickerOpen(true);
+                }}
+              >
+                {dropDraft ? (
+                  <StarsCFillIcon className="guild-composer-tool-icon" />
+                ) : (
+                  <StarsCIcon className="guild-composer-tool-icon" />
+                )}
               </button>
             </div>
             <div className="guild-composer-toolbar-end">
@@ -951,10 +1046,10 @@ export function ComposerSheet({
               post={target}
               authorProfile={targetAuthorProfile}
             />
-            {selfRow}
+            {selfBlock}
           </div>
         ) : (
-          selfRow
+          selfBlock
         )}
 
         <input
@@ -971,6 +1066,18 @@ export function ComposerSheet({
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
     </GlassSheet>
+    <ComposerDropPicker
+      open={dropPickerOpen && sheetOpen}
+      enabled={sheetOpen && mode === 'post'}
+      onClose={() => setDropPickerOpen(false)}
+      accountId={accountId}
+      selectedDropKey={
+        dropDraft?.tokenId?.trim() || dropDraft?.collectionId?.trim() || null
+      }
+      onSelect={selectDrop}
+      zIndex={COMPOSER_NEST_Z}
+    />
+    </>
   );
 }
 

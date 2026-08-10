@@ -3,6 +3,7 @@ import {
   ArrowLeftIcon,
   ArrowUpRightIcon,
   CameraIcon,
+  ChartVerticalIcon,
   CheckIcon,
   ChevronDownIcon,
   TimeIcon,
@@ -42,6 +43,7 @@ import {
   ShareIcon,
   ShopIcon,
   StarMovingIcon,
+  StarsCIcon,
   SlidersHorizontalIcon,
   TrashIcon,
   UnlockIcon,
@@ -56,6 +58,7 @@ describe('mage stroke icons', () => {
     expect(typeof ArrowLeftIcon).toBe('function');
     expect(typeof ArrowUpRightIcon).toBe('function');
     expect(typeof CameraIcon).toBe('function');
+    expect(typeof ChartVerticalIcon).toBe('function');
     expect(typeof CheckIcon).toBe('function');
     expect(typeof ChevronDownIcon).toBe('function');
     expect(typeof TimeIcon).toBe('function');
@@ -96,6 +99,7 @@ describe('mage stroke icons', () => {
     expect(typeof ShareIcon).toBe('function');
     expect(typeof ShopIcon).toBe('function');
     expect(typeof StarMovingIcon).toBe('function');
+    expect(typeof StarsCIcon).toBe('function');
     expect(typeof DotsCircleIcon).toBe('function');
     expect(typeof DownloadIcon).toBe('function');
     expect(typeof DotsHorizontalIcon).toBe('function');

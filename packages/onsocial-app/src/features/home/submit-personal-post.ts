@@ -13,11 +13,12 @@ import type {
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import {
-  collectionEmbedFromDraft,
+  commerceEmbedFromDraft,
   dropPostKind,
   dropSnapshotExtra,
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
+import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
@@ -95,7 +96,7 @@ function buildOptimisticPost(args: {
     contentLabels,
   } = args;
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
-  const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
   const mediaKind =
     !pollEmbed && !drop && files?.length
@@ -110,8 +111,8 @@ function buildOptimisticPost(args: {
       ...postMetaFromText(text),
       ...(pollEmbed
         ? { embeds: [pollEmbed] }
-        : collectionEmbed
-          ? { embeds: [collectionEmbed] }
+        : commerceEmbed
+          ? { embeds: [commerceEmbed] }
           : {}),
       ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
       ...(media ? { media } : {}),
@@ -208,7 +209,7 @@ export async function submitPersonalPost(args: {
         }
       : null;
 
-  const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
   const bodyText = resolvedDropPostText(text, drop);
   const contentLabels = normalizeComposerContentLabels(payload);
@@ -226,8 +227,8 @@ export async function submitPersonalPost(args: {
         ...tags,
         ...(pollEmbed
           ? { embeds: [pollEmbed] }
-          : collectionEmbed
-            ? { embeds: [collectionEmbed] }
+          : commerceEmbed
+            ? { embeds: [commerceEmbed] }
             : {}),
         ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
         ...(dropKind ? { kind: dropKind } : {}),

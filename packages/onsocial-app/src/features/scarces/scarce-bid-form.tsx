@@ -7,7 +7,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   fetchScarceListingMeta,
-  fetchScarceMintedAt,
+  fetchScarceMintSummary,
   formatMarketRelativeTime,
   type ScarcePlayableMedia,
 } from '@/features/market/market-listings';
@@ -25,20 +25,28 @@ import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
+import {
+  ScarceListingFactsSheet,
+  type ScarceListingFacts,
+} from '@/features/scarces/scarce-listing-facts-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
-import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
+import { ScarceProvenanceCopy, isScarceOriginalSelf } from '@/features/scarces/scarce-provenance-copy';
+import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { parsePostText } from '@/lib/post-display';
+import { parseDropPaintSnapshot, parsePostText } from '@/lib/post-display';
 import { fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
@@ -46,7 +54,6 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-
 const NEAR_INPUT_DECIMALS = 4;
 
 export interface ScarceBidSuccessDetail {
@@ -160,8 +167,12 @@ export function ScarceBidForm({
     ScarcePlayableMedia[] | null
   >(null);
   const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
+  const [mintPriceNear, setMintPriceNear] = useState<string | null>(null);
+  const [royalty, setRoyalty] = useState<Record<string, number> | null>(null);
+  const [factsOpen, setFactsOpen] = useState(false);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
+  const collectionId = embed?.collectionId?.trim() || undefined;
   const sellerId = listing?.sellerId ?? auction?.sellerId ?? post?.accountId;
   const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const resolvedDescription =
@@ -172,7 +183,10 @@ export function ScarceBidForm({
     hydratedMediaUrl ||
     null;
   const resolvedSourcePostPath =
-    listing?.sourcePostPath?.trim() || hydratedSourcePostPath || null;
+    listing?.sourcePostPath?.trim() ||
+    hydratedSourcePostPath ||
+    parseDropPaintSnapshot(post?.value ?? '')?.sourcePostPath?.trim() ||
+    null;
   const resolvedPlayable = listing?.playable ?? hydratedPlayable;
   const resolvedPlayables =
     listing?.playables ?? hydratedPlayables ?? undefined;
@@ -275,12 +289,30 @@ export function ScarceBidForm({
     const id = tokenId.trim();
     if (!id) {
       setMintedAtMs(null);
+      setMintPriceNear(null);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const minted = await fetchScarceMintedAt(id);
-      if (!cancelled) setMintedAtMs(minted);
+      const summary = await fetchScarceMintSummary(id);
+      if (cancelled) return;
+      setMintedAtMs(summary.mintedAtMs);
+      setMintPriceNear(summary.mintPriceNear);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tokenId]);
+
+  useEffect(() => {
+    const id = tokenId.trim();
+    setRoyalty(null);
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      const map = await fetchScarceRoyaltyMap({ tokenId: id });
+      if (cancelled) return;
+      setRoyalty(map);
     })();
     return () => {
       cancelled = true;
@@ -607,7 +639,43 @@ export function ScarceBidForm({
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
 
+  const listingFacts = useMemo((): ScarceListingFacts => {
+    return {
+      title,
+      kind: 'auction',
+      askNear: highNear ?? minNear ?? listing?.priceNear ?? null,
+      mintPriceNear,
+      mintedAtMs,
+      listedAtMs: listing?.listedAtMs ?? null,
+      mediumKind: embed?.mediumKind ?? null,
+      authorId:
+        post?.accountId ??
+        (resolvedSourcePostPath?.match(/^(.+)\/post\//)?.[1] ?? null),
+      sellerId: sellerId ?? null,
+      sourcePostPath: resolvedSourcePostPath,
+      postHref: listing?.postHref ?? null,
+      tokenId: tokenId || null,
+      royalty,
+    };
+  }, [
+    title,
+    highNear,
+    minNear,
+    listing?.priceNear,
+    listing?.listedAtMs,
+    listing?.postHref,
+    mintPriceNear,
+    mintedAtMs,
+    embed?.mediumKind,
+    post?.accountId,
+    resolvedSourcePostPath,
+    sellerId,
+    tokenId,
+    royalty,
+  ]);
+
   return (
+    <>
     <form
       id={formId}
       className="profile-support-form"
@@ -616,7 +684,7 @@ export function ScarceBidForm({
         void handleSubmit();
       }}
     >
-      {/* Cover is the still; play the clip the bid is actually for. */}
+      {/* Same cover plane as Market — post preview only when no scarce media. */}
       {resolvedPlayable ? (
         <ScarceClipPlayer
           key={resolvedPlayable.url}
@@ -625,7 +693,19 @@ export function ScarceBidForm({
             ? { tracks: resolvedPlayables }
             : {})}
           poster={resolvedMediaUrl}
+          commerce
+          {...(collectionId
+            ? {
+                persist: {
+                  collectionId,
+                  title,
+                },
+                creatorId: sellerId,
+              }
+            : {})}
         />
+      ) : resolvedMediaUrl ? (
+        <ScarceBuyCover src={resolvedMediaUrl} label={title} />
       ) : post ? (
         <ScarcePostPreview
           post={post}
@@ -634,14 +714,10 @@ export function ScarceBidForm({
           disableLiveSvg
           cardBg={embed?.cardBg}
         />
-      ) : resolvedMediaUrl ? (
-        <div className="scarce-buy-media" aria-hidden>
-          <img src={resolvedMediaUrl} alt="" />
-        </div>
       ) : null}
 
       <div className="scarce-buy-summary">
-        {!post ? <p className="scarce-buy-title">{title}</p> : null}
+        <p className="scarce-buy-title">{title}</p>
         <p className="scarce-buy-price">
           {auctionLoading
             ? 'Loading auction…'
@@ -677,6 +753,28 @@ export function ScarceBidForm({
               : ''}
           </p>
         ) : null}
+        {(() => {
+          const listedLabel = listing?.listedAtMs
+            ? formatMarketRelativeTime(listing.listedAtMs)
+            : '';
+          const mintedLabel = mintedAtMs
+            ? formatMarketRelativeTime(mintedAtMs)
+            : '';
+          const mintPriceLabel = mintPriceNear
+            ? `${formatNearShort(mintPriceNear)} NEAR`
+            : '';
+          const parts = [
+            listedLabel ? `Listed ${listedLabel}` : null,
+            mintedLabel ? `Minted ${mintedLabel}` : null,
+            mintPriceLabel || null,
+          ].filter((part): part is string => Boolean(part));
+          return (
+            <ScarceBuyFactsMeta
+              parts={parts.length > 0 ? parts : ['Auction']}
+              onOpenFacts={() => setFactsOpen(true)}
+            />
+          );
+        })()}
       </div>
 
       <ScarceProvenanceCopy
@@ -685,28 +783,12 @@ export function ScarceBidForm({
         post={post}
         postHref={listing?.postHref}
         sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
-        hideOriginalLink={Boolean(post)}
+        hideOriginalLink={isScarceOriginalSelf(
+          post,
+          resolvedSourcePostPath ?? listing?.sourcePostPath,
+          listing?.postHref
+        )}
       />
-
-      {(() => {
-        const listedLabel = listing?.listedAtMs
-          ? formatMarketRelativeTime(listing.listedAtMs)
-          : '';
-        const mintedLabel = mintedAtMs
-          ? formatMarketRelativeTime(mintedAtMs)
-          : '';
-        if (!listedLabel && !mintedLabel) return null;
-        return (
-          <p className="profile-support-hint">
-            {[
-              listedLabel ? `Listed ${listedLabel}` : null,
-              mintedLabel ? `Minted ${mintedLabel}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-        );
-      })()}
 
       {bidHistory.length > 0 ? (
         <div className="scarce-bid-history" aria-label="Bids this auction">
@@ -777,5 +859,12 @@ export function ScarceBidForm({
         <p className="profile-support-hint">Connect to bid.</p>
       ) : null}
     </form>
+      <ScarceListingFactsSheet
+        open={factsOpen}
+        onClose={() => setFactsOpen(false)}
+        zIndex={SCARCE_Z.nestedOverCommerce}
+        facts={listingFacts}
+      />
+    </>
   );
 }

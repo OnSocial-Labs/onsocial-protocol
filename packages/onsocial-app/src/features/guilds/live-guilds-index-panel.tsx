@@ -226,7 +226,7 @@ export function LiveGuildsIndexPanel({
       className={osIconActionClassName}
       aria-label="Create guild"
     >
-      <PlusIcon aria-hidden className="glass-sheet-icon-action-glyph" />
+      <PlusIcon aria-hidden className="glass-sheet-close-icon" />
     </Link>
   );
 

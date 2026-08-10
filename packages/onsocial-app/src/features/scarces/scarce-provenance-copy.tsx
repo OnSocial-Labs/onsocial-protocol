@@ -3,15 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
-import {
-  parsePostText,
-  postPreviewNeedsExpand,
-  truncatePostPreview,
-} from '@/lib/post-display';
+import { CollectionAboutTeaser } from '@/features/scarces/collection-about-sheet';
+import { ScarceAboutSheet } from '@/features/scarces/scarce-about-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import { parsePostText } from '@/lib/post-display';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
-
-/** Soft cap for collapsed body on scarce sheets — about 3–4 short lines. */
-const SCARCE_BODY_PREVIEW_CHARS = 160;
+import { personalPostPath, postThreadPath } from '@/lib/post-routes';
 
 export interface ScarceProvenanceCopyProps {
   /** Cover / NEP-177 title — body is suppressed when identical. */
@@ -34,6 +31,8 @@ export interface ScarceProvenanceCopyProps {
    * (mint drawer — creator should see what becomes NEP-177 title).
    */
   showTitle?: boolean;
+  /** About sheet stack above commerce. */
+  aboutZIndex?: number;
 }
 
 /** Full post body for scarce sheets — cover stays on the art above. */
@@ -62,9 +61,29 @@ export function resolveScarceOriginalHref(opts: {
 }
 
 /**
- * Scarce sheet copy under the cover: title + full minted text (Show more
- * when long) + link back to the source post. Card art stays the
- * format-capped cover.
+ * True when the sheet’s live `post` is already the mint source — hide
+ * “View original post” (resale announce posts keep the link).
+ */
+export function isScarceOriginalSelf(
+  post: PostRow | null | undefined,
+  sourcePostPath?: string | null,
+  postHref?: string | null
+): boolean {
+  if (!post) return false;
+  const contentPath = `${post.accountId.trim()}/post/${post.postId.trim()}`;
+  const source = sourcePostPath?.trim();
+  if (source && source === contentPath) return true;
+
+  const href = postHref?.trim();
+  if (!href) return false;
+  if (href === postThreadPath(post)) return true;
+  if (href === personalPostPath(post.accountId, post.postId)) return true;
+  return false;
+}
+
+/**
+ * Scarce sheet copy under the cover: title + one-line teaser (About sheet
+ * when truncated) + link back to the source post — Drop play parity.
  */
 export function ScarceProvenanceCopy({
   title = null,
@@ -74,57 +93,54 @@ export function ScarceProvenanceCopy({
   sourcePostPath = null,
   hideOriginalLink = false,
   showTitle = false,
+  aboutZIndex = SCARCE_Z.nestedOverCommerce,
 }: ScarceProvenanceCopyProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const resolvedTitle = title?.trim() || null;
   const body = resolveScarceBodyText({ title, description, post });
   const originalHref = hideOriginalLink
     ? null
     : resolveScarceOriginalHref({ postHref, sourcePostPath });
-  const canExpand = Boolean(
-    body && postPreviewNeedsExpand(body, SCARCE_BODY_PREVIEW_CHARS)
-  );
-  const displayBody =
-    body && canExpand && !expanded
-      ? truncatePostPreview(body, SCARCE_BODY_PREVIEW_CHARS)
-      : body;
-  const showTitleRow =
-    Boolean(resolvedTitle) &&
-    (showTitle || Boolean(body && body !== resolvedTitle));
+  // Title lives in the commerce summary; only force it here when asked
+  // (e.g. list/compose preview).
+  const showTitleRow = Boolean(resolvedTitle) && showTitle;
 
   if (!showTitleRow && !body && !originalHref) return null;
 
   return (
-    <div className="scarce-provenance-copy">
-      {showTitleRow ? (
-        <p className="scarce-provenance-title">{resolvedTitle}</p>
-      ) : null}
-      {displayBody ? (
-        <div className="scarce-provenance-body-block">
-          <p className="scarce-provenance-body">{displayBody}</p>
-          {canExpand ? (
-            <button
-              type="button"
-              className="scarce-provenance-more"
-              aria-expanded={expanded}
-              onClick={() => setExpanded((current) => !current)}
+    <>
+      <div className="scarce-provenance-copy">
+        {showTitleRow ? (
+          <p className="scarce-provenance-title">{resolvedTitle}</p>
+        ) : null}
+        {body ? (
+          <CollectionAboutTeaser
+            text={body}
+            onReadMore={() => setAboutOpen(true)}
+          />
+        ) : null}
+        {originalHref ? (
+          <p className="scarce-provenance-original">
+            <Link
+              href={originalHref}
+              scroll={false}
+              className="scarce-provenance-original-link"
             >
-              {expanded ? 'Show less' : 'Show more'}
-            </button>
-          ) : null}
-        </div>
+              View original post
+            </Link>
+          </p>
+        ) : null}
+      </div>
+      {body ? (
+        <ScarceAboutSheet
+          open={aboutOpen}
+          onClose={() => setAboutOpen(false)}
+          title={resolvedTitle}
+          body={body}
+          originalHref={originalHref}
+          zIndex={aboutZIndex}
+        />
       ) : null}
-      {originalHref ? (
-        <p className="scarce-provenance-original">
-          <Link
-            href={originalHref}
-            scroll={false}
-            className="scarce-provenance-original-link"
-          >
-            View original post
-          </Link>
-        </p>
-      ) : null}
-    </div>
+    </>
   );
 }

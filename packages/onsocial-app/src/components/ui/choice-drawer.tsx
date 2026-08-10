@@ -224,6 +224,11 @@ interface ChoiceDrawerFieldProps<T extends string> {
   /** Leading visual on the summary chip (e.g. colour / finish swatch). */
   chipLeading?: ReactNode;
   /**
+   * Keep the chip in the selected (green) state while a value is set —
+   * not only while the drawer is open.
+   */
+  persistSelected?: boolean;
+  /**
    * Close the drawer when an option is tapped (default). Style pickers pass
    * false so people can iterate — the live preview above updates in place.
    */
@@ -246,6 +251,7 @@ export function ChoiceDrawerField<T extends string>({
   copy,
   hint,
   chipLeading,
+  persistSelected = false,
   closeOnSelect = true,
   zIndex = 60,
 }: ChoiceDrawerFieldProps<T>) {
@@ -254,6 +260,8 @@ export function ChoiceDrawerField<T extends string>({
   const active = options.find((option) => option.value === value);
   const activeLabel = active?.label ?? value;
   const sheetOpen = open && !closing;
+  const chipSelected =
+    open || closing || (persistSelected && Boolean(value));
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -269,7 +277,7 @@ export function ChoiceDrawerField<T extends string>({
       <button
         type="button"
         className={`os-surface-chip scarce-choice-chip${
-          open || closing ? ' is-selected' : ''
+          chipSelected ? ' is-selected' : ''
         }`}
         disabled={disabled}
         aria-haspopup="dialog"

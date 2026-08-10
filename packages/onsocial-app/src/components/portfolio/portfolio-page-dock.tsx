@@ -179,14 +179,22 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
               <button
                 type="button"
                 className={`portfolio-summon-compose${
-                  compose.kind === 'drop' ? ' is-drop' : ''
+                  compose.kind === 'drop'
+                    ? ' is-drop'
+                    : compose.kind === 'mint'
+                      ? ' is-mint'
+                      : ''
                 }`}
                 onClick={compose.action}
                 aria-label={
-                  compose.kind === 'drop' ? 'Start a drop' : 'Compose a post'
+                  compose.kind === 'drop'
+                    ? 'Start a drop'
+                    : compose.kind === 'mint'
+                      ? 'Mint'
+                      : 'Compose a post'
                 }
               >
-                {compose.kind === 'drop' ? (
+                {compose.kind === 'drop' || compose.kind === 'mint' ? (
                   <StarsCFillIcon
                     className="portfolio-summon-compose-icon"
                     aria-hidden

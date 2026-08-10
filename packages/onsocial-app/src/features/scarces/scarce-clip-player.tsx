@@ -78,6 +78,20 @@ interface ScarceClipPlayerProps {
    */
   showTransport?: boolean;
   /**
+   * Mint/Buy/Bid sheets — compact cover (same footprint as ScarceBuyCover),
+   * play + expand listen, no tracklist / download chrome.
+   */
+  commerce?: boolean;
+  /**
+   * When false, share cluster omits “Post” (Drop page — Post lives in dock).
+   * Default true for Collectibles play / listen.
+   */
+  showFeedPost?: boolean;
+  /** Link share in player chrome. Drop page keeps share next to bookmark. */
+  showShare?: boolean;
+  /** Save-to-device / offline download chrome. Drop page leaves this to play. */
+  showDownloads?: boolean;
+  /**
    * Open full-screen listen immediately and hide the compact cover shell
    * (post-origin enlarge). Closing listen calls `onListenClose`.
    */
@@ -133,6 +147,10 @@ export function ScarceClipPlayer({
   coverBadge = null,
   showTracks,
   showTransport = true,
+  commerce = false,
+  showFeedPost = true,
+  showShare = true,
+  showDownloads = true,
   immersiveListen = false,
   listenFooter = null,
   onListenClose,
@@ -690,10 +708,12 @@ export function ScarceClipPlayer({
   }
 
   const cover = poster?.trim() || null;
-  const showTrackList =
-    showTracks ?? (isAudio && (tracksOnly || playlist.length > 1));
+  const showTrackList = commerce
+    ? false
+    : (showTracks ?? (isAudio && (tracksOnly || playlist.length > 1)));
   const showTracksTransport = tracksOnly && showTransport && showProgress;
-  const canDownloadAudio = isAudio && playlist.length > 0;
+  const canDownloadAudio =
+    showDownloads && !commerce && isAudio && playlist.length > 0;
   const albumCids = playlist
     .map((track) => trackCidFromPlayable(track))
     .filter((cid): cid is string => Boolean(cid));
@@ -757,8 +777,8 @@ export function ScarceClipPlayer({
       className={`scarce-clip-player-shell${
         tracksOnly ? ' scarce-clip-player-shell--tracks' : ''
       }${isAudio ? ' scarce-clip-player-shell--audio' : ''}${
-        immersiveListen ? ' scarce-clip-player-shell--immersive' : ''
-      }`}
+        commerce ? ' scarce-clip-player-shell--commerce' : ''
+      }${immersiveListen ? ' scarce-clip-player-shell--immersive' : ''}`}
     >
       {tracksOnly ? (
         persistMode ? null : (
@@ -1051,7 +1071,7 @@ export function ScarceClipPlayer({
         <div className="scarce-clip-tracks-head">
             <div className="scarce-clip-download-bar">
               {fansFacepile}
-              {playlist.length > 1 ? (
+              {playlist.length > 1 && showDownloads ? (
                 <>
                   <MediaDownloadControl
                     className="scarce-clip-download-control"
@@ -1143,16 +1163,17 @@ export function ScarceClipPlayer({
                       }}
                     />
                   ) : null}
-                  {persist?.collectionId ? (
+                </>
+              ) : null}
+              {playlist.length > 1 && showShare && persist?.collectionId ? (
                     <ScarceClipShareButton
                       className="scarce-clip-download-control"
                       title={persist.title}
                       collectionId={persist.collectionId}
                       mediaUrl={poster}
                       mediumKind="audio"
+                      showFeedPost={showFeedPost}
                     />
-                  ) : null}
-                </>
               ) : null}
             </div>
         </div>
@@ -1296,7 +1317,7 @@ export function ScarceClipPlayer({
           {!tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
             <div className="scarce-clip-download-bar">
               {fansFacepile}
-              {playlist.length > 1 ? (
+              {playlist.length > 1 && showDownloads ? (
                 <>
                   <MediaDownloadControl
                     className="scarce-clip-download-control"
@@ -1388,16 +1409,17 @@ export function ScarceClipPlayer({
                       }}
                     />
                   ) : null}
-                  {persist?.collectionId ? (
-                    <ScarceClipShareButton
-                      className="scarce-clip-download-control"
-                      title={persist.title}
-                      collectionId={persist.collectionId}
-                      mediaUrl={poster}
-                      mediumKind="audio"
-                    />
-                  ) : null}
                 </>
+              ) : null}
+              {playlist.length > 1 && showShare && persist?.collectionId ? (
+                <ScarceClipShareButton
+                  className="scarce-clip-download-control"
+                  title={persist.title}
+                  collectionId={persist.collectionId}
+                  mediaUrl={poster}
+                  mediumKind="audio"
+                  showFeedPost={showFeedPost}
+                />
               ) : null}
             </div>
           ) : null}
@@ -1477,15 +1499,14 @@ export function ScarceClipPlayer({
                           aria-hidden
                         />
                       )}
-                      <span
-                        className={`scarce-clip-track-love-count${
-                          loveCount > 0 ? '' : ' is-empty'
-                        }`}
-                      >
-                        {loveCount > 0 ? loveCount : 0}
-                      </span>
+                      {loveCount > 0 ? (
+                        <span className="scarce-clip-track-love-count">
+                          {loveCount}
+                        </span>
+                      ) : null}
                     </button>
                   ) : null}
+                  {showDownloads ? (
                   <ScarceTrackOptionsMenu
                     label={label}
                     index={index}
@@ -1567,6 +1588,7 @@ export function ScarceClipPlayer({
                         : undefined
                     }
                   />
+                  ) : null}
                 </li>
               );
             })}
@@ -1603,15 +1625,11 @@ export function ScarceClipPlayer({
               ) : (
                 <HeartIcon className="scarce-clip-track-love-icon" aria-hidden />
               )}
-              <span
-                className={`scarce-clip-track-love-count${
-                  loves.loveCountFor(active) > 0 ? '' : ' is-empty'
-                }`}
-              >
-                {loves.loveCountFor(active) > 0
-                  ? loves.loveCountFor(active)
-                  : 0}
-              </span>
+              {loves.loveCountFor(active) > 0 ? (
+                <span className="scarce-clip-track-love-count">
+                  {loves.loveCountFor(active)}
+                </span>
+              ) : null}
             </button>
           ) : null}
           <MediaDownloadControl
@@ -1704,19 +1722,20 @@ export function ScarceClipPlayer({
               }}
             />
           ) : null}
-          {persist?.collectionId ? (
+          {showShare && persist?.collectionId ? (
             <ScarceClipShareButton
               className="scarce-clip-download-control"
               title={persist.title}
               collectionId={persist.collectionId}
               mediaUrl={poster}
               mediumKind="audio"
+              showFeedPost={showFeedPost}
             />
           ) : null}
         </div>
       ) : null}
 
-      {hasLyrics && !listenOpen ? (
+      {hasLyrics && !listenOpen && !commerce ? (
         <div className="scarce-clip-lyrics">
           <button
             type="button"

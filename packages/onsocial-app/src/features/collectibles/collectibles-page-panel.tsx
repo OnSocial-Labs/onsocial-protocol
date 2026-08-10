@@ -383,7 +383,7 @@ export function CollectiblesPagePanel({
             className={osIconActionClassName}
             aria-label="Browse Market"
           >
-            <ShopFillIcon aria-hidden />
+            <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
           </Link>
           {viewerAccountId ? (
             <Link
@@ -391,7 +391,7 @@ export function CollectiblesPagePanel({
               className={osIconActionClassName}
               aria-label="Start a drop"
             >
-              <PlusIcon aria-hidden />
+              <PlusIcon aria-hidden className="glass-sheet-close-icon" />
             </Link>
           ) : null}
         </>

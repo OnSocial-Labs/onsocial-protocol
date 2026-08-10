@@ -12,6 +12,7 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { DropImageLightbox } from '@/features/scarces/drop-artwork-preview';
 import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
@@ -89,6 +90,7 @@ export function ScarceSellForm({
   const sourceHandle = sourcePost ? fallbackLabel(sourcePost.author) : null;
   const [sourceAuthorName, setSourceAuthorName] = useState<string | null>(null);
   const [sourceAvatarUrl, setSourceAvatarUrl] = useState<string | null>(null);
+  const [coverZoomOpen, setCoverZoomOpen] = useState(false);
 
   useEffect(() => {
     const author = sourcePost?.author?.trim();
@@ -296,6 +298,7 @@ export function ScarceSellForm({
   }
 
   return (
+    <>
     <form
       id={formId}
       className="profile-support-form"
@@ -305,16 +308,22 @@ export function ScarceSellForm({
       }}
     >
       <div className="market-listing-row scarce-sell-preview">
-        <div
-          className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
-          aria-hidden
-        >
-          {item.mediaUrl ? (
+        {item.mediaUrl?.trim() ? (
+          <button
+            type="button"
+            className="market-listing-thumb has-media scarce-sell-thumb-zoom"
+            aria-label={`Preview ${item.title}`}
+            aria-haspopup="dialog"
+            aria-expanded={coverZoomOpen}
+            onClick={() => setCoverZoomOpen(true)}
+          >
             <img src={item.mediaUrl} alt="" />
-          ) : (
+          </button>
+        ) : (
+          <div className="market-listing-thumb" aria-hidden>
             <span className="market-listing-thumb-fallback" />
-          )}
-        </div>
+          </div>
+        )}
         <div className="market-listing-copy">
           <p className="market-listing-title">{item.title}</p>
           <p className="market-listing-meta">
@@ -538,5 +547,14 @@ export function ScarceSellForm({
         </p>
       ) : null}
     </form>
+    {item.mediaUrl?.trim() ? (
+      <DropImageLightbox
+        open={coverZoomOpen}
+        src={item.mediaUrl.trim()}
+        label={`Preview ${item.title}`}
+        onClose={() => setCoverZoomOpen(false)}
+      />
+    ) : null}
+    </>
   );
 }

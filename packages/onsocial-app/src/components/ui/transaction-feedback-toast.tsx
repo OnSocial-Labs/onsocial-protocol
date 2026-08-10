@@ -50,7 +50,7 @@ export function TransactionFeedbackToast({
   }, [onClose]);
 
   const dismissMs = result ? DISMISS_MS[result.type] : 0;
-  const { paused, barRef, pauseProps } = useToastDismissTimer({
+  const { paused, barRef, hostRef, pauseProps } = useToastDismissTimer({
     active: Boolean(result),
     durationMs: dismissMs,
     onDone: () => onCloseRef.current(),
@@ -61,6 +61,7 @@ export function TransactionFeedbackToast({
   return createPortal(
     <div className="app-tx-toast-anchor" role="presentation">
       <div
+        ref={hostRef}
         className={`app-tx-toast is-${result.type}${paused ? ' is-paused' : ''}`}
         role="status"
         aria-live="polite"

@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
 import { Divider, GlassSheet } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   CommerceSheetFooter,
+  commerceFooterStatesEqual,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
@@ -16,7 +17,6 @@ import {
 } from '@/features/scarces/scarce-buy-form';
 import { isPrimaryMintStatus } from '@/features/scarces/post-drop-cta';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 export interface ScarceBuyListing {
   listingId?: string;
@@ -29,6 +29,11 @@ export interface ScarceBuyListing {
   description?: string;
   mediaUrl?: string | null;
   creatorId: string;
+  /**
+   * Original mint creator when this is a resale and they differ from
+   * `creatorId` (the seller). Same as Market listing `artistId`.
+   */
+  artistId?: string;
   creatorName?: string | null;
   cardBg?: string;
   copies?: number;
@@ -41,6 +46,13 @@ export interface ScarceBuyListing {
   playable?: ScarcePlayableMedia;
   /** Album / multi-track playables; `playable` is the first. */
   playables?: ScarcePlayableMedia[];
+  /** Viewer already owns an edition — CTA becomes Buy/Mint another. */
+  alreadyOwnsEdition?: boolean;
+  /**
+   * Max mint qty for this wallet (supply / wallet / allowlist caps).
+   * Stepper shows when > 1 on Drop primary mint.
+   */
+  maxQuantity?: number;
 }
 
 interface ScarceBuySheetProps {
@@ -49,6 +61,8 @@ interface ScarceBuySheetProps {
   authorName?: string | null;
   embed?: PostScarceEmbed | null;
   listing?: ScarceBuyListing | null;
+  /** Viewer already owns an edition — Mint/Buy another. */
+  alreadyOwnsEdition?: boolean;
   onOpenChange: (open: boolean) => void;
   onPurchased?: (detail: ScarceBuySuccessDetail) => void;
   onMakeOffer?: () => void;
@@ -63,6 +77,7 @@ export function ScarceBuySheet({
   authorName = null,
   embed = null,
   listing = null,
+  alreadyOwnsEdition = false,
   onOpenChange,
   onPurchased,
   onMakeOffer,
@@ -75,22 +90,14 @@ export function ScarceBuySheet({
   const [wasOpen, setWasOpen] = useState(open);
   const [footerState, setFooterState] =
     useState<CommerceSheetFooterState | null>(null);
-  const creatorId =
+  const sellerId =
     listing?.creatorId ?? embed?.creatorId ?? post?.accountId ?? '';
   const sheetOpen =
-    open && !closing && (post != null || listing != null) && Boolean(creatorId);
+    open &&
+    !closing &&
+    (post != null || listing != null || embed != null) &&
+    Boolean(sellerId);
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
-  const handle = creatorId ? fallbackLabel(creatorId) : '';
-  const resolvedName = creatorId
-    ? displayName(creatorId, listing?.creatorName ?? authorName ?? undefined)
-    : '';
-  // Avoid "Buy alice.near / @alice.near" when there's no custom profile name.
-  const personName =
-    resolvedName &&
-    handle &&
-    resolvedName.toLowerCase() !== handle.toLowerCase()
-      ? resolvedName
-      : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -113,10 +120,34 @@ export function ScarceBuySheet({
 
   const handleFooterStateChange = useCallback(
     (state: CommerceSheetFooterState | null) => {
-      setFooterState(state);
+      setFooterState((prev) =>
+        commerceFooterStatesEqual(prev, state) ? prev : state
+      );
     },
     []
   );
+
+  const formListing = useMemo(() => {
+    if (!listing) return null;
+    const owns = listing.alreadyOwnsEdition || alreadyOwnsEdition;
+    return owns === listing.alreadyOwnsEdition
+      ? listing
+      : { ...listing, alreadyOwnsEdition: owns };
+  }, [listing, alreadyOwnsEdition]);
+
+  const handleSuccess = useCallback(
+    (detail: ScarceBuySuccessDetail) => {
+      onPurchased?.(detail);
+      requestClose();
+    },
+    [onPurchased, requestClose]
+  );
+
+  const handleMakeOffer = useCallback(() => {
+    if (!onMakeOffer) return;
+    onMakeOffer();
+    requestClose();
+  }, [onMakeOffer, requestClose]);
 
   const commerceStatus = listing?.status ?? embed?.status;
   const isMint = isPrimaryMintStatus(commerceStatus);
@@ -142,16 +173,9 @@ export function ScarceBuySheet({
           <GestureSheetHeader
             titleId={titleId}
             verb={isMint ? 'Mint' : 'Buy'}
-            personName={personName}
-            handle={handle}
             signal="reputation"
             closeAriaLabel={isMint ? 'Close mint scarce' : 'Close buy scarce'}
             onClose={requestClose}
-            whisper={
-              isMint
-                ? 'Pay with NEAR — scarce mints to you.'
-                : 'Pay with NEAR — scarce transfers to you.'
-            }
           />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
@@ -172,35 +196,12 @@ export function ScarceBuySheet({
           formId={formId}
           post={post}
           authorName={listing?.creatorName ?? authorName}
-          listing={
-            listing
-              ? {
-                  listingId: listing.listingId,
-                  tokenId: listing.tokenId,
-                  status: listing.status,
-                  priceNear: listing.priceNear,
-                  title: listing.title,
-                  mediaUrl: listing.mediaUrl,
-                  creatorId: listing.creatorId,
-                  copies: listing.copies,
-                  remaining: listing.remaining,
-                }
-              : null
-          }
+          listing={formListing}
           embed={embed}
+          alreadyOwnsEdition={alreadyOwnsEdition}
           onFooterStateChange={handleFooterStateChange}
-          onSuccess={(detail) => {
-            onPurchased?.(detail);
-            requestClose();
-          }}
-          onMakeOffer={
-            onMakeOffer
-              ? () => {
-                  onMakeOffer();
-                  requestClose();
-                }
-              : undefined
-          }
+          onSuccess={handleSuccess}
+          onMakeOffer={onMakeOffer ? handleMakeOffer : undefined}
         />
       ) : null}
     </GlassSheet>

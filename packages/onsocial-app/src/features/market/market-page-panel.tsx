@@ -5,11 +5,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   MultiplyIcon,
-  PlusIcon,
-  SearchField,
   ShopFillIcon,
   StarMovingFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
@@ -19,6 +16,10 @@ import {
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import {
+  MarketHeadingActions,
+  MarketSearchHeading,
+} from '@/features/market/market-heading';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
@@ -37,6 +38,7 @@ import {
   formatMarketRelativeTime,
   invalidateLiveListingsCache,
   marketListingRowKey,
+  viewerOwnsRelatedEdition,
   type MarketListingItem,
   type MarketListingsPage,
   type MarketListingSort,
@@ -86,9 +88,6 @@ import {
 } from '@/features/scarces/drop-facets';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
-  APP_APPS_PATH,
-  APP_DROP_CREATE_PATH,
-  APP_DROPS_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
   MARKET_CREATOR_PARAM,
@@ -96,7 +95,6 @@ import {
   MARKET_KIND_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_AUDIO_FORMAT_PARAM,
-  dropsPath,
   marketFacetsParamValue,
   parseMarketFacetsParam,
   appPath,
@@ -655,6 +653,7 @@ export function MarketPagePanel({
       const endsAtMs = auctionExpiresAtMs(item.expiresAtNs);
       const auctionEnded =
         item.kind === 'auction' && endsAtMs != null && endsAtMs <= Date.now();
+      const alreadyOwns = viewerOwnsRelatedEdition(item, owned);
       // Own live listings aren't buyable; ended own auctions open settle.
       if (isOwn && !auctionEnded) {
         return;
@@ -691,6 +690,7 @@ export function MarketPagePanel({
           ...(item.description ? { description: item.description } : {}),
           mediaUrl: item.mediaUrl,
           creatorId: item.creatorId,
+          ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
           ...(item.cardBg ? { cardBg: item.cardBg } : {}),
           ...(item.sourcePostPath
             ? { sourcePostPath: item.sourcePostPath }
@@ -701,6 +701,7 @@ export function MarketPagePanel({
           ...(item.blockTimestamp > 0
             ? { listedAtMs: item.blockTimestamp }
             : {}),
+          alreadyOwnsEdition: alreadyOwns,
         });
         return;
       }
@@ -713,6 +714,7 @@ export function MarketPagePanel({
         ...(item.description ? { description: item.description } : {}),
         mediaUrl: item.mediaUrl,
         creatorId: item.creatorId,
+        ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
         ...(item.cardBg ? { cardBg: item.cardBg } : {}),
         copies: item.copies,
         remaining: item.remaining,
@@ -721,9 +723,10 @@ export function MarketPagePanel({
         ...(item.playable ? { playable: item.playable } : {}),
         ...(item.playables?.length ? { playables: item.playables } : {}),
         ...(item.blockTimestamp > 0 ? { listedAtMs: item.blockTimestamp } : {}),
+        alreadyOwnsEdition: alreadyOwns,
       });
     },
-    [viewerAccountId]
+    [viewerAccountId, owned]
   );
 
   const handlePurchased = useCallback(() => {
@@ -1050,61 +1053,13 @@ export function MarketPagePanel({
       leading={null}
       glassChrome
       scrollRootRef={scrollRootRef}
-      actions={
-        <>
-          <Link
-            href={APP_APPS_PATH}
-            className={osIconActionClassName}
-            aria-label="Browse hubs"
-          >
-            <StarMovingFillIcon aria-hidden />
-          </Link>
-          {viewerAccountId ? (
-            <Link
-              href={APP_DROP_CREATE_PATH}
-              className={osIconActionClassName}
-              aria-label="Start a drop"
-            >
-              <PlusIcon aria-hidden />
-            </Link>
-          ) : null}
-        </>
-      }
       heading={
-        <div className="market-heading-row">
-          <SearchField
-            value={listingQuery}
-            onValueChange={setListingQuery}
-            placeholder="Search listings"
-            clearAriaLabel="Clear search"
-            ariaLabel="Search Market listings"
-            className="discover-nav-search-field os-app-screen-search"
-            leadingIcon={
-              <ShopFillIcon className="search-field-icon" aria-hidden />
-            }
-          />
-          <div className="market-heading-links">
-            <Link
-              href={APP_DROPS_PATH}
-              scroll={false}
-              className="market-drops-link"
-              title="Primary edition Drops"
-            >
-              Drops
-            </Link>
-            {viewerAccountId ? (
-              <Link
-                href={dropsPath({ sort: 'saved' })}
-                scroll={false}
-                className="market-drops-link"
-                title="Bookmarked drops"
-              >
-                Saved
-              </Link>
-            ) : null}
-          </div>
-        </div>
+        <MarketSearchHeading
+          listingQuery={listingQuery}
+          onListingQueryChange={setListingQuery}
+        />
       }
+      actions={<MarketHeadingActions />}
       toolbar={
         showListingToolbar ? (
           <div
@@ -1308,6 +1263,7 @@ export function MarketPagePanel({
                     item={item}
                     nowMs={nowMs}
                     highestOfferNear={offerSummary?.highestAmountNear ?? null}
+                    alreadyOwnsEdition={viewerOwnsRelatedEdition(item, owned)}
                     isOwnListing={(() => {
                       if (
                         !viewerAccountId ||

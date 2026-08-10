@@ -124,6 +124,11 @@ export interface MarketListingItem {
   audioFormat?: 'single' | 'album' | 'podcast' | null;
   /** Discovery facets (genres / subjects) from `extra.facets`. */
   facets?: string[];
+  /**
+   * Distinct album fans (`scarce_album_love_fans`) when this listing maps to a
+   * music drop. Omitted / 0 → Market hides the chip.
+   */
+  fanCount?: number;
 }
 
 /** Browse sort for Market listings. */
@@ -564,6 +569,42 @@ export function excludeOwnedNativeListings(
   );
 }
 
+/**
+ * Viewer already holds an edition of this listing’s drop or source post —
+ * Market CTA becomes “Buy another” while supply remains.
+ */
+export function viewerOwnsRelatedEdition(
+  item: Pick<
+    MarketListingItem,
+    'tokenId' | 'listingId' | 'sourcePostPath' | 'kind'
+  >,
+  owned: ReadonlyArray<
+    Pick<OwnedScarceItem, 'tokenId' | 'collectionId' | 'sourcePostPath'>
+  >
+): boolean {
+  if (owned.length === 0) return false;
+  const postPath = item.sourcePostPath?.trim() || '';
+  const listingCollection =
+    collectionIdFromTokenId(item.tokenId ?? '') ||
+    (item.kind === 'lazy' ? item.listingId?.trim() || null : null);
+
+  for (const row of owned) {
+    if (postPath && row.sourcePostPath?.trim() === postPath) return true;
+    const ownedCollection =
+      row.collectionId?.trim() ||
+      collectionIdFromTokenId(row.tokenId) ||
+      '';
+    if (
+      listingCollection &&
+      ownedCollection &&
+      ownedCollection === listingCollection
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function saleTitle(
   row: Pick<ScarcesEventRow, 'extraData' | 'tokenId'>
 ): string {
@@ -699,6 +740,55 @@ async function withResolvedPostHrefs(
     const postHref = hrefByPath.get(item.sourcePostPath);
     return postHref ? { ...item, postHref } : item;
   });
+}
+
+/** Drop id for album fan counts — edition tokens or primary lazy listing id. */
+export function albumCollectionIdForListing(
+  item: Pick<MarketListingItem, 'tokenId' | 'listingId' | 'kind'>
+): string | null {
+  return (
+    collectionIdFromTokenId(item.tokenId ?? '') ||
+    (item.kind === 'lazy' ? item.listingId?.trim() || null : null)
+  );
+}
+
+/**
+ * Attach album fan counts for music drops on a Market page.
+ * Soft-fails — browse still works if the fans view is unavailable.
+ */
+async function withAlbumFanCounts(
+  items: MarketListingItem[],
+  client: OnSocial
+): Promise<MarketListingItem[]> {
+  if (items.length === 0) return items;
+  const ids = [
+    ...new Set(
+      items
+        .map((item) => albumCollectionIdForListing(item))
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  if (ids.length === 0) return items;
+  try {
+    const rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
+    if (rows.length === 0) return items;
+    const byId = new Map<string, number>();
+    for (const row of rows) {
+      const id = row.collectionId?.trim();
+      const count = Number(row.fanCount) || 0;
+      if (!id || count <= 0) continue;
+      const prev = byId.get(id) ?? 0;
+      if (count > prev) byId.set(id, count);
+    }
+    if (byId.size === 0) return items;
+    return items.map((item) => {
+      const id = albumCollectionIdForListing(item);
+      const fanCount = id ? byId.get(id) : undefined;
+      return fanCount != null ? { ...item, fanCount } : item;
+    });
+  } catch {
+    return items;
+  }
 }
 
 async function withResolvedOwnedPostHrefs(
@@ -1265,6 +1355,34 @@ export async function fetchOwnedScarceForCollection(
 }
 
 /**
+ * Find the viewer’s owned edition linked to a source post path
+ * (`author/post/{id}`). Used so post CTAs can offer Sell after mint/buy.
+ */
+export async function fetchOwnedScarceForSourcePost(
+  accountId: string,
+  sourcePostPath: string
+): Promise<OwnedScarceItem | null> {
+  const owner = accountId.trim();
+  const want = sourcePostPath.trim();
+  if (!owner || !want) return null;
+
+  let fromEnd = 0;
+  for (let i = 0; i < 8; i++) {
+    const page = await fetchOwnedScarcesPage(owner, {
+      fromEnd,
+      pageSize: OWNED_PAGE_SIZE,
+    });
+    const hit = page.items.find(
+      (item) => item.sourcePostPath?.trim() === want
+    );
+    if (hit) return hit;
+    if (!page.hasMore) break;
+    fromEnd = page.nextFromEnd;
+  }
+  return null;
+}
+
+/**
  * One newest-first page of scarces owned by `accountId`, with listed price
  * when already for sale. Indexer-first (`ownedBy` + batch
  * `collectionsCurrentByIds`); RPC `nft_tokens_for_owner` only on Hasura
@@ -1587,25 +1705,49 @@ export async function fetchScarceListingMeta(opts: {
 }
 
 /**
+ * Mint time (+ optional mint ask) from indexer `scarces_events`.
+ * Detail sheets only — not browse rows.
+ */
+export interface ScarceMintSummary {
+  mintedAtMs: number | null;
+  /** Primary mint ask in NEAR when the mint event carried a price. */
+  mintPriceNear: string | null;
+}
+
+export async function fetchScarceMintSummary(
+  tokenId: string
+): Promise<ScarceMintSummary> {
+  const id = tokenId.trim();
+  if (!id) return { mintedAtMs: null, mintPriceNear: null };
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const history = await client.query.scarces.tokenHistory(id, { limit: 40 });
+    if (history.length === 0) {
+      return { mintedAtMs: null, mintPriceNear: null };
+    }
+    const mint =
+      history.find((row) => SCARCE_MINT_OPS.has(row.operation)) ?? history[0];
+    const ms = timestampMs(mint.blockTimestamp);
+    const mintPriceNear =
+      priceNearFromYocto(mint.price) ?? priceNearFromYocto(mint.amount);
+    return {
+      mintedAtMs: ms > 0 ? ms : null,
+      mintPriceNear,
+    };
+  } catch {
+    return { mintedAtMs: null, mintPriceNear: null };
+  }
+}
+
+/**
  * Mint time from indexer `scarces_events` (first mint-family op, else earliest
  * token event). Detail sheets only — not browse rows.
  */
 export async function fetchScarceMintedAt(
   tokenId: string
 ): Promise<number | null> {
-  const id = tokenId.trim();
-  if (!id) return null;
-  try {
-    const client = createReadOnlyOnSocialClient();
-    const history = await client.query.scarces.tokenHistory(id, { limit: 40 });
-    if (history.length === 0) return null;
-    const mint =
-      history.find((row) => SCARCE_MINT_OPS.has(row.operation)) ?? history[0];
-    const ms = timestampMs(mint.blockTimestamp);
-    return ms > 0 ? ms : null;
-  } catch {
-    return null;
-  }
+  const summary = await fetchScarceMintSummary(tokenId);
+  return summary.mintedAtMs;
 }
 
 const LIVE_LISTINGS_TTL_MS = 30_000;
@@ -1896,8 +2038,9 @@ export async function fetchMarketListings(
     const items = rows
       .map((row) => listingFromActiveRow(row))
       .filter((item): item is MarketListingItem => item != null);
+    const withHrefs = await withResolvedPostHrefs(items);
     return {
-      items: await withResolvedPostHrefs(items),
+      items: await withAlbumFanCounts(withHrefs, client),
       // Advance by raw row count so client-dropped rows don't re-fetch.
       nextOffset: offset + rows.length,
       hasMore: rows.length === limit,
@@ -1919,7 +2062,10 @@ export async function fetchMarketListings(
         )
       : fallbackAll;
     return {
-      items: await withResolvedPostHrefs(fallback),
+      items: await withAlbumFanCounts(
+        await withResolvedPostHrefs(fallback),
+        createReadOnlyOnSocialClient()
+      ),
       nextOffset: fallback.length,
       hasMore: false,
     };

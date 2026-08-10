@@ -931,6 +931,41 @@ export class ScarcesQuery {
   }
 
   /**
+   * Fan counts for specific drop ids (`scarce_album_love_fans`).
+   * Missing ids simply omit a row — callers treat absence as 0 fans.
+   */
+  async albumLoveFansByCollectionIds(
+    collectionIds: string[]
+  ): Promise<
+    Array<{
+      collectionId: string;
+      fanCount: number;
+    }>
+  > {
+    const ids = [
+      ...new Set(
+        collectionIds.map((id) => id.trim()).filter((id) => id.length > 0)
+      ),
+    ];
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      scarceAlbumLoveFans: Array<{
+        collectionId: string;
+        fanCount: number;
+      }>;
+    }>({
+      query: `query ScarceAlbumLoveFansByIds($ids: [String!]!) {
+        scarceAlbumLoveFans(where: { collectionId: { _in: $ids } }) {
+          collectionId
+          fanCount
+        }
+      }`,
+      variables: { ids },
+    });
+    return res.data?.scarceAlbumLoveFans ?? [];
+  }
+
+  /**
    * Creator / collector activity leaderboard (`scarces_activity`).
    */
   async activityLeaderboard(

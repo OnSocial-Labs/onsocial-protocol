@@ -30,6 +30,8 @@ interface MarketListingRowProps {
   nowMs?: number;
   /** Highest open offer (NEAR) on this native/auction token. */
   highestOfferNear?: string | null;
+  /** Viewer already owns an edition of this drop / source post. */
+  alreadyOwnsEdition?: boolean;
   onBuy: (item: MarketListingItem) => void;
   onCancel?: (item: MarketListingItem) => void;
 }
@@ -81,18 +83,16 @@ export function MarketListingRow({
   cancelPending = false,
   nowMs,
   highestOfferNear = null,
+  alreadyOwnsEdition = false,
   onBuy,
   onCancel,
 }: MarketListingRowProps) {
   const rowKey = marketListingRowKey(item);
   const sellerId = item.creatorId;
-  const sellerHandle = fallbackLabel(sellerId);
-  const sellerHref = portfolioPath(sellerId);
   // Provenance: distinct mint creator when set, else the seller is the creator.
   const creatorId = item.artistId?.trim() || sellerId;
   const creatorHandle = fallbackLabel(creatorId);
   const creatorHref = portfolioPath(creatorId);
-  const showSeller = Boolean(item.artistId?.trim());
   const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
   // Social post when listed from a post; else drop page for edition tokens.
   const detailHref =
@@ -175,6 +175,32 @@ export function MarketListingRow({
     item.title
   );
 
+  const isPrimaryMint = item.kind === 'lazy';
+  const buyLabel =
+    item.kind === 'auction'
+      ? auctionCountdown === 'Ended'
+        ? 'Settle'
+        : 'Bid'
+      : isPrimaryMint
+        ? alreadyOwnsEdition
+          ? 'Mint another'
+          : 'Mint'
+        : alreadyOwnsEdition
+          ? 'Buy another'
+          : 'Buy';
+  const buyAriaLabel =
+    item.kind === 'auction'
+      ? auctionCountdown === 'Ended'
+        ? `Settle auction for ${item.title}`
+        : `Bid on ${item.title}`
+      : isPrimaryMint
+        ? alreadyOwnsEdition
+          ? `Mint another ${item.title}`
+          : `Mint ${item.title}`
+        : alreadyOwnsEdition
+          ? `Buy another ${item.title}`
+          : `Buy ${item.title}`;
+
   return (
     <div className="market-listing-row" role="listitem">
       {detailHref ? (
@@ -209,11 +235,7 @@ export function MarketListingRow({
           }}
           disabled={isOwnListing}
           aria-label={
-            isOwnListing
-              ? `${item.title} (your listing)`
-              : item.kind === 'auction'
-                ? `Bid on ${item.title}`
-                : `Buy ${item.title}`
+            isOwnListing ? `${item.title} (your listing)` : buyAriaLabel
           }
         >
           {item.mediaUrl ? (
@@ -242,23 +264,16 @@ export function MarketListingRow({
           </Link>
         </p>
         <p className="market-listing-meta market-listing-meta--price">
-          {showSeller ? (
-            <>
-              <Link
-                href={sellerHref}
-                scroll={false}
-                className="market-listing-handle"
-                aria-label={`Seller @${sellerHandle}`}
-              >
-                @{sellerHandle}
-              </Link>
-              <span className="market-listing-own"> · </span>
-            </>
-          ) : null}
           <span className="market-listing-price">
             {item.priceLabel ? `${item.priceLabel} · ` : ''}
             {formatPriceNear(item.priceNear)} NEAR
           </span>
+          {item.fanCount != null && item.fanCount > 0 ? (
+            <span className="market-listing-own">
+              {' · '}
+              {item.fanCount === 1 ? '1 fan' : `${item.fanCount} fans`}
+            </span>
+          ) : null}
           {bidCount != null ? (
             <span className="market-listing-own">
               {' · '}
@@ -317,20 +332,10 @@ export function MarketListingRow({
               type="button"
               variant="primary"
               ready
-              aria-label={
-                item.kind === 'auction'
-                  ? auctionCountdown === 'Ended'
-                    ? `Settle auction for ${item.title}`
-                    : `Bid on ${item.title}`
-                  : `Buy ${item.title}`
-              }
+              aria-label={buyAriaLabel}
               onClick={() => onBuy(item)}
             >
-              {item.kind === 'auction'
-                ? auctionCountdown === 'Ended'
-                  ? 'Settle'
-                  : 'Bid'
-                : 'Buy'}
+              {buyLabel}
             </OsSheetAction>
           )}
         </OsSheetActions>

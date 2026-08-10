@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -15,6 +16,7 @@ import {
   holdingsActionLabel,
   holdingsHrefForOwned,
 } from '@/lib/portfolio-holdings';
+import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 
 interface MarketOwnedRowProps {
   item: OwnedScarceItem;
@@ -39,7 +41,7 @@ function formatPriceNear(priceNear: string): string {
 
 const CONFIRM_LEAVE_MS = 4_000;
 
-/** Owned scarce in Market “Yours” — manage here; open Collectibles or source post. */
+/** Owned scarce in Market “Yours” — Sell/Delist; Post when listed (Drop or resale). */
 export function MarketOwnedRow({
   item,
   delistPending = false,
@@ -52,6 +54,7 @@ export function MarketOwnedRow({
   onSettle,
   onOffers,
 }: MarketOwnedRowProps) {
+  const router = useRouter();
   const listed = item.listingKind != null;
   const auction = item.listingKind === 'auction';
   const auctionHasBids = auction && (item.bidCount ?? 0) > 0;
@@ -84,6 +87,16 @@ export function MarketOwnedRow({
     mediumKind: item.mediumKind,
   });
   const useAction = holdingsActionLabel(item.mediumKind);
+  // Posted scarce → open the source post (mint/buy lives there) when not listed.
+  const sourcePostHref =
+    item.postHref?.trim() ||
+    postHrefFromSourcePath(item.sourcePostPath) ||
+    null;
+  const showViewSourcePost = Boolean(sourcePostHref);
+  // Listed Drop edition or post-minted scarce → Post announce (Resale in feed).
+  const showPostCompose =
+    listed &&
+    Boolean(item.collectionId?.trim() || item.tokenId?.trim());
   const [brokenMediaUrl, setBrokenMediaUrl] = useState<string | null>(null);
   const showThumb = Boolean(item.mediaUrl) && brokenMediaUrl !== item.mediaUrl;
 
@@ -263,7 +276,7 @@ export function MarketOwnedRow({
             </OsSheetAction>
           )}
         </OsSheetActions>
-        {item.collectionId?.trim() ? (
+        {showPostCompose ? (
           <OsSheetActions
             layout="row-compact"
             tone="frosted-primary"
@@ -275,18 +288,40 @@ export function MarketOwnedRow({
               variant="ghost"
               ready
               onClick={() => {
+                const collectionId = item.collectionId?.trim() || '';
                 requestDropCompose({
-                  collectionId: item.collectionId!.trim(),
+                  ...(collectionId ? { collectionId } : {}),
                   tokenId: item.tokenId,
                   title: item.title,
                   ...(item.mediaUrl ? { mediaUrl: item.mediaUrl } : {}),
                   ...(item.mediumKind
                     ? { mediumKind: item.mediumKind }
                     : {}),
+                  ...(item.sourcePostPath
+                    ? { sourcePostPath: item.sourcePostPath }
+                    : {}),
                 });
               }}
             >
               Post
+            </OsSheetAction>
+          </OsSheetActions>
+        ) : !listed && showViewSourcePost && sourcePostHref ? (
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            borderless
+            className="market-listing-action"
+          >
+            <OsSheetAction
+              type="button"
+              variant="ghost"
+              ready
+              onClick={() => {
+                router.push(sourcePostHref);
+              }}
+            >
+              View post
             </OsSheetAction>
           </OsSheetActions>
         ) : null}

@@ -26,6 +26,8 @@ export function useToastDismissTimer({
 }): {
   paused: boolean;
   barRef: RefObject<HTMLDivElement | null>;
+  /** Attach to the toast host that receives `pauseProps`. */
+  hostRef: RefObject<HTMLDivElement | null>;
   pauseProps: {
     onPointerEnter: () => void;
     onPointerLeave: () => void;
@@ -40,6 +42,7 @@ export function useToastDismissTimer({
   const remainingRef = useRef(durationMs);
   const totalRef = useRef(durationMs);
   const barRef = useRef<HTMLDivElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const [paused, setPaused] = useState(false);
   const hoverPause = useRef(false);
   const touchPause = useRef(false);
@@ -68,13 +71,27 @@ export function useToastDismissTimer({
       totalRef.current = durationMs;
       paint(1);
     }
-    hoverPause.current = false;
-    touchPause.current = false;
-    focusPause.current = false;
-    // Reset pause UI when the toast session changes.
+
+    // Keep pause if the pointer/focus is still on the toast after a morph
+    // (pending → success) or duration change — otherwise only some toasts
+    // feel hover-pausable.
+    const host = hostRef.current;
+    const stillHovering = Boolean(host?.matches(':hover'));
+    const stillFocused = Boolean(
+      host &&
+        document.activeElement instanceof Node &&
+        host.contains(document.activeElement)
+    );
+    if (!stillHovering) {
+      hoverPause.current = false;
+      touchPause.current = false;
+    } else {
+      hoverPause.current = true;
+    }
+    focusPause.current = stillFocused;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- session reset, not derived sync
-    setPaused(false);
-  }, [active, durationMs, paint]);
+    syncPaused();
+  }, [active, durationMs, paint, syncPaused]);
 
   useEffect(() => {
     if (!active || durationMs <= 0 || paused) return;
@@ -137,5 +154,5 @@ export function useToastDismissTimer({
     },
   };
 
-  return { paused, barRef, pauseProps };
+  return { paused, barRef, hostRef, pauseProps };
 }

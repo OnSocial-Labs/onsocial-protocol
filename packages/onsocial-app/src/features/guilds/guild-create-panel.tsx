@@ -171,7 +171,10 @@ export function GuildCreatePanel() {
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
         >
-          <QuestionMarkCircleFillIcon aria-hidden />
+          <QuestionMarkCircleFillIcon
+            aria-hidden
+            className="glass-sheet-close-icon"
+          />
         </button>
       }
     >

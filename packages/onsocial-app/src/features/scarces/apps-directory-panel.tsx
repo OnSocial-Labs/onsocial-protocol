@@ -228,7 +228,7 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
             className={osIconActionClassName}
             aria-label="Open a hub"
           >
-            <PlusIcon aria-hidden />
+            <PlusIcon aria-hidden className="glass-sheet-close-icon" />
           </Link>
         ) : undefined
       }

@@ -3,30 +3,27 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
 import { usePathname } from 'next/navigation';
-import type { GroupMembershipCurrentRow, PostRow } from '@onsocial/sdk';
+import type { PostRow } from '@onsocial/sdk';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { normalizeGuildConfig } from '@/features/guilds/guild-config';
 import {
   ComposerSheet,
   type ComposerDropDraft,
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import {
-  composerGuildSpaces,
-  defaultComposerSpace,
-  type GuildSpace,
-  type GuildViewerAccess,
-} from '@/features/guilds/guild-structure';
+  COMPOSER_PERSONAL_TARGET,
+  useComposerFeedTargets,
+} from '@/features/guilds/use-composer-feed-targets';
 import { submitPersonalPost } from '@/features/home/submit-personal-post';
 import {
   clearDropComposeDraft,
+  isDropComposeDraftReady,
   peekDropComposeDraft,
   subscribeDropComposeDraft,
   takeDropComposeDraft,
@@ -34,22 +31,19 @@ import {
 } from '@/features/scarces/drop-compose-draft';
 import {
   dispatchGuildPostConfirmed,
-  submitGuildDropPost,
+  submitGuildRootPost,
 } from '@/features/scarces/submit-guild-drop-post';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
-import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fallbackLabel } from '@/lib/profile-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-
-const PERSONAL_TARGET = 'personal';
 
 function draftToComposer(draft: DropComposeDraft): ComposerDropDraft {
   return {
-    collectionId: draft.collectionId,
+    ...(draft.collectionId ? { collectionId: draft.collectionId } : {}),
     ...(draft.tokenId ? { tokenId: draft.tokenId } : {}),
     title: draft.title,
     ...(draft.mediaUrl ? { mediaUrl: draft.mediaUrl } : {}),
     ...(draft.mediumKind ? { mediumKind: draft.mediumKind } : {}),
+    ...(draft.sourcePostPath ? { sourcePostPath: draft.sourcePostPath } : {}),
   };
 }
 
@@ -64,20 +58,9 @@ function guildIdFromPath(pathname: string | null): string | null {
   }
 }
 
-function accessFromMembership(
-  row: GroupMembershipCurrentRow
-): GuildViewerAccess {
-  return {
-    isMember: true,
-    canModerate: Boolean(row.canModerate || row.isAdmin || row.isOwner),
-    isAdmin: Boolean(row.isAdmin || row.isOwner),
-    isOwner: Boolean(row.isOwner),
-  };
-}
-
 /**
- * Global host for “Post this Drop” — opens the composer with Public or a
- * joined guild as destination. Same collection embed on both paths.
+ * Global host for “Post this Drop” / resale announce — opens the composer with
+ * Public or a joined guild as destination. Collection or token embed on both.
  */
 export function DropComposeHost() {
   const pathname = usePathname();
@@ -92,15 +75,26 @@ export function DropComposeHost() {
   const [openDraft, setOpenDraft] = useState<DropComposeDraft | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [memberships, setMemberships] = useState<GroupMembershipCurrentRow[]>(
-    []
-  );
-  const [targetId, setTargetId] = useState(PERSONAL_TARGET);
-  const [guildSpaces, setGuildSpaces] = useState<GuildSpace[]>([]);
-  const [guildName, setGuildName] = useState('');
-  const [spaceId, setSpaceId] = useState('general');
-  const [guildLoading, setGuildLoading] = useState(false);
+  const [targetId, setTargetId] = useState(COMPOSER_PERSONAL_TARGET);
   const defaultedTargetRef = useRef(false);
+
+  const reportError = useCallback((message: string) => {
+    setError(message);
+  }, []);
+
+  const {
+    memberships,
+    feedTargetOptions,
+    destination,
+    selectedSpace,
+    guildLoading,
+    resetGuildState,
+  } = useComposerFeedTargets({
+    active: Boolean(openDraft),
+    accountId,
+    targetId,
+    onError: reportError,
+  });
 
   useEffect(() => {
     if (!draft || openDraft) return;
@@ -110,80 +104,9 @@ export function DropComposeHost() {
     setOpenDraft(next);
     defaultedTargetRef.current = false;
     const pathGuild = guildIdFromPath(pathname);
-    setTargetId(pathGuild ?? PERSONAL_TARGET);
-    setGuildSpaces([]);
-    setGuildName('');
-    setSpaceId('general');
-  }, [draft, openDraft, pathname]);
-
-  useEffect(() => {
-    if (!openDraft || !accountId) {
-      setMemberships([]);
-      return;
-    }
-    let cancelled = false;
-    const client = createReadOnlyOnSocialClient();
-    void client.query.groups
-      .membershipsBy(accountId, { limit: 24 })
-      .then((page) => {
-        if (!cancelled) setMemberships(page.items ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setMemberships([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [openDraft, accountId]);
-
-  useEffect(() => {
-    if (!openDraft || targetId === PERSONAL_TARGET) {
-      setGuildSpaces([]);
-      setGuildName('');
-      return;
-    }
-    const membership = memberships.find((row) => row.groupId === targetId);
-    if (!membership) return;
-
-    let cancelled = false;
-    setGuildLoading(true);
-    void (async () => {
-      try {
-        const { client } = await withClient();
-        const raw = await client.groups.getConfig(targetId);
-        if (cancelled) return;
-        const access = accessFromMembership(membership);
-        if (raw) {
-          const config = normalizeGuildConfig(targetId, raw);
-          const spaces = composerGuildSpaces(config.structure, access);
-          setGuildName(config.name || membership.groupName || targetId);
-          setGuildSpaces(spaces);
-          const preferred =
-            defaultComposerSpace(config.structure, access)?.id ??
-            spaces[0]?.id ??
-            'general';
-          setSpaceId((current) =>
-            spaces.some((space) => space.id === current) ? current : preferred
-          );
-        } else {
-          setGuildName(membership.groupName?.trim() || targetId);
-          setGuildSpaces([]);
-        }
-      } catch {
-        if (!cancelled) {
-          setGuildName(membership.groupName?.trim() || targetId);
-          setGuildSpaces([]);
-          setError('Could not load that guild’s rooms.');
-        }
-      } finally {
-        if (!cancelled) setGuildLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [openDraft, targetId, memberships, withClient]);
+    setTargetId(pathGuild ?? COMPOSER_PERSONAL_TARGET);
+    resetGuildState();
+  }, [draft, openDraft, pathname, resetGuildState]);
 
   // Once memberships land, prefer the guild you’re viewing (one-shot).
   useEffect(() => {
@@ -197,39 +120,20 @@ export function DropComposeHost() {
     setTargetId(pathGuild);
   }, [openDraft, memberships, pathname]);
 
-  const feedTargetOptions = useMemo(() => {
-    const options = [{ id: PERSONAL_TARGET, label: 'Public' }];
-    for (const row of memberships) {
-      const id = row.groupId?.trim();
-      if (!id) continue;
-      options.push({
-        id,
-        label: row.groupName?.trim() || id,
-      });
-    }
-    return options;
-  }, [memberships]);
-
-  const selectedSpace: GuildSpace | null = useMemo(() => {
-    if (targetId === PERSONAL_TARGET || guildSpaces.length === 0) return null;
-    return (
-      guildSpaces.find((space) => space.id === spaceId) ?? guildSpaces[0] ?? null
-    );
-  }, [targetId, guildSpaces, spaceId]);
-
   const handleClose = useCallback(() => {
     if (pending) return;
     setOpenDraft(null);
     clearDropComposeDraft();
     setError(null);
-    setTargetId(PERSONAL_TARGET);
-  }, [pending]);
+    setTargetId(COMPOSER_PERSONAL_TARGET);
+    resetGuildState();
+  }, [pending, resetGuildState]);
 
   const handleSubmit = useCallback(
     async (payload: ComposerSubmit) => {
       if (pending) return;
       const drop = payload.drop;
-      if (!drop?.collectionId && !payload.text.trim()) return;
+      if (!isDropComposeDraftReady(drop) && !payload.text.trim()) return;
 
       if (!isConnected || !accountId) {
         await connect();
@@ -241,28 +145,25 @@ export function DropComposeHost() {
       try {
         const { client } = await withClient();
 
-        if (targetId !== PERSONAL_TARGET) {
-          if (!drop?.collectionId) {
+        if (targetId !== COMPOSER_PERSONAL_TARGET) {
+          if (!isDropComposeDraftReady(drop)) {
             setError('Attach a Drop to post to a guild from here.');
             return;
           }
-          if (!selectedSpace) {
-            setError(
-              guildLoading
-                ? 'Loading guild rooms…'
-                : 'Choose a room you can post in.'
-            );
+          if (guildLoading) {
+            setError('Loading guild rooms…');
             return;
           }
-          const result = await submitGuildDropPost({
+          if (!selectedSpace) {
+            setError('Choose a room you can post in.');
+            return;
+          }
+          const result = await submitGuildRootPost({
             client,
             accountId,
             groupId: targetId,
             space: selectedSpace,
-            text: payload.text,
-            drop,
-            contentWarning: payload.contentWarning,
-            nsfw: payload.nsfw,
+            payload,
             trackTransaction,
           });
           if (result.confirmed && result.optimisticPost) {
@@ -313,30 +214,6 @@ export function DropComposeHost() {
 
   if (!openDraft) return null;
 
-  const personalLabel = accountId
-    ? `@${fallbackLabel(accountId)} · Public`
-    : 'Public';
-
-  const destination =
-    targetId !== PERSONAL_TARGET && selectedSpace
-      ? {
-          kind: 'guild' as const,
-          name: guildName || targetId,
-          channels: guildSpaces.map((space) => ({
-            id: space.id,
-            title: space.title,
-          })),
-          selectedChannelId: selectedSpace.id,
-          onChannelChange: setSpaceId,
-        }
-      : {
-          kind: 'personal' as const,
-          label:
-            targetId !== PERSONAL_TARGET && guildLoading
-              ? `${guildName || targetId} · Loading…`
-              : personalLabel,
-        };
-
   return (
     <ComposerSheet
       open
@@ -344,19 +221,18 @@ export function DropComposeHost() {
       initialDrop={draftToComposer(openDraft)}
       initialText={openDraft.text ?? ''}
       destination={destination}
-      feedTargets={
-        feedTargetOptions.length > 1
-          ? {
-              options: feedTargetOptions,
-              selectedId: targetId,
-              onChange: (id) => {
-                setError(null);
-                setTargetId(id);
-              },
-            }
-          : undefined
+      feedTargets={{
+        options: feedTargetOptions,
+        selectedId: targetId,
+        onChange: (id) => {
+          setError(null);
+          setTargetId(id);
+        },
+      }}
+      pending={
+        pending ||
+        (targetId !== COMPOSER_PERSONAL_TARGET && guildLoading)
       }
-      pending={pending || (targetId !== PERSONAL_TARGET && guildLoading)}
       error={error}
       onClose={handleClose}
       onSubmit={(payload) => void handleSubmit(payload)}

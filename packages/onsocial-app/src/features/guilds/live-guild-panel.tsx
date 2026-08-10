@@ -121,11 +121,12 @@ import {
 } from '@/lib/guild-membership-action-pending';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
-  collectionEmbedFromDraft,
+  commerceEmbedFromDraft,
   dropPostKind,
   dropSnapshotExtra,
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
+import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import { subscribeGuildPostConfirmed } from '@/features/scarces/submit-guild-drop-post';
 import { hydrateScarceEmbedsForPosts } from '@/lib/feed-paint-hydrate';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
@@ -1278,8 +1279,8 @@ export function LiveGuildPanel({
     const text = payload.text.trim();
     const files = payload.files ?? [];
     const drop =
-      mode === 'post' && payload.drop?.collectionId?.trim()
-        ? payload.drop
+      mode === 'post' && isDropComposeDraftReady(payload.drop)
+        ? payload.drop!
         : null;
     if (!text && !files.length && !drop) return;
     if (mode !== 'post' && !target) return;
@@ -1308,7 +1309,7 @@ export function LiveGuildPanel({
               : {}),
           }
         : null;
-    const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+    const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
     const dropKind = dropPostKind(drop);
     const bodyText = resolvedDropPostText(text, drop);
     const contentLabels = normalizeComposerContentLabels(payload);
@@ -1345,9 +1346,9 @@ export function LiveGuildPanel({
             ...tagPayload,
             ...(pollEmbed
               ? { embeds: [pollEmbed] }
-              : collectionEmbed
+              : commerceEmbed
                 ? {
-                    embeds: [collectionEmbed],
+                    embeds: [commerceEmbed],
                     x: dropSnapshotExtra(drop!),
                     kind: dropKind ?? composerSpace.kind,
                   }
@@ -1441,9 +1442,9 @@ export function LiveGuildPanel({
               ...tagPayload,
               ...(pollEmbed
                 ? { embeds: [pollEmbed] }
-                : collectionEmbed
+                : commerceEmbed
                   ? {
-                      embeds: [collectionEmbed],
+                      embeds: [commerceEmbed],
                       x: dropSnapshotExtra(drop!),
                     }
                   : {}),

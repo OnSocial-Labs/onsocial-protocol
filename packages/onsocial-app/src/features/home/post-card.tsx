@@ -54,7 +54,14 @@ import {
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
-import { invalidateLiveListingsCache } from '@/features/market/market-listings';
+import {
+  fetchOwnedScarceByTokenId,
+  fetchOwnedScarceForCollection,
+  fetchOwnedScarceForSourcePost,
+  invalidateLiveListingsCache,
+  type OwnedScarceItem,
+  type ScarcePlayableMedia,
+} from '@/features/market/market-listings';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -62,6 +69,7 @@ import {
 import { ScarceBidSheet } from '@/features/scarces/scarce-bid-sheet';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
+import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   postScarceAudio,
@@ -76,7 +84,7 @@ import {
 } from '@/features/scarces/scarce-feed-medium-sheet';
 import { usePostCollectionEmbed } from '@/features/scarces/use-post-collection-embed';
 import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
-import type { ScarcePlayableMedia } from '@/features/market/market-listings';
+import { usePostTokenEmbed } from '@/features/scarces/use-post-token-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
@@ -100,6 +108,7 @@ import {
   parsePostCollectionEmbed,
   parsePostPollEmbed,
   parsePostText,
+  parsePostTokenEmbed,
   postFeedPreviewLimit,
   postKey,
   postPreviewNeedsExpand,
@@ -1134,6 +1143,11 @@ export function PostCard({
   const [listScarceOpen, setListScarceOpen] = useState(false);
   const [buyScarceOpen, setBuyScarceOpen] = useState(false);
   const [bidScarceOpen, setBidScarceOpen] = useState(false);
+  const [sellScarceOpen, setSellScarceOpen] = useState(false);
+  const [ownedScarceByKey, setOwnedScarceByKey] = useState<{
+    key: string;
+    item: OwnedScarceItem | null;
+  } | null>(null);
   const [feedMediumOpen, setFeedMediumOpen] = useState(false);
   const [feedMediumMode, setFeedMediumMode] =
     useState<ScarceFeedMediumMode>('viewer');
@@ -1146,6 +1160,7 @@ export function PostCard({
     Boolean(viewerAccountId) &&
     accountIdsEqual(viewerAccountId!, post.accountId);
   const hasCollectionEmbed = Boolean(parsePostCollectionEmbed(post.value));
+  const hasTokenEmbed = Boolean(parsePostTokenEmbed(post.value));
   const {
     rootRef: collectionEmbedRef,
     embed: collectionEmbed,
@@ -1158,25 +1173,130 @@ export function PostCard({
   } = usePostCollectionEmbed(post, {
     force: isSelf || menuForceEmbed,
   });
+  // Token resale announce — mutually exclusive with collection + fromPost.
+  const {
+    rootRef: tokenEmbedRef,
+    embed: tokenEmbed,
+    dropTitle: tokenDropTitle,
+    retry: retryTokenEmbed,
+  } = usePostTokenEmbed(post, {
+    enabled: !hasCollectionEmbed,
+    force: isSelf || menuForceEmbed,
+  });
   // Own posts: fetch embed immediately so ⋮ already knows list vs cancel.
-  // Skip fromPost resolve when this post is a Drop reference embed.
+  // Skip fromPost resolve when this post is a Drop / token reference embed.
   const {
     rootRef: scarceEmbedRef,
     embed: fromPostScarceEmbed,
     retry: retryFromPostScarceEmbed,
   } = usePostScarceEmbed(post, {
-    enabled: !hasCollectionEmbed,
+    enabled: !hasCollectionEmbed && !hasTokenEmbed,
     force: isSelf || menuForceEmbed,
   });
-  const scarceEmbed = collectionEmbed ?? fromPostScarceEmbed;
+  const scarceEmbed = collectionEmbed ?? tokenEmbed ?? fromPostScarceEmbed;
   const scarceEmbedMergedRef = (node: HTMLElement | null) => {
     scarceEmbedRef.current = node;
     collectionEmbedRef.current = node;
+    tokenEmbedRef.current = node;
   };
   const retryScarceEmbed = () => {
     retryCollectionEmbed();
+    retryTokenEmbed();
     retryFromPostScarceEmbed();
   };
+  const sourcePostPath = `${post.accountId}/post/${post.postId}`;
+  const scarceTokenId = scarceEmbed?.tokenId?.trim() || '';
+  const scarceCollectionId =
+    scarceEmbed?.collectionId?.trim() ||
+    scarceEmbed?.latest?.collectionId?.trim() ||
+    '';
+  const ownershipKey =
+    viewerAccountId &&
+    scarceEmbed &&
+    scarceEmbed.status !== 'none' &&
+    (scarceTokenId || scarceCollectionId || sourcePostPath)
+      ? `${viewerAccountId}|${sourcePostPath}|${scarceTokenId}|${scarceCollectionId}`
+      : null;
+
+  // Resolve owned edition so holders can Sell from the post (same as Mines).
+  useEffect(() => {
+    if (!ownershipKey || !viewerAccountId) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      let item: OwnedScarceItem | null = null;
+      if (scarceTokenId) {
+        item = await fetchOwnedScarceByTokenId(viewerAccountId, scarceTokenId);
+      }
+      if (!item && scarceCollectionId) {
+        item = await fetchOwnedScarceForCollection(
+          viewerAccountId,
+          scarceCollectionId
+        );
+      }
+      if (!item) {
+        item = await fetchOwnedScarceForSourcePost(
+          viewerAccountId,
+          sourcePostPath
+        );
+      }
+      if (!cancelled) setOwnedScarceByKey({ key: ownershipKey, item });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    ownershipKey,
+    viewerAccountId,
+    scarceTokenId,
+    scarceCollectionId,
+    sourcePostPath,
+  ]);
+
+  const ownedScarceItem =
+    ownershipKey && ownedScarceByKey?.key === ownershipKey
+      ? ownedScarceByKey.item
+      : null;
+  const canSellScarce =
+    isConnected &&
+    ownedScarceItem != null &&
+    ownedScarceItem.listingKind == null;
+  const sellListedScarce =
+    isConnected &&
+    ownedScarceItem != null &&
+    ownedScarceItem.listingKind != null;
+
+  const refreshOwnedScarce = useCallback(() => {
+    if (!ownershipKey || !viewerAccountId) return;
+    void (async () => {
+      let item: OwnedScarceItem | null = null;
+      if (scarceTokenId) {
+        item = await fetchOwnedScarceByTokenId(viewerAccountId, scarceTokenId);
+      }
+      if (!item && scarceCollectionId) {
+        item = await fetchOwnedScarceForCollection(
+          viewerAccountId,
+          scarceCollectionId
+        );
+      }
+      if (!item) {
+        item = await fetchOwnedScarceForSourcePost(
+          viewerAccountId,
+          sourcePostPath
+        );
+      }
+      setOwnedScarceByKey({ key: ownershipKey, item });
+    })();
+  }, [
+    ownershipKey,
+    viewerAccountId,
+    scarceTokenId,
+    scarceCollectionId,
+    sourcePostPath,
+  ]);
+
   const activelyListed =
     scarceEmbed?.status === 'lazy_listing' ||
     scarceEmbed?.status === 'listed' ||
@@ -1273,7 +1393,10 @@ export function PostCard({
     (postDropIsReadable(scarceEmbed) &&
       Boolean(scarceEmbed?.collectionId?.trim()));
   const dropListenTitle =
-    collectionDropTitle?.trim() || dropPaint?.title?.trim() || 'Drop';
+    tokenDropTitle?.trim() ||
+    collectionDropTitle?.trim() ||
+    dropPaint?.title?.trim() ||
+    'Drop';
   const openFeedMedium = (
     mode: ScarceFeedMediumMode,
     coverSvg: string | null = null
@@ -1452,6 +1575,10 @@ export function PostCard({
               authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
               canList={canListScarce}
               onList={() => setListScarceOpen(true)}
+              canSell={canSellScarce}
+              onSell={() => setSellScarceOpen(true)}
+              sellListed={sellListedScarce}
+              alreadyOwnsEdition={Boolean(ownedScarceItem)}
               onBuy={() => setBuyScarceOpen(true)}
               onBid={() => setBidScarceOpen(true)}
               listenSlot={
@@ -1543,8 +1670,12 @@ export function PostCard({
         post={buyScarceOpen ? post : null}
         authorName={authorProfile?.displayName}
         embed={scarceEmbed}
+        alreadyOwnsEdition={Boolean(ownedScarceItem)}
         onOpenChange={setBuyScarceOpen}
-        onPurchased={() => retryScarceEmbed()}
+        onPurchased={() => {
+          retryScarceEmbed();
+          refreshOwnedScarce();
+        }}
         zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceBidSheet
@@ -1555,6 +1686,16 @@ export function PostCard({
         onOpenChange={setBidScarceOpen}
         onBid={() => retryScarceEmbed()}
         zIndex={SCARCE_Z.commerceOverListen}
+      />
+      <ScarceSellSheet
+        open={sellScarceOpen && ownedScarceItem != null}
+        item={ownedScarceItem}
+        onOpenChange={setSellScarceOpen}
+        onListed={() => {
+          setSellScarceOpen(false);
+          retryScarceEmbed();
+          refreshOwnedScarce();
+        }}
       />
       <ScarceFeedMediumSheet
         open={feedMediumOpen}
@@ -1586,6 +1727,12 @@ export function PostCard({
               onList={() => {
                 setListScarceOpen(true);
               }}
+              canSell={canSellScarce}
+              onSell={() => {
+                setSellScarceOpen(true);
+              }}
+              sellListed={sellListedScarce}
+              alreadyOwnsEdition={Boolean(ownedScarceItem)}
               onBuy={() => {
                 setBuyScarceOpen(true);
               }}
