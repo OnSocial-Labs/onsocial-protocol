@@ -39,7 +39,7 @@ function formatPriceNear(priceNear: string): string {
 
 const CONFIRM_LEAVE_MS = 4_000;
 
-/** Owned scarce in Market “Yours” — manage here; title/thumb open Collectibles use. */
+/** Owned scarce in Market “Yours” — manage here; open Collectibles or source post. */
 export function MarketOwnedRow({
   item,
   delistPending = false,
@@ -80,6 +80,7 @@ export function MarketOwnedRow({
     tokenId: item.tokenId,
     collectionId: item.collectionId,
     sourcePostPath: item.sourcePostPath,
+    postHref: item.postHref,
     mediumKind: item.mediumKind,
   });
   const useAction = holdingsActionLabel(item.mediumKind);
@@ -116,35 +117,46 @@ export function MarketOwnedRow({
     onDelist(item);
   };
 
+  const thumb = showThumb ? (
+    <img
+      src={item.mediaUrl!}
+      alt=""
+      onError={() => setBrokenMediaUrl(item.mediaUrl ?? null)}
+    />
+  ) : (
+    <span className="market-listing-thumb-fallback" aria-hidden />
+  );
+
+  const title = useHref ? (
+    <Link href={useHref} scroll={false} className="market-listing-title-link">
+      {item.title}
+    </Link>
+  ) : (
+    item.title
+  );
+
   return (
     <div className="market-listing-row" role="listitem">
-      <Link
-        href={useHref}
-        scroll={false}
-        className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
-        aria-label={`${useAction} ${item.title}`}
-      >
-        {showThumb ? (
-          <img
-            src={item.mediaUrl!}
-            alt=""
-            onError={() => setBrokenMediaUrl(item.mediaUrl ?? null)}
-          />
-        ) : (
-          <span className="market-listing-thumb-fallback" aria-hidden />
-        )}
-      </Link>
+      {useHref ? (
+        <Link
+          href={useHref}
+          scroll={false}
+          className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
+          aria-label={`${useAction} ${item.title}`}
+        >
+          {thumb}
+        </Link>
+      ) : (
+        <div
+          className={`market-listing-thumb${showThumb ? ' has-media' : ''}`}
+          aria-hidden
+        >
+          {thumb}
+        </div>
+      )}
       <div className="market-listing-copy">
         <div className="market-listing-head">
-          <p className="market-listing-title">
-            <Link
-              href={useHref}
-              scroll={false}
-              className="market-listing-title-link"
-            >
-              {item.title}
-            </Link>
-          </p>
+          <p className="market-listing-title">{title}</p>
         </div>
         <p className="market-listing-meta">
           {listed && item.listedPriceNear ? (

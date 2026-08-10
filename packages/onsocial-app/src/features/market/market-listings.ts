@@ -161,6 +161,8 @@ export interface OwnedScarceItem {
   expiresAtNs?: number | null;
   /** Original post path from token `metadata.extra` when present. */
   sourcePostPath?: string;
+  /** Resolved app thread href for `sourcePostPath` (personal or guild). */
+  postHref?: string;
 }
 
 /** `drop-1:3` → `drop-1`; post scarces (`s:…`) have no collection page. */
@@ -689,6 +691,19 @@ function isLiveLazyListing(item: MarketListingItem): boolean {
 async function withResolvedPostHrefs(
   items: MarketListingItem[]
 ): Promise<MarketListingItem[]> {
+  const hrefByPath = await resolvePostThreadHrefsFromSourcePaths(
+    items.map((item) => item.sourcePostPath)
+  );
+  return items.map((item) => {
+    if (item.postHref || !item.sourcePostPath) return item;
+    const postHref = hrefByPath.get(item.sourcePostPath);
+    return postHref ? { ...item, postHref } : item;
+  });
+}
+
+async function withResolvedOwnedPostHrefs(
+  items: OwnedScarceItem[]
+): Promise<OwnedScarceItem[]> {
   const hrefByPath = await resolvePostThreadHrefsFromSourcePaths(
     items.map((item) => item.sourcePostPath)
   );
@@ -1474,6 +1489,11 @@ export async function fetchOwnedScarcesPage(
     // Bound RPC degrade — same page size cap, no catalog walk.
     page = await fetchOwnedScarcesPageFromRpc(owner, fromEnd, pageSize);
   }
+
+  page = {
+    ...page,
+    items: await withResolvedOwnedPostHrefs(page.items),
+  };
 
   if (fromEnd === 0) {
     putOwnedVaultPage(owner, page);

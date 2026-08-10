@@ -71,10 +71,37 @@ describe('toPortfolioHoldingPeek', () => {
     expect(peek.actionLabel).toBe('Play');
   });
 
-  it('falls back to market when there is no collection', () => {
+  it('routes post scarces to the source post thread', () => {
+    expect(
+      holdingsHrefForOwned({
+        tokenId: 's:abc',
+        sourcePostPath: 'alice.near/post/42',
+      })
+    ).toBe('/@alice.near/posts/42');
+  });
+
+  it('prefers a resolved postHref for guild/personal threads', () => {
+    expect(
+      holdingsHrefForOwned({
+        tokenId: 's:abc',
+        sourcePostPath: 'alice.near/post/42',
+        postHref: '/g/dao.near/posts/alice.near/42',
+      })
+    ).toBe('/g/dao.near/posts/alice.near/42');
+  });
+
+  it('does not link back to market when there is no destination', () => {
     expect(
       holdingsHrefForOwned({ tokenId: 's:post-1', sourcePostPath: undefined })
-    ).toBe('/market');
+    ).toBeNull();
+    expect(
+      toPortfolioHoldingPeek({
+        tokenId: 's:post-1',
+        title: 'Solo',
+        ownerId: 'alice.near',
+        listingKind: null,
+      }).href
+    ).toBe('/collectibles');
   });
 });
 

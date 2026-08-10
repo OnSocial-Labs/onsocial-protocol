@@ -6,6 +6,7 @@ import { parsePostText } from '@/lib/post-display';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { marketMediumLabel } from '@/features/market/market-medium';
 import { holdingsHrefForOwned } from '@/lib/portfolio-holdings';
+import { APP_COLLECTIBLES_PATH } from '@/lib/app-routes';
 
 export const PAGE_DRAWER_POST_PEEK = 3;
 /** Public Created rail — recent editions this account minted. */
@@ -151,11 +152,12 @@ export function toProfileCreatedPeek(
     title: titleFromScarceRow(row),
     mediaUrl: mediaFromScarceRow(row),
     blockTimestamp: Number(row.blockTimestamp) || 0,
-    href: holdingsHrefForOwned({
-      tokenId,
-      collectionId: collectionIdFromTokenId(tokenId),
-      sourcePostPath: sourcePostPathFromScarceRow(row),
-    }),
+    href:
+      holdingsHrefForOwned({
+        tokenId,
+        collectionId: collectionIdFromTokenId(tokenId),
+        sourcePostPath: sourcePostPathFromScarceRow(row),
+      }) ?? APP_COLLECTIBLES_PATH,
     kindLabel: kindFromScarceRow(row),
   };
 }
