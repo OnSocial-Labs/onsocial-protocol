@@ -825,7 +825,14 @@ export class ScarcesQuery {
        * `new` = newest created; `minting` / `volume` = most minted;
        * `live` / `upcoming` / `finished` align with `lifecycle` defaults.
        */
-      orderBy?: 'new' | 'minting' | 'volume' | 'live' | 'upcoming' | 'finished' | 'closing';
+      orderBy?:
+        | 'new'
+        | 'minting'
+        | 'volume'
+        | 'live'
+        | 'upcoming'
+        | 'finished'
+        | 'closing';
       /** When true, only rows with remaining supply (`remaining > 0`). */
       mintingOnly?: boolean;
       /**
@@ -879,7 +886,9 @@ export class ScarcesQuery {
         const closingNs =
           opts.closingNs != null
             ? String(opts.closingNs)
-            : String(BigInt(String(opts.nowNs)) + 24n * 60n * 60n * 1_000_000_000n);
+            : String(
+                BigInt(String(opts.nowNs)) + 24n * 60n * 60n * 1_000_000_000n
+              );
         params.push('$closingNs: bigint!');
         variables.closingNs = closingNs;
         where.push('remaining: {_gt: 0}');
