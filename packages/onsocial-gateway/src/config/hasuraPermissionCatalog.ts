@@ -373,6 +373,16 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     columns: ['post_owner', 'collection_id', 'fan_count', 'last_love_block'],
   },
   {
+    name: 'scarce_album_love_fan_ids',
+    columns: [
+      'post_owner',
+      'collection_id',
+      'fan_account_ids',
+      'fan_count',
+      'last_love_block',
+    ],
+  },
+  {
     name: 'standing_counts',
     columns: ['account_id', 'standing_with_count', 'last_standing_block'],
   },

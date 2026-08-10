@@ -1032,6 +1032,50 @@ export class ScarcesQuery {
   }
 
   /**
+   * Top recent fan account ids + counts for drop ids
+   * (`scarce_album_love_fan_ids`). Missing ids omit a row.
+   */
+  async albumLoveFanIdsByCollectionIds(collectionIds: string[]): Promise<
+    Array<{
+      collectionId: string;
+      fanAccountIds: string[];
+      fanCount: number;
+    }>
+  > {
+    const ids = [
+      ...new Set(
+        collectionIds.map((id) => id.trim()).filter((id) => id.length > 0)
+      ),
+    ];
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      scarceAlbumLoveFanIds: Array<{
+        collectionId: string;
+        fanAccountIds: string[] | null;
+        fanCount: number;
+      }>;
+    }>({
+      query: `query ScarceAlbumLoveFanIdsByIds($ids: [String!]!) {
+        scarceAlbumLoveFanIds(where: { collectionId: { _in: $ids } }) {
+          collectionId
+          fanAccountIds
+          fanCount
+        }
+      }`,
+      variables: { ids },
+    });
+    return (res.data?.scarceAlbumLoveFanIds ?? []).map((row) => ({
+      collectionId: row.collectionId,
+      fanAccountIds: Array.isArray(row.fanAccountIds)
+        ? row.fanAccountIds.filter(
+            (id): id is string => typeof id === 'string' && id.trim().length > 0
+          )
+        : [],
+      fanCount: Number(row.fanCount) || 0,
+    }));
+  }
+
+  /**
    * Creator / collector activity leaderboard (`scarces_activity`).
    */
   async activityLeaderboard(

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ProfileAvatar } from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions, ProfileAvatar } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import {
   DropsHeadingActions,
@@ -25,6 +26,7 @@ import {
   type DropsSort,
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
+import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -33,11 +35,17 @@ import {
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import {
   fetchAllowlistRemaining,
+  isCollectionMintable,
 } from '@/features/scarces/collections-data';
+import {
+  ScarceBuySheet,
+  type ScarceBuyListing,
+} from '@/features/scarces/scarce-buy-sheet';
 import {
   ScarceFeedMediumSheet,
   resolveScarceFeedMediumMode,
 } from '@/features/scarces/scarce-feed-medium-sheet';
+import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
@@ -100,49 +108,56 @@ const DROP_MEDIUM_FILTERS = MARKET_MEDIUM_FILTERS.filter((entry) =>
   ).includes(entry.id)
 );
 
-function fanProof(count: number): string {
-  return count === 1 ? '1 fan' : `${count} fans`;
-}
-
 function dropsCountLabel(count: number): string {
   return count === 1 ? '1 drop' : `${count} drops`;
 }
 
-function dropRowProof(
+/** Release format from metadata (`extra.audioFormat`) — never invent song counts. */
+function dropRowFormatLabel(item: DropDiscoveryItem): string | null {
+  const format = item.view?.audioFormat;
+  if (format === 'album') return 'Album';
+  if (format === 'single') return 'Single';
+  if (format === 'podcast') return 'Podcast';
+  return null;
+}
+
+type DropRowMetaBits = {
+  /** Scarcity / lifecycle — second weight after price. */
+  scarcity: string | null;
+  format: string | null;
+};
+
+function dropRowMetaBits(
   item: DropDiscoveryItem,
   sort: DropsSort,
-  allowlistRemaining: number | null | undefined
-): string {
+  allowlistRemaining: number | null | undefined,
+  formatLabel: string | null
+): DropRowMetaBits {
   const supply =
     item.totalSupply != null
       ? `${item.mintedCount} of ${item.totalSupply}`
       : `${item.mintedCount} minted`;
 
-  if (sort === 'loved' && item.fanCount != null) {
-    return fanProof(item.fanCount);
+  if (sort === 'loved') {
+    return { scarcity: null, format: formatLabel };
   }
 
   if (sort === 'upcoming') {
     const parts: string[] = [];
     if (item.hasAllowlist) {
-      if (allowlistRemaining != null && allowlistRemaining > 0) {
-        parts.push("You're in");
-      } else if (allowlistRemaining === 0) {
-        parts.push('Allowlist');
-      } else {
-        parts.push('Allowlist');
-      }
-    }
-    if (item.startTimeMs != null) {
-      const opens = formatDropWindow(item.startTimeMs, 'opens');
-      if (opens) parts.push(opens);
-    } else if (parts.length === 0) {
+      parts.push(
+        allowlistRemaining != null && allowlistRemaining > 0
+          ? "You're in"
+          : 'Allowlist'
+      );
+    } else if (item.startTimeMs == null) {
+      // Opens time lives on the action pill when set.
       parts.push('Upcoming');
     }
-    if (item.fanCount != null && item.fanCount > 0) {
-      parts.push(fanProof(item.fanCount));
-    }
-    return parts.join(' · ');
+    return {
+      scarcity: parts.join(' · ') || null,
+      format: formatLabel,
+    };
   }
 
   if (sort === 'finished') {
@@ -153,12 +168,10 @@ function dropRowProof(
       item.endTimeMs != null
         ? `Ended ${formatMarketRelativeTime(item.endTimeMs)}`.trim()
         : 'Ended';
-    const state = soldOut ? 'Sold out' : endedLabel;
-    const parts = [state, supply];
-    if (item.fanCount != null && item.fanCount > 0) {
-      parts.push(fanProof(item.fanCount));
-    }
-    return parts.join(' · ');
+    return {
+      scarcity: [soldOut ? 'Sold out' : endedLabel, supply].join(' · '),
+      format: formatLabel,
+    };
   }
 
   if (sort === 'live' || sort === 'closing') {
@@ -175,22 +188,121 @@ function dropRowProof(
       const ends = formatDropWindow(item.endTimeMs, 'ends');
       if (ends) parts.push(ends);
     }
-    if (item.fanCount != null && item.fanCount > 0) {
-      parts.push(fanProof(item.fanCount));
-    }
-    return parts.join(' · ');
+    return {
+      scarcity: parts.join(' · ') || null,
+      format: formatLabel,
+    };
   }
 
-  const parts: string[] = [];
   if (item.remaining != null && item.remaining > 0) {
-    parts.push(`${item.remaining} left`);
-  } else {
-    parts.push(supply);
+    return {
+      scarcity: `${item.remaining} left`,
+      format: formatLabel,
+    };
   }
-  if (item.fanCount != null && item.fanCount > 0) {
-    parts.push(fanProof(item.fanCount));
+  return { scarcity: supply, format: formatLabel };
+}
+
+type DropRowCommerceAction =
+  | { kind: 'mint'; label: string }
+  | { kind: 'opens'; label: string }
+  | null;
+
+function dropToBuyListing(item: DropDiscoveryItem): ScarceBuyListing {
+  const playables = item.view?.playables ?? [];
+  return {
+    status: 'drop',
+    collectionId: item.collectionId,
+    priceNear: item.priceNear ?? '0',
+    title: item.title,
+    ...(item.description?.trim()
+      ? { description: item.description.trim() }
+      : {}),
+    mediaUrl: item.mediaUrl,
+    creatorId: item.creatorId,
+    ...(item.creatorDisplayName
+      ? { creatorName: item.creatorDisplayName }
+      : {}),
+    ...(item.totalSupply != null ? { copies: item.totalSupply } : {}),
+    ...(item.remaining != null ? { remaining: item.remaining } : {}),
+    ...(playables.length > 0
+      ? { playable: playables[0], playables }
+      : {}),
+  };
+}
+
+/** Mint drawer, or Opens {time} when a start is set and mint isn’t open yet. */
+function dropRowCommerceAction(
+  item: DropDiscoveryItem,
+  sort: DropsSort,
+  allowlistRemaining: number | null | undefined,
+  viewerId: string | null
+): DropRowCommerceAction {
+  if (sort === 'finished') return null;
+  if (viewerId && accountIdsEqual(viewerId, item.creatorId)) return null;
+
+  const status = item.status;
+  const soldOut =
+    status === 'sold_out' ||
+    (item.remaining != null && item.remaining <= 0);
+  if (
+    soldOut ||
+    status === 'ended' ||
+    status === 'cancelled' ||
+    status === 'paused'
+  ) {
+    return null;
   }
-  return parts.join(' · ');
+
+  const earlyMint =
+    status === 'upcoming' &&
+    item.hasAllowlist &&
+    allowlistRemaining != null &&
+    allowlistRemaining > 0;
+  if (earlyMint || (status != null && isCollectionMintable(status))) {
+    return { kind: 'mint', label: 'Mint' };
+  }
+
+  if (status === 'upcoming' || sort === 'upcoming') {
+    if (item.startTimeMs != null) {
+      const opens = formatDropWindow(item.startTimeMs, 'opens');
+      if (opens) return { kind: 'opens', label: opens };
+    }
+    return { kind: 'opens', label: 'Upcoming' };
+  }
+
+  return null;
+}
+
+function DropRowFans({
+  fanIds,
+  fanCount,
+}: {
+  fanIds?: string[];
+  fanCount: number;
+}) {
+  const ids = (fanIds ?? []).slice(0, 3);
+  const profiles = usePostAuthorProfiles(ids);
+  if (ids.length === 0) {
+    return (
+      <span className="drops-discovery-deal-bit">
+        {fanCount === 1 ? '1 fan' : `${fanCount} fans`}
+      </span>
+    );
+  }
+  return (
+    <span className="drops-discovery-deal-fans">
+      <GuildFacepile
+        memberIds={ids}
+        profiles={profiles}
+        memberCount={fanCount}
+        countUnit={{ one: 'fan', other: 'fans' }}
+        slots={Math.min(3, ids.length)}
+        showCount
+        className="drops-discovery-fans-facepile"
+      />
+    </span>
+  );
 }
 
 function DropRow({
@@ -200,8 +312,10 @@ function DropRow({
   featured = false,
   saved = false,
   savePending = false,
+  viewerId = null,
   onToggleSave,
   onPlay,
+  onMint,
 }: {
   item: DropDiscoveryItem;
   sort: DropsSort;
@@ -209,11 +323,20 @@ function DropRow({
   featured?: boolean;
   saved?: boolean;
   savePending?: boolean;
+  viewerId?: string | null;
   onToggleSave: () => void;
   onPlay?: () => void;
+  onMint: () => void;
 }) {
-  const proof = dropRowProof(item, sort, allowlistRemaining);
+  const formatLabel = dropRowFormatLabel(item);
+  const meta = dropRowMetaBits(item, sort, allowlistRemaining, formatLabel);
   const showPrice = sort !== 'finished' || Boolean(item.priceNear);
+  const priceLabel =
+    showPrice && item.priceNear
+      ? `${item.priceNear} NEAR`
+      : showPrice
+        ? 'Drop'
+        : null;
   const href = collectionPath(item.collectionId);
   const creatorHref = portfolioPath(item.creatorId);
   const creatorHandle = fallbackLabel(item.creatorId);
@@ -229,7 +352,18 @@ function DropRow({
     item.createdAtMs != null
       ? formatMarketRelativeTime(item.createdAtMs)
       : '';
-  const blurb = item.description?.replace(/\s+/g, ' ').trim() || '';
+  // Fans render as facepile (or text fallback) — keep out of the spaced bits.
+  const dealBits = [priceLabel, meta.scarcity, meta.format].filter(
+    Boolean
+  ) as string[];
+  const fanCount =
+    item.fanCount != null && item.fanCount > 0 ? item.fanCount : null;
+  const commerce = dropRowCommerceAction(
+    item,
+    sort,
+    allowlistRemaining,
+    viewerId
+  );
 
   return (
     <div
@@ -274,7 +408,7 @@ function DropRow({
         {featured ? (
           <span className="drops-discovery-featured-eyebrow">Featured</span>
         ) : null}
-        <div className="market-listing-head">
+        <div className="market-listing-head drops-discovery-head">
           <Link
             href={href}
             scroll={false}
@@ -282,65 +416,128 @@ function DropRow({
           >
             {item.title}
           </Link>
+        </div>
+        {/* by Name / @handle — deal spans full copy width from avatar. */}
+        <div className="drops-discovery-party">
+          <Link
+            href={creatorHref}
+            scroll={false}
+            className="drops-discovery-party-avatar-link"
+            tabIndex={creatorNameIsCustom ? -1 : undefined}
+            aria-hidden={creatorNameIsCustom ? true : undefined}
+            aria-label={
+              creatorNameIsCustom ? undefined : `Creator @${creatorHandle}`
+            }
+          >
+            <ProfileAvatar
+              src={item.creatorAvatarUrl}
+              size="sm"
+              fallbackInitial={creatorHandle.slice(0, 1)}
+              className="drops-discovery-party-avatar"
+            />
+          </Link>
+          <div className="drops-discovery-party-stack">
+            {creatorNameIsCustom ? (
+              <Link
+                href={creatorHref}
+                scroll={false}
+                className="drops-discovery-by"
+              >
+                by {creatorLabel}
+              </Link>
+            ) : (
+              <Link
+                href={creatorHref}
+                scroll={false}
+                className="drops-discovery-by"
+              >
+                @{creatorHandle}
+              </Link>
+            )}
+            {creatorNameIsCustom ? (
+              <span className="drops-discovery-sub">@{creatorHandle}</span>
+            ) : null}
+          </div>
+        </div>
+        {dealBits.length > 0 || fanCount != null ? (
+          <Link
+            href={href}
+            scroll={false}
+            className="drops-discovery-deal"
+            aria-label={[
+              ...dealBits,
+              fanCount != null
+                ? fanCount === 1
+                  ? '1 fan'
+                  : `${fanCount} fans`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+          >
+            {dealBits.map((bit, index) => (
+              <span key={`${bit}-${index}`} className="drops-discovery-deal-bit">
+                {index > 0 ? (
+                  <span className="drops-discovery-deal-sep" aria-hidden>
+                    {' · '}
+                  </span>
+                ) : null}
+                {bit}
+              </span>
+            ))}
+            {fanCount != null ? (
+              <>
+                {dealBits.length > 0 ? (
+                  <span className="drops-discovery-deal-sep" aria-hidden>
+                    ·
+                  </span>
+                ) : null}
+                <DropRowFans fanIds={item.fanIds} fanCount={fanCount} />
+              </>
+            ) : null}
+          </Link>
+        ) : null}
+      </div>
+      <div className="market-listing-action-col drops-discovery-action-col">
+        <div className="drops-discovery-head-trail">
           {droppedLabel ? (
             <span className="market-listing-meta-right">{droppedLabel}</span>
           ) : null}
-        </div>
-        <Link
-          href={creatorHref}
-          scroll={false}
-          className="drops-discovery-creator"
-          aria-label={`Creator ${creatorLabel}`}
-        >
-          <ProfileAvatar
-            src={item.creatorAvatarUrl}
-            size="sm"
-            fallbackInitial={creatorHandle.slice(0, 1)}
-            className="drops-discovery-party-avatar"
+          <DropsDiscoveryRowMenu
+            item={item}
+            saved={saved}
+            savePending={savePending}
+            onToggleSave={onToggleSave}
           />
-          <span className="drops-discovery-party-text">
-            {creatorNameIsCustom ? (
-              <>
-                <span className="drops-discovery-party-name">
-                  {creatorLabel}
-                </span>
-                <span className="drops-discovery-party-handle">
-                  @{creatorHandle}
-                </span>
-              </>
-            ) : (
-              <span className="drops-discovery-party-name">
-                @{creatorHandle}
-              </span>
-            )}
-          </span>
-        </Link>
-        {blurb ? (
-          <Link href={href} scroll={false} className="drops-discovery-blurb">
-            {blurb}
+        </div>
+        {commerce?.kind === 'mint' ? (
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            borderless
+            className="market-listing-action drops-discovery-action"
+          >
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready
+              aria-label={`Mint ${item.title}`}
+              onClick={onMint}
+            >
+              {commerce.label}
+            </OsSheetAction>
+          </OsSheetActions>
+        ) : commerce?.kind === 'opens' ? (
+          <Link
+            href={href}
+            scroll={false}
+            className="drops-discovery-opens-pill"
+            aria-label={`${commerce.label} — open ${item.title}`}
+          >
+            {commerce.label}
           </Link>
         ) : null}
-        <Link
-          href={href}
-          scroll={false}
-          className="market-listing-meta market-listing-meta--price"
-        >
-          {showPrice && item.priceNear ? (
-            <span className="market-listing-price">{item.priceNear} NEAR</span>
-          ) : showPrice ? (
-            <span className="market-listing-own">Drop</span>
-          ) : null}
-          <span className="market-listing-own">
-            {showPrice ? ` · ${proof}` : proof}
-          </span>
-        </Link>
       </div>
-      <DropsDiscoveryRowMenu
-        item={item}
-        saved={saved}
-        savePending={savePending}
-        onToggleSave={onToggleSave}
-      />
     </div>
   );
 }
@@ -443,10 +640,15 @@ export function DropsPagePanel({
     Record<string, number | null>
   >({});
   const [playItem, setPlayItem] = useState<DropDiscoveryItem | null>(null);
+  const [mintItem, setMintItem] = useState<DropDiscoveryItem | null>(null);
 
   const collectionIds = useMemo(
     () => items.map((item) => item.collectionId),
     [items]
+  );
+  const mintListing = useMemo(
+    () => (mintItem ? dropToBuyListing(mintItem) : null),
+    [mintItem]
   );
   const { viewerSaved, isSavePending, toggleSave } = useScarceCollectionSaves({
     collectionIds,
@@ -672,6 +874,7 @@ export function DropsPagePanel({
       allowlistRemaining={allowlistById[item.collectionId.trim()]}
       saved={viewerSaved(item.collectionId)}
       savePending={isSavePending(item.collectionId)}
+      viewerId={accountId}
       onToggleSave={() => {
         void toggleSave(item.collectionId);
       }}
@@ -682,6 +885,9 @@ export function DropsPagePanel({
             }
           : undefined
       }
+      onMint={() => {
+        setMintItem(item);
+      }}
     />
   );
 
@@ -866,6 +1072,17 @@ export function DropsPagePanel({
             viewerAccountId={accountId}
           />
         ) : null}
+
+        <ScarceBuySheet
+          open={mintItem != null}
+          listing={mintListing}
+          onOpenChange={(open) => {
+            if (!open) setMintItem(null);
+          }}
+          onPurchased={() => {
+            setMintItem(null);
+          }}
+        />
       </div>
     </OsAppScreen>
   );

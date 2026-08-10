@@ -10,8 +10,6 @@ import {
   ShareIcon,
   UserMinusIcon,
   UserPlusIcon,
-  osIconActionClassName,
-  osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -249,12 +247,14 @@ export function DropsDiscoveryRowMenu({
   ]);
 
   return (
-    <div className="drops-discovery-row-menu guild-member-row-menu">
+    <div
+      className={`drops-discovery-row-menu post-card-menu${
+        open ? ' is-open' : ''
+      }`}
+    >
       <button
         type="button"
-        className={`${osIconActionClassName} guild-member-row-menu-trigger${
-          open ? ' is-open' : ''
-        }`}
+        className={`post-card-menu-trigger${open ? ' is-open' : ''}`}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -264,10 +264,7 @@ export function DropsDiscoveryRowMenu({
         aria-expanded={open}
         aria-label={menuLabel}
       >
-        <DotsVerticalIcon
-          className={`${osIconActionGlyphClassName} guild-member-row-menu-icon`}
-          aria-hidden
-        />
+        <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
       </button>
 
       <ActionDrawer

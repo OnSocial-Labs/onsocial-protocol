@@ -23657,6 +23657,7 @@ a.os-surface-row {
   }
 
   .market-listing-row.drops-discovery-row {
+    align-items: flex-start;
     text-decoration: none;
     color: inherit;
     gap: 0.9rem;
@@ -23677,16 +23678,16 @@ a.os-surface-row {
   .drops-discovery-copy {
     display: flex;
     flex-direction: column;
-    gap: 0.18rem;
+    justify-content: center;
+    gap: 0.12rem;
     min-width: 0;
     flex: 1;
   }
 
-  .drops-discovery-row .market-listing-head {
+  .drops-discovery-row .market-listing-head.drops-discovery-head {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 0.65rem;
+    min-width: 0;
   }
 
   .drops-discovery-row .market-listing-title {
@@ -23695,22 +23696,83 @@ a.os-surface-row {
     min-width: 0;
   }
 
+  .drops-discovery-action-col.market-listing-action-col {
+    gap: 0.35rem;
+    min-width: 4.75rem;
+  }
+
+  .drops-discovery-head-trail {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.28rem;
+    max-width: 100%;
+  }
+
+  .drops-discovery-head-trail .market-listing-meta-right {
+    line-height: 1;
+  }
+
+  /* Post-sized ⋮ after time — not the larger guild row control. */
+  .drops-discovery-row-menu.post-card-menu {
+    flex-shrink: 0;
+    margin: 0;
+  }
+
+  .drops-discovery-action.market-listing-action {
+    width: 100%;
+  }
+
+  /* Upcoming — Opens {time} under time/⋮ (not a mint commit). */
+  .drops-discovery-opens-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 4.5rem;
+    min-height: 1.65rem;
+    padding: 0.28rem 0.62rem;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.07);
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .drops-discovery-opens-pill:hover,
+  .drops-discovery-opens-pill:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.11);
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
   .drops-discovery-row .market-listing-meta,
   .drops-discovery-row .market-listing-meta--price {
     text-decoration: none;
     color: inherit;
   }
 
-  .drops-discovery-creator {
-    display: inline-flex;
-    align-items: center;
+  /* Collection-meta anatomy (mint page): avatar | by Name / @handle · series. */
+  .drops-discovery-party {
+    display: flex;
+    align-items: flex-start;
     gap: 0.4rem;
+    min-width: 0;
     max-width: 100%;
-    text-decoration: none;
-    color: inherit;
   }
 
-  /* Mint-drawer party avatar — keep tiny vs cover. */
+  .drops-discovery-party-avatar-link {
+    flex-shrink: 0;
+    margin-top: 0.08rem;
+    text-decoration: none;
+    color: inherit;
+    line-height: 0;
+  }
+
   .drops-discovery-party-avatar.profile-avatar {
     flex-shrink: 0;
     width: 1.25rem !important;
@@ -23719,46 +23781,108 @@ a.os-surface-row {
     box-shadow: none;
   }
 
-  .drops-discovery-party-text {
+  .drops-discovery-party-stack {
     display: flex;
     min-width: 0;
+    flex: 1;
     flex-direction: column;
     align-items: flex-start;
-    justify-content: center;
-    gap: 0.02rem;
+    gap: 0.06rem;
   }
 
-  .drops-discovery-party-name,
-  .drops-discovery-party-handle {
+  .drops-discovery-by {
     display: block;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .drops-discovery-party-name {
-    font-size: 0.82rem;
-    font-weight: 550;
-    line-height: 1.2;
-  }
-
-  .drops-discovery-party-handle {
-    font-size: 0.72rem;
-    line-height: 1.2;
-    opacity: 0.62;
-  }
-
-  .drops-discovery-blurb {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-    overflow: hidden;
     text-decoration: none;
+    color: var(--os-surface-emphasis);
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+
+  .drops-discovery-sub {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--os-surface-muted);
+  }
+
+  /* Full copy width from avatar edge — even · rhythm, not space-between. */
+  .drops-discovery-deal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.28rem 0.4rem;
+    width: 100%;
+    margin-top: 0.12rem;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--os-surface-muted);
+    text-decoration: none;
+  }
+
+  .drops-discovery-deal-bit {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .drops-discovery-deal-bit:first-child {
+    color: rgb(var(--fg-rgb) / 0.68);
+    font-weight: 550;
+  }
+
+  .drops-discovery-deal-sep {
+    flex-shrink: 0;
+    opacity: 0.55;
+    user-select: none;
+  }
+
+  .drops-discovery-deal-fans {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  .drops-discovery-fans-facepile.guild-facepile {
+    gap: 0.28rem;
+    min-height: 0;
+    pointer-events: none;
+  }
+
+  .drops-discovery-fans-facepile .guild-facepile-avatars--slots {
+    --guild-facepile-avatar-size: 1.05rem;
+    --guild-facepile-overlap: 0.35rem;
+    height: 1.05rem;
+  }
+
+  .drops-discovery-fans-facepile .guild-facepile-avatar,
+  .drops-discovery-fans-facepile .guild-facepile-avatar-shimmer {
+    width: 1.05rem;
+    height: 1.05rem;
+  }
+
+  .drops-discovery-fans-facepile .guild-facepile-avatar {
+    box-shadow: 0 0 0 1.5px rgb(var(--bg-rgb));
+  }
+
+  .drops-discovery-fans-facepile .guild-facepile-count {
+    font-size: 0.72rem;
+    font-weight: 500;
     color: inherit;
-    opacity: 0.72;
-    font-size: 0.82rem;
-    line-height: 1.35;
   }
 
   .drops-discovery-featured-eyebrow {
@@ -23778,12 +23902,6 @@ a.os-surface-row {
     font-size: 0.8rem;
     opacity: 0.72;
     margin-bottom: 0.35rem;
-  }
-
-  .drops-discovery-row-menu {
-    flex-shrink: 0;
-    align-self: center;
-    margin-left: 0.15rem;
   }
 
   .drops-creators-list {

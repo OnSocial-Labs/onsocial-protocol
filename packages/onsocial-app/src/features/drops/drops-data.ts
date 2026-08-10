@@ -48,6 +48,8 @@ export type DropDiscoveryItem = {
   mediumKind: string | null;
   /** True when the drop has playable audio/video clips. */
   hasPlayable: boolean;
+  /** Playable clip count when known (albums / multi-track audio). */
+  trackCount: number | null;
   /** One-line blurb from collection description. */
   description: string | null;
   /** When the drop was created (ms). */
@@ -57,6 +59,8 @@ export type DropDiscoveryItem = {
   creatorDisplayName?: string | null;
   /** Loved / batch fan count when known (> 0). */
   fanCount?: number;
+  /** Top recent fan account ids for list facepile (≤ 5). */
+  fanIds?: string[];
   view: CollectionView | null;
 };
 
@@ -106,6 +110,10 @@ function rowToDiscoveryItem(
     hasAllowlist: view?.hasAllowlist ?? false,
     mediumKind: rowMediumKind(row) || view?.kind?.trim().toLowerCase() || null,
     hasPlayable: Boolean(view?.playables?.length),
+    trackCount:
+      view?.playables && view.playables.length > 0
+        ? view.playables.length
+        : null,
     description:
       view?.description?.trim() || row.description?.trim() || null,
     createdAtMs: view?.createdAtMs && view.createdAtMs > 0 ? view.createdAtMs : null,
@@ -114,8 +122,11 @@ function rowToDiscoveryItem(
   };
 }
 
-/** Soft-attach album fan counts (Market-style). Browse survives if the view fails. */
-async function withDropFanCounts(
+/**
+ * Soft-attach album fan counts + top fan ids (facepile).
+ * Prefers `scarce_album_love_fan_ids`; falls back to counts-only view.
+ */
+async function withDropFanRosters(
   items: DropDiscoveryItem[],
   client: OnSocial
 ): Promise<DropDiscoveryItem[]> {
@@ -126,6 +137,42 @@ async function withDropFanCounts(
     ),
   ];
   if (ids.length === 0) return items;
+
+  try {
+    const rows = await client.query.scarces.albumLoveFanIdsByCollectionIds(ids);
+    if (rows.length > 0) {
+      const byId = new Map<
+        string,
+        { fanCount: number; fanIds: string[] }
+      >();
+      for (const row of rows) {
+        const id = row.collectionId?.trim();
+        const count = Number(row.fanCount) || 0;
+        if (!id || count <= 0) continue;
+        const fanIds = (row.fanAccountIds ?? [])
+          .map((fanId) => fanId.trim())
+          .filter(Boolean)
+          .slice(0, 5);
+        const prev = byId.get(id);
+        if (!prev || count > prev.fanCount) {
+          byId.set(id, { fanCount: count, fanIds });
+        }
+      }
+      if (byId.size === 0) return items;
+      return items.map((item) => {
+        const roster = byId.get(item.collectionId.trim());
+        if (!roster) return item;
+        return {
+          ...item,
+          fanCount: roster.fanCount,
+          ...(roster.fanIds.length > 0 ? { fanIds: roster.fanIds } : {}),
+        };
+      });
+    }
+  } catch {
+    // View may not be tracked yet — fall through to counts-only.
+  }
+
   try {
     const rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
     if (rows.length === 0) return items;
@@ -177,7 +224,7 @@ async function decorateDropItems(
   items: DropDiscoveryItem[],
   client: OnSocial
 ): Promise<DropDiscoveryItem[]> {
-  const withFans = await withDropFanCounts(items, client);
+  const withFans = await withDropFanRosters(items, client);
   return withDropCreatorFaces(withFans, client);
 }
 
