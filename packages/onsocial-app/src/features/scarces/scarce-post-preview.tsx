@@ -145,7 +145,7 @@ export function ScarcePostPreview({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const lastListingCoverRef = useRef<string | null>(null);
+  const [heldListingCover, setHeldListingCover] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -164,12 +164,14 @@ export function ScarcePostPreview({
 
   const cover = postScarceCoverImage(post);
   const incomingListingCover = mediaUrl?.trim() || null;
-  if (incomingListingCover) {
-    lastListingCoverRef.current = incomingListingCover;
-  }
+  useEffect(() => {
+    if (incomingListingCover) {
+      setHeldListingCover(incomingListingCover);
+    }
+  }, [incomingListingCover]);
   const listingCover =
     incomingListingCover ||
-    (disableLiveSvg ? lastListingCoverRef.current : null);
+    (disableLiveSvg ? heldListingCover : null);
   const blockLiveSvg = disableLiveSvg || Boolean(listingCover);
   const isPhotoCard = cardFormat === 'receipt' || cardFormat === 'proof';
   const title = previewTitle(post, cardFormat);
