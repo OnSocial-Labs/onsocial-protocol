@@ -228,6 +228,8 @@ interface ChoiceDrawerFieldProps<T extends string> {
    * false so people can iterate — the live preview above updates in place.
    */
   closeOnSelect?: boolean;
+  /** Stack above a parent commerce sheet (e.g. list at 90 → nest at 110). */
+  zIndex?: number;
 }
 
 /**
@@ -245,6 +247,7 @@ export function ChoiceDrawerField<T extends string>({
   hint,
   chipLeading,
   closeOnSelect = true,
+  zIndex = 60,
 }: ChoiceDrawerFieldProps<T>) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -295,6 +298,7 @@ export function ChoiceDrawerField<T extends string>({
         copy={copy}
         hint={hint}
         closeOnSelect={closeOnSelect}
+        zIndex={zIndex}
       />
     </>
   );

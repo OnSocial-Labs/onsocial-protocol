@@ -1009,7 +1009,12 @@ CREATE INDEX IF NOT EXISTS idx_data_updates_saved_dedup
 CREATE OR REPLACE VIEW saves_current AS
 SELECT DISTINCT ON (account_id, path)
   account_id,
-  path                         AS content_path,
+  -- Bare content path (author/post/id or scarce/collection/…) — strip saver + `saved/`.
+  COALESCE(
+    SUBSTRING(path FROM '^[^/]+/saved/(.+)$'),
+    SUBSTRING(path FROM '^saved/(.+)$'),
+    path
+  ) AS content_path,
   value,
   block_height,
   block_timestamp,

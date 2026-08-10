@@ -70,6 +70,8 @@ interface ScarceCardMoodPickerProps {
   disabled?: boolean;
   hasPhoto?: boolean;
   formats?: readonly CardFormat[];
+  /** Stack choice drawers above a parent commerce sheet. */
+  zIndex?: number;
 }
 
 function patch(
@@ -90,6 +92,7 @@ export function ScarceCardMoodPicker({
   disabled = false,
   hasPhoto = false,
   formats,
+  zIndex = 60,
 }: ScarceCardMoodPickerProps) {
   const format = CARD_FORMAT_REGISTRY[value.cardFormat];
   const availableFormats = (formats ?? CARD_FORMATS).filter(
@@ -163,6 +166,7 @@ export function ScarceCardMoodPicker({
         value={value.cardFormat}
         options={formatOptions}
         disabled={disabled}
+        zIndex={zIndex}
         copy="Cover layout and character limit."
         chipLeading={
           <ScarceFormatSwatch format={value.cardFormat} size="chip" />
@@ -192,6 +196,7 @@ export function ScarceCardMoodPicker({
         value={value.cardPalette}
         options={finishOptions}
         disabled={disabled}
+        zIndex={zIndex}
         copy="Paper and lighting."
         chipLeading={
           finishMeta ? (
@@ -217,6 +222,7 @@ export function ScarceCardMoodPicker({
         value={value.cardMarkShape}
         options={markOptions}
         disabled={disabled}
+        zIndex={zIndex}
         copy="Accent shape."
         chipLeading={
           <ScarceMarkSwatch
@@ -232,6 +238,7 @@ export function ScarceCardMoodPicker({
         value={value.cardMarkColor}
         options={colourOptions}
         disabled={disabled}
+        zIndex={zIndex}
         copy="Accent colour."
         chipLeading={
           <ScarceColourSwatch color={value.cardMarkColor} size="chip" />

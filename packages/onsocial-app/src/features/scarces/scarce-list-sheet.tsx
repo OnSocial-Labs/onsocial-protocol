@@ -13,6 +13,7 @@ import {
   ScarceListForm,
   type ScarceListSuccessDetail,
 } from '@/features/scarces/scarce-list-form';
+import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
@@ -117,6 +118,7 @@ export function ScarceListSheet({
           formId={formId}
           post={post}
           authorName={authorName}
+          nestZIndex={scarceNestZIndex(zIndex)}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onListed?.(post, detail);

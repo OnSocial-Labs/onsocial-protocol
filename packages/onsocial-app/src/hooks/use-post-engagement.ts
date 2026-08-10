@@ -37,8 +37,8 @@ export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
 
 /**
  * Merge indexer soft-upgrade into current engagement without clobbering
- * in-flight optimistic reaction/save toggles (or a confirmed amplify that
- * the indexer has not caught yet).
+ * in-flight optimistic reaction/save toggles (or a confirmed amplify/save
+ * that the indexer has not caught yet).
  */
 export function mergeEngagementSoftUpgrade(
   current: EngagementMap,
@@ -61,6 +61,12 @@ export function mergeEngagementSoftUpgrade(
       next = {
         ...next,
         viewerSaved: previous.viewerSaved,
+      };
+    }
+    if (previous?.viewerSaved && !next.viewerSaved) {
+      next = {
+        ...next,
+        viewerSaved: true,
       };
     }
     if (previous?.viewerAmplified && !next.viewerAmplified) {

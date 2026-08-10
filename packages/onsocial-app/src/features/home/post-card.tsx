@@ -62,6 +62,7 @@ import {
 import { ScarceBidSheet } from '@/features/scarces/scarce-bid-sheet';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   postScarceAudio,
   postScarceCoverImage,
@@ -1535,7 +1536,7 @@ export function PostCard({
         authorName={authorProfile?.displayName}
         onOpenChange={setListScarceOpen}
         onListed={() => retryScarceEmbed()}
-        zIndex={90}
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceBuySheet
         open={buyScarceOpen}
@@ -1544,7 +1545,7 @@ export function PostCard({
         embed={scarceEmbed}
         onOpenChange={setBuyScarceOpen}
         onPurchased={() => retryScarceEmbed()}
-        zIndex={90}
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceBidSheet
         open={bidScarceOpen}
@@ -1553,7 +1554,7 @@ export function PostCard({
         embed={scarceEmbed}
         onOpenChange={setBidScarceOpen}
         onBid={() => retryScarceEmbed()}
-        zIndex={90}
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceFeedMediumSheet
         open={feedMediumOpen}

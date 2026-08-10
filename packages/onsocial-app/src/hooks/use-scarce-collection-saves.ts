@@ -47,12 +47,21 @@ export function useScarceCollectionSaves(opts: {
       const client = createReadOnlyOnSocialClient();
       const rows = await client.query.saves.list(accountId, { limit: 500 });
       if (loadIdRef.current !== loadId) return;
-      const next = new Set<string>();
+      const fromIndexer = new Set<string>();
       for (const row of rows) {
         const id = parseScarceCollectionSavePath(row.contentPath);
-        if (id) next.add(id);
+        if (id) fromIndexer.add(id);
       }
-      setSavedIds(next);
+      // Hold confirmed bookmarks until the indexer catches up (same idea as
+      // post engagement soft-upgrade). Unsave already removed the id from
+      // local state, so it will not be re-held here.
+      setSavedIds((previous) => {
+        const next = new Set(fromIndexer);
+        for (const id of previous) {
+          if (!fromIndexer.has(id)) next.add(id);
+        }
+        return next;
+      });
     } catch {
       if (loadIdRef.current !== loadId) return;
     }

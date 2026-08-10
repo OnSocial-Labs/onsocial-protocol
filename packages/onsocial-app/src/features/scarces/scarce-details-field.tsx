@@ -10,6 +10,8 @@ interface ScarceDetailsFieldProps {
   title: string;
   description?: string | null;
   disabled?: boolean;
+  /** Stack above a parent commerce sheet. */
+  zIndex?: number;
 }
 
 /**
@@ -20,6 +22,7 @@ export function ScarceDetailsField({
   title,
   description = null,
   disabled = false,
+  zIndex = 60,
 }: ScarceDetailsFieldProps) {
   const titleId = useId();
   const [open, setOpen] = useState(false);
@@ -71,7 +74,7 @@ export function ScarceDetailsField({
         tone="os"
         initialDetent="full"
         peekRatio={1}
-        zIndex={60}
+        zIndex={zIndex}
         ariaLabelledBy={titleId}
         backdropLabel="Close details"
         panelClassName="scarce-choice-sheet-panel"

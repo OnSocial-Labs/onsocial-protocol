@@ -16195,7 +16195,8 @@ a.os-surface-row {
     --scarce-lightbox-vh: 100dvh;
     position: fixed;
     inset: 0;
-    z-index: 80;
+    /* Above commerce sheets (90) — art zoom from list/buy must not sit under the drawer. */
+    z-index: 110;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -17943,6 +17944,8 @@ a.os-surface-row {
     padding: 0;
     background: var(--bg);
     opacity: 1;
+    /* Under commerce (90) so Mint drawer can stack over the player shell. */
+    z-index: 80;
   }
 
   .scarce-card-lightbox.scarce-clip-listen-lightbox.is-closing {

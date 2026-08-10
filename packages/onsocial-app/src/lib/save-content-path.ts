@@ -2,12 +2,20 @@
  * Parse a private save content path into author + postId.
  * Supports personal (`alice.near/post/1`) and guild
  * (`alice.near/groups/g/content/post/1`) paths.
+ * Also accepts full on-chain paths (`viewer.near/saved/...`) from older indexer rows.
  */
 export function parseSaveContentPath(
   path: string | null | undefined
 ): { author: string; postId: string } | null {
-  const trimmed = path?.trim() ?? '';
+  let trimmed = path?.trim() ?? '';
   if (!trimmed) return null;
+
+  const full = trimmed.match(/^[^/]+\/saved\/(.+)$/);
+  if (full?.[1]) trimmed = full[1];
+  else {
+    const relative = trimmed.match(/^saved\/(.+)$/);
+    if (relative?.[1]) trimmed = relative[1];
+  }
 
   const group = trimmed.match(
     /^([^/]+)\/groups\/[^/]+\/content\/post\/(.+)$/

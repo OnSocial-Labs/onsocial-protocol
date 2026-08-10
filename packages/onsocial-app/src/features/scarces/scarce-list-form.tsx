@@ -245,6 +245,8 @@ interface ScarceListFormProps {
   authorName?: string | null;
   onSuccess?: (detail: ScarceListSuccessDetail) => void;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
+  /** Nested option / choice drawers above this list sheet. */
+  nestZIndex?: number;
 }
 
 export function ScarceListForm({
@@ -253,6 +255,7 @@ export function ScarceListForm({
   authorName = null,
   onSuccess,
   onFooterStateChange,
+  nestZIndex = 60,
 }: ScarceListFormProps) {
   const { accountId, isConnected, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -889,6 +892,7 @@ export function ScarceListForm({
               label="Artwork"
               value={photoCardFormat}
               disabled={pending}
+              zIndex={nestZIndex}
               options={[
                 {
                   value: 'cover' as const,
@@ -925,6 +929,7 @@ export function ScarceListForm({
                   : videoCoverMode
               }
               disabled={pending || coverPending}
+              zIndex={nestZIndex}
               options={
                 showAudioCoverPicker ? AUDIO_COVER_OPTIONS : VIDEO_COVER_OPTIONS
               }
@@ -947,6 +952,7 @@ export function ScarceListForm({
               onChange={setCardTheme}
               disabled={pending}
               hasPhoto={usesPhotoCard}
+              zIndex={nestZIndex}
               formats={
                 usesPhotoCard
                   ? (['receipt', 'proof'] as const)
@@ -964,6 +970,7 @@ export function ScarceListForm({
             title={mintTitle}
             description={mintBody}
             disabled={pending}
+            zIndex={nestZIndex}
           />
         </div>
         {showMediaCoverPicker ? (
@@ -1264,7 +1271,7 @@ export function ScarceListForm({
         primaryAccountId={post.accountId}
         shares={royaltyShares}
         onSharesChange={setRoyaltyShares}
-        splitZIndex={62}
+        splitZIndex={nestZIndex}
         hint={`Keep first sales after 2%.${
           resolvedRoyaltyBps && resolvedRoyaltyBps > 0
             ? royaltyShares.length > 1

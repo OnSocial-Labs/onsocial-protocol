@@ -63,6 +63,18 @@ describe('mergeEngagementSoftUpgrade', () => {
     expect(merged[key]?.amplifyCount).toBe(5);
   });
 
+  it('preserves confirmed save until indexer catches up', () => {
+    const key = 'alice.near:p1';
+    const merged = mergeEngagementSoftUpgrade(
+      { [key]: row({ viewerSaved: true, replyCount: 1 }) },
+      { [key]: row({ viewerSaved: false, replyCount: 2 }) },
+      new Set(),
+      new Set()
+    );
+    expect(merged[key]?.viewerSaved).toBe(true);
+    expect(merged[key]?.replyCount).toBe(2);
+  });
+
   it('applies fetched state when nothing is pending', () => {
     const key = 'alice.near:p1';
     const fetched = row({

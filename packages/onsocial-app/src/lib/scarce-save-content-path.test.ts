@@ -39,6 +39,14 @@ describe('parseScarceCollectionSavePath', () => {
     expect(parseScarceCollectionSavePath('scarce/collection/')).toBeNull();
   });
 
+  it('strips full on-chain saved collection paths', () => {
+    expect(
+      parseScarceCollectionSavePath(
+        'viewer.near/saved/scarce/collection/night-drive-abc'
+      )
+    ).toBe('night-drive-abc');
+  });
+
   it('isScarceCollectionSavePath matches parse', () => {
     expect(isScarceCollectionSavePath('scarce/collection/x')).toBe(true);
     expect(isScarceCollectionSavePath('alice.near/post/1')).toBe(false);
