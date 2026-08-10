@@ -934,9 +934,7 @@ export class ScarcesQuery {
    * Fan counts for specific drop ids (`scarce_album_love_fans`).
    * Missing ids simply omit a row — callers treat absence as 0 fans.
    */
-  async albumLoveFansByCollectionIds(
-    collectionIds: string[]
-  ): Promise<
+  async albumLoveFansByCollectionIds(collectionIds: string[]): Promise<
     Array<{
       collectionId: string;
       fanCount: number;
