@@ -227,9 +227,11 @@ export function CollectionPagePanel({
 
   useEffect(() => {
     if (!viewerAccountId) {
-      setWalletRemaining(null);
-      setAllowlistRemaining(null);
-      setHoldsEdition(null);
+      queueMicrotask(() => {
+        setWalletRemaining(null);
+        setAllowlistRemaining(null);
+        setHoldsEdition(null);
+      });
       return;
     }
     let cancelled = false;
@@ -273,7 +275,9 @@ export function CollectionPagePanel({
     ) {
       return;
     }
-    setWritingReadOpen(true);
+    queueMicrotask(() => {
+      setWritingReadOpen(true);
+    });
   }, [collectionId, view?.readables.length, view?.bookPdf]);
 
   useEffect(() => {
