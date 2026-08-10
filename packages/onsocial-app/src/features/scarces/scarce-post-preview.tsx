@@ -164,11 +164,9 @@ export function ScarcePostPreview({
 
   const cover = postScarceCoverImage(post);
   const incomingListingCover = mediaUrl?.trim() || null;
-  useEffect(() => {
-    if (incomingListingCover) {
-      setHeldListingCover(incomingListingCover);
-    }
-  }, [incomingListingCover]);
+  if (incomingListingCover && incomingListingCover !== heldListingCover) {
+    setHeldListingCover(incomingListingCover);
+  }
   const listingCover =
     incomingListingCover ||
     (disableLiveSvg ? heldListingCover : null);
