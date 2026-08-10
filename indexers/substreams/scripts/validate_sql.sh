@@ -88,12 +88,29 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in posts_current posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarce_album_love_fans; do
+      for view_name in posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarce_album_love_fans; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"
         if [ "$exists" != "t" ]; then
           echo "error: expected view public.${view_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      for table_name in posts_current reactions_current saves_current; do
+        is_table="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = '"'"'public'"'"'
+              AND c.relname = '"'"'${table_name}'"'"'
+              AND c.relkind = '"'"'r'"'"'
+          );
+        ")"
+        if [ "$is_table" != "t" ]; then
+          echo "error: expected base table public.${table_name} in $db" >&2
           exit 1
         fi
       done

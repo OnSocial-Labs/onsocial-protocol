@@ -123,54 +123,8 @@ WHERE data_type = 'page'
 ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 2. posts_current — latest state of each post (deduped edits + deletes)
+-- 2. posts_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)
 -- ────────────────────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE VIEW posts_current AS
-SELECT
-  account_id,
-  data_id                      AS post_id,
-  value,
-  block_height,
-  block_timestamp,
-  receipt_id,
-  parent_path,
-  parent_author,
-  parent_type,
-  ref_path,
-  ref_author,
-  ref_type,
-  channel,
-  kind,
-  audiences,
-  group_id,
-  is_group_content
-FROM (
-  SELECT DISTINCT ON (account_id, data_id)
-    account_id,
-    data_id,
-    value,
-    block_height,
-    block_timestamp,
-    receipt_id,
-    parent_path,
-    parent_author,
-    parent_type,
-    ref_path,
-    ref_author,
-    ref_type,
-    channel,
-    kind,
-    audiences,
-    group_id,
-    is_group_content,
-    operation,
-    id
-  FROM data_updates
-  WHERE data_type = 'post'
-  ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
-) latest
-WHERE operation = 'set';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3. standings_current - standing relationships
@@ -397,22 +351,8 @@ LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
 WHERE latest.operation IN ('create_group', 'add_member');
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 4. reactions_current — per-user reaction state on a target post
+-- 4. reactions_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)
 -- ────────────────────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE VIEW reactions_current AS
-SELECT DISTINCT ON (account_id, path)
-  account_id,
-  target_account               AS post_owner,
-  reaction_kind,
-  path,
-  value,
-  block_height,
-  block_timestamp,
-  operation
-FROM data_updates
-WHERE data_type = 'reaction'
-ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 5. reaction_counts — aggregate reaction counts per target post, per kind
@@ -1000,28 +940,11 @@ WHERE p.field = 'mentions'
   AND length(trim(m.account)) > 0;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 14. saves_current — latest save state per (account, path)
+-- 14. saves_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE INDEX IF NOT EXISTS idx_data_updates_saved_dedup
   ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'saved';
-
-CREATE OR REPLACE VIEW saves_current AS
-SELECT DISTINCT ON (account_id, path)
-  account_id,
-  -- Bare content path (author/post/id or scarce/collection/…) — strip saver + `saved/`.
-  COALESCE(
-    SUBSTRING(path FROM '^[^/]+/saved/(.+)$'),
-    SUBSTRING(path FROM '^saved/(.+)$'),
-    path
-  ) AS content_path,
-  value,
-  block_height,
-  block_timestamp,
-  operation
-FROM data_updates
-WHERE data_type = 'saved'
-ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 15. endorsements_current — latest endorsement per (issuer, target[, topic])

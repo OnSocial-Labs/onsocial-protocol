@@ -129,6 +129,13 @@ async function main() {
         const royaltyJson = record.royalty
           ? JSON.stringify(record.royalty)
           : null;
+        const kind =
+          (typeof browse.kind === 'string' && browse.kind.trim()) || null;
+        const mediumKind = kind
+          ? kind.toLowerCase() === 'music'
+            ? 'audio'
+            : kind.toLowerCase()
+          : null;
         const values = [
           collectionId,
           record.creator_id || 'unknown',
@@ -154,7 +161,8 @@ async function main() {
           browse.title,
           browse.media,
           browse.description,
-          browse.kind,
+          kind,
+          mediumKind,
           record.metadata_template ?? null,
           record.metadata ?? null,
           browse.extra,
@@ -174,14 +182,14 @@ async function main() {
             total_supply, minted_count, remaining, start_time, end_time,
             created_at, mint_mode, max_per_wallet, paused, cancelled, banned,
             transferable, renewable, max_redeems, random_assignment,
-            app_commission_bps, title, media, description, kind,
+            app_commission_bps, title, media, description, kind, medium_kind,
             metadata_template, metadata, extra_json, royalty_json,
             created_block_height, created_block_timestamp,
             updated_block_height, updated_block_timestamp
           ) VALUES (
             $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-            $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,
-            0, COALESCE($11, 0), 0, COALESCE($11, 0)
+            $17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
+            0, COALESCE($11::bigint, 0::bigint), 0, COALESCE($11::bigint, 0::bigint)
           )
           ON CONFLICT (collection_id) DO UPDATE SET
             creator_id = EXCLUDED.creator_id,
@@ -208,6 +216,7 @@ async function main() {
             media = EXCLUDED.media,
             description = EXCLUDED.description,
             kind = EXCLUDED.kind,
+            medium_kind = COALESCE(EXCLUDED.medium_kind, scarces_collections_current.medium_kind),
             metadata_template = EXCLUDED.metadata_template,
             metadata = EXCLUDED.metadata,
             extra_json = EXCLUDED.extra_json,

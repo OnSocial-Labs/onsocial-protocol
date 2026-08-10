@@ -7,7 +7,8 @@
 -- Depends on:
 --   boost_schema.sql       → booster_state
 --   rewards_schema.sql     → rewards_events
---   core_schema_views.sql  → posts_current, reaction_counts,
+--   core_schema.sql        → posts_current (table),
+--   core_schema_views.sql  → reaction_counts,
 --                             standing_counts, standing_out_counts
 --   scarces_schema.sql     → scarces_events
 --
@@ -176,7 +177,7 @@ WHERE a.account_id IS NOT NULL AND a.account_id != '';
 -- ────────────────────────────────────────────────────────────────────────────
 -- Aggregates post count, reply ratio, reactions received, active days, etc.
 -- Used as input to the reputation score.
--- Depends on: core_schema_views.sql (posts_current, reaction_counts)
+-- Depends on: posts_current (table), reaction_counts (view)
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW content_activity AS
@@ -662,7 +663,7 @@ GROUP BY app_id, account_id;
 -- ────────────────────────────────────────────────────────────────────────────
 -- Ranks users within each group by content contribution + engagement.
 -- Community admins can query: WHERE group_id = 'my-group' ORDER BY rank
--- Depends on: core_schema_views.sql (posts_current, reaction_counts)
+-- Depends on: posts_current (table), reaction_counts (view)
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE VIEW leaderboard_by_group AS
