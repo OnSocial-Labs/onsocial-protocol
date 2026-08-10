@@ -1426,6 +1426,7 @@ export function PostCard({
               post={post}
               variant="feed"
               mediaUrl={scarceCoverUrl}
+              disableLiveSvg
               cardBg={scarceEmbed.cardBg}
               creatorDisplayName={authorProfile?.displayName}
               onActivate={({ coverSvg }) =>

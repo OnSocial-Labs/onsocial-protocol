@@ -70,6 +70,11 @@ interface ScarcePostPreviewProps {
    * preview when the post itself has no photo.
    */
   mediaUrl?: string | null;
+  /**
+   * After mint/list: never render live text-card SVG (softer than the
+   * stamped PNG). Hold the last raster URL across brief mediaUrl gaps.
+   */
+  disableLiveSvg?: boolean;
   /** Sheet picker vs in-feed media slot. */
   variant?: 'sheet' | 'feed';
   /**
@@ -132,6 +137,7 @@ export function ScarcePostPreview({
   creatorDisplayName = null,
   creatorAvatarUrl = null,
   mediaUrl = null,
+  disableLiveSvg = false,
   variant = 'sheet',
   onActivate,
 }: ScarcePostPreviewProps) {
@@ -139,6 +145,7 @@ export function ScarcePostPreview({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const lastListingCoverRef = useRef<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -156,7 +163,14 @@ export function ScarcePostPreview({
   useScrollLock(lightboxOpen);
 
   const cover = postScarceCoverImage(post);
-  const listingCover = mediaUrl?.trim() || null;
+  const incomingListingCover = mediaUrl?.trim() || null;
+  if (incomingListingCover) {
+    lastListingCoverRef.current = incomingListingCover;
+  }
+  const listingCover =
+    incomingListingCover ||
+    (disableLiveSvg ? lastListingCoverRef.current : null);
+  const blockLiveSvg = disableLiveSvg || Boolean(listingCover);
   const isPhotoCard = cardFormat === 'receipt' || cardFormat === 'proof';
   const title = previewTitle(post, cardFormat);
   const creatorLabel = displayName(
@@ -244,7 +258,7 @@ export function ScarcePostPreview({
   }, [lightboxOpen, requestClose]);
 
   const textCardSvg = useMemo(() => {
-    if (listingCover || (cover && !isPhotoCard)) return null;
+    if (blockLiveSvg || listingCover || (cover && !isPhotoCard)) return null;
     const { svg } = previewTextCard({
       title,
       ...(cardFormat ? { format: cardFormat } : {}),
@@ -267,6 +281,7 @@ export function ScarcePostPreview({
     });
     return svg;
   }, [
+    blockLiveSvg,
     cover,
     isPhotoCard,
     listingCover,

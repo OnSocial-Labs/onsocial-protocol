@@ -631,6 +631,7 @@ export function ScarceBidForm({
           post={post}
           creatorDisplayName={authorName}
           mediaUrl={resolvedMediaUrl}
+          disableLiveSvg
           cardBg={embed?.cardBg}
         />
       ) : resolvedMediaUrl ? (

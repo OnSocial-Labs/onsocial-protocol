@@ -112,6 +112,40 @@ describe('scarce-embed-ledger', () => {
     expect(getScarceEmbedOverride(KEY)).toBeNull();
   });
 
+  it('keeps override cover until indexer mediaUrl lands', () => {
+    setScarceEmbedOverride(
+      KEY,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        mediaUrl: 'data:image/png;base64,abc',
+        priceNear: '1',
+      })
+    );
+    expect(
+      reconcileScarceEmbedFromApi(
+        KEY,
+        embed({ status: 'lazy_listing', listingId: 'll:1', priceNear: '1' })
+      )
+    ).toBe(false);
+    expect(getScarceEmbedOverride(KEY)?.mediaUrl).toBe(
+      'data:image/png;base64,abc'
+    );
+
+    expect(
+      reconcileScarceEmbedFromApi(
+        KEY,
+        embed({
+          status: 'lazy_listing',
+          listingId: 'll:1',
+          mediaUrl: 'https://ipfs.example/mint.png',
+          priceNear: '1',
+        })
+      )
+    ).toBe(true);
+    expect(getScarceEmbedOverride(KEY)).toBeNull();
+  });
+
   it('clears sold override when API reports sold', () => {
     setScarceEmbedOverride(KEY, embed({ status: 'sold', listingId: 'll:1' }));
     expect(

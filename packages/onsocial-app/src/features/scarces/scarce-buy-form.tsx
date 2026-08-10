@@ -491,6 +491,7 @@ export function ScarceBuyForm({
           creatorDisplayName={authorName}
           creatorAvatarUrl={creatorAvatarUrl}
           mediaUrl={resolvedMediaUrl}
+          disableLiveSvg
           cardBg={embed?.cardBg ?? listing?.cardBg}
         />
       ) : resolvedMediaUrl ? (

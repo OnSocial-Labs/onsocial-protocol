@@ -848,6 +848,10 @@ export function ScarceListForm({
                 post={post}
                 creatorDisplayName={authorName}
                 creatorAvatarUrl={creatorAvatarUrl}
+                disableLiveSvg={Boolean(
+                  coverPreviewUrl ||
+                    (mintPreviewUrl && usesGeneratedCard && !usesPhotoCard)
+                )}
                 {...(coverPreviewUrl && !usesPhotoCard
                   ? { mediaUrl: coverPreviewUrl }
                   : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard

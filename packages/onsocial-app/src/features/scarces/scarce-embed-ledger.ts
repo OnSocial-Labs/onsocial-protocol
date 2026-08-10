@@ -112,6 +112,11 @@ export function reconcileScarceEmbedFromApi(
       ) {
         return false;
       }
+      // Keep mint PNG / cover until indexer media lands — clearing early
+      // flashes live SVG (softer / blurrier than the stamped raster).
+      if (override.mediaUrl?.trim() && !fetched.mediaUrl?.trim()) {
+        return false;
+      }
       clearScarceEmbedOverride(key);
       return true;
     }
@@ -127,6 +132,9 @@ export function reconcileScarceEmbedFromApi(
       fetched.collectionId &&
       (!override.collectionId || override.collectionId === fetched.collectionId)
     ) {
+      if (override.mediaUrl?.trim() && !fetched.mediaUrl?.trim()) {
+        return false;
+      }
       clearScarceEmbedOverride(key);
       return true;
     }
