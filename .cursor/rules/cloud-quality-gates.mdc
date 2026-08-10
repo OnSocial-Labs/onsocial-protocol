@@ -1,0 +1,43 @@
+---
+description: Cloud-first package/substreams checks before push; local detached app preview
+alwaysApply: true
+---
+
+# Cloud quality gates + local preview
+
+## Preview (always local)
+
+- Live UI: detached `pnpm --filter @onsocial/app run dev` → `http://localhost:3060`
+- Do **not** rely on Vercel for day-to-day preview until the user asks to deploy
+- While iterating: prefer quick typecheck/lint on touched files — **never** full `@onsocial/app` check on the laptop for minor edits
+
+## Checks (cloud — do not ask the user)
+
+When the user asks to **push** (especially to `main`), or when commits are ready to ship:
+
+1. Run quality gates in a **cloud agent** (or cloud shell), **not** a full local suite that thrashing WSL.
+2. Command of record: `pnpm check:push` from repo root (same as husky).
+   - Affected **pnpm packages** only (`packages/onsocial-*` paths in the push diff).
+   - **Substreams** when SQL / `validate_sql.sh` / fixtures change → includes Docker Postgres schema + upgrade validation (migrations/views). This belongs in cloud; it worked there on mobile.
+3. Shared-lib edits (`rpc` / `sdk` / `text-card` / `ui`): use `PRE_PUSH_DEPENDENTS=1 pnpm check:push` in cloud when dependents should be covered.
+4. Skip package/substreams checks for docs-only, contract-only, or infra-only diffs outside those paths (contracts / relayer stay their own flows).
+
+Do **not** wait for the user to say “run checks” — cloud check is automatic before push.
+
+## Push after cloud green
+
+1. Cloud `check:push` must be green (or N/A for skipped paths).
+2. Then `git push` to the requested branch.
+3. **Skip local husky** for that push with `--no-verify` **only** because cloud already ran the same `check:push` (avoids double suite / PC freeze). Say so briefly when pushing.
+4. If cloud fails: fix, re-run cloud check, then push. Never `--no-verify` on a failed or skipped cloud gate for monitored paths.
+
+## Do not
+
+- Run full local `pnpm --filter @onsocial/app run check` or local `pnpm check:push` as the default pre-push (laptop dies).
+- Double-run: local full check **and** cloud **and** husky.
+- Put contract / relayer / non-substreams Docker work into this pnpm cloud gate unless the user asks.
+- Assume cloud VM edits appear on local `localhost` without `git pull` / checkout of that branch.
+
+## Mobile / cloud edit ↔ laptop
+
+Cloud and local share work via **git** (push/pull). Local detached `dev` only serves the local tree after sync.

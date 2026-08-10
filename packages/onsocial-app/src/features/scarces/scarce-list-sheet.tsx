@@ -22,6 +22,8 @@ interface ScarceListSheetProps {
   authorName?: string | null;
   onOpenChange: (open: boolean) => void;
   onListed?: (post: PostRow, detail: ScarceListSuccessDetail) => void;
+  /** Stack above feed enlarge lightbox (z-index 80) when opened from player shell. */
+  zIndex?: number;
 }
 
 /** Author sheet: lazy-list a post as a scarce (mint-on-purchase). */
@@ -31,6 +33,7 @@ export function ScarceListSheet({
   authorName = null,
   onOpenChange,
   onListed,
+  zIndex = 56,
 }: ScarceListSheetProps) {
   const titleId = useId();
   const formId = useId();
@@ -80,7 +83,7 @@ export function ScarceListSheet({
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
       panelStyle={panelStyle}
-      zIndex={56}
+      zIndex={zIndex}
       ariaLabelledBy={titleId}
       backdropLabel="Close list scarce"
       bodyClassName="profile-support-sheet-body"

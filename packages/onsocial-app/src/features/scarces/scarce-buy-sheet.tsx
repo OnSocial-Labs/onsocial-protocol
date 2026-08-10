@@ -52,6 +52,8 @@ interface ScarceBuySheetProps {
   onOpenChange: (open: boolean) => void;
   onPurchased?: (detail: ScarceBuySuccessDetail) => void;
   onMakeOffer?: () => void;
+  /** Stack above feed enlarge lightbox (z-index 80) when opened from player shell. */
+  zIndex?: number;
 }
 
 /** Buyer sheet for Drop mint / lazy listing / fixed-price purchase. */
@@ -64,6 +66,7 @@ export function ScarceBuySheet({
   onOpenChange,
   onPurchased,
   onMakeOffer,
+  zIndex = 56,
 }: ScarceBuySheetProps) {
   const titleId = useId();
   const formId = useId();
@@ -130,7 +133,7 @@ export function ScarceBuySheet({
         keyboardOpen ? ' is-keyboard-open' : ''
       }`}
       panelStyle={panelStyle}
-      zIndex={56}
+      zIndex={zIndex}
       ariaLabelledBy={titleId}
       backdropLabel={isMint ? 'Close mint scarce' : 'Close buy scarce'}
       bodyClassName="profile-support-sheet-body"

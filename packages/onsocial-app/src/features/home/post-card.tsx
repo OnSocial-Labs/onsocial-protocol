@@ -1535,6 +1535,7 @@ export function PostCard({
         authorName={authorProfile?.displayName}
         onOpenChange={setListScarceOpen}
         onListed={() => retryScarceEmbed()}
+        zIndex={90}
       />
       <ScarceBuySheet
         open={buyScarceOpen}
@@ -1543,6 +1544,7 @@ export function PostCard({
         embed={scarceEmbed}
         onOpenChange={setBuyScarceOpen}
         onPurchased={() => retryScarceEmbed()}
+        zIndex={90}
       />
       <ScarceBidSheet
         open={bidScarceOpen}
@@ -1551,6 +1553,7 @@ export function PostCard({
         embed={scarceEmbed}
         onOpenChange={setBidScarceOpen}
         onBid={() => retryScarceEmbed()}
+        zIndex={90}
       />
       <ScarceFeedMediumSheet
         open={feedMediumOpen}
@@ -1580,15 +1583,12 @@ export function PostCard({
               authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
               canList={canListScarce}
               onList={() => {
-                setFeedMediumOpen(false);
                 setListScarceOpen(true);
               }}
               onBuy={() => {
-                setFeedMediumOpen(false);
                 setBuyScarceOpen(true);
               }}
               onBid={() => {
-                setFeedMediumOpen(false);
                 setBidScarceOpen(true);
               }}
             />

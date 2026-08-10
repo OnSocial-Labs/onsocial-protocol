@@ -15986,18 +15986,7 @@ a.os-surface-row {
   }
 
   .scarce-post-medium-listen {
-    gap: 0.65rem;
-  }
-
-  .scarce-post-medium-top {
-    display: flex;
-    justify-content: flex-end;
-    flex: 0 0 auto;
-    min-height: 2rem;
-  }
-
-  .scarce-post-medium-close {
-    position: static;
+    gap: 0.55rem;
   }
 
   .scarce-post-medium-cover--svg {
@@ -16013,8 +16002,16 @@ a.os-surface-row {
   .scarce-post-medium-chrome {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.25rem;
     width: 100%;
+  }
+
+  .scarce-post-medium-dismiss {
+    display: flex;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: min(100%, 28rem);
+    margin-inline: auto;
   }
 
   .scarce-post-medium-chrome .post-card-scarce-cta,
@@ -17980,8 +17977,9 @@ a.os-surface-row {
   }
 
   .scarce-clip-listen-cover {
-    width: min(100%, 28rem);
-    max-height: min(58dvh, 28rem);
+    /* Same budget on both axes so short viewports stay square (no squash). */
+    width: min(100%, 28rem, 58dvh);
+    max-height: min(100%, 28rem, 58dvh);
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;

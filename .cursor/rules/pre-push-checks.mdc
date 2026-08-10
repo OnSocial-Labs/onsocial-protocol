@@ -6,77 +6,41 @@ alwaysApply: true
 
 # Pre-push quality gates
 
-Before pushing commits that touch JS/TS packages or substreams SQL, run the same checks the repo enforces locally and in CI.
+`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus substreams SQL validation when those paths change.
 
-## When to run
+**Agents:** follow [cloud-quality-gates.mdc](cloud-quality-gates.mdc) — run `check:push` in **cloud**, then push with `--no-verify` only after that gate is green. Do not thrash the laptop with a second full suite.
 
-Run checks when changes touch any monitored package under `packages/`:
+## When checks apply
+
+Monitored packages under `packages/`:
 
 - `@onsocial/rpc`, `@onsocial/text-card`, `@onsocial/sdk`, `@onsocial/ui`
 - `onsocial-backend`, `onsocial-gateway`
 - `@onsocial/pages`, `@onsocial/portal`, `@onsocial/app`
 
-Also when changes touch substreams SQL:
+Substreams SQL (Docker + Postgres 16 in cloud):
 
 - `indexers/substreams/**/*.sql`
 - `indexers/substreams/scripts/validate_sql.sh`
 - `indexers/substreams/tests/fixtures/**`
 
-`pnpm check:push` uses `git diff @{upstream}..HEAD` and runs `check` only on **directly changed** packages. A gateway-only push runs gateway only; a portal-only push runs portal only. Unrelated packages are skipped.
+Diff base is `@{upstream}..HEAD`. Unrelated packages are skipped. Dependents expansion is **off** unless `PRE_PUSH_DEPENDENTS=1`.
 
-When substreams SQL changes, it also runs `bash indexers/substreams/scripts/validate_sql.sh` (Docker + Postgres 16). That applies a fresh schema **and** an existing-DB upgrade fixture (`tests/fixtures/upgrade_baseline.sql` → `combined_schema.sql` → migrations) so `CREATE TABLE IF NOT EXISTS` + new-column index failures fail before push. Requires Docker.
-
-Dependent expansion is **off by default** to keep pushes fast. CI still runs path-filtered workflows per package on merge. Substreams CI always runs the same SQL validation.
-
-When changing a shared library and you want local confidence before push:
-
-```bash
-PRE_PUSH_DEPENDENTS=1 pnpm check:push
-```
-
-Or check dependents manually:
-
-```bash
-pnpm --filter @onsocial/rpc run check
-pnpm --filter onsocial-backend run check
-pnpm --filter @onsocial/portal run check
-```
-
-Skip pre-push for docs-only, contract-only, or infra-only changes outside those paths (and outside substreams SQL).
+Skip for docs-only, contract-only, or infra-only changes outside those paths (and outside substreams SQL). Contracts / relayer are separate.
 
 ## Commands
 
-**Preferred (directly changed packages only):**
-
 ```bash
 pnpm check:push
+PRE_PUSH_DEPENDENTS=1 pnpm check:push   # after shared-lib changes
 ```
 
-**With workspace dependents (slower, use after rpc/sdk/text-card/ui changes):**
-
-```bash
-PRE_PUSH_DEPENDENTS=1 pnpm check:push
-```
-
-Each `check` script runs lint → format:check → build (and tests where the package has them).
+Substreams path runs `bash indexers/substreams/scripts/validate_sql.sh` (fresh schema + upgrade fixture). Prefer cloud for this.
 
 ## Before committing
 
-Pre-commit runs `lint-staged` on staged files in the monitored packages (prettier + eslint --fix).
+Pre-commit: `lint-staged` on staged monitored-package files (prettier + eslint --fix) — keep this local; it is light.
 
-## CI mirrors local checks
+## CI
 
-- Portal: `.github/workflows/onsocial-portal-ci.yml`
-- Backend: `.github/workflows/onsocial-backend-ci.yml`
-- Gateway: `.github/workflows/onsocial-gateway-ci.yml`
-- Pages: `.github/workflows/onsocial-pages-ci.yml`
-
-CI is the safety net for cross-package breakage. Local pre-push catches issues in what you edited.
-
-## Agent workflow
-
-1. Finish the code change.
-2. Run `pnpm check:push` (or the relevant package `check` script) before suggesting a push.
-3. After shared-library changes, run `PRE_PUSH_DEPENDENTS=1 pnpm check:push` or check dependents manually.
-4. If a check fails, fix the failure and re-run until green.
-5. Do not skip hooks (`--no-verify`) unless the user explicitly asks.
+Path-filtered workflows (portal, backend, gateway, pages, …) remain the merge safety net. Substreams CI runs the same SQL validation. Cloud `check:push` before push mirrors what husky would have run locally.

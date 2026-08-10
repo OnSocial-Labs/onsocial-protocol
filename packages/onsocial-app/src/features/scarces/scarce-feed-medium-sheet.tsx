@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import { Divider, GlassSheet, ScaleDownIcon } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
@@ -46,12 +46,11 @@ function inlineSvgMarkup(svg: string): string {
 }
 
 /**
- * Feed cover tap → post-origin medium shell.
+ * Feed cover tap → shared listen-player card shell.
  *
- * Audio opens the full-screen listen enlarge (28rem cover, love/share,
- * transport) with Mint/Buy + post engagement under the track actions.
- * Writing opens the immersive read lightbox (compact cover + manuscript).
- * Viewer uses the same canvas size with cover + post chrome.
+ * Audio opens the real listen player with Mint/Buy + engagement under the
+ * cover. Thought/art uses the same card without transport. Writing keeps the
+ * immersive reader for now (same shell + Read stack is a follow-up).
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -372,14 +371,6 @@ export function ScarceFeedMediumSheet({
           <p id={titleId} className="sr-only">
             {name}
           </p>
-          <div className="scarce-post-medium-top">
-            <SheetCloseButton
-              ref={closeRef}
-              onClick={requestClose}
-              ariaLabel="Close preview"
-              className="scarce-post-medium-close"
-            />
-          </div>
           <div className="scarce-clip-listen-art">{coverArt}</div>
           {mode === 'audio' ? (
             <p className="scarce-feed-medium-empty">
@@ -391,11 +382,20 @@ export function ScarceFeedMediumSheet({
           {postChrome ? (
             <div className="scarce-clip-listen-footer">{postChrome}</div>
           ) : null}
-          {name ? (
-            <div className="scarce-clip-listen-copy">
-              <p className="scarce-clip-listen-track">{name}</p>
-            </div>
-          ) : null}
+          <div className="scarce-post-medium-dismiss">
+            <button
+              ref={closeRef}
+              type="button"
+              className="scarce-clip-cover-expand scarce-clip-listen-contract"
+              aria-label="Close preview"
+              onClick={requestClose}
+            >
+              <ScaleDownIcon
+                className="scarce-clip-cover-expand-icon"
+                aria-hidden
+              />
+            </button>
+          </div>
         </div>
       </div>,
       document.body
