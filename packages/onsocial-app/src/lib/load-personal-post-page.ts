@@ -41,7 +41,7 @@ export const loadPersonalPostPageData = cache(
       const os = createServerOnSocialClient();
       const rootPath = personalPostContentPath(accountId, id);
       const [root, quotesResult, treeResult] = await Promise.all([
-        fetchPersonalPost({ author: accountId, postId: id }),
+        fetchPersonalPost({ author: accountId, postId: id }, os),
         os.query.threads
           .quotes(accountId, id, {
             limit: THREAD_QUOTE_PAGE_SIZE,
