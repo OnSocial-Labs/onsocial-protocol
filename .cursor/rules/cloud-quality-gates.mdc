@@ -18,7 +18,8 @@ When the user asks to **push** (especially to `main`), or when commits are ready
 1. Run quality gates in a **cloud agent** (or cloud shell), **not** a full local suite that thrashing WSL.
 2. Command of record: `pnpm check:push` from repo root (same as husky).
    - Affected **pnpm packages** only (`packages/onsocial-*` paths in the push diff).
-   - **Substreams** when SQL / `validate_sql.sh` / fixtures change → includes Docker Postgres schema + upgrade validation (migrations/views). This belongs in cloud; it worked there on mobile.
+   - **Substreams SQL** when `.sql` / `validate_sql.sh` / SQL fixtures change → Docker Postgres schema + upgrade validation.
+   - **Substreams sink** when `indexers/substreams/src/**`, `golden_db_fixtures.json`, `check_db_schema_parity.py`, or Cargo lock/manifest change → `check_db_schema_parity.py` + `cargo test golden_db` (catches missing golden fixtures that SQL-only validate misses).
    - Unpushed local commits are **not** on `origin` yet: push a short-lived `ci/cloud-gate-*` branch first ( `--no-verify` only to transfer), run `PRE_PUSH_UPSTREAM=origin/main pnpm check:push` on that branch in cloud, then promote to `main`.
    - App `next build` in cloud needs `ONSOCIAL_API_KEY` set (use a non-secret placeholder like `cloud-check-placeholder` if no secret is available; SSR fetches already soft-catch).
 3. Shared-lib edits (`rpc` / `sdk` / `text-card` / `ui`): use `PRE_PUSH_DEPENDENTS=1 pnpm check:push` in cloud when dependents should be covered.

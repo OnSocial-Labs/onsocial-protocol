@@ -3,6 +3,8 @@
  * Runs lint, format, build, and test for packages affected by commits being pushed.
  * Checks directly changed packages only by default. Set PRE_PUSH_DEPENDENTS=1 to
  * also check workspace dependents (e.g. rpc → backend/portal/gateway).
+ * Also runs substreams SQL validate and/or schema-parity + golden_db when those
+ * indexer paths change (mirrors the Substreams CI gaps SQL-only miss).
  * Invoked by .husky/pre-push and `pnpm check:push`.
  */
 import { execSync } from 'node:child_process';
@@ -172,9 +174,32 @@ function substreamsSqlChanged(changedFiles) {
   );
 }
 
+/**
+ * Sink writer / golden fixture changes — mirrors Substreams CI steps that
+ * `validate_sql.sh` does not cover (schema parity + golden_db cargo tests).
+ */
+function substreamsSinkChanged(changedFiles) {
+  return changedFiles.some(
+    (file) =>
+      file.startsWith('indexers/substreams/src/') ||
+      file === 'indexers/substreams/tests/golden_db_fixtures.json' ||
+      file === 'indexers/substreams/scripts/check_db_schema_parity.py' ||
+      file === 'indexers/substreams/Cargo.toml' ||
+      file === 'indexers/substreams/Cargo.lock'
+  );
+}
+
 function runSubstreamsSqlValidation() {
   console.log('\n=== indexers/substreams (SQL schema upgrade) ===');
   run('bash indexers/substreams/scripts/validate_sql.sh');
+}
+
+function runSubstreamsSinkValidation() {
+  console.log('\n=== indexers/substreams (schema parity + golden_db) ===');
+  run('python3 scripts/check_db_schema_parity.py', {
+    cwd: 'indexers/substreams',
+  });
+  run('cargo test golden_db', { cwd: 'indexers/substreams' });
 }
 
 function main() {
@@ -182,6 +207,7 @@ function main() {
   const changedFiles = getChangedFiles(diffBase);
   const affected = getAffectedPackages(changedFiles);
   const checkSubstreamsSql = substreamsSqlChanged(changedFiles);
+  const checkSubstreamsSink = substreamsSinkChanged(changedFiles);
 
   console.log(`Pre-push checks (diff base: ${diffBase})`);
 
@@ -190,9 +216,9 @@ function main() {
     return;
   }
 
-  if (affected.length === 0 && !checkSubstreamsSql) {
+  if (affected.length === 0 && !checkSubstreamsSql && !checkSubstreamsSink) {
     console.log(
-      'No monitored package or substreams SQL changes detected; skipping checks.'
+      'No monitored package or substreams changes detected; skipping checks.'
     );
     return;
   }
@@ -213,6 +239,9 @@ function main() {
   if (checkSubstreamsSql) {
     console.log('Changed: indexers/substreams SQL schema / migrations');
   }
+  if (checkSubstreamsSink) {
+    console.log('Changed: indexers/substreams sink / golden fixtures');
+  }
 
   for (const pkg of affected) {
     const label = pkg.reason === 'dependent' ? ' (dependent)' : '';
@@ -222,6 +251,9 @@ function main() {
 
   if (checkSubstreamsSql) {
     runSubstreamsSqlValidation();
+  }
+  if (checkSubstreamsSink) {
+    runSubstreamsSinkValidation();
   }
 
   console.log('\nPre-push checks passed.');

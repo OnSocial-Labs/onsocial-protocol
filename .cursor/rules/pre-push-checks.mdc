@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Pre-push quality gates
 
-`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus substreams SQL validation when those paths change.
+`pnpm check:push` (`scripts/pre-push-check.mjs`, also `.husky/pre-push`) runs lint/format/build/test for **directly changed** monitored packages, plus substreams checks when those paths change.
 
 **Agents:** follow [cloud-quality-gates.mdc](cloud-quality-gates.mdc) — run `check:push` in **cloud**, then push with `--no-verify` only after that gate is green. Do not thrash the laptop with a second full suite.
 
@@ -18,15 +18,14 @@ Monitored packages under `packages/`:
 - `onsocial-backend`, `onsocial-gateway`
 - `@onsocial/pages`, `@onsocial/portal`, `@onsocial/app`
 
-Substreams SQL (Docker + Postgres 16 in cloud):
+Substreams (prefer cloud):
 
-- `indexers/substreams/**/*.sql`
-- `indexers/substreams/scripts/validate_sql.sh`
-- `indexers/substreams/tests/fixtures/**`
+- **SQL** — `indexers/substreams/**/*.sql`, `scripts/validate_sql.sh`, `tests/fixtures/**` → `bash indexers/substreams/scripts/validate_sql.sh` (Docker Postgres schema + upgrade)
+- **Sink / golden** — `indexers/substreams/src/**`, `tests/golden_db_fixtures.json`, `scripts/check_db_schema_parity.py`, `Cargo.toml` / `Cargo.lock` → `python3 scripts/check_db_schema_parity.py` + `cargo test golden_db` (same gap Substreams CI caught when SQL-only validate passed)
 
 Diff base is `@{upstream}..HEAD`. Unrelated packages are skipped. Dependents expansion is **off** unless `PRE_PUSH_DEPENDENTS=1`.
 
-Skip for docs-only, contract-only, or infra-only changes outside those paths (and outside substreams SQL). Contracts / relayer are separate.
+Skip for docs-only, contract-only, or infra-only changes outside those paths. Contracts / relayer are separate.
 
 ## Commands
 
@@ -35,7 +34,7 @@ pnpm check:push
 PRE_PUSH_DEPENDENTS=1 pnpm check:push   # after shared-lib changes
 ```
 
-Substreams path runs `bash indexers/substreams/scripts/validate_sql.sh` (fresh schema + upgrade fixture). Prefer cloud for this.
+Prefer cloud for substreams Docker + Rust golden checks.
 
 ## Before committing
 
@@ -43,4 +42,4 @@ Pre-commit: `lint-staged` on staged monitored-package files (prettier + eslint -
 
 ## CI
 
-Path-filtered workflows (portal, backend, gateway, pages, …) remain the merge safety net. Substreams CI runs the same SQL validation. Cloud `check:push` before push mirrors what husky would have run locally.
+Path-filtered workflows (portal, backend, gateway, pages, …) remain the merge safety net. Substreams CI still runs full cargo test + SQL + parity; cloud `check:push` should catch the same SQL + parity/golden failures before push.
