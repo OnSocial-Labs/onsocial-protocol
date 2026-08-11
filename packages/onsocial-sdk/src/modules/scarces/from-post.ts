@@ -646,9 +646,7 @@ export class ScarcesFromPostApi {
         ...(base.cardFont ? { cardFont: base.cardFont } : {}),
         ...(base.cardMarkColor ? { cardMarkColor: base.cardMarkColor } : {}),
         ...(base.cardMarkShape ? { cardMarkShape: base.cardMarkShape } : {}),
-        ...(base.cardTitleAlign
-          ? { cardTitleAlign: base.cardTitleAlign }
-          : {}),
+        ...(base.cardTitleAlign ? { cardTitleAlign: base.cardTitleAlign } : {}),
         ...(base.cardPhotoCid ? { cardPhotoCid: base.cardPhotoCid } : {}),
         ...(opts.transferable != null
           ? { transferable: opts.transferable }
