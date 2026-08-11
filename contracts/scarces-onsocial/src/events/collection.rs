@@ -288,22 +288,14 @@ pub fn emit_allowlist_removed(actor_id: &AccountId, collection_id: &str, account
         .emit();
 }
 
-pub fn emit_redeemer_added(
-    actor_id: &AccountId,
-    collection_id: &str,
-    account_id: &AccountId,
-) {
+pub fn emit_redeemer_added(actor_id: &AccountId, collection_id: &str, account_id: &AccountId) {
     EventBuilder::new(COLLECTION, "redeemer_added", actor_id)
         .field("collection_id", collection_id)
         .field("account_id", account_id)
         .emit();
 }
 
-pub fn emit_redeemer_removed(
-    actor_id: &AccountId,
-    collection_id: &str,
-    account_id: &AccountId,
-) {
+pub fn emit_redeemer_removed(actor_id: &AccountId, collection_id: &str, account_id: &AccountId) {
     EventBuilder::new(COLLECTION, "redeemer_removed", actor_id)
         .field("collection_id", collection_id)
         .field("account_id", account_id)

@@ -251,9 +251,7 @@ fn add_redeemer_non_creator_fails() {
     let (mut contract, _tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
     testing_env!(context(buyer()).build());
 
-    let err = contract
-        .add_redeemer(&buyer(), "col", owner())
-        .unwrap_err();
+    let err = contract.add_redeemer(&buyer(), "col", owner()).unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
@@ -266,12 +264,14 @@ fn remove_redeemer_happy_then_cannot_redeem() {
     contract
         .remove_redeemer(&creator(), "col", &buyer())
         .unwrap();
-    assert!(!contract
-        .collections
-        .get("col")
-        .unwrap()
-        .redeemers
-        .contains(&buyer()));
+    assert!(
+        !contract
+            .collections
+            .get("col")
+            .unwrap()
+            .redeemers
+            .contains(&buyer())
+    );
 
     testing_env!(context(buyer()).build());
     let err = contract.redeem_token(&buyer(), &tid, "col").unwrap_err();
@@ -296,9 +296,7 @@ fn add_redeemer_cap_fails() {
 
     for i in 0..MAX_COLLECTION_REDEEMERS {
         let account: AccountId = format!("door{i}.near").parse().unwrap();
-        contract
-            .add_redeemer(&creator(), "col", account)
-            .unwrap();
+        contract.add_redeemer(&creator(), "col", account).unwrap();
     }
     let overflow: AccountId = "overflow.near".parse().unwrap();
     let err = contract

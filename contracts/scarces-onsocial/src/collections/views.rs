@@ -196,7 +196,7 @@ impl Contract {
         let Some(collection) = self.collections.get(&collection_id) else {
             return false;
         };
-        &collection.creator_id == &account_id
+        collection.creator_id == account_id
             || collection.redeemers.iter().any(|id| id == &account_id)
     }
 
