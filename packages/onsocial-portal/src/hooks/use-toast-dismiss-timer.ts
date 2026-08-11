@@ -126,11 +126,7 @@ export function useToastDismissTimer({
       hiddenPause.current = false;
       const host = hostRef.current;
       const active = document.activeElement;
-      if (
-        host &&
-        active instanceof HTMLElement &&
-        host.contains(active)
-      ) {
+      if (host && active instanceof HTMLElement && host.contains(active)) {
         active.blur();
       }
       focusPause.current = false;
