@@ -59,6 +59,8 @@ export const ALL_SCARCES_ACTION_TYPES = [
   'resume_collection',
   'set_allowlist',
   'remove_from_allowlist',
+  'add_redeemer',
+  'remove_redeemer',
   'set_collection_metadata',
   'set_collection_app_metadata',
   'withdraw_unclaimed_refunds',
@@ -445,6 +447,32 @@ export function getScarcesParityCases(
         type: 'remove_from_allowlist',
         collection_id: 'genesis',
         accounts: ['alice.near'],
+      },
+    },
+    {
+      name: 'add redeemer',
+      action: {
+        type: 'add_redeemer',
+        collection_id: 'genesis',
+        account_id: 'door.near',
+      },
+      expectedAction: {
+        type: 'add_redeemer',
+        collection_id: 'genesis',
+        account_id: 'door.near',
+      },
+    },
+    {
+      name: 'remove redeemer',
+      action: {
+        type: 'remove_redeemer',
+        collection_id: 'genesis',
+        account_id: 'door.near',
+      },
+      expectedAction: {
+        type: 'remove_redeemer',
+        collection_id: 'genesis',
+        account_id: 'door.near',
       },
     },
     {

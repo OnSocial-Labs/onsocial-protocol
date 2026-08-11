@@ -107,6 +107,11 @@ pub struct LazyCollection {
     #[serde(default)]
     #[borsh(deserialize_with = "crate::deserialize_trailing_bool")]
     pub random_assignment: bool,
+    /// Door staff who may redeem (check in) tokens. Creator always can.
+    /// Capped at 20. Trailing for upgrade-safe empty default.
+    #[serde(default)]
+    #[borsh(deserialize_with = "crate::deserialize_trailing_account_vec")]
+    pub redeemers: Vec<AccountId>,
 }
 
 #[near(serializers = [json])]

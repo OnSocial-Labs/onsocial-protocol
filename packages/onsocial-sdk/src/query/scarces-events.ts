@@ -79,6 +79,8 @@ export const COLLECTION_OPERATIONS = [
   'unban',
   'allowlist_update',
   'allowlist_remove',
+  'redeemer_added',
+  'redeemer_removed',
   'price_update',
   'timing_update',
 ] as const;

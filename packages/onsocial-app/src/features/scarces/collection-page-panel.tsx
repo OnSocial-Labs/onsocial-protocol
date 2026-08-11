@@ -74,7 +74,9 @@ import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { TicketDoorSheet } from '@/features/scarces/ticket-door-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
+import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
+import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScarceDropLoves } from '@/hooks/use-scarce-drop-loves';
@@ -209,6 +211,8 @@ export function CollectionPagePanel({
   const [showPassOpen, setShowPassOpen] = useState(false);
   const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
   const [doorOpen, setDoorOpen] = useState(false);
+  /** Viewer is creator or door staff for redeem. */
+  const [isRedeemer, setIsRedeemer] = useState(false);
   const activityTitleId = useId();
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -356,11 +360,11 @@ export function CollectionPagePanel({
     });
   }, [collectionId, ownedPassTokenId, view?.kind]);
 
-  // Creator Door deep-link ?door=1.
+  // Creator Door deep-link ?door=1 (creator or door staff).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isPassMediumKind(view?.kind)) return;
-    if (!isOwner) return;
+    if (!isOwner && !isRedeemer) return;
     if (
       new URLSearchParams(window.location.search).get(COLLECTION_DOOR_QUERY) !==
       '1'
@@ -370,7 +374,23 @@ export function CollectionPagePanel({
     queueMicrotask(() => {
       setDoorOpen(true);
     });
-  }, [collectionId, isOwner, view?.kind]);
+  }, [collectionId, isOwner, isRedeemer, view?.kind]);
+
+  useEffect(() => {
+    if (!viewerAccountId || !isPassMediumKind(view?.kind)) {
+      queueMicrotask(() => setIsRedeemer(false));
+      return;
+    }
+    let cancelled = false;
+    void fetchIsCollectionRedeemer(collectionId, viewerAccountId).then(
+      (ok) => {
+        if (!cancelled) setIsRedeemer(ok);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId, viewerAccountId, view?.kind, refreshKey]);
 
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
@@ -686,7 +706,7 @@ export function CollectionPagePanel({
   const isPassKind = isPassMediumKind(mediumKind);
   const canDoor =
     isPassKind &&
-    isOwner &&
+    (isOwner || isRedeemer) &&
     view.maxRedeems != null &&
     view.maxRedeems > 0;
   /**
@@ -1178,7 +1198,7 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {isPassKind && (canShowPass || canDoor) ? (
+        {isPassKind && (canShowPass || canDoor || isOwner) ? (
           <section className="collection-reading" aria-label="Entry">
             {canShowPass ? (
               <div className="collection-reading-row">
@@ -1203,6 +1223,14 @@ export function CollectionPagePanel({
                   Admit
                 </button>
               </div>
+            ) : null}
+            {isOwner &&
+            view.maxRedeems != null &&
+            view.maxRedeems > 0 ? (
+              <CollectionDoorStaffManager
+                collectionId={view.collectionId}
+                creatorId={view.creatorId}
+              />
             ) : null}
           </section>
         ) : null}

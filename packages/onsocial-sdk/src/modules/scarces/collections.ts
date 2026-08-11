@@ -475,6 +475,42 @@ export class ScarcesCollectionsApi {
     );
   }
 
+  /** Add a door-staff redeemer for this collection (creator only). */
+  async addRedeemer(
+    collectionId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.ADD_REDEEMER,
+      {
+        collectionId,
+        accountId,
+      },
+      'scarces.addRedeemer',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Remove a door-staff redeemer from this collection (creator only). */
+  async removeRedeemer(
+    collectionId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.REMOVE_REDEEMER,
+      {
+        collectionId,
+        accountId,
+      },
+      'scarces.removeRedeemer',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
   /** Set or clear the collection's freeform metadata blob. */
   async setMetadata(
     collectionId: string,

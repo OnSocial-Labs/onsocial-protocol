@@ -42,6 +42,7 @@ fn dutch_collection(floor: u128, start_price: u128, start: u64, end: u64) -> Laz
         max_per_purchase: MAX_BATCH_MINT,
         app_commission_bps: 0,
         random_assignment: false,
+        redeemers: vec![],
     }
 }
 
@@ -82,6 +83,7 @@ fn fixed_collection(price: u128) -> LazyCollection {
         max_per_purchase: MAX_BATCH_MINT,
         app_commission_bps: 0,
         random_assignment: false,
+        redeemers: vec![],
     }
 }
 

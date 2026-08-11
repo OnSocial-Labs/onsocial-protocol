@@ -57,8 +57,8 @@ function getBarcodeDetector():
 }
 
 /**
- * Creator Door sheet — scan Show-pass QR or paste token id, then Admit.
- * Redeem is creator-only on-chain (`tokens.redeem`).
+ * Door sheet — scan Show-pass QR or paste token id, then Admit.
+ * Redeem is creator or door-staff redeemer on-chain (`tokens.redeem`).
  */
 export function TicketDoorSheet({
   open,
