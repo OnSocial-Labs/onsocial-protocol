@@ -437,6 +437,185 @@ FROM ranked
 GROUP BY post_owner, collection_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 5d. scarce_drop_love_fans — distinct non-creator loves on the Drop as a whole
+-- ────────────────────────────────────────────────────────────────────────────
+-- Content path `scarce/{collectionId}` (cards, books, optional album-level love).
+-- Excludes track loves (`scarce/{id}/track/...`) — those stay in 5b/5c.
+
+CREATE OR REPLACE VIEW scarce_drop_love_fans AS
+SELECT
+  post_owner,
+  SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+  COUNT(DISTINCT account_id) FILTER (
+    WHERE lower(account_id) IS DISTINCT FROM lower(post_owner)
+  ) AS fan_count,
+  MAX(block_height) AS last_love_block
+FROM reactions_current
+WHERE operation = 'set'
+  AND reaction_kind = 'love'
+  AND path ~ '/scarce/[^/]+$'
+GROUP BY post_owner, SUBSTRING(path FROM '/scarce/([^/]+)$');
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5e. scarce_drop_love_fan_ids — top recent fans for whole-Drop loves
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW scarce_drop_love_fan_ids AS
+WITH fan_loves AS (
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+    account_id,
+    MAX(block_height) AS last_love_block
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path ~ '/scarce/[^/]+$'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+  GROUP BY
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$'),
+    account_id
+),
+ranked AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    last_love_block,
+    ROW_NUMBER() OVER (
+      PARTITION BY post_owner, collection_id
+      ORDER BY last_love_block DESC, account_id ASC
+    ) AS rn
+  FROM fan_loves
+)
+SELECT
+  post_owner,
+  collection_id,
+  COALESCE(
+    array_agg(account_id ORDER BY rn) FILTER (WHERE rn <= 5),
+    ARRAY[]::text[]
+  ) AS fan_account_ids,
+  COUNT(*)::bigint AS fan_count,
+  MAX(last_love_block) AS last_love_block
+FROM ranked
+GROUP BY post_owner, collection_id;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5f. scarce_collection_love_fans — discovery fans (track ∪ drop-level, distinct)
+-- ────────────────────────────────────────────────────────────────────────────
+-- One row per (creator, collection). Music track loves + whole-Drop loves,
+-- deduped by account so a person who loved two tracks (or track + drop) counts once.
+
+CREATE OR REPLACE VIEW scarce_collection_love_fans AS
+WITH loves AS (
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)/track/') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path LIKE '%/scarce/%/track/%'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+
+  UNION ALL
+
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path ~ '/scarce/[^/]+$'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+),
+dedup AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    MAX(block_height) AS last_love_block
+  FROM loves
+  WHERE collection_id IS NOT NULL AND collection_id <> ''
+  GROUP BY post_owner, collection_id, account_id
+)
+SELECT
+  post_owner,
+  collection_id,
+  COUNT(*)::bigint AS fan_count,
+  MAX(last_love_block) AS last_love_block
+FROM dedup
+GROUP BY post_owner, collection_id;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5g. scarce_collection_love_fan_ids — discovery facepile (union, top 5)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW scarce_collection_love_fan_ids AS
+WITH loves AS (
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)/track/') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path LIKE '%/scarce/%/track/%'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+
+  UNION ALL
+
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path ~ '/scarce/[^/]+$'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+),
+fan_loves AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    MAX(block_height) AS last_love_block
+  FROM loves
+  WHERE collection_id IS NOT NULL AND collection_id <> ''
+  GROUP BY post_owner, collection_id, account_id
+),
+ranked AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    last_love_block,
+    ROW_NUMBER() OVER (
+      PARTITION BY post_owner, collection_id
+      ORDER BY last_love_block DESC, account_id ASC
+    ) AS rn
+  FROM fan_loves
+)
+SELECT
+  post_owner,
+  collection_id,
+  COALESCE(
+    array_agg(account_id ORDER BY rn) FILTER (WHERE rn <= 5),
+    ARRAY[]::text[]
+  ) AS fan_account_ids,
+  COUNT(*)::bigint AS fan_count,
+  MAX(last_love_block) AS last_love_block
+FROM ranked
+GROUP BY post_owner, collection_id;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 6. standing_counts — incoming standing counts per account
 -- ────────────────────────────────────────────────────────────────────────────
 

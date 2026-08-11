@@ -7,6 +7,7 @@ import {
   DotsVerticalIcon,
   EditPenIcon,
   GiftIcon,
+  InformationCircleIcon,
   PauseFillIcon,
   PlayFillIcon,
   ShareIcon,
@@ -24,6 +25,11 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import {
+  fetchCollectionPreferIndexer,
+  type CollectionView,
+} from '@/features/scarces/collections-data';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
   canDeleteDrop,
@@ -73,6 +79,11 @@ export function DropsDiscoveryRowMenu({
   const [supportOpen, setSupportOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [ownerPending, setOwnerPending] = useState(false);
+  const [factsOpen, setFactsOpen] = useState(false);
+  const [factsView, setFactsView] = useState<CollectionView | null>(
+    item.view
+  );
+  const [factsPending, setFactsPending] = useState(false);
 
   const isSelf = Boolean(accountId) && accountIdsEqual(accountId!, creatorId);
   const standPending = isStandingPendingForTarget(creatorId);
@@ -92,6 +103,47 @@ export function DropsDiscoveryRowMenu({
     setOpen(false);
     setConfirmDelete(false);
   }, []);
+
+  const openFacts = useCallback(async () => {
+    close();
+    const cached = factsView ?? item.view;
+    if (cached) {
+      setFactsView(cached);
+      setFactsOpen(true);
+      return;
+    }
+    if (factsPending) return;
+    setFactsPending(true);
+    try {
+      const view = await fetchCollectionPreferIndexer(item.collectionId);
+      if (!view) {
+        setTxResult({
+          type: 'error',
+          msg: 'Couldn’t load drop facts.',
+        });
+        return;
+      }
+      setFactsView(view);
+      setFactsOpen(true);
+    } catch (error) {
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : 'Couldn’t load drop facts.',
+      });
+    } finally {
+      setFactsPending(false);
+    }
+  }, [
+    close,
+    factsPending,
+    factsView,
+    item.collectionId,
+    item.view,
+    setTxResult,
+  ]);
 
   const dropAbsoluteUrl = useCallback(() => {
     if (typeof window === 'undefined') return '';
@@ -288,6 +340,19 @@ export function DropsDiscoveryRowMenu({
         leading: <EditPenIcon className="action-drawer-icon" aria-hidden />,
         onSelect: handleShareToPost,
       },
+      {
+        id: 'facts',
+        section: 'Drop',
+        label: factsPending ? 'Loading facts…' : 'Drop facts',
+        description: 'Mint rules, schedule, provenance',
+        disabled: factsPending,
+        leading: (
+          <InformationCircleIcon className="action-drawer-icon" aria-hidden />
+        ),
+        onSelect: () => {
+          void openFacts();
+        },
+      },
     ];
 
     if (showPause) {
@@ -376,12 +441,14 @@ export function DropsDiscoveryRowMenu({
     connect,
     creatorId,
     creatorLabel,
+    factsPending,
     handleShare,
     handleShareToPost,
     handleStand,
     isConnected,
     isSelf,
     onToggleSave,
+    openFacts,
     ownerPending,
     runOwnerAction,
     savePending,
@@ -395,6 +462,8 @@ export function DropsDiscoveryRowMenu({
   ]);
 
   const deleteConfirm = dropDeleteConfirmCopy({ title: dropTitle });
+  const factsNowMs = Date.now();
+  const sheetView = factsView ?? item.view;
 
   return (
     <div
@@ -442,6 +511,15 @@ export function DropsDiscoveryRowMenu({
           />
         ) : null}
       </ActionDrawer>
+
+      {sheetView ? (
+        <CollectionFactsSheet
+          open={factsOpen}
+          onClose={() => setFactsOpen(false)}
+          view={sheetView}
+          nowMs={factsNowMs}
+        />
+      ) : null}
 
       {!isSelf ? (
         <ProfileSupportSheet

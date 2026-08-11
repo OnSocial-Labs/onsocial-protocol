@@ -123,8 +123,9 @@ function rowToDiscoveryItem(
 }
 
 /**
- * Soft-attach album fan counts + top fan ids (facepile).
- * Prefers `scarce_album_love_fan_ids`; falls back to counts-only view.
+ * Soft-attach discovery fan counts + top fan ids (facepile).
+ * Prefers `scarce_collection_love_fan_ids` (track ∪ drop-level);
+ * falls back to counts-only, then legacy album-only views.
  */
 async function withDropFanRosters(
   items: DropDiscoveryItem[],
@@ -138,44 +139,44 @@ async function withDropFanRosters(
   ];
   if (ids.length === 0) return items;
 
-  try {
-    const rows = await client.query.scarces.albumLoveFanIdsByCollectionIds(ids);
-    if (rows.length > 0) {
-      const byId = new Map<
-        string,
-        { fanCount: number; fanIds: string[] }
-      >();
-      for (const row of rows) {
-        const id = row.collectionId?.trim();
-        const count = Number(row.fanCount) || 0;
-        if (!id || count <= 0) continue;
-        const fanIds = (row.fanAccountIds ?? [])
-          .map((fanId) => fanId.trim())
-          .filter(Boolean)
-          .slice(0, 5);
-        const prev = byId.get(id);
-        if (!prev || count > prev.fanCount) {
-          byId.set(id, { fanCount: count, fanIds });
-        }
+  const applyRosterRows = (
+    rows: Array<{
+      collectionId: string;
+      fanCount: number;
+      fanAccountIds?: string[];
+    }>
+  ): DropDiscoveryItem[] | null => {
+    if (rows.length === 0) return null;
+    const byId = new Map<string, { fanCount: number; fanIds: string[] }>();
+    for (const row of rows) {
+      const id = row.collectionId?.trim();
+      const count = Number(row.fanCount) || 0;
+      if (!id || count <= 0) continue;
+      const fanIds = (row.fanAccountIds ?? [])
+        .map((fanId) => fanId.trim())
+        .filter(Boolean)
+        .slice(0, 5);
+      const prev = byId.get(id);
+      if (!prev || count > prev.fanCount) {
+        byId.set(id, { fanCount: count, fanIds });
       }
-      if (byId.size === 0) return items;
-      return items.map((item) => {
-        const roster = byId.get(item.collectionId.trim());
-        if (!roster) return item;
-        return {
-          ...item,
-          fanCount: roster.fanCount,
-          ...(roster.fanIds.length > 0 ? { fanIds: roster.fanIds } : {}),
-        };
-      });
     }
-  } catch {
-    // View may not be tracked yet — fall through to counts-only.
-  }
+    if (byId.size === 0) return null;
+    return items.map((item) => {
+      const roster = byId.get(item.collectionId.trim());
+      if (!roster) return item;
+      return {
+        ...item,
+        fanCount: roster.fanCount,
+        ...(roster.fanIds.length > 0 ? { fanIds: roster.fanIds } : {}),
+      };
+    });
+  };
 
-  try {
-    const rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
-    if (rows.length === 0) return items;
+  const applyCountRows = (
+    rows: Array<{ collectionId: string; fanCount: number }>
+  ): DropDiscoveryItem[] | null => {
+    if (rows.length === 0) return null;
     const byId = new Map<string, number>();
     for (const row of rows) {
       const id = row.collectionId?.trim();
@@ -184,11 +185,42 @@ async function withDropFanRosters(
       const prev = byId.get(id) ?? 0;
       if (count > prev) byId.set(id, count);
     }
-    if (byId.size === 0) return items;
+    if (byId.size === 0) return null;
     return items.map((item) => {
       const fanCount = byId.get(item.collectionId.trim());
       return fanCount != null ? { ...item, fanCount } : item;
     });
+  };
+
+  try {
+    const rows =
+      await client.query.scarces.collectionLoveFanIdsByCollectionIds(ids);
+    const next = applyRosterRows(rows);
+    if (next) return next;
+  } catch {
+    // View may not be tracked yet — fall through.
+  }
+
+  try {
+    const rows =
+      await client.query.scarces.collectionLoveFansByCollectionIds(ids);
+    const next = applyCountRows(rows);
+    if (next) return next;
+  } catch {
+    // Fall through to legacy album views.
+  }
+
+  try {
+    const rows = await client.query.scarces.albumLoveFanIdsByCollectionIds(ids);
+    const next = applyRosterRows(rows);
+    if (next) return next;
+  } catch {
+    // View may not be tracked yet — fall through to counts-only.
+  }
+
+  try {
+    const rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
+    return applyCountRows(rows) ?? items;
   } catch {
     return items;
   }
@@ -341,10 +373,11 @@ async function fetchClosingPage(
 
 /** Pick a single Live spotlight (closing first, else most minted). */
 export function pickFeaturedLiveDrop(
-  items: DropDiscoveryItem[]
+  items: DropDiscoveryItem[],
+  nowMs = Date.now()
 ): DropDiscoveryItem | null {
   if (items.length === 0) return null;
-  const closing = items.find((item) => isDropClosing(item));
+  const closing = items.find((item) => isDropClosing(item, nowMs));
   if (closing) return closing;
   let best: DropDiscoveryItem | null = null;
   for (const item of items) {
@@ -437,11 +470,17 @@ async function fetchLovedPage(
     offset: number;
   }
 ): Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }> {
+  const loveFans = async (limit: number, offset: number) => {
+    try {
+      return await client.query.scarces.collectionLoveFans({ limit, offset });
+    } catch {
+      // Union view not tracked yet — legacy album ranking.
+      return client.query.scarces.albumLoveFans({ limit, offset });
+    }
+  };
+
   if (!opts.mediumKind) {
-    const loves = await client.query.scarces.albumLoveFans({
-      limit: opts.limit,
-      offset: opts.offset,
-    });
+    const loves = await loveFans(opts.limit, opts.offset);
     const ids = loves.map((row) => row.collectionId).filter(Boolean);
     const shells =
       ids.length > 0
@@ -465,10 +504,7 @@ async function fetchLovedPage(
   const batch = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
   for (let round = 0; round < MEDIUM_FETCH_ROUNDS; round += 1) {
     if (matched.length >= opts.offset + opts.limit) break;
-    const loves = await client.query.scarces.albumLoveFans({
-      limit: batch,
-      offset: loveOffset,
-    });
+    const loves = await loveFans(batch, loveOffset);
     loveOffset += loves.length;
     if (loves.length < batch) exhausted = true;
     if (loves.length === 0) break;

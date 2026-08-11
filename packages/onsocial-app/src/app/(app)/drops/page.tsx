@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 
 export default async function DropsPage() {
   const client = createServerOnSocialClient();
+  const initialNowMs = Date.now();
   const page = await fetchDropsPage({
     sort: 'live',
     limit: DROPS_PAGE_SIZE,
@@ -27,6 +28,7 @@ export default async function DropsPage() {
         initialSort="live"
         initialItems={page.items}
         initialCreators={[]}
+        initialNowMs={initialNowMs}
       />
     </Suspense>
   );

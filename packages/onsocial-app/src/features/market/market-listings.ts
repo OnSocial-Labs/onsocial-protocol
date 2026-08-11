@@ -125,8 +125,9 @@ export interface MarketListingItem {
   /** Discovery facets (genres / subjects) from `extra.facets`. */
   facets?: string[];
   /**
-   * Distinct album fans (`scarce_album_love_fans`) when this listing maps to a
-   * music drop. Omitted / 0 → Market hides the chip.
+   * Distinct fans when this listing maps to a drop (`scarce_collection_love_fans`
+   * = track ∪ drop-level; falls back to album track fans). Omitted / 0 → Market
+   * hides the chip.
    */
   fanCount?: number;
 }
@@ -375,11 +376,15 @@ function timestampMs(raw: number | string | null | undefined): number {
 /**
  * Relative age for Market listed / sold / minted labels.
  * Accepts ms or ns-ish indexer timestamps.
+ * Pass `nowMs` from a stable clock (SSR snapshot) to avoid hydration drift.
  */
-export function formatMarketRelativeTime(timestamp: number): string {
+export function formatMarketRelativeTime(
+  timestamp: number,
+  nowMs: number = Date.now()
+): string {
   if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
   const ms = timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
-  const elapsed = Math.max(0, Date.now() - ms);
+  const elapsed = Math.max(0, nowMs - ms);
   const minutes = Math.floor(elapsed / 60_000);
   if (minutes < 1) return 'just now';
   if (minutes < 60) return `${minutes}m ago`;
@@ -753,7 +758,7 @@ export function albumCollectionIdForListing(
 }
 
 /**
- * Attach album fan counts for music drops on a Market page.
+ * Attach collection fan counts (track ∪ drop-level loves) for Market rows.
  * Soft-fails — browse still works if the fans view is unavailable.
  */
 async function withAlbumFanCounts(
@@ -770,7 +775,13 @@ async function withAlbumFanCounts(
   ];
   if (ids.length === 0) return items;
   try {
-    const rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
+    let rows: Array<{ collectionId: string; fanCount: number }> = [];
+    try {
+      rows =
+        await client.query.scarces.collectionLoveFansByCollectionIds(ids);
+    } catch {
+      rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
+    }
     if (rows.length === 0) return items;
     const byId = new Map<string, number>();
     for (const row of rows) {

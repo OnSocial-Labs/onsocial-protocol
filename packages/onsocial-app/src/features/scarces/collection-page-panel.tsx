@@ -13,9 +13,9 @@ import { useRouter } from 'next/navigation';
 import {
   Divider,
   GlassSheet,
+  HeartFillIcon,
+  HeartIcon,
   InformationCircleIcon,
-  OsSheetAction,
-  OsSheetActions,
   ProfileAvatar,
   BookmarkFillIcon,
   BookmarkIcon,
@@ -26,7 +26,6 @@ import {
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { DropDeleteConfirmPanel } from '@/components/wallet/drop-delete-confirm-panel';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -44,10 +43,13 @@ import {
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
+import { CollectionOwnerManageMenu } from '@/features/scarces/collection-owner-manage-menu';
 import {
   CollectionActivitySkeleton,
 } from '@/features/scarces/collection-page-skeleton';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import { GuildFacepile } from '@/features/guilds/guild-facepile';
+import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
   collectionStatusLabel,
   deriveCollectionStatus,
@@ -64,17 +66,14 @@ import {
   canDeleteDrop,
   canPauseDrop,
   canResumeDrop,
-  deleteDropCollection,
-  pauseDropCollection,
-  resumeDropCollection,
 } from '@/features/scarces/drop-owner-actions';
 import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
+import { useScarceDropLoves } from '@/hooks/use-scarce-drop-loves';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -88,12 +87,6 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
-import {
-  txToastConfirming,
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const MINT_ACTIVITY_OPS = new Set([
   'purchase',
@@ -144,12 +137,9 @@ export function CollectionPagePanel({
   initialCreator?: CollectionCreatorFace | null;
   initialActivity?: CollectionActivityRow[];
 }) {
-  const { accountId: viewerAccountId, isConnected, getSigningWallet } =
-    useAppWallet();
-  const { setTxResult, trackTransaction } = useAppTransactionFeedback();
+  const { accountId: viewerAccountId, isConnected } = useAppWallet();
+  const { setTxResult } = useAppTransactionFeedback();
   const router = useRouter();
-  const [ownerPending, setOwnerPending] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const collectionSaves = useScarceCollectionSaves({
     collectionIds: [collectionId],
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -157,6 +147,17 @@ export function CollectionPagePanel({
   const collectionSaved = collectionSaves.viewerSaved(collectionId);
   const collectionSavePending = collectionSaves.isSavePending(collectionId);
   const [view, setView] = useState<CollectionView | null>(initial);
+  /** Album / multi-clip drops love per track in the player — no Drop-level heart. */
+  const showDropLove = (view?.playables.length ?? 0) === 0;
+  const dropLoves = useScarceDropLoves({
+    creatorId: showDropLove ? (view?.creatorId ?? null) : null,
+    collectionId: showDropLove ? collectionId : null,
+  });
+  const dropFanIds = dropLoves.fanIds.slice(0, 5);
+  const dropFanProfiles = usePostAuthorProfiles(
+    showDropLove ? dropFanIds : []
+  );
+  const [dropFansOpen, setDropFansOpen] = useState(false);
   const [notFound, setNotFound] = useState(initial == null);
   const [walletRemaining, setWalletRemaining] = useState<number | null>(null);
   /** null = not checked yet / N/A; number = remaining allowlist mints. */
@@ -472,78 +473,21 @@ export function CollectionPagePanel({
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const showOwnerPause = isOwner && canPauseDrop(status);
-  const showOwnerResume = isOwner && canResumeDrop(status);
-  const showOwnerDelete =
-    isOwner && view != null && canDeleteDrop(view.minted, status);
   const showOwnerManage =
-    showOwnerPause || showOwnerResume || showOwnerDelete;
+    isOwner &&
+    (canPauseDrop(status) ||
+      canResumeDrop(status) ||
+      (view != null && canDeleteDrop(view.minted, status)));
 
-  const runOwnerAction = useCallback(
-    async (kind: 'paused' | 'resumed' | 'deleted') => {
-      if (!view || ownerPending) return;
-      setOwnerPending(true);
-      try {
-        const { accountId: signerId, wallet } = await getSigningWallet();
-        const response =
-          kind === 'paused'
-            ? await pauseDropCollection(signerId, wallet, view.collectionId)
-            : kind === 'resumed'
-              ? await resumeDropCollection(signerId, wallet, view.collectionId)
-              : await deleteDropCollection(signerId, wallet, view.collectionId);
-        const confirmed = await trackTransaction({
-          txHashes: collectRelayTxHashes(response),
-          submittedMessage:
-            kind === 'paused'
-              ? txToastConfirming.pausingCollection
-              : kind === 'resumed'
-                ? txToastConfirming.resumingCollection
-                : txToastConfirming.deletingCollection,
-          successMessage:
-            kind === 'paused'
-              ? txToastSuccess.collectionPaused
-              : kind === 'resumed'
-                ? txToastSuccess.collectionResumed
-                : txToastSuccess.collectionDeleted,
-          failureMessage:
-            kind === 'paused'
-              ? txToastError.pauseCollectionFailed
-              : kind === 'resumed'
-                ? txToastError.resumeCollectionFailed
-                : txToastError.deleteCollectionFailed,
-        });
-        if (!confirmed) return;
-        if (kind === 'deleted') {
-          setConfirmDelete(false);
-          router.replace(APP_DROPS_PATH);
-          return;
-        }
-        setRefreshKey((k) => k + 1);
-      } catch (error) {
-        if (isWalletUserCancellation(error)) return;
-        setTxResult({
-          type: 'error',
-          msg:
-            error instanceof Error
-              ? error.message
-              : kind === 'paused'
-                ? txToastError.pauseCollectionFailed
-                : kind === 'resumed'
-                  ? txToastError.resumeCollectionFailed
-                  : txToastError.deleteCollectionFailed,
-        });
-      } finally {
-        setOwnerPending(false);
+  const handleOwnerManaged = useCallback(
+    (change: 'paused' | 'resumed' | 'deleted') => {
+      if (change === 'deleted') {
+        router.replace(APP_DROPS_PATH);
+        return;
       }
+      setRefreshKey((k) => k + 1);
     },
-    [
-      getSigningWallet,
-      ownerPending,
-      router,
-      setTxResult,
-      trackTransaction,
-      view,
-    ]
+    [router]
   );
 
   const activityLoaded = activityFetched?.key === activityRequestKey;
@@ -671,6 +615,16 @@ export function CollectionPagePanel({
   const hasPlayables = playables.length > 0;
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
+  const mediumKind = (view.kind ?? '').trim().toLowerCase();
+  /**
+   * Aa / thought cards — inset object, not immersive album bleed.
+   * `cardBg` when theme was stamped; `thought`/`writing` for from-post text.
+   */
+  const isTextCardCover =
+    !isAudio &&
+    (Boolean(view.cardBg) ||
+      mediumKind === 'thought' ||
+      mediumKind === 'writing');
   const readables = view.readables;
   const hasReadables = readables.length > 0 || view.bookPdf != null;
   const canReadWriting = isOwner || holdsEdition === true;
@@ -776,9 +730,9 @@ export function CollectionPagePanel({
             <div
               className={`collection-cover${view.mediaUrl ? ' has-media' : ''}${
                 isAudio ? ' is-square' : ''
-              }${immersive ? ' is-immersive' : ''}${
-                hasReadables ? ' has-read' : ''
-              }`}
+              }${isTextCardCover ? ' is-card' : ''}${
+                immersive ? ' is-immersive' : ''
+              }${hasReadables ? ' has-read' : ''}`}
               {...(view.cardBg && !view.mediaUrl
                 ? { style: { background: view.cardBg } }
                 : {})}
@@ -893,7 +847,7 @@ export function CollectionPagePanel({
               </div>
             </div>
             <div className="collection-product-row">
-              <p className="collection-product-line">
+              <div className="collection-product-line">
                 <span className={`collection-product-status ${statusTone(status)}`}>
                   {collectionStatusLabel(status)}
                 </span>
@@ -937,8 +891,56 @@ export function CollectionPagePanel({
                     </span>
                   </>
                 ) : null}
-              </p>
+              </div>
               <div className="collection-commerce-share-row collection-commerce-share-row--viewer">
+                {showOwnerManage ? (
+                  <CollectionOwnerManageMenu
+                    collectionId={view.collectionId}
+                    title={view.title}
+                    status={status}
+                    minted={view.minted}
+                    onManaged={handleOwnerManaged}
+                  />
+                ) : null}
+                {showDropLove ? (
+                  <button
+                    type="button"
+                    className={`collection-commerce-love${
+                      dropLoves.viewerLoved ? ' is-loved' : ''
+                    }${dropLoves.pending ? ' is-pending' : ''}`}
+                    aria-label={
+                      dropLoves.viewerLoved
+                        ? dropLoves.loveCount > 0
+                          ? `Remove love from this drop (${dropLoves.loveCount})`
+                          : 'Remove love from this drop'
+                        : dropLoves.loveCount > 0
+                          ? `Love this drop (${dropLoves.loveCount})`
+                          : 'Love this drop'
+                    }
+                    aria-pressed={dropLoves.viewerLoved}
+                    disabled={dropLoves.pending}
+                    onClick={() => {
+                      void dropLoves.toggleLove();
+                    }}
+                  >
+                    {dropLoves.viewerLoved ? (
+                      <HeartFillIcon
+                        aria-hidden
+                        className="collection-commerce-love-icon"
+                      />
+                    ) : (
+                      <HeartIcon
+                        aria-hidden
+                        className="collection-commerce-love-icon"
+                      />
+                    )}
+                    {dropLoves.loveCount > 0 ? (
+                      <span className="collection-commerce-love-count">
+                        {dropLoves.loveCount}
+                      </span>
+                    ) : null}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className={`collection-commerce-save${
@@ -983,18 +985,38 @@ export function CollectionPagePanel({
               </div>
             </div>
             <div
-              className="collection-progress-track"
+              className="collection-progress"
               role="progressbar"
               aria-valuenow={progressPct}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label="Editions minted"
             >
+              <Divider
+                variant="detail"
+                className="collection-progress-rule"
+              />
               <span
                 className="collection-progress-fill"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
+            {showDropLove && dropLoves.fanCount > 0 ? (
+              <div className="collection-drop-fans">
+                <GuildFacepile
+                  memberIds={dropFanIds}
+                  profiles={dropFanProfiles}
+                  memberCount={dropLoves.fanCount}
+                  countUnit={{ one: 'fan', other: 'fans' }}
+                  slots={Math.min(5, Math.max(1, dropLoves.fanCount))}
+                  loading={
+                    dropLoves.fansLoading && dropFanIds.length === 0
+                  }
+                  className="collection-drop-fans-facepile"
+                  onClick={() => setDropFansOpen(true)}
+                />
+              </div>
+            ) : null}
             {mintDisabledReason && !isOwner ? (
               <p className="collection-mint-hint">{mintDisabledReason}</p>
             ) : null}
@@ -1062,84 +1084,13 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {isOwner && (status === 'upcoming' || showOwnerManage) ? (
+        {isOwner && status === 'upcoming' ? (
           <div className="collection-owner-tools">
-            {showOwnerManage ? (
-              <>
-                <p className="collection-section-label">Manage</p>
-                {confirmDelete ? (
-                  <DropDeleteConfirmPanel
-                    title={view.title}
-                    pending={ownerPending}
-                    onConfirm={() => {
-                      void runOwnerAction('deleted');
-                    }}
-                    onCancel={() => setConfirmDelete(false)}
-                  />
-                ) : (
-                  <>
-                    <OsSheetActions
-                      layout="row-compact"
-                      tone="frosted-primary"
-                      borderless
-                      className="collection-owner-manage"
-                    >
-                      {showOwnerPause ? (
-                        <OsSheetAction
-                          type="button"
-                          variant="ghost"
-                          ready={!ownerPending}
-                          pending={ownerPending}
-                          pendingLabel="Pausing…"
-                          onClick={() => {
-                            void runOwnerAction('paused');
-                          }}
-                        >
-                          Pause
-                        </OsSheetAction>
-                      ) : null}
-                      {showOwnerResume ? (
-                        <OsSheetAction
-                          type="button"
-                          variant="primary"
-                          ready={!ownerPending}
-                          pending={ownerPending}
-                          pendingLabel="Resuming…"
-                          onClick={() => {
-                            void runOwnerAction('resumed');
-                          }}
-                        >
-                          Resume
-                        </OsSheetAction>
-                      ) : null}
-                      {showOwnerDelete ? (
-                        <OsSheetAction
-                          type="button"
-                          variant="danger"
-                          ready={!ownerPending}
-                          disabled={ownerPending}
-                          onClick={() => setConfirmDelete(true)}
-                        >
-                          Delete
-                        </OsSheetAction>
-                      ) : null}
-                    </OsSheetActions>
-                    {showOwnerDelete ? (
-                      <p className="collection-owner-manage-hint">
-                        Delete only works if nothing was minted.
-                      </p>
-                    ) : null}
-                  </>
-                )}
-              </>
-            ) : null}
-            {status === 'upcoming' ? (
-              <CollectionAllowlistManager
-                collectionId={view.collectionId}
-                creatorId={view.creatorId}
-                maxPerWallet={view.maxPerWallet}
-              />
-            ) : null}
+            <CollectionAllowlistManager
+              collectionId={view.collectionId}
+              creatorId={view.creatorId}
+              maxPerWallet={view.maxPerWallet}
+            />
           </div>
         ) : null}
 
@@ -1252,6 +1203,16 @@ export function CollectionPagePanel({
         onOpenChange={setMintOpen}
         onPurchased={handleMintPurchased}
       />
+
+      {showDropLove ? (
+        <ScarceFansSheet
+          open={dropFansOpen}
+          onClose={() => setDropFansOpen(false)}
+          fanIds={dropLoves.fanIds}
+          fanCount={dropLoves.fanCount}
+          dropTitle={view.title}
+        />
+      ) : null}
     </OsAppScreen>
   );
 }

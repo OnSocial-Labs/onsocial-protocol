@@ -23,10 +23,10 @@ describe('formatMarketRelativeTime', () => {
 
   it('formats recent ages', () => {
     const now = Date.now();
-    expect(formatMarketRelativeTime(now - 30_000)).toBe('just now');
-    expect(formatMarketRelativeTime(now - 5 * 60_000)).toBe('5m ago');
-    expect(formatMarketRelativeTime(now - 3 * 3_600_000)).toBe('3h ago');
-    expect(formatMarketRelativeTime(now - 2 * 86_400_000)).toBe('2d ago');
+    expect(formatMarketRelativeTime(now - 30_000, now)).toBe('just now');
+    expect(formatMarketRelativeTime(now - 5 * 60_000, now)).toBe('5m ago');
+    expect(formatMarketRelativeTime(now - 3 * 3_600_000, now)).toBe('3h ago');
+    expect(formatMarketRelativeTime(now - 2 * 86_400_000, now)).toBe('2d ago');
   });
 });
 

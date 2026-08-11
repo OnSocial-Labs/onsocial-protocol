@@ -1076,6 +1076,124 @@ export class ScarcesQuery {
   }
 
   /**
+   * Most-loved drops from `scarce_collection_love_fans` (fan_count desc).
+   * Unions track loves + whole-Drop loves (distinct fans).
+   */
+  async collectionLoveFans(
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      postOwner: string;
+      collectionId: string;
+      fanCount: number;
+      lastLoveBlock: number | null;
+    }>
+  > {
+    const limit = opts.limit ?? 40;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      scarceCollectionLoveFans: Array<{
+        postOwner: string;
+        collectionId: string;
+        fanCount: number;
+        lastLoveBlock: number | null;
+      }>;
+    }>({
+      query: `query ScarceCollectionLoveFans($limit: Int!, $offset: Int!) {
+        scarceCollectionLoveFans(
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{fanCount: DESC}, {lastLoveBlock: DESC_NULLS_LAST}]
+        ) {
+          postOwner
+          collectionId
+          fanCount
+          lastLoveBlock
+        }
+      }`,
+      variables: { limit, offset },
+    });
+    return res.data?.scarceCollectionLoveFans ?? [];
+  }
+
+  /**
+   * Fan counts for specific drop ids (`scarce_collection_love_fans`).
+   * Missing ids omit a row — callers treat absence as 0 fans.
+   */
+  async collectionLoveFansByCollectionIds(collectionIds: string[]): Promise<
+    Array<{
+      collectionId: string;
+      fanCount: number;
+    }>
+  > {
+    const ids = [
+      ...new Set(
+        collectionIds.map((id) => id.trim()).filter((id) => id.length > 0)
+      ),
+    ];
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      scarceCollectionLoveFans: Array<{
+        collectionId: string;
+        fanCount: number;
+      }>;
+    }>({
+      query: `query ScarceCollectionLoveFansByIds($ids: [String!]!) {
+        scarceCollectionLoveFans(where: { collectionId: { _in: $ids } }) {
+          collectionId
+          fanCount
+        }
+      }`,
+      variables: { ids },
+    });
+    return res.data?.scarceCollectionLoveFans ?? [];
+  }
+
+  /**
+   * Top recent fan account ids + counts for drop ids
+   * (`scarce_collection_love_fan_ids`). Missing ids omit a row.
+   */
+  async collectionLoveFanIdsByCollectionIds(collectionIds: string[]): Promise<
+    Array<{
+      collectionId: string;
+      fanAccountIds: string[];
+      fanCount: number;
+    }>
+  > {
+    const ids = [
+      ...new Set(
+        collectionIds.map((id) => id.trim()).filter((id) => id.length > 0)
+      ),
+    ];
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      scarceCollectionLoveFanIds: Array<{
+        collectionId: string;
+        fanAccountIds: string[] | null;
+        fanCount: number;
+      }>;
+    }>({
+      query: `query ScarceCollectionLoveFanIdsByIds($ids: [String!]!) {
+        scarceCollectionLoveFanIds(where: { collectionId: { _in: $ids } }) {
+          collectionId
+          fanAccountIds
+          fanCount
+        }
+      }`,
+      variables: { ids },
+    });
+    return (res.data?.scarceCollectionLoveFanIds ?? []).map((row) => ({
+      collectionId: row.collectionId,
+      fanAccountIds: Array.isArray(row.fanAccountIds)
+        ? row.fanAccountIds.filter(
+            (id): id is string => typeof id === 'string' && id.trim().length > 0
+          )
+        : [],
+      fanCount: Number(row.fanCount) || 0,
+    }));
+  }
+
+  /**
    * Creator / collector activity leaderboard (`scarces_activity`).
    */
   async activityLeaderboard(

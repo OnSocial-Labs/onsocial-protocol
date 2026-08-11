@@ -1499,11 +1499,12 @@ export function ScarceClipPlayer({
                           aria-hidden
                         />
                       )}
-                      {loveCount > 0 ? (
-                        <span className="scarce-clip-track-love-count">
-                          {loveCount}
-                        </span>
-                      ) : null}
+                      <span
+                        className="scarce-clip-track-love-count"
+                        aria-hidden={loveCount <= 0}
+                      >
+                        {loveCount > 0 ? loveCount : ''}
+                      </span>
                     </button>
                   ) : null}
                   {showDownloads ? (
@@ -1625,11 +1626,14 @@ export function ScarceClipPlayer({
               ) : (
                 <HeartIcon className="scarce-clip-track-love-icon" aria-hidden />
               )}
-              {loves.loveCountFor(active) > 0 ? (
-                <span className="scarce-clip-track-love-count">
-                  {loves.loveCountFor(active)}
-                </span>
-              ) : null}
+              <span
+                className="scarce-clip-track-love-count"
+                aria-hidden={loves.loveCountFor(active) <= 0}
+              >
+                {loves.loveCountFor(active) > 0
+                  ? loves.loveCountFor(active)
+                  : ''}
+              </span>
             </button>
           ) : null}
           <MediaDownloadControl

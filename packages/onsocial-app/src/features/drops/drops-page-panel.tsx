@@ -79,9 +79,9 @@ const UPCOMING_SECTIONS: ReadonlyArray<{
 ];
 
 /** Compact relative future (`3h`, `2d`) for Opens / Ends copy. */
-function formatDropRelativeFuture(ms: number): string {
+function formatDropRelativeFuture(ms: number, nowMs: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return '';
-  const delta = Math.max(0, ms - Date.now());
+  const delta = Math.max(0, ms - nowMs);
   const minutes = Math.floor(delta / 60_000);
   if (minutes < 1) return 'soon';
   if (minutes < 60) return `${minutes}m`;
@@ -90,8 +90,12 @@ function formatDropRelativeFuture(ms: number): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
-function formatDropWindow(ms: number, kind: 'opens' | 'ends'): string {
-  const rel = formatDropRelativeFuture(ms);
+function formatDropWindow(
+  ms: number,
+  kind: 'opens' | 'ends',
+  nowMs: number
+): string {
+  const rel = formatDropRelativeFuture(ms, nowMs);
   if (!rel) return '';
   if (rel === 'soon') return kind === 'opens' ? 'Opens soon' : 'Ends soon';
   return kind === 'opens' ? `Opens ${rel}` : `Ends ${rel}`;
@@ -134,7 +138,8 @@ function dropRowMetaBits(
   item: DropDiscoveryItem,
   sort: DropsSort,
   allowlistRemaining: number | null | undefined,
-  formatLabel: string | null
+  formatLabel: string | null,
+  nowMs: number
 ): DropRowMetaBits {
   const supply =
     item.totalSupply != null
@@ -169,7 +174,7 @@ function dropRowMetaBits(
       (item.remaining != null && item.remaining <= 0);
     const endedLabel =
       item.endTimeMs != null
-        ? `Ended ${formatMarketRelativeTime(item.endTimeMs)}`.trim()
+        ? `Ended ${formatMarketRelativeTime(item.endTimeMs, nowMs)}`.trim()
         : 'Ended';
     return {
       scarcity: [soldOut ? 'Sold out' : endedLabel, supply].join(' · '),
@@ -179,7 +184,7 @@ function dropRowMetaBits(
 
   if (sort === 'live' || sort === 'closing') {
     const parts: string[] = [];
-    if (sort === 'closing' || isDropClosing(item)) {
+    if (sort === 'closing' || isDropClosing(item, nowMs)) {
       parts.push('Closing');
     }
     if (item.remaining != null && item.remaining > 0) {
@@ -188,7 +193,7 @@ function dropRowMetaBits(
       parts.push(supply);
     }
     if (item.endTimeMs != null) {
-      const ends = formatDropWindow(item.endTimeMs, 'ends');
+      const ends = formatDropWindow(item.endTimeMs, 'ends', nowMs);
       if (ends) parts.push(ends);
     }
     return {
@@ -239,7 +244,8 @@ function dropRowCommerceAction(
   item: DropDiscoveryItem,
   sort: DropsSort,
   allowlistRemaining: number | null | undefined,
-  viewerId: string | null
+  viewerId: string | null,
+  nowMs: number
 ): DropRowCommerceAction {
   if (sort === 'finished') return null;
   if (viewerId && accountIdsEqual(viewerId, item.creatorId)) return null;
@@ -268,7 +274,7 @@ function dropRowCommerceAction(
 
   if (status === 'upcoming' || sort === 'upcoming') {
     if (item.startTimeMs != null) {
-      const opens = formatDropWindow(item.startTimeMs, 'opens');
+      const opens = formatDropWindow(item.startTimeMs, 'opens', nowMs);
       if (opens) return { kind: 'opens', label: opens };
     }
     return { kind: 'opens', label: 'Upcoming' };
@@ -320,6 +326,7 @@ function DropRow({
   saved = false,
   savePending = false,
   viewerId = null,
+  nowMs,
   onToggleSave,
   onOwnerManaged,
   onPlay,
@@ -332,13 +339,20 @@ function DropRow({
   saved?: boolean;
   savePending?: boolean;
   viewerId?: string | null;
+  nowMs: number;
   onToggleSave: () => void;
   onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
   onPlay?: () => void;
   onMint: () => void;
 }) {
   const formatLabel = dropRowFormatLabel(item);
-  const meta = dropRowMetaBits(item, sort, allowlistRemaining, formatLabel);
+  const meta = dropRowMetaBits(
+    item,
+    sort,
+    allowlistRemaining,
+    formatLabel,
+    nowMs
+  );
   const showPrice = sort !== 'finished' || Boolean(item.priceNear);
   const priceLabel =
     showPrice && item.priceNear
@@ -359,7 +373,7 @@ function DropRow({
     creatorLabel.toLowerCase() !== item.creatorId.trim().toLowerCase();
   const droppedLabel =
     item.createdAtMs != null
-      ? formatMarketRelativeTime(item.createdAtMs)
+      ? formatMarketRelativeTime(item.createdAtMs, nowMs)
       : '';
   // Fans render as facepile (or text fallback) — keep out of the spaced bits.
   const dealBits = [priceLabel, meta.scarcity, meta.format].filter(
@@ -371,7 +385,8 @@ function DropRow({
     item,
     sort,
     allowlistRemaining,
-    viewerId
+    viewerId,
+    nowMs
   );
 
   return (
@@ -611,10 +626,13 @@ export function DropsPagePanel({
   initialSort = 'live',
   initialItems = [],
   initialCreators = [],
+  initialNowMs,
 }: {
   initialSort?: DropsSort;
   initialItems?: DropDiscoveryItem[];
   initialCreators?: CreatorLeaderRow[];
+  /** SSR clock — keeps relative times / Featured stable across hydrate. */
+  initialNowMs?: number;
 }) {
   const { accountId, isConnected, connect } = useAppWallet();
   const router = useRouter();
@@ -622,6 +640,15 @@ export function DropsPagePanel({
   const urlSort = parseDropsSortParam(searchParams.get(DROPS_SORT_PARAM));
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
+  const [nowMs, setNowMs] = useState(
+    () => initialNowMs ?? Date.now()
+  );
+
+  useEffect(() => {
+    setNowMs(Date.now());
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const sorts = useMemo(() => {
     if (!isConnected) return BASE_SORTS;
@@ -845,7 +872,7 @@ export function DropsPagePanel({
     needle.length === 0 &&
     !loading &&
     visibleItems.length >= 2
-      ? pickFeaturedLiveDrop(visibleItems)
+      ? pickFeaturedLiveDrop(visibleItems, nowMs)
       : null;
   const catalogItems = featured
     ? visibleItems.filter(
@@ -861,10 +888,10 @@ export function DropsPagePanel({
       later: [],
     };
     for (const item of catalogItems) {
-      groups[upcomingBucket(item.startTimeMs)].push(item);
+      groups[upcomingBucket(item.startTimeMs, nowMs)].push(item);
     }
     return groups;
-  }, [sort, catalogItems]);
+  }, [sort, catalogItems, nowMs]);
 
   const showCreators =
     sort === 'new' && creators.length > 0 && needle.length === 0;
@@ -880,6 +907,7 @@ export function DropsPagePanel({
       saved={viewerSaved(item.collectionId)}
       savePending={isSavePending(item.collectionId)}
       viewerId={accountId}
+      nowMs={nowMs}
       onToggleSave={() => {
         void toggleSave(item.collectionId);
       }}
