@@ -15,6 +15,8 @@ export const metadata: Metadata = {
 
 export default async function DropsPage() {
   const client = createServerOnSocialClient();
+  // Server request clock for relative-time hydration (must match SSR markup).
+  // eslint-disable-next-line react-hooks/purity -- Server Component; not a client render
   const initialNowMs = Date.now();
   const page = await fetchDropsPage({
     sort: 'live',
