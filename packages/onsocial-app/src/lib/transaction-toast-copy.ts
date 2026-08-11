@@ -230,6 +230,7 @@ export const txToastError = {
   resumeCollectionFailed: 'Could not resume the drop.',
   deleteCollectionFailed: 'Could not delete the drop.',
   loveTrackFailed: 'Could not love this track.',
+  loveDropFailed: 'Could not love this drop.',
   offlineCacheFailed: 'Could not keep this offline.',
   offlineRemoveFailed: 'Could not remove the offline copy.',
   updateAllowlistFailed: 'Could not update the allowlist.',

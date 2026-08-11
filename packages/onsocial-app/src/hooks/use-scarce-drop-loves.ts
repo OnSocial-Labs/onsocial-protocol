@@ -314,7 +314,7 @@ export function useScarceDropLoves(opts: {
       if (!isWalletUserCancellation(error)) {
         setTxResult({
           type: 'error',
-          msg: error instanceof Error ? error.message : txToastError.generic,
+          msg: error instanceof Error ? error.message : txToastError.loveDropFailed,
         });
       }
     } finally {
