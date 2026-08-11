@@ -134,9 +134,7 @@ describe('collage + unmute helpers', () => {
     expect(
       readPostMediaUnmuteIndex({ get: (name) => (name === 'mi' ? '2' : null) })
     ).toBe(2);
-    expect(
-      readPostMediaUnmuteIndex({ get: () => null })
-    ).toBe(0);
+    expect(readPostMediaUnmuteIndex({ get: () => null })).toBe(0);
   });
 
   it('formatMediaDuration and truncateQuoteText', () => {
@@ -154,7 +152,9 @@ describe('revokeOptimisticMediaPreviewUrls', () => {
   });
 
   it('revokes blob preview URLs only', () => {
-    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const revoke = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {});
     revokeOptimisticMediaPreviewUrls(
       JSON.stringify({
         media: [
@@ -168,21 +168,27 @@ describe('revokeOptimisticMediaPreviewUrls', () => {
   });
 
   it('revokeDroppedOptimisticMedia only drops missing keys', () => {
-    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const revoke = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {});
     revokeDroppedOptimisticMedia(
       [
         {
           accountId: 'a',
           postId: '1',
           value: JSON.stringify({
-            media: [{ previewUrl: 'blob:keep', mime: 'image/png', cid: 'preview' }],
+            media: [
+              { previewUrl: 'blob:keep', mime: 'image/png', cid: 'preview' },
+            ],
           }),
         },
         {
           accountId: 'a',
           postId: '2',
           value: JSON.stringify({
-            media: [{ previewUrl: 'blob:drop', mime: 'image/png', cid: 'preview' }],
+            media: [
+              { previewUrl: 'blob:drop', mime: 'image/png', cid: 'preview' },
+            ],
           }),
         },
       ],

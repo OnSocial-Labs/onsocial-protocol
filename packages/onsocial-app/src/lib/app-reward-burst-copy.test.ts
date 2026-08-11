@@ -16,10 +16,16 @@ const CREDIT_AMOUNT = 100_000_000_000_000_000n;
 describe('buildBurstFlushSignature', () => {
   it('is stable for the same credited batch', () => {
     const events = [
-      { amountYocto: CREDIT_YOCTO, action: 'stand_given' as const, targetAccountId: 'alice' },
+      {
+        amountYocto: CREDIT_YOCTO,
+        action: 'stand_given' as const,
+        targetAccountId: 'alice',
+      },
       { amountYocto: CREDIT_YOCTO, action: 'daily_active' as const },
     ];
-    expect(buildBurstFlushSignature(events)).toBe(buildBurstFlushSignature(events));
+    expect(buildBurstFlushSignature(events)).toBe(
+      buildBurstFlushSignature(events)
+    );
   });
 });
 
@@ -27,7 +33,11 @@ describe('resolveBurstDisplayAmount', () => {
   it('sums every credited action in the batch', () => {
     expect(
       resolveBurstDisplayAmount([
-        { amountYocto: CREDIT_YOCTO, action: 'stand_given', targetAccountId: 'alice' },
+        {
+          amountYocto: CREDIT_YOCTO,
+          action: 'stand_given',
+          targetAccountId: 'alice',
+        },
         { amountYocto: CREDIT_YOCTO, action: 'daily_active' },
       ])
     ).toBe(CREDIT_AMOUNT * 2n);
@@ -45,7 +55,9 @@ describe('resolveBurstDisplayAmount', () => {
 describe('shouldShowBurstCelebration', () => {
   it('shows a toast for a lone daily check-in (once per day on chain)', () => {
     expect(
-      shouldShowBurstCelebration([{ amountYocto: CREDIT_YOCTO, action: 'daily_active' }])
+      shouldShowBurstCelebration([
+        { amountYocto: CREDIT_YOCTO, action: 'daily_active' },
+      ])
     ).toBe(true);
   });
 
@@ -57,7 +69,9 @@ describe('shouldShowBurstCelebration', () => {
 describe('resolveBurstAggregateDelayMs', () => {
   it('waits longer when stand may pair with mutual and daily credits', () => {
     expect(
-      resolveBurstAggregateDelayMs([{ action: 'stand_given', targetAccountId: 'alice' }])
+      resolveBurstAggregateDelayMs([
+        { action: 'stand_given', targetAccountId: 'alice' },
+      ])
     ).toBe(APP_REWARD_BURST_STAND_BATCH_MS);
   });
 

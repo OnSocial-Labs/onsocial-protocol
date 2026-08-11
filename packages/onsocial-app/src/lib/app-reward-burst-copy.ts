@@ -1,4 +1,7 @@
-import type { PlatformRewardAction, PlatformRewardCreditEvent } from '@onsocial/sdk';
+import type {
+  PlatformRewardAction,
+  PlatformRewardCreditEvent,
+} from '@onsocial/sdk';
 import { displayName } from '@/lib/profile-display';
 
 /** Window to merge nearby credits into one burst (stand + daily + mutual). */
@@ -23,7 +26,9 @@ export function resolveBurstAggregateDelayMs(
   return APP_REWARD_BURST_AGGREGATE_MS;
 }
 
-export function isSocialStandBatchAction(action: PlatformRewardAction): boolean {
+export function isSocialStandBatchAction(
+  action: PlatformRewardAction
+): boolean {
   return SOCIAL_STAND_BATCH_ACTIONS.has(action);
 }
 

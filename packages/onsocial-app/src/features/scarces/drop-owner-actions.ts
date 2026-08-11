@@ -4,12 +4,16 @@ import type { CollectionStatus } from '@/features/scarces/collections-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 
 /** Pause minting on a live / upcoming drop. */
-export function canPauseDrop(status: CollectionStatus | null | undefined): boolean {
+export function canPauseDrop(
+  status: CollectionStatus | null | undefined
+): boolean {
   return status === 'live' || status === 'upcoming';
 }
 
 /** Resume a paused drop. */
-export function canResumeDrop(status: CollectionStatus | null | undefined): boolean {
+export function canResumeDrop(
+  status: CollectionStatus | null | undefined
+): boolean {
   return status === 'paused';
 }
 

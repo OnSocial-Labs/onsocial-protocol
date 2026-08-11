@@ -74,8 +74,7 @@ export function DropsDiscoveryRowMenu({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [ownerPending, setOwnerPending] = useState(false);
 
-  const isSelf =
-    Boolean(accountId) && accountIdsEqual(accountId!, creatorId);
+  const isSelf = Boolean(accountId) && accountIdsEqual(accountId!, creatorId);
   const standPending = isStandingPendingForTarget(creatorId);
   const creatorLabel = displayName(
     creatorId,
@@ -227,9 +226,7 @@ export function DropsDiscoveryRowMenu({
       setTxResult({
         type: 'error',
         msg:
-          error instanceof Error
-            ? error.message
-            : 'Could not update standing.',
+          error instanceof Error ? error.message : 'Could not update standing.',
       });
     } finally {
       close();
@@ -423,21 +420,15 @@ export function DropsDiscoveryRowMenu({
 
       <ActionDrawer
         open={open}
-        onClose={
-          confirmDelete ? () => setConfirmDelete(false) : close
-        }
+        onClose={confirmDelete ? () => setConfirmDelete(false) : close}
         label={confirmDelete ? deleteConfirm.title : dropTitle}
-        copy={
-          confirmDelete ? undefined : `@${fallbackLabel(creatorId)}`
-        }
+        copy={confirmDelete ? undefined : `@${fallbackLabel(creatorId)}`}
         listAriaLabel={
           confirmDelete
             ? `Confirm delete ${dropTitle}`
             : `Actions for ${dropTitle}`
         }
-        closeAriaLabel={
-          confirmDelete ? 'Back to drop options' : 'Close'
-        }
+        closeAriaLabel={confirmDelete ? 'Back to drop options' : 'Close'}
         items={confirmDelete ? undefined : items}
       >
         {confirmDelete ? (
