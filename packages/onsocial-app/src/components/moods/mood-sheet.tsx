@@ -29,16 +29,6 @@ import type { MoodPreset, ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
 import type { PageConfig } from '@onsocial/sdk';
 
-const MOOD_SHEET_GRADIENT_LABELS = new Set<PageMoodId>([
-  'gold',
-  'glass',
-  'carbon',
-  'holographic',
-  'signature',
-  'broadsheet',
-  'terminal',
-]);
-
 export interface MoodSheetProps {
   open: boolean;
   pageAccountId: string;
@@ -98,11 +88,6 @@ export function MoodSheet({
       preset.theme.accent,
       preset.theme.accentLight ?? preset.theme.accent
     );
-    const rowAccent = rowStyle['--mood-row-accent'];
-    const labelStyle =
-      rowAccent && !MOOD_SHEET_GRADIENT_LABELS.has(preset.id)
-        ? ({ color: rowAccent } as CSSProperties)
-        : undefined;
 
     return (
       <li key={preset.id}>
@@ -120,17 +105,12 @@ export function MoodSheet({
           }}
           style={rowStyle as CSSProperties}
         >
-          <span className="mood-sheet-item-label" style={labelStyle}>
-            {preset.label}
-          </span>
+          <span className="mood-sheet-item-label">{preset.label}</span>
           <span className="mood-sheet-item-tagline">{preset.tagline}</span>
           {isActive ? (
             <span className="mood-sheet-item-badge">Active</span>
           ) : !unlocked && priceSocial ? (
-            <span
-              className="mood-sheet-item-badge mood-sheet-item-badge-premium"
-              style={labelStyle}
-            >
+            <span className="mood-sheet-item-badge mood-sheet-item-badge-premium">
               {priceSocial} SOCIAL
             </span>
           ) : null}

@@ -34,14 +34,24 @@ import {
   CollectionAllowlistSheet,
   type AllowlistEntry,
 } from '@/features/scarces/collection-allowlist-manager';
+import { DropArtworkPreview } from '@/features/scarces/drop-artwork-preview';
+import { DropVariationSetManager } from '@/features/scarces/drop-variation-set-manager';
+import { reorderByInsert } from '@/features/scarces/drop-track-order';
 import {
-  DropArtworkPreview,
-  DropSeatTile,
-} from '@/features/scarces/drop-artwork-preview';
+  DropCoverCollagePicker,
+  emptyCollageSelection,
+  type DropCoverCollageSelection,
+} from '@/features/scarces/drop-cover-collage-picker';
 import {
   buildCollectionId,
   randomDropIdSuffix,
 } from '@/features/scarces/drop-collection-id';
+import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import {
+  collageFetchUrl,
+  sampleCollageSeats,
+  type CollageSeatImage,
+} from '@/lib/variation-cover-collage';
 import {
   DROP_AUDIO_MAX_BYTES,
   DROP_AUDIO_MAX_TRACKS,
@@ -239,6 +249,9 @@ export function CreateDropPanel() {
   const [variationsExt, setVariationsExt] = useState<VariationExt>('png');
   /** 1-based piece number shown as the drop's cover in the market. */
   const [coverSeatInput, setCoverSeatInput] = useState('1');
+  const [collage, setCollage] = useState<DropCoverCollageSelection>(() =>
+    emptyCollageSelection()
+  );
   const [traitsCid, setTraitsCid] = useState('');
   const [randomAssign, setRandomAssign] = useState(false);
   const [generatedNote, setGeneratedNote] = useState<string | null>(null);
@@ -514,6 +527,86 @@ export function CreateDropPanel() {
       coverSeat >= 1 &&
       (!supplyValid || coverSeat <= supply));
 
+  const [collageImages, setCollageImages] = useState<CollageSeatImage[]>([]);
+
+  useEffect(() => {
+    if (!isVariations) {
+      setCollageImages([]);
+      return;
+    }
+
+    const ephemeral: string[] = [];
+    const takeFileUrl = (seat: number, file: File): string => {
+      if (seat <= variationPreviews.length && variationPreviews[seat - 1]) {
+        return variationPreviews[seat - 1]!;
+      }
+      const url = URL.createObjectURL(file);
+      ephemeral.push(url);
+      return url;
+    };
+
+    if (variationFiles.length > 0) {
+      const seats = sampleCollageSeats(
+        Array.from({ length: variationFiles.length }, (_, i) => i + 1),
+        coverSeatValid ? coverSeat : 1,
+        16
+      );
+      setCollageImages(
+        seats.flatMap((seat) => {
+          const file = variationFiles[seat - 1];
+          return file ? [{ seat, src: takeFileUrl(seat, file) }] : [];
+        })
+      );
+    } else if (generatedPreviews.length > 0) {
+      const seats = sampleCollageSeats(
+        Array.from({ length: generatedPreviews.length }, (_, i) => i + 1),
+        coverSeatValid ? coverSeat : 1,
+        16
+      );
+      setCollageImages(
+        seats.flatMap((seat) => {
+          const src = generatedPreviews[seat - 1];
+          return src ? [{ seat, src }] : [];
+        })
+      );
+    } else if (pinnedCidValid && supplyValid) {
+      const cid = variationsCid.trim();
+      const ext = variationsExt;
+      const seats = sampleCollageSeats(
+        Array.from({ length: Math.min(supply, 64) }, (_, i) => i + 1),
+        coverSeatValid ? coverSeat : 1,
+        16
+      );
+      setCollageImages(
+        seats.map((seat) => ({
+          seat,
+          src: collageFetchUrl(`ipfs://${cid}/${seat}.${ext}`),
+        }))
+      );
+    } else {
+      setCollageImages([]);
+    }
+
+    return () => {
+      for (const url of ephemeral) URL.revokeObjectURL(url);
+    };
+  }, [
+    isVariations,
+    variationFiles,
+    variationPreviews,
+    generatedPreviews,
+    pinnedCidValid,
+    supplyValid,
+    variationsCid,
+    variationsExt,
+    supply,
+    coverSeat,
+    coverSeatValid,
+  ]);
+
+  const collageReady =
+    !isVariations || collageImages.length === 0 || collage.blob != null;
+
   const tracksReady =
     !isAudio ||
     musicTracksValid(musicFormat, trackFiles.length) ||
@@ -537,6 +630,7 @@ export function CreateDropPanel() {
     maxRedeemsValid &&
     traitsCidValid &&
     coverSeatValid &&
+    collageReady &&
     tracksReady &&
     chaptersReady &&
     resolvedRoyaltyBps != null &&
@@ -748,11 +842,20 @@ export function CreateDropPanel() {
       const next = mode === 'append' ? [...existing, ...picked] : picked;
 
       if (next.length < MIN_VARIATIONS || next.length > MAX_SET_PIECES) {
-        setError(
-          mode === 'append'
-            ? `Sets hold ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — this would be ${next.length.toLocaleString()}.`
-            : `Pick ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — one per piece.`
-        );
+        setTxResult({
+          type: 'error',
+          msg:
+            mode === 'append'
+              ? txToastError.variationSetSize(
+                  MIN_VARIATIONS,
+                  MAX_SET_PIECES.toLocaleString(),
+                  next.length.toLocaleString()
+                )
+              : txToastError.variationSetPickRange(
+                  MIN_VARIATIONS,
+                  MAX_SET_PIECES.toLocaleString()
+                ),
+        });
         return;
       }
 
@@ -760,23 +863,32 @@ export function CreateDropPanel() {
       let totalBytes = 0;
       for (const file of next) {
         if (!isPostImageMime(file.type)) {
-          setError('Use JPG, PNG, or WebP images.');
+          setTxResult({ type: 'error', msg: txToastError.variationImageType });
           return;
         }
         if (file.type !== format) {
-          setError('All variation images must share one format.');
+          setTxResult({
+            type: 'error',
+            msg: txToastError.variationFormatMismatch,
+          });
           return;
         }
         if (file.size > POST_IMAGE_MAX_BYTES) {
-          setError('Each image must be 5 MB or smaller.');
+          setTxResult({
+            type: 'error',
+            msg: txToastError.variationImageTooLarge,
+          });
           return;
         }
         totalBytes += file.size;
       }
       if (totalBytes > MAX_SET_TOTAL_BYTES) {
-        setError(
-          `The whole set must stay under ${Math.floor(MAX_SET_TOTAL_BYTES / (1024 * 1024))} MB — try smaller files.`
-        );
+        setTxResult({
+          type: 'error',
+          msg: txToastError.variationSetTooLarge(
+            Math.floor(MAX_SET_TOTAL_BYTES / (1024 * 1024))
+          ),
+        });
         return;
       }
 
@@ -790,7 +902,7 @@ export function CreateDropPanel() {
           : '1';
       });
     },
-    [syncVariationPreviews]
+    [setTxResult, syncVariationPreviews]
   );
 
   const removeVariationAt = useCallback(
@@ -813,6 +925,30 @@ export function CreateDropPanel() {
       setError(null);
     },
     [syncVariationPreviews]
+  );
+
+  /** Drag reorder — Main follows the same file identity. */
+  const reorderVariations = useCallback(
+    (from: number, insertAt: number) => {
+      const existing = variationFilesRef.current;
+      const coverIdx = (() => {
+        const seat = Number.parseInt(coverSeatInput, 10);
+        return Number.isSafeInteger(seat) && seat >= 1 && seat <= existing.length
+          ? seat - 1
+          : 0;
+      })();
+      const coverFile = existing[coverIdx];
+      const next = reorderByInsert(existing, from, insertAt);
+      if (next === existing) return;
+      setVariationFiles(next);
+      syncVariationPreviews(next);
+      if (coverFile) {
+        const moved = next.indexOf(coverFile);
+        setCoverSeatInput(String((moved >= 0 ? moved : 0) + 1));
+      }
+      setError(null);
+    },
+    [coverSeatInput, syncVariationPreviews]
   );
 
   const uploadVariationArchives = useCallback(
@@ -1104,6 +1240,10 @@ export function CreateDropPanel() {
       setError(`Cover piece must be between 1 and ${supply}.`);
       return;
     }
+    if (isVariations && collageImages.length > 0 && !collage.blob) {
+      setError('Wait for the drop cover collage to finish, then try again.');
+      return;
+    }
     if (!canSubmit) {
       setError('Add a title, cover art, and supply to start the drop.');
       return;
@@ -1194,6 +1334,8 @@ export function CreateDropPanel() {
     coverSeatValid,
     supply,
     canSubmit,
+    collage,
+    collageImages.length,
     template,
     endTime,
     renewable,
@@ -1420,26 +1562,6 @@ export function CreateDropPanel() {
       const perWallet = Number.parseInt(maxPerWallet, 10);
 
       const trimmedSeries = seriesName.trim();
-      // Collection-level metadata blob: series grouping plus the chosen
-      // cover piece (seat 1 is the display default, so only store overrides).
-      const coverOverride =
-        isVariations && Number.isSafeInteger(coverSeat) && coverSeat > 1
-          ? { cover: { seat: coverSeat } }
-          : null;
-      const collectionMetadata =
-        trimmedSeries || coverOverride
-          ? {
-              ...(trimmedSeries
-                ? {
-                    series: {
-                      id: slugify(trimmedSeries),
-                      title: trimmedSeries,
-                    },
-                  }
-                : {}),
-              ...(coverOverride ?? {}),
-            }
-          : null;
 
       // Phase 2 — pins ready (or light path); open wallet + sign immediately.
       setConfirmPhase('listing');
@@ -1448,6 +1570,69 @@ export function CreateDropPanel() {
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
         const client = createAppScarcesWalletClient(signerId, wallet);
+
+        let collageCoverUrl: string | null = null;
+        if (isVariations && collage.blob) {
+          setPendingLabel('Uploading cover…');
+          try {
+            const coverFile = new File([collage.blob], 'drop-cover.png', {
+              type: 'image/png',
+            });
+            const pinnedCover = await client.storage.upload(coverFile);
+            collageCoverUrl =
+              resolveScarceMediaUrl(pinnedCover.cid) ??
+              (pinnedCover.cid ? `ipfs://${pinnedCover.cid}` : null);
+            if (!collageCoverUrl) {
+              throw new Error('Cover upload returned no CID.');
+            }
+          } catch (cause) {
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : 'Could not upload the drop cover. Try again.'
+            );
+            setPending(false);
+            setPendingLabel('Starting…');
+            setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
+            return;
+          }
+          setPendingLabel('Confirm in wallet…');
+        }
+
+        const coverMeta =
+          isVariations &&
+          (collageCoverUrl ||
+            (Number.isSafeInteger(coverSeat) && coverSeat >= 1))
+            ? {
+                cover: {
+                  seat: coverSeatValid ? coverSeat : 1,
+                  ...(collageCoverUrl ? { url: collageCoverUrl } : {}),
+                  ...(collage.blob
+                    ? {
+                        style: collage.style,
+                        label: collage.showLabel,
+                        showTitle: collage.showTitle,
+                        paper: collage.paper,
+                        font: collage.font,
+                      }
+                    : {}),
+                },
+              }
+            : null;
+        const collectionMetadata =
+          trimmedSeries || coverMeta
+            ? {
+                ...(trimmedSeries
+                  ? {
+                      series: {
+                        id: slugify(trimmedSeries),
+                        title: trimmedSeries,
+                      },
+                    }
+                  : {}),
+                ...(coverMeta ?? {}),
+              }
+            : null;
 
         const response = await client.scarces.collections.create(
           {
@@ -1626,6 +1811,9 @@ export function CreateDropPanel() {
     seriesName,
     isVariations,
     coverSeat,
+    coverSeatValid,
+    collage,
+    collageImages.length,
     getSigningWallet,
     supply,
     isPinnedSet,
@@ -2028,98 +2216,20 @@ export function CreateDropPanel() {
                 </small>
               </span>
             </button>
-          ) : isLargeUpload ? (
-            <div className="guild-field">
-              <span>
-                Your set · {variationFiles.length.toLocaleString()} pieces
-              </span>
-              <div className="drop-cover-seat-grid" aria-label="Set preview">
-                {variationPreviews.map((src, index) => (
-                  <DropSeatTile
-                    key={src}
-                    src={src}
-                    label={`Piece ${index + 1}`}
-                    disabled={pending}
-                    onRemove={() => removeVariationAt(index)}
-                  />
-                ))}
-              </div>
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Set actions"
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending || variationFiles.length >= MAX_SET_PIECES}
-                  onClick={() => openVariationPicker('append')}
-                >
-                  Add more
-                </button>
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending}
-                  onClick={() => openVariationPicker('replace')}
-                >
-                  Replace set
-                </button>
-              </div>
-              <small>
-                Previewing the first {variationPreviews.length} pieces. The
-                whole set pins when you start the drop — order is selection
-                order.
-              </small>
-            </div>
           ) : (
-            <div className="guild-field">
-              <span>
-                Your set · {variationFiles.length} pieces — tap to zoom
-              </span>
-              <div className="drop-cover-seat-grid" aria-label="Cover piece">
-                {variationPreviews.map((src, index) => {
-                  const seat = index + 1;
-                  return (
-                    <DropSeatTile
-                      key={src}
-                      src={src}
-                      label={`Piece ${seat}`}
-                      disabled={pending}
-                      selected={coverSeat === seat}
-                      onRemove={() => removeVariationAt(index)}
-                      onSetCover={() => setCoverSeatInput(String(seat))}
-                    />
-                  );
-                })}
-              </div>
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Set actions"
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending || variationFiles.length >= MAX_SET_PIECES}
-                  onClick={() => openVariationPicker('append')}
-                >
-                  Add more
-                </button>
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending}
-                  onClick={() => openVariationPicker('replace')}
-                >
-                  Replace set
-                </button>
-              </div>
-              <small>
-                Piece #{coverSeatValid ? coverSeat : 1} fronts the drop — set
-                cover from the zoom view. Every piece keeps its own artwork.
-              </small>
-            </div>
+            <DropVariationSetManager
+              previews={variationPreviews}
+              totalCount={variationFiles.length}
+              coverSeat={coverSeatValid ? coverSeat : 1}
+              disabled={pending}
+              sortable={!isLargeUpload}
+              canAddMore={variationFiles.length < MAX_SET_PIECES}
+              onRemove={removeVariationAt}
+              onReorder={isLargeUpload ? undefined : reorderVariations}
+              onSetCover={(seat) => setCoverSeatInput(String(seat))}
+              onAddMore={() => openVariationPicker('append')}
+              onReplace={() => openVariationPicker('replace')}
+            />
           )
         ) : null}
 
@@ -2163,9 +2273,22 @@ export function CreateDropPanel() {
               <span>{supplyValid ? `of ${supply}` : 'piece #'}</span>
             </div>
             <small>
-              This piece fronts the drop in the market. Defaults to piece 1.
+              Hero piece in the packaging cover. Defaults to piece 1 — each
+              mint still keeps its own artwork.
             </small>
           </label>
+        ) : null}
+
+        {isVariations && collageImages.length > 0 ? (
+          <DropCoverCollagePicker
+            images={collageImages}
+            coverSeat={coverSeatValid ? coverSeat : 1}
+            uniqueCount={supplyValid ? supply : collageImages.length}
+            title={title}
+            disabled={pending}
+            value={collage}
+            onChange={setCollage}
+          />
         ) : null}
 
         {isVariations && !isGeneratedSet ? (

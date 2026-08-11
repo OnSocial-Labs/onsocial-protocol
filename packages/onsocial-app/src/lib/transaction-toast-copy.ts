@@ -229,6 +229,15 @@ export const txToastError = {
   pauseCollectionFailed: 'Could not pause the drop.',
   resumeCollectionFailed: 'Could not resume the drop.',
   deleteCollectionFailed: 'Could not delete the drop.',
+  variationSetSize: (min: number, max: string, count: string) =>
+    `Sets hold ${min}–${max} images — this would be ${count}.`,
+  variationSetPickRange: (min: number, max: string) =>
+    `Pick ${min}–${max} images — one per piece.`,
+  variationImageType: 'Use JPG, PNG, or WebP images.',
+  variationFormatMismatch: 'All set images must share one format.',
+  variationImageTooLarge: 'Each image must be 5 MB or smaller.',
+  variationSetTooLarge: (mb: number) =>
+    `The whole set must stay under ${mb} MB — try smaller files.`,
   loveTrackFailed: 'Could not love this track.',
   loveDropFailed: 'Could not love this drop.',
   offlineCacheFailed: 'Could not keep this offline.',

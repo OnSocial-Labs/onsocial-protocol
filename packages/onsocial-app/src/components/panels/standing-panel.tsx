@@ -2,6 +2,7 @@
 
 import { useRef, type RefObject } from 'react';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import {
   StandingPanelProvider,
@@ -17,8 +18,18 @@ function StandingPageScreen({
 }: {
   scrollRootRef: RefObject<HTMLElement | null>;
 }) {
+  const { moodId, style } = useViewerDockMood();
+  const hasMood = Boolean(moodId);
+
   return (
-    <div className="os-app-screen standing-page-screen app-surface" data-tone="os">
+    <div
+      className={`os-app-screen standing-page-screen app-surface${
+        hasMood ? ' os-app-screen--mood' : ''
+      }`}
+      data-tone="os"
+      data-mood={hasMood ? moodId! : undefined}
+      style={style}
+    >
       <div className="os-app-screen-column">
         <header className="os-app-screen-header standing-page-screen-header">
           <StandingSheetHeader />

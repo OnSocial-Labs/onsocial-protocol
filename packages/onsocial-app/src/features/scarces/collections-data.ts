@@ -305,21 +305,78 @@ interface SeriesMeta {
 }
 
 /**
- * Parse the creator-chosen cover piece (`cover.seat`) from the collection's
- * freeform metadata blob. Returns null when absent or malformed.
+ * Parse packaging cover from collection freeform metadata.
+ * `cover.seat` = hero variation; `cover.url` = optional collage (or packaging) face.
  */
-function parseCoverSeat(
-  metadataJson: string | null | undefined
-): number | null {
-  if (!metadataJson?.trim()) return null;
+export function parseCoverMeta(metadataJson: string | null | undefined): {
+  seat: number | null;
+  url: string | null;
+  style: string | null;
+  label: boolean | null;
+  showTitle: boolean | null;
+  paper: string | null;
+  font: string | null;
+} {
+  const empty = {
+    seat: null as number | null,
+    url: null as string | null,
+    style: null as string | null,
+    label: null as boolean | null,
+    showTitle: null as boolean | null,
+    paper: null as string | null,
+    font: null as string | null,
+  };
+  if (!metadataJson?.trim()) return empty;
   try {
     const meta = asRecord(JSON.parse(metadataJson));
     const cover = asRecord(meta?.cover);
-    const seat = Number(cover?.seat);
-    return Number.isSafeInteger(seat) && seat >= 1 ? seat : null;
+    if (!cover) return empty;
+    const seatNum = Number(cover.seat);
+    const seat =
+      Number.isSafeInteger(seatNum) && seatNum >= 1 ? seatNum : null;
+    const url =
+      typeof cover.url === 'string' && cover.url.trim()
+        ? cover.url.trim()
+        : null;
+    const style =
+      typeof cover.style === 'string' && cover.style.trim()
+        ? cover.style.trim()
+        : null;
+    const label =
+      typeof cover.label === 'boolean'
+        ? cover.label
+        : cover.label === 'true'
+          ? true
+          : cover.label === 'false'
+            ? false
+            : null;
+    const showTitle =
+      typeof cover.showTitle === 'boolean'
+        ? cover.showTitle
+        : cover.showTitle === 'true'
+          ? true
+          : cover.showTitle === 'false'
+            ? false
+            : null;
+    const paper =
+      typeof cover.paper === 'string' && cover.paper.trim()
+        ? cover.paper.trim()
+        : null;
+    const font =
+      typeof cover.font === 'string' && cover.font.trim()
+        ? cover.font.trim()
+        : null;
+    return { seat, url, style, label, showTitle, paper, font };
   } catch {
-    return null;
+    return empty;
   }
+}
+
+/** @deprecated Prefer parseCoverMeta — seat-only helper kept for call sites. */
+function parseCoverSeat(
+  metadataJson: string | null | undefined
+): number | null {
+  return parseCoverMeta(metadataJson).seat;
 }
 
 /** Parse `series` from the collection's freeform metadata blob. */
@@ -452,7 +509,8 @@ export function toCollectionView(
   const remaining = Math.max(0, totalSupply - minted);
   const priceYocto = yoctoString(record.price_near);
   const allowlistYocto = yoctoString(record.allowlist_price);
-  const coverSeatRaw = parseCoverSeat(record.metadata);
+  const coverMeta = parseCoverMeta(record.metadata);
+  const coverSeatRaw = coverMeta.seat;
   // Fall back to seat 1 when the chosen seat is missing or out of range.
   const coverSeat =
     coverSeatRaw != null && (totalSupply === 0 || coverSeatRaw <= totalSupply)
@@ -463,6 +521,7 @@ export function toCollectionView(
     collectionId,
     coverSeat
   );
+  const packagingUrl = resolveScarceMediaUrl(coverMeta.url);
   const series = parseSeries(record.metadata);
   const maxRedeems =
     record.max_redeems != null && record.max_redeems > 0
@@ -483,7 +542,7 @@ export function toCollectionView(
     creatorId,
     title: template.title,
     ...(template.description ? { description: template.description } : {}),
-    mediaUrl: template.mediaUrl,
+    mediaUrl: packagingUrl ?? template.mediaUrl,
     priceNear: priceDisplay(priceYocto),
     priceYocto,
     totalSupply,

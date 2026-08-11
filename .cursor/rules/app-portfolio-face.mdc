@@ -1,6 +1,6 @@
 ---
-description: App portfolio face — one-page public identity; quiet Stand · Endorse · Support row
-globs: packages/onsocial-app/src/components/portfolio/**/*.{ts,tsx},packages/onsocial-app/src/app/[accountId]/**/*.{ts,tsx}
+description: App portfolio face — Launch drawer, mood chrome reuse, quiet Stand · Endorse · Support
+globs: packages/onsocial-app/src/components/portfolio/**/*.{ts,tsx},packages/onsocial-app/src/app/[accountId]/**/*.{ts,tsx},packages/onsocial-app/src/lib/moods/**/*.{ts,tsx},packages/onsocial-app/src/components/moods/**/*.{ts,tsx},packages/onsocial-app/src/contexts/portfolio-mood*.tsx,packages/onsocial-app/src/hooks/use-*-mood*.ts,packages/onsocial-app/src/hooks/use-apply-mood.ts,packages/onsocial-app/src/hooks/use-viewer-wallet-mood-vars.ts,packages/onsocial-app/src/hooks/use-viewer-dock-mood.ts,packages/onsocial-app/src/components/os/summon-launcher.tsx,packages/onsocial-app/src/components/app/os-slide-over-screen.tsx,packages/onsocial-app/src/components/app/os-app-screen.tsx,packages/onsocial-app/src/features/guilds/guild-composer-sheet.tsx,packages/onsocial-app/src/features/home/home-feed.tsx
 alwaysApply: false
 ---
 
@@ -35,6 +35,70 @@ Owner-customizable scroll surface — **extension of the face**, not a second po
 - No reputation band names — score/rank stay on the face
 - Mood-thread chrome + thin drag grip; sections scroll inside
 - Hide zero counts
+
+## Mood
+
+Page mood is **identity chrome** for the portfolio face and any surface that should feel like “this person’s page / this viewer’s wallet.” Reuse the same stack — do not invent a second mood system.
+
+### Visitor vs owner
+
+| Surface | Whose mood |
+|---------|------------|
+| Face / portfolio wash / Launch (page) drawer | **Page** (`effectiveMood` on `portfolio-os-layer`) |
+| Summon dock / grip / pill (`portfolio-summon-dock`) | **Viewer** everywhere (`useViewerDockMood` via `AppShellLauncher` / visit path); **owner** uses live `effectiveMood` so mood preview paints the dock |
+| OS app screens / slide-overs (`OsAppScreen`, `OsSlideOverScreen`) | **Viewer** by default (`useViewerDockMood`); `moodId={null}` keeps blue-corner trial; pass explicit mood only for rare overrides |
+| Create-post / wallet sheets | **Viewer** (`useViewerWalletMoodVars` / dock hook) |
+
+Do **not** paint the whole `portfolio-os-layer` with viewer mood when visiting — only the dock. Finish-specific summon CSS targets `.portfolio-summon-dock[data-mood=…]`, not the os-layer.
+
+### Source of truth
+
+- Resolve via `@/lib/moods/resolve` (`resolvePortfolioMood`, `resolvePortfolioMoodForPreview`, `portfolioMoodShellStyle`)
+- Live face: `PortfolioShellRoot` + `PortfolioMoodPreviewProvider` (`effectiveMood`)
+- Viewer wallet mood elsewhere: `useViewerWalletMoodVars` (seed with protocol fallback so sheets don’t flash blue-corner trial)
+- Viewer dock chrome (all OS screens + visiting): `useViewerDockMood` on `.portfolio-summon-dock`
+- Page-owner mood on *their* sheets: portfolio `mood` / page mood hooks — not a hard-coded accent
+- Owner portfolio dock: `effectiveMood` (preview-aware) on `.portfolio-summon-dock`
+
+### Intensity (must match)
+
+Portfolio wash mixes — **same on picker cards, live shell, home, and create-post**:
+
+| Token | Dark | Light |
+|-------|------|-------|
+| `--mood-bg-preset-mix` | `25%` | `30%` |
+| `--mood-text-preset-mix` | `18%` | `18%` |
+| `--mood-muted-preset-mix` | `18%` | `18%` |
+
+Light bumps bg mix so the wash reads closer to dark (light presets are subtler on white). Title uses the mood accent (Gold keeps foil); tagline stays muted. Row type stays compact — do not inherit portfolio face name scale / ornaments.
+
+### Reuse on posts / slide-overs / sheets
+
+`OsAppScreen` / `OsSlideOverScreen` apply connected viewer mood by default — do not re-thread `moodId`/`moodStyle` on every panel.
+
+When a surface should carry mood outside those shells (compose post, manage flows, account sheets):
+
+1. Resolve mood → CSS vars (`portfolioMoodShellStyle` / viewer hook `style`)
+2. Pass **`moodId` + `moodStyle`** into the shell (`OsSlideOverScreen`, glass sheet, or portfolio panel) — or omit and let `OsAppScreen` / `OsSlideOverScreen` default
+3. Prefer subtle `--mood-bg` under translucent glass — do not rely on opaque glass that hides the wash
+4. `moodId={null}` only when blue-corner trial is intentional
+5. Compose / slide-over: even `--mood-bg` only inside the app column (phone view); desktop gutters stay OS `--bg` (black / white) — **no outside mood glow** (portfolio desktop hairline only, no `0 0 20px` accent halo; slide-over clears card radius so host glow can’t bleed)
+
+Reference: create-post (`guild-composer-sheet`) may still pass viewer mood explicitly; most app routes inherit from `OsAppScreen`.
+
+### Save / preview (customize mood)
+
+- Preview while browsing; on successful chain save call **`commitMoodPreview(moodId)`** — do not `discardMoodPreview()` (avoids snap-back to stale SSR)
+- After apply: `seedViewerCommittedMood` + wallet `setMood` + `router.refresh()`
+- Shell prefers live RSC `mood`/`config` props; soft-fill from chain only when SSR config was empty
+- Toast / button contract: see `app-button-toast-contract.mdc` (preview bar + mood save)
+
+### Do not (mood)
+
+- Different mix % on cards vs portfolio
+- Per-button or one-off mood color hacks outside resolve + CSS vars
+- Clear preview on save before props catch up (use commit)
+- Assume hard refresh is required for mood to stick
 
 ## Gesture row
 

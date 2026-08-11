@@ -39,6 +39,7 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
@@ -153,6 +154,8 @@ export function SummonLauncher({
   const router = useRouter();
   const pathname = usePathname();
   const { accountId } = useAppWallet();
+  const { moodId: dockMoodId, style: dockMoodStyle } =
+    useViewerDockMood(pageAccountId);
   const { navigate, openingPage } = useOsAppNavigate(pageAccountId);
   const activeAppId = resolveActiveOsAppId(pathname, accountId);
   const [openInternal, setOpenInternal] = useState(false);
@@ -275,6 +278,8 @@ export function SummonLauncher({
       {!hideTrigger ? (
         <div
           className={`portfolio-summon-dock${open ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}`}
+          data-mood={dockMoodId ?? undefined}
+          style={dockMoodStyle}
         >
           <OsDockPill
             pageAccountId={pageAccountId}

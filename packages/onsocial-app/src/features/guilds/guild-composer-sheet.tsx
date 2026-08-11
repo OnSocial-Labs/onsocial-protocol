@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -15,15 +14,13 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   ChartVerticalFillIcon,
   ChartVerticalIcon,
-  Divider,
-  GlassSheet,
   ImageFillIcon,
   ImageIcon,
   ProfileAvatar,
-  SheetCloseButton,
   StarsCFillIcon,
   StarsCIcon,
 } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
   ChoiceDrawerMenu,
   type ChoiceOption,
@@ -34,6 +31,12 @@ import {
 } from '@/components/ui/os-sheet-primary-action';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
+import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
+import {
+  pageContentDrawerPanelStyle,
+  portfolioMoodShellStyle,
+  resolvePortfolioMood,
+} from '@/lib/moods/resolve';
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
@@ -45,7 +48,6 @@ import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
 } from '@/hooks/use-mobile-field-focus-scroll';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
@@ -62,7 +64,7 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 
-/** Composer GlassSheet z-index — nested choice drawers stack above. */
+/** Composer slide-over z-index — nested choice drawers stack above. */
 const COMPOSER_SHEET_Z = 58;
 const COMPOSER_NEST_Z = scarceNestZIndex(COMPOSER_SHEET_Z);
 
@@ -236,8 +238,9 @@ function normalizePollOptions(options: string[]): string[] {
 }
 
 /**
- * WYSIWYG composer in a bottom GlassSheet. Polls attach as an inline card on
- * new posts only; replies/quotes stay text.
+ * WYSIWYG composer in an OsSlideOverScreen (same glass page shell as Manage
+ * set). Polls attach as an inline card on new posts only; replies/quotes stay
+ * text. Form + toolbar layout is unchanged from the sheet era.
  */
 export function ComposerSheet({
   open,
@@ -254,10 +257,27 @@ export function ComposerSheet({
   onClose,
   onSubmit,
 }: ComposerSheetProps) {
-  const titleId = useId();
   const formId = useId();
   const { accountId } = useAppWallet();
   const viewerShell = useViewerProfileShellContext();
+  const { moodId: fetchedMoodId, style: fetchedMoodStyle } =
+    useViewerWalletMoodVars(
+      accountId ?? '',
+      undefined,
+      open && Boolean(accountId)
+    );
+  // Seed protocol mood immediately so the slide never flashes the blue-corner
+  // trial while the wallet mood fetch catches up.
+  const fallbackMood = useMemo(() => resolvePortfolioMood({}), []);
+  const viewerMoodId = fetchedMoodId ?? (accountId ? fallbackMood.id : null);
+  const viewerMoodStyle = useMemo(() => {
+    if (fetchedMoodStyle) return fetchedMoodStyle;
+    if (!accountId) return undefined;
+    return {
+      ...portfolioMoodShellStyle(fallbackMood.cssVars),
+      ...pageContentDrawerPanelStyle(fallbackMood.cssVars),
+    } as CSSProperties;
+  }, [accountId, fallbackMood.cssVars, fetchedMoodStyle]);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   // Seed from props when the sheet mounts already open (DropComposeHost).
   // `wasOpen` starts false so the open transition below always applies
@@ -277,14 +297,12 @@ export function ComposerSheet({
   const [contentWarning, setContentWarning] = useState('');
   const [nsfw, setNsfw] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
-  const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const mediaStripRef = useRef<HTMLDivElement>(null);
-  const sheetOpen = open && !closing;
-  const viewport = useVisualViewportSheetMetrics(sheetOpen);
+  const viewport = useVisualViewportSheetMetrics(open);
   const canUsePoll = mode === 'post' && !dropDraft;
   const canUseMedia = !pollEnabled && !dropDraft;
   const canUseDrop =
@@ -323,14 +341,11 @@ export function ComposerSheet({
       setContentWarning('');
       setNsfw(false);
       setDropPickerOpen(false);
-      setClosing(false);
     }
   }
 
-  useScrollLock(open || closing);
-
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!open) return;
     const focusTimer = window.setTimeout(() => {
       const field = textareaRef.current;
       if (!field) return;
@@ -338,32 +353,22 @@ export function ComposerSheet({
       scrollMobileFieldIntoView(field);
     }, 280);
     return () => window.clearTimeout(focusTimer);
-  }, [sheetOpen, mode, formKey]);
+  }, [open, mode, formKey]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
-    if (!el || !sheetOpen) return;
-    /* Grow with content; the sheet body is the only scroller (no nested field scroll). */
+    if (!el || !open) return;
+    /* Grow with content; the slide body is the only scroller (no nested field scroll). */
     el.style.height = '0px';
     el.style.height = `${el.scrollHeight}px`;
     el.style.overflowY = 'hidden';
-  }, [text, pollEnabled, formKey, sheetOpen]);
+  }, [text, pollEnabled, formKey, open]);
 
   useEffect(() => {
     return () => {
       for (const preview of mediaPreviews) URL.revokeObjectURL(preview.url);
     };
   }, [mediaPreviews]);
-
-  const requestClose = useCallback(() => {
-    if (pending) return;
-    setClosing(true);
-  }, [pending]);
-
-  const handleSheetClosed = useCallback(() => {
-    setClosing(false);
-    onClose();
-  }, [onClose]);
 
   const filledPollOptions = normalizePollOptions(pollOptions);
   const pollReady =
@@ -405,18 +410,12 @@ export function ComposerSheet({
   };
 
   const panelStyle = useMemo((): CSSProperties | undefined => {
-    if (!viewport.isMobile || viewport.height <= 0) return undefined;
-    const height = Math.min(viewport.height, 720);
+    if (!viewport.isMobile || viewport.lift <= 0) return undefined;
     return {
-      height: `${height}px`,
-      maxHeight: `${height}px`,
-      ...(viewport.lift > 0
-        ? {
-            marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
-          }
-        : null),
+      // Keep the compose dock above the soft keyboard (same lift as the old sheet).
+      marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
     };
-  }, [viewport.height, viewport.isMobile, viewport.lift]);
+  }, [viewport.isMobile, viewport.lift]);
 
   const updatePollOption = (index: number, value: string) => {
     setPollOptions((current) =>
@@ -819,80 +818,42 @@ export function ComposerSheet({
     </div>
   );
 
-  return (
-    <>
-    <GlassSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleSheetClosed}
-      tone="os"
-      initialDetent="full"
-      zIndex={COMPOSER_SHEET_Z}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close composer"
-      bodyClassName="guild-composer-sheet-body"
-      panelClassName="guild-composer-sheet-panel"
-      panelStyle={panelStyle}
-      header={
-        <>
-          <div
-            className={`standing-sheet-header guild-composer-sheet-header${
-              mode === 'post' ? ' is-compact' : ''
-            }`}
+  const slideSubtitle =
+    mode === 'post' && destination?.kind === 'personal'
+      ? destination.label
+      : mode === 'post' && destination?.kind === 'guild'
+        ? destination.name
+        : undefined;
+
+  const modeToolbar =
+    mode !== 'post' && onModeChange ? (
+      <div
+        className="guild-composer-mode"
+        role="radiogroup"
+        aria-label="Composer mode"
+      >
+        {(['reply', 'quote'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={mode === option}
+            className={mode === option ? 'is-active' : undefined}
+            disabled={pending}
+            onClick={() => onModeChange(option)}
           >
-            <div className="standing-sheet-subject-row">
-              {mode === 'post' ? (
-                <h2 id={titleId} className="sr-only">
-                  {TITLE[mode]}
-                </h2>
-              ) : (
-                <div className="standing-sheet-subject">
-                  <div className="standing-sheet-subject-copy">
-                    <h2 id={titleId} className="standing-sheet-subject-name">
-                      {TITLE[mode]}
-                    </h2>
-                  </div>
-                </div>
-              )}
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close composer"
-                />
-              </div>
-            </div>
-            {mode !== 'post' && onModeChange ? (
-              <div className="standing-sheet-toolbar-row">
-                <div
-                  className="guild-composer-mode"
-                  role="radiogroup"
-                  aria-label="Composer mode"
-                >
-                  {(['reply', 'quote'] as const).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      role="radio"
-                      aria-checked={mode === option}
-                      className={mode === option ? 'is-active' : undefined}
-                      disabled={pending}
-                      onClick={() => onModeChange(option)}
-                    >
-                      {option === 'reply' ? 'Reply' : 'Quote'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
-      footer={
+            {option === 'reply' ? 'Reply' : 'Quote'}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  const composerFooter = (
         <div
           className={`guild-composer-sheet-footer${
             viewport.lift > 0 ? ' is-keyboard-open' : ''
           }`}
+          style={panelStyle}
         >
           <div className="guild-composer-toolbar">
             <div
@@ -1032,7 +993,24 @@ export function ComposerSheet({
             </div>
           </div>
         </div>
-      }
+  );
+
+  return (
+    <>
+    <OsSlideOverScreen
+      open={open}
+      onClose={onClose}
+      title={TITLE[mode]}
+      subtitle={slideSubtitle}
+      closeAriaLabel="Back"
+      closeDisabled={pending}
+      zIndex={COMPOSER_SHEET_Z}
+      className="guild-composer-slide"
+      contentClassName="guild-composer-sheet-body"
+      moodId={viewerMoodId}
+      moodStyle={viewerMoodStyle}
+      toolbar={modeToolbar}
+      footer={composerFooter}
     >
       <form
         id={formId}
@@ -1065,10 +1043,10 @@ export function ComposerSheet({
         {mediaError ? <p className="guild-form-error">{mediaError}</p> : null}
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
-    </GlassSheet>
+    </OsSlideOverScreen>
     <ComposerDropPicker
-      open={dropPickerOpen && sheetOpen}
-      enabled={sheetOpen && mode === 'post'}
+      open={dropPickerOpen && open}
+      enabled={open && mode === 'post'}
       onClose={() => setDropPickerOpen(false)}
       accountId={accountId}
       selectedDropKey={

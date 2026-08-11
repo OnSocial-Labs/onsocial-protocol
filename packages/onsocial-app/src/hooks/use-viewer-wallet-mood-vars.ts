@@ -31,6 +31,15 @@ export function invalidateViewerCommittedMoodCache(accountId?: string) {
   committedMoodCache.clear();
 }
 
+/** Re-seed after a successful mood save so compose / wallet chrome update live. */
+export function seedViewerCommittedMood(
+  accountId: string,
+  mood: ResolvedMood
+) {
+  if (!accountId) return;
+  committedMoodCache.set(accountId, mood);
+}
+
 function resolvedMoodToPanelStyle(mood: ResolvedMood): CSSProperties {
   return {
     ...portfolioMoodShellStyle(mood.cssVars),

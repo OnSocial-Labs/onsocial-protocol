@@ -317,8 +317,7 @@
 
 /*
  * Scarce card lightbox — unlayered so it beats glass-sheet.css
- * (.glass-sheet-icon-action uses --fg, black in light mode; focus paints
- * a 1px ring). Icon only — no fill, border, or ring on the dark scrim.
+ * (.glass-sheet-icon-action uses --fg). Icon only — no fill, border, or ring.
  */
 .scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close,
 .scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
@@ -334,13 +333,13 @@
   filter: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  color: rgb(255 255 255 / 0.88);
+  color: rgb(var(--fg-rgb) / 0.88);
 }
 
 .scarce-card-lightbox .glass-sheet-icon-action.scarce-card-lightbox-close:hover,
 .scarce-card-lightbox
   .glass-sheet-icon-action.scarce-card-lightbox-close:focus-visible {
-  color: rgb(255 255 255 / 1);
+  color: rgb(var(--fg-rgb) / 1);
 }
 
 .os-app-screen[data-immersive-header='true']
@@ -545,7 +544,8 @@
   max-width: min(100%, 20rem);
   height: auto;
   margin-inline: auto;
-  border-radius: 1.15rem;
+  /* Same tile radius as create seat thumbs. */
+  border-radius: 0.75rem;
   background: transparent;
   overflow: hidden;
   box-shadow:
@@ -560,7 +560,7 @@
   margin-inline: auto;
   /* Clear immersive nav + a little air before the card object. */
   margin-top: calc(env(safe-area-inset-top, 0px) + 4.75rem);
-  border-radius: 1.15rem;
+  border-radius: 0.75rem;
   aspect-ratio: 1 / 1;
   height: auto;
 }
@@ -1245,50 +1245,110 @@
     box-shadow 450ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Browse rows — mini mood swatch; saved/active row stays neutral below. */
+/* Browse rows — same wash as portfolio `.frame` (`--mood-bg` only).
+   No banner bloom — title uses mood accent; body wash stays honest. */
 .mood-sheet-panel .mood-sheet-item:not(.is-active) {
-  --mood-bg-preset-mix: 48%;
-  --mood-text-preset-mix: 42%;
-  --mood-muted-preset-mix: 38%;
-  padding-top: 2.7rem;
-  padding-left: 0.85rem;
-  background: color-mix(
-    in srgb,
-    var(--mood-bg) 84%,
-    var(
-        --mood-surface,
-        color-mix(in srgb, var(--mood-row-accent) 14%, transparent)
-      )
-      16%
-  );
+  --mood-bg-preset-mix: 25%;
+  --mood-text-preset-mix: 18%;
+  --mood-muted-preset-mix: 18%;
+  background: var(--mood-bg);
 }
 
-.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-label,
-.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-badge {
-  color: var(--mood-row-accent);
-}
-
-:root[data-theme='light']
-  .mood-sheet-panel
-  .mood-sheet-item:not(.is-active)
-  .mood-sheet-item-label,
-:root[data-theme='light']
-  .mood-sheet-panel
-  .mood-sheet-item:not(.is-active)
-  .mood-sheet-item-badge {
-  color: var(--mood-row-accent-light, var(--mood-row-accent));
+:root[data-theme='light'] .mood-sheet-panel .mood-sheet-item:not(.is-active) {
+  --mood-bg-preset-mix: 30%;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme])
     .mood-sheet-panel
-    .mood-sheet-item:not(.is-active)
-    .mood-sheet-item-label,
+    .mood-sheet-item:not(.is-active) {
+    --mood-bg-preset-mix: 30%;
+  }
+}
+
+/* Compact row type — don’t inherit portfolio face name scale / ornaments. */
+.mood-sheet-panel .mood-sheet-item .mood-sheet-item-label {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  position: static;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: normal;
+  text-shadow: none;
+  text-wrap: unset;
+  animation: none;
+}
+
+.mood-sheet-panel .mood-sheet-item .mood-sheet-item-label::before,
+.mood-sheet-panel .mood-sheet-item .mood-sheet-item-label::after {
+  content: none !important;
+  display: none !important;
+}
+
+.mood-sheet-panel .mood-sheet-item .mood-sheet-item-tagline {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.mood-sheet-panel
+  .mood-sheet-item:not(.is-active):not([data-mood='gold'])
+  .mood-sheet-item-label {
+  color: var(--mood-row-accent, var(--mood-accent));
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+}
+
+.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-badge {
+  color: var(--mood-muted);
+}
+
+.mood-sheet-panel .mood-sheet-item:not(.is-active) .mood-sheet-item-tagline {
+  color: var(--mood-muted);
+}
+
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item:not(.is-active):not([data-mood='gold'])
+  .mood-sheet-item-label {
+  color: var(--mood-row-accent-light, var(--mood-row-accent, var(--mood-accent)));
+}
+
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item:not(.is-active)
+  .mood-sheet-item-badge,
+:root[data-theme='light']
+  .mood-sheet-panel
+  .mood-sheet-item:not(.is-active)
+  .mood-sheet-item-tagline {
+  color: var(--mood-muted);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])
+    .mood-sheet-panel
+    .mood-sheet-item:not(.is-active):not([data-mood='gold'])
+    .mood-sheet-item-label {
+    color: var(
+      --mood-row-accent-light,
+      var(--mood-row-accent, var(--mood-accent))
+    );
+  }
+
   :root:not([data-theme])
     .mood-sheet-panel
     .mood-sheet-item:not(.is-active)
-    .mood-sheet-item-badge {
-    color: var(--mood-row-accent-light, var(--mood-row-accent));
+    .mood-sheet-item-badge,
+  :root:not([data-theme])
+    .mood-sheet-panel
+    .mood-sheet-item:not(.is-active)
+    .mood-sheet-item-tagline {
+    color: var(--mood-muted);
   }
 }
 
@@ -1297,27 +1357,35 @@
   z-index: 1;
 }
 
-/* Built-in moods — mini banner bloom so each browse row reads in its own color. */
+/* No accent banner strip on browse rows — portfolio body is wash-only. */
 .mood-sheet-panel
   .mood-sheet-item:not(.is-active):not([data-mood='gold']):not(
     [data-mood='glass']
   ):not([data-mood='carbon']):not([data-mood='holographic'])::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 2.2rem;
-  border-radius: inherit inherit 0 0;
-  background: var(
-    --mood-banner-active,
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--mood-row-accent) 32%, transparent),
-      color-mix(in srgb, var(--mood-row-accent) 10%, transparent)
-    )
-  );
-  opacity: 1;
-  pointer-events: none;
-  z-index: 0;
+  content: none;
+  display: none;
+}
+
+/* Finish packs in the mood sheet — wash only (no mini banner / material overlay). */
+.mood-sheet-panel .mood-sheet-item[data-mood='gold'],
+.mood-sheet-panel .mood-sheet-item[data-mood='glass'],
+.mood-sheet-panel .mood-sheet-item[data-mood='carbon'],
+.mood-sheet-panel .mood-sheet-item[data-mood='holographic'] {
+  padding: 0.78rem 0.85rem;
+}
+
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='gold']::before,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='glass']::before,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='carbon']::before,
+.mood-sheet-panel
+  .mood-sheet-item:not(.is-active)[data-mood='holographic']::before,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='gold']::after,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='glass']::after,
+.mood-sheet-panel .mood-sheet-item:not(.is-active)[data-mood='carbon']::after,
+.mood-sheet-panel
+  .mood-sheet-item:not(.is-active)[data-mood='holographic']::after {
+  content: none;
+  display: none;
 }
 
 .mood-sheet-panel .mood-sheet-item.is-active {
@@ -2217,6 +2285,7 @@ a.os-surface-row {
   :root[data-theme='light'] .portfolio-frame,
   :root[data-theme='light'] .portfolio-os-layer,
   :root[data-theme='light'] .mood-sheet-item {
+    --mood-bg-preset-mix: 30%;
     --mood-bg: color-mix(
       in srgb,
       var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
@@ -2245,6 +2314,7 @@ a.os-surface-row {
     :root:not([data-theme]) .portfolio-frame,
     :root:not([data-theme]) .portfolio-os-layer,
     :root:not([data-theme]) .mood-sheet-item {
+      --mood-bg-preset-mix: 30%;
       --mood-bg: color-mix(
         in srgb,
         var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
@@ -2847,7 +2917,7 @@ a.os-surface-row {
     padding: 2rem 1.5rem;
   }
 
-  .profile-avatar {
+  .profile-card .profile-avatar {
     width: 6rem;
     height: 6rem;
     flex-shrink: 0;
@@ -2855,7 +2925,7 @@ a.os-surface-row {
     border-radius: 50%;
     border: 1px solid rgb(var(--fg-rgb) / 0.1);
     object-fit: cover;
-    box-shadow: 0 16px 48px rgb(0 0 0 / 0.3);
+    box-shadow: none;
   }
 
   .profile-avatar-fallback {
@@ -3187,22 +3257,15 @@ a.os-surface-row {
   }
 
   /*
-   * Desktop profile frame — no border. The card clips content/banners to the
-   * rounded shape and uses the same soft halo language as Portal home cards.
+   * Desktop profile frame — rounded card on OS gutters. Hairline only;
+   * no outside mood glow (mood stays inside the column).
    */
   @media (min-width: 640px) {
     .portfolio-frame.app-surface[data-mood] {
-      --frame-accent-glow: color-mix(
-        in srgb,
-        var(--mood-accent) 20%,
-        transparent
-      );
       border: none;
       border-radius: 1.25rem;
       overflow: hidden auto;
-      box-shadow:
-        0 0 0 1px rgb(var(--bg-rgb) / 0.62),
-        0 0 20px var(--frame-accent-glow);
+      box-shadow: 0 0 0 1px rgb(var(--bg-rgb) / 0.62);
       transition: box-shadow var(--mood-transition-duration, 450ms)
         var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1));
     }
@@ -3952,8 +4015,8 @@ a.os-surface-row {
     }
   }
 
-  /* Glass summon — mood-native dock tokens on Glass finish. */
-  .portfolio-os-layer[data-mood='glass'] .os-dock-pill {
+  /* Glass summon — mood-native dock tokens on Glass finish (dock’s mood, not page). */
+  .portfolio-summon-dock[data-mood='glass'] .os-dock-pill {
     --os-dock-fill: var(--glass-summon-bg);
     --os-dock-fill-hover: var(--glass-summon-hover-bg);
     --os-dock-shadow: var(--os-chrome-elev-shadow);
@@ -3963,17 +4026,17 @@ a.os-surface-row {
     -webkit-backdrop-filter: blur(20px) saturate(1.35);
   }
 
-  .portfolio-os-layer[data-mood='glass'] .portfolio-summon-grip {
+  .portfolio-summon-dock[data-mood='glass'] .portfolio-summon-grip {
     background: var(--glass-summon-grip);
     opacity: 1;
   }
 
-  .portfolio-os-layer[data-mood='glass'] .portfolio-summon-hint {
+  .portfolio-summon-dock[data-mood='glass'] .portfolio-summon-hint {
     color: var(--glass-summon-hint);
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .portfolio-os-layer[data-mood='glass'] .os-dock-pill {
+    .portfolio-summon-dock[data-mood='glass'] .os-dock-pill {
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
       --os-dock-shadow: var(--os-chrome-elev-shadow);
@@ -4382,7 +4445,7 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-os-layer[data-mood='signature'] .portfolio-summon-grip {
+  .portfolio-summon-dock[data-mood='signature'] .portfolio-summon-grip {
     width: 1.85rem;
     height: 0.22rem;
     border-radius: 9999px;
@@ -4498,7 +4561,7 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-os-layer[data-mood='broadsheet'] .portfolio-summon-grip {
+  .portfolio-summon-dock[data-mood='broadsheet'] .portfolio-summon-grip {
     width: 2rem;
     height: 0.2rem;
     border-radius: 0;
@@ -4646,7 +4709,7 @@ a.os-surface-row {
     opacity: 0.62;
   }
 
-  .portfolio-os-layer[data-mood='terminal'] .portfolio-summon-grip {
+  .portfolio-summon-dock[data-mood='terminal'] .portfolio-summon-grip {
     width: 0.52rem;
     height: 0.92rem;
     border-radius: 0;
@@ -5942,15 +6005,13 @@ a.os-surface-row {
   }
 
   /*
-   * Minimal — soft accent halo only (no hard spread ring or profile grey border).
+   * Minimal — no avatar halo (mood wash is enough; no accent glow under face).
    */
   .portfolio-frame[data-mood-only='true'] .portfolio-avatar,
   .portfolio-frame[data-mood-only='true'] .portfolio-avatar-fallback {
     z-index: 2;
     border: none;
-    box-shadow:
-      0 0 6px 3px color-mix(in srgb, var(--mood-accent) 20%, transparent),
-      0 0 24px color-mix(in srgb, var(--mood-accent) 14%, transparent);
+    box-shadow: none;
   }
 
   .portfolio-avatar-fallback {
@@ -13172,14 +13233,12 @@ a.os-surface-row {
     box-shadow: none;
   }
 
-  /* Minimal — accent glow when no banner (on-page edit). */
+  /* Minimal — no avatar halo (matches live portfolio mood-only face). */
   .account-editor-panel--page-mood
     .account-editor-cover-stage:not(.has-media)
     .account-editor-avatar {
     border: none;
-    box-shadow:
-      0 0 6px 3px color-mix(in srgb, var(--mood-accent) 20%, transparent),
-      0 0 24px color-mix(in srgb, var(--mood-accent) 14%, transparent);
+    box-shadow: none;
   }
 
   .account-editor-avatar-fallback {
@@ -14890,6 +14949,8 @@ a.os-surface-row {
 
   .post-card-avatar {
     flex-shrink: 0;
+    box-shadow: none;
+    filter: none;
   }
 
   .post-card-avatar-link .post-card-avatar {
@@ -14898,7 +14959,7 @@ a.os-surface-row {
 
   .post-card--openable:hover .post-card-avatar,
   .post-card--openable:focus-within .post-card-avatar {
-    box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+    box-shadow: none;
   }
 
   .post-card-copy {
@@ -16399,7 +16460,7 @@ a.os-surface-row {
       max(1.25rem, env(safe-area-inset-right, 0px))
       max(1.25rem, env(safe-area-inset-bottom, 0px))
       max(1.25rem, env(safe-area-inset-left, 0px));
-    background: rgb(6 6 8 / 0);
+    background: rgb(var(--bg-rgb) / 0);
     cursor: zoom-out;
     opacity: 0;
     transition:
@@ -16408,13 +16469,13 @@ a.os-surface-row {
   }
 
   .scarce-card-lightbox.is-open {
-    /* Solid field — the art should own the screen, not blend with the sheet. */
-    background: rgb(6 6 8 / 0.98);
+    /* Theme field — follows light/dark toggle (not a fixed near-black). */
+    background: rgb(var(--bg-rgb) / 0.98);
     opacity: 1;
   }
 
   .scarce-card-lightbox.is-closing {
-    background: rgb(6 6 8 / 0);
+    background: rgb(var(--bg-rgb) / 0);
     opacity: 0;
   }
 
@@ -16422,7 +16483,68 @@ a.os-surface-row {
     position: absolute;
     top: max(0.55rem, env(safe-area-inset-top, 0px));
     right: max(0.55rem, env(safe-area-inset-right, 0px));
+    z-index: 3;
+  }
+
+  /* Stage: cover on top; style arrows sit under the art, never on it. */
+  .scarce-card-lightbox-stage {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    max-width: 100%;
+  }
+
+  .scarce-card-lightbox-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+  }
+
+  .scarce-card-lightbox-nav {
+    position: relative;
+    top: auto;
     z-index: 2;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    color: rgb(var(--fg-rgb) / 0.92);
+    background: rgb(var(--fg-rgb) / 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-size: 1.35rem;
+    line-height: 1;
+    transform: none;
+    cursor: pointer;
+  }
+
+  .scarce-card-lightbox-nav-spacer {
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .scarce-card-lightbox-nav--prev,
+  .scarce-card-lightbox-nav--next {
+    left: auto;
+    right: auto;
+  }
+
+  .scarce-card-lightbox-nav:hover,
+  .scarce-card-lightbox-nav:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.16);
+    color: rgb(var(--fg-rgb) / 1);
+    outline: none;
   }
 
   .scarce-card-lightbox-footer {
@@ -16430,7 +16552,7 @@ a.os-surface-row {
     left: 0;
     right: 0;
     bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
-    z-index: 2;
+    z-index: 3;
     display: flex;
     justify-content: center;
     padding: 0 1.25rem;
@@ -16441,44 +16563,27 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
-  /* Lightbox CTA — solid pill on the dark scrim (frost alone reads as plain text). */
-  .scarce-card-lightbox-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  /* Lightbox CTA — frosted OsSheetAction, hug content on theme field. */
+  .scarce-card-lightbox-actions.os-sheet-actions--row-compact {
+    width: auto;
+    max-width: min(100%, 18rem);
+    gap: 0;
+  }
+
+  .scarce-card-lightbox-actions.os-sheet-actions--row-compact .os-sheet-action,
+  .scarce-card-lightbox-actions.os-sheet-actions--row-compact
+    .os-sheet-action--primary {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 8.5rem;
     min-height: 2.5rem;
     padding: 0.55rem 1.25rem;
-    border: 0;
-    border-radius: 9999px;
-    background: rgb(255 255 255 / 0.94);
-    color: rgb(6 6 8 / 0.92);
-    font: inherit;
     font-size: 0.88rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    line-height: 1.2;
-    white-space: nowrap;
-    cursor: pointer;
-    box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.45);
   }
 
-  .scarce-card-lightbox-action:hover:not(:disabled),
-  .scarce-card-lightbox-action:focus-visible:not(:disabled) {
-    background: rgb(255 255 255 / 1);
-    color: rgb(6 6 8 / 1);
-    outline: none;
-  }
-
-  .scarce-card-lightbox-action:disabled {
-    opacity: 0.5;
-    cursor: default;
-    box-shadow: none;
-  }
-
-  .scarce-card-lightbox-action.is-selected {
-    background: rgb(var(--signal-reputation-rgb, 0 236 151) / 0.95);
-    color: rgb(6 6 8 / 0.92);
-    cursor: default;
+  .scarce-card-lightbox-actions.os-sheet-actions--borderless
+    .os-sheet-action__shell {
+    width: auto;
   }
 
   /* Color override lives unlayered below — @layer loses to glass-sheet.css. */
@@ -16491,7 +16596,7 @@ a.os-surface-row {
     height: auto;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 0.35);
     cursor: default;
     transform: scale(0.94);
@@ -16772,6 +16877,17 @@ a.os-surface-row {
     align-items: center;
     gap: 0.28rem;
     max-width: 100%;
+    /* Beat .guild-field span { 0.76rem } so chips match mint-from-post. */
+    font-size: 0.62rem;
+  }
+
+  .guild-field .scarce-choice-chip > span,
+  .guild-field .scarce-choice-chip .scarce-choice-chip-label,
+  .guild-field .scarce-choice-chip .scarce-choice-chip-value,
+  .guild-field .scarce-choice-chip .scarce-choice-chip-leading {
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
   }
 
   .scarce-choice-chip-leading {
@@ -16793,6 +16909,18 @@ a.os-surface-row {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .guild-field .scarce-choice-chip-label {
+    font-size: 0.72em;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .guild-field .scarce-choice-chip-value {
+    font-weight: 550;
   }
 
   .scarce-choice-sheet-panel {
@@ -17174,6 +17302,13 @@ a.os-surface-row {
     font-size: 0.68rem;
     font-weight: 500;
     letter-spacing: -0.02em;
+  }
+
+  .scarce-choice-swatch--format-header .scarce-choice-format-aa {
+    font-family: var(--font-ibm-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 0.68rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
   }
 
   .scarce-choice-swatch--format-poster .scarce-choice-format-aa {
@@ -19221,7 +19356,7 @@ a.os-surface-row {
     z-index: 0;
     width: 100%;
     aspect-ratio: 16 / 10;
-    border-radius: 1rem;
+    border-radius: 0.75rem;
     overflow: hidden;
     background: rgb(var(--fg-rgb) / 0.05);
     display: flex;
@@ -21703,14 +21838,314 @@ a.os-surface-row {
   /* Cover piece selector — tap a thumbnail to front the drop with it. */
   .drop-cover-seat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+    grid-template-columns: repeat(auto-fill, var(--drop-seat-tile, 6rem));
     gap: 0.4rem;
   }
 
   .drop-cover-seat-shell {
     position: relative;
+    width: var(--drop-seat-tile, 6rem);
     aspect-ratio: 1;
-    min-width: 0;
+    min-width: var(--drop-seat-tile, 6rem);
+    border-radius: 0.75rem;
+  }
+
+  .drop-cover-seat-shell.is-dragging {
+    opacity: 0.45;
+  }
+
+  .drop-cover-seat-shell.is-insert-target::before {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    left: -0.15rem;
+    width: 0.18rem;
+    border-radius: 999px;
+    background: var(--os-surface-ink, #111);
+    pointer-events: none;
+  }
+
+  .drop-cover-seat-shell.is-insert-after::after {
+    content: '';
+    position: absolute;
+    z-index: 2;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    right: -0.15rem;
+    width: 0.18rem;
+    border-radius: 999px;
+    background: var(--os-surface-ink, #111);
+    pointer-events: none;
+  }
+
+  .drop-cover-seat-shell.is-reorderable .drop-cover-seat--zoom {
+    cursor: grab;
+  }
+
+  .drop-cover-seat-shell.is-dragging .drop-cover-seat--zoom {
+    cursor: grabbing;
+  }
+
+  .drop-variation-set-field {
+    /* Same stack rhythm as drop-collage-field. */
+    gap: 0.55rem;
+  }
+
+  .drop-variation-set-field > .app-storage-presets {
+    gap: 0.4rem;
+  }
+
+  .drop-variation-set-field > small {
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .drop-variation-set-strip {
+    /*
+     * One centered row — same idea as the drop-cover collage thumb.
+     * Fluid tiles so 4 + overflow stay on a single line.
+     */
+    --drop-seat-tile: clamp(3.6rem, 17vw, 5.25rem);
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 0.4rem;
+    width: 100%;
+    grid-template-columns: none;
+  }
+
+  .drop-variation-set-strip .drop-cover-seat-shell,
+  .drop-variation-set-strip .drop-variation-set-overflow {
+    flex: 0 0 var(--drop-seat-tile);
+    width: var(--drop-seat-tile);
+    min-width: var(--drop-seat-tile);
+  }
+
+  .drop-variation-set-overflow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed color-mix(in srgb, var(--os-surface-ink, #111) 22%, transparent);
+    background: color-mix(in srgb, var(--os-surface-ink, #111) 4%, transparent);
+    color: var(--os-surface-muted);
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .drop-variation-set-overflow:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .drop-variation-set-overflow-label {
+    font-size: 0.85rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+
+  /*
+   * Full-screen side slide — same .os-app-screen glass + blue corner as feed.
+   * Portaled above the host screen; slides in from the right.
+   */
+  .os-slide-over {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    transform: translate3d(100%, 0, 0);
+    transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+    /* Above create-drop drawers; below lightbox zoom (scarce-card ~120+). */
+    pointer-events: auto;
+  }
+
+  .os-slide-over.is-open {
+    transform: translate3d(0, 0, 0);
+  }
+
+  .os-slide-over.is-closing {
+    transform: translate3d(100%, 0, 0);
+  }
+
+  /*
+   * Slide-overs never use the shared blue-corner trial on .os-app-screen —
+   * that rule is for page shells. Kill it here (both themes) so mood wash
+   * or a quiet base can show. Also clear .app-surface desktop card chrome
+   * (border / radius) so gutters stay flat OS --bg with no corner glow bleed.
+   */
+  .os-app-screen.os-slide-over,
+  html[data-theme='light'] .os-app-screen.os-slide-over {
+    background-image: none;
+    background-color: var(--bg, #000);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  html[data-theme='light'] .os-app-screen.os-slide-over {
+    background-color: var(--bg, #fff);
+  }
+
+  /*
+   * Mood screens (home, create-post slide-over, …) — wash only inside the
+   * phone view. Same light/dark preset mix as `.portfolio-frame`.
+   * Desktop gutters stay OS --bg; no frost / corner paint / outside glow.
+   */
+  .os-app-screen.os-app-screen--mood {
+    --mood-bg-preset-mix: 25%;
+    --mood-bg: color-mix(
+      in srgb,
+      var(--mood-preset-bg, var(--bg)) var(--mood-bg-preset-mix),
+      var(--bg)
+    );
+    --mood-accent: var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72));
+    background-image: none;
+    box-shadow: none;
+  }
+
+  :root[data-theme='light'] .os-app-screen.os-app-screen--mood {
+    --mood-bg-preset-mix: 30%;
+    --mood-bg: color-mix(
+      in srgb,
+      var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
+      var(--bg)
+    );
+    --mood-accent: var(
+      --mood-preset-accent-light,
+      var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+    );
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .os-app-screen.os-app-screen--mood {
+      --mood-bg-preset-mix: 30%;
+      --mood-bg: color-mix(
+        in srgb,
+        var(--mood-preset-bg-light, var(--bg)) var(--mood-bg-preset-mix),
+        var(--bg)
+      );
+      --mood-accent: var(
+        --mood-preset-accent-light,
+        var(--mood-preset-accent, rgb(var(--fg-rgb) / 0.72))
+      );
+    }
+  }
+
+  .os-app-screen.os-app-screen--mood::before {
+    content: none;
+    display: none;
+  }
+
+  /* Slide-over: full-viewport root = OS gutters; mood only in column. */
+  .os-app-screen.os-slide-over.os-app-screen--mood {
+    background-color: var(--bg);
+  }
+
+  .os-app-screen.os-slide-over.os-app-screen--mood .os-app-screen-column {
+    background: var(--mood-bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* Home / in-shell: the .app-surface card IS the phone view. */
+  .os-app-screen.os-app-screen--mood:not(.os-slide-over) {
+    background-color: var(--mood-bg);
+  }
+
+  .os-app-screen.os-app-screen--mood:not(.os-slide-over) .os-app-screen-column {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .os-app-screen.os-slide-over.os-app-screen--mood .os-app-screen-column {
+      background: var(--mood-bg);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+
+  /* Image-first slide bodies — no side inset; grids center themselves. */
+  .os-slide-over-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0.15rem 0 1.25rem;
+  }
+
+  .os-slide-over-footer-inner {
+    width: 100%;
+    max-width: 36rem;
+    margin-inline: auto;
+    padding: 0.55rem var(--os-screen-body-pad-x, 1rem)
+      calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+  }
+
+  /* No summon dock on the slide layer — pin footer to the safe edge. */
+  .os-slide-over[data-os-slide-over='true'] .os-app-screen-footer {
+    bottom: 0;
+  }
+
+  .os-slide-over[data-os-slide-over='true'][data-screen-footer='true']
+    .os-app-screen-body {
+    padding-bottom: calc(
+      env(safe-area-inset-bottom, 0px) + var(--os-screen-footer-band, 4.25rem)
+    );
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .os-slide-over {
+      transition: none;
+    }
+  }
+
+  .drop-variation-set-slide-grid {
+    --drop-seat-tile: clamp(4.5rem, 22vw, 6rem);
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--drop-seat-tile));
+    gap: 0.4rem;
+    justify-content: center;
+    justify-items: center;
+  }
+
+  .drop-variation-set-slide-grid .drop-cover-seat-shell {
+    width: var(--drop-seat-tile);
+    min-width: var(--drop-seat-tile);
+  }
+
+  .drop-variation-set-slide-grid.is-reordering {
+    user-select: none;
+  }
+
+  .drop-variation-set-slide-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: center;
+    padding: 0;
+    pointer-events: auto;
+  }
+
+  /* One cell of the same seat grid — cannot flex-shrink beside arrows. */
+  .drop-collage-thumb-grid {
+    flex: 0 0 auto;
+    width: var(--drop-seat-tile, 6rem);
+    grid-template-columns: var(--drop-seat-tile, 6rem);
+  }
+
+  .drop-collage-thumb-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 0.72rem;
+    color: var(--os-surface-muted);
   }
 
   .drop-cover-seat {
@@ -21801,6 +22236,325 @@ a.os-surface-row {
     color: rgb(0 0 0 / 0.85);
     font-size: 0.65rem;
     font-weight: 700;
+  }
+
+  .drop-collage-field {
+    gap: 0.55rem;
+  }
+
+  .drop-collage-picker-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    width: 100%;
+  }
+
+  .drop-collage-arrow {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    /* Theme transport — same idea as lightbox nav, not hard black. */
+    color: rgb(var(--fg-rgb) / 0.92);
+    background: rgb(var(--fg-rgb) / 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .drop-collage-arrow:hover:not(:disabled),
+  .drop-collage-arrow:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.16);
+    color: rgb(var(--fg-rgb) / 1);
+    outline: none;
+  }
+
+  .drop-collage-arrow:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .drop-collage-style-swatch {
+    --drop-collage-swatch-paper: #f3eee6;
+    --drop-collage-swatch-seat: rgb(40 34 28 / 0.38);
+    position: relative;
+    display: block;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 0.45rem;
+    overflow: hidden;
+    background: var(--drop-collage-swatch-paper);
+    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .drop-collage-style-swatch.is-dark {
+    --drop-collage-swatch-seat: rgb(245 240 232 / 0.3);
+  }
+
+  .drop-collage-style-swatch--chip {
+    /* Match .scarce-choice-swatch--chip (mint-from-post). */
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 0.22rem;
+  }
+
+  .drop-collage-style-swatch::before,
+  .drop-collage-style-swatch::after {
+    content: '';
+    position: absolute;
+    border-radius: 0.12rem;
+    background: var(--drop-collage-swatch-seat);
+  }
+
+  .drop-collage-style-swatch--single::before {
+    inset: 14%;
+    border-radius: 0.16rem;
+  }
+  .drop-collage-style-swatch--single::after {
+    display: none;
+  }
+
+  .drop-collage-style-swatch--duet {
+    --drop-collage-swatch-paper: #f3eee6;
+  }
+  .drop-collage-style-swatch--duet::before {
+    inset: 10% auto 10% 8%;
+    width: 38%;
+  }
+  .drop-collage-style-swatch--duet::after {
+    inset: 10% 8% 10% auto;
+    width: 38%;
+  }
+
+  .drop-collage-style-swatch--orbit {
+    --drop-collage-swatch-paper: #f1ede6;
+  }
+  .drop-collage-style-swatch--orbit::before {
+    inset: 14% auto 14% 8%;
+    width: 52%;
+    border-radius: 0.2rem;
+  }
+  .drop-collage-style-swatch--orbit::after {
+    inset: 14% 8% 14% auto;
+    width: 24%;
+    background:
+      linear-gradient(
+          #0000 0 28%,
+          var(--drop-collage-swatch-seat) 0 33%
+        )
+        0 0 / 100% 33%,
+      linear-gradient(
+          #0000 0 28%,
+          var(--drop-collage-swatch-seat) 0 33%
+        )
+        0 50% / 100% 33%,
+      linear-gradient(
+          #0000 0 28%,
+          var(--drop-collage-swatch-seat) 0 33%
+        )
+        0 100% / 100% 33%;
+    background-repeat: no-repeat;
+  }
+
+  .drop-collage-style-swatch--pack {
+    --drop-collage-swatch-paper: #f6f0e7;
+  }
+  .drop-collage-style-swatch--pack::before {
+    inset: 28% 28%;
+    border-radius: 0.2rem;
+    z-index: 1;
+  }
+  .drop-collage-style-swatch--pack::after {
+    inset: 12%;
+    border-radius: 0.18rem;
+    background:
+      radial-gradient(
+        circle at 18% 50%,
+        var(--drop-collage-swatch-seat) 0 18%,
+        #0000 19%
+      ),
+      radial-gradient(
+        circle at 82% 50%,
+        var(--drop-collage-swatch-seat) 0 18%,
+        #0000 19%
+      ),
+      radial-gradient(
+        circle at 50% 16%,
+        var(--drop-collage-swatch-seat) 0 18%,
+        #0000 19%
+      ),
+      radial-gradient(
+        circle at 50% 84%,
+        var(--drop-collage-swatch-seat) 0 18%,
+        #0000 19%
+      );
+  }
+
+  .drop-collage-style-swatch--grid {
+    --drop-collage-swatch-paper: #f4efe6;
+  }
+  .drop-collage-style-swatch--grid::before {
+    inset: 12%;
+    border-radius: 0;
+    background:
+      linear-gradient(var(--drop-collage-swatch-seat) 0 0) 0 0 / 46% 46%,
+      linear-gradient(var(--drop-collage-swatch-seat) 0 0) 100% 0 / 46% 46%,
+      linear-gradient(var(--drop-collage-swatch-seat) 0 0) 0 100% / 46% 46%,
+      linear-gradient(var(--drop-collage-swatch-seat) 0 0) 100% 100% / 46% 46%;
+    background-repeat: no-repeat;
+  }
+  .drop-collage-style-swatch--grid::after {
+    display: none;
+  }
+
+  .drop-collage-style-swatch--mosaic {
+    --drop-collage-swatch-paper: #0c0b0a;
+  }
+  .drop-collage-style-swatch--mosaic::before {
+    inset: 10% auto 32% 8%;
+    width: 52%;
+  }
+  .drop-collage-style-swatch--mosaic::after {
+    inset: 10% 8% 10% auto;
+    width: 28%;
+    background:
+      linear-gradient(var(--drop-collage-swatch-seat) 0 0) 0 0 / 100% 28%,
+      linear-gradient(var(--drop-collage-swatch-seat) 0 0) 0 36% / 100% 28%,
+      linear-gradient(var(--drop-collage-swatch-seat) 0 0) 0 72% / 100% 28%;
+    background-repeat: no-repeat;
+  }
+
+  .drop-collage-style-swatch--film {
+    --drop-collage-swatch-paper: #050505;
+  }
+  .drop-collage-style-swatch--film::before {
+    inset: 18% 6%;
+    height: auto;
+    border-radius: 0;
+    background:
+      linear-gradient(
+          90deg,
+          var(--drop-collage-swatch-seat) 0 18%,
+          #0000 0
+        )
+        0 0 / 22% 100%,
+      linear-gradient(
+          90deg,
+          var(--drop-collage-swatch-seat) 0 18%,
+          #0000 0
+        )
+        28% 0 / 22% 100%,
+      linear-gradient(
+          90deg,
+          var(--drop-collage-swatch-seat) 0 18%,
+          #0000 0
+        )
+        56% 0 / 22% 100%,
+      linear-gradient(
+          90deg,
+          var(--drop-collage-swatch-seat) 0 18%,
+          #0000 0
+        )
+        84% 0 / 22% 100%;
+    background-repeat: no-repeat;
+  }
+  .drop-collage-style-swatch--film::after {
+    display: none;
+  }
+
+  .drop-collage-error {
+    color: var(--signal-danger, #b42318);
+  }
+
+  .drop-collage-lightbox-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    width: min(100%, 22rem);
+  }
+
+  .drop-collage-lightbox-controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+  }
+
+  .drop-collage-lightbox-controls .scarce-choice-chip {
+    font-size: 0.62rem;
+  }
+
+  .drop-collage-lightbox-controls .scarce-choice-chip > span,
+  .drop-collage-lightbox-controls .scarce-choice-chip-label,
+  .drop-collage-lightbox-controls .scarce-choice-chip-value {
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+  }
+
+  .drop-collage-lightbox-controls .scarce-choice-chip-label {
+    font-size: 0.72em;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .drop-collage-lightbox-controls .scarce-choice-chip-value {
+    font-weight: 550;
+  }
+
+  /* Same surface chip language as create Style / Paper — not action pills. */
+  .drop-collage-lightbox-control.os-surface-chip {
+    padding: 0.12rem 0.28rem 0.12rem 0.2rem;
+    gap: 0.15rem;
+    cursor: default;
+  }
+
+  .drop-collage-lightbox-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: inherit;
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .drop-collage-lightbox-step:hover:not(:disabled),
+  .drop-collage-lightbox-step:focus-visible:not(:disabled) {
+    background: rgb(var(--fg-rgb) / 0.1);
+    color: var(--os-surface-emphasis);
+    outline: none;
+  }
+
+  .drop-collage-lightbox-step:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .drop-collage-lightbox-value {
+    min-width: 2.75rem;
+    max-width: 5.5rem;
   }
 
   .scarce-traits {
@@ -23844,7 +24598,7 @@ a.os-surface-row {
     width: 4.85rem;
     height: 4.85rem;
     border: 0;
-    border-radius: 0.72rem;
+    border-radius: 0.75rem;
     outline: none;
     box-shadow: none;
   }
@@ -26829,6 +27583,28 @@ a.os-surface-row {
   .guild-thread-root .post-card-body-block {
     font-size: 1.02rem;
     line-height: 1.55;
+  }
+
+  /*
+   * Composer — OsSlideOverScreen shell (same as Manage set); keep the
+   * pre-existing form / footer padding (not the image-first zero inset).
+   */
+  .guild-composer-slide .os-slide-over-content.guild-composer-sheet-body {
+    padding: 0.35rem 1.15rem 0.85rem;
+  }
+
+  .guild-composer-slide .os-slide-over-footer-inner {
+    max-width: none;
+    width: 100%;
+    padding: 0;
+  }
+
+  .guild-composer-slide .os-app-screen-toolbar {
+    padding-inline: 0;
+  }
+
+  .guild-composer-slide .guild-composer-mode {
+    width: 100%;
   }
 
   /*
@@ -30163,4 +30939,14 @@ button.scarce-clip-cover-expand:focus-visible {
   font-size: 0.8rem;
   color: rgb(var(--fg-rgb) / 0.62);
   line-height: 1.4;
+}
+
+/* Feed avatars — flat faces (unlayered so nothing reintroduces under-shadow). */
+.home-feed .profile-avatar,
+.post-card .profile-avatar,
+.post-card-avatar.profile-avatar,
+.home-feed-me-avatar .profile-avatar,
+.guild-composer-row-avatar.profile-avatar {
+  box-shadow: none !important;
+  filter: none !important;
 }
