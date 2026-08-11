@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   APP_COLLECTIBLES_PATH,
+  collectionPath,
   collectiblesKindPath,
   collectiblesPlayPath,
   isAppRoutePath,
@@ -25,6 +26,12 @@ describe('collectibles routes', () => {
     );
     expect(collectiblesPlayPath('night-drive', { tokenId: 'night-drive:2' })).toBe(
       '/collectibles/play?c=night-drive&t=night-drive%3A2'
+    );
+    expect(collectionPath('gate', { pass: true, tokenId: 'gate:2' })).toBe(
+      '/collection/gate?pass=1&t=gate%3A2'
+    );
+    expect(collectionPath('gate', { door: true })).toBe(
+      '/collection/gate?door=1'
     );
   });
 });

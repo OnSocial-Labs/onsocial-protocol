@@ -71,6 +71,19 @@ describe('toPortfolioHoldingPeek', () => {
     expect(peek.actionLabel).toBe('Play');
   });
 
+  it('routes ticket holdings to Show pass on the drop page', () => {
+    const peek = toPortfolioHoldingPeek({
+      tokenId: 'gate:2',
+      title: 'Season Two',
+      ownerId: 'alice.near',
+      collectionId: 'gate',
+      mediumKind: 'ticket',
+      listingKind: null,
+    });
+    expect(peek.href).toBe('/collection/gate?pass=1&t=gate%3A2');
+    expect(peek.actionLabel).toBe('Show pass');
+  });
+
   it('routes post scarces to the source post thread', () => {
     expect(
       holdingsHrefForOwned({
