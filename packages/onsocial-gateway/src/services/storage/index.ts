@@ -4,6 +4,11 @@ import lighthouse from '@lighthouse-web3/sdk';
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
 import { requireAuth } from '../../middleware/index.js';
+import {
+  encodePostVideo,
+  isEncodableVideoMime,
+  VideoEncodeError,
+} from './encode-post-video.js';
 import { uploadNamedBufferToLighthouse } from './lighthouse-upload.js';
 
 const router = Router();
@@ -44,20 +49,38 @@ router.post(
     }
 
     try {
+      let buffer = req.file.buffer;
+      let mime = req.file.mimetype;
+      let filename = req.file.originalname;
+
+      if (isEncodableVideoMime(mime)) {
+        const encoded = await encodePostVideo({
+          buffer,
+          mimetype: mime,
+        });
+        buffer = encoded.buffer;
+        mime = encoded.mimetype;
+        filename = encoded.originalname;
+      }
+
       const result = await uploadNamedBufferToLighthouse({
-        buffer: req.file.buffer,
+        buffer,
         apiKey: getApiKey(),
-        filename: req.file.originalname,
-        mime: req.file.mimetype,
+        filename,
+        mime,
         storageType: STORAGE_TYPE,
       });
       res.json({
         cid: result.Hash,
-        size: result.Size ?? req.file.size,
-        mime: req.file.mimetype,
-        name: result.Name ?? req.file.originalname,
+        size: result.Size ?? buffer.length,
+        mime,
+        name: result.Name ?? filename,
       });
     } catch (error) {
+      if (error instanceof VideoEncodeError) {
+        res.status(error.status).json({ error: error.message });
+        return;
+      }
       logger.error({ error }, 'Upload error');
       res.status(500).json({ error: 'Upload failed' });
     }

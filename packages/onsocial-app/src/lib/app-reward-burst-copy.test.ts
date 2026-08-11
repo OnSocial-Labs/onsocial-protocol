@@ -43,10 +43,14 @@ describe('resolveBurstDisplayAmount', () => {
 });
 
 describe('shouldShowBurstCelebration', () => {
-  it('hides daily-only follow-up pills', () => {
+  it('shows a toast for a lone daily check-in (once per day on chain)', () => {
     expect(
       shouldShowBurstCelebration([{ amountYocto: CREDIT_YOCTO, action: 'daily_active' }])
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it('hides empty batches', () => {
+    expect(shouldShowBurstCelebration([])).toBe(false);
   });
 });
 

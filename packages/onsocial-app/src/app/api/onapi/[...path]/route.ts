@@ -113,6 +113,10 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     body: 'json',
   },
   { method: 'POST', path: 'compose/prepare/set-allowlist', body: 'json' },
+  // Scarces — creator pause / resume / delete (empty only).
+  { method: 'POST', path: 'compose/prepare/pause-collection', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/resume-collection', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/delete-collection', body: 'json' },
 
   // Hubs (apps) — register / config / creators / ownership.
   { method: 'POST', path: 'compose/prepare/register-app', body: 'json' },

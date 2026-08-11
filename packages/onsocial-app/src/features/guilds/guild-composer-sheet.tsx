@@ -1055,7 +1055,7 @@ export function ComposerSheet({
         <input
           ref={mediaInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
           multiple
           hidden
           aria-hidden

@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  POST_MEDIA_MAX_FILES,
+  POST_VIDEO_MAX_BYTES,
+  POST_VIDEO_MAX_SECONDS,
   appendPostMediaIndex,
   appendPostMediaUnmute,
   applyMediaKindOverride,
   formatMediaDuration,
+  isPostVideoMime,
   mediaKindFromFile,
   parsePostMedia,
   postMediaStripClassName,
@@ -12,6 +16,16 @@ import {
   revokeOptimisticMediaPreviewUrls,
   truncateQuoteText,
 } from '@/lib/post-media';
+
+describe('post video caps', () => {
+  it('allows 120s / 200 MB inbound (gateway encodes to ≤50 MB)', () => {
+    expect(POST_VIDEO_MAX_SECONDS).toBe(120);
+    expect(POST_VIDEO_MAX_BYTES).toBe(200 * 1024 * 1024);
+    expect(POST_MEDIA_MAX_FILES).toBe(4);
+    expect(isPostVideoMime('video/mp4')).toBe(true);
+    expect(isPostVideoMime('video/quicktime')).toBe(true);
+  });
+});
 
 describe('parsePostMedia', () => {
   it('returns empty for invalid or missing bodies', () => {

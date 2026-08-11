@@ -25,7 +25,9 @@ function makeMod(opts: { social?: boolean } = {}) {
           action: {
             type: path.endsWith('/lazy-list')
               ? 'create_lazy_listing'
-              : 'quick_mint',
+              : path.endsWith('/create-collection')
+                ? 'create_collection'
+                : 'quick_mint',
             metadata: {},
           },
           target_account: 'scarces.onsocial.near',
@@ -443,6 +445,32 @@ describe('ScarcesModule.fromPost.mintReceipt', () => {
       )
     ).rejects.toThrow(/short claims/);
     expect(spies.requestForm).not.toHaveBeenCalled();
+  });
+});
+
+describe('ScarcesModule.fromPost.createDrop', () => {
+  it('appends cardFormat/cardBg on text-only posts to create-collection FormData', async () => {
+    const { mod, spies } = makeMod();
+    await mod.fromPost.createDrop(
+      {
+        ...ROW,
+        value: JSON.stringify({ text: 'just words, no media' }),
+      },
+      '1',
+      {
+        collectionId: 'thought-drop-abc',
+        copies: 10,
+        cardFormat: 'letter',
+        cardBg: 'letter-graphite',
+      }
+    );
+    const [, endpoint, form] = spies.requestForm.mock.calls[0];
+    expect(endpoint).toBe('/compose/prepare/create-collection');
+    expect(form.get('collectionId')).toBe('thought-drop-abc');
+    expect(form.get('cardFormat')).toBe('letter');
+    expect(form.get('cardBg')).toBe('letter-graphite');
+    expect(form.get('mediaCid')).toBeNull();
+    expect(form.get('image')).toBeNull();
   });
 });
 

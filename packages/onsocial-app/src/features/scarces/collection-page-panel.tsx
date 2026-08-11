@@ -9,10 +9,13 @@ import {
   useState,
 } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Divider,
   GlassSheet,
   InformationCircleIcon,
+  OsSheetAction,
+  OsSheetActions,
   ProfileAvatar,
   BookmarkFillIcon,
   BookmarkIcon,
@@ -23,6 +26,7 @@ import {
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { DropDeleteConfirmPanel } from '@/components/wallet/drop-delete-confirm-panel';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -56,15 +60,25 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
+import {
+  canDeleteDrop,
+  canPauseDrop,
+  canResumeDrop,
+  deleteDropCollection,
+  pauseDropCollection,
+  resumeDropCollection,
+} from '@/features/scarces/drop-owner-actions';
 import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
+  APP_DROPS_PATH,
   APP_MARKET_PATH,
   COLLECTION_READ_QUERY,
   marketCreatorPath,
@@ -74,6 +88,12 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const MINT_ACTIVITY_OPS = new Set([
   'purchase',
@@ -124,8 +144,12 @@ export function CollectionPagePanel({
   initialCreator?: CollectionCreatorFace | null;
   initialActivity?: CollectionActivityRow[];
 }) {
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const { setTxResult } = useAppTransactionFeedback();
+  const { accountId: viewerAccountId, isConnected, getSigningWallet } =
+    useAppWallet();
+  const { setTxResult, trackTransaction } = useAppTransactionFeedback();
+  const router = useRouter();
+  const [ownerPending, setOwnerPending] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const collectionSaves = useScarceCollectionSaves({
     collectionIds: [collectionId],
     onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -447,6 +471,80 @@ export function CollectionPagePanel({
   const handleMintPurchased = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
+
+  const showOwnerPause = isOwner && canPauseDrop(status);
+  const showOwnerResume = isOwner && canResumeDrop(status);
+  const showOwnerDelete =
+    isOwner && view != null && canDeleteDrop(view.minted, status);
+  const showOwnerManage =
+    showOwnerPause || showOwnerResume || showOwnerDelete;
+
+  const runOwnerAction = useCallback(
+    async (kind: 'paused' | 'resumed' | 'deleted') => {
+      if (!view || ownerPending) return;
+      setOwnerPending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const response =
+          kind === 'paused'
+            ? await pauseDropCollection(signerId, wallet, view.collectionId)
+            : kind === 'resumed'
+              ? await resumeDropCollection(signerId, wallet, view.collectionId)
+              : await deleteDropCollection(signerId, wallet, view.collectionId);
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage:
+            kind === 'paused'
+              ? txToastConfirming.pausingCollection
+              : kind === 'resumed'
+                ? txToastConfirming.resumingCollection
+                : txToastConfirming.deletingCollection,
+          successMessage:
+            kind === 'paused'
+              ? txToastSuccess.collectionPaused
+              : kind === 'resumed'
+                ? txToastSuccess.collectionResumed
+                : txToastSuccess.collectionDeleted,
+          failureMessage:
+            kind === 'paused'
+              ? txToastError.pauseCollectionFailed
+              : kind === 'resumed'
+                ? txToastError.resumeCollectionFailed
+                : txToastError.deleteCollectionFailed,
+        });
+        if (!confirmed) return;
+        if (kind === 'deleted') {
+          setConfirmDelete(false);
+          router.replace(APP_DROPS_PATH);
+          return;
+        }
+        setRefreshKey((k) => k + 1);
+      } catch (error) {
+        if (isWalletUserCancellation(error)) return;
+        setTxResult({
+          type: 'error',
+          msg:
+            error instanceof Error
+              ? error.message
+              : kind === 'paused'
+                ? txToastError.pauseCollectionFailed
+                : kind === 'resumed'
+                  ? txToastError.resumeCollectionFailed
+                  : txToastError.deleteCollectionFailed,
+        });
+      } finally {
+        setOwnerPending(false);
+      }
+    },
+    [
+      getSigningWallet,
+      ownerPending,
+      router,
+      setTxResult,
+      trackTransaction,
+      view,
+    ]
+  );
 
   const activityLoaded = activityFetched?.key === activityRequestKey;
   const activity = activityLoaded ? activityFetched.rows : EMPTY_ACTIVITY;
@@ -964,13 +1062,84 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {isOwner && status === 'upcoming' ? (
+        {isOwner && (status === 'upcoming' || showOwnerManage) ? (
           <div className="collection-owner-tools">
-            <CollectionAllowlistManager
-              collectionId={view.collectionId}
-              creatorId={view.creatorId}
-              maxPerWallet={view.maxPerWallet}
-            />
+            {showOwnerManage ? (
+              <>
+                <p className="collection-section-label">Manage</p>
+                {confirmDelete ? (
+                  <DropDeleteConfirmPanel
+                    title={view.title}
+                    pending={ownerPending}
+                    onConfirm={() => {
+                      void runOwnerAction('deleted');
+                    }}
+                    onCancel={() => setConfirmDelete(false)}
+                  />
+                ) : (
+                  <>
+                    <OsSheetActions
+                      layout="row-compact"
+                      tone="frosted-primary"
+                      borderless
+                      className="collection-owner-manage"
+                    >
+                      {showOwnerPause ? (
+                        <OsSheetAction
+                          type="button"
+                          variant="ghost"
+                          ready={!ownerPending}
+                          pending={ownerPending}
+                          pendingLabel="Pausing…"
+                          onClick={() => {
+                            void runOwnerAction('paused');
+                          }}
+                        >
+                          Pause
+                        </OsSheetAction>
+                      ) : null}
+                      {showOwnerResume ? (
+                        <OsSheetAction
+                          type="button"
+                          variant="primary"
+                          ready={!ownerPending}
+                          pending={ownerPending}
+                          pendingLabel="Resuming…"
+                          onClick={() => {
+                            void runOwnerAction('resumed');
+                          }}
+                        >
+                          Resume
+                        </OsSheetAction>
+                      ) : null}
+                      {showOwnerDelete ? (
+                        <OsSheetAction
+                          type="button"
+                          variant="danger"
+                          ready={!ownerPending}
+                          disabled={ownerPending}
+                          onClick={() => setConfirmDelete(true)}
+                        >
+                          Delete
+                        </OsSheetAction>
+                      ) : null}
+                    </OsSheetActions>
+                    {showOwnerDelete ? (
+                      <p className="collection-owner-manage-hint">
+                        Delete only works if nothing was minted.
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </>
+            ) : null}
+            {status === 'upcoming' ? (
+              <CollectionAllowlistManager
+                collectionId={view.collectionId}
+                creatorId={view.creatorId}
+                maxPerWallet={view.maxPerWallet}
+              />
+            ) : null}
           </div>
         ) : null}
 

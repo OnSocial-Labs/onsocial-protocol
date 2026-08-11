@@ -19,6 +19,7 @@ import {
   MAX_COLLECTION_SUPPLY,
   nearToYocto,
 } from './shared.js';
+import { buildTextCardPng } from './text-card-png.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,6 +97,25 @@ export interface ComposeCreateCollectionRequest {
   randomAssignment?: boolean;
   /** Optional: override target account (which scarces contract) */
   targetAccount?: string;
+  /**
+   * Skip auto text-card when no cover media is supplied.
+   * Default: false — text Drops get a permanent PNG cover (same as mint).
+   */
+  skipAutoMedia?: boolean;
+  /** Author profile rendered on the auto-generated cover card. */
+  creator?: {
+    accountId: string;
+    displayName?: string;
+    avatar?: string;
+  };
+  cardBg?: string;
+  cardFormat?: string;
+  cardPalette?: string;
+  cardFont?: string;
+  cardMarkColor?: string;
+  cardMarkShape?: string;
+  cardTitleAlign?: string;
+  cardPhotoCid?: string;
 }
 
 export interface ComposeCreateCollectionResult {
@@ -333,6 +353,44 @@ export async function buildCreateCollectionAction(
       { accountId, cid: media.cid, size: media.size },
       'Compose create-collection: image uploaded to Lighthouse'
     );
+  } else if (!req.skipAutoMedia) {
+    // Same permanent PNG path as mint / lazy-list — text Drops need a cover
+    // on /drops (metadata.media), not an empty thumb.
+    const sourcePost =
+      req.extra && typeof req.extra === 'object'
+        ? (req.extra as { sourcePost?: { postId?: string } }).sourcePost
+        : undefined;
+    const { png, themeExtra } = await buildTextCardPng(accountId, {
+      title: req.title,
+      description: req.description,
+      creator: req.creator,
+      cardBg: req.cardBg,
+      cardFont: req.cardFont,
+      cardMarkColor: req.cardMarkColor,
+      cardMarkShape: req.cardMarkShape,
+      cardTitleAlign: req.cardTitleAlign,
+      cardFormat: req.cardFormat,
+      cardPalette: req.cardPalette,
+      cardPhotoCid: req.cardPhotoCid,
+      ...(typeof sourcePost?.postId === 'string' && sourcePost.postId
+        ? { postId: sourcePost.postId }
+        : {}),
+    });
+    media = await uploadToLighthouse({
+      buffer: png,
+      fieldname: 'image',
+      originalname: `card-${Date.now()}.png`,
+      mimetype: 'image/png',
+      size: png.length,
+    });
+    logger.info(
+      { accountId, cid: media.cid, size: media.size, theme: themeExtra },
+      'Compose create-collection: deterministic PNG card uploaded'
+    );
+    req.extra = {
+      ...(req.extra || {}),
+      theme: themeExtra,
+    };
   }
 
   // 1b. Per-token trait metadata (marketplace-style attributes). Same

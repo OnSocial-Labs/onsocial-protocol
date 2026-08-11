@@ -110,14 +110,10 @@ export function resolveBurstDisplayAmount(
   );
 }
 
-/** Daily alone never gets its own pill — it rides with the social action batch. */
+/** Celebrate any positive credit, including a lone daily check-in (once per day). */
 export function shouldShowBurstCelebration(
   events: PlatformRewardCreditEvent[]
 ): boolean {
-  if (events.length === 1 && events[0].action === 'daily_active') {
-    return false;
-  }
-
   return resolveBurstDisplayAmount(events) > 0n;
 }
 

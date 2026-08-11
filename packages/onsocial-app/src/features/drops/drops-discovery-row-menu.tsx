@@ -7,7 +7,10 @@ import {
   DotsVerticalIcon,
   EditPenIcon,
   GiftIcon,
+  PauseFillIcon,
+  PlayFillIcon,
   ShareIcon,
+  TrashIcon,
   UserMinusIcon,
   UserPlusIcon,
 } from '@onsocial/ui';
@@ -15,33 +18,52 @@ import {
   ActionDrawer,
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
+import { DropDeleteConfirmPanel } from '@/components/wallet/drop-delete-confirm-panel';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import type { DropDiscoveryItem } from '@/features/drops/drops-data';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
+import {
+  canDeleteDrop,
+  canPauseDrop,
+  canResumeDrop,
+  deleteDropCollection,
+  pauseDropCollection,
+  resumeDropCollection,
+} from '@/features/scarces/drop-owner-actions';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
 import { collectionPath } from '@/lib/app-routes';
+import { dropDeleteConfirmCopy } from '@/lib/drop-delete-confirm-copy';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { shareUrl } from '@/lib/share-url';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  txToastConfirming,
+  txToastError,
+  txToastSuccess,
+} from '@/lib/transaction-toast-copy';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export function DropsDiscoveryRowMenu({
   item,
   saved,
   savePending,
   onToggleSave,
+  onOwnerManaged,
 }: {
   item: DropDiscoveryItem;
   saved: boolean;
   savePending: boolean;
   onToggleSave: () => void;
+  /** After pause / resume / delete succeeds — refresh or remove the row. */
+  onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
 }) {
-  const { accountId, isConnected, connect } = useAppWallet();
-  const { setTxResult } = useAppTransactionFeedback();
+  const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
+  const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const creatorId = item.creatorId.trim();
   const { viewerStanding, isLoading: standingLoading } =
     useViewerRelationship(creatorId);
@@ -49,6 +71,8 @@ export function DropsDiscoveryRowMenu({
     useViewerStanding(creatorId);
   const [open, setOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [ownerPending, setOwnerPending] = useState(false);
 
   const isSelf =
     Boolean(accountId) && accountIdsEqual(accountId!, creatorId);
@@ -57,9 +81,18 @@ export function DropsDiscoveryRowMenu({
     creatorId,
     item.creatorDisplayName ?? undefined
   );
-  const menuLabel = `${item.title.trim() || 'Drop'} options`;
+  const dropTitle = item.title.trim() || 'Drop';
+  // Visible sheet title = drop name (no “options”). ⋮ keeps a short a11y label.
+  const triggerAriaLabel = `More for ${dropTitle}`;
 
-  const close = useCallback(() => setOpen(false), []);
+  const showPause = isSelf && canPauseDrop(item.status);
+  const showResume = isSelf && canResumeDrop(item.status);
+  const showDelete = isSelf && canDeleteDrop(item.mintedCount, item.status);
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setConfirmDelete(false);
+  }, []);
 
   const dropAbsoluteUrl = useCallback(() => {
     if (typeof window === 'undefined') return '';
@@ -103,6 +136,73 @@ export function DropsDiscoveryRowMenu({
     item.mediumKind,
     item.title,
   ]);
+
+  const runOwnerAction = useCallback(
+    async (kind: 'paused' | 'resumed' | 'deleted') => {
+      if (!isConnected || ownerPending) return;
+      if (kind !== 'deleted') close();
+      setOwnerPending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const response =
+          kind === 'paused'
+            ? await pauseDropCollection(signerId, wallet, item.collectionId)
+            : kind === 'resumed'
+              ? await resumeDropCollection(signerId, wallet, item.collectionId)
+              : await deleteDropCollection(signerId, wallet, item.collectionId);
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage:
+            kind === 'paused'
+              ? txToastConfirming.pausingCollection
+              : kind === 'resumed'
+                ? txToastConfirming.resumingCollection
+                : txToastConfirming.deletingCollection,
+          successMessage:
+            kind === 'paused'
+              ? txToastSuccess.collectionPaused
+              : kind === 'resumed'
+                ? txToastSuccess.collectionResumed
+                : txToastSuccess.collectionDeleted,
+          failureMessage:
+            kind === 'paused'
+              ? txToastError.pauseCollectionFailed
+              : kind === 'resumed'
+                ? txToastError.resumeCollectionFailed
+                : txToastError.deleteCollectionFailed,
+        });
+        if (confirmed) {
+          close();
+          onOwnerManaged?.(kind);
+        }
+      } catch (error) {
+        if (isWalletUserCancellation(error)) return;
+        setTxResult({
+          type: 'error',
+          msg:
+            error instanceof Error
+              ? error.message
+              : kind === 'paused'
+                ? txToastError.pauseCollectionFailed
+                : kind === 'resumed'
+                  ? txToastError.resumeCollectionFailed
+                  : txToastError.deleteCollectionFailed,
+        });
+      } finally {
+        setOwnerPending(false);
+      }
+    },
+    [
+      close,
+      getSigningWallet,
+      isConnected,
+      item.collectionId,
+      onOwnerManaged,
+      ownerPending,
+      setTxResult,
+      trackTransaction,
+    ]
+  );
 
   const handleStand = useCallback(async () => {
     if (!isConnected) {
@@ -153,14 +253,15 @@ export function DropsDiscoveryRowMenu({
     const list: ActionDrawerItem[] = [
       {
         id: 'save',
+        section: 'Drop',
         label: savePending
           ? saved
             ? 'Removing…'
             : 'Saving…'
           : saved
-            ? 'Saved'
+            ? 'Remove bookmark'
             : 'Save drop',
-        description: saved ? 'Remove bookmark' : 'Bookmark for later',
+        description: saved ? undefined : 'Bookmark for later',
         disabled: savePending,
         leading: saved ? (
           <BookmarkFillIcon className="action-drawer-icon" aria-hidden />
@@ -174,7 +275,9 @@ export function DropsDiscoveryRowMenu({
       },
       {
         id: 'share',
+        section: 'Drop',
         label: 'Share drop',
+        description: 'Copy or send the link',
         leading: <ShareIcon className="action-drawer-icon" aria-hidden />,
         onSelect: () => {
           void handleShare();
@@ -182,6 +285,7 @@ export function DropsDiscoveryRowMenu({
       },
       {
         id: 'share-to-post',
+        section: 'Drop',
         label: 'Share to post',
         description: 'Open composer with this drop',
         leading: <EditPenIcon className="action-drawer-icon" aria-hidden />,
@@ -189,9 +293,51 @@ export function DropsDiscoveryRowMenu({
       },
     ];
 
+    if (showPause) {
+      list.push({
+        id: 'pause',
+        section: 'Manage',
+        label: ownerPending ? 'Pausing…' : 'Pause drop',
+        description: 'Stop minting for now',
+        disabled: ownerPending,
+        leading: <PauseFillIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          void runOwnerAction('paused');
+        },
+      });
+    }
+    if (showResume) {
+      list.push({
+        id: 'resume',
+        section: 'Manage',
+        label: ownerPending ? 'Resuming…' : 'Resume drop',
+        description: 'Open minting again',
+        disabled: ownerPending,
+        leading: <PlayFillIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          void runOwnerAction('resumed');
+        },
+      });
+    }
+    if (showDelete) {
+      list.push({
+        id: 'delete',
+        section: 'Manage',
+        label: 'Delete drop',
+        description: 'Only if nothing was minted — confirms first',
+        destructive: true,
+        disabled: ownerPending,
+        leading: <TrashIcon className="action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          setConfirmDelete(true);
+        },
+      });
+    }
+
     if (!isSelf) {
       list.push({
         id: 'stand',
+        section: creatorLabel,
         label: standPending
           ? viewerStanding
             ? 'Stepping back…'
@@ -199,7 +345,6 @@ export function DropsDiscoveryRowMenu({
           : viewerStanding
             ? 'Step back'
             : 'Stand with',
-        description: creatorLabel,
         disabled:
           standPending || standingLoading || isBlockEitherWay(creatorId),
         leading: viewerStanding ? (
@@ -213,8 +358,9 @@ export function DropsDiscoveryRowMenu({
       });
       list.push({
         id: 'support',
+        section: creatorLabel,
         label: 'Support',
-        description: creatorLabel,
+        description: 'Send SOCIAL',
         leading: <GiftIcon className="action-drawer-icon" aria-hidden />,
         onSelect: () => {
           if (!isConnected) {
@@ -239,12 +385,19 @@ export function DropsDiscoveryRowMenu({
     isConnected,
     isSelf,
     onToggleSave,
+    ownerPending,
+    runOwnerAction,
     savePending,
     saved,
+    showDelete,
+    showPause,
+    showResume,
     standPending,
     standingLoading,
     viewerStanding,
   ]);
+
+  const deleteConfirm = dropDeleteConfirmCopy({ title: dropTitle });
 
   return (
     <div
@@ -258,24 +411,46 @@ export function DropsDiscoveryRowMenu({
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
+          setConfirmDelete(false);
           setOpen(true);
         }}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={menuLabel}
+        aria-label={triggerAriaLabel}
       >
         <DotsVerticalIcon className="post-card-menu-icon" aria-hidden />
       </button>
 
       <ActionDrawer
         open={open}
-        onClose={close}
-        label={menuLabel}
-        copy={fallbackLabel(creatorId)}
-        listAriaLabel={menuLabel}
-        closeAriaLabel="Close drop options"
-        items={items}
-      />
+        onClose={
+          confirmDelete ? () => setConfirmDelete(false) : close
+        }
+        label={confirmDelete ? deleteConfirm.title : dropTitle}
+        copy={
+          confirmDelete ? undefined : `@${fallbackLabel(creatorId)}`
+        }
+        listAriaLabel={
+          confirmDelete
+            ? `Confirm delete ${dropTitle}`
+            : `Actions for ${dropTitle}`
+        }
+        closeAriaLabel={
+          confirmDelete ? 'Back to drop options' : 'Close'
+        }
+        items={confirmDelete ? undefined : items}
+      >
+        {confirmDelete ? (
+          <DropDeleteConfirmPanel
+            title={dropTitle}
+            pending={ownerPending}
+            onConfirm={() => {
+              void runOwnerAction('deleted');
+            }}
+            onCancel={() => setConfirmDelete(false)}
+          />
+        ) : null}
+      </ActionDrawer>
 
       {!isSelf ? (
         <ProfileSupportSheet

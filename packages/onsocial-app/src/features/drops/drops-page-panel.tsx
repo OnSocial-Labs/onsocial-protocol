@@ -7,7 +7,10 @@ import { OsSheetAction, OsSheetActions, ProfileAvatar } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
-import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import {
+  arePostAuthorProfilesResolved,
+  usePostAuthorProfiles,
+} from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import {
   DropsHeadingActions,
@@ -283,6 +286,9 @@ function DropRowFans({
 }) {
   const ids = (fanIds ?? []).slice(0, 3);
   const profiles = usePostAuthorProfiles(ids);
+  // Shimmer until fetch settles — avoids letter → shadow → photo flash.
+  const profilesLoading =
+    ids.length > 0 && !arePostAuthorProfilesResolved(ids);
   if (ids.length === 0) {
     return (
       <span className="drops-discovery-deal-bit">
@@ -298,6 +304,7 @@ function DropRowFans({
         memberCount={fanCount}
         countUnit={{ one: 'fan', other: 'fans' }}
         slots={Math.min(3, ids.length)}
+        loading={profilesLoading}
         showCount
         className="drops-discovery-fans-facepile"
       />
@@ -314,6 +321,7 @@ function DropRow({
   savePending = false,
   viewerId = null,
   onToggleSave,
+  onOwnerManaged,
   onPlay,
   onMint,
 }: {
@@ -325,6 +333,7 @@ function DropRow({
   savePending?: boolean;
   viewerId?: string | null;
   onToggleSave: () => void;
+  onOwnerManaged?: (change: 'paused' | 'resumed' | 'deleted') => void;
   onPlay?: () => void;
   onMint: () => void;
 }) {
@@ -475,21 +484,16 @@ function DropRow({
               .filter(Boolean)
               .join(', ')}
           >
-            {dealBits.map((bit, index) => (
-              <span key={`${bit}-${index}`} className="drops-discovery-deal-bit">
-                {index > 0 ? (
-                  <span className="drops-discovery-deal-sep" aria-hidden>
-                    {' · '}
-                  </span>
-                ) : null}
-                {bit}
+            {dealBits.length > 0 ? (
+              <span className="drops-discovery-deal-bits">
+                {dealBits.join(' · ')}
               </span>
-            ))}
+            ) : null}
             {fanCount != null ? (
               <>
                 {dealBits.length > 0 ? (
                   <span className="drops-discovery-deal-sep" aria-hidden>
-                    ·
+                    {' · '}
                   </span>
                 ) : null}
                 <DropRowFans fanIds={item.fanIds} fanCount={fanCount} />
@@ -508,6 +512,7 @@ function DropRow({
             saved={saved}
             savePending={savePending}
             onToggleSave={onToggleSave}
+            onOwnerManaged={onOwnerManaged}
           />
         </div>
         {commerce?.kind === 'mint' ? (
@@ -877,6 +882,34 @@ export function DropsPagePanel({
       viewerId={accountId}
       onToggleSave={() => {
         void toggleSave(item.collectionId);
+      }}
+      onOwnerManaged={(change) => {
+        if (change === 'deleted' || change === 'paused') {
+          // Live / closing tabs hide paused & deleted; remove immediately.
+          if (sort === 'live' || sort === 'closing' || change === 'deleted') {
+            setItems((current) =>
+              current.filter((row) => row.collectionId !== item.collectionId)
+            );
+            return;
+          }
+        }
+        if (change === 'resumed') {
+          setItems((current) =>
+            current.map((row) =>
+              row.collectionId === item.collectionId
+                ? { ...row, status: 'live' as const }
+                : row
+            )
+          );
+          return;
+        }
+        setItems((current) =>
+          current.map((row) =>
+            row.collectionId === item.collectionId
+              ? { ...row, status: 'paused' as const }
+              : row
+          )
+        );
       }}
       onPlay={
         item.hasPlayable

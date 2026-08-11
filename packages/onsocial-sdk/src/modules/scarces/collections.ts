@@ -169,6 +169,16 @@ export class ScarcesCollectionsApi {
     if (opts.referenceExt) form.append('referenceExt', opts.referenceExt);
     if (opts.randomAssignment !== undefined)
       form.append('randomAssignment', String(opts.randomAssignment));
+    if (opts.skipAutoMedia) form.append('skipAutoMedia', 'true');
+    if (opts.creator) form.append('creator', JSON.stringify(opts.creator));
+    if (opts.cardBg) form.append('cardBg', opts.cardBg);
+    if (opts.cardFormat) form.append('cardFormat', opts.cardFormat);
+    if (opts.cardPalette) form.append('cardPalette', opts.cardPalette);
+    if (opts.cardFont) form.append('cardFont', opts.cardFont);
+    if (opts.cardMarkColor) form.append('cardMarkColor', opts.cardMarkColor);
+    if (opts.cardMarkShape) form.append('cardMarkShape', opts.cardMarkShape);
+    if (opts.cardTitleAlign) form.append('cardTitleAlign', opts.cardTitleAlign);
+    if (opts.cardPhotoCid) form.append('cardPhotoCid', opts.cardPhotoCid);
     if (opts.image) form.append('image', opts.image);
     for (const file of opts.images ?? []) {
       form.append('images', file);
