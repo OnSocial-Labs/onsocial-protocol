@@ -24,7 +24,7 @@ describe('encode-post-video constants', () => {
 
 describe('encodePostVideo guards', () => {
   it('rejects oversized inbound buffers before ffmpeg', async () => {
-    // Avoid allocating 200 MB — only `length` is checked before write.
+    // Avoid allocating 200 MB — only `length` is checked before write.
     const huge = Buffer.alloc(1);
     Object.defineProperty(huge, 'length', {
       value: POST_VIDEO_MAX_UPLOAD_BYTES + 1,

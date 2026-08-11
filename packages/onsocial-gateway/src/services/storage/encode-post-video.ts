@@ -159,7 +159,7 @@ async function ffmpegEncode(
 }
 
 /**
- * Transcode a feed/scarce clip to H.264 MP4 ≤ 50 MB / 120 s.
+ * Transcode a feed/scarce clip to H.264 MP4 <= 50MB / 120s.
  * Caller pins only the returned buffer (original is discarded).
  */
 export async function encodePostVideo(input: {

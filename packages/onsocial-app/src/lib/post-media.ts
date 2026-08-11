@@ -6,7 +6,7 @@ import {
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 export const POST_VIDEO_MAX_SECONDS = 120;
-/** Inbound size before gateway encode (encoded pin ≤ 50 MB). */
+/** Inbound size before gateway encode (encoded pin ≤ 50 MB). */
 export const POST_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
 export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const POST_MEDIA_MAX_FILES = 4;
