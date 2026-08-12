@@ -45,7 +45,8 @@ export function OsSheetAction({
 }: OsSheetActionProps) {
   const isPrimary = variant === 'primary';
   const usesPendingShell =
-    isPrimary || variant === 'danger' || variant === 'dismiss';  const isReady = ready ?? dirty ?? false;
+    isPrimary || variant === 'danger' || variant === 'dismiss';
+  const isReady = ready ?? dirty ?? false;
   const label = succeeded
     ? (succeededLabel ?? children)
     : failed
