@@ -184,18 +184,39 @@ export function getProtocolPolicyActionBlockReason(
   switch (actionId) {
     case 'update_permissions':
     case 'add_role':
-      return 'Role-change proposals are not allowed for your roles.';
+      return 'Needs role-change permission.';
     case 'update_parameters':
-      return 'Parameter proposals are not allowed for your roles.';
+      return 'Needs parameter permission.';
     case 'update_config':
-      return 'Config proposals are not allowed for your roles.';
+      return 'Needs config permission.';
     case 'update_vote_policy':
-      return 'Vote-policy proposals are not allowed for your roles.';
+      return 'Needs vote-policy permission.';
     case 'remove_role':
-      return 'Remove-role proposals are not allowed for your roles.';
+      return 'Needs remove-role permission.';
     default: {
       const exhaustive: never = actionId;
       return `Cannot propose ${exhaustive}.`;
     }
   }
+}
+
+/** One-line lock copy for the settings action drawer. */
+export function getProtocolPolicyActionLockReason(opts: {
+  actionId: ProtocolPolicyActionId;
+  accountId: string | null;
+  canProposeAny: boolean;
+  isGroupMember: boolean;
+  remainingLabel: string | null;
+  canProposeAction: boolean;
+}): string | null {
+  if (!opts.accountId) return 'Connect a wallet';
+  if (!opts.canProposeAny && !opts.isGroupMember) {
+    return opts.remainingLabel
+      ? `Need ${opts.remainingLabel} SOCIAL`
+      : 'Stake more SOCIAL';
+  }
+  if (!opts.canProposeAction) {
+    return getProtocolPolicyActionBlockReason(opts.actionId);
+  }
+  return null;
 }
