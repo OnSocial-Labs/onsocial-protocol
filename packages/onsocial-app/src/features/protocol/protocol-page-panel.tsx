@@ -33,6 +33,10 @@ import {
   fetchProtocolFeed,
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
+import {
+  ensureProtocolProposalEventSource,
+  subscribeProtocolProposalUpdates,
+} from '@/features/protocol/protocol-proposal-events-client';
 import { ProtocolProposalCard } from '@/features/protocol/protocol-proposal-card';
 import { ProtocolSettingsSheet } from '@/features/protocol/protocol-settings-sheet';
 import { ProtocolStakeSheet } from '@/features/protocol/protocol-stake-sheet';
@@ -299,6 +303,51 @@ export function ProtocolPagePanel() {
     },
     []
   );
+
+  useEffect(() => {
+    if (!daoAccountId || showRegistry) {
+      return;
+    }
+
+    ensureProtocolProposalEventSource(daoAccountId);
+    return subscribeProtocolProposalUpdates((proposalId) => {
+      void fetchProtocolProposal({
+        daoAccountId,
+        proposalId,
+        live: true,
+      })
+        .then((refreshed) => {
+          if (!refreshed.proposal) return;
+          setApplications((current) => {
+            const match = findProtocolApplicationByProposalId(
+              current,
+              proposalId
+            );
+            if (!match) return current;
+            return current.map((row) => {
+              if (row.app_id !== match.app_id) return row;
+              const gp = row.governance_proposal;
+              return {
+                ...row,
+                governance_proposal: gp
+                  ? {
+                      ...gp,
+                      status: refreshed.proposal!.status,
+                      snapshot: refreshed.proposal!,
+                      kind: refreshed.proposal!.kind,
+                      description: refreshed.proposal!.description,
+                    }
+                  : gp,
+              };
+            });
+          });
+          if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
+        })
+        .catch(() => {
+          // Best-effort live patch.
+        });
+    });
+  }, [daoAccountId, showRegistry]);
 
   const handleAct = useCallback(
     async (action: ProtocolDaoAction) => {
