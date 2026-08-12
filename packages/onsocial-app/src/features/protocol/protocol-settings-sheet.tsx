@@ -18,11 +18,32 @@ import {
   getAddRoleAccessBlockReason,
   getEditableProtocolPolicyRoleOptions,
   getRemovableProtocolPolicyRoleOptions,
-  parseVoteThresholdInputs,
   proposalPeriodNsToDays,
   type ProtocolAddRoleAccessMode,
   type ProtocolPolicyActionId,
 } from '@/features/protocol/protocol-policy';
+import {
+  PROTOCOL_ACTIONS_ONLY_PERMISSIONS,
+  PROTOCOL_ALL_PUBLIC_PERMISSIONS,
+  PROTOCOL_VOTE_THRESHOLD_PRESETS,
+  buildProtocolQuorumPresetOptions,
+  formatProtocolPermissionPresetLabel,
+  formatVoteQuorumOptionLabel,
+  formatVoteThresholdOptionLabel,
+  matchProtocolPermissionPreset,
+  protocolPermissionSetsEqual,
+  protocolPolicyRoleCount,
+  protocolRoleEditablePermissionBaseline,
+  readDefaultVotePolicyQuorum,
+  readDefaultVotePolicyThreshold,
+  resolveCouncilVotePoolSize,
+  resolveProtocolVoteThresholdPreset,
+  resolveSelectableVoteQuorum,
+  resolveVoteQuorumRisk,
+  resolveVoteThresholdPresetId,
+  votePolicyRulesChanged,
+  type ProtocolVoteThresholdPresetId,
+} from '@/features/protocol/protocol-policy-presets';
 import {
   canProposeProtocolPolicyAction,
   getProtocolPolicyActionBlockReason,
@@ -32,6 +53,26 @@ import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact } from '@/lib/format-social-balance';
+
+function tryNearToYocto(value: string): string | null {
+  try {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return nearToYocto(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function tryPeriodNs(value: string): string | null {
+  try {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return daysToProposalPeriodNs(trimmed);
+  } catch {
+    return null;
+  }
+}
 
 export function ProtocolSettingsSheet({
   open,
@@ -58,10 +99,14 @@ export function ProtocolSettingsSheet({
   const [description, setDescription] = useState('');
   const [bondNear, setBondNear] = useState('');
   const [periodDays, setPeriodDays] = useState('');
+  const [baselineBondNear, setBaselineBondNear] = useState('');
+  const [baselinePeriodDays, setBaselinePeriodDays] = useState('');
   const [configName, setConfigName] = useState('');
   const [configPurpose, setConfigPurpose] = useState('');
-  const [voteNum, setVoteNum] = useState('1');
-  const [voteDen, setVoteDen] = useState('2');
+  const [baselineConfigName, setBaselineConfigName] = useState('');
+  const [baselineConfigPurpose, setBaselineConfigPurpose] = useState('');
+  const [voteThresholdPresetId, setVoteThresholdPresetId] =
+    useState<ProtocolVoteThresholdPresetId>('pct_50');
   const [voteQuorum, setVoteQuorum] = useState('0');
   const [newRoleName, setNewRoleName] = useState('');
   const [addRoleAccessMode, setAddRoleAccessMode] =
@@ -106,16 +151,145 @@ export function ProtocolSettingsSheet({
     );
   }, [accountId, loadState, daoPolicy, delegatedWeight]);
 
+  const councilVotePoolSize = useMemo(
+    () => resolveCouncilVotePoolSize(daoPolicy),
+    [daoPolicy]
+  );
+  const usesRoleWeightVotePolicy =
+    (daoPolicy?.default_vote_policy?.weight_kind ?? 'RoleWeight') ===
+    'RoleWeight';
+  const currentVoteThreshold = useMemo(
+    () => readDefaultVotePolicyThreshold(daoPolicy?.default_vote_policy),
+    [daoPolicy?.default_vote_policy]
+  );
+  const currentVoteQuorum = useMemo(
+    () => readDefaultVotePolicyQuorum(daoPolicy?.default_vote_policy),
+    [daoPolicy?.default_vote_policy]
+  );
+  const nextVoteThreshold = useMemo(
+    () =>
+      resolveProtocolVoteThresholdPreset(voteThresholdPresetId)?.threshold ??
+      null,
+    [voteThresholdPresetId]
+  );
+  const currentThresholdPresetId = useMemo(
+    () => resolveVoteThresholdPresetId(currentVoteThreshold),
+    [currentVoteThreshold]
+  );
+  const votePolicyChanged = useMemo(
+    () =>
+      votePolicyRulesChanged({
+        currentThreshold: currentVoteThreshold,
+        nextThreshold: nextVoteThreshold,
+        currentQuorum: currentVoteQuorum,
+        nextQuorum: voteQuorum,
+      }),
+    [currentVoteQuorum, currentVoteThreshold, nextVoteThreshold, voteQuorum]
+  );
+  const selectedVoteQuorumRisk = useMemo(
+    () => resolveVoteQuorumRisk(voteQuorum, councilVotePoolSize),
+    [councilVotePoolSize, voteQuorum]
+  );
+  const voteQuorumOptions = useMemo(
+    () =>
+      buildProtocolQuorumPresetOptions(
+        councilVotePoolSize,
+        nextVoteThreshold ?? currentVoteThreshold,
+        voteQuorum
+      ),
+    [councilVotePoolSize, currentVoteThreshold, nextVoteThreshold, voteQuorum]
+  );
+
+  const permissionsRole = useMemo(
+    () => findProtocolRole(daoPolicy, permissionsRoleId),
+    [daoPolicy, permissionsRoleId]
+  );
+  const permissionsBaseline = useMemo(
+    () => protocolRoleEditablePermissionBaseline(permissionsRole),
+    [permissionsRole]
+  );
+  const permissionsChanged = useMemo(
+    () => !protocolPermissionSetsEqual(permissions, permissionsBaseline),
+    [permissions, permissionsBaseline]
+  );
+  const matchesPermissionsBaseline = !permissionsChanged;
+  const matchesAllPublic = protocolPermissionSetsEqual(
+    permissions,
+    PROTOCOL_ALL_PUBLIC_PERMISSIONS
+  );
+  const matchesActionsOnly = protocolPermissionSetsEqual(
+    permissions,
+    PROTOCOL_ACTIONS_ONLY_PERMISSIONS
+  );
+  const baselinePermissionPresetLabel = formatProtocolPermissionPresetLabel(
+    matchProtocolPermissionPreset(permissionsRole?.permissions)
+  );
+
+  const nextBondYocto = tryNearToYocto(bondNear);
+  const baselineBondYocto = tryNearToYocto(baselineBondNear);
+  const nextPeriodNs = tryPeriodNs(periodDays);
+  const baselinePeriodNs = tryPeriodNs(baselinePeriodDays);
+  const bondChanged =
+    nextBondYocto != null &&
+    baselineBondYocto != null &&
+    nextBondYocto !== baselineBondYocto;
+  const periodChanged =
+    nextPeriodNs != null &&
+    baselinePeriodNs != null &&
+    nextPeriodNs !== baselinePeriodNs;
+  const parametersChanged = bondChanged || periodChanged;
+  const configChanged =
+    configName.trim() !== baselineConfigName.trim() ||
+    configPurpose.trim() !== baselineConfigPurpose.trim();
+
+  const noChangesYet = useMemo(() => {
+    switch (actionId) {
+      case 'update_parameters':
+        return !parametersChanged;
+      case 'update_config':
+        return !configChanged;
+      case 'update_vote_policy':
+        return !votePolicyChanged;
+      case 'update_permissions':
+        return !permissionsChanged;
+      case 'add_role':
+        return !newRoleName.trim();
+      case 'remove_role':
+        return !removeRoleId.trim();
+      default:
+        return false;
+    }
+  }, [
+    actionId,
+    parametersChanged,
+    configChanged,
+    votePolicyChanged,
+    permissionsChanged,
+    newRoleName,
+    removeRoleId,
+  ]);
+
+  const roleCount = protocolPolicyRoleCount(daoPolicy);
+  const bondSummary = baselineBondNear.trim()
+    ? `${baselineBondNear.trim()} NEAR`
+    : '—';
+  const periodSummary = baselinePeriodDays.trim()
+    ? `${baselinePeriodDays.trim()}d`
+    : '—';
+
   useEffect(() => {
     if (!open) {
       setActionId('update_parameters');
       setDescription('');
       setBondNear('');
       setPeriodDays('');
+      setBaselineBondNear('');
+      setBaselinePeriodDays('');
       setConfigName('');
       setConfigPurpose('');
-      setVoteNum('1');
-      setVoteDen('2');
+      setBaselineConfigName('');
+      setBaselineConfigPurpose('');
+      setVoteThresholdPresetId('pct_50');
       setVoteQuorum('0');
       setNewRoleName('');
       setAddRoleAccessMode('full_access');
@@ -129,16 +303,32 @@ export function ProtocolSettingsSheet({
       return;
     }
 
-    const threshold = daoPolicy?.default_vote_policy?.threshold;
-    if (Array.isArray(threshold) && threshold.length >= 2) {
-      setVoteNum(String(threshold[0]));
-      setVoteDen(String(threshold[1]));
-    }
-    setVoteQuorum(daoPolicy?.default_vote_policy?.quorum ?? '0');
-    if (daoPolicy?.proposal_bond) {
-      setBondNear(yoctoToNear(daoPolicy.proposal_bond));
-    }
-    setPeriodDays(proposalPeriodNsToDays(daoPolicy?.proposal_period));
+    const threshold = readDefaultVotePolicyThreshold(
+      daoPolicy?.default_vote_policy
+    );
+    const thresholdPresetId =
+      resolveVoteThresholdPresetId(threshold) ?? 'pct_50';
+    setVoteThresholdPresetId(thresholdPresetId);
+    const nextThreshold =
+      resolveProtocolVoteThresholdPreset(thresholdPresetId)?.threshold ??
+      threshold;
+    const quorum = readDefaultVotePolicyQuorum(daoPolicy?.default_vote_policy);
+    setVoteQuorum(
+      resolveSelectableVoteQuorum(
+        quorum,
+        resolveCouncilVotePoolSize(daoPolicy),
+        nextThreshold
+      )
+    );
+
+    const bond = daoPolicy?.proposal_bond
+      ? yoctoToNear(daoPolicy.proposal_bond)
+      : '';
+    const period = proposalPeriodNsToDays(daoPolicy?.proposal_period);
+    setBondNear(bond);
+    setPeriodDays(period);
+    setBaselineBondNear(bond);
+    setBaselinePeriodDays(period);
 
     if (!daoAccountId) {
       setLoadState('ready');
@@ -156,10 +346,12 @@ export function ProtocolSettingsSheet({
       .then(([nextEligibility, config]) => {
         if (cancelled) return;
         setEligibility(nextEligibility);
-        if (config) {
-          setConfigName(config.name ?? '');
-          setConfigPurpose(config.purpose ?? '');
-        }
+        const name = config?.name ?? '';
+        const purpose = config?.purpose ?? '';
+        setConfigName(name);
+        setConfigPurpose(purpose);
+        setBaselineConfigName(name);
+        setBaselineConfigPurpose(purpose);
         setLoadState('ready');
       })
       .catch(() => {
@@ -198,11 +390,25 @@ export function ProtocolSettingsSheet({
   useEffect(() => {
     if (!open || !permissionsRoleId) return;
     const role = findProtocolRole(daoPolicy, permissionsRoleId);
-    const current = (role?.permissions ?? []).filter((permission) =>
-      PROTOCOL_EDITABLE_PERMISSIONS.some((option) => option.id === permission)
-    );
-    setPermissions(current);
+    setPermissions(protocolRoleEditablePermissionBaseline(role));
   }, [open, permissionsRoleId, daoPolicy]);
+
+  useEffect(() => {
+    if (!open || actionId !== 'update_vote_policy') return;
+    setVoteQuorum((current) =>
+      resolveSelectableVoteQuorum(
+        current,
+        councilVotePoolSize,
+        nextVoteThreshold ?? currentVoteThreshold
+      )
+    );
+  }, [
+    open,
+    actionId,
+    councilVotePoolSize,
+    nextVoteThreshold,
+    currentVoteThreshold,
+  ]);
 
   const canProposeSelected =
     Boolean(accountId) &&
@@ -253,7 +459,8 @@ export function ProtocolSettingsSheet({
         Boolean(accountId) &&
         loadState === 'ready' &&
         canProposeSelected &&
-        !addRoleBlock,
+        !addRoleBlock &&
+        !noChangesYet,
       pending,
       disabled:
         pending ||
@@ -261,7 +468,8 @@ export function ProtocolSettingsSheet({
         loadState === 'loading' ||
         loadState === 'error' ||
         !canProposeSelected ||
-        Boolean(addRoleBlock),
+        Boolean(addRoleBlock) ||
+        noChangesYet,
       primaryType: 'submit',
     };
   }, [
@@ -273,6 +481,7 @@ export function ProtocolSettingsSheet({
     loadState,
     canProposeSelected,
     addRoleBlock,
+    noChangesYet,
   ]);
 
   return (
@@ -297,7 +506,8 @@ export function ProtocolSettingsSheet({
             pending ||
             !accountId ||
             !canProposeSelected ||
-            addRoleBlock
+            addRoleBlock ||
+            noChangesYet
           ) {
             return;
           }
@@ -306,19 +516,19 @@ export function ProtocolSettingsSheet({
               actionId,
               policy: daoPolicy,
               description,
-              proposalBondYocto: bondNear.trim()
-                ? nearToYocto(bondNear.trim())
+              proposalBondYocto: bondChanged
+                ? (nextBondYocto ?? undefined)
                 : undefined,
-              proposalPeriodNs: periodDays.trim()
-                ? daysToProposalPeriodNs(periodDays)
+              proposalPeriodNs: periodChanged
+                ? (nextPeriodNs ?? undefined)
                 : undefined,
               configName,
               configPurpose,
               voteThreshold:
                 actionId === 'update_vote_policy'
-                  ? parseVoteThresholdInputs(voteNum, voteDen)
+                  ? (nextVoteThreshold ?? undefined)
                   : undefined,
-              voteQuorum,
+              voteQuorum: usesRoleWeightVotePolicy ? voteQuorum : undefined,
               newRoleName,
               addRoleAccessMode,
               addRolePermissions,
@@ -368,6 +578,25 @@ export function ProtocolSettingsSheet({
           <p className="protocol-compose-note is-warn">
             No settings actions are available for your roles on this DAO.
           </p>
+        ) : null}
+
+        {loadState === 'ready' ? (
+          <div className="protocol-policy-summary" aria-label="Current policy">
+            <div className="protocol-policy-summary-cell">
+              <span className="protocol-policy-summary-label">Bond</span>
+              <span className="protocol-policy-summary-value">{bondSummary}</span>
+            </div>
+            <div className="protocol-policy-summary-cell">
+              <span className="protocol-policy-summary-label">Period</span>
+              <span className="protocol-policy-summary-value">
+                {periodSummary}
+              </span>
+            </div>
+            <div className="protocol-policy-summary-cell">
+              <span className="protocol-policy-summary-label">Roles</span>
+              <span className="protocol-policy-summary-value">{roleCount}</span>
+            </div>
+          </div>
         ) : null}
 
         <div
@@ -443,38 +672,69 @@ export function ProtocolSettingsSheet({
 
         {actionId === 'update_vote_policy' ? (
           <>
-            <div className="protocol-community-row">
-              <label className="guild-field">
-                <span>Threshold</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={voteNum}
-                  onChange={(event) => setVoteNum(event.target.value)}
-                  disabled={pending}
-                />
-              </label>
-              <label className="guild-field">
-                <span>of</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={voteDen}
-                  onChange={(event) => setVoteDen(event.target.value)}
-                  disabled={pending}
-                />
-              </label>
-            </div>
             <label className="guild-field">
-              <span>Quorum (approve floor)</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={voteQuorum}
-                onChange={(event) => setVoteQuorum(event.target.value)}
+              <span>Approval threshold</span>
+              <select
+                value={voteThresholdPresetId}
+                onChange={(event) => {
+                  setVoteThresholdPresetId(
+                    event.target.value as ProtocolVoteThresholdPresetId
+                  );
+                  setFormError(null);
+                }}
                 disabled={pending}
-              />
+              >
+                {PROTOCOL_VOTE_THRESHOLD_PRESETS.map((preset) => {
+                  const isCurrent = preset.id === currentThresholdPresetId;
+                  return (
+                    <option key={preset.id} value={preset.id}>
+                      {formatVoteThresholdOptionLabel(
+                        preset,
+                        isCurrent
+                          ? (currentVoteThreshold ?? preset.threshold)
+                          : preset.threshold
+                      )}
+                      {isCurrent ? ' · Current' : ''}
+                    </option>
+                  );
+                })}
+              </select>
             </label>
+
+            {usesRoleWeightVotePolicy ? (
+              <>
+                <label className="guild-field">
+                  <span>Minimum approvals</span>
+                  <select
+                    value={voteQuorum}
+                    onChange={(event) => {
+                      setVoteQuorum(event.target.value);
+                      setFormError(null);
+                    }}
+                    disabled={pending}
+                  >
+                    {voteQuorumOptions.map((option) => {
+                      const isCurrent = option.quorum === currentVoteQuorum;
+                      return (
+                        <option key={option.quorum} value={option.quorum}>
+                          {formatVoteQuorumOptionLabel(option)}
+                          {isCurrent ? ' · Current' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <p className="protocol-compose-note">
+                  Uses whichever is stricter: this floor or the approval
+                  threshold.
+                </p>
+                {selectedVoteQuorumRisk.message ? (
+                  <p className="protocol-compose-note is-warn">
+                    Risk: {selectedVoteQuorumRisk.message}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
           </>
         ) : null}
 
@@ -498,15 +758,62 @@ export function ProtocolSettingsSheet({
                 )}
               </select>
             </label>
+
+            <div
+              className="protocol-preset-rail"
+              role="group"
+              aria-label="Permission presets"
+            >
+              {permissionsBaseline.length > 0 ? (
+                <button
+                  type="button"
+                  className={`protocol-board-chip${matchesPermissionsBaseline ? ' is-active' : ''}`}
+                  disabled={pending}
+                  onClick={() => setPermissions([...permissionsBaseline])}
+                >
+                  Reset
+                  <span className="sr-only">
+                    {matchesPermissionsBaseline
+                      ? ` · on-chain ${baselinePermissionPresetLabel}`
+                      : ` · restore on-chain ${baselinePermissionPresetLabel}`}
+                  </span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={`protocol-board-chip${matchesAllPublic && !matchesPermissionsBaseline ? ' is-active' : ''}`}
+                disabled={pending}
+                onClick={() =>
+                  setPermissions([...PROTOCOL_ALL_PUBLIC_PERMISSIONS])
+                }
+              >
+                All public
+              </button>
+              <button
+                type="button"
+                className={`protocol-board-chip${matchesActionsOnly && !matchesPermissionsBaseline ? ' is-active' : ''}`}
+                disabled={pending}
+                onClick={() =>
+                  setPermissions([...PROTOCOL_ACTIONS_ONLY_PERMISSIONS])
+                }
+              >
+                Actions only
+              </button>
+            </div>
+
             <div className="protocol-permission-list">
               {PROTOCOL_EDITABLE_PERMISSIONS.map((option) => {
                 const checked = permissions.includes(option.id);
+                const sole =
+                  checked &&
+                  permissions.length === 1 &&
+                  permissions[0] === option.id;
                 return (
                   <label key={option.id} className="protocol-permission-item">
                     <input
                       type="checkbox"
                       checked={checked}
-                      disabled={pending}
+                      disabled={pending || sole}
                       onChange={() => {
                         setPermissions((current) =>
                           checked
@@ -624,6 +931,14 @@ export function ProtocolSettingsSheet({
             disabled={pending}
           />
         </label>
+
+        {noChangesYet &&
+        loadState === 'ready' &&
+        accountId &&
+        !needsStake &&
+        canProposeSelected ? (
+          <p className="protocol-compose-note">No changes yet.</p>
+        ) : null}
 
         {formError ? (
           <p className="protocol-compose-note is-warn">{formError}</p>
