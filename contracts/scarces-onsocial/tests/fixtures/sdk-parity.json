@@ -359,6 +359,30 @@
       }
     },
     {
+      "name": "add redeemer",
+      "expected_action_type": "add_redeemer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "add_redeemer",
+          "collection_id": "genesis",
+          "account_id": "door.near"
+        }
+      }
+    },
+    {
+      "name": "remove redeemer",
+      "expected_action_type": "remove_redeemer",
+      "request": {
+        "target_account": "scarces.onsocial.testnet",
+        "action": {
+          "type": "remove_redeemer",
+          "collection_id": "genesis",
+          "account_id": "door.near"
+        }
+      }
+    },
+    {
       "name": "set collection metadata",
       "expected_action_type": "set_collection_metadata",
       "request": {

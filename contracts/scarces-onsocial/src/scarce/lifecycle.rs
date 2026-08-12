@@ -171,7 +171,7 @@ impl Contract {
             .max_redeems
             .ok_or_else(|| MarketplaceError::InvalidState("Collection is not redeemable".into()))?;
 
-        self.check_collection_authority(actor_id, &collection)?;
+        self.check_redeemer_authority(actor_id, &collection)?;
 
         let mut token = self
             .scarces_by_id
@@ -226,6 +226,23 @@ impl Contract {
         }
         Err(MarketplaceError::Unauthorized(
             "Only the collection creator can perform this action".into(),
+        ))
+    }
+
+    /// Creator or an explicit door-staff redeemer may check in a pass.
+    pub(crate) fn check_redeemer_authority(
+        &self,
+        actor_id: &AccountId,
+        collection: &LazyCollection,
+    ) -> Result<(), MarketplaceError> {
+        if actor_id == &collection.creator_id {
+            return Ok(());
+        }
+        if collection.redeemers.iter().any(|id| id == actor_id) {
+            return Ok(());
+        }
+        Err(MarketplaceError::Unauthorized(
+            "Only the collection creator or a redeemer can perform this action".into(),
         ))
     }
 

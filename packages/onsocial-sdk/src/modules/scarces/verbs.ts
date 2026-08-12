@@ -32,6 +32,8 @@ export const SCARCES_VERBS = {
   UPDATE_COLLECTION_TIMING: 'update-collection-timing',
   SET_ALLOWLIST: 'set-allowlist',
   REMOVE_FROM_ALLOWLIST: 'remove-from-allowlist',
+  ADD_REDEEMER: 'add-redeemer',
+  REMOVE_REDEEMER: 'remove-redeemer',
   SET_COLLECTION_METADATA: 'set-collection-metadata',
   SET_COLLECTION_APP_METADATA: 'set-collection-app-metadata',
   CANCEL_COLLECTION: 'cancel-collection',

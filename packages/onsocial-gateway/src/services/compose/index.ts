@@ -140,6 +140,8 @@ export {
   buildWithdrawUnclaimedRefundsAction,
   buildSetAllowlistAction,
   buildRemoveFromAllowlistAction,
+  buildAddRedeemerAction,
+  buildRemoveRedeemerAction,
   buildSetCollectionMetadataAction,
   buildSetCollectionAppMetadataAction,
 } from './collection-manage.js';

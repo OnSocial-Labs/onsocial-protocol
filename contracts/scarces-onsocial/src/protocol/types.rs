@@ -97,6 +97,14 @@ pub enum Action {
         collection_id: String,
         accounts: Vec<AccountId>,
     },
+    AddRedeemer {
+        collection_id: String,
+        account_id: AccountId,
+    },
+    RemoveRedeemer {
+        collection_id: String,
+        account_id: AccountId,
+    },
     SetCollectionMetadata {
         collection_id: String,
         metadata: Option<String>,

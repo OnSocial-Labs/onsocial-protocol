@@ -253,6 +253,44 @@ export function buildRemoveFromAllowlistAction(params: {
   };
 }
 
+/** Build an AddRedeemer (door staff) action. */
+export function buildAddRedeemerAction(params: {
+  collectionId: string;
+  accountId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
+  if (!params.accountId?.trim())
+    throw new ComposeError(400, 'Missing accountId');
+  return {
+    action: {
+      type: 'add_redeemer',
+      collection_id: params.collectionId,
+      account_id: params.accountId.trim(),
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
+/** Build a RemoveRedeemer action. */
+export function buildRemoveRedeemerAction(params: {
+  collectionId: string;
+  accountId: string;
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
+  if (!params.accountId?.trim())
+    throw new ComposeError(400, 'Missing accountId');
+  return {
+    action: {
+      type: 'remove_redeemer',
+      collection_id: params.collectionId,
+      account_id: params.accountId.trim(),
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Metadata
 // ---------------------------------------------------------------------------

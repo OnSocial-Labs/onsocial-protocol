@@ -73,6 +73,20 @@ impl Contract {
                 self.remove_from_allowlist(actor_id, &collection_id, accounts)?;
                 Ok(Value::Null)
             }
+            Action::AddRedeemer {
+                collection_id,
+                account_id,
+            } => {
+                self.add_redeemer(actor_id, &collection_id, account_id)?;
+                Ok(Value::Null)
+            }
+            Action::RemoveRedeemer {
+                collection_id,
+                account_id,
+            } => {
+                self.remove_redeemer(actor_id, &collection_id, &account_id)?;
+                Ok(Value::Null)
+            }
             Action::SetCollectionMetadata {
                 collection_id,
                 metadata,

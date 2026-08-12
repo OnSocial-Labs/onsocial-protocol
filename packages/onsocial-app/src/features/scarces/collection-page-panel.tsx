@@ -55,6 +55,7 @@ import {
   deriveCollectionStatus,
   fetchAllowlistRemaining,
   fetchCollectionPreferIndexer,
+  fetchOwnedCollectionTokenId,
   fetchOwnsCollectionEdition,
   fetchWalletMintRemaining,
   isCollectionMintable,
@@ -71,6 +72,11 @@ import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
+import { TicketDoorSheet } from '@/features/scarces/ticket-door-sheet';
+import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
+import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
+import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
+import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScarceDropLoves } from '@/hooks/use-scarce-drop-loves';
@@ -79,6 +85,9 @@ import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROPS_PATH,
   APP_MARKET_PATH,
+  COLLECTION_DOOR_QUERY,
+  COLLECTION_PASS_QUERY,
+  COLLECTION_PASS_TOKEN_PARAM,
   COLLECTION_READ_QUERY,
   marketCreatorPath,
   seriesPagePath,
@@ -87,6 +96,7 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
+import { holdingsActionLabel } from '@/lib/portfolio-holdings';
 
 const MINT_ACTIVITY_OPS = new Set([
   'purchase',
@@ -166,6 +176,8 @@ export function CollectionPagePanel({
   );
   /** null = unchecked; true/false after ownership scan for writing reader. */
   const [holdsEdition, setHoldsEdition] = useState<boolean | null>(null);
+  /** Owned edition for Show pass when known. */
+  const [ownedPassTokenId, setOwnedPassTokenId] = useState<string | null>(null);
   const [mintOpen, setMintOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -196,6 +208,11 @@ export function CollectionPagePanel({
   const [factsOpen, setFactsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [writingReadOpen, setWritingReadOpen] = useState(false);
+  const [showPassOpen, setShowPassOpen] = useState(false);
+  const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
+  const [doorOpen, setDoorOpen] = useState(false);
+  /** Viewer is creator or door staff for redeem. */
+  const [isRedeemer, setIsRedeemer] = useState(false);
   const activityTitleId = useId();
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -256,11 +273,14 @@ export function CollectionPagePanel({
         setWalletRemaining(null);
         setAllowlistRemaining(null);
         setHoldsEdition(null);
+        setOwnedPassTokenId(null);
       });
       return;
     }
     let cancelled = false;
+    const passKind = isPassMediumKind(view?.kind);
     const needsHoldCheck =
+      passKind ||
       (view?.readables.length ?? 0) > 0 ||
       Boolean(view?.writingManifestCid?.trim()) ||
       (view?.playables.length ?? 0) > 0;
@@ -268,13 +288,32 @@ export function CollectionPagePanel({
       fetchWalletMintRemaining(collectionId, viewerAccountId),
       fetchAllowlistRemaining(collectionId, viewerAccountId),
       needsHoldCheck
-        ? fetchOwnsCollectionEdition(collectionId, viewerAccountId)
+        ? passKind
+          ? fetchOwnedCollectionTokenId(collectionId, viewerAccountId)
+          : fetchOwnsCollectionEdition(collectionId, viewerAccountId).then(
+              (owns) => (owns ? '__owned__' : null)
+            )
         : Promise.resolve(null),
-    ]).then(([wallet, allowlist, owns]) => {
+    ]).then(([wallet, allowlist, ownedToken]) => {
       if (cancelled) return;
       setWalletRemaining(wallet);
       setAllowlistRemaining(allowlist);
-      setHoldsEdition(owns);
+      if (!needsHoldCheck) {
+        setHoldsEdition(null);
+        setOwnedPassTokenId(null);
+        return;
+      }
+      if (passKind) {
+        const tokenId =
+          typeof ownedToken === 'string' && ownedToken !== '__owned__'
+            ? ownedToken
+            : null;
+        setOwnedPassTokenId(tokenId);
+        setHoldsEdition(Boolean(tokenId));
+        return;
+      }
+      setOwnedPassTokenId(null);
+      setHoldsEdition(ownedToken != null);
     });
     return () => {
       cancelled = true;
@@ -283,6 +322,7 @@ export function CollectionPagePanel({
     collectionId,
     viewerAccountId,
     refreshKey,
+    view?.kind,
     view?.readables.length,
     view?.writingManifestCid,
     view?.playables.length,
@@ -304,6 +344,53 @@ export function CollectionPagePanel({
       setWritingReadOpen(true);
     });
   }, [collectionId, view?.readables.length, view?.bookPdf]);
+
+  // Collectibles "Show pass" deep-links with ?pass=1&t=… → open pass once token is known.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isPassMediumKind(view?.kind)) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(COLLECTION_PASS_QUERY) !== '1') return;
+    const fromQuery = params.get(COLLECTION_PASS_TOKEN_PARAM)?.trim() || null;
+    const tokenId = fromQuery || ownedPassTokenId;
+    if (!tokenId) return;
+    queueMicrotask(() => {
+      setShowPassTokenId(tokenId);
+      setShowPassOpen(true);
+    });
+  }, [collectionId, ownedPassTokenId, view?.kind]);
+
+  // Creator Door deep-link ?door=1 (creator or door staff).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isPassMediumKind(view?.kind)) return;
+    if (!isOwner && !isRedeemer) return;
+    if (
+      new URLSearchParams(window.location.search).get(COLLECTION_DOOR_QUERY) !==
+      '1'
+    ) {
+      return;
+    }
+    queueMicrotask(() => {
+      setDoorOpen(true);
+    });
+  }, [collectionId, isOwner, isRedeemer, view?.kind]);
+
+  useEffect(() => {
+    if (!viewerAccountId || !isPassMediumKind(view?.kind)) {
+      queueMicrotask(() => setIsRedeemer(false));
+      return;
+    }
+    let cancelled = false;
+    void fetchIsCollectionRedeemer(collectionId, viewerAccountId).then(
+      (ok) => {
+        if (!cancelled) setIsRedeemer(ok);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId, viewerAccountId, view?.kind, refreshKey]);
 
   useEffect(() => {
     const creatorId = view?.creatorId?.trim();
@@ -616,6 +703,12 @@ export function CollectionPagePanel({
   const isAudio =
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
   const mediumKind = (view.kind ?? '').trim().toLowerCase();
+  const isPassKind = isPassMediumKind(mediumKind);
+  const canDoor =
+    isPassKind &&
+    (isOwner || isRedeemer) &&
+    view.maxRedeems != null &&
+    view.maxRedeems > 0;
   /**
    * Aa / thought cards — inset object, not immersive album bleed.
    * `cardBg` when theme was stamped; `thought`/`writing` for from-post text.
@@ -628,11 +721,20 @@ export function CollectionPagePanel({
   const readables = view.readables;
   const hasReadables = readables.length > 0 || view.bookPdf != null;
   const canReadWriting = isOwner || holdsEdition === true;
+  const canShowPass =
+    isPassKind && holdsEdition === true && Boolean(ownedPassTokenId);
+  const passActionLabel = holdingsActionLabel(mediumKind);
   const writingLockedHint = !isConnected
     ? 'Connect your wallet and Collect an edition to read.'
     : holdsEdition === null
       ? 'Checking your edition…'
       : 'Collect an edition to unlock the full text.';
+  const openOwnedPass = () => {
+    const tokenId = ownedPassTokenId?.trim();
+    if (!tokenId) return;
+    setShowPassTokenId(tokenId);
+    setShowPassOpen(true);
+  };
   const description = view.description?.trim() ?? '';
   const chipParts: string[] = [];
   if (view.isVariations) {
@@ -732,7 +834,7 @@ export function CollectionPagePanel({
                 isAudio ? ' is-square' : ''
               }${isTextCardCover ? ' is-card' : ''}${
                 immersive ? ' is-immersive' : ''
-              }${hasReadables ? ' has-read' : ''}`}
+              }${hasReadables || canShowPass ? ' has-read' : ''}`}
               {...(view.cardBg && !view.mediaUrl
                 ? { style: { background: view.cardBg } }
                 : {})}
@@ -744,6 +846,18 @@ export function CollectionPagePanel({
                   className="scarce-clip-cover-expand collection-cover-read-expand"
                   aria-label="Open reader"
                   onClick={() => setWritingReadOpen(true)}
+                >
+                  <ScaleUpIcon
+                    className="scarce-clip-cover-expand-icon"
+                    aria-hidden
+                  />
+                </button>
+              ) : canShowPass ? (
+                <button
+                  type="button"
+                  className="scarce-clip-cover-expand collection-cover-read-expand"
+                  aria-label={passActionLabel}
+                  onClick={openOwnedPass}
                 >
                   <ScaleUpIcon
                     className="scarce-clip-cover-expand-icon"
@@ -1084,6 +1198,43 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
+        {isPassKind && (canShowPass || canDoor || isOwner) ? (
+          <section className="collection-reading" aria-label="Entry">
+            {canShowPass ? (
+              <div className="collection-reading-row">
+                <p className="collection-section-label">Your pass</p>
+                <button
+                  type="button"
+                  className="collection-reading-open"
+                  onClick={openOwnedPass}
+                >
+                  {passActionLabel}
+                </button>
+              </div>
+            ) : null}
+            {canDoor ? (
+              <div className="collection-reading-row">
+                <p className="collection-section-label">Door</p>
+                <button
+                  type="button"
+                  className="collection-reading-open"
+                  onClick={() => setDoorOpen(true)}
+                >
+                  Admit
+                </button>
+              </div>
+            ) : null}
+            {isOwner &&
+            view.maxRedeems != null &&
+            view.maxRedeems > 0 ? (
+              <CollectionDoorStaffManager
+                collectionId={view.collectionId}
+                creatorId={view.creatorId}
+              />
+            ) : null}
+          </section>
+        ) : null}
+
         {isOwner && status === 'upcoming' ? (
           <div className="collection-owner-tools">
             <CollectionAllowlistManager
@@ -1194,6 +1345,24 @@ export function CollectionPagePanel({
         writingFormat={view.writingFormat}
         canRead={canReadWriting}
         lockedHint={writingLockedHint}
+      />
+
+      {showPassTokenId ? (
+        <TicketShowPassSheet
+          open={showPassOpen}
+          onClose={() => setShowPassOpen(false)}
+          title={view.title}
+          cover={view.mediaUrl}
+          collectionId={view.collectionId}
+          tokenId={showPassTokenId}
+        />
+      ) : null}
+
+      <TicketDoorSheet
+        open={doorOpen}
+        onOpenChange={setDoorOpen}
+        collectionId={view.collectionId}
+        title={view.title}
       />
 
       <ScarceBuySheet

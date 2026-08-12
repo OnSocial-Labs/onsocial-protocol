@@ -182,16 +182,38 @@ export function collectiblesPlayPath(
 /** Open immersive writing reader on the collection page (`?read=1`). */
 export const COLLECTION_READ_QUERY = 'read';
 
+/** Open Show pass on the collection page (`?pass=1`). */
+export const COLLECTION_PASS_QUERY = 'pass';
+
+/** Open Door admit on the collection page (`?door=1`). */
+export const COLLECTION_DOOR_QUERY = 'door';
+
+/** Optional owned edition for Show pass (`?t=tokenId`). */
+export const COLLECTION_PASS_TOKEN_PARAM = COLLECTIBLES_PLAY_TOKEN_PARAM;
+
 /** Public collection (drop) page. */
 export function collectionPath(
   collectionId: string,
-  opts?: { read?: boolean }
+  opts?: {
+    read?: boolean;
+    pass?: boolean;
+    door?: boolean;
+    tokenId?: string | null;
+  }
 ): string {
   const id = collectionId.trim();
   if (!id) return APP_MARKET_PATH;
   const base = `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}`;
-  if (!opts?.read) return base;
-  return `${base}?${COLLECTION_READ_QUERY}=1`;
+  const params = new URLSearchParams();
+  if (opts?.read) params.set(COLLECTION_READ_QUERY, '1');
+  if (opts?.pass) params.set(COLLECTION_PASS_QUERY, '1');
+  if (opts?.door) params.set(COLLECTION_DOOR_QUERY, '1');
+  const tokenId = opts?.tokenId?.trim();
+  if (tokenId && (opts?.pass || opts?.door)) {
+    params.set(COLLECTION_PASS_TOKEN_PARAM, tokenId);
+  }
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
 }
 
 /** Public app (store) page. */

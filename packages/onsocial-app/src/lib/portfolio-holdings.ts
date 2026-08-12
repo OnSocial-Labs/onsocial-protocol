@@ -90,6 +90,16 @@ export function holdingsHrefForOwned(item: {
   if (collectionId && (medium === 'writing' || medium === 'book')) {
     return collectionPath(collectionId, { read: true });
   }
+  // Tickets / memberships / coupons open Show pass on the drop page.
+  if (
+    collectionId &&
+    (medium === 'ticket' || medium === 'membership' || medium === 'coupon')
+  ) {
+    return collectionPath(collectionId, {
+      pass: true,
+      tokenId: item.tokenId,
+    });
+  }
   if (collectionId) return collectionPath(collectionId);
   const postHref =
     item.postHref?.trim() ||

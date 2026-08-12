@@ -18,6 +18,8 @@ import {
   buildWithdrawUnclaimedRefundsAction,
   buildSetAllowlistAction,
   buildRemoveFromAllowlistAction,
+  buildAddRedeemerAction,
+  buildRemoveRedeemerAction,
   buildSetCollectionMetadataAction,
   buildSetCollectionAppMetadataAction,
 } from '../../services/compose/collection-manage.js';
@@ -189,6 +191,30 @@ const removeAl = actionHandlers(
   'remove-from-allowlist'
 );
 collectionManageRouter.post('/prepare/remove-from-allowlist', removeAl.prepare);
+
+// ── Add Redeemer (door staff) ───────────────────────────────────────────────
+const addRedeemer = actionHandlers(
+  (b) =>
+    buildAddRedeemerAction({
+      collectionId: String(b.collectionId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'add-redeemer'
+);
+collectionManageRouter.post('/prepare/add-redeemer', addRedeemer.prepare);
+
+// ── Remove Redeemer ─────────────────────────────────────────────────────────
+const removeRedeemer = actionHandlers(
+  (b) =>
+    buildRemoveRedeemerAction({
+      collectionId: String(b.collectionId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'remove-redeemer'
+);
+collectionManageRouter.post('/prepare/remove-redeemer', removeRedeemer.prepare);
 
 // ── Set Collection Metadata ─────────────────────────────────────────────────
 const setMeta = actionHandlers(

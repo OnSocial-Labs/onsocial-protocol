@@ -376,13 +376,16 @@ fn lazy_collection_borsh_append_defaults_commission_sentinel() {
         max_per_purchase: 10,
         app_commission_bps: 500,
         random_assignment: false,
+        redeemers: vec![],
     };
 
     let mut bytes = near_sdk::borsh::to_vec(&col).unwrap();
-    bytes.truncate(bytes.len() - 3); // drop trailing random_assignment + app_commission_bps
+    // Drop trailing redeemers (empty vec = 4) + random_assignment (1) + app_commission_bps (2).
+    bytes.truncate(bytes.len() - 7);
     let loaded = LazyCollection::try_from_slice(&bytes).unwrap();
     assert_eq!(loaded.app_commission_bps, u16::MAX);
     assert_eq!(loaded.collection_id, "legacy");
     assert_eq!(loaded.max_per_purchase, 10);
     assert!(!loaded.random_assignment);
+    assert!(loaded.redeemers.is_empty());
 }

@@ -970,9 +970,21 @@ export async function fetchOwnsCollectionEdition(
   collectionId: string,
   accountId: string
 ): Promise<boolean> {
+  const tokenId = await fetchOwnedCollectionTokenId(collectionId, accountId);
+  return Boolean(tokenId);
+}
+
+/**
+ * First owned edition token id for this drop, or null.
+ * Prefers indexer `scarcesTokenOwners`; falls back to RPC ownership scan.
+ */
+export async function fetchOwnedCollectionTokenId(
+  collectionId: string,
+  accountId: string
+): Promise<string | null> {
   const id = collectionId.trim();
   const account = accountId.trim();
-  if (!id || !account) return false;
+  if (!id || !account) return null;
 
   try {
     const client = createAppOnSocialClient(account);
@@ -995,7 +1007,8 @@ export async function fetchOwnsCollectionEdition(
       `,
       variables: { ownerId: account, collectionId: id },
     });
-    if ((res.data?.scarcesTokenOwners?.length ?? 0) > 0) return true;
+    const tokenId = res.data?.scarcesTokenOwners?.[0]?.tokenId?.trim();
+    if (tokenId) return tokenId;
   } catch {
     // Indexer lag / schema — fall through to RPC.
   }
@@ -1010,9 +1023,9 @@ export async function fetchOwnsCollectionEdition(
     );
     total = Math.floor(Number(supply));
   } catch {
-    return false;
+    return null;
   }
-  if (!Number.isFinite(total) || total <= 0) return false;
+  if (!Number.isFinite(total) || total <= 0) return null;
 
   const pageSize = 50;
   for (let fromIndex = 0; fromIndex < total; fromIndex += pageSize) {
@@ -1030,11 +1043,11 @@ export async function fetchOwnsCollectionEdition(
       if (!Array.isArray(tokens)) continue;
       for (const token of tokens) {
         const tokenId = token.token_id?.trim() ?? '';
-        if (tokenId.startsWith(prefix)) return true;
+        if (tokenId.startsWith(prefix)) return tokenId;
       }
     } catch {
-      return false;
+      return null;
     }
   }
-  return false;
+  return null;
 }

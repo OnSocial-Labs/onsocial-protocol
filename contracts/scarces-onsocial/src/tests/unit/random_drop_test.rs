@@ -188,10 +188,12 @@ fn legacy_borsh_defaults_random_assignment_false() {
     let col = contract.collections.get("legacy").unwrap().clone();
 
     let mut bytes = near_sdk::borsh::to_vec(&col).unwrap();
-    // Drop only the trailing random_assignment byte (pre-upgrade layout).
-    bytes.truncate(bytes.len() - 1);
+    // Pre-random_assignment layout: drop trailing redeemers (empty vec = 4) +
+    // random_assignment (1).
+    bytes.truncate(bytes.len() - 5);
     let loaded = LazyCollection::try_from_slice(&bytes).unwrap();
     assert!(!loaded.random_assignment);
+    assert!(loaded.redeemers.is_empty());
     assert_eq!(loaded.app_commission_bps, col.app_commission_bps);
     assert_eq!(loaded.max_per_purchase, col.max_per_purchase);
 }
