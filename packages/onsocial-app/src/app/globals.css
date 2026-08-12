@@ -21055,6 +21055,16 @@ a.os-surface-row {
     );
   }
 
+  .ticket-door-attendance {
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.82);
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Admit page — same market-page inset; camera taller for staff scanning. */
   .ticket-door-page .ticket-door {
     padding: 0;

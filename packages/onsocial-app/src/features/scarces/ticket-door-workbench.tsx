@@ -23,6 +23,7 @@ export function TicketDoorWorkbench({
   applyLookup,
   lead,
   voice = 'admit',
+  attendanceLine,
 }: {
   eventName: string;
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -40,6 +41,8 @@ export function TicketDoorWorkbench({
   applyLookup: (raw: string) => void | Promise<void>;
   lead?: string;
   voice?: PassStaffVoice;
+  /** Live collection attendance, e.g. Checked in 47 of 200. */
+  attendanceLine?: string | null;
 }) {
   const previewLine = status
     ? ticketPassStatusLabel({
@@ -64,6 +67,12 @@ export function TicketDoorWorkbench({
             ? 'Scan a coupon QR, or paste the pass code, then redeem.'
             : 'Scan a Show pass QR, or paste the pass code, then admit.')}
       </p>
+
+      {attendanceLine ? (
+        <p className="ticket-door-attendance" aria-live="polite">
+          {attendanceLine}
+        </p>
+      ) : null}
 
       <div className={`ticket-door-camera${cameraActive ? ' is-live' : ''}`}>
         <video

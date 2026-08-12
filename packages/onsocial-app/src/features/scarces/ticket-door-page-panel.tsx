@@ -10,6 +10,11 @@ import {
   fetchCollectionPreferIndexer,
   type CollectionView,
 } from '@/features/scarces/collections-data';
+import {
+  fetchCollectionRedeemAttendance,
+  staffAttendanceLine,
+  type CollectionRedeemAttendance,
+} from '@/features/scarces/ticket-attendance';
 import { TicketDoorWorkbench } from '@/features/scarces/ticket-door-workbench';
 import {
   isPassMediumKind,
