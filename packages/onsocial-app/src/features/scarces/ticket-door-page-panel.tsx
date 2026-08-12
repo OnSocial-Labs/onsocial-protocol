@@ -161,10 +161,7 @@ export function TicketDoorPagePanel({
   });
 
   useEffect(() => {
-    if (!doorActive) {
-      setAttendance(null);
-      return;
-    }
+    if (!doorActive) return;
     let cancelled = false;
     const load = () => {
       void fetchCollectionRedeemAttendance(collectionId).then((next) => {
@@ -184,15 +181,16 @@ export function TicketDoorPagePanel({
   const redeemVoice = voiceProp === 'redeem';
   const screenSubtitle = redeemVoice ? 'Redeem' : 'Admit';
   const screenTitle = view ? eventName : screenSubtitle;
-  const attendanceLine = attendance
-    ? staffAttendanceLine({
-        voice: voiceProp,
-        minted: attendance.minted,
-        redeemedCount: attendance.redeemedCount,
-        fullyRedeemedCount: attendance.fullyRedeemedCount,
-        maxRedeems: attendance.maxRedeems ?? view?.maxRedeems ?? null,
-      })
-    : null;
+  const attendanceLine =
+    doorActive && attendance && attendance.collectionId === collectionId
+      ? staffAttendanceLine({
+          voice: voiceProp,
+          minted: attendance.minted,
+          redeemedCount: attendance.redeemedCount,
+          fullyRedeemedCount: attendance.fullyRedeemedCount,
+          maxRedeems: attendance.maxRedeems ?? view?.maxRedeems ?? null,
+        })
+      : null;
 
   let body: ReactNode;
   let footer: ReactNode = null;

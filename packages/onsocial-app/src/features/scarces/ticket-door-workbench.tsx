@@ -61,18 +61,18 @@ export function TicketDoorWorkbench({
 
   return (
     <div className="ticket-door">
+      {attendanceLine ? (
+        <p className="ticket-door-attendance" aria-live="polite">
+          {attendanceLine}
+        </p>
+      ) : null}
+
       <p className="ticket-door-lead">
         {lead ??
           (voice === 'redeem'
             ? 'Scan a coupon QR, or paste the pass code, then redeem.'
             : 'Scan a Show pass QR, or paste the pass code, then admit.')}
       </p>
-
-      {attendanceLine ? (
-        <p className="ticket-door-attendance" aria-live="polite">
-          {attendanceLine}
-        </p>
-      ) : null}
 
       <div className={`ticket-door-camera${cameraActive ? ' is-live' : ''}`}>
         <video
