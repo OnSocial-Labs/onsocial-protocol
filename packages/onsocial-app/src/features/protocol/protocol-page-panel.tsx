@@ -57,10 +57,12 @@ import {
   PROTOCOL_DAO_ACCOUNT_PARAM,
   PROTOCOL_DAO_BOARD_PARAM,
   PROTOCOL_PROPOSAL_PARAM,
+  PROTOCOL_SEARCH_PARAM,
   PROTOCOL_STATUS_PARAM,
   parseProtocolDaoBoard,
   parseProtocolFeedStatus,
   parseProtocolProposalId,
+  parseProtocolSearchQuery,
   protocolPath,
   type ProtocolDaoBoard,
   type ProtocolFeedStatusFilter,
@@ -81,6 +83,9 @@ export function ProtocolPagePanel() {
   const communityAccount = searchParams.get(PROTOCOL_DAO_ACCOUNT_PARAM);
   const statusFilter = parseProtocolFeedStatus(
     searchParams.get(PROTOCOL_STATUS_PARAM)
+  );
+  const searchQuery = parseProtocolSearchQuery(
+    searchParams.get(PROTOCOL_SEARCH_PARAM)
   );
   const focusedProposalId = parseProtocolProposalId(
     searchParams.get(PROTOCOL_PROPOSAL_PARAM)
@@ -110,6 +115,11 @@ export function ProtocolPagePanel() {
   const [settingsPending, setSettingsPending] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [focusHandled, setFocusHandled] = useState<number | null>(null);
+  const [searchDraft, setSearchDraft] = useState(searchQuery);
+
+  useEffect(() => {
+    setSearchDraft(searchQuery);
+  }, [searchQuery]);
 
   const actionApplication = useMemo(
     () => applications.find((row) => row.app_id === actionAppId) ?? null,
@@ -126,22 +136,25 @@ export function ProtocolPagePanel() {
     () =>
       countProtocolApplicationsByStatus(applications, {
         isSoftExpired: softExpired,
+        searchQuery,
       }),
-    [applications, softExpired]
+    [applications, softExpired, searchQuery]
   );
 
   const visibleApplications = useMemo(
     () =>
       filterProtocolApplications(applications, statusFilter, {
         isSoftExpired: softExpired,
+        searchQuery,
       }),
-    [applications, statusFilter, softExpired]
+    [applications, statusFilter, softExpired, searchQuery]
   );
 
   const buildProtocolHref = useCallback(
     (opts?: {
       status?: ProtocolFeedStatusFilter | null;
       proposal?: number | null;
+      q?: string | null;
     }) =>
       protocolPath({
         board,
@@ -149,8 +162,9 @@ export function ProtocolPagePanel() {
         status: opts?.status === undefined ? statusFilter : opts.status,
         proposal:
           opts?.proposal === undefined ? focusedProposalId : opts.proposal,
+        q: opts?.q === undefined ? searchQuery : opts.q,
       }),
-    [board, daoAccountId, statusFilter, focusedProposalId]
+    [board, daoAccountId, statusFilter, focusedProposalId, searchQuery]
   );
 
   useEffect(() => {
@@ -270,11 +284,28 @@ export function ProtocolPagePanel() {
           account: board === 'community' ? daoAccountId : null,
           status: nextStatus,
           proposal: focusedProposalId,
+          q: searchQuery,
         }),
         { scroll: false }
       );
     },
-    [router, board, daoAccountId, focusedProposalId]
+    [router, board, daoAccountId, focusedProposalId, searchQuery]
+  );
+
+  const commitSearch = useCallback(
+    (nextQuery: string) => {
+      router.replace(
+        protocolPath({
+          board,
+          account: board === 'community' ? daoAccountId : null,
+          status: statusFilter,
+          proposal: focusedProposalId,
+          q: nextQuery.trim() || null,
+        }),
+        { scroll: false }
+      );
+    },
+    [router, board, daoAccountId, statusFilter, focusedProposalId]
   );
 
   const mergeProposal = useCallback(
@@ -822,6 +853,32 @@ export function ProtocolPagePanel() {
           ) : null}
 
           {!showRegistry && daoAccountId && loadState === 'ready' ? (
+            <label className="protocol-search-field">
+              <span className="sr-only">Search proposals</span>
+              <input
+                type="search"
+                value={searchDraft}
+                placeholder="Search proposals"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitSearch(searchDraft);
+                  }
+                }}
+                onBlur={() => {
+                  if (searchDraft.trim() !== searchQuery) {
+                    commitSearch(searchDraft);
+                  }
+                }}
+              />
+            </label>
+          ) : null}
+
+          {!showRegistry && daoAccountId && loadState === 'ready' ? (
             <div
               className="protocol-status-rail"
               role="tablist"
@@ -882,7 +939,9 @@ export function ProtocolPagePanel() {
         applications.length > 0 &&
         visibleApplications.length === 0 ? (
           <p className="protocol-empty">
-            No {statusFilter === 'open' ? 'open' : statusFilter} proposals.
+            {searchQuery
+              ? `No matches for “${searchQuery}”.`
+              : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
           </p>
         ) : null}
         {!showRegistry &&

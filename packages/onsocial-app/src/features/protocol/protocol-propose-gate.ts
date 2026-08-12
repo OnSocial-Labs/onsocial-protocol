@@ -28,6 +28,7 @@ const CREATE_KIND_POLICY_LABEL: Record<
   transfer_ownership: 'call',
   contract_upgrade: 'call',
   contract_config: 'call',
+  season_config: 'call',
 };
 
 const POLICY_ACTION_PERMISSION_LABEL: Record<ProtocolPolicyActionId, string> = {
@@ -147,6 +148,7 @@ export function getProtocolCreateKindBlockReason(
     case 'transfer_ownership':
     case 'contract_upgrade':
     case 'contract_config':
+    case 'season_config':
       return 'Call proposals are not allowed for your roles.';
     default: {
       const exhaustive: never = kind;

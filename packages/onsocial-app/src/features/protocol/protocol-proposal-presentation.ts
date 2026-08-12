@@ -8,6 +8,8 @@ export type ProtocolProposalTargetKind =
   | 'contract'
   | 'amount'
   | 'code_hash'
+  | 'routing'
+  | 'season'
   | null;
 
 export interface ProtocolProposalPresentation {
@@ -17,6 +19,7 @@ export interface ProtocolProposalPresentation {
   targetValue: string | null;
   targetAccountId: string | null;
   subjectAccount: string | null;
+  subjectText: string | null;
   subjectEyebrow: string | null;
   showProposerSeparately: boolean;
 }
@@ -104,23 +107,70 @@ function decodeFunctionCallArgs(args: unknown): Record<string, unknown> | null {
   }
 }
 
+function parseFundSeasonPoolTransferMsg(msg: string | null): {
+  seasonId: string | null;
+  action: string | null;
+} {
+  if (!msg?.trim()) return { seasonId: null, action: null };
+  try {
+    const parsed = JSON.parse(msg) as Record<string, unknown>;
+    return {
+      action:
+        typeof parsed.action === 'string' && parsed.action.trim()
+          ? parsed.action.trim()
+          : null,
+      seasonId:
+        typeof parsed.season_id === 'string' && parsed.season_id.trim()
+          ? parsed.season_id.trim()
+          : null,
+    };
+  } catch {
+    return { seasonId: null, action: null };
+  }
+}
+
+function formatRoutingSummary(config: unknown): string {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return 'No routing';
+  }
+  const record = config as Record<string, unknown>;
+  const readBps = (field: string): number =>
+    typeof record[field] === 'number' && Number.isFinite(record[field])
+      ? (record[field] as number)
+      : 0;
+  const treasury = readBps('treasury_bps');
+  const season = readBps('season_pool_bps');
+  const target = readBps('target_bps');
+  const burn = readBps('burn_bps');
+  return `${(treasury / 100).toFixed(0)}% treasury · ${(season / 100).toFixed(0)}% season · ${(target / 100).toFixed(0)}% target · ${(burn / 100).toFixed(0)}% burn`;
+}
+
 function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   receiverId: string | null;
   methodName: string | null;
   ownershipTarget: string | null;
   amountYocto: string | null;
   codeHash: string | null;
+  actionId: string | null;
+  seasonId: string | null;
+  transferCallMsg: string | null;
+  config: Record<string, unknown> | null;
+  seasonLabel: string | null;
 } {
+  const empty = {
+    receiverId: null,
+    methodName: null,
+    ownershipTarget: null,
+    amountYocto: null,
+    codeHash: null,
+    actionId: null,
+    seasonId: null,
+    transferCallMsg: null,
+    config: null,
+    seasonLabel: null,
+  };
   const functionCall = kind?.FunctionCall;
-  if (!functionCall || typeof functionCall !== 'object') {
-    return {
-      receiverId: null,
-      methodName: null,
-      ownershipTarget: null,
-      amountYocto: null,
-      codeHash: null,
-    };
-  }
+  if (!functionCall || typeof functionCall !== 'object') return empty;
   const payload = functionCall as Record<string, unknown>;
   const receiverId = readStringField(payload, 'receiver_id');
   const actions = Array.isArray(payload.actions) ? payload.actions : [];
@@ -132,16 +182,32 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     ? readStringField(firstAction, 'method_name')
     : null;
   const args = firstAction ? decodeFunctionCallArgs(firstAction.args) : null;
+  const config =
+    args?.config && typeof args.config === 'object' && !Array.isArray(args.config)
+      ? (args.config as Record<string, unknown>)
+      : null;
+  const msg = readStringField(args, 'msg');
+  const fundMsg = parseFundSeasonPoolTransferMsg(msg);
   return {
     receiverId,
     methodName,
     ownershipTarget:
       readStringField(args, 'owner_id') ??
       readStringField(args, 'new_owner_id') ??
-      readStringField(args, 'account_id'),
+      readStringField(args, 'account_id') ??
+      readStringField(args, 'new_owner'),
     amountYocto: readStringField(args, 'amount'),
     codeHash:
       readStringField(args, 'code_hash') ?? readStringField(args, 'hash'),
+    actionId: readStringField(args, 'action_id'),
+    seasonId:
+      readStringField(args, 'season_id') ??
+      fundMsg.seasonId ??
+      readStringField(config, 'season_id'),
+    transferCallMsg: msg,
+    config,
+    seasonLabel:
+      readStringField(args, 'label') ?? readStringField(config, 'label'),
   };
 }
 
@@ -168,10 +234,17 @@ export function deriveProtocolProposalPresentation({
   const kindPayload =
     kindKey && kind ? (kind as Record<string, unknown>)[kindKey] : null;
   const finish = (
-    partial: Omit<ProtocolProposalPresentation, 'actionBadge'> & {
-      actionBadge?: string | null;
+    partial: Partial<ProtocolProposalPresentation> & {
+      headline: string;
     }
   ): ProtocolProposalPresentation => ({
+    targetKind: null,
+    targetValue: null,
+    targetAccountId: null,
+    subjectAccount: null,
+    subjectText: null,
+    subjectEyebrow: null,
+    showProposerSeparately: false,
     ...partial,
     actionBadge: partial.actionBadge ?? fallbackBadge ?? null,
   });
@@ -253,6 +326,7 @@ export function deriveProtocolProposalPresentation({
     );
     const contractLabel = shortContractName(shape.receiverId);
     const methodLabel = formatMethodLabel(shape.methodName);
+    const fundMsg = parseFundSeasonPoolTransferMsg(shape.transferCallMsg);
 
     if (
       (shape.methodName === 'set_owner' ||
@@ -276,7 +350,10 @@ export function deriveProtocolProposalPresentation({
       });
     }
 
-    if (shape.methodName === 'withdraw_treasury' || shape.methodName === 'withdraw_infra') {
+    if (
+      shape.methodName === 'withdraw_treasury' ||
+      shape.methodName === 'withdraw_infra'
+    ) {
       const amountLabel = shape.amountYocto
         ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
         : null;
@@ -298,20 +375,103 @@ export function deriveProtocolProposalPresentation({
       });
     }
 
-    if (shape.codeHash) {
+    if (
+      shape.methodName === 'fund_season_pool_from_treasury' ||
+      (shape.methodName === 'ft_transfer_call' &&
+        isSocialTokenContract(shape.receiverId) &&
+        (shape.seasonId || fundMsg.seasonId) &&
+        (fundMsg.action === 'fund_season_pool' || !fundMsg.action))
+    ) {
+      const seasonId = shape.seasonId ?? fundMsg.seasonId;
+      const amountLabel = shape.amountYocto
+        ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
+        : null;
+      return finish({
+        headline:
+          seasonId && amountLabel
+            ? `Fund ${seasonId} with ${amountLabel}`
+            : seasonId
+              ? `Fund ${seasonId} rally pool`
+              : 'Fund rally pool from treasury',
+        actionBadge: 'Treasury',
+        targetKind: amountLabel ? 'amount' : 'season',
+        targetValue: amountLabel ?? seasonId,
+        subjectText: seasonId,
+        subjectEyebrow: seasonId ? 'Season' : null,
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
+    if (shape.methodName === 'set_action_config' && shape.actionId) {
+      const routingSummary = formatRoutingSummary(shape.config);
+      const actionLabel = shape.actionId.replace(/_/g, ' ');
+      return finish({
+        headline: contractLabel
+          ? `Set ${contractLabel} ${actionLabel} routing`
+          : `Set ${actionLabel} routing`,
+        actionBadge: 'Config',
+        targetKind: 'routing',
+        targetValue: routingSummary,
+        targetAccountId: shape.receiverId,
+        subjectAccount: shape.receiverId,
+        subjectEyebrow: shape.receiverId ? 'Contract' : null,
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
+    if (shape.methodName === 'set_season_config') {
+      const seasonId = shape.seasonId;
+      const label = shape.seasonLabel;
+      return finish({
+        headline: label
+          ? `Configure season ${label}`
+          : seasonId
+            ? `Configure season ${seasonId}`
+            : 'Configure rally season',
+        actionBadge: 'Season',
+        targetKind: 'season',
+        targetValue: label ?? seasonId,
+        subjectText: seasonId,
+        subjectEyebrow: seasonId ? 'Season' : null,
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
+    if (
+      shape.methodName === 'update_contract' ||
+      shape.methodName === 'update_contract_from_hash' ||
+      shape.codeHash
+    ) {
       return finish({
         headline:
           firstDescriptionLine(onChainDescription) ??
           fallbackHeadline?.trim() ??
-          (contractLabel
-            ? `Upgrade ${contractLabel}`
-            : 'Upgrade contract'),
+          (contractLabel ? `Upgrade ${contractLabel}` : 'Upgrade contract'),
         actionBadge: 'Upgrade',
-        targetKind: 'code_hash',
-        targetValue: `${shape.codeHash.slice(0, 10)}…`,
+        targetKind: shape.codeHash ? 'code_hash' : 'contract',
+        targetValue: shape.codeHash
+          ? `${shape.codeHash.slice(0, 10)}…`
+          : contractLabel,
         targetAccountId: shape.receiverId,
         subjectAccount: shape.receiverId,
         subjectEyebrow: contractLabel ? 'Contract' : null,
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
+    if (shape.methodName === 'set_infra_withdraw_authority') {
+      return finish({
+        headline: shape.ownershipTarget
+          ? `Delegate boost infra withdraw to ${shortContractName(shape.ownershipTarget) ?? shape.ownershipTarget}`
+          : contractLabel
+            ? `Clear ${contractLabel} infra withdraw delegate`
+            : 'Update boost infra withdraw delegate',
+        actionBadge: 'Boost',
+        targetKind: 'contract',
+        targetValue: contractLabel,
+        targetAccountId: shape.receiverId,
+        subjectAccount: shape.ownershipTarget,
+        subjectEyebrow: shape.ownershipTarget ? 'Authority' : null,
         showProposerSeparately: Boolean(normalizedProposer),
       });
     }

@@ -16,18 +16,55 @@ export const PROTOCOL_FEED_STATUS_OPTIONS: Array<{
   { id: 'all', label: 'All' },
 ];
 
+export function buildProtocolSearchText(
+  application: ProtocolApplication
+): string {
+  const proposal = resolveLiveProposal(application);
+  const parts = [
+    application.label,
+    application.app_id,
+    application.description,
+    application.protocol_kind,
+    application.protocol_subject,
+    application.protocol_target_account,
+    application.protocol_target_method,
+    application.governance_proposal?.description,
+    application.governance_proposal?.proposer,
+    application.governance_proposal?.dao_account,
+    proposal?.proposer,
+    proposal?.description,
+    proposal?.id != null ? String(proposal.id) : null,
+    application.governance_proposal?.proposal_id != null
+      ? String(application.governance_proposal.proposal_id)
+      : null,
+  ];
+  return parts
+    .filter((part): part is string => Boolean(part && part.trim()))
+    .join(' ')
+    .toLowerCase();
+}
+
 /**
- * Filter feed rows by status chip. `open` = InProgress (not soft-expired).
+ * Filter feed rows by status chip and optional search query.
+ * `open` = InProgress (not soft-expired).
  */
 export function filterProtocolApplications(
   applications: ProtocolApplication[],
   status: ProtocolFeedStatusFilter,
   opts?: {
     isSoftExpired?: (application: ProtocolApplication) => boolean;
+    searchQuery?: string | null;
   }
 ): ProtocolApplication[] {
-  if (status === 'all') return applications;
+  const query = opts?.searchQuery?.trim().toLowerCase() ?? '';
   return applications.filter((application) => {
+    if (query) {
+      const haystack = buildProtocolSearchText(application);
+      if (!haystack.includes(query)) return false;
+    }
+
+    if (status === 'all') return true;
+
     const proposal = resolveLiveProposal(application);
     const raw = proposal?.status ?? application.governance_proposal?.status;
     const softExpired =
@@ -58,8 +95,12 @@ export function countProtocolApplicationsByStatus(
   applications: ProtocolApplication[],
   opts?: {
     isSoftExpired?: (application: ProtocolApplication) => boolean;
+    searchQuery?: string | null;
   }
 ): Record<ProtocolFeedStatusFilter, number> {
+  const scoped = filterProtocolApplications(applications, 'all', {
+    searchQuery: opts?.searchQuery,
+  });
   const counts: Record<ProtocolFeedStatusFilter, number> = {
     open: 0,
     approved: 0,
@@ -68,9 +109,9 @@ export function countProtocolApplicationsByStatus(
     expired: 0,
     failed: 0,
     moved: 0,
-    all: applications.length,
+    all: scoped.length,
   };
-  for (const application of applications) {
+  for (const application of scoped) {
     const proposal = resolveLiveProposal(application);
     const raw = proposal?.status ?? application.governance_proposal?.status;
     const softExpired =

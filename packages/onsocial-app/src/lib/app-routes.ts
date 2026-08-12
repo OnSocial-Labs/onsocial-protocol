@@ -95,6 +95,9 @@ export const PROTOCOL_PROPOSAL_PARAM = 'proposal';
 /** Query key for Protocol feed status filter. */
 export const PROTOCOL_STATUS_PARAM = 'status';
 
+/** Query key for Protocol feed text search. */
+export const PROTOCOL_SEARCH_PARAM = 'q';
+
 export type ProtocolDaoBoard = 'governance' | 'treasury' | 'community';
 
 export type ProtocolFeedStatusFilter =
@@ -147,12 +150,19 @@ export function parseProtocolProposalId(
   return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
-/** Protocol home, optionally deep-linked to board, account, status, or proposal. */
+export function parseProtocolSearchQuery(
+  raw: string | null | undefined
+): string {
+  return raw?.trim() ?? '';
+}
+
+/** Protocol home, optionally deep-linked to board, account, status, search, or proposal. */
 export function protocolPath(opts?: {
   board?: ProtocolDaoBoard | null;
   account?: string | null;
   status?: ProtocolFeedStatusFilter | null;
   proposal?: number | null;
+  q?: string | null;
 }): string {
   const board = opts?.board ?? 'governance';
   const account = opts?.account?.trim().toLowerCase() ?? '';
@@ -168,6 +178,10 @@ export function protocolPath(opts?: {
   const status = opts?.status ?? null;
   if (status && status !== 'open') {
     params.set(PROTOCOL_STATUS_PARAM, status);
+  }
+  const q = opts?.q?.trim() ?? '';
+  if (q) {
+    params.set(PROTOCOL_SEARCH_PARAM, q);
   }
   if (opts?.proposal != null && Number.isInteger(opts.proposal)) {
     params.set(PROTOCOL_PROPOSAL_PARAM, String(opts.proposal));

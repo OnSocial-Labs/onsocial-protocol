@@ -61,7 +61,8 @@ export function ProtocolProposalCard({
   const abstainers = view.eligibleVoters.filter(
     (id) => !votedAccounts.has(id.trim().toLowerCase())
   );
-  const canAct = view.canApprove || view.canReject || view.canFinalize;
+  const canAct =
+    view.canApprove || view.canReject || view.canRemove || view.canFinalize;
   const showVoters = view.voteEntries.length > 0 || abstainers.length > 0;
   const targetEyebrow =
     view.targetKind === 'role'
@@ -74,7 +75,11 @@ export function ProtocolProposalCard({
             ? 'Code hash'
             : view.targetKind === 'community'
               ? 'Community'
-              : null;
+              : view.targetKind === 'routing'
+                ? 'Routing'
+                : view.targetKind === 'season'
+                  ? 'Season'
+                  : null;
 
   return (
     <article
@@ -127,6 +132,13 @@ export function ProtocolProposalCard({
               {view.subjectEyebrow}
             </span>{' '}
             @{fallbackLabel(view.subjectAccount)}
+          </p>
+        ) : view.subjectText && view.subjectEyebrow ? (
+          <p className="protocol-card-subject">
+            <span className="protocol-card-subject-eyebrow">
+              {view.subjectEyebrow}
+            </span>{' '}
+            {view.subjectText}
           </p>
         ) : null}
 

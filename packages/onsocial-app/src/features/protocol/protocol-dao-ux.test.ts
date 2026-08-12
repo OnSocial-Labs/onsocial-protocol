@@ -118,7 +118,35 @@ describe('protocol proposal presentation', () => {
       description: 'Ship season two\nmore detail',
       proposer: 'alice.near',
     });
-    expect(presentation.headline).toBe('Ship season two');
-    expect(presentation.actionBadge).toBe('Signal');
+    expect(
+      deriveProtocolProposalPresentation({
+        kind: {
+          FunctionCall: {
+            receiver_id: 'social-spend.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'set_action_config',
+                args: Buffer.from(
+                  JSON.stringify({
+                    action_id: 'support_profile',
+                    config: {
+                      treasury_bps: 100,
+                      season_pool_bps: 0,
+                      target_bps: 9900,
+                      burn_bps: 0,
+                    },
+                  })
+                ).toString('base64'),
+              },
+            ],
+          },
+        },
+        description: null,
+        proposer: 'alice.near',
+      })
+    ).toMatchObject({
+      actionBadge: 'Config',
+      targetKind: 'routing',
+    });
   });
 });

@@ -8,13 +8,17 @@ import {
   buildProtocolContractConfigPayload,
   buildProtocolFundSeasonPayload,
   buildProtocolOwnershipPayload,
+  buildProtocolSeasonConfigPayload,
   buildProtocolSetBoostInfraAuthorityPayload,
   buildProtocolUpgradePayload,
   buildProtocolWithdrawBoostInfraPayload,
   type ProtocolContractConfigOpId,
 } from '@/features/protocol/protocol-contracts';
 import { getProtocolProposalBond } from '@/features/protocol/protocol-eligibility';
-import type { ProtocolDaoPolicy, ProtocolDaoRole } from '@/features/protocol/types';
+import type {
+  ProtocolDaoPolicy,
+  ProtocolDaoRole,
+} from '@/features/protocol/types';
 
 const ADD_PROPOSAL_GAS = '300000000000000';
 
@@ -30,7 +34,8 @@ export type ProtocolCreateKind =
   | 'set_boost_infra_authority'
   | 'transfer_ownership'
   | 'contract_upgrade'
-  | 'contract_config';
+  | 'contract_config'
+  | 'season_config';
 
 export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
   id: ProtocolCreateKind;
@@ -53,6 +58,7 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
   { id: 'transfer_ownership', label: 'Ownership', group: 'contracts' },
   { id: 'contract_upgrade', label: 'Upgrade', group: 'contracts' },
   { id: 'contract_config', label: 'Configure', group: 'contracts' },
+  { id: 'season_config', label: 'Season config', group: 'contracts' },
 ];
 
 export interface ProtocolProposalPayload {
@@ -154,6 +160,7 @@ export function buildProtocolCreatePayload(opts: {
   memberId?: string;
   receiverId?: string;
   amountYocto?: string;
+  tokenId?: string;
   seasonId?: string;
   contractId?: string;
   newOwnerId?: string;
@@ -165,6 +172,9 @@ export function buildProtocolCreatePayload(opts: {
   targetBps?: number;
   burnBps?: number;
   minAmountYocto?: string;
+  seasonLabel?: string;
+  seasonActive?: boolean;
+  seasonDurationDays?: string;
 }): ProtocolProposalPayload {
   switch (opts.kind) {
     case 'signal':
@@ -201,6 +211,7 @@ export function buildProtocolCreatePayload(opts: {
       return buildProtocolTransferProposalPayload({
         receiverId: opts.receiverId ?? '',
         amountYocto: opts.amountYocto ?? '',
+        tokenId: opts.tokenId,
         description: opts.description,
       });
     case 'fund_season_pool':
@@ -240,6 +251,14 @@ export function buildProtocolCreatePayload(opts: {
         targetBps: opts.targetBps ?? 9_900,
         burnBps: opts.burnBps ?? 0,
         minAmountYocto: opts.minAmountYocto ?? '',
+        description: opts.description,
+      });
+    case 'season_config':
+      return buildProtocolSeasonConfigPayload({
+        seasonId: opts.seasonId ?? '',
+        label: opts.seasonLabel ?? '',
+        active: opts.seasonActive ?? true,
+        durationDays: opts.seasonDurationDays ?? '',
         description: opts.description,
       });
     default: {

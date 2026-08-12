@@ -1,4 +1,8 @@
 import {
+  buildProtocolSeasonConfigInput,
+  type ProtocolSeasonConfigDraft,
+} from '@/features/protocol/protocol-season-config';
+import {
   ACTIVE_NEAR_NETWORK,
   BOOST_CONTRACT,
   SOCIAL_SPEND_CONTRACT,
@@ -323,6 +327,35 @@ export function buildProtocolContractConfigPayload(opts: {
                   allow_self_target: defaults.allowSelfTarget,
                 },
               }),
+              deposit: '1',
+              gas: SOCIAL_SPEND_GAS,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
+
+export function buildProtocolSeasonConfigPayload(
+  opts: ProtocolSeasonConfigDraft & {
+    description?: string;
+  }
+): ProtocolProposalPayload {
+  const input = buildProtocolSeasonConfigInput(opts);
+
+  return {
+    proposal: {
+      description:
+        opts.description?.trim() ||
+        `Configure ${input.season_id} rally season.`,
+      kind: {
+        FunctionCall: {
+          receiver_id: SOCIAL_SPEND_CONTRACT,
+          actions: [
+            {
+              method_name: 'set_season_config',
+              args: encodeJsonArgs(input),
               deposit: '1',
               gas: SOCIAL_SPEND_GAS,
             },

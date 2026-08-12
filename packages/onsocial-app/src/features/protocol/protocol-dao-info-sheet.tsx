@@ -7,10 +7,14 @@ import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
+import { fetchProtocolDaoTransferAssets } from '@/features/protocol/protocol-dao-context-client';
 import { proposalPeriodNsToDays } from '@/features/protocol/protocol-policy';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
-import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
+import {
+  ACTIVE_NEAR_EXPLORER_URL,
+  SOCIAL_TOKEN_CONTRACT,
+} from '@/lib/app-config';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { formatNearCompact } from '@/lib/format-near-balance';
 import { formatSocialCompact } from '@/lib/format-social-balance';
@@ -67,6 +71,10 @@ export function ProtocolDaoInfoSheet({
   const [configPurpose, setConfigPurpose] = useState('');
   const [eligibility, setEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
+  const [treasuryBalances, setTreasuryBalances] = useState<{
+    nearYocto: string;
+    socialYocto: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!open || !daoAccountId) return;
@@ -74,17 +82,29 @@ export function ProtocolDaoInfoSheet({
     let cancelled = false;
     void (async () => {
       setLoadState('loading');
+      setTreasuryBalances(null);
       try {
-        const [config, nextEligibility] = await Promise.all([
+        const [config, nextEligibility, assets] = await Promise.all([
           getProtocolDaoConfig(daoAccountId),
           accountId
             ? getProtocolGovernanceEligibility(accountId, daoAccountId)
             : Promise.resolve(null),
+          fetchProtocolDaoTransferAssets(daoAccountId).catch(() => []),
         ]);
         if (cancelled) return;
+        const nearAsset = assets.find((asset) => asset.tokenId === '');
+        const socialAsset = assets.find(
+          (asset) =>
+            asset.tokenId.trim().toLowerCase() ===
+            SOCIAL_TOKEN_CONTRACT.toLowerCase()
+        );
         setConfigName(config?.name?.trim() || '');
         setConfigPurpose(config?.purpose?.trim() || '');
         setEligibility(nextEligibility);
+        setTreasuryBalances({
+          nearYocto: nearAsset?.balanceSmallest ?? '0',
+          socialYocto: socialAsset?.balanceSmallest ?? '0',
+        });
         setLoadState('ready');
       } catch {
         if (cancelled) return;
@@ -180,6 +200,24 @@ export function ProtocolDaoInfoSheet({
             <span className="protocol-policy-summary-label">Roles</span>
             <span className="protocol-policy-summary-value">
               {roleNames.length}
+            </span>
+          </div>
+          <div className="protocol-policy-summary-cell">
+            <span className="protocol-policy-summary-label">NEAR treasury</span>
+            <span className="protocol-policy-summary-value">
+              {treasuryBalances
+                ? `${formatNearCompact(treasuryBalances.nearYocto)} NEAR`
+                : '—'}
+            </span>
+          </div>
+          <div className="protocol-policy-summary-cell">
+            <span className="protocol-policy-summary-label">
+              SOCIAL treasury
+            </span>
+            <span className="protocol-policy-summary-value">
+              {treasuryBalances
+                ? `${formatSocialCompact(treasuryBalances.socialYocto)} SOCIAL`
+                : '—'}
             </span>
           </div>
         </div>

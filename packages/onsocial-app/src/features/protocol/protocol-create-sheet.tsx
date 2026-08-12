@@ -3,6 +3,12 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
+  fetchProtocolDaoBoostInfra,
+  fetchProtocolDaoManagedContracts,
+  fetchProtocolDaoSocialSpendTreasury,
+  fetchProtocolDaoTransferAssets,
+} from '@/features/protocol/protocol-dao-context-client';
+import {
   PROTOCOL_CONTRACT_CONFIG_OPS,
   PROTOCOL_MANAGED_CONTRACTS,
   getProtocolUpgradableContracts,
@@ -15,6 +21,7 @@ import {
   type ProtocolCreateKind,
   type ProtocolProposalPayload,
 } from '@/features/protocol/protocol-create';
+import { createDefaultProtocolSeasonConfigDraft } from '@/features/protocol/protocol-season-config';
 import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
@@ -26,10 +33,38 @@ import {
 } from '@/features/protocol/protocol-propose-gate';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
+import type { ProtocolDaoBoostInfraContext } from '@/lib/protocol-dao-boost-infra';
+import type { ProtocolDaoManagedContract } from '@/lib/protocol-dao-managed-contracts';
+import type { ProtocolDaoSocialSpendTreasuryContext } from '@/lib/protocol-dao-social-spend-treasury';
+import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
 import { TREASURY_DAO_ACCOUNT } from '@/lib/app-config';
-import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
-import { formatSocialCompact } from '@/lib/format-social-balance';
+import { tokenAmountToSmallestUnit, yoctoToNear } from '@/lib/app-near-rpc';
+import {
+  formatSocialCompact,
+  yoctoToSocial,
+} from '@/lib/format-social-balance';
 import { socialToYocto } from '@/lib/social-spend-profile';
+
+function tokenSmallestToDisplay(value: string, decimals: number): string {
+  if (!value || value === '0') return '0';
+  const safeDecimals = Math.max(0, Math.floor(decimals));
+  if (safeDecimals === 0) return value.replace(/^0+/, '') || '0';
+  const padded = value.padStart(safeDecimals + 1, '0');
+  const whole = padded.slice(0, padded.length - safeDecimals) || '0';
+  const fraction = padded
+    .slice(padded.length - safeDecimals)
+    .replace(/0+$/, '')
+    .slice(0, 6);
+  return fraction ? `${whole}.${fraction}` : whole;
+}
+
+function isGreaterThanBalance(amountSmallest: string, balanceSmallest: string) {
+  try {
+    return BigInt(amountSmallest || '0') > BigInt(balanceSmallest || '0');
+  } catch {
+    return true;
+  }
+}
 
 export function ProtocolCreateSheet({
   open,
@@ -51,7 +86,11 @@ export function ProtocolCreateSheet({
   onOpenStake: () => void;
 }) {
   const formId = useId();
-  const upgradable = useMemo(() => getProtocolUpgradableContracts(), []);
+  const staticUpgradable = useMemo(() => getProtocolUpgradableContracts(), []);
+  const defaultSeasonConfigDraft = useMemo(
+    () => createDefaultProtocolSeasonConfigDraft(),
+    []
+  );
   const [kind, setKind] = useState<ProtocolCreateKind>('signal');
   const [description, setDescription] = useState('');
   const [roleId, setRoleId] = useState('');
@@ -60,6 +99,15 @@ export function ProtocolCreateSheet({
   const [amountNear, setAmountNear] = useState('');
   const [amountSocial, setAmountSocial] = useState('');
   const [seasonId, setSeasonId] = useState('');
+  const [seasonLabel, setSeasonLabel] = useState(
+    defaultSeasonConfigDraft.label
+  );
+  const [seasonActive, setSeasonActive] = useState(
+    defaultSeasonConfigDraft.active
+  );
+  const [seasonDurationDays, setSeasonDurationDays] = useState(
+    defaultSeasonConfigDraft.durationDays
+  );
   const [contractId, setContractId] = useState(
     PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? ''
   );
@@ -72,6 +120,21 @@ export function ProtocolCreateSheet({
   const [seasonPoolBps, setSeasonPoolBps] = useState('0');
   const [targetBps, setTargetBps] = useState('9900');
   const [burnBps, setBurnBps] = useState('0');
+  const [transferAssets, setTransferAssets] = useState<
+    ProtocolDaoTransferAsset[]
+  >([]);
+  const [transferTokenId, setTransferTokenId] = useState('');
+  const [transferAssetsLoading, setTransferAssetsLoading] = useState(false);
+  const [socialSpendContext, setSocialSpendContext] =
+    useState<ProtocolDaoSocialSpendTreasuryContext | null>(null);
+  const [socialSpendLoading, setSocialSpendLoading] = useState(false);
+  const [boostInfraContext, setBoostInfraContext] =
+    useState<ProtocolDaoBoostInfraContext | null>(null);
+  const [boostInfraLoading, setBoostInfraLoading] = useState(false);
+  const [managedContracts, setManagedContracts] = useState<
+    ProtocolDaoManagedContract[]
+  >([]);
+  const [managedContractsLoading, setManagedContractsLoading] = useState(false);
   const [eligibility, setEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
   const [loadState, setLoadState] = useState<
@@ -112,6 +175,9 @@ export function ProtocolCreateSheet({
       setAmountNear('');
       setAmountSocial('');
       setSeasonId('');
+      setSeasonLabel(defaultSeasonConfigDraft.label);
+      setSeasonActive(defaultSeasonConfigDraft.active);
+      setSeasonDurationDays(defaultSeasonConfigDraft.durationDays);
       setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
       setNewOwnerId('');
       setCodeHash('');
@@ -121,6 +187,15 @@ export function ProtocolCreateSheet({
       setSeasonPoolBps('0');
       setTargetBps('9900');
       setBurnBps('0');
+      setTransferAssets([]);
+      setTransferTokenId('');
+      setTransferAssetsLoading(false);
+      setSocialSpendContext(null);
+      setSocialSpendLoading(false);
+      setBoostInfraContext(null);
+      setBoostInfraLoading(false);
+      setManagedContracts([]);
+      setManagedContractsLoading(false);
       setEligibility(null);
       setLoadState('idle');
       setFormError(null);
@@ -147,7 +222,7 @@ export function ProtocolCreateSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId]);
+  }, [open, daoAccountId, accountId, defaultSeasonConfigDraft]);
 
   useEffect(() => {
     if (!open) return;
@@ -180,15 +255,178 @@ export function ProtocolCreateSheet({
     setBurnBps(String(op.defaults.burnBps));
   }, [configOpId]);
 
+  useEffect(() => {
+    if (!open || !daoAccountId || kind !== 'transfer') {
+      return;
+    }
+
+    let cancelled = false;
+    setTransferAssetsLoading(true);
+    void fetchProtocolDaoTransferAssets(daoAccountId)
+      .then((assets) => {
+        if (cancelled) return;
+        setTransferAssets(assets);
+        setTransferTokenId((current) =>
+          assets.some((asset) => asset.tokenId === current)
+            ? current
+            : (assets[0]?.tokenId ?? '')
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTransferAssets([]);
+        setTransferTokenId('');
+      })
+      .finally(() => {
+        if (!cancelled) setTransferAssetsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, daoAccountId, kind]);
+
+  useEffect(() => {
+    if (!open || !daoAccountId || kind !== 'fund_season_pool') {
+      return;
+    }
+
+    let cancelled = false;
+    setSocialSpendLoading(true);
+    void fetchProtocolDaoSocialSpendTreasury(daoAccountId)
+      .then((context) => {
+        if (cancelled) return;
+        setSocialSpendContext(context);
+        if (context?.fundableSeasonIds.length) {
+          setSeasonId((current) =>
+            context.fundableSeasonIds.includes(current)
+              ? current
+              : (context.fundableSeasonIds[0] ?? '')
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSocialSpendContext(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSocialSpendLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, daoAccountId, kind]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      !daoAccountId ||
+      (kind !== 'withdraw_boost_infra' && kind !== 'set_boost_infra_authority')
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    setBoostInfraLoading(true);
+    void fetchProtocolDaoBoostInfra(daoAccountId)
+      .then((context) => {
+        if (cancelled) return;
+        setBoostInfraContext(context);
+        if (!context) return;
+        setReceiverId((current) => current || context.defaultReceiverId);
+        setAuthorityId(context.treasuryDaoAccountId);
+        if (kind === 'withdraw_boost_infra') {
+          setAmountSocial(yoctoToSocial(context.infraPoolYocto));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBoostInfraContext(null);
+      })
+      .finally(() => {
+        if (!cancelled) setBoostInfraLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, daoAccountId, kind]);
+
+  useEffect(() => {
+    if (
+      !open ||
+      !daoAccountId ||
+      (kind !== 'transfer_ownership' && kind !== 'contract_upgrade')
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    setManagedContractsLoading(true);
+    void fetchProtocolDaoManagedContracts(daoAccountId)
+      .then((contracts) => {
+        if (cancelled) return;
+        setManagedContracts(contracts);
+        const options =
+          contracts.length > 0
+            ? kind === 'contract_upgrade'
+              ? contracts.filter((contract) => contract.upgradable)
+              : contracts
+            : kind === 'contract_upgrade'
+              ? staticUpgradable
+              : PROTOCOL_MANAGED_CONTRACTS;
+        setContractId((current) =>
+          options.some((contract) => contract.contractId === current)
+            ? current
+            : (options[0]?.contractId ?? '')
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setManagedContracts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setManagedContractsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, daoAccountId, kind, staticUpgradable]);
+
+  const managedContractOptions =
+    managedContracts.length > 0 ? managedContracts : PROTOCOL_MANAGED_CONTRACTS;
+  const upgradableContractOptions =
+    managedContracts.length > 0
+      ? managedContracts.filter((contract) => contract.upgradable)
+      : staticUpgradable;
+  const selectedTransferAsset =
+    transferAssets.find((asset) => asset.tokenId === transferTokenId) ??
+    transferAssets[0] ??
+    null;
+  const liveContextLoading =
+    (kind === 'transfer' && transferAssetsLoading) ||
+    (kind === 'fund_season_pool' && socialSpendLoading) ||
+    ((kind === 'withdraw_boost_infra' ||
+      kind === 'set_boost_infra_authority') &&
+      boostInfraLoading) ||
+    ((kind === 'transfer_ownership' || kind === 'contract_upgrade') &&
+      managedContractsLoading);
+  const liveContextBlock =
+    kind === 'withdraw_boost_infra' &&
+    boostInfraContext &&
+    !boostInfraContext.canWithdrawBoostInfra
+      ? 'This DAO is not the current boost infra withdraw authority, or the infra pool is empty.'
+      : kind === 'set_boost_infra_authority' &&
+          boostInfraContext &&
+          !boostInfraContext.canSetBoostInfraAuthority
+        ? 'This DAO cannot update boost infra authority from the current contract state.'
+        : null;
+
   const canProposeSelected =
     Boolean(accountId) &&
     loadState === 'ready' &&
-    canProposeProtocolCreateKind(
-      daoPolicy,
-      accountId,
-      delegatedWeight,
-      kind
-    );
+    !liveContextLoading &&
+    !liveContextBlock &&
+    canProposeProtocolCreateKind(daoPolicy, accountId, delegatedWeight, kind);
   const needsStake =
     loadState === 'ready' &&
     eligibility != null &&
@@ -234,6 +472,8 @@ export function ProtocolCreateSheet({
         !accountId ||
         loadState === 'loading' ||
         loadState === 'error' ||
+        liveContextLoading ||
+        Boolean(liveContextBlock) ||
         !canProposeSelected,
       primaryType: 'submit',
     };
@@ -245,6 +485,8 @@ export function ProtocolCreateSheet({
     accountId,
     loadState,
     canProposeSelected,
+    liveContextLoading,
+    liveContextBlock,
   ]);
 
   return (
@@ -264,12 +506,53 @@ export function ProtocolCreateSheet({
         className="protocol-compose protocol-task-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (needsStake || pending || !accountId || !canProposeSelected) return;
+          if (needsStake || pending || !accountId || !canProposeSelected)
+            return;
           try {
+            let transferAmountYocto = '';
+            if (kind === 'transfer') {
+              if (!selectedTransferAsset) {
+                throw new Error('Choose an asset with a live DAO balance.');
+              }
+              transferAmountYocto = tokenAmountToSmallestUnit(
+                amountNear.trim() || '0',
+                selectedTransferAsset.decimals
+              );
+              if (
+                isGreaterThanBalance(
+                  transferAmountYocto,
+                  selectedTransferAsset.balanceSmallest
+                )
+              ) {
+                throw new Error(
+                  `Amount exceeds the DAO ${selectedTransferAsset.symbol} balance.`
+                );
+              }
+            }
             const socialYocto =
               kind === 'fund_season_pool' || kind === 'withdraw_boost_infra'
                 ? socialToYocto(amountSocial.trim() || '0')
                 : '';
+            if (
+              kind === 'fund_season_pool' &&
+              socialSpendContext &&
+              isGreaterThanBalance(
+                socialYocto,
+                socialSpendContext.daoSocialBalanceYocto
+              )
+            ) {
+              throw new Error('Amount exceeds the DAO SOCIAL balance.');
+            }
+            if (
+              kind === 'withdraw_boost_infra' &&
+              boostInfraContext &&
+              isGreaterThanBalance(
+                socialYocto,
+                boostInfraContext.infraPoolYocto
+              )
+            ) {
+              throw new Error('Amount exceeds the boost infra pool.');
+            }
             const payload = buildProtocolCreatePayload({
               kind,
               accountId,
@@ -281,10 +564,13 @@ export function ProtocolCreateSheet({
                   ? receiverId || TREASURY_DAO_ACCOUNT
                   : receiverId,
               amountYocto:
-                kind === 'transfer'
-                  ? nearToYocto(amountNear.trim() || '0')
-                  : socialYocto,
+                kind === 'transfer' ? transferAmountYocto : socialYocto,
+              tokenId:
+                kind === 'transfer' ? selectedTransferAsset?.tokenId : '',
               seasonId,
+              seasonLabel,
+              seasonActive,
+              seasonDurationDays,
               contractId,
               newOwnerId,
               codeHash,
@@ -331,6 +617,14 @@ export function ProtocolCreateSheet({
           <p className="protocol-compose-note is-warn">{permissionBlock}</p>
         ) : null}
 
+        {liveContextLoading ? (
+          <p className="protocol-compose-note">Loading live DAO context…</p>
+        ) : null}
+
+        {liveContextBlock ? (
+          <p className="protocol-compose-note is-warn">{liveContextBlock}</p>
+        ) : null}
+
         {eligibility && canProposeSelected && bondLabel ? (
           <p className="protocol-compose-note">Bond {bondLabel} on submit.</p>
         ) : null}
@@ -360,10 +654,15 @@ export function ProtocolCreateSheet({
                 setKind(option.id);
                 setFormError(null);
                 if (option.id === 'contract_upgrade') {
-                  setContractId(upgradable[0]?.contractId ?? '');
+                  setContractId(upgradableContractOptions[0]?.contractId ?? '');
                 }
                 if (option.id === 'transfer_ownership') {
-                  setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
+                  setContractId(managedContractOptions[0]?.contractId ?? '');
+                }
+                if (option.id === 'season_config') {
+                  setSeasonId(
+                    (current) => current || defaultSeasonConfigDraft.seasonId
+                  );
                 }
               }}
               disabled={pending || loadState === 'error'}
@@ -416,6 +715,33 @@ export function ProtocolCreateSheet({
         {kind === 'transfer' ? (
           <>
             <label className="guild-field">
+              <span>Asset</span>
+              <select
+                value={selectedTransferAsset?.tokenId ?? transferTokenId}
+                onChange={(event) => {
+                  setTransferTokenId(event.target.value);
+                  setFormError(null);
+                }}
+                disabled={pending || transferAssetsLoading}
+              >
+                {transferAssets.length === 0 ? (
+                  <option value="">
+                    {transferAssetsLoading ? 'Loading assets…' : 'No assets'}
+                  </option>
+                ) : (
+                  transferAssets.map((asset) => (
+                    <option key={asset.tokenId || 'near'} value={asset.tokenId}>
+                      {asset.symbol} ·{' '}
+                      {tokenSmallestToDisplay(
+                        asset.balanceSmallest,
+                        asset.decimals
+                      )}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            <label className="guild-field">
               <span>Recipient</span>
               <input
                 type="text"
@@ -429,34 +755,61 @@ export function ProtocolCreateSheet({
               />
             </label>
             <label className="guild-field">
-              <span>Amount (NEAR)</span>
+              <span>Amount ({selectedTransferAsset?.symbol ?? 'asset'})</span>
               <input
                 type="text"
                 inputMode="decimal"
                 value={amountNear}
                 placeholder="0"
                 onChange={(event) => setAmountNear(event.target.value)}
-                disabled={pending}
+                disabled={pending || transferAssetsLoading}
               />
             </label>
+            {selectedTransferAsset ? (
+              <p className="protocol-compose-note">
+                DAO balance{' '}
+                {tokenSmallestToDisplay(
+                  selectedTransferAsset.balanceSmallest,
+                  selectedTransferAsset.decimals
+                )}{' '}
+                {selectedTransferAsset.symbol}
+              </p>
+            ) : null}
           </>
         ) : null}
 
         {kind === 'fund_season_pool' ? (
           <>
-            <label className="guild-field">
-              <span>Season id</span>
-              <input
-                type="text"
-                value={seasonId}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="season2"
-                onChange={(event) => setSeasonId(event.target.value)}
-                disabled={pending}
-              />
-            </label>
+            {socialSpendContext?.fundableSeasonIds.length ? (
+              <label className="guild-field">
+                <span>Season</span>
+                <select
+                  value={seasonId}
+                  onChange={(event) => setSeasonId(event.target.value)}
+                  disabled={pending || socialSpendLoading}
+                >
+                  {socialSpendContext.fundableSeasonIds.map((id) => (
+                    <option key={id} value={id}>
+                      {id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="guild-field">
+                <span>Season id</span>
+                <input
+                  type="text"
+                  value={seasonId}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="season2"
+                  onChange={(event) => setSeasonId(event.target.value)}
+                  disabled={pending || socialSpendLoading}
+                />
+              </label>
+            )}
             <label className="guild-field">
               <span>Amount (SOCIAL)</span>
               <input
@@ -465,9 +818,38 @@ export function ProtocolCreateSheet({
                 value={amountSocial}
                 placeholder="0"
                 onChange={(event) => setAmountSocial(event.target.value)}
-                disabled={pending}
+                disabled={pending || socialSpendLoading}
               />
             </label>
+            <p className="protocol-compose-note">
+              DAO SOCIAL balance{' '}
+              {formatSocialCompact(
+                socialSpendContext?.daoSocialBalanceYocto ?? '0'
+              )}{' '}
+              SOCIAL
+            </p>
+            {socialSpendContext?.daoSocialBalanceYocto &&
+            BigInt(socialSpendContext.daoSocialBalanceYocto) > 0n ? (
+              <button
+                type="button"
+                className="protocol-tool is-ghost"
+                onClick={() =>
+                  setAmountSocial(
+                    yoctoToSocial(socialSpendContext.daoSocialBalanceYocto)
+                  )
+                }
+                disabled={pending || socialSpendLoading}
+              >
+                Use full balance
+              </button>
+            ) : null}
+            {socialSpendContext &&
+            socialSpendContext.fundableSeasonIds.length === 0 ? (
+              <p className="protocol-compose-note is-warn">
+                No live rally seasons were reported on-chain; enter an id
+                manually if needed.
+              </p>
+            ) : null}
           </>
         ) : null}
 
@@ -481,7 +863,14 @@ export function ProtocolCreateSheet({
                 value={amountSocial}
                 placeholder="0"
                 onChange={(event) => setAmountSocial(event.target.value)}
-                disabled={pending}
+                disabled={
+                  pending ||
+                  boostInfraLoading ||
+                  Boolean(
+                    boostInfraContext &&
+                      !boostInfraContext.canWithdrawBoostInfra
+                  )
+                }
               />
             </label>
             <label className="guild-field">
@@ -493,25 +882,40 @@ export function ProtocolCreateSheet({
                 autoCorrect="off"
                 spellCheck={false}
                 onChange={(event) => setReceiverId(event.target.value)}
-                disabled={pending}
+                disabled={pending || boostInfraLoading}
               />
             </label>
+            {boostInfraContext ? (
+              <p className="protocol-compose-note">
+                Infra pool {yoctoToSocial(boostInfraContext.infraPoolYocto)}{' '}
+                SOCIAL → {boostInfraContext.defaultReceiverId}
+              </p>
+            ) : null}
           </>
         ) : null}
 
         {kind === 'set_boost_infra_authority' ? (
-          <label className="guild-field">
-            <span>Authority</span>
-            <input
-              type="text"
-              value={authorityId}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              onChange={(event) => setAuthorityId(event.target.value)}
-              disabled={pending}
-            />
-          </label>
+          <>
+            <label className="guild-field">
+              <span>Authority</span>
+              <input
+                type="text"
+                value={authorityId}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(event) => setAuthorityId(event.target.value)}
+                disabled={pending || boostInfraLoading}
+              />
+            </label>
+            {boostInfraContext ? (
+              <p className="protocol-compose-note">
+                Current authority{' '}
+                {boostInfraContext.infraWithdrawAuthority ?? 'not set'} ·
+                recommended {boostInfraContext.treasuryDaoAccountId}
+              </p>
+            ) : null}
+          </>
         ) : null}
 
         {kind === 'transfer_ownership' || kind === 'contract_upgrade' ? (
@@ -520,17 +924,27 @@ export function ProtocolCreateSheet({
             <select
               value={contractId}
               onChange={(event) => setContractId(event.target.value)}
-              disabled={pending}
+              disabled={pending || managedContractsLoading}
             >
               {(kind === 'contract_upgrade'
-                ? upgradable
-                : PROTOCOL_MANAGED_CONTRACTS
+                ? upgradableContractOptions
+                : managedContractOptions
               ).map((entry) => (
                 <option key={entry.contractId} value={entry.contractId}>
                   {entry.label} · {entry.contractId}
                 </option>
               ))}
             </select>
+            {managedContracts.length > 0 ? (
+              <p className="protocol-compose-note">
+                Showing contracts currently owned by this DAO.
+              </p>
+            ) : (
+              <p className="protocol-compose-note">
+                Live ownership list unavailable or empty; showing protocol
+                defaults.
+              </p>
+            )}
           </label>
         ) : null}
 
@@ -573,7 +987,9 @@ export function ProtocolCreateSheet({
               <select
                 value={configOpId}
                 onChange={(event) =>
-                  setConfigOpId(event.target.value as ProtocolContractConfigOpId)
+                  setConfigOpId(
+                    event.target.value as ProtocolContractConfigOpId
+                  )
                 }
                 disabled={pending}
               >
@@ -628,6 +1044,64 @@ export function ProtocolCreateSheet({
                 />
               </label>
             </div>
+          </>
+        ) : null}
+
+        {kind === 'season_config' ? (
+          <>
+            <label className="guild-field">
+              <span>Season id</span>
+              <input
+                type="text"
+                value={seasonId}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="season-two"
+                onChange={(event) => setSeasonId(event.target.value)}
+                disabled={pending}
+              />
+            </label>
+            <label className="guild-field">
+              <span>Label</span>
+              <input
+                type="text"
+                value={seasonLabel}
+                onChange={(event) => setSeasonLabel(event.target.value)}
+                disabled={pending}
+              />
+            </label>
+            <div className="protocol-community-row">
+              <label className="guild-field">
+                <span>Duration days</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={seasonDurationDays}
+                  onChange={(event) =>
+                    setSeasonDurationDays(event.target.value)
+                  }
+                  disabled={pending}
+                />
+              </label>
+              <label className="guild-field">
+                <span>Active</span>
+                <select
+                  value={seasonActive ? 'true' : 'false'}
+                  onChange={(event) =>
+                    setSeasonActive(event.target.value === 'true')
+                  }
+                  disabled={pending}
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Paused</option>
+                </select>
+              </label>
+            </div>
+            <p className="protocol-compose-note">
+              Starts about 10 minutes after submission; end time is derived from
+              duration.
+            </p>
           </>
         ) : null}
 

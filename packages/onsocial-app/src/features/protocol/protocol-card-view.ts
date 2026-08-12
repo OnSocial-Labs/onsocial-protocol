@@ -295,6 +295,7 @@ export function deriveProtocolProposalView(opts: {
   targetKind: string | null;
   targetValue: string | null;
   subjectAccount: string | null;
+  subjectText: string | null;
   subjectEyebrow: string | null;
   showProposerSeparately: boolean;
   proposer: string | null;
@@ -308,6 +309,7 @@ export function deriveProtocolProposalView(opts: {
   currentVote: ProtocolDaoVote | null;
   canApprove: boolean;
   canReject: boolean;
+  canRemove: boolean;
   canFinalize: boolean;
   finalizeLabel: string;
   approveVotes: number;
@@ -400,6 +402,12 @@ export function deriveProtocolProposalView(opts: {
     inProgress &&
     !currentVote &&
     roleAllowsAction(viewerRole, 'VoteReject');
+  const canRemove =
+    !!viewerRole &&
+    !!proposal &&
+    inProgress &&
+    !currentVote &&
+    roleAllowsAction(viewerRole, 'VoteRemove');
   const canFinalize =
     !!viewerRole &&
     !!proposal &&
@@ -448,6 +456,7 @@ export function deriveProtocolProposalView(opts: {
     targetKind: presentation.targetKind,
     targetValue: presentation.targetValue,
     subjectAccount: presentation.subjectAccount,
+    subjectText: presentation.subjectText,
     subjectEyebrow: presentation.subjectEyebrow,
     showProposerSeparately: presentation.showProposerSeparately,
     proposer: proposal?.proposer?.trim() || null,
@@ -459,6 +468,7 @@ export function deriveProtocolProposalView(opts: {
     currentVote,
     canApprove,
     canReject,
+    canRemove,
     canFinalize,
     finalizeLabel: effectiveStatus === 'Failed' ? 'Retry' : 'Finalize',
     approveVotes,
