@@ -233,6 +233,26 @@ jobs:
               echo "  ❌ $name failed after $retries attempts"
               return 1
             }
+            # pg_isready alone can pass while recovery still blocks queries
+            # ("Consistent recovery state has not been yet reached").
+            check_postgres_accepting() {
+              local retries="${1:-30}" delay="${2:-3}"
+              local user="${POSTGRES_USER:-onsocial}" db="${POSTGRES_DB:-onsocial}"
+              for i in $(seq 1 "$retries"); do
+                if dc exec -T postgres \
+                  pg_isready -U "$user" -d "$db" </dev/null > /dev/null 2>&1 \
+                && dc exec -T postgres \
+                  psql -U "$user" -d "$db" -v ON_ERROR_STOP=1 -c 'SELECT 1' \
+                  </dev/null > /dev/null 2>&1; then
+                  echo "  ✅ postgres accepting connections (attempt $i/$retries)"
+                  return 0
+                fi
+                echo "  ⏳ postgres not accepting connections ($i/$retries)..."
+                sleep "$delay"
+              done
+              echo "  ❌ postgres failed after $retries attempts"
+              return 1
+            }
             print_service_logs() {
               local service="$1"
               echo "----- ${service} logs (last 200 lines) -----"
@@ -327,6 +347,12 @@ jobs:
             fi
 
             # ── Run gateway SQL migrations (tracked + locked) ─────
+            echo "Waiting for postgres before migrations..."
+            if ! check_postgres_accepting 30 3; then
+              echo "❌ postgres not ready before migrations — aborting"
+              exit 1
+            fi
+
             echo "Running gateway migrations..."
             DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
             dc exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
@@ -345,6 +371,18 @@ jobs:
             # chunk), and runs an end-to-end smoke test as the `service` role
             # afterwards. Exits non-zero on any unexpected per-op error or
             # smoke-test failure so the deploy fails loudly.
+            # Wait again: rolling restarts can leave Postgres in recovery
+            # between migrations and the Hasura view-retrack storm.
+            echo "Waiting for postgres + hasura before permission sync..."
+            if ! check_postgres_accepting 30 3; then
+              echo "❌ postgres not ready before Hasura sync — aborting"
+              exit 1
+            fi
+            if ! check_health "hasura" "http://localhost:8080/healthz" 20 3; then
+              echo "❌ hasura not ready before permission sync — aborting"
+              exit 1
+            fi
+
             echo "Syncing Hasura permissions..."
             mkdir -p /opt/onsocial/backups
             dc exec -T \
