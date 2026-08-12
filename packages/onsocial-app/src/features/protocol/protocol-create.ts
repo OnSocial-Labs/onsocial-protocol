@@ -8,13 +8,17 @@ import {
   buildProtocolContractConfigPayload,
   buildProtocolFundSeasonPayload,
   buildProtocolOwnershipPayload,
+  buildProtocolSeasonConfigPayload,
   buildProtocolSetBoostInfraAuthorityPayload,
   buildProtocolUpgradePayload,
   buildProtocolWithdrawBoostInfraPayload,
   type ProtocolContractConfigOpId,
 } from '@/features/protocol/protocol-contracts';
 import { getProtocolProposalBond } from '@/features/protocol/protocol-eligibility';
-import type { ProtocolDaoPolicy, ProtocolDaoRole } from '@/features/protocol/types';
+import type {
+  ProtocolDaoPolicy,
+  ProtocolDaoRole,
+} from '@/features/protocol/types';
 
 const ADD_PROPOSAL_GAS = '300000000000000';
 
@@ -30,30 +34,143 @@ export type ProtocolCreateKind =
   | 'set_boost_infra_authority'
   | 'transfer_ownership'
   | 'contract_upgrade'
-  | 'contract_config';
+  | 'contract_config'
+  | 'season_config';
 
 export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
   id: ProtocolCreateKind;
   label: string;
   group: 'signaling' | 'membership' | 'treasury' | 'contracts';
+  hint: string;
 }> = [
-  { id: 'signal', label: 'Signal', group: 'signaling' },
-  { id: 'join_self', label: 'Join role', group: 'membership' },
-  { id: 'add_member', label: 'Add member', group: 'membership' },
-  { id: 'leave_self', label: 'Leave role', group: 'membership' },
-  { id: 'remove_member', label: 'Remove member', group: 'membership' },
-  { id: 'transfer', label: 'Transfer', group: 'treasury' },
-  { id: 'fund_season_pool', label: 'Fund rally', group: 'treasury' },
-  { id: 'withdraw_boost_infra', label: 'Withdraw boost', group: 'treasury' },
+  {
+    id: 'signal',
+    label: 'Signal',
+    group: 'signaling',
+    hint: 'Text-only direction — nothing executes.',
+  },
+  {
+    id: 'join_self',
+    label: 'Join role',
+    group: 'membership',
+    hint: 'Add yourself to a DAO role.',
+  },
+  {
+    id: 'transfer',
+    label: 'Transfer',
+    group: 'treasury',
+    hint: 'Send NEAR or FT from the DAO treasury.',
+  },
+  {
+    id: 'add_member',
+    label: 'Add member',
+    group: 'membership',
+    hint: 'Add another account to a role.',
+  },
+  {
+    id: 'leave_self',
+    label: 'Leave role',
+    group: 'membership',
+    hint: 'Remove yourself from a role.',
+  },
+  {
+    id: 'remove_member',
+    label: 'Remove member',
+    group: 'membership',
+    hint: 'Remove another account from a role.',
+  },
+  {
+    id: 'fund_season_pool',
+    label: 'Fund rally',
+    group: 'treasury',
+    hint: 'Move SOCIAL into a live season pool.',
+  },
+  {
+    id: 'withdraw_boost_infra',
+    label: 'Withdraw boost',
+    group: 'treasury',
+    hint: 'Pull SOCIAL from the boost infra pool.',
+  },
   {
     id: 'set_boost_infra_authority',
     label: 'Boost authority',
     group: 'contracts',
+    hint: 'Set who can withdraw boost infra.',
   },
-  { id: 'transfer_ownership', label: 'Ownership', group: 'contracts' },
-  { id: 'contract_upgrade', label: 'Upgrade', group: 'contracts' },
-  { id: 'contract_config', label: 'Configure', group: 'contracts' },
+  {
+    id: 'season_config',
+    label: 'Season config',
+    group: 'contracts',
+    hint: 'Create or update a rally season.',
+  },
+  {
+    id: 'transfer_ownership',
+    label: 'Ownership',
+    group: 'contracts',
+    hint: 'Transfer a managed contract owner.',
+  },
+  {
+    id: 'contract_upgrade',
+    label: 'Upgrade',
+    group: 'contracts',
+    hint: 'Publish a new contract code hash.',
+  },
+  {
+    id: 'contract_config',
+    label: 'Configure',
+    group: 'contracts',
+    hint: 'Update social-spend action routing.',
+  },
 ];
+
+/** Everyday kinds pinned at the top of the propose drawer. */
+export const PROTOCOL_CREATE_KIND_COMMON: ProtocolCreateKind[] = [
+  'signal',
+  'join_self',
+  'transfer',
+];
+
+export const PROTOCOL_CREATE_KIND_GROUPS: Array<{
+  id: 'signaling' | 'membership' | 'treasury' | 'contracts';
+  label: string;
+}> = [
+  { id: 'signaling', label: 'Signal' },
+  { id: 'membership', label: 'Membership' },
+  { id: 'treasury', label: 'Treasury' },
+  { id: 'contracts', label: 'Contracts' },
+];
+
+export function protocolCreateKindLabel(kind: ProtocolCreateKind): string {
+  return (
+    PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === kind)?.label ??
+    'Proposal'
+  );
+}
+
+export function isProtocolCreateKind(value: string): value is ProtocolCreateKind {
+  return PROTOCOL_CREATE_KIND_OPTIONS.some((option) => option.id === value);
+}
+
+const LAST_CREATE_KIND_KEY = 'onsocial.protocol.lastCreateKind';
+
+export function readLastProtocolCreateKind(): ProtocolCreateKind | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LAST_CREATE_KIND_KEY)?.trim() ?? '';
+    return isProtocolCreateKind(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberProtocolCreateKind(kind: ProtocolCreateKind): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LAST_CREATE_KIND_KEY, kind);
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 export interface ProtocolProposalPayload {
   proposal: {
@@ -154,6 +271,7 @@ export function buildProtocolCreatePayload(opts: {
   memberId?: string;
   receiverId?: string;
   amountYocto?: string;
+  tokenId?: string;
   seasonId?: string;
   contractId?: string;
   newOwnerId?: string;
@@ -165,6 +283,9 @@ export function buildProtocolCreatePayload(opts: {
   targetBps?: number;
   burnBps?: number;
   minAmountYocto?: string;
+  seasonLabel?: string;
+  seasonActive?: boolean;
+  seasonDurationDays?: string;
 }): ProtocolProposalPayload {
   switch (opts.kind) {
     case 'signal':
@@ -201,6 +322,7 @@ export function buildProtocolCreatePayload(opts: {
       return buildProtocolTransferProposalPayload({
         receiverId: opts.receiverId ?? '',
         amountYocto: opts.amountYocto ?? '',
+        tokenId: opts.tokenId,
         description: opts.description,
       });
     case 'fund_season_pool':
@@ -240,6 +362,14 @@ export function buildProtocolCreatePayload(opts: {
         targetBps: opts.targetBps ?? 9_900,
         burnBps: opts.burnBps ?? 0,
         minAmountYocto: opts.minAmountYocto ?? '',
+        description: opts.description,
+      });
+    case 'season_config':
+      return buildProtocolSeasonConfigPayload({
+        seasonId: opts.seasonId ?? '',
+        label: opts.seasonLabel ?? '',
+        active: opts.seasonActive ?? true,
+        durationDays: opts.seasonDurationDays ?? '',
         description: opts.description,
       });
     default: {

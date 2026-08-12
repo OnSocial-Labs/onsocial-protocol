@@ -28,6 +28,7 @@ const CREATE_KIND_POLICY_LABEL: Record<
   transfer_ownership: 'call',
   contract_upgrade: 'call',
   contract_config: 'call',
+  season_config: 'call',
 };
 
 const POLICY_ACTION_PERMISSION_LABEL: Record<ProtocolPolicyActionId, string> = {
@@ -133,26 +134,48 @@ export function getProtocolCreateKindBlockReason(
   switch (kind) {
     case 'join_self':
     case 'add_member':
-      return 'Join proposals are not allowed for your roles.';
+      return 'Needs membership permission.';
     case 'leave_self':
     case 'remove_member':
-      return 'Leave proposals are not allowed for your roles.';
+      return 'Needs remove permission.';
     case 'signal':
-      return 'Signal proposals are not allowed for your roles.';
+      return 'Needs signal permission.';
     case 'transfer':
-      return 'Transfer proposals are not allowed for your roles.';
+      return 'Needs transfer permission.';
     case 'fund_season_pool':
     case 'withdraw_boost_infra':
     case 'set_boost_infra_authority':
     case 'transfer_ownership':
     case 'contract_upgrade':
     case 'contract_config':
-      return 'Call proposals are not allowed for your roles.';
+    case 'season_config':
+      return 'Needs call permission.';
     default: {
       const exhaustive: never = kind;
       return `Cannot propose ${exhaustive}.`;
     }
   }
+}
+
+/** One-line lock copy for the propose kind drawer. */
+export function getProtocolCreateKindLockReason(opts: {
+  kind: ProtocolCreateKind;
+  accountId: string | null;
+  canProposeAny: boolean;
+  isGroupMember: boolean;
+  remainingLabel: string | null;
+  canProposeKind: boolean;
+}): string | null {
+  if (!opts.accountId) return 'Connect a wallet';
+  if (!opts.canProposeAny && !opts.isGroupMember) {
+    return opts.remainingLabel
+      ? `Need ${opts.remainingLabel} SOCIAL`
+      : 'Stake more SOCIAL';
+  }
+  if (!opts.canProposeKind) {
+    return getProtocolCreateKindBlockReason(opts.kind);
+  }
+  return null;
 }
 
 export function getProtocolPolicyActionBlockReason(

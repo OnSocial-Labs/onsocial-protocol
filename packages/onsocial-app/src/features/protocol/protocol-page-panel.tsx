@@ -14,17 +14,35 @@ import { actOnProtocolProposal } from '@/features/protocol/protocol-act';
 import {
   actionLabel,
   applyOptimisticVote,
+  isProtocolApplicationSoftExpired,
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
-import { submitProtocolProposal } from '@/features/protocol/protocol-create';
-import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
+import {
+  readLastProtocolCreateKind,
+  rememberProtocolCreateKind,
+  submitProtocolProposal,
+  type ProtocolCreateKind,
+  type ProtocolProposalPayload,
+} from '@/features/protocol/protocol-create';
 import { ProtocolActionSheet } from '@/features/protocol/protocol-action-sheet';
 import { ProtocolCommunityRegistry } from '@/features/protocol/protocol-community-registry';
 import { ProtocolCreateSheet } from '@/features/protocol/protocol-create-sheet';
+import { ProtocolDaoInfoSheet } from '@/features/protocol/protocol-dao-info-sheet';
+import { ProtocolProposeKindSheet } from '@/features/protocol/protocol-propose-kind-sheet';
+import {
+  countProtocolApplicationsByStatus,
+  filterProtocolApplications,
+  findProtocolApplicationByProposalId,
+  PROTOCOL_FEED_STATUS_OPTIONS,
+} from '@/features/protocol/protocol-feed-filters';
 import {
   fetchProtocolFeed,
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
+import {
+  ensureProtocolProposalEventSource,
+  subscribeProtocolProposalUpdates,
+} from '@/features/protocol/protocol-proposal-events-client';
 import { ProtocolProposalCard } from '@/features/protocol/protocol-proposal-card';
 import { ProtocolSettingsSheet } from '@/features/protocol/protocol-settings-sheet';
 import { ProtocolStakeSheet } from '@/features/protocol/protocol-stake-sheet';
@@ -44,9 +62,16 @@ import type {
 import {
   PROTOCOL_DAO_ACCOUNT_PARAM,
   PROTOCOL_DAO_BOARD_PARAM,
+  PROTOCOL_PROPOSAL_PARAM,
+  PROTOCOL_SEARCH_PARAM,
+  PROTOCOL_STATUS_PARAM,
   parseProtocolDaoBoard,
+  parseProtocolFeedStatus,
+  parseProtocolProposalId,
+  parseProtocolSearchQuery,
   protocolPath,
   type ProtocolDaoBoard,
+  type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
 import {
   txToastGovError,
@@ -62,6 +87,15 @@ export function ProtocolPagePanel() {
     searchParams.get(PROTOCOL_DAO_BOARD_PARAM)
   );
   const communityAccount = searchParams.get(PROTOCOL_DAO_ACCOUNT_PARAM);
+  const statusFilter = parseProtocolFeedStatus(
+    searchParams.get(PROTOCOL_STATUS_PARAM)
+  );
+  const searchQuery = parseProtocolSearchQuery(
+    searchParams.get(PROTOCOL_SEARCH_PARAM)
+  );
+  const focusedProposalId = parseProtocolProposalId(
+    searchParams.get(PROTOCOL_PROPOSAL_PARAM)
+  );
   const daoAccountId = resolveProtocolDaoAccountId(board, communityAccount);
   const showRegistry = board === 'community' && !daoAccountId;
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
@@ -78,17 +112,69 @@ export function ProtocolPagePanel() {
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
     null
   );
+  const [proposeKindOpen, setProposeKindOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createKind, setCreateKind] = useState<ProtocolCreateKind>(
+    () => readLastProtocolCreateKind() ?? 'signal'
+  );
   const [stakeOpen, setStakeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const [stakePending, setStakePending] = useState(false);
   const [settingsPending, setSettingsPending] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [focusHandled, setFocusHandled] = useState<number | null>(null);
+  const [searchDraft, setSearchDraft] = useState(searchQuery);
+
+  useEffect(() => {
+    setSearchDraft(searchQuery);
+  }, [searchQuery]);
 
   const actionApplication = useMemo(
     () => applications.find((row) => row.app_id === actionAppId) ?? null,
     [applications, actionAppId]
+  );
+
+  const softExpired = useCallback(
+    (application: ProtocolApplication) =>
+      isProtocolApplicationSoftExpired(application, daoPolicy, nowMs),
+    [daoPolicy, nowMs]
+  );
+
+  const statusCounts = useMemo(
+    () =>
+      countProtocolApplicationsByStatus(applications, {
+        isSoftExpired: softExpired,
+        searchQuery,
+      }),
+    [applications, softExpired, searchQuery]
+  );
+
+  const visibleApplications = useMemo(
+    () =>
+      filterProtocolApplications(applications, statusFilter, {
+        isSoftExpired: softExpired,
+        searchQuery,
+      }),
+    [applications, statusFilter, softExpired, searchQuery]
+  );
+
+  const buildProtocolHref = useCallback(
+    (opts?: {
+      status?: ProtocolFeedStatusFilter | null;
+      proposal?: number | null;
+      q?: string | null;
+    }) =>
+      protocolPath({
+        board,
+        account: board === 'community' ? daoAccountId : null,
+        status: opts?.status === undefined ? statusFilter : opts.status,
+        proposal:
+          opts?.proposal === undefined ? focusedProposalId : opts.proposal,
+        q: opts?.q === undefined ? searchQuery : opts.q,
+      }),
+    [board, daoAccountId, statusFilter, focusedProposalId, searchQuery]
   );
 
   useEffect(() => {
@@ -129,18 +215,107 @@ export function ProtocolPagePanel() {
     void loadFeed();
   }, [loadFeed]);
 
+  useEffect(() => {
+    setFocusHandled(null);
+  }, [focusedProposalId, daoAccountId]);
+
+  useEffect(() => {
+    if (
+      loadState !== 'ready' ||
+      focusedProposalId == null ||
+      focusHandled === focusedProposalId
+    ) {
+      return;
+    }
+
+    const match = findProtocolApplicationByProposalId(
+      applications,
+      focusedProposalId
+    );
+    if (!match) {
+      // Proposal may be filtered out of "open" — switch to all once.
+      if (statusFilter !== 'all') {
+        router.replace(
+          protocolPath({
+            board,
+            account: board === 'community' ? daoAccountId : null,
+            status: 'all',
+            proposal: focusedProposalId,
+          }),
+          { scroll: false }
+        );
+        return;
+      }
+      setFocusHandled(focusedProposalId);
+      return;
+    }
+
+    setFocusHandled(focusedProposalId);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`protocol-proposal-${focusedProposalId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [
+    loadState,
+    focusedProposalId,
+    focusHandled,
+    applications,
+    statusFilter,
+    router,
+    board,
+    daoAccountId,
+  ]);
+
   const navigateBoard = useCallback(
     (next: { board: ProtocolDaoBoard; account?: string | null }) => {
       setActionAppId(null);
       setCreateOpen(false);
       setStakeOpen(false);
       setSettingsOpen(false);
+      setInfoOpen(false);
       router.replace(
-        protocolPath({ board: next.board, account: next.account }),
+        protocolPath({
+          board: next.board,
+          account: next.account,
+          status: 'open',
+        }),
         { scroll: false }
       );
     },
     [router]
+  );
+
+  const navigateStatus = useCallback(
+    (nextStatus: ProtocolFeedStatusFilter) => {
+      router.replace(
+        protocolPath({
+          board,
+          account: board === 'community' ? daoAccountId : null,
+          status: nextStatus,
+          proposal: focusedProposalId,
+          q: searchQuery,
+        }),
+        { scroll: false }
+      );
+    },
+    [router, board, daoAccountId, focusedProposalId, searchQuery]
+  );
+
+  const commitSearch = useCallback(
+    (nextQuery: string) => {
+      router.replace(
+        protocolPath({
+          board,
+          account: board === 'community' ? daoAccountId : null,
+          status: statusFilter,
+          proposal: focusedProposalId,
+          q: nextQuery.trim() || null,
+        }),
+        { scroll: false }
+      );
+    },
+    [router, board, daoAccountId, statusFilter, focusedProposalId]
   );
 
   const mergeProposal = useCallback(
@@ -169,6 +344,51 @@ export function ProtocolPagePanel() {
     },
     []
   );
+
+  useEffect(() => {
+    if (!daoAccountId || showRegistry) {
+      return;
+    }
+
+    ensureProtocolProposalEventSource(daoAccountId);
+    return subscribeProtocolProposalUpdates((proposalId) => {
+      void fetchProtocolProposal({
+        daoAccountId,
+        proposalId,
+        live: true,
+      })
+        .then((refreshed) => {
+          if (!refreshed.proposal) return;
+          setApplications((current) => {
+            const match = findProtocolApplicationByProposalId(
+              current,
+              proposalId
+            );
+            if (!match) return current;
+            return current.map((row) => {
+              if (row.app_id !== match.app_id) return row;
+              const gp = row.governance_proposal;
+              return {
+                ...row,
+                governance_proposal: gp
+                  ? {
+                      ...gp,
+                      status: refreshed.proposal!.status,
+                      snapshot: refreshed.proposal!,
+                      kind: refreshed.proposal!.kind,
+                      description: refreshed.proposal!.description,
+                    }
+                  : gp,
+              };
+            });
+          });
+          if (refreshed.daoPolicy) setDaoPolicy(refreshed.daoPolicy);
+        })
+        .catch(() => {
+          // Best-effort live patch.
+        });
+    });
+  }, [daoAccountId, showRegistry]);
 
   const handleAct = useCallback(
     async (action: ProtocolDaoAction) => {
@@ -586,9 +806,11 @@ export function ProtocolPagePanel() {
                 type="button"
                 className="protocol-tool"
                 onClick={() => {
+                  setCreateOpen(false);
                   setStakeOpen(false);
                   setSettingsOpen(false);
-                  setCreateOpen(true);
+                  setInfoOpen(false);
+                  setProposeKindOpen(true);
                 }}
               >
                 Propose
@@ -597,8 +819,10 @@ export function ProtocolPagePanel() {
                 type="button"
                 className="protocol-tool"
                 onClick={() => {
+                  setProposeKindOpen(false);
                   setCreateOpen(false);
                   setSettingsOpen(false);
+                  setInfoOpen(false);
                   setStakeOpen(true);
                 }}
               >
@@ -608,12 +832,27 @@ export function ProtocolPagePanel() {
                 type="button"
                 className="protocol-tool"
                 onClick={() => {
+                  setProposeKindOpen(false);
                   setCreateOpen(false);
                   setStakeOpen(false);
+                  setInfoOpen(false);
                   setSettingsOpen(true);
                 }}
               >
                 Settings
+              </button>
+              <button
+                type="button"
+                className="protocol-tool"
+                onClick={() => {
+                  setProposeKindOpen(false);
+                  setCreateOpen(false);
+                  setStakeOpen(false);
+                  setSettingsOpen(false);
+                  setInfoOpen(true);
+                }}
+              >
+                Info
               </button>
               {board === 'community' ? (
                 <button
@@ -624,6 +863,63 @@ export function ProtocolPagePanel() {
                   Registry
                 </button>
               ) : null}
+            </div>
+          ) : null}
+
+          {!showRegistry && daoAccountId && loadState === 'ready' ? (
+            <label className="protocol-search-field">
+              <span className="sr-only">Search proposals</span>
+              <input
+                type="search"
+                value={searchDraft}
+                placeholder="Search proposals"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    commitSearch(searchDraft);
+                  }
+                }}
+                onBlur={() => {
+                  if (searchDraft.trim() !== searchQuery) {
+                    commitSearch(searchDraft);
+                  }
+                }}
+              />
+            </label>
+          ) : null}
+
+          {!showRegistry && daoAccountId && loadState === 'ready' ? (
+            <div
+              className="protocol-status-rail"
+              role="tablist"
+              aria-label="Proposal status"
+            >
+              {PROTOCOL_FEED_STATUS_OPTIONS.map((option) => {
+                const count = statusCounts[option.id];
+                if (option.id !== 'all' && option.id !== 'open' && count === 0) {
+                  return null;
+                }
+                const active = statusFilter === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className={`protocol-board-chip${active ? ' is-active' : ''}`}
+                    onClick={() => navigateStatus(option.id)}
+                  >
+                    {option.label}
+                    {option.id !== 'all' ? (
+                      <span className="protocol-status-count">{count}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           ) : null}
         </header>
@@ -647,21 +943,70 @@ export function ProtocolPagePanel() {
             </button>
           </div>
         ) : null}
-        {!showRegistry && loadState === 'ready' && applications.length === 0 ? (
-          <p className="protocol-empty">No open protocol proposals.</p>
+        {!showRegistry &&
+        loadState === 'ready' &&
+        applications.length === 0 ? (
+          <p className="protocol-empty">No protocol proposals yet.</p>
         ) : null}
-        {!showRegistry && loadState === 'ready' && applications.length > 0 ? (
+        {!showRegistry &&
+        loadState === 'ready' &&
+        applications.length > 0 &&
+        visibleApplications.length === 0 ? (
+          <p className="protocol-empty">
+            {searchQuery
+              ? `No matches for “${searchQuery}”.`
+              : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
+          </p>
+        ) : null}
+        {!showRegistry &&
+        loadState === 'ready' &&
+        visibleApplications.length > 0 ? (
           <div className="protocol-card-list">
-            {applications.map((application) => (
-              <ProtocolProposalCard
-                key={application.app_id}
-                application={application}
-                daoPolicy={daoPolicy}
-                accountId={accountId}
-                nowMs={nowMs}
-                onOpenActions={() => setActionAppId(application.app_id)}
-              />
-            ))}
+            {visibleApplications.map((application) => {
+              const proposalId =
+                resolveLiveProposal(application)?.id ??
+                application.governance_proposal?.proposal_id ??
+                null;
+              const shareHref =
+                proposalId != null
+                  ? buildProtocolHref({ proposal: proposalId })
+                  : null;
+              return (
+                <ProtocolProposalCard
+                  key={application.app_id}
+                  application={application}
+                  daoPolicy={daoPolicy}
+                  accountId={accountId}
+                  nowMs={nowMs}
+                  focused={
+                    focusedProposalId != null &&
+                    proposalId === focusedProposalId
+                  }
+                  shareHref={shareHref}
+                  onOpenActions={() => {
+                    setActionAppId(application.app_id);
+                    if (proposalId != null) {
+                      router.replace(
+                        buildProtocolHref({ proposal: proposalId }),
+                        { scroll: false }
+                      );
+                    }
+                  }}
+                  onCopyLink={
+                    shareHref
+                      ? () => {
+                          void navigator.clipboard?.writeText(
+                            new URL(
+                              shareHref,
+                              window.location.origin
+                            ).toString()
+                          );
+                        }
+                      : undefined
+                  }
+                />
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -679,6 +1024,31 @@ export function ProtocolPagePanel() {
         }}
       />
 
+      <ProtocolProposeKindSheet
+        open={proposeKindOpen}
+        onClose={() => setProposeKindOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        lastKind={createKind}
+        onSelectKind={(kind) => {
+          rememberProtocolCreateKind(kind);
+          setCreateKind(kind);
+          setProposeKindOpen(false);
+          setStakeOpen(false);
+          setSettingsOpen(false);
+          setInfoOpen(false);
+          setCreateOpen(true);
+        }}
+        onOpenStake={() => {
+          setProposeKindOpen(false);
+          setCreateOpen(false);
+          setSettingsOpen(false);
+          setInfoOpen(false);
+          setStakeOpen(true);
+        }}
+      />
+
       <ProtocolCreateSheet
         open={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -686,13 +1056,23 @@ export function ProtocolPagePanel() {
         accountId={accountId}
         daoPolicy={daoPolicy}
         pending={createPending}
+        initialKind={createKind}
         onSubmit={(payload) => {
           void handleCreate(payload);
         }}
         onOpenStake={() => {
+          setProposeKindOpen(false);
           setCreateOpen(false);
           setSettingsOpen(false);
+          setInfoOpen(false);
           setStakeOpen(true);
+        }}
+        onChangeKind={() => {
+          setCreateOpen(false);
+          setStakeOpen(false);
+          setSettingsOpen(false);
+          setInfoOpen(false);
+          setProposeKindOpen(true);
         }}
       />
 
@@ -726,7 +1106,28 @@ export function ProtocolPagePanel() {
         onOpenStake={() => {
           setSettingsOpen(false);
           setCreateOpen(false);
+          setInfoOpen(false);
           setStakeOpen(true);
+        }}
+      />
+
+      <ProtocolDaoInfoSheet
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        onOpenStake={() => {
+          setInfoOpen(false);
+          setCreateOpen(false);
+          setSettingsOpen(false);
+          setStakeOpen(true);
+        }}
+        onOpenSettings={() => {
+          setInfoOpen(false);
+          setCreateOpen(false);
+          setStakeOpen(false);
+          setSettingsOpen(true);
         }}
       />
     </OsAppScreen>

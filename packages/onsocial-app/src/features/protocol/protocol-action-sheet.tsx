@@ -75,7 +75,11 @@ export function ProtocolActionSheet({
         </>
       }
       footer={
-        view && (view.canApprove || view.canReject || view.canFinalize) ? (
+        view &&
+        (view.canApprove ||
+          view.canReject ||
+          view.canRemove ||
+          view.canFinalize) ? (
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             {view.canApprove ? (
               <OsSheetAction
@@ -101,6 +105,25 @@ export function ProtocolActionSheet({
                 onClick={() => onAct('VoteReject')}
               >
                 Reject
+              </OsSheetAction>
+            ) : null}
+            {view.canRemove ? (
+              <OsSheetAction
+                type="button"
+                variant="ghost"
+                ready={!pendingAction}
+                disabled={Boolean(pendingAction)}
+                pending={pendingAction === 'VoteRemove'}
+                pendingLabel="Removing…"
+                onClick={() => {
+                  const ok = window.confirm(
+                    'Remove this proposal from the board? This cannot be undone from the vote sheet.'
+                  );
+                  if (!ok) return;
+                  onAct('VoteRemove');
+                }}
+              >
+                Remove
               </OsSheetAction>
             ) : null}
             {view.canFinalize ? (

@@ -13,15 +13,22 @@ export function ProtocolProposalCard({
   daoPolicy,
   accountId,
   nowMs,
+  focused = false,
+  shareHref,
   onOpenActions,
+  onCopyLink,
 }: {
   application: ProtocolApplication;
   daoPolicy: ProtocolDaoPolicy | null;
   accountId: string | null;
   nowMs: number;
+  focused?: boolean;
+  shareHref?: string | null;
   onOpenActions: () => void;
+  onCopyLink?: () => void;
 }) {
   const [votersOpen, setVotersOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const view = useMemo(
     () =>
       deriveProtocolProposalView({
@@ -54,12 +61,34 @@ export function ProtocolProposalCard({
   const abstainers = view.eligibleVoters.filter(
     (id) => !votedAccounts.has(id.trim().toLowerCase())
   );
-  const canAct = view.canApprove || view.canReject || view.canFinalize;
+  const canAct =
+    view.canApprove || view.canReject || view.canRemove || view.canFinalize;
   const showVoters = view.voteEntries.length > 0 || abstainers.length > 0;
+  const targetEyebrow =
+    view.targetKind === 'role'
+      ? 'Role'
+      : view.targetKind === 'amount'
+        ? 'Amount'
+        : view.targetKind === 'contract'
+          ? 'Contract'
+          : view.targetKind === 'code_hash'
+            ? 'Code hash'
+            : view.targetKind === 'community'
+              ? 'Community'
+              : view.targetKind === 'routing'
+                ? 'Routing'
+                : view.targetKind === 'season'
+                  ? 'Season'
+                  : null;
 
   return (
     <article
-      className={`protocol-card is-${view.statusTone}`}
+      id={
+        view.proposalId != null
+          ? `protocol-proposal-${view.proposalId}`
+          : undefined
+      }
+      className={`protocol-card is-${view.statusTone}${focused ? ' is-focused' : ''}`}
       aria-labelledby={`protocol-card-${application.app_id}`}
     >
       <header className="protocol-card-strip">
@@ -97,15 +126,43 @@ export function ProtocolProposalCard({
           {view.headline}
         </h2>
 
-        {view.proposer ? (
+        {view.subjectAccount && view.subjectEyebrow ? (
+          <p className="protocol-card-subject">
+            <span className="protocol-card-subject-eyebrow">
+              {view.subjectEyebrow}
+            </span>{' '}
+            @{fallbackLabel(view.subjectAccount)}
+          </p>
+        ) : view.subjectText && view.subjectEyebrow ? (
+          <p className="protocol-card-subject">
+            <span className="protocol-card-subject-eyebrow">
+              {view.subjectEyebrow}
+            </span>{' '}
+            {view.subjectText}
+          </p>
+        ) : null}
+
+        {view.proposer &&
+        (view.showProposerSeparately ||
+          !view.subjectAccount ||
+          view.subjectAccount.toLowerCase() !== view.proposer.toLowerCase()) ? (
+          <p className="protocol-card-proposer">
+            Proposed by @{fallbackLabel(view.proposer)}
+          </p>
+        ) : view.proposer && !view.subjectAccount ? (
           <p className="protocol-card-proposer">
             Proposed by @{fallbackLabel(view.proposer)}
           </p>
         ) : null}
 
-        {(view.targetAccount || view.targetMethod) && (
+        {(view.targetValue || view.targetAccount || view.targetMethod) && (
           <dl className="protocol-card-targets">
-            {view.targetAccount ? (
+            {view.targetValue ? (
+              <div>
+                <dt>{targetEyebrow ?? 'Target'}</dt>
+                <dd>{view.targetValue}</dd>
+              </div>
+            ) : view.targetAccount ? (
               <div>
                 <dt>Target</dt>
                 <dd>@{fallbackLabel(view.targetAccount)}</dd>
@@ -120,7 +177,8 @@ export function ProtocolProposalCard({
           </dl>
         )}
 
-        {view.description ? (
+        {view.description &&
+        view.description.trim() !== view.headline.trim() ? (
           <p className="protocol-card-description">{view.description}</p>
         ) : null}
 
@@ -173,7 +231,9 @@ export function ProtocolProposalCard({
                 {view.voteEntries.map(([account, vote]) => (
                   <li key={`${account}-${vote}`}>
                     <span>@{fallbackLabel(account)}</span>
-                    <span className={`protocol-pill is-vote is-${vote.toLowerCase()}`}>
+                    <span
+                      className={`protocol-pill is-vote is-${vote.toLowerCase()}`}
+                    >
                       {vote}
                     </span>
                   </li>
@@ -190,15 +250,38 @@ export function ProtocolProposalCard({
         ) : null}
       </div>
 
-      {canAct ? (
+      {canAct || shareHref ? (
         <footer className="protocol-card-footer">
-          <button
-            type="button"
-            className="protocol-card-act"
-            onClick={onOpenActions}
-          >
-            {view.canFinalize ? view.finalizeLabel : 'Vote'}
-          </button>
+          {shareHref ? (
+            <button
+              type="button"
+              className="protocol-card-link"
+              onClick={() => {
+                if (onCopyLink) {
+                  onCopyLink();
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1600);
+                  return;
+                }
+                void navigator.clipboard?.writeText(
+                  new URL(shareHref, window.location.origin).toString()
+                );
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1600);
+              }}
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+          ) : null}
+          {canAct ? (
+            <button
+              type="button"
+              className="protocol-card-act"
+              onClick={onOpenActions}
+            >
+              {view.canFinalize ? view.finalizeLabel : 'Vote'}
+            </button>
+          ) : null}
         </footer>
       ) : null}
     </article>
