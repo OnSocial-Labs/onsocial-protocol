@@ -52,6 +52,16 @@ import {
 } from '@/lib/transaction-toast-copy';
 
 const GROUP_STORAGE_LABEL = 'Group storage';
+const GROUP_STORAGE_FUND_HINT = 'Group pools start at 0.1 NEAR.';
+const GROUP_STORAGE_GRANT_HINT =
+  'Members write guild content from this pool.';
+
+type RecipientRowStatus =
+  | 'empty'
+  | 'invalid'
+  | 'self'
+  | 'duplicate'
+  | 'ready';
 
 function CompactByteAmount({
   bytes,
@@ -74,6 +84,219 @@ function CompactByteAmount({
       <span>{parts[1]}</span>
       <span className="app-storage-byte-unit"> {parts[2]}</span>
     </span>
+  );
+}
+
+function recipientIssueMessage(status: RecipientRowStatus): string | null {
+  switch (status) {
+    case 'invalid':
+      return 'Use a complete NEAR account.';
+    case 'self':
+      return 'You cannot grant yourself group storage.';
+    case 'duplicate':
+      return 'Already in the list.';
+    default:
+      return null;
+  }
+}
+
+function GroupPoolReadout({
+  loading,
+  error,
+  needsFunding,
+  shareBudgetBytes,
+  storageBalanceYocto,
+  allocatedPercent,
+  showAddCapacity,
+  canAddCapacity,
+  onToggleAddCapacity,
+}: {
+  loading: boolean;
+  error: string | null;
+  needsFunding: boolean;
+  shareBudgetBytes: number;
+  storageBalanceYocto: bigint;
+  allocatedPercent: number;
+  showAddCapacity: boolean;
+  canAddCapacity: boolean;
+  onToggleAddCapacity: () => void;
+}) {
+  if (loading) {
+    return (
+      <div className="app-storage-share-card is-loading" aria-hidden>
+        <span className="account-wallet-progress-track is-loading" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-storage-share-card">
+        <span className="account-card-wallet-label">{GROUP_STORAGE_LABEL}</span>
+        <p className="app-storage-meta">Group storage unavailable right now.</p>
+      </div>
+    );
+  }
+
+  const barFill =
+    allocatedPercent > 0 ? Math.max(allocatedPercent, 4) : allocatedPercent;
+
+  return (
+    <div className="app-storage-share-card">
+      <div className="app-storage-share-card-head">
+        <span className="account-card-wallet-label">{GROUP_STORAGE_LABEL}</span>
+        {canAddCapacity ? (
+          <button
+            type="button"
+            className="app-storage-share-link"
+            onClick={onToggleAddCapacity}
+          >
+            {showAddCapacity ? 'Cancel' : 'Add NEAR'}
+          </button>
+        ) : null}
+      </div>
+      {needsFunding ? (
+        <p className="app-storage-meta">Not funded yet.</p>
+      ) : (
+        <>
+          <div className="app-storage-share-hero">
+            <p className="app-storage-share-available">
+              <CompactByteAmount bytes={shareBudgetBytes} />
+              <span className="app-storage-share-muted"> available</span>
+            </p>
+            <p className="app-storage-meta">
+              {formatNearCompact(storageBalanceYocto.toString())} NEAR in pool
+              · {allocatedPercent}% assigned
+            </p>
+          </div>
+          <div className="app-storage-share-split-track" aria-hidden>
+            <span
+              className="app-storage-share-split-fill"
+              style={{ width: `${barFill}%` }}
+            />
+          </div>
+          <p className="app-storage-meta">
+            Pool capacity for members who write in this guild.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MemberRecipientRow({
+  rowId,
+  value,
+  status,
+  allocationBytes,
+  canRemove,
+  disabled,
+  onValueChange,
+  onRemove,
+}: {
+  rowId: string;
+  value: string;
+  status: RecipientRowStatus;
+  allocationBytes?: number | null;
+  canRemove: boolean;
+  disabled: boolean;
+  onValueChange: (value: string) => void;
+  onRemove: () => void;
+}) {
+  const issue = recipientIssueMessage(status);
+
+  return (
+    <div className="app-storage-recipient-row">
+      <label className="sr-only" htmlFor={`group-storage-recipient-${rowId}`}>
+        Member account
+      </label>
+      <input
+        id={`group-storage-recipient-${rowId}`}
+        type="text"
+        inputMode="text"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder={nearAccountPlaceholder()}
+        value={value}
+        onChange={(event) =>
+          onValueChange(sanitizeNearAccountInput(event.target.value))
+        }
+        className="app-storage-recipient-input"
+        aria-invalid={Boolean(issue)}
+        disabled={disabled}
+      />
+      {allocationBytes != null && allocationBytes > 0 ? (
+        <CompactByteAmount bytes={allocationBytes} />
+      ) : null}
+      {canRemove ? (
+        <button
+          type="button"
+          className="app-storage-recipient-remove"
+          onClick={onRemove}
+          aria-label="Remove member"
+          disabled={disabled}
+        >
+          <MultiplyIcon
+            aria-hidden
+            className="app-storage-recipient-remove-icon"
+          />
+        </button>
+      ) : null}
+      {issue ? <p className="app-storage-recipient-error">{issue}</p> : null}
+    </div>
+  );
+}
+
+function GroupSplitVisual({
+  sharePercent,
+  readyCount,
+  bytesPerRecipient,
+  totalShareBytes,
+  needsFunding,
+}: {
+  sharePercent: number;
+  readyCount: number;
+  bytesPerRecipient: number;
+  totalShareBytes: number;
+  needsFunding: boolean;
+}) {
+  const belowMin =
+    readyCount > 0 &&
+    !needsFunding &&
+    !isValidShareBytesPerRecipient(bytesPerRecipient);
+  const showBytes = readyCount > 0 && !needsFunding && bytesPerRecipient > 0;
+
+  return (
+    <div className="app-storage-share-split">
+      <div
+        className="app-storage-share-split-track"
+        role="img"
+        aria-label={
+          showBytes
+            ? `${sharePercent === 100 ? 'Max' : `${sharePercent}%`} split · ${formatCompactBytes(totalShareBytes)} across ${readyCount} members`
+            : `${sharePercent === 100 ? 'Max' : `${sharePercent}%`} pool split`
+        }
+      >
+        <span
+          className={`app-storage-share-split-fill${belowMin ? ' is-low' : ''}`}
+          style={{ width: `${sharePercent}%` }}
+        >
+          {readyCount > 0
+            ? Array.from({ length: readyCount }, (_, index) => (
+                <span key={index} aria-hidden />
+              ))
+            : null}
+        </span>
+      </div>
+      <p className={`app-storage-meta${belowMin ? ' is-low' : ''}`}>
+        {belowMin
+          ? `Minimum is ${formatCompactBytes(MIN_SHARED_STORAGE_BYTES)} per member.`
+          : showBytes
+            ? `≈ ${formatCompactBytes(bytesPerRecipient)} each · ${formatCompactBytes(totalShareBytes)} total`
+            : 'Choose members, then pick how much of the pool to assign.'}
+      </p>
+    </div>
   );
 }
 
@@ -101,7 +324,7 @@ export function GuildGroupStorageSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddCapacity, setShowAddCapacity] = useState(false);
-  const [fundAmountInput, setFundAmountInput] = useState('');
+  const [fundAmountInput, setFundAmountInput] = useState('0.1');
   const [rows, setRows] = useState<string[]>(['']);
   const [sharePercent, setSharePercent] = useState(50);
 
@@ -112,11 +335,15 @@ export function GuildGroupStorageSheet({
       setPending(false);
       setError(null);
       setShowAddCapacity(false);
-      setFundAmountInput('');
+      setFundAmountInput('0.1');
       setRows(['']);
       setSharePercent(50);
     }
   }, [sheetOpen]);
+
+  useEffect(() => {
+    setError(null);
+  }, [fundAmountInput, rows, sharePercent, showAddCapacity]);
 
   const requestClose = useCallback(() => {
     if (closing || pending) return;
@@ -130,10 +357,9 @@ export function GuildGroupStorageSheet({
 
   const summary = pool.summary;
   const needsFunding =
-    !pool.loading &&
-    !pool.error &&
-    (summary?.totalCapacityBytes ?? 0) <= 0;
+    !pool.loading && !pool.error && (summary?.totalCapacityBytes ?? 0) <= 0;
   const showFundPanel = needsFunding || showAddCapacity;
+  const showGrantFlow = !showFundPanel && !needsFunding && !pool.loading;
 
   const shareBudgetBytes = resolveSharePoolBudgetBytes({
     availableBytes: summary?.availableBytes ?? 0,
@@ -141,17 +367,29 @@ export function GuildGroupStorageSheet({
     totalCapacityBytes: summary?.totalCapacityBytes ?? 0,
   });
 
-  const readyRecipients = useMemo(() => {
-    const ids: string[] = [];
-    for (const row of rows) {
-      if (!isNearAccountInputReady(row)) continue;
-      const normalized = normalizeNearAccountId(row);
-      if (!normalized || normalized === accountId) continue;
-      if (ids.includes(normalized)) continue;
-      ids.push(normalized);
-    }
-    return ids;
+  const recipientStatuses = useMemo((): RecipientRowStatus[] => {
+    const normalized = rows.map((row) => normalizeNearAccountId(row));
+    return rows.map((row, index) => {
+      if (!row.trim()) return 'empty';
+      if (!isNearAccountInputReady(row)) return 'invalid';
+      const id = normalized[index]!;
+      if (accountId && id === accountId) return 'self';
+      if (normalized.filter((entry) => entry === id).length > 1) {
+        return 'duplicate';
+      }
+      return 'ready';
+    });
   }, [accountId, rows]);
+
+  const readyRecipients = useMemo(
+    () =>
+      recipientStatuses
+        .map((status, index) =>
+          status === 'ready' ? normalizeNearAccountId(rows[index]!) : null
+        )
+        .filter((id): id is string => Boolean(id)),
+    [recipientStatuses, rows]
+  );
 
   const bytesPerRecipient = splitShareBytesPerRecipient(
     shareBudgetBytes,
@@ -159,35 +397,45 @@ export function GuildGroupStorageSheet({
     sharePercent
   );
   const canGrant =
+    Boolean(accountId) &&
     !pending &&
     !needsFunding &&
     readyRecipients.length > 0 &&
     isValidShareBytesPerRecipient(bytesPerRecipient);
 
-  const applyFundAmountInput = (value: string) => {
-    setFundAmountInput(
-      clampStorageNearAmountInput(value, {
-        maxYocto: walletNearYocto ?? undefined,
-      })
-    );
-  };
+  const normalizedFundAmount = useMemo(
+    () => finalizeAmountInput(fundAmountInput, STORAGE_NEAR_INPUT_DECIMALS),
+    [fundAmountInput]
+  );
+  const fundPreviewCapacityBytes =
+    storageCapacityBytesFromNearInput(normalizedFundAmount);
+  const canFundAmount = isValidStorageAmountInput(
+    normalizedFundAmount,
+    'deposit',
+    {
+      minYocto: STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO,
+      maxYocto: walletNearYocto ?? undefined,
+    }
+  );
 
-  const canFundAmount = isValidStorageAmountInput(fundAmountInput, 'deposit', {
-    minYocto: STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO,
-    maxYocto: walletNearYocto ?? undefined,
-  });
+  const applyFundAmountInput = useCallback(
+    (value: string) => {
+      setFundAmountInput(
+        clampStorageNearAmountInput(value, {
+          maxYocto: walletNearYocto ?? undefined,
+        })
+      );
+    },
+    [walletNearYocto]
+  );
 
   const refreshAfterTx = () => setRefreshKey((key) => key + 1);
 
   const handleFundPool = async () => {
     if (!accountId) return;
-    const normalized = finalizeAmountInput(
-      fundAmountInput,
-      STORAGE_NEAR_INPUT_DECIMALS
-    );
     let amountYocto: bigint;
     try {
-      amountYocto = parseStorageAmountYocto(normalized, 'deposit', {
+      amountYocto = parseStorageAmountYocto(normalizedFundAmount, 'deposit', {
         minYocto: STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO,
         maxYocto: walletNearYocto ?? undefined,
       });
@@ -225,7 +473,7 @@ export function GuildGroupStorageSheet({
     }
 
     setShowAddCapacity(false);
-    setFundAmountInput('');
+    setFundAmountInput('0.1');
     refreshAfterTx();
   };
 
@@ -292,324 +540,258 @@ export function GuildGroupStorageSheet({
       presentation="swap"
       ariaLabelledBy={titleId}
       backdropLabel="Close group storage"
-      panelClassName="guild-settings-sheet-panel"
-      bodyClassName="guild-settings-sheet-body app-storage-sheet-body"
+      panelClassName="account-storage-panel"
+      bodyClassName="account-storage-body"
       header={
         <>
-          <div className="standing-sheet-header guild-settings-sheet-header">
+          <div className="standing-sheet-header account-storage-header">
             <div className="standing-sheet-subject-row">
               <div className="standing-sheet-subject">
                 <div className="standing-sheet-subject-copy">
                   <h2 id={titleId} className="standing-sheet-subject-name">
                     Group storage
                   </h2>
-                  <p className="discover-sheet-subtitle">
-                    {guildName?.trim()
-                      ? `Fund the pool and add storage for ${guildName.trim()} members`
-                      : 'Fund the pool and add storage for members'}
+                  <p className="account-drawer-handle">
+                    {guildName?.trim() || 'Guild pool and member grants'}
                   </p>
                 </div>
               </div>
               <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close"
-                />
+                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
               </div>
             </div>
           </div>
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
-      footer={
-        showFundPanel ? (
-          <OsSheetActions>
-            <OsSheetPrimaryAction
-              type="button"
-              disabled={pending || !canFundAmount || !accountId}
-              onClick={() => void handleFundPool()}
-            >
-              {pending ? 'Confirming…' : 'Fund group pool'}
-            </OsSheetPrimaryAction>
-          </OsSheetActions>
-        ) : (
-          <OsSheetActions>
-            <OsSheetPrimaryAction
-              type="button"
-              disabled={!canGrant || !accountId}
-              onClick={() => void handleGrant()}
-            >
-              {pending
-                ? 'Confirming…'
-                : readyRecipients.length > 1
-                  ? `Add storage · ${readyRecipients.length}`
-                  : 'Add storage'}
-            </OsSheetPrimaryAction>
-          </OsSheetActions>
-        )
-      }
     >
-      <div className="app-storage-share-panel">
-        {!accountId ? (
-          <p className="protocol-empty">Connect a wallet to manage storage.</p>
-        ) : null}
-
-        {accountId && pool.loading ? (
-          <div className="app-storage-share-card is-loading" aria-hidden>
-            <span className="account-wallet-progress-track is-loading" />
-          </div>
-        ) : null}
-
-        {accountId && pool.error ? (
-          <div className="app-storage-share-card">
-            <span className="account-card-wallet-label">
-              {GROUP_STORAGE_LABEL}
-            </span>
+      <div className="app-storage-sheet">
+        <div className="app-storage-share-panel">
+          {!accountId ? (
             <p className="app-storage-meta">
-              Group storage unavailable right now.
+              Connect a wallet to manage group storage.
             </p>
-          </div>
-        ) : null}
+          ) : null}
 
-        {accountId && !pool.loading && !pool.error ? (
-          <div className="app-storage-share-card">
-            <div className="app-storage-share-card-head">
-              <span className="account-card-wallet-label">
-                {GROUP_STORAGE_LABEL}
-              </span>
-              {!needsFunding ? (
-                <button
-                  type="button"
-                  className="app-storage-share-link"
-                  onClick={() => setShowAddCapacity((open) => !open)}
-                  disabled={pending}
-                >
-                  {showAddCapacity ? 'Cancel' : 'Add NEAR'}
-                </button>
-              ) : null}
-            </div>
-            {needsFunding ? (
+          {accountId ? (
+            <GroupPoolReadout
+              loading={pool.loading}
+              error={pool.error}
+              needsFunding={needsFunding}
+              shareBudgetBytes={shareBudgetBytes}
+              storageBalanceYocto={summary?.storageBalanceYocto ?? 0n}
+              allocatedPercent={allocatedPercent}
+              showAddCapacity={showAddCapacity}
+              canAddCapacity={!needsFunding && !pool.loading && !pool.error}
+              onToggleAddCapacity={() => {
+                setShowAddCapacity((open) => !open);
+              }}
+            />
+          ) : null}
+
+          {accountId && showFundPanel ? (
+            <div className="app-storage-share-fund">
               <p className="app-storage-meta">
-                Fund the group pool to add storage for members.
+                Add NEAR to this guild&apos;s shared storage pool.
               </p>
-            ) : (
-              <>
-                <div className="app-storage-share-hero">
-                  <p className="app-storage-share-available">
-                    <CompactByteAmount bytes={shareBudgetBytes} />
-                    <span className="app-storage-share-muted"> available</span>
-                  </p>
-                  <p className="app-storage-meta">
-                    {formatNearCompact(
-                      (summary?.storageBalanceYocto ?? 0n).toString()
-                    )}{' '}
-                    NEAR in pool · {allocatedPercent}% assigned
-                  </p>
-                </div>
-                <div
-                  className="app-storage-share-split-track"
-                  aria-hidden
-                >
-                  <span
-                    className="app-storage-share-split-fill"
-                    style={{ width: `${Math.max(allocatedPercent, 0)}%` }}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
-
-        {accountId && showFundPanel ? (
-          <div className="app-storage-share-fund">
-            <p className="app-storage-meta">
-              Add NEAR to this guild&apos;s shared storage pool.
-            </p>
-            <div className="app-storage-amount-field">
-              <input
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={fundAmountInput}
-                onChange={(event) => applyFundAmountInput(event.target.value)}
-                onBlur={() =>
-                  applyFundAmountInput(
-                    finalizeAmountInput(
-                      fundAmountInput,
-                      STORAGE_NEAR_INPUT_DECIMALS
-                    )
-                  )
-                }
-                placeholder={amountHint}
-                aria-label="Group pool fund amount in NEAR"
-                aria-invalid={Boolean(fundAmountInput) && !canFundAmount}
-                className="app-storage-amount-input"
-                disabled={pending}
-              />
-              <span className="account-card-balance-unit">NEAR</span>
-            </div>
-            <div className="app-storage-quick-row">
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Quick fund amounts"
-              >
-                {STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={`os-surface-chip${
+              <div className="app-storage-amount-field">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={fundAmountInput}
+                  onChange={(event) =>
+                    applyFundAmountInput(event.target.value)
+                  }
+                  onBlur={() =>
+                    applyFundAmountInput(
                       finalizeAmountInput(
                         fundAmountInput,
                         STORAGE_NEAR_INPUT_DECIMALS
-                      ) === preset
-                        ? ' is-selected'
-                        : ''
-                    }`}
-                    onClick={() => applyFundAmountInput(preset)}
-                    disabled={pending}
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {fundAmountInput ? (
-              <p className="app-storage-meta">
-                ≈{' '}
-                <CompactByteAmount
-                  bytes={
-                    storageCapacityBytesFromNearInput(fundAmountInput) ?? 0
-                  }
-                />{' '}
-                capacity
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {accountId && !showFundPanel && !needsFunding ? (
-          <div className="app-storage-share-flow">
-            <div className="app-storage-share-recipients">
-              <div className="app-storage-share-card-head">
-                <span className="account-card-wallet-label">Members</span>
-                <button
-                  type="button"
-                  className="app-storage-share-link"
-                  onClick={() =>
-                    setRows((current) =>
-                      current.length >= MAX_STORAGE_SHARE_RECIPIENTS
-                        ? current
-                        : [...current, '']
+                      )
                     )
                   }
-                  disabled={
-                    pending || rows.length >= MAX_STORAGE_SHARE_RECIPIENTS
-                  }
-                >
-                  <PlusIcon className="app-storage-share-add-icon" />
-                  Add
-                </button>
+                  placeholder={amountHint}
+                  aria-label="Group pool fund amount in NEAR"
+                  aria-invalid={Boolean(fundAmountInput) && !canFundAmount}
+                  className="app-storage-amount-input"
+                  disabled={pending}
+                />
+                <span className="account-card-balance-unit">NEAR</span>
               </div>
-              {rows.map((row, index) => (
-                <div key={`recipient-${index}`} className="app-storage-amount-field">
-                  <label
-                    className="sr-only"
-                    htmlFor={`group-storage-recipient-${index}`}
-                  >
-                    Member account {index + 1}
-                  </label>
-                  <input
-                    id={`group-storage-recipient-${index}`}
-                    type="text"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    value={row}
-                    placeholder={nearAccountPlaceholder()}
-                    onChange={(event) => {
-                      const next = sanitizeNearAccountInput(event.target.value);
-                      setRows((current) =>
-                        current.map((value, rowIndex) =>
-                          rowIndex === index ? next : value
-                        )
-                      );
-                    }}
-                    className="app-storage-amount-input"
-                    disabled={pending}
-                  />
-                  {rows.length > 1 ? (
+              <div className="app-storage-quick-row">
+                <div
+                  className="app-storage-presets"
+                  role="group"
+                  aria-label="Quick fund amounts"
+                >
+                  {STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR.map((preset) => (
                     <button
+                      key={preset}
                       type="button"
-                      className="app-storage-share-link"
-                      aria-label={`Remove member ${index + 1}`}
-                      onClick={() =>
+                      className={`os-surface-chip${
+                        normalizedFundAmount === preset ? ' is-selected' : ''
+                      }`}
+                      onClick={() => applyFundAmountInput(preset)}
+                      disabled={pending}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <p className="app-storage-amount-meta">
+                  {fundPreviewCapacityBytes != null &&
+                  fundPreviewCapacityBytes > 0 ? (
+                    <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
+                  ) : null}
+                  {walletNearYocto != null ? (
+                    <>
+                      Balance {formatNearCompact(walletNearYocto.toString())} ·{' '}
+                    </>
+                  ) : null}
+                  Min {amountHint}
+                </p>
+              </div>
+              {error ? (
+                <p className="app-storage-error" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                <OsSheetPrimaryAction
+                  type="button"
+                  ready={!pending && canFundAmount && !error}
+                  pending={pending}
+                  pendingLabel="Adding…"
+                  disabled={pending || !canFundAmount}
+                  onClick={() => void handleFundPool()}
+                >
+                  {needsFunding ? 'Fund group pool' : 'Add to group pool'}
+                </OsSheetPrimaryAction>
+              </OsSheetActions>
+              <p className="app-storage-hint app-storage-hint--compact">
+                {GROUP_STORAGE_FUND_HINT}
+              </p>
+            </div>
+          ) : null}
+
+          {accountId && showGrantFlow ? (
+            <div className="app-storage-share-flow">
+              <div className="app-storage-share-recipients">
+                <div className="app-storage-share-card-head">
+                  <span className="account-card-wallet-label">Members</span>
+                  <button
+                    type="button"
+                    className="app-storage-share-link"
+                    onClick={() =>
+                      setRows((current) =>
+                        current.length >= MAX_STORAGE_SHARE_RECIPIENTS
+                          ? current
+                          : [...current, '']
+                      )
+                    }
+                    disabled={
+                      pending || rows.length >= MAX_STORAGE_SHARE_RECIPIENTS
+                    }
+                  >
+                    <PlusIcon
+                      aria-hidden
+                      className="app-storage-share-add-icon"
+                    />
+                    Add
+                  </button>
+                </div>
+                {rows.map((row, index) => {
+                  const status = recipientStatuses[index] ?? 'empty';
+                  return (
+                    <MemberRecipientRow
+                      key={`member-${index}`}
+                      rowId={String(index)}
+                      value={row}
+                      status={status}
+                      allocationBytes={
+                        status === 'ready' && bytesPerRecipient > 0
+                          ? bytesPerRecipient
+                          : null
+                      }
+                      canRemove={rows.length > 1}
+                      disabled={pending}
+                      onValueChange={(value) =>
+                        setRows((current) =>
+                          current.map((entry, rowIndex) =>
+                            rowIndex === index ? value : entry
+                          )
+                        )
+                      }
+                      onRemove={() =>
                         setRows((current) =>
                           current.length <= 1
                             ? current
-                            : current.filter((_, rowIndex) => rowIndex !== index)
+                            : current.filter(
+                                (_, rowIndex) => rowIndex !== index
+                              )
                         )
                       }
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="app-storage-share-split-controls">
+                <div
+                  className="app-storage-presets"
+                  role="group"
+                  aria-label="Group storage percent"
+                >
+                  {STORAGE_SHARE_PERCENT_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      className={`os-surface-chip${
+                        sharePercent === preset ? ' is-selected' : ''
+                      }`}
+                      onClick={() => setSharePercent(preset)}
                       disabled={pending}
                     >
-                      <MultiplyIcon className="app-storage-share-add-icon" />
+                      {preset === 100 ? 'Max' : `${preset}%`}
                     </button>
-                  ) : null}
+                  ))}
                 </div>
-              ))}
-            </div>
-
-            <div className="app-storage-share-split-controls">
-              <p className="app-storage-meta">
-                Split available pool across selected members.
-              </p>
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Storage share percent"
-              >
-                {STORAGE_SHARE_PERCENT_PRESETS.map((percent) => (
-                  <button
-                    key={percent}
-                    type="button"
-                    className={`os-surface-chip${
-                      sharePercent === percent ? ' is-selected' : ''
-                    }`}
-                    onClick={() => setSharePercent(percent)}
-                    disabled={pending}
-                  >
-                    {percent}%
-                  </button>
-                ))}
+                <GroupSplitVisual
+                  sharePercent={sharePercent}
+                  readyCount={readyRecipients.length}
+                  bytesPerRecipient={bytesPerRecipient}
+                  totalShareBytes={totalShareBytes}
+                  needsFunding={needsFunding}
+                />
               </div>
-              {readyRecipients.length > 0 ? (
-                <p className="app-storage-meta">
-                  <CompactByteAmount bytes={bytesPerRecipient} /> each
-                  {readyRecipients.length > 1 ? (
-                    <>
-                      {' '}
-                      · <CompactByteAmount bytes={totalShareBytes} /> total
-                    </>
-                  ) : null}
-                  {bytesPerRecipient > 0 &&
-                  bytesPerRecipient < MIN_SHARED_STORAGE_BYTES ? (
-                    <span className="app-storage-meta is-low">
-                      {' '}
-                      · need at least{' '}
-                      <CompactByteAmount bytes={MIN_SHARED_STORAGE_BYTES} /> each
-                    </span>
-                  ) : null}
+
+              {error ? (
+                <p className="app-storage-error" role="alert">
+                  {error}
                 </p>
               ) : null}
-            </div>
-          </div>
-        ) : null}
 
-        {error ? (
-          <p className="app-storage-error" role="alert">
-            {error}
-          </p>
-        ) : null}
+              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                <OsSheetPrimaryAction
+                  type="button"
+                  ready={!pending && canGrant && !error}
+                  pending={pending}
+                  pendingLabel="Adding…"
+                  disabled={pending || !canGrant}
+                  onClick={() => void handleGrant()}
+                >
+                  {readyRecipients.length > 1
+                    ? `Add storage · ${readyRecipients.length}`
+                    : 'Add storage'}
+                </OsSheetPrimaryAction>
+              </OsSheetActions>
+              <p className="app-storage-hint app-storage-hint--compact">
+                {GROUP_STORAGE_GRANT_HINT}
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
     </GlassSheet>
   );
