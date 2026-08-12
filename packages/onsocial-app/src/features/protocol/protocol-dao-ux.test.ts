@@ -9,7 +9,14 @@ import {
   filterProtocolApplications,
   findProtocolApplicationByProposalId,
 } from '@/features/protocol/protocol-feed-filters';
-import { getProtocolCreateKindLockReason } from '@/features/protocol/protocol-propose-gate';
+import {
+  PROTOCOL_POLICY_ACTION_COMMON,
+  PROTOCOL_POLICY_ACTION_OPTIONS,
+} from '@/features/protocol/protocol-policy';
+import {
+  getProtocolCreateKindLockReason,
+  getProtocolPolicyActionLockReason,
+} from '@/features/protocol/protocol-propose-gate';
 import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
 import type { ProtocolApplication } from '@/features/protocol/types';
 import {
@@ -220,5 +227,45 @@ describe('protocol propose kind UX helpers', () => {
   it('validates remembered create kinds', () => {
     expect(isProtocolCreateKind('signal')).toBe(true);
     expect(isProtocolCreateKind('not-a-kind')).toBe(false);
+  });
+});
+
+describe('protocol settings action UX helpers', () => {
+  it('pins vote policy and permissions as common', () => {
+    expect(PROTOCOL_POLICY_ACTION_COMMON).toEqual([
+      'update_vote_policy',
+      'update_permissions',
+    ]);
+    expect(PROTOCOL_POLICY_ACTION_OPTIONS.map((option) => option.id)).toEqual([
+      'update_vote_policy',
+      'update_permissions',
+      'update_parameters',
+      'update_config',
+      'add_role',
+      'remove_role',
+    ]);
+  });
+
+  it('explains locked settings actions with short copy', () => {
+    expect(
+      getProtocolPolicyActionLockReason({
+        actionId: 'update_vote_policy',
+        accountId: 'bob.near',
+        canProposeAny: false,
+        isGroupMember: false,
+        remainingLabel: '1K',
+        canProposeAction: false,
+      })
+    ).toBe('Need 1K SOCIAL');
+    expect(
+      getProtocolPolicyActionLockReason({
+        actionId: 'remove_role',
+        accountId: 'bob.near',
+        canProposeAny: true,
+        isGroupMember: false,
+        remainingLabel: null,
+        canProposeAction: false,
+      })
+    ).toBe('Needs remove-role permission.');
   });
 });

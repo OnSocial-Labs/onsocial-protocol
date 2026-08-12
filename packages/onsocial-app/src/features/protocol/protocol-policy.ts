@@ -18,14 +18,98 @@ export type ProtocolAddRoleAccessMode = 'full_access' | 'custom';
 export const PROTOCOL_POLICY_ACTION_OPTIONS: Array<{
   id: ProtocolPolicyActionId;
   label: string;
+  group: 'policy' | 'roles';
+  hint: string;
 }> = [
-  { id: 'update_parameters', label: 'Parameters' },
-  { id: 'update_config', label: 'Config' },
-  { id: 'update_vote_policy', label: 'Vote policy' },
-  { id: 'update_permissions', label: 'Permissions' },
-  { id: 'add_role', label: 'Add role' },
-  { id: 'remove_role', label: 'Remove role' },
+  {
+    id: 'update_vote_policy',
+    label: 'Vote policy',
+    group: 'policy',
+    hint: 'Change approval threshold and quorum for future proposals.',
+  },
+  {
+    id: 'update_permissions',
+    label: 'Permissions',
+    group: 'policy',
+    hint: 'Change which proposal kinds a public role can submit.',
+  },
+  {
+    id: 'update_parameters',
+    label: 'Parameters',
+    group: 'policy',
+    hint: 'Change proposal bond or voting period.',
+  },
+  {
+    id: 'update_config',
+    label: 'Config',
+    group: 'policy',
+    hint: 'Change the DAO name and on-chain purpose.',
+  },
+  {
+    id: 'add_role',
+    label: 'Add role',
+    group: 'roles',
+    hint: 'Name a council or public role with permissions.',
+  },
+  {
+    id: 'remove_role',
+    label: 'Remove role',
+    group: 'roles',
+    hint: 'Remove a role. Keep at least one full-access role.',
+  },
 ];
+
+/** Everyday settings actions pinned at the top of the settings drawer. */
+export const PROTOCOL_POLICY_ACTION_COMMON: ProtocolPolicyActionId[] = [
+  'update_vote_policy',
+  'update_permissions',
+];
+
+export const PROTOCOL_POLICY_ACTION_GROUPS: Array<{
+  id: 'policy' | 'roles';
+  label: string;
+}> = [
+  { id: 'policy', label: 'Policy' },
+  { id: 'roles', label: 'Roles' },
+];
+
+export function protocolPolicyActionLabel(
+  actionId: ProtocolPolicyActionId
+): string {
+  return (
+    PROTOCOL_POLICY_ACTION_OPTIONS.find((option) => option.id === actionId)
+      ?.label ?? 'Settings'
+  );
+}
+
+export function isProtocolPolicyActionId(
+  value: string
+): value is ProtocolPolicyActionId {
+  return PROTOCOL_POLICY_ACTION_OPTIONS.some((option) => option.id === value);
+}
+
+const LAST_POLICY_ACTION_KEY = 'onsocial.protocol.lastPolicyAction';
+
+export function readLastProtocolPolicyAction(): ProtocolPolicyActionId | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LAST_POLICY_ACTION_KEY)?.trim() ?? '';
+    return isProtocolPolicyActionId(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberProtocolPolicyAction(
+  actionId: ProtocolPolicyActionId
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LAST_POLICY_ACTION_KEY, actionId);
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 export const PROTOCOL_ADD_ROLE_ACCESS_OPTIONS: Array<{
   id: ProtocolAddRoleAccessMode;

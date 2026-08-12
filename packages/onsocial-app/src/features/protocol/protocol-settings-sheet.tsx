@@ -19,6 +19,7 @@ import {
   getEditableProtocolPolicyRoleOptions,
   getRemovableProtocolPolicyRoleOptions,
   proposalPeriodNsToDays,
+  protocolPolicyActionLabel,
   type ProtocolAddRoleAccessMode,
   type ProtocolPolicyActionId,
 } from '@/features/protocol/protocol-policy';
@@ -81,8 +82,10 @@ export function ProtocolSettingsSheet({
   accountId,
   daoPolicy,
   pending,
+  initialAction = 'update_vote_policy',
   onSubmit,
   onOpenStake,
+  onChangeAction,
 }: {
   open: boolean;
   onClose: () => void;
@@ -90,12 +93,15 @@ export function ProtocolSettingsSheet({
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
   pending: boolean;
+  initialAction?: ProtocolPolicyActionId;
   onSubmit: (payload: ProtocolProposalPayload) => void;
   onOpenStake: () => void;
+  /** Optional — reopen the settings action picker. */
+  onChangeAction?: () => void;
 }) {
   const formId = useId();
   const [actionId, setActionId] =
-    useState<ProtocolPolicyActionId>('update_parameters');
+    useState<ProtocolPolicyActionId>(initialAction);
   const [description, setDescription] = useState('');
   const [bondNear, setBondNear] = useState('');
   const [periodDays, setPeriodDays] = useState('');
@@ -279,7 +285,7 @@ export function ProtocolSettingsSheet({
 
   useEffect(() => {
     if (!open) {
-      setActionId('update_parameters');
+      setActionId(initialAction);
       setDescription('');
       setBondNear('');
       setPeriodDays('');
@@ -302,6 +308,8 @@ export function ProtocolSettingsSheet({
       setFormError(null);
       return;
     }
+
+    setActionId(initialAction);
 
     const threshold = readDefaultVotePolicyThreshold(
       daoPolicy?.default_vote_policy
@@ -362,7 +370,18 @@ export function ProtocolSettingsSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId, daoPolicy]);
+  }, [open, daoAccountId, accountId, daoPolicy, initialAction]);
+
+  // Action is chosen in ProtocolSettingsActionSheet — only fall back if the
+  // selected action is no longer permissioned for this viewer.
+  useEffect(() => {
+    if (!open || availableActions.length === 0) return;
+    setActionId((current) =>
+      availableActions.some((option) => option.id === current)
+        ? current
+        : availableActions[0]!.id
+    );
+  }, [open, availableActions]);
 
   useEffect(() => {
     if (!open) return;
@@ -488,9 +507,9 @@ export function ProtocolSettingsSheet({
     <ProtocolTaskSheet
       open={open}
       onClose={onClose}
-      verb="Settings"
+      verb={protocolPolicyActionLabel(actionId)}
       handle={daoAccountId ?? undefined}
-      whisper="Propose DAO policy and config changes."
+      whisper="Fill the fields, then submit on-chain."
       closeAriaLabel="Close settings"
       backdropLabel="Close settings"
       formId={formId}
@@ -599,28 +618,25 @@ export function ProtocolSettingsSheet({
           </div>
         ) : null}
 
-        <div
-          className="protocol-mode-rail"
-          role="tablist"
-          aria-label="Settings action"
-        >
-          {availableActions.map((option) => (
+        {onChangeAction ? (
+          <div className="protocol-propose-kind-current">
+            <p className="protocol-compose-note">
+              {
+                PROTOCOL_POLICY_ACTION_OPTIONS.find(
+                  (option) => option.id === actionId
+                )?.hint
+              }
+            </p>
             <button
-              key={option.id}
               type="button"
-              role="tab"
-              aria-selected={actionId === option.id}
-              className={`protocol-board-chip${actionId === option.id ? ' is-active' : ''}`}
-              onClick={() => {
-                setActionId(option.id);
-                setFormError(null);
-              }}
-              disabled={pending || loadState === 'error'}
+              className="protocol-tool is-ghost"
+              onClick={onChangeAction}
+              disabled={pending}
             >
-              {option.label}
+              Change type
             </button>
-          ))}
-        </div>
+          </div>
+        ) : null}
 
         {actionId === 'update_parameters' ? (
           <>

@@ -44,6 +44,12 @@ import {
   subscribeProtocolProposalUpdates,
 } from '@/features/protocol/protocol-proposal-events-client';
 import { ProtocolProposalCard } from '@/features/protocol/protocol-proposal-card';
+import {
+  readLastProtocolPolicyAction,
+  rememberProtocolPolicyAction,
+  type ProtocolPolicyActionId,
+} from '@/features/protocol/protocol-policy';
+import { ProtocolSettingsActionSheet } from '@/features/protocol/protocol-settings-action-sheet';
 import { ProtocolSettingsSheet } from '@/features/protocol/protocol-settings-sheet';
 import { ProtocolStakeSheet } from '@/features/protocol/protocol-stake-sheet';
 import {
@@ -118,7 +124,12 @@ export function ProtocolPagePanel() {
     () => readLastProtocolCreateKind() ?? 'signal'
   );
   const [stakeOpen, setStakeOpen] = useState(false);
+  const [settingsActionOpen, setSettingsActionOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsAction, setSettingsAction] =
+    useState<ProtocolPolicyActionId>(
+      () => readLastProtocolPolicyAction() ?? 'update_vote_policy'
+    );
   const [infoOpen, setInfoOpen] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const [stakePending, setStakePending] = useState(false);
@@ -273,6 +284,7 @@ export function ProtocolPagePanel() {
       setCreateOpen(false);
       setStakeOpen(false);
       setSettingsOpen(false);
+      setSettingsActionOpen(false);
       setInfoOpen(false);
       router.replace(
         protocolPath({
@@ -558,6 +570,7 @@ export function ProtocolPagePanel() {
           failureMessage: txToastGovError.actionFailed('settings proposal'),
         });
         setSettingsOpen(false);
+        setSettingsActionOpen(false);
         await loadFeed();
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
@@ -808,6 +821,7 @@ export function ProtocolPagePanel() {
                 onClick={() => {
                   setCreateOpen(false);
                   setStakeOpen(false);
+                  setSettingsActionOpen(false);
                   setSettingsOpen(false);
                   setInfoOpen(false);
                   setProposeKindOpen(true);
@@ -821,6 +835,7 @@ export function ProtocolPagePanel() {
                 onClick={() => {
                   setProposeKindOpen(false);
                   setCreateOpen(false);
+                  setSettingsActionOpen(false);
                   setSettingsOpen(false);
                   setInfoOpen(false);
                   setStakeOpen(true);
@@ -836,7 +851,8 @@ export function ProtocolPagePanel() {
                   setCreateOpen(false);
                   setStakeOpen(false);
                   setInfoOpen(false);
-                  setSettingsOpen(true);
+                  setSettingsOpen(false);
+                  setSettingsActionOpen(true);
                 }}
               >
                 Settings
@@ -848,6 +864,7 @@ export function ProtocolPagePanel() {
                   setProposeKindOpen(false);
                   setCreateOpen(false);
                   setStakeOpen(false);
+                  setSettingsActionOpen(false);
                   setSettingsOpen(false);
                   setInfoOpen(true);
                 }}
@@ -1037,12 +1054,14 @@ export function ProtocolPagePanel() {
           setProposeKindOpen(false);
           setStakeOpen(false);
           setSettingsOpen(false);
+          setSettingsActionOpen(false);
           setInfoOpen(false);
           setCreateOpen(true);
         }}
         onOpenStake={() => {
           setProposeKindOpen(false);
           setCreateOpen(false);
+          setSettingsActionOpen(false);
           setSettingsOpen(false);
           setInfoOpen(false);
           setStakeOpen(true);
@@ -1064,6 +1083,7 @@ export function ProtocolPagePanel() {
           setProposeKindOpen(false);
           setCreateOpen(false);
           setSettingsOpen(false);
+          setSettingsActionOpen(false);
           setInfoOpen(false);
           setStakeOpen(true);
         }}
@@ -1071,6 +1091,7 @@ export function ProtocolPagePanel() {
           setCreateOpen(false);
           setStakeOpen(false);
           setSettingsOpen(false);
+          setSettingsActionOpen(false);
           setInfoOpen(false);
           setProposeKindOpen(true);
         }}
@@ -1093,21 +1114,62 @@ export function ProtocolPagePanel() {
         }}
       />
 
+      <ProtocolSettingsActionSheet
+        open={settingsActionOpen}
+        onClose={() => setSettingsActionOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        lastAction={settingsAction}
+        onSelectAction={(actionId) => {
+          rememberProtocolPolicyAction(actionId);
+          setSettingsAction(actionId);
+          setSettingsActionOpen(false);
+          setProposeKindOpen(false);
+          setCreateOpen(false);
+          setStakeOpen(false);
+          setInfoOpen(false);
+          setSettingsOpen(true);
+        }}
+        onOpenStake={() => {
+          setSettingsActionOpen(false);
+          setSettingsOpen(false);
+          setProposeKindOpen(false);
+          setCreateOpen(false);
+          setInfoOpen(false);
+          setStakeOpen(true);
+        }}
+      />
+
       <ProtocolSettingsSheet
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => {
+          setSettingsOpen(false);
+          setSettingsActionOpen(false);
+        }}
         daoAccountId={daoAccountId}
         accountId={accountId}
         daoPolicy={daoPolicy}
         pending={settingsPending}
+        initialAction={settingsAction}
         onSubmit={(payload) => {
           void handleSettings(payload);
         }}
         onOpenStake={() => {
+          setSettingsActionOpen(false);
           setSettingsOpen(false);
+          setProposeKindOpen(false);
           setCreateOpen(false);
           setInfoOpen(false);
           setStakeOpen(true);
+        }}
+        onChangeAction={() => {
+          setSettingsOpen(false);
+          setProposeKindOpen(false);
+          setCreateOpen(false);
+          setStakeOpen(false);
+          setInfoOpen(false);
+          setSettingsActionOpen(true);
         }}
       />
 
@@ -1120,6 +1182,7 @@ export function ProtocolPagePanel() {
         onOpenStake={() => {
           setInfoOpen(false);
           setCreateOpen(false);
+          setSettingsActionOpen(false);
           setSettingsOpen(false);
           setStakeOpen(true);
         }}
@@ -1127,7 +1190,8 @@ export function ProtocolPagePanel() {
           setInfoOpen(false);
           setCreateOpen(false);
           setStakeOpen(false);
-          setSettingsOpen(true);
+          setSettingsOpen(false);
+          setSettingsActionOpen(true);
         }}
       />
     </OsAppScreen>
