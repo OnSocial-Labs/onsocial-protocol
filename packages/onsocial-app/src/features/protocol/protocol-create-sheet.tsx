@@ -18,6 +18,7 @@ import {
   PROTOCOL_CREATE_KIND_OPTIONS,
   buildProtocolCreatePayload,
   getCreatableProtocolRoleOptions,
+  protocolCreateKindLabel,
   type ProtocolCreateKind,
   type ProtocolProposalPayload,
 } from '@/features/protocol/protocol-create';
@@ -73,8 +74,10 @@ export function ProtocolCreateSheet({
   accountId,
   daoPolicy,
   pending,
+  initialKind = 'signal',
   onSubmit,
   onOpenStake,
+  onChangeKind,
 }: {
   open: boolean;
   onClose: () => void;
@@ -82,8 +85,11 @@ export function ProtocolCreateSheet({
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
   pending: boolean;
+  initialKind?: ProtocolCreateKind;
   onSubmit: (payload: ProtocolProposalPayload) => void;
   onOpenStake: () => void;
+  /** Optional — reopen the kind picker without losing the form sheet chrome. */
+  onChangeKind?: () => void;
 }) {
   const formId = useId();
   const staticUpgradable = useMemo(() => getProtocolUpgradableContracts(), []);
@@ -91,7 +97,7 @@ export function ProtocolCreateSheet({
     () => createDefaultProtocolSeasonConfigDraft(),
     []
   );
-  const [kind, setKind] = useState<ProtocolCreateKind>('signal');
+  const [kind, setKind] = useState<ProtocolCreateKind>(initialKind);
   const [description, setDescription] = useState('');
   const [roleId, setRoleId] = useState('');
   const [memberId, setMemberId] = useState('');
@@ -167,7 +173,7 @@ export function ProtocolCreateSheet({
 
   useEffect(() => {
     if (!open) {
-      setKind('signal');
+      setKind(initialKind);
       setDescription('');
       setRoleId('');
       setMemberId('');
@@ -201,6 +207,19 @@ export function ProtocolCreateSheet({
       setFormError(null);
       return;
     }
+
+    setKind(initialKind);
+    if (initialKind === 'contract_upgrade') {
+      setContractId(staticUpgradable[0]?.contractId ?? '');
+    }
+    if (initialKind === 'transfer_ownership') {
+      setContractId(PROTOCOL_MANAGED_CONTRACTS[0]?.contractId ?? '');
+    }
+    if (initialKind === 'season_config') {
+      setSeasonId(defaultSeasonConfigDraft.seasonId);
+      setSeasonLabel(defaultSeasonConfigDraft.label);
+    }
+
     if (!daoAccountId || !accountId) {
       setEligibility(null);
       setLoadState('ready');
@@ -222,7 +241,14 @@ export function ProtocolCreateSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId, defaultSeasonConfigDraft]);
+  }, [
+    open,
+    daoAccountId,
+    accountId,
+    defaultSeasonConfigDraft,
+    initialKind,
+    staticUpgradable,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -235,6 +261,8 @@ export function ProtocolCreateSheet({
     );
   }, [open, roles]);
 
+  // Kind is chosen in ProtocolProposeKindSheet — only fall back if the
+  // selected kind is no longer permissioned for this viewer.
   useEffect(() => {
     if (!open || availableKinds.length === 0) return;
     setKind((current) =>
@@ -493,9 +521,9 @@ export function ProtocolCreateSheet({
     <ProtocolTaskSheet
       open={open}
       onClose={onClose}
-      verb="Propose"
+      verb={protocolCreateKindLabel(kind)}
       handle={daoAccountId ?? undefined}
-      whisper="Pick a kind, fill the fields, submit on-chain."
+      whisper="Fill the fields, then submit on-chain."
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
       formId={formId}
@@ -638,39 +666,30 @@ export function ProtocolCreateSheet({
           </p>
         ) : null}
 
-        <div
-          className="protocol-mode-rail"
-          role="tablist"
-          aria-label="Proposal kind"
-        >
-          {availableKinds.map((option) => (
+        {onChangeKind ? (
+          <div className="protocol-propose-kind-current">
+            <div className="protocol-propose-kind-current-copy">
+              <p className="protocol-propose-kind-current-label">
+                {protocolCreateKindLabel(kind)}
+              </p>
+              <p className="protocol-compose-note">
+                {
+                  PROTOCOL_CREATE_KIND_OPTIONS.find(
+                    (option) => option.id === kind
+                  )?.hint
+                }
+              </p>
+            </div>
             <button
-              key={option.id}
               type="button"
-              role="tab"
-              aria-selected={kind === option.id}
-              className={`protocol-board-chip${kind === option.id ? ' is-active' : ''}`}
-              onClick={() => {
-                setKind(option.id);
-                setFormError(null);
-                if (option.id === 'contract_upgrade') {
-                  setContractId(upgradableContractOptions[0]?.contractId ?? '');
-                }
-                if (option.id === 'transfer_ownership') {
-                  setContractId(managedContractOptions[0]?.contractId ?? '');
-                }
-                if (option.id === 'season_config') {
-                  setSeasonId(
-                    (current) => current || defaultSeasonConfigDraft.seasonId
-                  );
-                }
-              }}
-              disabled={pending || loadState === 'error'}
+              className="protocol-tool is-ghost"
+              onClick={onChangeKind}
+              disabled={pending}
             >
-              {option.label}
+              Change type
             </button>
-          ))}
-        </div>
+          </div>
+        ) : null}
 
         {(kind === 'join_self' ||
           kind === 'add_member' ||

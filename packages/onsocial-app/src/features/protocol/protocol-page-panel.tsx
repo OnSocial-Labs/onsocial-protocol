@@ -17,12 +17,16 @@ import {
   isProtocolApplicationSoftExpired,
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
-import { submitProtocolProposal } from '@/features/protocol/protocol-create';
-import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
+import {
+  submitProtocolProposal,
+  type ProtocolCreateKind,
+  type ProtocolProposalPayload,
+} from '@/features/protocol/protocol-create';
 import { ProtocolActionSheet } from '@/features/protocol/protocol-action-sheet';
 import { ProtocolCommunityRegistry } from '@/features/protocol/protocol-community-registry';
 import { ProtocolCreateSheet } from '@/features/protocol/protocol-create-sheet';
 import { ProtocolDaoInfoSheet } from '@/features/protocol/protocol-dao-info-sheet';
+import { ProtocolProposeKindSheet } from '@/features/protocol/protocol-propose-kind-sheet';
 import {
   countProtocolApplicationsByStatus,
   filterProtocolApplications,
@@ -106,7 +110,9 @@ export function ProtocolPagePanel() {
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
     null
   );
+  const [proposeKindOpen, setProposeKindOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createKind, setCreateKind] = useState<ProtocolCreateKind>('signal');
   const [stakeOpen, setStakeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -796,10 +802,11 @@ export function ProtocolPagePanel() {
                 type="button"
                 className="protocol-tool"
                 onClick={() => {
+                  setCreateOpen(false);
                   setStakeOpen(false);
                   setSettingsOpen(false);
                   setInfoOpen(false);
-                  setCreateOpen(true);
+                  setProposeKindOpen(true);
                 }}
               >
                 Propose
@@ -808,6 +815,7 @@ export function ProtocolPagePanel() {
                 type="button"
                 className="protocol-tool"
                 onClick={() => {
+                  setProposeKindOpen(false);
                   setCreateOpen(false);
                   setSettingsOpen(false);
                   setInfoOpen(false);
@@ -820,6 +828,7 @@ export function ProtocolPagePanel() {
                 type="button"
                 className="protocol-tool"
                 onClick={() => {
+                  setProposeKindOpen(false);
                   setCreateOpen(false);
                   setStakeOpen(false);
                   setInfoOpen(false);
@@ -832,6 +841,7 @@ export function ProtocolPagePanel() {
                 type="button"
                 className="protocol-tool"
                 onClick={() => {
+                  setProposeKindOpen(false);
                   setCreateOpen(false);
                   setStakeOpen(false);
                   setSettingsOpen(false);
@@ -1010,6 +1020,29 @@ export function ProtocolPagePanel() {
         }}
       />
 
+      <ProtocolProposeKindSheet
+        open={proposeKindOpen}
+        onClose={() => setProposeKindOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        onSelectKind={(kind) => {
+          setCreateKind(kind);
+          setProposeKindOpen(false);
+          setStakeOpen(false);
+          setSettingsOpen(false);
+          setInfoOpen(false);
+          setCreateOpen(true);
+        }}
+        onOpenStake={() => {
+          setProposeKindOpen(false);
+          setCreateOpen(false);
+          setSettingsOpen(false);
+          setInfoOpen(false);
+          setStakeOpen(true);
+        }}
+      />
+
       <ProtocolCreateSheet
         open={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -1017,14 +1050,23 @@ export function ProtocolPagePanel() {
         accountId={accountId}
         daoPolicy={daoPolicy}
         pending={createPending}
+        initialKind={createKind}
         onSubmit={(payload) => {
           void handleCreate(payload);
         }}
         onOpenStake={() => {
+          setProposeKindOpen(false);
           setCreateOpen(false);
           setSettingsOpen(false);
           setInfoOpen(false);
           setStakeOpen(true);
+        }}
+        onChangeKind={() => {
+          setCreateOpen(false);
+          setStakeOpen(false);
+          setSettingsOpen(false);
+          setInfoOpen(false);
+          setProposeKindOpen(true);
         }}
       />
 

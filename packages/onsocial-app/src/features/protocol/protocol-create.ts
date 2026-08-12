@@ -41,25 +41,104 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
   id: ProtocolCreateKind;
   label: string;
   group: 'signaling' | 'membership' | 'treasury' | 'contracts';
+  hint: string;
 }> = [
-  { id: 'signal', label: 'Signal', group: 'signaling' },
-  { id: 'join_self', label: 'Join role', group: 'membership' },
-  { id: 'add_member', label: 'Add member', group: 'membership' },
-  { id: 'leave_self', label: 'Leave role', group: 'membership' },
-  { id: 'remove_member', label: 'Remove member', group: 'membership' },
-  { id: 'transfer', label: 'Transfer', group: 'treasury' },
-  { id: 'fund_season_pool', label: 'Fund rally', group: 'treasury' },
-  { id: 'withdraw_boost_infra', label: 'Withdraw boost', group: 'treasury' },
+  {
+    id: 'signal',
+    label: 'Signal',
+    group: 'signaling',
+    hint: 'Text-only direction — nothing executes.',
+  },
+  {
+    id: 'join_self',
+    label: 'Join role',
+    group: 'membership',
+    hint: 'Add yourself to a DAO role.',
+  },
+  {
+    id: 'add_member',
+    label: 'Add member',
+    group: 'membership',
+    hint: 'Add another account to a role.',
+  },
+  {
+    id: 'leave_self',
+    label: 'Leave role',
+    group: 'membership',
+    hint: 'Remove yourself from a role.',
+  },
+  {
+    id: 'remove_member',
+    label: 'Remove member',
+    group: 'membership',
+    hint: 'Remove another account from a role.',
+  },
+  {
+    id: 'transfer',
+    label: 'Transfer',
+    group: 'treasury',
+    hint: 'Send NEAR or FT from the DAO treasury.',
+  },
+  {
+    id: 'fund_season_pool',
+    label: 'Fund rally',
+    group: 'treasury',
+    hint: 'Move SOCIAL into a live season pool.',
+  },
+  {
+    id: 'withdraw_boost_infra',
+    label: 'Withdraw boost',
+    group: 'treasury',
+    hint: 'Pull SOCIAL from the boost infra pool.',
+  },
   {
     id: 'set_boost_infra_authority',
     label: 'Boost authority',
     group: 'contracts',
+    hint: 'Set who can withdraw boost infra.',
   },
-  { id: 'transfer_ownership', label: 'Ownership', group: 'contracts' },
-  { id: 'contract_upgrade', label: 'Upgrade', group: 'contracts' },
-  { id: 'contract_config', label: 'Configure', group: 'contracts' },
-  { id: 'season_config', label: 'Season config', group: 'contracts' },
+  {
+    id: 'transfer_ownership',
+    label: 'Ownership',
+    group: 'contracts',
+    hint: 'Transfer a managed contract owner.',
+  },
+  {
+    id: 'contract_upgrade',
+    label: 'Upgrade',
+    group: 'contracts',
+    hint: 'Publish a new contract code hash.',
+  },
+  {
+    id: 'contract_config',
+    label: 'Configure',
+    group: 'contracts',
+    hint: 'Update social-spend action routing.',
+  },
+  {
+    id: 'season_config',
+    label: 'Season config',
+    group: 'contracts',
+    hint: 'Create or update a rally season.',
+  },
 ];
+
+export const PROTOCOL_CREATE_KIND_GROUPS: Array<{
+  id: 'signaling' | 'membership' | 'treasury' | 'contracts';
+  label: string;
+}> = [
+  { id: 'signaling', label: 'Signal' },
+  { id: 'membership', label: 'Membership' },
+  { id: 'treasury', label: 'Treasury' },
+  { id: 'contracts', label: 'Contracts' },
+];
+
+export function protocolCreateKindLabel(kind: ProtocolCreateKind): string {
+  return (
+    PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === kind)?.label ??
+    'Proposal'
+  );
+}
 
 export interface ProtocolProposalPayload {
   proposal: {
