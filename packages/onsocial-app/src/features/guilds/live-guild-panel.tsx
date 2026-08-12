@@ -273,6 +273,9 @@ export function LiveGuildPanel({
   );
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const [groupStorageSheetOpen, setGroupStorageSheetOpen] = useState(false);
+  const [groupStorageRecipient, setGroupStorageRecipient] = useState<
+    string | null
+  >(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [factsSheetOpen, setFactsSheetOpen] = useState(false);
@@ -1973,6 +1976,10 @@ export function LiveGuildPanel({
           }}
           onClose={() => setManageSheet(null)}
           onMembersChanged={() => void refresh()}
+          onAddStorage={(memberId) => {
+            setGroupStorageRecipient(memberId);
+            setGroupStorageSheetOpen(true);
+          }}
         />
       ) : null}
       {config && manageSheet === 'proposals' ? (
@@ -2056,7 +2063,11 @@ export function LiveGuildPanel({
           open={groupStorageSheetOpen}
           groupId={groupId}
           guildName={config?.name}
-          onClose={() => setGroupStorageSheetOpen(false)}
+          initialRecipient={groupStorageRecipient}
+          onClose={() => {
+            setGroupStorageSheetOpen(false);
+            setGroupStorageRecipient(null);
+          }}
         />
       ) : null}
       {canManageGuild ? (

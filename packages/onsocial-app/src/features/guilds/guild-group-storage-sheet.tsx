@@ -13,6 +13,7 @@ import {
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useGroupStoragePool } from '@/hooks/use-group-storage-pool';
+import { useGroupStorageGrants } from '@/hooks/use-group-storage-grants';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { finalizeAmountInput } from '@/lib/amount-input';
@@ -24,7 +25,9 @@ import {
 } from '@/lib/app-near-account';
 import {
   sendGroupPoolDepositTransaction,
+  sendGroupSponsorDefaultTransaction,
   sendGroupSponsorQuotaBatchTransaction,
+  sendGroupSponsorQuotaDisableTransaction,
 } from '@/lib/app-storage-transactions';
 import { formatNearCompact } from '@/lib/format-near-balance';
 import { formatCompactBytes } from '@/lib/platform-storage-display';
@@ -43,6 +46,7 @@ import {
   STORAGE_SHARE_PERCENT_PRESETS,
   STORAGE_SHARE_POOL_DEPOSIT_MIN_YOCTO,
   STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR,
+  type ActiveStorageShareGrant,
 } from '@/lib/user-storage-display';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
@@ -55,6 +59,8 @@ const GROUP_STORAGE_LABEL = 'Group storage';
 const GROUP_STORAGE_FUND_HINT = 'Group pools start at 0.1 NEAR.';
 const GROUP_STORAGE_GRANT_HINT =
   'Members write guild content from this pool.';
+const GROUP_STORAGE_DEFAULT_HINT =
+  'Applies to members without a personal grant.';
 
 type RecipientRowStatus =
   | 'empty'
@@ -300,15 +306,112 @@ function GroupSplitVisual({
   );
 }
 
+function GroupGrantRow({
+  grant,
+  pending,
+  onRevoke,
+}: {
+  grant: ActiveStorageShareGrant;
+  pending: boolean;
+  onRevoke: (accountId: string) => void;
+}) {
+  return (
+    <li className="app-storage-grant-row">
+      <span className="app-storage-grant-account" title={`@${grant.accountId}`}>
+        @{grant.accountId}
+      </span>
+      <span className="app-storage-grant-bytes">
+        {grant.maxBytes > 0 ? (
+          <CompactByteAmount bytes={grant.maxBytes} />
+        ) : (
+          <span className="app-storage-share-muted">Pending…</span>
+        )}
+      </span>
+      <button
+        type="button"
+        className="app-storage-share-link"
+        disabled={pending || grant.maxBytes <= 0}
+        onClick={() => onRevoke(grant.accountId)}
+      >
+        Remove
+      </button>
+    </li>
+  );
+}
+
+function GroupGrantsReadout({
+  grants,
+  loading,
+  error,
+  pending,
+  onRevoke,
+}: {
+  grants: ActiveStorageShareGrant[];
+  loading: boolean;
+  error: string | null;
+  pending: boolean;
+  onRevoke: (accountId: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="app-storage-grants is-loading" aria-hidden>
+        <span className="account-wallet-progress-track is-loading" />
+      </div>
+    );
+  }
+
+  if (!error && grants.length === 0) {
+    return null;
+  }
+
+  const allocatedBytes = grants.reduce(
+    (total, grant) => total + grant.maxBytes,
+    0
+  );
+
+  return (
+    <div className="app-storage-grants">
+      <div className="app-storage-grants-head">
+        <span className="account-card-wallet-label">Granted to</span>
+        {!error && grants.length > 0 ? (
+          <span className="app-storage-grants-summary">
+            {grants.length}
+            {allocatedBytes > 0
+              ? ` · ${formatCompactBytes(allocatedBytes)}`
+              : ''}
+          </span>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p className="app-storage-meta">Active grants unavailable right now.</p>
+      ) : (
+        <ul className="app-storage-grants-list">
+          {grants.map((grant) => (
+            <GroupGrantRow
+              key={grant.accountId}
+              grant={grant}
+              pending={pending}
+              onRevoke={onRevoke}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function GuildGroupStorageSheet({
   open,
   groupId,
   guildName,
+  initialRecipient = null,
   onClose,
 }: {
   open: boolean;
   groupId: string;
   guildName?: string;
+  initialRecipient?: string | null;
   onClose: () => void;
 }) {
   const titleId = useId();
@@ -324,9 +427,19 @@ export function GuildGroupStorageSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAddCapacity, setShowAddCapacity] = useState(false);
+  const [showDefaultEditor, setShowDefaultEditor] = useState(false);
   const [fundAmountInput, setFundAmountInput] = useState('0.1');
   const [rows, setRows] = useState<string[]>(['']);
   const [sharePercent, setSharePercent] = useState(50);
+  const [defaultPercent, setDefaultPercent] = useState(25);
+  const [pendingGrantTargets, setPendingGrantTargets] = useState<string[]>([]);
+
+  const activeGrants = useGroupStorageGrants(
+    groupId,
+    sheetOpen,
+    refreshKey,
+    pendingGrantTargets
+  );
 
   useScrollLock(open || closing);
 
@@ -335,15 +448,42 @@ export function GuildGroupStorageSheet({
       setPending(false);
       setError(null);
       setShowAddCapacity(false);
+      setShowDefaultEditor(false);
       setFundAmountInput('0.1');
       setRows(['']);
       setSharePercent(50);
+      setDefaultPercent(25);
+      setPendingGrantTargets([]);
+      return;
     }
-  }, [sheetOpen]);
+
+    if (initialRecipient?.trim()) {
+      setRows([sanitizeNearAccountInput(initialRecipient)]);
+    }
+  }, [initialRecipient, sheetOpen]);
 
   useEffect(() => {
     setError(null);
-  }, [fundAmountInput, rows, sharePercent, showAddCapacity]);
+  }, [
+    fundAmountInput,
+    rows,
+    sharePercent,
+    defaultPercent,
+    showAddCapacity,
+    showDefaultEditor,
+  ]);
+
+  useEffect(() => {
+    if (pendingGrantTargets.length === 0) return;
+    const grantIds = new Set(
+      activeGrants.grants
+        .filter((grant) => grant.maxBytes > 0)
+        .map((grant) => grant.accountId)
+    );
+    if (pendingGrantTargets.every((targetId) => grantIds.has(targetId))) {
+      setPendingGrantTargets([]);
+    }
+  }, [activeGrants.grants, pendingGrantTargets]);
 
   const requestClose = useCallback(() => {
     if (closing || pending) return;
@@ -396,12 +536,22 @@ export function GuildGroupStorageSheet({
     Math.max(1, readyRecipients.length),
     sharePercent
   );
+  const defaultMaxBytes = splitShareBytesPerRecipient(
+    shareBudgetBytes,
+    1,
+    defaultPercent
+  );
   const canGrant =
     Boolean(accountId) &&
     !pending &&
     !needsFunding &&
     readyRecipients.length > 0 &&
     isValidShareBytesPerRecipient(bytesPerRecipient);
+  const canSetDefault =
+    Boolean(accountId) &&
+    !pending &&
+    !needsFunding &&
+    isValidShareBytesPerRecipient(defaultMaxBytes);
 
   const normalizedFundAmount = useMemo(
     () => finalizeAmountInput(fundAmountInput, STORAGE_NEAR_INPUT_DECIMALS),
@@ -430,6 +580,10 @@ export function GuildGroupStorageSheet({
   );
 
   const refreshAfterTx = () => setRefreshKey((key) => key + 1);
+  const defaultQuota = activeGrants.defaultQuota;
+  const defaultEnabled = Boolean(
+    defaultQuota?.enabled && defaultQuota.maxBytes > 0
+  );
 
   const handleFundPool = async () => {
     if (!accountId) return;
@@ -498,6 +652,9 @@ export function GuildGroupStorageSheet({
         onFailure: (message) => setError(message),
       });
       if (!confirmed) return;
+      setPendingGrantTargets((current) => [
+        ...new Set([...current, ...readyRecipients]),
+      ]);
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
       setError(
@@ -511,6 +668,111 @@ export function GuildGroupStorageSheet({
     }
 
     setRows(['']);
+    refreshAfterTx();
+  };
+
+  const handleSetDefault = async () => {
+    if (!canSetDefault) return;
+    setError(null);
+    setPending(true);
+    try {
+      const txHashes = await sendGroupSponsorDefaultTransaction(
+        getSigningWallet,
+        groupId,
+        {
+          enabled: true,
+          allowanceMaxBytes: defaultMaxBytes,
+          dailyRefillBytes: 0,
+        }
+      );
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage: txToastConfirming.settingGroupStorageDefault,
+        successMessage: txToastSuccess.groupStorageDefaultSet,
+        failureMessage: txToastError.groupStorageDefaultFailed,
+        onFailure: (message) => setError(message),
+      });
+      if (!confirmed) return;
+    } catch (err) {
+      if (isWalletUserCancellation(err)) return;
+      setError(
+        err instanceof Error
+          ? err.message
+          : txToastError.groupStorageDefaultFailed
+      );
+      return;
+    } finally {
+      setPending(false);
+    }
+
+    setShowDefaultEditor(false);
+    refreshAfterTx();
+  };
+
+  const handleClearDefault = async () => {
+    if (!accountId || pending) return;
+    setError(null);
+    setPending(true);
+    try {
+      const txHashes = await sendGroupSponsorDefaultTransaction(
+        getSigningWallet,
+        groupId,
+        { enabled: false, allowanceMaxBytes: 0, dailyRefillBytes: 0 }
+      );
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage: txToastConfirming.settingGroupStorageDefault,
+        successMessage: txToastSuccess.groupStorageDefaultSet,
+        failureMessage: txToastError.groupStorageDefaultFailed,
+        onFailure: (message) => setError(message),
+      });
+      if (!confirmed) return;
+    } catch (err) {
+      if (isWalletUserCancellation(err)) return;
+      setError(
+        err instanceof Error
+          ? err.message
+          : txToastError.groupStorageDefaultFailed
+      );
+      return;
+    } finally {
+      setPending(false);
+    }
+
+    setShowDefaultEditor(false);
+    refreshAfterTx();
+  };
+
+  const handleRevoke = async (targetAccountId: string) => {
+    if (!accountId || pending) return;
+    setError(null);
+    setPending(true);
+    try {
+      const txHashes = await sendGroupSponsorQuotaDisableTransaction(
+        getSigningWallet,
+        groupId,
+        targetAccountId
+      );
+      const confirmed = await trackTransaction({
+        txHashes,
+        submittedMessage: txToastConfirming.revokingGroupStorage,
+        successMessage: txToastSuccess.groupStorageRevoked,
+        failureMessage: txToastError.groupStorageRevokeFailed,
+        onFailure: (message) => setError(message),
+      });
+      if (!confirmed) return;
+    } catch (err) {
+      if (isWalletUserCancellation(err)) return;
+      setError(
+        err instanceof Error
+          ? err.message
+          : txToastError.groupStorageRevokeFailed
+      );
+      return;
+    } finally {
+      setPending(false);
+    }
+
     refreshAfterTx();
   };
 
@@ -584,7 +846,7 @@ export function GuildGroupStorageSheet({
               showAddCapacity={showAddCapacity}
               canAddCapacity={!needsFunding && !pool.loading && !pool.error}
               onToggleAddCapacity={() => {
-                setShowAddCapacity((open) => !open);
+                setShowAddCapacity((openPanel) => !openPanel);
               }}
             />
           ) : null}
@@ -677,6 +939,90 @@ export function GuildGroupStorageSheet({
 
           {accountId && showGrantFlow ? (
             <div className="app-storage-share-flow">
+              <div className="app-storage-share-card">
+                <div className="app-storage-share-card-head">
+                  <span className="account-card-wallet-label">
+                    Default for members
+                  </span>
+                  <button
+                    type="button"
+                    className="app-storage-share-link"
+                    onClick={() =>
+                      setShowDefaultEditor((current) => !current)
+                    }
+                    disabled={pending}
+                  >
+                    {showDefaultEditor
+                      ? 'Cancel'
+                      : defaultEnabled
+                        ? 'Edit'
+                        : 'Set'}
+                  </button>
+                </div>
+                {!showDefaultEditor ? (
+                  <p className="app-storage-meta">
+                    {defaultEnabled && defaultQuota
+                      ? `${formatCompactBytes(defaultQuota.maxBytes)} for members without a personal grant.`
+                      : 'No default yet. Members need a personal grant.'}
+                  </p>
+                ) : (
+                  <>
+                    <div
+                      className="app-storage-presets"
+                      role="group"
+                      aria-label="Default member storage percent"
+                    >
+                      {STORAGE_SHARE_PERCENT_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          className={`os-surface-chip${
+                            defaultPercent === preset ? ' is-selected' : ''
+                          }`}
+                          onClick={() => setDefaultPercent(preset)}
+                          disabled={pending}
+                        >
+                          {preset === 100 ? 'Max' : `${preset}%`}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="app-storage-meta">
+                      {formatCompactBytes(defaultMaxBytes)} per member without a
+                      personal grant.
+                    </p>
+                    <OsSheetActions
+                      layout="stack"
+                      tone="frosted-primary"
+                      borderless
+                    >
+                      <OsSheetPrimaryAction
+                        type="button"
+                        ready={!pending && canSetDefault && !error}
+                        pending={pending}
+                        pendingLabel="Saving…"
+                        disabled={pending || !canSetDefault}
+                        onClick={() => void handleSetDefault()}
+                      >
+                        Save default
+                      </OsSheetPrimaryAction>
+                    </OsSheetActions>
+                    {defaultEnabled ? (
+                      <button
+                        type="button"
+                        className="app-storage-share-link"
+                        disabled={pending}
+                        onClick={() => void handleClearDefault()}
+                      >
+                        Turn off default
+                      </button>
+                    ) : null}
+                    <p className="app-storage-hint app-storage-hint--compact">
+                      {GROUP_STORAGE_DEFAULT_HINT}
+                    </p>
+                  </>
+                )}
+              </div>
+
               <div className="app-storage-share-recipients">
                 <div className="app-storage-share-card-head">
                   <span className="account-card-wallet-label">Members</span>
@@ -789,6 +1135,14 @@ export function GuildGroupStorageSheet({
               <p className="app-storage-hint app-storage-hint--compact">
                 {GROUP_STORAGE_GRANT_HINT}
               </p>
+
+              <GroupGrantsReadout
+                grants={activeGrants.grants}
+                loading={activeGrants.loading}
+                error={activeGrants.error}
+                pending={pending}
+                onRevoke={(targetId) => void handleRevoke(targetId)}
+              />
             </div>
           ) : null}
         </div>

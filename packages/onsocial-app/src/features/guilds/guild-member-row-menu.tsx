@@ -7,6 +7,7 @@ import {
   DotsVerticalIcon,
   OsSheetAction,
   OsSheetActions,
+  ShareIcon,
   TrashIcon,
   UserCircleFillIcon,
   UserIcon,
@@ -49,12 +50,15 @@ interface GuildMemberRowMenuProps {
     actionId: GuildMemberRowActionId;
     propose: boolean;
   }) => void;
+  onAddStorage?: (memberId: string) => void;
 }
 
 function actionIcon(id: GuildMemberRowActionId): ReactNode {
   switch (id) {
     case 'copy-handle':
       return <CopyIcon className="action-drawer-icon" aria-hidden />;
+    case 'add-storage':
+      return <ShareIcon className="action-drawer-icon" aria-hidden />;
     case 'remove-from-guild':
       return <TrashIcon className="action-drawer-icon" aria-hidden />;
     case 'ban-from-guild':
@@ -154,6 +158,7 @@ export function GuildMemberRowMenu({
   memberLabel,
   listMode = 'members',
   onActionComplete,
+  onAddStorage,
 }: GuildMemberRowMenuProps) {
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
@@ -213,13 +218,19 @@ export function GuildMemberRowMenu({
         return;
       }
 
+      if (action.id === 'add-storage') {
+        onAddStorage?.(member.memberId);
+        requestClose();
+        return;
+      }
+
       setCopyError(null);
       setActionError(null);
       setKeepOwnerAsMember(false);
       setSupportOnSubmit(true);
       setConfirmAction(action);
     },
-    [member.memberId, requestClose]
+    [member.memberId, onAddStorage, requestClose]
   );
 
   const handleConfirm = useCallback(async () => {

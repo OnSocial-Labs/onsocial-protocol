@@ -172,6 +172,8 @@ export type {
   FeedFilter,
   GroupFeedFilter,
   StorageEventRow,
+  GroupSponsorQuotaEventRow,
+  GroupSponsorDefaultEventRow,
   PermissionEventRow,
   GovernanceEventRow,
   RewardsEventRow,

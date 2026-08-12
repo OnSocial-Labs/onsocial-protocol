@@ -278,3 +278,97 @@ export async function sendGroupSponsorQuotaBatchTransaction(
 
   return txHashes;
 }
+
+/** Disable a per-member group sponsor override (`enabled: false`). */
+export async function sendGroupSponsorQuotaDisableTransaction(
+  getSigningWallet: () => Promise<SigningWallet>,
+  groupId: string,
+  targetAccountId: string
+): Promise<string[]> {
+  const { wallet, accountId: signerId } = await getSigningWallet();
+  const result = await wallet.signAndSendTransaction({
+    network: ACTIVE_NEAR_NETWORK,
+    signerId,
+    receiverId: CORE_CONTRACT,
+    actions: [
+      {
+        type: 'FunctionCall',
+        params: {
+          methodName: 'execute_admin',
+          args: {
+            request: {
+              action: {
+                type: 'set',
+                data: {
+                  'storage/group_sponsor_quota_set': {
+                    group_id: groupId,
+                    target_id: targetAccountId,
+                    enabled: false,
+                    daily_refill_bytes: 0,
+                    allowance_max_bytes: 0,
+                  },
+                },
+              },
+            },
+          },
+          gas: STORAGE_SHARE_GAS,
+          deposit: '0',
+        },
+      },
+    ],
+  });
+
+  return extractNearTransactionHashes(result);
+}
+
+/** Set or clear the group's default sponsor quota for members without override. */
+export async function sendGroupSponsorDefaultTransaction(
+  getSigningWallet: () => Promise<SigningWallet>,
+  groupId: string,
+  args: {
+    enabled: boolean;
+    allowanceMaxBytes: number;
+    dailyRefillBytes?: number;
+  }
+): Promise<string[]> {
+  const allowanceMaxBytes = args.enabled
+    ? Math.max(0, Math.floor(args.allowanceMaxBytes))
+    : 0;
+  const dailyRefillBytes = args.enabled
+    ? Math.max(0, Math.floor(args.dailyRefillBytes ?? 0))
+    : 0;
+
+  const { wallet, accountId: signerId } = await getSigningWallet();
+  const result = await wallet.signAndSendTransaction({
+    network: ACTIVE_NEAR_NETWORK,
+    signerId,
+    receiverId: CORE_CONTRACT,
+    actions: [
+      {
+        type: 'FunctionCall',
+        params: {
+          methodName: 'execute_admin',
+          args: {
+            request: {
+              action: {
+                type: 'set',
+                data: {
+                  'storage/group_sponsor_default_set': {
+                    group_id: groupId,
+                    enabled: args.enabled,
+                    daily_refill_bytes: dailyRefillBytes,
+                    allowance_max_bytes: allowanceMaxBytes,
+                  },
+                },
+              },
+            },
+          },
+          gas: STORAGE_SHARE_GAS,
+          deposit: '0',
+        },
+      },
+    ],
+  });
+
+  return extractNearTransactionHashes(result);
+}
