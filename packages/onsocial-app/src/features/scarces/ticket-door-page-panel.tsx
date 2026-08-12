@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -10,11 +11,19 @@ import {
   type CollectionView,
 } from '@/features/scarces/collections-data';
 import { TicketDoorWorkbench } from '@/features/scarces/ticket-door-workbench';
-import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
+import {
+  isPassMediumKind,
+  passStaffVoice,
+  type PassStaffVoice,
+} from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { useTicketDoorAdmit } from '@/features/scarces/use-ticket-door-admit';
 import { accountIdsEqual } from '@/lib/account-match';
-import { collectionPath } from '@/lib/app-routes';
+import {
+  collectionDoorPath,
+  collectionPath,
+  collectionRedeemPath,
+} from '@/lib/app-routes';
 
 function DoorEmpty({
   copy,
@@ -54,16 +63,20 @@ function DoorFooter({
 }
 
 /**
- * Fullscreen Door Admit — browser camera for event staff.
- * Creator or listed redeemer only; stays open for the next guest after admit.
+ * Staff redeem surface — Door Admit (tickets/memberships) or coupon Redeem.
+ * Creator or listed redeemer only; stays open for the next guest after success.
  */
 export function TicketDoorPagePanel({
   collectionId,
   initial,
+  voice: voiceProp,
 }: {
   collectionId: string;
   initial: CollectionView | null;
+  /** Route voice; wrong-kind drops redirect to the matching staff page. */
+  voice: PassStaffVoice;
 }) {
+  const router = useRouter();
   const { accountId, isConnected, connect, isLoading } = useAppWallet();
   const [view, setView] = useState<CollectionView | null>(initial);
   const [redeemerCheck, setRedeemerCheck] = useState<{
@@ -80,6 +93,18 @@ export function TicketDoorPagePanel({
       cancelled = true;
     };
   }, [collectionId]);
+
+  const kindVoice = view ? passStaffVoice(view.kind) : voiceProp;
+
+  useEffect(() => {
+    if (!view || !isPassMediumKind(view.kind)) return;
+    if (kindVoice === voiceProp) return;
+    router.replace(
+      kindVoice === 'redeem'
+        ? collectionRedeemPath(collectionId)
+        : collectionDoorPath(collectionId)
+    );
+  }, [collectionId, kindVoice, router, view, voiceProp]);
 
   const isOwner =
     Boolean(accountId) &&
@@ -109,22 +134,26 @@ export function TicketDoorPagePanel({
   const accessReady =
     redeemerKey == null || redeemerCheck?.key === redeemerKey;
 
-  const canDoor =
+  const canStaff =
     isPassMediumKind(view?.kind) &&
     (isOwner || isRedeemer) &&
     view?.maxRedeems != null &&
-    view.maxRedeems > 0;
+    view.maxRedeems > 0 &&
+    kindVoice === voiceProp;
 
-  const doorActive = Boolean(canDoor && accessReady && isConnected);
+  const doorActive = Boolean(canStaff && accessReady && isConnected);
   const door = useTicketDoorAdmit({
     collectionId,
     active: doorActive,
     afterAdmit: 'ready-next',
+    voice: voiceProp,
   });
 
   const eventName = view?.title?.trim() || 'Drop';
   const dropHref = collectionPath(collectionId);
-  const screenTitle = view ? eventName : 'Admit';
+  const redeemVoice = voiceProp === 'redeem';
+  const screenSubtitle = redeemVoice ? 'Redeem' : 'Admit';
+  const screenTitle = view ? eventName : screenSubtitle;
 
   let body: ReactNode;
   let footer: ReactNode = null;
@@ -138,13 +167,25 @@ export function TicketDoorPagePanel({
   ) {
     body = (
       <DoorEmpty
-        copy="This drop does not use Show pass check-in."
+        copy={
+          redeemVoice
+            ? 'This drop does not use coupon redeem.'
+            : 'This drop does not use Show pass check-in.'
+        }
         dropHref={dropHref}
       />
     );
+  } else if (kindVoice !== voiceProp) {
+    body = <DoorEmpty copy="Opening the right staff page…" />;
   } else if (!isConnected) {
     body = (
-      <DoorEmpty copy="Connect a door-staff wallet to admit guests." />
+      <DoorEmpty
+        copy={
+          redeemVoice
+            ? 'Connect a staff wallet to redeem coupons.'
+            : 'Connect a door-staff wallet to admit guests.'
+        }
+      />
     );
     footer = (
       <DoorFooter>
@@ -164,11 +205,21 @@ export function TicketDoorPagePanel({
       </DoorFooter>
     );
   } else if (!accessReady) {
-    body = <DoorEmpty copy="Checking door access…" />;
-  } else if (!canDoor) {
     body = (
       <DoorEmpty
-        copy="Only the creator or door staff can admit here."
+        copy={
+          redeemVoice ? 'Checking redeem access…' : 'Checking door access…'
+        }
+      />
+    );
+  } else if (!canStaff) {
+    body = (
+      <DoorEmpty
+        copy={
+          redeemVoice
+            ? 'Only the creator or redeem staff can redeem here.'
+            : 'Only the creator or door staff can admit here.'
+        }
         dropHref={dropHref}
       />
     );
@@ -189,7 +240,12 @@ export function TicketDoorPagePanel({
         status={door.status}
         lastAdmittedTokenId={door.lastAdmittedTokenId}
         applyLookup={door.applyLookup}
-        lead="Point at a Show pass QR. After admit, stay here for the next guest."
+        voice={voiceProp}
+        lead={
+          redeemVoice
+            ? 'Point at a coupon QR. After redeem, stay here for the next guest.'
+            : 'Point at a Show pass QR. After admit, stay here for the next guest.'
+        }
       />
     );
     footer = (
@@ -200,11 +256,11 @@ export function TicketDoorPagePanel({
             variant="primary"
             ready={door.canAdmit}
             pending={door.admitPending}
-            pendingLabel="Admitting…"
+            pendingLabel={redeemVoice ? 'Redeeming…' : 'Admitting…'}
             disabled={!door.canAdmit}
             onClick={() => void door.handleAdmit()}
           >
-            Admit
+            {redeemVoice ? 'Redeem' : 'Admit'}
           </OsSheetAction>
           <OsSheetAction
             type="button"
@@ -225,7 +281,7 @@ export function TicketDoorPagePanel({
   return (
     <OsAppScreen
       title={screenTitle}
-      subtitle="Admit"
+      subtitle={screenSubtitle}
       backFallbackHref={dropHref}
       glassChrome
       footer={footer}

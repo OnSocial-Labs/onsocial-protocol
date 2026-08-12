@@ -191,6 +191,12 @@ export const COLLECTION_PASS_QUERY = 'pass';
  */
 export const COLLECTION_DOOR_QUERY = 'door';
 
+/**
+ * Legacy coupon Redeem deep-link on the drop page (`?redeem=1`).
+ * Prefer {@link collectionRedeemPath} / `collectionPath(..., { redeem: true })`.
+ */
+export const COLLECTION_REDEEM_QUERY = 'redeem';
+
 /** Optional owned edition for Show pass (`?t=tokenId`). */
 export const COLLECTION_PASS_TOKEN_PARAM = COLLECTIBLES_PLAY_TOKEN_PARAM;
 
@@ -201,6 +207,13 @@ export function collectionDoorPath(collectionId: string): string {
   return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}/door`;
 }
 
+/** Fullscreen coupon Redeem page for staff. */
+export function collectionRedeemPath(collectionId: string): string {
+  const id = collectionId.trim();
+  if (!id) return APP_MARKET_PATH;
+  return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}/redeem`;
+}
+
 /** Public collection (drop) page. */
 export function collectionPath(
   collectionId: string,
@@ -208,12 +221,14 @@ export function collectionPath(
     read?: boolean;
     pass?: boolean;
     door?: boolean;
+    redeem?: boolean;
     tokenId?: string | null;
   }
 ): string {
   const id = collectionId.trim();
   if (!id) return APP_MARKET_PATH;
   if (opts?.door) return collectionDoorPath(id);
+  if (opts?.redeem) return collectionRedeemPath(id);
   const base = `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}`;
   const params = new URLSearchParams();
   if (opts?.read) params.set(COLLECTION_READ_QUERY, '1');

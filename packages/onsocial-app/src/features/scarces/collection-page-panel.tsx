@@ -72,7 +72,7 @@ import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
+import { isPassMediumKind, passStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
@@ -88,7 +88,9 @@ import {
   COLLECTION_PASS_QUERY,
   COLLECTION_PASS_TOKEN_PARAM,
   COLLECTION_READ_QUERY,
+  COLLECTION_REDEEM_QUERY,
   collectionDoorPath,
+  collectionRedeemPath,
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
@@ -359,18 +361,21 @@ export function CollectionPagePanel({
     });
   }, [collectionId, ownedPassTokenId, view?.kind]);
 
-  // Legacy ?door=1 → fullscreen Admit page (creator or door staff).
+  // Legacy ?door=1 / ?redeem=1 → staff Admit or Redeem page.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isPassMediumKind(view?.kind)) return;
     if (!isOwner && !isRedeemer) return;
-    if (
-      new URLSearchParams(window.location.search).get(COLLECTION_DOOR_QUERY) !==
-      '1'
-    ) {
-      return;
-    }
-    router.replace(collectionDoorPath(collectionId));
+    const params = new URLSearchParams(window.location.search);
+    const door = params.get(COLLECTION_DOOR_QUERY) === '1';
+    const redeem = params.get(COLLECTION_REDEEM_QUERY) === '1';
+    if (!door && !redeem) return;
+    const voice = passStaffVoice(view?.kind);
+    router.replace(
+      voice === 'redeem'
+        ? collectionRedeemPath(collectionId)
+        : collectionDoorPath(collectionId)
+    );
   }, [collectionId, isOwner, isRedeemer, router, view?.kind]);
 
   useEffect(() => {
@@ -701,6 +706,7 @@ export function CollectionPagePanel({
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
   const mediumKind = (view.kind ?? '').trim().toLowerCase();
   const isPassKind = isPassMediumKind(mediumKind);
+  const staffVoice = passStaffVoice(mediumKind);
   const canDoor =
     isPassKind &&
     (isOwner || isRedeemer) &&
@@ -1211,12 +1217,18 @@ export function CollectionPagePanel({
             ) : null}
             {canDoor ? (
               <div className="collection-reading-row">
-                <p className="collection-section-label">Door</p>
+                <p className="collection-section-label">
+                  {staffVoice === 'redeem' ? 'Counter' : 'Door'}
+                </p>
                 <Link
-                  href={collectionDoorPath(view.collectionId)}
+                  href={
+                    staffVoice === 'redeem'
+                      ? collectionRedeemPath(view.collectionId)
+                      : collectionDoorPath(view.collectionId)
+                  }
                   className="collection-reading-open"
                 >
-                  Admit
+                  {staffVoice === 'redeem' ? 'Redeem' : 'Admit'}
                 </Link>
               </div>
             ) : null}
@@ -1226,6 +1238,7 @@ export function CollectionPagePanel({
               <CollectionDoorStaffManager
                 collectionId={view.collectionId}
                 creatorId={view.creatorId}
+                voice={staffVoice}
               />
             ) : null}
           </section>

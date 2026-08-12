@@ -8,6 +8,7 @@ import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-
 import {
   parseTicketPassPayload,
   ticketPassRemaining,
+  type PassStaffVoice,
 } from '@/features/scarces/ticket-pass-payload';
 import {
   fetchTicketTokenStatus,
@@ -49,6 +50,8 @@ export type TicketDoorAdmitOptions = {
   /** Sheet mode closes after admit; page mode resets for the next scan. */
   afterAdmit?: 'close' | 'ready-next';
   onRequestClose?: () => void;
+  /** Coupon staff surface uses redeem toast + ready-next copy. */
+  voice?: PassStaffVoice;
 };
 
 /**
@@ -61,6 +64,7 @@ export function useTicketDoorAdmit({
   onAdmitted,
   afterAdmit = 'ready-next',
   onRequestClose,
+  voice = 'admit',
 }: TicketDoorAdmitOptions) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -216,10 +220,13 @@ export function useTicketDoorAdmit({
 
   const handleAdmit = useCallback(async () => {
     if (!status || !canAdmit) return;
+    const redeemVoice = voice === 'redeem';
     if (!isConnected) {
       setTxResult({
         type: 'error',
-        msg: 'Connect your wallet to admit.',
+        msg: redeemVoice
+          ? 'Connect your wallet to redeem.'
+          : 'Connect your wallet to admit.',
       });
       return;
     }
@@ -233,9 +240,15 @@ export function useTicketDoorAdmit({
       );
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
-        submittedMessage: txToastConfirming.redeemingTicket,
-        successMessage: txToastSuccess.ticketAdmitted,
-        failureMessage: txToastError.redeemTicketFailed,
+        submittedMessage: redeemVoice
+          ? txToastConfirming.redeemingCoupon
+          : txToastConfirming.redeemingTicket,
+        successMessage: redeemVoice
+          ? txToastSuccess.couponRedeemed
+          : txToastSuccess.ticketAdmitted,
+        failureMessage: redeemVoice
+          ? txToastError.redeemCouponFailed
+          : txToastError.redeemTicketFailed,
       });
       if (confirmed) {
         onAdmitted?.(status.tokenId);
@@ -253,7 +266,11 @@ export function useTicketDoorAdmit({
         if (afterAdmit === 'close') {
           onRequestClose?.();
         } else {
-          setScanHint('Admitted. Ready for the next pass.');
+          setScanHint(
+            redeemVoice
+              ? 'Redeemed. Ready for the next pass.'
+              : 'Admitted. Ready for the next pass.'
+          );
           setManualInput('');
           setStatus(null);
           void startCamera();
@@ -266,7 +283,9 @@ export function useTicketDoorAdmit({
         msg:
           error instanceof Error
             ? error.message
-            : txToastError.redeemTicketFailed,
+            : redeemVoice
+              ? txToastError.redeemCouponFailed
+              : txToastError.redeemTicketFailed,
       });
     } finally {
       setAdmitPending(false);
@@ -283,6 +302,7 @@ export function useTicketDoorAdmit({
     startCamera,
     status,
     trackTransaction,
+    voice,
   ]);
 
   return {

@@ -20,6 +20,7 @@ import {
   fetchCollectionRedeemers,
   MAX_COLLECTION_REDEEMERS,
 } from '@/features/scarces/ticket-redeemers';
+import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';

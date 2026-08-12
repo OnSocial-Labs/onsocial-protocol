@@ -1,11 +1,11 @@
 'use client';
 
 import { Divider } from '@onsocial/ui';
-import { ticketPassStatusLabel } from '@/features/scarces/ticket-pass-payload';
+import { ticketPassStatusLabel, type PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import type { TicketTokenStatus } from '@/features/scarces/ticket-token-status';
 import type { RefObject } from 'react';
 
-/** Shared camera + paste + preview body for Door sheet and Admit page. */
+/** Shared camera + paste + preview body for Door Admit and coupon Redeem. */
 export function TicketDoorWorkbench({
   eventName,
   videoRef,
@@ -22,6 +22,7 @@ export function TicketDoorWorkbench({
   lastAdmittedTokenId,
   applyLookup,
   lead,
+  voice = 'admit',
 }: {
   eventName: string;
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -38,6 +39,7 @@ export function TicketDoorWorkbench({
   lastAdmittedTokenId?: string | null;
   applyLookup: (raw: string) => void | Promise<void>;
   lead?: string;
+  voice?: PassStaffVoice;
 }) {
   const previewLine = status
     ? ticketPassStatusLabel({
@@ -47,13 +49,20 @@ export function TicketDoorWorkbench({
         isExpired: status.isExpired,
         redeemCount: status.redeemCount,
         maxRedeems: status.maxRedeems,
+        voice,
       })
     : null;
+
+  const lastLine =
+    voice === 'redeem' ? 'Last redeemed' : 'Last admitted';
 
   return (
     <div className="ticket-door">
       <p className="ticket-door-lead">
-        {lead ?? 'Scan a Show pass QR, or paste the pass code, then admit.'}
+        {lead ??
+          (voice === 'redeem'
+            ? 'Scan a coupon QR, or paste the pass code, then redeem.'
+            : 'Scan a Show pass QR, or paste the pass code, then admit.')}
       </p>
 
       <div className={`ticket-door-camera${cameraActive ? ' is-live' : ''}`}>
@@ -62,7 +71,7 @@ export function TicketDoorWorkbench({
           className="ticket-door-video"
           playsInline
           muted
-          aria-label="Door camera"
+          aria-label={voice === 'redeem' ? 'Redeem camera' : 'Door camera'}
         />
         {!cameraActive ? (
           <div className="ticket-door-camera-empty">
@@ -74,7 +83,7 @@ export function TicketDoorWorkbench({
       {scanHint ? <p className="ticket-door-hint">{scanHint}</p> : null}
       {lastAdmittedTokenId ? (
         <p className="ticket-door-hint is-success">
-          Last admitted · {lastAdmittedTokenId}
+          {lastLine} · {lastAdmittedTokenId}
         </p>
       ) : null}
 

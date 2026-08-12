@@ -3,6 +3,7 @@ import {
   APP_COLLECTIBLES_PATH,
   collectionDoorPath,
   collectionPath,
+  collectionRedeemPath,
   collectiblesKindPath,
   collectiblesPlayPath,
   isAppRoutePath,
