@@ -88,6 +88,9 @@ export function TicketDoorPagePanel({
     key: string;
     ok: boolean;
   } | null>(null);
+  const [attendance, setAttendance] =
+    useState<CollectionRedeemAttendance | null>(null);
+  const [attendanceRefresh, setAttendanceRefresh] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,13 +155,44 @@ export function TicketDoorPagePanel({
     active: doorActive,
     afterAdmit: 'ready-next',
     voice: voiceProp,
+    onAdmitted: () => {
+      setAttendanceTick((n) => n + 1);
+    },
   });
+
+  useEffect(() => {
+    if (!doorActive) {
+      setAttendance(null);
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      void fetchCollectionRedeemAttendance(collectionId).then((next) => {
+        if (!cancelled && next) setAttendance(next);
+      });
+    };
+    load();
+    const timer = window.setInterval(load, 12_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [attendanceTick, collectionId, doorActive]);
 
   const eventName = view?.title?.trim() || 'Drop';
   const dropHref = collectionPath(collectionId);
   const redeemVoice = voiceProp === 'redeem';
   const screenSubtitle = redeemVoice ? 'Redeem' : 'Admit';
   const screenTitle = view ? eventName : screenSubtitle;
+  const attendanceLine = attendance
+    ? staffAttendanceLine({
+        voice: voiceProp,
+        minted: attendance.minted,
+        redeemedCount: attendance.redeemedCount,
+        fullyRedeemedCount: attendance.fullyRedeemedCount,
+        maxRedeems: attendance.maxRedeems ?? view?.maxRedeems ?? null,
+      })
+    : null;
 
   let body: ReactNode;
   let footer: ReactNode = null;
@@ -246,6 +280,7 @@ export function TicketDoorPagePanel({
         lastAdmittedTokenId={door.lastAdmittedTokenId}
         applyLookup={door.applyLookup}
         voice={voiceProp}
+        attendanceLine={attendanceLine}
         lead={
           redeemVoice
             ? 'Point at a coupon QR. After redeem, stay here for the next guest.'
