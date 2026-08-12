@@ -16,7 +16,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "check": "pnpm lint && pnpm type-check && pnpm test && pnpm build"
+    "check": "pnpm lint && pnpm type-check && pnpm test && pnpm build",
+    "dev:mainnet": "PORT=3061 NEXT_DIST_DIR=.next-mainnet NEXT_PUBLIC_NEAR_NETWORK=mainnet NEXT_PUBLIC_API_URL=https://api.onsocial.id NEXT_PUBLIC_BACKEND_URL=https://api.onsocial.id next dev --port 3061",
+    "dev:testnet": "PORT=3060 NEXT_DIST_DIR=.next-testnet NEXT_PUBLIC_NEAR_NETWORK=testnet NEXT_PUBLIC_API_URL=https://testnet.onsocial.id NEXT_PUBLIC_BACKEND_URL=https://testnet.onsocial.id next dev --port 3060"
   },
   "dependencies": {
     "@hot-labs/near-connect": "^0.11.4",
@@ -24,6 +26,7 @@
     "@onsocial/sdk": "workspace:*",
     "@onsocial/text-card": "workspace:*",
     "@onsocial/ui": "workspace:*",
+    "@ref-finance/ref-sdk": "^1.5.0",
     "fflate": "^0.8.3",
     "next": "^16.2.9",
     "react": "^19.2.4",
@@ -31,6 +34,7 @@
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "server-only": "^0.0.1",
     "uqr": "0.1.2"
   },
   "devDependencies": {
