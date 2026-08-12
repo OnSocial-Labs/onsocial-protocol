@@ -1,3 +1,4 @@
+import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
 import type {
   ProtocolApplication,
   ProtocolDaoAction,
@@ -291,6 +292,11 @@ export function deriveProtocolProposalView(opts: {
   statusTone: ProtocolStatusTone;
   targetAccount: string | null;
   targetMethod: string | null;
+  targetKind: string | null;
+  targetValue: string | null;
+  subjectAccount: string | null;
+  subjectEyebrow: string | null;
+  showProposerSeparately: boolean;
   proposer: string | null;
   submission: { relative: string; absolute: string } | null;
   deadline: {
@@ -321,6 +327,16 @@ export function deriveProtocolProposalView(opts: {
   const { application, accountId, daoPolicy } = opts;
   const nowMs = opts.nowMs ?? Date.now();
   const proposal = resolveLiveProposal(application);
+  const presentation = deriveProtocolProposalPresentation({
+    kind: proposal?.kind ?? application.governance_proposal?.kind ?? null,
+    description: proposalDescription(application, proposal),
+    proposer:
+      proposal?.proposer?.trim() ||
+      application.governance_proposal?.proposer ||
+      null,
+    fallbackHeadline: proposalHeadline(application),
+    fallbackBadge: proposalActionBadge(proposal, application.protocol_kind),
+  });
   const proposalId =
     proposal?.id ?? application.governance_proposal?.proposal_id ?? null;
   const viewerRole = findViewerRole(daoPolicy, accountId);
@@ -416,14 +432,24 @@ export function deriveProtocolProposalView(opts: {
   return {
     proposal,
     proposalId,
-    headline: proposalHeadline(application),
+    headline: presentation.headline,
     description: proposalDescription(application, proposal),
-    actionBadge: proposalActionBadge(proposal, application.protocol_kind),
+    actionBadge:
+      presentation.actionBadge ??
+      proposalActionBadge(proposal, application.protocol_kind),
     status,
     statusLabel: statusLabel(effectiveStatus),
     statusTone: statusTone(status, expired),
-    targetAccount: application.protocol_target_account?.trim() || null,
+    targetAccount:
+      presentation.targetAccountId ??
+      application.protocol_target_account?.trim() ??
+      null,
     targetMethod: application.protocol_target_method?.trim() || null,
+    targetKind: presentation.targetKind,
+    targetValue: presentation.targetValue,
+    subjectAccount: presentation.subjectAccount,
+    subjectEyebrow: presentation.subjectEyebrow,
+    showProposerSeparately: presentation.showProposerSeparately,
     proposer: proposal?.proposer?.trim() || null,
     submission:
       submissionMs != null
@@ -449,6 +475,19 @@ export function deriveProtocolProposalView(opts: {
     },
     roleName: viewerRole?.name?.trim() || votingRole?.name?.trim() || null,
   };
+}
+
+export function isProtocolApplicationSoftExpired(
+  application: ProtocolApplication,
+  daoPolicy: ProtocolDaoPolicy | null,
+  nowMs = Date.now()
+): boolean {
+  const proposal = resolveLiveProposal(application);
+  if (!proposal || proposal.status !== 'InProgress') return false;
+  const submissionMs = parseNanosecondsToMilliseconds(proposal.submission_time);
+  const periodMs = parseNanosecondsToMilliseconds(daoPolicy?.proposal_period);
+  if (submissionMs == null || periodMs == null) return false;
+  return submissionMs + periodMs <= nowMs;
 }
 
 export function actionLabel(action: ProtocolDaoAction): string {

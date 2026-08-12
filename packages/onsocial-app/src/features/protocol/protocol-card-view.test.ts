@@ -73,6 +73,13 @@ describe('protocol dao boards', () => {
       protocolPath({ board: 'community', account: 'example.sputnik-dao.near' })
     ).toBe('/protocol?dao=community&account=example.sputnik-dao.near');
     expect(protocolPath()).toBe('/protocol');
+    expect(protocolPath({ proposal: 12 })).toBe('/protocol?proposal=12');
+    expect(protocolPath({ status: 'approved', proposal: 3 })).toBe(
+      '/protocol?status=approved&proposal=3'
+    );
+    expect(protocolPath({ board: 'treasury', status: 'open' })).toBe(
+      '/protocol?dao=treasury'
+    );
   });
 });
 
@@ -428,7 +435,7 @@ describe('protocol card view', () => {
       accountId: 'alice.testnet',
       daoPolicy: policy,
     });
-    expect(view.headline).toBe('Boost contract');
+    expect(view.headline).toBe('Upgrade boost contract to cleaned artifact');
     expect(view.actionBadge).toBe('Call');
     expect(view.description).toContain('Upgrade boost');
     expect(view.targetAccount).toBe('boost.onsocial.testnet');

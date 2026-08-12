@@ -14,6 +14,7 @@ import { actOnProtocolProposal } from '@/features/protocol/protocol-act';
 import {
   actionLabel,
   applyOptimisticVote,
+  isProtocolApplicationSoftExpired,
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
@@ -21,6 +22,13 @@ import type { ProtocolProposalPayload } from '@/features/protocol/protocol-creat
 import { ProtocolActionSheet } from '@/features/protocol/protocol-action-sheet';
 import { ProtocolCommunityRegistry } from '@/features/protocol/protocol-community-registry';
 import { ProtocolCreateSheet } from '@/features/protocol/protocol-create-sheet';
+import { ProtocolDaoInfoSheet } from '@/features/protocol/protocol-dao-info-sheet';
+import {
+  countProtocolApplicationsByStatus,
+  filterProtocolApplications,
+  findProtocolApplicationByProposalId,
+  PROTOCOL_FEED_STATUS_OPTIONS,
+} from '@/features/protocol/protocol-feed-filters';
 import {
   fetchProtocolFeed,
   fetchProtocolProposal,
@@ -44,9 +52,14 @@ import type {
 import {
   PROTOCOL_DAO_ACCOUNT_PARAM,
   PROTOCOL_DAO_BOARD_PARAM,
+  PROTOCOL_PROPOSAL_PARAM,
+  PROTOCOL_STATUS_PARAM,
   parseProtocolDaoBoard,
+  parseProtocolFeedStatus,
+  parseProtocolProposalId,
   protocolPath,
   type ProtocolDaoBoard,
+  type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
 import {
   txToastGovError,
@@ -62,6 +75,12 @@ export function ProtocolPagePanel() {
     searchParams.get(PROTOCOL_DAO_BOARD_PARAM)
   );
   const communityAccount = searchParams.get(PROTOCOL_DAO_ACCOUNT_PARAM);
+  const statusFilter = parseProtocolFeedStatus(
+    searchParams.get(PROTOCOL_STATUS_PARAM)
+  );
+  const focusedProposalId = parseProtocolProposalId(
+    searchParams.get(PROTOCOL_PROPOSAL_PARAM)
+  );
   const daoAccountId = resolveProtocolDaoAccountId(board, communityAccount);
   const showRegistry = board === 'community' && !daoAccountId;
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
@@ -81,14 +100,53 @@ export function ProtocolPagePanel() {
   const [createOpen, setCreateOpen] = useState(false);
   const [stakeOpen, setStakeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const [stakePending, setStakePending] = useState(false);
   const [settingsPending, setSettingsPending] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [focusHandled, setFocusHandled] = useState<number | null>(null);
 
   const actionApplication = useMemo(
     () => applications.find((row) => row.app_id === actionAppId) ?? null,
     [applications, actionAppId]
+  );
+
+  const softExpired = useCallback(
+    (application: ProtocolApplication) =>
+      isProtocolApplicationSoftExpired(application, daoPolicy, nowMs),
+    [daoPolicy, nowMs]
+  );
+
+  const statusCounts = useMemo(
+    () =>
+      countProtocolApplicationsByStatus(applications, {
+        isSoftExpired: softExpired,
+      }),
+    [applications, softExpired]
+  );
+
+  const visibleApplications = useMemo(
+    () =>
+      filterProtocolApplications(applications, statusFilter, {
+        isSoftExpired: softExpired,
+      }),
+    [applications, statusFilter, softExpired]
+  );
+
+  const buildProtocolHref = useCallback(
+    (opts?: {
+      status?: ProtocolFeedStatusFilter | null;
+      proposal?: number | null;
+    }) =>
+      protocolPath({
+        board,
+        account: board === 'community' ? daoAccountId : null,
+        status: opts?.status === undefined ? statusFilter : opts.status,
+        proposal:
+          opts?.proposal === undefined ? focusedProposalId : opts.proposal,
+      }),
+    [board, daoAccountId, statusFilter, focusedProposalId]
   );
 
   useEffect(() => {
@@ -129,18 +187,90 @@ export function ProtocolPagePanel() {
     void loadFeed();
   }, [loadFeed]);
 
+  useEffect(() => {
+    setFocusHandled(null);
+  }, [focusedProposalId, daoAccountId]);
+
+  useEffect(() => {
+    if (
+      loadState !== 'ready' ||
+      focusedProposalId == null ||
+      focusHandled === focusedProposalId
+    ) {
+      return;
+    }
+
+    const match = findProtocolApplicationByProposalId(
+      applications,
+      focusedProposalId
+    );
+    if (!match) {
+      // Proposal may be filtered out of "open" — switch to all once.
+      if (statusFilter !== 'all') {
+        router.replace(
+          protocolPath({
+            board,
+            account: board === 'community' ? daoAccountId : null,
+            status: 'all',
+            proposal: focusedProposalId,
+          }),
+          { scroll: false }
+        );
+        return;
+      }
+      setFocusHandled(focusedProposalId);
+      return;
+    }
+
+    setFocusHandled(focusedProposalId);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`protocol-proposal-${focusedProposalId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [
+    loadState,
+    focusedProposalId,
+    focusHandled,
+    applications,
+    statusFilter,
+    router,
+    board,
+    daoAccountId,
+  ]);
+
   const navigateBoard = useCallback(
     (next: { board: ProtocolDaoBoard; account?: string | null }) => {
       setActionAppId(null);
       setCreateOpen(false);
       setStakeOpen(false);
       setSettingsOpen(false);
+      setInfoOpen(false);
       router.replace(
-        protocolPath({ board: next.board, account: next.account }),
+        protocolPath({
+          board: next.board,
+          account: next.account,
+          status: 'open',
+        }),
         { scroll: false }
       );
     },
     [router]
+  );
+
+  const navigateStatus = useCallback(
+    (nextStatus: ProtocolFeedStatusFilter) => {
+      router.replace(
+        protocolPath({
+          board,
+          account: board === 'community' ? daoAccountId : null,
+          status: nextStatus,
+          proposal: focusedProposalId,
+        }),
+        { scroll: false }
+      );
+    },
+    [router, board, daoAccountId, focusedProposalId]
   );
 
   const mergeProposal = useCallback(
@@ -588,6 +718,7 @@ export function ProtocolPagePanel() {
                 onClick={() => {
                   setStakeOpen(false);
                   setSettingsOpen(false);
+                  setInfoOpen(false);
                   setCreateOpen(true);
                 }}
               >
@@ -599,6 +730,7 @@ export function ProtocolPagePanel() {
                 onClick={() => {
                   setCreateOpen(false);
                   setSettingsOpen(false);
+                  setInfoOpen(false);
                   setStakeOpen(true);
                 }}
               >
@@ -610,10 +742,23 @@ export function ProtocolPagePanel() {
                 onClick={() => {
                   setCreateOpen(false);
                   setStakeOpen(false);
+                  setInfoOpen(false);
                   setSettingsOpen(true);
                 }}
               >
                 Settings
+              </button>
+              <button
+                type="button"
+                className="protocol-tool"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setStakeOpen(false);
+                  setSettingsOpen(false);
+                  setInfoOpen(true);
+                }}
+              >
+                Info
               </button>
               {board === 'community' ? (
                 <button
@@ -624,6 +769,37 @@ export function ProtocolPagePanel() {
                   Registry
                 </button>
               ) : null}
+            </div>
+          ) : null}
+
+          {!showRegistry && daoAccountId && loadState === 'ready' ? (
+            <div
+              className="protocol-status-rail"
+              role="tablist"
+              aria-label="Proposal status"
+            >
+              {PROTOCOL_FEED_STATUS_OPTIONS.map((option) => {
+                const count = statusCounts[option.id];
+                if (option.id !== 'all' && option.id !== 'open' && count === 0) {
+                  return null;
+                }
+                const active = statusFilter === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className={`protocol-board-chip${active ? ' is-active' : ''}`}
+                    onClick={() => navigateStatus(option.id)}
+                  >
+                    {option.label}
+                    {option.id !== 'all' ? (
+                      <span className="protocol-status-count">{count}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           ) : null}
         </header>
@@ -647,21 +823,68 @@ export function ProtocolPagePanel() {
             </button>
           </div>
         ) : null}
-        {!showRegistry && loadState === 'ready' && applications.length === 0 ? (
-          <p className="protocol-empty">No open protocol proposals.</p>
+        {!showRegistry &&
+        loadState === 'ready' &&
+        applications.length === 0 ? (
+          <p className="protocol-empty">No protocol proposals yet.</p>
         ) : null}
-        {!showRegistry && loadState === 'ready' && applications.length > 0 ? (
+        {!showRegistry &&
+        loadState === 'ready' &&
+        applications.length > 0 &&
+        visibleApplications.length === 0 ? (
+          <p className="protocol-empty">
+            No {statusFilter === 'open' ? 'open' : statusFilter} proposals.
+          </p>
+        ) : null}
+        {!showRegistry &&
+        loadState === 'ready' &&
+        visibleApplications.length > 0 ? (
           <div className="protocol-card-list">
-            {applications.map((application) => (
-              <ProtocolProposalCard
-                key={application.app_id}
-                application={application}
-                daoPolicy={daoPolicy}
-                accountId={accountId}
-                nowMs={nowMs}
-                onOpenActions={() => setActionAppId(application.app_id)}
-              />
-            ))}
+            {visibleApplications.map((application) => {
+              const proposalId =
+                resolveLiveProposal(application)?.id ??
+                application.governance_proposal?.proposal_id ??
+                null;
+              const shareHref =
+                proposalId != null
+                  ? buildProtocolHref({ proposal: proposalId })
+                  : null;
+              return (
+                <ProtocolProposalCard
+                  key={application.app_id}
+                  application={application}
+                  daoPolicy={daoPolicy}
+                  accountId={accountId}
+                  nowMs={nowMs}
+                  focused={
+                    focusedProposalId != null &&
+                    proposalId === focusedProposalId
+                  }
+                  shareHref={shareHref}
+                  onOpenActions={() => {
+                    setActionAppId(application.app_id);
+                    if (proposalId != null) {
+                      router.replace(
+                        buildProtocolHref({ proposal: proposalId }),
+                        { scroll: false }
+                      );
+                    }
+                  }}
+                  onCopyLink={
+                    shareHref
+                      ? () => {
+                          void navigator.clipboard?.writeText(
+                            new URL(
+                              shareHref,
+                              window.location.origin
+                            ).toString()
+                          );
+                        }
+                      : undefined
+                  }
+                />
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -692,6 +915,7 @@ export function ProtocolPagePanel() {
         onOpenStake={() => {
           setCreateOpen(false);
           setSettingsOpen(false);
+          setInfoOpen(false);
           setStakeOpen(true);
         }}
       />
@@ -726,7 +950,28 @@ export function ProtocolPagePanel() {
         onOpenStake={() => {
           setSettingsOpen(false);
           setCreateOpen(false);
+          setInfoOpen(false);
           setStakeOpen(true);
+        }}
+      />
+
+      <ProtocolDaoInfoSheet
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        onOpenStake={() => {
+          setInfoOpen(false);
+          setCreateOpen(false);
+          setSettingsOpen(false);
+          setStakeOpen(true);
+        }}
+        onOpenSettings={() => {
+          setInfoOpen(false);
+          setCreateOpen(false);
+          setStakeOpen(false);
+          setSettingsOpen(true);
         }}
       />
     </OsAppScreen>

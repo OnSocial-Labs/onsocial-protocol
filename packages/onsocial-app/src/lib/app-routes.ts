@@ -89,7 +89,23 @@ export const PROTOCOL_DAO_BOARD_PARAM = 'dao';
 /** Query key for community / arbitrary Sputnik DAO account. */
 export const PROTOCOL_DAO_ACCOUNT_PARAM = 'account';
 
+/** Query key for a focused proposal id on Protocol. */
+export const PROTOCOL_PROPOSAL_PARAM = 'proposal';
+
+/** Query key for Protocol feed status filter. */
+export const PROTOCOL_STATUS_PARAM = 'status';
+
 export type ProtocolDaoBoard = 'governance' | 'treasury' | 'community';
+
+export type ProtocolFeedStatusFilter =
+  | 'open'
+  | 'approved'
+  | 'rejected'
+  | 'removed'
+  | 'expired'
+  | 'failed'
+  | 'moved'
+  | 'all';
 
 export function parseProtocolDaoBoard(
   raw: string | null | undefined
@@ -100,10 +116,43 @@ export function parseProtocolDaoBoard(
   return 'governance';
 }
 
-/** Protocol home, optionally deep-linked to a DAO board or community account. */
+export function parseProtocolFeedStatus(
+  raw: string | null | undefined
+): ProtocolFeedStatusFilter {
+  const value = raw?.trim().toLowerCase() ?? '';
+  switch (value) {
+    case 'approved':
+    case 'rejected':
+    case 'removed':
+    case 'expired':
+    case 'failed':
+    case 'moved':
+    case 'all':
+      return value;
+    case 'open':
+    case 'inprogress':
+    case 'in_progress':
+    case 'review':
+      return 'open';
+    default:
+      return 'open';
+  }
+}
+
+export function parseProtocolProposalId(
+  raw: string | null | undefined
+): number | null {
+  if (!raw?.trim()) return null;
+  const value = Number.parseInt(raw.trim(), 10);
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+/** Protocol home, optionally deep-linked to board, account, status, or proposal. */
 export function protocolPath(opts?: {
   board?: ProtocolDaoBoard | null;
   account?: string | null;
+  status?: ProtocolFeedStatusFilter | null;
+  proposal?: number | null;
 }): string {
   const board = opts?.board ?? 'governance';
   const account = opts?.account?.trim().toLowerCase() ?? '';
@@ -115,6 +164,13 @@ export function protocolPath(opts?: {
     if (account) {
       params.set(PROTOCOL_DAO_ACCOUNT_PARAM, account);
     }
+  }
+  const status = opts?.status ?? null;
+  if (status && status !== 'open') {
+    params.set(PROTOCOL_STATUS_PARAM, status);
+  }
+  if (opts?.proposal != null && Number.isInteger(opts.proposal)) {
+    params.set(PROTOCOL_PROPOSAL_PARAM, String(opts.proposal));
   }
   const query = params.toString();
   return query ? `${APP_PROTOCOL_PATH}?${query}` : APP_PROTOCOL_PATH;
