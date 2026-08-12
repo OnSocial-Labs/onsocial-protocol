@@ -10,7 +10,6 @@ import {
   type GuildViewerAccess,
 } from '@/features/guilds/guild-structure';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { fallbackLabel } from '@/lib/profile-display';
 
 export const COMPOSER_PERSONAL_TARGET = 'personal';
 
@@ -149,10 +148,6 @@ export function useComposerFeedTargets(args: {
     );
   }, [targetId, guildSpaces, spaceId]);
 
-  const personalLabel = accountId
-    ? `@${fallbackLabel(accountId)} · Public`
-    : 'Public';
-
   const destination =
     targetId !== COMPOSER_PERSONAL_TARGET
       ? {
@@ -170,7 +165,6 @@ export function useComposerFeedTargets(args: {
         }
       : {
           kind: 'personal' as const,
-          label: personalLabel,
         };
 
   return {

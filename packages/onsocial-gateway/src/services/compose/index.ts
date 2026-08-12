@@ -142,6 +142,7 @@ export {
   buildRemoveFromAllowlistAction,
   buildAddRedeemerAction,
   buildRemoveRedeemerAction,
+  buildSetRedeemersAction,
   buildSetCollectionMetadataAction,
   buildSetCollectionAppMetadataAction,
 } from './collection-manage.js';

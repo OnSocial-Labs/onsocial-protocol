@@ -306,6 +306,93 @@ fn add_redeemer_cap_fails() {
 }
 
 #[test]
+fn set_redeemers_replaces_roster() {
+    let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, Some(2));
+    testing_env!(context(creator()).build());
+
+    contract
+        .set_redeemers(&creator(), "col", vec![buyer(), owner()])
+        .unwrap();
+    assert!(contract.is_collection_redeemer("col".into(), buyer()));
+    assert!(contract.is_collection_redeemer("col".into(), owner()));
+
+    contract
+        .set_redeemers(&creator(), "col", vec![buyer()])
+        .unwrap();
+    assert!(contract.is_collection_redeemer("col".into(), buyer()));
+    assert!(
+        !contract
+            .collections
+            .get("col")
+            .unwrap()
+            .redeemers
+            .contains(&owner())
+    );
+
+    testing_env!(context(buyer()).build());
+    contract.redeem_token(&buyer(), &tid, "col").unwrap();
+}
+
+#[test]
+fn set_redeemers_empty_clears() {
+    let (mut contract, _tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
+    testing_env!(context(creator()).build());
+
+    contract
+        .set_redeemers(&creator(), "col", vec![buyer()])
+        .unwrap();
+    contract.set_redeemers(&creator(), "col", vec![]).unwrap();
+    assert!(
+        contract
+            .collections
+            .get("col")
+            .unwrap()
+            .redeemers
+            .is_empty()
+    );
+}
+
+#[test]
+fn set_redeemers_cap_fails() {
+    let (mut contract, _tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
+    testing_env!(context(creator()).build());
+
+    let mut accounts = Vec::new();
+    for i in 0..=MAX_COLLECTION_REDEEMERS {
+        accounts.push(format!("door{i}.near").parse().unwrap());
+    }
+    let err = contract
+        .set_redeemers(&creator(), "col", accounts)
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::InvalidInput(_)));
+}
+
+#[test]
+fn set_redeemers_non_creator_fails() {
+    let (mut contract, _tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
+    testing_env!(context(buyer()).build());
+
+    let err = contract
+        .set_redeemers(&buyer(), "col", vec![owner()])
+        .unwrap_err();
+    assert!(matches!(err, MarketplaceError::Unauthorized(_)));
+}
+
+#[test]
+fn set_redeemers_dedupes() {
+    let (mut contract, _tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
+    testing_env!(context(creator()).build());
+
+    contract
+        .set_redeemers(&creator(), "col", vec![buyer(), buyer()])
+        .unwrap();
+    assert_eq!(
+        contract.collections.get("col").unwrap().redeemers.len(),
+        1
+    );
+}
+
+#[test]
 fn redeemer_cannot_pause_collection() {
     let (mut contract, _tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
     testing_env!(context(creator()).build());

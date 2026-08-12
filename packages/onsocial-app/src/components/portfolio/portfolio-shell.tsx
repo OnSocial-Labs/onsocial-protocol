@@ -1,5 +1,8 @@
+'use client';
+
 import type { CSSProperties, ReactNode } from 'react';
 import { PortfolioHeroTop } from '@/components/portfolio/portfolio-hero-top';
+import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import type { PageAvatarMode, PublicPageConfig, ResolvedPageHero } from '@/lib/page-data';
 import { resolvePageFace } from '@/lib/page-face';
@@ -26,6 +29,7 @@ export function PortfolioShell({
   isPreviewingMood = false,
   children,
 }: PortfolioShellProps) {
+  const portalHostRef = useRegisterOsPortalHost<HTMLElement>();
   const { hero, isCoverLayout } = resolvePageFace({
     config,
     avatarMode,
@@ -41,6 +45,7 @@ export function PortfolioShell({
 
   return (
     <main
+      ref={portalHostRef}
       className="frame app-surface portfolio-frame"
       data-mood={mood.id}
       data-mood-preview={isPreviewingMood ? 'true' : undefined}

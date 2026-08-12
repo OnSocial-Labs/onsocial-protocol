@@ -87,6 +87,13 @@ impl Contract {
                 self.remove_redeemer(actor_id, &collection_id, &account_id)?;
                 Ok(Value::Null)
             }
+            Action::SetRedeemers {
+                collection_id,
+                account_ids,
+            } => {
+                self.set_redeemers(actor_id, &collection_id, account_ids)?;
+                Ok(Value::Null)
+            }
             Action::SetCollectionMetadata {
                 collection_id,
                 metadata,

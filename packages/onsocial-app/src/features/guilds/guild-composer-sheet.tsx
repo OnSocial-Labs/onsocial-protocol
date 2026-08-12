@@ -14,9 +14,13 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   ChartVerticalFillIcon,
   ChartVerticalIcon,
+  Divider,
+  GlassSheet,
   ImageFillIcon,
   ImageIcon,
+  MultiplyIcon,
   ProfileAvatar,
+  SheetHeader,
   StarsCFillIcon,
   StarsCIcon,
 } from '@onsocial/ui';
@@ -143,8 +147,8 @@ export type ComposerDestination =
     }
   | {
       kind: 'personal';
-      /** Whisper under the title, e.g. `@alice.near · Public`. */
-      label: string;
+      /** @deprecated Unused — identity + Post to menus cover this. */
+      label?: string;
     };
 /** @deprecated Prefer `ComposerDestination`. */
 export type GuildComposerDestination = ComposerDestination;
@@ -258,6 +262,7 @@ export function ComposerSheet({
   onSubmit,
 }: ComposerSheetProps) {
   const formId = useId();
+  const labelsTitleId = useId();
   const { accountId } = useAppWallet();
   const viewerShell = useViewerProfileShellContext();
   const { moodId: fetchedMoodId, style: fetchedMoodStyle } =
@@ -296,12 +301,14 @@ export function ComposerSheet({
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [contentWarning, setContentWarning] = useState('');
   const [nsfw, setNsfw] = useState(false);
+  const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const mediaStripRef = useRef<HTMLDivElement>(null);
+  const warningInputRef = useRef<HTMLInputElement>(null);
   const viewport = useVisualViewportSheetMetrics(open);
   const canUsePoll = mode === 'post' && !dropDraft;
   const canUseMedia = !pollEnabled && !dropDraft;
@@ -340,6 +347,7 @@ export function ComposerSheet({
       setMediaError(null);
       setContentWarning('');
       setNsfw(false);
+      setLabelsOpen(false);
       setDropPickerOpen(false);
     }
   }
@@ -363,6 +371,17 @@ export function ComposerSheet({
     el.style.height = `${el.scrollHeight}px`;
     el.style.overflowY = 'hidden';
   }, [text, pollEnabled, formKey, open]);
+
+  useEffect(() => {
+    if (!open || !labelsOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      const field = warningInputRef.current;
+      if (!field) return;
+      field.focus();
+      scrollMobileFieldIntoView(field);
+    }, 40);
+    return () => window.clearTimeout(focusTimer);
+  }, [open, labelsOpen, formKey]);
 
   useEffect(() => {
     return () => {
@@ -732,15 +751,27 @@ export function ComposerSheet({
                     onFocus={scrollFieldIntoView}
                   />
                   {pollOptions.length > MIN_POLL_OPTIONS ? (
-                    <button
-                      type="button"
-                      className="guild-composer-poll-remove"
-                      disabled={pending}
-                      aria-label={`Remove option ${index + 1}`}
-                      onClick={() => removePollOption(index)}
+                    <OsSheetActions
+                      layout="row-compact"
+                      tone="frosted-primary"
+                      borderless
+                      className="hub-publish-request-actions drop-track-list-remove-actions"
                     >
-                      ×
-                    </button>
+                      <OsSheetAction
+                        type="button"
+                        variant="dismiss"
+                        ready={!pending}
+                        disabled={pending}
+                        aria-label={`Remove option ${index + 1}`}
+                        className="hub-publish-request-dismiss"
+                        onClick={() => removePollOption(index)}
+                      >
+                        <MultiplyIcon
+                          className="hub-publish-request-dismiss-icon"
+                          aria-hidden
+                        />
+                      </OsSheetAction>
+                    </OsSheetActions>
                   ) : null}
                 </div>
               ))}
@@ -793,37 +824,37 @@ export function ComposerSheet({
         {mode === 'quote' && target ? (
           <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
         ) : null}
-        <div className="guild-composer-labels" aria-label="Content labels">
-          <input
-            className="guild-composer-warning-input"
-            value={contentWarning}
-            maxLength={80}
-            disabled={pending}
-            placeholder="Content warning (optional)"
-            aria-label="Content warning"
-            onChange={(event) => setContentWarning(event.target.value)}
-            onFocus={scrollFieldIntoView}
-          />
-          <button
-            type="button"
-            className={`guild-composer-poll-chip${nsfw ? ' is-active' : ''}`}
-            disabled={pending}
-            aria-pressed={nsfw}
-            onClick={() => setNsfw((current) => !current)}
+        {contentWarning.trim() || nsfw ? (
+          <div
+            className="guild-composer-label-chips"
+            role="group"
+            aria-label="Content labels"
           >
-            NSFW
-          </button>
-        </div>
+            {contentWarning.trim() ? (
+              <button
+                type="button"
+                className="guild-composer-label-chip"
+                disabled={pending}
+                onClick={() => setLabelsOpen(true)}
+              >
+                CW · {contentWarning.trim()}
+              </button>
+            ) : null}
+            {nsfw ? (
+              <button
+                type="button"
+                className="guild-composer-label-chip is-nsfw"
+                disabled={pending}
+                onClick={() => setLabelsOpen(true)}
+              >
+                NSFW
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
-
-  const slideSubtitle =
-    mode === 'post' && destination?.kind === 'personal'
-      ? destination.label
-      : mode === 'post' && destination?.kind === 'guild'
-        ? destination.name
-        : undefined;
 
   const modeToolbar =
     mode !== 'post' && onModeChange ? (
@@ -951,6 +982,29 @@ export function ComposerSheet({
                   <StarsCIcon className="guild-composer-tool-icon" />
                 )}
               </button>
+              <button
+                type="button"
+                className={`guild-composer-tool guild-composer-tool--cw${
+                  contentWarning.trim() || nsfw ? ' is-active' : ''
+                }`}
+                disabled={pending}
+                title={
+                  contentWarning.trim() || nsfw
+                    ? 'Edit content labels'
+                    : 'Add content warning'
+                }
+                aria-label={
+                  contentWarning.trim() || nsfw
+                    ? 'Edit content labels'
+                    : 'Add content warning'
+                }
+                aria-pressed={Boolean(contentWarning.trim() || nsfw)}
+                onClick={() => setLabelsOpen(true)}
+              >
+                <span className="guild-composer-tool-cw" aria-hidden>
+                  CW
+                </span>
+              </button>
             </div>
             <div className="guild-composer-toolbar-end">
               <span
@@ -1001,7 +1055,6 @@ export function ComposerSheet({
       open={open}
       onClose={onClose}
       title={TITLE[mode]}
-      subtitle={slideSubtitle}
       closeAriaLabel="Back"
       closeDisabled={pending}
       zIndex={COMPOSER_SHEET_Z}
@@ -1055,6 +1108,75 @@ export function ComposerSheet({
       onSelect={selectDrop}
       zIndex={COMPOSER_NEST_Z}
     />
+    <GlassSheet
+      open={labelsOpen && open}
+      onClose={() => setLabelsOpen(false)}
+      tone="os"
+      initialDetent="full"
+      peekRatio={1}
+      zIndex={COMPOSER_NEST_Z}
+      ariaLabelledBy={labelsTitleId}
+      backdropLabel="Close content labels"
+      panelClassName="scarce-choice-sheet-panel"
+      bodyClassName="scarce-choice-sheet-body guild-composer-labels-sheet-body"
+      panelStyle={viewerMoodStyle}
+      header={
+        <>
+          <SheetHeader
+            titleId={labelsTitleId}
+            title="Content labels"
+            onClose={() => setLabelsOpen(false)}
+            closeAriaLabel="Close"
+          />
+          <Divider variant="section" className="glass-sheet-header-divider" />
+        </>
+      }
+    >
+      <label className="guild-composer-labels-field">
+        <span className="guild-composer-labels-field-label">
+          Content warning
+        </span>
+        <input
+          ref={warningInputRef}
+          className="guild-composer-warning-input"
+          value={contentWarning}
+          maxLength={80}
+          disabled={pending}
+          placeholder="Warn people about…"
+          aria-label="Content warning"
+          onChange={(event) => setContentWarning(event.target.value)}
+          onFocus={scrollFieldIntoView}
+        />
+      </label>
+      <label className={`guild-composer-nsfw-switch${nsfw ? ' is-on' : ''}`}>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={nsfw}
+          disabled={pending}
+          aria-checked={nsfw}
+          onChange={(event) => setNsfw(event.target.checked)}
+        />
+        <span className="guild-composer-nsfw-switch-track" aria-hidden />
+        <span className="guild-composer-nsfw-switch-copy">
+          <span className="guild-composer-nsfw-switch-title">
+            Mark as NSFW
+          </span>
+          <span className="guild-composer-nsfw-switch-hint">
+            Blurs in Safe mode
+          </span>
+        </span>
+      </label>
+      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type="button"
+          variant="primary"
+          onClick={() => setLabelsOpen(false)}
+        >
+          Done
+        </OsSheetAction>
+      </OsSheetActions>
+    </GlassSheet>
     </>
   );
 }

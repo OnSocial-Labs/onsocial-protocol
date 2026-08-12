@@ -7,7 +7,7 @@ import { PulsingDots } from './pulsing-dots.js';
 
 export const osSheetActionClassName = 'os-sheet-action';
 
-export type OsSheetActionVariant = 'primary' | 'ghost' | 'danger';
+export type OsSheetActionVariant = 'primary' | 'ghost' | 'danger' | 'dismiss';
 
 export interface OsSheetActionProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
@@ -44,8 +44,8 @@ export function OsSheetAction({
   ...props
 }: OsSheetActionProps) {
   const isPrimary = variant === 'primary';
-  const usesPendingShell = isPrimary || variant === 'danger';
-  const isReady = ready ?? dirty ?? false;
+  const usesPendingShell =
+    isPrimary || variant === 'danger' || variant === 'dismiss';  const isReady = ready ?? dirty ?? false;
   const label = succeeded
     ? (succeededLabel ?? children)
     : failed
@@ -79,7 +79,7 @@ export function OsSheetAction({
       className={cn(
         osSheetActionClassName,
         `os-sheet-action--${variant}`,
-        (isPrimary || variant === 'danger') &&
+        (isPrimary || variant === 'danger' || variant === 'dismiss') &&
           isReady &&
           !succeeded &&
           !failed &&

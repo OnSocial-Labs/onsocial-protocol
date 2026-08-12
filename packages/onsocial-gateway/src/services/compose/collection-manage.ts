@@ -291,6 +291,32 @@ export function buildRemoveRedeemerAction(params: {
   };
 }
 
+/** Replace the door-staff redeemer roster (empty clears). */
+export function buildSetRedeemersAction(params: {
+  collectionId: string;
+  accountIds: string[];
+  targetAccount?: string;
+}): SimpleActionResult {
+  if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
+  if (!Array.isArray(params.accountIds)) {
+    throw new ComposeError(400, 'accountIds array is required');
+  }
+  if (params.accountIds.length > 20) {
+    throw new ComposeError(400, 'Maximum 20 redeemers per collection');
+  }
+  const accountIds = params.accountIds
+    .map((id) => String(id || '').trim())
+    .filter(Boolean);
+  return {
+    action: {
+      type: 'set_redeemers',
+      collection_id: params.collectionId,
+      account_ids: accountIds,
+    },
+    targetAccount: resolveScarcesTarget(params.targetAccount),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Metadata
 // ---------------------------------------------------------------------------

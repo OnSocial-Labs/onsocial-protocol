@@ -20,9 +20,11 @@ import {
   buildRemoveFromAllowlistAction,
   buildAddRedeemerAction,
   buildRemoveRedeemerAction,
+  buildSetRedeemersAction,
   buildSetCollectionMetadataAction,
   buildSetCollectionAppMetadataAction,
 } from '../../services/compose/collection-manage.js';
+import { ComposeError } from '../../services/compose/shared.js';
 
 export const collectionManageRouter = Router();
 
@@ -215,6 +217,22 @@ const removeRedeemer = actionHandlers(
   'remove-redeemer'
 );
 collectionManageRouter.post('/prepare/remove-redeemer', removeRedeemer.prepare);
+
+// ── Set Redeemers (door staff roster replace) ───────────────────────────────
+const setRedeemers = actionHandlers(
+  (b) => {
+    if (!Array.isArray(b.accountIds)) {
+      throw new ComposeError(400, 'accountIds array is required');
+    }
+    return buildSetRedeemersAction({
+      collectionId: String(b.collectionId || ''),
+      accountIds: b.accountIds.map((id) => String(id)),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    });
+  },
+  'set-redeemers'
+);
+collectionManageRouter.post('/prepare/set-redeemers', setRedeemers.prepare);
 
 // ── Set Collection Metadata ─────────────────────────────────────────────────
 const setMeta = actionHandlers(

@@ -113,6 +113,10 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     body: 'json',
   },
   { method: 'POST', path: 'compose/prepare/set-allowlist', body: 'json' },
+  // Scarces — door / redeem staff (add / remove / replace roster).
+  { method: 'POST', path: 'compose/prepare/add-redeemer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/remove-redeemer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/set-redeemers', body: 'json' },
   // Scarces — creator pause / resume / delete (empty only).
   { method: 'POST', path: 'compose/prepare/pause-collection', body: 'json' },
   { method: 'POST', path: 'compose/prepare/resume-collection', body: 'json' },

@@ -563,6 +563,17 @@ describe('ScarcesModule.collections — management helpers', () => {
     });
   });
 
+  it('setRedeemers', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.collections.setRedeemers('col1', ['door.near', 'staff.near']);
+    expect(prepareBodyFor(http.post, 'set-redeemers')).toEqual({
+      collectionId: 'col1',
+      accountIds: ['door.near', 'staff.near'],
+    });
+  });
+
   it('setMetadata', async () => {
     const http = makeHttp();
     const { getter } = makeSessionGetter();

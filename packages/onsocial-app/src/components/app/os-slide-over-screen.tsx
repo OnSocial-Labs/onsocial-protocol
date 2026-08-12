@@ -1,9 +1,12 @@
 'use client';
 
 /**
- * Full-screen side slide — same glass + blue-corner surface as `OsAppScreen`
- * (feed / create), with a back arrow instead of a sheet close ×.
+ * Full-screen side slide — same glass surface as `OsAppScreen` (feed / create),
+ * with a back arrow instead of a sheet close ×.
  * Reuse for nested manage flows that should feel like a pushed page.
+ *
+ * Portals into the registered `OsPortalHost` (OS / portfolio card with
+ * overflow clip) so the panel slides from that edge only.
  */
 
 import {
@@ -19,6 +22,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeftIcon, osIconActionClassName } from '@onsocial/ui';
+import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
@@ -58,7 +62,7 @@ export interface OsSlideOverScreenProps {
 }
 
 /**
- * Portaled slide-over page shell — feed chrome, blue corner, back to dismiss.
+ * Portaled slide-over page shell — feed chrome, viewer mood, back to dismiss.
  */
 export function OsSlideOverScreen({
   open,
@@ -91,6 +95,7 @@ export function OsSlideOverScreen({
     getClientMountedSnapshot,
     getServerMountedSnapshot
   );
+  const registeredHost = useOsPortalHost();
   const viewerMood = useViewerDockMood();
   const resolvedMoodId =
     moodId !== undefined ? moodId : viewerMood.moodId;
@@ -175,6 +180,12 @@ export function OsSlideOverScreen({
 
   if (!mounted || (!open && !closing)) return null;
 
+  const portalHost =
+    typeof document !== 'undefined'
+      ? (registeredHost ?? document.body)
+      : null;
+  if (!portalHost) return null;
+
   const rootStyle: CSSProperties = {
     ...resolvedMoodStyle,
     ...style,
@@ -247,6 +258,6 @@ export function OsSlideOverScreen({
         ) : null}
       </div>
     </div>,
-    document.body
+    portalHost
   );
 }

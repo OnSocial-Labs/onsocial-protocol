@@ -2,6 +2,7 @@
 
 import { useRef, type RefObject } from 'react';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
+import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { OverlayPanelChrome } from '@/components/overlay/overlay-panel-chrome';
 import {
@@ -20,9 +21,11 @@ function StandingPageScreen({
 }) {
   const { moodId, style } = useViewerDockMood();
   const hasMood = Boolean(moodId);
+  const portalHostRef = useRegisterOsPortalHost<HTMLDivElement>();
 
   return (
     <div
+      ref={portalHostRef}
       className={`os-app-screen standing-page-screen app-surface${
         hasMood ? ' os-app-screen--mood' : ''
       }`}

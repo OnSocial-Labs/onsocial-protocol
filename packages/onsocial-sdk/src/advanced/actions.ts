@@ -229,6 +229,7 @@ export type ScarcesAction =
   | { type: 'remove_from_allowlist'; collection_id: string; accounts: string[] }
   | { type: 'add_redeemer'; collection_id: string; account_id: string }
   | { type: 'remove_redeemer'; collection_id: string; account_id: string }
+  | { type: 'set_redeemers'; collection_id: string; account_ids: string[] }
   | {
       type: 'set_collection_metadata';
       collection_id: string;

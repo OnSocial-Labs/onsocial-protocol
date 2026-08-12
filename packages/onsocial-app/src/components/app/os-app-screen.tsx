@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
+import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
 export interface OsAppScreenProps {
@@ -83,6 +84,7 @@ export function OsAppScreen({
   const glassMode = glassChrome && !immersiveHeader;
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
+  const portalHostRef = useRegisterOsPortalHost<HTMLDivElement>();
   const [glassElevated, setGlassElevated] = useState(false);
   const hasFooter = footer != null;
   const viewerMood = useViewerDockMood();
@@ -140,6 +142,7 @@ export function OsAppScreen({
 
   return (
     <div
+      ref={portalHostRef}
       className={`os-app-screen app-surface${hasMood ? ' os-app-screen--mood' : ''}`}
       data-tone="os"
       data-immersive-header={immersiveHeader ? 'true' : undefined}

@@ -736,7 +736,9 @@
 .hub-publish-request-actions.os-sheet-actions--row-compact
   .os-sheet-action--primary,
 .hub-publish-request-actions.os-sheet-actions--row-compact
-  .os-sheet-action--danger {
+  .os-sheet-action--danger,
+.hub-publish-request-actions.os-sheet-actions--row-compact
+  .os-sheet-action--dismiss {
   flex: 0 0 auto;
   width: auto;
   min-width: 0;
@@ -3257,17 +3259,61 @@ a.os-surface-row {
   }
 
   /*
-   * Desktop profile frame — rounded card on OS gutters. Hairline only;
-   * no outside mood glow (mood stays inside the column).
+   * Desktop profile frame — same mood bg-tint glass edge as OS phone cards.
    */
   @media (min-width: 640px) {
     .portfolio-frame.app-surface[data-mood] {
-      border: none;
+      border: 1px solid
+        color-mix(
+          in srgb,
+          var(--mood-preset-bg, var(--mood-bg, var(--bg))) 26%,
+          rgb(var(--fg-rgb) / 0.06)
+        );
       border-radius: 1.25rem;
       overflow: hidden auto;
-      box-shadow: 0 0 0 1px rgb(var(--bg-rgb) / 0.62);
-      transition: box-shadow var(--mood-transition-duration, 450ms)
+      box-shadow: none;
+      transition: border-color var(--mood-transition-duration, 450ms)
         var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1));
+    }
+
+    :root[data-theme='light'] .portfolio-frame.app-surface[data-mood] {
+      border-color: color-mix(
+        in srgb,
+        var(
+            --mood-preset-bg-light,
+            var(--mood-preset-bg, var(--mood-bg, var(--bg)))
+          )
+          26%,
+        rgb(var(--fg-rgb) / 0.06)
+      );
+    }
+
+    /* OS screens — mood bg-tint edge (see unlayered twin). */
+    .os-app-screen.app-surface.os-app-screen--mood:not(.os-slide-over),
+    .os-app-screen.app-surface[data-mood]:not(.os-slide-over) {
+      border: 1px solid
+        color-mix(
+          in srgb,
+          var(--mood-preset-bg, var(--mood-bg, var(--bg))) 26%,
+          rgb(var(--fg-rgb) / 0.06)
+        );
+      border-radius: 1.25rem;
+      box-shadow: none;
+    }
+
+    :root[data-theme='light']
+      .os-app-screen.app-surface.os-app-screen--mood:not(.os-slide-over),
+    :root[data-theme='light']
+      .os-app-screen.app-surface[data-mood]:not(.os-slide-over) {
+      border-color: color-mix(
+        in srgb,
+        var(
+            --mood-preset-bg-light,
+            var(--mood-preset-bg, var(--mood-bg, var(--bg)))
+          )
+          26%,
+        rgb(var(--fg-rgb) / 0.06)
+      );
     }
 
     .portfolio-frame.app-surface .portfolio-page {
@@ -8521,6 +8567,21 @@ a.os-surface-row {
     pointer-events: none;
   }
 
+  /*
+   * Compose / manage slide-overs portal into the card; the portfolio dock is a
+   * sibling outside that host so it would stay on top — tuck it like scroll-hide.
+   */
+  body:has([data-os-slide-over='true']) .portfolio-summon-dock {
+    transform: translateX(-50%)
+      translateY(calc(100% + env(safe-area-inset-bottom)));
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  body:has([data-os-slide-over='true']) .portfolio-summon-dock .portfolio-summon {
+    pointer-events: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .portfolio-summon-dock {
       transition: none;
@@ -12399,6 +12460,32 @@ a.os-surface-row {
     border-radius: 0.85rem;
     background: rgb(var(--fg-rgb) / 0.04);
     box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+  }
+
+  /*
+   * Support / Amplify / Boost / scarce amounts — same as poll options:
+   * transparent fill, cooler border + inset lip; hover/focus strengthen
+   * border only (no wash).
+   */
+  .app-storage-amount-field.profile-support-amount-field {
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    background: transparent;
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .app-storage-amount-field.profile-support-amount-field:hover:not(
+    :focus-within
+  ) {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
+  }
+
+  .app-storage-amount-field.profile-support-amount-field:focus-within {
+    border-color: rgb(var(--fg-rgb) / 0.2);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
   }
 
   .app-storage-amount-input {
@@ -21200,14 +21287,17 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
+  /* Same language as poll options / Support amount — border + lip, no wash. */
   .ticket-door-staff-row {
     display: flex;
     align-items: center;
     gap: 0.7rem;
     min-width: 0;
     padding: 0.45rem 0.55rem;
-    border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.04);
+    border-radius: 0.85rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    background: transparent;
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
   }
 
   .ticket-door-staff-copy {
@@ -21237,29 +21327,8 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
-  .ticket-door-staff-remove {
+  .ticket-door-staff .hub-publish-request-actions {
     flex-shrink: 0;
-    border: 0;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.55);
-    width: 2rem;
-    height: 2rem;
-    border-radius: 999px;
-    display: grid;
-    place-items: center;
-    cursor: pointer;
-  }
-
-  .ticket-door-staff-remove:hover,
-  .ticket-door-staff-remove:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.92);
-    background: rgb(var(--fg-rgb) / 0.06);
-    outline: none;
-  }
-
-  .ticket-door-staff-remove:disabled {
-    opacity: 0.4;
-    cursor: default;
   }
 
   .collection-writing-chapter-title {
@@ -22540,8 +22609,9 @@ a.os-surface-row {
   }
 
   /*
-   * Full-screen side slide — same .os-app-screen glass + blue corner as feed.
-   * Portaled above the host screen; slides in from the right.
+   * Side slide — same .os-app-screen glass as feed. Portals into the
+   * registered OsPortalHost (`.app-surface` card). Absolute fill when nested
+   * so translateX(100%) is clipped to the phone edge; body fallback stays fixed.
    */
   .os-slide-over {
     position: fixed;
@@ -22555,6 +22625,16 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
+  .app-surface > .os-slide-over {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    border-radius: inherit;
+  }
+
   .os-slide-over.is-open {
     transform: translate3d(0, 0, 0);
   }
@@ -22566,15 +22646,13 @@ a.os-surface-row {
   /*
    * Slide-overs never use the shared blue-corner trial on .os-app-screen —
    * that rule is for page shells. Kill it here (both themes) so mood wash
-   * or a quiet base can show. Also clear .app-surface desktop card chrome
-   * (border / radius) so gutters stay flat OS --bg with no corner glow bleed.
+   * or a quiet base can show. Clear .app-surface hairline — host owns chrome.
    */
   .os-app-screen.os-slide-over,
   html[data-theme='light'] .os-app-screen.os-slide-over {
     background-image: none;
     background-color: var(--bg, #000);
     border: none;
-    border-radius: 0;
     box-shadow: none;
   }
 
@@ -22583,9 +22661,8 @@ a.os-surface-row {
   }
 
   /*
-   * Mood screens (home, create-post slide-over, …) — wash only inside the
-   * phone view. Same light/dark preset mix as `.portfolio-frame`.
-   * Desktop gutters stay OS --bg; no frost / corner paint / outside glow.
+   * Mood screens (home, create-post slide-over, …) — wash the phone view.
+   * Same light/dark preset mix as `.portfolio-frame`.
    */
   .os-app-screen.os-app-screen--mood {
     --mood-bg-preset-mix: 25%;
@@ -22632,20 +22709,45 @@ a.os-surface-row {
     display: none;
   }
 
-  /* Slide-over: full-viewport root = OS gutters; mood only in column. */
-  .os-app-screen.os-slide-over.os-app-screen--mood {
-    background-color: var(--bg);
+  /* Slide-over panel = OS card on desktop — mood washes the whole layer.
+   * Must beat `html[data-theme=light] .os-slide-over { background: var(--bg) }`
+   * or light theme stays flat white while portfolio shows the real tint. */
+  .os-app-screen.os-slide-over.os-app-screen--mood,
+  html[data-theme='light'] .os-app-screen.os-slide-over.os-app-screen--mood,
+  :root[data-theme='light'] .os-app-screen.os-slide-over.os-app-screen--mood {
+    background-color: var(--mood-bg);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme])
+      .os-app-screen.os-slide-over.os-app-screen--mood {
+      background-color: var(--mood-bg);
+    }
   }
 
   .os-app-screen.os-slide-over.os-app-screen--mood .os-app-screen-column {
-    background: var(--mood-bg);
+    background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
 
-  /* Home / in-shell: the .app-surface card IS the phone view. */
-  .os-app-screen.os-app-screen--mood:not(.os-slide-over) {
+  /* Home / in-shell: the .app-surface card IS the phone view.
+   * Beat `html[data-theme=light] .os-app-screen` (#fff + blue-corner radial)
+   * so home mood wash matches portfolio / slide-over strength. */
+  .os-app-screen.os-app-screen--mood:not(.os-slide-over),
+  html[data-theme='light'] .os-app-screen.os-app-screen--mood:not(.os-slide-over),
+  :root[data-theme='light']
+    .os-app-screen.os-app-screen--mood:not(.os-slide-over) {
     background-color: var(--mood-bg);
+    background-image: none;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme])
+      .os-app-screen.os-app-screen--mood:not(.os-slide-over) {
+      background-color: var(--mood-bg);
+      background-image: none;
+    }
   }
 
   .os-app-screen.os-app-screen--mood:not(.os-slide-over) .os-app-screen-column {
@@ -22655,10 +22757,10 @@ a.os-surface-row {
   }
 
   @media (prefers-reduced-transparency: reduce) {
-    .os-app-screen.os-slide-over.os-app-screen--mood .os-app-screen-column {
-      background: var(--mood-bg);
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
+    .os-app-screen.os-slide-over.os-app-screen--mood,
+    html[data-theme='light'] .os-app-screen.os-slide-over.os-app-screen--mood,
+    :root[data-theme='light'] .os-app-screen.os-slide-over.os-app-screen--mood {
+      background-color: var(--mood-bg);
     }
   }
 
@@ -28341,6 +28443,13 @@ a.os-surface-row {
     height: 1.2rem;
   }
 
+  .guild-composer-tool-cw {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+
   .guild-composer-toolbar-end {
     display: inline-flex;
     flex: 0 0 auto;
@@ -28661,66 +28770,59 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .guild-composer-poll-input {
-    flex: 1;
-    min-width: 0;
+  /*
+   * Poll / CW option fields — transparent fill, cooler border chrome
+   * (soft edge + inset lip). Hover/focus strengthen border only — no wash.
+   */
+  .guild-composer-poll-input,
+  .guild-composer-warning-input {
     margin: 0;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.035);
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 0.85rem;
+    background: transparent;
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
     color: inherit;
     font: inherit;
-    font-size: 0.86rem;
+    font-size: 0.9rem;
     line-height: 1.35;
-    padding: 0.55rem 0.75rem;
+    padding: 0.65rem 0.75rem;
     outline: none;
     transition:
       border-color 160ms ease,
-      background 160ms ease;
+      box-shadow 160ms ease;
   }
 
-  .guild-composer-poll-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.36);
+  .guild-composer-poll-input {
+    flex: 1;
+    min-width: 0;
   }
 
-  .guild-composer-poll-input:focus {
-    border-color: rgb(var(--fg-rgb) / 0.22);
-    background: rgb(var(--fg-rgb) / 0.05);
+  .guild-composer-warning-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
-  .guild-composer-poll-input:disabled {
+  .guild-composer-poll-input::placeholder,
+  .guild-composer-warning-input::placeholder {
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .guild-composer-poll-input:hover:not(:disabled):not(:focus),
+  .guild-composer-warning-input:hover:not(:disabled):not(:focus) {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
+  }
+
+  .guild-composer-poll-input:focus,
+  .guild-composer-warning-input:focus {
+    border-color: rgb(var(--fg-rgb) / 0.2);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
+  }
+
+  .guild-composer-poll-input:disabled,
+  .guild-composer-warning-input:disabled {
     opacity: 0.55;
-  }
-
-  .guild-composer-poll-remove {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 1.85rem;
-    height: 1.85rem;
-    margin: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.42);
-    cursor: pointer;
-    font: inherit;
-    font-size: 1.15rem;
-    line-height: 1;
-    padding: 0;
-  }
-
-  .guild-composer-poll-remove:hover:not(:disabled),
-  .guild-composer-poll-remove:focus-visible:not(:disabled) {
-    color: rgb(var(--fg-rgb) / 0.78);
-    background: rgb(var(--fg-rgb) / 0.06);
-    outline: none;
-  }
-
-  .guild-composer-poll-remove:disabled {
-    cursor: default;
-    opacity: 0.4;
   }
 
   .guild-composer-sheet-header.is-compact .standing-sheet-subject-row {
@@ -28906,39 +29008,155 @@ a.os-surface-row {
     opacity: 0.45;
   }
 
-  .guild-composer-labels {
+  .guild-composer-labels-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .guild-composer-labels-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .guild-composer-labels-field-label {
+    font-size: 0.76rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.74);
+  }
+
+  .guild-composer-nsfw-switch {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
-    margin-top: 0.35rem;
-    min-width: 0;
-  }
-
-  .guild-composer-warning-input {
-    flex: 1;
-    min-width: 0;
+    gap: 0.7rem;
     margin: 0;
-    padding: 0.4rem 0.55rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.5rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: inherit;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .guild-composer-nsfw-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .guild-composer-nsfw-switch-track {
+    position: relative;
+    flex-shrink: 0;
+    width: 2.4rem;
+    height: 1.35rem;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.14);
+    transition: background 160ms ease;
+  }
+
+  .guild-composer-nsfw-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 0.15rem;
+    left: 0.15rem;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 9999px;
+    background: rgb(var(--bg-rgb) / 0.95);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+    transition: transform 160ms ease;
+  }
+
+  .guild-composer-nsfw-switch.is-on .guild-composer-nsfw-switch-track,
+  .guild-composer-nsfw-switch:has(input:checked) .guild-composer-nsfw-switch-track {
+    background: color-mix(in srgb, var(--protocol-green, #34d399) 72%, transparent);
+  }
+
+  .guild-composer-nsfw-switch.is-on .guild-composer-nsfw-switch-track::after,
+  .guild-composer-nsfw-switch:has(input:checked)
+    .guild-composer-nsfw-switch-track::after {
+    transform: translateX(1.05rem);
+  }
+
+  .guild-composer-nsfw-switch:has(input:focus-visible)
+    .guild-composer-nsfw-switch-track {
+    outline: 2px solid rgb(var(--fg-rgb) / 0.35);
+    outline-offset: 2px;
+  }
+
+  .guild-composer-nsfw-switch:has(input:disabled) {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  .guild-composer-nsfw-switch-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.05rem;
+  }
+
+  .guild-composer-nsfw-switch-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .guild-composer-nsfw-switch-hint {
+    font-size: 0.72rem;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .guild-composer-label-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+  }
+
+  .guild-composer-label-chip {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    margin: 0;
+    padding: 0.28rem 0.55rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 0.55rem;
+    background: rgb(var(--fg-rgb) / 0.05);
+    color: rgb(var(--fg-rgb) / 0.78);
     font: inherit;
-    font-size: 0.82rem;
-    line-height: 1.35;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
   }
 
-  .guild-composer-warning-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.42);
+  .guild-composer-label-chip.is-nsfw {
+    border-color: color-mix(
+      in srgb,
+      var(--protocol-green, #34d399) 35%,
+      transparent
+    );
+    background: color-mix(
+      in srgb,
+      var(--protocol-green, #34d399) 14%,
+      transparent
+    );
   }
 
-  .guild-composer-warning-input:focus {
-    outline: none;
+  .guild-composer-label-chip:hover:not(:disabled),
+  .guild-composer-label-chip:focus-visible:not(:disabled) {
     border-color: rgb(var(--fg-rgb) / 0.22);
-    background: rgb(var(--fg-rgb) / 0.06);
+    background: rgb(var(--fg-rgb) / 0.08);
   }
 
-  .guild-composer-warning-input:disabled {
+  .guild-composer-label-chip:disabled {
+    cursor: default;
     opacity: 0.55;
   }
 
@@ -30512,6 +30730,75 @@ a.os-surface-row {
   .profile-support-error {
     color: var(--signal-error, #ef4444);
   }
+}
+
+/*
+ * Phone cards (OS + mood portfolio) — unlayered so they beat `@layer`
+ * `.app-surface` hairline. Shared mood *bg* tint edge.
+ */
+@media (min-width: 640px) {
+  .os-app-screen.app-surface:not(.os-slide-over),
+  .portfolio-frame.app-surface[data-mood] {
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(--mood-preset-bg, var(--mood-bg, var(--bg))) 26%,
+        rgb(var(--fg-rgb) / 0.06)
+      );
+    border-radius: 1.25rem;
+    box-shadow: none;
+  }
+
+  :root[data-theme='light'] .os-app-screen.app-surface:not(.os-slide-over),
+  :root[data-theme='light'] .portfolio-frame.app-surface[data-mood] {
+    border-color: color-mix(
+      in srgb,
+      var(
+          --mood-preset-bg-light,
+          var(--mood-preset-bg, var(--mood-bg, var(--bg)))
+        )
+        26%,
+      rgb(var(--fg-rgb) / 0.06)
+    );
+  }
+}
+
+@media (min-width: 640px) and (prefers-color-scheme: light) {
+  :root:not([data-theme]) .os-app-screen.app-surface:not(.os-slide-over),
+  :root:not([data-theme]) .portfolio-frame.app-surface[data-mood] {
+    border-color: color-mix(
+      in srgb,
+      var(
+          --mood-preset-bg-light,
+          var(--mood-preset-bg, var(--mood-bg, var(--bg)))
+        )
+        26%,
+      rgb(var(--fg-rgb) / 0.06)
+    );
+  }
+}
+
+/*
+ * Support / Amplify / Boost / scarce amount wells — unlayered twin of poll
+ * fields (transparent fill, border + lip; no wash). Beats stale @layer cache.
+ */
+.app-storage-amount-field.profile-support-amount-field {
+  border: 1px solid rgb(var(--fg-rgb) / 0.12);
+  background: transparent;
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.app-storage-amount-field.profile-support-amount-field:hover:not(:focus-within) {
+  border-color: rgb(var(--fg-rgb) / 0.16);
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
+}
+
+.app-storage-amount-field.profile-support-amount-field:focus-within {
+  border-color: rgb(var(--fg-rgb) / 0.2);
+  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
 }
 
 /*

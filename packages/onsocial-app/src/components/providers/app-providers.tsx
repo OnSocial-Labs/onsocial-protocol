@@ -10,6 +10,7 @@ import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-play
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
 import { AppWalletProvider } from '@/contexts/app-wallet-context';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
+import { OsPortalHostProvider } from '@/contexts/os-portal-host-context';
 import { PortfolioCustomizeProvider } from '@/contexts/portfolio-customize-context';
 import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-context';
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
@@ -27,12 +28,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                 <AppRewardsProvider>
                   <PortfolioCustomizeProvider>
                     <ComposeLauncherProvider>
-                      <CollectiblesNowPlayingProvider>
-                        {children}
-                        <ViewerMuteBlockHost />
-                        <DropComposeHost />
-                        <AppAccountSheetHost />
-                      </CollectiblesNowPlayingProvider>
+                      <OsPortalHostProvider>
+                        <CollectiblesNowPlayingProvider>
+                          {children}
+                          <ViewerMuteBlockHost />
+                          <DropComposeHost />
+                          <AppAccountSheetHost />
+                        </CollectiblesNowPlayingProvider>
+                      </OsPortalHostProvider>
                     </ComposeLauncherProvider>
                   </PortfolioCustomizeProvider>
                 </AppRewardsProvider>

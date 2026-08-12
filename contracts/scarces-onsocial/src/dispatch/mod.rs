@@ -41,6 +41,7 @@ impl Contract {
             | Action::RemoveFromAllowlist { .. }
             | Action::AddRedeemer { .. }
             | Action::RemoveRedeemer { .. }
+            | Action::SetRedeemers { .. }
             | Action::SetCollectionMetadata { .. }
             | Action::SetCollectionAppMetadata { .. }
             | Action::WithdrawUnclaimedRefunds { .. } => {

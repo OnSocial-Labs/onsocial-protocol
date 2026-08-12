@@ -31,6 +31,7 @@ const ALL_ACTION_TYPES: &[&str] = &[
     "remove_from_allowlist",
     "add_redeemer",
     "remove_redeemer",
+    "set_redeemers",
     "set_collection_metadata",
     "set_collection_app_metadata",
     "withdraw_unclaimed_refunds",

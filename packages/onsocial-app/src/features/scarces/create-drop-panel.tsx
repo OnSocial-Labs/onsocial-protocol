@@ -1706,7 +1706,12 @@ export function CreateDropPanel() {
               : {}),
             ...(appId ? { appId } : {}),
           },
-          { depositYocto: nearToYocto(CREATE_STORAGE_BUFFER_NEAR) }
+          {
+            depositYocto: nearToYocto(CREATE_STORAGE_BUFFER_NEAR),
+            ...(draftAllowlist.length > 0
+              ? { allowlist: draftAllowlist }
+              : {}),
+          }
         );
         const confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
@@ -1717,44 +1722,6 @@ export function CreateDropPanel() {
         if (!confirmed) {
           setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
           return;
-        }
-
-        if (draftAllowlist.length > 0) {
-          setPendingLabel('Saving allowlist…');
-          try {
-            const allowlistResponse =
-              await client.scarces.collections.setAllowlist(
-                collectionId,
-                draftAllowlist
-              );
-            const allowlistConfirmed = await trackTransaction({
-              txHashes: collectRelayTxHashes(allowlistResponse),
-              submittedMessage: txToastConfirming.updatingAllowlist,
-              successMessage: txToastSuccess.allowlistUpdated,
-              failureMessage: txToastError.updateAllowlistFailed,
-            });
-            if (!allowlistConfirmed) {
-              setTxResult({
-                type: 'error',
-                msg: 'Drop created — finish the allowlist on the drop page.',
-              });
-            }
-          } catch (allowlistCause) {
-            if (!isWalletUserCancellation(allowlistCause)) {
-              setTxResult({
-                type: 'error',
-                msg:
-                  allowlistCause instanceof Error
-                    ? allowlistCause.message
-                    : 'Drop created — finish the allowlist on the drop page.',
-              });
-            } else {
-              setTxResult({
-                type: 'error',
-                msg: 'Drop created — finish the allowlist on the drop page.',
-              });
-            }
-          }
         }
 
         clearDropPinDraft();
@@ -1831,7 +1798,6 @@ export function CreateDropPanel() {
     appId,
     trackTransaction,
     draftAllowlist,
-    setTxResult,
     router,
   ]);
 
