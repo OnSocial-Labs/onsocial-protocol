@@ -180,6 +180,26 @@ jobs:
             set -euo pipefail
             cd /opt/onsocial
 
+            # ── Disk preflight (postgres dies with ENOSPC when full) ──
+            echo "Disk before cleanup:"
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+            docker system df </dev/null || true
+            # Safe only: unused images + build cache. Never prune volumes.
+            docker image prune -af </dev/null || true
+            docker builder prune -af </dev/null || true
+            journalctl --vacuum-size=200M </dev/null 2>/dev/null || true
+            # Truncate runaway container json logs (common ENOSPC cause).
+            find /var/lib/docker/containers -name '*-json.log' -size +200M \
+              -exec truncate -s 0 {} \; 2>/dev/null || true
+            echo "Disk after cleanup:"
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+            root_use="$(df -P / | awk 'NR==2 {gsub(/%/,""); print $5}')"
+            if [ "${root_use:-0}" -ge 95 ]; then
+              echo "❌ root filesystem still ${root_use}% full after cleanup — aborting"
+              docker system df -v </dev/null || true
+              exit 1
+            fi
+
             if [ ! -f .env.production ]; then
               echo "❌ Missing /opt/onsocial/.env.production"
               exit 1
