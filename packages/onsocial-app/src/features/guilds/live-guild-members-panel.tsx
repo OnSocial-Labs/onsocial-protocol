@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { GuildGroupStorageSheet } from '@/features/guilds/guild-group-storage-sheet';
+import {
+  canViewerManageGuildMembers,
+} from '@/features/guilds/guild-member-row-actions';
 import { GuildMembersRoster } from '@/features/guilds/guild-members-roster';
 import { guildPath } from '@/features/guilds/guilds-data';
 import { useGuildMembersData } from '@/features/guilds/use-guild-members-data';
@@ -35,6 +39,11 @@ export function LiveGuildMembersPanel({
     ownerId: initial?.ownerId ?? null,
   });
   const manageContext = useGuildMembersManageContext(groupId, memberDriven);
+  const [groupStorageSheetOpen, setGroupStorageSheetOpen] = useState(false);
+  const [groupStorageRecipient, setGroupStorageRecipient] = useState<
+    string | null
+  >(null);
+  const canManageStorage = canViewerManageGuildMembers(manageContext);
 
   useEffect(() => {
     void bootstrap(initial?.members ?? [], initial?.banned ?? []);
@@ -72,6 +81,14 @@ export function LiveGuildMembersPanel({
             reload();
           }
         }}
+        onAddStorage={
+          canManageStorage
+            ? (memberId) => {
+                setGroupStorageRecipient(memberId);
+                setGroupStorageSheetOpen(true);
+              }
+            : undefined
+        }
         pendingRolesByMemberId={pendingRolesByMemberId}
         loadError={loadError}
         showListSkeleton={showListSkeleton}
@@ -79,6 +96,17 @@ export function LiveGuildMembersPanel({
         countsLoading={countsLoading}
         onRetry={reload}
       />
+      {canManageStorage ? (
+        <GuildGroupStorageSheet
+          open={groupStorageSheetOpen}
+          groupId={groupId}
+          initialRecipient={groupStorageRecipient}
+          onClose={() => {
+            setGroupStorageSheetOpen(false);
+            setGroupStorageRecipient(null);
+          }}
+        />
+      ) : null}
     </OsAppScreen>
   );
 }

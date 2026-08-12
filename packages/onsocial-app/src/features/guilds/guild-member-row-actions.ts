@@ -5,6 +5,7 @@ import {
 } from '@/features/guilds/guild-member-filter';
 
 export type GuildMemberRowActionId =
+  | 'add-storage'
   | 'make-mod'
   | 'demote-to-mod'
   | 'remove-mod'
@@ -194,6 +195,7 @@ export function guildMemberRowActions(
   if (bucket === 'admin' && !context.viewerIsOwner) return [];
 
   return [
+    { id: 'add-storage', label: 'Add storage' },
     ...roleActionsForBucket(bucket, context),
     { id: 'copy-handle', label: 'Copy @handle' },
   ];

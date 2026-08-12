@@ -23,6 +23,7 @@ interface GuildMembersSheetProps {
   manageContext: GuildMembersManageContext;
   onClose: () => void;
   onMembersChanged?: () => void;
+  onAddStorage?: (memberId: string) => void;
 }
 
 export function GuildMembersSheet({
@@ -32,6 +33,7 @@ export function GuildMembersSheet({
   manageContext,
   onClose,
   onMembersChanged,
+  onAddStorage,
 }: GuildMembersSheetProps) {
   const {
     members,
@@ -147,6 +149,7 @@ export function GuildMembersSheet({
         profiles={profiles}
         manageContext={manageContext}
         onMembersChanged={handleMembersChanged}
+        onAddStorage={onAddStorage}
         pendingRolesByMemberId={pendingRolesByMemberId}
         loadError={loadError}
         showListSkeleton={showListSkeleton}

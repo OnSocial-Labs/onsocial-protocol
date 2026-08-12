@@ -32,6 +32,7 @@ interface GuildMembersRosterProps {
     actionId: GuildMemberRowActionId;
     propose: boolean;
   }) => void;
+  onAddStorage?: (memberId: string) => void;
   loadError?: string | null;
   showListSkeleton?: boolean;
   isListRefreshing?: boolean;
@@ -52,6 +53,7 @@ export function GuildMembersRoster({
   pendingRolesByMemberId,
   manageContext,
   onMembersChanged,
+  onAddStorage,
   loadError,
   showListSkeleton = false,
   isListRefreshing = false,
@@ -199,6 +201,7 @@ export function GuildMembersRoster({
             manageContext={manageContext}
             listMode={listMode}
             onMembersChanged={onMembersChanged}
+            onAddStorage={onAddStorage}
           />
         ) : null}
       </div>

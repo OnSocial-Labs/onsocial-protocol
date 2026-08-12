@@ -114,7 +114,12 @@ export type {
   ProtocolTotals,
   TokenStats,
 } from './stats.js';
-export type { StorageEventRow } from './storage.js';
+export type {
+  GroupSponsorDefaultEventRow,
+  GroupSponsorQuotaEventRow,
+  GroupSponsorSpendEventRow,
+  StorageEventRow,
+} from './storage.js';
 export type { PermissionEventRow } from './permissions.js';
 export { PERMISSION_OPERATIONS } from './permissions.js';
 export type { GovernanceEventRow } from './governance.js';

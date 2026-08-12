@@ -50,6 +50,7 @@ describe('guild member row actions', () => {
       ownerViewer
     );
     expect(actions.map((action) => action.id)).toEqual([
+      'add-storage',
       'transfer-ownership',
       'make-mod',
       'make-admin',
@@ -65,6 +66,7 @@ describe('guild member row actions', () => {
       ownerViewer
     );
     expect(actions.map((action) => action.id)).toEqual([
+      'add-storage',
       'transfer-ownership',
       'demote-to-mod',
       'remove-admin',
@@ -91,6 +93,18 @@ describe('guild member row actions', () => {
     expect(actions.map((action) => action.id)).toContain('demote-to-mod');
   });
 
+  it('prefixes proposal labels in member-driven guilds', () => {
+    const actions = guildMemberRowActions(
+      member({ memberId: 'writer.testnet' }),
+      { ...ownerViewer, memberDriven: true }
+    );
+    expect(actions[0]?.id).toBe('add-storage');
+    expect(
+      actions.find((action) => action.id === 'transfer-ownership')?.label
+    ).toBe('Propose: Transfer ownership');
+    expect(canViewerManageGuildMembers(ownerViewer)).toBe(true);
+  });
+
   it('limits admin management to the owner', () => {
     const adminViewer = {
       viewerAccountId: 'admin.testnet',
@@ -109,16 +123,14 @@ describe('guild member row actions', () => {
         member({ memberId: 'mod.testnet', canModerate: true }),
         adminViewer
       ).map((action) => action.id)
-    ).toContain('remove-mod');
-  });
-
-  it('prefixes proposal labels in member-driven guilds', () => {
-    const actions = guildMemberRowActions(
-      member({ memberId: 'writer.testnet' }),
-      { ...ownerViewer, memberDriven: true }
-    );
-    expect(actions[0]?.label).toBe('Propose: Transfer ownership');
-    expect(canViewerManageGuildMembers(ownerViewer)).toBe(true);
+    ).toEqual([
+      'add-storage',
+      'remove-mod',
+      'make-member',
+      'remove-from-guild',
+      'ban-from-guild',
+      'copy-handle',
+    ]);
   });
 
   it('builds confirm copy for direct and proposal actions', () => {

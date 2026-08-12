@@ -95,4 +95,62 @@ impl Contract {
             }
         })
     }
+
+    /// Live group-sponsor quota for `(group_id, target_id)`.
+    ///
+    /// Returns `null` when no quota row exists. Applies lazy default sync and
+    /// refill on a clone only (view is read-only).
+    pub fn get_group_sponsor_quota(&self, group_id: String, target_id: AccountId) -> Option<Value> {
+        let quota_key = SocialPlatform::group_sponsor_quota_key(&target_id, &group_id);
+        let mut quota = self
+            .platform
+            .group_sponsor_quotas
+            .get(&quota_key)
+            .cloned()?;
+
+        if !quota.is_override {
+            if let Some(default_policy) = self.platform.group_sponsor_defaults.get(&group_id) {
+                if quota.applied_default_version != default_policy.version {
+                    quota.enabled = default_policy.enabled;
+                    quota.daily_refill_bytes = default_policy.daily_refill_bytes;
+                    quota.allowance_max_bytes = default_policy.allowance_max_bytes;
+                    quota.applied_default_version = default_policy.version;
+                }
+            }
+        }
+
+        let now = near_sdk::env::block_timestamp();
+        quota.refill(now);
+
+        let used_bytes = quota
+            .allowance_max_bytes
+            .saturating_sub(quota.allowance_bytes.min(quota.allowance_max_bytes));
+
+        Some(serde_json::json!({
+            "group_id": group_id,
+            "target_id": target_id.to_string(),
+            "is_override": quota.is_override,
+            "enabled": quota.enabled,
+            "daily_refill_bytes": quota.daily_refill_bytes,
+            "allowance_max_bytes": quota.allowance_max_bytes,
+            "allowance_bytes": quota.allowance_bytes,
+            "used_bytes": used_bytes,
+            "applied_default_version": quota.applied_default_version,
+            "last_refill_ns": quota.last_refill_ns
+        }))
+    }
+
+    /// Live group-sponsor default policy for `group_id`.
+    ///
+    /// Returns `null` when no default has been set.
+    pub fn get_group_sponsor_default(&self, group_id: String) -> Option<Value> {
+        let default_policy = self.platform.group_sponsor_defaults.get(&group_id)?;
+        Some(serde_json::json!({
+            "group_id": group_id,
+            "enabled": default_policy.enabled,
+            "daily_refill_bytes": default_policy.daily_refill_bytes,
+            "allowance_max_bytes": default_policy.allowance_max_bytes,
+            "version": default_policy.version
+        }))
+    }
 }

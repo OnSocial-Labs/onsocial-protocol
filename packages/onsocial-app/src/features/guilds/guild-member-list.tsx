@@ -32,6 +32,7 @@ interface GuildMemberListProps {
     actionId: GuildMemberRowActionId;
     propose: boolean;
   }) => void;
+  onAddStorage?: (memberId: string) => void;
 }
 
 export function GuildMemberList({
@@ -42,6 +43,7 @@ export function GuildMemberList({
   manageContext,
   listMode = 'members',
   onMembersChanged,
+  onAddStorage,
 }: GuildMemberListProps) {
   const showManageMenu = Boolean(manageContext?.viewerAccountId);
 
@@ -120,6 +122,7 @@ export function GuildMemberList({
                     memberLabel={name}
                     listMode={listMode}
                     onActionComplete={onMembersChanged}
+                    onAddStorage={onAddStorage}
                   />
                 ) : null}
               </div>

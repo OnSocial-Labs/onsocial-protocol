@@ -15,6 +15,7 @@ interface GuildSettingsSheetProps {
   onClose: () => void;
   onEditGuild: () => void;
   onOpenRooms: () => void;
+  onOpenGroupStorage: () => void;
 }
 
 /**
@@ -27,6 +28,7 @@ export function GuildSettingsSheet({
   onClose,
   onEditGuild,
   onOpenRooms,
+  onOpenGroupStorage,
 }: GuildSettingsSheetProps) {
   const titleId = useId();
   const [closing, setClosing] = useState(false);
@@ -120,17 +122,19 @@ export function GuildSettingsSheet({
 
         <button
           type="button"
-          className="os-surface-row"
-          disabled
-          aria-disabled="true"
+          className="os-surface-row os-surface-row--navigate"
+          onClick={() => {
+            onOpenGroupStorage();
+            requestClose();
+          }}
         >
           <span className="os-surface-row-copy">
             <span className="os-surface-row-label">Group storage</span>
             <span className="os-surface-row-description">
-              Shared files and media quota
+              Fund the pool and add storage for members
             </span>
           </span>
-          <span className="os-surface-row-badge">Soon</span>
+          <ProtocolMotionArrow className="account-card-action-arrow" />
         </button>
 
         <button

@@ -29,6 +29,40 @@ export interface StorageShareGrantEventRow {
   blockHeight: number;
 }
 
+/**
+ * Group sponsor quota override event (`GROUP_UPDATE` /
+ * `group_sponsor_quota_set`). Live allowance still lives on-chain; pair with
+ * the latest enabled event per member for an active-grants list.
+ */
+export interface GroupSponsorQuotaEventRow {
+  memberId: string;
+  quotaBytes: string;
+  dailyLimit: string;
+  previouslyEnabled: boolean;
+  extraData: string | null;
+  blockHeight: number;
+}
+
+/** Group default sponsor policy event (`group_sponsor_default_set`). */
+export interface GroupSponsorDefaultEventRow {
+  quotaBytes: string;
+  dailyLimit: string;
+  previouslyEnabled: boolean;
+  extraData: string | null;
+  blockHeight: number;
+}
+
+/**
+ * Group sponsor spend (`STORAGE_UPDATE` / `group_sponsor_spend`).
+ * Latest row per payer gives remaining allowance after that write.
+ */
+export interface GroupSponsorSpendEventRow {
+  payer: string;
+  bytes: string;
+  remainingAllowance: string;
+  blockHeight: number;
+}
+
 const STORAGE_EVENT_FIELDS = `
   operation
   actorId
@@ -168,6 +202,103 @@ export class StorageQuery {
         ) { targetId maxBytes blockHeight }
       }`,
       variables: { id: poolOwnerId, limit: opts.limit ?? 100 },
+    });
+    return res.data?.storageUpdates ?? [];
+  }
+
+  /**
+   * Per-member group sponsor quota sets for a guild (operation =
+   * `group_sponsor_quota_set` on `groupUpdates`). Newest first.
+   */
+  async groupSponsorQuotasGranted(
+    groupId: string,
+    opts: { limit?: number } = {}
+  ): Promise<GroupSponsorQuotaEventRow[]> {
+    const res = await this._q.graphql<{
+      groupUpdates: GroupSponsorQuotaEventRow[];
+    }>({
+      query: `query GroupSponsorQuotasGranted($groupId: String!, $limit: Int!) {
+        groupUpdates(
+          where: {
+            operation: {_eq: "group_sponsor_quota_set"},
+            groupId: {_eq: $groupId}
+          },
+          limit: $limit,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          memberId
+          quotaBytes
+          dailyLimit
+          previouslyEnabled
+          extraData
+          blockHeight
+        }
+      }`,
+      variables: { groupId, limit: opts.limit ?? 100 },
+    });
+    return res.data?.groupUpdates ?? [];
+  }
+
+  /**
+   * Default group sponsor policy events (operation =
+   * `group_sponsor_default_set`). Newest first — take `[0]` for current.
+   */
+  async groupSponsorDefaults(
+    groupId: string,
+    opts: { limit?: number } = {}
+  ): Promise<GroupSponsorDefaultEventRow[]> {
+    const res = await this._q.graphql<{
+      groupUpdates: GroupSponsorDefaultEventRow[];
+    }>({
+      query: `query GroupSponsorDefaults($groupId: String!, $limit: Int!) {
+        groupUpdates(
+          where: {
+            operation: {_eq: "group_sponsor_default_set"},
+            groupId: {_eq: $groupId}
+          },
+          limit: $limit,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          quotaBytes
+          dailyLimit
+          previouslyEnabled
+          extraData
+          blockHeight
+        }
+      }`,
+      variables: { groupId, limit: opts.limit ?? 20 },
+    });
+    return res.data?.groupUpdates ?? [];
+  }
+
+  /**
+   * Group sponsor spend events for a guild (operation =
+   * `group_sponsor_spend` on `storageUpdates`). Newest first — take the
+   * latest row per `payer` for remaining allowance.
+   */
+  async groupSponsorSpends(
+    groupId: string,
+    opts: { limit?: number } = {}
+  ): Promise<GroupSponsorSpendEventRow[]> {
+    const res = await this._q.graphql<{
+      storageUpdates: GroupSponsorSpendEventRow[];
+    }>({
+      query: `query GroupSponsorSpends($groupId: String!, $limit: Int!) {
+        storageUpdates(
+          where: {
+            operation: {_eq: "group_sponsor_spend"},
+            groupId: {_eq: $groupId}
+          },
+          limit: $limit,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          payer
+          bytes
+          remainingAllowance
+          blockHeight
+        }
+      }`,
+      variables: { groupId, limit: opts.limit ?? 200 },
     });
     return res.data?.storageUpdates ?? [];
   }

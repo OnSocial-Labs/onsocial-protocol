@@ -109,6 +109,17 @@ describe('StorageAccountModule reads', () => {
     ]);
   });
 
+  it('groupSponsorQuota and groupSponsorDefault call expected paths', async () => {
+    const get = vi.fn().mockResolvedValue(null);
+    const mod = makeMod({ get });
+    await mod.groupSponsorQuota('cool-cats', 'bob.near');
+    await mod.groupSponsorDefault('cool-cats');
+    expect(get.mock.calls.map((c) => c[0])).toEqual([
+      '/data/group-sponsor-quota?groupId=cool-cats&targetId=bob.near',
+      '/data/group-sponsor-default?groupId=cool-cats',
+    ]);
+  });
+
   it('sponsorshipReceived returns shared_storage from balance', async () => {
     const get = vi.fn().mockResolvedValue({
       balance: '0',
