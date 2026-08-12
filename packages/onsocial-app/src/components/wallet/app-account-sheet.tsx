@@ -10,6 +10,7 @@ import {
 } from '@/components/wallet/account-card-parts';
 import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
+import { AppSocialSwapSheet } from '@/components/wallet/app-social-swap-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { MuteBlockListsSheet } from '@/components/wallet/mute-block-lists-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -64,6 +65,7 @@ export function AppAccountSheet({
   const [closing, setClosing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
   const [muteBlockOpen, setMuteBlockOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
@@ -102,6 +104,7 @@ export function AppAccountSheet({
   }, [accountId]);
   const editorSheetOpen = editorOpen && open;
   const storageSheetOpen = storageOpen && open;
+  const swapSheetOpen = swapOpen && open;
   const platformStorage = usePlatformStorageSummary(
     accountId,
     sheetOpen,
@@ -131,6 +134,7 @@ export function AppAccountSheet({
     setClosing(false);
     setEditorOpen(false);
     setStorageOpen(false);
+    setSwapOpen(false);
     onClose();
 
     if (pendingCustomizeRef.current) {
@@ -175,8 +179,16 @@ export function AppAccountSheet({
     setStorageOpen(true);
   }, []);
 
+  const handleOpenSwap = useCallback(() => {
+    setSwapOpen(true);
+  }, []);
+
   const handleStorageBack = useCallback(() => {
     setStorageOpen(false);
+  }, []);
+
+  const handleSwapBack = useCallback(() => {
+    setSwapOpen(false);
   }, []);
 
   const handleStorageChanged = useCallback(() => {
@@ -271,6 +283,7 @@ export function AppAccountSheet({
           <AccountWalletZone
             enabled={sheetOpen}
             onOpenStorage={handleOpenStorage}
+            onOpenSwap={handleOpenSwap}
             platformStorageLoading={platformStorage.loading}
             platformStorageError={platformStorage.error}
             platformStorageSummary={platformStorage.summary}
@@ -316,6 +329,12 @@ export function AppAccountSheet({
         refreshKey={storageRefreshKey}
         onClose={handleStorageBack}
         onStorageChanged={handleStorageChanged}
+      />
+
+      <AppSocialSwapSheet
+        open={swapSheetOpen}
+        panelStyle={accountPanelStyle}
+        onClose={handleSwapBack}
       />
 
       <MuteBlockListsSheet

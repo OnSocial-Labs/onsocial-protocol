@@ -120,6 +120,9 @@ importers:
       '@onsocial/ui':
         specifier: workspace:*
         version: link:../onsocial-ui
+      '@ref-finance/ref-sdk':
+        specifier: ^1.5.0
+        version: 1.5.0(encoding@0.1.13)(react@19.2.4)
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
@@ -141,6 +144,9 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
       uqr:
         specifier: 0.1.2
         version: 0.1.2

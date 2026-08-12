@@ -179,6 +179,7 @@ export function AccountClaimMetricRow({
 interface AccountWalletZoneProps {
   enabled: boolean;
   onOpenStorage?: () => void;
+  onOpenSwap?: () => void;
   platformStorageLoading?: boolean;
   platformStorageError?: string | null;
   platformStorageSummary?: PlatformStorageSummary | null;
@@ -188,6 +189,7 @@ interface AccountWalletZoneProps {
 export function AccountWalletZone({
   enabled,
   onOpenStorage,
+  onOpenSwap,
   platformStorageLoading = false,
   platformStorageError = null,
   platformStorageSummary = null,
@@ -265,6 +267,16 @@ export function AccountWalletZone({
         </div>
 
         <div className="account-wallet-balance-accessories">
+          {onOpenSwap ? (
+            <button
+              type="button"
+              className="account-wallet-get-social"
+              onClick={onOpenSwap}
+              aria-label="Get SOCIAL"
+            >
+              Get
+            </button>
+          ) : null}
           <button
             type="button"
             className={`account-wallet-accessory${socialHelpOpen ? ' is-active' : ''}`}

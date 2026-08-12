@@ -6,6 +6,7 @@ export const TX_TOAST_EYEBROW = {
 /** Chain-confirmation lines — shown in toast after wallet submit. */
 export const txToastConfirming = {
   collectingSocial: 'Confirming collection…',
+  swappingSocial: 'Confirming SOCIAL…',
   addingStorage: 'Confirming storage…',
   withdrawingStorage: 'Confirming withdrawal…',
   fundingSharePool: 'Confirming funding…',
@@ -72,6 +73,7 @@ export const txToastConfirming = {
 
 export const txToastPending = {
   collectingSocial: 'Collecting SOCIAL…',
+  swappingSocial: 'Getting SOCIAL…',
   addingStorage: 'Adding storage…',
   withdrawingStorage: 'Withdrawing storage…',
   fundingSharePool: 'Funding share pool…',
@@ -116,6 +118,7 @@ export const txToastPending = {
 
 export const txToastSuccess = {
   socialCollected: 'SOCIAL collected.',
+  socialInWallet: 'SOCIAL is in your wallet.',
   rewardsCollected: (amountLabel: string) => `${amountLabel} SOCIAL collected.`,
   rewardCredited: (amountLabel: string, reason?: string | null) =>
     reason?.trim()
@@ -199,6 +202,7 @@ export const txToastSuccess = {
 
 export const txToastError = {
   collectSocialFailed: 'Could not collect SOCIAL.',
+  swapFailed: 'Could not get SOCIAL.',
   profileSaveFailed: 'Could not save profile.',
   moodSaveFailed: 'Could not save mood.',
   pageLookSaveFailed: 'Could not save page look.',
