@@ -33,8 +33,10 @@ export function TicketDoorPagePanel({
 }) {
   const { accountId, isConnected, connect, isLoading } = useAppWallet();
   const [view, setView] = useState<CollectionView | null>(initial);
-  const [isRedeemer, setIsRedeemer] = useState(false);
-  const [accessReady, setAccessReady] = useState(false);
+  const [redeemerCheck, setRedeemerCheck] = useState<{
+    key: string;
+    ok: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -51,24 +53,28 @@ export function TicketDoorPagePanel({
     Boolean(view?.creatorId) &&
     accountIdsEqual(accountId!, view!.creatorId);
 
+  const redeemerKey =
+    accountId && isPassMediumKind(view?.kind)
+      ? `${collectionId}:${accountId}`
+      : null;
+
   useEffect(() => {
-    if (!accountId || !isPassMediumKind(view?.kind)) {
-      setIsRedeemer(false);
-      setAccessReady(true);
-      return;
-    }
+    if (!redeemerKey || !accountId) return;
     let cancelled = false;
-    setAccessReady(false);
     void fetchIsCollectionRedeemer(collectionId, accountId).then((ok) => {
-      if (!cancelled) {
-        setIsRedeemer(ok);
-        setAccessReady(true);
-      }
+      if (!cancelled) setRedeemerCheck({ key: redeemerKey, ok });
     });
     return () => {
       cancelled = true;
     };
-  }, [accountId, collectionId, view?.kind]);
+  }, [accountId, collectionId, redeemerKey]);
+
+  const isRedeemer =
+    redeemerKey != null &&
+    redeemerCheck?.key === redeemerKey &&
+    redeemerCheck.ok;
+  const accessReady =
+    redeemerKey == null || redeemerCheck?.key === redeemerKey;
 
   const canDoor =
     isPassMediumKind(view?.kind) &&
