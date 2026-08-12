@@ -156,7 +156,7 @@ export function TicketDoorPagePanel({
     afterAdmit: 'ready-next',
     voice: voiceProp,
     onAdmitted: () => {
-      setAttendanceTick((n) => n + 1);
+      setAttendanceRefresh((n) => n + 1);
     },
   });
 
@@ -177,7 +177,7 @@ export function TicketDoorPagePanel({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [attendanceTick, collectionId, doorActive]);
+  }, [attendanceRefresh, collectionId, doorActive]);
 
   const eventName = view?.title?.trim() || 'Drop';
   const dropHref = collectionPath(collectionId);
