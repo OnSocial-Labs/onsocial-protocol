@@ -30989,6 +30989,12 @@ button.scarce-clip-cover-expand:focus-visible {
   margin: 0 0 0.15rem;
 }
 
+@media (min-width: 640px) {
+  .protocol-policy-summary {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 .protocol-policy-summary-cell {
   display: flex;
   flex-direction: column;
