@@ -236,21 +236,32 @@ jobs:
             # pg_isready alone can pass while recovery still blocks queries
             # ("Consistent recovery state has not been yet reached").
             check_postgres_accepting() {
-              local retries="${1:-30}" delay="${2:-3}"
+              local retries="${1:-60}" delay="${2:-5}"
               local user="${POSTGRES_USER:-onsocial}" db="${POSTGRES_DB:-onsocial}"
+              local status err
+              # Deploy path never restarts data-tier earlier — ensure the
+              # container is at least running before we wait on readiness.
+              dc up -d --no-deps postgres </dev/null || true
               for i in $(seq 1 "$retries"); do
-                if dc exec -T postgres \
-                  pg_isready -U "$user" -d "$db" </dev/null > /dev/null 2>&1 \
-                && dc exec -T postgres \
+                status="$(docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' postgres </dev/null 2>/dev/null || echo missing)"
+                if [ "$status" != "missing" ] \
+                && err="$(dc exec -T postgres \
+                  pg_isready -U "$user" -d "$db" </dev/null 2>&1)" \
+                && err="$(dc exec -T postgres \
                   psql -U "$user" -d "$db" -v ON_ERROR_STOP=1 -c 'SELECT 1' \
-                  </dev/null > /dev/null 2>&1; then
+                  </dev/null 2>&1)"; then
                   echo "  ✅ postgres accepting connections (attempt $i/$retries)"
                   return 0
                 fi
-                echo "  ⏳ postgres not accepting connections ($i/$retries)..."
+                echo "  ⏳ postgres not accepting connections ($i/$retries; state=${status})..."
+                if [ $((i % 10)) -eq 0 ]; then
+                  echo "     last error: ${err:-unknown}"
+                fi
                 sleep "$delay"
               done
-              echo "  ❌ postgres failed after $retries attempts"
+              echo "  ❌ postgres failed after $retries attempts (state=${status:-unknown})"
+              echo "     last error: ${err:-unknown}"
+              print_service_logs "postgres"
               return 1
             }
             print_service_logs() {
@@ -346,9 +357,13 @@ jobs:
               exit 1
             fi
 
+            # ── Data tier (postgres/hasura stay up across app rolls) ──
+            echo "Ensuring postgres + hasura are up..."
+            dc up -d --no-deps postgres hasura </dev/null
+
             # ── Run gateway SQL migrations (tracked + locked) ─────
             echo "Waiting for postgres before migrations..."
-            if ! check_postgres_accepting 30 3; then
+            if ! check_postgres_accepting 60 5; then
               echo "❌ postgres not ready before migrations — aborting"
               exit 1
             fi
@@ -374,12 +389,13 @@ jobs:
             # Wait again: rolling restarts can leave Postgres in recovery
             # between migrations and the Hasura view-retrack storm.
             echo "Waiting for postgres + hasura before permission sync..."
-            if ! check_postgres_accepting 30 3; then
+            if ! check_postgres_accepting 60 5; then
               echo "❌ postgres not ready before Hasura sync — aborting"
               exit 1
             fi
-            if ! check_health "hasura" "http://localhost:8080/healthz" 20 3; then
+            if ! check_health "hasura" "http://localhost:8080/healthz" 30 4; then
               echo "❌ hasura not ready before permission sync — aborting"
+              print_service_logs "hasura"
               exit 1
             fi
 
