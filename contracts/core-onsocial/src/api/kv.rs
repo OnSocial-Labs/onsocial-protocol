@@ -100,14 +100,13 @@ impl Contract {
     ///
     /// Returns `null` when no quota row exists. Applies lazy default sync and
     /// refill on a clone only (view is read-only).
-    pub fn get_group_sponsor_quota(
-        &self,
-        group_id: String,
-        target_id: AccountId,
-    ) -> Option<Value> {
-        let quota_key =
-            SocialPlatform::group_sponsor_quota_key(&target_id, &group_id);
-        let mut quota = self.platform.group_sponsor_quotas.get(&quota_key).cloned()?;
+    pub fn get_group_sponsor_quota(&self, group_id: String, target_id: AccountId) -> Option<Value> {
+        let quota_key = SocialPlatform::group_sponsor_quota_key(&target_id, &group_id);
+        let mut quota = self
+            .platform
+            .group_sponsor_quotas
+            .get(&quota_key)
+            .cloned()?;
 
         if !quota.is_override {
             if let Some(default_policy) = self.platform.group_sponsor_defaults.get(&group_id) {

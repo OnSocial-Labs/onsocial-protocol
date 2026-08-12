@@ -540,10 +540,7 @@ mod group_sponsor_quota_tests {
 
         contract
             .platform
-            .storage_set(
-                "groups/g-view/config",
-                &json!({"owner": owner.to_string()}),
-            )
+            .storage_set("groups/g-view/config", &json!({"owner": owner.to_string()}))
             .expect("writing group config should succeed");
 
         let pool_deposit = NearToken::from_near(1).as_yoctonear();
@@ -585,10 +582,7 @@ mod group_sponsor_quota_tests {
         assert_eq!(quota_view["allowance_bytes"], 10_000);
         assert_eq!(quota_view["used_bytes"], 0);
 
-        let missing = contract.get_group_sponsor_quota(
-            group_id.to_string(),
-            test_account(9),
-        );
+        let missing = contract.get_group_sponsor_quota(group_id.to_string(), test_account(9));
         assert!(missing.is_none());
     }
 }
