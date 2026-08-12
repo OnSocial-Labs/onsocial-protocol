@@ -68,6 +68,7 @@ import { GuildEditSheet } from '@/features/guilds/guild-edit-sheet';
 import { GuildFactsSheet } from '@/features/guilds/guild-facts-sheet';
 import { GuildRoomsSheet } from '@/features/guilds/guild-rooms-sheet';
 import { GuildSettingsSheet } from '@/features/guilds/guild-settings-sheet';
+import { GuildGroupStorageSheet } from '@/features/guilds/guild-group-storage-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
 import { GuildSpaceWritersSheet } from '@/features/guilds/guild-space-writers-sheet';
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
@@ -271,10 +272,11 @@ export function LiveGuildPanel({
     null
   );
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  const [groupStorageSheetOpen, setGroupStorageSheetOpen] = useState(false);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [factsSheetOpen, setFactsSheetOpen] = useState(false);
-  const settingsNextRef = useRef<'edit' | 'rooms' | null>(null);
+  const settingsNextRef = useRef<'edit' | 'rooms' | 'storage' | null>(null);
   const factsNextRef = useRef<'members' | null>(null);
   const [addSpaceOpen, setAddSpaceOpen] = useState(false);
   const [writersTarget, setWritersTarget] = useState<{
@@ -2036,6 +2038,7 @@ export function LiveGuildPanel({
             settingsNextRef.current = null;
             if (next === 'edit') setEditSheetOpen(true);
             if (next === 'rooms') setRoomsSheetOpen(true);
+            if (next === 'storage') setGroupStorageSheetOpen(true);
           }}
           onEditGuild={() => {
             settingsNextRef.current = 'edit';
@@ -2043,6 +2046,17 @@ export function LiveGuildPanel({
           onOpenRooms={() => {
             settingsNextRef.current = 'rooms';
           }}
+          onOpenGroupStorage={() => {
+            settingsNextRef.current = 'storage';
+          }}
+        />
+      ) : null}
+      {canManageGuild ? (
+        <GuildGroupStorageSheet
+          open={groupStorageSheetOpen}
+          groupId={groupId}
+          guildName={config?.name}
+          onClose={() => setGroupStorageSheetOpen(false)}
         />
       ) : null}
       {canManageGuild ? (
