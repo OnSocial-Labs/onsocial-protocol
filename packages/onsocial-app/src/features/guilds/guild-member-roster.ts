@@ -111,7 +111,10 @@ export function applyGuildMemberActionToRow(
         ...guildMemberRolesFromPermissionLevel(PERMISSION.WRITE),
       };
     case 'remove-from-guild':
+    case 'ban-from-guild':
       return null;
+    case 'unban-from-guild':
+      return member;
     default:
       return member;
   }

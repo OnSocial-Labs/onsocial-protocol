@@ -163,6 +163,7 @@ export type {
   GroupCurrentRow,
   GroupMembershipCurrentRow,
   GroupMemberRow,
+  GroupBannedRow,
 } from './groups.js';
 export { groupTopicsFromRow } from './groups.js';
 

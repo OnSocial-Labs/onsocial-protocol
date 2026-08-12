@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import type { GroupMemberRow } from '@onsocial/sdk';
+import type { GroupBannedRow, GroupMemberRow } from '@onsocial/sdk';
 import type { GuildMemberRowActionId } from '@/features/guilds/guild-member-row-actions';
 import { listActivePermissionChangeProposals } from '@/features/guilds/guild-member-pending-roles';
 import type { GuildMemberPendingRole } from '@/features/guilds/guild-member-pending-roles';
@@ -14,12 +14,16 @@ import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
 
 export interface GuildMembersDataState {
   members: GroupMemberRow[];
+  banned: GroupBannedRow[];
   pendingRolesByMemberId: Map<string, GuildMemberPendingRole>;
   loadError: string | null;
   showListSkeleton: boolean;
   isListRefreshing: boolean;
   countsLoading: boolean;
-  bootstrap: (seedMembers?: GroupMemberRow[]) => void;
+  bootstrap: (
+    seedMembers?: GroupMemberRow[],
+    seedBanned?: GroupBannedRow[]
+  ) => void;
   reload: () => void;
   applyMemberActionPatch: (
     memberId: string,
@@ -38,6 +42,7 @@ export function useGuildMembersData(
   const memberDriven = options.memberDriven ?? false;
   const ownerId = options.ownerId ?? null;
   const [members, setMembers] = useState<GroupMemberRow[]>([]);
+  const [banned, setBanned] = useState<GroupBannedRow[]>([]);
   const [pendingRolesByMemberId, setPendingRolesByMemberId] = useState<
     Map<string, GuildMemberPendingRole>
   >(new Map());
@@ -62,11 +67,14 @@ export function useGuildMembersData(
 
       try {
         const client = createReadOnlyOnSocialClient();
-        // Indexer `group_members_current` is authoritative for roster roles —
-        // never N× isAdmin/canModerate under the API key.
-        const [shellRows, page, proposals] = await Promise.all([
+        // Indexer views are authoritative for roster + bans — never N×
+        // isBlacklisted / isAdmin under the API key.
+        const [shellRows, page, bannedPage, proposals] = await Promise.all([
           client.query.groups.byIds([groupId]).catch(() => []),
           client.query.groups.membersOf(groupId, { limit: 120 }),
+          client.query.groups.bannedOf(groupId, { limit: 120 }).catch(() => ({
+            items: [] as GroupBannedRow[],
+          })),
           memberDriven
             ? client.groups.listProposals(groupId, { limit: 40 })
             : Promise.resolve([]),
@@ -78,6 +86,7 @@ export function useGuildMembersData(
           shellOwner
         );
         setMembers(roster);
+        setBanned(bannedPage.items ?? []);
         setPendingRolesByMemberId(
           memberDriven
             ? listActivePermissionChangeProposals(proposals)
@@ -90,6 +99,7 @@ export function useGuildMembersData(
         );
         if (!soft) {
           setMembers([]);
+          setBanned([]);
           setPendingRolesByMemberId(new Map());
         }
       } finally {
@@ -99,7 +109,7 @@ export function useGuildMembersData(
     [groupId, memberDriven, ownerId]
   );
 
-  /** After role actions: optimistic patch, then catch up indexer flags. */
+  /** After role/ban actions: optimistic patch, then catch up indexer flags. */
   const scheduleSoftRetries = useCallback(() => {
     clearRetryTimers();
     retryTimersRef.current = INDEXER_SOFT_RETRY_MS.map((delay) =>
@@ -110,25 +120,30 @@ export function useGuildMembersData(
   }, [clearRetryTimers, fetchMembers]);
 
   const bootstrap = useCallback(
-    (seedMembers: GroupMemberRow[] = []) => {
+    (
+      seedMembers: GroupMemberRow[] = [],
+      seedBanned: GroupBannedRow[] = []
+    ) => {
       clearRetryTimers();
-      if (seedMembers.length > 0) {
+      if (seedMembers.length > 0 || seedBanned.length > 0) {
         setMembers(seedMembers);
+        setBanned(seedBanned);
         setHasLoaded(true);
       } else {
         setMembers([]);
+        setBanned([]);
         setHasLoaded(false);
       }
       setPendingRolesByMemberId(new Map());
       setLoadError(null);
-      void fetchMembers(seedMembers.length > 0);
+      void fetchMembers(seedMembers.length > 0 || seedBanned.length > 0);
     },
     [clearRetryTimers, fetchMembers]
   );
 
   const reload = useCallback(() => {
-    void fetchMembers(members.length > 0);
-  }, [fetchMembers, members.length]);
+    void fetchMembers(members.length > 0 || banned.length > 0);
+  }, [banned.length, fetchMembers, members.length]);
 
   const applyMemberActionPatch = useCallback(
     (
@@ -136,21 +151,46 @@ export function useGuildMembersData(
       actionId: GuildMemberRowActionId,
       options?: { scheduleRetry?: boolean }
     ) => {
-      setMembers((current) =>
-        patchGuildMemberRosterAction(current, memberId, actionId)
-      );
+      if (actionId === 'ban-from-guild') {
+        setMembers((current) =>
+          patchGuildMemberRosterAction(current, memberId, actionId)
+        );
+        setBanned((current) => {
+          if (current.some((row) => row.memberId === memberId)) return current;
+          return [
+            {
+              groupId,
+              memberId,
+              blockHeight: 0,
+              blockTimestamp: Date.now() * 1_000_000,
+            },
+            ...current,
+          ];
+        });
+      } else if (actionId === 'unban-from-guild') {
+        setBanned((current) =>
+          current.filter((row) => row.memberId !== memberId)
+        );
+      } else {
+        setMembers((current) =>
+          patchGuildMemberRosterAction(current, memberId, actionId)
+        );
+      }
       if (options?.scheduleRetry !== false) {
         scheduleSoftRetries();
       }
     },
-    [scheduleSoftRetries]
+    [groupId, scheduleSoftRetries]
   );
 
-  const showListSkeleton = !hasLoaded && members.length === 0 && !loadError;
-  const countsLoading = !hasLoaded && members.length === 0;
+  const showListSkeleton =
+    !hasLoaded && members.length === 0 && banned.length === 0 && !loadError;
+  const countsLoading =
+    !hasLoaded && members.length === 0 && banned.length === 0;
 
   return {
     members,
+    banned,
     pendingRolesByMemberId,
     loadError,
     showListSkeleton,

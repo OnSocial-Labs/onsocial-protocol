@@ -142,6 +142,7 @@ interface ViewerGuildState {
   isOwner: boolean;
   isAdmin: boolean;
   canModerate: boolean;
+  isBlacklisted: boolean;
   joinRequest: JoinRequest | null;
   pendingJoinProposalId: string | null;
 }
@@ -1083,15 +1084,20 @@ export function LiveGuildPanel({
   const effectiveIsOwner = viewerAccessResolved
     ? Boolean(viewer?.isOwner)
     : false;
+  const effectiveIsBlacklisted = viewerAccessResolved
+    ? Boolean(viewer?.isBlacklisted)
+    : false;
   // Mutations require ACL; hint is label-only until viewerAccessResolved.
   // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = !viewerAccessResolved
     ? !isConnected
     : effectiveIsMember
       ? true
-      : effectiveJoinPending
-        ? joinCancelReady
-        : Boolean(config) && !effectiveIsMember;
+      : effectiveIsBlacklisted
+        ? false
+        : effectiveJoinPending
+          ? joinCancelReady
+          : Boolean(config) && !effectiveIsMember;
   const actionLabel = useMemo(
     () =>
       guildMembershipJoinLabel({
@@ -1101,6 +1107,7 @@ export function LiveGuildPanel({
         joinCancelReady,
         isMember: effectiveIsMember,
         isOwner: effectiveIsOwner,
+        isBlacklisted: effectiveIsBlacklisted,
         confirmingLeave,
         needsStorage: needsCollaborativeStorage,
         loadGuild: !config,
@@ -1111,6 +1118,7 @@ export function LiveGuildPanel({
     [
       config,
       confirmingLeave,
+      effectiveIsBlacklisted,
       effectiveIsMember,
       effectiveIsOwner,
       effectiveJoinPending,
@@ -1141,6 +1149,7 @@ export function LiveGuildPanel({
     if (!config) return;
     // Never join/leave from a guessed label — wait for ACL (hint is display-only).
     if (!viewerAccessResolved) return;
+    if (effectiveIsBlacklisted) return;
 
     if (effectiveIsMember && effectiveIsOwner) {
       setManageSheet('members');
@@ -1224,6 +1233,9 @@ export function LiveGuildPanel({
   const handleMembershipClick = () => {
     if (needsCollaborativeStorage) {
       setStorageSheetOpen(true);
+      return;
+    }
+    if (effectiveIsBlacklisted) {
       return;
     }
     if (effectiveJoinPending && !joinCancelReady) {
@@ -1760,6 +1772,7 @@ export function LiveGuildPanel({
                         leaving: effectiveIsMember,
                       })}
                       disabled={
+                        effectiveIsBlacklisted ||
                         (effectiveJoinPending && !joinCancelReady) ||
                         (isConnected &&
                           !viewerAccessResolved &&

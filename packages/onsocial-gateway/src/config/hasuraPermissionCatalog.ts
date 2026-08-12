@@ -346,6 +346,18 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'group_blacklist_current',
+    columns: [
+      'group_id',
+      'member_id',
+      'block_height',
+      'block_timestamp',
+      'group_name',
+      'is_public',
+      'is_member_driven',
+    ],
+  },
+  {
     name: 'reactions_current',
     columns: [
       'account_id',

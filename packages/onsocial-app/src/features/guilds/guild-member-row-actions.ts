@@ -13,6 +13,8 @@ export type GuildMemberRowActionId =
   | 'make-member'
   | 'transfer-ownership'
   | 'remove-from-guild'
+  | 'ban-from-guild'
+  | 'unban-from-guild'
   | 'copy-handle';
 
 export interface GuildMemberRowAction {
@@ -58,6 +60,36 @@ function removeFromGuildAction(
   };
 }
 
+function banFromGuildAction(
+  context: GuildMembersManageContext
+): GuildMemberRowAction {
+  return {
+    id: 'ban-from-guild',
+    label: context.memberDriven ? 'Propose ban' : 'Ban from guild',
+    destructive: true,
+    propose: context.memberDriven,
+  };
+}
+
+export function guildBannedMemberRowActions(
+  memberId: string,
+  context: GuildMembersManageContext
+): GuildMemberRowAction[] {
+  if (!context.viewerAccountId || !canViewerManageGuildMembers(context)) {
+    return [];
+  }
+  if (memberId === context.viewerAccountId) return [];
+
+  return [
+    {
+      id: 'unban-from-guild',
+      label: context.memberDriven ? 'Propose unban' : 'Unban',
+      propose: context.memberDriven,
+    },
+    { id: 'copy-handle', label: 'Copy @handle' },
+  ];
+}
+
 function transferOwnershipAction(
   context: GuildMembersManageContext
 ): GuildMemberRowAction {
@@ -94,6 +126,7 @@ function roleActionsForBucket(
       });
     }
     actions.push(removeFromGuildAction(context));
+    actions.push(banFromGuildAction(context));
     return actions;
   }
 
@@ -117,6 +150,7 @@ function roleActionsForBucket(
       propose: context.memberDriven,
     });
     actions.push(removeFromGuildAction(context));
+    actions.push(banFromGuildAction(context));
     return actions;
   }
 
@@ -136,6 +170,7 @@ function roleActionsForBucket(
     });
   }
   actions.push(removeFromGuildAction(context));
+  actions.push(banFromGuildAction(context));
   return actions;
 }
 
@@ -200,6 +235,15 @@ const CONFIRM_SUBTITLES: Partial<
     title: 'Remove from guild',
     subtitle: 'They will lose access to this guild.',
   },
+  'ban-from-guild': {
+    title: 'Ban from guild',
+    subtitle:
+      'They are removed and cannot rejoin until unbanned.',
+  },
+  'unban-from-guild': {
+    title: 'Unban member',
+    subtitle: 'They can request to join again. Membership is not restored.',
+  },
 };
 
 export function guildMemberActionConfirmCopy(action: GuildMemberRowAction): {
@@ -216,16 +260,25 @@ export function guildMemberActionConfirmCopy(action: GuildMemberRowAction): {
   const subtitle =
     action.id === 'transfer-ownership' && action.propose
       ? `Members must vote before this takes effect. ${copy.subtitle}`
-      : action.propose
-        ? `Members must vote before this role takes effect. ${copy.subtitle}`
-        : copy.subtitle;
+      : action.propose &&
+          (action.id === 'remove-from-guild' ||
+            action.id === 'ban-from-guild' ||
+            action.id === 'unban-from-guild')
+        ? `Members must vote before this takes effect. ${copy.subtitle}`
+        : action.propose
+          ? `Members must vote before this role takes effect. ${copy.subtitle}`
+          : copy.subtitle;
   const confirmLabel = action.propose
     ? 'Submit proposal'
     : action.id === 'remove-from-guild'
       ? 'Remove member'
-      : action.id === 'transfer-ownership'
-        ? 'Transfer ownership'
-        : copy.title;
+      : action.id === 'ban-from-guild'
+        ? 'Ban member'
+        : action.id === 'unban-from-guild'
+          ? 'Unban'
+          : action.id === 'transfer-ownership'
+            ? 'Transfer ownership'
+            : copy.title;
 
   return { title, subtitle, confirmLabel };
 }

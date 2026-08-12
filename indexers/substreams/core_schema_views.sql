@@ -90,6 +90,10 @@ CREATE INDEX IF NOT EXISTS idx_group_updates_member_lookup
   ON group_updates(member_id, block_height DESC)
   WHERE member_id IS NOT NULL AND member_id != '';
 
+CREATE INDEX IF NOT EXISTS idx_group_updates_blacklist_current
+  ON group_updates(group_id, member_id, block_height DESC)
+  WHERE operation IN ('add_to_blacklist', 'remove_from_blacklist');
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 1. profiles_current — latest profile fields per account
 -- ────────────────────────────────────────────────────────────────────────────
@@ -349,6 +353,53 @@ SELECT
 FROM latest
 LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
 WHERE latest.operation IN ('create_group', 'add_member');
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 3e. group_blacklist_current — active guild bans (blacklist)
+-- Latest add_to_blacklist / remove_from_blacklist per (group, member);
+-- keep only rows whose latest op is add_to_blacklist.
+-- Unban clears the ban; membership is not restored (user must rejoin).
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW group_blacklist_current AS
+WITH blacklist_events AS (
+  SELECT
+    group_id,
+    member_id,
+    operation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id
+  FROM group_updates
+  WHERE group_id IS NOT NULL
+    AND group_id != ''
+    AND member_id IS NOT NULL
+    AND member_id != ''
+    AND operation IN ('add_to_blacklist', 'remove_from_blacklist')
+), latest AS (
+  SELECT DISTINCT ON (group_id, member_id)
+    group_id,
+    member_id,
+    operation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id
+  FROM blacklist_events
+  ORDER BY group_id, member_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+)
+SELECT
+  latest.group_id,
+  latest.member_id,
+  latest.block_height,
+  latest.block_timestamp,
+  groups_current.group_name,
+  groups_current.is_public,
+  groups_current.is_member_driven
+FROM latest
+LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
+WHERE latest.operation = 'add_to_blacklist';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 4. reactions_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)

@@ -1,22 +1,29 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { GroupMemberRow } from '@onsocial/sdk';
+import type { GroupBannedRow, GroupMemberRow } from '@onsocial/sdk';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { bannedRowsAsMemberRows } from '@/features/guilds/guild-banned-rows';
 import { GuildMemberList } from '@/features/guilds/guild-member-list';
 import {
   filterGuildMembers,
   guildMemberFilterLabel,
+  guildMemberMatchesSearch,
   type GuildMemberRoleFilter,
 } from '@/features/guilds/guild-member-filter';
 import { GuildMembersToolbar } from '@/features/guilds/guild-members-toolbar';
 import type { GuildMemberPendingRole } from '@/features/guilds/guild-member-pending-roles';
-import type { GuildMembersManageContext, GuildMemberRowActionId } from '@/features/guilds/guild-member-row-actions';
+import {
+  canViewerManageGuildMembers,
+  type GuildMembersManageContext,
+  type GuildMemberRowActionId,
+} from '@/features/guilds/guild-member-row-actions';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 
 interface GuildMembersRosterProps {
   groupId: string;
   members: GroupMemberRow[];
+  banned?: GroupBannedRow[];
   profiles: Record<string, PostAuthorProfile>;
   pendingRolesByMemberId?: Map<string, GuildMemberPendingRole>;
   manageContext?: GuildMembersManageContext | null;
@@ -40,6 +47,7 @@ interface GuildMembersRosterProps {
 export function GuildMembersRoster({
   groupId,
   members,
+  banned = [],
   profiles,
   pendingRolesByMemberId,
   manageContext,
@@ -63,13 +71,33 @@ export function GuildMembersRoster({
   const setRoleFilter = onRoleFilterChange ?? setInternalRoleFilter;
   const query = queryProp ?? internalQuery;
   const setQuery = onQueryChange ?? setInternalQuery;
-
-  const filteredMembers = useMemo(
-    () => filterGuildMembers(members, profiles, { roleFilter, query }),
-    [members, profiles, roleFilter, query]
+  const showBannedFilter = Boolean(
+    manageContext && canViewerManageGuildMembers(manageContext)
   );
+  const listMode = roleFilter === 'banned' ? 'banned' : 'members';
+
+  const filteredMembers = useMemo(() => {
+    if (roleFilter === 'banned') {
+      return bannedRowsAsMemberRows(banned, groupId).filter((member) =>
+        guildMemberMatchesSearch(member, profiles[member.memberId], query)
+      );
+    }
+    return filterGuildMembers(members, profiles, { roleFilter, query });
+  }, [banned, groupId, members, profiles, query, roleFilter]);
 
   const emptyCopy = useMemo(() => {
+    if (roleFilter === 'banned') {
+      if (banned.length === 0) {
+        return { primary: 'No banned members', secondary: null };
+      }
+      if (query.trim()) {
+        return {
+          primary: 'No matching bans',
+          secondary: 'Try a different name or handle.',
+        };
+      }
+      return { primary: 'No banned members', secondary: null };
+    }
     if (members.length === 0) {
       return { primary: 'No members yet', secondary: null };
     }
@@ -90,14 +118,16 @@ export function GuildMembersRoster({
       };
     }
     return { primary: 'No members yet', secondary: null };
-  }, [members.length, query, roleFilter]);
+  }, [banned.length, members.length, query, roleFilter]);
 
   const toolbarInBody = showToolbar && roleFilterProp === undefined;
+  const sourceEmpty =
+    roleFilter === 'banned' ? banned.length === 0 : members.length === 0;
   const showEmptyState =
     !showListSkeleton &&
     !loadError &&
     filteredMembers.length === 0 &&
-    (members.length === 0 || roleFilter !== 'all' || query.trim().length > 0);
+    (sourceEmpty || roleFilter !== 'all' || query.trim().length > 0);
   const showMemberList = !showListSkeleton && filteredMembers.length > 0;
 
   return (
@@ -105,6 +135,8 @@ export function GuildMembersRoster({
       {toolbarInBody ? (
         <GuildMembersToolbar
           members={members}
+          bannedCount={banned.length}
+          showBannedFilter={showBannedFilter}
           roleFilter={roleFilter}
           onRoleFilterChange={setRoleFilter}
           query={query}
@@ -113,7 +145,7 @@ export function GuildMembersRoster({
         />
       ) : null}
 
-      {loadError && members.length === 0 ? (
+      {loadError && members.length === 0 && banned.length === 0 ? (
         <div className="standing-panel-error-block">
           <p className="standing-panel-error">
             {loadError ?? 'Could not load members.'}
@@ -161,8 +193,11 @@ export function GuildMembersRoster({
             groupId={groupId}
             members={filteredMembers}
             profiles={profiles}
-            pendingRolesByMemberId={pendingRolesByMemberId}
+            pendingRolesByMemberId={
+              listMode === 'banned' ? undefined : pendingRolesByMemberId
+            }
             manageContext={manageContext}
+            listMode={listMode}
             onMembersChanged={onMembersChanged}
           />
         ) : null}
@@ -173,6 +208,8 @@ export function GuildMembersRoster({
 
 export function GuildMembersRosterToolbar(props: {
   members: GroupMemberRow[];
+  bannedCount?: number;
+  showBannedFilter?: boolean;
   roleFilter: GuildMemberRoleFilter;
   onRoleFilterChange: (filter: GuildMemberRoleFilter) => void;
   query: string;

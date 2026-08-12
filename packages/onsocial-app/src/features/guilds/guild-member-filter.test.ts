@@ -42,6 +42,7 @@ describe('guild member filters', () => {
     expect(countGuildMembersByRoleFilter(roster, 'owner')).toBe(1);
     expect(countGuildMembersByRoleFilter(roster, 'admin')).toBe(1);
     expect(countGuildMembersByRoleFilter(roster, 'member')).toBe(1);
+    expect(countGuildMembersByRoleFilter(roster, 'banned', 3)).toBe(3);
     expect(
       filterGuildMembers(roster, {}, { roleFilter: 'owner', query: '' }).map(
         (row) => row.memberId
@@ -57,5 +58,8 @@ describe('guild member filters', () => {
         (row) => row.memberId
       )
     ).toEqual(['writer.testnet']);
+    expect(
+      filterGuildMembers(roster, {}, { roleFilter: 'banned', query: '' })
+    ).toEqual([]);
   });
 });

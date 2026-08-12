@@ -12,6 +12,7 @@ function createMockClient(input: {
     isAdmin: boolean;
     canModerate: boolean;
     isMember: boolean;
+    isBlacklisted: boolean;
   }>;
   listProposals?: () => Promise<never>;
 }) {
@@ -20,6 +21,7 @@ function createMockClient(input: {
     isAdmin: false,
     canModerate: false,
     isMember: false,
+    isBlacklisted: false,
     ...input.rpc,
   };
 
@@ -37,6 +39,7 @@ function createMockClient(input: {
       isAdmin: vi.fn(async () => rpc.isAdmin),
       canModerate: vi.fn(async () => rpc.canModerate),
       isMember: vi.fn(async () => rpc.isMember),
+      isBlacklisted: vi.fn(async () => rpc.isBlacklisted),
       getJoinRequest: vi.fn(async () => null),
       listProposals: input.listProposals
         ? vi.fn(input.listProposals)
@@ -101,5 +104,28 @@ describe('resolveGuildViewerAccess', () => {
 
     expect(viewer.isOwner).toBe(true);
     expect(viewer.pendingJoinProposalId).toBeNull();
+  });
+
+  it('marks non-members as blacklisted when chain says so', async () => {
+    const client = createMockClient({
+      membership: null,
+      rpc: {
+        isBlacklisted: true,
+      },
+    });
+
+    const { viewer } = await resolveGuildViewerAccess(
+      client,
+      'grp_test',
+      'mallory.testnet',
+      { memberDriven: false, accessGated: false }
+    );
+
+    expect(viewer.isMember).toBe(false);
+    expect(viewer.isBlacklisted).toBe(true);
+    expect(client.groups.isBlacklisted).toHaveBeenCalledWith(
+      'grp_test',
+      'mallory.testnet'
+    );
   });
 });

@@ -163,6 +163,7 @@ export function LiveGuildPostPanel({
     canModerate: false,
   });
   const [isMember, setIsMember] = useState(false);
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
   const [accessGated, setAccessGated] = useState(
     () => initial?.accessGated ?? false
   );
@@ -404,6 +405,7 @@ export function LiveGuildPostPanel({
           setJoinCancelReady(pending);
           setViewerAccess({ ...viewer, canWriteSpaceIds });
           setIsMember(viewer.isMember);
+          setIsBlacklisted(viewer.isBlacklisted);
           setAccessGated(gated);
           setJoinPending(pending);
           writeGuildMembershipCache(accountId, groupId, {
@@ -419,6 +421,7 @@ export function LiveGuildPostPanel({
             canModerate: false,
           });
           setIsMember(false);
+          setIsBlacklisted(false);
           setPendingJoinProposalId(null);
           setJoinCancelReady(false);
           setAccessGated(
@@ -777,6 +780,7 @@ export function LiveGuildPostPanel({
     ? joinPending
     : Boolean(membershipHint?.joinPending);
   const effectiveIsOwner = viewerAccessResolved ? viewerAccess.isOwner : false;
+  const effectiveIsBlacklisted = viewerAccessResolved ? isBlacklisted : false;
   const membershipActionLabel = guildMembershipJoinLabel({
     isConnected,
     accessGated,
@@ -784,14 +788,17 @@ export function LiveGuildPostPanel({
     joinCancelReady,
     isMember: effectiveIsMember,
     isOwner: effectiveIsOwner,
+    isBlacklisted: effectiveIsBlacklisted,
     confirmingLeave,
   });
   // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = effectiveIsMember
     ? true
-    : effectiveJoinPending
-      ? joinCancelReady
-      : !isConnected || (viewerAccessResolved && !effectiveIsMember);
+    : effectiveIsBlacklisted
+      ? false
+      : effectiveJoinPending
+        ? joinCancelReady
+        : !isConnected || (viewerAccessResolved && !effectiveIsMember);
 
   const clearConfirmLeave = () => {
     if (confirmLeaveTimerRef.current !== null) {
@@ -806,6 +813,7 @@ export function LiveGuildPostPanel({
       await connect();
       return;
     }
+    if (effectiveIsBlacklisted) return;
     if (effectiveIsMember && effectiveIsOwner) {
       router.push(guildSectionPath(groupId, 'members'));
       return;
@@ -899,6 +907,7 @@ export function LiveGuildPostPanel({
    * Owners cannot leave on-chain; confirm opens the members page to transfer.
    */
   const handleMembershipClick = () => {
+    if (effectiveIsBlacklisted) return;
     if (effectiveJoinPending && !joinCancelReady) return;
     if (effectiveIsMember && !confirmingLeave) {
       setConfirmingLeave(true);
@@ -946,6 +955,7 @@ export function LiveGuildPostPanel({
           })}
           variant={confirmingLeave ? 'danger' : 'primary'}
           disabled={
+            effectiveIsBlacklisted ||
             (effectiveJoinPending && !joinCancelReady) ||
             (!viewerAccessResolved && Boolean(membershipHint))
           }

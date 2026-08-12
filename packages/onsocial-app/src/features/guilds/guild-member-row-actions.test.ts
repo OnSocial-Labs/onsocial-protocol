@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   canViewerManageGuildMembers,
+  guildBannedMemberRowActions,
   guildMemberActionConfirmCopy,
   guildMemberRowActions,
 } from '@/features/guilds/guild-member-row-actions';
@@ -53,6 +54,7 @@ describe('guild member row actions', () => {
       'make-mod',
       'make-admin',
       'remove-from-guild',
+      'ban-from-guild',
       'copy-handle',
     ]);
   });
@@ -67,6 +69,7 @@ describe('guild member row actions', () => {
       'demote-to-mod',
       'remove-admin',
       'remove-from-guild',
+      'ban-from-guild',
       'copy-handle',
     ]);
   });
@@ -153,8 +156,31 @@ describe('guild member row actions', () => {
     ).toEqual({
       title: 'Remove from guild',
       subtitle:
-        'Members must vote before this role takes effect. They will lose access to this guild.',
+        'Members must vote before this takes effect. They will lose access to this guild.',
       confirmLabel: 'Submit proposal',
     });
+
+    expect(
+      guildMemberActionConfirmCopy({
+        id: 'ban-from-guild',
+        label: 'Ban from guild',
+        destructive: true,
+      })
+    ).toEqual({
+      title: 'Ban from guild',
+      subtitle: 'They are removed and cannot rejoin until unbanned.',
+      confirmLabel: 'Ban member',
+    });
+  });
+
+  it('offers unban on banned rows for managers', () => {
+    expect(
+      guildBannedMemberRowActions('mallory.testnet', ownerViewer).map(
+        (action) => action.id
+      )
+    ).toEqual(['unban-from-guild', 'copy-handle']);
+    expect(
+      guildBannedMemberRowActions('owner.testnet', ownerViewer)
+    ).toEqual([]);
   });
 });
