@@ -20353,6 +20353,7 @@ a.os-surface-row {
     line-height: 1.2;
     letter-spacing: -0.01em;
     color: rgb(var(--fg-rgb) / 0.78);
+    text-decoration: none;
   }
 
   .collection-reading-open:hover,
@@ -21037,6 +21038,52 @@ a.os-surface-row {
     margin: 0;
     font-size: 0.8rem;
     color: rgb(var(--fg-rgb) / 0.6);
+  }
+
+  .ticket-door-hint.is-success {
+    color: color-mix(
+      in srgb,
+      var(--signal-reputation, rgb(46 160 90)) 78%,
+      rgb(var(--fg-rgb))
+    );
+  }
+
+  .ticket-door-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.35rem 0 1.25rem;
+    max-width: 36rem;
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .ticket-door-page-empty {
+    margin: 1.5rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .ticket-door-page-back {
+    margin-top: 0.35rem;
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.88);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .ticket-door-page .ticket-door-camera {
+    aspect-ratio: 3 / 4;
+    max-height: min(58vh, 28rem);
+  }
+
+  @media (min-width: 640px) {
+    .ticket-door-page .ticket-door-camera {
+      aspect-ratio: 4 / 3;
+      max-height: min(52vh, 26rem);
+    }
   }
 
   .ticket-door-field {

@@ -72,7 +72,6 @@ import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { TicketDoorSheet } from '@/features/scarces/ticket-door-sheet';
 import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
@@ -89,6 +88,7 @@ import {
   COLLECTION_PASS_QUERY,
   COLLECTION_PASS_TOKEN_PARAM,
   COLLECTION_READ_QUERY,
+  collectionDoorPath,
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
@@ -210,7 +210,6 @@ export function CollectionPagePanel({
   const [writingReadOpen, setWritingReadOpen] = useState(false);
   const [showPassOpen, setShowPassOpen] = useState(false);
   const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
-  const [doorOpen, setDoorOpen] = useState(false);
   /** Viewer is creator or door staff for redeem. */
   const [isRedeemer, setIsRedeemer] = useState(false);
   const activityTitleId = useId();
@@ -360,7 +359,7 @@ export function CollectionPagePanel({
     });
   }, [collectionId, ownedPassTokenId, view?.kind]);
 
-  // Creator Door deep-link ?door=1 (creator or door staff).
+  // Legacy ?door=1 → fullscreen Admit page (creator or door staff).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isPassMediumKind(view?.kind)) return;
@@ -371,10 +370,8 @@ export function CollectionPagePanel({
     ) {
       return;
     }
-    queueMicrotask(() => {
-      setDoorOpen(true);
-    });
-  }, [collectionId, isOwner, isRedeemer, view?.kind]);
+    router.replace(collectionDoorPath(collectionId));
+  }, [collectionId, isOwner, isRedeemer, router, view?.kind]);
 
   useEffect(() => {
     if (!viewerAccountId || !isPassMediumKind(view?.kind)) {
@@ -1215,13 +1212,12 @@ export function CollectionPagePanel({
             {canDoor ? (
               <div className="collection-reading-row">
                 <p className="collection-section-label">Door</p>
-                <button
-                  type="button"
+                <Link
+                  href={collectionDoorPath(view.collectionId)}
                   className="collection-reading-open"
-                  onClick={() => setDoorOpen(true)}
                 >
                   Admit
-                </button>
+                </Link>
               </div>
             ) : null}
             {isOwner &&
@@ -1357,13 +1353,6 @@ export function CollectionPagePanel({
           tokenId={showPassTokenId}
         />
       ) : null}
-
-      <TicketDoorSheet
-        open={doorOpen}
-        onOpenChange={setDoorOpen}
-        collectionId={view.collectionId}
-        title={view.title}
-      />
 
       <ScarceBuySheet
         open={mintOpen}
