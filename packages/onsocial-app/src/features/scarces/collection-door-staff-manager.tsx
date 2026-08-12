@@ -33,15 +33,17 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 /**
- * Creator Door staff manager — add/remove redeemers (max 20).
+ * Creator Door / redeem staff manager — add/remove redeemers (max 20).
  * Compact GlassSheet; same commerce chrome as other drop tools.
  */
 export function CollectionDoorStaffManager({
   collectionId,
   creatorId,
+  voice = 'admit',
 }: {
   collectionId: string;
   creatorId: string;
+  voice?: PassStaffVoice;
 }) {
   const titleId = useId();
   const { isConnected, accountId, getSigningWallet } = useAppWallet();
@@ -187,17 +189,25 @@ export function CollectionDoorStaffManager({
         peekRatio={1}
         zIndex={88}
         ariaLabelledBy={titleId}
-        backdropLabel="Close door staff"
+        backdropLabel={
+          voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
+        }
         panelClassName="scarce-commerce-sheet-panel"
         bodyClassName="scarce-commerce-sheet-body"
         header={
           <>
             <SheetHeader
               titleId={titleId}
-              title="Door staff"
-              subtitle="Who can Admit at the door"
+              title={voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
+              subtitle={
+                voice === 'redeem'
+                  ? 'Who can Redeem at the counter'
+                  : 'Who can Admit at the door'
+              }
               onClose={requestClose}
-              closeAriaLabel="Close door staff"
+              closeAriaLabel={
+                voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
+              }
             />
             <Divider variant="section" className="glass-sheet-header-divider" />
           </>
@@ -205,8 +215,9 @@ export function CollectionDoorStaffManager({
       >
         <div className="ticket-door-staff">
           <p className="ticket-door-lead">
-            Add up to {MAX_COLLECTION_REDEEMERS} wallets that can check in
-            passes. You always can.
+            {voice === 'redeem'
+              ? `Add up to ${MAX_COLLECTION_REDEEMERS} wallets that can redeem coupons. You always can.`
+              : `Add up to ${MAX_COLLECTION_REDEEMERS} wallets that can check in passes. You always can.`}
           </p>
 
           <label className="ticket-door-field">

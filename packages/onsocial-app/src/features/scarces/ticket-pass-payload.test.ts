@@ -3,6 +3,7 @@ import {
   encodeTicketPassPayload,
   isPassMediumKind,
   parseTicketPassPayload,
+  passStaffVoice,
   ticketPassRemaining,
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
@@ -32,11 +33,14 @@ describe('ticket-pass-payload', () => {
     ).toBeNull();
   });
 
-  it('identifies pass mediums', () => {
+  it('identifies pass mediums and staff voice', () => {
     expect(isPassMediumKind('ticket')).toBe(true);
     expect(isPassMediumKind('membership')).toBe(true);
     expect(isPassMediumKind('coupon')).toBe(true);
     expect(isPassMediumKind('writing')).toBe(false);
+    expect(passStaffVoice('ticket')).toBe('admit');
+    expect(passStaffVoice('membership')).toBe('admit');
+    expect(passStaffVoice('coupon')).toBe('redeem');
   });
 
   it('computes remaining check-ins and status copy', () => {
@@ -65,5 +69,29 @@ describe('ticket-pass-payload', () => {
         maxRedeems: 1,
       })
     ).toBe('Fully checked in');
+
+    expect(
+      ticketPassStatusLabel({
+        isValid: true,
+        isFullyRedeemed: false,
+        isRevoked: false,
+        isExpired: false,
+        redeemCount: 0,
+        maxRedeems: 1,
+        voice: 'redeem',
+      })
+    ).toBe('1 redeem left');
+
+    expect(
+      ticketPassStatusLabel({
+        isValid: false,
+        isFullyRedeemed: true,
+        isRevoked: false,
+        isExpired: false,
+        redeemCount: 1,
+        maxRedeems: 1,
+        voice: 'redeem',
+      })
+    ).toBe('Fully redeemed');
   });
 });

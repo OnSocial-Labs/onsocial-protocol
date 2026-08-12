@@ -35,6 +35,11 @@ describe('collectibles routes', () => {
     expect(collectionPath('gate', { door: true })).toBe('/collection/gate/door');
     expect(collectionDoorPath('gate')).toBe('/collection/gate/door');
     expect(isAppRoutePath('/collection/gate/door')).toBe(true);
+    expect(collectionPath('perk', { redeem: true })).toBe(
+      '/collection/perk/redeem'
+    );
+    expect(collectionRedeemPath('perk')).toBe('/collection/perk/redeem');
+    expect(isAppRoutePath('/collection/perk/redeem')).toBe(true);
   });
 });
 
