@@ -53,9 +53,9 @@ export function AppSocialSwapSheet({
       zIndex={57}
       ariaLabelledBy={titleId}
       backdropLabel="Close Get SOCIAL"
-      panelClassName="account-drawer-panel app-swap-sheet-panel"
+      panelClassName="account-storage-panel"
       panelStyle={panelStyle}
-      bodyClassName="account-card-body app-swap-sheet-body"
+      bodyClassName="account-storage-body"
       header={
         <>
           <SheetHeader
@@ -68,7 +68,9 @@ export function AppSocialSwapSheet({
         </>
       }
     >
-      <AppSocialSwapForm onSuccess={requestClose} />
+      <div className="app-storage-sheet">
+        <AppSocialSwapForm onSuccess={requestClose} />
+      </div>
     </GlassSheet>
   );
 }

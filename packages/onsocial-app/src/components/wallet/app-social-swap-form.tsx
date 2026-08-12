@@ -4,7 +4,6 @@ import { useCallback, useMemo, type ChangeEvent } from 'react';
 import {
   ChevronDownIcon,
   FloatingPanelMenu,
-  OsSheetAction,
   OsSheetActions,
   PulsingDots,
   osFloatingPanelItemClassName,
@@ -14,6 +13,7 @@ import {
   osFloatingPanelTriggerLabelClassName,
   useDropdown,
 } from '@onsocial/ui';
+import { OsSheetPrimaryAction } from '@/components/ui/os-sheet-primary-action';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
@@ -180,8 +180,8 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
 
   if (!APP_SWAP_ENABLED) {
     return (
-      <div className="app-swap-form">
-        <p className="app-swap-testnet-copy">
+      <section className="app-storage-section app-swap-form">
+        <p className="app-storage-hint app-swap-testnet-copy">
           Get SOCIAL via Rhea is mainnet-only. Run the app with{' '}
           <code>pnpm --filter @onsocial/app run dev:mainnet</code> to try it
           locally.
@@ -195,37 +195,21 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
             </li>
           ))}
         </ul>
-      </div>
+      </section>
     );
   }
 
-  const primaryLabel = !isConnected
-    ? isWalletBootstrapping
-      ? 'Connecting…'
-      : 'Connect wallet'
-    : swap.swapping
-      ? 'Getting SOCIAL…'
-      : 'Get SOCIAL';
-
+  const primaryLabel = !isConnected ? 'Connect wallet' : 'Get SOCIAL';
+  const primaryPending = !isConnected ? isWalletBootstrapping : swap.swapping;
   const primaryReady =
     (!isConnected && !isWalletBootstrapping) ||
     (isConnected && swap.canSwap && !swap.swapping);
 
   return (
-    <div className="app-swap-form">
+    <section className="app-storage-section app-swap-form">
       <div className="app-swap-leg">
         <div className="app-swap-leg-head">
           <span className="app-swap-leg-label">You pay</span>
-          {inputBalanceLabel != null ? (
-            <button
-              type="button"
-              className="os-surface-chip app-storage-preset--action"
-              onClick={swap.setMaxAmount}
-              disabled={!swap.maxAmount || swap.maxAmount === '0'}
-            >
-              Max {inputBalanceLabel} {paySymbol}
-            </button>
-          ) : null}
         </div>
         <div className="app-storage-amount-field app-swap-amount-field">
           <input
@@ -289,16 +273,26 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
             </FloatingPanelMenu>
           </div>
         </div>
+        <div className="app-storage-quick-row">
+          <button
+            type="button"
+            className="os-surface-chip app-storage-preset--action"
+            onClick={swap.setMaxAmount}
+            disabled={!swap.maxAmount || swap.maxAmount === '0'}
+          >
+            Max
+          </button>
+          <p className="app-storage-amount-meta">
+            {inputBalanceLabel != null
+              ? `Wallet ${inputBalanceLabel} ${paySymbol}`
+              : '\u00a0'}
+          </p>
+        </div>
       </div>
 
       <div className="app-swap-leg">
         <div className="app-swap-leg-head">
           <span className="app-swap-leg-label">You get</span>
-          {outputBalanceLabel != null ? (
-            <span className="app-swap-balance-meta">
-              Balance {outputBalanceLabel} SOCIAL
-            </span>
-          ) : null}
         </div>
         <div className="app-storage-amount-field app-swap-amount-field is-output">
           {receiveLoading ? (
@@ -312,15 +306,26 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
           )}
           <span className="app-swap-token-static">
             <TokenIcon src={tokenIcons.socialIcon} label="SOCIAL" />
-            <span>SOCIAL</span>
+            <span className="account-card-balance-unit">SOCIAL</span>
           </span>
         </div>
+        {outputBalanceLabel != null ? (
+          <p className="app-storage-amount-meta">
+            Balance {outputBalanceLabel} SOCIAL
+          </p>
+        ) : null}
       </div>
 
       {swap.swapHint ? (
-        <p className="app-swap-hint">{appSwapHintMessage(swap.swapHint)}</p>
+        <p className="app-storage-hint app-swap-hint">
+          {appSwapHintMessage(swap.swapHint)}
+        </p>
       ) : null}
-      {swap.error ? <p className="app-swap-error">{swap.error}</p> : null}
+      {swap.error ? (
+        <p className="app-storage-error" role="alert">
+          {swap.error}
+        </p>
+      ) : null}
 
       <AppSocialSwapQuoteDetails
         quote={swap.quote}
@@ -329,22 +334,19 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
       />
 
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
+        <OsSheetPrimaryAction
           type="button"
-          variant="primary"
           ready={primaryReady}
-          disabled={!primaryReady}
+          pending={primaryPending}
+          pendingLabel={!isConnected ? 'Connecting…' : 'Getting SOCIAL…'}
+          disabled={primaryPending || (isConnected && !swap.canSwap)}
           onClick={() => void handleSwap()}
         >
-          {swap.swapping ? (
-            <PulsingDots size="sm" label="Getting SOCIAL" />
-          ) : (
-            primaryLabel
-          )}
-        </OsSheetAction>
+          {primaryLabel}
+        </OsSheetPrimaryAction>
       </OsSheetActions>
 
-      <p className="app-swap-caption">
+      <p className="app-storage-hint app-swap-caption">
         Via Rhea ·{' '}
         {SOCIAL_RHEA_POOLS.map((pool, index) => (
           <span key={pool.poolId}>
@@ -355,6 +357,6 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
           </span>
         ))}
       </p>
-    </div>
+    </section>
   );
 }

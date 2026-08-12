@@ -270,10 +270,11 @@ export function AccountWalletZone({
           {onOpenSwap ? (
             <button
               type="button"
-              className="os-surface-chip account-wallet-get-social"
+              className="account-wallet-get-social"
               onClick={onOpenSwap}
+              aria-label="Get SOCIAL"
             >
-              Get SOCIAL
+              Get
             </button>
           ) : null}
           <button
