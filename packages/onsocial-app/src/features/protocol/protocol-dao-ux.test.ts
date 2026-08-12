@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PROTOCOL_CREATE_KIND_COMMON,
+  PROTOCOL_CREATE_KIND_OPTIONS,
+  isProtocolCreateKind,
+} from '@/features/protocol/protocol-create';
+import {
   countProtocolApplicationsByStatus,
   filterProtocolApplications,
   findProtocolApplicationByProposalId,
 } from '@/features/protocol/protocol-feed-filters';
+import { getProtocolCreateKindLockReason } from '@/features/protocol/protocol-propose-gate';
 import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
 import type { ProtocolApplication } from '@/features/protocol/types';
 import {
@@ -148,5 +154,71 @@ describe('protocol proposal presentation', () => {
       actionBadge: 'Config',
       targetKind: 'routing',
     });
+  });
+});
+
+describe('protocol propose kind UX helpers', () => {
+  it('pins common kinds first and buries power contracts', () => {
+    expect(PROTOCOL_CREATE_KIND_COMMON).toEqual([
+      'signal',
+      'join_self',
+      'transfer',
+    ]);
+    const contractIds = PROTOCOL_CREATE_KIND_OPTIONS.filter(
+      (option) => option.group === 'contracts'
+    ).map((option) => option.id);
+    expect(contractIds.slice(-3)).toEqual([
+      'transfer_ownership',
+      'contract_upgrade',
+      'contract_config',
+    ]);
+  });
+
+  it('explains locked kinds with short stake/role copy', () => {
+    expect(
+      getProtocolCreateKindLockReason({
+        kind: 'signal',
+        accountId: null,
+        canProposeAny: false,
+        isGroupMember: false,
+        remainingLabel: null,
+        canProposeKind: false,
+      })
+    ).toBe('Connect a wallet');
+    expect(
+      getProtocolCreateKindLockReason({
+        kind: 'transfer',
+        accountId: 'bob.near',
+        canProposeAny: false,
+        isGroupMember: false,
+        remainingLabel: '12.5K',
+        canProposeKind: false,
+      })
+    ).toBe('Need 12.5K SOCIAL');
+    expect(
+      getProtocolCreateKindLockReason({
+        kind: 'contract_upgrade',
+        accountId: 'bob.near',
+        canProposeAny: true,
+        isGroupMember: false,
+        remainingLabel: null,
+        canProposeKind: false,
+      })
+    ).toBe('Needs call permission.');
+    expect(
+      getProtocolCreateKindLockReason({
+        kind: 'signal',
+        accountId: 'bob.near',
+        canProposeAny: true,
+        isGroupMember: false,
+        remainingLabel: null,
+        canProposeKind: true,
+      })
+    ).toBeNull();
+  });
+
+  it('validates remembered create kinds', () => {
+    expect(isProtocolCreateKind('signal')).toBe(true);
+    expect(isProtocolCreateKind('not-a-kind')).toBe(false);
   });
 });

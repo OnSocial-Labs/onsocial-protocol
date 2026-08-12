@@ -18,6 +18,8 @@ import {
   resolveLiveProposal,
 } from '@/features/protocol/protocol-card-view';
 import {
+  readLastProtocolCreateKind,
+  rememberProtocolCreateKind,
   submitProtocolProposal,
   type ProtocolCreateKind,
   type ProtocolProposalPayload,
@@ -112,7 +114,9 @@ export function ProtocolPagePanel() {
   );
   const [proposeKindOpen, setProposeKindOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [createKind, setCreateKind] = useState<ProtocolCreateKind>('signal');
+  const [createKind, setCreateKind] = useState<ProtocolCreateKind>(
+    () => readLastProtocolCreateKind() ?? 'signal'
+  );
   const [stakeOpen, setStakeOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -1026,7 +1030,9 @@ export function ProtocolPagePanel() {
         daoAccountId={daoAccountId}
         accountId={accountId}
         daoPolicy={daoPolicy}
+        lastKind={createKind}
         onSelectKind={(kind) => {
+          rememberProtocolCreateKind(kind);
           setCreateKind(kind);
           setProposeKindOpen(false);
           setStakeOpen(false);

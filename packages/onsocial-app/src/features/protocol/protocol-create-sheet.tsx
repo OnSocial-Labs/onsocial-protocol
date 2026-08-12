@@ -668,18 +668,13 @@ export function ProtocolCreateSheet({
 
         {onChangeKind ? (
           <div className="protocol-propose-kind-current">
-            <div className="protocol-propose-kind-current-copy">
-              <p className="protocol-propose-kind-current-label">
-                {protocolCreateKindLabel(kind)}
-              </p>
-              <p className="protocol-compose-note">
-                {
-                  PROTOCOL_CREATE_KIND_OPTIONS.find(
-                    (option) => option.id === kind
-                  )?.hint
-                }
-              </p>
-            </div>
+            <p className="protocol-compose-note">
+              {
+                PROTOCOL_CREATE_KIND_OPTIONS.find(
+                  (option) => option.id === kind
+                )?.hint
+              }
+            </p>
             <button
               type="button"
               className="protocol-tool is-ghost"

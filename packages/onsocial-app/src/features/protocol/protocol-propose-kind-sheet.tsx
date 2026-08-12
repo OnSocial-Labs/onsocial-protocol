@@ -3,13 +3,17 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
 import {
+  PROTOCOL_CREATE_KIND_COMMON,
   PROTOCOL_CREATE_KIND_GROUPS,
   PROTOCOL_CREATE_KIND_OPTIONS,
+  readLastProtocolCreateKind,
+  rememberProtocolCreateKind,
   type ProtocolCreateKind,
 } from '@/features/protocol/protocol-create';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import {
   canProposeProtocolCreateKind,
+  getProtocolCreateKindLockReason,
   isProtocolDaoGroupMember,
 } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
@@ -24,6 +28,7 @@ export function ProtocolProposeKindSheet({
   daoAccountId,
   accountId,
   daoPolicy,
+  lastKind = null,
   onSelectKind,
   onOpenStake,
 }: {
@@ -32,6 +37,8 @@ export function ProtocolProposeKindSheet({
   daoAccountId: string | null;
   accountId: string | null;
   daoPolicy: ProtocolDaoPolicy | null;
+  /** Highlighted kind from the previous propose (does not skip the drawer). */
+  lastKind?: ProtocolCreateKind | null;
   onSelectKind: (kind: ProtocolCreateKind) => void;
   onOpenStake: () => void;
 }) {
@@ -42,25 +49,13 @@ export function ProtocolProposeKindSheet({
   const [delegatedWeight, setDelegatedWeight] = useState('0');
   const [canProposeAny, setCanProposeAny] = useState(true);
   const [remainingLabel, setRemainingLabel] = useState<string | null>(null);
+  const [highlightedKind, setHighlightedKind] =
+    useState<ProtocolCreateKind | null>(lastKind);
 
   const isGroupMember = useMemo(
     () => isProtocolDaoGroupMember(daoPolicy, accountId),
     [daoPolicy, accountId]
   );
-
-  const availableKinds = useMemo(() => {
-    if (!accountId || loadState !== 'ready') {
-      return PROTOCOL_CREATE_KIND_OPTIONS;
-    }
-    return PROTOCOL_CREATE_KIND_OPTIONS.filter((option) =>
-      canProposeProtocolCreateKind(
-        daoPolicy,
-        accountId,
-        delegatedWeight,
-        option.id
-      )
-    );
-  }, [accountId, loadState, daoPolicy, delegatedWeight]);
 
   useEffect(() => {
     if (!open) {
@@ -70,6 +65,7 @@ export function ProtocolProposeKindSheet({
       setRemainingLabel(null);
       return;
     }
+    setHighlightedKind(lastKind ?? readLastProtocolCreateKind());
     if (!daoAccountId || !accountId) {
       setLoadState('ready');
       return;
@@ -101,16 +97,41 @@ export function ProtocolProposeKindSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, daoAccountId, accountId, isGroupMember]);
+  }, [open, daoAccountId, accountId, isGroupMember, lastKind]);
+
+  const commonOptions = useMemo(
+    () =>
+      PROTOCOL_CREATE_KIND_COMMON.map((id) =>
+        PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === id)
+      ).filter(
+        (option): option is (typeof PROTOCOL_CREATE_KIND_OPTIONS)[number] =>
+          Boolean(option)
+      ),
+    []
+  );
+
+  const commonIds = useMemo(
+    () => new Set<ProtocolCreateKind>(PROTOCOL_CREATE_KIND_COMMON),
+    []
+  );
 
   const grouped = useMemo(
     () =>
       PROTOCOL_CREATE_KIND_GROUPS.map((group) => ({
         ...group,
-        options: availableKinds.filter((option) => option.group === group.id),
+        options: PROTOCOL_CREATE_KIND_OPTIONS.filter(
+          (option) =>
+            option.group === group.id && !commonIds.has(option.id)
+        ),
       })).filter((group) => group.options.length > 0),
-    [availableKinds]
+    [commonIds]
   );
+
+  const stakeBlocked =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    !canProposeAny &&
+    !isGroupMember;
 
   return (
     <GlassSheet
@@ -151,10 +172,7 @@ export function ProtocolProposeKindSheet({
           </p>
         ) : null}
 
-        {accountId &&
-        loadState === 'ready' &&
-        !canProposeAny &&
-        !isGroupMember ? (
+        {stakeBlocked ? (
           <div className="protocol-propose-kind-block">
             <p className="protocol-compose-note is-warn">
               Need {remainingLabel ?? 'more'} SOCIAL delegated to propose.
@@ -172,59 +190,141 @@ export function ProtocolProposeKindSheet({
           </div>
         ) : null}
 
-        {accountId &&
-        loadState === 'ready' &&
-        availableKinds.length === 0 &&
-        (canProposeAny || isGroupMember) ? (
-          <p className="protocol-compose-note is-warn">
-            No proposal kinds are available for your roles on this DAO.
-          </p>
-        ) : null}
+        <KindSection
+          label="Common"
+          options={commonOptions}
+          accountId={accountId}
+          loadState={loadState}
+          daoPolicy={daoPolicy}
+          delegatedWeight={delegatedWeight}
+          canProposeAny={canProposeAny}
+          isGroupMember={isGroupMember}
+          remainingLabel={remainingLabel}
+          highlightedKind={highlightedKind}
+          onSelectKind={(kind) => {
+            rememberProtocolCreateKind(kind);
+            onSelectKind(kind);
+          }}
+        />
 
         {grouped.map((group) => (
-          <section key={group.id} className="protocol-propose-kind-group">
-            <h3 className="protocol-propose-kind-group-label">{group.label}</h3>
-            <ul className="protocol-propose-kind-list">
-              {group.options.map((option) => (
-                <li key={option.id}>
-                  <button
-                    type="button"
-                    className="protocol-propose-kind-item"
-                    disabled={
-                      pendingBlocked(
-                        loadState,
-                        canProposeAny,
-                        isGroupMember,
-                        accountId
-                      )
-                    }
-                    onClick={() => onSelectKind(option.id)}
-                  >
-                    <span className="protocol-propose-kind-item-label">
-                      {option.label}
-                    </span>
-                    <span className="protocol-propose-kind-item-hint">
-                      {option.hint}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <KindSection
+            key={group.id}
+            label={group.label}
+            options={group.options}
+            accountId={accountId}
+            loadState={loadState}
+            daoPolicy={daoPolicy}
+            delegatedWeight={delegatedWeight}
+            canProposeAny={canProposeAny}
+            isGroupMember={isGroupMember}
+            remainingLabel={remainingLabel}
+            highlightedKind={highlightedKind}
+            onSelectKind={(kind) => {
+              rememberProtocolCreateKind(kind);
+              onSelectKind(kind);
+            }}
+          />
         ))}
       </div>
     </GlassSheet>
   );
 }
 
-function pendingBlocked(
-  loadState: 'idle' | 'loading' | 'ready' | 'error',
-  canProposeAny: boolean,
-  isGroupMember: boolean,
-  accountId: string | null
-): boolean {
-  if (!accountId) return true;
-  if (loadState === 'loading' || loadState === 'error') return true;
-  if (!canProposeAny && !isGroupMember) return true;
-  return false;
+function KindSection({
+  label,
+  options,
+  accountId,
+  loadState,
+  daoPolicy,
+  delegatedWeight,
+  canProposeAny,
+  isGroupMember,
+  remainingLabel,
+  highlightedKind,
+  onSelectKind,
+}: {
+  label: string;
+  options: typeof PROTOCOL_CREATE_KIND_OPTIONS;
+  accountId: string | null;
+  loadState: 'idle' | 'loading' | 'ready' | 'error';
+  daoPolicy: ProtocolDaoPolicy | null;
+  delegatedWeight: string;
+  canProposeAny: boolean;
+  isGroupMember: boolean;
+  remainingLabel: string | null;
+  highlightedKind: ProtocolCreateKind | null;
+  onSelectKind: (kind: ProtocolCreateKind) => void;
+}) {
+  if (options.length === 0) return null;
+
+  return (
+    <section className="protocol-propose-kind-group">
+      <h3 className="protocol-propose-kind-group-label">{label}</h3>
+      <ul className="protocol-propose-kind-list">
+        {options.map((option) => {
+          const canProposeKind =
+            Boolean(accountId) &&
+            loadState === 'ready' &&
+            canProposeProtocolCreateKind(
+              daoPolicy,
+              accountId,
+              delegatedWeight,
+              option.id
+            );
+          const lockReason =
+            loadState === 'ready'
+              ? getProtocolCreateKindLockReason({
+                  kind: option.id,
+                  accountId,
+                  canProposeAny,
+                  isGroupMember,
+                  remainingLabel,
+                  canProposeKind,
+                })
+              : loadState === 'loading'
+                ? 'Checking…'
+                : loadState === 'error'
+                  ? 'Unavailable'
+                  : accountId
+                    ? null
+                    : 'Connect a wallet';
+          const disabled = Boolean(lockReason);
+          const isLast = highlightedKind === option.id;
+
+          return (
+            <li key={option.id}>
+              <button
+                type="button"
+                className={[
+                  'protocol-propose-kind-item',
+                  isLast ? 'is-last' : '',
+                  disabled ? 'is-locked' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                disabled={disabled}
+                aria-current={isLast ? 'true' : undefined}
+                onClick={() => onSelectKind(option.id)}
+              >
+                <span className="protocol-propose-kind-item-top">
+                  <span className="protocol-propose-kind-item-label">
+                    {option.label}
+                  </span>
+                  {isLast ? (
+                    <span className="protocol-propose-kind-item-badge">
+                      Last used
+                    </span>
+                  ) : null}
+                </span>
+                <span className="protocol-propose-kind-item-hint">
+                  {disabled && lockReason ? lockReason : option.hint}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }

@@ -56,6 +56,12 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
     hint: 'Add yourself to a DAO role.',
   },
   {
+    id: 'transfer',
+    label: 'Transfer',
+    group: 'treasury',
+    hint: 'Send NEAR or FT from the DAO treasury.',
+  },
+  {
     id: 'add_member',
     label: 'Add member',
     group: 'membership',
@@ -72,12 +78,6 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
     label: 'Remove member',
     group: 'membership',
     hint: 'Remove another account from a role.',
-  },
-  {
-    id: 'transfer',
-    label: 'Transfer',
-    group: 'treasury',
-    hint: 'Send NEAR or FT from the DAO treasury.',
   },
   {
     id: 'fund_season_pool',
@@ -98,6 +98,12 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
     hint: 'Set who can withdraw boost infra.',
   },
   {
+    id: 'season_config',
+    label: 'Season config',
+    group: 'contracts',
+    hint: 'Create or update a rally season.',
+  },
+  {
     id: 'transfer_ownership',
     label: 'Ownership',
     group: 'contracts',
@@ -115,12 +121,13 @@ export const PROTOCOL_CREATE_KIND_OPTIONS: Array<{
     group: 'contracts',
     hint: 'Update social-spend action routing.',
   },
-  {
-    id: 'season_config',
-    label: 'Season config',
-    group: 'contracts',
-    hint: 'Create or update a rally season.',
-  },
+];
+
+/** Everyday kinds pinned at the top of the propose drawer. */
+export const PROTOCOL_CREATE_KIND_COMMON: ProtocolCreateKind[] = [
+  'signal',
+  'join_self',
+  'transfer',
 ];
 
 export const PROTOCOL_CREATE_KIND_GROUPS: Array<{
@@ -138,6 +145,31 @@ export function protocolCreateKindLabel(kind: ProtocolCreateKind): string {
     PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === kind)?.label ??
     'Proposal'
   );
+}
+
+export function isProtocolCreateKind(value: string): value is ProtocolCreateKind {
+  return PROTOCOL_CREATE_KIND_OPTIONS.some((option) => option.id === value);
+}
+
+const LAST_CREATE_KIND_KEY = 'onsocial.protocol.lastCreateKind';
+
+export function readLastProtocolCreateKind(): ProtocolCreateKind | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(LAST_CREATE_KIND_KEY)?.trim() ?? '';
+    return isProtocolCreateKind(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberProtocolCreateKind(kind: ProtocolCreateKind): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LAST_CREATE_KIND_KEY, kind);
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 export interface ProtocolProposalPayload {
