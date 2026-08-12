@@ -7602,6 +7602,13 @@ a.os-surface-row {
     --os-screen-footer-band: 5.5rem;
   }
 
+  /* Door Admit stacks primary + ghost — needs a taller scroll clearance. */
+  .os-app-screen[data-screen-footer='true']:has(
+      .ticket-door-page-actions.is-stacked
+    ) {
+    --os-screen-footer-band: 8.5rem;
+  }
+
   .os-app-screen[data-screen-footer='true'] .os-app-screen-body {
     padding-bottom: calc(
       var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
@@ -21048,30 +21055,9 @@ a.os-surface-row {
     );
   }
 
-  .ticket-door-page {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 0.35rem 0 1.25rem;
-    max-width: 36rem;
-    margin-inline: auto;
-    width: 100%;
-  }
-
-  .ticket-door-page-empty {
-    margin: 1.5rem 0 0;
-    font-size: 0.95rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.72);
-  }
-
-  .ticket-door-page-back {
-    margin-top: 0.35rem;
-    font-size: 0.9rem;
-    font-weight: 650;
-    color: rgb(var(--fg-rgb) / 0.88);
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
+  /* Admit page — same market-page inset; camera taller for staff scanning. */
+  .ticket-door-page .ticket-door {
+    padding: 0;
   }
 
   .ticket-door-page .ticket-door-camera {

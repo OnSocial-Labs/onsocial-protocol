@@ -2,11 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import {
-  OsSheetAction,
-  OsSheetActions,
-  PulsingDots,
-} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -19,6 +15,43 @@ import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { useTicketDoorAdmit } from '@/features/scarces/use-ticket-door-admit';
 import { accountIdsEqual } from '@/lib/account-match';
 import { collectionPath } from '@/lib/app-routes';
+
+function DoorEmpty({
+  copy,
+  dropHref,
+}: {
+  copy: ReactNode;
+  dropHref?: string;
+}) {
+  return (
+    <div className="market-page-empty">
+      <p className="market-page-empty-copy">{copy}</p>
+      {dropHref ? (
+        <Link className="app-soon-link" href={dropHref}>
+          Back to drop
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function DoorFooter({
+  stacked,
+  children,
+}: {
+  stacked?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`collection-action-band ticket-door-page-actions${
+        stacked ? ' is-stacked' : ''
+      }`}
+    >
+      <div className="commerce-sheet-footer-row">{children}</div>
+    </div>
+  );
+}
 
 /**
  * Fullscreen Door Admit — browser camera for event staff.
@@ -97,118 +130,95 @@ export function TicketDoorPagePanel({
   let footer: ReactNode = null;
 
   if (!view) {
-    body = (
-      <div className="ticket-door-page">
-        <p className="ticket-door-page-empty">Drop not found.</p>
-        <Link href={dropHref} className="ticket-door-page-back">
-          Back to drop
-        </Link>
-      </div>
-    );
+    body = <DoorEmpty copy="Drop not found." dropHref={dropHref} />;
   } else if (
     !isPassMediumKind(view.kind) ||
     view.maxRedeems == null ||
     view.maxRedeems <= 0
   ) {
     body = (
-      <div className="ticket-door-page">
-        <p className="ticket-door-page-empty">
-          This drop does not use Show pass check-in.
-        </p>
-        <Link href={dropHref} className="ticket-door-page-back">
-          Back to drop
-        </Link>
-      </div>
+      <DoorEmpty
+        copy="This drop does not use Show pass check-in."
+        dropHref={dropHref}
+      />
     );
   } else if (!isConnected) {
     body = (
-      <div className="ticket-door-page">
-        <p className="ticket-door-page-empty">
-          Connect a door-staff wallet to admit guests.
-        </p>
-      </div>
+      <DoorEmpty copy="Connect a door-staff wallet to admit guests." />
     );
     footer = (
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready={!isLoading}
-          disabled={isLoading}
-          onClick={() => void connect()}
-        >
-          {isLoading ? 'Connecting…' : 'Connect wallet'}
-        </OsSheetAction>
-      </OsSheetActions>
+      <DoorFooter>
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready={!isLoading}
+            pending={isLoading}
+            pendingLabel="Connecting…"
+            disabled={isLoading}
+            onClick={() => void connect()}
+          >
+            Connect wallet
+          </OsSheetAction>
+        </OsSheetActions>
+      </DoorFooter>
     );
   } else if (!accessReady) {
-    body = (
-      <div className="ticket-door-page">
-        <p className="ticket-door-page-empty">
-          <PulsingDots size="sm" label="Checking door access" />
-        </p>
-      </div>
-    );
+    body = <DoorEmpty copy="Checking door access…" />;
   } else if (!canDoor) {
     body = (
-      <div className="ticket-door-page">
-        <p className="ticket-door-page-empty">
-          Only the creator or door staff can admit here.
-        </p>
-        <Link href={dropHref} className="ticket-door-page-back">
-          Back to drop
-        </Link>
-      </div>
+      <DoorEmpty
+        copy="Only the creator or door staff can admit here."
+        dropHref={dropHref}
+      />
     );
   } else {
     body = (
-      <div className="ticket-door-page">
-        <TicketDoorWorkbench
-          eventName={eventName}
-          videoRef={door.videoRef}
-          cameraActive={door.cameraActive}
-          cameraError={door.cameraError}
-          scanHint={door.scanHint}
-          manualInput={door.manualInput}
-          setManualInput={door.setManualInput}
-          lookupPending={door.lookupPending}
-          admitPending={door.admitPending}
-          lookupError={door.lookupError}
-          setLookupError={door.setLookupError}
-          status={door.status}
-          lastAdmittedTokenId={door.lastAdmittedTokenId}
-          applyLookup={door.applyLookup}
-          lead="Point at a Show pass QR. After admit, stay here for the next guest."
-        />
-      </div>
+      <TicketDoorWorkbench
+        eventName={eventName}
+        videoRef={door.videoRef}
+        cameraActive={door.cameraActive}
+        cameraError={door.cameraError}
+        scanHint={door.scanHint}
+        manualInput={door.manualInput}
+        setManualInput={door.setManualInput}
+        lookupPending={door.lookupPending}
+        admitPending={door.admitPending}
+        lookupError={door.lookupError}
+        setLookupError={door.setLookupError}
+        status={door.status}
+        lastAdmittedTokenId={door.lastAdmittedTokenId}
+        applyLookup={door.applyLookup}
+        lead="Point at a Show pass QR. After admit, stay here for the next guest."
+      />
     );
     footer = (
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready={door.canAdmit}
-          disabled={!door.canAdmit}
-          onClick={() => void door.handleAdmit()}
-        >
-          {door.admitPending ? (
-            <PulsingDots size="sm" label="Admitting" />
-          ) : (
-            'Admit'
-          )}
-        </OsSheetAction>
-        <OsSheetAction
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            if (door.cameraActive) door.stopCamera();
-            else void door.startCamera();
-          }}
-          disabled={door.admitPending || door.lookupPending}
-        >
-          {door.cameraActive ? 'Stop camera' : 'Scan again'}
-        </OsSheetAction>
-      </OsSheetActions>
+      <DoorFooter stacked>
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready={door.canAdmit}
+            pending={door.admitPending}
+            pendingLabel="Admitting…"
+            disabled={!door.canAdmit}
+            onClick={() => void door.handleAdmit()}
+          >
+            Admit
+          </OsSheetAction>
+          <OsSheetAction
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              if (door.cameraActive) door.stopCamera();
+              else void door.startCamera();
+            }}
+            disabled={door.admitPending || door.lookupPending}
+          >
+            {door.cameraActive ? 'Stop camera' : 'Scan again'}
+          </OsSheetAction>
+        </OsSheetActions>
+      </DoorFooter>
     );
   }
 
@@ -220,7 +230,7 @@ export function TicketDoorPagePanel({
       glassChrome
       footer={footer}
     >
-      {body}
+      <div className="market-page ticket-door-page">{body}</div>
     </OsAppScreen>
   );
 }
