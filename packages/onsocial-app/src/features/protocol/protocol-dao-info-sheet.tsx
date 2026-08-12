@@ -69,37 +69,28 @@ export function ProtocolDaoInfoSheet({
     useState<ProtocolGovernanceEligibility | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setLoadState('idle');
-      setConfigName('');
-      setConfigPurpose('');
-      setEligibility(null);
-      return;
-    }
-    if (!daoAccountId) {
-      setLoadState('ready');
-      return;
-    }
+    if (!open || !daoAccountId) return;
 
     let cancelled = false;
-    setLoadState('loading');
-    void Promise.all([
-      getProtocolDaoConfig(daoAccountId),
-      accountId
-        ? getProtocolGovernanceEligibility(accountId, daoAccountId)
-        : Promise.resolve(null),
-    ])
-      .then(([config, nextEligibility]) => {
+    void (async () => {
+      setLoadState('loading');
+      try {
+        const [config, nextEligibility] = await Promise.all([
+          getProtocolDaoConfig(daoAccountId),
+          accountId
+            ? getProtocolGovernanceEligibility(accountId, daoAccountId)
+            : Promise.resolve(null),
+        ]);
         if (cancelled) return;
         setConfigName(config?.name?.trim() || '');
         setConfigPurpose(config?.purpose?.trim() || '');
         setEligibility(nextEligibility);
         setLoadState('ready');
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return;
         setLoadState('error');
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
