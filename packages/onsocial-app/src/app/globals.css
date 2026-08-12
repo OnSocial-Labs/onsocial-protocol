@@ -31387,6 +31387,47 @@ button.scarce-clip-cover-expand:focus-visible {
   outline-offset: 1px;
 }
 
+.protocol-policy-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 0.15rem;
+}
+
+.protocol-policy-summary-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgb(var(--fg-rgb) / 0.1);
+  border-radius: 0.75rem;
+  background: rgb(var(--fg-rgb) / 0.03);
+}
+
+.protocol-policy-summary-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.protocol-policy-summary-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: rgb(var(--fg-rgb) / 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.protocol-preset-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .protocol-permission-list {
   display: flex;
   flex-direction: column;
