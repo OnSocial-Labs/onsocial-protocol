@@ -28,6 +28,29 @@ import type {
   RelayResponse,
 } from '../types.js';
 
+/** Live per-member group sponsor quota from `get_group_sponsor_quota`. */
+export interface GroupSponsorQuotaInfo {
+  group_id: string;
+  target_id: string;
+  is_override: boolean;
+  enabled: boolean;
+  daily_refill_bytes: number;
+  allowance_max_bytes: number;
+  allowance_bytes: number;
+  used_bytes: number;
+  applied_default_version: number;
+  last_refill_ns: number;
+}
+
+/** Live group default sponsor policy from `get_group_sponsor_default`. */
+export interface GroupSponsorDefaultInfo {
+  group_id: string;
+  enabled: boolean;
+  daily_refill_bytes: number;
+  allowance_max_bytes: number;
+  version: number;
+}
+
 /** Amount accepted as input — branded, plain string, number, or bigint. */
 export type AmountInput = NearAmount | string | number | bigint;
 
@@ -162,6 +185,33 @@ export class StorageAccountModule {
     const p = new URLSearchParams({ groupId });
     return this._http.get<Record<string, unknown> | null>(
       `/data/group-pool?${p}`
+    );
+  }
+
+  /**
+   * Live per-member group sponsor quota (`get_group_sponsor_quota`).
+   * Returns `null` when no quota row exists for `(groupId, targetId)`.
+   */
+  async groupSponsorQuota(
+    groupId: string,
+    targetId: string
+  ): Promise<GroupSponsorQuotaInfo | null> {
+    const p = new URLSearchParams({ groupId, targetId });
+    return this._http.get<GroupSponsorQuotaInfo | null>(
+      `/data/group-sponsor-quota?${p}`
+    );
+  }
+
+  /**
+   * Live group default sponsor policy (`get_group_sponsor_default`).
+   * Returns `null` when no default has been set.
+   */
+  async groupSponsorDefault(
+    groupId: string
+  ): Promise<GroupSponsorDefaultInfo | null> {
+    const p = new URLSearchParams({ groupId });
+    return this._http.get<GroupSponsorDefaultInfo | null>(
+      `/data/group-sponsor-default?${p}`
     );
   }
 

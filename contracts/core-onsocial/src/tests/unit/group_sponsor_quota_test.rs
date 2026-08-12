@@ -520,4 +520,75 @@ mod group_sponsor_quota_tests {
         assert_eq!(q.allowance_bytes, 0);
         assert_eq!(q.last_refill_ns, 1_000);
     }
+
+    #[test]
+    fn test_get_group_sponsor_quota_and_default_views() {
+        let mut contract = init_live_contract();
+        let owner = test_account(0);
+        let target = test_account(1);
+        let group_id = "g-view";
+
+        let deposit_attached = NearToken::from_near(3).as_yoctonear();
+        testing_env!(get_context_with_deposit(owner.clone(), deposit_attached).build());
+
+        let owner_deposit = NearToken::from_near(2).as_yoctonear();
+        contract
+            .execute_admin(set_request(json!({
+                "storage/deposit": { "amount": owner_deposit.to_string() }
+            })))
+            .expect("deposit should succeed");
+
+        contract
+            .platform
+            .storage_set(
+                "groups/g-view/config",
+                &json!({"owner": owner.to_string()}),
+            )
+            .expect("writing group config should succeed");
+
+        let pool_deposit = NearToken::from_near(1).as_yoctonear();
+        testing_env!(get_context_with_deposit(owner.clone(), pool_deposit).build());
+        contract
+            .execute_admin(set_request(json!({
+                "storage/group_pool_deposit": {
+                    "group_id": group_id,
+                    "amount": pool_deposit.to_string()
+                },
+                "storage/group_sponsor_default_set": {
+                    "group_id": group_id,
+                    "enabled": true,
+                    "daily_refill_bytes": 0,
+                    "allowance_max_bytes": 5_000
+                },
+                "storage/group_sponsor_quota_set": {
+                    "group_id": group_id,
+                    "target_id": target.to_string(),
+                    "enabled": true,
+                    "daily_refill_bytes": 0,
+                    "allowance_max_bytes": 10_000
+                }
+            })))
+            .expect("setup should succeed");
+
+        let default_view = contract
+            .get_group_sponsor_default(group_id.to_string())
+            .expect("default view should exist");
+        assert_eq!(default_view["enabled"], true);
+        assert_eq!(default_view["allowance_max_bytes"], 5_000);
+
+        let quota_view = contract
+            .get_group_sponsor_quota(group_id.to_string(), target.clone())
+            .expect("quota view should exist");
+        assert_eq!(quota_view["enabled"], true);
+        assert_eq!(quota_view["is_override"], true);
+        assert_eq!(quota_view["allowance_max_bytes"], 10_000);
+        assert_eq!(quota_view["allowance_bytes"], 10_000);
+        assert_eq!(quota_view["used_bytes"], 0);
+
+        let missing = contract.get_group_sponsor_quota(
+            group_id.to_string(),
+            test_account(9),
+        );
+        assert!(missing.is_none());
+    }
 }

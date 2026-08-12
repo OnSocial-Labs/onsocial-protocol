@@ -1,7 +1,6 @@
 import type {
   GroupSponsorDefaultEventRow,
   GroupSponsorQuotaEventRow,
-  GroupSponsorSpendEventRow,
 } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import type { ActiveStorageShareGrant } from '@/lib/user-storage-display';
@@ -39,40 +38,19 @@ function parsePositiveByteField(raw: string | null | undefined): number {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
-function parseNonNegativeByteField(
-  raw: string | null | undefined
-): number | null {
-  if (!raw?.trim()) return null;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value < 0) return null;
+function parseNonNegativeNumber(raw: unknown): number {
+  const value = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(value) || value < 0) return 0;
   return Math.floor(value);
 }
 
-/** Latest remaining allowance per payer from newest-first spend events. */
-export function latestRemainingByPayer(
-  spends: GroupSponsorSpendEventRow[]
-): Map<string, number> {
-  const remainingByPayer = new Map<string, number>();
-
-  for (const spend of spends) {
-    const payer = spend.payer?.trim();
-    if (!payer || remainingByPayer.has(payer)) continue;
-    const remaining = parseNonNegativeByteField(spend.remainingAllowance);
-    if (remaining == null) continue;
-    remainingByPayer.set(payer, remaining);
-  }
-
-  return remainingByPayer;
-}
-
-export function pickActiveGroupSponsorGrants(
+/** Newest-first quota events → unique candidate target ids (enabled only). */
+export function discoverGroupSponsorTargetIds(
   events: GroupSponsorQuotaEventRow[],
-  includeTargetIds: string[] = [],
-  spends: GroupSponsorSpendEventRow[] = []
-): ActiveStorageShareGrant[] {
+  includeTargetIds: string[] = []
+): string[] {
   const seen = new Set<string>();
-  const grants: ActiveStorageShareGrant[] = [];
-  const remainingByPayer = latestRemainingByPayer(spends);
+  const targets: string[] = [];
 
   for (const event of events) {
     const accountId = event.memberId?.trim();
@@ -81,37 +59,40 @@ export function pickActiveGroupSponsorGrants(
 
     const maxBytes = parsePositiveByteField(event.quotaBytes);
     const enabled = parseEnabledFlag(event.extraData, maxBytes > 0);
-    if (!enabled || maxBytes <= 0) continue;
-
-    const remaining = remainingByPayer.get(accountId);
-    const usedBytes =
-      remaining == null
-        ? 0
-        : Math.max(0, Math.min(maxBytes, maxBytes - remaining));
-
-    grants.push({
-      accountId,
-      maxBytes,
-      usedBytes,
-    });
+    if (!enabled) continue;
+    targets.push(accountId);
   }
 
   for (const targetId of includeTargetIds) {
     const accountId = targetId.trim();
     if (!accountId || seen.has(accountId)) continue;
     seen.add(accountId);
-    grants.push({
-      accountId,
-      maxBytes: 0,
-      usedBytes: 0,
-    });
+    targets.push(accountId);
   }
 
-  return grants.sort((left, right) =>
-    left.accountId.localeCompare(right.accountId)
-  );
+  return targets;
 }
 
+export function pickActiveGroupSponsorDefaultFromLive(raw: {
+  enabled?: unknown;
+  allowance_max_bytes?: unknown;
+  daily_refill_bytes?: unknown;
+} | null): ActiveGroupSponsorDefault | null {
+  if (!raw) return null;
+  const enabled = Boolean(raw.enabled);
+  const maxBytes = parseNonNegativeNumber(raw.allowance_max_bytes);
+  const dailyRefillBytes = parseNonNegativeNumber(raw.daily_refill_bytes);
+  if (!enabled) {
+    return { enabled: false, maxBytes: 0, dailyRefillBytes: 0 };
+  }
+  return {
+    enabled: true,
+    maxBytes,
+    dailyRefillBytes,
+  };
+}
+
+/** Fallback when live views are unavailable (pre-upgrade / indexer-only). */
 export function pickActiveGroupSponsorDefault(
   events: GroupSponsorDefaultEventRow[]
 ): ActiveGroupSponsorDefault | null {
@@ -132,23 +113,118 @@ export function pickActiveGroupSponsorDefault(
   };
 }
 
+export function liveQuotaToGrant(
+  accountId: string,
+  raw: {
+    enabled?: unknown;
+    is_override?: unknown;
+    allowance_max_bytes?: unknown;
+    used_bytes?: unknown;
+    allowance_bytes?: unknown;
+  } | null
+): ActiveStorageShareGrant | null {
+  if (!raw) return null;
+  if (!raw.enabled) return null;
+  // Grants list is for explicit overrides; derived defaults stay in Default card.
+  if (raw.is_override === false) return null;
+
+  const maxBytes = parseNonNegativeNumber(raw.allowance_max_bytes);
+  if (maxBytes <= 0) return null;
+
+  let usedBytes = parseNonNegativeNumber(raw.used_bytes);
+  if (
+    usedBytes === 0 &&
+    raw.allowance_bytes != null &&
+    raw.used_bytes == null
+  ) {
+    const allowance = parseNonNegativeNumber(raw.allowance_bytes);
+    usedBytes = Math.max(0, maxBytes - Math.min(maxBytes, allowance));
+  }
+
+  return {
+    accountId,
+    maxBytes,
+    usedBytes: Math.min(maxBytes, usedBytes),
+  };
+}
+
 export async function loadAppGroupStorageGrants(
   groupId: string,
   opts: { includeTargetIds?: string[] } = {}
 ): Promise<AppGroupStorageGrantsResponse> {
   const os = createServerOnSocialClient();
-  const [quotaEvents, defaultEvents, spendEvents] = await Promise.all([
+  const includeTargetIds = opts.includeTargetIds ?? [];
+
+  const [quotaEvents, defaultEvents, liveDefault] = await Promise.all([
     os.query.storage.groupSponsorQuotasGranted(groupId, { limit: 100 }),
     os.query.storage.groupSponsorDefaults(groupId, { limit: 20 }),
-    os.query.storage.groupSponsorSpends(groupId, { limit: 200 }),
+    os.storageAccount.groupSponsorDefault(groupId).catch(() => null),
   ]);
 
+  const targetIds = discoverGroupSponsorTargetIds(
+    quotaEvents,
+    includeTargetIds
+  );
+
+  const liveQuotas = await Promise.all(
+    targetIds.map(async (accountId) => {
+      try {
+        const live = await os.storageAccount.groupSponsorQuota(
+          groupId,
+          accountId
+        );
+        return { accountId, live };
+      } catch {
+        return { accountId, live: null };
+      }
+    })
+  );
+
+  const grantsFromLive = liveQuotas
+    .map(({ accountId, live }) => liveQuotaToGrant(accountId, live))
+    .filter((grant): grant is ActiveStorageShareGrant => grant != null);
+
+  const liveAccountIds = new Set(grantsFromLive.map((grant) => grant.accountId));
+
+  // Optimistic pending targets (just granted; indexer/live may lag).
+  const pendingGrants: ActiveStorageShareGrant[] = includeTargetIds
+    .filter((accountId) => accountId && !liveAccountIds.has(accountId))
+    .map((accountId) => ({
+      accountId,
+      maxBytes: 0,
+      usedBytes: 0,
+    }));
+
+  // If every live read failed (pre-upgrade), fall back to indexer max only.
+  const liveReadsFailed =
+    targetIds.length > 0 &&
+    liveQuotas.every((entry) => entry.live == null) &&
+    grantsFromLive.length === 0;
+
+  const grants = liveReadsFailed
+    ? [
+        ...discoverGroupSponsorTargetIds(quotaEvents).map((accountId) => {
+          const event = quotaEvents.find(
+            (row) => row.memberId?.trim() === accountId
+          );
+          return {
+            accountId,
+            maxBytes: parsePositiveByteField(event?.quotaBytes),
+            usedBytes: 0,
+          };
+        }),
+        ...pendingGrants,
+      ].sort((left, right) => left.accountId.localeCompare(right.accountId))
+    : [...grantsFromLive, ...pendingGrants].sort((left, right) =>
+        left.accountId.localeCompare(right.accountId)
+      );
+
+  const defaultQuota =
+    pickActiveGroupSponsorDefaultFromLive(liveDefault) ??
+    pickActiveGroupSponsorDefault(defaultEvents);
+
   return {
-    grants: pickActiveGroupSponsorGrants(
-      quotaEvents,
-      opts.includeTargetIds ?? [],
-      spendEvents
-    ),
-    defaultQuota: pickActiveGroupSponsorDefault(defaultEvents),
+    grants,
+    defaultQuota,
   };
 }

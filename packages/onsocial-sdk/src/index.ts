@@ -389,6 +389,8 @@ export {
   StorageAccountModule,
   type AmountInput,
   type DepositWriteOptions,
+  type GroupSponsorDefaultInfo,
+  type GroupSponsorQuotaInfo,
   type TransactionSigner,
   type TxObserver,
   type WriteOptions,
