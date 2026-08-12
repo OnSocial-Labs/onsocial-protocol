@@ -117,6 +117,7 @@ export type {
 export type {
   GroupSponsorDefaultEventRow,
   GroupSponsorQuotaEventRow,
+  GroupSponsorSpendEventRow,
   StorageEventRow,
 } from './storage.js';
 export type { PermissionEventRow } from './permissions.js';

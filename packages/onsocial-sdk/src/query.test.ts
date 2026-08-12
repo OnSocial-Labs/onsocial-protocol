@@ -2520,6 +2520,29 @@ describe('QueryModule', () => {
       );
     });
 
+    it('groupSponsorSpends filters by group and operation', async () => {
+      const spendEvent = {
+        payer: 'bob.near',
+        bytes: '128',
+        remainingAllowance: '3968',
+        blockHeight: 11,
+      };
+      const { os, fetch } = makeOs({
+        data: { storageUpdates: [spendEvent] },
+      });
+      const rows = await os.query.storage.groupSponsorSpends('cool-cats', {
+        limit: 50,
+      });
+      expect(rows).toEqual([spendEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ groupId: 'cool-cats', limit: 50 });
+      expect(body.query).toMatch(/operation: \{_eq: "group_sponsor_spend"\}/);
+      expect(body.query).toMatch(/groupId: \{_eq: \$groupId\}/);
+    });
+
     it('history queries actor OR target', async () => {
       const { os, fetch } = makeOs({
         data: { storageUpdates: [sampleEvent] },

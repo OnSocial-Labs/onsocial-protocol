@@ -40,6 +40,8 @@ import {
   MIN_SHARED_STORAGE_BYTES,
   parseStorageAmountYocto,
   resolveSharePoolBudgetBytes,
+  shareGrantRemainingBytes,
+  shareGrantUsedPercent,
   splitShareBytesPerRecipient,
   storageCapacityBytesFromNearInput,
   STORAGE_NEAR_INPUT_DECIMALS,
@@ -315,22 +317,46 @@ function GroupGrantRow({
   pending: boolean;
   onRevoke: (accountId: string) => void;
 }) {
+  const remaining = shareGrantRemainingBytes(grant);
+  const usedPercent = shareGrantUsedPercent(grant);
+  const fillWidth = grant.usedBytes > 0 ? Math.max(usedPercent, 8) : 0;
+  const showUsage = grant.usedBytes > 0;
+  const pendingGrant = grant.maxBytes <= 0;
+
   return (
     <li className="app-storage-grant-row">
       <span className="app-storage-grant-account" title={`@${grant.accountId}`}>
         @{grant.accountId}
       </span>
+      {showUsage ? (
+        <span
+          className="app-storage-grant-usage"
+          role="progressbar"
+          aria-valuenow={usedPercent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${grant.accountId} group storage usage`}
+        >
+          <span style={{ width: `${fillWidth}%` }} />
+        </span>
+      ) : null}
       <span className="app-storage-grant-bytes">
-        {grant.maxBytes > 0 ? (
-          <CompactByteAmount bytes={grant.maxBytes} />
-        ) : (
+        {pendingGrant ? (
           <span className="app-storage-share-muted">Pending…</span>
+        ) : showUsage ? (
+          <>
+            <CompactByteAmount bytes={grant.usedBytes} muted />
+            <span className="app-storage-share-muted"> / </span>
+            <CompactByteAmount bytes={grant.maxBytes} />
+          </>
+        ) : (
+          <CompactByteAmount bytes={remaining} />
         )}
       </span>
       <button
         type="button"
         className="app-storage-share-link"
-        disabled={pending || grant.maxBytes <= 0}
+        disabled={pending || pendingGrant}
         onClick={() => onRevoke(grant.accountId)}
       >
         Remove
@@ -368,6 +394,7 @@ function GroupGrantsReadout({
     (total, grant) => total + grant.maxBytes,
     0
   );
+  const usedBytes = grants.reduce((total, grant) => total + grant.usedBytes, 0);
 
   return (
     <div className="app-storage-grants">
@@ -379,6 +406,7 @@ function GroupGrantsReadout({
             {allocatedBytes > 0
               ? ` · ${formatCompactBytes(allocatedBytes)}`
               : ''}
+            {usedBytes > 0 ? ` · ${formatCompactBytes(usedBytes)} used` : ''}
           </span>
         ) : null}
       </div>

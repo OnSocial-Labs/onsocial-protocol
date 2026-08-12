@@ -174,6 +174,7 @@ export type {
   StorageEventRow,
   GroupSponsorQuotaEventRow,
   GroupSponsorDefaultEventRow,
+  GroupSponsorSpendEventRow,
   PermissionEventRow,
   GovernanceEventRow,
   RewardsEventRow,

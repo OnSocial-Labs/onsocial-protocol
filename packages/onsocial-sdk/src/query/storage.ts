@@ -52,6 +52,17 @@ export interface GroupSponsorDefaultEventRow {
   blockHeight: number;
 }
 
+/**
+ * Group sponsor spend (`STORAGE_UPDATE` / `group_sponsor_spend`).
+ * Latest row per payer gives remaining allowance after that write.
+ */
+export interface GroupSponsorSpendEventRow {
+  payer: string;
+  bytes: string;
+  remainingAllowance: string;
+  blockHeight: number;
+}
+
 const STORAGE_EVENT_FIELDS = `
   operation
   actorId
@@ -258,5 +269,37 @@ export class StorageQuery {
       variables: { groupId, limit: opts.limit ?? 20 },
     });
     return res.data?.groupUpdates ?? [];
+  }
+
+  /**
+   * Group sponsor spend events for a guild (operation =
+   * `group_sponsor_spend` on `storageUpdates`). Newest first — take the
+   * latest row per `payer` for remaining allowance.
+   */
+  async groupSponsorSpends(
+    groupId: string,
+    opts: { limit?: number } = {}
+  ): Promise<GroupSponsorSpendEventRow[]> {
+    const res = await this._q.graphql<{
+      storageUpdates: GroupSponsorSpendEventRow[];
+    }>({
+      query: `query GroupSponsorSpends($groupId: String!, $limit: Int!) {
+        storageUpdates(
+          where: {
+            operation: {_eq: "group_sponsor_spend"},
+            groupId: {_eq: $groupId}
+          },
+          limit: $limit,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          payer
+          bytes
+          remainingAllowance
+          blockHeight
+        }
+      }`,
+      variables: { groupId, limit: opts.limit ?? 200 },
+    });
+    return res.data?.storageUpdates ?? [];
   }
 }
