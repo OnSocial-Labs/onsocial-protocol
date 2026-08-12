@@ -62,10 +62,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-extra-dbs.sh:/docker-entrypoint-initdb.d/02-extra-dbs.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      # start_period covers crash-recovery / long startup so Hasura's
+      # depends_on:service_healthy does not mark the stack failed mid-recover.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 180s
     mem_limit: 4g
     cpus: 2.0
     shm_size: 256mb

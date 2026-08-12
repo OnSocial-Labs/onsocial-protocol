@@ -239,9 +239,6 @@ jobs:
               local retries="${1:-60}" delay="${2:-5}"
               local user="${POSTGRES_USER:-onsocial}" db="${POSTGRES_DB:-onsocial}"
               local status err
-              # Deploy path never restarts data-tier earlier — ensure the
-              # container is at least running before we wait on readiness.
-              dc up -d --no-deps postgres </dev/null || true
               for i in $(seq 1 "$retries"); do
                 status="$(docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' postgres </dev/null 2>/dev/null || echo missing)"
                 if [ "$status" != "missing" ] \
@@ -261,7 +258,6 @@ jobs:
               done
               echo "  ❌ postgres failed after $retries attempts (state=${status:-unknown})"
               echo "     last error: ${err:-unknown}"
-              print_service_logs "postgres"
               return 1
             }
             print_service_logs() {
@@ -269,6 +265,28 @@ jobs:
               echo "----- ${service} logs (last 200 lines) -----"
               dc logs --tail=200 "$service" </dev/null || true
               echo "----- end ${service} logs -----"
+            }
+            ensure_postgres_ready() {
+              # Never `up` hasura in the same command — its depends_on
+              # condition:service_healthy aborts the whole deploy when
+              # postgres is already marked unhealthy.
+              echo "Ensuring postgres is up..."
+              dc up -d --no-deps postgres </dev/null || true
+              if check_postgres_accepting 24 5; then
+                return 0
+              fi
+              echo "⚠️ postgres still not accepting — dumping logs and restarting once..."
+              print_service_logs "postgres"
+              docker inspect --format '{{json .State.Health}}' postgres </dev/null || true
+              docker restart postgres </dev/null || true
+              sleep 5
+              if check_postgres_accepting 60 5; then
+                return 0
+              fi
+              echo "❌ postgres not ready after restart"
+              print_service_logs "postgres"
+              docker inspect --format '{{json .State}}' postgres </dev/null || true
+              return 1
             }
 
             # ── Rollback helper (skips if no previous tag) ───────────
@@ -358,16 +376,15 @@ jobs:
             fi
 
             # ── Data tier (postgres/hasura stay up across app rolls) ──
-            echo "Ensuring postgres + hasura are up..."
-            dc up -d --no-deps postgres hasura </dev/null
-
-            # ── Run gateway SQL migrations (tracked + locked) ─────
-            echo "Waiting for postgres before migrations..."
-            if ! check_postgres_accepting 60 5; then
+            if ! ensure_postgres_ready; then
               echo "❌ postgres not ready before migrations — aborting"
               exit 1
             fi
 
+            echo "Ensuring hasura is up..."
+            dc up -d --no-deps hasura </dev/null || true
+
+            # ── Run gateway SQL migrations (tracked + locked) ─────
             echo "Running gateway migrations..."
             DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
             dc exec -T -e DATABASE_URL="$DATABASE_URL" gateway \
@@ -391,6 +408,7 @@ jobs:
             echo "Waiting for postgres + hasura before permission sync..."
             if ! check_postgres_accepting 60 5; then
               echo "❌ postgres not ready before Hasura sync — aborting"
+              print_service_logs "postgres"
               exit 1
             fi
             if ! check_health "hasura" "http://localhost:8080/healthz" 30 4; then
