@@ -7602,6 +7602,13 @@ a.os-surface-row {
     --os-screen-footer-band: 5.5rem;
   }
 
+  /* Door Admit stacks primary + ghost — needs a taller scroll clearance. */
+  .os-app-screen[data-screen-footer='true']:has(
+      .ticket-door-page-actions.is-stacked
+    ) {
+    --os-screen-footer-band: 8.5rem;
+  }
+
   .os-app-screen[data-screen-footer='true'] .os-app-screen-body {
     padding-bottom: calc(
       var(--portfolio-dock-clearance, 4.75rem) + var(--os-screen-footer-band)
@@ -20353,6 +20360,7 @@ a.os-surface-row {
     line-height: 1.2;
     letter-spacing: -0.01em;
     color: rgb(var(--fg-rgb) / 0.78);
+    text-decoration: none;
   }
 
   .collection-reading-open:hover,
@@ -21037,6 +21045,41 @@ a.os-surface-row {
     margin: 0;
     font-size: 0.8rem;
     color: rgb(var(--fg-rgb) / 0.6);
+  }
+
+  .ticket-door-hint.is-success {
+    color: color-mix(
+      in srgb,
+      var(--signal-reputation, rgb(46 160 90)) 78%,
+      rgb(var(--fg-rgb))
+    );
+  }
+
+  .ticket-door-attendance {
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.82);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Admit page — same market-page inset; camera taller for staff scanning. */
+  .ticket-door-page .ticket-door {
+    padding: 0;
+  }
+
+  .ticket-door-page .ticket-door-camera {
+    aspect-ratio: 3 / 4;
+    max-height: min(58vh, 28rem);
+  }
+
+  @media (min-width: 640px) {
+    .ticket-door-page .ticket-door-camera {
+      aspect-ratio: 4 / 3;
+      max-height: min(52vh, 26rem);
+    }
   }
 
   .ticket-door-field {

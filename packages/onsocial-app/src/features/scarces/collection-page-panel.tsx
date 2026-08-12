@@ -72,8 +72,7 @@ import { writingReadingSectionLabel } from '@/features/scarces/drop-writing';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
-import { TicketDoorSheet } from '@/features/scarces/ticket-door-sheet';
-import { isPassMediumKind } from '@/features/scarces/ticket-pass-payload';
+import { isPassMediumKind, passStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
@@ -89,6 +88,9 @@ import {
   COLLECTION_PASS_QUERY,
   COLLECTION_PASS_TOKEN_PARAM,
   COLLECTION_READ_QUERY,
+  COLLECTION_REDEEM_QUERY,
+  collectionDoorPath,
+  collectionRedeemPath,
   marketCreatorPath,
   seriesPagePath,
 } from '@/lib/app-routes';
@@ -210,7 +212,6 @@ export function CollectionPagePanel({
   const [writingReadOpen, setWritingReadOpen] = useState(false);
   const [showPassOpen, setShowPassOpen] = useState(false);
   const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
-  const [doorOpen, setDoorOpen] = useState(false);
   /** Viewer is creator or door staff for redeem. */
   const [isRedeemer, setIsRedeemer] = useState(false);
   const activityTitleId = useId();
@@ -360,21 +361,22 @@ export function CollectionPagePanel({
     });
   }, [collectionId, ownedPassTokenId, view?.kind]);
 
-  // Creator Door deep-link ?door=1 (creator or door staff).
+  // Legacy ?door=1 / ?redeem=1 → staff Admit or Redeem page.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!isPassMediumKind(view?.kind)) return;
     if (!isOwner && !isRedeemer) return;
-    if (
-      new URLSearchParams(window.location.search).get(COLLECTION_DOOR_QUERY) !==
-      '1'
-    ) {
-      return;
-    }
-    queueMicrotask(() => {
-      setDoorOpen(true);
-    });
-  }, [collectionId, isOwner, isRedeemer, view?.kind]);
+    const params = new URLSearchParams(window.location.search);
+    const door = params.get(COLLECTION_DOOR_QUERY) === '1';
+    const redeem = params.get(COLLECTION_REDEEM_QUERY) === '1';
+    if (!door && !redeem) return;
+    const voice = passStaffVoice(view?.kind);
+    router.replace(
+      voice === 'redeem'
+        ? collectionRedeemPath(collectionId)
+        : collectionDoorPath(collectionId)
+    );
+  }, [collectionId, isOwner, isRedeemer, router, view?.kind]);
 
   useEffect(() => {
     if (!viewerAccountId || !isPassMediumKind(view?.kind)) {
@@ -704,6 +706,7 @@ export function CollectionPagePanel({
     hasPlayables || view.kind === 'audio' || view.kind === 'music';
   const mediumKind = (view.kind ?? '').trim().toLowerCase();
   const isPassKind = isPassMediumKind(mediumKind);
+  const staffVoice = passStaffVoice(mediumKind);
   const canDoor =
     isPassKind &&
     (isOwner || isRedeemer) &&
@@ -1214,14 +1217,19 @@ export function CollectionPagePanel({
             ) : null}
             {canDoor ? (
               <div className="collection-reading-row">
-                <p className="collection-section-label">Door</p>
-                <button
-                  type="button"
+                <p className="collection-section-label">
+                  {staffVoice === 'redeem' ? 'Counter' : 'Door'}
+                </p>
+                <Link
+                  href={
+                    staffVoice === 'redeem'
+                      ? collectionRedeemPath(view.collectionId)
+                      : collectionDoorPath(view.collectionId)
+                  }
                   className="collection-reading-open"
-                  onClick={() => setDoorOpen(true)}
                 >
-                  Admit
-                </button>
+                  {staffVoice === 'redeem' ? 'Redeem' : 'Admit'}
+                </Link>
               </div>
             ) : null}
             {isOwner &&
@@ -1230,6 +1238,7 @@ export function CollectionPagePanel({
               <CollectionDoorStaffManager
                 collectionId={view.collectionId}
                 creatorId={view.creatorId}
+                voice={staffVoice}
               />
             ) : null}
           </section>
@@ -1357,13 +1366,6 @@ export function CollectionPagePanel({
           tokenId={showPassTokenId}
         />
       ) : null}
-
-      <TicketDoorSheet
-        open={doorOpen}
-        onOpenChange={setDoorOpen}
-        collectionId={view.collectionId}
-        title={view.title}
-      />
 
       <ScarceBuySheet
         open={mintOpen}

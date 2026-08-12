@@ -17,6 +17,25 @@ export function isPassMediumKind(mediumKind: string | null | undefined): boolean
   return key === 'ticket' || key === 'membership' || key === 'coupon';
 }
 
+/**
+ * Staff redeem voice — tickets/memberships use Door Admit;
+ * coupons use a Redeem counter page.
+ */
+export type PassStaffVoice = 'admit' | 'redeem';
+
+export function passStaffVoice(
+  mediumKind: string | null | undefined
+): PassStaffVoice {
+  const key = (mediumKind ?? '').trim().toLowerCase();
+  return key === 'coupon' ? 'redeem' : 'admit';
+}
+
+export function isCouponMediumKind(
+  mediumKind: string | null | undefined
+): boolean {
+  return (mediumKind ?? '').trim().toLowerCase() === 'coupon';
+}
+
 export function encodeTicketPassPayload(
   collectionId: string,
   tokenId: string
@@ -81,7 +100,7 @@ export function ticketPassRemaining(opts: {
   return Math.max(0, Math.floor(opts.maxRedeems) - Math.floor(opts.redeemCount));
 }
 
-/** One-line status for Show pass / Door preview. */
+/** One-line status for Show pass / Door / Redeem preview. */
 export function ticketPassStatusLabel(opts: {
   isValid: boolean;
   isFullyRedeemed: boolean;
@@ -89,19 +108,27 @@ export function ticketPassStatusLabel(opts: {
   isExpired: boolean;
   redeemCount: number;
   maxRedeems: number | null | undefined;
+  /** Coupon staff surface uses redeem wording. */
+  voice?: PassStaffVoice;
 }): string {
+  const redeemVoice = opts.voice === 'redeem';
+  const fullyDone = redeemVoice ? 'Fully redeemed' : 'Fully checked in';
+  const unitOne = redeemVoice ? '1 redeem left' : '1 check-in left';
+  const unitMany = (n: number) =>
+    redeemVoice ? `${n} redeems left` : `${n} check-ins left`;
+
   if (opts.isRevoked) return 'Revoked';
   if (opts.isExpired) return 'Expired';
-  if (opts.isFullyRedeemed) return 'Fully checked in';
+  if (opts.isFullyRedeemed) return fullyDone;
   const remaining = ticketPassRemaining(opts);
   if (remaining == null) {
     return opts.isValid ? 'Valid' : 'Unavailable';
   }
-  if (remaining === 0) return 'Fully checked in';
+  if (remaining === 0) return fullyDone;
   if (opts.redeemCount <= 0) {
-    return remaining === 1 ? '1 check-in left' : `${remaining} check-ins left`;
+    return remaining === 1 ? unitOne : unitMany(remaining);
   }
   return remaining === 1
-    ? `1 check-in left · used ${opts.redeemCount}`
-    : `${remaining} check-ins left · used ${opts.redeemCount}`;
+    ? `${unitOne} · used ${opts.redeemCount}`
+    : `${unitMany(remaining)} · used ${opts.redeemCount}`;
 }

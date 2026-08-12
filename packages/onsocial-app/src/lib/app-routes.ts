@@ -185,11 +185,34 @@ export const COLLECTION_READ_QUERY = 'read';
 /** Open Show pass on the collection page (`?pass=1`). */
 export const COLLECTION_PASS_QUERY = 'pass';
 
-/** Open Door admit on the collection page (`?door=1`). */
+/**
+ * Legacy Door deep-link on the drop page (`?door=1`).
+ * Prefer {@link collectionDoorPath} / `collectionPath(..., { door: true })`.
+ */
 export const COLLECTION_DOOR_QUERY = 'door';
+
+/**
+ * Legacy coupon Redeem deep-link on the drop page (`?redeem=1`).
+ * Prefer {@link collectionRedeemPath} / `collectionPath(..., { redeem: true })`.
+ */
+export const COLLECTION_REDEEM_QUERY = 'redeem';
 
 /** Optional owned edition for Show pass (`?t=tokenId`). */
 export const COLLECTION_PASS_TOKEN_PARAM = COLLECTIBLES_PLAY_TOKEN_PARAM;
+
+/** Fullscreen Door Admit page for event staff. */
+export function collectionDoorPath(collectionId: string): string {
+  const id = collectionId.trim();
+  if (!id) return APP_MARKET_PATH;
+  return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}/door`;
+}
+
+/** Fullscreen coupon Redeem page for staff. */
+export function collectionRedeemPath(collectionId: string): string {
+  const id = collectionId.trim();
+  if (!id) return APP_MARKET_PATH;
+  return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}/redeem`;
+}
 
 /** Public collection (drop) page. */
 export function collectionPath(
@@ -198,18 +221,20 @@ export function collectionPath(
     read?: boolean;
     pass?: boolean;
     door?: boolean;
+    redeem?: boolean;
     tokenId?: string | null;
   }
 ): string {
   const id = collectionId.trim();
   if (!id) return APP_MARKET_PATH;
+  if (opts?.door) return collectionDoorPath(id);
+  if (opts?.redeem) return collectionRedeemPath(id);
   const base = `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}`;
   const params = new URLSearchParams();
   if (opts?.read) params.set(COLLECTION_READ_QUERY, '1');
   if (opts?.pass) params.set(COLLECTION_PASS_QUERY, '1');
-  if (opts?.door) params.set(COLLECTION_DOOR_QUERY, '1');
   const tokenId = opts?.tokenId?.trim();
-  if (tokenId && (opts?.pass || opts?.door)) {
+  if (tokenId && opts?.pass) {
     params.set(COLLECTION_PASS_TOKEN_PARAM, tokenId);
   }
   const query = params.toString();

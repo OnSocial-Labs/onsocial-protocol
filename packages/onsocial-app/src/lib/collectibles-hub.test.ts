@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   APP_COLLECTIBLES_PATH,
+  collectionDoorPath,
   collectionPath,
+  collectionRedeemPath,
   collectiblesKindPath,
   collectiblesPlayPath,
   isAppRoutePath,
@@ -30,9 +32,14 @@ describe('collectibles routes', () => {
     expect(collectionPath('gate', { pass: true, tokenId: 'gate:2' })).toBe(
       '/collection/gate?pass=1&t=gate%3A2'
     );
-    expect(collectionPath('gate', { door: true })).toBe(
-      '/collection/gate?door=1'
+    expect(collectionPath('gate', { door: true })).toBe('/collection/gate/door');
+    expect(collectionDoorPath('gate')).toBe('/collection/gate/door');
+    expect(isAppRoutePath('/collection/gate/door')).toBe(true);
+    expect(collectionPath('perk', { redeem: true })).toBe(
+      '/collection/perk/redeem'
     );
+    expect(collectionRedeemPath('perk')).toBe('/collection/perk/redeem');
+    expect(isAppRoutePath('/collection/perk/redeem')).toBe(true);
   });
 });
 
