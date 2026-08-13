@@ -19,6 +19,7 @@ import {
 import type { PostRow } from '@onsocial/sdk';
 import { osFieldBorderedClassName } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
+import { SuffixField } from '@/components/ui/suffix-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -1089,18 +1090,16 @@ export function ScarceListForm({
       {commerceMode === 'drop' && !attachCollectionId ? (
         <div className="scarce-royalty-field">
           <p className="scarce-mood-picker-label">Series</p>
-          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-            <input
-              type="text"
-              autoComplete="off"
-              value={seriesInput}
-              onChange={(event) => setSeriesInput(event.target.value)}
-              placeholder="Optional series name"
-              aria-label="Series name"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-          </div>
+          <input
+            type="text"
+            autoComplete="off"
+            value={seriesInput}
+            onChange={(event) => setSeriesInput(event.target.value)}
+            placeholder="Optional series name"
+            aria-label="Series name"
+            className={osFieldBorderedClassName}
+            disabled={pending}
+          />
           <p className="scarce-mood-picker-hint">
             Soft branding across Drops. Leave blank for a standalone Drop.
           </p>
@@ -1216,33 +1215,26 @@ export function ScarceListForm({
           </button>
         </div>
         {isCustomCopies ? (
-          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              value={customCopiesInput}
-              onChange={(event) =>
-                setCustomCopiesInput((current) => {
-                  const next = event.target.value
-                    .replace(/[^\d]/g, '')
-                    .replace(/^0+(?=\d)/, '');
-                  if (!next) return '';
-                  const value = Number(next);
-                  return value >= MIN_COPIES && value <= MAX_COPIES
-                    ? next
-                    : current;
-                })
-              }
-              placeholder="1–100"
-              aria-label="Custom number of copies"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              editions
-            </span>
-          </div>
+          <SuffixField
+            chrome="bordered"
+            value={customCopiesInput}
+            onValueChange={(value) =>
+              setCustomCopiesInput((current) => {
+                const next = value
+                  .replace(/[^\d]/g, '')
+                  .replace(/^0+(?=\d)/, '');
+                if (!next) return '';
+                const parsed = Number(next);
+                return parsed >= MIN_COPIES && parsed <= MAX_COPIES
+                  ? next
+                  : current;
+              })
+            }
+            placeholder="1–100"
+            aria-label="Custom number of copies"
+            suffix="editions"
+            disabled={pending}
+          />
         ) : null}
         <p className="profile-support-hint scarce-royalty-hint">
           {editionCount === 1
