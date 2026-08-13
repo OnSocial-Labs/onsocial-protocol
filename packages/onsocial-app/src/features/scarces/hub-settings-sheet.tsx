@@ -1,14 +1,8 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
-import {
-  Divider,
-  GlassSheet,
-  SheetHeader,
-  osFloatingPanelCountClassName,
-} from '@onsocial/ui';
+import { useCallback, useState } from 'react';
+import { OsHugSheet, osFloatingPanelCountClassName } from '@onsocial/ui';
 import type { HubManageSheetId } from '@/features/scarces/hub-manage-sheets';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
 interface HubSettingsSheetProps {
@@ -38,11 +32,8 @@ export function HubSettingsSheet({
   onClose,
   onOpenSheet,
 }: HubSettingsSheetProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -60,32 +51,20 @@ export function HubSettingsSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Settings"
+      copy={hubName?.trim() || 'Hub tools and configuration'}
+      closeAriaLabel="Close"
       backdropLabel="Close hub settings"
+      zIndex={57}
+      initialDetent="peek"
+      presentation="swap"
+      headerClassName="guild-settings-sheet-header"
       panelClassName="guild-settings-sheet-panel"
       bodyClassName="guild-settings-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Settings"
-            subtitle={hubName?.trim() || 'Hub tools and configuration'}
-            onClose={requestClose}
-            closeAriaLabel="Close"
-            className="guild-settings-sheet-header"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <nav
         className="os-surface-row-list guild-settings-sheet-list"
@@ -174,6 +153,6 @@ export function HubSettingsSheet({
           </button>
         ) : null}
       </nav>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

@@ -1,9 +1,8 @@
 'use client';
 
-import { useCallback, useId, useState, type CSSProperties } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { useCallback, useState, type CSSProperties } from 'react';
+import { OsHugSheet } from '@onsocial/ui';
 import { AppSocialSwapForm } from '@/components/wallet/app-social-swap-form';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 interface AppSocialSwapSheetProps {
   open: boolean;
@@ -19,7 +18,6 @@ export function AppSocialSwapSheet({
   onClose,
   onClosed,
 }: AppSocialSwapSheetProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing;
@@ -28,8 +26,6 @@ export function AppSocialSwapSheet({
     setWasOpen(open);
     if (open) setClosing(false);
   }
-
-  useScrollLock(sheetOpen);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -42,36 +38,22 @@ export function AppSocialSwapSheet({
   }, [onClose, onClosed]);
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      presentation="swap"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={57}
-      ariaLabelledBy={titleId}
+      label="Get SOCIAL"
+      closeAriaLabel="Close Get SOCIAL"
       backdropLabel="Close Get SOCIAL"
+      zIndex={57}
+      presentation="swap"
       panelClassName="account-storage-panel"
-      panelStyle={panelStyle}
       bodyClassName="account-storage-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Get SOCIAL"
-            onClose={requestClose}
-            closeAriaLabel="Close Get SOCIAL"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      {...(panelStyle ? { panelStyle } : {})}
     >
       <div className="app-storage-sheet">
         <AppSocialSwapForm onSuccess={requestClose} />
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

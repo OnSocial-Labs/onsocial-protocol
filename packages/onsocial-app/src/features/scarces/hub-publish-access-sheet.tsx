@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -19,7 +19,6 @@ import {
   type StorePublishRequest,
 } from '@/features/scarces/store-publish-requests';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import {
   txToastConfirming,
   txToastError,
@@ -45,7 +44,6 @@ export function HubPublishAccessSheet({
   onClose,
   onChanged,
 }: HubPublishAccessSheetProps) {
-  const titleId = useId();
   const messageId = useId();
   const { accountId } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
@@ -58,8 +56,6 @@ export function HubPublishAccessSheet({
   const [refreshKey, setRefreshKey] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open) {
@@ -218,31 +214,19 @@ export function HubPublishAccessSheet({
   );
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
+      label="Publish access"
+      copy={subtitle}
+      closeAriaLabel="Close publish access"
+      backdropLabel="Close publish access"
+      zIndex={58}
       initialDetent="peek"
       peekRatio={1}
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close publish access"
       panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-access-sheet-panel"
       bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Publish access"
-            subtitle={subtitle}
-            onClose={requestClose}
-            closeAriaLabel="Close publish access"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       {!loaded ? (
         <p className="hub-manage-hint">Loading…</p>
@@ -291,6 +275,6 @@ export function HubPublishAccessSheet({
           </OsSheetActions>
         </div>
       )}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
