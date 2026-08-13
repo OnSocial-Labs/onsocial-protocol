@@ -13,6 +13,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
+import { StandingIdentity } from '@/components/ui/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -49,38 +50,6 @@ function sortedAccountKey(accounts: string[]): string {
     .filter(Boolean)
     .sort()
     .join('\0');
-}
-
-function StaffStandingIdentity({
-  accountId,
-  profileName,
-  avatarUrl,
-}: {
-  accountId: string;
-  profileName?: string | null;
-  avatarUrl?: string | null;
-}) {
-  const handle = fallbackLabel(accountId);
-  const name = profileName?.trim() || null;
-  const label = name || `@${handle}`;
-  return (
-    <>
-      <ProfileAvatar
-        src={avatarUrl ?? null}
-        fallbackInitial={name || accountId}
-        size="lg"
-        className="standing-row-avatar-slot"
-      />
-      <span className="standing-row-copy">
-        <span className="standing-row-head">
-          <span className="standing-row-name-row">
-            <span className="standing-row-name">{label}</span>
-          </span>
-          {name ? <span className="standing-row-handle">@{handle}</span> : null}
-        </span>
-      </span>
-    </>
-  );
 }
 
 function saveStaffLabel(count: number, pending: boolean): string {
@@ -512,7 +481,7 @@ export function CollectionDoorStaffManager({
                         disabled={pending || atCap}
                         onClick={() => addToDraft(profile)}
                       >
-                        <StaffStandingIdentity
+                        <StandingIdentity
                           accountId={profile.accountId}
                           profileName={profile.name}
                           avatarUrl={profile.avatarUrl}

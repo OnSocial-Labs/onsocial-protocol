@@ -25,6 +25,7 @@ import {
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
 import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
+import { StandingIdentity } from '@/components/ui/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -106,47 +107,6 @@ function accountsFromExtraData(extraData: string | null): string[] {
 }
 
 /** Same identity lines as Support / Sales drawers. */
-function standingAccountLabel(
-  accountId: string,
-  profileName?: string | null
-): { name: string | null; label: string; handle: string } {
-  const handle = fallbackLabel(accountId);
-  const name = profileName?.trim() || null;
-  return { name, label: name || `@${handle}`, handle };
-}
-
-function AllowlistStandingIdentity({
-  accountId,
-  profileName,
-  avatarUrl,
-}: {
-  accountId: string;
-  profileName?: string | null;
-  avatarUrl?: string | null;
-}) {
-  const { name, label, handle } = standingAccountLabel(accountId, profileName);
-  return (
-    <>
-      <ProfileAvatar
-        src={avatarUrl ?? null}
-        fallbackInitial={name || accountId}
-        size="lg"
-        className="standing-row-avatar-slot"
-      />
-      <span className="standing-row-copy">
-        <span className="standing-row-head">
-          <span className="standing-row-name-row">
-            <span className="standing-row-name">{label}</span>
-          </span>
-          {name ? (
-            <span className="standing-row-handle">@{handle}</span>
-          ) : null}
-        </span>
-      </span>
-    </>
-  );
-}
-
 function AllowlistAccountEditBody({
   face,
   capMax,
@@ -175,7 +135,7 @@ function AllowlistAccountEditBody({
         }`}
       >
         <div className="standing-row-main collection-allowlist-edit-main">
-          <AllowlistStandingIdentity
+          <StandingIdentity
             accountId={face.accountId}
             profileName={face.name}
             avatarUrl={face.avatarUrl}
@@ -1207,7 +1167,7 @@ function CollectionAllowlistSheet({
                           })
                         }
                       >
-                        <AllowlistStandingIdentity
+                        <StandingIdentity
                           accountId={profile.accountId}
                           profileName={profile.name}
                           avatarUrl={profile.avatarUrl}
@@ -1360,7 +1320,7 @@ function CollectionAllowlistSheet({
                                         })
                                       }
                                     >
-                                      <AllowlistStandingIdentity
+                                      <StandingIdentity
                                         accountId={row.memberId}
                                         profileName={profile?.displayName}
                                         avatarUrl={profile?.avatarUrl}

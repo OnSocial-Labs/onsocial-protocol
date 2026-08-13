@@ -14,6 +14,7 @@ import {
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
 import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
+import { StandingIdentity } from '@/components/ui/standing-identity';
 import {
   equalizeRoyaltyShares,
   formatRoyaltyPercent,
@@ -40,45 +41,6 @@ const SEARCH_DEBOUNCE_MS = 220;
 interface FaceCache {
   name: string;
   avatarUrl: string | null;
-}
-
-function standingAccountLabel(
-  accountId: string,
-  profileName?: string | null
-): { name: string | null; label: string; handle: string } {
-  const handle = fallbackLabel(accountId);
-  const name = profileName?.trim() || null;
-  return { name, label: name || `@${handle}`, handle };
-}
-
-function SplitStandingIdentity({
-  accountId,
-  profileName,
-  avatarUrl,
-}: {
-  accountId: string;
-  profileName?: string | null;
-  avatarUrl?: string | null;
-}) {
-  const { name, label, handle } = standingAccountLabel(accountId, profileName);
-  return (
-    <>
-      <ProfileAvatar
-        src={avatarUrl ?? null}
-        fallbackInitial={name || accountId}
-        size="lg"
-        className="standing-row-avatar-slot"
-      />
-      <span className="standing-row-copy">
-        <span className="standing-row-head">
-          <span className="standing-row-name-row">
-            <span className="standing-row-name">{label}</span>
-          </span>
-          {name ? <span className="standing-row-handle">@{handle}</span> : null}
-        </span>
-      </span>
-    </>
-  );
 }
 
 interface ScarceRoyaltySplitSheetProps {
@@ -438,7 +400,7 @@ export function ScarceRoyaltySplitSheet({
                           })
                         }
                       >
-                        <SplitStandingIdentity
+                        <StandingIdentity
                           accountId={profile.accountId}
                           profileName={profile.name}
                           avatarUrl={profile.avatarUrl}
@@ -516,7 +478,7 @@ export function ScarceRoyaltySplitSheet({
               }`}
             >
               <div className="standing-row-main collection-allowlist-edit-main">
-                <SplitStandingIdentity
+                <StandingIdentity
                   accountId={editingFace.accountId}
                   profileName={editingFace.name}
                   avatarUrl={editingFace.avatarUrl}
