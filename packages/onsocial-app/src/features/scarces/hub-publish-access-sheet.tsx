@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -213,9 +213,7 @@ export function HubPublishAccessSheet({
           if (trimmed !== message) setMessage(trimmed);
         }}
       />
-      <small id={`${messageId}-count`}>
-        {message.length}/280
-      </small>
+      <small id={`${messageId}-count`}>{message.length}/280</small>
     </label>
   );
 
@@ -235,24 +233,13 @@ export function HubPublishAccessSheet({
       bodyClassName="hub-manage-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Publish access
-                  </h2>
-                  <p className="discover-sheet-subtitle">{subtitle}</p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close publish access"
-                />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Publish access"
+            subtitle={subtitle}
+            onClose={requestClose}
+            closeAriaLabel="Close publish access"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

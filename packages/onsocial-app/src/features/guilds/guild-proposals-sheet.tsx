@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
-import {
-  Divider,
-  GlassSheet,
-  PulsingDots,
-  SheetCloseButton,
-} from '@onsocial/ui';
+import { Divider, GlassSheet, PulsingDots, SheetHeader } from '@onsocial/ui';
 import { listActiveJoinRequestProposals } from '@/features/guilds/guild-config';
 import {
   guildProposalPresentation,
@@ -136,13 +131,14 @@ export function GuildProposalsSheet({
   const refreshOneProposal = useCallback(
     async (proposalId: string) => {
       const client = createReadOnlyOnSocialClient();
-      const [proposalResult, tallyResult, voteResult] = await Promise.allSettled([
-        client.groups.getProposal(groupId, proposalId),
-        client.groups.getProposalTally(groupId, proposalId),
-        accountId
-          ? client.groups.getVote(groupId, proposalId, accountId)
-          : Promise.resolve(null),
-      ]);
+      const [proposalResult, tallyResult, voteResult] =
+        await Promise.allSettled([
+          client.groups.getProposal(groupId, proposalId),
+          client.groups.getProposalTally(groupId, proposalId),
+          accountId
+            ? client.groups.getVote(groupId, proposalId, accountId)
+            : Promise.resolve(null),
+        ]);
 
       const proposal =
         proposalResult.status === 'fulfilled' ? proposalResult.value : null;
@@ -314,30 +310,20 @@ export function GuildProposalsSheet({
       bodyClassName="guild-manage-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-manage-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2
-                    id="guild-proposals-title"
-                    className="standing-sheet-subject-name"
-                  >
-                    Proposals
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {canVote
-                      ? 'Support or oppose active governance items.'
-                      : memberDriven
-                        ? 'Join this guild to vote on proposals.'
-                        : 'Active governance items excluding join requests.'}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={onClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId="guild-proposals-title"
+            title="Proposals"
+            subtitle={
+              canVote
+                ? 'Support or oppose active governance items.'
+                : memberDriven
+                  ? 'Join this guild to vote on proposals.'
+                  : 'Active governance items excluding join requests.'
+            }
+            onClose={onClose}
+            closeAriaLabel="Close"
+            className="guild-manage-sheet-header"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

@@ -5,7 +5,7 @@ import {
   Divider,
   GlassSheet,
   ProtocolMotionArrow,
-  SheetCloseButton,
+  SheetHeader,
 } from '@onsocial/ui';
 import { useScrollLock } from '@/hooks/use-scroll-lock';
 
@@ -62,23 +62,14 @@ export function GuildSettingsSheet({
       bodyClassName="guild-settings-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-settings-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Settings
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {guildName?.trim() || 'Guild tools and configuration'}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Settings"
+            subtitle={guildName?.trim() || 'Guild tools and configuration'}
+            onClose={requestClose}
+            closeAriaLabel="Close"
+            className="guild-settings-sheet-header"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

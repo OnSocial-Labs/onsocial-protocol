@@ -7,7 +7,7 @@ import {
   GlassSheet,
   MultiplyIcon,
   ProfileAvatar,
-  SheetCloseButton,
+  SheetHeader,
 } from '@onsocial/ui';
 import {
   OsSheetAction,
@@ -243,30 +243,19 @@ export function HubPublishRequestsSheet({
       bodyClassName="hub-manage-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Publish requests
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {inbox == null
-                      ? 'Loading…'
-                      : inbox.length === 0
-                        ? 'No pending requests'
-                        : `${inbox.length} waiting for approval`}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close publish requests"
-                />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Publish requests"
+            subtitle={
+              inbox == null
+                ? 'Loading…'
+                : inbox.length === 0
+                  ? 'No pending requests'
+                  : `${inbox.length} waiting for approval`
+            }
+            onClose={requestClose}
+            closeAriaLabel="Close publish requests"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
@@ -361,9 +350,7 @@ export function HubPublishRequestsSheet({
                         pendingLabel="Approving…"
                         disabled={Boolean(pendingAction)}
                         aria-label={`Approve ${label}`}
-                        onClick={() =>
-                          void approveRequest(request.requesterId)
-                        }
+                        onClick={() => void approveRequest(request.requesterId)}
                       >
                         Approve
                       </OsSheetAction>

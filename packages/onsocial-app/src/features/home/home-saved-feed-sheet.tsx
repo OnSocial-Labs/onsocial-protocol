@@ -2,12 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
-import {
-  Divider,
-  GlassSheet,
-  SearchField,
-  SheetCloseButton,
-} from '@onsocial/ui';
+import { Divider, GlassSheet, SearchField, SheetHeader } from '@onsocial/ui';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   formatTickerDisplay,
@@ -39,7 +34,9 @@ async function loadFocusSuggestions(query: string): Promise<SuggestRow[]> {
 
   if (wantsTicker) {
     const tickers = tickerPrefix
-      ? await client.query.tickers.search(tickerPrefix, { limit: SUGGEST_LIMIT })
+      ? await client.query.tickers.search(tickerPrefix, {
+          limit: SUGGEST_LIMIT,
+        })
       : await client.query.tickers.trending({ limit: SUGGEST_LIMIT });
     for (const item of tickers) rows.push({ kind: 'ticker', item });
     return rows;
@@ -147,23 +144,14 @@ export function HomeSavedFeedSheet({
       bodyClassName="home-saved-feed-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header home-saved-feed-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Add feed
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    Pick a #topic or $ticker. Saved on this device.
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Add feed"
+            subtitle="Pick a #topic or $ticker. Saved on this device."
+            onClose={requestClose}
+            closeAriaLabel="Close"
+            className="home-saved-feed-sheet-header"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
