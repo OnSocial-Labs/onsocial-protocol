@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, type ChangeEvent } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   ChevronDownIcon,
   FloatingPanelMenu,
@@ -12,8 +12,9 @@ import {
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
   useDropdown,
-  osFieldSoftClassName,
 } from '@onsocial/ui';
+import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { OsSheetPrimaryAction } from '@/components/ui/os-sheet-primary-action';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
 import { TokenIcon } from '@/components/ui/token-icon';
@@ -22,7 +23,6 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppSwap } from '@/hooks/use-app-swap';
 import { useSwapTokenIcons } from '@/hooks/use-swap-token-icons';
-import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import {
   APP_SWAP_ENABLED,
   SOCIAL_RHEA_POOLS,
@@ -72,19 +72,6 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
   } = useDropdown();
   const paySymbol = swap.tokenIn === 'near' ? 'NEAR' : 'USDC';
   const amountMaxDecimals = appSwapAmountMaxDecimals(swap.tokenIn);
-
-  const handleAmountChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      swap.setAmountIn(
-        normalizeAmountInput(event.target.value, amountMaxDecimals)
-      );
-    },
-    [amountMaxDecimals, swap]
-  );
-
-  const handleAmountBlur = useCallback(() => {
-    swap.setAmountIn(finalizeAmountInput(swap.amountIn, amountMaxDecimals));
-  }, [amountMaxDecimals, swap]);
 
   const selectPayToken = useCallback(
     (kind: AppSwapInputKind) => {
@@ -206,110 +193,115 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
     (!isConnected && !isWalletBootstrapping) ||
     (isConnected && swap.canSwap && !swap.swapping);
 
+  const payTokenTrailing = (
+    <div className="app-swap-token-picker" ref={tokenMenuContainerRef}>
+      <button
+        type="button"
+        className={`${osFloatingPanelTriggerClassName}${tokenMenuOpen ? ' is-open' : ''}`}
+        onClick={toggleTokenMenu}
+        aria-haspopup="listbox"
+        aria-expanded={tokenMenuOpen}
+      >
+        <TokenIcon
+          src={tokenIcons.inputIcon(swap.tokenIn)}
+          label={paySymbol}
+        />
+        <span className={osFloatingPanelTriggerLabelClassName}>
+          {paySymbol}
+        </span>
+        <ChevronDownIcon
+          aria-hidden
+          className={osFloatingPanelTriggerChevronClassName}
+        />
+      </button>
+      <FloatingPanelMenu
+        ref={tokenMenuPanelRef}
+        open={tokenMenuOpen}
+        align="right"
+        role="listbox"
+        aria-label="Pay with"
+      >
+        {PAY_TOKEN_OPTIONS.map((option) => {
+          const selected = option.kind === swap.tokenIn;
+          return (
+            <button
+              key={option.kind}
+              type="button"
+              role="option"
+              aria-selected={selected}
+              className={`${osFloatingPanelItemClassName}${
+                selected ? ` ${osFloatingPanelItemSelectedClassName}` : ''
+              }`}
+              onClick={() => selectPayToken(option.kind)}
+            >
+              <TokenIcon
+                src={tokenIcons.inputIcon(option.kind)}
+                label={option.label}
+              />
+              <span>{option.label}</span>
+            </button>
+          );
+        })}
+      </FloatingPanelMenu>
+    </div>
+  );
+
   return (
     <section className="app-storage-section app-swap-form">
       <div className="app-swap-leg">
         <div className="app-swap-leg-head">
           <span className="app-swap-leg-label">You pay</span>
         </div>
-        <div className={`app-storage-amount-field app-swap-amount-field ${osFieldSoftClassName}`}>
-          <input
-            className="app-storage-amount-input"
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0"
-            value={swap.amountIn}
-            onChange={handleAmountChange}
-            onBlur={handleAmountBlur}
-            aria-label={`Amount in ${paySymbol}`}
-          />
-          <div className="app-swap-token-picker" ref={tokenMenuContainerRef}>
-            <button
-              type="button"
-              className={`${osFloatingPanelTriggerClassName}${tokenMenuOpen ? ' is-open' : ''}`}
-              onClick={toggleTokenMenu}
-              aria-haspopup="listbox"
-              aria-expanded={tokenMenuOpen}
-            >
-              <TokenIcon
-                src={tokenIcons.inputIcon(swap.tokenIn)}
-                label={paySymbol}
-              />
-              <span className={osFloatingPanelTriggerLabelClassName}>
-                {paySymbol}
-              </span>
-              <ChevronDownIcon
-                aria-hidden
-                className={osFloatingPanelTriggerChevronClassName}
-              />
-            </button>
-            <FloatingPanelMenu
-              ref={tokenMenuPanelRef}
-              open={tokenMenuOpen}
-              align="right"
-              role="listbox"
-              aria-label="Pay with"
-            >
-              {PAY_TOKEN_OPTIONS.map((option) => {
-                const selected = option.kind === swap.tokenIn;
-                return (
-                  <button
-                    key={option.kind}
-                    type="button"
-                    role="option"
-                    aria-selected={selected}
-                    className={`${osFloatingPanelItemClassName}${
-                      selected ? ` ${osFloatingPanelItemSelectedClassName}` : ''
-                    }`}
-                    onClick={() => selectPayToken(option.kind)}
-                  >
-                    <TokenIcon
-                      src={tokenIcons.inputIcon(option.kind)}
-                      label={option.label}
-                    />
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-            </FloatingPanelMenu>
-          </div>
-        </div>
-        <div className="app-storage-quick-row">
-          <button
-            type="button"
-            className="os-surface-chip app-storage-preset--action"
-            onClick={swap.setMaxAmount}
-            disabled={!swap.maxAmount || swap.maxAmount === '0'}
-          >
-            Max
-          </button>
-          <p className="app-storage-amount-meta">
-            {inputBalanceLabel != null
+        <AmountField
+          chrome="soft"
+          className="app-swap-amount-field"
+          value={swap.amountIn}
+          onValueChange={swap.setAmountIn}
+          maxDecimals={amountMaxDecimals}
+          placeholder="0"
+          aria-label={`Amount in ${paySymbol}`}
+          trailing={payTokenTrailing}
+        />
+        <AmountFieldMetaRow
+          max={{
+            onClick: swap.setMaxAmount,
+            disabled: !swap.maxAmount || swap.maxAmount === '0',
+            variant: 'action',
+          }}
+          meta={
+            inputBalanceLabel != null
               ? `Wallet ${inputBalanceLabel} ${paySymbol}`
-              : '\u00a0'}
-          </p>
-        </div>
+              : '\u00a0'
+          }
+        />
       </div>
 
       <div className="app-swap-leg">
         <div className="app-swap-leg-head">
           <span className="app-swap-leg-label">You get</span>
         </div>
-        <div className={`app-storage-amount-field app-swap-amount-field is-output ${osFieldSoftClassName}`}>
-          {receiveLoading ? (
-            <span className="app-swap-receive-loading">
-              <PulsingDots size="sm" label="Estimating SOCIAL" />
+        <AmountField
+          chrome="soft"
+          className="app-swap-amount-field is-output"
+          aria-label="SOCIAL you get"
+          display={
+            receiveLoading ? (
+              <span className="app-swap-receive-loading">
+                <PulsingDots size="sm" label="Estimating SOCIAL" />
+              </span>
+            ) : (
+              <span className="app-storage-amount-input app-swap-receive-value">
+                {swap.amountOut || '0'}
+              </span>
+            )
+          }
+          trailing={
+            <span className="app-swap-token-static">
+              <TokenIcon src={tokenIcons.socialIcon} label="SOCIAL" />
+              <span className="account-card-balance-unit">SOCIAL</span>
             </span>
-          ) : (
-            <span className="app-storage-amount-input app-swap-receive-value">
-              {swap.amountOut || '0'}
-            </span>
-          )}
-          <span className="app-swap-token-static">
-            <TokenIcon src={tokenIcons.socialIcon} label="SOCIAL" />
-            <span className="account-card-balance-unit">SOCIAL</span>
-          </span>
-        </div>
+          }
+        />
         {outputBalanceLabel != null ? (
           <p className="app-storage-amount-meta">
             Balance {outputBalanceLabel} SOCIAL
