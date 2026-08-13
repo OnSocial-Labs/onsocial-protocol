@@ -137,6 +137,7 @@ export function EndorseComposeSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close endorse"

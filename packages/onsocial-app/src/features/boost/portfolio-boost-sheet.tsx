@@ -702,6 +702,7 @@ export function PortfolioBoostSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       moodId={mood?.id}
       panelStyle={panelStyle}
       panelClassName={`profile-support-sheet-panel${

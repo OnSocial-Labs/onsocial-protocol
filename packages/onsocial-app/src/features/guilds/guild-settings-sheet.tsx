@@ -52,6 +52,7 @@ export function GuildSettingsSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="os"
+      sizing="hug"
       initialDetent="peek"
       zIndex={57}
       presentation="swap"

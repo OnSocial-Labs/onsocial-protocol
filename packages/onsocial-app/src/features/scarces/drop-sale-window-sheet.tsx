@@ -489,6 +489,7 @@ function DropTimePickerSheet({
       onClose={onClose}
       onClosed={onClosed}
       tone="os"
+      sizing="hug"
       initialDetent="full"
       peekRatio={1}
       zIndex={60}
@@ -823,6 +824,7 @@ function DropSaleWindowDraftBody({
       onClose={onRequestClose}
       onClosed={onClosed}
       tone="os"
+      sizing="hug"
       // Content-sized panel: "full" rests at natural height (no 62vh peek).
       initialDetent="full"
       peekRatio={1}

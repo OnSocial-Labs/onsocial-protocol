@@ -343,6 +343,7 @@ export function PortfolioListingActionsSheet({
         onClose={requestClose}
         onClosed={handleSheetClosed}
         tone="os"
+        sizing="hug"
         moodId={mood?.id}
         initialDetent="full"
         zIndex={56}

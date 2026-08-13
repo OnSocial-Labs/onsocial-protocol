@@ -295,6 +295,7 @@ export function GuildSpaceWritersSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       initialDetent="full"
       peekRatio={1}
       zIndex={58}

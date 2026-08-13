@@ -825,6 +825,7 @@ export function GuildGroupStorageSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="os"
+      sizing="hug"
       initialDetent="peek"
       zIndex={58}
       presentation="swap"

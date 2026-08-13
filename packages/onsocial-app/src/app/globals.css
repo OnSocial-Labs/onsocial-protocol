@@ -142,42 +142,30 @@
   z-index: 50;
 }
 
-/* Content-sized glass sheets — unlayered so height beats imported glass-sheet.css. */
+/* Content-sized glass sheets — material/caps only; height via sizing="hug". */
 .glass-sheet-panel.account-drawer-panel {
-  height: auto;
   max-height: min(88dvh, 34rem);
   --glass-header-scrim-height: min(4rem, 22%);
   --glass-sheet-body-opacity: 0.62;
 }
 
 .glass-sheet-panel.page-joined-facts-panel {
-  height: auto;
   max-height: min(72dvh, 28rem);
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
 }
 
 .glass-sheet-panel.guild-facts-sheet-panel {
-  height: auto;
   max-height: min(88dvh, 36rem);
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
 }
 
-.glass-sheet-panel.guild-facts-sheet-panel > .glass-sheet-body {
-  flex: 0 1 auto;
-}
-
-/* Allowlist account edit — short content-hug (must stay unlayered). */
+/* Allowlist account edit — shorter cap than generic hug. */
 .glass-sheet-panel.collection-allowlist-edit-sheet-panel {
-  height: auto;
   max-height: min(72dvh, 22rem);
   --glass-header-scrim-height: min(4rem, 22%);
   --glass-sheet-body-opacity: 0.64;
-}
-
-.glass-sheet-panel.collection-allowlist-edit-sheet-panel > .glass-sheet-body {
-  flex: 0 1 auto;
 }
 
 .glass-sheet-panel.collection-allowlist-edit-sheet-panel > .glass-sheet-footer {
@@ -186,20 +174,31 @@
 
 @media (min-width: 768px) {
   .glass-sheet-panel.collection-allowlist-edit-sheet-panel {
-    height: auto;
     max-width: 28rem;
   }
 }
 
-.glass-sheet-panel.portfolio-support-collect-info-panel {
-  height: auto;
-  max-height: min(88dvh, 36rem);
+/* Allowlist / door staff / royalty split — material + width. */
+.glass-sheet-panel.collection-allowlist-sheet-panel {
+  max-height: min(90dvh, 36rem);
+  max-width: 100%;
   --glass-header-scrim-height: min(5rem, 24%);
+  --glass-sheet-body-opacity: 0.64;
 }
 
-.glass-sheet-panel.portfolio-support-collect-info-panel > .glass-sheet-body {
-  flex: 1 1 auto;
-  min-height: 0;
+.glass-sheet-panel.collection-allowlist-sheet-panel > .glass-sheet-footer {
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .glass-sheet-panel.collection-allowlist-sheet-panel {
+    max-width: 36rem;
+  }
+}
+
+.glass-sheet-panel.portfolio-support-collect-info-panel {
+  max-height: min(88dvh, 36rem);
+  --glass-header-scrim-height: min(5rem, 24%);
 }
 
 .glass-sheet-panel.portfolio-support-collect-info-panel:has(
@@ -209,9 +208,8 @@
   padding-bottom: 0.35rem;
 }
 
-/* Support / scarce commerce sheets — content-sized, scroll when tall (auction). */
+/* Support / scarce commerce sheets — taller cap; height via sizing="hug". */
 .glass-sheet-panel.profile-support-sheet-panel {
-  height: auto;
   /* List / buy sheets are denser now — open taller so preview + chips stay in view. */
   max-height: min(94dvh, 46rem);
   --glass-header-scrim-height: min(5rem, 24%);
@@ -241,10 +239,6 @@
   > .glass-sheet-drag
   .glass-sheet-grip {
   opacity: 0.7;
-}
-
-.glass-sheet-panel.profile-support-sheet-panel > .glass-sheet-body {
-  flex: 0 1 auto;
 }
 
 /* Keyboard open — fill visual viewport so body scrolls above pinned footer. */
@@ -841,7 +835,6 @@
 }
 
 .glass-sheet-panel.account-storage-panel {
-  height: auto;
   max-height: min(92dvh, 40rem);
   --glass-sheet-body-opacity: 0.62;
 }
@@ -954,7 +947,6 @@
 
 .glass-sheet-panel.customize-sheet-panel,
 .glass-sheet-panel.mood-sheet-panel {
-  height: auto;
   max-height: min(94dvh, 42rem);
   --glass-sheet-body-opacity: 0.64;
 }
@@ -17192,17 +17184,9 @@ a.os-surface-row {
   }
 
   .scarce-choice-sheet-panel {
-    /* Hug the option list — do not open a full-height empty sheet for 4–6
-       choices. Cap tall lists (Colour) so the sheet stays reachable. */
-    height: auto !important;
+    /* Shorter cap for pick lists; height via sizing="hug". */
     max-height: min(72dvh, 720px);
     max-width: 28rem;
-  }
-
-  .scarce-choice-sheet-panel .glass-sheet-body {
-    /* Short lists: size to content. Tall lists: fill the capped panel and scroll. */
-    flex: 1 1 auto;
-    min-height: 0;
   }
 
   .scarce-choice-sheet-body {
@@ -21712,29 +21696,39 @@ a.os-surface-row {
     gap: 0.3rem;
   }
 
+  /* Paste well — same border + inset lip as poll / support amount fields. */
   .collection-allowlist-field textarea {
     width: 100%;
     min-height: 2.75rem;
+    box-sizing: border-box;
     resize: vertical;
     padding: 0.55rem 0.7rem;
-    border: 0;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
     border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    background: transparent;
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
     color: var(--os-surface-emphasis);
     font: inherit;
     font-size: 0.84rem;
     line-height: 1.4;
+    outline: none;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
   }
 
   .collection-allowlist-field textarea::placeholder {
-    color: rgb(var(--fg-rgb) / 0.32);
+    color: rgb(var(--fg-rgb) / 0.38);
+  }
+
+  .collection-allowlist-field textarea:hover:not(:disabled):not(:focus) {
+    border-color: rgb(var(--fg-rgb) / 0.16);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
   }
 
   .collection-allowlist-field textarea:focus {
-    outline: none;
-    background: rgb(var(--fg-rgb) / 0.055);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+    border-color: rgb(var(--fg-rgb) / 0.2);
+    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
   }
 
   .collection-allowlist-field small {
@@ -21794,25 +21788,8 @@ a.os-surface-row {
     padding: 0.35rem 1.15rem 0.55rem;
   }
 
-  /* Content-hug like Add member / guild-facts — grows with list, cap 88dvh. */
-  .glass-sheet-panel.collection-allowlist-sheet-panel {
-    height: auto;
-    max-height: min(88dvh, 36rem);
-    max-width: 100%;
-    --glass-header-scrim-height: min(5rem, 24%);
-    --glass-sheet-body-opacity: 0.64;
-  }
-
-  @media (min-width: 768px) {
-    .glass-sheet-panel.collection-allowlist-sheet-panel {
-      max-width: 36rem;
-    }
-  }
-
-  /* Same inset as guild-facts / Add member sheets. */
+  /* Same inset as guild-facts / Add member sheets (height hug is unlayered). */
   .collection-allowlist-sheet-body {
-    flex: 0 1 auto;
-    min-height: 0;
     padding: 0.15rem 1.15rem 1.35rem;
   }
 
@@ -21973,9 +21950,7 @@ a.os-surface-row {
     max-width: 32rem;
   }
 
-  /* Content-hug like allowlist / Add member — grows with accounts, no full void. */
   .glass-sheet-panel.collection-activity-sheet-panel {
-    height: auto;
     max-height: min(88dvh, 36rem);
     max-width: 100%;
     --glass-header-scrim-height: min(5rem, 24%);
@@ -21989,8 +21964,6 @@ a.os-surface-row {
   }
 
   .collection-activity-sheet-body {
-    flex: 0 1 auto;
-    min-height: 0;
     padding: 0.15rem 1.15rem 1.35rem;
   }
 
@@ -22009,7 +21982,6 @@ a.os-surface-row {
   }
 
   .glass-sheet-panel.scarce-fans-sheet-panel {
-    height: auto;
     max-height: min(88dvh, 36rem);
     max-width: 100%;
     --glass-header-scrim-height: min(5rem, 24%);
@@ -22023,8 +21995,6 @@ a.os-surface-row {
   }
 
   .scarce-fans-sheet-body {
-    flex: 0 1 auto;
-    min-height: 0;
     padding: 0.15rem 1.15rem 1.35rem;
   }
 
@@ -23376,16 +23346,10 @@ a.os-surface-row {
     outline: none;
   }
 
-  /* Hug the picker content — no full-height empty sheet for one calendar. */
+  /* Schedule picker — shorter width; height via sizing="hug". */
   .glass-sheet-panel.drop-schedule-sheet-panel {
-    height: auto !important;
     max-height: min(92dvh, 42rem);
     max-width: 26rem;
-  }
-
-  .glass-sheet-panel.drop-schedule-sheet-panel > .glass-sheet-body {
-    flex: 0 1 auto;
-    min-height: 0;
   }
 
   .drop-schedule-sheet-body {
@@ -23692,14 +23656,8 @@ a.os-surface-row {
   }
 
   .drop-time-sheet-panel {
-    height: auto !important;
     max-height: min(72dvh, 720px);
     max-width: 28rem;
-  }
-
-  .drop-time-sheet-panel .glass-sheet-body {
-    flex: 1 1 auto;
-    min-height: 0;
   }
 
   .drop-time-sheet-body {
@@ -24722,9 +24680,8 @@ a.os-surface-row {
     --glass-sheet-body-opacity: 0.72;
   }
 
-  /* Transfer — hug content like scarce-choice / facts; no full-height void. */
+  /* Transfer / short hub forms — tighter cap; height via sizing="hug". */
   .glass-sheet-panel.hub-manage-sheet-panel--hug {
-    height: auto !important;
     max-height: min(72dvh, 32rem);
   }
 
@@ -24736,10 +24693,6 @@ a.os-surface-row {
   /* Requester publish-access drawer — short form, content-hug. */
   .glass-sheet-panel.hub-publish-access-sheet-panel {
     max-height: min(56dvh, 28rem);
-  }
-
-  .glass-sheet-panel.hub-manage-sheet-panel--hug > .glass-sheet-body {
-    flex: 0 1 auto;
   }
 
   .hub-manage-form {

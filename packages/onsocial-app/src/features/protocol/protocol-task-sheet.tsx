@@ -63,6 +63,7 @@ export function ProtocolTaskSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       initialDetent="full"
       peekRatio={1}
       panelClassName={`profile-support-sheet-panel${

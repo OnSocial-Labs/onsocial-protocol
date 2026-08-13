@@ -80,6 +80,7 @@ export function ProfileSupportSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       moodId={effectiveMood?.id}
       panelStyle={panelStyle}
       panelClassName="profile-support-sheet-panel"

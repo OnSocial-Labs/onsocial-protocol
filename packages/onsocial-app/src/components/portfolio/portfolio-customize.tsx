@@ -289,6 +289,7 @@ export function PortfolioCustomize({
         open={open}
         onClose={() => setOpen(false)}
         tone="mood-thread"
+        sizing="hug"
         moodId={portfolioMoodId ?? mood.id}
         panelStyle={customizePanelStyle}
         initialDetent="full"

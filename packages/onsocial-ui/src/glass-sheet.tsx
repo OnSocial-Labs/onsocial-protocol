@@ -23,6 +23,8 @@ export const sheetIconActionClassName = osIconActionClassName;
 export type GlassSheetTone = 'os' | 'mood-thread';
 export type GlassSheetDetent = 'peek' | 'full';
 export type GlassSheetPresentation = 'enter' | 'swap';
+/** `hug` = content-sized up to 90dvh; `full` = default near-viewport height. */
+export type GlassSheetSizing = 'hug' | 'full';
 
 export const GLASS_SHEET_PEEK_RATIO = 0.62;
 const DISMISS_GAP_PX = 96;
@@ -197,6 +199,11 @@ export interface GlassSheetProps {
   bodyRef?: Ref<HTMLDivElement | null>;
   panelClassName?: string;
   rootClassName?: string;
+  /**
+   * Panel height mode. `hug` opens to content (max 90dvh) and grows as needed;
+   * `full` (default) uses the near-viewport sheet height.
+   */
+  sizing?: GlassSheetSizing;
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
@@ -585,6 +592,7 @@ export function GlassSheet({
   bodyRef,
   panelClassName,
   rootClassName,
+  sizing = 'full',
 }: GlassSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const portalTarget = useDocumentBodyPortalTarget();
@@ -736,6 +744,7 @@ export function GlassSheet({
         )}
         data-tone={tone}
         data-mood={tone === 'mood-thread' ? moodId : undefined}
+        data-sizing={sizing}
         style={
           {
             '--sheet-y': sheetY,

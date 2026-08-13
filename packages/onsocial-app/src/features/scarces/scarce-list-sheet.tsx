@@ -80,6 +80,7 @@ export function ScarceListSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       // Tall commerce form — open full, no mid peek. peekRatio 1 ⇒ drag ~96px dismisses.
       initialDetent="full"
       peekRatio={1}

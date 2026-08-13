@@ -161,6 +161,7 @@ export function ActionDrawer({
       zIndex={zIndex}
       ariaLabelledBy={titleId}
       backdropLabel={closeLabel}
+      sizing="hug"
       panelClassName="scarce-choice-sheet-panel"
       bodyClassName="scarce-choice-sheet-body"
       header={

@@ -347,6 +347,7 @@ export function AppStorageSheet({
         onClose={requestClose}
         onClosed={handleSheetClosed}
         tone="os"
+        sizing="hug"
         initialDetent="full"
         zIndex={57}
         presentation="swap"

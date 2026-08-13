@@ -283,6 +283,7 @@ export function ScarceRoyaltySplitSheet({
         onClose={onClose}
         onClosed={onClosed}
         tone="os"
+        sizing="hug"
         initialDetent="full"
         peekRatio={1}
         zIndex={zIndex}
@@ -492,6 +493,7 @@ export function ScarceRoyaltySplitSheet({
         open={editingShare != null && editingFace != null}
         onClose={closeEdit}
         tone="os"
+        sizing="hug"
         initialDetent="full"
         peekRatio={1}
         zIndex={zIndex + 2}

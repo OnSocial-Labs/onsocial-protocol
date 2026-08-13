@@ -249,6 +249,7 @@ export function AppAccountSheet({
         onClose={requestClose}
         onClosed={handleSheetClosed}
         tone="os"
+        sizing="hug"
         initialDetent="full"
         peekRatio={ACCOUNT_SHEET_PEEK_RATIO}
         zIndex={55}

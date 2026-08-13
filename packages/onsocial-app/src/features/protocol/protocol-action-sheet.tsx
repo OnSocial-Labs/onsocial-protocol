@@ -56,6 +56,7 @@ export function ProtocolActionSheet({
       open={open}
       onClose={onClose}
       tone="os"
+      sizing="hug"
       initialDetent="peek"
       peekRatio={0.42}
       zIndex={58}

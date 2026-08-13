@@ -86,6 +86,20 @@
 }
 
 /*
+ * Content-hug: open to what’s needed, grow with content, cap at 90dvh.
+ * Prefer `sizing="hug"` on GlassSheet over per-panel height:auto overrides.
+ */
+.glass-sheet-panel[data-sizing='hug'] {
+  height: auto;
+  max-height: min(90dvh, 720px);
+}
+
+.glass-sheet-panel[data-sizing='hug'] > .glass-sheet-body {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+/*
  * Panel locals above override :root tokens. Light needs denser white glass or
  * the dark page/scrim reads through as a muddy gray sheet.
  */

@@ -58,6 +58,7 @@ export function InfoDrawer({
       zIndex={60}
       ariaLabelledBy={titleId}
       backdropLabel="Close"
+      sizing="hug"
       panelClassName="scarce-choice-sheet-panel"
       bodyClassName="scarce-choice-sheet-body account-social-help-sheet-body"
       header={

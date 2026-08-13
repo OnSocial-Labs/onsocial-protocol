@@ -1112,6 +1112,7 @@ export function ComposerSheet({
       open={labelsOpen && open}
       onClose={() => setLabelsOpen(false)}
       tone="os"
+      sizing="hug"
       initialDetent="full"
       peekRatio={1}
       zIndex={COMPOSER_NEST_Z}

@@ -170,6 +170,7 @@ function HubManageSheetChrome({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="os"
+      sizing={contentHug ? 'hug' : undefined}
       initialDetent="full"
       peekRatio={contentHug ? 1 : undefined}
       zIndex={58}

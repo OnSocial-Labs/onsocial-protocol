@@ -193,6 +193,7 @@ export function SeriesEditSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="os"
+      sizing="hug"
       initialDetent="peek"
       peekRatio={1}
       zIndex={58}

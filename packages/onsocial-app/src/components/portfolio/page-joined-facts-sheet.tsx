@@ -281,6 +281,7 @@ export function PageJoinedFactsSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="mood-thread"
+      sizing="hug"
       moodId={mood.id}
       panelStyle={panelStyle}
       initialDetent="full"

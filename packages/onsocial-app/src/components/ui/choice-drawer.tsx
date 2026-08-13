@@ -121,6 +121,7 @@ export function ChoiceDrawer<T extends string>({
       zIndex={zIndex}
       ariaLabelledBy={titleId}
       backdropLabel={`Close ${label.toLowerCase()}`}
+      sizing="hug"
       panelClassName="scarce-choice-sheet-panel"
       bodyClassName="scarce-choice-sheet-body"
       header={

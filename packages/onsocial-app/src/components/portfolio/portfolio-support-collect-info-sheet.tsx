@@ -339,6 +339,7 @@ export function PortfolioSupportCollectInfoSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       moodId={mood?.id}
       initialDetent="full"
       zIndex={56}

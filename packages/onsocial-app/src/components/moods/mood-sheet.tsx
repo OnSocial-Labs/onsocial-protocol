@@ -124,6 +124,7 @@ export function MoodSheet({
       open={open}
       onClose={onClose}
       tone="mood-thread"
+      sizing="hug"
       moodId={activeMood.id}
       panelStyle={moodSheetPanelStyle(activeMood.cssVars) as CSSProperties}
       initialDetent="full"

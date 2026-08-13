@@ -138,6 +138,7 @@ export function ProtocolProposeKindSheet({
       open={open}
       onClose={onClose}
       tone="os"
+      sizing="hug"
       initialDetent="peek"
       peekRatio={0.62}
       zIndex={58}

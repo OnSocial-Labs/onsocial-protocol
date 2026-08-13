@@ -153,6 +153,7 @@ export function GuildAddSpaceSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       initialDetent="peek"
       zIndex={57}
       presentation="swap"

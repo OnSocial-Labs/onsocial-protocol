@@ -76,6 +76,7 @@ export function PostAmplifySheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       moodId={authorMood?.id}
       panelStyle={panelStyle}
       panelClassName="profile-support-sheet-panel"

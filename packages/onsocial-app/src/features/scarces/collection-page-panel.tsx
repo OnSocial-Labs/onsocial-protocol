@@ -1299,6 +1299,7 @@ export function CollectionPagePanel({
         onClose={requestActivityClose}
         onClosed={handleActivityClosed}
         tone="os"
+        sizing="hug"
         initialDetent="full"
         peekRatio={1}
         zIndex={58}

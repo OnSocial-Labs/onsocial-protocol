@@ -47,6 +47,7 @@ export function AppSocialSwapSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="os"
+      sizing="hug"
       presentation="swap"
       initialDetent="full"
       peekRatio={1}

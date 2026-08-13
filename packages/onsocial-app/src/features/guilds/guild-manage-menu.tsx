@@ -138,6 +138,7 @@ export function GuildManageMenu({
         onClose={requestClose}
         onClosed={handleClosed}
         tone="os"
+        sizing="hug"
         initialDetent="full"
         peekRatio={1}
         zIndex={60}

@@ -27,6 +27,7 @@ export {
   sheetIconActionClassName,
   type GlassSheetDetent,
   type GlassSheetProps,
+  type GlassSheetSizing,
   type GlassSheetTone,
   type SheetCloseButtonProps,
   type SheetHeaderProps,

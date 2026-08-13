@@ -129,6 +129,7 @@ export function ScarceOffersSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       panelClassName="profile-support-sheet-panel"
       initialDetent="full"
       peekRatio={1}

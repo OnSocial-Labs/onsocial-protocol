@@ -1026,6 +1026,7 @@ function CollectionAllowlistSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="os"
+      sizing="hug"
       initialDetent="full"
       peekRatio={1}
       zIndex={58}
@@ -1438,6 +1439,7 @@ function CollectionAllowlistSheet({
       open={editingFace != null}
       onClose={closeEditSheet}
       tone="os"
+      sizing="hug"
       initialDetent="full"
       peekRatio={1}
       zIndex={60}
