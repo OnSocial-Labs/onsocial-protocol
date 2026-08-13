@@ -11,7 +11,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { SheetCloseButton } from '@onsocial/ui';
+import { SheetCloseButton, useScrollLock } from '@onsocial/ui';
 import type {
   CardFormat,
   MarkColor,
@@ -25,7 +25,6 @@ import {
   previewTextCard,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import { parsePostText } from '@/lib/post-display';
 import { displayName } from '@/lib/profile-display';
@@ -168,8 +167,7 @@ export function ScarcePostPreview({
     setHeldListingCover(incomingListingCover);
   }
   const listingCover =
-    incomingListingCover ||
-    (disableLiveSvg ? heldListingCover : null);
+    incomingListingCover || (disableLiveSvg ? heldListingCover : null);
   const blockLiveSvg = disableLiveSvg || Boolean(listingCover);
   const isPhotoCard = cardFormat === 'receipt' || cardFormat === 'proof';
   const title = previewTitle(post, cardFormat);

@@ -8,14 +8,13 @@ import {
   type CSSProperties,
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   PostAmplifyForm,
   type PostAmplifySuccessDetail,
 } from '@/features/home/post-amplify-form';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 

@@ -6,11 +6,15 @@ import {
   PAGE_MOOD_CATALOG,
   type PageMoodId,
 } from '@onsocial/sdk';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  SheetCloseButton,
+  useScrollLock,
+} from '@onsocial/ui';
 import { useApplyMood } from '@/hooks/use-apply-mood';
 import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   moodSheetPanelStyle,

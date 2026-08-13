@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -16,7 +16,6 @@ import {
   type ScarceTokenOffer,
 } from '@/features/scarces/scarce-offers';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
