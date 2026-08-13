@@ -36,6 +36,11 @@ export interface OsSlideOverScreenProps {
   onClose: () => void;
   /** After the exit slide finishes and the layer unmounts. */
   onClosed?: () => void;
+  /**
+   * Called before back / Escape starts the exit slide.
+   * Return `false` to keep the layer open (e.g. show discard confirm).
+   */
+  onBeforeClose?: () => boolean;
   title: string;
   subtitle?: string;
   /** Icon actions opposite the back control. */
@@ -68,6 +73,7 @@ export function OsSlideOverScreen({
   open,
   onClose,
   onClosed,
+  onBeforeClose,
   title,
   subtitle,
   actions,
@@ -88,6 +94,8 @@ export function OsSlideOverScreen({
   const bodyRef = useRef<HTMLElement | null>(null);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
+  /** Keep mounted through exit when parent sets `open` false. */
+  const [renderOpen, setRenderOpen] = useState(open);
   const [wasOpen, setWasOpen] = useState(open);
   const [glassElevated, setGlassElevated] = useState(false);
   const mounted = useSyncExternalStore(
@@ -106,30 +114,38 @@ export function OsSlideOverScreen({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
+      setRenderOpen(true);
       setClosing(false);
+      setEntered(false);
+    } else if (renderOpen) {
+      setClosing(true);
       setEntered(false);
     }
   }
 
-  const layerOpen = open && !closing;
+  const layerOpen = renderOpen && !closing;
   const hasFooter = footer != null;
-  useScrollLock(layerOpen);
+  useScrollLock(renderOpen);
+
+  const finishExit = useCallback(() => {
+    setClosing(false);
+    setRenderOpen(false);
+    onClose();
+    onClosed?.();
+  }, [onClose, onClosed]);
 
   const requestClose = useCallback(() => {
-    if (closeDisabled) return;
+    if (closeDisabled || closing) return;
+    if (onBeforeClose && onBeforeClose() === false) return;
     setClosing(true);
     setEntered(false);
-  }, [closeDisabled]);
+  }, [closeDisabled, closing, onBeforeClose]);
 
   useEffect(() => {
     if (!closing) return;
-    const timer = window.setTimeout(() => {
-      setClosing(false);
-      onClose();
-      onClosed?.();
-    }, SLIDE_MS);
+    const timer = window.setTimeout(finishExit, SLIDE_MS);
     return () => window.clearTimeout(timer);
-  }, [closing, onClose, onClosed]);
+  }, [closing, finishExit]);
 
   useEffect(() => {
     if (!layerOpen) return;
@@ -150,7 +166,7 @@ export function OsSlideOverScreen({
   }, [layerOpen, requestClose]);
 
   useLayoutEffect(() => {
-    if (!layerOpen) return;
+    if (!renderOpen) return;
     const header = headerRef.current;
     const body = bodyRef.current;
     if (!header || !body) return;
@@ -176,9 +192,9 @@ export function OsSlideOverScreen({
       body.removeEventListener('scroll', syncElevated);
       screen?.style.removeProperty('--os-screen-chrome-height');
     };
-  }, [layerOpen, toolbar, subtitle]);
+  }, [renderOpen, toolbar, subtitle]);
 
-  if (!mounted || (!open && !closing)) return null;
+  if (!mounted || !renderOpen) return null;
 
   const portalHost =
     typeof document !== 'undefined'

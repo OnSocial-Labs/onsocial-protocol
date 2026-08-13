@@ -22769,6 +22769,39 @@ a.os-surface-row {
     }
   }
 
+  /*
+   * Hub manage / series edit workspaces — form inset matches former
+   * GlassSheet body; footer owns its own pad (see .hub-manage-sheet-footer).
+   */
+  .hub-manage-slide .os-slide-over-content.hub-manage-slide-body {
+    padding: 0.35rem 1.15rem 1.35rem;
+  }
+
+  .hub-manage-slide .os-slide-over-footer-inner {
+    max-width: none;
+    width: 100%;
+    padding: 0;
+  }
+
+  /*
+   * Guild edit workspace — full-bleed banner; fields pad themselves.
+   * Footer pad stays on .guild-edit-sheet-footer.
+   */
+  .guild-edit-slide .os-slide-over-content.guild-edit-slide-body {
+    padding: 0;
+  }
+
+  .guild-edit-slide .os-slide-over-footer-inner {
+    max-width: none;
+    width: 100%;
+    padding: 0;
+  }
+
+  .guild-edit-slide .account-editor-form-main {
+    overflow: visible;
+    background: transparent;
+  }
+
   .drop-variation-set-slide-grid {
     --drop-seat-tile: clamp(4.5rem, 22vw, 6rem);
     width: 100%;

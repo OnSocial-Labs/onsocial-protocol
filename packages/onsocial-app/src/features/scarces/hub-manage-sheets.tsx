@@ -10,12 +10,8 @@ import {
   type ReactNode,
 } from 'react';
 import Link from 'next/link';
-import {
-  Divider,
-  GlassSheet,
-  ProfileEditorMediaToolbar,
-  SheetCloseButton,
-} from '@onsocial/ui';
+import { ProfileEditorMediaToolbar } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -44,7 +40,6 @@ import {
   useNearAccountStatus,
 } from '@/hooks/use-near-account-status';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   nearAccountPlaceholder,
@@ -59,6 +54,8 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+const HUB_MANAGE_Z = 58;
 
 export type HubManageSheetId =
   | 'look'
@@ -102,8 +99,6 @@ function HubManageSheetChrome({
   footer,
   pending = false,
   dirty = false,
-  /** Short sheets (Transfer) hug content — tall forms stay full-height. */
-  contentHug = false,
 }: {
   open: boolean;
   title: string;
@@ -113,46 +108,37 @@ function HubManageSheetChrome({
   footer?: ReactNode;
   pending?: boolean;
   dirty?: boolean;
-  contentHug?: boolean;
 }) {
-  const titleId = useId();
   const discardTitleId = useId();
   const discardBodyId = useId();
-  const [closing, setClosing] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const keepEditingRef = useRef<HTMLButtonElement>(null);
   const dirtyRef = useRef(dirty);
-  const sheetOpen = open && !closing;
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (!open) {
-      setClosing(false);
       setDiscardConfirmOpen(false);
     }
   }
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     dirtyRef.current = dirty;
   }, [dirty]);
 
-  const requestClose = useCallback(() => {
-    if (pending) return;
+  const handleBeforeClose = useCallback(() => {
+    if (pending) return false;
     if (dirtyRef.current) {
       setDiscardConfirmOpen(true);
-      return;
+      return false;
     }
-    setClosing(true);
+    return true;
   }, [pending]);
 
   const handleClosed = useCallback(() => {
-    setClosing(false);
     setDiscardConfirmOpen(false);
-    onClose();
-  }, [onClose]);
+  }, []);
 
   const handleKeepEditing = useCallback(() => {
     setDiscardConfirmOpen(false);
@@ -161,48 +147,22 @@ function HubManageSheetChrome({
 
   const handleDiscard = useCallback(() => {
     setDiscardConfirmOpen(false);
-    setClosing(true);
-  }, []);
+    onClose();
+  }, [onClose]);
 
   return (
-    <GlassSheet
-      open={sheetOpen}
-      onClose={requestClose}
+    <OsSlideOverScreen
+      open={open}
+      onClose={onClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing={contentHug ? 'hug' : undefined}
-      initialDetent="full"
-      peekRatio={contentHug ? 1 : undefined}
-      zIndex={58}
-      presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel={`Close ${title}`}
-      panelClassName={`hub-manage-sheet-panel${
-        contentHug ? ' hub-manage-sheet-panel--hug' : ''
-      }`}
-      bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    {title}
-                  </h2>
-                  {subtitle ? (
-                    <p className="discover-sheet-subtitle">{subtitle}</p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      onBeforeClose={handleBeforeClose}
+      title={title}
+      subtitle={subtitle}
+      closeAriaLabel="Back"
+      closeDisabled={pending}
+      zIndex={HUB_MANAGE_Z}
+      className="hub-manage-slide"
+      contentClassName="hub-manage-slide-body"
       footer={
         footer || discardConfirmOpen ? (
           <div
@@ -264,7 +224,7 @@ function HubManageSheetChrome({
       >
         {children}
       </div>
-    </GlassSheet>
+    </OsSlideOverScreen>
   );
 }
 
@@ -1036,7 +996,6 @@ export function HubTransferSheet({
       subtitle="Hand ownership to another account"
       onClose={onClose}
       pending={pending}
-      contentHug
       footer={
         <OsSheetActions layout="stack" borderless>
           <OsSheetAction

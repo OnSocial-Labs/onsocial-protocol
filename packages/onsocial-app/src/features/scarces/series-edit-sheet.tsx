@@ -8,11 +8,11 @@ import {
   useState,
   type ChangeEvent,
 } from 'react';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
@@ -22,7 +22,6 @@ import {
   type SeriesBranding,
 } from '@/features/scarces/series-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import {
@@ -34,6 +33,7 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const MAX_TITLE = 48;
 const MAX_DESCRIPTION = 280;
+const SERIES_EDIT_Z = 58;
 
 interface SeriesEditSheetProps {
   open: boolean;
@@ -47,7 +47,7 @@ interface SeriesEditSheetProps {
   onSaved: (next: SeriesBranding) => void;
 }
 
-/** Creator-only sheet: brand a series with a logo and description. */
+/** Creator-only workspace: brand a series with a logo and description. */
 export function SeriesEditSheet({
   open,
   creatorId,
@@ -57,11 +57,9 @@ export function SeriesEditSheet({
   onClose,
   onSaved,
 }: SeriesEditSheetProps) {
-  const titleId = useId();
   const fieldIdBase = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const [closing, setClosing] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -69,9 +67,6 @@ export function SeriesEditSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   // Seed the form from current branding each time the sheet opens.
   useEffect(() => {
@@ -89,16 +84,6 @@ export function SeriesEditSheet({
     },
     [logoPreview]
   );
-
-  const requestClose = useCallback(() => {
-    if (pending) return;
-    setClosing(true);
-  }, [pending]);
-
-  const handleClosed = useCallback(() => {
-    setClosing(false);
-    onClose();
-  }, [onClose]);
 
   const onLogoChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -158,7 +143,7 @@ export function SeriesEditSheet({
         logo,
         logoUrl: resolveProfileMediaUrl(logo),
       });
-      setClosing(true);
+      onClose();
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -183,48 +168,34 @@ export function SeriesEditSheet({
     trackTransaction,
     setTxResult,
     onSaved,
+    onClose,
   ]);
 
   const logoSrc = logoPreview ?? branding?.logoUrl ?? null;
 
   return (
-    <GlassSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="peek"
-      peekRatio={1}
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close series editor"
-      panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug"
-      bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Edit series
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    Brand the series — drops keep their own art.
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close series editor"
-                />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
+    <OsSlideOverScreen
+      open={open}
+      onClose={onClose}
+      title="Edit series"
+      subtitle="Brand the series — drops keep their own art."
+      closeAriaLabel="Back"
+      closeDisabled={pending}
+      zIndex={SERIES_EDIT_Z}
+      className="hub-manage-slide"
+      contentClassName="hub-manage-slide-body"
+      footer={
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready={canSave}
+            disabled={!canSave}
+            onClick={() => void save()}
+          >
+            {pending ? 'Saving…' : 'Save series'}
+          </OsSheetAction>
+        </OsSheetActions>
       }
     >
       <div className="hub-manage-form">
@@ -284,19 +255,7 @@ export function SeriesEditSheet({
         </label>
 
         {error ? <p className="guild-form-error">{error}</p> : null}
-
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready={canSave}
-            disabled={!canSave}
-            onClick={() => void save()}
-          >
-            {pending ? 'Saving…' : 'Save series'}
-          </OsSheetAction>
-        </OsSheetActions>
       </div>
-    </GlassSheet>
+    </OsSlideOverScreen>
   );
 }
