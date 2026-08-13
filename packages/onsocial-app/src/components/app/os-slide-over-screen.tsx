@@ -111,7 +111,10 @@ export function OsSlideOverScreen({
     moodStyle !== undefined ? moodStyle : viewerMood.style;
   const hasMood = Boolean(resolvedMoodId);
 
-  openRef.current = open;
+  // Keep latest open for finishExit without reading during render.
+  useLayoutEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   // Parent opened — (re)mount and reset exit state.
   useLayoutEffect(() => {
