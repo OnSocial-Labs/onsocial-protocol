@@ -11,8 +11,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   InformationCircleIcon,
+  OsIconAction,
   SettingsIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -462,12 +462,11 @@ export function AppPagePanel({
       backFallbackHref={APP_APPS_PATH}
       actions={
         showSettingsGear ? (
-          <button
-            type="button"
-            className={`${osIconActionClassName} guild-manage-menu-trigger${
+          <OsIconAction
+            className={`guild-manage-menu-trigger${
               canReviewRequests && pendingPublishCount > 0 ? ' has-badge' : ''
             }`}
-            aria-label={
+            ariaLabel={
               canReviewRequests && pendingPublishCount > 0
                 ? `Hub settings, ${pendingPublishCount} publish requests`
                 : 'Hub settings'
@@ -483,7 +482,7 @@ export function AppPagePanel({
                 {formatProfileCount(pendingPublishCount)}
               </span>
             ) : null}
-          </button>
+          </OsIconAction>
         ) : undefined
       }
       immersiveHeader

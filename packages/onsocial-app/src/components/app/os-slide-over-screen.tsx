@@ -23,7 +23,7 @@ import {
 import { createPortal } from 'react-dom';
 import {
   ArrowLeftIcon,
-  osIconActionClassName,
+  OsIconAction,
   useScrollLock,
 } from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
@@ -233,15 +233,13 @@ export function OsSlideOverScreen({
           }`}
         >
           <div className="os-app-screen-nav-row">
-            <button
-              type="button"
-              className={osIconActionClassName}
-              aria-label={closeAriaLabel}
+            <OsIconAction
+              ariaLabel={closeAriaLabel}
               disabled={closeDisabled}
               onClick={requestClose}
             >
               <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
-            </button>
+            </OsIconAction>
             <div className="os-app-screen-heading">
               <h1 id={titleId} className="os-app-screen-title">
                 {title}

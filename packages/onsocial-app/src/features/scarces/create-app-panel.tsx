@@ -6,8 +6,8 @@ import {
   OsSheetAction,
   OsSheetActions,
   OsSheetPrimaryAction,
+  OsIconAction,
   QuestionMarkCircleFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SuffixField } from '@/components/ui/suffix-field';
@@ -193,10 +193,8 @@ export function CreateAppPanel() {
       backFallbackHref={APP_APPS_PATH}
       glassChrome
       actions={
-        <button
-          type="button"
-          className={osIconActionClassName}
-          aria-label={HUB_CREATE_HELP_TITLE}
+        <OsIconAction
+          ariaLabel={HUB_CREATE_HELP_TITLE}
           aria-expanded={helpOpen}
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
@@ -205,7 +203,7 @@ export function CreateAppPanel() {
             aria-hidden
             className="glass-sheet-close-icon"
           />
-        </button>
+        </OsIconAction>
       }
     >
       <form className="drop-create-form" onSubmit={handleSubmit}>

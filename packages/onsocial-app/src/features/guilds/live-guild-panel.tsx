@@ -11,8 +11,8 @@ import {
 import {
   Divider,
   InformationCircleIcon,
+  OsIconAction,
   SettingsIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
@@ -1585,14 +1585,12 @@ export function LiveGuildPanel({
               />
             ) : null}
             {canManageGuild ? (
-              <button
-                type="button"
-                className={osIconActionClassName}
-                aria-label="Guild settings"
+              <OsIconAction
+                ariaLabel="Guild settings"
                 onClick={() => setSettingsSheetOpen(true)}
               >
                 <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
-              </button>
+              </OsIconAction>
             ) : null}
           </>
         ) : undefined
