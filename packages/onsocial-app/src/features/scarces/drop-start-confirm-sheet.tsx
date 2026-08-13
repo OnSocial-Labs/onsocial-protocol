@@ -97,6 +97,7 @@ export function DropStartConfirmSheet({
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
+      chrome="choice"
       label={title}
       closeAriaLabel="Close"
       backdropLabel="Close"

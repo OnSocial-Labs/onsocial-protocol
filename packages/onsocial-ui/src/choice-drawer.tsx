@@ -116,6 +116,7 @@ export function ChoiceDrawer<T extends string>({
       label={label}
       copy={copy}
       zIndex={zIndex}
+      chrome="choice"
     >
       <div className="os-choice-sheet-list" role="listbox" aria-label={label}>
         {sections.map((section, sectionIndex) => (

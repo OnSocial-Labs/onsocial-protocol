@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { Divider, OsHugSheet } from '@onsocial/ui';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 /**
  * Full scarce description — same job as CollectionAboutSheet for Drop play.
@@ -24,13 +23,10 @@ export function ScarceAboutSheet({
   originalHref?: string | null;
   zIndex?: number;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const trimmed = body.trim();
   const headerTitle = title?.trim() || 'About';
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -45,32 +41,18 @@ export function ScarceAboutSheet({
   if (!trimmed && !open) return null;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
+      label="About"
+      {...(headerTitle !== 'About' ? { copy: headerTitle } : {})}
+      closeAriaLabel="Close about"
+      backdropLabel="Close about"
       zIndex={zIndex}
       presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close about"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="About"
-            subtitle={headerTitle !== 'About' ? headerTitle : undefined}
-            onClose={requestClose}
-            closeAriaLabel="Close about"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts collection-about-sheet">
         {trimmed ? (
@@ -92,6 +74,6 @@ export function ScarceAboutSheet({
           </>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

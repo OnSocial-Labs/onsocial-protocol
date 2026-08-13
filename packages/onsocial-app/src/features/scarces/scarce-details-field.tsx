@@ -67,6 +67,7 @@ export function ScarceDetailsField({
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
+        chrome="choice"
         label="Details"
         copy="What wallets store for this scarce."
         closeAriaLabel="Close details"

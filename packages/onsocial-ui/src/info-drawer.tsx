@@ -52,6 +52,7 @@ export function InfoDrawer({
       closeAriaLabel="Close"
       backdropLabel="Close"
       zIndex={zIndex}
+      chrome="choice"
       bodyClassName="os-info-drawer-body"
     >
       <p className="os-info-drawer-summary">{summary}</p>
