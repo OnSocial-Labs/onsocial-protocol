@@ -20,8 +20,7 @@ import {
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -375,7 +374,7 @@ export function GuildEditSheet({
                 Connect wallet
               </OsSheetAction>
             ) : null}
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="submit"
               form={formId}
               ready={isDirty && isConnected}
@@ -384,7 +383,7 @@ export function GuildEditSheet({
               disabled={!isDirty || pending || !isConnected}
             >
               {memberDriven ? 'Propose changes' : 'Save changes'}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
         )}
       </div>

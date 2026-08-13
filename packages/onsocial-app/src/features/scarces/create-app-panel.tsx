@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
   OsIconAction,
   QuestionMarkCircleFillIcon,
 } from '@onsocial/ui';
@@ -347,7 +346,7 @@ export function CreateAppPanel() {
               Connect wallet
             </OsSheetAction>
           ) : null}
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="submit"
             ready={canSubmit}
             pending={pending}
@@ -355,7 +354,7 @@ export function CreateAppPanel() {
             disabled={!canSubmit}
           >
             Open hub
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       </form>
       <HubCreateHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />

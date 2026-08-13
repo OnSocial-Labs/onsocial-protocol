@@ -21,9 +21,9 @@ import {
   discardConfirmFooterA11y,
 } from '@/components/ui/discard-confirm';
 import {
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
@@ -637,14 +637,14 @@ function ProfileEditorForm({
               tone="frosted-primary"
               borderless
             >
-              <OsSheetPrimaryAction type="submit" disabled>
+              <OsSheetAction type="submit" disabled>
                 {submitLabel}
-              </OsSheetPrimaryAction>
+              </OsSheetAction>
             </OsSheetActions>
           </div>
         ) : (
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="submit"
               ready={canSubmit}
               pending={saving}
@@ -652,7 +652,7 @@ function ProfileEditorForm({
               disabled={!canSubmit}
             >
               {submitLabel}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
         )}
       </div>

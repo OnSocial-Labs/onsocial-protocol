@@ -12,7 +12,7 @@ import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
