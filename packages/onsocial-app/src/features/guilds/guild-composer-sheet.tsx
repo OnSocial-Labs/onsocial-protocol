@@ -16,7 +16,7 @@ import {
   ChartVerticalIcon,
   ImageFillIcon,
   ImageIcon,
-  MultiplyIcon,
+  OsFieldRemove,
   OsHugSheet,
   ProfileAvatar,
   StarsCFillIcon,
@@ -749,27 +749,12 @@ export function ComposerSheet({
                     onFocus={scrollFieldIntoView}
                   />
                   {pollOptions.length > MIN_POLL_OPTIONS ? (
-                    <OsSheetActions
-                      layout="row-compact"
-                      tone="frosted-primary"
-                      borderless
-                      className="hub-publish-request-actions drop-track-list-remove-actions"
-                    >
-                      <OsSheetAction
-                        type="button"
-                        variant="dismiss"
-                        ready={!pending}
-                        disabled={pending}
-                        aria-label={`Remove option ${index + 1}`}
-                        className="hub-publish-request-dismiss"
-                        onClick={() => removePollOption(index)}
-                      >
-                        <MultiplyIcon
-                          className="hub-publish-request-dismiss-icon"
-                          aria-hidden
-                        />
-                      </OsSheetAction>
-                    </OsSheetActions>
+                    <OsFieldRemove
+                      aria-label={`Remove option ${index + 1}`}
+                      ready={!pending}
+                      disabled={pending}
+                      onClick={() => removePollOption(index)}
+                    />
                   ) : null}
                 </div>
               ))}

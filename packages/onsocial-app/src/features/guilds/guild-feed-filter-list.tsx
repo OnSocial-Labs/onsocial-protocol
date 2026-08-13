@@ -144,7 +144,6 @@ function GuildRoomFactsSheet({
       closeAriaLabel="Close room info"
       backdropLabel="Close room info"
       zIndex={56}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
     >

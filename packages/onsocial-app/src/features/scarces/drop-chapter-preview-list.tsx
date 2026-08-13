@@ -6,11 +6,7 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react';
-import { Divider, MultiplyIcon } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+import { Divider, OsFieldRemove } from '@onsocial/ui';
 import { chapterTitleFromFile, isWritingPdfMime } from '@/features/scarces/drop-writing';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 
@@ -178,27 +174,13 @@ export function DropChapterPreviewList({
                 <span className="drop-chapter-kind" aria-hidden>
                   {isWritingPdfMime(file.type, file.name) ? 'PDF' : 'MD'}
                 </span>
-                <OsSheetActions
-                  layout="row-compact"
-                  tone="frosted-primary"
-                  borderless
-                  className="hub-publish-request-actions drop-track-list-remove-actions"
-                >
-                  <OsSheetAction
-                    type="button"
-                    variant="danger"
-                    ready={!disabled}
-                    disabled={disabled}
-                    aria-label={`Remove ${title}`}
-                    className="hub-publish-request-dismiss"
-                    onClick={() => onRemove(index)}
-                  >
-                    <MultiplyIcon
-                      className="hub-publish-request-dismiss-icon"
-                      aria-hidden
-                    />
-                  </OsSheetAction>
-                </OsSheetActions>
+                <OsFieldRemove
+                  variant="danger"
+                  ready={!disabled}
+                  disabled={disabled}
+                  aria-label={`Remove ${title}`}
+                  onClick={() => onRemove(index)}
+                />
               </div>
             </li>
           </Fragment>

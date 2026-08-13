@@ -2,17 +2,19 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
-  MultiplyIcon,
+  OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
   PlusIcon,
 } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
+import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
 import { useStorageShareRecipientsValidation } from '@/hooks/use-storage-share-recipients';
 import type { ShareRecipientRowStatus } from '@/hooks/use-storage-share-recipients';
+import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import type { SharedStoragePoolSummary } from '@/hooks/use-shared-storage-pool';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -20,10 +22,7 @@ import {
   sendStorageSharedPoolDepositTransaction,
   type SigningWallet,
 } from '@/lib/app-storage-transactions';
-import {
-  nearAccountPlaceholder,
-  sanitizeNearAccountInput,
-} from '@/lib/app-near-account';
+import { nearAccountPlaceholder } from '@/lib/app-near-account';
 import { formatNearCompact } from '@/lib/format-near-balance';
 import { formatCompactBytes } from '@/lib/platform-storage-display';
 import {
@@ -68,6 +67,26 @@ function shareRowIssueMessage(status: ShareRecipientRowStatus): string | null {
       return 'Already has shared storage.';
     default:
       return null;
+  }
+}
+
+function shareRowNearField(status: ShareRecipientRowStatus): {
+  status: NearAccountStatus;
+  statusClass?: string;
+} {
+  switch (status) {
+    case 'empty':
+      return { status: 'idle' };
+    case 'checking':
+      return { status: 'checking' };
+    case 'ready':
+      return { status: 'found', statusClass: 'is-available' };
+    case 'invalid':
+      return { status: 'invalid', statusClass: 'is-taken' };
+    case 'self':
+    case 'duplicate':
+    case 'already_sponsored':
+      return { status: 'found', statusClass: 'is-taken' };
   }
 }
 
@@ -213,25 +232,20 @@ function ShareRecipientRow({
   onRemove: () => void;
 }) {
   const issue = shareRowIssueMessage(status);
+  const nearField = shareRowNearField(status);
 
   return (
     <div className="app-storage-recipient-row">
       <label className="sr-only" htmlFor={`storage-share-recipient-${rowId}`}>
         Recipient account
       </label>
-      <input
+      <NearAccountField
         id={`storage-share-recipient-${rowId}`}
-        type="text"
-        inputMode="text"
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-        placeholder={nearAccountPlaceholder()}
         value={value}
-        onChange={(event) =>
-          onValueChange(sanitizeNearAccountInput(event.target.value))
-        }
-        className="app-storage-recipient-input"
+        onValueChange={onValueChange}
+        placeholder={nearAccountPlaceholder()}
+        status={nearField.status}
+        statusClass={nearField.statusClass}
         aria-invalid={Boolean(issue)}
       />
       {allocationBytes != null && allocationBytes > 0 ? (
@@ -240,17 +254,10 @@ function ShareRecipientRow({
         <span className="app-storage-recipient-status">Checking</span>
       ) : null}
       {canRemove ? (
-        <button
-          type="button"
-          className="app-storage-recipient-remove"
-          onClick={onRemove}
+        <OsFieldRemove
           aria-label="Remove recipient"
-        >
-          <MultiplyIcon
-            aria-hidden
-            className="app-storage-recipient-remove-icon"
-          />
-        </button>
+          onClick={onRemove}
+        />
       ) : null}
       {issue ? <p className="app-storage-recipient-error">{issue}</p> : null}
     </div>
@@ -653,7 +660,6 @@ export function AppStorageSharePanel({
             Add NEAR to @{accountId}&apos;s share pool.
           </p>
           <AmountField
-            chrome="soft"
             value={fundAmountInput}
             onValueChange={applyFundAmountInput}
             maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}

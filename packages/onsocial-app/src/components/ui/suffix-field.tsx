@@ -6,6 +6,7 @@ import type {
   ReactNode,
 } from 'react';
 import {
+  Divider,
   osFieldBorderedClassName,
   osFieldSoftClassName,
 } from '@onsocial/ui';
@@ -13,14 +14,16 @@ import {
 export type SuffixFieldChrome = 'soft' | 'bordered';
 
 /**
- * Soft (default) value + trailing label shell — counts, weights, `% per sale`.
+ * Value + trailing unit shell — counts, weights, `% per sale`.
+ * Bordered (default): transparent fill + detail divider + type-only unit rail
+ * so glass / mood tint shows through. Soft: quiet wash for non-glass stacks.
  * Money stays on {@link AmountField} (mono amount chrome + decimal helpers).
  */
 export function SuffixField({
   value,
   onValueChange,
   suffix,
-  chrome = 'soft',
+  chrome = 'bordered',
   inputMode = 'numeric',
   placeholder,
   disabled = false,
@@ -48,7 +51,7 @@ export function SuffixField({
   inputClassName?: string;
 }) {
   const chromeClass =
-    chrome === 'bordered' ? osFieldBorderedClassName : osFieldSoftClassName;
+    chrome === 'soft' ? osFieldSoftClassName : osFieldBorderedClassName;
 
   return (
     <div
@@ -78,7 +81,14 @@ export function SuffixField({
         disabled={disabled}
       />
       {suffix != null ? (
-        <span className="suffix-field-unit">{suffix}</span>
+        <>
+          <Divider
+            orientation="vertical"
+            variant="detail"
+            className="suffix-field-divider"
+          />
+          <span className="suffix-field-unit">{suffix}</span>
+        </>
       ) : null}
     </div>
   );

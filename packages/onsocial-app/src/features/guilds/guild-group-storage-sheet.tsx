@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   GLASS_SHEET_PEEK_RATIO,
-  MultiplyIcon,
+  OsFieldRemove,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
@@ -11,10 +11,12 @@ import {
 } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
+import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useGroupStoragePool } from '@/hooks/use-group-storage-pool';
 import { useGroupStorageGrants } from '@/hooks/use-group-storage-grants';
+import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -99,6 +101,23 @@ function recipientIssueMessage(status: RecipientRowStatus): string | null {
       return 'Already in the list.';
     default:
       return null;
+  }
+}
+
+function memberRowNearField(status: RecipientRowStatus): {
+  status: NearAccountStatus;
+  statusClass?: string;
+} {
+  switch (status) {
+    case 'empty':
+      return { status: 'idle' };
+    case 'ready':
+      return { status: 'found', statusClass: 'is-available' };
+    case 'invalid':
+      return { status: 'invalid', statusClass: 'is-taken' };
+    case 'self':
+    case 'duplicate':
+      return { status: 'found', statusClass: 'is-taken' };
   }
 }
 
@@ -206,44 +225,32 @@ function MemberRecipientRow({
   onRemove: () => void;
 }) {
   const issue = recipientIssueMessage(status);
+  const nearField = memberRowNearField(status);
 
   return (
     <div className="app-storage-recipient-row">
       <label className="sr-only" htmlFor={`group-storage-recipient-${rowId}`}>
         Member account
       </label>
-      <input
+      <NearAccountField
         id={`group-storage-recipient-${rowId}`}
-        type="text"
-        inputMode="text"
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-        placeholder={nearAccountPlaceholder()}
         value={value}
-        onChange={(event) =>
-          onValueChange(sanitizeNearAccountInput(event.target.value))
-        }
-        className="app-storage-recipient-input"
-        aria-invalid={Boolean(issue)}
+        onValueChange={onValueChange}
+        placeholder={nearAccountPlaceholder()}
+        status={nearField.status}
+        statusClass={nearField.statusClass}
         disabled={disabled}
+        aria-invalid={Boolean(issue)}
       />
       {allocationBytes != null && allocationBytes > 0 ? (
         <CompactByteAmount bytes={allocationBytes} />
       ) : null}
       {canRemove ? (
-        <button
-          type="button"
-          className="app-storage-recipient-remove"
-          onClick={onRemove}
+        <OsFieldRemove
           aria-label="Remove member"
           disabled={disabled}
-        >
-          <MultiplyIcon
-            aria-hidden
-            className="app-storage-recipient-remove-icon"
-          />
-        </button>
+          onClick={onRemove}
+        />
       ) : null}
       {issue ? <p className="app-storage-recipient-error">{issue}</p> : null}
     </div>
@@ -820,7 +827,6 @@ export function GuildGroupStorageSheet({
       zIndex={58}
       initialDetent="peek"
       peekRatio={GLASS_SHEET_PEEK_RATIO}
-      presentation="swap"
       headerClassName="account-storage-header"
       panelClassName="account-storage-panel"
       bodyClassName="account-storage-body"
@@ -855,7 +861,6 @@ export function GuildGroupStorageSheet({
                 Add NEAR to this guild&apos;s shared storage pool.
               </p>
               <AmountField
-                chrome="soft"
                 value={fundAmountInput}
                 onValueChange={applyFundAmountInput}
                 maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}

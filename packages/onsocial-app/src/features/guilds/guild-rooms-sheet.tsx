@@ -217,7 +217,6 @@ export function GuildRoomsSheet({
       backdropLabel="Close guild rooms"
       zIndex={58}
       sizing="full"
-      presentation="swap"
       panelClassName="guild-rooms-sheet-panel"
       bodyClassName="guild-rooms-sheet-body"
       footer={

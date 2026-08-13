@@ -153,7 +153,6 @@ export function GuildAddSpaceSheet({
       backdropLabel="Close add room"
       zIndex={57}
       initialDetent="peek"
-      presentation="swap"
       headerClassName="guild-add-space-sheet-header"
       panelClassName="guild-add-space-sheet-panel"
       bodyClassName="guild-add-space-sheet-body"

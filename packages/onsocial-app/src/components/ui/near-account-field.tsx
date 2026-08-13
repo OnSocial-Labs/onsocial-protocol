@@ -1,6 +1,10 @@
 'use client';
 
-import { Divider, ProfileAvatar, osFieldSoftClassName } from '@onsocial/ui';
+import {
+  Divider,
+  ProfileAvatar,
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import {
   normalizeNearAccountId,
@@ -9,10 +13,10 @@ import {
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 
 /**
- * Account field — create-form input shell with a permanent leading avatar
+ * Account field — create-form bordered shell with a permanent leading avatar
  * slot and UI detail divider (same rail as the launcher dock). Empty avatar
  * until typed; shell shimmer while probing; profile avatar when found.
- * Status is lip tint only.
+ * Status is lip tint only — fill stays transparent for mood/glass.
  */
 export function NearAccountField({
   id,
@@ -43,7 +47,7 @@ export function NearAccountField({
 
   return (
     <div
-      className={`near-account-field ${osFieldSoftClassName}${statusClass ? ` ${statusClass}` : ''}`}
+      className={`near-account-field ${osFieldBorderedClassName}${statusClass ? ` ${statusClass}` : ''}`}
     >
       <span className="near-account-field-leading" aria-hidden>
         <ProfileAvatar

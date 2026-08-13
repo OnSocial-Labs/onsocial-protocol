@@ -2716,7 +2716,6 @@ export function CreateDropPanel() {
         <div className="guild-field">
           <span>Price per {template.unitSingular}</span>
           <AmountField
-            chrome="soft"
             value={priceInput}
             onValueChange={setPriceInput}
             maxDecimals={NEAR_INPUT_DECIMALS}

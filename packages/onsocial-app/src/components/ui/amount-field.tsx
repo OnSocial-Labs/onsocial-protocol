@@ -2,6 +2,7 @@
 
 import type { FocusEventHandler, ReactNode } from 'react';
 import {
+  Divider,
   osFieldBorderedClassName,
   osFieldSoftClassName,
 } from '@onsocial/ui';
@@ -11,6 +12,7 @@ export type AmountFieldChrome = 'bordered' | 'soft';
 
 /**
  * Shared money input shell — `app-storage-amount-field` + unit.
+ * Bordered (default): transparent fill + detail divider + type-only unit rail.
  * Pair with {@link AmountFieldMetaRow} for presets / Max / balance.
  * Use `display` for read-only legs (swap receive).
  */
@@ -55,6 +57,16 @@ export function AmountField({
 }) {
   const chromeClass =
     chrome === 'soft' ? osFieldSoftClassName : osFieldBorderedClassName;
+
+  const affix =
+    trailing != null ? (
+      trailing
+    ) : unit != null ? (
+      <span className="account-card-balance-unit profile-support-token-unit">
+        {unitIcon}
+        {unit}
+      </span>
+    ) : null;
 
   const emit = (raw: string) => {
     if (!onValueChange) return;
@@ -102,13 +114,15 @@ export function AmountField({
           disabled={disabled}
         />
       )}
-      {trailing != null ? (
-        trailing
-      ) : unit != null ? (
-        <span className="account-card-balance-unit profile-support-token-unit">
-          {unitIcon}
-          {unit}
-        </span>
+      {affix != null ? (
+        <>
+          <Divider
+            orientation="vertical"
+            variant="detail"
+            className="app-storage-amount-divider"
+          />
+          {affix}
+        </>
       ) : null}
     </div>
   );

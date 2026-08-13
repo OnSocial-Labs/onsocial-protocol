@@ -46,7 +46,6 @@ export function AppSocialSwapSheet({
       closeAriaLabel="Close Get SOCIAL"
       backdropLabel="Close Get SOCIAL"
       zIndex={57}
-      presentation="swap"
       panelClassName="account-storage-panel"
       bodyClassName="account-storage-body"
       {...(panelStyle ? { panelStyle } : {})}

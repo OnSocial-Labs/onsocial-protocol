@@ -176,28 +176,15 @@
   flex-shrink: 0;
 }
 
-@media (min-width: 768px) {
-  .glass-sheet-panel.collection-allowlist-edit-sheet-panel {
-    max-width: 28rem;
-  }
-}
-
-/* Allowlist / door staff / royalty split — material + width. */
+/* Allowlist / door staff / royalty split — material only; width from GlassSheet. */
 .glass-sheet-panel.collection-allowlist-sheet-panel {
   max-height: min(90dvh, 36rem);
-  max-width: 100%;
   --glass-header-scrim-height: min(5rem, 24%);
   --glass-sheet-body-opacity: 0.64;
 }
 
 .glass-sheet-panel.collection-allowlist-sheet-panel > .glass-sheet-footer {
   flex-shrink: 0;
-}
-
-@media (min-width: 768px) {
-  .glass-sheet-panel.collection-allowlist-sheet-panel {
-    max-width: 36rem;
-  }
 }
 
 .glass-sheet-panel.portfolio-support-collect-info-panel {
@@ -223,23 +210,6 @@
   --signal-standing: var(--mood-signal-standing, #5ecf9a);
   --signal-endorse: var(--mood-signal-endorse, #dab872);
   --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
-}
-
-/* Larger grip hit-target on commerce + content-hugging info sheets.
- * Choice-drawer grip lives in @onsocial/ui/os-choice-drawer.css. */
-.glass-sheet-panel.profile-support-sheet-panel > .glass-sheet-drag,
-.glass-sheet-panel.guild-facts-sheet-panel > .glass-sheet-drag {
-  min-height: 1.65rem;
-  padding: 0.7rem 0 0.35rem;
-}
-
-.glass-sheet-panel.profile-support-sheet-panel
-  > .glass-sheet-drag
-  .glass-sheet-grip,
-.glass-sheet-panel.guild-facts-sheet-panel
-  > .glass-sheet-drag
-  .glass-sheet-grip {
-  opacity: 0.7;
 }
 
 /* Keyboard open — fill visual viewport so body scrolls above pinned footer. */
@@ -719,7 +689,7 @@
   line-height: 1;
 }
 
-/* Hub publish Approve / dismiss — row CTA size (Buy / Join). */
+/* Hub publish Approve — row CTA size (Buy / Join). Compact × = OsFieldRemove. */
 .hub-publish-request-actions.os-sheet-actions--row-compact {
   flex-shrink: 0;
   width: auto;
@@ -727,13 +697,8 @@
   align-items: center;
 }
 
-.hub-publish-request-actions.os-sheet-actions--row-compact .os-sheet-action,
 .hub-publish-request-actions.os-sheet-actions--row-compact
-  .os-sheet-action--primary,
-.hub-publish-request-actions.os-sheet-actions--row-compact
-  .os-sheet-action--danger,
-.hub-publish-request-actions.os-sheet-actions--row-compact
-  .os-sheet-action--dismiss {
+  .os-sheet-action--primary {
   flex: 0 0 auto;
   width: auto;
   min-width: 0;
@@ -743,18 +708,6 @@
   line-height: 1.2;
   border-radius: 9999px;
   box-shadow: none;
-}
-
-.hub-publish-request-actions.os-sheet-actions--row-compact
-  .hub-publish-request-dismiss {
-  width: 1.65rem;
-  min-width: 1.65rem;
-  padding: 0;
-}
-
-.hub-publish-request-dismiss-icon {
-  width: 0.85rem;
-  height: 0.85rem;
 }
 
 .hub-publish-request-actions.os-sheet-actions--borderless
@@ -952,19 +905,6 @@
   --glass-sheet-body-opacity: 0.64;
 }
 
-@media (min-width: 768px) {
-  .glass-sheet-panel.account-drawer-panel,
-  .glass-sheet-panel.account-storage-panel,
-  .glass-sheet-panel.account-editor-panel,
-  .glass-sheet-panel.customize-sheet-panel,
-  .glass-sheet-panel.mood-sheet-panel,
-  .glass-sheet-panel.page-joined-facts-panel,
-  .glass-sheet-panel.guild-facts-sheet-panel,
-  .glass-sheet-panel.portfolio-support-collect-info-panel {
-    max-width: 36rem;
-  }
-}
-
 .account-sheet-panel--page-mood.glass-sheet-panel[data-tone='os']
   .glass-sheet-grip,
 .account-storage-panel--page-mood.glass-sheet-panel[data-tone='os']
@@ -978,12 +918,12 @@
     --glass-sheet-accent,
     var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
   );
-  opacity: 0.92;
-  box-shadow: 0 0 14px
+  opacity: 0.55;
+  box-shadow: 0 0 8px
     color-mix(
       in srgb,
       var(--glass-sheet-accent, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
-        36%,
+        28%,
       transparent
     );
 }
@@ -5147,7 +5087,79 @@ a.os-surface-row {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.35rem;
+  }
+
+  /* Same compact type as create-drop / storage presets (`os-surface-chip`). */
+  .portfolio-boost-mode-row .os-surface-chip {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.18rem 0.55rem;
+  }
+
+  /*
+   * Mode body swap — chips + summary stay put. Lock height before mode change
+   * (prepareSwap) so hug-sheet top eases instead of snapping when out goes
+   * absolute; then tween to the incoming body height.
+   */
+  .portfolio-boost-mode-slot {
+    position: relative;
+    overflow: hidden;
+    transition: height 180ms ease-out;
+  }
+
+  .portfolio-boost-mode-layer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .portfolio-boost-mode-layer.is-out {
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    pointer-events: none;
+    animation: portfolio-boost-mode-out 180ms ease-out forwards;
+  }
+
+  .portfolio-boost-mode-layer.is-in {
+    animation: portfolio-boost-mode-in 180ms ease-out;
+  }
+
+  @keyframes portfolio-boost-mode-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(-0.25rem);
+    }
+  }
+
+  @keyframes portfolio-boost-mode-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.35rem);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-boost-mode-slot {
+      transition: none;
+    }
+
+    .portfolio-boost-mode-layer.is-out,
+    .portfolio-boost-mode-layer.is-in {
+      animation: none;
+    }
   }
 
   /*
@@ -7784,8 +7796,8 @@ a.os-surface-row {
     }
 
     .os-app-screen-body::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+      width: 3px;
+      height: 3px;
     }
 
     .os-app-screen-body::-webkit-scrollbar-track {
@@ -8504,13 +8516,13 @@ a.os-surface-row {
 
   .portfolio-summon-grip {
     width: 2.25rem;
-    height: 0.3rem;
+    height: 0.1875rem;
     border-radius: 9999px;
     background: var(
       --mood-accent-chrome,
       var(--mood-accent, rgb(var(--fg-rgb) / 0.55))
     );
-    opacity: 0.8;
+    opacity: 0.45;
   }
 
   /* Dock pen — context-aware compose segment; only mounted on composable surfaces. */
@@ -12192,21 +12204,16 @@ a.os-surface-row {
     color: color-mix(in srgb, var(--protocol-red, #dc2626) 88%, rgb(var(--fg-rgb)));
   }
 
-  .app-storage-amount-field {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    /* Soft chrome via .os-field-soft; bordered via .os-field-bordered. */
-    padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
-    border-radius: var(--os-field-radius, 0.85rem);
-  }
-
-  /* Non-money value + unit — soft create/hub forms (not mono amount chrome). */
+  /*
+   * Amount / suffix shells — chrome via .os-field-bordered | .os-field-soft.
+   * Shell keeps os-field pad (same budget as plain bordered inputs). Children
+   * pad 0 + detail divider rail — no second pad stack.
+   */
+  .app-storage-amount-field,
   .suffix-field {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
+    gap: 0;
     border-radius: var(--os-field-radius, 0.85rem);
   }
 
@@ -12220,6 +12227,8 @@ a.os-surface-row {
     box-shadow: none;
     padding: 0;
     font: inherit;
+    font-size: var(--os-field-font-size, 0.9rem);
+    line-height: var(--os-field-line-height, 1.35);
     font-variant-numeric: tabular-nums;
     outline: none;
   }
@@ -12229,10 +12238,24 @@ a.os-surface-row {
     box-shadow: none;
   }
 
+  .app-storage-amount-divider,
+  .suffix-field-divider {
+    flex-shrink: 0;
+    align-self: stretch;
+    margin-block: 0;
+    margin-inline: 0.5rem;
+    opacity: 0.9;
+  }
+
   .suffix-field-unit {
     flex-shrink: 0;
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
     font-size: 0.78rem;
     font-weight: 500;
+    line-height: var(--os-field-line-height, 1.35);
     color: var(--os-surface-muted);
   }
 
@@ -12247,7 +12270,24 @@ a.os-surface-row {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+    line-height: var(--os-field-line-height, 1.35);
     outline: none;
+    padding: 0;
+  }
+
+  .app-storage-amount-field > .account-card-balance-unit,
+  .app-storage-amount-field > .app-swap-token-static,
+  .app-storage-amount-field > .profile-support-token-unit {
+    flex-shrink: 0;
+    align-self: stretch;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+  }
+
+  .app-storage-amount-field > .app-swap-receive-loading {
+    padding: 0;
   }
 
   .app-storage-amount-input::placeholder {
@@ -12366,11 +12406,17 @@ a.os-surface-row {
     gap: 0.25rem;
     border: 0;
     background: transparent;
-    color: var(--protocol-blue);
+    color: var(--protocol-green);
     font: inherit;
     font-size: 0.62rem;
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .app-storage-share-link:hover,
+  .app-storage-share-link:focus-visible {
+    color: var(--protocol-green-hover, var(--protocol-green));
+    outline: none;
   }
 
   .app-storage-share-add-icon {
@@ -12461,49 +12507,13 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .app-storage-recipient-input {
+  .app-storage-recipient-row .near-account-field {
     min-width: 0;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.72rem;
-    background: rgb(var(--fg-rgb) / 0.035);
-    color: rgb(var(--fg-rgb) / 0.9);
-    font: inherit;
-    font-size: 0.72rem;
-    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
-    padding: 0.48rem 0.58rem;
-    outline: none;
+    grid-column: 1;
   }
 
-  .app-storage-recipient-input:focus-visible {
-    border-color: color-mix(in srgb, var(--protocol-blue) 45%, transparent);
-    box-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--protocol-blue) 12%, transparent);
-  }
-
-  .app-storage-recipient-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.3);
-  }
-
-  .app-storage-recipient-input[aria-invalid='true'] {
-    border-color: color-mix(in srgb, var(--protocol-amber) 45%, transparent);
-  }
-
-  .app-storage-recipient-remove {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.9rem;
-    height: 1.9rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 9999px;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: rgb(var(--fg-rgb) / 0.54);
-    cursor: pointer;
-  }
-
-  .app-storage-recipient-remove-icon {
-    width: 0.875rem;
-    height: 0.875rem;
+  .app-storage-recipient-row .os-field-remove-actions {
+    grid-column: 3;
   }
 
   .app-storage-recipient-error {
@@ -21370,21 +21380,10 @@ a.os-surface-row {
     cursor: pointer;
   }
 
-  .collection-activity-sheet-panel {
-    max-width: 32rem;
-  }
-
   .glass-sheet-panel.collection-activity-sheet-panel {
     max-height: min(88dvh, 36rem);
-    max-width: 100%;
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
-  }
-
-  @media (min-width: 768px) {
-    .glass-sheet-panel.collection-activity-sheet-panel {
-      max-width: 32rem;
-    }
   }
 
   .collection-activity-sheet-body {
@@ -21401,21 +21400,10 @@ a.os-surface-row {
     margin-top: 0.1rem;
   }
 
-  .scarce-fans-sheet-panel {
-    max-width: 32rem;
-  }
-
   .glass-sheet-panel.scarce-fans-sheet-panel {
     max-height: min(88dvh, 36rem);
-    max-width: 100%;
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
-  }
-
-  @media (min-width: 768px) {
-    .glass-sheet-panel.scarce-fans-sheet-panel {
-      max-width: 32rem;
-    }
   }
 
   .scarce-fans-sheet-body {
@@ -21487,12 +21475,27 @@ a.os-surface-row {
   .guild-structure-add-custom .guild-field > input,
   .guild-structure-add-custom .guild-field > select,
   .guild-structure-advanced .guild-field > select {
-    /* Soft chrome — tokens from @onsocial/ui/os-field.css (.os-field-soft). */
-    border: 0;
+    /* Bordered chrome — tokens from @onsocial/ui/os-field.css; tint shows through. */
+    border: 1px solid var(--os-field-bordered-border);
     border-radius: var(--os-field-radius);
-    background: var(--os-field-soft-bg);
-    box-shadow: var(--os-field-soft-lip);
+    background: transparent;
+    box-shadow: var(--os-field-bordered-lip);
     padding: var(--os-field-pad-y) var(--os-field-pad-x);
+    font-size: var(--os-field-font-size);
+    line-height: var(--os-field-line-height);
+  }
+
+  .drop-create-form .guild-field > input:hover:not(:disabled):not(:focus),
+  .drop-create-form .guild-field > textarea:hover:not(:disabled):not(:focus),
+  .guild-create-form .guild-field > input:hover:not(:disabled):not(:focus),
+  .guild-create-form .guild-field > textarea:hover:not(:disabled):not(:focus),
+  .hub-manage-form .guild-field > input:hover:not(:disabled):not(:focus),
+  .hub-manage-form .guild-field > textarea:hover:not(:disabled):not(:focus),
+  .guild-structure-add-custom .guild-field > input:hover:not(:disabled):not(:focus),
+  .guild-structure-add-custom .guild-field > select:hover:not(:disabled):not(:focus),
+  .guild-structure-advanced .guild-field > select:hover:not(:disabled):not(:focus) {
+    border-color: var(--os-field-bordered-border-hover);
+    box-shadow: var(--os-field-bordered-lip-hover);
   }
 
   .drop-create-form .guild-field > input:focus,
@@ -21504,9 +21507,9 @@ a.os-surface-row {
   .guild-structure-add-custom .guild-field > input:focus,
   .guild-structure-add-custom .guild-field > select:focus,
   .guild-structure-advanced .guild-field > select:focus {
-    border: 0;
-    background: var(--os-field-soft-bg-focus);
-    box-shadow: var(--os-field-soft-lip-focus);
+    border-color: var(--os-field-bordered-border-focus);
+    background: transparent;
+    box-shadow: var(--os-field-bordered-lip-focus);
     outline: none;
   }
 
@@ -21532,14 +21535,13 @@ a.os-surface-row {
   }
 
   /*
-   * Account field — soft shell via .os-field-soft; avatar + divider inside.
+   * Account field — bordered shell; avatar + divider inside.
    * Status = lip tint only (never wash the fill).
    */
   .near-account-field {
     display: flex;
     align-items: center;
     min-width: 0;
-    /* Soft chrome from .os-field-soft; keep padding on the shell only. */
     padding-block: 0;
     padding-inline: 0;
   }
@@ -21566,7 +21568,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-available,
   .hub-manage-form .guild-field > input.is-available,
   .near-account-field.is-available {
-    background: var(--os-field-soft-bg);
+    background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
@@ -21574,7 +21576,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-available:focus,
   .hub-manage-form .guild-field > input.is-available:focus,
   .near-account-field.is-available:focus-within {
-    background: var(--os-field-soft-bg-focus);
+    background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
@@ -21582,7 +21584,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-taken,
   .hub-manage-form .guild-field > input.is-taken,
   .near-account-field.is-taken {
-    background: var(--os-field-soft-bg);
+    background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-red);
   }
 
@@ -21590,7 +21592,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-taken:focus,
   .hub-manage-form .guild-field > input.is-taken:focus,
   .near-account-field.is-taken:focus-within {
-    background: var(--os-field-soft-bg-focus);
+    background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-red);
   }
 
@@ -21634,7 +21636,39 @@ a.os-surface-row {
     outline: none;
   }
 
-  /* Soft value+unit chrome lives on `.suffix-field` (+ os-field-soft). */
+  /*
+   * One shell only — beat `.guild-field input` so suffix/amount don't get a
+   * second bordered fill / pad inside the outer os-field chrome.
+   */
+  .guild-field .suffix-field > input,
+  .guild-field .suffix-field > input:focus,
+  .guild-field .app-storage-amount-field > input,
+  .guild-field .app-storage-amount-field > input:focus {
+    width: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+    padding: 0;
+    font-size: var(--os-field-font-size, 0.9rem);
+    line-height: var(--os-field-line-height, 1.35);
+  }
+
+  .guild-field .app-storage-amount-field > input,
+  .guild-field .app-storage-amount-field > input:focus {
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  }
+
+  .guild-field .suffix-field-unit {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--os-surface-muted);
+  }
+
+  /* Value+unit chrome lives on `.suffix-field` (+ os-field-bordered | soft). */
 
   .drop-cover-picker {
     position: relative;
@@ -21721,11 +21755,7 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  /* Same compact red × as hub publish decline. */
-  .drop-track-list-remove-actions.os-sheet-actions--row-compact {
-    width: auto;
-    flex-shrink: 0;
-  }
+  /* Compact × beside track rows — OsFieldRemove. */
 
   .drop-track-list-row.is-dragging {
     opacity: 0.35;
@@ -22759,10 +22789,9 @@ a.os-surface-row {
     outline: none;
   }
 
-  /* Schedule picker — shorter width; height via sizing="hug". */
+  /* Schedule picker — height via sizing="hug"; width from GlassSheet. */
   .glass-sheet-panel.drop-schedule-sheet-panel {
     max-height: min(92dvh, 42rem);
-    max-width: 26rem;
   }
 
   .drop-schedule-sheet-body {
@@ -23070,7 +23099,6 @@ a.os-surface-row {
 
   .drop-time-sheet-panel {
     max-height: min(72dvh, 720px);
-    max-width: 28rem;
   }
 
   .drop-time-sheet-body {
@@ -24071,7 +24099,6 @@ a.os-surface-row {
   }
 
   .glass-sheet-panel.hub-manage-sheet-panel {
-    max-width: 32rem;
     --glass-sheet-body-opacity: 0.72;
   }
 
@@ -25925,19 +25952,11 @@ a.os-surface-row {
   }
 
   .glass-sheet-panel.guild-manage-sheet-panel {
-    max-width: 32rem;
     --glass-sheet-body-opacity: 0.72;
   }
 
   .glass-sheet-panel.guild-members-sheet-panel {
-    max-width: 100%;
     --glass-sheet-body-opacity: 0.72;
-  }
-
-  @media (min-width: 768px) {
-    .glass-sheet-panel.guild-members-sheet-panel {
-      max-width: 36rem;
-    }
   }
 
   .guild-members-sheet-body {
@@ -31333,4 +31352,14 @@ button.scarce-clip-cover-expand:focus-visible {
 .guild-composer-row-avatar.profile-avatar {
   box-shadow: none !important;
   filter: none !important;
+}
+
+/*
+ * Affix field shells — near-account still zeros chrome pad (leading + input
+ * own spacing). Suffix/amount keep os-field pad on the shell so height matches
+ * plain bordered inputs.
+ */
+.near-account-field.os-field-bordered,
+.near-account-field.os-field-soft {
+  padding: 0;
 }

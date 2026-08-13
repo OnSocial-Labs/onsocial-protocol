@@ -349,7 +349,6 @@ export function AppStorageSheet({
         closeAriaLabel="Close"
         backdropLabel="Close storage"
         zIndex={57}
-        presentation="swap"
         titleId="app-storage-sheet-title"
         headerClassName="account-storage-header"
         panelClassName={`account-storage-panel${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
@@ -423,7 +422,6 @@ export function AppStorageSheet({
                   onSubmit={(event) => void handleSubmit(event)}
                 >
                   <AmountField
-                    chrome="soft"
                     value={amountInput}
                     onValueChange={applyAmountInput}
                     maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}

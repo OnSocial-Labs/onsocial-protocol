@@ -153,7 +153,6 @@ export function CollectionFactsSheet({
       closeAriaLabel="Close drop facts"
       backdropLabel="Close drop facts"
       zIndex={57}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
     >

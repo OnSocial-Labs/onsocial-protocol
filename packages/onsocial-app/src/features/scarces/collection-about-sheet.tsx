@@ -116,7 +116,6 @@ export function CollectionAboutSheet({
       closeAriaLabel="Close about"
       backdropLabel="Close about"
       zIndex={57}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
     >

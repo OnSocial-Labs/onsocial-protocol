@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   Divider,
   MultiplyIcon,
+  OsFieldRemove,
   OsHugSheet,
   ProfileAvatar,
   SearchField,
@@ -500,31 +501,17 @@ export function ScarceRoyaltySplitSheet({
                   }
                 />
                 {draft.length > 1 ? (
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                    className="hub-publish-request-actions drop-track-list-remove-actions"
-                  >
-                    <OsSheetAction
-                      type="button"
-                      variant="danger"
-                      ready
-                      aria-pressed={confirmingRemove}
-                      aria-label={
-                        confirmingRemove
-                          ? `Cancel remove @${fallbackLabel(editingFace.accountId)}`
-                          : `Remove @${fallbackLabel(editingFace.accountId)}`
-                      }
-                      className="hub-publish-request-dismiss"
-                      onClick={() => setConfirmingRemove((value) => !value)}
-                    >
-                      <MultiplyIcon
-                        className="hub-publish-request-dismiss-icon"
-                        aria-hidden
-                      />
-                    </OsSheetAction>
-                  </OsSheetActions>
+                  <OsFieldRemove
+                    variant="danger"
+                    ready
+                    aria-pressed={confirmingRemove}
+                    aria-label={
+                      confirmingRemove
+                        ? `Cancel remove @${fallbackLabel(editingFace.accountId)}`
+                        : `Remove @${fallbackLabel(editingFace.accountId)}`
+                    }
+                    onClick={() => setConfirmingRemove((value) => !value)}
+                  />
                 ) : null}
               </div>
             </div>

@@ -319,7 +319,6 @@ export function GuildProposalsSheet({
       sizing="full"
       initialDetent="peek"
       peekRatio={GLASS_SHEET_PEEK_RATIO}
-      presentation="swap"
       titleId="guild-proposals-title"
       headerClassName="guild-manage-sheet-header"
       panelClassName="guild-manage-sheet-panel"

@@ -270,7 +270,6 @@ export function HubCreatorsSheet({
       closeAriaLabel="Close creators"
       backdropLabel="Close creators"
       zIndex={57}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
     >

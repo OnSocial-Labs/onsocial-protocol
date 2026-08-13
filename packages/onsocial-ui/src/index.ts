@@ -23,6 +23,8 @@ export {
   glassSheetBackdropFilterStyle,
   resolveGlassScrimBackdropFilter,
   resolveOsGlassPanelFilter,
+  resolveBackdropPresentation,
+  resolvePanelPresentation,
   usePrefersReducedTransparency,
   sheetIconActionClassName,
   type GlassSheetDetent,
@@ -163,6 +165,14 @@ export {
   type OsFieldChrome,
   type OsFieldProps,
 } from './os-field.js';
+export {
+  OsFieldRemove,
+  osFieldRemoveActionsClassName,
+  osFieldRemoveClassName,
+  osFieldRemoveIconClassName,
+  type OsFieldRemoveProps,
+  type OsFieldRemoveVariant,
+} from './os-field-remove.js';
 export {
   OsCommitCancel,
   OsNoticeCard,

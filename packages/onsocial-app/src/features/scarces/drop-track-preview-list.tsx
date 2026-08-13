@@ -9,15 +9,11 @@ import {
 } from 'react';
 import {
   Divider,
-  MultiplyIcon,
+  OsFieldRemove,
   PauseFillIcon,
   PlayFillIcon,
   osFieldSoftClassName,
 } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-action';
 import {
   DROP_LYRICS_MAX_CHARS,
   trackTitleFromFile,
@@ -318,27 +314,13 @@ export function DropTrackPreviewList({
                       {hasLyrics ? 'Lyrics' : 'Add lyrics'}
                     </button>
                   ) : null}
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                    className="hub-publish-request-actions drop-track-list-remove-actions"
-                  >
-                    <OsSheetAction
-                      type="button"
-                      variant="danger"
-                      ready={!disabled}
-                      disabled={disabled}
-                      aria-label={`Remove ${title}`}
-                      className="hub-publish-request-dismiss"
-                      onClick={() => onRemove(index)}
-                    >
-                      <MultiplyIcon
-                        className="hub-publish-request-dismiss-icon"
-                        aria-hidden
-                      />
-                    </OsSheetAction>
-                  </OsSheetActions>
+                  <OsFieldRemove
+                    variant="danger"
+                    ready={!disabled}
+                    disabled={disabled}
+                    aria-label={`Remove ${title}`}
+                    onClick={() => onRemove(index)}
+                  />
                 </div>
                 {onLyricsChange && editorOpen ? (
                   <div
@@ -350,7 +332,7 @@ export function DropTrackPreviewList({
                     </label>
                     <textarea
                       id={`drop-track-lyrics-input-${index}`}
-                      className={`${osFieldSoftClassName} drop-track-lyrics-input}`}
+                      className={`${osFieldSoftClassName} drop-track-lyrics-input`}
                       rows={5}
                       maxLength={DROP_LYRICS_MAX_CHARS}
                       disabled={disabled}

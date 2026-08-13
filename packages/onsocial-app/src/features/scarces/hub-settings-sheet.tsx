@@ -66,7 +66,6 @@ export function HubSettingsSheet({
       backdropLabel="Close hub settings"
       zIndex={57}
       initialDetent="peek"
-      presentation="swap"
       headerClassName="guild-settings-sheet-header"
       panelClassName="guild-settings-sheet-panel"
       bodyClassName="guild-settings-sheet-body"

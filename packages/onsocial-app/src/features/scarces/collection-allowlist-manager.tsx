@@ -13,6 +13,7 @@ import {
 import {
   Divider,
   MultiplyIcon,
+  OsFieldRemove,
   OsHugSheet,
   ProfileAvatar,
   SearchField,
@@ -154,31 +155,17 @@ function AllowlistAccountEditBody({
             increaseLabel="Increase mint cap"
             onChange={(next) => onSetCap(face.accountId, next)}
           />
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            borderless
-            className="hub-publish-request-actions drop-track-list-remove-actions"
-          >
-            <OsSheetAction
-              type="button"
-              variant="danger"
-              ready
-              aria-pressed={confirmingRemove}
-              aria-label={
-                confirmingRemove
-                  ? `Cancel remove @${handle}`
-                  : `Remove @${handle}`
-              }
-              className="hub-publish-request-dismiss"
-              onClick={onArmRemove}
-            >
-              <MultiplyIcon
-                className="hub-publish-request-dismiss-icon"
-                aria-hidden
-              />
-            </OsSheetAction>
-          </OsSheetActions>
+          <OsFieldRemove
+            variant="danger"
+            ready
+            aria-pressed={confirmingRemove}
+            aria-label={
+              confirmingRemove
+                ? `Cancel remove @${handle}`
+                : `Remove @${handle}`
+            }
+            onClick={onArmRemove}
+          />
         </div>
       </div>
     </div>

@@ -176,7 +176,6 @@ export function MuteBlockListsSheet({
         backdropLabel="Close muted and blocked"
         zIndex={58}
         sizing="full"
-        presentation="swap"
         titleId="mute-block-lists-title"
       >
         <div className="mute-block-lists-tabs" role="tablist" aria-label="List">

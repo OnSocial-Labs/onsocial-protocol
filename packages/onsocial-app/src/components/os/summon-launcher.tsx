@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   useRef,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -28,8 +29,8 @@ import {
   osLauncherRootClassName,
   osLauncherSheetClassName,
   osLauncherFrostClassName,
-  resolveGlassScrimBackdropFilter,
-  resolveOsGlassPanelFilter,
+  resolveBackdropPresentation,
+  resolvePanelPresentation,
   SheetCloseButton,
   usePrefersReducedTransparency,
   useScrollLock,
@@ -56,14 +57,9 @@ import { OsAppIcon } from '@/lib/os-app-icons';
 import { osAppAccent } from '@/lib/os-app-accents';
 
 const LAUNCHER_DISMISS_PX = 96;
-const LAUNCHER_MOBILE_MQ = '(max-width: 767px)';
-
-function isLauncherMobile() {
-  return (
-    typeof window !== 'undefined' &&
-    window.matchMedia(LAUNCHER_MOBILE_MQ).matches
-  );
-}
+const LAUNCHER_PRESENTATION_MS = 320;
+const LAUNCHER_PRESENTATION_EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
+const LAUNCHER_DRAG_ACTIVATION_PX = 6;
 
 function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
   if (app.kind === 'open-page' && openingPage) {
@@ -174,13 +170,20 @@ export function SummonLauncher({
   const compose = useComposeLauncher();
   const dockHidden = useDockAutoHide() && !open;
   const sheetRef = useRef<HTMLElement>(null);
-  const dragStateRef = useRef<{ startY: number; baseY: number } | null>(null);
+  const dragStateRef = useRef<{
+    startY: number;
+    baseY: number;
+    panelH: number;
+    active: boolean;
+  } | null>(null);
   const dragYRef = useRef(0);
-  const [dragY, setDragY] = useState<number | null>(null);
+  const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [enterAnimationDone, setEnterAnimationDone] = useState(false);
+  const [panelHeightPx, setPanelHeightPx] = useState(0);
 
   const resetDrag = useCallback(() => {
-    setDragY(null);
+    setDragY(0);
     dragYRef.current = 0;
     setDragging(false);
     dragStateRef.current = null;
@@ -193,6 +196,29 @@ export function SummonLauncher({
   const reduceTransparency = usePrefersReducedTransparency();
 
   useScrollLock(open);
+
+  useEffect(() => {
+    if (!open) {
+      setEnterAnimationDone(false);
+      setPanelHeightPx(0);
+      resetDrag();
+    }
+  }, [open, resetDrag]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const panel = sheetRef.current;
+    if (!panel) {
+      return;
+    }
+    const syncHeight = () => setPanelHeightPx(panel.offsetHeight);
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -215,11 +241,13 @@ export function SummonLauncher({
 
   const handleDragPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!isLauncherMobile()) {
-        return;
-      }
-      dragStateRef.current = { startY: event.clientY, baseY: dragYRef.current };
-      setDragging(true);
+      const panelH = sheetRef.current?.offsetHeight ?? 480;
+      dragStateRef.current = {
+        startY: event.clientY,
+        baseY: dragYRef.current,
+        panelH,
+        active: false,
+      };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
     []
@@ -231,13 +259,19 @@ export function SummonLauncher({
       if (!state) {
         return;
       }
-      const panelH = sheetRef.current?.offsetHeight ?? 480;
-      const next = Math.min(
-        panelH,
-        Math.max(0, state.baseY + (event.clientY - state.startY))
-      );
-      setDragY(Math.round(next));
-      dragYRef.current = Math.round(next);
+      const deltaY = event.clientY - state.startY;
+      if (!state.active && Math.abs(deltaY) < LAUNCHER_DRAG_ACTIVATION_PX) {
+        return;
+      }
+      if (!state.active) {
+        state.active = true;
+        setDragging(true);
+        setEnterAnimationDone(true);
+      }
+      const next = Math.min(state.panelH, Math.max(0, state.baseY + deltaY));
+      const rounded = Math.round(next);
+      setDragY(rounded);
+      dragYRef.current = rounded;
     },
     []
   );
@@ -256,21 +290,59 @@ export function SummonLauncher({
     }
 
     dragYRef.current = 0;
-    setDragY(null);
+    setDragY(0);
   }, [closeLauncher]);
 
-  const frostStyle = glassSheetBackdropFilterStyle(
-    resolveOsGlassPanelFilter({ reduceTransparency })
+  const handleSheetAnimationEnd = useCallback(
+    (event: React.AnimationEvent<HTMLElement>) => {
+      if (event.animationName !== 'os-launcher-sheet-in') {
+        return;
+      }
+      setEnterAnimationDone(true);
+    },
+    []
   );
 
-  const sheetStyle = (
-    dragging || dragY != null
-      ? ({ '--os-launcher-y': `${Math.round(dragY ?? 0)}px` } as CSSProperties)
-      : undefined
-  ) as CSSProperties;
+  const coverProgress =
+    panelHeightPx > 0 ? Math.min(1, Math.max(0, dragY / panelHeightPx)) : 0;
+
+  const presentationTransition = dragging
+    ? 'none'
+    : `opacity ${LAUNCHER_PRESENTATION_MS}ms ${LAUNCHER_PRESENTATION_EASE}, backdrop-filter ${LAUNCHER_PRESENTATION_MS}ms ${LAUNCHER_PRESENTATION_EASE}`;
+
+  const backdropPresentation = useMemo(
+    () =>
+      resolveBackdropPresentation(coverProgress, {
+        reduceTransparency,
+      }),
+    [coverProgress, reduceTransparency]
+  );
+
+  const panelFilter = useMemo(
+    () =>
+      resolvePanelPresentation(coverProgress, 'os', undefined, {
+        reduceTransparency,
+      }),
+    [coverProgress, reduceTransparency]
+  );
+
+  const showEnterAnimation = open && !enterAnimationDone;
+
+  const frostStyle = glassSheetBackdropFilterStyle(panelFilter, {
+    transition: presentationTransition,
+  });
+
+  const sheetStyle = {
+    '--os-launcher-y': `${dragY}px`,
+    ...(dragging ? { transform: `translateY(${dragY}px)` } : null),
+  } as CSSProperties;
 
   const backdropStyle = glassSheetBackdropFilterStyle(
-    resolveGlassScrimBackdropFilter({ reduceTransparency })
+    backdropPresentation.filter,
+    {
+      opacity: showEnterAnimation ? undefined : backdropPresentation.opacity,
+      transition: showEnterAnimation ? undefined : presentationTransition,
+    }
   );
 
   return (
@@ -335,7 +407,10 @@ export function SummonLauncher({
       ) : null}
 
       {open ? (
-        <div className={osLauncherRootClassName} role="presentation">
+        <div
+          className={`${osLauncherRootClassName}${showEnterAnimation ? ' is-enter' : ''}`}
+          role="presentation"
+        >
           <button
             type="button"
             className={osLauncherBackdropClassName}
@@ -348,8 +423,11 @@ export function SummonLauncher({
             role="dialog"
             aria-modal="true"
             aria-label="OnSocial launcher"
-            className={`${osLauncherSheetClassName}${dragging ? ' is-dragging' : ''}`}
+            className={`${osLauncherSheetClassName}${
+              showEnterAnimation ? ' is-enter' : ''
+            }${dragging ? ' is-dragging' : ''}`}
             style={sheetStyle}
+            onAnimationEnd={handleSheetAnimationEnd}
           >
             <div
               className={osLauncherFrostClassName}

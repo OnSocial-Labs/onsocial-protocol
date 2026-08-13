@@ -96,7 +96,6 @@ export function GuildMembersSheet({
       tone="os"
       initialDetent="full"
       zIndex={57}
-      presentation="swap"
       ariaLabelledBy="guild-members-title"
       backdropLabel="Close members"
       panelClassName="guild-members-sheet-panel"

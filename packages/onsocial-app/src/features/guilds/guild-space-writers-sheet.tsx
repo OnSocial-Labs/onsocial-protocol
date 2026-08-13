@@ -290,7 +290,6 @@ export function GuildSpaceWritersSheet({
       closeAriaLabel="Close who can share"
       backdropLabel="Close who can share"
       zIndex={58}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
     >

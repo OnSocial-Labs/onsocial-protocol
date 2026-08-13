@@ -340,7 +340,6 @@ export function GuildMemberRequestsSheet({
       sizing="full"
       initialDetent="peek"
       peekRatio={GLASS_SHEET_PEEK_RATIO}
-      presentation="swap"
       titleId="guild-member-requests-title"
       headerClassName="guild-manage-sheet-header"
       panelClassName="guild-manage-sheet-panel"

@@ -206,7 +206,6 @@ export function GuildAddMemberSheet({
       closeAriaLabel="Close add member"
       backdropLabel="Close add member"
       zIndex={60}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
       footer={

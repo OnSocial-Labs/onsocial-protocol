@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Divider,
-  MultiplyIcon,
+  OsFieldRemove,
   OsHugSheet,
 } from '@onsocial/ui';
 import {
@@ -242,7 +242,6 @@ export function HubPublishRequestsSheet({
       zIndex={58}
       initialDetent="peek"
       peekRatio={1}
-      presentation="swap"
       panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-requests-sheet-panel"
       bodyClassName="hub-manage-sheet-body"
     >
@@ -298,22 +297,16 @@ export function HubPublishRequestsSheet({
                       borderless
                       className="hub-publish-request-actions"
                     >
-                      <OsSheetAction
-                        type="button"
+                      <OsFieldRemove
+                        standalone={false}
                         variant="danger"
                         ready={!pendingAction}
                         pending={busyDecline}
                         pendingLabel="Declining…"
                         disabled={Boolean(pendingAction)}
                         aria-label={`Decline request from ${label}`}
-                        className="hub-publish-request-dismiss"
                         onClick={() => void declineRequest(request)}
-                      >
-                        <MultiplyIcon
-                          className="hub-publish-request-dismiss-icon"
-                          aria-hidden
-                        />
-                      </OsSheetAction>
+                      />
                       <OsSheetAction
                         type="button"
                         variant="primary"

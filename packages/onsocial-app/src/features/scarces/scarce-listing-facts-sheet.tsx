@@ -193,7 +193,6 @@ export function ScarceListingFactsSheet({
       closeAriaLabel="Close scarce facts"
       backdropLabel="Close scarce facts"
       zIndex={zIndex}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
     >

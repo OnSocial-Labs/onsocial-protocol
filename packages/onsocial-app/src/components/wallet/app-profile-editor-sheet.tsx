@@ -810,7 +810,6 @@ export function AppProfileEditorSheet({
         tone="os"
         initialDetent="full"
         zIndex={56}
-        presentation="swap"
         ariaLabelledBy="profile-editor-title"
         backdropLabel="Close editor"
         panelClassName={`account-editor-panel${pageMoodPanelClass}${portfolioMoodId ? ` account-editor-panel--${portfolioMoodId}` : ''}`}

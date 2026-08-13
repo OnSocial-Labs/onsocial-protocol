@@ -50,7 +50,6 @@ export function ScarceAboutSheet({
       closeAriaLabel="Close about"
       backdropLabel="Close about"
       zIndex={zIndex}
-      presentation="swap"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
     >

@@ -53,12 +53,23 @@
 }
 
 .os-surface-row,
-.os-surface-tile,
-.os-surface-chip {
+.os-surface-tile {
   border: 0;
   -webkit-appearance: none;
   appearance: none;
   font: inherit;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.os-surface-chip {
+  border: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  /* Don't use `font: inherit` — it fights the compact chip size below. */
+  font-family: inherit;
   cursor: pointer;
   transition:
     background 160ms ease,

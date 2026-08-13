@@ -83,9 +83,12 @@
   inset: 0;
   z-index: 0;
   border: 0;
-  background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
+  background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.56));
   cursor: pointer;
-  animation: os-launcher-backdrop-in 220ms ease;
+}
+
+.os-launcher-root.is-enter .os-launcher-backdrop {
+  animation: os-launcher-backdrop-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 /* Bottom sheet — same glass panel as standing GlassSheet. */
@@ -94,7 +97,7 @@
   z-index: 1;
   isolation: isolate;
   width: 100%;
-  max-width: 36rem;
+  max-width: var(--os-column-width, 36rem);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -106,7 +109,20 @@
   background: transparent;
   color: rgb(var(--fg-rgb) / 0.96);
   box-shadow: var(--glass-shadow, none);
-  animation: os-launcher-sheet-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* Stable resting transform — enter animation is one-shot via .is-enter. */
+  transform: translateY(var(--os-launcher-y, 0px));
+  transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.os-launcher-sheet.is-enter {
+  animation: os-launcher-sheet-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1)
+    forwards;
+  transition: none;
+}
+
+.os-launcher-sheet.is-enter.is-dragging {
+  animation: none;
+  transform: translateY(var(--os-launcher-y, 0px));
 }
 
 .os-launcher-frost {
@@ -128,13 +144,13 @@
   top: 0;
   left: 0;
   right: 0;
-  height: var(--glass-header-scrim-height);
+  height: var(--glass-header-scrim-height, min(5.5rem, 24%));
   pointer-events: none;
   border-radius: inherit;
   background: linear-gradient(
     180deg,
-    rgb(var(--bg-rgb) / var(--glass-header-scrim-top)) 0%,
-    rgb(var(--bg-rgb) / var(--glass-header-scrim-mid)) 55%,
+    rgb(var(--bg-rgb) / var(--glass-header-scrim-top, 0.74)) 0%,
+    rgb(var(--bg-rgb) / var(--glass-header-scrim-mid, 0.52)) 55%,
     transparent 100%
   );
 }
@@ -146,7 +162,7 @@
 
 .os-launcher-sheet.is-dragging {
   animation: none;
-  transform: translateY(var(--os-launcher-y, 0));
+  transform: translateY(var(--os-launcher-y, 0px));
   transition: none;
   will-change: transform;
 }
@@ -156,7 +172,8 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: 0.6rem 0 0.3rem;
+  min-height: 1rem;
+  padding: 0.35rem 0 0.12rem;
   border: 0;
   background: transparent;
   touch-action: none;
@@ -166,12 +183,6 @@
 
 .os-launcher-drag:active {
   cursor: grabbing;
-}
-
-@media (min-width: 768px) {
-  .os-launcher-drag {
-    display: none;
-  }
 }
 
 .os-launcher-header {
@@ -501,5 +512,9 @@
   .os-launcher-sheet,
   .os-launcher-backdrop {
     animation: none;
+  }
+
+  .os-launcher-sheet {
+    transition: none;
   }
 }

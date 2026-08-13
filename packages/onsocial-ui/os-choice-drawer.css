@@ -5,17 +5,8 @@
  * (chips) + floating-panel.css (toolbar menu triggers / count badges).
  *
  * Class tokens: `os-choice-*`, `os-action-drawer-*`, `os-info-drawer-*`.
+ * Grip chrome lives in glass-sheet.css (shared with all sheets).
  */
-
-/* Larger grip hit-target on content-hugging choice sheets. */
-.glass-sheet-panel.os-choice-sheet-panel > .glass-sheet-drag {
-  min-height: 1.65rem;
-  padding: 0.7rem 0 0.35rem;
-}
-
-.glass-sheet-panel.os-choice-sheet-panel > .glass-sheet-drag .glass-sheet-grip {
-  opacity: 0.7;
-}
 
 .os-choice-chip-row {
   flex-wrap: wrap;
@@ -74,9 +65,8 @@
 }
 
 .os-choice-sheet-panel {
-  /* Shorter cap for pick lists; height via sizing="hug". */
+  /* Shorter height cap for pick lists; width from GlassSheet OS column. */
   max-height: min(72dvh, 720px);
-  max-width: 28rem;
 }
 
 .os-choice-sheet-body {

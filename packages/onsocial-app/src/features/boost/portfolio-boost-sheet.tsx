@@ -4,9 +4,14 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
+  type Ref,
 } from 'react';
 import {
   ChartFillIcon,
@@ -86,6 +91,119 @@ type BoostSheetMode = 'collect' | 'increase' | 'renew' | 'extend';
 type BoostTxAction = 'commit' | 'collect' | 'unlock' | 'renew' | 'extend';
 
 const LIVE_COUNTER_FRACTION_DIGITS = 4;
+const BOOST_MODE_SWAP_MS = 180;
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+type BoostModeSlotHandle = {
+  /** Lock current slot height before setMode — prevents hug-sheet top snap. */
+  prepareSwap: () => void;
+};
+
+/**
+ * Mode body only — outgoing fades up, incoming fades in, shell height tweens.
+ * Call `prepareSwap()` before changing `mode` so the hug drawer top doesn’t jump.
+ */
+function BoostModeSlot({
+  mode,
+  children,
+  ref,
+}: {
+  mode: BoostSheetMode;
+  children: ReactNode;
+  ref?: Ref<BoostModeSlotHandle>;
+}) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const prevModeRef = useRef(mode);
+  const prevChildrenRef = useRef(children);
+  const [exit, setExit] = useState<{
+    mode: BoostSheetMode;
+    node: ReactNode;
+  } | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    prepareSwap: () => {
+      const shell = shellRef.current;
+      if (!shell || prefersReducedMotion()) return;
+      shell.style.height = `${shell.offsetHeight}px`;
+    },
+  }));
+
+  useLayoutEffect(() => {
+    if (mode === prevModeRef.current) return;
+
+    const fromMode = prevModeRef.current;
+    const fromNode = prevChildrenRef.current;
+    prevModeRef.current = mode;
+    prevChildrenRef.current = children;
+
+    if (prefersReducedMotion()) {
+      setExit(null);
+      const shell = shellRef.current;
+      if (shell) shell.style.height = 'auto';
+      return;
+    }
+
+    setExit({ mode: fromMode, node: fromNode });
+
+    const shell = shellRef.current;
+    const applyHeight = () => {
+      if (!shell) return;
+      const inEl = shell.querySelector(
+        '[data-boost-mode-layer="in"]'
+      ) as HTMLElement | null;
+      if (!inEl) return;
+      const to = inEl.offsetHeight;
+      // Height should already be locked via prepareSwap; tween to the new body.
+      void shell.offsetHeight;
+      shell.style.height = `${to}px`;
+    };
+    requestAnimationFrame(() => requestAnimationFrame(applyHeight));
+
+    const timer = window.setTimeout(() => {
+      setExit(null);
+      if (shell) shell.style.height = 'auto';
+    }, BOOST_MODE_SWAP_MS);
+
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mode-driven swap
+  }, [mode]);
+
+  useLayoutEffect(() => {
+    if (!exit) prevChildrenRef.current = children;
+  }, [children, exit]);
+
+  const swapping = exit != null;
+
+  return (
+    <div ref={shellRef} className="portfolio-boost-mode-slot">
+      {exit ? (
+        <div
+          key={`out-${exit.mode}`}
+          data-boost-mode-layer="out"
+          className="portfolio-boost-mode-layer is-out"
+          aria-hidden
+        >
+          {exit.node}
+        </div>
+      ) : null}
+      <div
+        key={`in-${mode}`}
+        data-boost-mode-layer="in"
+        className={
+          swapping
+            ? 'portfolio-boost-mode-layer is-in'
+            : 'portfolio-boost-mode-layer'
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Standing-style shimmer shell. Neutral bars only — no real copy, since we
@@ -239,6 +357,7 @@ export function PortfolioBoostSheet({
   const socialIcon = useSocialTokenIcon();
 
   const [mode, setMode] = useState<BoostSheetMode>('collect');
+  const modeSlotRef = useRef<BoostModeSlotHandle>(null);
   const [pendingAction, setPendingAction] = useState<BoostTxAction | null>(
     null
   );
@@ -556,7 +675,8 @@ export function PortfolioBoostSheet({
   }
 
   function switchMode(next: BoostSheetMode) {
-    if (pendingAction) return;
+    if (pendingAction || next === mode) return;
+    modeSlotRef.current?.prepareSwap();
     setFieldError(null);
     setAmountInput('');
     setExtendMonths(null);
@@ -806,88 +926,90 @@ export function PortfolioBoostSheet({
             ))}
           </div>
 
-          {canUnlock && mode === 'collect' ? (
-            <p className="portfolio-boost-note portfolio-boost-note--center">
-              Release your lock and collect everything.
-            </p>
-          ) : null}
-
-          {!canUnlock && mode === 'increase' ? (
-            <BoostAmountField
-              amountInput={amountInput}
-              onAmountInput={applyAmountInput}
-              onMax={applyMaxAmount}
-              balanceYocto={balanceYocto}
-              tokenIconSrc={socialIcon}
-              disabled={txPending}
-            />
-          ) : null}
-
-          {mode === 'extend' ? (
-            extendOptions.length > 0 || currentOption ? (
-              <div
-                className="portfolio-boost-periods"
-                role="group"
-                aria-label="Extend lock period"
-                style={
-                  {
-                    '--boost-period-cols': String(
-                      Math.max(
-                        (currentOption ? 1 : 0) + extendOptions.length,
-                        1
-                      )
-                    ),
-                  } as CSSProperties
-                }
-              >
-                {currentOption ? (
-                  <button
-                    type="button"
-                    className={`os-surface-chip${
-                      extendMonths == null ? ' is-selected' : ''
-                    }`}
-                    disabled
-                    aria-current={extendMonths == null ? 'true' : undefined}
-                  >
-                    {currentOption.short}
-                    <span className="portfolio-boost-period-bonus">
-                      +{currentOption.bonusPercent}%
-                    </span>
-                  </button>
-                ) : null}
-                {extendOptions.map((option) => (
-                  <button
-                    key={option.months}
-                    type="button"
-                    className={`os-surface-chip${
-                      extendMonths === option.months ? ' is-selected' : ''
-                    }`}
-                    disabled={txPending}
-                    onClick={() =>
-                      setExtendMonths((current) =>
-                        current === option.months ? null : option.months
-                      )
-                    }
-                  >
-                    {option.short}
-                    <span className="portfolio-boost-period-bonus">
-                      +{option.bonusPercent}%
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="portfolio-boost-note">
-                You’re already on the longest commitment.
+          <BoostModeSlot ref={modeSlotRef} mode={mode}>
+            {canUnlock && mode === 'collect' ? (
+              <p className="portfolio-boost-note portfolio-boost-note--center">
+                Release your lock and collect everything.
               </p>
-            )
-          ) : null}
+            ) : null}
 
-          {fieldError || amountError ? (
-            <p className="profile-support-error" role="alert">
-              {fieldError ?? amountError}
-            </p>
-          ) : null}
+            {!canUnlock && mode === 'increase' ? (
+              <BoostAmountField
+                amountInput={amountInput}
+                onAmountInput={applyAmountInput}
+                onMax={applyMaxAmount}
+                balanceYocto={balanceYocto}
+                tokenIconSrc={socialIcon}
+                disabled={txPending}
+              />
+            ) : null}
+
+            {mode === 'extend' ? (
+              extendOptions.length > 0 || currentOption ? (
+                <div
+                  className="portfolio-boost-periods"
+                  role="group"
+                  aria-label="Extend lock period"
+                  style={
+                    {
+                      '--boost-period-cols': String(
+                        Math.max(
+                          (currentOption ? 1 : 0) + extendOptions.length,
+                          1
+                        )
+                      ),
+                    } as CSSProperties
+                  }
+                >
+                  {currentOption ? (
+                    <button
+                      type="button"
+                      className={`os-surface-chip${
+                        extendMonths == null ? ' is-selected' : ''
+                      }`}
+                      disabled
+                      aria-current={extendMonths == null ? 'true' : undefined}
+                    >
+                      {currentOption.short}
+                      <span className="portfolio-boost-period-bonus">
+                        +{currentOption.bonusPercent}%
+                      </span>
+                    </button>
+                  ) : null}
+                  {extendOptions.map((option) => (
+                    <button
+                      key={option.months}
+                      type="button"
+                      className={`os-surface-chip${
+                        extendMonths === option.months ? ' is-selected' : ''
+                      }`}
+                      disabled={txPending}
+                      onClick={() =>
+                        setExtendMonths((current) =>
+                          current === option.months ? null : option.months
+                        )
+                      }
+                    >
+                      {option.short}
+                      <span className="portfolio-boost-period-bonus">
+                        +{option.bonusPercent}%
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="portfolio-boost-note">
+                  You’re already on the longest commitment.
+                </p>
+              )
+            ) : null}
+
+            {fieldError || amountError ? (
+              <p className="profile-support-error" role="alert">
+                {fieldError ?? amountError}
+              </p>
+            ) : null}
+          </BoostModeSlot>
 
           <section className="portfolio-boost-summary" aria-label="Commitment">
             <div className="portfolio-boost-summary-row">
