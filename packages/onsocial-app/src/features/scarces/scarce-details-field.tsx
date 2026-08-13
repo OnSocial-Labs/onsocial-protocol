@@ -51,7 +51,7 @@ export function ScarceDetailsField({
     <>
       <button
         type="button"
-        className={`os-surface-chip scarce-choice-chip${
+        className={`os-surface-chip os-choice-chip${
           open || closing ? ' is-selected' : ''
         }`}
         disabled={disabled}
@@ -63,8 +63,8 @@ export function ScarceDetailsField({
           setOpen(true);
         }}
       >
-        <span className="scarce-choice-chip-label">Details</span>
-        <span className="scarce-choice-chip-value">{chipValue}</span>
+        <span className="os-choice-chip-label">Details</span>
+        <span className="os-choice-chip-value">{chipValue}</span>
       </button>
 
       <GlassSheet
@@ -78,8 +78,8 @@ export function ScarceDetailsField({
         zIndex={zIndex}
         ariaLabelledBy={titleId}
         backdropLabel="Close details"
-        panelClassName="scarce-choice-sheet-panel"
-        bodyClassName="scarce-choice-sheet-body"
+        panelClassName="os-choice-sheet-panel"
+        bodyClassName="os-choice-sheet-body"
         header={
           <>
             <SheetHeader

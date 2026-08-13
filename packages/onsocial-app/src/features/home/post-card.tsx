@@ -356,16 +356,16 @@ function PostCardMenu({
         label: standLabel,
         disabled: pending || isLoading || isBlockEitherWay(accountId),
         leading: viewerStanding ? (
-          <UserMinusIcon className="action-drawer-icon" aria-hidden />
+          <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
         ) : (
-          <UserPlusIcon className="action-drawer-icon" aria-hidden />
+          <UserPlusIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => void handleStandToggle(),
       });
       items.push({
         id: 'support',
         label: 'Support',
-        leading: <GiftIcon className="action-drawer-icon" aria-hidden />,
+        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setSupportOpen(true);
           requestClose();
@@ -374,7 +374,7 @@ function PostCardMenu({
       items.push({
         id: 'endorse',
         label: 'Endorse',
-        leading: <FireBIcon className="action-drawer-icon" aria-hidden />,
+        leading: <FireBIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           requestClose();
           router.push(endorsementsHref, { scroll: false });
@@ -391,7 +391,7 @@ function PostCardMenu({
             : 'Mute',
         description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
         disabled: mutePending,
-        leading: <UserMinusIcon className="action-drawer-icon" aria-hidden />,
+        leading: <UserMinusIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => void handleMuteToggle(),
       });
       items.push({
@@ -406,7 +406,7 @@ function PostCardMenu({
         description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
         destructive: !blocked,
         disabled: blockPending,
-        leading: <MultiplyIcon className="action-drawer-icon" aria-hidden />,
+        leading: <MultiplyIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           if (blocked) {
             void handleBlockToggle(false);
@@ -424,7 +424,7 @@ function PostCardMenu({
         label: cancelScarcePending ? 'Canceling…' : 'Cancel listing',
         destructive: true,
         disabled: cancelScarcePending,
-        leading: <TrashIcon className="action-drawer-icon" aria-hidden />,
+        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           requestClose();
           onCancelScarce();
@@ -435,14 +435,14 @@ function PostCardMenu({
       id: 'view-profile',
       label: 'View profile',
       href: profileHref,
-      leading: <UserIcon className="action-drawer-icon" aria-hidden />,
+      leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
       onSelect: () => requestClose(),
     });
     if (href) {
       items.push({
         id: 'copy-link',
         label: 'Copy link',
-        leading: <CopyIcon className="action-drawer-icon" aria-hidden />,
+        leading: <CopyIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => void copyLink(),
       });
     }

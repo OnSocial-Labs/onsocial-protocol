@@ -10,23 +10,24 @@ import {
 import { Divider } from './divider.js';
 import { GlassSheet, SheetHeader } from './glass-sheet.js';
 import {
-  scarceChoiceSheetBodyClassName,
-  scarceChoiceSheetPanelClassName,
+  osChoiceSheetBodyClassName,
+  osChoiceSheetPanelClassName,
 } from './choice-drawer.js';
 import { useScrollLock } from './use-scroll-lock.js';
 
-export const actionDrawerIconClassName = 'action-drawer-icon';
-export const actionDrawerConfirmClassName = 'action-drawer-confirm';
-export const actionDrawerConfirmBodyClassName = 'action-drawer-confirm-body';
-export const actionDrawerConfirmCancelClassName =
-  'action-drawer-confirm-cancel';
+export const osActionDrawerIconClassName = 'os-action-drawer-icon';
+export const osActionDrawerConfirmClassName = 'os-action-drawer-confirm';
+export const osActionDrawerConfirmBodyClassName =
+  'os-action-drawer-confirm-body';
+export const osActionDrawerConfirmCancelClassName =
+  'os-action-drawer-confirm-cancel';
 
 export interface ActionDrawerItem {
   id: string;
   label: string;
   /** Quiet secondary line under the label. */
   description?: string;
-  /** Leading visual — prefer a Mage icon sized via `action-drawer-icon`. */
+  /** Leading visual — prefer a Mage icon sized via `os-action-drawer-icon`. */
   leading?: ReactNode;
   /** Quiet meta after the label (e.g. count / status). */
   trailing?: ReactNode;
@@ -83,8 +84,12 @@ export interface ActionDrawerProps {
   open: boolean;
   onClose: () => void;
   onClosed?: () => void;
-  /** Sheet title + aria label. */
+  /** Sheet title + default aria label. */
   label: string;
+  /** Optional rich title (e.g. custom heading). Defaults to `label`. */
+  title?: ReactNode;
+  /** Sibling of the title outside the heading (e.g. Clear). */
+  titleAccessory?: ReactNode;
   /** Quiet line under the title. */
   copy?: string;
   /** aria-label for the inner list (defaults to `label`). */
@@ -96,10 +101,16 @@ export interface ActionDrawerProps {
    * still renders, so drive `label`/`copy` from the confirm copy.
    */
   children?: ReactNode;
+  /** Optional pinned footer (e.g. Done). */
+  footer?: ReactNode;
   hint?: string;
   /** Called when the header close control is used. */
   closeAriaLabel?: string;
   zIndex?: number;
+  /** Extra panel class (e.g. market filter width tweaks). */
+  panelClassName?: string;
+  /** Extra body class. */
+  bodyClassName?: string;
   /**
    * Link renderer for `href` items. Apps with a client router should pass
    * their Link (e.g. Next.js). Defaults to a plain `<a>`.
@@ -116,13 +127,18 @@ export function ActionDrawer({
   onClose,
   onClosed,
   label,
+  title,
+  titleAccessory,
   copy,
   listAriaLabel,
   items,
   children,
+  footer,
   hint,
   closeAriaLabel,
   zIndex = 60,
+  panelClassName,
+  bodyClassName,
   linkComponent: LinkComponent = DefaultActionDrawerLink,
 }: ActionDrawerProps) {
   const titleId = useId();
@@ -133,27 +149,25 @@ export function ActionDrawer({
 
   const renderItem = useCallback(
     (item: ActionDrawerItem) => {
-      const className = `scarce-choice-sheet-option${
+      const className = `os-choice-sheet-option${
         item.destructive ? ' is-destructive' : ''
       }`;
       const body = (
         <>
           {item.leading ? (
-            <span className="scarce-choice-sheet-leading">{item.leading}</span>
+            <span className="os-choice-sheet-leading">{item.leading}</span>
           ) : null}
-          <span className="scarce-choice-sheet-option-copy">
-            <span className="scarce-choice-sheet-option-primary">
-              <span className="scarce-choice-sheet-option-label">
-                {item.label}
-              </span>
+          <span className="os-choice-sheet-option-copy">
+            <span className="os-choice-sheet-option-primary">
+              <span className="os-choice-sheet-option-label">{item.label}</span>
               {item.trailing ? (
-                <span className="scarce-choice-sheet-trailing">
+                <span className="os-choice-sheet-trailing">
                   {item.trailing}
                 </span>
               ) : null}
             </span>
             {item.description ? (
-              <span className="scarce-choice-sheet-option-desc">
+              <span className="os-choice-sheet-option-desc">
                 {item.description}
               </span>
             ) : null}
@@ -206,13 +220,18 @@ export function ActionDrawer({
       ariaLabelledBy={titleId}
       backdropLabel={closeLabel}
       sizing="hug"
-      panelClassName={scarceChoiceSheetPanelClassName}
-      bodyClassName={scarceChoiceSheetBodyClassName}
+      panelClassName={[osChoiceSheetPanelClassName, panelClassName]
+        .filter(Boolean)
+        .join(' ')}
+      bodyClassName={[osChoiceSheetBodyClassName, bodyClassName]
+        .filter(Boolean)
+        .join(' ')}
       header={
         <>
           <SheetHeader
             titleId={titleId}
-            title={label}
+            title={title ?? label}
+            {...(titleAccessory ? { titleAccessory } : {})}
             {...(copy ? { subtitle: copy } : {})}
             onClose={onClose}
             closeAriaLabel={closeLabel}
@@ -220,31 +239,30 @@ export function ActionDrawer({
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
+      footer={footer}
     >
       {children ? (
         children
       ) : (
         <div
-          className="scarce-choice-sheet-list"
+          className="os-choice-sheet-list"
           role="menu"
           aria-label={listAriaLabel ?? label}
         >
           {sections.map((section, sectionIndex) => (
             <div
               key={section.title ?? `section-${sectionIndex}`}
-              className="scarce-choice-sheet-section"
+              className="os-choice-sheet-section"
             >
               {section.title ? (
-                <p className="scarce-choice-sheet-section-title">
-                  {section.title}
-                </p>
+                <p className="os-choice-sheet-section-title">{section.title}</p>
               ) : null}
               {section.items.map((item) => renderItem(item))}
             </div>
           ))}
         </div>
       )}
-      {hint ? <p className="scarce-choice-sheet-hint">{hint}</p> : null}
+      {hint ? <p className="os-choice-sheet-hint">{hint}</p> : null}
     </GlassSheet>
   );
 }
