@@ -27,6 +27,7 @@ import {
   TrashIcon,
   osFieldSoftClassName,
 } from '@onsocial/ui';
+import { SuffixField } from '@/components/ui/suffix-field';
 import type {
   GenerateSetJob,
   GenerativeLayerSpec,
@@ -624,20 +625,19 @@ export function GenerativeDropBuilder({
                   aria-label="Trait name"
                   disabled={working}
                 />
-                <div className="drop-create-suffix-field gen-trait-weight-field">
-                  <input
-                    value={editing.weight}
-                    inputMode="decimal"
-                    onChange={(event) =>
-                      updateTrait(layer.id, editing.id, {
-                        weight: event.target.value.replace(/[^\d.]/g, ''),
-                      })
-                    }
-                    aria-label="Rarity weight"
-                    disabled={working}
-                  />
-                  <span>weight</span>
-                </div>
+                <SuffixField
+                  className="gen-trait-weight-field"
+                  value={editing.weight}
+                  inputMode="decimal"
+                  onValueChange={(value) =>
+                    updateTrait(layer.id, editing.id, {
+                      weight: value.replace(/[^\d.]/g, ''),
+                    })
+                  }
+                  aria-label="Rarity weight"
+                  suffix="weight"
+                  disabled={working}
+                />
               </div>
             ) : null}
 
@@ -689,21 +689,16 @@ export function GenerativeDropBuilder({
 
       <div className="guild-field">
         <span>Pieces to generate</span>
-        <div className="drop-create-suffix-field">
-          <input
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            value={supplyInput}
-            onChange={(event) =>
-              setSupplyInput(event.target.value.replace(/[^\d]/g, ''))
-            }
-            placeholder="100"
-            aria-label="Pieces to generate"
-            disabled={working}
-          />
-          <span>pieces</span>
-        </div>
+        <SuffixField
+          value={supplyInput}
+          onValueChange={(value) =>
+            setSupplyInput(value.replace(/[^\d]/g, ''))
+          }
+          placeholder="100"
+          aria-label="Pieces to generate"
+          suffix="pieces"
+          disabled={working}
+        />
         <small>
           {possible > 0
             ? supplyValid

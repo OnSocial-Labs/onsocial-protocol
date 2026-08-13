@@ -10,6 +10,7 @@ import {
   osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { SuffixField } from '@/components/ui/suffix-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -285,22 +286,18 @@ export function CreateAppPanel() {
               </button>
             ))}
           </div>
-          <div className="drop-create-suffix-field">
-            <input
-              id={fieldId('commission')}
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={commissionInput}
-              onChange={(event) =>
-                setCommissionInput(event.target.value.replace(/[^\d.]/g, ''))
-              }
-              placeholder="2.5"
-              aria-label="Commission percentage"
-              disabled={pending}
-            />
-            <span>% per sale</span>
-          </div>
+          <SuffixField
+            id={fieldId('commission')}
+            value={commissionInput}
+            inputMode="decimal"
+            onValueChange={(value) =>
+              setCommissionInput(value.replace(/[^\d.]/g, ''))
+            }
+            placeholder="2.5"
+            aria-label="Commission percentage"
+            suffix="% per sale"
+            disabled={pending}
+          />
           <small>Locked on each new drop · max {MAX_COMMISSION_PCT}%.</small>
         </label>
 
