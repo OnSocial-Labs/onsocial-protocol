@@ -10,12 +10,12 @@ import {
 import {
   Divider,
   OsHugSheet,
+  OsIconAction,
   OsSheetAction,
   OsSheetActions,
   SheetCloseButton,
   ShopFillIcon,
   TimeFillIcon,
-  osIconActionClassName,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -348,18 +348,18 @@ export function PortfolioListingActionsSheet({
         {...(panelStyle ? { panelStyle } : {})}
         headerActions={
           <div className="standing-sheet-actions standing-sheet-actions--payout">
-            <Link
-              href={APP_MARKET_PATH}
-              className={osIconActionClassName}
-              scroll={false}
-              onClick={requestClose}
-              aria-label="Open Market"
-            >
-              <ShopFillIcon
-                className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                aria-hidden
-              />
-            </Link>
+            <OsIconAction asChild ariaLabel="Open Market">
+              <Link
+                href={APP_MARKET_PATH}
+                scroll={false}
+                onClick={requestClose}
+              >
+                <ShopFillIcon
+                  className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                  aria-hidden
+                />
+              </Link>
+            </OsIconAction>
             <SheetCloseButton
               onClick={requestClose}
               ariaLabel="Close listing actions"

@@ -12,8 +12,8 @@ import {
   ChartFillIcon,
   Divider,
   GlassSheet,
+  OsIconAction,
   SheetCloseButton,
-  osIconActionClassName,
   osIconActionGlyphClassName,
   useScrollLock,
 } from '@onsocial/ui';
@@ -735,18 +735,18 @@ export function PortfolioBoostSheet({
                 </div>
               </div>
               <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <a
-                  href={portalHref('/boost/leaderboard')}
-                  className={osIconActionClassName}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Open boost leaderboard"
-                >
-                  <ChartFillIcon
-                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                    aria-hidden
-                  />
-                </a>
+                <OsIconAction asChild ariaLabel="Open boost leaderboard">
+                  <a
+                    href={portalHref('/boost/leaderboard')}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ChartFillIcon
+                      className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                      aria-hidden
+                    />
+                  </a>
+                </OsIconAction>
                 <SheetCloseButton
                   onClick={requestClose}
                   ariaLabel="Close boost"

@@ -4,9 +4,9 @@ import Link from 'next/link';
 import {
   BookmarkFillIcon,
   GiftFillIcon,
+  OsIconAction,
   SearchField,
   ShopFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { APP_DROPS_PATH, dropsPath } from '@/lib/app-routes';
@@ -48,25 +48,17 @@ export function MarketHeadingActions() {
 
   return (
     <>
-      <Link
-        href={APP_DROPS_PATH}
-        scroll={false}
-        className={osIconActionClassName}
-        aria-label="Browse drops"
-        title="Primary edition Drops"
-      >
-        <GiftFillIcon aria-hidden className="glass-sheet-close-icon" />
-      </Link>
-      {viewerAccountId ? (
-        <Link
-          href={dropsPath({ sort: 'saved' })}
-          scroll={false}
-          className={osIconActionClassName}
-          aria-label="Saved drops"
-          title="Bookmarked drops"
-        >
-          <BookmarkFillIcon aria-hidden className="glass-sheet-close-icon" />
+      <OsIconAction asChild ariaLabel="Browse drops" title="Primary edition Drops">
+        <Link href={APP_DROPS_PATH} scroll={false}>
+          <GiftFillIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
+      </OsIconAction>
+      {viewerAccountId ? (
+        <OsIconAction asChild ariaLabel="Saved drops" title="Bookmarked drops">
+          <Link href={dropsPath({ sort: 'saved' })} scroll={false}>
+            <BookmarkFillIcon aria-hidden className="glass-sheet-close-icon" />
+          </Link>
+        </OsIconAction>
       ) : null}
     </>
   );
@@ -75,14 +67,10 @@ export function MarketHeadingActions() {
 /** Loading shell actions — Drops only (no wallet required). */
 export function MarketLoadingActions() {
   return (
-    <Link
-      href={APP_DROPS_PATH}
-      scroll={false}
-      className={osIconActionClassName}
-      aria-label="Browse drops"
-      title="Primary edition Drops"
-    >
-      <GiftFillIcon aria-hidden className="glass-sheet-close-icon" />
-    </Link>
+    <OsIconAction asChild ariaLabel="Browse drops" title="Primary edition Drops">
+      <Link href={APP_DROPS_PATH} scroll={false}>
+        <GiftFillIcon aria-hidden className="glass-sheet-close-icon" />
+      </Link>
+    </OsIconAction>
   );
 }

@@ -20,8 +20,8 @@ import {
   BookmarkIcon,
   ScaleUpIcon,
   ShareIcon,
+  OsIconAction,
   ShopFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
@@ -775,14 +775,11 @@ export function CollectionPagePanel({
           >
             {collectionStatusLabel(status)}
           </span>
-          <Link
-            href={marketCreatorPath(view.creatorId)}
-            scroll={false}
-            className={osIconActionClassName}
-            aria-label="Shop this creator"
-          >
-            <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-          </Link>
+          <OsIconAction asChild ariaLabel="Shop this creator">
+            <Link href={marketCreatorPath(view.creatorId)} scroll={false}>
+              <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
+            </Link>
+          </OsIconAction>
         </>
       }
     >

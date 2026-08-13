@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  OsIconAction,
   PlusIcon,
   SearchField,
   ShopFillIcon,
   StarsCFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
@@ -378,21 +378,17 @@ export function CollectiblesPagePanel({
       scrollRootRef={scrollRootRef}
       actions={
         <>
-          <Link
-            href={APP_MARKET_PATH}
-            className={osIconActionClassName}
-            aria-label="Browse Market"
-          >
-            <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-          </Link>
-          {viewerAccountId ? (
-            <Link
-              href={APP_DROP_CREATE_PATH}
-              className={osIconActionClassName}
-              aria-label="Start a drop"
-            >
-              <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+          <OsIconAction asChild ariaLabel="Browse Market">
+            <Link href={APP_MARKET_PATH} scroll={false}>
+              <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
             </Link>
+          </OsIconAction>
+          {viewerAccountId ? (
+            <OsIconAction asChild ariaLabel="Start a drop">
+              <Link href={APP_DROP_CREATE_PATH} scroll={false}>
+                <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+              </Link>
+            </OsIconAction>
           ) : null}
         </>
       }
