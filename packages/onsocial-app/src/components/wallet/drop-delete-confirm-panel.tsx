@@ -1,6 +1,6 @@
 'use client';
 
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { OsActionDrawerConfirm } from '@onsocial/ui';
 import { dropDeleteConfirmCopy } from '@/lib/drop-delete-confirm-copy';
 
 interface DropDeleteConfirmPanelProps {
@@ -20,30 +20,14 @@ export function DropDeleteConfirmPanel({
   const copy = dropDeleteConfirmCopy({ title });
 
   return (
-    <div className="action-drawer-confirm">
-      <p className="action-drawer-confirm-body">{copy.body}</p>
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="button"
-          variant="danger"
-          ready
-          pending={pending}
-          pendingLabel="Deleting…"
-          disabled={pending}
-          onClick={onConfirm}
-        >
-          {copy.confirmLabel}
-        </OsSheetAction>
-      </OsSheetActions>
-      {!pending ? (
-        <button
-          type="button"
-          className="action-drawer-confirm-cancel"
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      ) : null}
-    </div>
+    <OsActionDrawerConfirm
+      body={copy.body}
+      confirmLabel={copy.confirmLabel}
+      pending={pending}
+      pendingLabel="Deleting…"
+      variant="danger"
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
   );
 }

@@ -1,14 +1,11 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  Divider,
-  GlassSheet,
+  OsHugSheet,
   OsSheetAction,
   OsSheetActions,
-  SheetHeader,
 } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 export type DropStartConfirmPhase =
   | 'review'
@@ -45,22 +42,20 @@ export function DropStartConfirmSheet({
   onClose,
   onConfirm,
 }: DropStartConfirmSheetProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing;
+  const closeLocked = phase === 'uploading' || phase === 'listing';
 
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) setClosing(false);
   }
 
-  useScrollLock(sheetOpen);
-
   const requestClose = useCallback(() => {
-    if (phase === 'uploading' || phase === 'listing') return;
+    if (closeLocked) return;
     setClosing(true);
-  }, [phase]);
+  }, [closeLocked]);
 
   const handleClosed = useCallback(() => {
     setClosing(false);
@@ -98,34 +93,16 @@ export function DropStartConfirmSheet({
   const showRows = phase === 'review' || phase === 'ready';
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={62}
-      ariaLabelledBy={titleId}
+      label={title}
+      closeAriaLabel="Close"
       backdropLabel="Close"
-      panelClassName="scarce-choice-sheet-panel"
-      bodyClassName="scarce-choice-sheet-body drop-start-confirm-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={title}
-            onClose={
-              phase === 'uploading' || phase === 'listing'
-                ? undefined
-                : requestClose
-            }
-            closeAriaLabel="Close"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      showClose={!closeLocked}
+      zIndex={62}
+      bodyClassName="drop-start-confirm-body"
     >
       {status ? <p className="drop-start-confirm-summary">{status}</p> : null}
       {showRows ? (
@@ -154,6 +131,6 @@ export function DropStartConfirmSheet({
           {primaryLabel}
         </OsSheetAction>
       </OsSheetActions>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

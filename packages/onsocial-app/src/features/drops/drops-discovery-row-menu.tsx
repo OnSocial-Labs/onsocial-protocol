@@ -313,9 +313,9 @@ export function DropsDiscoveryRowMenu({
         description: saved ? undefined : 'Bookmark for later',
         disabled: savePending,
         leading: saved ? (
-          <BookmarkFillIcon className="action-drawer-icon" aria-hidden />
+          <BookmarkFillIcon className="os-action-drawer-icon" aria-hidden />
         ) : (
-          <BookmarkIcon className="action-drawer-icon" aria-hidden />
+          <BookmarkIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => {
           onToggleSave();
@@ -327,7 +327,7 @@ export function DropsDiscoveryRowMenu({
         section: 'Drop',
         label: 'Share drop',
         description: 'Copy or send the link',
-        leading: <ShareIcon className="action-drawer-icon" aria-hidden />,
+        leading: <ShareIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           void handleShare();
         },
@@ -337,7 +337,7 @@ export function DropsDiscoveryRowMenu({
         section: 'Drop',
         label: 'Share to post',
         description: 'Open composer with this drop',
-        leading: <EditPenIcon className="action-drawer-icon" aria-hidden />,
+        leading: <EditPenIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: handleShareToPost,
       },
       {
@@ -347,7 +347,7 @@ export function DropsDiscoveryRowMenu({
         description: 'Mint rules, schedule, provenance',
         disabled: factsPending,
         leading: (
-          <InformationCircleIcon className="action-drawer-icon" aria-hidden />
+          <InformationCircleIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => {
           void openFacts();
@@ -362,7 +362,7 @@ export function DropsDiscoveryRowMenu({
         label: ownerPending ? 'Pausing…' : 'Pause drop',
         description: 'Stop minting for now',
         disabled: ownerPending,
-        leading: <PauseFillIcon className="action-drawer-icon" aria-hidden />,
+        leading: <PauseFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           void runOwnerAction('paused');
         },
@@ -375,7 +375,7 @@ export function DropsDiscoveryRowMenu({
         label: ownerPending ? 'Resuming…' : 'Resume drop',
         description: 'Open minting again',
         disabled: ownerPending,
-        leading: <PlayFillIcon className="action-drawer-icon" aria-hidden />,
+        leading: <PlayFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           void runOwnerAction('resumed');
         },
@@ -389,7 +389,7 @@ export function DropsDiscoveryRowMenu({
         description: 'Only if nothing was minted — confirms first',
         destructive: true,
         disabled: ownerPending,
-        leading: <TrashIcon className="action-drawer-icon" aria-hidden />,
+        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setConfirmDelete(true);
         },
@@ -410,9 +410,9 @@ export function DropsDiscoveryRowMenu({
         disabled:
           standPending || standingLoading || isBlockEitherWay(creatorId),
         leading: viewerStanding ? (
-          <UserMinusIcon className="action-drawer-icon" aria-hidden />
+          <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
         ) : (
-          <UserPlusIcon className="action-drawer-icon" aria-hidden />
+          <UserPlusIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => {
           void handleStand();
@@ -423,7 +423,7 @@ export function DropsDiscoveryRowMenu({
         section: creatorLabel,
         label: 'Support',
         description: 'Send SOCIAL',
-        leading: <GiftIcon className="action-drawer-icon" aria-hidden />,
+        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           if (!isConnected) {
             void connect();

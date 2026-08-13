@@ -1,21 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ChevronDownIcon,
-  Divider,
-  GlassSheet,
-  SheetCloseButton,
   osFloatingPanelTriggerChevronClassName,
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
   osFloatingPanelTriggerMetaClassName,
 } from '@onsocial/ui';
+import { ActionDrawer } from '@/components/ui/action-drawer';
 import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -73,7 +70,7 @@ export function marketFilterTriggerLabel(opts: {
 }
 
 /**
- * Market discovery filter — medium + format/genres in one sheet.
+ * Market discovery filter — medium + format/genres in one ActionDrawer.
  * Genres stay as chip rails (same density as the old facet row), not buried
  * under a long medium radio list.
  */
@@ -98,7 +95,6 @@ export function MarketFilterMenu({
   onClear: () => void;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const titleId = useId();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -114,8 +110,6 @@ export function MarketFilterMenu({
     ? dropFacetSuggestionsForMedium(facetMedium)
     : [];
   const showFormat = facetMedium === 'audio';
-
-  useScrollLock(sheetOpen);
 
   useEffect(() => {
     onOpenChange?.(sheetOpen);
@@ -166,46 +160,25 @@ export function MarketFilterMenu({
         </span>
       </button>
 
-      <GlassSheet
+      <ActionDrawer
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
-        tone="os"
-        sizing="hug"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={60}
-        ariaLabelledBy={titleId}
-        backdropLabel="Close filter"
-        panelClassName="scarce-choice-sheet-panel market-filter-sheet-panel"
-        bodyClassName="scarce-choice-sheet-body market-filter-sheet-body"
-        header={
-          <>
-            <header className="glass-sheet-header">
-              <div className="glass-sheet-header-copy">
-                <div className="market-filter-title-row">
-                  <h2 id={titleId} className="glass-sheet-header-title">
-                    Filter
-                  </h2>
-                  {narrowed ? (
-                    <button
-                      type="button"
-                      className="market-filter-title-clear"
-                      onClick={onClear}
-                    >
-                      Clear
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              <SheetCloseButton
-                onClick={requestClose}
-                ariaLabel="Close filter"
-              />
-            </header>
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
+        label="Filter"
+        closeAriaLabel="Close filter"
+        titleAccessory={
+          narrowed ? (
+            <button
+              type="button"
+              className="market-filter-title-clear"
+              onClick={onClear}
+            >
+              Clear
+            </button>
+          ) : null
         }
+        panelClassName="market-filter-sheet-panel"
+        bodyClassName="market-filter-sheet-body"
         footer={
           <div className="market-filter-sheet-footer">
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -223,7 +196,7 @@ export function MarketFilterMenu({
       >
         <div className="market-filter-sheet">
           <section className="market-filter-sheet-block" aria-label="Medium">
-            <p className="scarce-choice-sheet-section-title">Medium</p>
+            <p className="os-choice-sheet-section-title">Medium</p>
             <div
               className="discover-tab-bar market-filter-chip-row"
               role="listbox"
@@ -251,7 +224,7 @@ export function MarketFilterMenu({
 
           {showFormat ? (
             <section className="market-filter-sheet-block" aria-label="Format">
-              <p className="scarce-choice-sheet-section-title">Format</p>
+              <p className="os-choice-sheet-section-title">Format</p>
               <div
                 className="discover-tab-bar market-filter-chip-row"
                 role="tablist"
@@ -283,7 +256,7 @@ export function MarketFilterMenu({
               className="market-filter-sheet-block"
               aria-label={dropFacetFieldLabel(facetMedium)}
             >
-              <p className="scarce-choice-sheet-section-title">
+              <p className="os-choice-sheet-section-title">
                 {dropFacetFieldLabel(facetMedium)}
               </p>
               <div
@@ -311,7 +284,7 @@ export function MarketFilterMenu({
             </section>
           ) : null}
         </div>
-      </GlassSheet>
+      </ActionDrawer>
     </div>
   );
 }

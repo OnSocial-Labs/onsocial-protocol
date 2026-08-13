@@ -1,24 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
-  scarceChoiceChipClassName,
-  scarceChoiceSheetBodyClassName,
-  scarceChoiceSheetPanelClassName,
+  osChoiceChipClassName,
+  osChoiceSheetBodyClassName,
+  osChoiceSheetPanelClassName,
 } from './choice-drawer.js';
 import {
-  actionDrawerConfirmCancelClassName,
-  actionDrawerConfirmClassName,
-  actionDrawerIconClassName,
+  osActionDrawerConfirmCancelClassName,
+  osActionDrawerConfirmClassName,
+  osActionDrawerIconClassName,
 } from './action-drawer.js';
 
 describe('choice / action drawer class names', () => {
   it('exports stable class names', () => {
-    expect(scarceChoiceChipClassName).toBe('scarce-choice-chip');
-    expect(scarceChoiceSheetPanelClassName).toBe('scarce-choice-sheet-panel');
-    expect(scarceChoiceSheetBodyClassName).toBe('scarce-choice-sheet-body');
-    expect(actionDrawerIconClassName).toBe('action-drawer-icon');
-    expect(actionDrawerConfirmClassName).toBe('action-drawer-confirm');
-    expect(actionDrawerConfirmCancelClassName).toBe(
-      'action-drawer-confirm-cancel'
+    expect(osChoiceChipClassName).toBe('os-choice-chip');
+    expect(osChoiceSheetPanelClassName).toBe('os-choice-sheet-panel');
+    expect(osChoiceSheetBodyClassName).toBe('os-choice-sheet-body');
+    expect(osActionDrawerIconClassName).toBe('os-action-drawer-icon');
+    expect(osActionDrawerConfirmClassName).toBe('os-action-drawer-confirm');
+    expect(osActionDrawerConfirmCancelClassName).toBe(
+      'os-action-drawer-confirm-cancel'
     );
   });
 });

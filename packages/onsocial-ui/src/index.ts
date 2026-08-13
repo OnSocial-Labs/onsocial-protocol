@@ -179,9 +179,9 @@ export {
   ChoiceDrawer,
   ChoiceDrawerField,
   ChoiceDrawerMenu,
-  scarceChoiceChipClassName,
-  scarceChoiceSheetBodyClassName,
-  scarceChoiceSheetPanelClassName,
+  osChoiceChipClassName,
+  osChoiceSheetBodyClassName,
+  osChoiceSheetPanelClassName,
   type ChoiceDrawerFieldProps,
   type ChoiceDrawerMenuProps,
   type ChoiceDrawerProps,
@@ -189,14 +189,22 @@ export {
 } from './choice-drawer.js';
 export {
   ActionDrawer,
-  actionDrawerConfirmBodyClassName,
-  actionDrawerConfirmCancelClassName,
-  actionDrawerConfirmClassName,
-  actionDrawerIconClassName,
+  osActionDrawerConfirmBodyClassName,
+  osActionDrawerConfirmCancelClassName,
+  osActionDrawerConfirmClassName,
+  osActionDrawerIconClassName,
   type ActionDrawerItem,
   type ActionDrawerLinkProps,
   type ActionDrawerProps,
 } from './action-drawer.js';
+export {
+  OsActionDrawerConfirm,
+  OsActionDrawerConfirmCancel,
+  type OsActionDrawerConfirmCancelProps,
+  type OsActionDrawerConfirmProps,
+  type OsActionDrawerConfirmVariant,
+} from './os-action-drawer-confirm.js';
+export { OsHugSheet, type OsHugSheetProps } from './os-hug-sheet.js';
 export { InfoDrawer, type InfoDrawerProps } from './info-drawer.js';
 export {
   GestureSheetHeader,

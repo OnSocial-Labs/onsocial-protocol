@@ -1,8 +1,7 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useCallback, useState } from 'react';
+import { OsHugSheet, osChoiceChipClassName } from '@onsocial/ui';
 
 const CHIP_VALUE_CHARS = 28;
 
@@ -24,7 +23,6 @@ export function ScarceDetailsField({
   disabled = false,
   zIndex = 60,
 }: ScarceDetailsFieldProps) {
-  const titleId = useId();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
@@ -35,8 +33,6 @@ export function ScarceDetailsField({
     resolvedTitle.length > CHIP_VALUE_CHARS
       ? `${resolvedTitle.slice(0, CHIP_VALUE_CHARS).trimEnd()}…`
       : resolvedTitle;
-
-  useScrollLock(sheetOpen);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -51,7 +47,7 @@ export function ScarceDetailsField({
     <>
       <button
         type="button"
-        className={`os-surface-chip scarce-choice-chip${
+        className={`os-surface-chip ${osChoiceChipClassName}${
           open || closing ? ' is-selected' : ''
         }`}
         disabled={disabled}
@@ -63,35 +59,19 @@ export function ScarceDetailsField({
           setOpen(true);
         }}
       >
-        <span className="scarce-choice-chip-label">Details</span>
-        <span className="scarce-choice-chip-value">{chipValue}</span>
+        <span className="os-choice-chip-label">Details</span>
+        <span className="os-choice-chip-value">{chipValue}</span>
       </button>
 
-      <GlassSheet
+      <OsHugSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
-        tone="os"
-        sizing="hug"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={zIndex}
-        ariaLabelledBy={titleId}
+        label="Details"
+        copy="What wallets store for this scarce."
+        closeAriaLabel="Close details"
         backdropLabel="Close details"
-        panelClassName="scarce-choice-sheet-panel"
-        bodyClassName="scarce-choice-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={titleId}
-              title="Details"
-              subtitle="What wallets store for this scarce."
-              onClose={requestClose}
-              closeAriaLabel="Close details"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
+        zIndex={zIndex}
       >
         <div className="scarce-details-sheet">
           <div className="scarce-details-row">
@@ -107,7 +87,7 @@ export function ScarceDetailsField({
             </div>
           ) : null}
         </div>
-      </GlassSheet>
+      </OsHugSheet>
     </>
   );
 }

@@ -142,7 +142,7 @@ export function CollectionOwnerManageMenu({
         label: ownerPending ? 'Pausing…' : 'Pause drop',
         description: 'Stop minting for now',
         disabled: ownerPending,
-        leading: <PauseFillIcon className="action-drawer-icon" aria-hidden />,
+        leading: <PauseFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           void runOwnerAction('paused');
         },
@@ -155,7 +155,7 @@ export function CollectionOwnerManageMenu({
         label: ownerPending ? 'Resuming…' : 'Resume drop',
         description: 'Open minting again',
         disabled: ownerPending,
-        leading: <PlayFillIcon className="action-drawer-icon" aria-hidden />,
+        leading: <PlayFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           void runOwnerAction('resumed');
         },
@@ -169,7 +169,7 @@ export function CollectionOwnerManageMenu({
         description: 'Only if nothing was minted — confirms first',
         destructive: true,
         disabled: ownerPending,
-        leading: <TrashIcon className="action-drawer-icon" aria-hidden />,
+        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setConfirmDelete(true);
         },

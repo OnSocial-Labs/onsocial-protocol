@@ -3,25 +3,25 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import { ChevronDownIcon } from './mage-stroke-icons.js';
-import { Divider } from './divider.js';
 import {
   osFloatingPanelTriggerChevronClassName,
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
   osFloatingPanelTriggerMetaClassName,
 } from './floating-panel.js';
-import { GlassSheet, SheetHeader } from './glass-sheet.js';
-import { useScrollLock } from './use-scroll-lock.js';
+import { OsHugSheet } from './os-hug-sheet.js';
+import { osChoiceChipClassName } from './os-choice-tokens.js';
 
-export const scarceChoiceChipClassName = 'scarce-choice-chip';
-export const scarceChoiceSheetPanelClassName = 'scarce-choice-sheet-panel';
-export const scarceChoiceSheetBodyClassName = 'scarce-choice-sheet-body';
+export {
+  osChoiceChipClassName,
+  osChoiceSheetBodyClassName,
+  osChoiceSheetPanelClassName,
+} from './os-choice-tokens.js';
 
 export interface ChoiceOption<T extends string> {
   value: T;
@@ -40,7 +40,7 @@ export interface ChoiceOption<T extends string> {
 function CheckIcon() {
   return (
     <svg
-      className="scarce-choice-sheet-check"
+      className="os-choice-sheet-check"
       viewBox="0 0 16 16"
       width="16"
       height="16"
@@ -106,53 +106,25 @@ export function ChoiceDrawer<T extends string>({
   closeOnSelect = true,
   zIndex = 60,
 }: ChoiceDrawerProps<T>) {
-  const titleId = useId();
   const sections = useMemo(() => groupOptions(options), [options]);
 
-  useScrollLock(open);
-
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
       onClosed={onClosed}
-      tone="os"
-      // Content-sized panel: "full" means rest at natural height (no 62vh peek).
-      initialDetent="full"
-      peekRatio={1}
+      label={label}
+      copy={copy}
       zIndex={zIndex}
-      ariaLabelledBy={titleId}
-      backdropLabel={`Close ${label.toLowerCase()}`}
-      sizing="hug"
-      panelClassName={scarceChoiceSheetPanelClassName}
-      bodyClassName={scarceChoiceSheetBodyClassName}
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={label}
-            {...(copy ? { subtitle: copy } : {})}
-            onClose={onClose}
-            closeAriaLabel={`Close ${label.toLowerCase()}`}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
-      <div
-        className="scarce-choice-sheet-list"
-        role="listbox"
-        aria-label={label}
-      >
+      <div className="os-choice-sheet-list" role="listbox" aria-label={label}>
         {sections.map((section, sectionIndex) => (
           <div
             key={section.title ?? `section-${sectionIndex}`}
-            className="scarce-choice-sheet-section"
+            className="os-choice-sheet-section"
           >
             {section.title ? (
-              <p className="scarce-choice-sheet-section-title">
-                {section.title}
-              </p>
+              <p className="os-choice-sheet-section-title">{section.title}</p>
             ) : null}
             {section.options.map((option) => {
               const selected = option.value === value;
@@ -163,7 +135,7 @@ export function ChoiceDrawer<T extends string>({
                   role="option"
                   aria-selected={selected}
                   disabled={option.disabled}
-                  className={`scarce-choice-sheet-option${
+                  className={`os-choice-sheet-option${
                     selected ? ' is-selected' : ''
                   }`}
                   onClick={() => {
@@ -173,29 +145,29 @@ export function ChoiceDrawer<T extends string>({
                   }}
                 >
                   {option.leading ? (
-                    <span className="scarce-choice-sheet-leading">
+                    <span className="os-choice-sheet-leading">
                       {option.leading}
                     </span>
                   ) : null}
-                  <span className="scarce-choice-sheet-option-copy">
-                    <span className="scarce-choice-sheet-option-primary">
-                      <span className="scarce-choice-sheet-option-label">
+                  <span className="os-choice-sheet-option-copy">
+                    <span className="os-choice-sheet-option-primary">
+                      <span className="os-choice-sheet-option-label">
                         {option.label}
                       </span>
                       {option.trailing ? (
-                        <span className="scarce-choice-sheet-trailing">
+                        <span className="os-choice-sheet-trailing">
                           {option.trailing}
                         </span>
                       ) : null}
                     </span>
                     {option.description ? (
-                      <span className="scarce-choice-sheet-option-desc">
+                      <span className="os-choice-sheet-option-desc">
                         {option.description}
                       </span>
                     ) : null}
                   </span>
                   <span
-                    className={`scarce-choice-sheet-check-slot${
+                    className={`os-choice-sheet-check-slot${
                       selected ? ' is-visible' : ''
                     }`}
                     aria-hidden
@@ -208,8 +180,8 @@ export function ChoiceDrawer<T extends string>({
           </div>
         ))}
       </div>
-      {hint ? <p className="scarce-choice-sheet-hint">{hint}</p> : null}
-    </GlassSheet>
+      {hint ? <p className="os-choice-sheet-hint">{hint}</p> : null}
+    </OsHugSheet>
   );
 }
 
@@ -278,7 +250,7 @@ export function ChoiceDrawerField<T extends string>({
     <>
       <button
         type="button"
-        className={`os-surface-chip ${scarceChoiceChipClassName}${
+        className={`os-surface-chip ${osChoiceChipClassName}${
           chipSelected ? ' is-selected' : ''
         }`}
         disabled={disabled}
@@ -291,10 +263,10 @@ export function ChoiceDrawerField<T extends string>({
         }}
       >
         {chipLeading ? (
-          <span className="scarce-choice-chip-leading">{chipLeading}</span>
+          <span className="os-choice-chip-leading">{chipLeading}</span>
         ) : null}
-        <span className="scarce-choice-chip-label">{label}</span>
-        <span className="scarce-choice-chip-value">{activeLabel}</span>
+        <span className="os-choice-chip-label">{label}</span>
+        <span className="os-choice-chip-value">{activeLabel}</span>
       </button>
 
       <ChoiceDrawer

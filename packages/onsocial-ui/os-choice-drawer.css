@@ -4,28 +4,25 @@
  * Pair with glass-sheet.css + os-sheet-action.css + os-surface-interactive.css
  * (chips) + floating-panel.css (toolbar menu triggers / count badges).
  *
- * Class names keep the historical `scarce-choice-*` / `action-drawer-*` /
- * `account-social-help-*` tokens so app call sites stay stable.
+ * Class tokens: `os-choice-*`, `os-action-drawer-*`, `os-info-drawer-*`.
  */
 
 /* Larger grip hit-target on content-hugging choice sheets. */
-.glass-sheet-panel.scarce-choice-sheet-panel > .glass-sheet-drag {
+.glass-sheet-panel.os-choice-sheet-panel > .glass-sheet-drag {
   min-height: 1.65rem;
   padding: 0.7rem 0 0.35rem;
 }
 
-.glass-sheet-panel.scarce-choice-sheet-panel
-  > .glass-sheet-drag
-  .glass-sheet-grip {
+.glass-sheet-panel.os-choice-sheet-panel > .glass-sheet-drag .glass-sheet-grip {
   opacity: 0.7;
 }
 
-.scarce-choice-chip-row {
+.os-choice-chip-row {
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 
-.scarce-choice-chip {
+.os-choice-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
@@ -34,22 +31,22 @@
   font-size: 0.62rem;
 }
 
-.guild-field .scarce-choice-chip > span,
-.guild-field .scarce-choice-chip .scarce-choice-chip-label,
-.guild-field .scarce-choice-chip .scarce-choice-chip-value,
-.guild-field .scarce-choice-chip .scarce-choice-chip-leading {
+.guild-field .os-choice-chip > span,
+.guild-field .os-choice-chip .os-choice-chip-label,
+.guild-field .os-choice-chip .os-choice-chip-value,
+.guild-field .os-choice-chip .os-choice-chip-leading {
   font-size: inherit;
   font-weight: inherit;
   color: inherit;
 }
 
-.scarce-choice-chip-leading {
+.os-choice-chip-leading {
   display: inline-flex;
   flex-shrink: 0;
   margin-right: 0.05rem;
 }
 
-.scarce-choice-chip-label {
+.os-choice-chip-label {
   font-size: 0.72em;
   font-weight: 650;
   letter-spacing: 0.02em;
@@ -57,14 +54,14 @@
   color: rgb(var(--fg-rgb) / 0.45);
 }
 
-.scarce-choice-chip-value {
+.os-choice-chip-value {
   font-weight: 550;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.guild-field .scarce-choice-chip-label {
+.guild-field .os-choice-chip-label {
   font-size: 0.72em;
   font-weight: 650;
   letter-spacing: 0.02em;
@@ -72,22 +69,22 @@
   color: rgb(var(--fg-rgb) / 0.45);
 }
 
-.guild-field .scarce-choice-chip-value {
+.guild-field .os-choice-chip-value {
   font-weight: 550;
 }
 
-.scarce-choice-sheet-panel {
+.os-choice-sheet-panel {
   /* Shorter cap for pick lists; height via sizing="hug". */
   max-height: min(72dvh, 720px);
   max-width: 28rem;
 }
 
-.scarce-choice-sheet-body {
+.os-choice-sheet-body {
   /* Match guild-facts / collect-info nested sheet inset. */
   padding: 0.15rem 1.15rem 1.35rem;
 }
 
-.scarce-choice-sheet-list {
+.os-choice-sheet-list {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -96,13 +93,13 @@
   margin-inline: -0.65rem;
 }
 
-.scarce-choice-sheet-section {
+.os-choice-sheet-section {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
 }
 
-.scarce-choice-sheet-section-title {
+.os-choice-sheet-section-title {
   margin: 0 0 0.15rem;
   font-size: 0.64rem;
   font-weight: 650;
@@ -111,7 +108,7 @@
   color: rgb(var(--fg-rgb) / 0.38);
 }
 
-.scarce-choice-sheet-option {
+.os-choice-sheet-option {
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -132,31 +129,31 @@
   box-sizing: border-box;
 }
 
-.scarce-choice-sheet-option:hover,
-.scarce-choice-sheet-option:focus-visible {
+.os-choice-sheet-option:hover,
+.os-choice-sheet-option:focus-visible {
   background: rgb(var(--fg-rgb) / 0.06);
 }
 
-.scarce-choice-sheet-option.is-selected {
+.os-choice-sheet-option.is-selected {
   background: rgb(var(--fg-rgb) / 0.08);
 }
 
-.scarce-choice-sheet-option:disabled {
+.os-choice-sheet-option:disabled {
   opacity: 0.42;
   cursor: not-allowed;
 }
 
 /* Action-drawer destructive rows (remove, cancel, leave). */
-.scarce-choice-sheet-option.is-destructive {
+.os-choice-sheet-option.is-destructive {
   color: var(--protocol-red);
 }
 
-.scarce-choice-sheet-option.is-destructive:hover,
-.scarce-choice-sheet-option.is-destructive:focus-visible {
+.os-choice-sheet-option.is-destructive:hover,
+.os-choice-sheet-option.is-destructive:focus-visible {
   background: color-mix(in srgb, var(--protocol-red) 12%, transparent);
 }
 
-.scarce-choice-sheet-leading {
+.os-choice-sheet-leading {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
@@ -164,7 +161,7 @@
 }
 
 /* Mage icon inside an action-drawer leading slot. */
-.scarce-choice-sheet-leading .action-drawer-icon {
+.os-choice-sheet-leading .os-action-drawer-icon {
   width: 1.85rem;
   height: 1.85rem;
   padding: 0.35rem;
@@ -173,19 +170,19 @@
   box-sizing: border-box;
 }
 
-.scarce-choice-sheet-option.is-destructive
-  .scarce-choice-sheet-leading
-  .action-drawer-icon {
+.os-choice-sheet-option.is-destructive
+  .os-choice-sheet-leading
+  .os-action-drawer-icon {
   color: var(--protocol-red);
 }
 
-.scarce-choice-sheet-trailing {
+.os-choice-sheet-trailing {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
 }
 
-.scarce-choice-sheet-option-copy {
+.os-choice-sheet-option-copy {
   display: flex;
   min-width: 0;
   flex: 1 1 auto;
@@ -193,14 +190,14 @@
   gap: 0.1rem;
 }
 
-.scarce-choice-sheet-option-primary {
+.os-choice-sheet-option-primary {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 0.45rem;
 }
 
-.scarce-choice-sheet-option-label {
+.os-choice-sheet-option-label {
   font-size: 0.84rem;
   /* Match floating-panel items — medium, not semi-bold. */
   font-weight: 500;
@@ -209,7 +206,7 @@
 }
 
 /* Counts as leading icons — same optical weight as format/colour swatches. */
-.scarce-choice-sheet-leading .os-floating-panel-count {
+.os-choice-sheet-leading .os-floating-panel-count {
   box-sizing: border-box;
   width: 1.85rem;
   min-width: 1.85rem;
@@ -218,13 +215,13 @@
   font-size: 0.72rem;
 }
 
-.scarce-choice-sheet-option-desc {
+.os-choice-sheet-option-desc {
   font-size: 0.72rem;
   line-height: 1.35;
   color: rgb(var(--fg-rgb) / 0.45);
 }
 
-.scarce-choice-sheet-check-slot {
+.os-choice-sheet-check-slot {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
@@ -235,15 +232,15 @@
   opacity: 0;
 }
 
-.scarce-choice-sheet-check-slot.is-visible {
+.os-choice-sheet-check-slot.is-visible {
   opacity: 1;
 }
 
-.scarce-choice-sheet-check {
+.os-choice-sheet-check {
   display: block;
 }
 
-.scarce-choice-sheet-hint {
+.os-choice-sheet-hint {
   margin: 0.65rem 0 0;
   font-size: 0.72rem;
   line-height: 1.35;
@@ -251,14 +248,14 @@
 }
 
 /* Action-drawer inline confirm step (guild member management). */
-.action-drawer-confirm {
+.os-action-drawer-confirm {
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
   padding-top: 0.15rem;
 }
 
-.action-drawer-confirm-body {
+.os-action-drawer-confirm-body {
   margin: 0;
   font-size: 0.84rem;
   line-height: 1.45;
@@ -266,11 +263,11 @@
   color: rgb(var(--fg-rgb) / 0.72);
 }
 
-.action-drawer-confirm .os-sheet-actions {
+.os-action-drawer-confirm .os-sheet-actions {
   margin-top: 0.15rem;
 }
 
-.action-drawer-confirm-cancel {
+.os-action-drawer-confirm-cancel {
   align-self: center;
   margin: 0;
   padding: 0.35rem 0.75rem;
@@ -284,35 +281,35 @@
   cursor: pointer;
 }
 
-.action-drawer-confirm-cancel:hover,
-.action-drawer-confirm-cancel:focus-visible {
+.os-action-drawer-confirm-cancel:hover,
+.os-action-drawer-confirm-cancel:focus-visible {
   color: rgb(var(--fg-rgb) / 0.88);
   outline: none;
 }
 
-.account-social-help-sheet-body {
+.os-info-drawer-body {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
 }
 
-.account-social-help-sheet-body .os-sheet-actions {
+.os-info-drawer-body .os-sheet-actions {
   margin-top: 0.35rem;
 }
 
-.account-social-help-summary,
-.account-social-help-detail {
+.os-info-drawer-summary,
+.os-info-drawer-detail {
   margin: 0;
   font-size: 0.84rem;
   line-height: 1.45;
   letter-spacing: -0.01em;
 }
 
-.account-social-help-summary {
+.os-info-drawer-summary {
   color: rgb(var(--fg-rgb) / 0.82);
   font-weight: 550;
 }
 
-.account-social-help-detail {
+.os-info-drawer-detail {
   color: rgb(var(--fg-rgb) / 0.52);
 }

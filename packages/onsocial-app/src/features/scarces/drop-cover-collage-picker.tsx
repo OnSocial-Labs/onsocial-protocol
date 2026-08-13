@@ -76,10 +76,10 @@ function CollageFontSwatch({
   if (font === 'header') {
     return (
       <span
-        className={`scarce-choice-swatch scarce-choice-swatch--format scarce-choice-swatch--format-header scarce-choice-swatch--${size}`}
+        className={`os-choice-swatch os-choice-swatch--format os-choice-swatch--format-header os-choice-swatch--${size}`}
         aria-hidden
       >
-        <span className="scarce-choice-format-aa">Aa</span>
+        <span className="os-choice-format-aa">Aa</span>
       </span>
     );
   }
@@ -366,7 +366,7 @@ export function DropCoverCollagePicker({
       </div>
 
       <div
-        className="app-storage-presets scarce-choice-chip-row"
+        className="app-storage-presets os-choice-chip-row"
         role="group"
         aria-label="Cover options"
       >
@@ -443,7 +443,7 @@ export function DropCoverCollagePicker({
         {/* Binary chrome — tap toggles; no two-option sheet. */}
         <button
           type="button"
-          className={`os-surface-chip scarce-choice-chip${
+          className={`os-surface-chip os-choice-chip${
             value.showTitle ? ' is-selected' : ''
           }`}
           disabled={titleDisabled}
@@ -460,14 +460,14 @@ export function DropCoverCollagePicker({
             });
           }}
         >
-          <span className="scarce-choice-chip-label">Title</span>
-          <span className="scarce-choice-chip-value">
+          <span className="os-choice-chip-label">Title</span>
+          <span className="os-choice-chip-value">
             {value.showTitle ? 'On' : 'Off'}
           </span>
         </button>
         <button
           type="button"
-          className={`os-surface-chip scarce-choice-chip${
+          className={`os-surface-chip os-choice-chip${
             value.showLabel ? ' is-selected' : ''
           }`}
           disabled={chromeDisabled}
@@ -484,8 +484,8 @@ export function DropCoverCollagePicker({
             });
           }}
         >
-          <span className="scarce-choice-chip-label">Label</span>
-          <span className="scarce-choice-chip-value">
+          <span className="os-choice-chip-label">Label</span>
+          <span className="os-choice-chip-value">
             {value.showLabel ? 'On' : 'Off'}
           </span>
         </button>
@@ -592,7 +592,7 @@ export function DropCoverCollagePicker({
               <div className="drop-collage-lightbox-controls-row">
                 <button
                   type="button"
-                  className={`os-surface-chip scarce-choice-chip${
+                  className={`os-surface-chip os-choice-chip${
                     value.showTitle ? ' is-selected' : ''
                   }`}
                   disabled={titleDisabled}
@@ -609,14 +609,14 @@ export function DropCoverCollagePicker({
                     });
                   }}
                 >
-                  <span className="scarce-choice-chip-label">Title</span>
-                  <span className="scarce-choice-chip-value">
+                  <span className="os-choice-chip-label">Title</span>
+                  <span className="os-choice-chip-value">
                     {value.showTitle ? 'On' : 'Off'}
                   </span>
                 </button>
                 <button
                   type="button"
-                  className={`os-surface-chip scarce-choice-chip${
+                  className={`os-surface-chip os-choice-chip${
                     value.showLabel ? ' is-selected' : ''
                   }`}
                   disabled={chromeDisabled}
@@ -633,8 +633,8 @@ export function DropCoverCollagePicker({
                     });
                   }}
                 >
-                  <span className="scarce-choice-chip-label">Label</span>
-                  <span className="scarce-choice-chip-value">
+                  <span className="os-choice-chip-label">Label</span>
+                  <span className="os-choice-chip-value">
                     {value.showLabel ? 'On' : 'Off'}
                   </span>
                 </button>

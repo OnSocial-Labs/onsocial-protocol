@@ -14,13 +14,11 @@ import type { PostRow } from '@onsocial/sdk';
 import {
   ChartVerticalFillIcon,
   ChartVerticalIcon,
-  Divider,
-  GlassSheet,
   ImageFillIcon,
   ImageIcon,
   MultiplyIcon,
+  OsHugSheet,
   ProfileAvatar,
-  SheetHeader,
   StarsCFillIcon,
   StarsCIcon,
   osFieldBorderedClassName,
@@ -263,7 +261,6 @@ export function ComposerSheet({
   onSubmit,
 }: ComposerSheetProps) {
   const formId = useId();
-  const labelsTitleId = useId();
   const { accountId } = useAppWallet();
   const viewerShell = useViewerProfileShellContext();
   const { moodId: fetchedMoodId, style: fetchedMoodStyle } =
@@ -1109,30 +1106,15 @@ export function ComposerSheet({
       onSelect={selectDrop}
       zIndex={COMPOSER_NEST_Z}
     />
-    <GlassSheet
+    <OsHugSheet
       open={labelsOpen && open}
       onClose={() => setLabelsOpen(false)}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={COMPOSER_NEST_Z}
-      ariaLabelledBy={labelsTitleId}
+      label="Content labels"
+      closeAriaLabel="Close"
       backdropLabel="Close content labels"
-      panelClassName="scarce-choice-sheet-panel"
-      bodyClassName="scarce-choice-sheet-body guild-composer-labels-sheet-body"
+      zIndex={COMPOSER_NEST_Z}
+      bodyClassName="guild-composer-labels-sheet-body"
       panelStyle={viewerMoodStyle}
-      header={
-        <>
-          <SheetHeader
-            titleId={labelsTitleId}
-            title="Content labels"
-            onClose={() => setLabelsOpen(false)}
-            closeAriaLabel="Close"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <label className="guild-composer-labels-field">
         <span className="guild-composer-labels-field-label">
@@ -1178,7 +1160,7 @@ export function ComposerSheet({
           Done
         </OsSheetAction>
       </OsSheetActions>
-    </GlassSheet>
+    </OsHugSheet>
     </>
   );
 }
