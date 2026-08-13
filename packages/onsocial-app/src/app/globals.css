@@ -11,6 +11,7 @@
 @import '@onsocial/ui/profile-editor-media.css';
 @import '@onsocial/ui/profile-avatar.css';
 @import '@onsocial/ui/search-field.css';
+@import '@onsocial/ui/os-field.css';
 @import './transaction-feedback-toast.css';
 /* After Tailwind — feed @#$ / Show more weights (see file comment). */
 @import './feed-meta.css';
@@ -12448,36 +12449,9 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.65rem 0.75rem;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
-  }
-
-  /*
-   * Support / Amplify / Boost / scarce amounts — same as poll options:
-   * transparent fill, cooler border + inset lip; hover/focus strengthen
-   * border only (no wash).
-   */
-  .app-storage-amount-field.profile-support-amount-field {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
-  .app-storage-amount-field.profile-support-amount-field:hover:not(
-    :focus-within
-  ) {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-  }
-
-  .app-storage-amount-field.profile-support-amount-field:focus-within {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
+    /* Soft chrome via .os-field-soft; bordered via .os-field-bordered. */
+    padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
+    border-radius: var(--os-field-radius, 0.85rem);
   }
 
   .app-storage-amount-input {
@@ -21696,39 +21670,14 @@ a.os-surface-row {
     gap: 0.3rem;
   }
 
-  /* Paste well — same border + inset lip as poll / support amount fields. */
+  /* Paste well layout — bordered chrome via .os-field-bordered. */
   .collection-allowlist-field textarea {
     width: 100%;
     min-height: 2.75rem;
-    box-sizing: border-box;
     resize: vertical;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 0.85rem;
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-    color: var(--os-surface-emphasis);
-    font: inherit;
     font-size: 0.84rem;
     line-height: 1.4;
-    outline: none;
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
-  .collection-allowlist-field textarea::placeholder {
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .collection-allowlist-field textarea:hover:not(:disabled):not(:focus) {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-  }
-
-  .collection-allowlist-field textarea:focus {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
+    color: var(--os-surface-emphasis);
   }
 
   .collection-allowlist-field small {
@@ -22058,11 +22007,12 @@ a.os-surface-row {
   .guild-create-form .guild-field > textarea,
   .hub-manage-form .guild-field > input,
   .hub-manage-form .guild-field > textarea {
+    /* Soft chrome — tokens from @onsocial/ui/os-field.css (.os-field-soft). */
     border: 0;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
-    padding: 0.65rem 0.75rem;
+    border-radius: var(--os-field-radius);
+    background: var(--os-field-soft-bg);
+    box-shadow: var(--os-field-soft-lip);
+    padding: var(--os-field-pad-y) var(--os-field-pad-x);
   }
 
   .drop-create-form .guild-field > input:focus,
@@ -22072,8 +22022,8 @@ a.os-surface-row {
   .hub-manage-form .guild-field > input:focus,
   .hub-manage-form .guild-field > textarea:focus {
     border: 0;
-    background: rgb(var(--fg-rgb) / 0.055);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+    background: var(--os-field-soft-bg-focus);
+    box-shadow: var(--os-field-soft-lip-focus);
     outline: none;
   }
 
@@ -28757,27 +28707,9 @@ a.os-surface-row {
   }
 
   /*
-   * Poll / CW option fields — transparent fill, cooler border chrome
-   * (soft edge + inset lip). Hover/focus strengthen border only — no wash.
+   * Poll / CW option fields — layout only; chrome via .os-field-bordered
+   * (@onsocial/ui/os-field.css).
    */
-  .guild-composer-poll-input,
-  .guild-composer-warning-input {
-    margin: 0;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 0.85rem;
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-    color: inherit;
-    font: inherit;
-    font-size: 0.9rem;
-    line-height: 1.35;
-    padding: 0.65rem 0.75rem;
-    outline: none;
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
   .guild-composer-poll-input {
     flex: 1;
     min-width: 0;
@@ -28786,29 +28718,6 @@ a.os-surface-row {
   .guild-composer-warning-input {
     width: 100%;
     min-width: 0;
-    box-sizing: border-box;
-  }
-
-  .guild-composer-poll-input::placeholder,
-  .guild-composer-warning-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .guild-composer-poll-input:hover:not(:disabled):not(:focus),
-  .guild-composer-warning-input:hover:not(:disabled):not(:focus) {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-  }
-
-  .guild-composer-poll-input:focus,
-  .guild-composer-warning-input:focus {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
-  }
-
-  .guild-composer-poll-input:disabled,
-  .guild-composer-warning-input:disabled {
-    opacity: 0.55;
   }
 
   .guild-composer-sheet-header.is-compact .standing-sheet-subject-row {
@@ -30762,29 +30671,6 @@ a.os-surface-row {
       rgb(var(--fg-rgb) / 0.06)
     );
   }
-}
-
-/*
- * Support / Amplify / Boost / scarce amount wells — unlayered twin of poll
- * fields (transparent fill, border + lip; no wash). Beats stale @layer cache.
- */
-.app-storage-amount-field.profile-support-amount-field {
-  border: 1px solid rgb(var(--fg-rgb) / 0.12);
-  background: transparent;
-  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.app-storage-amount-field.profile-support-amount-field:hover:not(:focus-within) {
-  border-color: rgb(var(--fg-rgb) / 0.16);
-  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-}
-
-.app-storage-amount-field.profile-support-amount-field:focus-within {
-  border-color: rgb(var(--fg-rgb) / 0.2);
-  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
 }
 
 /*

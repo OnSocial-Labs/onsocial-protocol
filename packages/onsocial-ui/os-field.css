@@ -1,0 +1,118 @@
+/**
+ * @onsocial/ui — text / amount field chrome (bordered + soft).
+ *
+ * Pair with protocol.css (`--fg-rgb`). Use on the control itself (`input` /
+ * `textarea`) or on a flex wrapper that owns the chrome (`:focus-within`).
+ *
+ *   os-field-bordered  — transparent fill, cool border + inset lip
+ *                        (poll options, CW, support/scarce amounts, paste wells)
+ *   os-field-soft      — quiet wash, no border (create forms, storage amounts)
+ *   os-field           — optional label stack (label + control + hint)
+ */
+
+@layer tokens {
+  :root {
+    --os-field-radius: 0.85rem;
+    --os-field-pad-y: 0.65rem;
+    --os-field-pad-x: 0.75rem;
+    --os-field-font-size: 0.9rem;
+    --os-field-line-height: 1.35;
+    --os-field-placeholder: rgb(var(--fg-rgb) / 0.38);
+
+    --os-field-bordered-border: rgb(var(--fg-rgb) / 0.12);
+    --os-field-bordered-border-hover: rgb(var(--fg-rgb) / 0.16);
+    --os-field-bordered-border-focus: rgb(var(--fg-rgb) / 0.2);
+    --os-field-bordered-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
+    --os-field-bordered-lip-hover: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
+    --os-field-bordered-lip-focus: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
+
+    --os-field-soft-bg: rgb(var(--fg-rgb) / 0.04);
+    --os-field-soft-bg-focus: rgb(var(--fg-rgb) / 0.055);
+    --os-field-soft-lip: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    --os-field-soft-lip-focus: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  }
+}
+
+.os-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.os-field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.os-field-hint {
+  font-size: 0.72rem;
+  color: var(--os-surface-muted, rgb(var(--fg-rgb) / 0.55));
+}
+
+.os-field-bordered,
+.os-field-soft {
+  margin: 0;
+  box-sizing: border-box;
+  border-radius: var(--os-field-radius);
+  color: inherit;
+  font: inherit;
+  font-size: var(--os-field-font-size);
+  line-height: var(--os-field-line-height);
+  padding: var(--os-field-pad-y) var(--os-field-pad-x);
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.os-field-bordered::placeholder,
+.os-field-soft::placeholder {
+  color: var(--os-field-placeholder);
+}
+
+.os-field-bordered:disabled,
+.os-field-soft:disabled,
+.os-field-bordered:has(:disabled),
+.os-field-soft:has(:disabled) {
+  opacity: 0.55;
+}
+
+/* Bordered — transparent fill; hover/focus strengthen border only. */
+.os-field-bordered {
+  border: 1px solid var(--os-field-bordered-border);
+  background: transparent;
+  box-shadow: var(--os-field-bordered-lip);
+}
+
+.os-field-bordered:hover:not(:disabled):not(:focus):not(:focus-within):not(
+    :has(:disabled)
+  ) {
+  border-color: var(--os-field-bordered-border-hover);
+  box-shadow: var(--os-field-bordered-lip-hover);
+}
+
+.os-field-bordered:focus,
+.os-field-bordered:focus-within {
+  border-color: var(--os-field-bordered-border-focus);
+  box-shadow: var(--os-field-bordered-lip-focus);
+}
+
+/* Soft — quiet wash, no border. */
+.os-field-soft {
+  border: 0;
+  background: var(--os-field-soft-bg);
+  box-shadow: var(--os-field-soft-lip);
+}
+
+.os-field-soft:focus,
+.os-field-soft:focus-within {
+  border: 0;
+  background: var(--os-field-soft-bg-focus);
+  box-shadow: var(--os-field-soft-lip-focus);
+  outline: none;
+}

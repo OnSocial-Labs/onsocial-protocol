@@ -12,6 +12,7 @@ import {
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
   useDropdown,
+  osFieldSoftClassName,
 } from '@onsocial/ui';
 import { OsSheetPrimaryAction } from '@/components/ui/os-sheet-primary-action';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
@@ -211,7 +212,7 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
         <div className="app-swap-leg-head">
           <span className="app-swap-leg-label">You pay</span>
         </div>
-        <div className="app-storage-amount-field app-swap-amount-field">
+        <div className={`app-storage-amount-field app-swap-amount-field ${osFieldSoftClassName}`}>
           <input
             className="app-storage-amount-input"
             inputMode="decimal"
@@ -294,7 +295,7 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
         <div className="app-swap-leg-head">
           <span className="app-swap-leg-label">You get</span>
         </div>
-        <div className="app-storage-amount-field app-swap-amount-field is-output">
+        <div className={`app-storage-amount-field app-swap-amount-field is-output ${osFieldSoftClassName}`}>
           {receiveLoading ? (
             <span className="app-swap-receive-loading">
               <PulsingDots size="sm" label="Estimating SOCIAL" />

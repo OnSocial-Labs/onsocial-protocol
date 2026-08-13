@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ProfileAvatar } from '@onsocial/ui';
+import { ProfileAvatar,
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -397,7 +399,7 @@ export function ScarceSellForm({
       ) : (
         <p className="scarce-mood-picker-label">Price</p>
       )}
-      <div className="app-storage-amount-field profile-support-amount-field">
+      <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
         <input
           type="text"
           inputMode="decimal"
@@ -446,7 +448,7 @@ export function ScarceSellForm({
       {mode === 'auction' ? (
         <>
           <p className="scarce-mood-picker-label">Min bid step</p>
-          <div className="app-storage-amount-field profile-support-amount-field">
+          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
             <input
               type="text"
               inputMode="decimal"
@@ -510,7 +512,7 @@ export function ScarceSellForm({
           </div>
 
           <p className="scarce-mood-picker-label">Buy now (optional)</p>
-          <div className="app-storage-amount-field profile-support-amount-field">
+          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
             <input
               type="text"
               inputMode="decimal"

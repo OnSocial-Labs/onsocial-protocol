@@ -23,6 +23,7 @@ import {
   SheetHeader,
   StarsCFillIcon,
   StarsCIcon,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
@@ -739,7 +740,7 @@ export function ComposerSheet({
                   className="guild-composer-poll-row"
                 >
                   <input
-                    className="guild-composer-poll-input"
+                    className={`${osFieldBorderedClassName} guild-composer-poll-input`}
                     value={option}
                     maxLength={48}
                     disabled={pending}
@@ -1139,7 +1140,7 @@ export function ComposerSheet({
         </span>
         <input
           ref={warningInputRef}
-          className="guild-composer-warning-input"
+          className={`${osFieldBorderedClassName} guild-composer-warning-input`}
           value={contentWarning}
           maxLength={80}
           disabled={pending}

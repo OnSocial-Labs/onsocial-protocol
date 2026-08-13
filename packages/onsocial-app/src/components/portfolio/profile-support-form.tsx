@@ -1,5 +1,8 @@
 'use client';
 
+import {
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   OsSheetAction,
@@ -322,7 +325,7 @@ export function ProfileSupportForm({
         void handleSubmit();
       }}
     >
-      <div className="app-storage-amount-field profile-support-amount-field">
+      <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
         <input
           type="text"
           inputMode="decimal"
