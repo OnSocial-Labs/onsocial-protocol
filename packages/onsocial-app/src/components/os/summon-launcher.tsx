@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useLayoutEffect,
   useState,
   useCallback,
   useMemo,
@@ -208,7 +207,7 @@ export function SummonLauncher({
 
   useScrollLock(open);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!open) {
       dragYRef.current = 0;
       dragStateRef.current = null;
