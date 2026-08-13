@@ -3,7 +3,7 @@
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 
 interface MarketOfferRowProps {
   tokenId: string;

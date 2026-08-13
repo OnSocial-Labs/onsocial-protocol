@@ -19,8 +19,7 @@ import {
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { SuffixField } from '@/components/ui/suffix-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -315,7 +314,7 @@ export function HubLookSheet({
       dirty={dirty}
       footer={
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="button"
             ready={dirty}
             pending={pending}
@@ -324,7 +323,7 @@ export function HubLookSheet({
             onClick={() => void save()}
           >
             Save look
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       }
     >
@@ -574,7 +573,7 @@ export function HubAccessSheet({
       dirty={dirty}
       footer={
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="button"
             ready={dirty && commissionValid}
             pending={pending}
@@ -583,7 +582,7 @@ export function HubAccessSheet({
             onClick={() => void save()}
           >
             Save settings
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       }
     >

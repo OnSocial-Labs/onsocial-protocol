@@ -4,7 +4,7 @@ import { OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
 import type {
   ProtocolApplication,

@@ -23,7 +23,7 @@ import type { AllowlistEntry } from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
 import { StandingIdentity } from '@/components/ui/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';

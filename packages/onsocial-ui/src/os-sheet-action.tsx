@@ -123,20 +123,3 @@ export function OsSheetAction({
     </button>
   );
 }
-
-/** @deprecated Use {@link OsSheetAction} with `variant="primary"`. */
-export function OsSheetPrimaryAction(
-  props: Omit<OsSheetActionProps, 'variant'>
-) {
-  return <OsSheetAction variant="primary" {...props} />;
-}
-
-/** @deprecated Use {@link OsSheetAction} with `variant="ghost"`. */
-export function OsSheetGhostAction(
-  props: Omit<
-    OsSheetActionProps,
-    'variant' | 'ready' | 'dirty' | 'pending' | 'succeeded'
-  >
-) {
-  return <OsSheetAction variant="ghost" {...props} />;
-}

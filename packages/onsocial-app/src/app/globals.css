@@ -13924,8 +13924,7 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .account-editor-session-actions .os-sheet-action--primary,
-  .account-editor-session-actions .os-sheet-primary-action {
+  .account-editor-session-actions .os-sheet-action--primary {
     min-width: 5.5rem;
   }
 

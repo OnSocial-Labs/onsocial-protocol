@@ -12,9 +12,9 @@ import {
 import {
   Divider,
   GlassSheet,
+  OsIconAction,
   SheetCloseButton,
   ShopFillIcon,
-  osIconActionClassName,
   osIconActionGlyphClassName,
   useScrollLock,
 } from '@onsocial/ui';
@@ -292,18 +292,18 @@ export function PortfolioScarceEarningsSheet({
                 </div>
               </div>
               <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <Link
-                  href={APP_MARKET_PATH}
-                  className={osIconActionClassName}
-                  scroll={false}
-                  onClick={requestClose}
-                  aria-label="Open Market"
-                >
-                  <ShopFillIcon
-                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                    aria-hidden
-                  />
-                </Link>
+                <OsIconAction asChild ariaLabel="Open Market">
+                  <Link
+                    href={APP_MARKET_PATH}
+                    scroll={false}
+                    onClick={requestClose}
+                  >
+                    <ShopFillIcon
+                      className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                      aria-hidden
+                    />
+                  </Link>
+                </OsIconAction>
                 <SheetCloseButton
                   onClick={requestClose}
                   ariaLabel="Close scarce earnings"

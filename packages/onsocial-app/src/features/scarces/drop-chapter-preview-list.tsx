@@ -10,7 +10,7 @@ import { Divider, MultiplyIcon } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { chapterTitleFromFile, isWritingPdfMime } from '@/features/scarces/drop-writing';
 import { reorderByInsert } from '@/features/scarces/drop-track-order';
 

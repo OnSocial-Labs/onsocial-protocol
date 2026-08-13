@@ -5,8 +5,8 @@ import {
   GLASS_SHEET_PEEK_RATIO,
   MultiplyIcon,
   OsHugSheet,
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
   PlusIcon,
 } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
@@ -893,7 +893,7 @@ export function GuildGroupStorageSheet({
                 </p>
               ) : null}
               <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                <OsSheetPrimaryAction
+                <OsSheetAction
                   type="button"
                   ready={!pending && canFundAmount && !error}
                   pending={pending}
@@ -902,7 +902,7 @@ export function GuildGroupStorageSheet({
                   onClick={() => void handleFundPool()}
                 >
                   {needsFunding ? 'Fund group pool' : 'Add to group pool'}
-                </OsSheetPrimaryAction>
+                </OsSheetAction>
               </OsSheetActions>
               <p className="app-storage-hint app-storage-hint--compact">
                 {GROUP_STORAGE_FUND_HINT}
@@ -966,7 +966,7 @@ export function GuildGroupStorageSheet({
                       tone="frosted-primary"
                       borderless
                     >
-                      <OsSheetPrimaryAction
+                      <OsSheetAction
                         type="button"
                         ready={!pending && canSetDefault && !error}
                         pending={pending}
@@ -975,7 +975,7 @@ export function GuildGroupStorageSheet({
                         onClick={() => void handleSetDefault()}
                       >
                         Save default
-                      </OsSheetPrimaryAction>
+                      </OsSheetAction>
                     </OsSheetActions>
                     {defaultEnabled ? (
                       <button
@@ -1090,7 +1090,7 @@ export function GuildGroupStorageSheet({
               ) : null}
 
               <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                <OsSheetPrimaryAction
+                <OsSheetAction
                   type="button"
                   ready={!pending && canGrant && !error}
                   pending={pending}
@@ -1101,7 +1101,7 @@ export function GuildGroupStorageSheet({
                   {readyRecipients.length > 1
                     ? `Add storage · ${readyRecipients.length}`
                     : 'Add storage'}
-                </OsSheetPrimaryAction>
+                </OsSheetAction>
               </OsSheetActions>
               <p className="app-storage-hint app-storage-hint--compact">
                 {GROUP_STORAGE_GRANT_HINT}

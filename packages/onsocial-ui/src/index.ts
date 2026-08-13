@@ -151,8 +151,6 @@ export {
 } from './pulsing-dots.js';
 export {
   OsSheetAction,
-  OsSheetGhostAction,
-  OsSheetPrimaryAction,
   osSheetActionClassName,
   type OsSheetActionProps,
   type OsSheetActionVariant,

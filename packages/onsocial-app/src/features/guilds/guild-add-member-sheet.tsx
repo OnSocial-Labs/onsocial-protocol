@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
   ProfileAvatar,
   SearchField,
 } from '@onsocial/ui';
@@ -217,7 +217,7 @@ export function GuildAddMemberSheet({
             </p>
           ) : null}
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={Boolean(selected) && !pending}
               pending={pending}
@@ -237,7 +237,7 @@ export function GuildAddMemberSheet({
               ) : (
                 'Add member'
               )}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
         </div>
       }

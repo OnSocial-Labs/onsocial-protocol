@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { AmountField } from '@/components/ui/amount-field';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { TokenIcon } from '@/components/ui/token-icon';

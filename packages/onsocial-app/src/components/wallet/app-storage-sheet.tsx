@@ -11,8 +11,8 @@ import {
 import {
   Divider,
   OsHugSheet,
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
 } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
@@ -494,7 +494,7 @@ export function AppStorageSheet({
                     tone="frosted-primary"
                     borderless
                   >
-                    <OsSheetPrimaryAction
+                    <OsSheetAction
                       type="submit"
                       ready={canSubmitAmount && !pending && !error}
                       pending={pending}
@@ -504,7 +504,7 @@ export function AppStorageSheet({
                       disabled={pending || !canSubmitAmount}
                     >
                       {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
-                    </OsSheetPrimaryAction>
+                    </OsSheetAction>
                   </OsSheetActions>
 
                   <p className="app-storage-hint">{actionHint}</p>

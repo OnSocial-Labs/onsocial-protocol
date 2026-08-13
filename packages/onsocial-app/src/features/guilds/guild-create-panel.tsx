@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
   OsIconAction,
   QuestionMarkCircleFillIcon,
 } from '@onsocial/ui';
@@ -315,7 +314,7 @@ export function GuildCreatePanel() {
               Connect wallet
             </OsSheetAction>
           ) : null}
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="submit"
             ready={canSubmit}
             pending={pending}
@@ -323,7 +322,7 @@ export function GuildCreatePanel() {
             disabled={!canSubmit}
           >
             Create guild
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       </form>
       <InfoDrawer

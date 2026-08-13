@@ -5,8 +5,7 @@ import { OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -233,7 +232,7 @@ export function GuildRoomsSheet({
                 Connect wallet
               </OsSheetAction>
             ) : null}
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={isDirty && isConnected}
               pending={pending}
@@ -242,7 +241,7 @@ export function GuildRoomsSheet({
               onClick={() => void handleSave()}
             >
               {memberDriven ? 'Propose rooms' : 'Save rooms'}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
         ) : undefined
       }

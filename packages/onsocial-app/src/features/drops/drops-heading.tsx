@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import {
   GiftFillIcon,
+  OsIconAction,
   PlusIcon,
   SearchField,
   ShopFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -48,24 +48,17 @@ export function DropsHeadingActions() {
 
   return (
     <>
-      <Link
-        href={APP_MARKET_PATH}
-        scroll={false}
-        className={osIconActionClassName}
-        aria-label="Browse Market"
-        title="Secondary listings"
-      >
-        <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-      </Link>
-      {viewerAccountId ? (
-        <Link
-          href={APP_DROP_CREATE_PATH}
-          scroll={false}
-          className={osIconActionClassName}
-          aria-label="Start a drop"
-        >
-          <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+      <OsIconAction asChild ariaLabel="Browse Market" title="Secondary listings">
+        <Link href={APP_MARKET_PATH} scroll={false}>
+          <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
         </Link>
+      </OsIconAction>
+      {viewerAccountId ? (
+        <OsIconAction asChild ariaLabel="Start a drop">
+          <Link href={APP_DROP_CREATE_PATH} scroll={false}>
+            <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+          </Link>
+        </OsIconAction>
       ) : null}
     </>
   );
@@ -73,14 +66,10 @@ export function DropsHeadingActions() {
 
 export function DropsLoadingActions() {
   return (
-    <Link
-      href={APP_MARKET_PATH}
-      scroll={false}
-      className={osIconActionClassName}
-      aria-label="Browse Market"
-      title="Secondary listings"
-    >
-      <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
-    </Link>
+    <OsIconAction asChild ariaLabel="Browse Market" title="Secondary listings">
+      <Link href={APP_MARKET_PATH} scroll={false}>
+        <ShopFillIcon aria-hidden className="glass-sheet-close-icon" />
+      </Link>
+    </OsIconAction>
   );
 }
