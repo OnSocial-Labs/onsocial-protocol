@@ -7,7 +7,7 @@ import { fallbackLabel } from '@/lib/profile-display';
 export type StandingIdentityShowHandle = boolean | 'when-named';
 
 /**
- * Label rules shared by allowlist / royalty / door-staff / add-member pickers.
+ * Label rules shared by standing-row account chrome (pickers + list rows).
  * When there is no custom name, the primary line is `@handle` (no duplicate handle).
  */
 export function standingIdentityLabel(
@@ -32,6 +32,7 @@ export function StandingIdentity({
   nameTrailing,
   children,
   className,
+  nameRowClassName,
   avatarClassName = 'standing-row-avatar-slot',
   shellLoading = false,
 }: {
@@ -45,6 +46,8 @@ export function StandingIdentity({
   /** After `.standing-row-head` inside `.standing-row-copy` (bio, kind). */
   children?: ReactNode;
   className?: string;
+  /** Extra class on `.standing-row-name-row` (e.g. guild member gap). */
+  nameRowClassName?: string;
   avatarClassName?: string;
   shellLoading?: boolean;
 }) {
@@ -67,7 +70,13 @@ export function StandingIdentity({
         }
       >
         <span className="standing-row-head">
-          <span className="standing-row-name-row">
+          <span
+            className={
+              nameRowClassName
+                ? `standing-row-name-row ${nameRowClassName}`
+                : 'standing-row-name-row'
+            }
+          >
             <span className="standing-row-name">{label}</span>
             {nameTrailing}
           </span>

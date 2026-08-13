@@ -5697,6 +5697,12 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .portfolio-scarce-earnings-post-link {
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+  }
+
   .portfolio-scarce-earnings-post-link:hover {
     color: rgb(var(--fg-rgb) / 0.78);
     text-decoration: underline;
