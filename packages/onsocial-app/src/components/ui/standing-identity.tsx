@@ -29,6 +29,7 @@ export function StandingIdentity({
   avatarUrl,
   size = 'lg',
   showHandle = 'when-named',
+  copyLeading,
   nameTrailing,
   children,
   className,
@@ -41,9 +42,11 @@ export function StandingIdentity({
   avatarUrl?: string | null;
   size?: ProfileAvatarSize;
   showHandle?: StandingIdentityShowHandle;
-  /** Inside `.standing-row-name-row` after the name (role badge, status). */
+  /** Before `.standing-row-head` inside `.standing-row-copy` (relationship signals). */
+  copyLeading?: ReactNode;
+  /** Inside `.standing-row-name-row` after the name (role badge, mood, status). */
   nameTrailing?: ReactNode;
-  /** After `.standing-row-head` inside `.standing-row-copy` (bio, kind). */
+  /** After `.standing-row-head` inside `.standing-row-copy` (bio, kind, metrics). */
   children?: ReactNode;
   className?: string;
   /** Extra class on `.standing-row-name-row` (e.g. guild member gap). */
@@ -64,11 +67,12 @@ export function StandingIdentity({
         className={avatarClassName}
         shellLoading={shellLoading}
       />
-      <span
+      <div
         className={
           className ? `standing-row-copy ${className}` : 'standing-row-copy'
         }
       >
+        {copyLeading}
         <span className="standing-row-head">
           <span
             className={
@@ -85,7 +89,7 @@ export function StandingIdentity({
           ) : null}
         </span>
         {children}
-      </span>
+      </div>
     </>
   );
 }
