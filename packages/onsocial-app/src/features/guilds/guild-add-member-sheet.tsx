@@ -1,20 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   OsSheetActions,
   OsSheetPrimaryAction,
   ProfileAvatar,
   SearchField,
-  SheetHeader,
 } from '@onsocial/ui';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import {
   fetchDiscoverProfiles,
   type DiscoverProfileSummary,
@@ -54,7 +52,6 @@ export function GuildAddMemberSheet({
   onClose,
   onAdded,
 }: GuildAddMemberSheetProps) {
-  const titleId = useId();
   const { accountId: viewerId } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
@@ -69,8 +66,6 @@ export function GuildAddMemberSheet({
   const [error, setError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  useScrollLock(sheetOpen);
-
   const excludedIds = useMemo(() => {
     const set = new Set(
       memberIds.map((id) => id.trim().toLowerCase()).filter(Boolean)
@@ -201,32 +196,18 @@ export function GuildAddMemberSheet({
     : '';
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
+      label="Add member"
+      copy="Search profiles to invite."
+      closeAriaLabel="Close add member"
+      backdropLabel="Close add member"
       zIndex={60}
       presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close add member"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Add member"
-            subtitle="Search profiles to invite."
-            onClose={requestClose}
-            closeAriaLabel="Close add member"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         <div className="guild-add-member-footer">
           {error ? (
@@ -346,6 +327,6 @@ export function GuildAddMemberSheet({
           </div>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
