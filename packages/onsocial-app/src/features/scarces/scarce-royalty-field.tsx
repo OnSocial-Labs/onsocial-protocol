@@ -1,9 +1,7 @@
 'use client';
 
-import {
-  osFieldBorderedClassName,
-} from '@onsocial/ui';
 import { useCallback, useState } from 'react';
+import { AmountField } from '@/components/ui/amount-field';
 import {
   DEFAULT_ROYALTY_BPS,
   MAX_ROYALTY_BPS,
@@ -106,6 +104,29 @@ export function ScarceRoyaltyField({
     [onCustomToggle, onRoyaltyBpsChange]
   );
 
+  const applyCustomRoyaltyInput = useCallback(
+    (raw: string) => {
+      const next = normalizeCustomRoyaltyInput(raw);
+      if (!next) {
+        onCustomRoyaltyChange('');
+        return;
+      }
+      if (next.endsWith('.')) {
+        onCustomRoyaltyChange(
+          Number(next.slice(0, -1)) <= MAX_ROYALTY_BPS / 100
+            ? next
+            : customRoyaltyInput
+        );
+        return;
+      }
+      const bps = parseCustomRoyaltyBps(next);
+      onCustomRoyaltyChange(
+        bps == null ? customRoyaltyInput : formatRoyaltyPercent(bps)
+      );
+    },
+    [customRoyaltyInput, onCustomRoyaltyChange]
+  );
+
   const chipValue = formatRoyaltySplitChipValue(
     activeShares,
     primaryAccountId ?? '',
@@ -147,38 +168,14 @@ export function ScarceRoyaltyField({
         </button>
       </div>
       {isCustomRoyalty ? (
-        <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-          <input
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            value={customRoyaltyInput}
-            onChange={(event) =>
-              onCustomRoyaltyChange(
-                (() => {
-                  const next = normalizeCustomRoyaltyInput(event.target.value);
-                  if (!next) return '';
-                  if (next.endsWith('.')) {
-                    return Number(next.slice(0, -1)) <= MAX_ROYALTY_BPS / 100
-                      ? next
-                      : customRoyaltyInput;
-                  }
-                  const bps = parseCustomRoyaltyBps(next);
-                  return bps == null
-                    ? customRoyaltyInput
-                    : formatRoyaltyPercent(bps);
-                })()
-              )
-            }
-            placeholder="0–50"
-            aria-label="Custom resale royalty percentage from 0 to 50"
-            className="app-storage-amount-input"
-            disabled={pending}
-          />
-          <span className="account-card-balance-unit profile-support-token-unit">
-            %
-          </span>
-        </div>
+        <AmountField
+          value={customRoyaltyInput}
+          onValueChange={applyCustomRoyaltyInput}
+          placeholder="0–50"
+          aria-label="Custom resale royalty percentage from 0 to 50"
+          unit="%"
+          disabled={pending}
+        />
       ) : null}
 
       {canShowSplit ? (
