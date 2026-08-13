@@ -16934,15 +16934,6 @@ a.os-surface-row {
 
   /* Choice / action / info drawer chrome: @onsocial/ui/os-choice-drawer.css */
 
-  .account-social-help-summary {
-    color: rgb(var(--fg-rgb) / 0.82);
-    font-weight: 550;
-  }
-
-  .account-social-help-detail {
-    color: rgb(var(--fg-rgb) / 0.52);
-  }
-
   .scarce-choice-swatch {
     display: inline-flex;
     align-items: center;
