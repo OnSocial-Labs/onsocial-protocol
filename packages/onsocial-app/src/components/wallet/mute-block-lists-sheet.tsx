@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { GlassSheet, ProfileAvatar, SheetHeader } from '@onsocial/ui';
+import { OsHugSheet, ProfileAvatar } from '@onsocial/ui';
 import {
   ActionDrawer,
   type ActionDrawerItem,
@@ -10,7 +10,6 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useViewerBlock } from '@/hooks/use-viewer-block';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import {
   BLOCK_LIST_HINT,
   MUTE_LIST_HINT,
@@ -52,8 +51,6 @@ export function MuteBlockListsSheet({
   const [rowMenuAccountId, setRowMenuAccountId] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  useScrollLock(sheetOpen);
-
   const handleClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -170,23 +167,18 @@ export function MuteBlockListsSheet({
 
   return (
     <>
-      <GlassSheet
+      <OsHugSheet
         open={sheetOpen}
         onClose={handleClose}
         onClosed={handleClosed}
-        tone="os"
-        initialDetent="full"
-        zIndex={58}
-        presentation="swap"
-        ariaLabelledBy="mute-block-lists-title"
+        label="Muted & blocked"
+        closeAriaLabel="Close muted and blocked"
         backdropLabel="Close muted and blocked"
+        zIndex={58}
+        sizing="full"
+        presentation="swap"
+        titleId="mute-block-lists-title"
       >
-        <SheetHeader
-          titleId="mute-block-lists-title"
-          title="Muted & blocked"
-          onClose={handleClose}
-          closeAriaLabel="Close muted and blocked"
-        />
         <div className="mute-block-lists-tabs" role="tablist" aria-label="List">
           <button
             type="button"
@@ -251,7 +243,7 @@ export function MuteBlockListsSheet({
             })}
           </ul>
         )}
-      </GlassSheet>
+      </OsHugSheet>
       <ActionDrawer
         open={Boolean(rowMenuAccountId)}
         onClose={() => setRowMenuAccountId(null)}

@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -12,7 +11,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   HeartFillIcon,
   HeartIcon,
   InformationCircleIcon,
@@ -21,7 +20,6 @@ import {
   BookmarkIcon,
   ScaleUpIcon,
   ShareIcon,
-  SheetHeader,
   ShopFillIcon,
   osIconActionClassName,
 } from '@onsocial/ui';
@@ -79,7 +77,6 @@ import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-s
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScarceDropLoves } from '@/hooks/use-scarce-drop-loves';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   APP_DROPS_PATH,
@@ -214,11 +211,9 @@ export function CollectionPagePanel({
   const [showPassTokenId, setShowPassTokenId] = useState<string | null>(null);
   /** Viewer is creator or door staff for redeem. */
   const [isRedeemer, setIsRedeemer] = useState(false);
-  const activityTitleId = useId();
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const heroTitleRef = useRef<HTMLHeadingElement | null>(null);
   const activitySheetOpen = activityOpen && !activityClosing;
-  useScrollLock(activityOpen || activityClosing);
 
   const isOwner =
     Boolean(viewerAccountId) &&
@@ -1294,31 +1289,17 @@ export function CollectionPagePanel({
 
       </div>
 
-      <GlassSheet
+      <OsHugSheet
         open={activitySheetOpen}
         onClose={requestActivityClose}
         onClosed={handleActivityClosed}
-        tone="os"
-        sizing="hug"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={58}
-        ariaLabelledBy={activityTitleId}
+        label="Activity"
+        copy={view.title}
+        closeAriaLabel="Close activity"
         backdropLabel="Close activity"
+        zIndex={58}
         panelClassName="collection-activity-sheet-panel"
         bodyClassName="collection-activity-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={activityTitleId}
-              title="Activity"
-              subtitle={view.title}
-              onClose={requestActivityClose}
-              closeAriaLabel="Close activity"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
       >
         {sheetActivity.length > 0 ? (
           <CollectionActivityRows
@@ -1328,7 +1309,7 @@ export function CollectionPagePanel({
         ) : (
           <p className="collection-activity-empty">No mint activity yet.</p>
         )}
-      </GlassSheet>
+      </OsHugSheet>
 
       <CollectionAboutSheet
         open={aboutOpen}

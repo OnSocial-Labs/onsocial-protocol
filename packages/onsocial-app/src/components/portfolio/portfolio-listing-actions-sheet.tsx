@@ -4,17 +4,15 @@ import Link from 'next/link';
 import {
   useCallback,
   useEffect,
-  useId,
   useState,
   type CSSProperties,
 } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   OsSheetAction,
   OsSheetActions,
   SheetCloseButton,
-  SheetHeader,
   ShopFillIcon,
   TimeFillIcon,
   osIconActionClassName,
@@ -39,7 +37,6 @@ import {
   ScarceBidSheet,
   type ScarceBidListing,
 } from '@/features/scarces/scarce-bid-sheet';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -221,7 +218,6 @@ export function PortfolioListingActionsSheet({
   onOpenChange,
   onActionsChanged,
 }: PortfolioListingActionsSheetProps) {
-  const titleId = useId();
   const { getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
@@ -237,7 +233,6 @@ export function PortfolioListingActionsSheet({
     ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
     : undefined;
 
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open) return;
@@ -338,49 +333,38 @@ export function PortfolioListingActionsSheet({
 
   return (
     <>
-      <GlassSheet
+      <OsHugSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        tone="os"
-        sizing="hug"
-        moodId={mood?.id}
-        initialDetent="full"
-        zIndex={56}
-        ariaLabelledBy={titleId}
+        label="Listings"
+        {...(subtitle ? { copy: subtitle } : {})}
+        closeAriaLabel="Close listing actions"
         backdropLabel="Close listing actions"
+        zIndex={56}
+        {...(mood?.id ? { moodId: mood.id } : {})}
         bodyClassName="portfolio-support-collect-info-body"
         panelClassName="portfolio-support-collect-info-panel"
-        panelStyle={panelStyle}
-        header={
-          <>
-            <SheetHeader
-              titleId={titleId}
-              title="Listings"
-              subtitle={subtitle}
-              actions={
-                <div className="standing-sheet-actions standing-sheet-actions--payout">
-                  <Link
-                    href={APP_MARKET_PATH}
-                    className={osIconActionClassName}
-                    scroll={false}
-                    onClick={requestClose}
-                    aria-label="Open Market"
-                  >
-                    <ShopFillIcon
-                      className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                      aria-hidden
-                    />
-                  </Link>
-                  <SheetCloseButton
-                    onClick={requestClose}
-                    ariaLabel="Close listing actions"
-                  />
-                </div>
-              }
+        {...(panelStyle ? { panelStyle } : {})}
+        headerActions={
+          <div className="standing-sheet-actions standing-sheet-actions--payout">
+            <Link
+              href={APP_MARKET_PATH}
+              className={osIconActionClassName}
+              scroll={false}
+              onClick={requestClose}
+              aria-label="Open Market"
+            >
+              <ShopFillIcon
+                className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                aria-hidden
+              />
+            </Link>
+            <SheetCloseButton
+              onClick={requestClose}
+              ariaLabel="Close listing actions"
             />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
+          </div>
         }
       >
         <section className="portfolio-support-collect-info-block">
@@ -420,7 +404,7 @@ export function PortfolioListingActionsSheet({
             ))
           )}
         </section>
-      </GlassSheet>
+      </OsHugSheet>
 
       <ScarceBidSheet
         open={bidListing != null}
