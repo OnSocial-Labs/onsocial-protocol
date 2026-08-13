@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
-import { Divider, GlassSheet, PulsingDots, SheetHeader } from '@onsocial/ui';
+import {
+  Divider,
+  GLASS_SHEET_PEEK_RATIO,
+  OsHugSheet,
+  PulsingDots,
+} from '@onsocial/ui';
 import { listActiveJoinRequestProposals } from '@/features/guilds/guild-config';
 import {
   guildProposalPresentation,
@@ -296,37 +301,29 @@ export function GuildProposalsSheet({
   }, [proposals, resolvedProposals]);
   const profiles = usePostAuthorProfiles(profileIds);
 
+  const subtitle = canVote
+    ? 'Support or oppose active governance items.'
+    : memberDriven
+      ? 'Join this guild to vote on proposals.'
+      : 'Active governance items excluding join requests.';
+
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy="guild-proposals-title"
+      label="Proposals"
+      copy={subtitle}
+      closeAriaLabel="Close"
       backdropLabel="Close proposals"
+      zIndex={57}
+      sizing="full"
+      initialDetent="peek"
+      peekRatio={GLASS_SHEET_PEEK_RATIO}
+      presentation="swap"
+      titleId="guild-proposals-title"
+      headerClassName="guild-manage-sheet-header"
       panelClassName="guild-manage-sheet-panel"
       bodyClassName="guild-manage-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId="guild-proposals-title"
-            title="Proposals"
-            subtitle={
-              canVote
-                ? 'Support or oppose active governance items.'
-                : memberDriven
-                  ? 'Join this guild to vote on proposals.'
-                  : 'Active governance items excluding join requests.'
-            }
-            onClose={onClose}
-            closeAriaLabel="Close"
-            className="guild-manage-sheet-header"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-proposals-sheet">
         {onOpenRequests && joinRequestCount > 0 ? (
@@ -425,6 +422,6 @@ export function GuildProposalsSheet({
           </>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -26,7 +26,6 @@ import {
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   txToastConfirming,
@@ -49,7 +48,6 @@ export function GuildRoomsSheet({
   onClose,
   onSaved,
 }: GuildRoomsSheetProps) {
-  const titleId = useId();
   const {
     accountId,
     isConnected,
@@ -75,8 +73,6 @@ export function GuildRoomsSheet({
   const [error, setError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  useScrollLock(open || closing);
-
   const load = useCallback(async () => {
     setLoadState('loading');
     setError(null);
@@ -212,30 +208,19 @@ export function GuildRoomsSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      zIndex={58}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Rooms"
+      copy="Rooms and feed tabs for this guild"
+      closeAriaLabel="Close"
       backdropLabel="Close guild rooms"
+      zIndex={58}
+      sizing="full"
+      presentation="swap"
       panelClassName="guild-rooms-sheet-panel"
       bodyClassName="guild-rooms-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Rooms"
-            subtitle="Rooms and feed tabs for this guild"
-            onClose={requestClose}
-            closeAriaLabel="Close"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         loadState === 'ready' && structure ? (
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -293,6 +278,6 @@ export function GuildRoomsSheet({
           {error ? <p className="guild-form-error">{error}</p> : null}
         </>
       ) : null}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

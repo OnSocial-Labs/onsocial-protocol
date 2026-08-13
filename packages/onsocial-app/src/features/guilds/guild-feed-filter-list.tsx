@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
-  Divider,
-  GlassSheet,
   InformationCircleIcon,
+  OsHugSheet,
   PlusIcon,
   ProtocolMotionArrow,
-  SheetHeader,
 } from '@onsocial/ui';
 import {
   GUILD_SPACE_KIND_OPTIONS,
@@ -22,7 +20,6 @@ import {
   loadGuildSpaceWriterCounts,
   type GuildSpaceWritersShareDisplay,
 } from '@/features/guilds/guild-space-write';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 function spaceKindLabel(kind: GuildSpace['kind']): string {
@@ -97,7 +94,6 @@ function GuildRoomFactsSheet({
   onClose: () => void;
   onOpenWriters?: () => void;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [writersDisplay, setWritersDisplay] =
@@ -114,8 +110,6 @@ function GuildRoomFactsSheet({
       setWritersDisplay({ kind: 'loading' });
     }
   }
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open || space.postPolicy !== 'allowlist') return;
@@ -158,35 +152,21 @@ function GuildRoomFactsSheet({
     );
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={() => {
         setClosing(false);
         onClose();
       }}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
+      label={space.title}
+      copy="Room details"
+      closeAriaLabel="Close room info"
+      backdropLabel="Close room info"
       zIndex={56}
       presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close room info"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={space.title}
-            subtitle="Room details"
-            onClose={requestClose}
-            closeAriaLabel="Close room info"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts">
         <section className="guild-facts-section">
@@ -240,7 +220,7 @@ function GuildRoomFactsSheet({
           </div>
         </section>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
 
