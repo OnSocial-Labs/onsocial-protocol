@@ -1,9 +1,7 @@
 'use client';
 
-import {
-  osFieldBorderedClassName,
-} from '@onsocial/ui';
 import { useEffect, useMemo, useState } from 'react';
+import { AmountField } from '@/components/ui/amount-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -269,29 +267,17 @@ export function ScarceOfferForm({
 
       {!isOwn ? (
         <>
-          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={amountInput}
-              onChange={(event) => applyAmountInput(event.target.value)}
-              onFocus={onAmountFocus}
-              onBlur={() =>
-                applyAmountInput(
-                  finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="0.1"
-              aria-label="Offer in NEAR"
-              aria-invalid={Boolean(fieldError)}
-              className="app-storage-amount-input"
-              disabled={Boolean(pending) || loadingOffer}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              NEAR
-            </span>
-          </div>
+          <AmountField
+            value={amountInput}
+            onValueChange={applyAmountInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            onFocus={onAmountFocus}
+            placeholder="0.1"
+            aria-label="Offer in NEAR"
+            invalid={Boolean(fieldError)}
+            unit="NEAR"
+            disabled={Boolean(pending) || loadingOffer}
+          />
           <div className="profile-support-quick-row">
             <div
               className="app-storage-presets"

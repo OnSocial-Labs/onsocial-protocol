@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ProfileAvatar,
-  osFieldBorderedClassName,
-} from '@onsocial/ui';
+import { ProfileAvatar } from '@onsocial/ui';
+import { AmountField } from '@/components/ui/amount-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -399,29 +398,17 @@ export function ScarceSellForm({
       ) : (
         <p className="scarce-mood-picker-label">Price</p>
       )}
-      <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-        <input
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={amountInput}
-          onChange={(event) => applyAmountInput(event.target.value)}
-          onFocus={onAmountFocus}
-          onBlur={() =>
-            applyAmountInput(
-              finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-            )
-          }
-          placeholder={MIN_PRICE_NEAR}
-          aria-label={mode === 'auction' ? 'Reserve in NEAR' : 'Price in NEAR'}
-          aria-invalid={Boolean(amountError)}
-          className="app-storage-amount-input"
-          disabled={pending}
-        />
-        <span className="account-card-balance-unit profile-support-token-unit">
-          NEAR
-        </span>
-      </div>
+      <AmountField
+        value={amountInput}
+        onValueChange={applyAmountInput}
+        maxDecimals={NEAR_INPUT_DECIMALS}
+        onFocus={onAmountFocus}
+        placeholder={MIN_PRICE_NEAR}
+        aria-label={mode === 'auction' ? 'Reserve in NEAR' : 'Price in NEAR'}
+        invalid={Boolean(amountError)}
+        unit="NEAR"
+        disabled={pending}
+      />
 
       <div className="profile-support-quick-row">
         <div
@@ -448,28 +435,16 @@ export function ScarceSellForm({
       {mode === 'auction' ? (
         <>
           <p className="scarce-mood-picker-label">Min bid step</p>
-          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={incrementInput}
-              onChange={(event) => applyIncrementInput(event.target.value)}
-              onFocus={onAmountFocus}
-              onBlur={() =>
-                applyIncrementInput(
-                  finalizeAmountInput(incrementInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="0.1"
-              aria-label="Minimum bid increment in NEAR"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              NEAR
-            </span>
-          </div>
+          <AmountField
+            value={incrementInput}
+            onValueChange={applyIncrementInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            onFocus={onAmountFocus}
+            placeholder="0.1"
+            aria-label="Minimum bid increment in NEAR"
+            unit="NEAR"
+            disabled={pending}
+          />
           <div
             className="app-storage-presets"
             role="group"
@@ -512,28 +487,16 @@ export function ScarceSellForm({
           </div>
 
           <p className="scarce-mood-picker-label">Buy now (optional)</p>
-          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={buyNowInput}
-              onChange={(event) => applyBuyNowInput(event.target.value)}
-              onFocus={onAmountFocus}
-              onBlur={() =>
-                applyBuyNowInput(
-                  finalizeAmountInput(buyNowInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="Above reserve"
-              aria-label="Buy now price in NEAR"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              NEAR
-            </span>
-          </div>
+          <AmountField
+            value={buyNowInput}
+            onValueChange={applyBuyNowInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            onFocus={onAmountFocus}
+            placeholder="Above reserve"
+            aria-label="Buy now price in NEAR"
+            unit="NEAR"
+            disabled={pending}
+          />
           <p className="profile-support-hint">
             {normalizedBuyNow
               ? `Bid ≥ ${normalizedBuyNow} NEAR wins immediately · `
