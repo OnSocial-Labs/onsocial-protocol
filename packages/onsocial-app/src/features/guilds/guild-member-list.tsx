@@ -59,7 +59,9 @@ export function GuildMemberList({
           profile?.displayName
         );
         const href = portfolioPath(member.memberId);
-        const timeMeta = guildMemberTimeMeta(member, { listMode });
+        const timeMeta = guildMemberTimeMeta(member.blockTimestamp, {
+          isOwner: listMode === 'banned' ? false : member.isOwner,
+        });
         const pendingRoleLevel =
           listMode === 'banned'
             ? null

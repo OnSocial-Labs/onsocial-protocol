@@ -34,13 +34,16 @@ export function CollectionActivityRows({
       {rows.map((row, index) => {
         const actor = row.actor?.trim() || null;
         const profile = actor ? profiles[actor] : undefined;
+        const actorLabel = actor
+          ? standingIdentityLabel(actor, profile?.displayName).label
+          : null;
 
         return (
           <div key={row.key}>
             {index > 0 ? <Divider variant="item" /> : null}
             <div className="standing-row collection-activity-standing-row">
               <div className="standing-row-main">
-                {actor ? (
+                {actor && actorLabel ? (
                   <>
                     {/* Full-row hit like ProfileSocialListRow — circular avatar slot,
                         no rectangular link ring around the face. */}
@@ -48,9 +51,7 @@ export function CollectionActivityRows({
                       href={portfolioPath(actor)}
                       className="standing-row-hit"
                       scroll={false}
-                      aria-label={`View ${
-                        profile?.displayName?.trim() || `@${actor}`
-                      }'s profile`}
+                      aria-label={`View ${actorLabel}'s profile`}
                     />
                     <StandingIdentity
                       accountId={actor}
