@@ -22,8 +22,8 @@ export function BlockConfirmPanel({
   const copy = blockConfirmCopy({ accountId, profileName });
 
   return (
-    <div className="action-drawer-confirm">
-      <p className="action-drawer-confirm-body">{copy.body}</p>
+    <div className="os-action-drawer-confirm">
+      <p className="os-action-drawer-confirm-body">{copy.body}</p>
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
         <OsSheetAction
           type="button"
@@ -40,7 +40,7 @@ export function BlockConfirmPanel({
       {!pending ? (
         <button
           type="button"
-          className="action-drawer-confirm-cancel"
+          className="os-action-drawer-confirm-cancel"
           onClick={onCancel}
         >
           Cancel

@@ -109,8 +109,8 @@ export function DropStartConfirmSheet({
       zIndex={62}
       ariaLabelledBy={titleId}
       backdropLabel="Close"
-      panelClassName="scarce-choice-sheet-panel"
-      bodyClassName="scarce-choice-sheet-body drop-start-confirm-body"
+      panelClassName="os-choice-sheet-panel"
+      bodyClassName="os-choice-sheet-body drop-start-confirm-body"
       header={
         <>
           <SheetHeader

@@ -37,10 +37,10 @@ export function ActionDrawer(props: ActionDrawerProps) {
 }
 
 export {
-  actionDrawerConfirmBodyClassName,
-  actionDrawerConfirmCancelClassName,
-  actionDrawerConfirmClassName,
-  actionDrawerIconClassName,
+  osActionDrawerConfirmBodyClassName,
+  osActionDrawerConfirmCancelClassName,
+  osActionDrawerConfirmClassName,
+  osActionDrawerIconClassName,
   type ActionDrawerItem,
   type ActionDrawerLinkProps,
   type ActionDrawerProps,

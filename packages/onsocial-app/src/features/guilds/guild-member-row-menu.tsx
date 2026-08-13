@@ -56,22 +56,22 @@ interface GuildMemberRowMenuProps {
 function actionIcon(id: GuildMemberRowActionId): ReactNode {
   switch (id) {
     case 'copy-handle':
-      return <CopyIcon className="action-drawer-icon" aria-hidden />;
+      return <CopyIcon className="os-action-drawer-icon" aria-hidden />;
     case 'add-storage':
-      return <ShareIcon className="action-drawer-icon" aria-hidden />;
+      return <ShareIcon className="os-action-drawer-icon" aria-hidden />;
     case 'remove-from-guild':
-      return <TrashIcon className="action-drawer-icon" aria-hidden />;
+      return <TrashIcon className="os-action-drawer-icon" aria-hidden />;
     case 'ban-from-guild':
-      return <TrashIcon className="action-drawer-icon" aria-hidden />;
+      return <TrashIcon className="os-action-drawer-icon" aria-hidden />;
     case 'unban-from-guild':
-      return <UserIcon className="action-drawer-icon" aria-hidden />;
+      return <UserIcon className="os-action-drawer-icon" aria-hidden />;
     case 'transfer-ownership':
-      return <UserCircleFillIcon className="action-drawer-icon" aria-hidden />;
+      return <UserCircleFillIcon className="os-action-drawer-icon" aria-hidden />;
     case 'make-mod':
     case 'make-admin':
-      return <UsersFillIcon className="action-drawer-icon" aria-hidden />;
+      return <UsersFillIcon className="os-action-drawer-icon" aria-hidden />;
     default:
-      return <UserIcon className="action-drawer-icon" aria-hidden />;
+      return <UserIcon className="os-action-drawer-icon" aria-hidden />;
   }
 }
 
@@ -340,8 +340,8 @@ export function GuildMemberRowMenu({
         items={confirmAction ? undefined : menuItems}
       >
         {confirmAction && confirmCopy ? (
-          <div className="action-drawer-confirm">
-            <p className="action-drawer-confirm-body">{confirmCopy.subtitle}</p>
+          <div className="os-action-drawer-confirm">
+            <p className="os-action-drawer-confirm-body">{confirmCopy.subtitle}</p>
             {confirmAction.id === 'transfer-ownership' ? (
               <label className="os-notice-card-toggle">
                 <input
@@ -393,7 +393,7 @@ export function GuildMemberRowMenu({
             {!pending ? (
               <button
                 type="button"
-                className="action-drawer-confirm-cancel"
+                className="os-action-drawer-confirm-cancel"
                 onClick={resetConfirm}
               >
                 Cancel

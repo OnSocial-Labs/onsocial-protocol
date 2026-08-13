@@ -182,10 +182,10 @@ export function ScarceRoyaltyField({
       ) : null}
 
       {canShowSplit ? (
-        <div className="app-storage-presets scarce-choice-chip-row">
+        <div className="app-storage-presets os-choice-chip-row">
           <button
             type="button"
-            className={`os-surface-chip scarce-choice-chip${
+            className={`os-surface-chip os-choice-chip${
               splitSheetOpen || isSplit ? ' is-selected' : ''
             }`}
             disabled={pending}
@@ -194,8 +194,8 @@ export function ScarceRoyaltyField({
             aria-label={`Royalty split: ${chipValue}`}
             onClick={openSplit}
           >
-            <span className="scarce-choice-chip-label">Split</span>
-            <span className="scarce-choice-chip-value">{chipValue}</span>
+            <span className="os-choice-chip-label">Split</span>
+            <span className="os-choice-chip-value">{chipValue}</span>
           </button>
         </div>
       ) : null}

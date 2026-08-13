@@ -1119,8 +1119,8 @@ export function ComposerSheet({
       zIndex={COMPOSER_NEST_Z}
       ariaLabelledBy={labelsTitleId}
       backdropLabel="Close content labels"
-      panelClassName="scarce-choice-sheet-panel"
-      bodyClassName="scarce-choice-sheet-body guild-composer-labels-sheet-body"
+      panelClassName="os-choice-sheet-panel"
+      bodyClassName="os-choice-sheet-body guild-composer-labels-sheet-body"
       panelStyle={viewerMoodStyle}
       header={
         <>

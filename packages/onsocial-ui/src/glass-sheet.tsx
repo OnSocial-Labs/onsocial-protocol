@@ -824,6 +824,8 @@ export function SheetCloseButton({
 export interface SheetHeaderProps {
   titleId?: string;
   title: ReactNode;
+  /** Sibling of the title (e.g. Clear) — stays outside the heading. */
+  titleAccessory?: ReactNode;
   subtitle?: ReactNode;
   onClose?: () => void;
   closeAriaLabel?: string;
@@ -834,6 +836,7 @@ export interface SheetHeaderProps {
 export function SheetHeader({
   titleId,
   title,
+  titleAccessory,
   subtitle,
   onClose,
   closeAriaLabel,
@@ -849,9 +852,18 @@ export function SheetHeader({
   return (
     <header className={cn('glass-sheet-header', className)}>
       <div className="glass-sheet-header-copy">
-        <h2 id={titleId} className="glass-sheet-header-title">
-          {title}
-        </h2>
+        {titleAccessory ? (
+          <div className="glass-sheet-header-title-row">
+            <h2 id={titleId} className="glass-sheet-header-title">
+              {title}
+            </h2>
+            {titleAccessory}
+          </div>
+        ) : (
+          <h2 id={titleId} className="glass-sheet-header-title">
+            {title}
+          </h2>
+        )}
         {subtitle ? (
           <p className="glass-sheet-header-subtitle">{subtitle}</p>
         ) : null}
