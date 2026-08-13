@@ -4,7 +4,7 @@ import { useCallback, useId, useState } from 'react';
 import {
   Divider,
   GlassSheet,
-  SheetCloseButton,
+  SheetHeader,
   osFloatingPanelCountClassName,
 } from '@onsocial/ui';
 import type { HubManageSheetId } from '@/features/scarces/hub-manage-sheets';
@@ -75,23 +75,14 @@ export function HubSettingsSheet({
       bodyClassName="guild-settings-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-settings-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Settings
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {hubName?.trim() || 'Hub tools and configuration'}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Settings"
+            subtitle={hubName?.trim() || 'Hub tools and configuration'}
+            onClose={requestClose}
+            closeAriaLabel="Close"
+            className="guild-settings-sheet-header"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

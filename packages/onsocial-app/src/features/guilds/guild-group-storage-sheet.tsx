@@ -8,7 +8,7 @@ import {
   OsSheetActions,
   OsSheetPrimaryAction,
   PlusIcon,
-  SheetCloseButton,
+  SheetHeader,
   osFieldSoftClassName,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -60,17 +60,11 @@ import {
 
 const GROUP_STORAGE_LABEL = 'Group storage';
 const GROUP_STORAGE_FUND_HINT = 'Group pools start at 0.1 NEAR.';
-const GROUP_STORAGE_GRANT_HINT =
-  'Members write guild content from this pool.';
+const GROUP_STORAGE_GRANT_HINT = 'Members write guild content from this pool.';
 const GROUP_STORAGE_DEFAULT_HINT =
   'Applies to members without a personal grant.';
 
-type RecipientRowStatus =
-  | 'empty'
-  | 'invalid'
-  | 'self'
-  | 'duplicate'
-  | 'ready';
+type RecipientRowStatus = 'empty' | 'invalid' | 'self' | 'duplicate' | 'ready';
 
 function CompactByteAmount({
   bytes,
@@ -174,8 +168,8 @@ function GroupPoolReadout({
               <span className="app-storage-share-muted"> available</span>
             </p>
             <p className="app-storage-meta">
-              {formatNearCompact(storageBalanceYocto.toString())} NEAR in pool
-              · {allocatedPercent}% assigned
+              {formatNearCompact(storageBalanceYocto.toString())} NEAR in pool ·{' '}
+              {allocatedPercent}% assigned
             </p>
           </div>
           <div className="app-storage-share-split-track" aria-hidden>
@@ -646,9 +640,7 @@ export function GuildGroupStorageSheet({
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
       setError(
-        err instanceof Error
-          ? err.message
-          : txToastError.groupStorageFundFailed
+        err instanceof Error ? err.message : txToastError.groupStorageFundFailed
       );
       return;
     } finally {
@@ -836,23 +828,14 @@ export function GuildGroupStorageSheet({
       bodyClassName="account-storage-body"
       header={
         <>
-          <div className="standing-sheet-header account-storage-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Group storage
-                  </h2>
-                  <p className="account-drawer-handle">
-                    {guildName?.trim() || 'Guild pool and member grants'}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Group storage"
+            subtitle={guildName?.trim() || 'Guild pool and member grants'}
+            onClose={requestClose}
+            closeAriaLabel="Close"
+            className="account-storage-header"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
@@ -886,15 +869,15 @@ export function GuildGroupStorageSheet({
               <p className="app-storage-meta">
                 Add NEAR to this guild&apos;s shared storage pool.
               </p>
-              <div className={`app-storage-amount-field ${osFieldSoftClassName}`}>
+              <div
+                className={`app-storage-amount-field ${osFieldSoftClassName}`}
+              >
                 <input
                   type="text"
                   inputMode="decimal"
                   autoComplete="off"
                   value={fundAmountInput}
-                  onChange={(event) =>
-                    applyFundAmountInput(event.target.value)
-                  }
+                  onChange={(event) => applyFundAmountInput(event.target.value)}
                   onBlur={() =>
                     applyFundAmountInput(
                       finalizeAmountInput(
@@ -938,7 +921,8 @@ export function GuildGroupStorageSheet({
                   ) : null}
                   {walletNearYocto != null ? (
                     <>
-                      Balance {formatNearCompact(walletNearYocto.toString())} ·{' '}
+                      Balance {formatNearCompact(walletNearYocto.toString())}{' '}
+                      ·{' '}
                     </>
                   ) : null}
                   Min {amountHint}
@@ -977,9 +961,7 @@ export function GuildGroupStorageSheet({
                   <button
                     type="button"
                     className="app-storage-share-link"
-                    onClick={() =>
-                      setShowDefaultEditor((current) => !current)
-                    }
+                    onClick={() => setShowDefaultEditor((current) => !current)}
                     disabled={pending}
                   >
                     {showDefaultEditor

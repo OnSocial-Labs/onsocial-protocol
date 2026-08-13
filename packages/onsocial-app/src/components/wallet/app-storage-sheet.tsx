@@ -13,7 +13,7 @@ import {
   GlassSheet,
   OsSheetActions,
   OsSheetPrimaryAction,
-  SheetCloseButton,
+  SheetHeader,
   osFieldSoftClassName,
 } from '@onsocial/ui';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
@@ -359,24 +359,14 @@ export function AppStorageSheet({
         bodyClassName="account-storage-body"
         header={
           <>
-            <div className="standing-sheet-header account-storage-header">
-              <div className="standing-sheet-subject-row">
-                <div className="standing-sheet-subject">
-                  <div className="standing-sheet-subject-copy">
-                    <h2
-                      id="app-storage-sheet-title"
-                      className="standing-sheet-subject-name"
-                    >
-                      Storage
-                    </h2>
-                    <p className="account-drawer-handle">@{accountId}</p>
-                  </div>
-                </div>
-                <div className="standing-sheet-actions">
-                  <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-                </div>
-              </div>
-            </div>
+            <SheetHeader
+              titleId="app-storage-sheet-title"
+              title="Storage"
+              subtitle={`@${accountId}`}
+              onClose={requestClose}
+              closeAriaLabel="Close"
+              className="account-storage-header"
+            />
             <Divider variant="section" className="glass-sheet-header-divider" />
           </>
         }
@@ -447,7 +437,9 @@ export function AppStorageSheet({
                   className="app-storage-form"
                   onSubmit={(event) => void handleSubmit(event)}
                 >
-                  <div className={`app-storage-amount-field ${osFieldSoftClassName}`}>
+                  <div
+                    className={`app-storage-amount-field ${osFieldSoftClassName}`}
+                  >
                     <input
                       type="text"
                       inputMode="decimal"

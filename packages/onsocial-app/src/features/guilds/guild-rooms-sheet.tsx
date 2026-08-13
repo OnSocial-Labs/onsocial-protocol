@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -50,8 +50,12 @@ export function GuildRoomsSheet({
   onSaved,
 }: GuildRoomsSheetProps) {
   const titleId = useId();
-  const { accountId, isConnected, isLoading: walletLoading, connect } =
-    useAppWallet();
+  const {
+    accountId,
+    isConnected,
+    isLoading: walletLoading,
+    connect,
+  } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
 
@@ -130,9 +134,7 @@ export function GuildRoomsSheet({
         });
         if (!cancelled) {
           setDiscoveredChannels(
-            aggregateChannelsFromPosts(
-              channels.map((channel) => ({ channel }))
-            )
+            aggregateChannelsFromPosts(channels.map((channel) => ({ channel })))
           );
         }
       } catch {
@@ -224,23 +226,13 @@ export function GuildRoomsSheet({
       bodyClassName="guild-rooms-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Rooms
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    Rooms and feed tabs for this guild
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Rooms"
+            subtitle="Rooms and feed tabs for this guild"
+            onClose={requestClose}
+            closeAriaLabel="Close"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }

@@ -4,7 +4,7 @@ import { useCallback, useId, useState, type FormEvent } from 'react';
 import {
   Divider,
   GlassSheet,
-  SheetCloseButton,
+  SheetHeader,
   osFieldSoftClassName,
 } from '@onsocial/ui';
 import {
@@ -69,8 +69,7 @@ export function GuildAddSpaceSheet({
   const { trackTransaction } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const [title, setTitle] = useState('');
-  const [postPolicy, setPostPolicy] =
-    useState<GuildSpacePostPolicy>('members');
+  const [postPolicy, setPostPolicy] = useState<GuildSpacePostPolicy>('members');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
@@ -168,23 +167,14 @@ export function GuildAddSpaceSheet({
       bodyClassName="guild-add-space-sheet-body"
       header={
         <>
-          <div className="standing-sheet-header guild-add-space-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Add room
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    New feed tab in this guild.
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
+          <SheetHeader
+            titleId={titleId}
+            title="Add room"
+            subtitle="New feed tab in this guild."
+            onClose={requestClose}
+            closeAriaLabel="Close"
+            className="guild-add-space-sheet-header"
+          />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
       }
@@ -196,7 +186,7 @@ export function GuildAddSpaceSheet({
         <label className="guild-add-space-field">
           <span className="guild-add-space-label">Name</span>
           <input
-            className={`${osFieldSoftClassName} guild-add-space-input}`}
+            className={`${osFieldSoftClassName} guild-add-space-input`}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Shipping Room"
