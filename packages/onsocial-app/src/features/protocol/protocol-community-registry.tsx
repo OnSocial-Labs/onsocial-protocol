@@ -1,5 +1,8 @@
 'use client';
 
+import {
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { useId, useState } from 'react';
 import {
   PROTOCOL_COMMUNITY_DAO_SEED,
@@ -56,6 +59,7 @@ export function ProtocolCommunityRegistry({
           <input
             id={fieldId}
             type="text"
+            className={osFieldBorderedClassName}
             value={draft}
             autoCapitalize="none"
             autoCorrect="off"

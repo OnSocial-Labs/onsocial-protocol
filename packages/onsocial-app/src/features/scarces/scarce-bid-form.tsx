@@ -1,5 +1,8 @@
 'use client';
 
+import {
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed, ScarcesEventRow } from '@onsocial/sdk';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -818,7 +821,7 @@ export function ScarceBidForm({
 
       {!isOwnAuction && auction && !ended ? (
         <>
-          <div className="app-storage-amount-field profile-support-amount-field">
+          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
             <input
               type="text"
               inputMode="decimal"

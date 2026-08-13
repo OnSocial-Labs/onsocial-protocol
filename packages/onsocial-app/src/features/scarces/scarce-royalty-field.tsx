@@ -1,5 +1,8 @@
 'use client';
 
+import {
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { useCallback, useState } from 'react';
 import {
   DEFAULT_ROYALTY_BPS,
@@ -144,7 +147,7 @@ export function ScarceRoyaltyField({
         </button>
       </div>
       {isCustomRoyalty ? (
-        <div className="app-storage-amount-field profile-support-amount-field">
+        <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
           <input
             type="text"
             inputMode="decimal"

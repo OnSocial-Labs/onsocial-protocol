@@ -1,6 +1,9 @@
 'use client';
 
 import {
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -1087,7 +1090,7 @@ export function ScarceListForm({
       {commerceMode === 'drop' && !attachCollectionId ? (
         <div className="scarce-royalty-field">
           <p className="scarce-mood-picker-label">Series</p>
-          <div className="app-storage-amount-field profile-support-amount-field">
+          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
             <input
               type="text"
               autoComplete="off"
@@ -1147,7 +1150,7 @@ export function ScarceListForm({
 
       <div className="scarce-royalty-field">
         <p className="scarce-mood-picker-label">Price</p>
-        <div className="app-storage-amount-field profile-support-amount-field">
+        <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
           <input
             type="text"
             inputMode="decimal"
@@ -1226,7 +1229,7 @@ export function ScarceListForm({
           </button>
         </div>
         {isCustomCopies ? (
-          <div className="app-storage-amount-field profile-support-amount-field">
+          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
             <input
               type="text"
               inputMode="numeric"

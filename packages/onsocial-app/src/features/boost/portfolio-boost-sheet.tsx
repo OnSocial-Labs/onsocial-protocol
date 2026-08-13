@@ -15,6 +15,7 @@ import {
   SheetCloseButton,
   osIconActionClassName,
   osIconActionGlyphClassName,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import {
   buildBoostLockMsg,
@@ -178,7 +179,7 @@ function BoostAmountField({
 }) {
   return (
     <>
-      <div className="app-storage-amount-field profile-support-amount-field">
+      <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
         <input
           type="text"
           inputMode="decimal"

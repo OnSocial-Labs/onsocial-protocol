@@ -14,6 +14,7 @@ import {
   OsSheetActions,
   OsSheetPrimaryAction,
   SheetCloseButton,
+  osFieldSoftClassName,
 } from '@onsocial/ui';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
@@ -446,7 +447,7 @@ export function AppStorageSheet({
                   className="app-storage-form"
                   onSubmit={(event) => void handleSubmit(event)}
                 >
-                  <div className="app-storage-amount-field">
+                  <div className={`app-storage-amount-field ${osFieldSoftClassName}`}>
                     <input
                       type="text"
                       inputMode="decimal"

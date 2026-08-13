@@ -1,6 +1,6 @@
 'use client';
 
-import { Divider, ProfileAvatar } from '@onsocial/ui';
+import { Divider, ProfileAvatar, osFieldSoftClassName } from '@onsocial/ui';
 import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import {
   normalizeNearAccountId,
@@ -43,7 +43,7 @@ export function NearAccountField({
 
   return (
     <div
-      className={`near-account-field${statusClass ? ` ${statusClass}` : ''}`}
+      className={`near-account-field ${osFieldSoftClassName}${statusClass ? ` ${statusClass}` : ''}`}
     >
       <span className="near-account-field-leading" aria-hidden>
         <ProfileAvatar

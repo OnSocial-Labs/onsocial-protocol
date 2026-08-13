@@ -158,6 +158,14 @@ export {
   type OsSheetActionVariant,
 } from './os-sheet-action.js';
 export {
+  OsField,
+  osFieldBorderedClassName,
+  osFieldClassName,
+  osFieldSoftClassName,
+  type OsFieldChrome,
+  type OsFieldProps,
+} from './os-field.js';
+export {
   OsSheetActions,
   osSheetActionExpandedClassName,
   osSheetActionInertSlotClassName,

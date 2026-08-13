@@ -11,6 +11,7 @@
 @import '@onsocial/ui/profile-editor-media.css';
 @import '@onsocial/ui/profile-avatar.css';
 @import '@onsocial/ui/search-field.css';
+@import '@onsocial/ui/os-field.css';
 @import './transaction-feedback-toast.css';
 /* After Tailwind — feed @#$ / Show more weights (see file comment). */
 @import './feed-meta.css';
@@ -12448,36 +12449,9 @@ a.os-surface-row {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.65rem 0.75rem;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
-  }
-
-  /*
-   * Support / Amplify / Boost / scarce amounts — same as poll options:
-   * transparent fill, cooler border + inset lip; hover/focus strengthen
-   * border only (no wash).
-   */
-  .app-storage-amount-field.profile-support-amount-field {
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
-  .app-storage-amount-field.profile-support-amount-field:hover:not(
-    :focus-within
-  ) {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-  }
-
-  .app-storage-amount-field.profile-support-amount-field:focus-within {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
+    /* Soft chrome via .os-field-soft; bordered via .os-field-bordered. */
+    padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
+    border-radius: var(--os-field-radius, 0.85rem);
   }
 
   .app-storage-amount-input {
@@ -21169,19 +21143,6 @@ a.os-surface-row {
 
   .ticket-door-input {
     width: 100%;
-    box-sizing: border-box;
-    border-radius: 0.75rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    background: rgb(var(--fg-rgb) / 0.04);
-    color: rgb(var(--fg-rgb) / 0.92);
-    font: inherit;
-    font-size: 0.92rem;
-    padding: 0.7rem 0.85rem;
-  }
-
-  .ticket-door-input:focus-visible {
-    outline: 2px solid rgb(var(--fg-rgb) / 0.28);
-    outline-offset: 1px;
   }
 
   .ticket-door-lookup {
@@ -21696,39 +21657,14 @@ a.os-surface-row {
     gap: 0.3rem;
   }
 
-  /* Paste well — same border + inset lip as poll / support amount fields. */
+  /* Paste well layout — bordered chrome via .os-field-bordered. */
   .collection-allowlist-field textarea {
     width: 100%;
     min-height: 2.75rem;
-    box-sizing: border-box;
     resize: vertical;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 0.85rem;
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-    color: var(--os-surface-emphasis);
-    font: inherit;
     font-size: 0.84rem;
     line-height: 1.4;
-    outline: none;
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
-  .collection-allowlist-field textarea::placeholder {
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .collection-allowlist-field textarea:hover:not(:disabled):not(:focus) {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-  }
-
-  .collection-allowlist-field textarea:focus {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
+    color: var(--os-surface-emphasis);
   }
 
   .collection-allowlist-field small {
@@ -22044,7 +21980,9 @@ a.os-surface-row {
   .drop-studio .guild-field,
   .guild-create-form .guild-field,
   .guild-edit-form .guild-field,
-  .hub-manage-form .guild-field {
+  .hub-manage-form .guild-field,
+  .guild-structure-add-custom .guild-field,
+  .guild-structure-advanced .guild-field {
     padding: 0;
     gap: 0.4rem;
     border: 0;
@@ -22057,12 +21995,16 @@ a.os-surface-row {
   .guild-create-form .guild-field > input,
   .guild-create-form .guild-field > textarea,
   .hub-manage-form .guild-field > input,
-  .hub-manage-form .guild-field > textarea {
+  .hub-manage-form .guild-field > textarea,
+  .guild-structure-add-custom .guild-field > input,
+  .guild-structure-add-custom .guild-field > select,
+  .guild-structure-advanced .guild-field > select {
+    /* Soft chrome — tokens from @onsocial/ui/os-field.css (.os-field-soft). */
     border: 0;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
-    padding: 0.65rem 0.75rem;
+    border-radius: var(--os-field-radius);
+    background: var(--os-field-soft-bg);
+    box-shadow: var(--os-field-soft-lip);
+    padding: var(--os-field-pad-y) var(--os-field-pad-x);
   }
 
   .drop-create-form .guild-field > input:focus,
@@ -22070,10 +22012,13 @@ a.os-surface-row {
   .guild-create-form .guild-field > input:focus,
   .guild-create-form .guild-field > textarea:focus,
   .hub-manage-form .guild-field > input:focus,
-  .hub-manage-form .guild-field > textarea:focus {
+  .hub-manage-form .guild-field > textarea:focus,
+  .guild-structure-add-custom .guild-field > input:focus,
+  .guild-structure-add-custom .guild-field > select:focus,
+  .guild-structure-advanced .guild-field > select:focus {
     border: 0;
-    background: rgb(var(--fg-rgb) / 0.055);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+    background: var(--os-field-soft-bg-focus);
+    box-shadow: var(--os-field-soft-lip-focus);
     outline: none;
   }
 
@@ -22099,23 +22044,30 @@ a.os-surface-row {
   }
 
   /*
-   * Account field — one soft shell (same as create-hub .guild-field > input).
-   * Avatar + divider live inside the shell; the <input> must stay chrome-free
-   * so later .guild-field input rules don't paint a nested pill on top.
+   * Account field — soft shell via .os-field-soft; avatar + divider inside.
+   * Status = lip tint only (never wash the fill).
    */
   .near-account-field {
     display: flex;
     align-items: center;
     min-width: 0;
-    border: 0;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
+    /* Soft chrome from .os-field-soft; keep padding on the shell only. */
+    padding-block: 0;
+    padding-inline: 0;
   }
 
-  .near-account-field:focus-within {
-    background: rgb(var(--fg-rgb) / 0.055);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
+  .near-account-field > input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    font: inherit;
+    font-size: var(--os-field-font-size, 0.9rem);
+    outline: none;
+    padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem)
+      var(--os-field-pad-y, 0.65rem) 0;
   }
 
   /*
@@ -22126,7 +22078,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-available,
   .hub-manage-form .guild-field > input.is-available,
   .near-account-field.is-available {
-    background: rgb(var(--fg-rgb) / 0.04);
+    background: var(--os-field-soft-bg);
     box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
@@ -22134,7 +22086,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-available:focus,
   .hub-manage-form .guild-field > input.is-available:focus,
   .near-account-field.is-available:focus-within {
-    background: rgb(var(--fg-rgb) / 0.055);
+    background: var(--os-field-soft-bg-focus);
     box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
@@ -22142,7 +22094,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-taken,
   .hub-manage-form .guild-field > input.is-taken,
   .near-account-field.is-taken {
-    background: rgb(var(--fg-rgb) / 0.04);
+    background: var(--os-field-soft-bg);
     box-shadow: inset 0 1px 0 var(--protocol-red);
   }
 
@@ -22150,7 +22102,7 @@ a.os-surface-row {
   .guild-create-form .guild-field > input.is-taken:focus,
   .hub-manage-form .guild-field > input.is-taken:focus,
   .near-account-field.is-taken:focus-within {
-    background: rgb(var(--fg-rgb) / 0.055);
+    background: var(--os-field-soft-bg-focus);
     box-shadow: inset 0 1px 0 var(--protocol-red);
   }
 
@@ -22383,20 +22335,8 @@ a.os-surface-row {
     width: 100%;
     min-height: 6.5rem;
     resize: vertical;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 0.75rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    padding: 0.65rem 0.75rem;
-    color: inherit;
-    font: inherit;
     font-size: 0.82rem;
     line-height: 1.45;
-  }
-
-  .drop-track-lyrics-input:focus {
-    outline: none;
-    border-color: rgb(var(--fg-rgb) / 0.22);
-    background: rgb(var(--fg-rgb) / 0.06);
   }
 
   .drop-track-lyrics-meta {
@@ -23859,26 +23799,12 @@ a.os-surface-row {
     gap: 0.5rem;
   }
 
-  /* Soft fill — same shell as .drop-create-form .guild-field > input. */
+  /* Soft fill via .os-field-soft — layout only here. */
   .gen-layer-head input,
   .gen-trait-edit > input {
     flex: 1;
     min-width: 0;
-    border: 0;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
-    color: inherit;
-    font: inherit;
     font-size: 0.85rem;
-    outline: none;
-    padding: 0.55rem 0.7rem;
-  }
-
-  .gen-layer-head input:focus,
-  .gen-trait-edit > input:focus {
-    background: rgb(var(--fg-rgb) / 0.055);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
   }
 
   .gen-layer-tools {
@@ -26821,22 +26747,6 @@ a.os-surface-row {
 
   .guild-add-space-input {
     width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.9rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: inherit;
-    font: inherit;
-    font-size: 0.9rem;
-    outline: none;
-    padding: 0.75rem 0.85rem;
-  }
-
-  .guild-add-space-input:focus {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-  }
-
-  .guild-add-space-input:disabled {
-    opacity: 0.6;
   }
 
   .guild-add-space-hint {
@@ -28757,27 +28667,9 @@ a.os-surface-row {
   }
 
   /*
-   * Poll / CW option fields — transparent fill, cooler border chrome
-   * (soft edge + inset lip). Hover/focus strengthen border only — no wash.
+   * Poll / CW option fields — layout only; chrome via .os-field-bordered
+   * (@onsocial/ui/os-field.css).
    */
-  .guild-composer-poll-input,
-  .guild-composer-warning-input {
-    margin: 0;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 0.85rem;
-    background: transparent;
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-    color: inherit;
-    font: inherit;
-    font-size: 0.9rem;
-    line-height: 1.35;
-    padding: 0.65rem 0.75rem;
-    outline: none;
-    transition:
-      border-color 160ms ease,
-      box-shadow 160ms ease;
-  }
-
   .guild-composer-poll-input {
     flex: 1;
     min-width: 0;
@@ -28786,29 +28678,6 @@ a.os-surface-row {
   .guild-composer-warning-input {
     width: 100%;
     min-width: 0;
-    box-sizing: border-box;
-  }
-
-  .guild-composer-poll-input::placeholder,
-  .guild-composer-warning-input::placeholder {
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .guild-composer-poll-input:hover:not(:disabled):not(:focus),
-  .guild-composer-warning-input:hover:not(:disabled):not(:focus) {
-    border-color: rgb(var(--fg-rgb) / 0.16);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-  }
-
-  .guild-composer-poll-input:focus,
-  .guild-composer-warning-input:focus {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
-  }
-
-  .guild-composer-poll-input:disabled,
-  .guild-composer-warning-input:disabled {
-    opacity: 0.55;
   }
 
   .guild-composer-sheet-header.is-compact .standing-sheet-subject-row {
@@ -30466,30 +30335,12 @@ a.os-surface-row {
   .endorse-compose-input,
   .endorse-compose-textarea {
     width: 100%;
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 0.9rem;
-    background: rgb(var(--fg-rgb) / 0.03);
-    color: inherit;
-    font: inherit;
-    font-size: 0.9rem;
-    outline: none;
-    padding: 0.75rem 0.85rem;
   }
 
   .endorse-compose-textarea {
     min-height: 5.5rem;
     resize: vertical;
     line-height: 1.45;
-  }
-
-  .endorse-compose-input:focus,
-  .endorse-compose-textarea:focus {
-    border-color: rgb(var(--fg-rgb) / 0.2);
-  }
-
-  .endorse-compose-input:disabled,
-  .endorse-compose-textarea:disabled {
-    opacity: 0.6;
   }
 
   .endorse-compose-suggestions {
@@ -30762,29 +30613,6 @@ a.os-surface-row {
       rgb(var(--fg-rgb) / 0.06)
     );
   }
-}
-
-/*
- * Support / Amplify / Boost / scarce amount wells — unlayered twin of poll
- * fields (transparent fill, border + lip; no wash). Beats stale @layer cache.
- */
-.app-storage-amount-field.profile-support-amount-field {
-  border: 1px solid rgb(var(--fg-rgb) / 0.12);
-  background: transparent;
-  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.12);
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.app-storage-amount-field.profile-support-amount-field:hover:not(:focus-within) {
-  border-color: rgb(var(--fg-rgb) / 0.16);
-  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.14);
-}
-
-.app-storage-amount-field.profile-support-amount-field:focus-within {
-  border-color: rgb(var(--fg-rgb) / 0.2);
-  box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.16);
 }
 
 /*
@@ -31934,14 +31762,17 @@ button.scarce-clip-cover-expand:focus-visible {
   width: 100%;
   box-sizing: border-box;
   margin: 0;
-  border: 1px solid rgb(var(--fg-rgb) / 0.12);
-  border-radius: 0.75rem;
-  background: rgb(var(--fg-rgb) / 0.04);
+  /* Soft chrome — tokens from @onsocial/ui/os-field.css. */
+  border: 0;
+  border-radius: var(--os-field-radius, 0.85rem);
+  background: var(--os-field-soft-bg, rgb(var(--fg-rgb) / 0.04));
+  box-shadow: var(--os-field-soft-lip, inset 0 1px 0 rgb(var(--fg-rgb) / 0.06));
   color: rgb(var(--fg-rgb) / 0.92);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 500;
-  padding: 0.7rem 0.8rem;
+  padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
+  outline: none;
 }
 
 .protocol-task-form .guild-field > textarea {
@@ -31952,8 +31783,13 @@ button.scarce-clip-cover-expand:focus-visible {
 .protocol-task-form .guild-field > input:focus,
 .protocol-task-form .guild-field > textarea:focus,
 .protocol-task-form .guild-field > select:focus {
-  outline: 2px solid rgb(var(--fg-rgb) / 0.28);
-  outline-offset: 1px;
+  border: 0;
+  background: var(--os-field-soft-bg-focus, rgb(var(--fg-rgb) / 0.055));
+  box-shadow: var(
+    --os-field-soft-lip-focus,
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.08)
+  );
+  outline: none;
 }
 
 .protocol-policy-summary {
@@ -32041,23 +31877,8 @@ button.scarce-clip-cover-expand:focus-visible {
 .protocol-field textarea,
 .protocol-field input {
   width: 100%;
-  box-sizing: border-box;
-  margin: 0;
-  border: 1px solid rgb(var(--fg-rgb) / 0.12);
-  border-radius: 0.75rem;
-  background: rgb(var(--fg-rgb) / 0.04);
-  color: rgb(var(--fg-rgb) / 0.92);
-  font: inherit;
-  font-size: 0.9rem;
+  /* Bordered chrome via .os-field-bordered on the control. */
   font-weight: 500;
-  padding: 0.7rem 0.8rem;
-  resize: vertical;
-}
-
-.protocol-field textarea:focus-visible,
-.protocol-field input:focus-visible {
-  outline: 2px solid rgb(var(--fg-rgb) / 0.28);
-  outline-offset: 1px;
 }
 
 .protocol-community {

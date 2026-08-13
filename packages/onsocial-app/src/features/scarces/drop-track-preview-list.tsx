@@ -7,7 +7,13 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from 'react';
-import { Divider, MultiplyIcon, PauseFillIcon, PlayFillIcon } from '@onsocial/ui';
+import {
+  Divider,
+  MultiplyIcon,
+  PauseFillIcon,
+  PlayFillIcon,
+  osFieldSoftClassName,
+} from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -344,7 +350,7 @@ export function DropTrackPreviewList({
                     </label>
                     <textarea
                       id={`drop-track-lyrics-input-${index}`}
-                      className="drop-track-lyrics-input"
+                      className={`${osFieldSoftClassName} drop-track-lyrics-input}`}
                       rows={5}
                       maxLength={DROP_LYRICS_MAX_CHARS}
                       disabled={disabled}

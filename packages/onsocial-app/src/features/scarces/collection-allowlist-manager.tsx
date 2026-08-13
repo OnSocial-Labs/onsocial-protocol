@@ -18,6 +18,7 @@ import {
   SearchField,
   SheetHeader,
   UserPlusIcon,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import type { AllowlistEntry } from '@onsocial/sdk';
 import {
@@ -1414,6 +1415,7 @@ function CollectionAllowlistSheet({
                   <label htmlFor={pasteId}>
                     <textarea
                       id={pasteId}
+                      className={osFieldBorderedClassName}
                       value={pasteText}
                       onChange={(event) => setPasteText(event.target.value)}
                       onPaste={handlePasteClipboard}

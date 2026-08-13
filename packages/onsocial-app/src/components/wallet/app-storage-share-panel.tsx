@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { OsSheetActions, OsSheetPrimaryAction } from '@onsocial/ui';
+import { OsSheetActions, OsSheetPrimaryAction,
+  osFieldSoftClassName,
+} from '@onsocial/ui';
 import { MultiplyIcon, PlusIcon } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
@@ -646,7 +648,7 @@ export function AppStorageSharePanel({
           <p className="app-storage-meta">
             Add NEAR to @{accountId}&apos;s share pool.
           </p>
-          <div className="app-storage-amount-field">
+          <div className={`app-storage-amount-field ${osFieldSoftClassName}`}>
             <input
               type="text"
               inputMode="decimal"

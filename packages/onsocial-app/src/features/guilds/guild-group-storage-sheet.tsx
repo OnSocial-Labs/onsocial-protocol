@@ -9,6 +9,7 @@ import {
   OsSheetPrimaryAction,
   PlusIcon,
   SheetCloseButton,
+  osFieldSoftClassName,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -885,7 +886,7 @@ export function GuildGroupStorageSheet({
               <p className="app-storage-meta">
                 Add NEAR to this guild&apos;s shared storage pool.
               </p>
-              <div className="app-storage-amount-field">
+              <div className={`app-storage-amount-field ${osFieldSoftClassName}`}>
                 <input
                   type="text"
                   inputMode="decimal"

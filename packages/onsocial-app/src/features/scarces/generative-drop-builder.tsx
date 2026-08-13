@@ -21,7 +21,12 @@ import {
   type Ref,
 } from 'react';
 import { zipSync } from 'fflate';
-import { ChevronDownIcon, MultiplyIcon, TrashIcon } from '@onsocial/ui';
+import {
+  ChevronDownIcon,
+  MultiplyIcon,
+  TrashIcon,
+  osFieldSoftClassName,
+} from '@onsocial/ui';
 import type {
   GenerateSetJob,
   GenerativeLayerSpec,
@@ -499,6 +504,7 @@ export function GenerativeDropBuilder({
           <div key={layer.id} className="guild-field gen-layer">
             <div className="gen-layer-head">
               <input
+                className={osFieldSoftClassName}
                 value={layer.name}
                 onChange={(event) =>
                   updateLayer(layer.id, { name: event.target.value })
@@ -605,6 +611,7 @@ export function GenerativeDropBuilder({
             {editing ? (
               <div className="gen-trait-edit">
                 <input
+                  className={osFieldSoftClassName}
                   ref={traitNameInputRef}
                   value={editing.name}
                   onChange={(event) =>
