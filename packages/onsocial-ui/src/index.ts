@@ -204,7 +204,11 @@ export {
   type OsActionDrawerConfirmProps,
   type OsActionDrawerConfirmVariant,
 } from './os-action-drawer-confirm.js';
-export { OsHugSheet, type OsHugSheetProps } from './os-hug-sheet.js';
+export {
+  OsHugSheet,
+  type OsHugSheetChrome,
+  type OsHugSheetProps,
+} from './os-hug-sheet.js';
 export { InfoDrawer, type InfoDrawerProps } from './info-drawer.js';
 export {
   GestureSheetHeader,

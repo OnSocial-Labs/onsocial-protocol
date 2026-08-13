@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useId, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   ProfileAvatar,
   ProtocolMotionArrow,
-  SheetHeader,
 } from '@onsocial/ui';
 import {
   appVolumeNearLabel,
@@ -18,7 +17,6 @@ import {
 } from '@/features/scarces/apps-data';
 import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   formatCompactCount,
@@ -76,14 +74,11 @@ export function HubFactsSheet({
   stats: AppStatsView | null;
   onOpenCreators: () => void;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const ownerProfiles = usePostAuthorProfiles(open ? [app.ownerId] : []);
   const ownerProfile = ownerProfiles[app.ownerId];
   const ownerLabel = ownerProfile?.displayName ?? displayName(app.ownerId);
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -113,31 +108,17 @@ export function HubFactsSheet({
     (app.creatorAccess === 'approval' ? app.approvedCreators.length : 0);
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={57}
-      ariaLabelledBy={titleId}
+      label="Hub"
+      copy={app.title}
+      closeAriaLabel="Close hub facts"
       backdropLabel="Close hub facts"
+      zIndex={57}
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Hub"
-            subtitle={app.title}
-            onClose={requestClose}
-            closeAriaLabel="Close hub facts"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts">
         <FactSection title="Creators">
@@ -253,7 +234,7 @@ export function HubFactsSheet({
           />
         </FactSection>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
 
@@ -289,15 +270,12 @@ export function HubCreatorsSheet({
   onClose: () => void;
   app: AppView;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const people = buildHubPeople(app);
   const profiles = usePostAuthorProfiles(
     open ? people.map((person) => person.accountId) : []
   );
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -310,32 +288,18 @@ export function HubCreatorsSheet({
   }, [onClose]);
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
+      label="Creators"
+      copy={app.title}
+      closeAriaLabel="Close creators"
+      backdropLabel="Close creators"
       zIndex={57}
       presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close creators"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Creators"
-            subtitle={app.title}
-            onClose={requestClose}
-            closeAriaLabel="Close creators"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <ul className="hub-people-list">
         {people.map((person) => {
@@ -371,6 +335,6 @@ export function HubCreatorsSheet({
           );
         })}
       </ul>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

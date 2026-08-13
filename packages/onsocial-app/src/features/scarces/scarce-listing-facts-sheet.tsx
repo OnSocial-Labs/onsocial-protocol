@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useId, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   ProtocolMotionArrow,
-  SheetHeader,
 } from '@onsocial/ui';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { marketMediumLabel } from '@/features/market/market-medium';
@@ -15,7 +14,6 @@ import {
   MARKETPLACE_FEE_BPS,
   totalRoyaltyBps,
 } from '@/features/scarces/scarce-royalty';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
@@ -143,11 +141,8 @@ export function ScarceListingFactsSheet({
   facts: ScarceListingFacts;
   zIndex?: number;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -209,32 +204,18 @@ export function ScarceListingFactsSheet({
   );
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
+      label={facts.title.trim() || 'Scarce'}
+      copy={kindLabel(facts.kind)}
+      closeAriaLabel="Close scarce facts"
+      backdropLabel="Close scarce facts"
       zIndex={zIndex}
       presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close scarce facts"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={facts.title.trim() || 'Scarce'}
-            subtitle={kindLabel(facts.kind)}
-            onClose={requestClose}
-            closeAriaLabel="Close scarce facts"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts">
         <FactSection title="Listing">
@@ -442,6 +423,6 @@ export function ScarceListingFactsSheet({
           ) : null}
         </FactSection>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

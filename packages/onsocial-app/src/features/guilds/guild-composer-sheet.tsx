@@ -1109,6 +1109,7 @@ export function ComposerSheet({
     <OsHugSheet
       open={labelsOpen && open}
       onClose={() => setLabelsOpen(false)}
+      chrome="choice"
       label="Content labels"
       closeAriaLabel="Close"
       backdropLabel="Close content labels"

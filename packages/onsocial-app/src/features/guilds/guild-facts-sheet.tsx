@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useId, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   ProtocolMotionArrow,
-  SheetHeader,
   normalizeSocialTimestamp,
 } from '@onsocial/ui';
 import {
@@ -15,7 +14,6 @@ import {
 } from '@/features/guilds/guild-card-display';
 import { guildMemberTimeMeta } from '@/features/guilds/guild-member-time-meta';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   formatCompactCount,
@@ -127,7 +125,6 @@ export function GuildFactsSheet({
   onOpenMembers,
 }: GuildFactsSheetProps) {
   const topicList = topics;
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const ownerProfiles = usePostAuthorProfiles(ownerId ? [ownerId] : []);
@@ -136,8 +133,6 @@ export function GuildFactsSheet({
     ? (ownerProfile?.displayName ?? displayName(ownerId))
     : null;
   const ownerHandle = ownerId ? fallbackLabel(ownerId) : null;
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -175,31 +170,17 @@ export function GuildFactsSheet({
       : null;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={57}
-      ariaLabelledBy={titleId}
+      label="Guild"
+      copy={guildName}
+      closeAriaLabel="Close guild facts"
       backdropLabel="Close guild facts"
+      zIndex={57}
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Guild"
-            subtitle={guildName}
-            onClose={requestClose}
-            closeAriaLabel="Close guild facts"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts">
         <FactSection title="Access">
@@ -302,6 +283,6 @@ export function GuildFactsSheet({
           ) : null}
         </FactSection>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

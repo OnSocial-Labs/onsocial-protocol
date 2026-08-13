@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { OsHugSheet } from '@onsocial/ui';
 import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import {
   PROTOCOL_POLICY_ACTION_COMMON,
@@ -42,7 +42,6 @@ export function ProtocolSettingsActionSheet({
   onSelectAction: (actionId: ProtocolPolicyActionId) => void;
   onOpenStake: () => void;
 }) {
-  const titleId = useId();
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
@@ -134,29 +133,17 @@ export function ProtocolSettingsActionSheet({
     !isGroupMember;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      sizing="hug"
+      label="Settings"
+      copy="Choose a DAO policy change."
+      closeAriaLabel="Close settings"
+      backdropLabel="Close settings"
+      zIndex={58}
       initialDetent="peek"
       peekRatio={0.62}
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close settings"
       bodyClassName="protocol-action-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Settings"
-            subtitle="Choose a DAO policy change."
-            onClose={onClose}
-            closeAriaLabel="Close settings"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="protocol-propose-kind">
         {!accountId ? (
@@ -229,7 +216,7 @@ export function ProtocolSettingsActionSheet({
           />
         ))}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
 

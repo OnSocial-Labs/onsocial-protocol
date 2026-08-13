@@ -1,7 +1,6 @@
 'use client';
 
-import { useId } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -35,7 +34,6 @@ export function ProtocolActionSheet({
   nowMs?: number;
   onAct: (action: ProtocolDaoAction) => void;
 }) {
-  const titleId = useId();
   const view = application
     ? deriveProtocolProposalView({
         application,
@@ -52,29 +50,17 @@ export function ProtocolActionSheet({
       : 'Action';
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      sizing="hug"
+      label={title}
+      {...(view?.headline ? { copy: view.headline } : {})}
+      closeAriaLabel="Close actions"
+      backdropLabel="Close actions"
+      zIndex={58}
       initialDetent="peek"
       peekRatio={0.42}
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close actions"
       bodyClassName="protocol-action-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={title}
-            subtitle={view?.headline}
-            onClose={onClose}
-            closeAriaLabel="Close actions"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         view &&
         (view.canApprove ||
@@ -173,6 +159,6 @@ export function ProtocolActionSheet({
       ) : (
         <p className="protocol-empty">Nothing to act on.</p>
       )}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

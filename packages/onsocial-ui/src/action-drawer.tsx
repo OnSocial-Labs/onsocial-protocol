@@ -215,6 +215,7 @@ export function ActionDrawer({
       closeAriaLabel={closeAriaLabel}
       showClose={showClose}
       zIndex={zIndex}
+      chrome="choice"
       panelClassName={panelClassName}
       bodyClassName={bodyClassName}
       panelStyle={panelStyle}

@@ -2,12 +2,21 @@
 
 import { useId, type CSSProperties, type ReactNode } from 'react';
 import { Divider } from './divider.js';
-import { GlassSheet, SheetHeader } from './glass-sheet.js';
+import {
+  GlassSheet,
+  SheetHeader,
+  type GlassSheetDetent,
+  type GlassSheetPresentation,
+  type GlassSheetSizing,
+} from './glass-sheet.js';
 import {
   osChoiceSheetBodyClassName,
   osChoiceSheetPanelClassName,
 } from './os-choice-tokens.js';
 import { useScrollLock } from './use-scroll-lock.js';
+import { cn } from './cn.js';
+
+export type OsHugSheetChrome = 'choice' | 'plain';
 
 export interface OsHugSheetProps {
   open: boolean;
@@ -27,16 +36,31 @@ export interface OsHugSheetProps {
   /** When false, hides the header close control (e.g. mid-wallet). */
   showClose?: boolean;
   zIndex?: number;
+  /**
+   * `choice` — pick/action drawer panel + body tokens.
+   * `plain` — host supplies panel/body classes (facts, protocol, forms).
+   */
+  chrome?: OsHugSheetChrome;
   panelClassName?: string;
   bodyClassName?: string;
+  headerClassName?: string;
   panelStyle?: CSSProperties;
   backdropLabel?: string;
+  /** Defaults to `hug`. */
+  sizing?: GlassSheetSizing;
+  /** Defaults to `full` (natural height rest for hug sheets). */
+  initialDetent?: GlassSheetDetent;
+  /** Defaults to `1` when hug + full detent. */
+  peekRatio?: number;
+  presentation?: GlassSheetPresentation;
+  /** Optional fixed title id when the host also references it. */
+  titleId?: string;
 }
 
 /**
- * Shared content-hugging OS sheet shell — panel/body/header chrome used by
- * ChoiceDrawer, ActionDrawer, InfoDrawer, and custom hug bodies.
- * Pair with `os-choice-drawer.css`.
+ * Shared content-hugging OS sheet shell — header + divider + GlassSheet hug.
+ * Choice / Action / Info drawers use `chrome="choice"`; facts & protocol use plain.
+ * Pair with `os-choice-drawer.css` when `chrome="choice"`.
  */
 export function OsHugSheet({
   open,
@@ -51,12 +75,20 @@ export function OsHugSheet({
   closeAriaLabel,
   showClose = true,
   zIndex = 60,
+  chrome = 'plain',
   panelClassName,
   bodyClassName,
+  headerClassName,
   panelStyle,
   backdropLabel,
+  sizing = 'hug',
+  initialDetent = 'full',
+  peekRatio = 1,
+  presentation,
+  titleId: titleIdProp,
 }: OsHugSheetProps) {
-  const titleId = useId();
+  const generatedTitleId = useId();
+  const titleId = titleIdProp ?? generatedTitleId;
   const closeLabel = closeAriaLabel ?? `Close ${label.toLowerCase()}`;
 
   useScrollLock(open);
@@ -67,24 +99,28 @@ export function OsHugSheet({
       onClose={onClose}
       onClosed={onClosed}
       tone="os"
-      initialDetent="full"
-      peekRatio={1}
+      initialDetent={initialDetent}
+      peekRatio={peekRatio}
       zIndex={zIndex}
       ariaLabelledBy={titleId}
       backdropLabel={backdropLabel ?? closeLabel}
-      sizing="hug"
-      panelClassName={[osChoiceSheetPanelClassName, panelClassName]
-        .filter(Boolean)
-        .join(' ')}
-      bodyClassName={[osChoiceSheetBodyClassName, bodyClassName]
-        .filter(Boolean)
-        .join(' ')}
+      sizing={sizing}
+      {...(presentation ? { presentation } : {})}
+      panelClassName={cn(
+        chrome === 'choice' && osChoiceSheetPanelClassName,
+        panelClassName
+      )}
+      bodyClassName={cn(
+        chrome === 'choice' && osChoiceSheetBodyClassName,
+        bodyClassName
+      )}
       {...(panelStyle ? { panelStyle } : {})}
       header={
         <>
           <SheetHeader
             titleId={titleId}
             title={title ?? label}
+            className={headerClassName}
             {...(titleAccessory ? { titleAccessory } : {})}
             {...(copy ? { subtitle: copy } : {})}
             {...(showClose ? { onClose, closeAriaLabel: closeLabel } : {})}

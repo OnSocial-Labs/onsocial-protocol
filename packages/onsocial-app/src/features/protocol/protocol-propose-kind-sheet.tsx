@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { OsHugSheet } from '@onsocial/ui';
 import {
   PROTOCOL_CREATE_KIND_COMMON,
   PROTOCOL_CREATE_KIND_GROUPS,
@@ -42,7 +42,6 @@ export function ProtocolProposeKindSheet({
   onSelectKind: (kind: ProtocolCreateKind) => void;
   onOpenStake: () => void;
 }) {
-  const titleId = useId();
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
@@ -134,29 +133,17 @@ export function ProtocolProposeKindSheet({
     !isGroupMember;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      sizing="hug"
+      label="Propose"
+      copy="Choose what to put on-chain."
+      closeAriaLabel="Close propose"
+      backdropLabel="Close propose"
+      zIndex={58}
       initialDetent="peek"
       peekRatio={0.62}
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close propose"
       bodyClassName="protocol-action-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Propose"
-            subtitle="Choose what to put on-chain."
-            onClose={onClose}
-            closeAriaLabel="Close propose"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="protocol-propose-kind">
         {!accountId ? (
@@ -228,7 +215,7 @@ export function ProtocolProposeKindSheet({
           />
         ))}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
 
