@@ -61,6 +61,8 @@ export const APP_COLLECTION_PATH = '/collection';
 export const APP_DROP_CREATE_PATH = '/market/create';
 export const APP_APPS_PATH = '/apps';
 export const APP_APP_CREATE_PATH = '/apps/create';
+/** Create a fungible token under the signed-in account. */
+export const APP_TOKENS_CREATE_PATH = '/tokens/create';
 export const APP_SERIES_PATH = '/series';
 
 /** Query key that pre-filters Market to one creator / seller. */
@@ -346,6 +348,8 @@ export function isAppRoutePath(pathname: string): boolean {
     pathname.startsWith(`${APP_COLLECTION_PATH}/`) ||
     pathname === APP_APPS_PATH ||
     pathname.startsWith(`${APP_APPS_PATH}/`) ||
+    pathname === '/tokens' ||
+    pathname.startsWith('/tokens/') ||
     pathname === APP_SERIES_PATH ||
     pathname.startsWith(`${APP_SERIES_PATH}/`)
   );
