@@ -166,6 +166,16 @@ export {
   type OsFieldProps,
 } from './os-field.js';
 export {
+  OsCommitCancel,
+  OsNoticeCard,
+  osCommitActionsClassName,
+  osCommitCancelClassName,
+  osNoticeCardClassName,
+  type OsCommitCancelProps,
+  type OsNoticeCardAlign,
+  type OsNoticeCardProps,
+} from './os-notice-card.js';
+export {
   OsSheetActions,
   osSheetActionExpandedClassName,
   osSheetActionInertSlotClassName,

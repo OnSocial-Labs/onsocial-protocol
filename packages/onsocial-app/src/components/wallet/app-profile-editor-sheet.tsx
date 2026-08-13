@@ -12,11 +12,13 @@ import {
 } from 'react';
 import { Divider, GlassSheet, ProfileEditorMediaToolbar } from '@onsocial/ui';
 import {
-  OsSheetAction,
+  DiscardConfirmFooter,
+  discardConfirmFooterA11y,
+} from '@/components/ui/discard-confirm';
+import {
   OsSheetActions,
   OsSheetPrimaryAction,
 } from '@/components/ui/os-sheet-primary-action';
-import { OsNoticeCard } from '@/components/ui/os-notice-card';
 import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
@@ -606,50 +608,20 @@ function ProfileEditorForm({
 
       <div
         className={`account-editor-footer${discardConfirmOpen ? ' is-discard-confirm' : ''}`}
-        role={discardConfirmOpen ? 'alertdialog' : undefined}
-        aria-modal={discardConfirmOpen || undefined}
-        aria-labelledby={
-          discardConfirmOpen ? 'account-editor-discard-title' : undefined
-        }
-        aria-describedby={
-          discardConfirmOpen ? 'account-editor-discard-copy' : undefined
-        }
+        {...discardConfirmFooterA11y(
+          discardConfirmOpen,
+          'account-editor-discard-title',
+          'account-editor-discard-copy'
+        )}
       >
         {discardConfirmOpen ? (
-          <OsNoticeCard
+          <DiscardConfirmFooter
             className="account-editor-discard-card"
-            align="center"
-            shell
-            title="Discard changes?"
             titleId="account-editor-discard-title"
-            body="Edits won’t be saved."
             bodyId="account-editor-discard-copy"
-            footer={
-              <div className="os-commit-actions">
-                <button
-                  type="button"
-                  className="os-commit-cancel is-danger"
-                  onClick={onDiscard}
-                >
-                  Discard
-                </button>
-                <OsSheetActions
-                  layout="row-compact"
-                  tone="frosted-primary"
-                  borderless
-                >
-                  <OsSheetAction
-                    ref={keepEditingRef}
-                    type="button"
-                    variant="primary"
-                    ready
-                    onClick={onKeepEditing}
-                  >
-                    Keep editing
-                  </OsSheetAction>
-                </OsSheetActions>
-              </div>
-            }
+            onDiscard={onDiscard}
+            onKeepEditing={onKeepEditing}
+            keepEditingRef={keepEditingRef}
           />
         ) : !hasSocialSession ? (
           <div className="os-commit-actions account-editor-session-actions">

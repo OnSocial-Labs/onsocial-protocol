@@ -22,7 +22,8 @@
     "./profile-editor-media.css": "./profile-editor-media.css",
     "./profile-avatar.css": "./profile-avatar.css",
     "./search-field.css": "./search-field.css",
-    "./os-field.css": "./os-field.css"
+    "./os-field.css": "./os-field.css",
+    "./os-notice-card.css": "./os-notice-card.css"
   },
   "scripts": {
     "build": "tsc",
@@ -65,7 +66,8 @@
     "profile-editor-media.css",
     "profile-avatar.css",
     "search-field.css",
-    "os-field.css"
+    "os-field.css",
+    "os-notice-card.css"
   ],
   "license": "MIT",
   "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",

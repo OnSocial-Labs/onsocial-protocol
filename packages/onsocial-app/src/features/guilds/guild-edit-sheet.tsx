@@ -13,11 +13,15 @@ import {
 import { ProfileEditorMediaToolbar } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
+  DiscardConfirmFooter,
+  discardConfirmFooterA11y,
+  useDiscardConfirm,
+} from '@/components/ui/discard-confirm';
+import {
   OsSheetAction,
   OsSheetActions,
   OsSheetPrimaryAction,
 } from '@/components/ui/os-sheet-primary-action';
-import { OsNoticeCard } from '@/components/ui/os-notice-card';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -79,8 +83,6 @@ export function GuildEditSheet({
   onSaved,
 }: GuildEditSheetProps) {
   const formId = useId();
-  const discardTitleId = useId();
-  const discardBodyId = useId();
   const {
     accountId,
     isConnected,
@@ -91,7 +93,6 @@ export function GuildEditSheet({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const scrollFieldIntoView = useMobileFieldFocusScroll();
 
-  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [loadState, setLoadState] = useState<
     'idle' | 'loading' | 'ready' | 'missing' | 'error' | 'forbidden'
   >('idle');
@@ -108,8 +109,6 @@ export function GuildEditSheet({
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const keepEditingRef = useRef<HTMLButtonElement>(null);
-  const dirtyRef = useRef(false);
 
   const bannerPreview = useObjectUrl(bannerFile);
 
@@ -161,7 +160,6 @@ export function GuildEditSheet({
 
   useEffect(() => {
     if (!open) {
-      setDiscardConfirmOpen(false);
       setLoadState('idle');
       setError(null);
     }
@@ -200,32 +198,21 @@ export function GuildEditSheet({
     snapshot,
   ]);
 
-  useEffect(() => {
-    dirtyRef.current = isDirty;
-  }, [isDirty]);
-
-  const handleBeforeClose = useCallback(() => {
-    if (pending) return false;
-    if (dirtyRef.current) {
-      setDiscardConfirmOpen(true);
-      return false;
-    }
-    return true;
-  }, [pending]);
-
-  const handleClosed = useCallback(() => {
-    setDiscardConfirmOpen(false);
-  }, []);
-
-  const handleKeepEditing = useCallback(() => {
-    setDiscardConfirmOpen(false);
-    queueMicrotask(() => keepEditingRef.current?.focus());
-  }, []);
-
-  const handleDiscard = useCallback(() => {
-    setDiscardConfirmOpen(false);
-    onClose();
-  }, [onClose]);
+  const {
+    discardConfirmOpen,
+    discardTitleId,
+    discardBodyId,
+    keepEditingRef,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open,
+    dirty: isDirty,
+    pending,
+    onClose,
+  });
 
   const buildMetadataChanges = async (): Promise<Record<string, unknown>> => {
     if (!snapshot) return {};
@@ -362,46 +349,20 @@ export function GuildEditSheet({
         className={`guild-edit-sheet-footer${
           discardConfirmOpen ? ' is-discard-confirm' : ''
         }`}
-        role={discardConfirmOpen ? 'alertdialog' : undefined}
-        aria-modal={discardConfirmOpen || undefined}
-        aria-labelledby={discardConfirmOpen ? discardTitleId : undefined}
-        aria-describedby={discardConfirmOpen ? discardBodyId : undefined}
+        {...discardConfirmFooterA11y(
+          discardConfirmOpen,
+          discardTitleId,
+          discardBodyId
+        )}
       >
         {discardConfirmOpen ? (
-          <OsNoticeCard
+          <DiscardConfirmFooter
             className="guild-edit-discard-card"
-            align="center"
-            shell
-            title="Discard changes?"
             titleId={discardTitleId}
-            body="Edits won’t be saved."
             bodyId={discardBodyId}
-            footer={
-              <div className="os-commit-actions">
-                <button
-                  type="button"
-                  className="os-commit-cancel is-danger"
-                  onClick={handleDiscard}
-                >
-                  Discard
-                </button>
-                <OsSheetActions
-                  layout="row-compact"
-                  tone="frosted-primary"
-                  borderless
-                >
-                  <OsSheetAction
-                    ref={keepEditingRef}
-                    type="button"
-                    variant="primary"
-                    ready
-                    onClick={handleKeepEditing}
-                  >
-                    Keep editing
-                  </OsSheetAction>
-                </OsSheetActions>
-              </div>
-            }
+            onDiscard={discard}
+            onKeepEditing={keepEditing}
+            keepEditingRef={keepEditingRef}
           />
         ) : (
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -433,8 +394,8 @@ export function GuildEditSheet({
     <OsSlideOverScreen
       open={open}
       onClose={onClose}
-      onClosed={handleClosed}
-      onBeforeClose={handleBeforeClose}
+      onClosed={clearDiscardConfirm}
+      onBeforeClose={requestCloseOrConfirm}
       title="Edit guild"
       closeAriaLabel="Back"
       closeDisabled={pending}
