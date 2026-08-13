@@ -451,6 +451,7 @@ interface AccountActionListProps {
   onEditProfile: () => void;
   onCustomize?: () => void;
   onMutedBlocked?: () => void;
+  onOpenTokens?: () => void;
   safeMode?: boolean;
   onToggleSafeMode?: () => void;
 }
@@ -463,6 +464,7 @@ export function AccountActionList({
   onEditProfile,
   onCustomize,
   onMutedBlocked,
+  onOpenTokens,
   safeMode,
   onToggleSafeMode,
 }: AccountActionListProps) {
@@ -480,6 +482,15 @@ export function AccountActionList({
             label: 'Customize page',
             hint: 'Mood, layout, media',
             onClick: onCustomize,
+          },
+        ]
+      : []),
+    ...(onOpenTokens
+      ? [
+          {
+            label: 'Your tokens',
+            hint: 'Create and manage FTs',
+            onClick: onOpenTokens,
           },
         ]
       : []),

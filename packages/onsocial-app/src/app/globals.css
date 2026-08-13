@@ -22077,6 +22077,31 @@ a.os-surface-row {
     outline: none;
   }
 
+  .drop-create-form .guild-field-check {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+
+  .drop-create-form .guild-field-check > input {
+    margin-top: 0.2rem;
+    flex: 0 0 auto;
+  }
+
+  .drop-create-form .guild-field-check > span {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .drop-create-form .guild-field-hint {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
   .drop-create-form .guild-field > textarea,
   .guild-create-form .guild-field > textarea,
   .hub-manage-form .guild-field > textarea {

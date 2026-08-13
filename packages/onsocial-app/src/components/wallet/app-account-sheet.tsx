@@ -12,6 +12,7 @@ import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
 import { AppSocialSwapSheet } from '@/components/wallet/app-social-swap-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
+import { AppTokensSheet } from '@/components/wallet/app-tokens-sheet';
 import { MuteBlockListsSheet } from '@/components/wallet/mute-block-lists-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
@@ -65,6 +66,7 @@ export function AppAccountSheet({
   const [closing, setClosing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
+  const [tokensOpen, setTokensOpen] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   const [muteBlockOpen, setMuteBlockOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
@@ -104,6 +106,7 @@ export function AppAccountSheet({
   }, [accountId]);
   const editorSheetOpen = editorOpen && open;
   const storageSheetOpen = storageOpen && open;
+  const tokensSheetOpen = tokensOpen && open;
   const swapSheetOpen = swapOpen && open;
   const platformStorage = usePlatformStorageSummary(
     accountId,
@@ -134,6 +137,7 @@ export function AppAccountSheet({
     setClosing(false);
     setEditorOpen(false);
     setStorageOpen(false);
+    setTokensOpen(false);
     setSwapOpen(false);
     onClose();
 
@@ -179,12 +183,20 @@ export function AppAccountSheet({
     setStorageOpen(true);
   }, []);
 
+  const handleOpenTokens = useCallback(() => {
+    setTokensOpen(true);
+  }, []);
+
   const handleOpenSwap = useCallback(() => {
     setSwapOpen(true);
   }, []);
 
   const handleStorageBack = useCallback(() => {
     setStorageOpen(false);
+  }, []);
+
+  const handleTokensBack = useCallback(() => {
+    setTokensOpen(false);
   }, []);
 
   const handleSwapBack = useCallback(() => {
@@ -298,6 +310,7 @@ export function AppAccountSheet({
             onClose={requestClose}
             onEditProfile={handleEditProfile}
             onCustomize={isOwnerOnPage ? handleCustomize : undefined}
+            onOpenTokens={handleOpenTokens}
             onMutedBlocked={handleMutedBlocked}
             safeMode={safeMode}
             onToggleSafeMode={toggleSafeMode}
@@ -330,6 +343,14 @@ export function AppAccountSheet({
         refreshKey={storageRefreshKey}
         onClose={handleStorageBack}
         onStorageChanged={handleStorageChanged}
+      />
+
+      <AppTokensSheet
+        open={tokensSheetOpen}
+        accountId={accountId}
+        pageMoodId={pageMoodId}
+        panelStyle={accountPanelStyle}
+        onClose={handleTokensBack}
       />
 
       <AppSocialSwapSheet

@@ -29,7 +29,7 @@ import {
   hubCategoryLabel,
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
-import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
+import { APP_APP_CREATE_PATH, APP_TOKENS_CREATE_PATH, appPath } from '@/lib/app-routes';
 import {
   INDEXER_CATCH_UP_COPY,
   INDEXER_SOFT_RETRY_MS,
@@ -336,12 +336,20 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
                   </button>
                 ) : null}
                 {isConnected && !searching ? (
-                  <Link
-                    href={APP_APP_CREATE_PATH}
-                    className="standing-panel-empty-action"
-                  >
-                    Open a hub
-                  </Link>
+                  <>
+                    <Link
+                      href={APP_APP_CREATE_PATH}
+                      className="standing-panel-empty-action"
+                    >
+                      Open a hub
+                    </Link>
+                    <Link
+                      href={APP_TOKENS_CREATE_PATH}
+                      className="standing-panel-empty-action"
+                    >
+                      Create token
+                    </Link>
+                  </>
                 ) : null}
               </div>
             ) : null}
