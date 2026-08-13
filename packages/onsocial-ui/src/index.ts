@@ -176,6 +176,39 @@ export {
   type OsNoticeCardProps,
 } from './os-notice-card.js';
 export {
+  ChoiceDrawer,
+  ChoiceDrawerField,
+  ChoiceDrawerMenu,
+  scarceChoiceChipClassName,
+  scarceChoiceSheetBodyClassName,
+  scarceChoiceSheetPanelClassName,
+  type ChoiceDrawerFieldProps,
+  type ChoiceDrawerMenuProps,
+  type ChoiceDrawerProps,
+  type ChoiceOption,
+} from './choice-drawer.js';
+export {
+  ActionDrawer,
+  actionDrawerConfirmBodyClassName,
+  actionDrawerConfirmCancelClassName,
+  actionDrawerConfirmClassName,
+  actionDrawerIconClassName,
+  type ActionDrawerItem,
+  type ActionDrawerLinkProps,
+  type ActionDrawerProps,
+} from './action-drawer.js';
+export { InfoDrawer, type InfoDrawerProps } from './info-drawer.js';
+export {
+  GestureSheetHeader,
+  type GestureSheetHeaderProps,
+  type GestureSheetSignal,
+} from './gesture-sheet-header.js';
+export {
+  configureScrollLockContainerFinder,
+  useScrollLock,
+  type ScrollLockContainerFinder,
+} from './use-scroll-lock.js';
+export {
   OsSheetActions,
   osSheetActionExpandedClassName,
   osSheetActionInertSlotClassName,
