@@ -10,10 +10,9 @@ import {
 } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   OsSheetActions,
   OsSheetPrimaryAction,
-  SheetHeader,
   osFieldSoftClassName,
 } from '@onsocial/ui';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
@@ -21,7 +20,6 @@ import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary'
 import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
@@ -203,8 +201,6 @@ export function AppStorageSheet({
     combinedRefreshKey
   );
 
-  useScrollLock(open || closing);
-
   const summary = userStorage.summary;
   const canWithdraw = (summary?.withdrawableYocto ?? 0n) > 0n;
   const withdrawableYocto = summary?.withdrawableYocto ?? 0n;
@@ -343,33 +339,21 @@ export function AppStorageSheet({
 
   return (
     <>
-      <GlassSheet
+      <OsHugSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        tone="os"
-        sizing="hug"
-        initialDetent="full"
+        label="Storage"
+        copy={`@${accountId}`}
+        closeAriaLabel="Close"
+        backdropLabel="Close storage"
         zIndex={57}
         presentation="swap"
-        ariaLabelledBy="app-storage-sheet-title"
-        backdropLabel="Close storage"
+        titleId="app-storage-sheet-title"
+        headerClassName="account-storage-header"
         panelClassName={`account-storage-panel${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
-        panelStyle={panelStyle}
         bodyClassName="account-storage-body"
-        header={
-          <>
-            <SheetHeader
-              titleId="app-storage-sheet-title"
-              title="Storage"
-              subtitle={`@${accountId}`}
-              onClose={requestClose}
-              closeAriaLabel="Close"
-              className="account-storage-header"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
+        {...(panelStyle ? { panelStyle } : {})}
       >
         <div className="app-storage-sheet">
           <section className="app-storage-section">
@@ -558,7 +542,7 @@ export function AppStorageSheet({
             />
           </section>
         </div>
-      </GlassSheet>
+      </OsHugSheet>
     </>
   );
 }

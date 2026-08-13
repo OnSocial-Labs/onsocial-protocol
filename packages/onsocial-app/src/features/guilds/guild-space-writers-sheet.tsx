@@ -1,13 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   CheckIcon,
   Divider,
-  GlassSheet,
+  OsHugSheet,
   ProfileAvatar,
-  SheetHeader,
 } from '@onsocial/ui';
 import {
   OsSheetAction,
@@ -30,7 +29,6 @@ import {
 } from '@/features/guilds/guild-space-write';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import {
@@ -62,7 +60,6 @@ export function GuildSpaceWritersSheet({
   onClose,
   onSaved,
 }: GuildSpaceWritersSheetProps) {
-  const titleId = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
@@ -91,8 +88,6 @@ export function GuildSpaceWritersSheet({
       setError(null);
     }
   }
-
-  useScrollLock(open || closing);
 
   const profiles = usePostAuthorProfiles([
     ...leaders.map((member) => member.memberId),
@@ -290,32 +285,18 @@ export function GuildSpaceWritersSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
+      label="Who can share"
+      copy={spaceTitle}
+      closeAriaLabel="Close who can share"
+      backdropLabel="Close who can share"
       zIndex={58}
       presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close who can share"
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Who can share"
-            subtitle={spaceTitle}
-            onClose={requestClose}
-            closeAriaLabel="Close who can share"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-space-writers-body">
         {loadState === 'loading' || loadState === 'idle' ? (
@@ -527,6 +508,6 @@ export function GuildSpaceWritersSheet({
           </>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

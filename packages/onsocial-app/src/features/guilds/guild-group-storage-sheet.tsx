@@ -1,21 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
+  GLASS_SHEET_PEEK_RATIO,
   MultiplyIcon,
+  OsHugSheet,
   OsSheetActions,
   OsSheetPrimaryAction,
   PlusIcon,
-  SheetHeader,
   osFieldSoftClassName,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useGroupStoragePool } from '@/hooks/use-group-storage-pool';
 import { useGroupStorageGrants } from '@/hooks/use-group-storage-grants';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -437,7 +436,6 @@ export function GuildGroupStorageSheet({
   initialRecipient?: string | null;
   onClose: () => void;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const { accountId, getSigningWallet } = useAppWallet();
@@ -463,8 +461,6 @@ export function GuildGroupStorageSheet({
     refreshKey,
     pendingGrantTargets
   );
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!sheetOpen) {
@@ -813,32 +809,21 @@ export function GuildGroupStorageSheet({
       : 0;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="peek"
-      zIndex={58}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Group storage"
+      copy={guildName?.trim() || 'Guild pool and member grants'}
+      closeAriaLabel="Close"
       backdropLabel="Close group storage"
+      zIndex={58}
+      initialDetent="peek"
+      peekRatio={GLASS_SHEET_PEEK_RATIO}
+      presentation="swap"
+      headerClassName="account-storage-header"
       panelClassName="account-storage-panel"
       bodyClassName="account-storage-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Group storage"
-            subtitle={guildName?.trim() || 'Guild pool and member grants'}
-            onClose={requestClose}
-            closeAriaLabel="Close"
-            className="account-storage-header"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="app-storage-sheet">
         <div className="app-storage-share-panel">
@@ -1159,6 +1144,6 @@ export function GuildGroupStorageSheet({
           ) : null}
         </div>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
