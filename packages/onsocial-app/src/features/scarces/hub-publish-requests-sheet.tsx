@@ -6,12 +6,15 @@ import {
   Divider,
   MultiplyIcon,
   OsHugSheet,
-  ProfileAvatar,
 } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@/components/ui/standing-identity';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -27,7 +30,6 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
   txToastError,
@@ -254,8 +256,10 @@ export function HubPublishRequestsSheet({
         <div className="standing-list">
           {inbox.map((request, index) => {
             const profile = profiles[request.requesterId];
-            const name = profile?.displayName?.trim() || null;
-            const label = name || `@${fallbackLabel(request.requesterId)}`;
+            const { label } = standingIdentityLabel(
+              request.requesterId,
+              profile?.displayName
+            );
             const when = formatRequestedWhen(request.requestedAt);
             const busyApprove =
               pendingAction?.requesterId === request.requesterId &&
@@ -272,33 +276,17 @@ export function HubPublishRequestsSheet({
                     className="standing-row-main"
                     scroll={false}
                   >
-                    <ProfileAvatar
-                      src={profile?.avatarUrl ?? null}
-                      fallbackInitial={name || request.requesterId}
-                      size="lg"
-                      className="standing-row-avatar-slot"
-                    />
-                    <div className="standing-row-copy">
-                      <span className="standing-row-head">
-                        <span className="standing-row-name-row">
-                          <span className="standing-row-name">{label}</span>
-                        </span>
-                        {name ? (
-                          <span className="standing-row-handle">
-                            @{fallbackLabel(request.requesterId)}
-                          </span>
-                        ) : null}
+                    <StandingIdentity
+                      accountId={request.requesterId}
+                      profileName={profile?.displayName}
+                      avatarUrl={profile?.avatarUrl}
+                    >
+                      <span className="standing-row-bio">
+                        {request.message
+                          ? request.message
+                          : 'Wants publishing access'}
                       </span>
-                      {request.message ? (
-                        <span className="standing-row-bio">
-                          {request.message}
-                        </span>
-                      ) : (
-                        <span className="standing-row-bio">
-                          Wants publishing access
-                        </span>
-                      )}
-                    </div>
+                    </StandingIdentity>
                   </Link>
                   <div className="standing-row-aside">
                     {when ? (

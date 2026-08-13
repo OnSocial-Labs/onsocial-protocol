@@ -2,7 +2,11 @@
 
 import Link from 'next/link';
 import type { GroupMemberRow } from '@onsocial/sdk';
-import { Divider, ProfileAvatar } from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@/components/ui/standing-identity';
 import { GuildMemberRoleBadge } from '@/features/guilds/guild-member-role-badge';
 import { guildMemberRoleBucket } from '@/features/guilds/guild-member-filter';
 import { GuildMemberRowMenu } from '@/features/guilds/guild-member-row-menu';
@@ -18,7 +22,6 @@ import {
 import { guildMemberTimeMeta } from '@/features/guilds/guild-member-time-meta';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 interface GuildMemberListProps {
   groupId: string;
@@ -51,12 +54,14 @@ export function GuildMemberList({
     <div className="standing-list guild-member-list">
       {members.map((member, index) => {
         const profile = profiles[member.memberId];
-        const name = profile?.displayName ?? displayName(member.memberId);
-        const handle = fallbackLabel(member.memberId);
+        const { label } = standingIdentityLabel(
+          member.memberId,
+          profile?.displayName
+        );
+        const href = portfolioPath(member.memberId);
         const timeMeta = guildMemberTimeMeta(member.blockTimestamp, {
           isOwner: listMode === 'banned' ? false : member.isOwner,
         });
-        const href = portfolioPath(member.memberId);
         const pendingRoleLevel =
           listMode === 'banned'
             ? null
@@ -79,26 +84,20 @@ export function GuildMemberList({
             {index > 0 ? <Divider variant="item" /> : null}
             <div className="standing-row guild-member-row">
               <Link href={href} className="standing-row-main" scroll={false}>
-                <ProfileAvatar
-                  src={profile?.avatarUrl ?? null}
-                  fallbackInitial={name}
-                  size="lg"
-                  className="standing-row-avatar-slot"
+                <StandingIdentity
+                  accountId={member.memberId}
+                  profileName={profile?.displayName}
+                  avatarUrl={profile?.avatarUrl}
+                  nameRowClassName="guild-member-row-name-row"
+                  nameTrailing={
+                    showRoleBadge ? (
+                      <GuildMemberRoleBadge
+                        member={member}
+                        pendingRoleLevel={pendingRoleLevel}
+                      />
+                    ) : null
+                  }
                 />
-                <div className="standing-row-copy">
-                  <span className="standing-row-head">
-                    <span className="standing-row-name-row guild-member-row-name-row">
-                      <span className="standing-row-name">{name}</span>
-                      {showRoleBadge ? (
-                        <GuildMemberRoleBadge
-                          member={member}
-                          pendingRoleLevel={pendingRoleLevel}
-                        />
-                      ) : null}
-                    </span>
-                    <span className="standing-row-handle">@{handle}</span>
-                  </span>
-                </div>
               </Link>
 
               <div
@@ -119,7 +118,7 @@ export function GuildMemberList({
                     groupId={groupId}
                     member={member}
                     manageContext={manageContext}
-                    memberLabel={name}
+                    memberLabel={label}
                     listMode={listMode}
                     onActionComplete={onMembersChanged}
                     onAddStorage={onAddStorage}

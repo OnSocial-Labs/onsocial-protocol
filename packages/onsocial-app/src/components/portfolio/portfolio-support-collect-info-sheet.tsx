@@ -13,12 +13,12 @@ import {
   ChevronDownIcon,
   Divider,
   GlassSheet,
-  ProfileAvatar,
   SheetCloseButton,
   useScrollLock,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
+import { StandingIdentity } from '@/components/ui/standing-identity';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -77,8 +77,6 @@ function SupportCreditList({
     <div className="standing-list portfolio-support-collect-info-list">
       {items.map((row, index) => {
         const profile = profiles[row.spenderId];
-        const name = profile?.displayName?.trim() || null;
-        const label = name || `@${row.spenderId}`;
         const when = formatSupportWhen(row.blockTimestamp);
         const kind = supportPotActionLabel(row.action);
         return (
@@ -92,27 +90,15 @@ function SupportCreditList({
                 className="standing-row-main"
                 scroll={false}
               >
-                <ProfileAvatar
-                  src={profile?.avatarUrl ?? null}
-                  fallbackInitial={name || row.spenderId}
-                  size="lg"
-                  className="standing-row-avatar-slot"
-                />
-                <div className="standing-row-copy">
-                  <span className="standing-row-head">
-                    <span className="standing-row-name-row">
-                      <span className="standing-row-name">{label}</span>
-                    </span>
-                    {name ? (
-                      <span className="standing-row-handle">
-                        @{row.spenderId}
-                      </span>
-                    ) : null}
-                  </span>
+                <StandingIdentity
+                  accountId={row.spenderId}
+                  profileName={profile?.displayName}
+                  avatarUrl={profile?.avatarUrl}
+                >
                   <span className="portfolio-support-collect-info-row-kind">
                     {kind}
                   </span>
-                </div>
+                </StandingIdentity>
               </Link>
               <div className="standing-row-aside">
                 {when ? (
