@@ -12,13 +12,12 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { SheetCloseButton } from '@onsocial/ui';
+import { SheetCloseButton, useScrollLock } from '@onsocial/ui';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
   ScarceReadableMedia,
   WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 const clientMountedSubscribe = () => () => {};

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useId, useState, type ReactNode } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import type { GestureSheetSignal } from '@/components/panels/gesture-sheet-header';
 import {
@@ -9,7 +9,6 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 /**
  * Full-height Protocol task sheet — same chrome as Scarces sell/list/buy

@@ -5,6 +5,7 @@ import {
   GlassSheet,
   ProfileEditorMediaToolbar,
   SheetCloseButton,
+  useScrollLock,
 } from '@onsocial/ui';
 import {
   useRef,
@@ -34,7 +35,6 @@ import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 

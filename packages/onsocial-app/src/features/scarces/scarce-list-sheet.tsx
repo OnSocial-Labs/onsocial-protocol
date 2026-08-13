@@ -2,7 +2,7 @@
 
 import { useCallback, useId, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   CommerceSheetFooter,
@@ -15,7 +15,6 @@ import {
   type ScarceListSuccessDetail,
 } from '@/features/scarces/scarce-list-form';
 import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 interface ScarceListSheetProps {

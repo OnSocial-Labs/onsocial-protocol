@@ -1,12 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
   ProtocolMotionArrow,
 } from '@onsocial/ui';
+import {
+  SheetFactRow,
+  SheetFactSection,
+} from '@/components/ui/sheet-facts';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { marketMediumLabel } from '@/features/market/market-medium';
 import {
@@ -53,30 +57,6 @@ export interface ScarceListingFacts {
    * `null`/omit = unknown; `{}` = none; non-empty = cut.
    */
   royalty?: Record<string, number> | null;
-}
-
-function FactRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="guild-facts-row">
-      <span className="guild-facts-label">{label}</span>
-      <span className="guild-facts-value">{value}</span>
-    </div>
-  );
-}
-
-function FactSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="guild-facts-section">
-      <h3 className="guild-facts-section-title">{title}</h3>
-      <div className="guild-facts-section-rows">{children}</div>
-    </section>
-  );
 }
 
 function formatNear(priceNear: string | null | undefined): string | null {
@@ -218,10 +198,10 @@ export function ScarceListingFactsSheet({
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">
-        <FactSection title="Listing">
-          <FactRow label="Kind" value={kindLabel(facts.kind)} />
+        <SheetFactSection title="Listing">
+          <SheetFactRow label="Kind" value={kindLabel(facts.kind)} />
           {ask ? (
-            <FactRow
+            <SheetFactRow
               label={
                 facts.kind === 'auction'
                   ? 'Reserve / bid'
@@ -233,16 +213,16 @@ export function ScarceListingFactsSheet({
             />
           ) : null}
           {mintAsk && facts.kind !== 'mint' ? (
-            <FactRow label="Original mint" value={mintAsk} />
+            <SheetFactRow label="Original mint" value={mintAsk} />
           ) : null}
-          {supply ? <FactRow label="Editions" value={supply} /> : null}
-          {medium ? <FactRow label="Medium" value={medium} /> : null}
-          <FactRow
+          {supply ? <SheetFactRow label="Editions" value={supply} /> : null}
+          {medium ? <SheetFactRow label="Medium" value={medium} /> : null}
+          <SheetFactRow
             label="Marketplace fee"
             value={`${formatRoyaltyPercent(MARKETPLACE_FEE_BPS)}%`}
           />
           {royalty != null ? (
-            <FactRow
+            <SheetFactRow
               label="Resale royalty"
               value={
                 hasRoyalty ? (
@@ -253,14 +233,14 @@ export function ScarceListingFactsSheet({
               }
             />
           ) : null}
-        </FactSection>
+        </SheetFactSection>
 
         {hasPeople ? (
           <>
             <Divider variant="detail" />
-            <FactSection title="People">
+            <SheetFactSection title="People">
               {facts.authorId?.trim() ? (
-                <FactRow
+                <SheetFactRow
                   label="Author"
                   value={
                     <Link
@@ -278,7 +258,7 @@ export function ScarceListingFactsSheet({
                 />
               ) : null}
               {showSeller && facts.sellerId?.trim() ? (
-                <FactRow
+                <SheetFactRow
                   label="Seller"
                   value={
                     <Link
@@ -295,16 +275,16 @@ export function ScarceListingFactsSheet({
                   }
                 />
               ) : null}
-            </FactSection>
+            </SheetFactSection>
           </>
         ) : null}
 
         {hasProvenance ? (
           <>
             <Divider variant="detail" />
-            <FactSection title="Provenance">
+            <SheetFactSection title="Provenance">
               {mintedAbs ? (
-                <FactRow
+                <SheetFactRow
                   label="Minted"
                   value={
                     mintedRel ? `${mintedAbs} · ${mintedRel}` : mintedAbs
@@ -312,7 +292,7 @@ export function ScarceListingFactsSheet({
                 />
               ) : null}
               {listedAbs ? (
-                <FactRow
+                <SheetFactRow
                   label="Listed"
                   value={
                     listedRel ? `${listedAbs} · ${listedRel}` : listedAbs
@@ -320,7 +300,7 @@ export function ScarceListingFactsSheet({
                 />
               ) : null}
               {sourceHref ? (
-                <FactRow
+                <SheetFactRow
                   label="Source"
                   value={
                     <Link
@@ -337,7 +317,7 @@ export function ScarceListingFactsSheet({
                   }
                 />
               ) : facts.collectionId?.trim() ? (
-                <FactRow
+                <SheetFactRow
                   label="Source"
                   value={
                     <Link
@@ -353,7 +333,7 @@ export function ScarceListingFactsSheet({
                 />
               ) : null}
               {facts.tokenId?.trim() ? (
-                <FactRow
+                <SheetFactRow
                   label="Token"
                   value={
                     <span className="guild-facts-id">{facts.tokenId.trim()}</span>
@@ -361,7 +341,7 @@ export function ScarceListingFactsSheet({
                 />
               ) : null}
               {facts.listingId?.trim() ? (
-                <FactRow
+                <SheetFactRow
                   label="Listing"
                   value={
                     <span className="guild-facts-id">
@@ -371,7 +351,7 @@ export function ScarceListingFactsSheet({
                 />
               ) : null}
               {facts.collectionId?.trim() ? (
-                <FactRow
+                <SheetFactRow
                   label="Collection"
                   value={
                     <span className="guild-facts-id">
@@ -380,14 +360,14 @@ export function ScarceListingFactsSheet({
                   }
                 />
               ) : null}
-            </FactSection>
+            </SheetFactSection>
           </>
         ) : null}
 
         <Divider variant="detail" />
 
-        <FactSection title="On-chain">
-          <FactRow
+        <SheetFactSection title="On-chain">
+          <SheetFactRow
             label="Contract"
             value={
               <a
@@ -404,7 +384,7 @@ export function ScarceListingFactsSheet({
             }
           />
           {tokenHref ? (
-            <FactRow
+            <SheetFactRow
               label="Token"
               value={
                 <a
@@ -421,7 +401,7 @@ export function ScarceListingFactsSheet({
               }
             />
           ) : null}
-        </FactSection>
+        </SheetFactSection>
       </div>
     </OsHugSheet>
   );

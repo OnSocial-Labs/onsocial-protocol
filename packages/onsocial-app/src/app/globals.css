@@ -1479,33 +1479,6 @@ a.os-surface-row {
   text-decoration: none;
 }
 
-.os-surface-row .account-card-action-arrow {
-  flex-shrink: 0;
-  width: 0.75rem;
-  height: 0.75rem;
-  color: rgb(var(--fg-rgb) / 0.42);
-}
-
-.os-surface-row--navigate:not(:disabled):hover .account-card-action-arrow,
-.os-surface-row--navigate:not(:disabled):focus-visible
-  .account-card-action-arrow {
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
-.os-surface-row .account-card-action-external {
-  flex-shrink: 0;
-  width: 0.875rem;
-  height: 0.875rem;
-  color: rgb(var(--fg-rgb) / 0.42);
-}
-
-.os-surface-row:not(.os-surface-row--navigate):not(:disabled):hover
-  .account-card-action-external,
-.os-surface-row:not(.os-surface-row--navigate):not(:disabled):focus-visible
-  .account-card-action-external {
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
 /* Preview bar — thin dock toolbar (OS chrome, not a confirmation card).
    Center on the fixed containing block (viewport or app column) — not
    viewport inset math, which breaks when transform/backdrop-filter
@@ -9073,70 +9046,7 @@ a.os-surface-row {
     padding: 0.15rem 1.15rem 1.35rem;
   }
 
-  .page-joined-facts {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .page-joined-fact-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.55rem 0 0.65rem;
-  }
-
-  .page-joined-fact-section-title {
-    margin: 0 0 0.2rem;
-    font-size: 0.64rem;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .page-joined-fact-section-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-  }
-
-  .page-joined-fact-row {
-    display: grid;
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    gap: 0.75rem;
-    align-items: baseline;
-  }
-
-  .page-joined-fact-label {
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.4);
-  }
-
-  .page-joined-fact-value {
-    min-width: 0;
-    font-size: 0.84rem;
-    font-weight: 550;
-    letter-spacing: -0.01em;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.88);
-    word-break: break-word;
-  }
-
-  .page-joined-fact-count {
-    font-size: 0.92rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .page-joined-fact-unit {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
+  /* Row/section/count chrome: shared `.guild-facts-*` via SheetFact*. */
 
   .page-joined-fact-link {
     display: inline-flex;
@@ -9170,7 +9080,7 @@ a.os-surface-row {
 
   .page-joined-facts-panel[data-tone='mood-thread'] .page-joined-facts-title,
   .page-joined-facts-panel[data-tone='mood-thread']
-    .page-joined-fact-section-title {
+    .guild-facts-section-title {
     color: color-mix(
       in srgb,
       var(--mood-accent-chrome, var(--mood-accent, rgb(var(--fg-rgb) / 0.55)))
@@ -25774,6 +25684,7 @@ a.os-surface-row {
     padding-bottom: 0.45rem;
   }
 
+  /* Canonical sheet fact chrome — used by SheetFact* (`sheet-facts.tsx`). */
   .guild-facts {
     display: flex;
     flex-direction: column;

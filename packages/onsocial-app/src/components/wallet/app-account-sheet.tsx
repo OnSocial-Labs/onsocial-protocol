@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import {
   AccountActionList,
   AccountSessionChip,
@@ -23,7 +23,6 @@ import {
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { ACCOUNT_SHEET_PEEK_RATIO } from '@/lib/account-sheet-config';
 import { accountSheetPageMoodPanel } from '@/lib/account-sheet-page-mood';
 import { accountIdsEqual } from '@/lib/account-match';

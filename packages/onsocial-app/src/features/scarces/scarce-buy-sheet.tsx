@@ -2,7 +2,7 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   CommerceSheetFooter,
@@ -16,7 +16,6 @@ import {
   type ScarceBuySuccessDetail,
 } from '@/features/scarces/scarce-buy-form';
 import { isPrimaryMintStatus } from '@/features/scarces/post-drop-cta';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 export interface ScarceBuyListing {
   listingId?: string;

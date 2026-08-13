@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { OsHugSheet, ProtocolMotionArrow } from '@onsocial/ui';
+import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
 
 interface GuildSettingsSheetProps {
   open: boolean;
@@ -53,76 +53,41 @@ export function GuildSettingsSheet({
       panelClassName="guild-settings-sheet-panel"
       bodyClassName="guild-settings-sheet-body"
     >
-      <nav
-        className="os-surface-row-list guild-settings-sheet-list"
+      <OsSurfaceRowList
+        className="guild-settings-sheet-list"
         aria-label="Guild settings"
       >
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
+        <OsSurfaceRow
+          label="Edit guild"
+          description="Banner, name, topics, access"
           onClick={() => {
             onEditGuild();
             requestClose();
           }}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Edit guild</span>
-            <span className="os-surface-row-description">
-              Banner, name, topics, access
-            </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
-
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
+        />
+        <OsSurfaceRow
+          label="Rooms"
+          description="Rooms and feed tabs"
           onClick={() => {
             onOpenRooms();
             requestClose();
           }}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Rooms</span>
-            <span className="os-surface-row-description">
-              Rooms and feed tabs
-            </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
-
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
+        />
+        <OsSurfaceRow
+          label="Group storage"
+          description="Fund the pool and add storage for members"
           onClick={() => {
             onOpenGroupStorage();
             requestClose();
           }}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Group storage</span>
-            <span className="os-surface-row-description">
-              Fund the pool and add storage for members
-            </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
-
-        <button
-          type="button"
-          className="os-surface-row"
+        />
+        <OsSurfaceRow
+          label="Analytics"
+          description="Reach, posts, and member activity"
+          badge="Soon"
           disabled
-          aria-disabled="true"
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Analytics</span>
-            <span className="os-surface-row-description">
-              Reach, posts, and member activity
-            </span>
-          </span>
-          <span className="os-surface-row-badge">Soon</span>
-        </button>
-      </nav>
+        />
+      </OsSurfaceRowList>
     </OsHugSheet>
   );
 }

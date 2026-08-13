@@ -17,6 +17,7 @@ import {
   ShopFillIcon,
   osIconActionClassName,
   osIconActionGlyphClassName,
+  useScrollLock,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
@@ -26,7 +27,6 @@ import {
   usePostAuthorProfiles,
   type PostAuthorProfile,
 } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';

@@ -21,9 +21,12 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeftIcon, osIconActionClassName } from '@onsocial/ui';
+import {
+  ArrowLeftIcon,
+  osIconActionClassName,
+  useScrollLock,
+} from '@onsocial/ui';
 import { useOsPortalHost } from '@/contexts/os-portal-host-context';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
 const clientMountedSubscribe = () => () => {};
@@ -105,8 +108,7 @@ export function OsSlideOverScreen({
   );
   const registeredHost = useOsPortalHost();
   const viewerMood = useViewerDockMood();
-  const resolvedMoodId =
-    moodId !== undefined ? moodId : viewerMood.moodId;
+  const resolvedMoodId = moodId !== undefined ? moodId : viewerMood.moodId;
   const resolvedMoodStyle =
     moodStyle !== undefined ? moodStyle : viewerMood.style;
   const hasMood = Boolean(resolvedMoodId);
@@ -197,9 +199,7 @@ export function OsSlideOverScreen({
   if (!mounted || !renderOpen) return null;
 
   const portalHost =
-    typeof document !== 'undefined'
-      ? (registeredHost ?? document.body)
-      : null;
+    typeof document !== 'undefined' ? (registeredHost ?? document.body) : null;
   if (!portalHost) return null;
 
   const rootStyle: CSSProperties = {

@@ -1,12 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
   ProtocolMotionArrow,
 } from '@onsocial/ui';
+import {
+  SheetFactCopy,
+  SheetFactRow,
+  SheetFactSection,
+} from '@/components/ui/sheet-facts';
 import {
   collectionStatusLabel,
   deriveCollectionStatus,
@@ -35,30 +40,6 @@ const SCARCES_CONTRACT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
     ? 'scarces.onsocial.near'
     : 'scarces.onsocial.testnet';
-
-function FactRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="guild-facts-row">
-      <span className="guild-facts-label">{label}</span>
-      <span className="guild-facts-value">{value}</span>
-    </div>
-  );
-}
-
-function FactSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="guild-facts-section">
-      <h3 className="guild-facts-section-title">{title}</h3>
-      <div className="guild-facts-section-rows">{children}</div>
-    </section>
-  );
-}
 
 function mintModeLabel(mode: string): string {
   const key = mode.trim().toLowerCase();
@@ -177,19 +158,19 @@ export function CollectionFactsSheet({
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">
-        <FactSection title="Mint">
-          <FactRow label="Status" value={collectionStatusLabel(status)} />
-          <FactRow label="Schedule" value={schedule.label} />
+        <SheetFactSection title="Mint">
+          <SheetFactRow label="Status" value={collectionStatusLabel(status)} />
+          <SheetFactRow label="Schedule" value={schedule.label} />
           {schedule.detail && schedule.detail !== schedule.label ? (
-            <p className="guild-facts-copy">{schedule.detail}</p>
+            <SheetFactCopy>{schedule.detail}</SheetFactCopy>
           ) : null}
-          <FactRow label="Price" value={priceLabel} />
-          <FactRow
+          <SheetFactRow label="Price" value={priceLabel} />
+          <SheetFactRow
             label="Marketplace fee"
             value={`${formatRoyaltyPercent(MARKETPLACE_FEE_BPS)}%`}
           />
           {view.appId ? (
-            <FactRow
+            <SheetFactRow
               label="Hub commission"
               value={
                 view.appCommissionBps == null
@@ -200,12 +181,12 @@ export function CollectionFactsSheet({
               }
             />
           ) : null}
-          <FactRow
+          <SheetFactRow
             label="Supply"
             value={`${view.minted} / ${view.totalSupply} minted`}
           />
-          <FactRow label="Wallet cap" value={walletCap} />
-          <FactRow
+          <SheetFactRow label="Wallet cap" value={walletCap} />
+          <SheetFactRow
             label="Access"
             value={
               view.hasAllowlist
@@ -213,8 +194,8 @@ export function CollectionFactsSheet({
                 : mintModeLabel(view.mintMode)
             }
           />
-          <FactRow label="Editions" value={editionLabel} />
-          <FactRow
+          <SheetFactRow label="Editions" value={editionLabel} />
+          <SheetFactRow
             label="Resale royalty"
             value={
               totalRoyaltyBps(view.royalty) > 0 ? (
@@ -254,14 +235,14 @@ export function CollectionFactsSheet({
             }
           />
           {rightsParts.length > 0 ? (
-            <FactRow label="Rights" value={rightsParts.join(' · ')} />
+            <SheetFactRow label="Rights" value={rightsParts.join(' · ')} />
           ) : null}
-        </FactSection>
+        </SheetFactSection>
 
         <Divider variant="detail" />
 
-        <FactSection title="Details">
-          <FactRow
+        <SheetFactSection title="Details">
+          <SheetFactRow
             label="Creator"
             value={
               <Link
@@ -278,7 +259,7 @@ export function CollectionFactsSheet({
             }
           />
           {view.seriesId ? (
-            <FactRow
+            <SheetFactRow
               label="Series"
               value={
                 <Link
@@ -296,7 +277,7 @@ export function CollectionFactsSheet({
             />
           ) : null}
           {view.appId ? (
-            <FactRow
+            <SheetFactRow
               label="Hub"
               value={
                 <Link
@@ -312,30 +293,30 @@ export function CollectionFactsSheet({
             />
           ) : null}
           {view.kind ? (
-            <FactRow
+            <SheetFactRow
               label="Kind"
               value={view.kind.charAt(0).toUpperCase() + view.kind.slice(1)}
             />
           ) : null}
           {facetsLabel ? (
-            <FactRow
+            <SheetFactRow
               label={dropFacetFieldLabel(view.kind)}
               value={facetsLabel}
             />
           ) : null}
           {createdLabel ? (
-            <FactRow label="Created" value={createdLabel} />
+            <SheetFactRow label="Created" value={createdLabel} />
           ) : null}
-          <FactRow
+          <SheetFactRow
             label="ID"
             value={<span className="guild-facts-id">{view.collectionId}</span>}
           />
-        </FactSection>
+        </SheetFactSection>
 
         <Divider variant="detail" />
 
-        <FactSection title="On-chain">
-          <FactRow
+        <SheetFactSection title="On-chain">
+          <SheetFactRow
             label="Contract"
             value={
               <a
@@ -351,7 +332,7 @@ export function CollectionFactsSheet({
               </a>
             }
           />
-        </FactSection>
+        </SheetFactSection>
       </div>
     </OsHugSheet>
   );

@@ -1,12 +1,16 @@
 'use client';
 
 import type { ReactNode, RefObject } from 'react';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import {
   OverlayDismissProvider,
   type GlassSheetDetent,
 } from '@/contexts/overlay-dismiss-context';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  SheetCloseButton,
+  useScrollLock,
+} from '@onsocial/ui';
 
 interface GlassOverlayShellProps {
   accountId: string;
@@ -107,9 +111,7 @@ function GlassOverlaySheetFrame({
                     {title}
                   </h2>
                   {description ? (
-                    <p className="glass-sheet-header-subtitle">
-                      {description}
-                    </p>
+                    <p className="glass-sheet-header-subtitle">{description}</p>
                   ) : null}
                 </div>
                 <SheetCloseButton

@@ -15,13 +15,14 @@ import {
   SheetCloseButton,
   osIconActionClassName,
   osIconActionGlyphClassName,
-  osFieldBorderedClassName,
+  useScrollLock,
 } from '@onsocial/ui';
 import {
   buildBoostLockMsg,
   encodeBoostFtMsg,
   type BoostLockPeriod,
 } from '@onsocial/sdk/advanced';
+import { AmountField } from '@/components/ui/amount-field';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
@@ -54,7 +55,6 @@ import {
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -179,31 +179,16 @@ function BoostAmountField({
 }) {
   return (
     <>
-      <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-        <input
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={amountInput}
-          onChange={(event) => onAmountInput(event.target.value)}
-          onBlur={() =>
-            onAmountInput(
-              finalizeAmountInput(
-                amountInput,
-                SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
-              )
-            )
-          }
-          placeholder={BOOST_MIN_LOCK_SOCIAL_LABEL}
-          aria-label="Amount in SOCIAL"
-          className="app-storage-amount-input"
-          disabled={disabled}
-        />
-        <span className="account-card-balance-unit profile-support-token-unit">
-          <TokenIcon src={tokenIconSrc} label="SOCIAL" />
-          SOCIAL
-        </span>
-      </div>
+      <AmountField
+        value={amountInput}
+        onValueChange={onAmountInput}
+        maxDecimals={SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS}
+        placeholder={BOOST_MIN_LOCK_SOCIAL_LABEL}
+        aria-label="Amount in SOCIAL"
+        unit="SOCIAL"
+        unitIcon={<TokenIcon src={tokenIconSrc} label="SOCIAL" />}
+        disabled={disabled}
+      />
       <div className="profile-support-quick-row">
         <div
           className="app-storage-presets profile-support-presets"
@@ -366,10 +351,7 @@ export function PortfolioBoostSheet({
   const amountReady = amountYocto >= BOOST_MIN_LOCK_YOCTO && !insufficient;
   const increaseInfluenceYocto =
     mode === 'increase' && amountReady && currentOption
-      ? applyLockBonus(
-          lockedYocto + amountYocto,
-          currentOption.bonusPercent
-        )
+      ? applyLockBonus(lockedYocto + amountYocto, currentOption.bonusPercent)
       : null;
   const summaryInfluenceYocto =
     mode === 'extend' && extendInfluenceYocto != null

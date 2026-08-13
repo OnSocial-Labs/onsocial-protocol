@@ -1,9 +1,6 @@
 'use client';
 
 import {
-  osFieldBorderedClassName,
-} from '@onsocial/ui';
-import {
   useCallback,
   useEffect,
   useMemo,
@@ -20,6 +17,8 @@ import {
   type MoodKey,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
+import { osFieldBorderedClassName } from '@onsocial/ui';
+import { AmountField } from '@/components/ui/amount-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -1150,29 +1149,17 @@ export function ScarceListForm({
 
       <div className="scarce-royalty-field">
         <p className="scarce-mood-picker-label">Price</p>
-        <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-          <input
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            value={amountInput}
-            onChange={(event) => applyAmountInput(event.target.value)}
-            onFocus={onAmountFocus}
-            onBlur={() =>
-              applyAmountInput(
-                finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-              )
-            }
-            placeholder={MIN_PRICE_NEAR}
-            aria-label="Price in NEAR"
-            aria-invalid={Boolean(amountError)}
-            className="app-storage-amount-input"
-            disabled={pending}
-          />
-          <span className="account-card-balance-unit profile-support-token-unit">
-            NEAR
-          </span>
-        </div>
+        <AmountField
+          value={amountInput}
+          onValueChange={applyAmountInput}
+          maxDecimals={NEAR_INPUT_DECIMALS}
+          onFocus={onAmountFocus}
+          placeholder={MIN_PRICE_NEAR}
+          aria-label="Price in NEAR"
+          invalid={Boolean(amountError)}
+          unit="NEAR"
+          disabled={pending}
+        />
         <div
           className="app-storage-presets"
           role="group"
