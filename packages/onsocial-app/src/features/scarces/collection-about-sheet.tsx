@@ -6,26 +6,21 @@ import {
   useEffect,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 import {
   Divider,
   OsHugSheet,
   ProtocolMotionArrow,
 } from '@onsocial/ui';
+import {
+  SheetFactCopy,
+  SheetFactRow,
+  SheetFactSection,
+} from '@/components/ui/sheet-facts';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
-
-function MetaRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="guild-facts-row">
-      <span className="guild-facts-label">{label}</span>
-      <span className="guild-facts-value">{value}</span>
-    </div>
-  );
-}
 
 /**
  * One-line drop blurb. Shows an inline “more” only when the line truncates.
@@ -133,37 +128,34 @@ export function CollectionAboutSheet({
         {view.seriesId || createdAbs ? (
           <>
             {description ? <Divider variant="detail" /> : null}
-            <section className="guild-facts-section">
-              <h3 className="guild-facts-section-title">Details</h3>
-              <div className="guild-facts-section-rows">
-                {view.seriesId ? (
-                  <MetaRow
-                    label="Series"
-                    value={
-                      <Link
-                        href={seriesPagePath(view.creatorId, view.seriesId)}
-                        className="guild-facts-link group"
-                        scroll={false}
-                        onClick={requestClose}
-                      >
-                        <span className="guild-facts-link-label">
-                          {view.seriesTitle ?? view.seriesId}
-                        </span>
-                        <ProtocolMotionArrow className="guild-facts-link-arrow" />
-                      </Link>
-                    }
-                  />
-                ) : null}
-                {createdAbs ? (
-                  <>
-                    <MetaRow label="Created" value={createdAbs} />
-                    {createdRel && createdRel !== createdAbs ? (
-                      <p className="guild-facts-copy">{createdRel}</p>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            </section>
+            <SheetFactSection title="Details">
+              {view.seriesId ? (
+                <SheetFactRow
+                  label="Series"
+                  value={
+                    <Link
+                      href={seriesPagePath(view.creatorId, view.seriesId)}
+                      className="guild-facts-link group"
+                      scroll={false}
+                      onClick={requestClose}
+                    >
+                      <span className="guild-facts-link-label">
+                        {view.seriesTitle ?? view.seriesId}
+                      </span>
+                      <ProtocolMotionArrow className="guild-facts-link-arrow" />
+                    </Link>
+                  }
+                />
+              ) : null}
+              {createdAbs ? (
+                <>
+                  <SheetFactRow label="Created" value={createdAbs} />
+                  {createdRel && createdRel !== createdAbs ? (
+                    <SheetFactCopy>{createdRel}</SheetFactCopy>
+                  ) : null}
+                </>
+              ) : null}
+            </SheetFactSection>
           </>
         ) : null}
       </div>

@@ -1,13 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Divider,
   OsHugSheet,
   ProfileAvatar,
   ProtocolMotionArrow,
 } from '@onsocial/ui';
+import {
+  SheetFactCopy,
+  SheetFactCount,
+  SheetFactRow,
+  SheetFactSection,
+} from '@/components/ui/sheet-facts';
 import {
   appVolumeNearLabel,
   creatorAccessLabel,
@@ -23,39 +29,6 @@ import {
   formatPageDrawerJoinedFullLabel,
 } from '@/lib/page-drawer-meta';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
-
-function FactRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="guild-facts-row">
-      <span className="guild-facts-label">{label}</span>
-      <span className="guild-facts-value">{value}</span>
-    </div>
-  );
-}
-
-function FactSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="guild-facts-section">
-      <h3 className="guild-facts-section-title">{title}</h3>
-      <div className="guild-facts-section-rows">{children}</div>
-    </section>
-  );
-}
-
-function CountValue({ count, unit }: { count: number; unit?: string }) {
-  return (
-    <span className="guild-facts-count-value">
-      <span className="guild-facts-count">{formatCompactCount(count)}</span>
-      {unit ? <span className="guild-facts-unit"> {unit}</span> : null}
-    </span>
-  );
-}
 
 /**
  * Hub twin of the guild facts drawer — access, activity stats, details.
@@ -121,18 +94,18 @@ export function HubFactsSheet({
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">
-        <FactSection title="Creators">
-          <FactRow label="Access" value={creatorAccessShort(app.creatorAccess)} />
-          <p className="guild-facts-copy">
+        <SheetFactSection title="Creators">
+          <SheetFactRow label="Access" value={creatorAccessShort(app.creatorAccess)} />
+          <SheetFactCopy>
             {creatorAccessLabel(app.creatorAccess)}.
-          </p>
-          <FactRow label="Commission" value={`${app.commissionPct}%`} />
-          <p className="guild-facts-copy">
+          </SheetFactCopy>
+          <SheetFactRow label="Commission" value={`${app.commissionPct}%`} />
+          <SheetFactCopy>
             {app.primarySaleBps === 0
               ? 'The hub takes no cut — creators keep 100% of every primary sale.'
               : `The hub keeps ${app.commissionPct}% of each primary sale — creators keep ${keepPct}%.`}
-          </p>
-          <FactRow
+          </SheetFactCopy>
+          <SheetFactRow
             label="Roster"
             value={
               <button
@@ -143,71 +116,71 @@ export function HubFactsSheet({
                   requestClose();
                 }}
               >
-                <CountValue
-                  count={creatorCount}
+                <SheetFactCount
+                  count={formatCompactCount(creatorCount)}
                   unit={creatorCount === 1 ? 'creator' : 'creators'}
                 />
                 <ProtocolMotionArrow className="guild-facts-link-arrow" />
               </button>
             }
           />
-        </FactSection>
+        </SheetFactSection>
 
         <Divider variant="detail" />
 
-        <FactSection title="Activity">
+        <SheetFactSection title="Activity">
           {stats ? (
             <>
-              <FactRow
+              <SheetFactRow
                 label="Drops"
-                value={<CountValue count={stats.dropsTotal} />}
+                value={<SheetFactCount count={formatCompactCount(stats.dropsTotal)} />}
               />
-              <FactRow
+              <SheetFactRow
                 label="Minted"
                 value={
-                  <CountValue
-                    count={stats.mintedTotal}
+                  <SheetFactCount
+                    count={formatCompactCount(stats.mintedTotal)}
                     unit={stats.mintedTotal === 1 ? 'item' : 'items'}
                   />
                 }
               />
-              <FactRow
+              <SheetFactRow
                 label="Holders"
                 value={
-                  <CountValue
-                    count={stats.uniqueHolders}
+                  <SheetFactCount
+                    count={formatCompactCount(stats.uniqueHolders)}
                     unit={stats.uniqueHolders === 1 ? 'account' : 'accounts'}
                   />
                 }
               />
-              <FactRow
+              <SheetFactRow
                 label="Sales"
                 value={
-                  <CountValue
-                    count={stats.salesCount}
+                  <SheetFactCount
+                    count={formatCompactCount(stats.salesCount)}
                     unit={`· ${appVolumeNearLabel(stats.salesVolumeYocto)} NEAR`}
                   />
                 }
               />
-              <FactRow
+              <SheetFactRow
                 label="On Market"
                 value={
-                  <CountValue
-                    count={stats.liveListings}
+                  <SheetFactCount
+                    count={formatCompactCount(stats.liveListings)}
                     unit={stats.liveListings === 1 ? 'listing' : 'listings'}
                   />
                 }
               />
             </>
           ) : (
-            <p className="guild-facts-copy">Activity is still indexing.</p>
+            <SheetFactCopy>Activity is still indexing.</SheetFactCopy>
           )}
-        </FactSection>
+        </SheetFactSection>
 
         <Divider variant="detail" />
 
-        <FactSection title="Details">
-          <FactRow
+        <SheetFactSection title="Details">
+          <SheetFactRow
             label="Owner"
             value={
               <Link
@@ -223,16 +196,16 @@ export function HubFactsSheet({
             }
           />
           {createdLabel ? (
-            <FactRow label="Created" value={createdLabel} />
+            <SheetFactRow label="Created" value={createdLabel} />
           ) : null}
           {categoryLine ? (
-            <FactRow label="Category" value={categoryLine} />
+            <SheetFactRow label="Category" value={categoryLine} />
           ) : null}
-          <FactRow
+          <SheetFactRow
             label="ID"
             value={<span className="guild-facts-id">{app.appId}</span>}
           />
-        </FactSection>
+        </SheetFactSection>
       </div>
     </OsHugSheet>
   );
