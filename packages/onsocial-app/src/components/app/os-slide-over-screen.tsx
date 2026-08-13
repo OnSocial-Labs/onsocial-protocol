@@ -92,11 +92,11 @@ export function OsSlideOverScreen({
   const titleId = useId();
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
-  const openRef = useRef(open);
   const [closing, setClosing] = useState(false);
   const [entered, setEntered] = useState(false);
   /** Keep mounted through exit when parent sets `open` false. */
   const [renderOpen, setRenderOpen] = useState(open);
+  const [wasOpen, setWasOpen] = useState(open);
   const [glassElevated, setGlassElevated] = useState(false);
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
@@ -111,25 +111,17 @@ export function OsSlideOverScreen({
     moodStyle !== undefined ? moodStyle : viewerMood.style;
   const hasMood = Boolean(resolvedMoodId);
 
-  // Keep latest open for finishExit without reading during render.
-  useLayoutEffect(() => {
-    openRef.current = open;
-  }, [open]);
-
-  // Parent opened — (re)mount and reset exit state.
-  useLayoutEffect(() => {
-    if (!open) return;
-    setRenderOpen(true);
-    setClosing(false);
-    setEntered(false);
-  }, [open]);
-
-  // Parent set open=false while we were showing — run the exit slide.
-  useLayoutEffect(() => {
-    if (open || !renderOpen) return;
-    setClosing(true);
-    setEntered(false);
-  }, [open, renderOpen]);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setRenderOpen(true);
+      setClosing(false);
+      setEntered(false);
+    } else if (renderOpen) {
+      setClosing(true);
+      setEntered(false);
+    }
+  }
 
   const layerOpen = renderOpen && !closing;
   const hasFooter = footer != null;
@@ -138,9 +130,7 @@ export function OsSlideOverScreen({
   const finishExit = useCallback(() => {
     setClosing(false);
     setRenderOpen(false);
-    if (openRef.current) {
-      onClose();
-    }
+    onClose();
     onClosed?.();
   }, [onClose, onClosed]);
 
