@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useState,
   useCallback,
   useMemo,
@@ -181,6 +182,16 @@ export function SummonLauncher({
   const [dragging, setDragging] = useState(false);
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
   const [panelHeightPx, setPanelHeightPx] = useState(0);
+  const [openGate, setOpenGate] = useState(open);
+
+  // Reset presentation state when open flips — avoid setState-in-effect.
+  if (open !== openGate) {
+    setOpenGate(open);
+    setEnterAnimationDone(false);
+    setPanelHeightPx(0);
+    setDragY(0);
+    setDragging(false);
+  }
 
   const resetDrag = useCallback(() => {
     setDragY(0);
@@ -197,13 +208,12 @@ export function SummonLauncher({
 
   useScrollLock(open);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) {
-      setEnterAnimationDone(false);
-      setPanelHeightPx(0);
-      resetDrag();
+      dragYRef.current = 0;
+      dragStateRef.current = null;
     }
-  }, [open, resetDrag]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
