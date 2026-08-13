@@ -1,12 +1,7 @@
 'use client';
 
 import { useCallback, useId, useState, type FormEvent } from 'react';
-import {
-  Divider,
-  GlassSheet,
-  SheetHeader,
-  osFieldSoftClassName,
-} from '@onsocial/ui';
+import { OsHugSheet, osFieldSoftClassName } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -23,7 +18,6 @@ import {
 import { persistGuildStructure } from '@/features/guilds/persist-guild-structure';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const POLICY_CHIP_LABEL: Record<GuildSpacePostPolicy, string> = {
@@ -63,7 +57,6 @@ export function GuildAddSpaceSheet({
   onClose,
   onSaved,
 }: GuildAddSpaceSheetProps) {
-  const titleId = useId();
   const shareLabelId = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
@@ -86,8 +79,6 @@ export function GuildAddSpaceSheet({
       setClosing(false);
     }
   }
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (pending) return;
@@ -152,32 +143,20 @@ export function GuildAddSpaceSheet({
   const canSubmit = Boolean(title.trim()) && !pending;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Add room"
+      copy="New feed tab in this guild."
+      closeAriaLabel="Close"
       backdropLabel="Close add room"
+      zIndex={57}
+      initialDetent="peek"
+      presentation="swap"
+      headerClassName="guild-add-space-sheet-header"
       panelClassName="guild-add-space-sheet-panel"
       bodyClassName="guild-add-space-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Add room"
-            subtitle="New feed tab in this guild."
-            onClose={requestClose}
-            closeAriaLabel="Close"
-            className="guild-add-space-sheet-header"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <form
         className="guild-add-space-sheet-form"
@@ -249,6 +228,6 @@ export function GuildAddSpaceSheet({
           </OsSheetAction>
         </OsSheetActions>
       </form>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
