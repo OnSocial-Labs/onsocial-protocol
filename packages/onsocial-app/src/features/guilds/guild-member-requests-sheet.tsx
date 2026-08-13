@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
-import { Divider, GlassSheet, PulsingDots, SheetHeader } from '@onsocial/ui';
+import {
+  GLASS_SHEET_PEEK_RATIO,
+  OsHugSheet,
+  PulsingDots,
+} from '@onsocial/ui';
 import {
   isOwnJoinRequestProposal,
   joinRequesterFromProposal,
@@ -325,30 +329,22 @@ export function GuildMemberRequestsSheet({
     : { supportLabel: 'Approve', opposeLabel: 'Deny' };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy="guild-member-requests-title"
+      label="Member requests"
+      copy={subtitle}
+      closeAriaLabel="Close"
       backdropLabel="Close member requests"
+      zIndex={57}
+      sizing="full"
+      initialDetent="peek"
+      peekRatio={GLASS_SHEET_PEEK_RATIO}
+      presentation="swap"
+      titleId="guild-member-requests-title"
+      headerClassName="guild-manage-sheet-header"
       panelClassName="guild-manage-sheet-panel"
       bodyClassName="guild-manage-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId="guild-member-requests-title"
-            title="Member requests"
-            subtitle={subtitle}
-            onClose={onClose}
-            closeAriaLabel="Close"
-            className="guild-manage-sheet-header"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-member-requests-sheet">
         {loadState === 'loading' ? (
@@ -428,6 +424,6 @@ export function GuildMemberRequestsSheet({
           </div>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

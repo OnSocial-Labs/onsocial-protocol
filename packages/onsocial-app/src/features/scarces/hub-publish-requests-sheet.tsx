@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
   MultiplyIcon,
+  OsHugSheet,
   ProfileAvatar,
-  SheetHeader,
 } from '@onsocial/ui';
 import {
   OsSheetAction,
@@ -27,7 +26,6 @@ import {
 } from '@/features/scarces/store-publish-requests';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import {
@@ -56,7 +54,7 @@ function formatRequestedWhen(ms: number): string {
 }
 
 /**
- * Staff inbox for hub publish access — GlassSheet, standing-style rows.
+ * Staff inbox for hub publish access — standing-style rows.
  * Approve → on-chain grant. Decline → staff-owned social decision note.
  */
 export function HubPublishRequestsSheet({
@@ -66,7 +64,6 @@ export function HubPublishRequestsSheet({
   onClose,
   onChanged,
 }: HubPublishRequestsSheetProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [inbox, setInbox] = useState<StorePublishRequest[] | null>(null);
   const [pendingAction, setPendingAction] = useState<{
@@ -88,8 +85,6 @@ export function HubPublishRequestsSheet({
         .join('|'),
     [approvedCreatorIds]
   );
-
-  useScrollLock(open || closing);
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -226,39 +221,28 @@ export function HubPublishRequestsSheet({
   );
   const profiles = usePostAuthorProfiles(requesterIds);
 
+  const subtitle =
+    inbox == null
+      ? 'Loading…'
+      : inbox.length === 0
+        ? 'No pending requests'
+        : `${inbox.length} waiting for approval`;
+
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
+      label="Publish requests"
+      copy={subtitle}
+      closeAriaLabel="Close publish requests"
+      backdropLabel="Close publish requests"
+      zIndex={58}
       initialDetent="peek"
       peekRatio={1}
-      zIndex={58}
       presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close publish requests"
       panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-requests-sheet-panel"
       bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Publish requests"
-            subtitle={
-              inbox == null
-                ? 'Loading…'
-                : inbox.length === 0
-                  ? 'No pending requests'
-                  : `${inbox.length} waiting for approval`
-            }
-            onClose={requestClose}
-            closeAriaLabel="Close publish requests"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       {loadError ? (
         <p className="hub-manage-hint is-danger">{loadError}</p>
@@ -362,6 +346,6 @@ export function HubPublishRequestsSheet({
           })}
         </div>
       )}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
