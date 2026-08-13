@@ -71,7 +71,7 @@ export function ScarceTrackOptionsMenu({
       id: 'save',
       label: 'Save on device',
       description: 'File copy in Downloads or a folder',
-      leading: <SaveIcon className="action-drawer-icon" aria-hidden />,
+      leading: <SaveIcon className="os-action-drawer-icon" aria-hidden />,
       disabled: lockedOut || busy,
       onSelect: () => {
         void runJob(onSave);
@@ -85,7 +85,7 @@ export function ScarceTrackOptionsMenu({
         id: 'remove',
         label: 'Remove from app',
         description: 'Stops offline playback for this track',
-        leading: <DownloadIcon className="action-drawer-icon" aria-hidden />,
+        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
         trailing: (
           <span className="scarce-clip-track-menu-status">On device</span>
         ),
@@ -103,7 +103,7 @@ export function ScarceTrackOptionsMenu({
         description: offlineUnknown
           ? 'Checking access…'
           : 'Play offline in OnSocial',
-        leading: <DownloadIcon className="action-drawer-icon" aria-hidden />,
+        leading: <DownloadIcon className="os-action-drawer-icon" aria-hidden />,
         disabled: offlineUnknown || lockedOut || busy,
         onSelect: () => {
           void runJob(onDownload);

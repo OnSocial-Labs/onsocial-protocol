@@ -333,6 +333,13 @@
   min-width: 0;
 }
 
+.glass-sheet-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
 .glass-sheet-header-title {
   margin: 0;
   font-size: 1.05rem;

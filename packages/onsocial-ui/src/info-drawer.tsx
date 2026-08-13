@@ -6,8 +6,8 @@ import { GlassSheet, SheetHeader } from './glass-sheet.js';
 import { OsSheetAction } from './os-sheet-action.js';
 import { OsSheetActions } from './os-sheet-actions.js';
 import {
-  scarceChoiceSheetBodyClassName,
-  scarceChoiceSheetPanelClassName,
+  osChoiceSheetBodyClassName,
+  osChoiceSheetPanelClassName,
 } from './choice-drawer.js';
 import { useScrollLock } from './use-scroll-lock.js';
 
@@ -64,8 +64,8 @@ export function InfoDrawer({
       ariaLabelledBy={titleId}
       backdropLabel="Close"
       sizing="hug"
-      panelClassName={scarceChoiceSheetPanelClassName}
-      bodyClassName={`${scarceChoiceSheetBodyClassName} account-social-help-sheet-body`}
+      panelClassName={osChoiceSheetPanelClassName}
+      bodyClassName={`${osChoiceSheetBodyClassName} os-info-drawer-body`}
       header={
         <>
           <SheetHeader
@@ -78,8 +78,8 @@ export function InfoDrawer({
         </>
       }
     >
-      <p className="account-social-help-summary">{summary}</p>
-      <p className="account-social-help-detail">{detail}</p>
+      <p className="os-info-drawer-summary">{summary}</p>
+      <p className="os-info-drawer-detail">{detail}</p>
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
         <OsSheetAction
           type="button"

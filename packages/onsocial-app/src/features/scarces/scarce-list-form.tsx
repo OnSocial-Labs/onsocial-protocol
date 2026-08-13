@@ -886,7 +886,7 @@ export function ScarceListForm({
 
       <div className="scarce-mood-picker-block">
         <div
-          className="app-storage-presets scarce-choice-chip-row"
+          className="app-storage-presets os-choice-chip-row"
           role="group"
           aria-label="Scarce options"
         >

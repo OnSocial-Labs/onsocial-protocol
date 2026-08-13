@@ -3037,10 +3037,10 @@ export function CreateDropPanel() {
                 infoKey="allowlist"
                 onOpenInfo={openFieldInfo}
               />
-              <div className="app-storage-presets scarce-choice-chip-row">
+              <div className="app-storage-presets os-choice-chip-row">
                 <button
                   type="button"
-                  className={`os-surface-chip scarce-choice-chip${
+                  className={`os-surface-chip os-choice-chip${
                     allowlistSheetOpen || draftAllowlist.length > 0
                       ? ' is-selected'
                       : ''
@@ -3058,7 +3058,7 @@ export function CreateDropPanel() {
                     setAllowlistSheetOpen(true);
                   }}
                 >
-                  <span className="scarce-choice-chip-value">
+                  <span className="os-choice-chip-value">
                     {draftAllowlist.length === 0
                       ? 'None'
                       : draftAllowlist.length === 1

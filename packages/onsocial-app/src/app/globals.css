@@ -16934,7 +16934,7 @@ a.os-surface-row {
 
   /* Choice / action / info drawer chrome: @onsocial/ui/os-choice-drawer.css */
 
-  .scarce-choice-swatch {
+  .os-choice-swatch {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -16942,23 +16942,23 @@ a.os-surface-row {
     overflow: hidden;
   }
 
-  .scarce-choice-swatch--option {
+  .os-choice-swatch--option {
     width: 1.85rem;
     height: 1.85rem;
   }
 
-  .scarce-choice-swatch--chip {
+  .os-choice-swatch--chip {
     width: 0.85rem;
     height: 0.85rem;
   }
 
-  .scarce-choice-swatch--colour {
+  .os-choice-swatch--colour {
     border-radius: 999px;
     background: var(--scarce-swatch, currentColor);
     box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.12);
   }
 
-  .scarce-choice-swatch--colour.is-auto {
+  .os-choice-swatch--colour.is-auto {
     background: conic-gradient(
       from 210deg,
       #7c5cff,
@@ -16971,7 +16971,7 @@ a.os-surface-row {
     );
   }
 
-  .scarce-choice-swatch--finish {
+  .os-choice-swatch--finish {
     border-radius: 0.4rem;
     background: linear-gradient(
       160deg,
@@ -16980,18 +16980,18 @@ a.os-surface-row {
     );
   }
 
-  .scarce-choice-swatch--finish.scarce-choice-swatch--option {
+  .os-choice-swatch--finish.os-choice-swatch--option {
     width: 2.2rem;
     height: 1.85rem;
   }
 
-  .scarce-choice-swatch--finish.scarce-choice-swatch--chip {
+  .os-choice-swatch--finish.os-choice-swatch--chip {
     width: 1rem;
     height: 0.75rem;
     border-radius: 0.25rem;
   }
 
-  .scarce-choice-swatch-aa {
+  .os-choice-swatch-aa {
     font-size: 0.62rem;
     font-weight: 700;
     letter-spacing: 0.01em;
@@ -16999,12 +16999,12 @@ a.os-surface-row {
     line-height: 1;
   }
 
-  .scarce-choice-swatch--mark {
+  .os-choice-swatch--mark {
     border-radius: 0.45rem;
     padding: 0.15rem;
   }
 
-  .scarce-choice-swatch--mark.scarce-choice-swatch--chip {
+  .os-choice-swatch--mark.os-choice-swatch--chip {
     width: 0.95rem;
     height: 0.95rem;
     padding: 0.08rem;
@@ -17013,54 +17013,54 @@ a.os-surface-row {
 
   /*
    * Mage glyph swatch (Cover: Text card / Frame / Photo). Symbol, not a
-   * preview — inset to the same optical size as `.action-drawer-icon` so
+   * preview — inset to the same optical size as `.os-action-drawer-icon` so
    * menu glyphs match across drawers. Preview swatches (colour / finish /
    * format / mark) still fill their box.
    */
-  .scarce-choice-swatch--icon {
+  .os-choice-swatch--icon {
     color: rgb(var(--fg-rgb) / 0.72);
     padding: 0.35rem;
   }
 
-  .scarce-choice-swatch--icon.scarce-choice-swatch--chip {
+  .os-choice-swatch--icon.os-choice-swatch--chip {
     width: 0.95rem;
     height: 0.95rem;
     padding: 0;
   }
 
-  .scarce-choice-swatch-mage {
+  .os-choice-swatch-mage {
     width: 100%;
     height: 100%;
     display: block;
   }
 
-  .scarce-choice-sheet-option.is-selected .scarce-choice-swatch--icon {
+  .os-choice-sheet-option.is-selected .os-choice-swatch--icon {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
-  .scarce-choice-swatch--format {
+  .os-choice-swatch--format {
     border-radius: 0.4rem;
     background: rgb(var(--fg-rgb) / 0.06);
     color: rgb(var(--fg-rgb) / 0.82);
   }
 
-  .scarce-choice-swatch--format.scarce-choice-swatch--option {
+  .os-choice-swatch--format.os-choice-swatch--option {
     width: 2.2rem;
     height: 1.85rem;
   }
 
-  .scarce-choice-swatch--format.scarce-choice-swatch--chip {
+  .os-choice-swatch--format.os-choice-swatch--chip {
     width: 1rem;
     height: 0.75rem;
     border-radius: 0.25rem;
   }
 
-  .scarce-choice-format-aa {
+  .os-choice-format-aa {
     line-height: 1;
     letter-spacing: 0.01em;
   }
 
-  .scarce-choice-swatch--format-thought .scarce-choice-format-aa {
+  .os-choice-swatch--format-thought .os-choice-format-aa {
     /* Same family strings as @onsocial/text-card SVG voices. */
     font-family: 'DM Sans', system-ui, sans-serif;
     font-size: 0.68rem;
@@ -17068,14 +17068,14 @@ a.os-surface-row {
     letter-spacing: -0.02em;
   }
 
-  .scarce-choice-swatch--format-header .scarce-choice-format-aa {
+  .os-choice-swatch--format-header .os-choice-format-aa {
     font-family: var(--font-ibm-plex-sans), 'IBM Plex Sans', system-ui, sans-serif;
     font-size: 0.68rem;
     font-weight: 650;
     letter-spacing: -0.01em;
   }
 
-  .scarce-choice-swatch--format-poster .scarce-choice-format-aa {
+  .os-choice-swatch--format-poster .os-choice-format-aa {
     font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
     font-size: 0.62rem;
     font-weight: 700;
@@ -17083,7 +17083,7 @@ a.os-surface-row {
     text-transform: uppercase;
   }
 
-  .scarce-choice-swatch--format-letter .scarce-choice-format-aa {
+  .os-choice-swatch--format-letter .os-choice-format-aa {
     /* Must match SVG + mint name-table: "Erica Type" (not next/font ericaType). */
     font-family: 'Erica Type', 'Erika Type', 'DM Sans', system-ui, sans-serif;
     font-size: 0.78rem;
@@ -17091,7 +17091,7 @@ a.os-surface-row {
     letter-spacing: -0.03em;
   }
 
-  .scarce-choice-swatch--format-journal .scarce-choice-format-aa {
+  .os-choice-swatch--format-journal .os-choice-format-aa {
     font-family: 'Newsreader', Georgia, serif;
     font-size: 0.7rem;
     font-weight: 500;
@@ -17099,27 +17099,27 @@ a.os-surface-row {
     letter-spacing: 0;
   }
 
-  .scarce-choice-swatch--format-mono .scarce-choice-format-aa {
+  .os-choice-swatch--format-mono .os-choice-format-aa {
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 0;
   }
 
-  .scarce-choice-swatch--format-receipt,
-  .scarce-choice-swatch--format-proof {
+  .os-choice-swatch--format-receipt,
+  .os-choice-swatch--format-proof {
     flex-direction: column;
     gap: 0.12rem;
     padding: 0.18rem 0.2rem;
   }
 
-  .scarce-choice-swatch--format-receipt.scarce-choice-swatch--chip,
-  .scarce-choice-swatch--format-proof.scarce-choice-swatch--chip {
+  .os-choice-swatch--format-receipt.os-choice-swatch--chip,
+  .os-choice-swatch--format-proof.os-choice-swatch--chip {
     gap: 0.06rem;
     padding: 0.08rem;
   }
 
-  .scarce-choice-format-photo {
+  .os-choice-format-photo {
     display: block;
     width: 100%;
     flex: 1 1 auto;
@@ -17128,11 +17128,11 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.16);
   }
 
-  .scarce-choice-swatch--format-proof .scarce-choice-format-photo {
+  .os-choice-swatch--format-proof .os-choice-format-photo {
     flex: 1.35 1 auto;
   }
 
-  .scarce-choice-format-caption {
+  .os-choice-format-caption {
     font-size: 0.45rem;
     line-height: 1;
     font-weight: 700;
@@ -17141,24 +17141,24 @@ a.os-surface-row {
     font-family: 'DM Sans', system-ui, sans-serif;
   }
 
-  .scarce-choice-swatch--format-proof .scarce-choice-format-caption {
+  .os-choice-swatch--format-proof .os-choice-format-caption {
     font-family: 'JetBrains Mono', ui-monospace, monospace;
     font-weight: 600;
     letter-spacing: 0;
   }
 
-  .scarce-choice-swatch--format.scarce-choice-swatch--chip
-    .scarce-choice-format-aa {
+  .os-choice-swatch--format.os-choice-swatch--chip
+    .os-choice-format-aa {
     font-size: 0.48rem;
   }
 
-  .scarce-choice-swatch--format-letter.scarce-choice-swatch--chip
-    .scarce-choice-format-aa {
+  .os-choice-swatch--format-letter.os-choice-swatch--chip
+    .os-choice-format-aa {
     font-size: 0.52rem;
   }
 
-  .scarce-choice-swatch--format.scarce-choice-swatch--chip
-    .scarce-choice-format-caption {
+  .os-choice-swatch--format.os-choice-swatch--chip
+    .os-choice-format-caption {
     font-size: 0.32rem;
   }
 
@@ -22478,7 +22478,7 @@ a.os-surface-row {
   }
 
   .drop-collage-style-swatch--chip {
-    /* Match .scarce-choice-swatch--chip (mint-from-post). */
+    /* Match .os-choice-swatch--chip (mint-from-post). */
     width: 0.85rem;
     height: 0.85rem;
     border-radius: 0.22rem;
@@ -22669,19 +22669,19 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .drop-collage-lightbox-controls .scarce-choice-chip {
+  .drop-collage-lightbox-controls .os-choice-chip {
     font-size: 0.62rem;
   }
 
-  .drop-collage-lightbox-controls .scarce-choice-chip > span,
-  .drop-collage-lightbox-controls .scarce-choice-chip-label,
-  .drop-collage-lightbox-controls .scarce-choice-chip-value {
+  .drop-collage-lightbox-controls .os-choice-chip > span,
+  .drop-collage-lightbox-controls .os-choice-chip-label,
+  .drop-collage-lightbox-controls .os-choice-chip-value {
     font-size: inherit;
     font-weight: inherit;
     color: inherit;
   }
 
-  .drop-collage-lightbox-controls .scarce-choice-chip-label {
+  .drop-collage-lightbox-controls .os-choice-chip-label {
     font-size: 0.72em;
     font-weight: 650;
     letter-spacing: 0.02em;
@@ -22689,7 +22689,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .drop-collage-lightbox-controls .scarce-choice-chip-value {
+  .drop-collage-lightbox-controls .os-choice-chip-value {
     font-weight: 550;
   }
 
@@ -24536,14 +24536,18 @@ a.os-surface-row {
   }
 
   /* Clear = small text action on the Filter title; X stays alone on the right. */
-  .market-filter-title-row {
+  .market-filter-title-row,
+  .market-filter-sheet-panel .glass-sheet-header-title-row {
     display: flex;
     align-items: baseline;
     gap: 0.4rem;
     min-width: 0;
   }
 
-  .market-filter-title-row .glass-sheet-header-title {
+  .market-filter-title-row .glass-sheet-header-title,
+  .market-filter-sheet-panel
+    .glass-sheet-header-title-row
+    .glass-sheet-header-title {
     margin: 0;
   }
 
