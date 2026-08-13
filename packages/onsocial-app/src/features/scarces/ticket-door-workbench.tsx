@@ -1,6 +1,6 @@
 'use client';
 
-import { Divider } from '@onsocial/ui';
+import { Divider, osFieldBorderedClassName } from '@onsocial/ui';
 import { ticketPassStatusLabel, type PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import type { TicketTokenStatus } from '@/features/scarces/ticket-token-status';
 import type { RefObject } from 'react';
@@ -99,7 +99,7 @@ export function TicketDoorWorkbench({
       <label className="ticket-door-field">
         <span className="ticket-door-field-label">Pass code</span>
         <input
-          className="ticket-door-input"
+          className={`${osFieldBorderedClassName} ticket-door-input}`}
           value={manualInput}
           inputMode="text"
           autoCapitalize="off"

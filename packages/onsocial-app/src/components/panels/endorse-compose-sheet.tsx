@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from 'react';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, osFieldSoftClassName } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   OsSheetAction,
@@ -166,7 +166,7 @@ export function EndorseComposeSheet({
             maxLength={TOPIC_MAX}
             autoComplete="off"
             placeholder="e.g. Design"
-            className="endorse-compose-input"
+            className={`${osFieldSoftClassName} endorse-compose-input}`}
             disabled={pending || isSelf}
             onChange={(event) => setTopic(event.target.value)}
           />
@@ -206,7 +206,7 @@ export function EndorseComposeSheet({
             maxLength={NOTE_MAX}
             rows={3}
             placeholder="Optional — what you’re vouching for"
-            className="endorse-compose-textarea"
+            className={`${osFieldSoftClassName} endorse-compose-textarea}`}
             disabled={pending || isSelf}
             onChange={(event) => setNote(event.target.value)}
           />

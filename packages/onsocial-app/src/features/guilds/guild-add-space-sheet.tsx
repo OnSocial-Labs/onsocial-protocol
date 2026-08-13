@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useId, useState, type FormEvent } from 'react';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  SheetCloseButton,
+  osFieldSoftClassName,
+} from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -191,7 +196,7 @@ export function GuildAddSpaceSheet({
         <label className="guild-add-space-field">
           <span className="guild-add-space-label">Name</span>
           <input
-            className="guild-add-space-input"
+            className={`${osFieldSoftClassName} guild-add-space-input}`}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Shipping Room"
