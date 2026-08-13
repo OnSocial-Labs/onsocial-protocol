@@ -59,7 +59,9 @@ export async function sendCreateUserTokenTransaction(
 ): Promise<string[]> {
   const template = resolveFtTemplateIdentifier();
   if (!template) {
-    throw new Error('Token template is not configured for this network.');
+    throw new Error(
+      'Token template is not configured. Set NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH after publishing the global contract.'
+    );
   }
 
   const fundNear = (params.fundNear ?? FT_CREATE_FUND_NEAR).trim() || FT_CREATE_FUND_NEAR;

@@ -1,5 +1,7 @@
 import {
+  isNearNamedAccountComplete,
   isValidNearAccountId,
+  nearAccountSuffixHint,
   normalizeNearAccountId,
 } from '@/lib/app-near-account';
 import { tokenAmountToSmallestUnit } from '@/lib/app-near-rpc';
@@ -46,10 +48,24 @@ export function getFtSubaccountLabelError(label: string): string {
   return '';
 }
 
+/** Parent must be a named root account (.near / .tg on mainnet, .testnet on testnet). */
+export function getFtParentAccountError(
+  parentAccountId: string | null | undefined
+): string {
+  const parent = normalizeNearAccountId(parentAccountId ?? '');
+  if (!parent) return 'Connect a wallet first.';
+  if (!isValidNearAccountId(parent) || !isNearNamedAccountComplete(parent)) {
+    return `Create tokens from a named account (${nearAccountSuffixHint()}).`;
+  }
+  return '';
+}
+
 export function getFtContractAccountError(
   parentAccountId: string,
   subaccountLabel: string
 ): string {
+  const parentError = getFtParentAccountError(parentAccountId);
+  if (parentError) return parentError;
   const labelError = getFtSubaccountLabelError(subaccountLabel);
   if (labelError) return labelError;
   const accountId = buildFtContractAccountId(parentAccountId, subaccountLabel);

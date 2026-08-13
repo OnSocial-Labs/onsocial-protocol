@@ -1,14 +1,12 @@
-import { SOCIAL_TOKEN_CONTRACT } from '@/lib/app-config';
-
 /**
  * Creator FT template — deploy via UseGlobalContract (not inline WASM).
  *
- * Ops must publish `token-onsocial` as a global contract once:
- * - CodeHash mode → set NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH
- * - AccountId mode → set NEXT_PUBLIC_FT_TEMPLATE_GLOBAL_ACCOUNT
+ * Ops must publish `token-onsocial` as a global contract once, then set ONE of:
+ * - NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH (preferred — immutable CodeHash mode)
+ * - NEXT_PUBLIC_FT_TEMPLATE_GLOBAL_ACCOUNT (AccountId mode)
  *
- * If unset, we try the protocol SOCIAL account id (only works after that
- * account has DeployGlobalContract with AccountId mode).
+ * No silent fallback to `token.onsocial.*` — that account is a normal deploy
+ * until explicitly published as a global contract.
  */
 export const FT_TEMPLATE_CODE_HASH = (
   process.env.NEXT_PUBLIC_FT_TEMPLATE_CODE_HASH ?? ''
@@ -18,7 +16,7 @@ export const FT_TEMPLATE_GLOBAL_ACCOUNT = (
   process.env.NEXT_PUBLIC_FT_TEMPLATE_GLOBAL_ACCOUNT ?? ''
 ).trim();
 
-/** Default funding for subaccount + FT state (yocto). */
+/** Default funding for subaccount + FT state (human NEAR). */
 export const FT_CREATE_FUND_NEAR = '0.5';
 
 export const FT_TOKEN_DECIMALS = 18;
@@ -27,14 +25,13 @@ export type FtTemplateIdentifier =
   | { kind: 'codeHash'; codeHash: string }
   | { kind: 'accountId'; accountId: string };
 
-/** Resolved template reference for UseGlobalContract. */
+/** Resolved template reference for UseGlobalContract — null until configured. */
 export function resolveFtTemplateIdentifier(): FtTemplateIdentifier | null {
   if (FT_TEMPLATE_CODE_HASH) {
     return { kind: 'codeHash', codeHash: FT_TEMPLATE_CODE_HASH };
   }
-  const accountId = FT_TEMPLATE_GLOBAL_ACCOUNT || SOCIAL_TOKEN_CONTRACT;
-  if (accountId) {
-    return { kind: 'accountId', accountId };
+  if (FT_TEMPLATE_GLOBAL_ACCOUNT) {
+    return { kind: 'accountId', accountId: FT_TEMPLATE_GLOBAL_ACCOUNT };
   }
   return null;
 }

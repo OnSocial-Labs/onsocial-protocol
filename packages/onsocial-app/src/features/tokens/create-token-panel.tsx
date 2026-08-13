@@ -24,11 +24,13 @@ import {
   FT_SUBACCOUNT_MAX,
   FT_SYMBOL_MAX,
   getFtContractAccountError,
+  getFtParentAccountError,
   normalizeFtSubaccountLabel,
   parseFtSupplySmallest,
 } from '@/lib/app-create-token';
 import { sendCreateUserTokenTransaction } from '@/lib/app-create-token-transactions';
 import { FT_CREATE_FUND_NEAR } from '@/lib/app-ft-template-config';
+import { nearAccountSuffixHint } from '@/lib/app-near-account';
 import { APP_APPS_PATH, APP_TOKENS_CREATE_PATH } from '@/lib/app-routes';
 import {
   txToastConfirming,
@@ -46,7 +48,7 @@ const HELP_TITLE = 'Your token';
 const HELP_SUMMARY =
   'Deploy a fungible token under your account — one batched wallet signature.';
 const HELP_DETAIL =
-  'Pick any subaccount name (cool.you.near). We attach the published OnSocial token template via global contract hash (light tx), mint supply to you, and leave the account without full-access keys so the code stays locked. Optional: renounce admin so icon/owner can never change.';
+  'Pick any subaccount name (cool.you.near or cool.you.tg). We attach the published OnSocial token template via global contract hash (light tx), mint supply to you, and leave the account without full-access keys so the code stays locked. Optional: renounce admin so icon/owner can never change. Requires a named wallet (.near, .tg, or .testnet).';
 
 export function CreateTokenPanel() {
   const { isConnected, isLoading, connect, getSigningWallet, accountId } =
@@ -79,11 +81,12 @@ export function CreateTokenPanel() {
     [accountId, derivedSubaccount]
   );
 
+  const parentError = getFtParentAccountError(accountId);
   const accountError = accountId
     ? getFtContractAccountError(accountId, derivedSubaccount)
     : '';
   const availability = useNearAccountAvailability(
-    accountError ? '' : contractId
+    parentError || accountError ? '' : contractId
   );
   const availabilityClass = entityIdAvailabilityClass(availability);
   const supplySmallest = parseFtSupplySmallest(supply);
@@ -92,6 +95,7 @@ export function CreateTokenPanel() {
     isConnected &&
     !pending &&
     templateReady === true &&
+    !parentError &&
     name.trim().length >= 2 &&
     symbol.trim().length >= 1 &&
     Boolean(supplySmallest) &&
@@ -108,9 +112,10 @@ export function CreateTokenPanel() {
           detail?: string;
         };
         if (cancelled) return;
-        setTemplateReady(data.status === 'ready');
+        const ready = data.status === 'ready';
+        setTemplateReady(ready);
         setTemplateDetail(
-          data.status === 'ready'
+          ready
             ? null
             : (data.detail ?? 'Token template is not ready on this network.')
         );
@@ -137,6 +142,10 @@ export function CreateTokenPanel() {
       }
       if (templateReady !== true) {
         setError(templateDetail ?? 'Token template is not ready.');
+        return;
+      }
+      if (parentError) {
+        setError(parentError);
         return;
       }
       if (accountError) {
@@ -203,6 +212,7 @@ export function CreateTokenPanel() {
     },
     [
       accountError,
+      parentError,
       accountId,
       availability,
       connect,
@@ -245,6 +255,12 @@ export function CreateTokenPanel() {
         {templateReady === false ? (
           <p className="guild-form-error" role="status">
             {templateDetail ?? 'Token template is not ready on this network.'}
+          </p>
+        ) : null}
+
+        {parentError && isConnected ? (
+          <p className="guild-form-error" role="status">
+            {parentError} Named wallets use {nearAccountSuffixHint()}.
           </p>
         ) : null}
 
