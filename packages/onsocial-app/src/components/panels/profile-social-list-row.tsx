@@ -1,8 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { Divider, ProfileAvatar, ProtocolMotionArrow } from '@onsocial/ui';
+import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
 import { DiscoverMoodDot } from '@/components/moods/discover-mood-dot';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@/components/ui/standing-identity';
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PostRichText } from '@/features/home/post-rich-text';
@@ -29,17 +33,7 @@ function resolveStandingTimeMeta(
 }
 
 function accountLabel(account: ProfileListAccount): string {
-  return account.name?.trim() || `@${account.accountId}`;
-}
-
-function AccountAvatar({ avatarUrl }: { avatarUrl: string | null }) {
-  return (
-    <ProfileAvatar
-      src={avatarUrl}
-      size="lg"
-      className="standing-row-avatar-slot"
-    />
-  );
+  return standingIdentityLabel(account.accountId, account.name).label;
 }
 
 function MetricCount({
@@ -243,50 +237,49 @@ export function ProfileSocialListRow({
           scroll={false}
           aria-label={`View ${accountLabel(account)}'s profile`}
         />
-        <AccountAvatar avatarUrl={account.avatarUrl} />
-        <div className="standing-row-copy">
-          {showRelationshipSignals ? (
-            <div className="standing-row-signals">
-              {sharedSolidarity ? (
-                <StandingRelationshipSignal
-                  label="Solidarity"
-                  tone="solidarity"
-                  title="You both stand with each other"
-                />
-              ) : theyStandWithViewer ? (
-                <StandingRelationshipSignal
-                  label="Stands with you"
-                  tone="standing"
-                  title="This account stands with you"
-                />
-              ) : null}
-              {showEndorsedYou ? (
-                <StandingRelationshipSignal
-                  label="Endorsed you"
-                  tone="endorse"
-                  title="This account has endorsed you"
-                />
-              ) : null}
-            </div>
-          ) : null}
-          <span className="standing-row-head">
-            <span className="standing-row-name-row">
-              <span className="standing-row-name">{accountLabel(account)}</span>
-              {moodId !== 'protocol' ? (
-                <DiscoverMoodDot moodId={moodId} />
-              ) : null}
-            </span>
-            {account.name?.trim() ? (
-              <span className="standing-row-handle">@{account.accountId}</span>
-            ) : null}
-          </span>
+        <StandingIdentity
+          accountId={account.accountId}
+          profileName={account.name}
+          avatarUrl={account.avatarUrl}
+          copyLeading={
+            showRelationshipSignals ? (
+              <div className="standing-row-signals">
+                {sharedSolidarity ? (
+                  <StandingRelationshipSignal
+                    label="Solidarity"
+                    tone="solidarity"
+                    title="You both stand with each other"
+                  />
+                ) : theyStandWithViewer ? (
+                  <StandingRelationshipSignal
+                    label="Stands with you"
+                    tone="standing"
+                    title="This account stands with you"
+                  />
+                ) : null}
+                {showEndorsedYou ? (
+                  <StandingRelationshipSignal
+                    label="Endorsed you"
+                    tone="endorse"
+                    title="This account has endorsed you"
+                  />
+                ) : null}
+              </div>
+            ) : null
+          }
+          nameTrailing={
+            moodId !== 'protocol' ? (
+              <DiscoverMoodDot moodId={moodId} />
+            ) : null
+          }
+        >
           {bio ? (
             <span className="standing-row-bio">
               <PostRichText text={bio} emptyFallback="" showLinkIcon />
             </span>
           ) : null}
           <ProfileRowMetrics account={account} />
-        </div>
+        </StandingIdentity>
       </div>
 
       <div
