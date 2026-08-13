@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Divider,
   GLASS_SHEET_PEEK_RATIO,
   MultiplyIcon,
   OsHugSheet,
