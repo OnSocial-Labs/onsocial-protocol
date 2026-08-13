@@ -12,7 +12,7 @@ import { ActionDrawer } from '@/components/ui/action-drawer';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
 import {
   MARKET_MEDIUM_FILTERS,

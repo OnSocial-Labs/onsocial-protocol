@@ -1,8 +1,6 @@
 export {
   OsSheetAction,
   OsSheetActions,
-  OsSheetGhostAction,
-  OsSheetPrimaryAction,
   OsSurfaceHalo,
   osFloatingPanelClassName,
   osSheetActionClassName,

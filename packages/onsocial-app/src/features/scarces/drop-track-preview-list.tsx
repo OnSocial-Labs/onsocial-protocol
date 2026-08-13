@@ -17,7 +17,7 @@ import {
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@/components/ui/os-sheet-action';
 import {
   DROP_LYRICS_MAX_CHARS,
   trackTitleFromFile,

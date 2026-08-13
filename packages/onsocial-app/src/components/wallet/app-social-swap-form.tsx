@@ -15,7 +15,7 @@ import {
 } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
-import { OsSheetPrimaryAction } from '@/components/ui/os-sheet-primary-action';
+import { OsSheetAction } from '@/components/ui/os-sheet-action';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
@@ -327,7 +327,7 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
       />
 
       <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetPrimaryAction
+        <OsSheetAction
           type="button"
           ready={primaryReady}
           pending={primaryPending}
@@ -336,7 +336,7 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
           onClick={() => void handleSwap()}
         >
           {primaryLabel}
-        </OsSheetPrimaryAction>
+        </OsSheetAction>
       </OsSheetActions>
 
       <p className="app-storage-hint app-swap-caption">

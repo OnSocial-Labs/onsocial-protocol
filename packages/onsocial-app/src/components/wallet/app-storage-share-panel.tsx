@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   MultiplyIcon,
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
   PlusIcon,
 } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
@@ -686,7 +686,7 @@ export function AppStorageSharePanel({
             </p>
           ) : null}
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={!pending && canFundAmount && !error}
               pending={pending}
@@ -695,7 +695,7 @@ export function AppStorageSharePanel({
               onClick={() => void handleFundPool()}
             >
               {needsFunding ? 'Fund share pool' : 'Add to share pool'}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
           <p className="app-storage-hint app-storage-hint--compact">
             {USER_STORAGE_SHARE_POOL_DEPOSIT_HINT}
@@ -775,7 +775,7 @@ export function AppStorageSharePanel({
           ) : null}
 
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={!pending && canShare && !error}
               pending={pending}
@@ -784,7 +784,7 @@ export function AppStorageSharePanel({
               onClick={() => void handleShare()}
             >
               Share storage
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
           <p className="app-storage-hint app-storage-hint--compact">
             {USER_STORAGE_SHARE_HINT}
