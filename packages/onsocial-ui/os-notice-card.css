@@ -43,8 +43,7 @@
   outline: none;
 }
 
-.os-commit-actions .os-sheet-action--primary,
-.os-commit-actions .os-sheet-primary-action {
+.os-commit-actions .os-sheet-action--primary {
   flex: 0 0 auto;
   width: auto;
   min-width: 3.75rem;
@@ -55,13 +54,11 @@
   font-weight: 600;
 }
 
-.os-commit-actions .os-sheet-action--primary.is-pending,
-.os-commit-actions .os-sheet-primary-action.is-pending {
+.os-commit-actions .os-sheet-action--primary.is-pending {
   min-width: 3.75rem;
 }
 
-.os-commit-actions .os-sheet-action__shell,
-.os-commit-actions .os-sheet-primary-action-shell {
+.os-commit-actions .os-sheet-action__shell {
   width: auto;
 }
 
