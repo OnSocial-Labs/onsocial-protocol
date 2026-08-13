@@ -130,6 +130,32 @@
     color 160ms ease;
 }
 
+.os-surface-row-arrow {
+  flex-shrink: 0;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.os-surface-row--navigate:not(:disabled):hover .os-surface-row-arrow,
+.os-surface-row--navigate:not(:disabled):focus-visible .os-surface-row-arrow {
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.os-surface-row-external {
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.os-surface-row:not(.os-surface-row--navigate):not(:disabled):hover
+  .os-surface-row-external,
+.os-surface-row:not(.os-surface-row--navigate):not(:disabled):focus-visible
+  .os-surface-row-external {
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
 .os-surface-tile {
   display: inline-flex;
   align-items: center;

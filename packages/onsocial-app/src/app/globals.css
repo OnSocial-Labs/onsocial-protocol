@@ -1479,33 +1479,6 @@ a.os-surface-row {
   text-decoration: none;
 }
 
-.os-surface-row .account-card-action-arrow {
-  flex-shrink: 0;
-  width: 0.75rem;
-  height: 0.75rem;
-  color: rgb(var(--fg-rgb) / 0.42);
-}
-
-.os-surface-row--navigate:not(:disabled):hover .account-card-action-arrow,
-.os-surface-row--navigate:not(:disabled):focus-visible
-  .account-card-action-arrow {
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
-.os-surface-row .account-card-action-external {
-  flex-shrink: 0;
-  width: 0.875rem;
-  height: 0.875rem;
-  color: rgb(var(--fg-rgb) / 0.42);
-}
-
-.os-surface-row:not(.os-surface-row--navigate):not(:disabled):hover
-  .account-card-action-external,
-.os-surface-row:not(.os-surface-row--navigate):not(:disabled):focus-visible
-  .account-card-action-external {
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
 /* Preview bar — thin dock toolbar (OS chrome, not a confirmation card).
    Center on the fixed containing block (viewport or app column) — not
    viewport inset math, which breaks when transform/backdrop-filter
