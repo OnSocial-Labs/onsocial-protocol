@@ -31671,9 +31671,11 @@ button.scarce-clip-cover-expand:focus-visible {
 }
 
 .protocol-action-sheet-body {
+  /* Match Action/Choice / guild-facts sheet inset (SheetHeader = 1.15rem). */
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  padding: 0.15rem 1.15rem 1.35rem;
 }
 
 .protocol-action-lede {
@@ -31753,7 +31755,6 @@ button.scarce-clip-cover-expand:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding-bottom: 0.35rem;
 }
 
 .protocol-propose-kind-block {
