@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef } from 'react';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
-import { OsNoticeCard } from '@/components/ui/os-notice-card';
+import { OsNoticeCard, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 
 interface ProfileEditorLoadErrorProps {
