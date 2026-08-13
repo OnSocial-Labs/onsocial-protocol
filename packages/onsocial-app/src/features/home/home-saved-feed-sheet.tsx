@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
-import { Divider, GlassSheet, SearchField, SheetHeader } from '@onsocial/ui';
+import { Divider, OsHugSheet, SearchField } from '@onsocial/ui';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   formatTickerDisplay,
@@ -14,7 +14,6 @@ import {
 } from '@/features/home/home-feed-focus';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 const SUGGEST_DEBOUNCE_MS = 220;
 const SUGGEST_LIMIT = 12;
@@ -78,14 +77,11 @@ export function HomeSavedFeedSheet({
   onAddFocus: (focus: HomeFeedFocus) => void;
   existingFocusKeys: ReadonlySet<string>;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<SuggestRow[]>([]);
   const [loading, setLoading] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open) {
@@ -128,33 +124,22 @@ export function HomeSavedFeedSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={() => {
         setClosing(false);
         onClose();
       }}
-      tone="os"
-      initialDetent="full"
-      zIndex={58}
-      ariaLabelledBy={titleId}
+      label="Add feed"
+      copy="Pick a #topic or $ticker. Saved on this device."
+      closeAriaLabel="Close"
       backdropLabel="Close add feed"
+      zIndex={58}
+      sizing="full"
+      headerClassName="home-saved-feed-sheet-header"
       panelClassName="home-saved-feed-sheet-panel"
       bodyClassName="home-saved-feed-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Add feed"
-            subtitle="Pick a #topic or $ticker. Saved on this device."
-            onClose={requestClose}
-            closeAriaLabel="Close"
-            className="home-saved-feed-sheet-header"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="home-saved-feed-sheet">
         <form
@@ -260,6 +245,6 @@ export function HomeSavedFeedSheet({
           })}
         </div>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

@@ -1,13 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
   MultiplyIcon,
+  OsHugSheet,
   ProfileAvatar,
   SearchField,
-  SheetHeader,
   UserPlusIcon,
 } from '@onsocial/ui';
 import {
@@ -24,7 +23,6 @@ import {
 } from '@/features/scarces/ticket-redeemers';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   fetchDiscoverProfiles,
@@ -105,7 +103,6 @@ export function CollectionDoorStaffManager({
   creatorId: string;
   voice?: PassStaffVoice;
 }) {
-  const titleId = useId();
   const { isConnected, accountId, getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
@@ -148,8 +145,6 @@ export function CollectionDoorStaffManager({
   }
 
   const sheetOpen = open && !closing;
-  useScrollLock(sheetOpen);
-
   const isCreator =
     Boolean(accountId) && accountIdsEqual(accountId!, creatorId);
 
@@ -345,39 +340,25 @@ export function CollectionDoorStaffManager({
         </button>
       </div>
 
-      <GlassSheet
+      <OsHugSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
-        tone="os"
-        sizing="hug"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={88}
-        ariaLabelledBy={titleId}
+        label={voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
+        copy={
+          voice === 'redeem'
+            ? 'Who can Redeem at the counter'
+            : 'Who can Admit at the door'
+        }
+        closeAriaLabel={
+          voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
+        }
         backdropLabel={
           voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
         }
+        zIndex={88}
         panelClassName="scarce-commerce-sheet-panel collection-allowlist-sheet-panel"
         bodyClassName="scarce-commerce-sheet-body collection-allowlist-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={titleId}
-              title={voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
-              subtitle={
-                voice === 'redeem'
-                  ? 'Who can Redeem at the counter'
-                  : 'Who can Admit at the door'
-              }
-              onClose={requestClose}
-              closeAriaLabel={
-                voice === 'redeem' ? 'Close redeem staff' : 'Close door staff'
-              }
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
         footer={
           <div className="guild-add-member-footer">
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -554,7 +535,7 @@ export function CollectionDoorStaffManager({
             </p>
           )}
         </div>
-      </GlassSheet>
+      </OsHugSheet>
     </div>
   );
 }

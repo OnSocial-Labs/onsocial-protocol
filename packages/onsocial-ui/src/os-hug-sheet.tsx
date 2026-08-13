@@ -28,6 +28,11 @@ export interface OsHugSheetProps {
   title?: ReactNode;
   /** Sibling of the title outside the heading (e.g. Clear). */
   titleAccessory?: ReactNode;
+  /**
+   * Replaces the default close control (e.g. Market link + close).
+   * When set, `showClose` is ignored — include close in `headerActions`.
+   */
+  headerActions?: ReactNode;
   /** Quiet line under the title. */
   copy?: string;
   children: ReactNode;
@@ -46,6 +51,8 @@ export interface OsHugSheetProps {
   headerClassName?: string;
   panelStyle?: CSSProperties;
   backdropLabel?: string;
+  /** Forwarded to GlassSheet for portfolio mood tint. */
+  moodId?: string;
   /** Defaults to `hug`. */
   sizing?: GlassSheetSizing;
   /** Defaults to `full` (natural height rest for hug sheets). */
@@ -69,6 +76,7 @@ export function OsHugSheet({
   label,
   title,
   titleAccessory,
+  headerActions,
   copy,
   children,
   footer,
@@ -81,6 +89,7 @@ export function OsHugSheet({
   headerClassName,
   panelStyle,
   backdropLabel,
+  moodId,
   sizing = 'hug',
   initialDetent = 'full',
   peekRatio = 1,
@@ -105,6 +114,7 @@ export function OsHugSheet({
       ariaLabelledBy={titleId}
       backdropLabel={backdropLabel ?? closeLabel}
       sizing={sizing}
+      {...(moodId ? { moodId } : {})}
       {...(presentation ? { presentation } : {})}
       panelClassName={cn(
         chrome === 'choice' && osChoiceSheetPanelClassName,
@@ -123,7 +133,11 @@ export function OsHugSheet({
             className={headerClassName}
             {...(titleAccessory ? { titleAccessory } : {})}
             {...(copy ? { subtitle: copy } : {})}
-            {...(showClose ? { onClose, closeAriaLabel: closeLabel } : {})}
+            {...(headerActions
+              ? { actions: headerActions }
+              : showClose
+                ? { onClose, closeAriaLabel: closeLabel }
+                : {})}
           />
           <Divider variant="section" className="glass-sheet-header-divider" />
         </>
