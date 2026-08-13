@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
-import { Divider, OsHugSheet, SearchField } from '@onsocial/ui';
+import { OsHugSheet, SearchField } from '@onsocial/ui';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   formatTickerDisplay,
