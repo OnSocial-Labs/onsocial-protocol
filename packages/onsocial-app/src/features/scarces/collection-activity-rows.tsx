@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Divider, ProfileAvatar } from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@/components/ui/standing-identity';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 
 export interface CollectionActivityRow {
   key: string;
@@ -31,17 +34,16 @@ export function CollectionActivityRows({
       {rows.map((row, index) => {
         const actor = row.actor?.trim() || null;
         const profile = actor ? profiles[actor] : undefined;
-        const name = profile?.displayName?.trim() || null;
-        const handle = actor ? fallbackLabel(actor) : null;
-        const title = name || (handle ? `@${handle}` : row.label);
-        const showHandle = Boolean(name && handle);
+        const actorLabel = actor
+          ? standingIdentityLabel(actor, profile?.displayName).label
+          : null;
 
         return (
           <div key={row.key}>
             {index > 0 ? <Divider variant="item" /> : null}
             <div className="standing-row collection-activity-standing-row">
               <div className="standing-row-main">
-                {actor ? (
+                {actor && actorLabel ? (
                   <>
                     {/* Full-row hit like ProfileSocialListRow — circular avatar slot,
                         no rectangular link ring around the face. */}
@@ -49,27 +51,17 @@ export function CollectionActivityRows({
                       href={portfolioPath(actor)}
                       className="standing-row-hit"
                       scroll={false}
-                      aria-label={`View ${title}'s profile`}
+                      aria-label={`View ${actorLabel}'s profile`}
                     />
-                    <ProfileAvatar
-                      src={profile?.avatarUrl ?? null}
-                      fallbackInitial={name || handle || '?'}
-                      size="lg"
-                      className="standing-row-avatar-slot"
-                    />
-                    <div className="standing-row-copy">
-                      <span className="standing-row-head">
-                        <span className="standing-row-name-row">
-                          <span className="standing-row-name">{title}</span>
-                        </span>
-                        {showHandle ? (
-                          <span className="standing-row-handle">@{handle}</span>
-                        ) : null}
-                      </span>
+                    <StandingIdentity
+                      accountId={actor}
+                      profileName={profile?.displayName}
+                      avatarUrl={profile?.avatarUrl}
+                    >
                       <span className="collection-activity-standing-kind">
                         {row.label}
                       </span>
-                    </div>
+                    </StandingIdentity>
                   </>
                 ) : (
                   <div className="standing-row-copy collection-activity-standing-system">

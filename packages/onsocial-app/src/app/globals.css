@@ -5697,6 +5697,12 @@ a.os-surface-row {
     text-decoration: none;
   }
 
+  .portfolio-scarce-earnings-post-link {
+    pointer-events: auto;
+    position: relative;
+    z-index: 2;
+  }
+
   .portfolio-scarce-earnings-post-link:hover {
     color: rgb(var(--fg-rgb) / 0.78);
     text-decoration: underline;
@@ -12193,6 +12199,41 @@ a.os-surface-row {
     /* Soft chrome via .os-field-soft; bordered via .os-field-bordered. */
     padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
     border-radius: var(--os-field-radius, 0.85rem);
+  }
+
+  /* Non-money value + unit — soft create/hub forms (not mono amount chrome). */
+  .suffix-field {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
+    border-radius: var(--os-field-radius, 0.85rem);
+  }
+
+  .suffix-field-input {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+  }
+
+  .suffix-field-input:focus {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .suffix-field-unit {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--os-surface-muted);
   }
 
   .app-storage-amount-input {
@@ -21594,55 +21635,7 @@ a.os-surface-row {
     outline: none;
   }
 
-  /* One soft shell: value + unit (not a nested storage “amount card”). */
-  .drop-create-form .drop-create-suffix-field,
-  .drop-studio .drop-create-suffix-field,
-  .hub-manage-form .drop-create-suffix-field {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
-    padding: 0.65rem 0.75rem;
-  }
-
-  .drop-create-form .drop-create-suffix-field:focus-within,
-  .drop-studio .drop-create-suffix-field:focus-within,
-  .hub-manage-form .drop-create-suffix-field:focus-within {
-    background: rgb(var(--fg-rgb) / 0.055);
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .drop-create-form .drop-create-suffix-field input,
-  .drop-studio .drop-create-suffix-field input,
-  .hub-manage-form .drop-create-suffix-field input {
-    flex: 1;
-    min-width: 0;
-    width: auto;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    padding: 0;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .drop-create-form .drop-create-suffix-field input:focus,
-  .drop-studio .drop-create-suffix-field input:focus,
-  .hub-manage-form .drop-create-suffix-field input:focus {
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .drop-create-form .drop-create-suffix-field span,
-  .drop-studio .drop-create-suffix-field span,
-  .hub-manage-form .drop-create-suffix-field span {
-    flex-shrink: 0;
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--os-surface-muted);
-  }
+  /* Soft value+unit chrome lives on `.suffix-field` (+ os-field-soft). */
 
   .drop-cover-picker {
     position: relative;
@@ -23410,10 +23403,6 @@ a.os-surface-row {
   .gen-trait-weight-field {
     flex: 0 0 6.5rem;
     min-width: 0;
-  }
-
-  .gen-trait-weight-field input {
-    font-variant-numeric: tabular-nums;
   }
 
   .gen-progress-note {

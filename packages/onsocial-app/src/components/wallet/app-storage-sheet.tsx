@@ -13,8 +13,9 @@ import {
   OsHugSheet,
   OsSheetActions,
   OsSheetPrimaryAction,
-  osFieldSoftClassName,
 } from '@onsocial/ui';
+import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
@@ -421,91 +422,66 @@ export function AppStorageSheet({
                   className="app-storage-form"
                   onSubmit={(event) => void handleSubmit(event)}
                 >
-                  <div
-                    className={`app-storage-amount-field ${osFieldSoftClassName}`}
-                  >
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      value={amountInput}
-                      onChange={(event) => applyAmountInput(event.target.value)}
-                      onBlur={() =>
-                        applyAmountInput(
-                          finalizeAmountInput(
-                            amountInput,
-                            STORAGE_NEAR_INPUT_DECIMALS
-                          )
-                        )
-                      }
-                      placeholder={amountHint}
-                      aria-label="Amount in NEAR"
-                      aria-invalid={Boolean(amountInput) && !canSubmitAmount}
-                      className="app-storage-amount-input"
-                    />
-                    <span className="account-card-balance-unit">NEAR</span>
-                  </div>
+                  <AmountField
+                    chrome="soft"
+                    value={amountInput}
+                    onValueChange={applyAmountInput}
+                    maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}
+                    placeholder={amountHint}
+                    aria-label="Amount in NEAR"
+                    invalid={Boolean(amountInput) && !canSubmitAmount}
+                    unit="NEAR"
+                  />
 
-                  <div className="app-storage-quick-row">
-                    {mode === 'deposit' ? (
-                      <div
-                        className="app-storage-presets"
-                        role="group"
-                        aria-label="Quick amounts"
-                      >
-                        {STORAGE_DEPOSIT_PRESETS_NEAR.map((preset) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            className={`os-surface-chip${normalizedAmount === preset ? ' is-selected' : ''}`}
-                            onClick={() => applyAmountInput(preset)}
-                          >
-                            {preset}
-                          </button>
-                        ))}
-                      </div>
-                    ) : canWithdraw ? (
-                      <button
-                        type="button"
-                        className="os-surface-chip app-storage-preset--action"
-                        onClick={() =>
-                          applyAmountInput(
-                            yoctoToNear(withdrawableYocto.toString())
-                          )
-                        }
-                      >
-                        Max
-                      </button>
-                    ) : (
-                      <span aria-hidden className="app-storage-max-placeholder">
-                        Max
-                      </span>
-                    )}
-
-                    <p className="app-storage-amount-meta">
-                      {mode === 'deposit' &&
-                      depositPreviewCapacityBytes != null &&
-                      depositPreviewCapacityBytes > 0 ? (
-                        <>
-                          ≈ {formatCompactBytes(depositPreviewCapacityBytes)}{' '}
-                          capacity ·{' '}
-                        </>
-                      ) : null}
-                      {mode === 'deposit' && walletNearYocto != null ? (
-                        <>
-                          Wallet {formatNearCompact(walletNearYocto.toString())}{' '}
-                          NEAR ·{' '}
-                        </>
-                      ) : mode === 'withdraw' && canWithdraw ? (
-                        <>
-                          Withdrawable{' '}
-                          {formatNearCompact(withdrawableYocto.toString())} NEAR
-                          ·{' '}
-                        </>
-                      ) : null}
-                      Min {amountHint} NEAR
-                    </p>
-                  </div>
+                  <AmountFieldMetaRow
+                    presets={
+                      mode === 'deposit'
+                        ? STORAGE_DEPOSIT_PRESETS_NEAR
+                        : undefined
+                    }
+                    selectedValue={normalizedAmount}
+                    onSelectPreset={
+                      mode === 'deposit' ? applyAmountInput : undefined
+                    }
+                    max={
+                      mode === 'withdraw'
+                        ? {
+                            onClick: () =>
+                              applyAmountInput(
+                                yoctoToNear(withdrawableYocto.toString())
+                              ),
+                            available: canWithdraw,
+                            variant: 'action',
+                          }
+                        : undefined
+                    }
+                    meta={
+                      <>
+                        {mode === 'deposit' &&
+                        depositPreviewCapacityBytes != null &&
+                        depositPreviewCapacityBytes > 0 ? (
+                          <>
+                            ≈ {formatCompactBytes(depositPreviewCapacityBytes)}{' '}
+                            capacity ·{' '}
+                          </>
+                        ) : null}
+                        {mode === 'deposit' && walletNearYocto != null ? (
+                          <>
+                            Wallet{' '}
+                            {formatNearCompact(walletNearYocto.toString())} NEAR
+                            ·{' '}
+                          </>
+                        ) : mode === 'withdraw' && canWithdraw ? (
+                          <>
+                            Withdrawable{' '}
+                            {formatNearCompact(withdrawableYocto.toString())}{' '}
+                            NEAR ·{' '}
+                          </>
+                        ) : null}
+                        Min {amountHint} NEAR
+                      </>
+                    }
+                  />
 
                   {error ? (
                     <p className="app-storage-error" role="alert">

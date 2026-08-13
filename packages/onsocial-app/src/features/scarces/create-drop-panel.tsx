@@ -18,6 +18,9 @@ import {
   osIconActionClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@/components/ui/info-drawer';
+import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
+import { SuffixField } from '@/components/ui/suffix-field';
 import {
   DropFieldInfoDrawer,
   DropFieldLabel,
@@ -129,7 +132,7 @@ import {
   type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
 import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
-import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
+import { finalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import {
   APP_MARKET_PATH,
@@ -2222,22 +2225,17 @@ export function CreateDropPanel() {
         {isPinnedSet || isLargeUpload ? (
           <label className="guild-field" htmlFor={fieldId('cover-seat')}>
             <span>Cover piece</span>
-            <div className="drop-create-suffix-field">
-              <input
-                id={fieldId('cover-seat')}
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={coverSeatInput}
-                onChange={(event) =>
-                  setCoverSeatInput(event.target.value.replace(/[^\d]/g, ''))
-                }
-                placeholder="1"
-                aria-label="Cover piece number"
-                disabled={pending}
-              />
-              <span>{supplyValid ? `of ${supply}` : 'piece #'}</span>
-            </div>
+            <SuffixField
+              id={fieldId('cover-seat')}
+              value={coverSeatInput}
+              onValueChange={(value) =>
+                setCoverSeatInput(value.replace(/[^\d]/g, ''))
+              }
+              placeholder="1"
+              aria-label="Cover piece number"
+              suffix={supplyValid ? `of ${supply}` : 'piece #'}
+              disabled={pending}
+            />
             <small>
               Hero piece in the packaging cover. Defaults to piece 1 — each
               mint still keeps its own artwork.
@@ -2658,21 +2656,16 @@ export function CreateDropPanel() {
               infoKey="supplyPinned"
               onOpenInfo={openFieldInfo}
             />
-            <div className="drop-create-suffix-field">
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={supplyInput}
-                onChange={(event) =>
-                  setSupplyInput(event.target.value.replace(/[^\d]/g, ''))
-                }
-                placeholder="1000"
-                aria-label="Total pieces in the pinned set"
-                disabled={pending}
-              />
-              <span>pieces</span>
-            </div>
+            <SuffixField
+              value={supplyInput}
+              onValueChange={(value) =>
+                setSupplyInput(value.replace(/[^\d]/g, ''))
+              }
+              placeholder="1000"
+              aria-label="Total pieces in the pinned set"
+              suffix="pieces"
+              disabled={pending}
+            />
           </div>
         ) : isGeneratedSet ? (
           <div className="guild-field">
@@ -2694,21 +2687,16 @@ export function CreateDropPanel() {
         ) : (
           <div className="guild-field">
             <span>Supply</span>
-            <div className="drop-create-suffix-field">
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={supplyInput}
-                onChange={(event) =>
-                  setSupplyInput(event.target.value.replace(/[^\d]/g, ''))
-                }
-                placeholder="25"
-                aria-label="Total supply"
-                disabled={pending}
-              />
-              <span>{template.unit}</span>
-            </div>
+            <SuffixField
+              value={supplyInput}
+              onValueChange={(value) =>
+                setSupplyInput(value.replace(/[^\d]/g, ''))
+              }
+              placeholder="25"
+              aria-label="Total supply"
+              suffix={template.unit}
+              disabled={pending}
+            />
             <div
               className="app-storage-presets"
               role="group"
@@ -2733,48 +2721,23 @@ export function CreateDropPanel() {
 
         <div className="guild-field">
           <span>Price per {template.unitSingular}</span>
-          <div className="drop-create-suffix-field">
-            <input
-              id={fieldId('price')}
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={priceInput}
-              onChange={(event) =>
-                setPriceInput(
-                  normalizeAmountInput(event.target.value, NEAR_INPUT_DECIMALS)
-                )
-              }
-              onBlur={() =>
-                setPriceInput(
-                  finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="1"
-              aria-label={`Price per ${template.unitSingular} in NEAR`}
-              disabled={pending}
-            />
-            <span>NEAR</span>
-          </div>
-          <div
-            className="app-storage-presets"
-            role="group"
-            aria-label="Quick prices"
-          >
-            {PRICE_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                className={`os-surface-chip${
-                  price === preset ? ' is-selected' : ''
-                }`}
-                disabled={pending}
-                onClick={() => setPriceInput(preset)}
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
+          <AmountField
+            chrome="soft"
+            value={priceInput}
+            onValueChange={setPriceInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            placeholder="1"
+            aria-label={`Price per ${template.unitSingular} in NEAR`}
+            unit="NEAR"
+            disabled={pending}
+          />
+          <AmountFieldMetaRow
+            presets={PRICE_PRESETS}
+            selectedValue={price}
+            onSelectPreset={setPriceInput}
+            presetsAriaLabel="Quick prices"
+            disabled={pending}
+          />
         </div>
 
         <ScarceRoyaltyField
@@ -2870,22 +2833,17 @@ export function CreateDropPanel() {
 
             <label className="guild-field" htmlFor={fieldId('per-wallet')}>
               <span>Max per wallet</span>
-              <div className="drop-create-suffix-field">
-                <input
-                  id={fieldId('per-wallet')}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={maxPerWallet}
-                  onChange={(event) =>
-                    setMaxPerWallet(event.target.value.replace(/[^\d]/g, ''))
-                  }
-                  placeholder="No limit"
-                  aria-label={`Max ${template.unit} per wallet`}
-                  disabled={pending}
-                />
-                <span>{template.unit}</span>
-              </div>
+              <SuffixField
+                id={fieldId('per-wallet')}
+                value={maxPerWallet}
+                onValueChange={(value) =>
+                  setMaxPerWallet(value.replace(/[^\d]/g, ''))
+                }
+                placeholder="No limit"
+                aria-label={`Max ${template.unit} per wallet`}
+                suffix={template.unit}
+                disabled={pending}
+              />
             </label>
 
             <div className="guild-field">
@@ -3013,22 +2971,17 @@ export function CreateDropPanel() {
                 infoKey="maxRedeems"
                 onOpenInfo={openFieldInfo}
               />
-              <div className="drop-create-suffix-field">
-                <input
-                  id={fieldId('max-redeems')}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={maxRedeemsInput}
-                  onChange={(event) =>
-                    setMaxRedeemsInput(event.target.value.replace(/[^\d]/g, ''))
-                  }
-                  placeholder="No limit"
-                  aria-label="Max redeems per edition"
-                  disabled={pending}
-                />
-                <span>redeems</span>
-              </div>
+              <SuffixField
+                id={fieldId('max-redeems')}
+                value={maxRedeemsInput}
+                onValueChange={(value) =>
+                  setMaxRedeemsInput(value.replace(/[^\d]/g, ''))
+                }
+                placeholder="No limit"
+                aria-label="Max redeems per edition"
+                suffix="redeems"
+                disabled={pending}
+              />
             </div>
 
             <div className="guild-field">

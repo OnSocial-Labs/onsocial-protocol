@@ -22,6 +22,7 @@ import {
   OsSheetPrimaryAction,
 } from '@/components/ui/os-sheet-primary-action';
 import { NearAccountField } from '@/components/ui/near-account-field';
+import { SuffixField } from '@/components/ui/suffix-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -617,23 +618,19 @@ export function HubAccessSheet({
               </button>
             ))}
           </div>
-          <div className="drop-create-suffix-field">
-            <input
-              id="hub-access-commission"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={commissionInput}
-              onChange={(event) => {
-                setCommissionInput(event.target.value.replace(/[^\d.]/g, ''));
-                setError(null);
-              }}
-              placeholder="2.5"
-              aria-label="Commission percentage"
-              disabled={pending}
-            />
-            <span>% per sale</span>
-          </div>
+          <SuffixField
+            id="hub-access-commission"
+            value={commissionInput}
+            inputMode="decimal"
+            onValueChange={(value) => {
+              setCommissionInput(value.replace(/[^\d.]/g, ''));
+              setError(null);
+            }}
+            placeholder="2.5"
+            aria-label="Commission percentage"
+            suffix="% per sale"
+            disabled={pending}
+          />
           <small>
             Only affects drops created after you save · max {MAX_COMMISSION_PCT}
             %.

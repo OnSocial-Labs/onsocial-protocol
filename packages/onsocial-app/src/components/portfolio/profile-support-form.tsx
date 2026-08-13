@@ -6,6 +6,7 @@ import {
   OsSheetActions,
 } from '@/components/ui/os-sheet-primary-action';
 import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -331,32 +332,18 @@ export function ProfileSupportForm({
         disabled={pending}
       />
 
-      <div className="profile-support-quick-row">
-        <div
-          className="app-storage-presets profile-support-presets"
-          role="group"
-          aria-label="Quick amounts"
-        >
-          {presets.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              className={`os-surface-chip${
-                normalizedAmount === preset ? ' is-selected' : ''
-              }`}
-              disabled={pending}
-              onClick={() => applyAmountInput(preset)}
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-        {walletBalanceYocto != null ? (
-          <p className="profile-support-balance">
-            {formatSocialCompact(walletBalanceYocto.toString())} available
-          </p>
-        ) : null}
-      </div>
+      <AmountFieldMetaRow
+        tone="support"
+        presets={presets}
+        selectedValue={normalizedAmount}
+        onSelectPreset={applyAmountInput}
+        disabled={pending}
+        meta={
+          walletBalanceYocto != null
+            ? `${formatSocialCompact(walletBalanceYocto.toString())} available`
+            : null
+        }
+      />
 
       <div className="profile-support-outcome">
         {routingActive && outcomeSplit ? (

@@ -10,7 +10,8 @@ import {
   type Ref,
 } from 'react';
 import type { ProfileSearchRow } from '@onsocial/sdk';
-import { Divider, ProfileAvatar } from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/ui/standing-identity';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   findActiveMentionQuery,
@@ -267,7 +268,6 @@ export function ComposerHashtagTextarea({
             aria-label="Mention suggestions"
           >
             {suggestions.map((item, index) => {
-              const displayName = item.name?.trim() || item.accountId;
               const avatarUrl = resolveProfileMediaUrl(item.avatar);
               return (
                 <button
@@ -282,22 +282,12 @@ export function ComposerHashtagTextarea({
                   onClick={() => applyMention(item.accountId, activeMention)}
                 >
                   <span className="standing-row-main">
-                    <ProfileAvatar
-                      src={avatarUrl}
-                      fallbackInitial={displayName}
+                    <StandingIdentity
+                      accountId={item.accountId}
+                      profileName={item.name}
+                      avatarUrl={avatarUrl}
                       size="md"
-                      className="standing-row-avatar-slot"
                     />
-                    <span className="standing-row-copy">
-                      <span className="standing-row-head">
-                        <span className="standing-row-name-row">
-                          <span className="standing-row-name">{displayName}</span>
-                        </span>
-                        <span className="standing-row-handle">
-                          @{item.accountId}
-                        </span>
-                      </span>
-                    </span>
                   </span>
                 </button>
               );

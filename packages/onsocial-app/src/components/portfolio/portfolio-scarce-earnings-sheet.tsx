@@ -12,7 +12,6 @@ import {
 import {
   Divider,
   GlassSheet,
-  ProfileAvatar,
   SheetCloseButton,
   ShopFillIcon,
   osIconActionClassName,
@@ -21,6 +20,10 @@ import {
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@/components/ui/standing-identity';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
@@ -72,8 +75,10 @@ function EarningsList({
     <div className="standing-list portfolio-support-collect-info-list">
       {items.map((row, index) => {
         const profile = profiles[row.buyerId];
-        const name = profile?.displayName?.trim() || null;
-        const label = name || `@${row.buyerId}`;
+        const { label } = standingIdentityLabel(
+          row.buyerId,
+          profile?.displayName
+        );
         const when = formatSaleWhen(row.blockTimestamp);
         const kindLabel = row.kind === 'royalty' ? 'Royalty' : 'Sale';
         const title = row.title.trim();
@@ -84,32 +89,15 @@ function EarningsList({
               <div className="standing-row-main">
                 <Link
                   href={portfolioPath(row.buyerId)}
-                  className="portfolio-scarce-earnings-avatar-link"
+                  className="standing-row-hit"
                   scroll={false}
-                  aria-label={label}
+                  aria-label={`View ${label}'s profile`}
+                />
+                <StandingIdentity
+                  accountId={row.buyerId}
+                  profileName={profile?.displayName}
+                  avatarUrl={profile?.avatarUrl}
                 >
-                  <ProfileAvatar
-                    src={profile?.avatarUrl ?? null}
-                    fallbackInitial={name || row.buyerId}
-                    size="lg"
-                    className="standing-row-avatar-slot"
-                  />
-                </Link>
-                <div className="standing-row-copy">
-                  <Link
-                    href={portfolioPath(row.buyerId)}
-                    className="standing-row-head"
-                    scroll={false}
-                  >
-                    <span className="standing-row-name-row">
-                      <span className="standing-row-name">{label}</span>
-                    </span>
-                    {name ? (
-                      <span className="standing-row-handle">
-                        @{row.buyerId}
-                      </span>
-                    ) : null}
-                  </Link>
                   <span className="portfolio-support-collect-info-row-kind">
                     {kindLabel}
                     {title ? (
@@ -130,7 +118,7 @@ function EarningsList({
                     ) : null}
                     {formatEarningKindSuffix(row)}
                   </span>
-                </div>
+                </StandingIdentity>
               </div>
               <div className="standing-row-aside">
                 {when ? (
