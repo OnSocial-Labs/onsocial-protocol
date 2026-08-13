@@ -1,10 +1,8 @@
 'use client';
 
-import {
-  osFieldBorderedClassName,
-} from '@onsocial/ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed, ScarcesEventRow } from '@onsocial/sdk';
+import { AmountField } from '@/components/ui/amount-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -821,29 +819,17 @@ export function ScarceBidForm({
 
       {!isOwnAuction && auction && !ended ? (
         <>
-          <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={amountInput}
-              onChange={(event) => applyAmountInput(event.target.value)}
-              onFocus={onAmountFocus}
-              onBlur={() =>
-                applyAmountInput(
-                  finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder={minNear ?? '0'}
-              aria-label="Bid in NEAR"
-              aria-invalid={Boolean(fieldError)}
-              className="app-storage-amount-input"
-              disabled={Boolean(pending) || auctionLoading}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              NEAR
-            </span>
-          </div>
+          <AmountField
+            value={amountInput}
+            onValueChange={applyAmountInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            onFocus={onAmountFocus}
+            placeholder={minNear ?? '0'}
+            aria-label="Bid in NEAR"
+            invalid={Boolean(fieldError)}
+            unit="NEAR"
+            disabled={Boolean(pending) || auctionLoading}
+          />
           {bidMeetsBuyNow && !minMeetsBuyNow ? (
             <p className="profile-support-hint">
               Meets Buy now — you win immediately.

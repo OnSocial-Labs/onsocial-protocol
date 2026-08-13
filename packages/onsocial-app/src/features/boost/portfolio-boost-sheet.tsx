@@ -15,13 +15,13 @@ import {
   SheetCloseButton,
   osIconActionClassName,
   osIconActionGlyphClassName,
-  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import {
   buildBoostLockMsg,
   encodeBoostFtMsg,
   type BoostLockPeriod,
 } from '@onsocial/sdk/advanced';
+import { AmountField } from '@/components/ui/amount-field';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
@@ -179,31 +179,16 @@ function BoostAmountField({
 }) {
   return (
     <>
-      <div className={`app-storage-amount-field ${osFieldBorderedClassName}`}>
-        <input
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={amountInput}
-          onChange={(event) => onAmountInput(event.target.value)}
-          onBlur={() =>
-            onAmountInput(
-              finalizeAmountInput(
-                amountInput,
-                SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
-              )
-            )
-          }
-          placeholder={BOOST_MIN_LOCK_SOCIAL_LABEL}
-          aria-label="Amount in SOCIAL"
-          className="app-storage-amount-input"
-          disabled={disabled}
-        />
-        <span className="account-card-balance-unit profile-support-token-unit">
-          <TokenIcon src={tokenIconSrc} label="SOCIAL" />
-          SOCIAL
-        </span>
-      </div>
+      <AmountField
+        value={amountInput}
+        onValueChange={onAmountInput}
+        maxDecimals={SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS}
+        placeholder={BOOST_MIN_LOCK_SOCIAL_LABEL}
+        aria-label="Amount in SOCIAL"
+        unit="SOCIAL"
+        unitIcon={<TokenIcon src={tokenIconSrc} label="SOCIAL" />}
+        disabled={disabled}
+      />
       <div className="profile-support-quick-row">
         <div
           className="app-storage-presets profile-support-presets"
