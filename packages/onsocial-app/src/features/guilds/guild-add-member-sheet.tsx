@@ -9,6 +9,7 @@ import {
   ProfileAvatar,
   SearchField,
 } from '@onsocial/ui';
+import { StandingIdentity } from '@/components/ui/standing-identity';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -17,7 +18,7 @@ import {
   fetchDiscoverProfiles,
   type DiscoverProfileSummary,
 } from '@/lib/discover-profiles';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import {
   PROFILE_SEARCH_MAX_QUERY_LENGTH,
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
@@ -289,11 +290,6 @@ export function GuildAddMemberSheet({
               const selectedRow =
                 selectedId != null &&
                 accountIdsEqual(profile.accountId, selectedId);
-              const name = displayName(
-                profile.accountId,
-                profile.name ?? undefined
-              );
-              const handle = fallbackLabel(profile.accountId);
               return (
                 <div key={profile.accountId}>
                   {index > 0 ? <Divider variant="item" /> : null}
@@ -310,16 +306,11 @@ export function GuildAddMemberSheet({
                       setError(null);
                     }}
                   >
-                    <ProfileAvatar
-                      src={profile.avatarUrl}
-                      fallbackInitial={name}
-                      size="lg"
-                      className="standing-row-avatar-slot"
+                    <StandingIdentity
+                      accountId={profile.accountId}
+                      profileName={profile.name}
+                      avatarUrl={profile.avatarUrl}
                     />
-                    <span className="standing-row-copy">
-                      <span className="standing-row-name">{name}</span>
-                      <span className="standing-row-handle">@{handle}</span>
-                    </span>
                   </button>
                 </div>
               );
