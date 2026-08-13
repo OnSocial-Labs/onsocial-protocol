@@ -12,11 +12,10 @@ import {
 } from 'react';
 import {
   Divider,
-  GlassSheet,
   MultiplyIcon,
+  OsHugSheet,
   ProfileAvatar,
   SearchField,
-  SheetHeader,
   UserPlusIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
@@ -39,7 +38,6 @@ import {
 } from '@/features/scarces/collection-allowlist-parse';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import { viewAccount } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -271,7 +269,6 @@ function CollectionAllowlistSheet({
   /** Before Opens the list gates minting; after Opens it does not. */
   earlyAccessActive?: boolean;
 }) {
-  const titleId = useId();
   const pasteId = useId();
   const editTitleId = useId();
   const { accountId: viewerId, getSigningWallet } = useAppWallet();
@@ -312,7 +309,6 @@ function CollectionAllowlistSheet({
     initialEntriesRef.current = initialEntries;
   }, [initialEntries]);
 
-  useScrollLock(open || closing);
 
   const clearConfirmRemove = useCallback(() => {
     if (confirmRemoveTimerRef.current != null) {
@@ -1022,37 +1018,23 @@ function CollectionAllowlistSheet({
 
   return (
     <>
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={58}
-      ariaLabelledBy={titleId}
+      label="Allowlist"
+      copy={
+        isDraft
+          ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · mint before Opens`
+          : earlyAccessActive
+            ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · early access before Opens`
+            : `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · public mint is open`
+      }
+      closeAriaLabel="Close allowlist"
       backdropLabel="Close allowlist"
+      zIndex={58}
       panelClassName="collection-allowlist-sheet-panel"
       bodyClassName="collection-allowlist-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Allowlist"
-            subtitle={
-              isDraft
-                ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · mint before Opens`
-                : earlyAccessActive
-                  ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · early access before Opens`
-                  : `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · public mint is open`
-            }
-            onClose={requestClose}
-            closeAriaLabel="Close allowlist"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         <div className="guild-add-member-footer">
           {note ? (
@@ -1435,34 +1417,19 @@ function CollectionAllowlistSheet({
           </div>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
 
-    <GlassSheet
+    <OsHugSheet
       open={editingFace != null}
       onClose={closeEditSheet}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={60}
-      ariaLabelledBy={editTitleId}
+      label="Mint cap"
+      {...(confirmingRemove ? { copy: 'Confirm removal' } : {})}
+      closeAriaLabel="Close mint cap"
       backdropLabel="Close account edit"
+      zIndex={60}
+      titleId={editTitleId}
       panelClassName="collection-allowlist-edit-sheet-panel"
       bodyClassName="collection-allowlist-edit-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={editTitleId}
-            title="Mint cap"
-            subtitle={
-              confirmingRemove ? 'Confirm removal' : undefined
-            }
-            onClose={closeEditSheet}
-            closeAriaLabel="Close mint cap"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         editingFace ? (
           <div className="guild-add-member-footer">
@@ -1492,7 +1459,7 @@ function CollectionAllowlistSheet({
           onArmRemove={armConfirmRemove}
         />
       ) : null}
-    </GlassSheet>
+    </OsHugSheet>
     </>
   );
 }
