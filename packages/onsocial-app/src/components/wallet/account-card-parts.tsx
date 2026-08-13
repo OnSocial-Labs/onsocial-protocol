@@ -5,11 +5,13 @@ import {
   Divider,
   ExternalLinkIcon,
   LogoutIcon,
-  ProtocolMotionArrow,
+  OsSurfaceRow,
+  OsSurfaceRowList,
   PulsingDots,
   QuestionMarkCircleIcon,
   RepeatIcon,
   SearchIcon,
+  type OsSurfaceRowLinkProps,
 } from '@onsocial/ui';
 import Link from 'next/link';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
@@ -36,6 +38,18 @@ import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import type { PlatformStorageSummary } from '@/lib/platform-storage-display';
 import { storageManageIsHighlighted } from '@/lib/user-storage-display';
 
+function AccountSurfaceRowLink({
+  href,
+  className,
+  onClick,
+  children,
+}: OsSurfaceRowLinkProps) {
+  return (
+    <Link href={href} className={className} onClick={onClick}>
+      {children}
+    </Link>
+  );
+}
 interface AccountSessionChipProps {
   isBootstrapping: boolean;
   onResume: () => void;
@@ -337,54 +351,16 @@ function AccountActionRow({
   onClick,
   showArrow = true,
 }: AccountActionRowProps) {
-  const rowClass = [
-    'os-surface-row',
-    showArrow ? 'os-surface-row--navigate' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const content = (
-    <>
-      <span className="os-surface-row-copy">
-        <span className="os-surface-row-label">{label}</span>
-        {hint ? (
-          <span className="os-surface-row-description">{hint}</span>
-        ) : null}
-      </span>
-      {showArrow ? (
-        <ProtocolMotionArrow className="account-card-action-arrow" />
-      ) : (
-        <ExternalLinkIcon
-          className="account-card-action-external"
-          aria-hidden
-        />
-      )}
-    </>
-  );
-
-  if (href) {
-    return external ? (
-      <a
-        className={rowClass}
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        onClick={onClick}
-      >
-        {content}
-      </a>
-    ) : (
-      <Link className={rowClass} href={href} onClick={onClick}>
-        {content}
-      </Link>
-    );
-  }
-
   return (
-    <button type="button" className={rowClass} onClick={onClick}>
-      {content}
-    </button>
+    <OsSurfaceRow
+      label={label}
+      description={hint}
+      href={href}
+      external={external}
+      onClick={onClick}
+      trailing={showArrow ? 'navigate' : 'external'}
+      linkComponent={AccountSurfaceRowLink}
+    />
   );
 }
 
@@ -504,8 +480,8 @@ export function AccountActionList({
   ];
 
   return (
-    <nav
-      className="os-surface-row-list account-action-list"
+    <OsSurfaceRowList
+      className="account-action-list"
       aria-label="Account actions"
     >
       {rows.map((row) => (
@@ -531,6 +507,6 @@ export function AccountActionList({
           />
         </button>
       ) : null}
-    </nav>
+    </OsSurfaceRowList>
   );
 }

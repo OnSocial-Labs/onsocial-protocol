@@ -298,6 +298,23 @@ export {
   type OsSurfaceHaloTone,
 } from './os-surface-halo.js';
 export {
+  OsSurfaceRow,
+  OsSurfaceRowList,
+  osSurfaceRowArrowClassName,
+  osSurfaceRowBadgeClassName,
+  osSurfaceRowClassName,
+  osSurfaceRowCopyClassName,
+  osSurfaceRowDescriptionClassName,
+  osSurfaceRowExternalClassName,
+  osSurfaceRowLabelClassName,
+  osSurfaceRowListClassName,
+  osSurfaceRowNavigateClassName,
+  type OsSurfaceRowLinkProps,
+  type OsSurfaceRowListProps,
+  type OsSurfaceRowProps,
+  type OsSurfaceRowTrailing,
+} from './os-surface-row.js';
+export {
   formatSocialCalendarTime,
   formatSocialRelativeTime,
   formatSocialStandingTimeMeta,
