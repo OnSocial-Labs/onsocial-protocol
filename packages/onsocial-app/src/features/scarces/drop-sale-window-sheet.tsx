@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Sale-window picker — GlassSheet with quick chips + an in-app calendar.
+ * Sale-window picker — hug sheet with quick chips + an in-app calendar.
  * Keeps exact open/close times without the browser's square datetime chrome.
  */
 
@@ -19,12 +19,10 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   Divider,
-  GlassSheet,
+  OsHugSheet,
   OsSheetAction,
   OsSheetActions,
-  SheetHeader,
 } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 export type SaleWindowField = 'opens' | 'closes' | 'access';
 
@@ -387,7 +385,6 @@ function DropTimePickerSheet({
   const [hour, setHour] = useState(seed.hour);
   const [minute, setMinute] = useState(seed.minute);
 
-  useScrollLock(open);
 
   const hourBlocked = useMemo(() => {
     return Array.from({ length: 24 }, (_, nextHour) =>
@@ -484,31 +481,18 @@ function DropTimePickerSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
       onClosed={onClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={60}
-      ariaLabelledBy={titleId}
+      label="Time"
+      copy={`${formatTimeChip(draft)} · local`}
+      closeAriaLabel="Close time"
       backdropLabel="Close time picker"
+      zIndex={60}
+      titleId={titleId}
       panelClassName="drop-time-sheet-panel"
       bodyClassName="drop-time-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Time"
-            subtitle={`${formatTimeChip(draft)} · local`}
-            onClose={onClose}
-            closeAriaLabel="Close time"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         <div className="drop-schedule-sheet-footer">
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -615,7 +599,7 @@ function DropTimePickerSheet({
           </div>
         </div>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
 
@@ -634,7 +618,7 @@ interface DraftBodyProps {
 /**
  * Draft state lives here and remounts via `key` on each open session —
  * no effect sync and no refs-during-render. Parent keeps this mounted
- * through the GlassSheet exit animation.
+ * through the sheet exit animation.
  */
 function DropSaleWindowDraftBody({
   open,
@@ -819,37 +803,23 @@ function DropSaleWindowDraftBody({
 
   return (
     <>
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onRequestClose}
       onClosed={onClosed}
-      tone="os"
-      sizing="hug"
-      // Content-sized panel: "full" rests at natural height (no 62vh peek).
-      initialDetent="full"
-      peekRatio={1}
+      label={title}
+      copy={
+        draftDate && draftTime
+          ? formatScheduleLabel(joinLocal(draftDate, draftTime))
+          : clearLabel
+      }
+      closeAriaLabel="Close"
+      backdropLabel={`Close ${title.toLowerCase()} picker`}
       zIndex={58}
       presentation="enter"
-      ariaLabelledBy={titleId}
-      backdropLabel={`Close ${title.toLowerCase()} picker`}
+      titleId={titleId}
       panelClassName="drop-schedule-sheet-panel"
       bodyClassName="drop-schedule-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={title}
-            subtitle={
-              draftDate && draftTime
-                ? formatScheduleLabel(joinLocal(draftDate, draftTime))
-                : clearLabel
-            }
-            onClose={onRequestClose}
-            closeAriaLabel="Close"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         <div className="drop-schedule-sheet-footer">
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -1087,7 +1057,7 @@ function DropSaleWindowDraftBody({
           {draftError ? <small>{draftError}</small> : null}
         </div>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
 
     {timeSheetVisible ? (
       <DropTimePickerSheet
@@ -1150,7 +1120,6 @@ export function DropSaleWindowSheet({
   const showSheet = activeSession != null && (open || closing);
   const sheetOpen = Boolean(open && !closing && activeSession);
 
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;

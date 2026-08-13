@@ -3,11 +3,10 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
   MultiplyIcon,
+  OsHugSheet,
   ProfileAvatar,
   SearchField,
-  SheetHeader,
   UserPlusIcon,
 } from '@onsocial/ui';
 import {
@@ -24,7 +23,6 @@ import {
   type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   fetchDiscoverProfiles,
@@ -96,7 +94,7 @@ interface ScarceRoyaltySplitSheetProps {
 }
 
 /**
- * GlassSheet to split the resale royalty cut across up to 10 accounts.
+ * Hug sheet to split the resale royalty cut across up to 10 accounts.
  * Shares are percents of the cut (must sum to 100%), not of the sale.
  */
 export function ScarceRoyaltySplitSheet({
@@ -110,7 +108,6 @@ export function ScarceRoyaltySplitSheet({
   pending = false,
   zIndex = 60,
 }: ScarceRoyaltySplitSheetProps) {
-  const titleId = useId();
   const editTitleId = useId();
   const [draft, setDraft] = useState<RoyaltySplitShare[]>(shares);
   const [query, setQuery] = useState('');
@@ -123,7 +120,6 @@ export function ScarceRoyaltySplitSheet({
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
-  useScrollLock(open || editingAccountId != null);
 
   const accountIds = useMemo(
     () => draft.map((share) => share.accountId),
@@ -278,31 +274,17 @@ export function ScarceRoyaltySplitSheet({
 
   return (
     <>
-      <GlassSheet
+      <OsHugSheet
         open={open}
         onClose={onClose}
         onClosed={onClosed}
-        tone="os"
-        sizing="hug"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={zIndex}
-        ariaLabelledBy={titleId}
+        label="Royalty split"
+        copy={`Share of the ${totalLabel}% resale cut`}
+        closeAriaLabel="Close royalty split"
         backdropLabel="Close royalty split"
+        zIndex={zIndex}
         panelClassName="collection-allowlist-sheet-panel"
         bodyClassName="collection-allowlist-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={titleId}
-              title="Royalty split"
-              subtitle={`Share of the ${totalLabel}% resale cut`}
-              onClose={onClose}
-              closeAriaLabel="Close royalty split"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
         footer={
           <div className="guild-add-member-footer">
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -487,32 +469,19 @@ export function ScarceRoyaltySplitSheet({
             </p>
           ) : null}
         </div>
-      </GlassSheet>
+      </OsHugSheet>
 
-      <GlassSheet
+      <OsHugSheet
         open={editingShare != null && editingFace != null}
         onClose={closeEdit}
-        tone="os"
-        sizing="hug"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={zIndex + 2}
-        ariaLabelledBy={editTitleId}
+        label="Share"
+        {...(confirmingRemove ? { copy: 'Confirm removal' } : {})}
+        closeAriaLabel="Close share"
         backdropLabel="Close share edit"
+        zIndex={zIndex + 2}
+        titleId={editTitleId}
         panelClassName="collection-allowlist-edit-sheet-panel"
         bodyClassName="collection-allowlist-edit-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={editTitleId}
-              title="Share"
-              subtitle={confirmingRemove ? 'Confirm removal' : undefined}
-              onClose={closeEdit}
-              closeAriaLabel="Close share"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
         footer={
           editingFace ? (
             <div className="guild-add-member-footer">
@@ -602,7 +571,7 @@ export function ScarceRoyaltySplitSheet({
             </p>
           </div>
         ) : null}
-      </GlassSheet>
+      </OsHugSheet>
     </>
   );
 }
