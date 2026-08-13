@@ -18,8 +18,13 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { MultiplyIcon, OsSheetAction, OsSheetActions, SheetCloseButton } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import {
+  MultiplyIcon,
+  OsSheetAction,
+  OsSheetActions,
+  SheetCloseButton,
+  useScrollLock,
+} from '@onsocial/ui';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 const clientMountedSubscribe = () => () => {};
@@ -164,7 +169,11 @@ export function DropImageLightbox({
           alt=""
         />
         {hasNav ? (
-          <div className="scarce-card-lightbox-nav-row" role="group" aria-label="Cover style">
+          <div
+            className="scarce-card-lightbox-nav-row"
+            role="group"
+            aria-label="Cover style"
+          >
             {onPrev ? (
               <button
                 type="button"

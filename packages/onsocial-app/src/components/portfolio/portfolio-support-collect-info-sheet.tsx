@@ -15,6 +15,7 @@ import {
   GlassSheet,
   ProfileAvatar,
   SheetCloseButton,
+  useScrollLock,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
@@ -24,7 +25,6 @@ import {
   usePostAuthorProfiles,
   type PostAuthorProfile,
 } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { APP_COLLECT_ACTION_LABEL } from '@/lib/app-reward-constants';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';

@@ -15,8 +15,8 @@ import {
   GlassSheet,
   ProtocolMotionArrow,
   SheetCloseButton,
+  useScrollLock,
 } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioPostPeeks } from '@/contexts/portfolio-post-peeks-context';
@@ -438,7 +438,10 @@ export function PageContentDrawer({
 
       if (!scroller) {
         node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        jumpLockTimerRef.current = setTimeout(() => finishJump(null), JUMP_LOCK_MS);
+        jumpLockTimerRef.current = setTimeout(
+          () => finishJump(null),
+          JUMP_LOCK_MS
+        );
         return;
       }
 

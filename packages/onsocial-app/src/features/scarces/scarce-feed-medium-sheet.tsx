@@ -11,7 +11,12 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Divider, GlassSheet, ScaleDownIcon } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  ScaleDownIcon,
+  useScrollLock,
+} from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
@@ -29,7 +34,6 @@ import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
 import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   resolveScarceFeedMediumMode,
@@ -323,9 +327,7 @@ export function ScarceFeedMediumSheet({
         immersiveListen
         listenFooter={postChrome}
         onListenClose={() => onOpenChange(false)}
-        {...(collectionId
-          ? { persist: { collectionId, title: name } }
-          : {})}
+        {...(collectionId ? { persist: { collectionId, title: name } } : {})}
       />
     );
   }

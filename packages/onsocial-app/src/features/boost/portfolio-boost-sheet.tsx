@@ -16,6 +16,7 @@ import {
   osIconActionClassName,
   osIconActionGlyphClassName,
   osFieldBorderedClassName,
+  useScrollLock,
 } from '@onsocial/ui';
 import {
   buildBoostLockMsg,
@@ -54,7 +55,6 @@ import {
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -366,10 +366,7 @@ export function PortfolioBoostSheet({
   const amountReady = amountYocto >= BOOST_MIN_LOCK_YOCTO && !insufficient;
   const increaseInfluenceYocto =
     mode === 'increase' && amountReady && currentOption
-      ? applyLockBonus(
-          lockedYocto + amountYocto,
-          currentOption.bonusPercent
-        )
+      ? applyLockBonus(lockedYocto + amountYocto, currentOption.bonusPercent)
       : null;
   const summaryInfluenceYocto =
     mode === 'extend' && extendInfluenceYocto != null

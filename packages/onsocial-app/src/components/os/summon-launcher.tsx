@@ -32,13 +32,13 @@ import {
   resolveOsGlassPanelFilter,
   SheetCloseButton,
   usePrefersReducedTransparency,
+  useScrollLock,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
@@ -368,7 +368,9 @@ export function SummonLauncher({
               <span className="glass-sheet-grip" aria-hidden />
             </button>
 
-            <header className={`standing-sheet-header ${osLauncherHeaderClassName}`}>
+            <header
+              className={`standing-sheet-header ${osLauncherHeaderClassName}`}
+            >
               <div className="standing-sheet-subject-row">
                 <div className="standing-sheet-subject">
                   <OnSocialMark
@@ -376,7 +378,9 @@ export function SummonLauncher({
                     aria-hidden
                   />
                   <span className="standing-sheet-subject-copy">
-                    <span className="standing-sheet-subject-name">OnSocial</span>
+                    <span className="standing-sheet-subject-name">
+                      OnSocial
+                    </span>
                   </span>
                 </div>
                 <div className="standing-sheet-actions">
@@ -442,7 +446,9 @@ export function PortfolioLauncher({
   const { accountId, isConnected } = useAppWallet();
 
   const isOwner =
-    isConnected && Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
+    isConnected &&
+    Boolean(accountId) &&
+    accountIdsEqual(accountId!, pageAccountId);
   const apps = isOwner
     ? ownerPortfolioOsApps(pageAccountId)
     : visitorPortfolioOsApps(pageAccountId);

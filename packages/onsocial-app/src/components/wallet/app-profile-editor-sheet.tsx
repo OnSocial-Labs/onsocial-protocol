@@ -10,7 +10,12 @@ import {
   type FormEvent,
   type MutableRefObject,
 } from 'react';
-import { Divider, GlassSheet, ProfileEditorMediaToolbar } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  ProfileEditorMediaToolbar,
+  useScrollLock,
+} from '@onsocial/ui';
 import {
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
@@ -25,7 +30,6 @@ import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
@@ -49,10 +53,7 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { nearExplorerTxHref } from '@/lib/app-config';
-import {
-  txToastError,
-  txToastSuccess,
-} from '@/lib/transaction-toast-copy';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const MOBILE_MAX_WIDTH_PX = 767;
 const EDITOR_PANEL_MAX_HEIGHT_PX = 44 * 16;
@@ -181,9 +182,7 @@ function ProfileEditorForm({
     }
 
     // Mobile: let the user tap — autofocus fights keyboard + sheet settle.
-    if (
-      window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches
-    ) {
+    if (window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches) {
       return;
     }
 
@@ -633,7 +632,11 @@ function ProfileEditorForm({
             >
               {isBootstrappingSession ? 'Resuming…' : 'Resume'}
             </button>
-            <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+            <OsSheetActions
+              layout="row-compact"
+              tone="frosted-primary"
+              borderless
+            >
               <OsSheetPrimaryAction type="submit" disabled>
                 {submitLabel}
               </OsSheetPrimaryAction>
@@ -750,12 +753,7 @@ export function AppProfileEditorSheet({
           }
         : null),
     };
-  }, [
-    portfolioMoodStyle,
-    viewport.height,
-    viewport.isMobile,
-    viewport.lift,
-  ]);
+  }, [portfolioMoodStyle, viewport.height, viewport.isMobile, viewport.lift]);
 
   useScrollLock(open || closing);
 

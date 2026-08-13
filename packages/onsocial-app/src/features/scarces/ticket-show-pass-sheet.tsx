@@ -11,7 +11,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { SheetCloseButton } from '@onsocial/ui';
+import { SheetCloseButton, useScrollLock } from '@onsocial/ui';
 import {
   encodeTicketPassPayload,
   ticketPassStatusLabel,
@@ -21,7 +21,6 @@ import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
 } from '@/features/scarces/ticket-token-status';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 const clientMountedSubscribe = () => () => {};

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   CommerceSheetFooter,
@@ -13,7 +13,6 @@ import {
   ScarceOfferForm,
   type ScarceOfferSuccessDetail,
 } from '@/features/scarces/scarce-offer-form';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 export interface ScarceOfferListing {

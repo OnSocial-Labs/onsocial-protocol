@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useId, useState } from 'react';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
-import { Divider, GlassSheet, osFieldSoftClassName } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  osFieldSoftClassName,
+  useScrollLock,
+} from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import {
   OsSheetAction,
@@ -11,12 +16,9 @@ import {
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
-import {
-  txToastError,
-} from '@/lib/transaction-toast-copy';
+import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const TOPIC_MAX = 40;
@@ -219,7 +221,9 @@ export function EndorseComposeSheet({
         ) : isSelf ? (
           <p className="endorse-compose-hint">You can’t endorse yourself.</p>
         ) : !isConnected ? (
-          <p className="endorse-compose-hint">Connect to put your name behind them.</p>
+          <p className="endorse-compose-hint">
+            Connect to put your name behind them.
+          </p>
         ) : (
           <p className="endorse-compose-hint">
             Public vouch — topic optional, note optional.

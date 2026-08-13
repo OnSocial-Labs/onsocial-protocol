@@ -22,9 +22,9 @@ import {
   PlayFillIcon,
   PreviousFillIcon,
   ScaleDownIcon,
+  useScrollLock,
 } from '@onsocial/ui';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 const clientMountedSubscribe = () => () => {};
@@ -204,9 +204,7 @@ export function ScarceClipListenSheet({
       aria-labelledby={titleId}
       style={lightboxStyle}
     >
-      <div
-        className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}
-      >
+      <div className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}>
         <p id={titleId} className="sr-only">
           {trackTitle}
         </p>

@@ -7,11 +7,10 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import { ProfileSupportForm } from '@/components/portfolio/profile-support-form';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
