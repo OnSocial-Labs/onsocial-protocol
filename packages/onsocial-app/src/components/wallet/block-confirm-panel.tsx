@@ -1,6 +1,6 @@
 'use client';
 
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { OsActionDrawerConfirm } from '@onsocial/ui';
 import { blockConfirmCopy } from '@/lib/block-confirm-copy';
 
 interface BlockConfirmPanelProps {
@@ -22,30 +22,13 @@ export function BlockConfirmPanel({
   const copy = blockConfirmCopy({ accountId, profileName });
 
   return (
-    <div className="os-action-drawer-confirm">
-      <p className="os-action-drawer-confirm-body">{copy.body}</p>
-      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-        <OsSheetAction
-          type="button"
-          variant="primary"
-          ready
-          pending={pending}
-          pendingLabel="Blocking…"
-          disabled={pending}
-          onClick={onConfirm}
-        >
-          {copy.confirmLabel}
-        </OsSheetAction>
-      </OsSheetActions>
-      {!pending ? (
-        <button
-          type="button"
-          className="os-action-drawer-confirm-cancel"
-          onClick={onCancel}
-        >
-          Cancel
-        </button>
-      ) : null}
-    </div>
+    <OsActionDrawerConfirm
+      body={copy.body}
+      confirmLabel={copy.confirmLabel}
+      pending={pending}
+      pendingLabel="Blocking…"
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
   );
 }

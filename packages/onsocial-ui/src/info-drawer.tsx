@@ -1,15 +1,9 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
-import { Divider } from './divider.js';
-import { GlassSheet, SheetHeader } from './glass-sheet.js';
+import { useCallback, useState } from 'react';
 import { OsSheetAction } from './os-sheet-action.js';
 import { OsSheetActions } from './os-sheet-actions.js';
-import {
-  osChoiceSheetBodyClassName,
-  osChoiceSheetPanelClassName,
-} from './choice-drawer.js';
-import { useScrollLock } from './use-scroll-lock.js';
+import { OsHugSheet } from './os-hug-sheet.js';
 
 export interface InfoDrawerProps {
   open: boolean;
@@ -31,7 +25,6 @@ export function InfoDrawer({
   zIndex = 60,
   gotItLabel = 'Got it',
 }: InfoDrawerProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const sheetOpen = open && !closing;
@@ -40,8 +33,6 @@ export function InfoDrawer({
     setWasOpen(open);
     if (open) setClosing(false);
   }
-
-  useScrollLock(sheetOpen);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -53,30 +44,15 @@ export function InfoDrawer({
   }, [onClose]);
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={zIndex}
-      ariaLabelledBy={titleId}
+      label={title}
+      closeAriaLabel="Close"
       backdropLabel="Close"
-      sizing="hug"
-      panelClassName={osChoiceSheetPanelClassName}
-      bodyClassName={`${osChoiceSheetBodyClassName} os-info-drawer-body`}
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={title}
-            onClose={requestClose}
-            closeAriaLabel="Close"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      zIndex={zIndex}
+      bodyClassName="os-info-drawer-body"
     >
       <p className="os-info-drawer-summary">{summary}</p>
       <p className="os-info-drawer-detail">{detail}</p>
@@ -90,6 +66,6 @@ export function InfoDrawer({
           {gotItLabel}
         </OsSheetAction>
       </OsSheetActions>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

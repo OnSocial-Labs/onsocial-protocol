@@ -2,18 +2,12 @@
 
 import {
   useCallback,
-  useId,
   useMemo,
   type ComponentType,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
-import { Divider } from './divider.js';
-import { GlassSheet, SheetHeader } from './glass-sheet.js';
-import {
-  osChoiceSheetBodyClassName,
-  osChoiceSheetPanelClassName,
-} from './choice-drawer.js';
-import { useScrollLock } from './use-scroll-lock.js';
+import { OsHugSheet } from './os-hug-sheet.js';
 
 export const osActionDrawerIconClassName = 'os-action-drawer-icon';
 export const osActionDrawerConfirmClassName = 'os-action-drawer-confirm';
@@ -106,11 +100,14 @@ export interface ActionDrawerProps {
   hint?: string;
   /** Called when the header close control is used. */
   closeAriaLabel?: string;
+  /** When false, hides the header close control. */
+  showClose?: boolean;
   zIndex?: number;
   /** Extra panel class (e.g. market filter width tweaks). */
   panelClassName?: string;
   /** Extra body class. */
   bodyClassName?: string;
+  panelStyle?: CSSProperties;
   /**
    * Link renderer for `href` items. Apps with a client router should pass
    * their Link (e.g. Next.js). Defaults to a plain `<a>`.
@@ -136,16 +133,14 @@ export function ActionDrawer({
   footer,
   hint,
   closeAriaLabel,
+  showClose = true,
   zIndex = 60,
   panelClassName,
   bodyClassName,
+  panelStyle,
   linkComponent: LinkComponent = DefaultActionDrawerLink,
 }: ActionDrawerProps) {
-  const titleId = useId();
   const sections = useMemo(() => groupItems(items ?? []), [items]);
-  const closeLabel = closeAriaLabel ?? `Close ${label.toLowerCase()}`;
-
-  useScrollLock(open);
 
   const renderItem = useCallback(
     (item: ActionDrawerItem) => {
@@ -209,36 +204,20 @@ export function ActionDrawer({
   );
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
       onClosed={onClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
+      label={label}
+      title={title}
+      titleAccessory={titleAccessory}
+      copy={copy}
+      closeAriaLabel={closeAriaLabel}
+      showClose={showClose}
       zIndex={zIndex}
-      ariaLabelledBy={titleId}
-      backdropLabel={closeLabel}
-      sizing="hug"
-      panelClassName={[osChoiceSheetPanelClassName, panelClassName]
-        .filter(Boolean)
-        .join(' ')}
-      bodyClassName={[osChoiceSheetBodyClassName, bodyClassName]
-        .filter(Boolean)
-        .join(' ')}
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={title ?? label}
-            {...(titleAccessory ? { titleAccessory } : {})}
-            {...(copy ? { subtitle: copy } : {})}
-            onClose={onClose}
-            closeAriaLabel={closeLabel}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      panelClassName={panelClassName}
+      bodyClassName={bodyClassName}
+      panelStyle={panelStyle}
       footer={footer}
     >
       {children ? (
@@ -263,6 +242,6 @@ export function ActionDrawer({
         </div>
       )}
       {hint ? <p className="os-choice-sheet-hint">{hint}</p> : null}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

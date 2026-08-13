@@ -3,25 +3,25 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import { ChevronDownIcon } from './mage-stroke-icons.js';
-import { Divider } from './divider.js';
 import {
   osFloatingPanelTriggerChevronClassName,
   osFloatingPanelTriggerClassName,
   osFloatingPanelTriggerLabelClassName,
   osFloatingPanelTriggerMetaClassName,
 } from './floating-panel.js';
-import { GlassSheet, SheetHeader } from './glass-sheet.js';
-import { useScrollLock } from './use-scroll-lock.js';
+import { OsHugSheet } from './os-hug-sheet.js';
+import { osChoiceChipClassName } from './os-choice-tokens.js';
 
-export const osChoiceChipClassName = 'os-choice-chip';
-export const osChoiceSheetPanelClassName = 'os-choice-sheet-panel';
-export const osChoiceSheetBodyClassName = 'os-choice-sheet-body';
+export {
+  osChoiceChipClassName,
+  osChoiceSheetBodyClassName,
+  osChoiceSheetPanelClassName,
+} from './os-choice-tokens.js';
 
 export interface ChoiceOption<T extends string> {
   value: T;
@@ -106,38 +106,16 @@ export function ChoiceDrawer<T extends string>({
   closeOnSelect = true,
   zIndex = 60,
 }: ChoiceDrawerProps<T>) {
-  const titleId = useId();
   const sections = useMemo(() => groupOptions(options), [options]);
 
-  useScrollLock(open);
-
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
       onClosed={onClosed}
-      tone="os"
-      // Content-sized panel: "full" means rest at natural height (no 62vh peek).
-      initialDetent="full"
-      peekRatio={1}
+      label={label}
+      copy={copy}
       zIndex={zIndex}
-      ariaLabelledBy={titleId}
-      backdropLabel={`Close ${label.toLowerCase()}`}
-      sizing="hug"
-      panelClassName={osChoiceSheetPanelClassName}
-      bodyClassName={osChoiceSheetBodyClassName}
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={label}
-            {...(copy ? { subtitle: copy } : {})}
-            onClose={onClose}
-            closeAriaLabel={`Close ${label.toLowerCase()}`}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="os-choice-sheet-list" role="listbox" aria-label={label}>
         {sections.map((section, sectionIndex) => (
@@ -203,7 +181,7 @@ export function ChoiceDrawer<T extends string>({
         ))}
       </div>
       {hint ? <p className="os-choice-sheet-hint">{hint}</p> : null}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
 

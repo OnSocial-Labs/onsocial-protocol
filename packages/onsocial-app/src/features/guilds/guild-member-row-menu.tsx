@@ -5,8 +5,7 @@ import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   CopyIcon,
   DotsVerticalIcon,
-  OsSheetAction,
-  OsSheetActions,
+  OsActionDrawerConfirm,
   ShareIcon,
   TrashIcon,
   UserCircleFillIcon,
@@ -340,8 +339,20 @@ export function GuildMemberRowMenu({
         items={confirmAction ? undefined : menuItems}
       >
         {confirmAction && confirmCopy ? (
-          <div className="os-action-drawer-confirm">
-            <p className="os-action-drawer-confirm-body">{confirmCopy.subtitle}</p>
+          <OsActionDrawerConfirm
+            body={confirmCopy.subtitle}
+            confirmLabel={confirmCopy.confirmLabel}
+            pending={pending}
+            pendingLabel={
+              confirmAction.propose
+                ? 'Submitting…'
+                : confirmAction.id === 'transfer-ownership'
+                  ? 'Transferring…'
+                  : 'Updating…'
+            }
+            onConfirm={() => void handleConfirm()}
+            onCancel={resetConfirm}
+          >
             {confirmAction.id === 'transfer-ownership' ? (
               <label className="os-notice-card-toggle">
                 <input
@@ -371,35 +382,7 @@ export function GuildMemberRowMenu({
                 {actionError}
               </p>
             ) : null}
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                ready
-                pending={pending}
-                pendingLabel={
-                  confirmAction.propose
-                    ? 'Submitting…'
-                    : confirmAction.id === 'transfer-ownership'
-                      ? 'Transferring…'
-                      : 'Updating…'
-                }
-                disabled={pending}
-                onClick={() => void handleConfirm()}
-              >
-                {confirmCopy.confirmLabel}
-              </OsSheetAction>
-            </OsSheetActions>
-            {!pending ? (
-              <button
-                type="button"
-                className="os-action-drawer-confirm-cancel"
-                onClick={resetConfirm}
-              >
-                Cancel
-              </button>
-            ) : null}
-          </div>
+          </OsActionDrawerConfirm>
         ) : undefined}
       </ActionDrawer>
 
