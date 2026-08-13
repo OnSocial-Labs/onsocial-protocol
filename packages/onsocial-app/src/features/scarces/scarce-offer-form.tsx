@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -278,27 +279,13 @@ export function ScarceOfferForm({
             unit="NEAR"
             disabled={Boolean(pending) || loadingOffer}
           />
-          <div className="profile-support-quick-row">
-            <div
-              className="app-storage-presets"
-              role="group"
-              aria-label="Quick offers"
-            >
-              {PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`os-surface-chip${
-                    normalizedAmount === preset ? ' is-selected' : ''
-                  }`}
-                  disabled={Boolean(pending) || loadingOffer}
-                  onClick={() => applyAmountInput(preset)}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-          </div>
+          <AmountFieldMetaRow
+            presets={PRESETS}
+            selectedValue={normalizedAmount}
+            onSelectPreset={applyAmountInput}
+            presetsAriaLabel="Quick offers"
+            disabled={Boolean(pending) || loadingOffer}
+          />
         </>
       ) : null}
 

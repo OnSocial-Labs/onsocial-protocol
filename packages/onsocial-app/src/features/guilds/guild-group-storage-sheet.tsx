@@ -8,8 +8,9 @@ import {
   OsSheetActions,
   OsSheetPrimaryAction,
   PlusIcon,
-  osFieldSoftClassName,
 } from '@onsocial/ui';
+import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useGroupStoragePool } from '@/hooks/use-group-storage-pool';
@@ -853,65 +854,39 @@ export function GuildGroupStorageSheet({
               <p className="app-storage-meta">
                 Add NEAR to this guild&apos;s shared storage pool.
               </p>
-              <div
-                className={`app-storage-amount-field ${osFieldSoftClassName}`}
-              >
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  value={fundAmountInput}
-                  onChange={(event) => applyFundAmountInput(event.target.value)}
-                  onBlur={() =>
-                    applyFundAmountInput(
-                      finalizeAmountInput(
-                        fundAmountInput,
-                        STORAGE_NEAR_INPUT_DECIMALS
-                      )
-                    )
-                  }
-                  placeholder={amountHint}
-                  aria-label="Group pool fund amount in NEAR"
-                  aria-invalid={Boolean(fundAmountInput) && !canFundAmount}
-                  className="app-storage-amount-input"
-                  disabled={pending}
-                />
-                <span className="account-card-balance-unit">NEAR</span>
-              </div>
-              <div className="app-storage-quick-row">
-                <div
-                  className="app-storage-presets"
-                  role="group"
-                  aria-label="Quick fund amounts"
-                >
-                  {STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      className={`os-surface-chip${
-                        normalizedFundAmount === preset ? ' is-selected' : ''
-                      }`}
-                      onClick={() => applyFundAmountInput(preset)}
-                      disabled={pending}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-                <p className="app-storage-amount-meta">
-                  {fundPreviewCapacityBytes != null &&
-                  fundPreviewCapacityBytes > 0 ? (
-                    <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
-                  ) : null}
-                  {walletNearYocto != null ? (
-                    <>
-                      Balance {formatNearCompact(walletNearYocto.toString())}{' '}
-                      ·{' '}
-                    </>
-                  ) : null}
-                  Min {amountHint}
-                </p>
-              </div>
+              <AmountField
+                chrome="soft"
+                value={fundAmountInput}
+                onValueChange={applyFundAmountInput}
+                maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}
+                placeholder={amountHint}
+                aria-label="Group pool fund amount in NEAR"
+                invalid={Boolean(fundAmountInput) && !canFundAmount}
+                unit="NEAR"
+                disabled={pending}
+              />
+              <AmountFieldMetaRow
+                presets={STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR}
+                selectedValue={normalizedFundAmount}
+                onSelectPreset={applyFundAmountInput}
+                presetsAriaLabel="Quick fund amounts"
+                disabled={pending}
+                meta={
+                  <>
+                    {fundPreviewCapacityBytes != null &&
+                    fundPreviewCapacityBytes > 0 ? (
+                      <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
+                    ) : null}
+                    {walletNearYocto != null ? (
+                      <>
+                        Balance {formatNearCompact(walletNearYocto.toString())}{' '}
+                        ·{' '}
+                      </>
+                    ) : null}
+                    Min {amountHint}
+                  </>
+                }
+              />
               {error ? (
                 <p className="app-storage-error" role="alert">
                   {error}

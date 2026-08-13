@@ -14,7 +14,7 @@ export type AmountFieldChrome = 'bordered' | 'soft';
 
 /**
  * Shared money input shell — `app-storage-amount-field` + unit.
- * Presets / Max / balance stay composed by the caller.
+ * Pair with {@link AmountFieldMetaRow} for presets / Max / balance.
  */
 export function AmountField({
   value,

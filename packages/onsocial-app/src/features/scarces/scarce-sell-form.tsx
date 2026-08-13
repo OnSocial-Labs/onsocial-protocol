@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ProfileAvatar } from '@onsocial/ui';
 import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -410,27 +411,15 @@ export function ScarceSellForm({
         disabled={pending}
       />
 
-      <div className="profile-support-quick-row">
-        <div
-          className="app-storage-presets"
-          role="group"
-          aria-label={mode === 'auction' ? 'Quick reserves' : 'Quick prices'}
-        >
-          {PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              className={`os-surface-chip${
-                normalizedAmount === preset ? ' is-selected' : ''
-              }`}
-              disabled={pending}
-              onClick={() => applyAmountInput(preset)}
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-      </div>
+      <AmountFieldMetaRow
+        presets={PRESETS}
+        selectedValue={normalizedAmount}
+        onSelectPreset={applyAmountInput}
+        presetsAriaLabel={
+          mode === 'auction' ? 'Quick reserves' : 'Quick prices'
+        }
+        disabled={pending}
+      />
 
       {mode === 'auction' ? (
         <>

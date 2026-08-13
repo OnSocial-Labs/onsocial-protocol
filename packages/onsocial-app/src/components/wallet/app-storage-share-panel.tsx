@@ -1,10 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { OsSheetActions, OsSheetPrimaryAction,
-  osFieldSoftClassName,
+import {
+  MultiplyIcon,
+  OsSheetActions,
+  OsSheetPrimaryAction,
+  PlusIcon,
 } from '@onsocial/ui';
-import { MultiplyIcon, PlusIcon } from '@onsocial/ui';
+import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
 import { useStorageShareRecipientsValidation } from '@/hooks/use-storage-share-recipients';
@@ -648,56 +652,34 @@ export function AppStorageSharePanel({
           <p className="app-storage-meta">
             Add NEAR to @{accountId}&apos;s share pool.
           </p>
-          <div className={`app-storage-amount-field ${osFieldSoftClassName}`}>
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={fundAmountInput}
-              onChange={(event) => applyFundAmountInput(event.target.value)}
-              onBlur={() =>
-                applyFundAmountInput(
-                  finalizeAmountInput(
-                    fundAmountInput,
-                    STORAGE_NEAR_INPUT_DECIMALS
-                  )
-                )
-              }
-              placeholder={amountHint}
-              aria-label="Share pool fund amount in NEAR"
-              aria-invalid={Boolean(fundAmountInput) && !canFundAmount}
-              className="app-storage-amount-input"
-            />
-            <span className="account-card-balance-unit">NEAR</span>
-          </div>
-          <div className="app-storage-quick-row">
-            <div
-              className="app-storage-presets"
-              role="group"
-              aria-label="Quick fund amounts"
-            >
-              {STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`os-surface-chip${normalizedFundAmount === preset ? ' is-selected' : ''}`}
-                  onClick={() => applyFundAmountInput(preset)}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-            <p className="app-storage-amount-meta">
-              {fundPreviewCapacityBytes != null &&
-              fundPreviewCapacityBytes > 0 ? (
-                <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
-              ) : null}
-              {walletNearYocto != null ? (
-                <>Balance {formatNearCompact(walletNearYocto.toString())} · </>
-              ) : null}
-              Min {amountHint}
-            </p>
-          </div>
+          <AmountField
+            chrome="soft"
+            value={fundAmountInput}
+            onValueChange={applyFundAmountInput}
+            maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}
+            placeholder={amountHint}
+            aria-label="Share pool fund amount in NEAR"
+            invalid={Boolean(fundAmountInput) && !canFundAmount}
+            unit="NEAR"
+          />
+          <AmountFieldMetaRow
+            presets={STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR}
+            selectedValue={normalizedFundAmount}
+            onSelectPreset={applyFundAmountInput}
+            presetsAriaLabel="Quick fund amounts"
+            meta={
+              <>
+                {fundPreviewCapacityBytes != null &&
+                fundPreviewCapacityBytes > 0 ? (
+                  <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
+                ) : null}
+                {walletNearYocto != null ? (
+                  <>Balance {formatNearCompact(walletNearYocto.toString())} · </>
+                ) : null}
+                Min {amountHint}
+              </>
+            }
+          />
           {error ? (
             <p className="app-storage-error" role="alert">
               {error}

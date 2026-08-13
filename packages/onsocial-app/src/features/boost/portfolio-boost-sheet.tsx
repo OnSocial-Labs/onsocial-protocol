@@ -23,6 +23,7 @@ import {
   type BoostLockPeriod,
 } from '@onsocial/sdk/advanced';
 import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
@@ -189,27 +190,19 @@ function BoostAmountField({
         unitIcon={<TokenIcon src={tokenIconSrc} label="SOCIAL" />}
         disabled={disabled}
       />
-      <div className="profile-support-quick-row">
-        <div
-          className="app-storage-presets profile-support-presets"
-          role="group"
-          aria-label="Quick amounts"
-        >
-          <button
-            type="button"
-            className="os-surface-chip"
-            disabled={disabled || balanceYocto == null || balanceYocto === 0n}
-            onClick={onMax}
-          >
-            Max
-          </button>
-        </div>
-        {balanceYocto != null ? (
-          <p className="profile-support-balance">
-            {formatSocialCompact(balanceYocto)} available
-          </p>
-        ) : null}
-      </div>
+      <AmountFieldMetaRow
+        tone="support"
+        max={{
+          onClick: onMax,
+          disabled: balanceYocto == null || balanceYocto === 0n,
+        }}
+        disabled={disabled}
+        meta={
+          balanceYocto != null
+            ? `${formatSocialCompact(balanceYocto)} available`
+            : null
+        }
+      />
     </>
   );
 }

@@ -18,6 +18,8 @@ import {
   osIconActionClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@/components/ui/info-drawer';
+import { AmountField } from '@/components/ui/amount-field';
+import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import {
   DropFieldInfoDrawer,
   DropFieldLabel,
@@ -129,7 +131,7 @@ import {
   type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
 import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
-import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
+import { finalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import {
   APP_MARKET_PATH,
@@ -2733,48 +2735,23 @@ export function CreateDropPanel() {
 
         <div className="guild-field">
           <span>Price per {template.unitSingular}</span>
-          <div className="drop-create-suffix-field">
-            <input
-              id={fieldId('price')}
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={priceInput}
-              onChange={(event) =>
-                setPriceInput(
-                  normalizeAmountInput(event.target.value, NEAR_INPUT_DECIMALS)
-                )
-              }
-              onBlur={() =>
-                setPriceInput(
-                  finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="1"
-              aria-label={`Price per ${template.unitSingular} in NEAR`}
-              disabled={pending}
-            />
-            <span>NEAR</span>
-          </div>
-          <div
-            className="app-storage-presets"
-            role="group"
-            aria-label="Quick prices"
-          >
-            {PRICE_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                className={`os-surface-chip${
-                  price === preset ? ' is-selected' : ''
-                }`}
-                disabled={pending}
-                onClick={() => setPriceInput(preset)}
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
+          <AmountField
+            chrome="soft"
+            value={priceInput}
+            onValueChange={setPriceInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            placeholder="1"
+            aria-label={`Price per ${template.unitSingular} in NEAR`}
+            unit="NEAR"
+            disabled={pending}
+          />
+          <AmountFieldMetaRow
+            presets={PRICE_PRESETS}
+            selectedValue={price}
+            onSelectPreset={setPriceInput}
+            presetsAriaLabel="Quick prices"
+            disabled={pending}
+          />
         </div>
 
         <ScarceRoyaltyField
