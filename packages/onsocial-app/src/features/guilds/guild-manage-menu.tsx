@@ -3,8 +3,8 @@
 import { useCallback, useState } from 'react';
 import {
   UserPlusFillIcon,
+  OsIconAction,
   osFloatingPanelCountClassName,
-  osIconActionClassName,
   type ActionDrawerItem,
 } from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
@@ -125,15 +125,14 @@ export function GuildManageMenu({
 
   return (
     <div className="guild-manage-menu">
-      <button
-        type="button"
-        className={`${osIconActionClassName} guild-manage-menu-trigger${
+      <OsIconAction
+        className={`guild-manage-menu-trigger${
           showRequests && pendingRequestCount > 0 ? ' has-badge' : ''
         }${sheetOpen ? ' is-open' : ''}`}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}
-        aria-label={
+        ariaLabel={
           showRequests && pendingRequestCount > 0
             ? `Guild menu, ${pendingRequestCount} pending requests`
             : 'Guild menu'
@@ -148,7 +147,7 @@ export function GuildManageMenu({
             {formatProfileCount(pendingRequestCount)}
           </span>
         ) : null}
-      </button>
+      </OsIconAction>
 
       <ActionDrawer
         open={sheetOpen}

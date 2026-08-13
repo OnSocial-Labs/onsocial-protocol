@@ -6,8 +6,8 @@ import {
   OsSheetAction,
   OsSheetActions,
   OsSheetPrimaryAction,
+  OsIconAction,
   QuestionMarkCircleFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { InfoDrawer } from '@/components/ui/info-drawer';
@@ -163,10 +163,8 @@ export function GuildCreatePanel() {
       backFallbackHref="/groups"
       glassChrome
       actions={
-        <button
-          type="button"
-          className={osIconActionClassName}
-          aria-label={GUILD_CREATE_HELP_TITLE}
+        <OsIconAction
+          ariaLabel={GUILD_CREATE_HELP_TITLE}
           aria-expanded={helpOpen}
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
@@ -175,7 +173,7 @@ export function GuildCreatePanel() {
             aria-hidden
             className="glass-sheet-close-icon"
           />
-        </button>
+        </OsIconAction>
       }
     >
       <form className="guild-create-form" onSubmit={handleSubmit}>

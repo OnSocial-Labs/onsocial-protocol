@@ -14,8 +14,8 @@ import {
   ArrowLeftIcon,
   OsSheetAction,
   OsSheetActions,
+  OsIconAction,
   QuestionMarkCircleFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@/components/ui/info-drawer';
 import { AmountField } from '@/components/ui/amount-field';
@@ -1825,10 +1825,8 @@ export function CreateDropPanel() {
       actions={
         studioOpen ? (
           <>
-            <button
-              type="button"
-              className={osIconActionClassName}
-              aria-label="How the layer studio works"
+            <OsIconAction
+              ariaLabel="How the layer studio works"
               aria-expanded={studioHelpOpen}
               aria-haspopup="dialog"
               onClick={() => setStudioHelpOpen(true)}
@@ -1837,7 +1835,7 @@ export function CreateDropPanel() {
                 aria-hidden
                 className="glass-sheet-close-icon"
               />
-            </button>
+            </OsIconAction>
             <OsSheetActions
               layout="row-compact"
               tone="frosted-primary"
@@ -1858,10 +1856,8 @@ export function CreateDropPanel() {
           </>
         ) : (
           <>
-            <button
-              type="button"
-              className={osIconActionClassName}
-              aria-label={`About ${template.label} drops`}
+            <OsIconAction
+              ariaLabel={`About ${template.label} drops`}
               aria-expanded={helpOpen}
               aria-haspopup="dialog"
               onClick={() => setHelpOpen(true)}
@@ -1870,7 +1866,7 @@ export function CreateDropPanel() {
                 aria-hidden
                 className="glass-sheet-close-icon"
               />
-            </button>
+            </OsIconAction>
             <OsSheetActions
               layout="row-compact"
               tone="frosted-primary"
@@ -1935,14 +1931,12 @@ export function CreateDropPanel() {
       }
       leading={
         studioOpen ? (
-          <button
-            type="button"
-            className={osIconActionClassName}
-            aria-label="Back to drop details"
+          <OsIconAction
+            ariaLabel="Back to drop details"
             onClick={() => setStudioOpen(false)}
           >
             <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
-          </button>
+          </OsIconAction>
         ) : undefined
       }
     >

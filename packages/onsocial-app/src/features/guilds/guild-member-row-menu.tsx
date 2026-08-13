@@ -6,12 +6,12 @@ import {
   CopyIcon,
   DotsVerticalIcon,
   OsActionDrawerConfirm,
+  OsIconAction,
   ShareIcon,
   TrashIcon,
   UserCircleFillIcon,
   UserIcon,
   UsersFillIcon,
-  osIconActionClassName,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import {
@@ -311,22 +311,21 @@ export function GuildMemberRowMenu({
 
   return (
     <div className="guild-member-row-menu">
-      <button
-        type="button"
-        className={`${osIconActionClassName} guild-member-row-menu-trigger${
+      <OsIconAction
+        className={`guild-member-row-menu-trigger${
           sheetOpen ? ' is-open' : ''
         }`}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}
-        aria-label={menuLabel}
+        ariaLabel={menuLabel}
         disabled={pending}
       >
         <DotsVerticalIcon
           className={`${osIconActionGlyphClassName} guild-member-row-menu-icon`}
           aria-hidden
         />
-      </button>
+      </OsIconAction>
 
       <ActionDrawer
         open={sheetOpen}

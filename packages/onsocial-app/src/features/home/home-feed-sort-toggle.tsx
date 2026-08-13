@@ -3,9 +3,9 @@
 import {
   FireBFillIcon,
   FireBIcon,
+  OsIconAction,
   TimeFillIcon,
   TimeIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import {
   HOME_FEED_SORTS,
@@ -30,11 +30,10 @@ export function HomeFeedSortToggle({
         const selected = option === sort;
         const label = homeFeedSortLabel(option);
         return (
-          <button
+          <OsIconAction
             key={option}
-            type="button"
-            className={`${osIconActionClassName} home-feed-sort-btn home-feed-sort-btn--${option}${selected ? ' is-active' : ''}`}
-            aria-label={label}
+            className={`home-feed-sort-btn home-feed-sort-btn--${option}${selected ? ' is-active' : ''}`}
+            ariaLabel={label}
             aria-pressed={selected}
             title={label}
             onClick={() => onSortChange(option)}
@@ -53,7 +52,7 @@ export function HomeFeedSortToggle({
             ) : (
               <TimeIcon aria-hidden className="home-feed-sort-btn-icon" />
             )}
-          </button>
+          </OsIconAction>
         );
       })}
     </div>
