@@ -163,11 +163,36 @@ pub fn default_max_batch_mint() -> u32 {
     crate::MAX_BATCH_MINT
 }
 
+/// `near_sdk::store::IterableMap` wraps values as `{ value: V, key_index: u32 }`.
+/// Trailing EOF helpers must not consume those final 4 bytes or legacy `V`
+/// layouts panic with `try_from_slice` / `WasmTrap(Unreachable)`.
+const ITERABLE_MAP_KEY_INDEX_LEN: usize = 4;
+
+/// Peek remaining bytes when the reader is Borsh's `&mut &[u8]` (storage path).
+fn slice_remaining<R: near_sdk::borsh::io::Read>(reader: &mut R) -> Option<usize> {
+    if std::any::type_name::<R>() != std::any::type_name::<&[u8]>() {
+        return None;
+    }
+    // SAFETY: guarded by type_name; try_from_slice always uses &mut &[u8].
+    let slice: &&[u8] = unsafe { &*(reader as *const R as *const &[u8]) };
+    Some(slice.len())
+}
+
+fn iterable_map_key_index_only<R: near_sdk::borsh::io::Read>(reader: &mut R) -> bool {
+    matches!(
+        slice_remaining(reader),
+        Some(n) if n > 0 && n <= ITERABLE_MAP_KEY_INDEX_LEN
+    )
+}
+
 /// Append-compatible Borsh read for trailing `u32` (EOF → `default`).
 pub fn deserialize_trailing_u32_or<R: near_sdk::borsh::io::Read>(
     reader: &mut R,
     default: u32,
 ) -> Result<u32, near_sdk::borsh::io::Error> {
+    if iterable_map_key_index_only(reader) {
+        return Ok(default);
+    }
     let mut buf = [0u8; 4];
     match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
         0 => Ok(default),
@@ -203,6 +228,9 @@ pub fn deserialize_trailing_u16_or<R: near_sdk::borsh::io::Read>(
     reader: &mut R,
     default: u16,
 ) -> Result<u16, near_sdk::borsh::io::Error> {
+    if iterable_map_key_index_only(reader) {
+        return Ok(default);
+    }
     let mut buf = [0u8; 2];
     match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
         0 => Ok(default),
@@ -229,6 +257,9 @@ pub fn deserialize_trailing_commission_bps<R: near_sdk::borsh::io::Read>(
 pub fn deserialize_trailing_bool<R: near_sdk::borsh::io::Read>(
     reader: &mut R,
 ) -> Result<bool, near_sdk::borsh::io::Error> {
+    if iterable_map_key_index_only(reader) {
+        return Ok(false);
+    }
     let mut buf = [0u8; 1];
     match near_sdk::borsh::io::Read::read(reader, &mut buf)? {
         0 => Ok(false),
@@ -294,6 +325,7 @@ pub fn deserialize_trailing_option_account_id<R: near_sdk::borsh::io::Read>(
 }
 
 /// Append-compatible Borsh read for trailing `Vec<AccountId>` (EOF → empty).
+/// Use for `LookupMap` values (e.g. app pool approved creators).
 pub fn deserialize_trailing_account_vec<R: near_sdk::borsh::io::Read>(
     reader: &mut R,
 ) -> Result<Vec<AccountId>, near_sdk::borsh::io::Error> {
@@ -303,6 +335,12 @@ pub fn deserialize_trailing_account_vec<R: near_sdk::borsh::io::Read>(
         0 => Ok(Vec::new()),
         4 => {
             let len = u32::from_le_bytes(len_buf) as usize;
+            if len > crate::MAX_COLLECTION_REDEEMERS {
+                return Err(near_sdk::borsh::io::Error::new(
+                    near_sdk::borsh::io::ErrorKind::InvalidData,
+                    format!("trailing AccountId vec length {len} exceeds cap"),
+                ));
+            }
             let mut out = Vec::with_capacity(len);
             for _ in 0..len {
                 out.push(AccountId::deserialize_reader(reader)?);
@@ -314,6 +352,17 @@ pub fn deserialize_trailing_account_vec<R: near_sdk::borsh::io::Read>(
             format!("unexpected trailing Vec length prefix {n}"),
         )),
     }
+}
+
+/// Like [`deserialize_trailing_account_vec`], but leaves ≤4 trailing bytes for
+/// `IterableMap`'s `{ value, key_index }` wrapper (collection redeemers).
+pub fn deserialize_trailing_account_vec_before_map_index<R: near_sdk::borsh::io::Read>(
+    reader: &mut R,
+) -> Result<Vec<AccountId>, near_sdk::borsh::io::Error> {
+    if iterable_map_key_index_only(reader) {
+        return Ok(Vec::new());
+    }
+    deserialize_trailing_account_vec(reader)
 }
 
 /// App IDs are unique lowercase slugs (not NEAR accounts).

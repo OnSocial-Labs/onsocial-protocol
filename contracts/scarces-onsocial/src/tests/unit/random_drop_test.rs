@@ -178,7 +178,7 @@ fn sequential_collection_ignores_seat_pool() {
 
 #[test]
 fn legacy_borsh_defaults_random_assignment_false() {
-    use near_sdk::borsh::BorshDeserialize;
+    use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 
     let mut contract = new_contract();
     testing_env!(context(creator()).build());
@@ -191,7 +191,15 @@ fn legacy_borsh_defaults_random_assignment_false() {
     // Pre-random_assignment layout: drop trailing redeemers (empty vec = 4) +
     // random_assignment (1).
     bytes.truncate(bytes.len() - 5);
-    let loaded = LazyCollection::try_from_slice(&bytes).unwrap();
+    0u32.serialize(&mut bytes).unwrap();
+
+    #[derive(BorshSerialize, BorshDeserialize)]
+    #[borsh(crate = "near_sdk::borsh")]
+    struct ValueAndIndex {
+        value: LazyCollection,
+        key_index: u32,
+    }
+    let loaded = ValueAndIndex::try_from_slice(&bytes).unwrap().value;
     assert!(!loaded.random_assignment);
     assert!(loaded.redeemers.is_empty());
     assert_eq!(loaded.app_commission_bps, col.app_commission_bps);

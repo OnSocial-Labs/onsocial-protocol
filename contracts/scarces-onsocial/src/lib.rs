@@ -59,9 +59,9 @@ pub use validation::{
     default_commission_sentinel, default_max_batch_mint, default_one, default_true,
     deserialize_max_per_purchase_collection, deserialize_max_per_purchase_listing,
     deserialize_minted_count, deserialize_trailing_account_vec, deserialize_trailing_bool,
-    deserialize_trailing_commission_bps, deserialize_trailing_creator_access,
-    deserialize_trailing_option_account_id, deserialize_trailing_u16_or,
-    deserialize_trailing_u32_or,
+    deserialize_trailing_account_vec_before_map_index, deserialize_trailing_commission_bps,
+    deserialize_trailing_creator_access, deserialize_trailing_option_account_id,
+    deserialize_trailing_u16_or, deserialize_trailing_u32_or,
 };
 
 #[near(

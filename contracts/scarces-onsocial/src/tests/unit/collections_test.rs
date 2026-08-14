@@ -338,7 +338,7 @@ fn create_collection_snapshots_commission_bps() {
 
 #[test]
 fn lazy_collection_borsh_append_defaults_commission_sentinel() {
-    use near_sdk::borsh::BorshDeserialize;
+    use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 
     let col = LazyCollection {
         creator_id: creator(),
@@ -382,10 +382,83 @@ fn lazy_collection_borsh_append_defaults_commission_sentinel() {
     let mut bytes = near_sdk::borsh::to_vec(&col).unwrap();
     // Drop trailing redeemers (empty vec = 4) + random_assignment (1) + app_commission_bps (2).
     bytes.truncate(bytes.len() - 7);
-    let loaded = LazyCollection::try_from_slice(&bytes).unwrap();
+    // IterableMap appends key_index after the value — include it so trailing
+    // helpers leave those 4 bytes alone.
+    0u32.serialize(&mut bytes).unwrap();
+
+    #[derive(BorshSerialize, BorshDeserialize)]
+    #[borsh(crate = "near_sdk::borsh")]
+    struct ValueAndIndex {
+        value: LazyCollection,
+        key_index: u32,
+    }
+    let loaded = ValueAndIndex::try_from_slice(&bytes).unwrap().value;
     assert_eq!(loaded.app_commission_bps, u16::MAX);
     assert_eq!(loaded.collection_id, "legacy");
     assert_eq!(loaded.max_per_purchase, 10);
     assert!(!loaded.random_assignment);
     assert!(loaded.redeemers.is_empty());
+}
+
+/// IterableMap stores `{ value: LazyCollection, key_index: u32 }`. Pre-redeemers
+/// layouts must leave those 4 index bytes alone or `get_collection` traps.
+#[test]
+fn lazy_collection_pre_redeemers_survives_iterable_map_key_index() {
+    use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+
+    let col = LazyCollection {
+        creator_id: creator(),
+        collection_id: "legacy".into(),
+        total_supply: 5,
+        minted_count: 0,
+        metadata_template: "{}".into(),
+        price_near: U128(0),
+        start_price: None,
+        start_time: None,
+        end_time: None,
+        created_at: 1,
+        app_id: None,
+        royalty: None,
+        renewable: false,
+        revocation_mode: collections::RevocationMode::None,
+        max_redeems: None,
+        redeemed_count: 0,
+        fully_redeemed_count: 0,
+        burnable: true,
+        mint_mode: collections::MintMode::Open,
+        max_per_wallet: None,
+        transferable: true,
+        paused: false,
+        cancelled: false,
+        refund_pool: U128(0),
+        refund_per_token: U128(0),
+        refunded_count: 0,
+        refund_deadline: None,
+        total_revenue: U128(0),
+        allowlist_price: None,
+        banned: false,
+        metadata: None,
+        app_metadata: None,
+        max_per_purchase: 10,
+        app_commission_bps: 500,
+        random_assignment: false,
+        redeemers: vec![],
+    };
+    // Pre-redeemers value blob: collection without redeemers + key_index.
+    let mut value_bytes = near_sdk::borsh::to_vec(&col).unwrap();
+    value_bytes.truncate(value_bytes.len() - 4); // drop empty redeemers
+    let key_index = 0u32;
+    key_index.serialize(&mut value_bytes).unwrap();
+
+    #[derive(BorshSerialize, BorshDeserialize)]
+    #[borsh(crate = "near_sdk::borsh")]
+    struct ValueAndIndex {
+        value: LazyCollection,
+        key_index: u32,
+    }
+    let wrapped = ValueAndIndex::try_from_slice(&value_bytes).unwrap();
+    assert!(wrapped.value.redeemers.is_empty());
+    assert_eq!(wrapped.key_index, 0);
+    assert_eq!(wrapped.value.max_per_purchase, 10);
+    assert_eq!(wrapped.value.app_commission_bps, 500);
 }

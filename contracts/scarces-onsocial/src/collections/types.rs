@@ -110,7 +110,7 @@ pub struct LazyCollection {
     /// Door staff who may redeem (check in) tokens. Creator always can.
     /// Capped at 20. Trailing for upgrade-safe empty default.
     #[serde(default)]
-    #[borsh(deserialize_with = "crate::deserialize_trailing_account_vec")]
+    #[borsh(deserialize_with = "crate::deserialize_trailing_account_vec_before_map_index")]
     pub redeemers: Vec<AccountId>,
 }
 
