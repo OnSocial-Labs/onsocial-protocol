@@ -11,7 +11,7 @@ import {
 } from 'react';
 import type { ProfileSearchRow } from '@onsocial/sdk';
 import { Divider } from '@onsocial/ui';
-import { StandingIdentity } from '@/components/ui/standing-identity';
+import { StandingIdentity } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   findActiveMentionQuery,

@@ -26,7 +26,7 @@ import {
   OsSheetActions,
 } from '@onsocial/ui';
 import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
-import { StandingIdentity } from '@/components/ui/standing-identity';
+import { StandingIdentity } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';

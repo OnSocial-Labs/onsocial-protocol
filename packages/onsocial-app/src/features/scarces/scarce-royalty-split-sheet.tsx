@@ -15,7 +15,7 @@ import {
   OsSheetActions,
 } from '@onsocial/ui';
 import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
-import { StandingIdentity } from '@/components/ui/standing-identity';
+import { StandingIdentity } from '@onsocial/ui';
 import {
   equalizeRoyaltyShares,
   formatRoyaltyPercent,

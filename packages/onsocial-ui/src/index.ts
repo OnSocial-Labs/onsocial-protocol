@@ -249,6 +249,11 @@ export {
 } from './suffix-field.js';
 export { finalizeAmountInput, normalizeAmountInput } from './amount-input.js';
 export {
+  StandingIdentity,
+  standingIdentityLabel,
+  type StandingIdentityShowHandle,
+} from './standing-identity.js';
+export {
   configureScrollLockContainerFinder,
   useScrollLock,
   type ScrollLockContainerFinder,

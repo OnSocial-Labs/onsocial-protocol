@@ -23,7 +23,7 @@ import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-pay
 import {
   StandingIdentity,
   standingIdentityLabel,
-} from '@/components/ui/standing-identity';
+} from '@onsocial/ui';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
