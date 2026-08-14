@@ -21466,57 +21466,21 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .drop-create-form .guild-field > input,
-  .drop-create-form .guild-field > textarea,
-  .guild-create-form .guild-field > input,
-  .guild-create-form .guild-field > textarea,
-  .hub-manage-form .guild-field > input,
-  .hub-manage-form .guild-field > textarea,
-  .guild-structure-add-custom .guild-field > input,
-  .guild-structure-add-custom .guild-field > select,
-  .guild-structure-advanced .guild-field > select {
-    /* Bordered chrome — tokens from @onsocial/ui/os-field.css; tint shows through. */
-    border: 1px solid var(--os-field-bordered-border);
-    border-radius: var(--os-field-radius);
-    background: transparent;
-    box-shadow: var(--os-field-bordered-lip);
-    padding: var(--os-field-pad-y) var(--os-field-pad-x);
-    font-size: var(--os-field-font-size);
-    line-height: var(--os-field-line-height);
-  }
-
-  .drop-create-form .guild-field > input:hover:not(:disabled):not(:focus),
-  .drop-create-form .guild-field > textarea:hover:not(:disabled):not(:focus),
-  .guild-create-form .guild-field > input:hover:not(:disabled):not(:focus),
-  .guild-create-form .guild-field > textarea:hover:not(:disabled):not(:focus),
-  .hub-manage-form .guild-field > input:hover:not(:disabled):not(:focus),
-  .hub-manage-form .guild-field > textarea:hover:not(:disabled):not(:focus),
-  .guild-structure-add-custom .guild-field > input:hover:not(:disabled):not(:focus),
-  .guild-structure-add-custom .guild-field > select:hover:not(:disabled):not(:focus),
-  .guild-structure-advanced .guild-field > select:hover:not(:disabled):not(:focus) {
-    border-color: var(--os-field-bordered-border-hover);
-    box-shadow: var(--os-field-bordered-lip-hover);
-  }
-
-  .drop-create-form .guild-field > input:focus,
-  .drop-create-form .guild-field > textarea:focus,
-  .guild-create-form .guild-field > input:focus,
-  .guild-create-form .guild-field > textarea:focus,
-  .hub-manage-form .guild-field > input:focus,
-  .hub-manage-form .guild-field > textarea:focus,
-  .guild-structure-add-custom .guild-field > input:focus,
-  .guild-structure-add-custom .guild-field > select:focus,
-  .guild-structure-advanced .guild-field > select:focus {
-    border-color: var(--os-field-bordered-border-focus);
-    background: transparent;
-    box-shadow: var(--os-field-bordered-lip-focus);
-    outline: none;
-  }
-
+  /* Plain type-ins wear .os-field-bordered on the control; layout only here. */
   .drop-create-form .guild-field > textarea,
   .guild-create-form .guild-field > textarea,
   .hub-manage-form .guild-field > textarea {
     min-height: 5rem;
+    width: 100%;
+  }
+
+  .drop-create-form .guild-field > input,
+  .guild-create-form .guild-field > input,
+  .hub-manage-form .guild-field > input,
+  .guild-structure-add-custom .guild-field > input,
+  .guild-structure-add-custom .guild-field > select,
+  .guild-structure-advanced .guild-field > select {
+    width: 100%;
   }
 
   /* Field status — hint text colour only (create hub / guild ID). */
@@ -31134,40 +31098,17 @@ button.scarce-clip-cover-expand:focus-visible {
   color: rgb(var(--fg-rgb) / 0.62);
 }
 
+/* Soft chrome via .os-field-soft on the control; layout only here. */
 .protocol-task-form .guild-field > input,
 .protocol-task-form .guild-field > textarea,
 .protocol-task-form .guild-field > select {
   width: 100%;
   box-sizing: border-box;
-  margin: 0;
-  /* Soft chrome — tokens from @onsocial/ui/os-field.css. */
-  border: 0;
-  border-radius: var(--os-field-radius, 0.85rem);
-  background: var(--os-field-soft-bg, rgb(var(--fg-rgb) / 0.04));
-  box-shadow: var(--os-field-soft-lip, inset 0 1px 0 rgb(var(--fg-rgb) / 0.06));
-  color: rgb(var(--fg-rgb) / 0.92);
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 500;
-  padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem);
-  outline: none;
 }
 
 .protocol-task-form .guild-field > textarea {
   resize: vertical;
   min-height: 5.5rem;
-}
-
-.protocol-task-form .guild-field > input:focus,
-.protocol-task-form .guild-field > textarea:focus,
-.protocol-task-form .guild-field > select:focus {
-  border: 0;
-  background: var(--os-field-soft-bg-focus, rgb(var(--fg-rgb) / 0.055));
-  box-shadow: var(
-    --os-field-soft-lip-focus,
-    inset 0 1px 0 rgb(var(--fg-rgb) / 0.08)
-  );
-  outline: none;
 }
 
 .protocol-policy-summary {

@@ -8,6 +8,7 @@ import {
   useState,
   type ChangeEvent,
 } from 'react';
+import { osFieldBorderedClassName } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -235,6 +236,7 @@ export function SeriesEditSheet({
             maxLength={MAX_TITLE}
             disabled={pending}
             onChange={(event) => setTitle(event.target.value)}
+            className={osFieldBorderedClassName}
           />
         </label>
 
@@ -248,6 +250,7 @@ export function SeriesEditSheet({
             disabled={pending}
             placeholder="What ties these drops together?"
             onChange={(event) => setDescription(event.target.value)}
+            className={osFieldBorderedClassName}
           />
           <small>
             {description.length}/{MAX_DESCRIPTION}

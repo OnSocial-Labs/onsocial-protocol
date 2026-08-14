@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { osFieldBorderedClassName } from '@onsocial/ui';
 import {
   GUILD_POST_POLICY_OPTIONS,
   GUILD_SPACE_KIND_OPTIONS,
@@ -152,6 +153,7 @@ export function GuildStructureSettingsSection({
               placeholder="Ship room"
               disabled={disabled}
               maxLength={40}
+              className={osFieldBorderedClassName}
             />
           </label>
           <label className="guild-field">
@@ -162,6 +164,7 @@ export function GuildStructureSettingsSection({
               onChange={(event) =>
                 setCustomKind(event.target.value as GuildSpaceKind)
               }
+              className={osFieldBorderedClassName}
             >
               {GUILD_SPACE_KIND_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -178,6 +181,7 @@ export function GuildStructureSettingsSection({
               onChange={(event) =>
                 setCustomPolicy(event.target.value as GuildSpacePostPolicy)
               }
+              className={osFieldBorderedClassName}
             >
               {GUILD_POST_POLICY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -197,6 +201,7 @@ export function GuildStructureSettingsSection({
               onChange={(event) =>
                 setCustomAudience(event.target.value as GuildSpaceAudience)
               }
+              className={osFieldBorderedClassName}
             >
               <option value="members">Members</option>
               <option value="public">Public</option>
@@ -220,7 +225,7 @@ export function GuildStructureSettingsSection({
               <label className="guild-structure-space-title-field">
                 <span className="sr-only">Room name</span>
                 <input
-                  className="guild-structure-space-title-input"
+                  className={`${osFieldBorderedClassName} guild-structure-space-title-input`}
                   value={space.title}
                   disabled={disabled}
                   maxLength={40}
@@ -236,7 +241,8 @@ export function GuildStructureSettingsSection({
                 />
               </label>
               <span>
-                {postPolicyLabel(space.postPolicy)} · {spaceKindLabel(space.kind)}
+                {postPolicyLabel(space.postPolicy)} ·{' '}
+                {spaceKindLabel(space.kind)}
               </span>
               <span className="guild-structure-space-hint">
                 {postPolicyHint(space.postPolicy)}
@@ -269,7 +275,9 @@ export function GuildStructureSettingsSection({
                 <input
                   type="checkbox"
                   checked={space.enabled}
-                  disabled={disabled || (space.enabled && space.id === 'general')}
+                  disabled={
+                    disabled || (space.enabled && space.id === 'general')
+                  }
                   onChange={(event) =>
                     onChange(
                       toggleGuildSpaceEnabled(
@@ -328,13 +336,16 @@ export function GuildStructureSettingsSection({
                 applyTemplate(value);
                 event.target.value = '';
               }}
+              className={osFieldBorderedClassName}
             >
               <option value="">Choose template…</option>
-              {Object.entries(GUILD_STRUCTURE_TEMPLATES).map(([id, template]) => (
-                <option key={id} value={id}>
-                  {template.label}
-                </option>
-              ))}
+              {Object.entries(GUILD_STRUCTURE_TEMPLATES).map(
+                ([id, template]) => (
+                  <option key={id} value={id}>
+                    {template.label}
+                  </option>
+                )
+              )}
             </select>
           </label>
         ) : null}

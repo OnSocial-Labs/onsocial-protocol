@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
+import { osFieldSoftClassName } from '@onsocial/ui';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { findProtocolRole } from '@/features/protocol/protocol-create';
@@ -567,7 +568,9 @@ export function ProtocolSettingsSheet({
         }}
       >
         {!accountId ? (
-          <p className="protocol-empty">Connect a wallet to propose settings.</p>
+          <p className="protocol-empty">
+            Connect a wallet to propose settings.
+          </p>
         ) : null}
 
         {accountId && loadState === 'loading' ? (
@@ -603,7 +606,9 @@ export function ProtocolSettingsSheet({
           <div className="protocol-policy-summary" aria-label="Current policy">
             <div className="protocol-policy-summary-cell">
               <span className="protocol-policy-summary-label">Bond</span>
-              <span className="protocol-policy-summary-value">{bondSummary}</span>
+              <span className="protocol-policy-summary-value">
+                {bondSummary}
+              </span>
             </div>
             <div className="protocol-policy-summary-cell">
               <span className="protocol-policy-summary-label">Period</span>
@@ -648,6 +653,7 @@ export function ProtocolSettingsSheet({
                 value={bondNear}
                 onChange={(event) => setBondNear(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
             <label className="guild-field">
@@ -658,6 +664,7 @@ export function ProtocolSettingsSheet({
                 value={periodDays}
                 onChange={(event) => setPeriodDays(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
           </>
@@ -672,6 +679,7 @@ export function ProtocolSettingsSheet({
                 value={configName}
                 onChange={(event) => setConfigName(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
             <label className="guild-field">
@@ -681,6 +689,7 @@ export function ProtocolSettingsSheet({
                 value={configPurpose}
                 onChange={(event) => setConfigPurpose(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
           </>
@@ -699,6 +708,7 @@ export function ProtocolSettingsSheet({
                   setFormError(null);
                 }}
                 disabled={pending}
+                className={osFieldSoftClassName}
               >
                 {PROTOCOL_VOTE_THRESHOLD_PRESETS.map((preset) => {
                   const isCurrent = preset.id === currentThresholdPresetId;
@@ -728,6 +738,7 @@ export function ProtocolSettingsSheet({
                       setFormError(null);
                     }}
                     disabled={pending}
+                    className={osFieldSoftClassName}
                   >
                     {voteQuorumOptions.map((option) => {
                       const isCurrent = option.quorum === currentVoteQuorum;
@@ -762,6 +773,7 @@ export function ProtocolSettingsSheet({
                 value={permissionsRoleId}
                 onChange={(event) => setPermissionsRoleId(event.target.value)}
                 disabled={pending || editableRoles.length === 0}
+                className={osFieldSoftClassName}
               >
                 {editableRoles.length === 0 ? (
                   <option value="">No editable roles</option>
@@ -859,6 +871,7 @@ export function ProtocolSettingsSheet({
                 placeholder="reviewers"
                 onChange={(event) => setNewRoleName(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
             <label className="guild-field">
@@ -871,6 +884,7 @@ export function ProtocolSettingsSheet({
                   )
                 }
                 disabled={pending}
+                className={osFieldSoftClassName}
               >
                 {PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
@@ -923,6 +937,7 @@ export function ProtocolSettingsSheet({
               value={removeRoleId}
               onChange={(event) => setRemoveRoleId(event.target.value)}
               disabled={pending || removableRoles.length === 0}
+              className={osFieldSoftClassName}
             >
               {removableRoles.length === 0 ? (
                 <option value="">No removable roles</option>
@@ -945,6 +960,7 @@ export function ProtocolSettingsSheet({
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Optional rationale"
             disabled={pending}
+            className={osFieldSoftClassName}
           />
         </label>
 

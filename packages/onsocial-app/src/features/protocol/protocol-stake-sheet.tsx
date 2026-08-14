@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
+import { osFieldSoftClassName } from '@onsocial/ui';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
   getProtocolGovernanceEligibility,
@@ -8,7 +9,10 @@ import {
 } from '@/features/protocol/protocol-eligibility';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import { yoctoToNear } from '@/lib/app-near-rpc';
-import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
+import {
+  formatSocialCompact,
+  yoctoToSocial,
+} from '@/lib/format-social-balance';
 import { socialToYocto } from '@/lib/social-spend-profile';
 
 type StakeMode = 'delegate' | 'undelegate' | 'withdraw';
@@ -79,7 +83,9 @@ export function ProtocolStakeSheet({
     } catch (error) {
       setEligibility(null);
       setLoadError(
-        error instanceof Error ? error.message : 'Could not load stake position.'
+        error instanceof Error
+          ? error.message
+          : 'Could not load stake position.'
       );
       setLoadState('error');
     }
@@ -141,15 +147,7 @@ export function ProtocolStakeSheet({
         loadState !== 'ready',
       primaryType: 'submit',
     };
-  }, [
-    open,
-    ctaLabel,
-    pending,
-    accountId,
-    stakingReady,
-    amountOk,
-    loadState,
-  ]);
+  }, [open, ctaLabel, pending, accountId, stakingReady, amountOk, loadState]);
 
   return (
     <ProtocolTaskSheet
@@ -279,6 +277,7 @@ export function ProtocolStakeSheet({
                 onChange={(event) => setAmount(event.target.value)}
                 placeholder="0"
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
           </>

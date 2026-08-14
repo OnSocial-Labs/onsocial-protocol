@@ -16,6 +16,7 @@ import {
   OsSheetActions,
   OsIconAction,
   QuestionMarkCircleFillIcon,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { InfoDrawer } from '@/components/ui/info-drawer';
 import { AmountField } from '@/components/ui/amount-field';
@@ -936,7 +937,9 @@ export function CreateDropPanel() {
       const existing = variationFilesRef.current;
       const coverIdx = (() => {
         const seat = Number.parseInt(coverSeatInput, 10);
-        return Number.isSafeInteger(seat) && seat >= 1 && seat <= existing.length
+        return Number.isSafeInteger(seat) &&
+          seat >= 1 &&
+          seat <= existing.length
           ? seat - 1
           : 0;
       })();
@@ -1012,9 +1015,7 @@ export function CreateDropPanel() {
   const needsWalletConfirm =
     (isAudio && pinnedMusic != null) ||
     (isWriting && pinnedWriting != null) ||
-    (isVariations &&
-      variationSource === 'upload' &&
-      pinnedLargeSet != null);
+    (isVariations && variationSource === 'upload' && pinnedLargeSet != null);
 
   const startSummaryRows = useMemo((): DropStartSummaryRow[] => {
     const kindParts = [template.label];
@@ -1042,7 +1043,10 @@ export function CreateDropPanel() {
           `${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'}`
         );
       }
-      if (writingFormat === 'book' && (bookPdfFile != null || pinnedWriting?.hasBookPdf)) {
+      if (
+        writingFormat === 'book' &&
+        (bookPdfFile != null || pinnedWriting?.hasBookPdf)
+      ) {
         kindParts.push('PDF');
       }
     } else if (isVariations) {
@@ -1453,9 +1457,7 @@ export function CreateDropPanel() {
           const uploadClient = createAppOnSocialClient(uploaderAccountId);
           const uploaded = await uploadClient.storage.uploadMany(chapterFiles);
           const chapters = chaptersFromPinnedFiles(chapterFiles, uploaded);
-          let bookPdf:
-            | ReturnType<typeof bookPdfRefFromPinnedFile>
-            | undefined;
+          let bookPdf: ReturnType<typeof bookPdfRefFromPinnedFile> | undefined;
           if (bookPdfFile && writingFormat === 'book') {
             setUploadLabel('Uploading book PDF…');
             setPendingLabel('Uploading book PDF…');
@@ -1711,9 +1713,7 @@ export function CreateDropPanel() {
           },
           {
             depositYocto: nearToYocto(CREATE_STORAGE_BUFFER_NEAR),
-            ...(draftAllowlist.length > 0
-              ? { allowlist: draftAllowlist }
-              : {}),
+            ...(draftAllowlist.length > 0 ? { allowlist: draftAllowlist } : {}),
           }
         );
         const confirmed = await trackTransaction({
@@ -2231,8 +2231,8 @@ export function CreateDropPanel() {
               disabled={pending}
             />
             <small>
-              Hero piece in the packaging cover. Defaults to piece 1 — each
-              mint still keeps its own artwork.
+              Hero piece in the packaging cover. Defaults to piece 1 — each mint
+              still keeps its own artwork.
             </small>
           </label>
         ) : null}
@@ -2577,6 +2577,7 @@ export function CreateDropPanel() {
                   : 'Genesis Prints'
             }
             maxLength={MAX_TITLE}
+            className={osFieldBorderedClassName}
           />
         </label>
 
@@ -2599,6 +2600,7 @@ export function CreateDropPanel() {
                   : 'genesis-prints')
             }
             maxLength={32}
+            className={osFieldBorderedClassName}
           />
           {collectionId ? (
             <small>Public link: {collectionPath(collectionId)}</small>
@@ -2621,6 +2623,7 @@ export function CreateDropPanel() {
                 : 'What the collection is, why it’s special, and what collectors get.'
             }
             maxLength={MAX_DESCRIPTION}
+            className={osFieldBorderedClassName}
           />
           <small>
             {description.length}/{MAX_DESCRIPTION}
@@ -2640,6 +2643,7 @@ export function CreateDropPanel() {
             placeholder="Ink Studies"
             maxLength={48}
             disabled={pending}
+            className={osFieldBorderedClassName}
           />
         </div>
 
@@ -3078,7 +3082,8 @@ export function CreateDropPanel() {
         }
         uploadLabel={uploadLabel}
         onClose={() => {
-          if (confirmPhase === 'uploading' || confirmPhase === 'listing') return;
+          if (confirmPhase === 'uploading' || confirmPhase === 'listing')
+            return;
           setConfirmOpen(false);
         }}
         onConfirm={() => {
@@ -3090,14 +3095,12 @@ export function CreateDropPanel() {
         <CollectionAllowlistSheet
           open={allowlistSheetOpen}
           creatorId={accountId}
-          maxPerWallet={
-            (() => {
-              const perWallet = Number.parseInt(maxPerWallet, 10);
-              return Number.isSafeInteger(perWallet) && perWallet > 0
-                ? perWallet
-                : null;
-            })()
-          }
+          maxPerWallet={(() => {
+            const perWallet = Number.parseInt(maxPerWallet, 10);
+            return Number.isSafeInteger(perWallet) && perWallet > 0
+              ? perWallet
+              : null;
+          })()}
           initialEntries={draftAllowlist}
           onApply={setDraftAllowlist}
           onClose={() => setAllowlistSheetOpen(false)}
