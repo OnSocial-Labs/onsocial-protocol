@@ -8,10 +8,13 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { cn } from './cn.js';
 
 const HOLD_DELAY_MS = 380;
 const HOLD_INTERVAL_SLOW_MS = 110;
 const HOLD_INTERVAL_FAST_MS = 45;
+
+export const collectionQtyClassName = 'collection-qty';
 
 export interface CollectionQtyStepperProps {
   value: number;
@@ -34,7 +37,7 @@ function clampInt(value: number, min: number, max: number): number {
 
 /**
  * Soft-egg − / value / + control. Hold −/+ to accelerate; tap the value to type.
- * Keeps existing `collection-qty*` look — no chrome changes on the buttons.
+ * Pair with `collection-qty.css`. Host overrides (e.g. royalty width) stay in app.
  */
 export function CollectionQtyStepper({
   value,
@@ -171,7 +174,7 @@ export function CollectionQtyStepper({
 
   return (
     <div
-      className={['collection-qty', className].filter(Boolean).join(' ')}
+      className={cn(collectionQtyClassName, className)}
       role="group"
       aria-label={ariaLabel}
     >

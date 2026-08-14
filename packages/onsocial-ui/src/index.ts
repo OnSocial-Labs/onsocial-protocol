@@ -258,6 +258,11 @@ export {
   type OsAccountFieldChrome,
 } from './os-account-field.js';
 export {
+  CollectionQtyStepper,
+  collectionQtyClassName,
+  type CollectionQtyStepperProps,
+} from './collection-qty-stepper.js';
+export {
   StandingIdentity,
   standingIdentityLabel,
   type StandingIdentityShowHandle,
