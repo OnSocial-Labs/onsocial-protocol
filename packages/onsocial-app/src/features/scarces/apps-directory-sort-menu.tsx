@@ -3,7 +3,7 @@
 import {
   ChoiceDrawerMenu,
   type ChoiceOption,
-} from '@/components/ui/choice-drawer';
+} from '@onsocial/ui';
 import {
   APPS_SORT_OPTIONS,
   type AppsDirectorySort,

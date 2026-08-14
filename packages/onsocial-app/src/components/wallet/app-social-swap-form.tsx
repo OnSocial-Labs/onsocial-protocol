@@ -13,9 +13,9 @@ import {
   osFloatingPanelTriggerLabelClassName,
   useDropdown,
 } from '@onsocial/ui';
-import { AmountField } from '@/components/ui/amount-field';
+import { AmountField } from '@onsocial/ui';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
-import { OsSheetAction } from '@/components/ui/os-sheet-action';
+import { OsSheetAction } from '@onsocial/ui';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';

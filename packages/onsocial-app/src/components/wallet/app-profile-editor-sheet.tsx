@@ -23,7 +23,7 @@ import {
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';

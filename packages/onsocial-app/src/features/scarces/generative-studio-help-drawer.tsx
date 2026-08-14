@@ -1,6 +1,6 @@
 'use client';
 
-import { InfoDrawer } from '@/components/ui/info-drawer';
+import { InfoDrawer } from '@onsocial/ui';
 
 export const STUDIO_HELP_TITLE = 'Design your set';
 

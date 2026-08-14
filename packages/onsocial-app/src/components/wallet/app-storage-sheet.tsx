@@ -14,7 +14,7 @@ import {
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
-import { AmountField } from '@/components/ui/amount-field';
+import { AmountField } from '@onsocial/ui';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';

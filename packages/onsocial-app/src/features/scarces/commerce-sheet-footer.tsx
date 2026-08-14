@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 
 export interface CommerceSheetFooterSecondary {
   label: string;

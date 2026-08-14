@@ -3,7 +3,7 @@
 import {
   ChoiceDrawerMenu,
   type ChoiceOption,
-} from '@/components/ui/choice-drawer';
+} from '@onsocial/ui';
 import type { MarketListingSort } from '@/features/market/market-listings';
 
 const SORT_OPTIONS: ChoiceOption<MarketListingSort>[] = [

@@ -18,10 +18,10 @@ import {
   QuestionMarkCircleFillIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
-import { InfoDrawer } from '@/components/ui/info-drawer';
-import { AmountField } from '@/components/ui/amount-field';
+import { InfoDrawer } from '@onsocial/ui';
+import { AmountField } from '@onsocial/ui';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
-import { SuffixField } from '@/components/ui/suffix-field';
+import { SuffixField } from '@onsocial/ui';
 import {
   DropFieldInfoDrawer,
   DropFieldLabel,

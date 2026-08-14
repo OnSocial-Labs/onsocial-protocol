@@ -1,7 +1,7 @@
 'use client';
 
 import { InformationCircleIcon } from '@onsocial/ui';
-import { InfoDrawer } from '@/components/ui/info-drawer';
+import { InfoDrawer } from '@onsocial/ui';
 
 export type DropFieldInfoKey =
   | 'release'

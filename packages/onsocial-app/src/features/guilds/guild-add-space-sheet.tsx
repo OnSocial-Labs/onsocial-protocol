@@ -5,7 +5,7 @@ import { OsHugSheet, osFieldSoftClassName } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   GUILD_POST_POLICY_OPTIONS,

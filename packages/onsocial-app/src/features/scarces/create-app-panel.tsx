@@ -10,7 +10,7 @@ import {
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { SuffixField } from '@/components/ui/suffix-field';
+import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {

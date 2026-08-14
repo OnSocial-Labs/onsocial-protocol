@@ -6,7 +6,7 @@ import { CheckIcon, Divider, OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 import {
   StandingIdentity,
   standingIdentityLabel,

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ChoiceDrawer,
   type ChoiceOption,
-} from '@/components/ui/choice-drawer';
+} from '@onsocial/ui';
 import type { ComposerDropDraft } from '@/features/guilds/guild-composer-sheet';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {

@@ -9,7 +9,7 @@ import {
   OsSheetActions,
   PlusIcon,
 } from '@onsocial/ui';
-import { AmountField } from '@/components/ui/amount-field';
+import { AmountField } from '@onsocial/ui';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';

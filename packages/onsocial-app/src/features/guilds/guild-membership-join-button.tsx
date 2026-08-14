@@ -5,7 +5,7 @@ import {
   OsSheetAction,
   OsSheetActions,
   type OsSheetActionVariant,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 
 /**
  * Shared Join / Request / Joined / Leave control for guild page + guild post nav.
