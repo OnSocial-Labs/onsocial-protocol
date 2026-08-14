@@ -329,7 +329,7 @@ export function CollectiblesPlayPanel({
         ? { mediaUrl: view.mediaUrl.trim() }
         : {}),
     };
-  }, [ownedItem, view?.playables, view?.mediaUrl]);
+  }, [ownedItem, view]);
   const canSell = ownedItem != null && ownedItem.listingKind == null;
   const isListed = ownedItem != null && ownedItem.listingKind != null;
   const dropIsLive =

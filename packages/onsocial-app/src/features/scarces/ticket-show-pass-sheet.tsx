@@ -74,7 +74,10 @@ export function TicketShowPassSheet({
   const [holderFace, setHolderFace] = useState<CollectionCreatorFace | null>(
     null
   );
-  const [holderReady, setHolderReady] = useState(false);
+  const [holderFetchOwnerId, setHolderFetchOwnerId] = useState<string | null>(
+    null
+  );
+  const [holderFetchDone, setHolderFetchDone] = useState(false);
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
@@ -92,7 +95,8 @@ export function TicketShowPassSheet({
       setThumbFailed(false);
       setCodeCopied(false);
       setHolderFace(null);
-      setHolderReady(false);
+      setHolderFetchOwnerId(null);
+      setHolderFetchDone(false);
     }
   }
 
@@ -201,31 +205,34 @@ export function TicketShowPassSheet({
   }, [lightboxOpen, tokenId]);
 
   const ownerId = status?.ownerId?.trim() || '';
+  const shouldFetchHolder = lightboxOpen && Boolean(ownerId);
+  const holderFaceForOwner =
+    shouldFetchHolder && holderFetchOwnerId === ownerId ? holderFace : null;
+  const holderReady = shouldFetchHolder
+    ? holderFetchOwnerId === ownerId && holderFetchDone
+    : !lightboxOpen || statusReady;
 
   useEffect(() => {
-    if (!lightboxOpen || !ownerId) {
-      setHolderFace(null);
-      setHolderReady(!lightboxOpen || statusReady);
-      return;
-    }
+    if (!shouldFetchHolder) return;
     let cancelled = false;
-    setHolderReady(false);
     const client = createReadOnlyOnSocialClient();
     void fetchCollectionCreatorFace(client, ownerId)
       .then((face) => {
         if (cancelled) return;
+        setHolderFetchOwnerId(ownerId);
         setHolderFace(face);
-        setHolderReady(true);
+        setHolderFetchDone(true);
       })
       .catch(() => {
         if (cancelled) return;
+        setHolderFetchOwnerId(ownerId);
         setHolderFace({ avatarUrl: null, displayName: null });
-        setHolderReady(true);
+        setHolderFetchDone(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [lightboxOpen, ownerId, statusReady]);
+  }, [shouldFetchHolder, ownerId]);
 
   const name = (status?.title ?? title).trim() || 'Pass';
   const coverUrl = resolveScarceMediaUrl(cover?.trim() || null);
@@ -257,7 +264,7 @@ export function TicketShowPassSheet({
     : '';
 
   const holderHandle = ownerId ? fallbackLabel(ownerId) : '';
-  const holderDisplay = holderFace?.displayName?.trim() || null;
+  const holderDisplay = holderFaceForOwner?.displayName?.trim() || null;
   const holderPrimary = holderDisplay || null;
   const holderAccount = holderHandle ? `@${holderHandle}` : '';
 
@@ -327,7 +334,7 @@ export function TicketShowPassSheet({
               >
                 {ownerId ? (
                   <ProfileAvatar
-                    src={holderFace?.avatarUrl ?? null}
+                    src={holderFaceForOwner?.avatarUrl ?? null}
                     fallbackInitial={holderDisplay || ownerId}
                     size="sm"
                     shellLoading={!holderReady}
