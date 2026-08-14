@@ -274,6 +274,24 @@ export {
   SheetFactSection,
 } from './sheet-facts.js';
 export {
+  OsProposalCard,
+  OsProposalCardBody,
+  OsProposalCardFooter,
+  OsProposalCardList,
+  OsProposalCardSep,
+  OsProposalCardStrip,
+  OsProposalCardStripMain,
+  osProposalCardActionsClassName,
+  osProposalCardBodyClassName,
+  osProposalCardClassName,
+  osProposalCardFooterClassName,
+  osProposalCardListClassName,
+  osProposalCardSepClassName,
+  osProposalCardStripClassName,
+  osProposalCardStripMainClassName,
+  type OsProposalCardSurface,
+} from './os-proposal-card.js';
+export {
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
   useDiscardConfirm,

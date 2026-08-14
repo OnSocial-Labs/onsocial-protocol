@@ -31,7 +31,8 @@
     "./os-choice-drawer.css": "./os-choice-drawer.css",
     "./os-gesture-sheet-header.css": "./os-gesture-sheet-header.css",
     "./os-standing-identity.css": "./os-standing-identity.css",
-    "./os-sheet-facts.css": "./os-sheet-facts.css"
+    "./os-sheet-facts.css": "./os-sheet-facts.css",
+    "./os-proposal-card.css": "./os-proposal-card.css"
   },
   "scripts": {
     "build": "tsc",
@@ -83,7 +84,8 @@
     "os-choice-drawer.css",
     "os-gesture-sheet-header.css",
     "os-standing-identity.css",
-    "os-sheet-facts.css"
+    "os-sheet-facts.css",
+    "os-proposal-card.css"
   ],
   "license": "MIT",
   "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",

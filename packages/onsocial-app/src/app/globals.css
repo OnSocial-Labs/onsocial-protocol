@@ -21,6 +21,7 @@
 @import '@onsocial/ui/os-gesture-sheet-header.css';
 @import '@onsocial/ui/os-standing-identity.css';
 @import '@onsocial/ui/os-sheet-facts.css';
+@import '@onsocial/ui/os-proposal-card.css';
 @import './transaction-feedback-toast.css';
 /* After Tailwind — feed @#$ / Show more weights (see file comment). */
 @import './feed-meta.css';
@@ -656,26 +657,7 @@
     0 2px 6px -1px rgb(0 0 0 / 0.22);
 }
 
-.guild-proposal-card-actions.os-sheet-actions--row-compact {
-  width: auto;
-  gap: 0.3rem;
-  align-items: center;
-}
-
-.guild-proposal-card-actions.os-sheet-actions--row-compact .os-sheet-action,
-.guild-proposal-card-actions.os-sheet-actions--row-compact
-  .os-sheet-action--primary,
-.guild-proposal-card-actions.os-sheet-actions--row-compact
-  .os-sheet-action--danger {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
-  min-height: 1.7rem;
-  padding: 0.22rem 0.65rem;
-  font-size: 0.68rem;
-  font-weight: 600;
-  line-height: 1;
-}
+/* Compact proposal footer actions live in @onsocial/ui os-proposal-card.css */
 
 /* Hub publish Approve — row CTA size (Buy / Join). Compact × = OsFieldRemove. */
 .hub-publish-request-actions.os-sheet-actions--row-compact {
@@ -26001,13 +25983,7 @@ a.os-surface-row {
     gap: 0.5rem;
   }
 
-  .guild-proposal-card {
-    display: grid;
-    overflow: hidden;
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
-    border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.035);
-  }
+  /* Structure: OsProposalCard surface=bordered. Domain: kind rails / washes. */
 
   .guild-proposal-card--role {
     border-top: 2px solid
@@ -26025,11 +26001,7 @@ a.os-surface-row {
   }
 
   .guild-proposal-card-strip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.28rem 0.62rem 0.22rem;
+    /* layout from .os-proposal-card-strip */
     font-size: 0.62rem;
     line-height: 1.15;
     color: rgb(var(--fg-rgb) / 0.55);
@@ -26064,22 +26036,10 @@ a.os-surface-row {
     );
   }
 
-  .guild-proposal-card-strip-main {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    gap: 0.28rem;
-  }
-
   .guild-proposal-card-seq {
     flex: 0 0 auto;
     font-weight: 700;
     color: rgb(var(--fg-rgb) / 0.74);
-  }
-
-  .guild-proposal-card-sep {
-    flex: 0 0 auto;
-    color: rgb(var(--fg-rgb) / 0.22);
   }
 
   .guild-proposal-card-kind {
@@ -26106,12 +26066,6 @@ a.os-surface-row {
     font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.46);
     white-space: nowrap;
-  }
-
-  .guild-proposal-card-body {
-    display: grid;
-    gap: 0.38rem;
-    padding: 0.28rem 0.62rem 0.42rem;
   }
 
   .guild-proposal-card-main {
@@ -26303,7 +26257,8 @@ a.os-surface-row {
   .guild-proposal-card-footer {
     display: grid;
     gap: 0.28rem;
-    padding: 0 0.62rem 0.48rem;
+    /* horizontal inset from .os-proposal-card--bordered footer */
+    padding-block: 0 0.48rem;
   }
 
   .guild-proposal-card-progress {
@@ -30049,24 +30004,16 @@ button.scarce-clip-cover-expand:focus-visible {
 }
 
 .protocol-card-list {
+  /* Prefer OsProposalCardList; keep alias for existing markup. */
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
 }
 
-.protocol-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.7rem 0.62rem 0.75rem;
-  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
-}
+/* Structure: OsProposalCard surface=row. Domain: status wash / rails. */
 
 .protocol-card.is-focused {
-  border-radius: 0.85rem;
-  padding-left: 0.62rem;
-  padding-right: 0.62rem;
+  border-radius: var(--os-proposal-radius, 0.85rem);
   background: rgb(var(--fg-rgb) / 0.04);
   box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.12);
 }
@@ -30092,13 +30039,7 @@ button.scarce-clip-cover-expand:focus-visible {
 }
 
 .protocol-card-strip {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin: 0 -0.62rem;
-  padding: 0.32rem 0.62rem 0.5rem;
-  border-radius: 0.85rem 0.85rem 0 0;
+  /* layout from .os-proposal-card-strip */
   -webkit-mask-image: linear-gradient(to bottom, black 72%, transparent);
   mask-image: linear-gradient(to bottom, black 72%, transparent);
 }
@@ -30193,12 +30134,6 @@ button.scarce-clip-cover-expand:focus-visible {
 .protocol-card-strip-meta-line.is-urgent {
   color: color-mix(in srgb, var(--protocol-amber) 88%, rgb(var(--fg-rgb)));
   font-weight: 650;
-}
-
-.protocol-card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.42rem;
 }
 
 .protocol-card-sr-title {
@@ -30559,15 +30494,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.48);
 }
 
-.protocol-card-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  justify-content: flex-start;
-  align-items: center;
-  margin-top: 0.08rem;
-}
-
 .protocol-card-link {
   border: 0;
   margin: 0;
@@ -30587,24 +30513,8 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   outline: none;
 }
 
-.protocol-card-footer-actions.os-sheet-actions--row-compact {
-  width: auto;
-  gap: 0.3rem;
-  align-items: center;
+.protocol-card-footer-actions.os-proposal-card-actions {
   margin-left: auto;
-}
-
-.protocol-card-footer-actions.os-sheet-actions--row-compact .os-sheet-action,
-.protocol-card-footer-actions.os-sheet-actions--row-compact
-  .os-sheet-action--primary {
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
-  min-height: 1.7rem;
-  padding: 0.22rem 0.65rem;
-  font-size: 0.68rem;
-  font-weight: 600;
-  line-height: 1;
 }
 
 .protocol-card-act {

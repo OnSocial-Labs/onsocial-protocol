@@ -4,9 +4,14 @@ import { useMemo, useState } from 'react';
 import {
   CheckIcon,
   MultiplyIcon,
+  OsProposalCard,
+  OsProposalCardBody,
+  OsProposalCardFooter,
+  OsProposalCardStrip,
   OsSheetAction,
   OsSheetActions,
   UserMinusIcon,
+  osProposalCardActionsClassName,
 } from '@onsocial/ui';
 import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
@@ -42,9 +47,8 @@ function targetEyebrow(kind: string | null): string | null {
 }
 
 /**
- * Protocol / treasury proposal card — Portal composition (strip → identity →
- * body → votes) with App chrome: borderless row, status wash, hash-colored
- * account placeholders, vote/finalize via drawer.
+ * Protocol / treasury proposal card — shared OsProposalCard row chrome with
+ * domain status wash, identity, votes; vote/finalize via drawer.
  */
 export function ProtocolProposalCard({
   application,
@@ -144,16 +148,19 @@ export function ProtocolProposalCard({
 
   return (
     <>
-    <article
-      id={
-        view.proposalId != null
-          ? `protocol-proposal-${view.proposalId}`
-          : undefined
-      }
-      className={`protocol-card is-${view.statusTone}${focused ? ' is-focused' : ''}`}
-      aria-labelledby={`protocol-card-${application.app_id}`}
-    >
-      <header className={`protocol-card-strip is-${view.statusTone}`}>
+      <OsProposalCard
+        surface="row"
+        id={
+          view.proposalId != null
+            ? `protocol-proposal-${view.proposalId}`
+            : undefined
+        }
+        className={`protocol-card is-${view.statusTone}${focused ? ' is-focused' : ''}`}
+        aria-labelledby={`protocol-card-${application.app_id}`}
+      >
+        <OsProposalCardStrip
+          className={`protocol-card-strip is-${view.statusTone}`}
+        >
         <div className="protocol-card-strip-start">
           <div className="protocol-card-strip-main">
             {view.proposalId != null ? (
@@ -194,9 +201,9 @@ export function ProtocolProposalCard({
             </span>
           ) : null}
         </div>
-      </header>
+        </OsProposalCardStrip>
 
-      <div className="protocol-card-body">
+      <OsProposalCardBody className="protocol-card-body">
         <h2
           id={`protocol-card-${application.app_id}`}
           className="protocol-card-sr-title"
@@ -442,10 +449,10 @@ export function ProtocolProposalCard({
             ) : null}
           </div>
         ) : null}
-      </div>
+      </OsProposalCardBody>
 
       {canAct || shareHref || hasOnChain ? (
-        <footer className="protocol-card-footer">
+        <OsProposalCardFooter className="protocol-card-footer">
           {shareHref ? (
             <button
               type="button"
@@ -481,7 +488,7 @@ export function ProtocolProposalCard({
               layout="row-compact"
               tone="frosted-primary"
               borderless
-              className="protocol-card-footer-actions"
+              className={`${osProposalCardActionsClassName} protocol-card-footer-actions`}
             >
               <OsSheetAction
                 type="button"
@@ -492,9 +499,9 @@ export function ProtocolProposalCard({
               </OsSheetAction>
             </OsSheetActions>
           ) : null}
-        </footer>
+        </OsProposalCardFooter>
       ) : null}
-    </article>
+      </OsProposalCard>
     <ProtocolOnChainSheet
       open={onChainOpen}
       onClose={() => setOnChainOpen(false)}
