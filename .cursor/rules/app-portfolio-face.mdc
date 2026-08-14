@@ -51,11 +51,7 @@ Page mood is **identity chrome** for the portfolio face and any surface that sho
 
 **Host (page) mood stays on the portfolio face only** — Launch drawer + face gesture sheets. Guild / hub / collection / drop shells use **viewer** mood when logged in (or none logged out). Do not retint those shells with the page owner’s mood.
 
-<<<<<<< HEAD
-**Typing fields on mood surfaces** use `os-field-bordered` (transparent fill + lip so wash shows through). Reserve `os-field-soft` for quiet non-mood OS sheets (dense hug sheets, `GlassSheet tone="os"`).
-=======
 **Typing fields on mood surfaces** use `os-field-bordered` (transparent fill + lip so wash shows through). Reserve `os-field-soft` for quiet non-mood OS sheets (e.g. dense hug sheets without host/viewer wash).
->>>>>>> aadefe2ec (feat(app): align endorse compose with support gesture mood)
 
 Do **not** paint the whole `portfolio-os-layer` with viewer mood when visiting — only the dock. Finish-specific summon CSS targets `.portfolio-summon-dock[data-mood=…]`, not the os-layer.
 
