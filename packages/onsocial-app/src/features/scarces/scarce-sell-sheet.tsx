@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
   CommerceSheetFooter,
@@ -45,8 +44,6 @@ export function ScarceSellSheet({
     if (open) setFormKey((key) => key + 1);
   }
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -66,35 +63,20 @@ export function ScarceSellSheet({
   );
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-      panelStyle={panelStyle}
-      zIndex={56}
-      ariaLabelledBy={titleId}
+      verb="Sell"
+      signal="reputation"
+      whisper="List fixed-price or start an auction."
+      closeAriaLabel="Close sell scarce"
       backdropLabel="Close sell scarce"
+      keyboardOpen={keyboardOpen}
+      panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Sell"
-            signal="reputation"
-            closeAriaLabel="Close sell scarce"
-            onClose={requestClose}
-            whisper="List fixed-price or start an auction."
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -117,6 +99,6 @@ export function ScarceSellSheet({
           }}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

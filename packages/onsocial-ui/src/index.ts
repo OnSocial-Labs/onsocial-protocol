@@ -217,6 +217,14 @@ export {
   type OsHugSheetChrome,
   type OsHugSheetProps,
 } from './os-hug-sheet.js';
+export {
+  OsGestureSheet,
+  osGestureSheetBodyClassName,
+  osGestureSheetPanelClassName,
+  osGestureSheetPanelTallClassName,
+  type OsGestureSheetProps,
+  type OsGestureSheetSize,
+} from './os-gesture-sheet.js';
 export { InfoDrawer, type InfoDrawerProps } from './info-drawer.js';
 export {
   GestureSheetHeader,
