@@ -52,8 +52,13 @@ function sortedAccountKey(accounts: string[]): string {
     .join('\0');
 }
 
-function saveStaffLabel(count: number, pending: boolean): string {
+function saveStaffLabel(
+  count: number,
+  pending: boolean,
+  dirty: boolean
+): string {
   if (pending) return 'Saving…';
+  if (!dirty) return 'Done';
   if (count === 0) return 'Clear staff';
   if (count === 1) return 'Save 1 account';
   return `Save ${count} accounts`;
@@ -293,13 +298,16 @@ export function CollectionDoorStaffManager({
 
   const atCap = draft.length >= MAX_COLLECTION_REDEEMERS;
   const staffNoun = voice === 'redeem' ? 'redeem staff' : 'door staff';
-  const canSave =
-    dirty && isConnected && !pending && rosterReady && !loadError;
+  const canPrimary = dirty
+    ? isConnected && !pending && rosterReady && !loadError
+    : !pending && rosterReady && !loadError;
 
   return (
     <div className="collection-door-staff">
       <div className="collection-reading-row">
-        <p className="collection-section-label">Door staff</p>
+        <p className="collection-section-label">
+          {voice === 'redeem' ? 'Redeem staff' : 'Door staff'}
+        </p>
         <button
           type="button"
           className="collection-reading-open"
@@ -334,15 +342,19 @@ export function CollectionDoorStaffManager({
               <OsSheetAction
                 type="button"
                 variant="primary"
-                ready={canSave}
-                disabled={!canSave}
+                ready={canPrimary}
+                disabled={!canPrimary}
                 pending={pending}
                 pendingLabel="Saving…"
                 onClick={() => {
+                  if (!dirty) {
+                    requestClose();
+                    return;
+                  }
                   void handleSave();
                 }}
               >
-                {saveStaffLabel(draft.length, pending)}
+                {saveStaffLabel(draft.length, pending, dirty)}
               </OsSheetAction>
             </OsSheetActions>
           </div>
@@ -367,9 +379,11 @@ export function CollectionDoorStaffManager({
                 setSearchError(null);
               }
             }}
-            placeholder="Search profiles"
+            placeholder="Search to add"
             ariaLabel={
-              voice === 'redeem' ? 'Search redeem staff' : 'Search door staff'
+              voice === 'redeem'
+                ? 'Search to add redeem staff'
+                : 'Search to add door staff'
             }
             maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
             clearAriaLabel="Clear staff search"
@@ -496,13 +510,11 @@ export function CollectionDoorStaffManager({
                 </div>
               ) : null}
             </div>
-          ) : (
+          ) : atCap ? (
             <p className="guild-add-member-hint">
-              {atCap
-                ? `Maximum ${MAX_COLLECTION_REDEEMERS} staff.`
-                : 'Search profiles to add staff.'}
+              {`Maximum ${MAX_COLLECTION_REDEEMERS} staff.`}
             </p>
-          )}
+          ) : null}
         </div>
       </OsHugSheet>
     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -315,6 +315,21 @@ export function CollectiblesPlayPanel({
     Boolean(view?.creatorId) && isConnected && !isSelf;
   const ownedItem =
     ownershipKey && ownedByKey?.key === ownershipKey ? ownedByKey.item : null;
+  /** Prefer live drop tracks so Sell keeps the same persist session as Play. */
+  const sellItem = useMemo(() => {
+    if (!ownedItem) return null;
+    if (ownedItem.playables?.length || ownedItem.playable) return ownedItem;
+    const fromView = view?.playables ?? [];
+    if (fromView.length === 0) return ownedItem;
+    return {
+      ...ownedItem,
+      playable: fromView[0],
+      playables: fromView,
+      ...(view?.mediaUrl?.trim() && !ownedItem.mediaUrl
+        ? { mediaUrl: view.mediaUrl.trim() }
+        : {}),
+    };
+  }, [ownedItem, view?.playables, view?.mediaUrl]);
   const canSell = ownedItem != null && ownedItem.listingKind == null;
   const isListed = ownedItem != null && ownedItem.listingKind != null;
   const dropIsLive =
@@ -614,8 +629,9 @@ export function CollectiblesPlayPanel({
       ) : null}
 
       <ScarceSellSheet
-        open={sellOpen && ownedItem != null}
-        item={ownedItem}
+        open={sellOpen && sellItem != null}
+        item={sellItem}
+        sellerAccountId={viewerAccountId}
         onOpenChange={setSellOpen}
         onListed={() => {
           setSellOpen(false);

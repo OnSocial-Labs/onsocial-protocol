@@ -1690,6 +1690,7 @@ export function PostCard({
       <ScarceSellSheet
         open={sellScarceOpen && ownedScarceItem != null}
         item={ownedScarceItem}
+        sellerAccountId={viewerAccountId}
         onOpenChange={setSellScarceOpen}
         onListed={() => {
           setSellScarceOpen(false);

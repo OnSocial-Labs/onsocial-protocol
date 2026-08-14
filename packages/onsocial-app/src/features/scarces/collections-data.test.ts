@@ -201,4 +201,21 @@ describe('toCollectionView cover seat', () => {
     expect(view?.audioFormat).toBe('single');
     expect(view?.facets).toEqual(['jazz', 'soul']);
   });
+
+  it('marks early access from Opens time, not allowlist_price', () => {
+    const timed = toCollectionView(
+      variationRecord({
+        start_time: Date.now() + 86_400_000,
+        allowlist_price: null,
+      })
+    );
+    expect(timed?.hasAllowlist).toBe(true);
+
+    const untimed = toCollectionView(
+      variationRecord({
+        allowlist_price: '500000000000000000000000',
+      })
+    );
+    expect(untimed?.hasAllowlist).toBe(false);
+  });
 });

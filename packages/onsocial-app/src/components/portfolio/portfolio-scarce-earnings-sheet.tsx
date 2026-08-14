@@ -47,8 +47,14 @@ interface PortfolioScarceEarningsSheetProps {
   open: boolean;
   accountId: string;
   totalLabel: string;
+  /** Face-mark fetch — paint immediately; skip refetch while fresh. */
+  initialItems?: ScarceCreatorEarningRow[];
+  initialFetchedAt?: number;
   onOpenChange: (open: boolean) => void;
 }
+
+/** Skip refetch when face/cache seed is newer than this. */
+const SALES_SEED_FRESH_MS = 30_000;
 
 function formatSaleWhen(blockTimestamp: number): string {
   const ms =
@@ -82,6 +88,7 @@ function EarningsList({
         const when = formatSaleWhen(row.blockTimestamp);
         const kindLabel = row.kind === 'royalty' ? 'Royalty' : 'Sale';
         const title = row.title.trim();
+        const kindSuffix = formatEarningKindSuffix(row);
         return (
           <div key={row.key}>
             {index > 0 ? <Divider variant="item" /> : null}
@@ -99,24 +106,34 @@ function EarningsList({
                   avatarUrl={profile?.avatarUrl}
                 >
                   <span className="portfolio-support-collect-info-row-kind">
-                    {kindLabel}
+                    <span className="portfolio-scarce-earnings-kind-prefix">
+                      {kindLabel}
+                      {title ? ' · ' : ''}
+                    </span>
                     {title ? (
-                      <>
-                        {' · '}
-                        {row.postHref ? (
-                          <Link
-                            href={row.postHref}
-                            scroll={false}
-                            className="portfolio-scarce-earnings-post-link"
-                          >
-                            {title}
-                          </Link>
-                        ) : (
-                          title
-                        )}
-                      </>
+                      row.postHref ? (
+                        <Link
+                          href={row.postHref}
+                          scroll={false}
+                          className="portfolio-scarce-earnings-kind-title portfolio-scarce-earnings-post-link"
+                          title={title}
+                        >
+                          {title}
+                        </Link>
+                      ) : (
+                        <span
+                          className="portfolio-scarce-earnings-kind-title"
+                          title={title}
+                        >
+                          {title}
+                        </span>
+                      )
                     ) : null}
-                    {formatEarningKindSuffix(row)}
+                    {kindSuffix ? (
+                      <span className="portfolio-scarce-earnings-kind-suffix">
+                        {kindSuffix}
+                      </span>
+                    ) : null}
                   </span>
                 </StandingIdentity>
               </div>
@@ -143,6 +160,8 @@ export function PortfolioScarceEarningsSheet({
   open,
   accountId,
   totalLabel,
+  initialItems,
+  initialFetchedAt = 0,
   onOpenChange,
 }: PortfolioScarceEarningsSheetProps) {
   const titleId = useId();
@@ -155,6 +174,13 @@ export function PortfolioScarceEarningsSheet({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const loadingMoreRef = useRef(false);
+  /** Last successful page — reopen shows rows instead of guessing skeleton count. */
+  const cacheRef = useRef<{
+    accountId: string;
+    items: ScarceCreatorEarningRow[];
+    hasMore: boolean;
+    fetchedAt: number;
+  } | null>(null);
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? null;
@@ -170,20 +196,64 @@ export function PortfolioScarceEarningsSheet({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setItems(null);
-    setHasMore(false);
+    // Face fetch (even empty) seeds when fetchedAt is set.
+    const seed =
+      initialFetchedAt > 0 && initialItems != null ? initialItems : null;
+    const cached =
+      cacheRef.current?.accountId === accountId ? cacheRef.current : null;
+    const warmItems = seed ?? cached?.items ?? null;
+    const warmHasMore = seed
+      ? seed.length >= 40
+      : Boolean(cached?.hasMore);
+    const warmAt = seed
+      ? initialFetchedAt
+      : (cached?.fetchedAt ?? 0);
+
+    if (warmItems) {
+      setItems(warmItems);
+      setHasMore(warmHasMore);
+      if (seed) {
+        cacheRef.current = {
+          accountId,
+          items: seed,
+          hasMore: warmHasMore,
+          fetchedAt: initialFetchedAt,
+        };
+      }
+    } else {
+      setItems(null);
+      setHasMore(false);
+    }
     setLoadError(null);
     setKindFilter(null);
+
+    const fresh =
+      warmItems != null &&
+      warmAt > 0 &&
+      Date.now() - warmAt < SALES_SEED_FRESH_MS;
+    if (fresh) {
+      return;
+    }
+
     void (async () => {
       try {
         const page = await fetchScarceCreatorEarnings(accountId, { limit: 40 });
         if (cancelled) return;
+        const hasMoreNext = page.items.length >= 40;
         setItems(page.items);
-        setHasMore(page.items.length >= 40);
+        setHasMore(hasMoreNext);
+        cacheRef.current = {
+          accountId,
+          items: page.items,
+          hasMore: hasMoreNext,
+          fetchedAt: Date.now(),
+        };
       } catch (cause) {
         if (cancelled) return;
-        setItems([]);
-        setHasMore(false);
+        if (!warmItems) {
+          setItems([]);
+          setHasMore(false);
+        }
         setLoadError(
           cause instanceof Error ? cause.message : 'Could not load scarce sales'
         );
@@ -192,6 +262,8 @@ export function PortfolioScarceEarningsSheet({
     return () => {
       cancelled = true;
     };
+    // initialItems only seeds paint — omit from deps so parent refresh doesn’t remount mid-open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open/accountId gate
   }, [accountId, open]);
 
   const loadMore = useCallback(async () => {
@@ -319,7 +391,7 @@ export function PortfolioScarceEarningsSheet({
         {loadError ? (
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
         ) : items == null || filteredItems == null ? (
-          <ProfileSocialListSkeleton count={5} />
+          <ProfileSocialListSkeleton count={3} />
         ) : items.length === 0 ? (
           <p className="portfolio-support-collect-info-empty">
             No scarce sales yet.

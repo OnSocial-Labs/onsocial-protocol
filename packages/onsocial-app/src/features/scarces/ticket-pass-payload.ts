@@ -91,6 +91,15 @@ export function parseTicketPassPayload(
   return { collectionId, tokenId };
 }
 
+/** Guest-facing seat line — hide the collection:id eng form. */
+export function ticketPassSeatLabel(tokenId: string): string {
+  const id = tokenId.trim();
+  if (!id) return 'Pass';
+  const seat = id.includes(':') ? id.slice(id.lastIndexOf(':') + 1).trim() : '';
+  if (/^\d+$/.test(seat)) return `Pass ${seat}`;
+  return id;
+}
+
 /** Remaining check-ins before the pass is fully redeemed. */
 export function ticketPassRemaining(opts: {
   redeemCount: number;

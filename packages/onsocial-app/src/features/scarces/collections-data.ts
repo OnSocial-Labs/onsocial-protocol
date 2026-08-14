@@ -93,7 +93,7 @@ export interface CollectionView {
   paused: boolean;
   cancelled: boolean;
   soldOut: boolean;
-  /** True when the drop has a non-empty allowlist (early access before Opens). */
+  /** True when the drop has a timed Opens — early mint is allowlist-gated before then. */
   hasAllowlist: boolean;
   appId: string | null;
   /**
@@ -508,7 +508,7 @@ export function toCollectionView(
   const minted = Math.max(0, Math.floor(Number(record.minted_count) || 0));
   const remaining = Math.max(0, totalSupply - minted);
   const priceYocto = yoctoString(record.price_near);
-  const allowlistYocto = yoctoString(record.allowlist_price);
+  const startTimeMs = nsToMs(record.start_time);
   const coverMeta = parseCoverMeta(record.metadata);
   const coverSeatRaw = coverMeta.seat;
   // Fall back to seat 1 when the chosen seat is missing or out of range.
@@ -548,7 +548,7 @@ export function toCollectionView(
     totalSupply,
     minted,
     remaining,
-    startTimeMs: nsToMs(record.start_time),
+    startTimeMs,
     endTimeMs: nsToMs(record.end_time),
     createdAtMs: nsToMs(record.created_at) ?? 0,
     maxPerWallet:
@@ -559,7 +559,8 @@ export function toCollectionView(
     paused: Boolean(record.paused),
     cancelled: Boolean(record.cancelled),
     soldOut: totalSupply > 0 && remaining === 0,
-    hasAllowlist: allowlistYocto !== '0',
+    // Chain gates pre-Opens mint on allowlist entries, not allowlist_price.
+    hasAllowlist: startTimeMs != null,
     appId: record.app_id?.trim() || null,
     appCommissionBps: parseAppCommissionBps(
       record.app_commission_bps,
@@ -956,6 +957,27 @@ export async function fetchAllowlistRemaining(
       { collection_id: id, account_id: account }
     );
     const n = Math.floor(Number(remaining));
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Stored allowlist mint cap for a wallet (0 = not on list). */
+export async function fetchAllowlistAllocation(
+  collectionId: string,
+  accountId: string
+): Promise<number> {
+  const id = collectionId.trim();
+  const account = accountId.trim();
+  if (!id || !account) return 0;
+  try {
+    const allocation = await viewNearContract<number>(
+      SCARCES_CONTRACT,
+      'get_allowlist_allocation',
+      { collection_id: id, account_id: account }
+    );
+    const n = Math.floor(Number(allocation));
     return Number.isFinite(n) ? Math.max(0, n) : 0;
   } catch {
     return 0;

@@ -183,6 +183,22 @@
   flex-shrink: 0;
 }
 
+/*
+ * Unlayered — beats `@onsocial/ui` `.standing-row-aside` column so qty + ×
+ * stay on one row (Share / allowlist edit). Layered copy alone loses.
+ */
+.collection-allowlist-edit-aside.standing-row-aside {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  min-width: 0;
+  width: auto;
+  flex-shrink: 0;
+}
+
 /* Allowlist / door staff / royalty split — material only; width from GlassSheet. */
 .glass-sheet-panel.collection-allowlist-sheet-panel {
   max-height: min(90dvh, 36rem);
@@ -2222,6 +2238,8 @@ a.os-surface-row {
   align-items: flex-start;
   justify-content: center;
   gap: 0.06rem;
+  /* Name + handle — reserve both lines before profile name arrives. */
+  min-height: calc(0.82rem * 1.25 + 0.06rem + 0.68rem * 1.2);
 }
 
 .scarce-buy-party-name,
@@ -5422,13 +5440,24 @@ a.os-surface-row {
   }
 
   .portfolio-listing-action-aside {
-    min-width: 4.75rem;
+    min-width: 5.25rem;
     align-items: flex-end;
     gap: 0.28rem;
+    flex: 0 0 auto;
   }
 
   .portfolio-listing-action-cta {
     flex: 0 0 auto;
+  }
+
+  .portfolio-listing-action-cta .os-sheet-action {
+    white-space: nowrap;
+  }
+
+  .portfolio-listing-action-copy .standing-row-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .portfolio-listing-action-section + .portfolio-listing-action-section {
@@ -5660,11 +5689,33 @@ a.os-surface-row {
   }
 
   .portfolio-support-collect-info-row-kind {
-    display: block;
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    min-width: 0;
+    max-width: 100%;
     margin-top: 0.1rem;
     font-size: 0.7rem;
-    line-height: 1.4;
+    line-height: 1.25;
     color: rgb(var(--fg-rgb) / 0.48);
+    white-space: nowrap;
+  }
+
+  .portfolio-scarce-earnings-kind-prefix,
+  .portfolio-scarce-earnings-kind-suffix {
+    flex: 0 0 auto;
+  }
+
+  .portfolio-scarce-earnings-kind-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .portfolio-support-collect-info-row .standing-row-copy {
+    min-width: 0;
   }
 
   .portfolio-scarce-earnings-post-link {
@@ -16439,13 +16490,32 @@ a.os-surface-row {
     aspect-ratio: 1 / 1;
     object-fit: cover;
     border-radius: 0.75rem;
-    box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 0.35);
+    /* Dark field: soft depth only — no 1px ring (reads as a border). */
+    box-shadow:
+      0 1.5rem 3rem rgb(0 0 0 / 0.72),
+      0 0.6rem 1.4rem rgb(0 0 0 / 0.48),
+      0 0 2.75rem rgb(var(--fg-rgb) / 0.1);
     cursor: default;
     transform: scale(0.94);
     opacity: 0;
     transition:
       transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
       opacity 180ms ease;
+  }
+
+  /* Light field: same soft lift, no outline. */
+  :root[data-theme='light'] .scarce-card-lightbox-asset {
+    box-shadow:
+      0 1.1rem 2.4rem rgb(0 0 0 / 0.16),
+      0 0.35rem 0.9rem rgb(0 0 0 / 0.08);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) .scarce-card-lightbox-asset {
+      box-shadow:
+        0 1.1rem 2.4rem rgb(0 0 0 / 0.16),
+        0 0.35rem 0.9rem rgb(0 0 0 / 0.08);
+    }
   }
 
   .scarce-card-lightbox.is-open .scarce-card-lightbox-asset {
@@ -17049,18 +17119,6 @@ a.os-surface-row {
     outline: 2px solid rgb(var(--primary-rgb) / 0.8);
     outline-offset: 2px;
     border-radius: 0.75rem;
-  }
-
-  button.scarce-sell-thumb-zoom {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: zoom-in;
-  }
-
-  button.scarce-sell-thumb-zoom:focus-visible {
-    outline: 2px solid rgb(var(--primary-rgb) / 0.8);
-    outline-offset: 2px;
   }
 
   /* Video / audio scarce on a buy / bid sheet — cover with play control. */
@@ -19288,10 +19346,10 @@ a.os-surface-row {
     background: none;
     color: rgb(var(--fg-rgb) / 0.72);
     font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
+    font-size: 0.84rem;
+    font-weight: 650;
     line-height: 1.45;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.02em;
     cursor: pointer;
   }
 
@@ -20211,70 +20269,138 @@ a.os-surface-row {
   }
 
   /* —— Ticket Show pass / Door —— */
+  /* Fullscreen frost like drawers (not Listen’s solid canvas). */
   .ticket-show-pass-lightbox.scarce-card-lightbox {
-    background: var(--bg);
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    background: rgb(var(--bg-rgb) / 0);
+    cursor: default;
+    z-index: 110;
+  }
+
+  .ticket-show-pass-lightbox.scarce-card-lightbox.is-open {
+    background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
+    opacity: 1;
+  }
+
+  .ticket-show-pass-lightbox.scarce-card-lightbox.is-closing {
+    background: rgb(var(--bg-rgb) / 0);
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .ticket-show-pass-lightbox.scarce-card-lightbox.is-open {
+      background: var(--glass-scrim-solid, rgb(var(--bg-rgb) / 0.82));
+    }
   }
 
   .ticket-show-pass {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 1rem;
+    --pass-pad-x: max(0.85rem, env(safe-area-inset-left, 0px));
+    --pass-pad-r: max(0.85rem, env(safe-area-inset-right, 0px));
+    --pass-pad-t: max(0.55rem, env(safe-area-inset-top, 0px));
+    --pass-pad-b: max(0.85rem, env(safe-area-inset-bottom, 0px));
+    --pass-qr: min(100%, 12.75rem);
+    --pass-gap-header: 0.35rem;
+    --pass-gap-qr: 0.9rem;
+    position: relative;
+    display: grid;
+    place-items: center;
     width: 100%;
-    min-height: 0;
     height: 100%;
+    min-height: 0;
     box-sizing: border-box;
-    padding: max(1.15rem, env(safe-area-inset-top, 0px))
-      max(1.15rem, env(safe-area-inset-right, 0px))
-      max(1.25rem, env(safe-area-inset-bottom, 0px))
-      max(1.15rem, env(safe-area-inset-left, 0px));
+    padding: var(--pass-pad-t) var(--pass-pad-r) var(--pass-pad-b)
+      var(--pass-pad-x);
   }
 
   .ticket-show-pass-top {
-    display: flex;
-    justify-content: flex-end;
+    position: absolute;
+    top: var(--pass-pad-t);
+    right: var(--pass-pad-r);
+    z-index: 2;
   }
 
   .ticket-show-pass-card {
+    position: relative;
+    isolation: isolate;
     display: flex;
-    flex: 1;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.85rem;
-    width: min(100%, 22rem);
-    margin-inline: auto;
+    width: min(100%, 20rem);
+    max-height: 100%;
     min-height: 0;
-    padding: 1.35rem 1.2rem 1.25rem;
-    border-radius: 1.15rem;
-    background: rgb(var(--fg-rgb) / 0.04);
-    border: 1px solid rgb(var(--fg-rgb) / 0.08);
+    margin: 0;
+    border-radius: 1.1rem;
+    background: transparent;
+    border: 1px solid var(--glass-border, rgb(var(--fg-rgb) / 0.12));
+    box-shadow:
+      var(--glass-shadow, 0 18px 48px rgb(0 0 0 / 0.14)),
+      inset 0 1px 0 rgb(255 255 255 / 0.22);
+    overflow: hidden;
   }
 
-  .ticket-show-pass-eyebrow {
-    margin: 0;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.55);
+  /* Same idea as .glass-sheet-frost — blur on a pane, copy stays sharp above. */
+  .ticket-show-pass-card-frost {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: rgb(var(--bg-rgb) / 0.38);
+  }
+
+  .ticket-show-pass-card-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-height: 0;
+    max-height: 100%;
+    padding: 1.15rem 1.15rem 1.2rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ticket-show-pass-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--pass-gap-header, 0.35rem);
+    width: 100%;
+  }
+
+  .ticket-show-pass-mark {
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0 0 0.1rem;
+    border-radius: 0.55rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: rgb(var(--fg-rgb) / 0.08);
   }
 
   .ticket-show-pass-title {
     margin: 0;
+    max-width: 100%;
     text-align: center;
-    font-size: 1.35rem;
+    font-size: clamp(1.12rem, 4.4vw, 1.28rem);
     font-weight: 750;
     line-height: 1.2;
     letter-spacing: -0.02em;
     color: rgb(var(--fg-rgb) / 0.96);
+    overflow-wrap: anywhere;
   }
 
   .ticket-show-pass-status {
     margin: 0;
     text-align: center;
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     font-weight: 600;
+    line-height: 1.3;
     color: rgb(var(--fg-rgb) / 0.7);
   }
 
@@ -20288,9 +20414,12 @@ a.os-surface-row {
   }
 
   .ticket-show-pass-qr {
-    width: min(100%, 14.5rem);
+    width: var(--pass-qr);
+    max-width: 100%;
     aspect-ratio: 1 / 1;
-    border-radius: 0.85rem;
+    flex-shrink: 0;
+    margin: var(--pass-gap-qr, 0.9rem) 0;
+    border-radius: 0.75rem;
     overflow: hidden;
     background: #fff;
     box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
@@ -20304,53 +20433,201 @@ a.os-surface-row {
 
   .ticket-pass-qr-fallback,
   .ticket-show-pass-hint {
-    margin: 0;
+    margin: var(--pass-gap-qr, 0.9rem) 0;
     text-align: center;
     font-size: 0.8rem;
     line-height: 1.35;
     color: rgb(var(--fg-rgb) / 0.58);
   }
 
-  .ticket-show-pass-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    margin-top: 0.35rem;
-  }
-
-  .ticket-show-pass-thumb {
-    width: 2.6rem;
-    height: 2.6rem;
-    border-radius: 0.55rem;
-    object-fit: cover;
-    flex-shrink: 0;
-    background: rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .ticket-show-pass-thumb.is-empty {
-    display: block;
-  }
-
-  .ticket-show-pass-meta-copy {
-    min-width: 0;
+  .ticket-show-pass-footer {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
   }
 
-  .ticket-show-pass-token {
+  .ticket-show-pass-identity {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .ticket-show-pass-identity.is-solo {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .ticket-show-pass-identity.is-solo .ticket-show-pass-identity-copy {
+    align-items: center;
+  }
+
+  .ticket-show-pass-identity.is-solo .ticket-show-pass-code {
+    text-align: center;
+  }
+
+  .ticket-show-pass-holder-avatar {
+    flex-shrink: 0;
+    margin-top: 0.08rem;
+  }
+
+  .ticket-show-pass-identity-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.02rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .ticket-show-pass-holder-name {
     margin: 0;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.62);
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 0.88rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .ticket-show-pass-holder-account {
+    margin: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.74rem;
+    font-weight: 550;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.58);
+  }
+
+  /* Account is the sole identity line — keep it readable for the door. */
+  .ticket-show-pass-identity-copy:not(:has(.ticket-show-pass-holder-name))
+    .ticket-show-pass-holder-account {
+    font-size: 0.86rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  /* Seat + paste code tuck under identity as one quiet cluster. */
+  .ticket-show-pass-seat {
+    margin: 0.28rem 0 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.68);
+  }
+
+  .ticket-show-pass-code {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0.35rem;
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    font-size: 0.58rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.32);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .ticket-show-pass-code:hover,
+  .ticket-show-pass-code:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.58);
+    outline: none;
+  }
+
+  @media (max-height: 720px) {
+    .ticket-show-pass {
+      --pass-qr: min(100%, 11.25rem);
+      --pass-gap-qr: 0.7rem;
+    }
+
+    .ticket-show-pass-card-body {
+      padding: 0.9rem 0.9rem 1rem;
+    }
+
+    .ticket-show-pass-mark {
+      width: 1.9rem;
+      height: 1.9rem;
+    }
+  }
+
+  @media (max-height: 560px) {
+    .ticket-show-pass {
+      --pass-qr: min(100%, 9.5rem);
+      --pass-gap-header: 0.25rem;
+      --pass-gap-qr: 0.55rem;
+    }
+
+    .ticket-show-pass-mark {
+      display: none;
+    }
+
+    .ticket-show-pass-title {
+      font-size: 1.05rem;
+    }
+
+    .ticket-show-pass-status {
+      font-size: 0.78rem;
+    }
+
+    .ticket-show-pass-holder-name {
+      font-size: 0.82rem;
+    }
+
+    .ticket-show-pass-seat {
+      margin-top: 0.2rem;
+      font-size: 0.74rem;
+    }
+  }
+
+  @media (min-width: 640px) {
+    .ticket-show-pass {
+      --pass-pad-x: max(1.25rem, env(safe-area-inset-left, 0px));
+      --pass-pad-r: max(1.25rem, env(safe-area-inset-right, 0px));
+      --pass-pad-t: max(1rem, env(safe-area-inset-top, 0px));
+      --pass-pad-b: max(1.15rem, env(safe-area-inset-bottom, 0px));
+      --pass-qr: min(100%, 13.5rem);
+      --pass-gap-qr: 1rem;
+    }
+
+    .ticket-show-pass-card {
+      width: min(100%, 21.5rem);
+    }
+
+    .ticket-show-pass-card-body {
+      padding: 1.3rem 1.25rem 1.35rem;
+    }
+
+    .ticket-show-pass-mark {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
   }
 
   .ticket-door {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
@@ -20372,6 +20649,20 @@ a.os-surface-row {
     overflow: hidden;
     background: rgb(var(--fg-rgb) / 0.06);
     border: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  /* Keeps <video> in the DOM for getUserMedia without showing an empty square. */
+  .ticket-door-camera-host {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    pointer-events: none;
   }
 
   .ticket-door-video {
@@ -24794,47 +25085,6 @@ a.os-surface-row {
 
   .market-listing-handle:hover {
     color: var(--os-surface-emphasis);
-  }
-
-  .scarce-sell-from-author {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.28rem;
-    max-width: 100%;
-    color: inherit;
-    text-decoration: none;
-    vertical-align: middle;
-  }
-
-  .scarce-sell-from-author:hover {
-    color: var(--os-surface-emphasis);
-  }
-
-  .scarce-sell-from-author:focus-visible {
-    outline: 2px solid rgb(var(--primary-rgb) / 0.8);
-    outline-offset: 2px;
-    border-radius: 0.25rem;
-  }
-
-  .scarce-sell-from-avatar {
-    flex-shrink: 0;
-    width: 1rem !important;
-    height: 1rem !important;
-  }
-
-  .scarce-sell-from-name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .scarce-sell-from-handle {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    opacity: 0.72;
   }
 
   .market-listing-handle:focus-visible,

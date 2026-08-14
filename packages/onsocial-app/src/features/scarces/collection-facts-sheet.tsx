@@ -21,7 +21,10 @@ import {
   dropFacetFieldLabel,
   dropFacetsLabel,
 } from '@/features/scarces/drop-facets';
-import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import {
+  formatFutureRelativeTime,
+  formatMarketRelativeTime,
+} from '@/features/market/market-listings';
 import {
   formatRoyaltyPercent,
   MARKETPLACE_FEE_BPS,
@@ -49,38 +52,45 @@ function mintModeLabel(mode: string): string {
   return mode.trim() || 'Open';
 }
 
-function scheduleCopy(
+function scheduleFacts(
   view: CollectionView,
   nowMs: number
-): { label: string; detail: string | null } {
+): {
+  opens: string | null;
+  closes: string | null;
+  closesLabel: 'Closes' | 'Closed';
+  next: string | null;
+  empty: boolean;
+} {
   const status = deriveCollectionStatus(view, nowMs);
+  const opens =
+    view.startTimeMs != null
+      ? formatPageDrawerJoinedFullLabel(view.startTimeMs)
+      : null;
+  const closes =
+    view.endTimeMs != null
+      ? formatPageDrawerJoinedFullLabel(view.endTimeMs)
+      : null;
+
+  let next: string | null = null;
   if (status === 'upcoming' && view.startTimeMs) {
-    const abs = formatPageDrawerJoinedFullLabel(view.startTimeMs);
-    const rel = formatMarketRelativeTime(view.startTimeMs);
-    return {
-      label: abs ? `Opens ${abs}` : 'Upcoming',
-      detail: rel ? `Opens ${rel}` : null,
-    };
+    const rel = formatFutureRelativeTime(view.startTimeMs, nowMs);
+    next = rel ? `Opens ${rel}` : null;
+  } else if (status === 'live' && view.endTimeMs) {
+    const rel = formatFutureRelativeTime(view.endTimeMs, nowMs);
+    next = rel ? `Closes ${rel}` : null;
+  } else if (status === 'ended' && view.endTimeMs) {
+    const rel = formatMarketRelativeTime(view.endTimeMs, nowMs);
+    next = rel ? `Closed ${rel}` : null;
   }
-  if (status === 'live' && view.endTimeMs) {
-    const abs = formatPageDrawerJoinedFullLabel(view.endTimeMs);
-    const rel = formatMarketRelativeTime(view.endTimeMs);
-    return {
-      label: abs ? `Closes ${abs}` : 'Live',
-      detail: rel ? `Closes ${rel}` : null,
-    };
-  }
-  if (status === 'ended' && view.endTimeMs) {
-    const abs = formatPageDrawerJoinedFullLabel(view.endTimeMs);
-    return {
-      label: abs ? `Closed ${abs}` : 'Ended',
-      detail: null,
-    };
-  }
-  if (view.startTimeMs == null && view.endTimeMs == null) {
-    return { label: 'No timed window', detail: null };
-  }
-  return { label: collectionStatusLabel(status), detail: null };
+
+  return {
+    opens,
+    closes,
+    closesLabel: status === 'ended' ? 'Closed' : 'Closes',
+    next,
+    empty: !opens && !closes,
+  };
 }
 
 /**
@@ -111,7 +121,7 @@ export function CollectionFactsSheet({
   }, [onClose]);
 
   const status = deriveCollectionStatus(view, nowMs);
-  const schedule = scheduleCopy(view, nowMs);
+  const schedule = scheduleFacts(view, nowMs);
   const facetsLabel = dropFacetsLabel(view.facets);
   const createdLabel =
     view.createdAtMs > 0
@@ -159,9 +169,23 @@ export function CollectionFactsSheet({
       <div className="guild-facts">
         <SheetFactSection title="Mint">
           <SheetFactRow label="Status" value={collectionStatusLabel(status)} />
-          <SheetFactRow label="Schedule" value={schedule.label} />
-          {schedule.detail && schedule.detail !== schedule.label ? (
-            <SheetFactCopy>{schedule.detail}</SheetFactCopy>
+          {schedule.empty ? (
+            <SheetFactRow label="Schedule" value="No timed window" />
+          ) : (
+            <>
+              {schedule.opens ? (
+                <SheetFactRow label="Opens" value={schedule.opens} />
+              ) : null}
+              {schedule.closes ? (
+                <SheetFactRow
+                  label={schedule.closesLabel}
+                  value={schedule.closes}
+                />
+              ) : null}
+            </>
+          )}
+          {schedule.next ? (
+            <SheetFactCopy>{schedule.next}</SheetFactCopy>
           ) : null}
           <SheetFactRow label="Price" value={priceLabel} />
           <SheetFactRow

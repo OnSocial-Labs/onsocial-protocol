@@ -30,6 +30,7 @@ export interface ScarceCreatorEarningRow {
   blockHeight: number;
   tokenId?: string;
   listingId?: string;
+  collectionId?: string;
 }
 
 export interface ScarceCreatorEarnings {
@@ -106,32 +107,75 @@ export function postHrefFromSourcePath(
   return personalPostPath(match[1], match[2]);
 }
 
-export function saleTitleFromRow(row: ScarcesEventRow): string {
-  let parsed: Record<string, unknown> | null = null;
-  if (row.extraData) {
-    try {
-      parsed = asRecord(JSON.parse(row.extraData));
-    } catch {
-      parsed = null;
-    }
+export function parseEventExtraRecord(
+  extraData: string | null | undefined
+): Record<string, unknown> | null {
+  if (!extraData?.trim()) return null;
+  try {
+    return asRecord(JSON.parse(extraData));
+  } catch {
+    return null;
   }
-  const meta = asRecord(parsed?.metadata ?? null);
-  const titled =
-    (typeof parsed?.title === 'string' && parsed.title.trim()
-      ? parsed.title.trim()
-      : null) ??
-    (typeof meta?.title === 'string' && meta.title.trim()
-      ? meta.title.trim()
-      : null);
-  if (titled) return titled;
-  if (row.tokenId?.trim()) return `Scarce · ${row.tokenId.trim()}`;
-  if (row.listingId?.trim()) return `Listing · ${row.listingId.trim()}`;
+}
+
+/** Pull sparse identity from event JSON when typed columns are empty. */
+export function identityFromEventExtra(
+  extraData: string | null | undefined
+): {
+  title?: string;
+  tokenId?: string;
+  listingId?: string;
+  collectionId?: string;
+  sourcePostPath?: string;
+} {
+  const parsed = parseEventExtraRecord(extraData);
+  if (!parsed) return {};
+  const meta = asRecord(parsed.metadata ?? null);
+  const title =
+    stringField(parsed, 'title') ?? stringField(meta, 'title') ?? undefined;
+  const tokenId =
+    stringField(parsed, 'token_id') ??
+    stringField(parsed, 'tokenId') ??
+    undefined;
+  const listingId =
+    stringField(parsed, 'listing_id') ??
+    stringField(parsed, 'listingId') ??
+    undefined;
+  const collectionId =
+    stringField(parsed, 'collection_id') ??
+    stringField(parsed, 'collectionId') ??
+    undefined;
+  const sourcePostPath = sourcePostPathFromExtra(parsed);
+  return {
+    ...(title ? { title } : {}),
+    ...(tokenId ? { tokenId } : {}),
+    ...(listingId ? { listingId } : {}),
+    ...(collectionId ? { collectionId } : {}),
+    ...(sourcePostPath ? { sourcePostPath } : {}),
+  };
+}
+
+export function saleTitleFromRow(row: ScarcesEventRow): string {
+  const fromExtra = identityFromEventExtra(row.extraData);
+  if (fromExtra.title) return fromExtra.title;
+  const tokenId = row.tokenId?.trim() || fromExtra.tokenId;
+  const listingId = row.listingId?.trim() || fromExtra.listingId;
+  if (tokenId) return `Scarce · ${tokenId}`;
+  if (listingId) return `Listing · ${listingId}`;
   return 'Scarce sale';
 }
 
-function isFallbackTitle(title: string, tokenId?: string): boolean {
-  if (!tokenId) return false;
-  return title === `Scarce · ${tokenId}` || title === 'Scarce sale';
+/** True when the title is still a placeholder and should be hydrated. */
+export function isFallbackEarningTitle(
+  title: string,
+  tokenId?: string
+): boolean {
+  const t = title.trim();
+  if (!t || t === 'Scarce sale' || t === 'Scarce') return true;
+  if (t.startsWith('Listing · ')) return true;
+  if (t.startsWith('Scarce · ')) return true;
+  if (tokenId && t === `Scarce · ${tokenId}`) return true;
+  return false;
 }
 
 async function fetchTokenMeta(tokenId: string): Promise<{
@@ -160,43 +204,169 @@ async function fetchTokenMeta(tokenId: string): Promise<{
   }
 }
 
+async function fetchLazyListingMeta(listingId: string): Promise<{
+  title: string | null;
+  postHref: string | null;
+}> {
+  try {
+    const listing = await viewNearContract<{
+      title?: string | null;
+      metadata?: { title?: string | null; extra?: string | null };
+      extra?: string | null;
+    } | null>(SCARCES_CONTRACT, 'get_lazy_listing', {
+      listing_id: listingId,
+    });
+    if (!listing) return { title: null, postHref: null };
+    const title =
+      listing.title?.trim() || listing.metadata?.title?.trim() || null;
+    let extra: Record<string, unknown> | null = null;
+    const extraRaw = listing.extra ?? listing.metadata?.extra ?? null;
+    if (extraRaw) {
+      try {
+        extra = asRecord(JSON.parse(extraRaw));
+      } catch {
+        extra = null;
+      }
+    }
+    const postHref = await resolvePostThreadHrefFromSourcePath(
+      sourcePostPathFromExtra(extra)
+    );
+    return { title, postHref };
+  } catch {
+    return { title: null, postHref: null };
+  }
+}
+
+async function fetchCollectionMeta(collectionId: string): Promise<{
+  title: string | null;
+  postHref: string | null;
+}> {
+  try {
+    const client = createReadOnlyOnSocialClient();
+    const row = await client.query.scarces.collectionCurrent(collectionId);
+    if (!row || row.banned) return { title: null, postHref: null };
+    const title = row.title?.trim() || null;
+    const postHref = await resolvePostThreadHrefFromSourcePath(
+      row.sourcePostPath ?? undefined
+    );
+    return { title, postHref };
+  } catch {
+    return { title: null, postHref: null };
+  }
+}
+
 /**
- * Resolve placeholder titles + source-post links via on-chain `nft_token`.
+ * Resolve placeholder titles + source-post links via token / listing / drop.
  */
 export async function enrichEarningRows(
   items: ScarceCreatorEarningRow[]
 ): Promise<ScarceCreatorEarningRow[]> {
-  const needFetch = new Map<string, number[]>();
-  items.forEach((item, index) => {
-    const tokenId = item.tokenId?.trim();
-    if (!tokenId) return;
-    if (!isFallbackTitle(item.title, tokenId) && item.postHref) return;
-    const idxs = needFetch.get(tokenId) ?? [];
-    idxs.push(index);
-    needFetch.set(tokenId, idxs);
-  });
-  if (needFetch.size === 0) return items;
+  const needToken = new Map<string, number[]>();
+  const needListing = new Map<string, number[]>();
+  const needCollection = new Map<string, number[]>();
 
-  const metas = await Promise.all(
-    [...needFetch.keys()].map(async (tokenId) => {
-      const meta = await fetchTokenMeta(tokenId);
-      return [tokenId, meta] as const;
-    })
-  );
+  items.forEach((item, index) => {
+    const needsTitle = isFallbackEarningTitle(item.title, item.tokenId);
+    const needsHref = !item.postHref;
+    if (!needsTitle && !needsHref) return;
+
+    const tokenId = item.tokenId?.trim();
+    const listingId = item.listingId?.trim();
+    const collectionId = item.collectionId?.trim();
+
+    if (tokenId && (needsTitle || needsHref)) {
+      const idxs = needToken.get(tokenId) ?? [];
+      idxs.push(index);
+      needToken.set(tokenId, idxs);
+      return;
+    }
+    if (listingId && (needsTitle || needsHref)) {
+      const idxs = needListing.get(listingId) ?? [];
+      idxs.push(index);
+      needListing.set(listingId, idxs);
+      return;
+    }
+    if (collectionId && needsTitle) {
+      const idxs = needCollection.get(collectionId) ?? [];
+      idxs.push(index);
+      needCollection.set(collectionId, idxs);
+    }
+  });
+
+  if (
+    needToken.size === 0 &&
+    needListing.size === 0 &&
+    needCollection.size === 0
+  ) {
+    return items;
+  }
+
+  const [tokenMetas, listingMetas, collectionMetas] = await Promise.all([
+    Promise.all(
+      [...needToken.keys()].map(async (id) => [id, await fetchTokenMeta(id)] as const)
+    ),
+    Promise.all(
+      [...needListing.keys()].map(
+        async (id) => [id, await fetchLazyListingMeta(id)] as const
+      )
+    ),
+    Promise.all(
+      [...needCollection.keys()].map(
+        async (id) => [id, await fetchCollectionMeta(id)] as const
+      )
+    ),
+  ]);
 
   const next = items.slice();
-  for (const [tokenId, meta] of metas) {
-    for (const index of needFetch.get(tokenId) ?? []) {
-      const cur = next[index];
+
+  function applyMeta(
+    indexes: number[],
+    meta: { title: string | null; postHref: string | null },
+    tokenId?: string
+  ) {
+    for (const index of indexes) {
+      const cur = next[index]!;
       next[index] = {
         ...cur,
-        ...(meta.title && isFallbackTitle(cur.title, tokenId)
+        ...(meta.title && isFallbackEarningTitle(cur.title, tokenId ?? cur.tokenId)
           ? { title: meta.title }
           : {}),
         ...(meta.postHref && !cur.postHref ? { postHref: meta.postHref } : {}),
       };
     }
   }
+
+  for (const [tokenId, meta] of tokenMetas) {
+    applyMeta(needToken.get(tokenId) ?? [], meta, tokenId);
+  }
+  for (const [listingId, meta] of listingMetas) {
+    applyMeta(needListing.get(listingId) ?? [], meta);
+  }
+  for (const [collectionId, meta] of collectionMetas) {
+    applyMeta(needCollection.get(collectionId) ?? [], meta);
+  }
+
+  // Second pass: rows still placeholder after token/listing — try collection.
+  const stillNeedCollection = new Map<string, number[]>();
+  next.forEach((item, index) => {
+    if (!isFallbackEarningTitle(item.title, item.tokenId)) return;
+    const collectionId = item.collectionId?.trim();
+    if (!collectionId || needCollection.has(collectionId)) return;
+    const idxs = stillNeedCollection.get(collectionId) ?? [];
+    idxs.push(index);
+    stillNeedCollection.set(collectionId, idxs);
+  });
+  if (stillNeedCollection.size > 0) {
+    const more = await Promise.all(
+      [...stillNeedCollection.keys()].map(
+        async (id) => [id, await fetchCollectionMeta(id)] as const
+      )
+    );
+    for (const [collectionId, meta] of more) {
+      applyMeta(stillNeedCollection.get(collectionId) ?? [], meta);
+    }
+  }
+
   return next;
 }
 
@@ -318,18 +488,28 @@ export async function fetchScarceCreatorEarnings(
     const buyerId = row.buyerId?.trim() || row.author?.trim() || 'unknown';
     const price = salePriceYocto(row);
     const sellerId = row.sellerId?.trim();
+    const fromExtra = identityFromEventExtra(row.extraData);
+    const tokenId = row.tokenId?.trim() || fromExtra.tokenId;
+    const listingId = row.listingId?.trim() || fromExtra.listingId;
+    const collectionId =
+      row.collectionId?.trim() || fromExtra.collectionId;
+    const postHref = fromExtra.sourcePostPath
+      ? postHrefFromSourcePath(fromExtra.sourcePostPath)
+      : null;
     items.push({
-      key: `${row.blockHeight}:${row.listingId ?? ''}:${row.tokenId ?? ''}:${pay}:${buyerId}`,
+      key: `${row.blockHeight}:${listingId ?? ''}:${tokenId ?? ''}:${pay}:${buyerId}`,
       buyerId,
       paymentYocto: pay,
       title: saleTitleFromRow(row),
       kind: earningKindFromRow(row),
       ...(price ? { salePriceYocto: price } : {}),
       ...(sellerId ? { sellerId } : {}),
+      ...(postHref ? { postHref } : {}),
       blockTimestamp: row.blockTimestamp,
       blockHeight: row.blockHeight,
-      ...(row.tokenId?.trim() ? { tokenId: row.tokenId.trim() } : {}),
-      ...(row.listingId?.trim() ? { listingId: row.listingId.trim() } : {}),
+      ...(tokenId ? { tokenId } : {}),
+      ...(listingId ? { listingId } : {}),
+      ...(collectionId ? { collectionId } : {}),
     });
   }
 

@@ -92,7 +92,7 @@ import {
   seriesPagePath,
 } from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { formatFutureRelativeTime, formatMarketRelativeTime } from '@/features/market/market-listings';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 import { holdingsActionLabel } from '@/lib/portfolio-holdings';
@@ -118,18 +118,19 @@ function statusTone(status: CollectionStatus): string {
 
 function scheduleLine(
   view: CollectionView,
-  status: CollectionStatus
+  status: CollectionStatus,
+  nowMs: number
 ): string | null {
   if (status === 'upcoming' && view.startTimeMs) {
-    const rel = formatMarketRelativeTime(view.startTimeMs);
+    const rel = formatFutureRelativeTime(view.startTimeMs, nowMs);
     return rel ? `Opens ${rel}` : null;
   }
   if (status === 'live' && view.endTimeMs) {
-    const rel = formatMarketRelativeTime(view.endTimeMs);
+    const rel = formatFutureRelativeTime(view.endTimeMs, nowMs);
     return rel ? `Closes ${rel}` : null;
   }
   if (status === 'ended' && view.endTimeMs) {
-    const rel = formatMarketRelativeTime(view.endTimeMs);
+    const rel = formatMarketRelativeTime(view.endTimeMs, nowMs);
     return rel ? `Closed ${rel}` : null;
   }
   return null;
@@ -408,7 +409,7 @@ export function CollectionPagePanel({
   }, [view?.creatorId, creatorResolvedKey]);
 
   const status = view ? deriveCollectionStatus(view, nowMs) : 'ended';
-  // Before Opens, minting is allowlist-gated on-chain when a list exists.
+  // Before Opens, minting is allowlist-gated on-chain whenever the drop is timed.
   // After Opens, anyone can mint (open) — do not keep gating on the list.
   const needsAllowlist =
     view != null && status === 'upcoming' && view.hasAllowlist;
@@ -638,9 +639,11 @@ export function CollectionPagePanel({
         : {}),
       mediaUrl: view.mediaUrl,
       creatorId: view.creatorId,
+      artistId: view.creatorId,
       ...(view.cardBg ? { cardBg: view.cardBg } : {}),
       copies: view.totalSupply,
       remaining: view.remaining,
+      mediumKind: view.kind,
       maxQuantity,
       ...(view.sourcePostPath ? { sourcePostPath: view.sourcePostPath } : {}),
       ...(view.playables.length > 0
@@ -672,7 +675,7 @@ export function CollectionPagePanel({
     view.totalSupply > 0
       ? Math.min(100, Math.round((view.minted / view.totalSupply) * 100))
       : 0;
-  const schedule = scheduleLine(view, status);
+  const schedule = scheduleLine(view, status, nowMs);
   const allowlistBlocked =
     needsAllowlist &&
     isConnected &&
@@ -742,7 +745,7 @@ export function CollectionPagePanel({
         : `${view.totalSupply} unique`
     );
   }
-  if (schedule) chipParts.push(schedule);
+  // Schedule lives in the product status slot — don’t repeat it here.
   if (view.hasAllowlist) chipParts.push('Early access');
   const personalAllowlistLeft =
     needsAllowlist &&
@@ -958,7 +961,7 @@ export function CollectionPagePanel({
             <div className="collection-product-row">
               <div className="collection-product-line">
                 <span className={`collection-product-status ${statusTone(status)}`}>
-                  {collectionStatusLabel(status)}
+                  {schedule ?? collectionStatusLabel(status)}
                 </span>
                 <span className="collection-meta-sep" aria-hidden>
                   ·
@@ -1193,20 +1196,30 @@ export function CollectionPagePanel({
           </section>
         ) : null}
 
-        {isPassKind && (canShowPass || canDoor || isOwner) ? (
-          <section className="collection-reading" aria-label="Entry">
-            {canShowPass ? (
-              <div className="collection-reading-row">
-                <p className="collection-section-label">Your pass</p>
-                <button
-                  type="button"
-                  className="collection-reading-open"
-                  onClick={openOwnedPass}
-                >
-                  {passActionLabel}
-                </button>
-              </div>
-            ) : null}
+        {canShowPass ? (
+          <section className="collection-reading" aria-label="Your pass">
+            <div className="collection-reading-row">
+              <p className="collection-section-label">Your pass</p>
+              <button
+                type="button"
+                className="collection-reading-open"
+                onClick={openOwnedPass}
+              >
+                {passActionLabel}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        {canDoor ||
+        (isOwner &&
+          view.maxRedeems != null &&
+          view.maxRedeems > 0) ||
+        (isOwner && status === 'upcoming') ? (
+          <section
+            className="collection-reading"
+            aria-label={isOwner ? 'Host tools' : 'Door'}
+          >
             {canDoor ? (
               <div className="collection-reading-row">
                 <p className="collection-section-label">
@@ -1233,17 +1246,16 @@ export function CollectionPagePanel({
                 voice={staffVoice}
               />
             ) : null}
+            {isOwner && status === 'upcoming' ? (
+              <CollectionAllowlistManager
+                collectionId={view.collectionId}
+                creatorId={view.creatorId}
+                maxPerWallet={view.maxPerWallet}
+                hasList={view.hasAllowlist}
+                earlyAccessActive
+              />
+            ) : null}
           </section>
-        ) : null}
-
-        {isOwner && status === 'upcoming' ? (
-          <div className="collection-owner-tools">
-            <CollectionAllowlistManager
-              collectionId={view.collectionId}
-              creatorId={view.creatorId}
-              maxPerWallet={view.maxPerWallet}
-            />
-          </div>
         ) : null}
 
         {view.sourcePostPath ? (

@@ -156,11 +156,11 @@ export function useTicketDoorAdmit({
     setScanHint(null);
     const Detector = getBarcodeDetector();
     if (!Detector) {
-      setCameraError('This browser cannot scan. Paste the pass code instead.');
+      setCameraError('Camera scan unavailable on this browser.');
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Camera is unavailable. Paste the pass code instead.');
+      setCameraError('Camera unavailable on this device.');
       return;
     }
     try {
@@ -197,7 +197,7 @@ export function useTicketDoorAdmit({
       }, 450);
     } catch {
       stopCamera();
-      setCameraError('Camera permission denied. Paste the pass code instead.');
+      setCameraError('Camera blocked in this browser.');
     }
   }, [applyLookup, stopCamera]);
 

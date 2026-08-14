@@ -23,7 +23,8 @@ import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
 /**
- * One-line drop blurb. Shows an inline “more” only when the line truncates.
+ * One-line drop blurb. Shows an inline “…” only when the line truncates —
+ * same measure path as Buy.
  */
 export function CollectionAboutTeaser({
   text,
@@ -64,8 +65,9 @@ export function CollectionAboutTeaser({
           type="button"
           className="collection-about-read-more"
           onClick={onReadMore}
+          aria-label="Read more"
         >
-          more
+          …
         </button>
       ) : null}
     </div>

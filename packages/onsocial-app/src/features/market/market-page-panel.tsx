@@ -31,6 +31,7 @@ import {
 } from '@/features/market/market-medium-menu';
 import {
   auctionExpiresAtMs,
+  collectionIdFromTokenId,
   fetchMarketListings,
   fetchMarketSales,
   fetchOwnedScarcesPage,
@@ -654,6 +655,10 @@ export function MarketPagePanel({
       const auctionEnded =
         item.kind === 'auction' && endsAtMs != null && endsAtMs <= Date.now();
       const alreadyOwns = viewerOwnsRelatedEdition(item, owned);
+      const listingCollectionId =
+        item.collectionId?.trim() ||
+        (item.tokenId ? collectionIdFromTokenId(item.tokenId) : null) ||
+        undefined;
       // Own live listings aren't buyable; ended own auctions open settle.
       if (isOwn && !auctionEnded) {
         return;
@@ -690,6 +695,9 @@ export function MarketPagePanel({
           ...(item.description ? { description: item.description } : {}),
           mediaUrl: item.mediaUrl,
           creatorId: item.creatorId,
+          ...(listingCollectionId
+            ? { collectionId: listingCollectionId }
+            : {}),
           ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
           ...(item.cardBg ? { cardBg: item.cardBg } : {}),
           ...(item.sourcePostPath
@@ -714,6 +722,9 @@ export function MarketPagePanel({
         ...(item.description ? { description: item.description } : {}),
         mediaUrl: item.mediaUrl,
         creatorId: item.creatorId,
+        ...(listingCollectionId
+          ? { collectionId: listingCollectionId }
+          : {}),
         ...(item.artistId?.trim() ? { artistId: item.artistId.trim() } : {}),
         ...(item.cardBg ? { cardBg: item.cardBg } : {}),
         copies: item.copies,

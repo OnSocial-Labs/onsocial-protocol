@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { CollectionQtyStepper, ProfileAvatar } from '@onsocial/ui';
+import { CollectionQtyStepper } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
+  collectionIdFromTokenId,
   fetchScarceListingMeta,
   fetchScarceMintSummary,
   formatMarketRelativeTime,
@@ -18,7 +18,12 @@ import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
+import {
+  executeListingAction,
+  type ListingActionItem,
+} from '@/features/scarces/listing-actions';
 import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
+import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
   ScarceListingFactsSheet,
   type ScarceListingFacts,
@@ -30,8 +35,10 @@ import {
 } from '@/features/scarces/scarce-embed-ledger';
 import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
 import { ScarceProvenanceCopy, isScarceOriginalSelf } from '@/features/scarces/scarce-provenance-copy';
+import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { ScarceTraits } from '@/features/scarces/scarce-traits';
 import {
@@ -42,9 +49,7 @@ import {
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { portfolioPath } from '@/lib/overlay-routes';
 import { parseDropPaintSnapshot, parsePostText } from '@/lib/post-display';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
   txToastError,
@@ -76,6 +81,8 @@ interface ScarceBuyFormProps {
     cardBg?: string;
     copies?: number;
     remaining?: number;
+    /** Medium kind for supply nouns (tickets / copies / editions). */
+    mediumKind?: string | null;
     sourcePostPath?: string;
     postHref?: string | null;
     listedAtMs?: number;
@@ -155,50 +162,6 @@ function authorFromSourcePostPath(
   return match?.[1]?.trim() || undefined;
 }
 
-function PartyLine({
-  label,
-  accountId,
-  displayNameValue,
-  avatarUrl,
-}: {
-  label: string;
-  accountId: string;
-  displayNameValue?: string | null;
-  avatarUrl?: string | null;
-}) {
-  const handle = fallbackLabel(accountId);
-  const name = displayName(accountId, displayNameValue ?? undefined);
-  const nameIsCustom =
-    Boolean(name) && name.toLowerCase() !== handle.toLowerCase();
-  return (
-    <div className="scarce-buy-author-line">
-      <span className="scarce-buy-author-label">{label}</span>
-      <Link
-        href={portfolioPath(accountId)}
-        scroll={false}
-        className="scarce-buy-party"
-      >
-        <ProfileAvatar
-          src={avatarUrl}
-          size="sm"
-          className="scarce-buy-party-avatar"
-        />
-        {/* Stacked like open-post identity — name, then quiet @account. */}
-        <div className="scarce-buy-party-text">
-          {nameIsCustom ? (
-            <>
-              <div className="scarce-buy-party-name">{name}</div>
-              <div className="scarce-buy-party-handle">@{handle}</div>
-            </>
-          ) : (
-            <div className="scarce-buy-party-name">@{handle}</div>
-          )}
-        </div>
-      </Link>
-    </div>
-  );
-}
-
 export function ScarceBuyForm({
   formId,
   post = null,
@@ -217,6 +180,8 @@ export function ScarceBuyForm({
   } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [pending, setPending] = useState(false);
+  const [confirmDelist, setConfirmDelist] = useState(false);
+  const confirmTimerRef = useRef<number | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [hydratedDescription, setHydratedDescription] = useState<string | null>(
@@ -243,14 +208,22 @@ export function ScarceBuyForm({
   const [sellerProfileName, setSellerProfileName] = useState<string | null>(
     null
   );
+  const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
 
   const status = listing?.status ?? embed?.status ?? 'none';
   const listingId = listing?.listingId ?? embed?.listingId;
   const tokenId = listing?.tokenId ?? embed?.tokenId;
-  const collectionId = listing?.collectionId ?? embed?.collectionId;
+  const collectionId =
+    listing?.collectionId?.trim() ||
+    embed?.collectionId?.trim() ||
+    (tokenId ? collectionIdFromTokenId(tokenId) : null) ||
+    undefined;
   const priceNear = listing?.priceNear ?? embed?.priceNear;
   const copies = listing?.copies ?? embed?.copies;
   const remaining = listing?.remaining ?? embed?.remaining;
+  const mediumKind =
+    listing?.mediumKind?.trim() || embed?.mediumKind?.trim() || null;
+  const supplyUnit = supplyUnitForMediumKind(mediumKind).unit;
   const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const resolvedDescription =
     listing?.description?.trim() || hydratedDescription || null;
@@ -270,22 +243,45 @@ export function ScarceBuyForm({
   const sellerId =
     listing?.creatorId ?? embed?.creatorId ?? post?.accountId ?? null;
   const artistFromListing = listing?.artistId?.trim() || undefined;
+  // Provenance author — not post.accountId (often the listing poster / seller).
   const artistFromPost =
-    post?.accountId?.trim() ||
-    authorFromSourcePostPath(resolvedSourcePostPath) ||
-    undefined;
+    authorFromSourcePostPath(resolvedSourcePostPath) || undefined;
+  // Prefer mint creator; fall back to seller so Author never blanks the sheet.
+  // Hydrate upgrades Author on resales → Seller line appears when distinct.
   const artistId =
     artistFromListing ||
-    (sellerId &&
-    artistFromPost &&
-    !accountIdsEqual(sellerId, artistFromPost)
-      ? artistFromPost
-      : undefined) ||
+    artistFromPost ||
+    hydratedArtistId ||
     sellerId;
   const showDistinctSeller =
     Boolean(sellerId) &&
     Boolean(artistId) &&
     !accountIdsEqual(sellerId!, artistId!);
+
+  useEffect(() => {
+    if (artistFromListing || artistFromPost) {
+      setHydratedArtistId(null);
+      return;
+    }
+    const id = collectionId?.trim();
+    if (!id) {
+      setHydratedArtistId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await fetchCollectionPreferIndexer(id);
+        if (cancelled) return;
+        setHydratedArtistId(view?.creatorId?.trim() || null);
+      } catch {
+        if (!cancelled) setHydratedArtistId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [artistFromListing, artistFromPost, collectionId]);
 
   useEffect(() => {
     const accountId = artistId?.trim();
@@ -451,6 +447,14 @@ export function ScarceBuyForm({
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
   const isPrimaryMint = isLazyBuy || isDropBuy;
   const isBuyable = !isOwnListing && (isLazyBuy || isDropBuy || isMarketBuy);
+  /** Own fixed / lazy listing — Delist or Cancel in the footer (not primary drops). */
+  const canManageOwnListing =
+    isOwnListing && (isMarketBuy || isLazyBuy);
+  const ownManageKind: ListingActionItem['kind'] | null = isMarketBuy
+    ? 'delist'
+    : isLazyBuy
+      ? 'cancel_lazy'
+      : null;
   const alreadyOwnsEdition =
     Boolean(listing?.alreadyOwnsEdition) || alreadyOwnsEditionProp;
   const maxQuantity = resolveMintMaxQuantity({
@@ -482,7 +486,122 @@ export function ScarceBuyForm({
 
   const canSubmit = isConnected && !pending && isBuyable;
 
+  const clearDelistConfirm = useCallback(() => {
+    if (confirmTimerRef.current != null) {
+      window.clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+    setConfirmDelist(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current != null) {
+        window.clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    clearDelistConfirm();
+  }, [clearDelistConfirm, listingId, tokenId, status]);
+
+  const handleManageOwnListing = useCallback(async () => {
+    if (!canManageOwnListing || !ownManageKind || pending) return;
+    if (!confirmDelist) {
+      setConfirmDelist(true);
+      confirmTimerRef.current = window.setTimeout(() => {
+        confirmTimerRef.current = null;
+        setConfirmDelist(false);
+      }, 4_000);
+      return;
+    }
+    clearDelistConfirm();
+    setPending(true);
+    setFieldError(null);
+    try {
+      const { accountId: signer, wallet } = await getSigningWallet();
+      const item: ListingActionItem = {
+        id: `buy-sheet:${ownManageKind}:${tokenId ?? listingId ?? ''}`,
+        kind: ownManageKind,
+        title: title,
+        sellerId: sellerId ?? signer,
+        priceNear: priceNear ?? null,
+        bidCount: 0,
+        expiresAtNs: null,
+        ended: false,
+        ...(tokenId ? { tokenId } : {}),
+        ...(listingId ? { listingId } : {}),
+      };
+      const confirmed = await executeListingAction({
+        item,
+        accountId: signer,
+        wallet,
+        trackTransaction,
+      });
+      if (!confirmed) return;
+      onSuccess?.({
+        ...(listingId ? { listingId } : {}),
+        ...(tokenId ? { tokenId } : {}),
+      });
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setFieldError(
+        cause instanceof Error
+          ? cause.message
+          : txToastError.cancelScarceListingFailed
+      );
+      setTxResult({
+        type: 'error',
+        msg:
+          cause instanceof Error
+            ? cause.message
+            : txToastError.cancelScarceListingFailed,
+      });
+    } finally {
+      setPending(false);
+    }
+  }, [
+    canManageOwnListing,
+    clearDelistConfirm,
+    confirmDelist,
+    getSigningWallet,
+    listingId,
+    onSuccess,
+    ownManageKind,
+    pending,
+    priceNear,
+    sellerId,
+    setTxResult,
+    title,
+    tokenId,
+    trackTransaction,
+  ]);
+
   const footerState = useMemo((): CommerceSheetFooterState | null => {
+    if (canManageOwnListing) {
+      const isDelist = ownManageKind === 'delist';
+      return {
+        visible: true,
+        primaryLabel: confirmDelist
+          ? isDelist
+            ? 'Delist?'
+            : 'Cancel?'
+          : isDelist
+            ? 'Delist'
+            : 'Cancel listing',
+        primaryPendingLabel: isDelist ? 'Delisting…' : 'Canceling…',
+        canSubmit: !pending,
+        pending,
+        disabled: pending,
+        primaryType: 'button',
+        primaryVariant: confirmDelist ? 'danger' : 'primary',
+        onPrimaryClick: () => {
+          void handleManageOwnListing();
+        },
+        onPrimaryBlur: confirmDelist ? clearDelistConfirm : undefined,
+      };
+    }
     if (isOwnListing) return null;
     return {
       visible: true,
@@ -514,14 +633,19 @@ export function ScarceBuyForm({
           : null,
     };
   }, [
+    canManageOwnListing,
     canSubmit,
+    clearDelistConfirm,
+    confirmDelist,
+    handleManageOwnListing,
     isConnected,
+    isOwnListing,
     isPrimaryMint,
     isMarketBuy,
-    isOwnListing,
     maxQuantity,
     mintQty,
     onMakeOffer,
+    ownManageKind,
     pending,
     primaryLabelWithPrice,
     showMintQty,
@@ -541,7 +665,7 @@ export function ScarceBuyForm({
       listedAtMs: listing?.listedAtMs ?? null,
       copies: copies ?? null,
       remaining: remaining ?? null,
-      mediumKind: embed?.mediumKind ?? null,
+      mediumKind: mediumKind,
       authorId: artistId ?? null,
       sellerId: sellerId ?? null,
       sourcePostPath: resolvedSourcePostPath,
@@ -561,7 +685,7 @@ export function ScarceBuyForm({
     listing?.postHref,
     copies,
     remaining,
-    embed?.mediumKind,
+    mediumKind,
     artistId,
     sellerId,
     resolvedSourcePostPath,
@@ -782,7 +906,7 @@ export function ScarceBuyForm({
       <div className="scarce-buy-summary">
         <p className="scarce-buy-title">{title}</p>
         {artistId ? (
-          <PartyLine
+          <ScarcePartyLine
             label="Author"
             accountId={artistId}
             displayNameValue={
@@ -794,7 +918,7 @@ export function ScarceBuyForm({
           />
         ) : null}
         {showDistinctSeller && sellerId ? (
-          <PartyLine
+          <ScarcePartyLine
             label="Seller"
             accountId={sellerId}
             displayNameValue={sellerProfileName}
@@ -808,7 +932,7 @@ export function ScarceBuyForm({
           <p className="profile-support-hint">
             {remaining != null && remaining < copies
               ? `${remaining} of ${copies} left`
-              : `${copies} editions`}
+              : `${copies} ${supplyUnit}`}
           </p>
         ) : null}
         {(() => {
@@ -869,12 +993,7 @@ export function ScarceBuyForm({
         <p className="profile-support-error" role="alert">
           {fieldError}
         </p>
-      ) : isOwnListing ? (
-        <p className="profile-support-hint">
-          This is your listing. Cancel it from the post menu if you want it off
-          sale.
-        </p>
-      ) : !isConnected ? (
+      ) : isOwnListing ? null : !isConnected ? (
         <p className="profile-support-hint">
           {isPrimaryMint
             ? 'Connect to mint this scarce.'

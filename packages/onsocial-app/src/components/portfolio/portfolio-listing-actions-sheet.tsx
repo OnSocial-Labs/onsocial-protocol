@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
 } from 'react';
@@ -18,13 +19,18 @@ import {
   TimeFillIcon,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
+import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import {
   executeListingAction,
   fetchListingActions,
+  listingActionConfirmLabel,
+  listingActionNeedsConfirm,
   listingActionOpensBidSheet,
+  listingActionOpensBuySheet,
   listingActionPendingLabel,
   listingActionPrimaryLabel,
   listingActionRowMeta,
@@ -37,6 +43,10 @@ import {
   ScarceBidSheet,
   type ScarceBidListing,
 } from '@/features/scarces/scarce-bid-sheet';
+import {
+  ScarceBuySheet,
+  type ScarceBuyListing,
+} from '@/features/scarces/scarce-buy-sheet';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -44,10 +54,18 @@ import { fallbackLabel } from '@/lib/profile-display';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
+/** Match Market owned-row Delist arm window. */
+const CONFIRM_LEAVE_MS = 4_000;
+/** Skip refetch when face/cache seed is newer than this. */
+const LISTINGS_SEED_FRESH_MS = 30_000;
+
 interface PortfolioListingActionsSheetProps {
   open: boolean;
   accountId: string;
   onOpenChange: (open: boolean) => void;
+  /** Face-mark fetch — paint immediately; skip refetch while fresh. */
+  initialItems?: ListingActionItem[];
+  initialFetchedAt?: number;
   /** Called after a successful action so the pill can refresh. */
   onActionsChanged?: () => void;
 }
@@ -69,23 +87,73 @@ function bidListingFromAction(item: ListingActionItem): ScarceBidListing | null 
   };
 }
 
+function buyListingFromAction(item: ListingActionItem): ScarceBuyListing | null {
+  if (!listingActionOpensBuySheet(item.kind)) return null;
+  const postHref = postHrefFromSourcePath(item.sourcePostPath);
+  const collectionId = item.tokenId
+    ? collectionIdFromTokenId(item.tokenId)
+    : null;
+
+  if (item.kind === 'delist' && item.tokenId) {
+    return {
+      tokenId: item.tokenId,
+      status: 'listed',
+      title: item.title,
+      mediaUrl: item.mediaUrl,
+      creatorId: item.sellerId,
+      ...(item.priceNear ? { priceNear: item.priceNear } : {}),
+      ...(collectionId ? { collectionId } : {}),
+      ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
+      ...(postHref ? { postHref } : {}),
+      ...(item.listedAtMs != null && item.listedAtMs > 0
+        ? { listedAtMs: item.listedAtMs }
+        : {}),
+      alreadyOwnsEdition: true,
+    };
+  }
+
+  if (item.kind === 'cancel_lazy' && item.listingId) {
+    return {
+      listingId: item.listingId,
+      status: 'lazy_listing',
+      title: item.title,
+      mediaUrl: item.mediaUrl,
+      creatorId: item.sellerId,
+      ...(item.priceNear ? { priceNear: item.priceNear } : {}),
+      ...(item.sourcePostPath ? { sourcePostPath: item.sourcePostPath } : {}),
+      ...(postHref ? { postHref } : {}),
+      ...(item.listedAtMs != null && item.listedAtMs > 0
+        ? { listedAtMs: item.listedAtMs }
+        : {}),
+    };
+  }
+
+  return null;
+}
+
 function ActionRow({
   item,
   pending,
+  confirming,
   onAction,
   onOpenDetail,
+  onClearConfirm,
 }: {
   item: ListingActionItem;
   pending: boolean;
+  confirming: boolean;
   onAction: (item: ListingActionItem) => void;
   onOpenDetail: (item: ListingActionItem) => void;
+  onClearConfirm: () => void;
 }) {
   const meta = listingActionRowMeta(item);
   const time = listingActionTimeLabel(item);
   const seller =
     item.kind === 'collect_win' ? `@${fallbackLabel(item.sellerId)}` : null;
-  const opensDetail = listingActionOpensBidSheet(item.kind) && Boolean(item.tokenId);
-
+  const opensDetail =
+    (listingActionOpensBidSheet(item.kind) && Boolean(item.tokenId)) ||
+    (listingActionOpensBuySheet(item.kind) &&
+      Boolean(item.tokenId || item.listingId));
   const body = (
     <>
       <div
@@ -122,7 +190,7 @@ function ActionRow({
           className="portfolio-listing-action-hit"
           disabled={pending}
           onClick={() => onOpenDetail(item)}
-          aria-label={`Open ${item.title}`}
+          aria-label={`Open listing ${item.title}`}
         >
           {body}
         </button>
@@ -143,20 +211,24 @@ function ActionRow({
         >
           <OsSheetAction
             type="button"
-            variant={
-              item.kind === 'cancel_auction' ||
-              item.kind === 'delist' ||
-              item.kind === 'cancel_lazy'
-                ? 'ghost'
-                : 'primary'
-            }
+            variant={confirming ? 'danger' : 'primary'}
             ready={!pending}
             pending={pending}
             pendingLabel={listingActionPendingLabel(item.kind)}
             disabled={pending}
+            aria-label={
+              pending
+                ? listingActionPendingLabel(item.kind)
+                : confirming
+                  ? `Confirm ${listingActionPrimaryLabel(item.kind).toLowerCase()}`
+                  : listingActionPrimaryLabel(item.kind)
+            }
             onClick={() => onAction(item)}
+            onBlur={confirming ? onClearConfirm : undefined}
           >
-            {listingActionPrimaryLabel(item.kind)}
+            {confirming
+              ? listingActionConfirmLabel(item.kind)
+              : listingActionPrimaryLabel(item.kind)}
           </OsSheetAction>
         </OsSheetActions>
       </div>
@@ -178,7 +250,7 @@ function groupItems(items: ListingActionItem[]): {
       item.kind === 'cancel_lazy'
   );
   return [
-    ...(collect.length
+    ...(collect.length > 0
       ? [
           {
             title: listingActionSectionTitle('collect_win'),
@@ -187,7 +259,7 @@ function groupItems(items: ListingActionItem[]): {
           },
         ]
       : []),
-    ...(complete.length
+    ...(complete.length > 0
       ? [
           {
             title: listingActionSectionTitle('complete_sale'),
@@ -196,7 +268,7 @@ function groupItems(items: ListingActionItem[]): {
           },
         ]
       : []),
-    ...(manage.length
+    ...(manage.length > 0
       ? [
           {
             title: listingActionSectionTitle('delist'),
@@ -209,22 +281,32 @@ function groupItems(items: ListingActionItem[]): {
 }
 
 /**
- * Owner drawer — quiet header, standing-style time above CTA, Market bid sheet
- * for collect / complete.
+ * Owner drawer — quiet header, standing-style time above CTA, Market buy/bid
+ * sheets for the live listing; two-press Delist/Cancel like Market.
  */
 export function PortfolioListingActionsSheet({
   open,
   accountId,
   onOpenChange,
+  initialItems,
+  initialFetchedAt = 0,
   onActionsChanged,
 }: PortfolioListingActionsSheetProps) {
   const { getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
   const [items, setItems] = useState<ListingActionItem[] | null>(null);
+  const cacheRef = useRef<{
+    accountId: string;
+    items: ListingActionItem[];
+    fetchedAt: number;
+  } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const confirmTimerRef = useRef<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bidListing, setBidListing] = useState<ScarceBidListing | null>(null);
+  const [buyListing, setBuyListing] = useState<ScarceBuyListing | null>(null);
   const [focusActionId, setFocusActionId] = useState<string | null>(null);
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
@@ -233,29 +315,96 @@ export function PortfolioListingActionsSheet({
     ? (supportSheetPanelStyle(mood.cssVars) as CSSProperties)
     : undefined;
 
+  const clearConfirm = useCallback(() => {
+    if (confirmTimerRef.current != null) {
+      window.clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+    setConfirmId(null);
+  }, []);
+
+  const armConfirm = useCallback(
+    (actionId: string) => {
+      clearConfirm();
+      setConfirmId(actionId);
+      confirmTimerRef.current = window.setTimeout(() => {
+        confirmTimerRef.current = null;
+        setConfirmId(null);
+      }, CONFIRM_LEAVE_MS);
+    },
+    [clearConfirm]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current != null) {
+        window.clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setItems(null);
+    // Face fetch (even empty) seeds when fetchedAt is set.
+    const seed =
+      initialFetchedAt > 0 && initialItems != null ? initialItems : null;
+    const cached =
+      cacheRef.current?.accountId === accountId ? cacheRef.current : null;
+    const warm = seed ?? cached?.items ?? null;
+    const warmAt = seed
+      ? initialFetchedAt
+      : (cached?.fetchedAt ?? 0);
+    if (warm) {
+      setItems(warm);
+      if (seed) {
+        cacheRef.current = {
+          accountId,
+          items: seed,
+          fetchedAt: initialFetchedAt,
+        };
+      }
+    } else {
+      setItems(null);
+    }
     setLoadError(null);
     setBidListing(null);
+    setBuyListing(null);
     setFocusActionId(null);
+    clearConfirm();
+
+    const fresh =
+      warm != null &&
+      warmAt > 0 &&
+      Date.now() - warmAt < LISTINGS_SEED_FRESH_MS;
+    if (fresh) {
+      return;
+    }
+
     void fetchListingActions(accountId).then(
       (page) => {
         if (cancelled) return;
         setItems(page.items);
+        cacheRef.current = {
+          accountId,
+          items: page.items,
+          fetchedAt: Date.now(),
+        };
       },
       () => {
         if (cancelled) return;
-        setLoadError('Couldn’t load listing actions.');
-        setItems([]);
+        if (!warm) {
+          setLoadError('Couldn’t load listing actions.');
+          setItems([]);
+        }
       }
     );
     return () => {
       cancelled = true;
     };
-  }, [open, accountId]);
+    // initialItems only seeds paint — omit from deps so parent refresh doesn’t remount mid-open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open/accountId gate
+  }, [open, accountId, clearConfirm]);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -263,25 +412,39 @@ export function PortfolioListingActionsSheet({
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
+    clearConfirm();
     onOpenChange(false);
-  }, [onOpenChange]);
+  }, [clearConfirm, onOpenChange]);
 
   const removeAction = useCallback(
     (actionId: string) => {
       const remaining = (items ?? []).filter((row) => row.id !== actionId);
       setItems(remaining);
+      cacheRef.current = {
+        accountId,
+        items: remaining,
+        fetchedAt: Date.now(),
+      };
       onActionsChanged?.();
       if (remaining.length === 0) requestClose();
     },
-    [items, onActionsChanged, requestClose]
+    [accountId, items, onActionsChanged, requestClose]
   );
 
   const handleOpenDetail = useCallback((item: ListingActionItem) => {
+    clearConfirm();
+    if (listingActionOpensBuySheet(item.kind)) {
+      const listing = buyListingFromAction(item);
+      if (!listing) return;
+      setFocusActionId(item.id);
+      setBuyListing(listing);
+      return;
+    }
     const listing = bidListingFromAction(item);
     if (!listing) return;
     setFocusActionId(item.id);
     setBidListing(listing);
-  }, []);
+  }, [clearConfirm]);
 
   const handleBidSettled = useCallback(() => {
     const actionId = focusActionId;
@@ -293,6 +456,13 @@ export function PortfolioListingActionsSheet({
   const handleAction = useCallback(
     async (item: ListingActionItem) => {
       if (pendingId) return;
+      if (listingActionNeedsConfirm(item.kind)) {
+        if (confirmId !== item.id) {
+          armConfirm(item.id);
+          return;
+        }
+        clearConfirm();
+      }
       setPendingId(item.id);
       try {
         const { accountId: signer, wallet } = await getSigningWallet();
@@ -317,19 +487,23 @@ export function PortfolioListingActionsSheet({
         setPendingId(null);
       }
     },
-    [getSigningWallet, pendingId, removeAction, setTxResult, trackTransaction]
+    [
+      armConfirm,
+      clearConfirm,
+      confirmId,
+      getSigningWallet,
+      pendingId,
+      removeAction,
+      setTxResult,
+      trackTransaction,
+    ]
   );
 
   const sections = items ? groupItems(items) : [];
-  const count = items?.length ?? 0;
+  // Count lives on the face mark (the clickable control). Don't repeat
+  // "N need attention" as inert header copy — reads like a dead button.
   const subtitle =
-    items == null
-      ? undefined
-      : count === 0
-        ? 'Nothing pending'
-        : count === 1
-          ? '1 needs attention'
-          : `${count} need attention`;
+    items != null && items.length === 0 ? 'Nothing pending' : undefined;
 
   return (
     <>
@@ -371,7 +545,7 @@ export function PortfolioListingActionsSheet({
           {loadError ? (
             <p className="portfolio-support-collect-info-empty">{loadError}</p>
           ) : items == null ? (
-            <p className="portfolio-support-collect-info-empty">Loading…</p>
+            <ProfileSocialListSkeleton count={2} />
           ) : sections.length === 0 ? (
             <p className="portfolio-support-collect-info-empty">
               Nothing needs your attention right now.
@@ -382,9 +556,11 @@ export function PortfolioListingActionsSheet({
                 key={section.title}
                 className="portfolio-listing-action-section"
               >
-                <p className="portfolio-support-collect-info-section-note">
-                  {section.title}
-                </p>
+                {section.title ? (
+                  <p className="portfolio-support-collect-info-section-note">
+                    {section.title}
+                  </p>
+                ) : null}
                 <div className="standing-list portfolio-support-collect-info-list">
                   {section.items.map((item, index) => (
                     <div key={item.id}>
@@ -392,10 +568,14 @@ export function PortfolioListingActionsSheet({
                       <ActionRow
                         item={item}
                         pending={pendingId === item.id}
+                        confirming={
+                          confirmId === item.id && pendingId !== item.id
+                        }
                         onAction={(row) => {
                           void handleAction(row);
                         }}
                         onOpenDetail={handleOpenDetail}
+                        onClearConfirm={clearConfirm}
                       />
                     </div>
                   ))}
@@ -418,6 +598,19 @@ export function PortfolioListingActionsSheet({
         }}
         onBid={handleBidSettled}
       />
+
+      <ScarceBuySheet
+        open={buyListing != null}
+        listing={buyListing}
+        alreadyOwnsEdition
+        zIndex={58}
+        onOpenChange={(next) => {
+          if (!next) {
+            setBuyListing(null);
+            setFocusActionId(null);
+          }
+        }}
+      />
     </>
   );
 }
@@ -436,7 +629,11 @@ export function PortfolioListingActionsMark({
       type="button"
       className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
       onClick={onOpen}
-      aria-label={`${count} listing ${count === 1 ? 'action' : 'actions'} needed`}
+      aria-label={
+        count === 1
+          ? '1 listing needs attention — open'
+          : `${count} listings need attention — open`
+      }
     >
       <span className="signal-group signal-group-endorse" aria-hidden>
         <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--actions portfolio-payout-mark-icon--nudge">

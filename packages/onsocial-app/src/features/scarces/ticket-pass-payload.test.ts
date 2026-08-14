@@ -5,6 +5,7 @@ import {
   parseTicketPassPayload,
   passStaffVoice,
   ticketPassRemaining,
+  ticketPassSeatLabel,
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
 
@@ -93,5 +94,11 @@ describe('ticket-pass-payload', () => {
         voice: 'redeem',
       })
     ).toBe('Fully redeemed');
+  });
+
+  it('shows a guest seat label instead of collection:id', () => {
+    expect(ticketPassSeatLabel('onsocial-14oliw:1')).toBe('Pass 1');
+    expect(ticketPassSeatLabel('night-drive:12')).toBe('Pass 12');
+    expect(ticketPassSeatLabel('')).toBe('Pass');
   });
 });

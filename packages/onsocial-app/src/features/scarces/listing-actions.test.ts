@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   listingActionAgeLabel,
+  listingActionConfirmLabel,
   listingActionEyebrow,
+  listingActionNeedsConfirm,
   listingActionOpensBidSheet,
+  listingActionOpensBuySheet,
   listingActionPendingLabel,
   listingActionPrimaryLabel,
   listingActionRowMeta,
@@ -26,6 +29,28 @@ function base(
 }
 
 describe('listing action copy', () => {
+  it('opens bid sheet for settle and cancel auction', () => {
+    expect(listingActionOpensBidSheet('collect_win')).toBe(true);
+    expect(listingActionOpensBidSheet('complete_sale')).toBe(true);
+    expect(listingActionOpensBidSheet('cancel_auction')).toBe(true);
+    expect(listingActionOpensBidSheet('delist')).toBe(false);
+  });
+
+  it('opens buy sheet for fixed and lazy manage rows', () => {
+    expect(listingActionOpensBuySheet('delist')).toBe(true);
+    expect(listingActionOpensBuySheet('cancel_lazy')).toBe(true);
+    expect(listingActionOpensBuySheet('cancel_auction')).toBe(false);
+  });
+
+  it('arms two-press confirm for destructive manage CTAs', () => {
+    expect(listingActionNeedsConfirm('delist')).toBe(true);
+    expect(listingActionNeedsConfirm('cancel_auction')).toBe(true);
+    expect(listingActionNeedsConfirm('cancel_lazy')).toBe(true);
+    expect(listingActionNeedsConfirm('collect_win')).toBe(false);
+    expect(listingActionConfirmLabel('delist')).toBe('Delist?');
+    expect(listingActionConfirmLabel('cancel_lazy')).toBe('Cancel?');
+  });
+
   it('keeps primary CTAs short', () => {
     expect(listingActionPrimaryLabel('collect_win')).toBe('Collect');
     expect(listingActionPrimaryLabel('complete_sale')).toBe('Complete');
@@ -46,15 +71,9 @@ describe('listing action copy', () => {
     expect(listingActionSectionTitle('complete_sale')).toBe(
       'Sales to complete'
     );
-    expect(listingActionSectionTitle('delist')).toBe('Your listings');
+    expect(listingActionSectionTitle('delist')).toBe('');
   });
 
-  it('opens Market bid sheet only for settle kinds', () => {
-    expect(listingActionOpensBidSheet('collect_win')).toBe(true);
-    expect(listingActionOpensBidSheet('complete_sale')).toBe(true);
-    expect(listingActionOpensBidSheet('delist')).toBe(false);
-    expect(listingActionOpensBidSheet('cancel_auction')).toBe(false);
-  });
 
   it('eyebrows stay short', () => {
     expect(listingActionEyebrow('collect_win')).toBe('You won');

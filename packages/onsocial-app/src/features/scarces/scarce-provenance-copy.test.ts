@@ -35,6 +35,25 @@ describe('resolveScarceBodyText', () => {
     ).toBeNull();
   });
 
+  it('strips a leading cover title from a longer description', () => {
+    expect(
+      resolveScarceBodyText({
+        title: 'Permanence changes what you\'re willing to say aloud.',
+        description:
+          'Permanence changes what you\'re willing to say aloud. Keep it short, honest, and worth owning.',
+      })
+    ).toBe('Keep it short, honest, and worth owning.');
+  });
+
+  it('does not strip a title that is only a word prefix', () => {
+    expect(
+      resolveScarceBodyText({
+        title: 'Permanence',
+        description: 'Permanence changes everything.',
+      })
+    ).toBe('Permanence changes everything.');
+  });
+
   it('falls back to live post text when description is absent', () => {
     expect(
       resolveScarceBodyText({

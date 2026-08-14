@@ -80,6 +80,8 @@ export interface MarketListingItem {
   listingId?: string;
   /** Native token id (`s:…`) for secondary listings / auctions. */
   tokenId?: string;
+  /** Drop id when known (`collectionId:edition` tokens / catalog). */
+  collectionId?: string | null;
   /** Seller: mint creator for lazy, current owner for native/auction. */
   creatorId: string;
   /**
@@ -169,6 +171,10 @@ export interface OwnedScarceItem {
   sourcePostPath?: string;
   /** Resolved app thread href for `sourcePostPath` (personal or guild). */
   postHref?: string;
+  /** Track / clip from `extra.playable` — same as Market / Buy. */
+  playable?: ScarcePlayableMedia;
+  /** Full album list; `playable` is the first entry. */
+  playables?: ScarcePlayableMedia[];
 }
 
 /** `drop-1:3` → `drop-1`; post scarces (`s:…`) have no collection page. */
@@ -391,6 +397,22 @@ export function formatMarketRelativeTime(
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** Countdown to a future time (`in 12m` / `in 2h` / `soon`). */
+export function formatFutureRelativeTime(
+  timestamp: number,
+  nowMs: number = Date.now()
+): string {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+  const ms = timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
+  const delta = ms - nowMs;
+  if (delta <= 0) return 'soon';
+  const minutes = Math.max(1, Math.ceil(delta / 60_000));
+  if (minutes < 60) return `in ${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `in ${hours}h`;
+  return `in ${Math.round(hours / 24)}d`;
 }
 
 function priceNearFromRow(row: ScarcesEventRow): string {
@@ -1282,6 +1304,7 @@ function ownedItemsFromTokens(
       const collectionId = collectionIdFromTokenId(tokenId);
       const mediumKind = mediumKindFromExtra(extra) ?? null;
       const playables = playablesFromExtra(extra);
+      const playable = playables[0];
       const discovery = discoveryFieldsFromExtra(extra, playables.length);
       const listed = listedByToken.get(tokenId);
       return {
@@ -1302,6 +1325,8 @@ function ownedItemsFromTokens(
           ? { expiresAtNs: listed.expiresAtNs }
           : {}),
         ...(sourcePostPath ? { sourcePostPath } : {}),
+        ...(playable ? { playable } : {}),
+        ...(playables.length > 0 ? { playables } : {}),
       };
     })
     .filter((item): item is OwnedScarceItem => item != null);
@@ -1460,6 +1485,7 @@ async function fetchOwnedScarcesPageFromIndexer(
       : null;
     const extra = parseExtra(face?.extraJson ?? catalog?.extraJson ?? null);
     const playables = playablesFromExtra(extra);
+    const playable = playables[0];
     const discovery = discoveryFieldsFromExtra(extra, playables.length);
     const mediumKind =
       face?.kind ??
@@ -1492,6 +1518,8 @@ async function fetchOwnedScarcesPageFromIndexer(
       ...(sourcePostPathFromExtra(extra)
         ? { sourcePostPath: sourcePostPathFromExtra(extra)! }
         : {}),
+      ...(playable ? { playable } : {}),
+      ...(playables.length > 0 ? { playables } : {}),
     });
   }
 
@@ -1518,6 +1546,10 @@ async function fetchOwnedScarcesPageFromIndexer(
           mediaUrl: meta.mediaUrl ?? item.mediaUrl,
           ...(meta.sourcePostPath && !item.sourcePostPath
             ? { sourcePostPath: meta.sourcePostPath }
+            : {}),
+          ...(meta.playable && !item.playable ? { playable: meta.playable } : {}),
+          ...(meta.playables?.length && !item.playables?.length
+            ? { playables: meta.playables }
             : {}),
         };
       })

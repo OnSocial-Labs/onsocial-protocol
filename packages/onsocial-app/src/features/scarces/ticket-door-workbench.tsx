@@ -58,6 +58,24 @@ export function TicketDoorWorkbench({
 
   const lastLine =
     voice === 'redeem' ? 'Last redeemed' : 'Last admitted';
+  const redeemVoice = voice === 'redeem';
+  const emptyMinted =
+    attendanceLine === 'No passes minted yet' ||
+    attendanceLine === 'No coupons minted yet';
+  const leadText =
+    lead !== undefined
+      ? lead
+      : emptyMinted
+        ? null
+        : cameraError
+          ? 'Paste into the Pass code field, then Look up.'
+          : cameraActive
+            ? redeemVoice
+              ? 'Point at a coupon QR.'
+              : 'Point at a Show pass QR.'
+            : redeemVoice
+              ? 'Start the camera or paste a coupon code.'
+              : 'Start the camera or paste a pass code.';
 
   return (
     <div className="ticket-door">
@@ -67,45 +85,22 @@ export function TicketDoorWorkbench({
         </p>
       ) : null}
 
-      <p className="ticket-door-lead">
-        {lead ??
-          (voice === 'redeem'
-            ? 'Scan a coupon QR, or paste the pass code, then redeem.'
-            : 'Scan a Show pass QR, or paste the pass code, then admit.')}
-      </p>
+      {leadText ? <p className="ticket-door-lead">{leadText}</p> : null}
 
-      <div className={`ticket-door-camera${cameraActive ? ' is-live' : ''}`}>
-        <video
-          ref={videoRef}
-          className="ticket-door-video"
-          playsInline
-          muted
-          aria-label={voice === 'redeem' ? 'Redeem camera' : 'Door camera'}
-        />
-        {!cameraActive ? (
-          <div className="ticket-door-camera-empty">
-            <p>{cameraError ?? 'Camera idle'}</p>
-          </div>
-        ) : null}
-      </div>
-
-      {scanHint ? <p className="ticket-door-hint">{scanHint}</p> : null}
-      {lastAdmittedTokenId ? (
-        <p className="ticket-door-hint is-success">
-          {lastLine} · {lastAdmittedTokenId}
-        </p>
+      {cameraError && !cameraActive ? (
+        <p className="ticket-door-hint">{cameraError}</p>
       ) : null}
 
       <label className="ticket-door-field">
         <span className="ticket-door-field-label">Pass code</span>
         <input
-          className={`${osFieldBorderedClassName} ticket-door-input}`}
+          className={`${osFieldBorderedClassName} ticket-door-input`}
           value={manualInput}
           inputMode="text"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          placeholder="Scan or paste os1:… / token id"
+          placeholder="Paste pass code"
           disabled={admitPending}
           onChange={(event) => {
             setManualInput(event.target.value);
@@ -134,6 +129,31 @@ export function TicketDoorWorkbench({
       {lookupError ? (
         <p className="ticket-door-error" role="alert">
           {lookupError}
+        </p>
+      ) : null}
+
+      {/* Video stays mounted for getUserMedia; square only shows when live. */}
+      <div
+        className={
+          cameraActive
+            ? 'ticket-door-camera is-live'
+            : 'ticket-door-camera-host'
+        }
+        aria-hidden={!cameraActive}
+      >
+        <video
+          ref={videoRef}
+          className="ticket-door-video"
+          playsInline
+          muted
+          aria-label={redeemVoice ? 'Redeem camera' : 'Door camera'}
+        />
+      </div>
+
+      {scanHint ? <p className="ticket-door-hint">{scanHint}</p> : null}
+      {lastAdmittedTokenId ? (
+        <p className="ticket-door-hint is-success">
+          {lastLine} · {lastAdmittedTokenId}
         </p>
       ) : null}
 

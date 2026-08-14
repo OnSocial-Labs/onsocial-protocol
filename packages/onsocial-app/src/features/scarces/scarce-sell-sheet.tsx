@@ -22,10 +22,21 @@ interface ScarceSellSheetProps {
   onListed?: (detail: ScarceSellSuccessDetail) => void;
 }
 
+/** Stable first-paint footer so hug height doesn’t jump when the form syncs. */
+const SELL_FOOTER_SEED: CommerceSheetFooterState = {
+  visible: true,
+  primaryLabel: 'List for sale',
+  primaryPendingLabel: 'Listing…',
+  canSubmit: false,
+  pending: false,
+  disabled: true,
+};
+
 /** Owner sheet: list an owned scarce for secondary sale. */
 export function ScarceSellSheet({
   open,
   item,
+  sellerAccountId = null,
   onOpenChange,
   onListed,
 }: ScarceSellSheetProps) {
@@ -35,13 +46,16 @@ export function ScarceSellSheet({
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
   const [footerState, setFooterState] =
-    useState<CommerceSheetFooterState | null>(null);
+    useState<CommerceSheetFooterState>(SELL_FOOTER_SEED);
   const sheetOpen = open && !closing && item != null;
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setFormKey((key) => key + 1);
+    if (open) {
+      setFormKey((key) => key + 1);
+      setFooterState(SELL_FOOTER_SEED);
+    }
   }
 
   const requestClose = useCallback(() => {
@@ -55,6 +69,10 @@ export function ScarceSellSheet({
 
   const handleFooterStateChange = useCallback(
     (state: CommerceSheetFooterState | null) => {
+      if (!state?.visible) {
+        setFooterState(SELL_FOOTER_SEED);
+        return;
+      }
       setFooterState((prev) =>
         commerceFooterStatesEqual(prev, state) ? prev : state
       );
@@ -69,7 +87,6 @@ export function ScarceSellSheet({
       onClosed={handleSheetClosed}
       verb="Sell"
       signal="reputation"
-      whisper="List fixed-price or start an auction."
       closeAriaLabel="Close sell scarce"
       backdropLabel="Close sell scarce"
       keyboardOpen={keyboardOpen}
@@ -78,13 +95,11 @@ export function ScarceSellSheet({
       titleId={titleId}
       zIndex={56}
       footer={
-        footerState?.visible ? (
-          <CommerceSheetFooter
-            formId={formId}
-            keyboardOpen={keyboardOpen}
-            state={footerState}
-          />
-        ) : undefined
+        <CommerceSheetFooter
+          formId={formId}
+          keyboardOpen={keyboardOpen}
+          state={footerState}
+        />
       }
     >
       {item ? (
@@ -92,6 +107,7 @@ export function ScarceSellSheet({
           key={`${formKey}:${item.tokenId}`}
           formId={formId}
           item={item}
+          sellerAccountId={sellerAccountId}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onListed?.(detail);

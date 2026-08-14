@@ -158,13 +158,33 @@ export function ScarceClipPlayer({
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const { setTxResult } = useAppTransactionFeedback();
   const browserOnline = useBrowserOnline();
-  const playlist =
-    tracks && tracks.length > 0 ? tracks : ([clip] as ScarcePlayableMedia[]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const hostSession =
+    persist?.collectionId &&
+    nowPlaying?.session?.collectionId === persist.collectionId
+      ? nowPlaying.session
+      : null;
+  // Prefer the live album list when Buy/Sell only hydrated a single playable.
+  const playlist = (() => {
+    const local =
+      tracks && tracks.length > 0 ? tracks : ([clip] as ScarcePlayableMedia[]);
+    if (hostSession && hostSession.tracks.length > local.length) {
+      return hostSession.tracks;
+    }
+    return local;
+  })();
+  const [activeIndex, setActiveIndex] = useState(() => {
+    // Join an in-flight album session on the same collection — don't flash track 1.
+    if (hostSession) return nowPlaying!.activeIndex;
+    return 0;
+  });
   const active = playlist[Math.min(activeIndex, playlist.length - 1)] ?? clip;
   const isAudio = isRenderablePostAudioMime(active.mime);
+  // Bind to the host whenever this drop is already playing — never mount a
+  // second <audio> beside the page player (even if mime hydrate lags).
   const persistMode = Boolean(
-    persist?.collectionId && isAudio && nowPlaying
+    persist?.collectionId &&
+      nowPlaying &&
+      (isAudio || hostSession != null)
   );
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const durationByUrlRef = useRef<Map<string, number>>(new Map());

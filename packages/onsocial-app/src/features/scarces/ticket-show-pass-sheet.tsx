@@ -11,9 +11,20 @@ import {
   type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { SheetCloseButton, useScrollLock } from '@onsocial/ui';
+import {
+  ProfileAvatar,
+  resolveGlassScrimBackdropFilter,
+  resolveOsGlassPanelFilter,
+  SheetCloseButton,
+  useScrollLock,
+} from '@onsocial/ui';
+import {
+  fetchCollectionCreatorFace,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
 import {
   encodeTicketPassPayload,
+  ticketPassSeatLabel,
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
 import { TicketPassQr } from '@/features/scarces/ticket-pass-qr';
@@ -21,6 +32,9 @@ import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
 } from '@/features/scarces/ticket-token-status';
+import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { fallbackLabel } from '@/lib/profile-display';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 const clientMountedSubscribe = () => () => {};
@@ -29,8 +43,8 @@ const getServerMountedSnapshot = () => false;
 const LIGHTBOX_EXIT_MS = 180;
 
 /**
- * Full-screen Show pass — QR + check-in remaining.
- * Same lightbox chrome family as Read / Listen.
+ * Full-screen Show pass — QR-first for the door.
+ * Frost scrim like drawers; glass card; quiet copyable backup code.
  */
 export function TicketShowPassSheet({
   open,
@@ -55,6 +69,12 @@ export function TicketShowPassSheet({
   const [status, setStatus] = useState<TicketTokenStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [statusReady, setStatusReady] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [holderFace, setHolderFace] = useState<CollectionCreatorFace | null>(
+    null
+  );
+  const [holderReady, setHolderReady] = useState(false);
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
@@ -69,6 +89,10 @@ export function TicketShowPassSheet({
       setStatus(null);
       setStatusError(null);
       setStatusReady(false);
+      setThumbFailed(false);
+      setCodeCopied(false);
+      setHolderFace(null);
+      setHolderReady(false);
     }
   }
 
@@ -77,23 +101,51 @@ export function TicketShowPassSheet({
   const viewport = useVisualViewportSheetMetrics(open || closing);
   useScrollLock(lightboxOpen);
 
-  const lightboxStyle = useMemo((): CSSProperties | undefined => {
-    if (typeof window === 'undefined') return undefined;
+  const lightboxStyle = useMemo((): CSSProperties => {
+    const frost = closing
+      ? 'blur(0px)'
+      : resolveGlassScrimBackdropFilter();
+    const style: CSSProperties = {
+      backdropFilter: frost,
+      WebkitBackdropFilter: frost,
+    };
+    if (typeof window === 'undefined') return style;
     const vv = window.visualViewport;
-    if (!viewport.isMobile || !vv || viewport.height <= 0) return undefined;
+    if (!viewport.isMobile || !vv || viewport.height <= 0) return style;
     return {
+      ...style,
       top: vv.offsetTop,
       left: vv.offsetLeft,
       width: vv.width,
       height: viewport.height,
       ['--scarce-lightbox-vh' as string]: `${viewport.height}px`,
     };
-  }, [viewport.height, viewport.isMobile]);
+  }, [closing, viewport.height, viewport.isMobile]);
+
+  const cardStyle = useMemo((): CSSProperties => {
+    const frost = resolveOsGlassPanelFilter();
+    return {
+      backdropFilter: frost,
+      WebkitBackdropFilter: frost,
+    };
+  }, []);
 
   const requestClose = useCallback(() => {
     setClosing(true);
     setEntered(false);
   }, []);
+
+  const passCode = tokenId.trim();
+  const copyPassCode = useCallback(async () => {
+    if (!passCode) return;
+    try {
+      await navigator.clipboard.writeText(passCode);
+      setCodeCopied(true);
+      window.setTimeout(() => setCodeCopied(false), 1600);
+    } catch {
+      /* leave code visible for manual read */
+    }
+  }, [passCode]);
 
   useEffect(() => {
     if (!closing) return;
@@ -148,8 +200,37 @@ export function TicketShowPassSheet({
     };
   }, [lightboxOpen, tokenId]);
 
+  const ownerId = status?.ownerId?.trim() || '';
+
+  useEffect(() => {
+    if (!lightboxOpen || !ownerId) {
+      setHolderFace(null);
+      setHolderReady(!lightboxOpen || statusReady);
+      return;
+    }
+    let cancelled = false;
+    setHolderReady(false);
+    const client = createReadOnlyOnSocialClient();
+    void fetchCollectionCreatorFace(client, ownerId)
+      .then((face) => {
+        if (cancelled) return;
+        setHolderFace(face);
+        setHolderReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHolderFace({ avatarUrl: null, displayName: null });
+        setHolderReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lightboxOpen, ownerId, statusReady]);
+
   const name = (status?.title ?? title).trim() || 'Pass';
-  const media = status?.mediaUrl?.trim() || cover?.trim() || null;
+  const coverUrl = resolveScarceMediaUrl(cover?.trim() || null);
+  const statusUrl = resolveScarceMediaUrl(status?.mediaUrl?.trim() || null);
+  const media = thumbFailed ? null : coverUrl || statusUrl;
   const payload = useMemo(
     () => encodeTicketPassPayload(collectionId, tokenId),
     [collectionId, tokenId]
@@ -175,15 +256,21 @@ export function TicketShowPassSheet({
         : ' is-invalid'
     : '';
 
+  const holderHandle = ownerId ? fallbackLabel(ownerId) : '';
+  const holderDisplay = holderFace?.displayName?.trim() || null;
+  const holderPrimary = holderDisplay || null;
+  const holderAccount = holderHandle ? `@${holderHandle}` : '';
+
   if (!mounted || (!open && !closing)) return null;
 
   return createPortal(
     <div
-      className={`scarce-card-lightbox scarce-clip-listen-lightbox ticket-show-pass-lightbox${
+      className={`scarce-card-lightbox ticket-show-pass-lightbox${
         entered && !closing ? ' is-open' : ''
       }${closing ? ' is-closing' : ''}`}
       role="dialog"
       aria-modal="true"
+      aria-label="Show pass"
       aria-labelledby={titleId}
       style={lightboxStyle}
     >
@@ -198,33 +285,81 @@ export function TicketShowPassSheet({
         </div>
 
         <div className="ticket-show-pass-card">
-          <p className="ticket-show-pass-eyebrow">Show pass</p>
-          <h2 id={titleId} className="ticket-show-pass-title">
-            {name}
-          </h2>
-          <p className={`ticket-show-pass-status${toneClass}`}>{statusLine}</p>
+          <div
+            className="ticket-show-pass-card-frost"
+            style={cardStyle}
+            aria-hidden
+          />
+          <div className="ticket-show-pass-card-body">
+            <div className="ticket-show-pass-header">
+              {media ? (
+                <img
+                  src={media}
+                  alt=""
+                  className="ticket-show-pass-mark"
+                  onError={() => setThumbFailed(true)}
+                />
+              ) : null}
 
-          {payload ? (
-            <TicketPassQr
-              value={payload}
-              title={`QR for ${name}`}
-              className="ticket-show-pass-qr"
-            />
-          ) : (
-            <p className="ticket-show-pass-hint">Pass code unavailable.</p>
-          )}
-
-          <div className="ticket-show-pass-meta">
-            {media ? (
-              <img src={media} alt="" className="ticket-show-pass-thumb" />
-            ) : (
-              <span className="ticket-show-pass-thumb is-empty" aria-hidden />
-            )}
-            <div className="ticket-show-pass-meta-copy">
-              <p className="ticket-show-pass-token">{tokenId}</p>
-              <p className="ticket-show-pass-hint">
-                Hold this screen at the door.
+              <h2 id={titleId} className="ticket-show-pass-title">
+                {name}
+              </h2>
+              <p className={`ticket-show-pass-status${toneClass}`}>
+                {statusLine}
               </p>
+            </div>
+
+            {payload ? (
+              <TicketPassQr
+                value={payload}
+                title={`QR for ${name}`}
+                className="ticket-show-pass-qr"
+              />
+            ) : (
+              <p className="ticket-show-pass-hint">Pass code unavailable.</p>
+            )}
+
+            <div className="ticket-show-pass-footer">
+              <div
+                className={`ticket-show-pass-identity${
+                  ownerId ? '' : ' is-solo'
+                }`}
+              >
+                {ownerId ? (
+                  <ProfileAvatar
+                    src={holderFace?.avatarUrl ?? null}
+                    fallbackInitial={holderDisplay || ownerId}
+                    size="sm"
+                    shellLoading={!holderReady}
+                    className="ticket-show-pass-holder-avatar"
+                  />
+                ) : null}
+                <div className="ticket-show-pass-identity-copy">
+                  {ownerId && holderPrimary ? (
+                    <p className="ticket-show-pass-holder-name">
+                      {holderPrimary}
+                    </p>
+                  ) : null}
+                  {ownerId && holderAccount ? (
+                    <p className="ticket-show-pass-holder-account">
+                      {holderAccount}
+                    </p>
+                  ) : null}
+                  <p className="ticket-show-pass-seat">
+                    {ticketPassSeatLabel(tokenId)}
+                  </p>
+                  {passCode ? (
+                    <button
+                      type="button"
+                      className="ticket-show-pass-code"
+                      onClick={() => void copyPassCode()}
+                      aria-label="Copy pass code for door entry"
+                    >
+                      {codeCopied ? 'Copied' : passCode}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </div>
         </div>

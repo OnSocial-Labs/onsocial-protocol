@@ -3,6 +3,8 @@ import type { ScarcesEventRow } from '@onsocial/sdk';
 import {
   earningKindFromRow,
   formatEarningKindLine,
+  identityFromEventExtra,
+  isFallbackEarningTitle,
   postHrefFromSourcePath,
   saleTitleFromRow,
   scarceEarningsKindSubtotals,
@@ -80,8 +82,58 @@ describe('saleTitleFromRow', () => {
     ).toBe('Hello');
   });
 
+  it('reads top-level title from extraData', () => {
+    expect(
+      saleTitleFromRow(
+        row({
+          tokenId: null,
+          listingId: null,
+          extraData: JSON.stringify({ title: 'Berry jam' }),
+        })
+      )
+    ).toBe('Berry jam');
+  });
+
   it('falls back to token id', () => {
     expect(saleTitleFromRow(row({ tokenId: 's:326' }))).toBe('Scarce · s:326');
+  });
+
+  it('uses token_id from extra when column is empty', () => {
+    expect(
+      saleTitleFromRow(
+        row({
+          tokenId: null,
+          extraData: JSON.stringify({ token_id: 's:99', title: '' }),
+        })
+      )
+    ).toBe('Scarce · s:99');
+  });
+});
+
+describe('isFallbackEarningTitle', () => {
+  it('treats Scarce sale and Scarce · placeholders as fallbacks', () => {
+    expect(isFallbackEarningTitle('Scarce sale')).toBe(true);
+    expect(isFallbackEarningTitle('Scarce · s:1', 's:1')).toBe(true);
+    expect(isFallbackEarningTitle('Listing · ll:1')).toBe(true);
+    expect(isFallbackEarningTitle('Permanence changes')).toBe(false);
+  });
+});
+
+describe('identityFromEventExtra', () => {
+  it('recovers listing and collection ids from snake_case extra', () => {
+    expect(
+      identityFromEventExtra(
+        JSON.stringify({
+          listing_id: 'll:1',
+          collection_id: 'drop-1',
+          title: 'Drop one',
+        })
+      )
+    ).toEqual({
+      title: 'Drop one',
+      listingId: 'll:1',
+      collectionId: 'drop-1',
+    });
   });
 });
 

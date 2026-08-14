@@ -23,7 +23,11 @@ export interface CommerceSheetFooterState {
   disabled?: boolean;
   /** Submit vs button — settle / connect flows that aren't form submit. */
   primaryType?: 'submit' | 'button';
+  /** Default primary; `danger` while Delist/Cancel is armed. */
+  primaryVariant?: 'primary' | 'ghost' | 'danger' | 'dismiss';
   onPrimaryClick?: () => void;
+  /** Clears two-press confirm when the CTA blurs. */
+  onPrimaryBlur?: () => void;
   secondary?: CommerceSheetFooterSecondary | null;
   /** Optional control beside primary (e.g. mint qty stepper). */
   leading?: ReactNode;
@@ -52,6 +56,7 @@ export function commerceFooterStatesEqual(
     a.pending !== b.pending ||
     a.disabled !== b.disabled ||
     a.primaryType !== b.primaryType ||
+    a.primaryVariant !== b.primaryVariant ||
     a.leadingKey !== b.leadingKey
   ) {
     return false;
@@ -133,6 +138,7 @@ export function CommerceSheetFooter({
           <OsSheetAction
             type={primaryType}
             form={primaryType === 'submit' ? formId : undefined}
+            variant={state.primaryVariant ?? 'primary'}
             ready={state.canSubmit}
             pending={state.pending}
             pendingLabel={state.primaryPendingLabel}
@@ -140,6 +146,7 @@ export function CommerceSheetFooter({
             onClick={
               primaryType === 'button' ? state.onPrimaryClick : undefined
             }
+            onBlur={state.onPrimaryBlur}
           >
             {state.primaryLabel}
           </OsSheetAction>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MARKET_MEDIUM_FILTERS } from '@/features/market/market-medium';
-import { DROP_TEMPLATES } from './drop-templates';
+import { DROP_TEMPLATES, supplyUnitForMediumKind } from './drop-templates';
 
 describe('DROP_TEMPLATES', () => {
   it('has unique ids and complete copy', () => {
@@ -65,5 +65,13 @@ describe('DROP_TEMPLATES', () => {
     const custom = DROP_TEMPLATES.find((t) => t.id === 'custom');
     expect(custom?.presets).toBeNull();
     expect(custom?.kind).toBe('custom');
+  });
+});
+
+describe('supplyUnitForMediumKind', () => {
+  it('uses tickets for conference passes, copies for writing', () => {
+    expect(supplyUnitForMediumKind('ticket').unit).toBe('tickets');
+    expect(supplyUnitForMediumKind('writing').unit).toBe('copies');
+    expect(supplyUnitForMediumKind('art').unit).toBe('editions');
   });
 });

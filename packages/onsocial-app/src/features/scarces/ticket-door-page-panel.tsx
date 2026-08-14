@@ -279,13 +279,13 @@ export function TicketDoorPagePanel({
         applyLookup={door.applyLookup}
         voice={voiceProp}
         attendanceLine={attendanceLine}
-        lead={
-          redeemVoice
-            ? 'Point at a coupon QR. After redeem, stay here for the next guest.'
-            : 'Point at a Show pass QR. After admit, stay here for the next guest.'
-        }
       />
     );
+    const cameraCta = door.cameraActive
+      ? 'Stop camera'
+      : door.cameraError
+        ? 'Try camera'
+        : 'Start camera';
     footer = (
       <DoorFooter stacked>
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -309,7 +309,7 @@ export function TicketDoorPagePanel({
             }}
             disabled={door.admitPending || door.lookupPending}
           >
-            {door.cameraActive ? 'Stop camera' : 'Scan again'}
+            {cameraCta}
           </OsSheetAction>
         </OsSheetActions>
       </DoorFooter>

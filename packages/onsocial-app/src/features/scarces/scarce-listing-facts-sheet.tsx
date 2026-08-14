@@ -12,6 +12,7 @@ import {
   SheetFactSection,
 } from '@onsocial/ui';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
+import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import { marketMediumLabel } from '@/features/market/market-medium';
 import {
   formatRoyaltyPercent,
@@ -156,11 +157,14 @@ export function ScarceListingFactsSheet({
     facts.listedAtMs && facts.listedAtMs > 0
       ? formatMarketRelativeTime(facts.listedAtMs)
       : null;
+  const supplyUnit = supplyUnitForMediumKind(facts.mediumKind);
+  const supplyLabel =
+    supplyUnit.unit.charAt(0).toUpperCase() + supplyUnit.unit.slice(1);
   const supply =
     facts.copies != null && facts.copies > 0
-      ? facts.remaining != null
+      ? facts.remaining != null && facts.remaining < facts.copies
         ? `${facts.remaining} of ${facts.copies} left`
-        : `${facts.copies} editions`
+        : `${facts.copies} ${supplyUnit.unit}`
       : null;
   const showSeller =
     Boolean(facts.sellerId?.trim()) &&
@@ -214,7 +218,7 @@ export function ScarceListingFactsSheet({
           {mintAsk && facts.kind !== 'mint' ? (
             <SheetFactRow label="Original mint" value={mintAsk} />
           ) : null}
-          {supply ? <SheetFactRow label="Editions" value={supply} /> : null}
+          {supply ? <SheetFactRow label={supplyLabel} value={supply} /> : null}
           {medium ? <SheetFactRow label="Medium" value={medium} /> : null}
           <SheetFactRow
             label="Marketplace fee"

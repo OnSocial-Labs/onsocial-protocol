@@ -48,6 +48,12 @@ describe('resolveSheetOffsetPx', () => {
     ).toBe(180);
   });
 
+  it('uses drag position on desktop while dragging', () => {
+    expect(
+      resolveSheetOffsetPx(180, 'full', 720, GLASS_SHEET_PEEK_RATIO, true, 800)
+    ).toBe(180);
+  });
+
   it('returns 0 on desktop and at full detent', () => {
     expect(
       resolveSheetOffsetPx(null, 'full', 720, GLASS_SHEET_PEEK_RATIO, true, 800)

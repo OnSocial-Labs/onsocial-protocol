@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { PostScarceEmbed } from '@onsocial/sdk';
+import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
   isPrimaryMintStatus,
   resolvePostDropCta,
@@ -68,7 +69,7 @@ function editionMeta(embed: PostScarceEmbed): string | null {
   if (embed.remaining != null) {
     return `${embed.remaining}/${embed.copies} left`;
   }
-  return `${embed.copies} editions`;
+  return `${embed.copies} ${supplyUnitForMediumKind(embed.mediumKind).unit}`;
 }
 
 /** Quiet secondary-market cue: listed/auction edition (not primary mint). */

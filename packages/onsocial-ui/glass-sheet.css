@@ -202,8 +202,8 @@
 }
 
 @media (min-width: 768px) {
-  /* Desktop: full-height sheet — peek/drag is mobile-only. */
-  .glass-sheet-panel.is-open {
+  /* Desktop rests full-height; drag still updates --sheet-y while pulling. */
+  .glass-sheet-panel.is-open:not(.is-dragging) {
     --sheet-y: 0px;
   }
 }
@@ -340,29 +340,40 @@
 
 .glass-sheet-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   padding: 0 1.15rem 0.75rem;
 }
 
 .glass-sheet-header-copy {
   min-width: 0;
+  width: 100%;
 }
 
 .glass-sheet-header-title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.65rem;
   min-width: 0;
+  width: 100%;
 }
 
 .glass-sheet-header-title {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  /* First line mid aligns with ✕ mid inside the 2.75rem hit target. */
+  padding-top: calc((2.75rem - 1.2em) / 2);
+}
+
+.glass-sheet-header-title-row > .glass-sheet-icon-action {
+  flex-shrink: 0;
+  margin-inline-start: auto;
 }
 
 .glass-sheet-header-subtitle {

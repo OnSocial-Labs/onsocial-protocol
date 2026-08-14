@@ -201,13 +201,25 @@ export function CollectionQtyStepper({
           style={{ width: `${valueWidthCh}ch` }}
           value={display}
           disabled={disabled}
+          maxLength={Math.max(String(max).length, String(min).length, 1)}
           aria-label={ariaLabel}
           onFocus={(event) => {
             setDraft(String(valueRef.current));
             event.currentTarget.select();
           }}
           onChange={(event) => {
-            setDraft(event.target.value.replace(/\D/g, ''));
+            const digits = event.target.value.replace(/\D/g, '');
+            if (!digits) {
+              setDraft('');
+              return;
+            }
+            const parsed = Number.parseInt(digits, 10);
+            // Keep draft within max while typing (blur still clamps to min).
+            if (Number.isSafeInteger(parsed) && parsed > max) {
+              setDraft(String(max));
+              return;
+            }
+            setDraft(digits);
           }}
           onBlur={() => {
             flushDraft();

@@ -125,3 +125,15 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     openAdvanced: true,
   },
 ];
+
+/** Supply noun from medium kind — same vocabulary as create-drop templates. */
+export function supplyUnitForMediumKind(
+  mediumKind: string | null | undefined
+): { unit: string; unitSingular: string } {
+  const key = (mediumKind ?? '').trim().toLowerCase();
+  const match = DROP_TEMPLATES.find((t) => t.kind === key);
+  if (match) return { unit: match.unit, unitSingular: match.unitSingular };
+  if (key === 'thought') return { unit: 'copies', unitSingular: 'copy' };
+  if (key === 'music') return { unit: 'editions', unitSingular: 'edition' };
+  return { unit: 'editions', unitSingular: 'edition' };
+}

@@ -43,12 +43,36 @@ export function resolveScarceBodyText(opts: {
 }): string | null {
   const title = opts.title?.trim() || '';
   const fromDescription = opts.description?.trim() || '';
-  if (fromDescription && fromDescription !== title) return fromDescription;
+  if (fromDescription) {
+    return stripLeadingTitleEcho(fromDescription, title);
+  }
   if (opts.post) {
     const fromPost = parsePostText(opts.post.value).trim();
-    if (fromPost && fromPost !== title) return fromPost;
+    if (fromPost) return stripLeadingTitleEcho(fromPost, title);
   }
   return null;
+}
+
+/**
+ * Drop a leading cover title so Buy/Sell don’t restate the summary line.
+ * Exact match hides the body. Otherwise the title must end with sentence
+ * punctuation (then whitespace), or be followed by punctuation / a newline —
+ * never a bare mid-sentence space after a short word title.
+ */
+function stripLeadingTitleEcho(body: string, title: string): string | null {
+  const text = body.trim();
+  const cover = title.trim();
+  if (!text) return null;
+  if (!cover) return text;
+  if (text === cover) return null;
+  if (!text.startsWith(cover)) return text;
+  const after = text.slice(cover.length);
+  if (/[.!?…]$/.test(cover) && /^\s+/.test(after)) {
+    return after.trim() || null;
+  }
+  if (!/^([.!?…]+|\n+|[·—–:;])\s*/.test(after)) return text;
+  const rest = after.replace(/^([.!?…]+|\n+|[·—–:;])\s*/, '').trim();
+  return rest || null;
 }
 
 export function resolveScarceOriginalHref(opts: {
