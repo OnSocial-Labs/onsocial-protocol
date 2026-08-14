@@ -1,11 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useId, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
 import {
   Divider,
   GlassSheet,
-  osFieldSoftClassName,
+  osFieldBorderedClassName,
   useScrollLock,
 } from '@onsocial/ui';
 import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
@@ -16,7 +23,10 @@ import {
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useOnSocialWriter } from '@/hooks/use-onsocial-writer';
+import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
+import { supportSheetPanelStyle } from '@/lib/moods/resolve';
+import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { txToastError } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -36,15 +46,22 @@ interface EndorseComposeSheetProps {
   pageAccountId: string;
   profileName?: string | null;
   avatarUrl?: string | null;
+  /** Page owner mood when already known (portfolio). Otherwise fetched. */
+  mood?: ResolvedMood | null;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
 }
 
+/**
+ * Face Endorse compose — same hug gesture family as Support (host mood +
+ * GestureSheetHeader). Bordered type-ins so mood wash shows through.
+ */
 export function EndorseComposeSheet({
   open,
   pageAccountId,
   profileName = null,
   avatarUrl: _avatarUrl = null,
+  mood = null,
   onOpenChange,
   onSuccess,
 }: EndorseComposeSheetProps) {
@@ -64,6 +81,15 @@ export function EndorseComposeSheet({
   const handle = fallbackLabel(pageAccountId);
   const isSelf =
     Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
+  const fetchedMood = usePageOwnerMood(pageAccountId, open || closing);
+  const effectiveMood = mood ?? fetchedMood;
+  const panelStyle = useMemo(
+    () =>
+      effectiveMood
+        ? (supportSheetPanelStyle(effectiveMood.cssVars) as CSSProperties)
+        : undefined,
+    [effectiveMood]
+  );
 
   useScrollLock(open || closing);
 
@@ -140,6 +166,11 @@ export function EndorseComposeSheet({
       onClosed={handleSheetClosed}
       tone="os"
       sizing="hug"
+      moodId={effectiveMood?.id}
+      panelStyle={panelStyle}
+      panelClassName="endorse-compose-sheet-panel"
+      initialDetent="full"
+      peekRatio={1}
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close endorse"
@@ -168,7 +199,7 @@ export function EndorseComposeSheet({
             maxLength={TOPIC_MAX}
             autoComplete="off"
             placeholder="e.g. Design"
-            className={`${osFieldSoftClassName} endorse-compose-input}`}
+            className={`${osFieldBorderedClassName} endorse-compose-input`}
             disabled={pending || isSelf}
             onChange={(event) => setTopic(event.target.value)}
           />
@@ -208,7 +239,7 @@ export function EndorseComposeSheet({
             maxLength={NOTE_MAX}
             rows={3}
             placeholder="Optional — what you’re vouching for"
-            className={`${osFieldSoftClassName} endorse-compose-textarea}`}
+            className={`${osFieldBorderedClassName} endorse-compose-textarea`}
             disabled={pending || isSelf}
             onChange={(event) => setNote(event.target.value)}
           />

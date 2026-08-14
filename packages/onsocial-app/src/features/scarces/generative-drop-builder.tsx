@@ -25,7 +25,7 @@ import {
   ChevronDownIcon,
   MultiplyIcon,
   TrashIcon,
-  osFieldSoftClassName,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { SuffixField } from '@/components/ui/suffix-field';
 import type {
@@ -505,7 +505,7 @@ export function GenerativeDropBuilder({
           <div key={layer.id} className="guild-field gen-layer">
             <div className="gen-layer-head">
               <input
-                className={osFieldSoftClassName}
+                className={osFieldBorderedClassName}
                 value={layer.name}
                 onChange={(event) =>
                   updateLayer(layer.id, { name: event.target.value })
@@ -612,7 +612,7 @@ export function GenerativeDropBuilder({
             {editing ? (
               <div className="gen-trait-edit">
                 <input
-                  className={osFieldSoftClassName}
+                  className={osFieldBorderedClassName}
                   ref={traitNameInputRef}
                   value={editing.name}
                   onChange={(event) =>

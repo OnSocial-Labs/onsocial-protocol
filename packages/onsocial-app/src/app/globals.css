@@ -212,6 +212,16 @@
   --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
 }
 
+/* Endorse compose — same gesture signal fallbacks; shorter hug form. */
+.glass-sheet-panel.endorse-compose-sheet-panel {
+  --glass-header-scrim-height: min(5rem, 24%);
+  --glass-sheet-body-opacity: 0.64;
+  --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
+  --signal-standing: var(--mood-signal-standing, #5ecf9a);
+  --signal-endorse: var(--mood-signal-endorse, #dab872);
+  --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
+}
+
 /* Keyboard open — fill visual viewport so body scrolls above pinned footer. */
 .glass-sheet-panel.profile-support-sheet-panel.is-keyboard-open
   > .glass-sheet-body {

@@ -160,8 +160,9 @@ export function pageContentDrawerPanelStyle(
 }
 
 /**
- * Support money sheet — carry page mood signal hues so presets match the face
- * Support arrow (reputation), even though the sheet portals outside the frame.
+ * Face gesture sheets (Support / Endorse) — carry page mood signal hues so
+ * verb + presets match the face arrows, even though the sheet portals outside
+ * the frame.
  */
 export function supportSheetPanelStyle(
   cssVars: Record<string, string>

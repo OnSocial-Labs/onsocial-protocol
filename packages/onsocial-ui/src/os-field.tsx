@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { cn } from './cn.js';
 
-/** Transparent fill + cool border / inset lip (poll, CW, amounts, paste wells). */
+/** Transparent fill + cool border / inset lip — default on mood surfaces. */
 export const osFieldBorderedClassName = 'os-field-bordered';
 
-/** Quiet wash, no border (create forms, storage amounts). */
+/** Quiet wash, no border — dense / quiet OS sheets without mood wash. */
 export const osFieldSoftClassName = 'os-field-soft';
 
 /** Label stack wrapper class — pair with `os-field.css`. */

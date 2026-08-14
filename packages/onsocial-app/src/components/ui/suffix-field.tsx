@@ -16,7 +16,8 @@ export type SuffixFieldChrome = 'soft' | 'bordered';
 /**
  * Value + trailing unit shell — counts, weights, `% per sale`.
  * Bordered (default): transparent fill + detail divider + type-only unit rail
- * so glass / mood tint shows through. Soft: quiet wash for non-glass stacks.
+ * so mood / glass shows through — use on mood surfaces.
+ * Soft: quiet wash for non-mood / dense stacks.
  * Money stays on {@link AmountField} (mono amount chrome + decimal helpers).
  */
 export function SuffixField({

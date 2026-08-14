@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
-import { osFieldSoftClassName } from '@onsocial/ui';
+import { osFieldBorderedClassName } from '@onsocial/ui';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
   getProtocolGovernanceEligibility,
@@ -277,7 +277,7 @@ export function ProtocolStakeSheet({
                 onChange={(event) => setAmount(event.target.value)}
                 placeholder="0"
                 disabled={pending}
-                className={osFieldSoftClassName}
+                className={osFieldBorderedClassName}
               />
             </label>
           </>

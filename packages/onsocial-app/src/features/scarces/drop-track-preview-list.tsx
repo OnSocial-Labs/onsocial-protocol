@@ -12,7 +12,7 @@ import {
   OsFieldRemove,
   PauseFillIcon,
   PlayFillIcon,
-  osFieldSoftClassName,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import {
   DROP_LYRICS_MAX_CHARS,
@@ -332,7 +332,7 @@ export function DropTrackPreviewList({
                     </label>
                     <textarea
                       id={`drop-track-lyrics-input-${index}`}
-                      className={`${osFieldSoftClassName} drop-track-lyrics-input`}
+                      className={`${osFieldBorderedClassName} drop-track-lyrics-input`}
                       rows={5}
                       maxLength={DROP_LYRICS_MAX_CHARS}
                       disabled={disabled}
