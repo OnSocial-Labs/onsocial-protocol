@@ -11,12 +11,12 @@ import {
   osFieldSoftClassName,
 } from '@onsocial/ui';
 
-export type SuffixFieldChrome = 'soft' | 'bordered';
+export type SuffixFieldChrome = 'bordered' | 'soft';
 
 /**
  * Value + trailing unit shell — counts, weights, `% per sale`.
- * Bordered (default): transparent fill + detail divider + type-only unit rail
- * so glass / mood tint shows through. Soft: quiet wash for non-glass stacks.
+ * `chrome="bordered"` (default): transparent fill + detail divider + unit rail
+ * so glass / mood tint shows through. `chrome="soft"`: quiet wash off glass.
  * Money stays on {@link AmountField} (mono amount chrome + decimal helpers).
  */
 export function SuffixField({

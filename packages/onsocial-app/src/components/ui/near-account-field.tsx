@@ -13,10 +13,10 @@ import {
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 
 /**
- * Account field — create-form bordered shell with a permanent leading avatar
- * slot and UI detail divider (same rail as the launcher dock). Empty avatar
- * until typed; shell shimmer while probing; profile avatar when found.
- * Status is lip tint only — fill stays transparent for mood/glass.
+ * Account field — bordered shell with a permanent leading avatar slot and UI
+ * detail divider (same rail as the launcher dock). Empty avatar until typed;
+ * shell shimmer while probing; profile avatar when found. Status is lip tint
+ * only — fill stays transparent for mood/glass.
  */
 export function NearAccountField({
   id,
