@@ -5,8 +5,8 @@
  * `textarea`) or on a flex wrapper that owns the chrome (`:focus-within`).
  *
  *   os-field-bordered  — transparent fill, cool border + inset lip
- *                        (create forms, poll/CW, amounts, paste wells — tint shows through)
- *   os-field-soft      — quiet wash, no border (dense stacks off glass / storage)
+ *                        (typing fields on mood surfaces — tint shows through)
+ *   os-field-soft      — quiet wash, no border (dense / quiet OS sheets, no mood)
  *   os-field           — optional label stack (label + control + hint)
  *   OsFieldRemove      — compact × beside field rows (poll / recipients / lists)
  */

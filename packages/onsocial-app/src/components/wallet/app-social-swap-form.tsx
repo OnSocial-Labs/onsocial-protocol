@@ -253,7 +253,6 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
           <span className="app-swap-leg-label">You pay</span>
         </div>
         <AmountField
-          chrome="soft"
           className="app-swap-amount-field"
           value={swap.amountIn}
           onValueChange={swap.setAmountIn}
@@ -281,7 +280,6 @@ export function AppSocialSwapForm({ onSuccess }: AppSocialSwapFormProps) {
           <span className="app-swap-leg-label">You get</span>
         </div>
         <AmountField
-          chrome="soft"
           className="app-swap-amount-field is-output"
           aria-label="SOCIAL you get"
           display={
