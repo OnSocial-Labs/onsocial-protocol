@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
+  CollectionQtyStepper,
   Divider,
   MultiplyIcon,
   OsFieldRemove,
@@ -10,11 +11,7 @@ import {
   SearchField,
   UserPlusIcon,
 } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
-import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { StandingIdentity } from '@onsocial/ui';
 import {
   equalizeRoyaltyShares,
@@ -82,7 +79,6 @@ export function ScarceRoyaltySplitSheet({
   const [faceCache, setFaceCache] = useState<Record<string, FaceCache>>({});
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
-
 
   const accountIds = useMemo(
     () => draft.map((share) => share.accountId),

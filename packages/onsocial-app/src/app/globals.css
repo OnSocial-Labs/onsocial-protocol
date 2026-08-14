@@ -13,6 +13,7 @@
 @import '@onsocial/ui/search-field.css';
 @import '@onsocial/ui/os-field.css';
 @import '@onsocial/ui/os-amount-field.css';
+@import '@onsocial/ui/collection-qty.css';
 @import '@onsocial/ui/os-notice-card.css';
 @import '@onsocial/ui/os-choice-drawer.css';
 @import '@onsocial/ui/os-gesture-sheet-header.css';
@@ -21124,82 +21125,7 @@ a.os-surface-row {
     min-width: 0;
   }
 
-  .collection-qty {
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 0.12rem;
-    padding: 0.14rem;
-    border: 0;
-    border-radius: 9999px;
-    background: var(--os-surface-fill, rgb(var(--fg-rgb) / 0.05));
-    box-shadow: inset 0 1px 0 rgb(var(--fg-rgb) / 0.06);
-  }
-
-  .collection-qty-btn {
-    width: 1.7rem;
-    height: 1.7rem;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: var(--os-surface-emphasis);
-    font-size: 1rem;
-    line-height: 1;
-    cursor: pointer;
-    user-select: none;
-    touch-action: none;
-    transition: background 160ms ease;
-  }
-
-  .collection-qty-btn:hover:not(:disabled),
-  .collection-qty-btn:focus-visible:not(:disabled) {
-    background: var(--os-surface-fill-hover, rgb(var(--fg-rgb) / 0.1));
-    outline: none;
-  }
-
-  .collection-qty-btn:disabled {
-    opacity: 0.4;
-    cursor: default;
-  }
-
-  .collection-qty-value-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.45rem;
-    gap: 0.02rem;
-  }
-
-  .collection-qty-value {
-    min-width: 1.25rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    text-align: center;
-    font: inherit;
-    font-size: 0.86rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--os-surface-emphasis);
-    outline: none;
-    -moz-appearance: textfield;
-  }
-
-  .collection-qty-value::-webkit-outer-spin-button,
-  .collection-qty-value::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .collection-qty-suffix {
-    font-size: 0.86rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--os-surface-emphasis);
-    line-height: 1;
-  }
+  /* Soft-egg qty chrome: @onsocial/ui/collection-qty.css */
 
   .scarce-royalty-split-qty .collection-qty-value-wrap {
     min-width: 2.35rem;

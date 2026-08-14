@@ -249,6 +249,11 @@ export {
 } from './suffix-field.js';
 export { finalizeAmountInput, normalizeAmountInput } from './amount-input.js';
 export {
+  CollectionQtyStepper,
+  collectionQtyClassName,
+  type CollectionQtyStepperProps,
+} from './collection-qty-stepper.js';
+export {
   StandingIdentity,
   standingIdentityLabel,
   type StandingIdentityShowHandle,
