@@ -1,13 +1,45 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { CheckIcon, MultiplyIcon, UserMinusIcon } from '@onsocial/ui';
+import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
+import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
+import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
 import type {
   ProtocolApplication,
   ProtocolDaoPolicy,
 } from '@/features/protocol/types';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { fallbackLabel } from '@/lib/profile-display';
 
+function targetEyebrow(kind: string | null): string | null {
+  switch (kind) {
+    case 'role':
+      return 'Role';
+    case 'amount':
+      return 'Amount';
+    case 'contract':
+      return 'Contract';
+    case 'code_hash':
+      return 'Code hash';
+    case 'community':
+      return 'Community';
+    case 'routing':
+      return 'Routing';
+    case 'season':
+      return 'Season';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Protocol / treasury proposal card — Portal composition (strip → identity →
+ * body → votes) with App chrome: borderless row, status wash, hash-colored
+ * account placeholders, vote/finalize via drawer.
+ */
 export function ProtocolProposalCard({
   application,
   daoPolicy,
@@ -28,7 +60,9 @@ export function ProtocolProposalCard({
   onCopyLink?: () => void;
 }) {
   const [votersOpen, setVotersOpen] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [onChainOpen, setOnChainOpen] = useState(false);
   const view = useMemo(
     () =>
       deriveProtocolProposalView({
@@ -39,6 +73,21 @@ export function ProtocolProposalCard({
       }),
     [application, accountId, daoPolicy, nowMs]
   );
+
+  const profileIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (view.subjectAccount) ids.add(view.subjectAccount);
+    if (view.proposer) ids.add(view.proposer);
+    for (const [id] of view.voteEntries) ids.add(id);
+    for (const id of view.eligibleVoters) ids.add(id);
+    return [...ids];
+  }, [
+    view.subjectAccount,
+    view.proposer,
+    view.voteEntries,
+    view.eligibleVoters,
+  ]);
+  const profiles = usePostAuthorProfiles(profileIds);
 
   const progress = view.votingProgress;
   const total =
@@ -63,25 +112,32 @@ export function ProtocolProposalCard({
   );
   const canAct =
     view.canApprove || view.canReject || view.canRemove || view.canFinalize;
+  const hasOnChain = Boolean(view.proposal) || Boolean(view.onChainAction);
   const showVoters = view.voteEntries.length > 0 || abstainers.length > 0;
-  const targetEyebrow =
-    view.targetKind === 'role'
-      ? 'Role'
-      : view.targetKind === 'amount'
-        ? 'Amount'
-        : view.targetKind === 'contract'
-          ? 'Contract'
-          : view.targetKind === 'code_hash'
-            ? 'Code hash'
-            : view.targetKind === 'community'
-              ? 'Community'
-              : view.targetKind === 'routing'
-                ? 'Routing'
-                : view.targetKind === 'season'
-                  ? 'Season'
-                  : null;
+  const eyebrow = targetEyebrow(view.targetKind);
+  const showProposer =
+    Boolean(view.proposer) &&
+    (view.showProposerAsSelf ||
+      view.showProposerSeparately ||
+      !view.subjectAccount ||
+      view.subjectAccount.toLowerCase() !== view.proposer!.toLowerCase());
+  const routingDisplay =
+    view.targetKind === 'routing' && view.targetValue
+      ? splitRoutingTargetDisplay(view.targetValue)
+      : null;
+  const hasIdentity =
+    Boolean(view.subjectAccount) ||
+    Boolean(view.subjectText) ||
+    Boolean(view.targetValue) ||
+    Boolean(view.targetAccount);
+  const description =
+    view.description && view.description.trim() !== view.headline.trim()
+      ? view.description.trim()
+      : null;
+  const descriptionLong = Boolean(description && description.length > 140);
 
   return (
+    <>
     <article
       id={
         view.proposalId != null
@@ -91,25 +147,41 @@ export function ProtocolProposalCard({
       className={`protocol-card is-${view.statusTone}${focused ? ' is-focused' : ''}`}
       aria-labelledby={`protocol-card-${application.app_id}`}
     >
-      <header className="protocol-card-strip">
-        <div className="protocol-card-strip-main">
-          {view.proposalId != null ? (
-            <span className="protocol-card-id">#{view.proposalId}</span>
-          ) : null}
-          <span className="protocol-pill">{view.actionBadge}</span>
-          <span className={`protocol-pill is-status is-${view.statusTone}`}>
-            {view.statusLabel}
-          </span>
-        </div>
-        <div className="protocol-card-strip-meta">
+      <header className={`protocol-card-strip is-${view.statusTone}`}>
+        <div className="protocol-card-strip-start">
+          <div className="protocol-card-strip-main">
+            {view.proposalId != null ? (
+              <span className="protocol-card-id">#{view.proposalId}</span>
+            ) : null}
+            {view.actionBadge ? (
+              <>
+                <span className="protocol-card-strip-dot" aria-hidden>
+                  ·
+                </span>
+                <span className="protocol-card-action-badge">
+                  {view.actionBadge}
+                </span>
+              </>
+            ) : null}
+          </div>
           {view.submission ? (
-            <span title={view.submission.absolute}>
+            <span
+              className="protocol-card-strip-meta-line"
+              title={view.submission.absolute}
+            >
               Submitted {view.submission.relative}
             </span>
           ) : null}
+        </div>
+        <div className="protocol-card-strip-end">
+          <span className={`protocol-card-strip-status is-${view.statusTone}`}>
+            {view.statusLabel}
+          </span>
           {view.deadline ? (
             <span
-              className={view.deadline.expired ? 'is-urgent' : undefined}
+              className={`protocol-card-strip-meta-line${
+                view.deadline.expired ? ' is-urgent' : ''
+              }`}
               title={view.deadline.absolute}
             >
               {view.deadline.prefix} {view.deadline.relative}
@@ -121,73 +193,169 @@ export function ProtocolProposalCard({
       <div className="protocol-card-body">
         <h2
           id={`protocol-card-${application.app_id}`}
-          className="protocol-card-title"
+          className="protocol-card-sr-title"
         >
           {view.headline}
         </h2>
+        {hasIdentity ? (
+          <div className="protocol-card-identity">
+            <div className="protocol-card-identity-subject">
+              {view.subjectAccount ? (
+                <>
+                  {view.subjectEyebrow ? (
+                    <span className="protocol-card-eyebrow">
+                      {view.subjectEyebrow}
+                    </span>
+                  ) : null}
+                  <ProtocolAccountChip
+                    accountId={view.subjectAccount}
+                    profileName={profiles[view.subjectAccount]?.displayName}
+                    avatarUrl={profiles[view.subjectAccount]?.avatarUrl}
+                    dense
+                    href={portfolioPath(view.subjectAccount)}
+                  />
+                </>
+              ) : view.subjectText ? (
+                <>
+                  {view.subjectEyebrow ? (
+                    <span className="protocol-card-eyebrow">
+                      {view.subjectEyebrow}
+                    </span>
+                  ) : null}
+                  <span className="protocol-card-identity-text">
+                    {view.subjectText}
+                  </span>
+                </>
+              ) : (
+                <p className="protocol-card-title">{view.headline}</p>
+              )}
+            </div>
 
-        {view.subjectAccount && view.subjectEyebrow ? (
-          <p className="protocol-card-subject">
-            <span className="protocol-card-subject-eyebrow">
-              {view.subjectEyebrow}
-            </span>{' '}
-            @{fallbackLabel(view.subjectAccount)}
-          </p>
-        ) : view.subjectText && view.subjectEyebrow ? (
-          <p className="protocol-card-subject">
-            <span className="protocol-card-subject-eyebrow">
-              {view.subjectEyebrow}
-            </span>{' '}
-            {view.subjectText}
-          </p>
-        ) : null}
-
-        {view.proposer &&
-        (view.showProposerSeparately ||
-          !view.subjectAccount ||
-          view.subjectAccount.toLowerCase() !== view.proposer.toLowerCase()) ? (
-          <p className="protocol-card-proposer">
-            Proposed by @{fallbackLabel(view.proposer)}
-          </p>
-        ) : view.proposer && !view.subjectAccount ? (
-          <p className="protocol-card-proposer">
-            Proposed by @{fallbackLabel(view.proposer)}
-          </p>
-        ) : null}
-
-        {(view.targetValue || view.targetAccount || view.targetMethod) && (
-          <dl className="protocol-card-targets">
-            {view.targetValue ? (
-              <div>
-                <dt>{targetEyebrow ?? 'Target'}</dt>
-                <dd>{view.targetValue}</dd>
-              </div>
-            ) : view.targetAccount ? (
-              <div>
-                <dt>Target</dt>
-                <dd>@{fallbackLabel(view.targetAccount)}</dd>
+            {view.targetValue || view.targetAccount ? (
+              <div className="protocol-card-identity-target">
+                <span className="protocol-card-eyebrow">
+                  {eyebrow ?? 'Target'}
+                </span>
+                {routingDisplay ? (
+                  <span className="protocol-card-routing-value">
+                    {routingDisplay.minLabel ? (
+                      <span className="protocol-card-identity-value">
+                        {routingDisplay.minLabel}
+                      </span>
+                    ) : null}
+                    {routingDisplay.routingParts.length > 0 ? (
+                      <span className="protocol-card-routing-parts">
+                        {routingDisplay.routingParts.map((part) => (
+                          <span
+                            key={part}
+                            className="protocol-card-identity-value is-muted"
+                          >
+                            {part}
+                          </span>
+                        ))}
+                      </span>
+                    ) : routingDisplay.routingLabel ? (
+                      <span className="protocol-card-identity-value is-muted">
+                        {routingDisplay.routingLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <span
+                    className={`protocol-card-identity-value${
+                      view.targetKind === 'code_hash' ? ' is-mono' : ''
+                    }`}
+                    title={
+                      view.targetAccount && view.targetValue
+                        ? `${view.targetValue} · ${view.targetAccount}`
+                        : (view.targetValue ?? view.targetAccount ?? undefined)
+                    }
+                  >
+                    {view.targetValue ??
+                      `@${fallbackLabel(view.targetAccount!)}`}
+                  </span>
+                )}
+                {view.targetMethod ? (
+                  <span className="protocol-card-identity-method">
+                    {view.targetMethod.replace(/_/g, ' ')}
+                  </span>
+                ) : null}
               </div>
             ) : null}
-            {view.targetMethod ? (
-              <div>
-                <dt>Method</dt>
-                <dd>{view.targetMethod.replace(/_/g, ' ')}</dd>
-              </div>
-            ) : null}
-          </dl>
+          </div>
+        ) : (
+          <p className="protocol-card-title">{view.headline}</p>
         )}
 
-        {view.description &&
-        view.description.trim() !== view.headline.trim() ? (
-          <p className="protocol-card-description">{view.description}</p>
+        {showProposer && view.proposer ? (
+          <div className="protocol-card-proposer-row">
+            <span className="protocol-card-eyebrow">Proposer</span>
+            {view.showProposerAsSelf ? (
+              <span className="protocol-card-identity-text">Self</span>
+            ) : (
+              <ProtocolAccountChip
+                accountId={view.proposer}
+                profileName={profiles[view.proposer]?.displayName}
+                avatarUrl={profiles[view.proposer]?.avatarUrl}
+                dense
+                href={portfolioPath(view.proposer)}
+              />
+            )}
+          </div>
+        ) : null}
+
+        {description ? (
+          <div className="protocol-card-description-block">
+            <p
+              className={`protocol-card-description${
+                descriptionLong && !descOpen ? ' is-clamped' : ''
+              }`}
+            >
+              {description}
+            </p>
+            {descriptionLong ? (
+              <button
+                type="button"
+                className="protocol-card-description-more"
+                aria-expanded={descOpen}
+                onClick={() => setDescOpen((open) => !open)}
+              >
+                {descOpen ? 'Show less' : 'Show more'}
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="protocol-card-votes">
           <div className="protocol-card-vote-counts">
-            <span className="is-approve">{view.approveVotes} approve</span>
-            <span className="is-reject">{view.rejectVotes} reject</span>
-            {view.removeVotes > 0 ? (
-              <span className="is-remove">{view.removeVotes} remove</span>
+            <span
+              className={`is-approve${
+                view.currentVote === 'Approve' ? ' is-confirmed' : ''
+              }`}
+            >
+              <CheckIcon className="protocol-card-vote-icon" aria-hidden />
+              <span>{view.approveVotes}</span>
+            </span>
+            <span
+              className={`is-reject${
+                view.currentVote === 'Reject' ? ' is-confirmed' : ''
+              }`}
+            >
+              <MultiplyIcon className="protocol-card-vote-icon" aria-hidden />
+              <span>{view.rejectVotes}</span>
+            </span>
+            {view.removeVotes > 0 || view.currentVote === 'Remove' ? (
+              <span
+                className={`is-remove${
+                  view.currentVote === 'Remove' ? ' is-confirmed' : ''
+                }`}
+              >
+                <UserMinusIcon
+                  className="protocol-card-vote-icon"
+                  aria-hidden
+                />
+                <span>{view.removeVotes}</span>
+              </span>
             ) : null}
             {progress.threshold != null && progress.totalWeight != null ? (
               <span className="protocol-card-vote-rule">
@@ -197,11 +365,19 @@ export function ProtocolProposalCard({
           </div>
           {total > 0 ? (
             <div className="protocol-card-vote-bar" aria-hidden>
-              <span className="is-approve" style={{ width: `${approvePct}%` }} />
+              <span
+                className="is-approve"
+                style={{ width: `${approvePct}%` }}
+              />
               <span className="is-reject" style={{ width: `${rejectPct}%` }} />
               <span className="is-remove" style={{ width: `${removePct}%` }} />
-              <span className="is-pending" style={{ width: `${pendingPct}%` }} />
-              {thresholdPct != null && thresholdPct > 0 && thresholdPct < 100 ? (
+              <span
+                className="is-pending"
+                style={{ width: `${pendingPct}%` }}
+              />
+              {thresholdPct != null &&
+              thresholdPct > 0 &&
+              thresholdPct < 100 ? (
                 <i style={{ left: `${thresholdPct}%` }} />
               ) : null}
             </div>
@@ -230,7 +406,13 @@ export function ProtocolProposalCard({
               <ul className="protocol-card-voter-list">
                 {view.voteEntries.map(([account, vote]) => (
                   <li key={`${account}-${vote}`}>
-                    <span>@{fallbackLabel(account)}</span>
+                    <ProtocolAccountChip
+                      accountId={account}
+                      profileName={profiles[account]?.displayName}
+                      avatarUrl={profiles[account]?.avatarUrl}
+                      dense
+                      href={portfolioPath(account)}
+                    />
                     <span
                       className={`protocol-pill is-vote is-${vote.toLowerCase()}`}
                     >
@@ -240,7 +422,13 @@ export function ProtocolProposalCard({
                 ))}
                 {abstainers.map((account) => (
                   <li key={`abstain-${account}`} className="is-abstain">
-                    <span>@{fallbackLabel(account)}</span>
+                    <ProtocolAccountChip
+                      accountId={account}
+                      profileName={profiles[account]?.displayName}
+                      avatarUrl={profiles[account]?.avatarUrl}
+                      dense
+                      href={portfolioPath(account)}
+                    />
                     <span className="protocol-pill">Pending</span>
                   </li>
                 ))}
@@ -250,7 +438,7 @@ export function ProtocolProposalCard({
         ) : null}
       </div>
 
-      {canAct || shareHref ? (
+      {canAct || shareHref || hasOnChain ? (
         <footer className="protocol-card-footer">
           {shareHref ? (
             <button
@@ -273,6 +461,15 @@ export function ProtocolProposalCard({
               {copied ? 'Copied' : 'Copy link'}
             </button>
           ) : null}
+          {hasOnChain ? (
+            <button
+              type="button"
+              className="protocol-card-link"
+              onClick={() => setOnChainOpen(true)}
+            >
+              On-chain
+            </button>
+          ) : null}
           {canAct ? (
             <button
               type="button"
@@ -285,5 +482,11 @@ export function ProtocolProposalCard({
         </footer>
       ) : null}
     </article>
+    <ProtocolOnChainSheet
+      open={onChainOpen}
+      onClose={() => setOnChainOpen(false)}
+      application={application}
+    />
+    </>
   );
 }

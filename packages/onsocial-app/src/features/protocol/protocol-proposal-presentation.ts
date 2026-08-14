@@ -22,18 +22,66 @@ export interface ProtocolProposalPresentation {
   subjectText: string | null;
   subjectEyebrow: string | null;
   showProposerSeparately: boolean;
+  /** Membership self-propose — show "Self" instead of a second chip. */
+  showProposerAsSelf: boolean;
+  /** Policy permission key (e.g. add_member_to_role) or contract method_name. */
+  onChainAction: string | null;
+  onChainActionKind: 'policy' | 'method' | null;
 }
 
-function readStringField(
-  payload: unknown,
-  key: string
-): string | null {
+/** Sputnik DAO policy permission keys — what the proposal actually proposes. */
+const PROPOSAL_KIND_POLICY_LABEL: Record<string, string> = {
+  ChangeConfig: 'config',
+  ChangePolicy: 'policy',
+  AddMemberToRole: 'add_member_to_role',
+  RemoveMemberFromRole: 'remove_member_from_role',
+  FunctionCall: 'call',
+  UpgradeSelf: 'upgrade_self',
+  UpgradeRemote: 'upgrade_remote',
+  Transfer: 'transfer',
+  SetStakingContract: 'set_vote_token',
+  AddBounty: 'add_bounty',
+  BountyDone: 'bounty_done',
+  Vote: 'vote',
+  FactoryInfoUpdate: 'factory_info_update',
+  ChangePolicyAddOrUpdateRole: 'policy_add_or_update_role',
+  ChangePolicyRemoveRole: 'policy_remove_role',
+  ChangePolicyUpdateDefaultVotePolicy: 'policy_update_default_vote_policy',
+  ChangePolicyUpdateParameters: 'policy_update_parameters',
+};
+
+function resolveOnChainActionFields(
+  kind: Record<string, unknown> | null | undefined,
+  kindKey: string | null
+): Pick<ProtocolProposalPresentation, 'onChainAction' | 'onChainActionKind'> {
+  if (!kindKey) {
+    return { onChainAction: null, onChainActionKind: null };
+  }
+
+  if (kindKey === 'FunctionCall') {
+    const methodName = getFunctionCallShape(kind ?? undefined).methodName;
+    return {
+      onChainAction: methodName,
+      onChainActionKind: methodName ? 'method' : null,
+    };
+  }
+
+  const policyLabel = PROPOSAL_KIND_POLICY_LABEL[kindKey];
+  return {
+    onChainAction: policyLabel ?? null,
+    onChainActionKind: policyLabel ? 'policy' : null,
+  };
+}
+
+function readStringField(payload: unknown, key: string): string | null {
   if (!payload || typeof payload !== 'object') return null;
   const value = (payload as Record<string, unknown>)[key];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function firstDescriptionLine(description: string | null | undefined): string | null {
+function firstDescriptionLine(
+  description: string | null | undefined
+): string | null {
   if (!description?.trim()) return null;
   const line = description
     .split(/\r?\n/)
@@ -50,7 +98,9 @@ function formatRoleDisplayName(roleId: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function shortContractName(accountId: string | null | undefined): string | null {
+function shortContractName(
+  accountId: string | null | undefined
+): string | null {
   const value = accountId?.trim();
   if (!value) return null;
   const base = value.split('.')[0]?.trim();
@@ -183,7 +233,9 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     : null;
   const args = firstAction ? decodeFunctionCallArgs(firstAction.args) : null;
   const config =
-    args?.config && typeof args.config === 'object' && !Array.isArray(args.config)
+    args?.config &&
+    typeof args.config === 'object' &&
+    !Array.isArray(args.config)
       ? (args.config as Record<string, unknown>)
       : null;
   const msg = readStringField(args, 'msg');
@@ -233,6 +285,12 @@ export function deriveProtocolProposalPresentation({
     kind && typeof kind === 'object' ? Object.keys(kind)[0] || null : null;
   const kindPayload =
     kindKey && kind ? (kind as Record<string, unknown>)[kindKey] : null;
+  const onChainFields = resolveOnChainActionFields(
+    kind && typeof kind === 'object'
+      ? (kind as Record<string, unknown>)
+      : null,
+    kindKey
+  );
   const finish = (
     partial: Partial<ProtocolProposalPresentation> & {
       headline: string;
@@ -245,8 +303,10 @@ export function deriveProtocolProposalPresentation({
     subjectText: null,
     subjectEyebrow: null,
     showProposerSeparately: false,
+    showProposerAsSelf: false,
     ...partial,
     actionBadge: partial.actionBadge ?? fallbackBadge ?? null,
+    ...onChainFields,
   });
 
   if (!kindKey) {
@@ -270,6 +330,11 @@ export function deriveProtocolProposalPresentation({
     const roleId = readStringField(kindPayload, 'role');
     const roleName = roleId ? formatRoleDisplayName(roleId) : null;
     const verb = kindKey === 'AddMemberToRole' ? 'Add to' : 'Remove from';
+    const sameAsProposer = Boolean(
+      normalizedProposer &&
+        memberId &&
+        normalizedProposer.toLowerCase() === memberId.toLowerCase()
+    );
     return finish({
       headline: roleName
         ? `${verb} ${roleName}`
@@ -283,10 +348,9 @@ export function deriveProtocolProposalPresentation({
       subjectAccount: memberId,
       subjectEyebrow: memberId ? 'Member' : null,
       showProposerSeparately: Boolean(
-        normalizedProposer &&
-          memberId &&
-          normalizedProposer.toLowerCase() !== memberId.toLowerCase()
+        normalizedProposer && memberId && !sameAsProposer
       ),
+      showProposerAsSelf: sameAsProposer,
     });
   }
 
@@ -357,8 +421,7 @@ export function deriveProtocolProposalPresentation({
       const amountLabel = shape.amountYocto
         ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
         : null;
-      const verb =
-        shape.methodName === 'withdraw_infra' ? 'Withdraw' : 'Sweep';
+      const verb = shape.methodName === 'withdraw_infra' ? 'Withdraw' : 'Sweep';
       return finish({
         headline: amountLabel
           ? `${verb} ${amountLabel}`
@@ -563,8 +626,7 @@ export function deriveProtocolProposalPresentation({
 
   if (kindKey === 'ChangeConfig') {
     return finish({
-      headline:
-        firstDescriptionLine(onChainDescription) ?? 'Update DAO config',
+      headline: firstDescriptionLine(onChainDescription) ?? 'Update DAO config',
       actionBadge: 'Config',
       targetKind: null,
       targetValue: null,

@@ -110,6 +110,16 @@ describe('protocol proposal presentation', () => {
       }).headline
     ).toBe('Add to Delegated Proposers');
 
+    const selfJoin = deriveProtocolProposalPresentation({
+      kind: {
+        AddMemberToRole: { member_id: 'alice.near', role: 'council' },
+      },
+      description: null,
+      proposer: 'alice.near',
+    });
+    expect(selfJoin.showProposerAsSelf).toBe(true);
+    expect(selfJoin.showProposerSeparately).toBe(false);
+
     expect(
       deriveProtocolProposalPresentation({
         kind: {
