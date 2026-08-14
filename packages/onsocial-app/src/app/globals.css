@@ -17,6 +17,7 @@
 @import '@onsocial/ui/os-choice-drawer.css';
 @import '@onsocial/ui/os-gesture-sheet-header.css';
 @import '@onsocial/ui/os-standing-identity.css';
+@import '@onsocial/ui/os-sheet-facts.css';
 @import './transaction-feedback-toast.css';
 /* After Tailwind — feed @#$ / Show more weights (see file comment). */
 @import './feed-meta.css';
@@ -25533,142 +25534,7 @@ a.os-surface-row {
     padding-bottom: 0.45rem;
   }
 
-  /* Canonical sheet fact chrome — used by SheetFact* (`sheet-facts.tsx`). */
-  .guild-facts {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .guild-facts-section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    padding: 0.55rem 0 0.65rem;
-  }
-
-  .guild-facts-section-title {
-    margin: 0 0 0.2rem;
-    font-size: 0.64rem;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: rgb(var(--fg-rgb) / 0.38);
-  }
-
-  .guild-facts-section-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-  }
-
-  .guild-facts-row {
-    display: grid;
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-    gap: 0.75rem;
-    align-items: baseline;
-  }
-
-  .guild-facts-label {
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.4);
-  }
-
-  .guild-facts-value {
-    min-width: 0;
-    font-size: 0.84rem;
-    font-weight: 550;
-    letter-spacing: -0.01em;
-    line-height: 1.35;
-    color: rgb(var(--fg-rgb) / 0.88);
-    word-break: break-word;
-  }
-
-  .guild-facts-copy {
-    margin: 0;
-    padding-left: calc(5.5rem + 0.75rem);
-    font-size: 0.78rem;
-    line-height: 1.45;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .guild-facts-link {
-    display: inline-flex;
-    max-width: 100%;
-    align-items: center;
-    gap: 0.28rem;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    text-decoration: none;
-    cursor: pointer;
-    transition: color 160ms ease;
-  }
-
-  .guild-facts-link:hover,
-  .guild-facts-link:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.96);
-  }
-
-  .guild-facts-link-label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-  }
-
-  .guild-facts-link-arrow {
-    flex-shrink: 0;
-    width: 0.72rem;
-    height: 0.72rem;
-    opacity: 0.42;
-    transition:
-      opacity 160ms ease,
-      transform 160ms ease;
-  }
-
-  .guild-facts-link:hover .guild-facts-link-arrow,
-  .guild-facts-link:focus-visible .guild-facts-link-arrow,
-  .guild-facts-link.group:hover .guild-facts-link-arrow {
-    opacity: 0.72;
-    transform: translateX(1px);
-  }
-
-  .guild-facts-count-value {
-    display: inline;
-  }
-
-  .guild-facts-count-value.is-loading {
-    opacity: 0.42;
-  }
-
-  .guild-facts-count {
-    font-size: 0.92rem;
-    font-weight: 650;
-    letter-spacing: -0.02em;
-    color: rgb(var(--fg-rgb) / 0.92);
-  }
-
-  .guild-facts-unit {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: rgb(var(--fg-rgb) / 0.48);
-  }
-
-  .guild-facts-id {
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.48);
-    word-break: break-all;
-  }
+  /* Sheet fact chrome: @onsocial/ui/os-sheet-facts.css */
 
   .guild-hero-description-wrap,
   .guild-hero-description-toggle {

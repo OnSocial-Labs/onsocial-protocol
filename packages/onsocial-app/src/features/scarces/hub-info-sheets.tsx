@@ -13,7 +13,7 @@ import {
   SheetFactCount,
   SheetFactRow,
   SheetFactSection,
-} from '@/components/ui/sheet-facts';
+} from '@onsocial/ui';
 import {
   appVolumeNearLabel,
   creatorAccessLabel,

@@ -18,7 +18,7 @@ import {
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
   useDiscardConfirm,
-} from '@/components/ui/discard-confirm';
+} from '@onsocial/ui';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { SuffixField } from '@onsocial/ui';

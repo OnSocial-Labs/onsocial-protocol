@@ -16,7 +16,7 @@ import {
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
   useDiscardConfirm,
-} from '@/components/ui/discard-confirm';
+} from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
