@@ -5,6 +5,7 @@ import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
   GLASS_SHEET_PEEK_RATIO,
   OsHugSheet,
+  OsProposalCardList,
   PulsingDots,
 } from '@onsocial/ui';
 import {
@@ -387,7 +388,7 @@ export function GuildMemberRequestsSheet({
         ) : null}
 
         {loadState === 'ready' && visibleEntries.length > 0 ? (
-          <div className="guild-proposal-list">
+          <OsProposalCardList className="guild-proposal-list">
             {visibleEntries.map((entry) => {
               const ownRequest = isOwnJoinRequestProposal(
                 entry.proposal,
@@ -420,7 +421,7 @@ export function GuildMemberRequestsSheet({
                 />
               );
             })}
-          </div>
+          </OsProposalCardList>
         ) : null}
       </div>
     </OsHugSheet>

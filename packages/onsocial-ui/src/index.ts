@@ -280,7 +280,9 @@ export {
   OsProposalCardList,
   OsProposalCardSep,
   OsProposalCardStrip,
+  OsProposalCardStripEnd,
   OsProposalCardStripMain,
+  OsProposalCardStripStart,
   osProposalCardActionsClassName,
   osProposalCardBodyClassName,
   osProposalCardClassName,
@@ -288,7 +290,9 @@ export {
   osProposalCardListClassName,
   osProposalCardSepClassName,
   osProposalCardStripClassName,
+  osProposalCardStripEndClassName,
   osProposalCardStripMainClassName,
+  osProposalCardStripStartClassName,
   type OsProposalCardSurface,
 } from './os-proposal-card.js';
 export {

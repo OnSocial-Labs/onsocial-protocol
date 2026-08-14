@@ -7,7 +7,11 @@ import {
   OsProposalCard,
   OsProposalCardBody,
   OsProposalCardFooter,
+  OsProposalCardSep,
   OsProposalCardStrip,
+  OsProposalCardStripEnd,
+  OsProposalCardStripMain,
+  OsProposalCardStripStart,
   OsSheetAction,
   OsSheetActions,
   UserMinusIcon,
@@ -161,46 +165,46 @@ export function ProtocolProposalCard({
         <OsProposalCardStrip
           className={`protocol-card-strip is-${view.statusTone}`}
         >
-        <div className="protocol-card-strip-start">
-          <div className="protocol-card-strip-main">
-            {view.proposalId != null ? (
-              <span className="protocol-card-id">#{view.proposalId}</span>
+          <OsProposalCardStripStart>
+            <OsProposalCardStripMain className="protocol-card-strip-main">
+              {view.proposalId != null ? (
+                <span className="protocol-card-id">#{view.proposalId}</span>
+              ) : null}
+              {view.actionBadge ? (
+                <>
+                  <OsProposalCardSep />
+                  <span className="protocol-card-action-badge">
+                    {view.actionBadge}
+                  </span>
+                </>
+              ) : null}
+            </OsProposalCardStripMain>
+            {view.submission ? (
+              <span
+                className="protocol-card-strip-meta-line"
+                title={view.submission.absolute}
+              >
+                Submitted {view.submission.relative}
+              </span>
             ) : null}
-            {view.actionBadge ? (
-              <>
-                <span className="protocol-card-strip-dot" aria-hidden>
-                  ·
-                </span>
-                <span className="protocol-card-action-badge">
-                  {view.actionBadge}
-                </span>
-              </>
+          </OsProposalCardStripStart>
+          <OsProposalCardStripEnd>
+            <span
+              className={`protocol-card-strip-status is-${view.statusTone}`}
+            >
+              {view.statusLabel}
+            </span>
+            {view.deadline ? (
+              <span
+                className={`protocol-card-strip-meta-line${
+                  view.deadline.expired ? ' is-urgent' : ''
+                }`}
+                title={view.deadline.absolute}
+              >
+                {view.deadline.prefix} {view.deadline.relative}
+              </span>
             ) : null}
-          </div>
-          {view.submission ? (
-            <span
-              className="protocol-card-strip-meta-line"
-              title={view.submission.absolute}
-            >
-              Submitted {view.submission.relative}
-            </span>
-          ) : null}
-        </div>
-        <div className="protocol-card-strip-end">
-          <span className={`protocol-card-strip-status is-${view.statusTone}`}>
-            {view.statusLabel}
-          </span>
-          {view.deadline ? (
-            <span
-              className={`protocol-card-strip-meta-line${
-                view.deadline.expired ? ' is-urgent' : ''
-              }`}
-              title={view.deadline.absolute}
-            >
-              {view.deadline.prefix} {view.deadline.relative}
-            </span>
-          ) : null}
-        </div>
+          </OsProposalCardStripEnd>
         </OsProposalCardStrip>
 
       <OsProposalCardBody className="protocol-card-body">

@@ -6,6 +6,7 @@ import {
   Divider,
   GLASS_SHEET_PEEK_RATIO,
   OsHugSheet,
+  OsProposalCardList,
   PulsingDots,
 } from '@onsocial/ui';
 import { listActiveJoinRequestProposals } from '@/features/guilds/guild-config';
@@ -381,7 +382,7 @@ export function GuildProposalsSheet({
         ) : null}
 
         {loadState === 'ready' && proposals.length > 0 ? (
-          <div className="guild-proposal-list">
+          <OsProposalCardList className="guild-proposal-list">
             {proposals.map((proposal) => (
               <GuildProposalCard
                 key={proposal.id}
@@ -395,7 +396,7 @@ export function GuildProposalsSheet({
                 onOppose={() => void runVote(proposal, false)}
               />
             ))}
-          </div>
+          </OsProposalCardList>
         ) : null}
 
         {loadState === 'ready' && resolvedProposals.length > 0 ? (
@@ -405,7 +406,7 @@ export function GuildProposalsSheet({
               className="guild-proposals-section-divider"
             />
             <p className="guild-proposals-section-label">Recently resolved</p>
-            <div className="guild-proposal-list guild-proposal-list--resolved">
+            <OsProposalCardList className="guild-proposal-list guild-proposal-list--resolved">
               {resolvedProposals.map((proposal) => (
                 <GuildProposalCard
                   key={proposal.id}
@@ -417,7 +418,7 @@ export function GuildProposalsSheet({
                   profiles={profiles}
                 />
               ))}
-            </div>
+            </OsProposalCardList>
           </>
         ) : null}
       </div>

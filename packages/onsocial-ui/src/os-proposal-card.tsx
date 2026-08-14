@@ -9,6 +9,8 @@ export const osProposalCardListClassName = 'os-proposal-card-list';
 export const osProposalCardClassName = 'os-proposal-card';
 export const osProposalCardStripClassName = 'os-proposal-card-strip';
 export const osProposalCardStripMainClassName = 'os-proposal-card-strip-main';
+export const osProposalCardStripStartClassName = 'os-proposal-card-strip-start';
+export const osProposalCardStripEndClassName = 'os-proposal-card-strip-end';
 export const osProposalCardSepClassName = 'os-proposal-card-sep';
 export const osProposalCardBodyClassName = 'os-proposal-card-body';
 export const osProposalCardFooterClassName = 'os-proposal-card-footer';
@@ -86,6 +88,36 @@ export function OsProposalCardStripMain({
 } & Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className'>) {
   return (
     <div className={cn(osProposalCardStripMainClassName, className)} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+export function OsProposalCardStripStart({
+  className,
+  children,
+  ...rest
+}: {
+  className?: string;
+  children: ReactNode;
+} & Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className'>) {
+  return (
+    <div className={cn(osProposalCardStripStartClassName, className)} {...rest}>
+      {children}
+    </div>
+  );
+}
+
+export function OsProposalCardStripEnd({
+  className,
+  children,
+  ...rest
+}: {
+  className?: string;
+  children: ReactNode;
+} & Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'className'>) {
+  return (
+    <div className={cn(osProposalCardStripEndClassName, className)} {...rest}>
       {children}
     </div>
   );

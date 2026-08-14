@@ -122,19 +122,19 @@ export function GuildProposalCard({
       }`}
     >
       <OsProposalCardStrip className="guild-proposal-card-strip">
-        <OsProposalCardStripMain className="guild-proposal-card-strip-main">
+        <OsProposalCardStripMain>
           {showSequence && proposal.sequence_number > 0 ? (
             <>
               <span className="guild-proposal-card-seq">
                 #{proposal.sequence_number}
               </span>
-              <OsProposalCardSep className="guild-proposal-card-sep" />
+              <OsProposalCardSep />
             </>
           ) : null}
           <span className="guild-proposal-card-kind">{presentation.kind}</span>
           {submittedRelative ? (
             <>
-              <OsProposalCardSep className="guild-proposal-card-sep" />
+              <OsProposalCardSep />
               <time
                 className="guild-proposal-card-time"
                 dateTime={submittedDate?.toISOString()}
@@ -146,7 +146,7 @@ export function GuildProposalCard({
           ) : null}
           {!outcome.isTerminal && voteProgress.closesLabel ? (
             <>
-              <OsProposalCardSep className="guild-proposal-card-sep" />
+              <OsProposalCardSep />
               <span
                 className="guild-proposal-card-closes"
                 title={voteProgress.closesTitle ?? undefined}

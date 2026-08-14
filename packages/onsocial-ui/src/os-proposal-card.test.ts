@@ -7,7 +7,9 @@ import {
   osProposalCardListClassName,
   osProposalCardSepClassName,
   osProposalCardStripClassName,
+  osProposalCardStripEndClassName,
   osProposalCardStripMainClassName,
+  osProposalCardStripStartClassName,
 } from './os-proposal-card.js';
 
 describe('os-proposal-card class names', () => {
@@ -18,6 +20,10 @@ describe('os-proposal-card class names', () => {
     expect(osProposalCardStripMainClassName).toBe(
       'os-proposal-card-strip-main'
     );
+    expect(osProposalCardStripStartClassName).toBe(
+      'os-proposal-card-strip-start'
+    );
+    expect(osProposalCardStripEndClassName).toBe('os-proposal-card-strip-end');
     expect(osProposalCardSepClassName).toBe('os-proposal-card-sep');
     expect(osProposalCardBodyClassName).toBe('os-proposal-card-body');
     expect(osProposalCardFooterClassName).toBe('os-proposal-card-footer');
