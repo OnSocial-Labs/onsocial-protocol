@@ -6,6 +6,7 @@ import {
   FloatingPanelMenu,
   OsSheetActions,
   PulsingDots,
+  TokenIcon,
   osFloatingPanelItemClassName,
   osFloatingPanelItemSelectedClassName,
   osFloatingPanelTriggerChevronClassName,
@@ -17,7 +18,6 @@ import { AmountField } from '@onsocial/ui';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { OsSheetAction } from '@onsocial/ui';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
-import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';

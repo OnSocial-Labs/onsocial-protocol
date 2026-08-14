@@ -146,7 +146,7 @@ Even trio with · separators. Same control height as standing modal; **no border
 - Optional one-line whisper only when relationship state exists
 - Close control top-right
 
-Do not hand-roll `GlassSheet` + `GestureSheetHeader` for this family. Amount / suffix type-ins: `AmountField` / `SuffixField` from `@onsocial/ui`.
+Do not hand-roll `GlassSheet` + `GestureSheetHeader` for this family. Amount / suffix type-ins: `AmountField` / `SuffixField` from `@onsocial/ui`. Unit marks: `TokenIcon`.
 
 Shared header primitive: `GestureSheetHeader`. Identity labels use `fallbackLabel` / raw `accountId` — full NEAR id.
 

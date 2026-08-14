@@ -10,6 +10,7 @@
 @import '@onsocial/ui/os-launcher.css';
 @import '@onsocial/ui/profile-editor-media.css';
 @import '@onsocial/ui/profile-avatar.css';
+@import '@onsocial/ui/os-token-icon.css';
 @import '@onsocial/ui/search-field.css';
 @import '@onsocial/ui/os-field.css';
 @import '@onsocial/ui/os-amount-field.css';
@@ -29603,33 +29604,7 @@ a.os-surface-row {
     gap: 0.35rem;
   }
 
-  .app-token-icon {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-    border-radius: 9999px;
-    object-fit: cover;
-  }
-
-  .app-token-icon--mark {
-    display: inline-block;
-    background: rgb(var(--fg-rgb) / 0.72);
-    border-radius: 0;
-    -webkit-mask: url('/onsocial_icon.svg') center / contain no-repeat;
-    mask: url('/onsocial_icon.svg') center / contain no-repeat;
-  }
-
-  .app-token-icon--fallback {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.62);
-    font-size: 0.55rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    line-height: 1;
-  }
+  /* Token mark chrome: @onsocial/ui/os-token-icon.css */
 
   .profile-support-hint,
   .profile-support-error {
