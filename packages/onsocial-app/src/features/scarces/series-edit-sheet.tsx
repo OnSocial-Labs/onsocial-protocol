@@ -12,7 +12,7 @@ import { osFieldBorderedClassName } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';

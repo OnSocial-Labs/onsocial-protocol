@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { AmountField } from '@/components/ui/amount-field';
+import { AmountField } from '@onsocial/ui';
 import {
   DEFAULT_ROYALTY_BPS,
   MAX_ROYALTY_BPS,

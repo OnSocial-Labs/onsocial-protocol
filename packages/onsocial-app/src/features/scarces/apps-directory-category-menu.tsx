@@ -3,7 +3,7 @@
 import {
   ChoiceDrawerMenu,
   type ChoiceOption,
-} from '@/components/ui/choice-drawer';
+} from '@onsocial/ui';
 import {
   HUB_CATEGORY_FILTERS,
   type HubCategoryFilter,

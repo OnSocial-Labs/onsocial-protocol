@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 import {
   collectionIdFromTokenId,
   marketListingRowKey,

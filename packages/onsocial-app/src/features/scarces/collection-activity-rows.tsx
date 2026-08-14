@@ -5,7 +5,7 @@ import { Divider } from '@onsocial/ui';
 import {
   StandingIdentity,
   standingIdentityLabel,
-} from '@/components/ui/standing-identity';
+} from '@onsocial/ui';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import { portfolioPath } from '@/lib/overlay-routes';
 

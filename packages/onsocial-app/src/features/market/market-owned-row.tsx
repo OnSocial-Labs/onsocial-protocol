@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+} from '@onsocial/ui';
 import {
   auctionExpiresAtMs,
   type OwnedScarceItem,

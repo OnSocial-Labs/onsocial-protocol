@@ -6,7 +6,7 @@ import { DiscoverMoodDot } from '@/components/moods/discover-mood-dot';
 import {
   StandingIdentity,
   standingIdentityLabel,
-} from '@/components/ui/standing-identity';
+} from '@onsocial/ui';
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PostRichText } from '@/features/home/post-rich-text';

@@ -19,9 +19,9 @@ import {
   discardConfirmFooterA11y,
   useDiscardConfirm,
 } from '@/components/ui/discard-confirm';
-import { OsSheetAction, OsSheetActions } from '@/components/ui/os-sheet-action';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { NearAccountField } from '@/components/ui/near-account-field';
-import { SuffixField } from '@/components/ui/suffix-field';
+import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';

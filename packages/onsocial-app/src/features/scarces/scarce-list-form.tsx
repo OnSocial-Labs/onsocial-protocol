@@ -18,8 +18,8 @@ import {
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
 import { osFieldBorderedClassName } from '@onsocial/ui';
-import { AmountField } from '@/components/ui/amount-field';
-import { SuffixField } from '@/components/ui/suffix-field';
+import { AmountField } from '@onsocial/ui';
+import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';

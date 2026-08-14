@@ -1,6 +1,6 @@
 'use client';
 
-import { InfoDrawer } from '@/components/ui/info-drawer';
+import { InfoDrawer } from '@onsocial/ui';
 
 export const HUB_CREATE_HELP_TITLE = 'Your hub';
 

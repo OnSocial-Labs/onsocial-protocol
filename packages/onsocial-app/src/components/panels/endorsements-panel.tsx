@@ -10,7 +10,7 @@ import {
   EndorsementListRow,
   EndorsementListSkeleton,
 } from '@/components/panels/endorsement-list-row';
-import { OsSheetAction, OsSheetActions } from '@/components/ui/os-sheet-action';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { displayName } from '@/lib/profile-display';

@@ -5,8 +5,8 @@ import { postContentPath, type PostRow } from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-action';
-import { AmountField } from '@/components/ui/amount-field';
+} from '@onsocial/ui';
+import { AmountField } from '@onsocial/ui';
 import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';

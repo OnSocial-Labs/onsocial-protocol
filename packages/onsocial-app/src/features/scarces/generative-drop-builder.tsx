@@ -27,7 +27,7 @@ import {
   TrashIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
-import { SuffixField } from '@/components/ui/suffix-field';
+import { SuffixField } from '@onsocial/ui';
 import type {
   GenerateSetJob,
   GenerativeLayerSpec,

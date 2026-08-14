@@ -6,7 +6,7 @@ import { Divider } from '@onsocial/ui';
 import {
   StandingIdentity,
   standingIdentityLabel,
-} from '@/components/ui/standing-identity';
+} from '@onsocial/ui';
 import { GuildMemberRoleBadge } from '@/features/guilds/guild-member-role-badge';
 import { guildMemberRoleBucket } from '@/features/guilds/guild-member-filter';
 import { GuildMemberRowMenu } from '@/features/guilds/guild-member-row-menu';

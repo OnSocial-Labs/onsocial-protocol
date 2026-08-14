@@ -4,7 +4,7 @@ import { SearchField, osFloatingPanelCountClassName } from '@onsocial/ui';
 import {
   ChoiceDrawerMenu,
   type ChoiceOption,
-} from '@/components/ui/choice-drawer';
+} from '@onsocial/ui';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   countGuildMembersByRoleFilter,
