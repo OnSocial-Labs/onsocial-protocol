@@ -8,6 +8,7 @@ import {
   FloatingPanelMenu,
   OsSheetActions,
   PulsingDots,
+  TokenIcon,
   osFloatingPanelItemClassName,
   osFloatingPanelItemSelectedClassName,
   osFloatingPanelTriggerChevronClassName,
@@ -17,7 +18,6 @@ import {
 } from '@onsocial/ui';
 import { OsSheetAction } from '@onsocial/ui';
 import { AppSocialSwapQuoteDetails } from '@/components/wallet/app-social-swap-quote-details';
-import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';

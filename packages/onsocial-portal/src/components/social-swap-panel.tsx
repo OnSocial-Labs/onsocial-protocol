@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Info } from 'lucide-react';
 
 import { ProtocolFlowDivider } from '@/components/ui/protocol-flow-divider';
-import { ProtocolMotionArrow, useDropdown } from '@onsocial/ui';
+import { TokenIcon, ProtocolMotionArrow, useDropdown } from '@onsocial/ui';
 import { SocialSwapQuoteDetails } from '@/components/social-swap-quote-details';
 import { Button, buttonArrowRightClass } from '@/components/ui/button';
 import {
@@ -24,7 +24,6 @@ import {
   floatingPanelItemSelectedClass,
 } from '@/components/ui/floating-panel';
 import { FloatingPanelMenu } from '@/components/ui/floating-panel-menu';
-import { TokenIcon } from '@/components/ui/token-icon';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { usePortalSwap } from '@/hooks/use-portal-swap';

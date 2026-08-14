@@ -29,8 +29,7 @@ import {
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
-import { ProtocolMotionArrow } from '@onsocial/ui';
-import { TokenIcon } from '@/components/ui/token-icon';
+import { TokenIcon, ProtocolMotionArrow } from '@onsocial/ui';
 import {
   GovernanceAccountChip,
   prefetchGovernanceCardAccounts,

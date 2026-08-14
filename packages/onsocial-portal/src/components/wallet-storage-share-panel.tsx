@@ -14,9 +14,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NearAccountField } from '@/components/ui/near-account-field';
-import { ProtocolMotionArrow } from '@onsocial/ui';
+import { TokenIcon, ProtocolMotionArrow } from '@onsocial/ui';
 import { SocialSpendAmountPill } from '@/components/social-spend-pill';
-import { TokenIcon } from '@/components/ui/token-icon';
 import {
   compactModalSectionLabelClass,
   walletMenuMetricCaptionSlotClass,

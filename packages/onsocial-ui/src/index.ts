@@ -258,6 +258,11 @@ export {
   type OsAccountFieldChrome,
 } from './os-account-field.js';
 export {
+  CollectionQtyStepper,
+  collectionQtyClassName,
+  type CollectionQtyStepperProps,
+} from './collection-qty-stepper.js';
+export {
   StandingIdentity,
   standingIdentityLabel,
   type StandingIdentityShowHandle,
@@ -389,6 +394,12 @@ export {
   type ProfileAvatarProps,
   type ProfileAvatarSize,
 } from './profile-avatar.js';
+export {
+  TokenIcon,
+  osTokenIconClassName,
+  type TokenIconProps,
+  type TokenIconSize,
+} from './token-icon.js';
 export {
   SearchField,
   searchFieldClassName,

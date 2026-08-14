@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { TokenIcon } from '@onsocial/ui';
 import { Button } from '@/components/ui/button';
 import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import {
@@ -25,7 +26,6 @@ import {
 } from '@/components/ui/floating-panel';
 import { ModalCloseButton } from '@/components/ui/modal-close-button';
 import { ModalHeader } from '@/components/ui/modal-header';
-import { TokenIcon } from '@/components/ui/token-icon';
 import { AllowanceProgressBar } from '@/components/platform-storage-allowance-summary';
 import { WalletStorageSharePanel } from '@/components/wallet-storage-share-panel';
 import { SocialSpendAmountPill } from '@/components/social-spend-pill';
