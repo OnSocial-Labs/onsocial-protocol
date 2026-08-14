@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { OsProposalCardList } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -978,7 +979,7 @@ export function ProtocolPagePanel() {
         {!showRegistry &&
         loadState === 'ready' &&
         visibleApplications.length > 0 ? (
-          <div className="protocol-card-list">
+          <OsProposalCardList className="protocol-card-list">
             {visibleApplications.map((application) => {
               const proposalId =
                 resolveLiveProposal(application)?.id ??
@@ -1024,7 +1025,7 @@ export function ProtocolPagePanel() {
                 />
               );
             })}
-          </div>
+          </OsProposalCardList>
         ) : null}
       </div>
 
