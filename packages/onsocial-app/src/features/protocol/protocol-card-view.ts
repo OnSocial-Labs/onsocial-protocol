@@ -297,6 +297,8 @@ export function deriveProtocolProposalView(opts: {
   subjectEyebrow: string | null;
   showProposerSeparately: boolean;
   showProposerAsSelf: boolean;
+  onChainAction: string | null;
+  onChainActionKind: 'policy' | 'method' | null;
   proposer: string | null;
   submission: { relative: string; absolute: string } | null;
   deadline: {
@@ -459,6 +461,8 @@ export function deriveProtocolProposalView(opts: {
     subjectEyebrow: presentation.subjectEyebrow,
     showProposerSeparately: presentation.showProposerSeparately,
     showProposerAsSelf: presentation.showProposerAsSelf,
+    onChainAction: presentation.onChainAction,
+    onChainActionKind: presentation.onChainActionKind,
     proposer: proposal?.proposer?.trim() || null,
     submission:
       submissionMs != null

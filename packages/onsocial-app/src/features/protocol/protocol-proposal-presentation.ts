@@ -24,6 +24,53 @@ export interface ProtocolProposalPresentation {
   showProposerSeparately: boolean;
   /** Membership self-propose — show "Self" instead of a second chip. */
   showProposerAsSelf: boolean;
+  /** Policy permission key (e.g. add_member_to_role) or contract method_name. */
+  onChainAction: string | null;
+  onChainActionKind: 'policy' | 'method' | null;
+}
+
+/** Sputnik DAO policy permission keys — what the proposal actually proposes. */
+const PROPOSAL_KIND_POLICY_LABEL: Record<string, string> = {
+  ChangeConfig: 'config',
+  ChangePolicy: 'policy',
+  AddMemberToRole: 'add_member_to_role',
+  RemoveMemberFromRole: 'remove_member_from_role',
+  FunctionCall: 'call',
+  UpgradeSelf: 'upgrade_self',
+  UpgradeRemote: 'upgrade_remote',
+  Transfer: 'transfer',
+  SetStakingContract: 'set_vote_token',
+  AddBounty: 'add_bounty',
+  BountyDone: 'bounty_done',
+  Vote: 'vote',
+  FactoryInfoUpdate: 'factory_info_update',
+  ChangePolicyAddOrUpdateRole: 'policy_add_or_update_role',
+  ChangePolicyRemoveRole: 'policy_remove_role',
+  ChangePolicyUpdateDefaultVotePolicy: 'policy_update_default_vote_policy',
+  ChangePolicyUpdateParameters: 'policy_update_parameters',
+};
+
+function resolveOnChainActionFields(
+  kind: Record<string, unknown> | null | undefined,
+  kindKey: string | null
+): Pick<ProtocolProposalPresentation, 'onChainAction' | 'onChainActionKind'> {
+  if (!kindKey) {
+    return { onChainAction: null, onChainActionKind: null };
+  }
+
+  if (kindKey === 'FunctionCall') {
+    const methodName = getFunctionCallShape(kind ?? undefined).methodName;
+    return {
+      onChainAction: methodName,
+      onChainActionKind: methodName ? 'method' : null,
+    };
+  }
+
+  const policyLabel = PROPOSAL_KIND_POLICY_LABEL[kindKey];
+  return {
+    onChainAction: policyLabel ?? null,
+    onChainActionKind: policyLabel ? 'policy' : null,
+  };
 }
 
 function readStringField(payload: unknown, key: string): string | null {
@@ -238,6 +285,12 @@ export function deriveProtocolProposalPresentation({
     kind && typeof kind === 'object' ? Object.keys(kind)[0] || null : null;
   const kindPayload =
     kindKey && kind ? (kind as Record<string, unknown>)[kindKey] : null;
+  const onChainFields = resolveOnChainActionFields(
+    kind && typeof kind === 'object'
+      ? (kind as Record<string, unknown>)
+      : null,
+    kindKey
+  );
   const finish = (
     partial: Partial<ProtocolProposalPresentation> & {
       headline: string;
@@ -253,6 +306,7 @@ export function deriveProtocolProposalPresentation({
     showProposerAsSelf: false,
     ...partial,
     actionBadge: partial.actionBadge ?? fallbackBadge ?? null,
+    ...onChainFields,
   });
 
   if (!kindKey) {

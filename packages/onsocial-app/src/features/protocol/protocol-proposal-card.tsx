@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { CheckIcon, MultiplyIcon, UserMinusIcon } from '@onsocial/ui';
 import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
+import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
 import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
 import type {
   ProtocolApplication,
@@ -61,6 +62,7 @@ export function ProtocolProposalCard({
   const [votersOpen, setVotersOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [onChainOpen, setOnChainOpen] = useState(false);
   const view = useMemo(
     () =>
       deriveProtocolProposalView({
@@ -110,6 +112,7 @@ export function ProtocolProposalCard({
   );
   const canAct =
     view.canApprove || view.canReject || view.canRemove || view.canFinalize;
+  const hasOnChain = Boolean(view.proposal) || Boolean(view.onChainAction);
   const showVoters = view.voteEntries.length > 0 || abstainers.length > 0;
   const eyebrow = targetEyebrow(view.targetKind);
   const showProposer =
@@ -134,6 +137,7 @@ export function ProtocolProposalCard({
   const descriptionLong = Boolean(description && description.length > 140);
 
   return (
+    <>
     <article
       id={
         view.proposalId != null
@@ -434,7 +438,7 @@ export function ProtocolProposalCard({
         ) : null}
       </div>
 
-      {canAct || shareHref ? (
+      {canAct || shareHref || hasOnChain ? (
         <footer className="protocol-card-footer">
           {shareHref ? (
             <button
@@ -457,6 +461,15 @@ export function ProtocolProposalCard({
               {copied ? 'Copied' : 'Copy link'}
             </button>
           ) : null}
+          {hasOnChain ? (
+            <button
+              type="button"
+              className="protocol-card-link"
+              onClick={() => setOnChainOpen(true)}
+            >
+              On-chain
+            </button>
+          ) : null}
           {canAct ? (
             <button
               type="button"
@@ -469,5 +482,11 @@ export function ProtocolProposalCard({
         </footer>
       ) : null}
     </article>
+    <ProtocolOnChainSheet
+      open={onChainOpen}
+      onClose={() => setOnChainOpen(false)}
+      application={application}
+    />
+    </>
   );
 }
