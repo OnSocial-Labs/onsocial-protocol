@@ -2,8 +2,7 @@
 
 import { useCallback, useId, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
   commerceFooterStatesEqual,
@@ -83,8 +82,6 @@ export function ScarceBidSheet({
     }
   }
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -104,34 +101,19 @@ export function ScarceBidSheet({
   );
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-      panelStyle={panelStyle}
-      zIndex={zIndex}
-      ariaLabelledBy={titleId}
+      verb="Bid"
+      signal="reputation"
+      closeAriaLabel="Close bid scarce"
       backdropLabel="Close bid scarce"
+      keyboardOpen={keyboardOpen}
+      panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Bid"
-            signal="reputation"
-            closeAriaLabel="Close bid scarce"
-            onClose={requestClose}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={zIndex}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -157,6 +139,6 @@ export function ScarceBidSheet({
           }}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

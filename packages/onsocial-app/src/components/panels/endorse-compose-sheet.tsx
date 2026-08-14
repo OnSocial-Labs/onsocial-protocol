@@ -9,13 +9,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { normalizeEndorsementTopic } from '@onsocial/sdk';
-import {
-  Divider,
-  GlassSheet,
-  osFieldBorderedClassName,
-  useScrollLock,
-} from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet, osFieldBorderedClassName } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -54,7 +48,7 @@ interface EndorseComposeSheetProps {
 
 /**
  * Face Endorse compose — same hug gesture family as Support (host mood +
- * GestureSheetHeader). Bordered type-ins so mood wash shows through.
+ * OsGestureSheet). Bordered type-ins so mood wash shows through.
  */
 export function EndorseComposeSheet({
   open,
@@ -90,8 +84,6 @@ export function EndorseComposeSheet({
         : undefined,
     [effectiveMood]
   );
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open) return;
@@ -160,35 +152,22 @@ export function EndorseComposeSheet({
   }
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
+      verb="Endorse"
+      personName={name}
+      handle={handle}
+      signal="endorse"
+      closeAriaLabel="Close endorse"
+      backdropLabel="Close endorse"
       moodId={effectiveMood?.id}
       panelStyle={panelStyle}
-      panelClassName="endorse-compose-sheet-panel"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={56}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close endorse"
+      size="compact"
       bodyClassName="endorse-compose-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Endorse"
-            personName={name}
-            handle={handle}
-            signal="endorse"
-            closeAriaLabel="Close endorse"
-            onClose={requestClose}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
     >
       <div className="endorse-compose-form">
         <label className="endorse-compose-field">
@@ -273,6 +252,6 @@ export function EndorseComposeSheet({
           </OsSheetAction>
         </OsSheetActions>
       </div>
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

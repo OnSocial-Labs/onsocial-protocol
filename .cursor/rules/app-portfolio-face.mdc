@@ -136,9 +136,9 @@ Even trio with · separators. Same control height as standing modal; **no border
 
 ## Gesture sheet chrome (Support / Endorse compose)
 
-Hug `GlassSheet` over the portfolio face (mood peek) — **not** a post-compose slide-over. Same family for both:
+`OsGestureSheet` from `@onsocial/ui` — hug glass + `GestureSheetHeader` over the portfolio face (mood peek). **Not** a post-compose slide-over. Same family for Support, Endorse, scarce buy/sell, protocol tasks:
 
-- **Host mood** — page owner (`mood` prop or `usePageOwnerMood`); signal hues via `supportSheetPanelStyle`
+- **Host mood** — page owner (`mood` prop or `usePageOwnerMood`); signal hues via `supportSheetPanelStyle` into `panelStyle`
 - **Typing fields** — `os-field-bordered` so wash shows through
 - One title beat — **not** a duplicate face-card strip
 - Fused title: signal-colored verb + person (`Support Voter 02`, `Endorse …`)
@@ -146,7 +146,9 @@ Hug `GlassSheet` over the portfolio face (mood peek) — **not** a post-compose 
 - Optional one-line whisper only when relationship state exists
 - Close control top-right
 
-Shared: `GestureSheetHeader` (`gesture-sheet-header.tsx`). Identity labels use `fallbackLabel` / raw `accountId` — full NEAR id.
+Do not hand-roll `GlassSheet` + `GestureSheetHeader` for this family. Amount / suffix type-ins: `AmountField` / `SuffixField` from `@onsocial/ui`.
+
+Shared header primitive: `GestureSheetHeader`. Identity labels use `fallbackLabel` / raw `accountId` — full NEAR id.
 
 ## Do not
 

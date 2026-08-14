@@ -12,12 +12,10 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Divider,
-  GlassSheet,
+  OsGestureSheet,
   ScaleDownIcon,
   useScrollLock,
 } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
@@ -126,7 +124,8 @@ export function ScarceFeedMediumSheet({
   const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
   const requestClose = useCallback(() => setClosing(true), []);
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
-  useScrollLock(open || closing);
+  // Overlay / listen paths need host lock; OsGestureSheet locks the reader sheet.
+  useScrollLock((isOverlay || immersiveAudio) && (open || closing));
 
   const isCreator =
     Boolean(viewerAccountId?.trim()) &&
@@ -405,35 +404,24 @@ export function ScarceFeedMediumSheet({
   }
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={() => {
         setClosing(false);
         onOpenChange(false);
       }}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={56}
-      ariaLabelledBy={titleId}
+      verb="Read"
+      personName=""
+      handle={name}
+      signal="reputation"
+      whisper="Drop writing"
+      closeAriaLabel="Close reader"
       backdropLabel="Close reader"
+      size="compact"
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Read"
-            personName=""
-            handle={name}
-            signal="reputation"
-            closeAriaLabel="Close reader"
-            onClose={requestClose}
-            whisper="Drop writing"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
     >
       {postChrome}
       {sheetOpen && collectionId && hasWriting ? (
@@ -456,6 +444,6 @@ export function ScarceFeedMediumSheet({
               : 'Loading writing…'}
         </p>
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

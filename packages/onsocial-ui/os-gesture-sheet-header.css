@@ -1,9 +1,38 @@
 /**
- * @onsocial/ui — gesture sheet header (Support / Endorse / commerce verbs).
+ * @onsocial/ui — gesture sheet header + panel (Support / Endorse / commerce).
  *
  * Relies on app/host `.standing-sheet-header` + `.standing-sheet-subject-name`
  * for shared sheet title padding/type. Pair with glass-sheet.css.
+ *
+ * Panel classes from {@link OsGestureSheet}:
+ *   .os-gesture-sheet-panel         — signal fallbacks + body opacity
+ *   .os-gesture-sheet-panel--tall   — Support / scarce / protocol max-height
+ * Legacy aliases: .profile-support-sheet-panel, .endorse-compose-sheet-panel
  */
+
+/* Shared gesture panel — signal defaults when opened outside mood face. */
+.glass-sheet-panel.os-gesture-sheet-panel,
+.glass-sheet-panel.profile-support-sheet-panel,
+.glass-sheet-panel.endorse-compose-sheet-panel {
+  --glass-header-scrim-height: min(5rem, 24%);
+  --glass-sheet-body-opacity: 0.64;
+  --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
+  --signal-standing: var(--mood-signal-standing, #5ecf9a);
+  --signal-endorse: var(--mood-signal-endorse, #dab872);
+  --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
+}
+
+.glass-sheet-panel.os-gesture-sheet-panel--tall,
+.glass-sheet-panel.profile-support-sheet-panel {
+  max-height: min(94dvh, 46rem);
+}
+
+.glass-sheet-panel.os-gesture-sheet-panel.is-keyboard-open > .glass-sheet-body,
+.glass-sheet-panel.profile-support-sheet-panel.is-keyboard-open
+  > .glass-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
 
 .gesture-sheet-header {
   gap: 0;

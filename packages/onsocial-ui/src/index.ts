@@ -217,12 +217,37 @@ export {
   type OsHugSheetChrome,
   type OsHugSheetProps,
 } from './os-hug-sheet.js';
+export {
+  OsGestureSheet,
+  osGestureSheetBodyClassName,
+  osGestureSheetPanelClassName,
+  osGestureSheetPanelTallClassName,
+  type OsGestureSheetProps,
+  type OsGestureSheetSize,
+} from './os-gesture-sheet.js';
 export { InfoDrawer, type InfoDrawerProps } from './info-drawer.js';
 export {
   GestureSheetHeader,
   type GestureSheetHeaderProps,
   type GestureSheetSignal,
 } from './gesture-sheet-header.js';
+export {
+  AmountField,
+  osAmountFieldClassName,
+  osAmountFieldDividerClassName,
+  osAmountFieldInputClassName,
+  osAmountFieldUnitClassName,
+  type AmountFieldChrome,
+} from './amount-field.js';
+export {
+  SuffixField,
+  osSuffixFieldClassName,
+  osSuffixFieldDividerClassName,
+  osSuffixFieldInputClassName,
+  osSuffixFieldUnitClassName,
+  type SuffixFieldChrome,
+} from './suffix-field.js';
+export { finalizeAmountInput, normalizeAmountInput } from './amount-input.js';
 export {
   configureScrollLockContainerFinder,
   useScrollLock,

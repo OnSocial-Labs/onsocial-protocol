@@ -2,8 +2,7 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
   commerceFooterStatesEqual,
@@ -106,8 +105,6 @@ export function ScarceBuySheet({
     }
   }
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -150,36 +147,22 @@ export function ScarceBuySheet({
 
   const commerceStatus = listing?.status ?? embed?.status;
   const isMint = isPrimaryMintStatus(commerceStatus);
+  const closeLabel = isMint ? 'Close mint scarce' : 'Close buy scarce';
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
+      verb={isMint ? 'Mint' : 'Buy'}
+      signal="reputation"
+      closeAriaLabel={closeLabel}
+      backdropLabel={closeLabel}
+      keyboardOpen={keyboardOpen}
       panelStyle={panelStyle}
-      zIndex={zIndex}
-      ariaLabelledBy={titleId}
-      backdropLabel={isMint ? 'Close mint scarce' : 'Close buy scarce'}
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb={isMint ? 'Mint' : 'Buy'}
-            signal="reputation"
-            closeAriaLabel={isMint ? 'Close mint scarce' : 'Close buy scarce'}
-            onClose={requestClose}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={zIndex}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -204,6 +187,6 @@ export function ScarceBuySheet({
           onMakeOffer={onMakeOffer ? handleMakeOffer : undefined}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

@@ -12,6 +12,7 @@
 @import '@onsocial/ui/profile-avatar.css';
 @import '@onsocial/ui/search-field.css';
 @import '@onsocial/ui/os-field.css';
+@import '@onsocial/ui/os-amount-field.css';
 @import '@onsocial/ui/os-notice-card.css';
 @import '@onsocial/ui/os-choice-drawer.css';
 @import '@onsocial/ui/os-gesture-sheet-header.css';
@@ -199,35 +200,7 @@
   padding-bottom: 0.35rem;
 }
 
-/* Support / scarce commerce sheets — taller cap; height via sizing="hug". */
-.glass-sheet-panel.profile-support-sheet-panel {
-  /* List / buy sheets are denser now — open taller so preview + chips stay in view. */
-  max-height: min(94dvh, 46rem);
-  --glass-header-scrim-height: min(5rem, 24%);
-  --glass-sheet-body-opacity: 0.64;
-  /* Defaults when opened outside a mood portfolio (e.g. Market Sell). */
-  --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
-  --signal-standing: var(--mood-signal-standing, #5ecf9a);
-  --signal-endorse: var(--mood-signal-endorse, #dab872);
-  --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
-}
-
-/* Endorse compose — same gesture signal fallbacks; shorter hug form. */
-.glass-sheet-panel.endorse-compose-sheet-panel {
-  --glass-header-scrim-height: min(5rem, 24%);
-  --glass-sheet-body-opacity: 0.64;
-  --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
-  --signal-standing: var(--mood-signal-standing, #5ecf9a);
-  --signal-endorse: var(--mood-signal-endorse, #dab872);
-  --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
-}
-
-/* Keyboard open — fill visual viewport so body scrolls above pinned footer. */
-.glass-sheet-panel.profile-support-sheet-panel.is-keyboard-open
-  > .glass-sheet-body {
-  flex: 1 1 auto;
-  min-height: 0;
-}
+/* Gesture panel chrome: @onsocial/ui/os-gesture-sheet-header.css */
 
 /* Page drawer — unlayered so these beat imported glass-sheet rules. */
 .glass-sheet-panel.page-drawer-panel {

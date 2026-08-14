@@ -23,6 +23,7 @@
     "./profile-avatar.css": "./profile-avatar.css",
     "./search-field.css": "./search-field.css",
     "./os-field.css": "./os-field.css",
+    "./os-amount-field.css": "./os-amount-field.css",
     "./os-notice-card.css": "./os-notice-card.css",
     "./os-choice-drawer.css": "./os-choice-drawer.css",
     "./os-gesture-sheet-header.css": "./os-gesture-sheet-header.css"
@@ -69,6 +70,7 @@
     "profile-avatar.css",
     "search-field.css",
     "os-field.css",
+    "os-amount-field.css",
     "os-notice-card.css",
     "os-choice-drawer.css",
     "os-gesture-sheet-header.css"

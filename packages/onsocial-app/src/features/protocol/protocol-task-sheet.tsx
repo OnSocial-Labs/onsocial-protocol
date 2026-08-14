@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useId, useState, type ReactNode } from 'react';
-import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
-import type { GestureSheetSignal } from '@/components/panels/gesture-sheet-header';
+import {
+  OsGestureSheet,
+  type GestureSheetSignal,
+} from '@onsocial/ui';
 import {
   CommerceSheetFooter,
   type CommerceSheetFooterState,
@@ -12,7 +13,7 @@ import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyb
 
 /**
  * Full-height Protocol task sheet — same chrome as Scarces sell/list/buy
- * (GlassSheet full detent, GestureSheetHeader, keyboard lift, pinned footer).
+ * (`OsGestureSheet`, keyboard lift, pinned footer).
  * Keep Vote/Finalize on the compact peek action sheet.
  */
 export function ProtocolTaskSheet({
@@ -45,8 +46,6 @@ export function ProtocolTaskSheet({
   const sheetOpen = open && !closing;
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -57,36 +56,21 @@ export function ProtocolTaskSheet({
   }, [onClose]);
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      sizing="hug"
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-      panelStyle={panelStyle}
-      zIndex={58}
-      ariaLabelledBy={titleId}
+      verb={verb}
+      handle={handle}
+      signal={signal}
+      whisper={whisper}
+      closeAriaLabel={closeAriaLabel}
       backdropLabel={backdropLabel}
+      keyboardOpen={keyboardOpen}
+      panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body protocol-task-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb={verb}
-            handle={handle}
-            signal={signal}
-            closeAriaLabel={closeAriaLabel}
-            onClose={requestClose}
-            whisper={whisper}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={58}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -98,6 +82,6 @@ export function ProtocolTaskSheet({
       }
     >
       {children}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }
