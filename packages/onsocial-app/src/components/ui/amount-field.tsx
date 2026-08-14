@@ -12,7 +12,8 @@ export type AmountFieldChrome = 'bordered' | 'soft';
 
 /**
  * Shared money input shell — `app-storage-amount-field` + unit.
- * Bordered (default): transparent fill + detail divider + type-only unit rail.
+ * `chrome="bordered"` (default): transparent fill + detail divider + unit rail
+ * so glass / mood tint shows through. `chrome="soft"`: quiet wash off glass.
  * Pair with {@link AmountFieldMetaRow} for presets / Max / balance.
  * Use `display` for read-only legs (swap receive).
  */

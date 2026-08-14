@@ -4,9 +4,11 @@
  * Pair with protocol.css (`--fg-rgb`). Use on the control itself (`input` /
  * `textarea`) or on a flex wrapper that owns the chrome (`:focus-within`).
  *
- *   os-field-bordered  — transparent fill, cool border + inset lip
- *                        (create forms, poll/CW, amounts, paste wells — tint shows through)
- *   os-field-soft      — quiet wash, no border (dense stacks off glass / storage)
+ *   os-field-bordered  — transparent fill + 1px border + inset lip
+ *                        (glass create/edit forms, amounts, paste wells —
+ *                        mood/glass tint shows through)
+ *   os-field-soft      — quiet wash, no border
+ *                        (dense stacks off glass: protocol, lyrics, endorse)
  *   os-field           — optional label stack (label + control + hint)
  *   OsFieldRemove      — compact × beside field rows (poll / recipients / lists)
  */
@@ -83,7 +85,7 @@
   opacity: 0.55;
 }
 
-/* Bordered — transparent fill; hover/focus strengthen border only. */
+/* Bordered — transparent fill; hover/focus strengthen the 1px border only. */
 .os-field-bordered {
   border: 1px solid var(--os-field-bordered-border);
   background: transparent;
