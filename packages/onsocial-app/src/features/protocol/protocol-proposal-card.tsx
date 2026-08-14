@@ -1,7 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CheckIcon, MultiplyIcon, UserMinusIcon } from '@onsocial/ui';
+import {
+  CheckIcon,
+  MultiplyIcon,
+  OsSheetAction,
+  OsSheetActions,
+  UserMinusIcon,
+} from '@onsocial/ui';
 import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
 import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
@@ -471,13 +477,20 @@ export function ProtocolProposalCard({
             </button>
           ) : null}
           {canAct ? (
-            <button
-              type="button"
-              className="protocol-card-act"
-              onClick={onOpenActions}
+            <OsSheetActions
+              layout="row-compact"
+              tone="frosted-primary"
+              borderless
+              className="protocol-card-footer-actions"
             >
-              {view.canFinalize ? view.finalizeLabel : 'Vote'}
-            </button>
+              <OsSheetAction
+                type="button"
+                variant="primary"
+                onClick={onOpenActions}
+              >
+                {view.canFinalize ? view.finalizeLabel : 'Vote'}
+              </OsSheetAction>
+            </OsSheetActions>
           ) : null}
         </footer>
       ) : null}
