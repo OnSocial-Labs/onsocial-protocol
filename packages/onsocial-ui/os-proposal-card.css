@@ -71,6 +71,21 @@
   gap: 0.28rem;
 }
 
+/* Two-column strip (protocol status + deadline under labels) */
+.os-proposal-card-strip-start,
+.os-proposal-card-strip-end {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.os-proposal-card-strip-end {
+  align-items: flex-end;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 .os-proposal-card-sep {
   flex: 0 0 auto;
   color: var(--os-proposal-sep);

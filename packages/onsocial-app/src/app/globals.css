@@ -25979,6 +25979,7 @@ a.os-surface-row {
   }
 
   .guild-proposal-list {
+    /* Prefer OsProposalCardList; keep slightly denser grid for guild sheets. */
     display: grid;
     gap: 0.5rem;
   }
@@ -26245,15 +26246,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .guild-proposal-card-divider {
-    margin: 0;
-  }
-
-  .guild-proposal-card-lower {
-    display: grid;
-    gap: 0;
-  }
-
   .guild-proposal-card-footer {
     display: grid;
     gap: 0.28rem;
@@ -26312,11 +26304,6 @@ a.os-surface-row {
 
   .guild-proposal-card-vote-spacer {
     flex: 1 1 auto;
-  }
-
-  .guild-proposal-card-actions {
-    margin: 0;
-    flex: 0 0 auto;
   }
 
   .guild-proposal-card--approved .guild-proposal-card-progress-support {
@@ -30003,13 +29990,6 @@ button.scarce-clip-cover-expand:focus-visible {
   gap: 0.45rem;
 }
 
-.protocol-card-list {
-  /* Prefer OsProposalCardList; keep alias for existing markup. */
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
 /* Structure: OsProposalCard surface=row. Domain: status wash / rails. */
 
 .protocol-card.is-focused {
@@ -30061,25 +30041,7 @@ button.scarce-clip-cover-expand:focus-visible {
   background: var(--protocol-blue-bg);
 }
 
-.protocol-card-strip-start,
-.protocol-card-strip-end {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.protocol-card-strip-end {
-  align-items: flex-end;
-  text-align: right;
-  flex-shrink: 0;
-}
-
 .protocol-card-strip-main {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -30087,11 +30049,6 @@ button.scarce-clip-cover-expand:focus-visible {
   font-size: 0.78rem;
   font-weight: 700;
   color: rgb(var(--fg-rgb) / 0.88);
-}
-
-.protocol-card-strip-dot {
-  color: rgb(var(--fg-rgb) / 0.22);
-  font-weight: 600;
 }
 
 .protocol-card-action-badge {
