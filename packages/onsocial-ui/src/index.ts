@@ -240,6 +240,10 @@ export {
   type AmountFieldChrome,
 } from './amount-field.js';
 export {
+  AmountFieldMetaRow,
+  type AmountFieldMetaRowTone,
+} from './amount-field-meta-row.js';
+export {
   SuffixField,
   osSuffixFieldClassName,
   osSuffixFieldDividerClassName,
@@ -248,6 +252,11 @@ export {
   type SuffixFieldChrome,
 } from './suffix-field.js';
 export { finalizeAmountInput, normalizeAmountInput } from './amount-input.js';
+export {
+  OsAccountField,
+  osAccountFieldClassName,
+  type OsAccountFieldChrome,
+} from './os-account-field.js';
 export {
   StandingIdentity,
   standingIdentityLabel,

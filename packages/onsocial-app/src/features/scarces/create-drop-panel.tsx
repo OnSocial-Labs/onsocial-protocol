@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  AmountFieldMetaRow,
   ArrowLeftIcon,
   OsSheetAction,
   OsSheetActions,
@@ -20,7 +21,6 @@ import {
 } from '@onsocial/ui';
 import { InfoDrawer } from '@onsocial/ui';
 import { AmountField } from '@onsocial/ui';
-import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { SuffixField } from '@onsocial/ui';
 import {
   DropFieldInfoDrawer,

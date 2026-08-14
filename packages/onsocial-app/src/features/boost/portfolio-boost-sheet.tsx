@@ -14,6 +14,7 @@ import {
   type Ref,
 } from 'react';
 import {
+  AmountFieldMetaRow,
   ChartFillIcon,
   Divider,
   GlassSheet,
@@ -28,7 +29,6 @@ import {
   type BoostLockPeriod,
 } from '@onsocial/sdk/advanced';
 import { AmountField } from '@onsocial/ui';
-import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';

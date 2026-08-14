@@ -106,3 +106,58 @@
 .app-storage-amount-input::placeholder {
   color: rgb(var(--fg-rgb) / 0.35);
 }
+
+/* Meta row — presets / Max / balance under AmountField */
+.os-amount-field-meta-row,
+.app-storage-quick-row,
+.profile-support-quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  min-height: 1.75rem;
+}
+
+.os-amount-field-presets,
+.app-storage-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.os-amount-field-preset-action,
+.app-storage-preset--action {
+  color: var(--protocol-blue);
+}
+
+.os-amount-field-max-placeholder,
+.app-storage-max-placeholder {
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 600;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.os-amount-field-meta,
+.app-storage-amount-meta {
+  margin: 0;
+  margin-left: auto;
+  font-size: 0.62rem;
+  line-height: 1.3;
+  color: rgb(var(--fg-rgb) / 0.45);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.profile-support-balance {
+  margin: 0;
+  margin-left: auto;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-rgb) / 0.52);
+  text-align: right;
+  white-space: nowrap;
+}
