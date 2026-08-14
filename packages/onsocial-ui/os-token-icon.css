@@ -1,0 +1,55 @@
+/**
+ * @onsocial/ui — circular FT / unit mark.
+ * Canonical: `.os-token-icon`
+ * Legacy alias: `.app-token-icon`
+ * Brand mark mask defaults to `/onsocial_icon.svg` (host `public/`).
+ * Pair with {@link TokenIcon}.
+ */
+
+.os-token-icon,
+.app-token-icon {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+.os-token-icon--sm,
+.app-token-icon.os-token-icon--sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+.os-token-icon--md,
+.app-token-icon.os-token-icon--md {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.os-token-icon--mark,
+.app-token-icon--mark {
+  display: inline-block;
+  background: rgb(var(--fg-rgb) / 0.72);
+  border-radius: 0;
+  -webkit-mask: var(--os-token-brand-mask, url('/onsocial_icon.svg')) center /
+    contain no-repeat;
+  mask: var(--os-token-brand-mask, url('/onsocial_icon.svg')) center / contain
+    no-repeat;
+}
+
+.os-token-icon--fallback,
+.app-token-icon--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--fg-rgb) / 0.08);
+  color: rgb(var(--fg-rgb) / 0.62);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.os-token-icon--md.os-token-icon--fallback,
+.app-token-icon.os-token-icon--md.app-token-icon--fallback {
+  font-size: 0.62rem;
+}

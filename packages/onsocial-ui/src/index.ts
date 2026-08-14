@@ -395,6 +395,12 @@ export {
   type ProfileAvatarSize,
 } from './profile-avatar.js';
 export {
+  TokenIcon,
+  osTokenIconClassName,
+  type TokenIconProps,
+  type TokenIconSize,
+} from './token-icon.js';
+export {
   SearchField,
   searchFieldClassName,
   type SearchFieldProps,

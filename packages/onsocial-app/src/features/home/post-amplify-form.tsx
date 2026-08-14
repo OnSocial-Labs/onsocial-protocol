@@ -6,9 +6,9 @@ import {
   AmountFieldMetaRow,
   OsSheetAction,
   OsSheetActions,
+  TokenIcon,
 } from '@onsocial/ui';
 import { AmountField } from '@onsocial/ui';
-import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';

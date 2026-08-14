@@ -20,6 +20,7 @@ import {
   GlassSheet,
   OsIconAction,
   SheetCloseButton,
+  TokenIcon,
   osIconActionGlyphClassName,
   useScrollLock,
 } from '@onsocial/ui';
@@ -29,7 +30,6 @@ import {
   type BoostLockPeriod,
 } from '@onsocial/sdk/advanced';
 import { AmountField } from '@onsocial/ui';
-import { TokenIcon } from '@/components/ui/token-icon';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import {
