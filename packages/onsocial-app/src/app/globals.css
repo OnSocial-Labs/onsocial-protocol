@@ -13,6 +13,7 @@
 @import '@onsocial/ui/search-field.css';
 @import '@onsocial/ui/os-field.css';
 @import '@onsocial/ui/os-amount-field.css';
+@import '@onsocial/ui/os-account-field.css';
 @import '@onsocial/ui/os-notice-card.css';
 @import '@onsocial/ui/os-choice-drawer.css';
 @import '@onsocial/ui/os-gesture-sheet-header.css';
@@ -12165,46 +12166,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.35);
   }
 
-  .app-storage-quick-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.35rem 0.75rem;
-    min-height: 1.75rem;
-  }
-
-  .app-storage-presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
-  /* Max / secondary chip action — tint only; base is os-surface-chip. */
-  .app-storage-preset--action {
-    color: var(--protocol-blue);
-  }
-
-  .app-storage-max-placeholder {
-    font: inherit;
-    font-size: 0.62rem;
-    font-weight: 600;
-  }
-
-  .app-storage-max-placeholder {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
-  .app-storage-amount-meta {
-    margin: 0;
-    margin-left: auto;
-    font-size: 0.62rem;
-    line-height: 1.3;
-    color: rgb(var(--fg-rgb) / 0.45);
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
+  /* Quick-row / presets / Max / meta: @onsocial/ui/os-amount-field.css */
 
   .app-storage-submit {
     border: 0;
@@ -21370,91 +21332,39 @@ a.os-surface-row {
   }
 
   /*
-   * Account field — bordered shell; avatar + divider inside.
-   * Status = lip tint only (never wash the fill).
-   */
-  .near-account-field {
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    padding-block: 0;
-    padding-inline: 0;
-  }
-
-  .near-account-field > input {
-    flex: 1;
-    min-width: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    color: inherit;
-    font: inherit;
-    font-size: var(--os-field-font-size, 0.9rem);
-    outline: none;
-    padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem)
-      var(--os-field-pad-y, 0.65rem) 0;
-  }
-
-  /*
-   * Status = same 1px inset lip as idle/focus, colour swapped only.
-   * Never tint the shell fill — create hub + transfer share this.
+   * Account shell chrome: @onsocial/ui/os-account-field.css
+   * Status lip on plain create-form inputs (not OsAccountField):
    */
   .drop-create-form .guild-field > input.is-available,
   .guild-create-form .guild-field > input.is-available,
-  .hub-manage-form .guild-field > input.is-available,
-  .near-account-field.is-available {
+  .hub-manage-form .guild-field > input.is-available {
     background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
   .drop-create-form .guild-field > input.is-available:focus,
   .guild-create-form .guild-field > input.is-available:focus,
-  .hub-manage-form .guild-field > input.is-available:focus,
-  .near-account-field.is-available:focus-within {
+  .hub-manage-form .guild-field > input.is-available:focus {
     background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-green);
   }
 
   .drop-create-form .guild-field > input.is-taken,
   .guild-create-form .guild-field > input.is-taken,
-  .hub-manage-form .guild-field > input.is-taken,
-  .near-account-field.is-taken {
+  .hub-manage-form .guild-field > input.is-taken {
     background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-red);
   }
 
   .drop-create-form .guild-field > input.is-taken:focus,
   .guild-create-form .guild-field > input.is-taken:focus,
-  .hub-manage-form .guild-field > input.is-taken:focus,
-  .near-account-field.is-taken:focus-within {
+  .hub-manage-form .guild-field > input.is-taken:focus {
     background: transparent;
     box-shadow: inset 0 1px 0 var(--protocol-red);
   }
 
-  .near-account-field-leading {
-    display: inline-flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    margin-left: 0.65rem;
-  }
-
-  .near-account-field-avatar {
-    width: 1.35rem;
-    height: 1.35rem;
-  }
-
-  /* Same vertical detail rail treatment as .portfolio-summon-divider. */
-  .near-account-field-divider {
-    flex-shrink: 0;
-    align-self: stretch;
-    margin-block: 0.45rem;
-    margin-inline: 0.55rem;
-    opacity: 0.9;
-  }
-
+  .guild-field .os-account-field > input,
+  .guild-field .os-account-field > input:focus,
   .guild-field .near-account-field > input,
   .guild-field .near-account-field > input:focus {
     flex: 1;
@@ -29539,25 +29449,7 @@ a.os-surface-row {
     padding-top: 0.15rem;
   }
 
-  .profile-support-quick-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.35rem 0.75rem;
-    min-height: 1.75rem;
-  }
-
-  .profile-support-balance {
-    margin: 0;
-    margin-left: auto;
-    font-size: 0.68rem;
-    line-height: 1.35;
-    font-variant-numeric: tabular-nums;
-    color: rgb(var(--fg-rgb) / 0.52);
-    text-align: right;
-    white-space: nowrap;
-  }
+  /* Support quick-row / balance: @onsocial/ui/os-amount-field.css */
 
   .profile-support-outcome {
     min-height: 1.1rem;
@@ -31031,12 +30923,4 @@ button.scarce-clip-cover-expand:focus-visible {
   filter: none !important;
 }
 
-/*
- * Affix field shells — near-account still zeros chrome pad (leading + input
- * own spacing). Suffix/amount keep os-field pad on the shell so height matches
- * plain bordered inputs.
- */
-.near-account-field.os-field-bordered,
-.near-account-field.os-field-soft {
-  padding: 0;
-}
+/* Affix field shell pad: @onsocial/ui/os-account-field.css / os-amount-field.css */

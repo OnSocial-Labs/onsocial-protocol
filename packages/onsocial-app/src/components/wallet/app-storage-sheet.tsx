@@ -9,13 +9,13 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  AmountFieldMetaRow,
   Divider,
   OsHugSheet,
   OsSheetAction,
   OsSheetActions,
 } from '@onsocial/ui';
 import { AmountField } from '@onsocial/ui';
-import { AmountFieldMetaRow } from '@/components/ui/amount-field-meta-row';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
