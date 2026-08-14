@@ -113,9 +113,7 @@ export function resolveLiveProposal(
   };
 }
 
-export function proposalKindKey(
-  proposal: ProtocolDaoProposal | null
-): string {
+export function proposalKindKey(proposal: ProtocolDaoProposal | null): string {
   if (!proposal?.kind || typeof proposal.kind !== 'object') return 'Proposal';
   return Object.keys(proposal.kind)[0] || 'Proposal';
 }
@@ -298,6 +296,7 @@ export function deriveProtocolProposalView(opts: {
   subjectText: string | null;
   subjectEyebrow: string | null;
   showProposerSeparately: boolean;
+  showProposerAsSelf: boolean;
   proposer: string | null;
   submission: { relative: string; absolute: string } | null;
   deadline: {
@@ -459,6 +458,7 @@ export function deriveProtocolProposalView(opts: {
     subjectText: presentation.subjectText,
     subjectEyebrow: presentation.subjectEyebrow,
     showProposerSeparately: presentation.showProposerSeparately,
+    showProposerAsSelf: presentation.showProposerAsSelf,
     proposer: proposal?.proposer?.trim() || null,
     submission:
       submissionMs != null
@@ -522,11 +522,8 @@ export function applyOptimisticVote(
   roleName = 'council'
 ): ProtocolDaoProposal {
   const vote_counts = { ...proposal.vote_counts };
-  const existing = vote_counts[roleName] ?? (['0', '0', '0'] as [
-    string,
-    string,
-    string,
-  ]);
+  const existing =
+    vote_counts[roleName] ?? (['0', '0', '0'] as [string, string, string]);
   const next: [string, string, string] = [
     String(Number.parseInt(existing[0], 10) || 0),
     String(Number.parseInt(existing[1], 10) || 0),
@@ -544,4 +541,3 @@ export function applyOptimisticVote(
     vote_counts,
   };
 }
-

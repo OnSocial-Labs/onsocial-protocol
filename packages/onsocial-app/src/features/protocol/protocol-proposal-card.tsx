@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { CheckIcon, MultiplyIcon, UserMinusIcon } from '@onsocial/ui';
 import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
+import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
 import type {
   ProtocolApplication,
   ProtocolDaoPolicy,
@@ -112,9 +114,14 @@ export function ProtocolProposalCard({
   const eyebrow = targetEyebrow(view.targetKind);
   const showProposer =
     Boolean(view.proposer) &&
-    (view.showProposerSeparately ||
+    (view.showProposerAsSelf ||
+      view.showProposerSeparately ||
       !view.subjectAccount ||
       view.subjectAccount.toLowerCase() !== view.proposer!.toLowerCase());
+  const routingDisplay =
+    view.targetKind === 'routing' && view.targetValue
+      ? splitRoutingTargetDisplay(view.targetValue)
+      : null;
   const hasIdentity =
     Boolean(view.subjectAccount) ||
     Boolean(view.subjectText) ||
@@ -225,18 +232,45 @@ export function ProtocolProposalCard({
                 <span className="protocol-card-eyebrow">
                   {eyebrow ?? 'Target'}
                 </span>
-                <span
-                  className={`protocol-card-identity-value${
-                    view.targetKind === 'code_hash' ? ' is-mono' : ''
-                  }`}
-                  title={
-                    view.targetAccount && view.targetValue
-                      ? `${view.targetValue} · ${view.targetAccount}`
-                      : (view.targetValue ?? view.targetAccount ?? undefined)
-                  }
-                >
-                  {view.targetValue ?? `@${fallbackLabel(view.targetAccount!)}`}
-                </span>
+                {routingDisplay ? (
+                  <span className="protocol-card-routing-value">
+                    {routingDisplay.minLabel ? (
+                      <span className="protocol-card-identity-value">
+                        {routingDisplay.minLabel}
+                      </span>
+                    ) : null}
+                    {routingDisplay.routingParts.length > 0 ? (
+                      <span className="protocol-card-routing-parts">
+                        {routingDisplay.routingParts.map((part) => (
+                          <span
+                            key={part}
+                            className="protocol-card-identity-value is-muted"
+                          >
+                            {part}
+                          </span>
+                        ))}
+                      </span>
+                    ) : routingDisplay.routingLabel ? (
+                      <span className="protocol-card-identity-value is-muted">
+                        {routingDisplay.routingLabel}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  <span
+                    className={`protocol-card-identity-value${
+                      view.targetKind === 'code_hash' ? ' is-mono' : ''
+                    }`}
+                    title={
+                      view.targetAccount && view.targetValue
+                        ? `${view.targetValue} · ${view.targetAccount}`
+                        : (view.targetValue ?? view.targetAccount ?? undefined)
+                    }
+                  >
+                    {view.targetValue ??
+                      `@${fallbackLabel(view.targetAccount!)}`}
+                  </span>
+                )}
                 {view.targetMethod ? (
                   <span className="protocol-card-identity-method">
                     {view.targetMethod.replace(/_/g, ' ')}
@@ -252,13 +286,17 @@ export function ProtocolProposalCard({
         {showProposer && view.proposer ? (
           <div className="protocol-card-proposer-row">
             <span className="protocol-card-eyebrow">Proposer</span>
-            <ProtocolAccountChip
-              accountId={view.proposer}
-              profileName={profiles[view.proposer]?.displayName}
-              avatarUrl={profiles[view.proposer]?.avatarUrl}
-              dense
-              href={portfolioPath(view.proposer)}
-            />
+            {view.showProposerAsSelf ? (
+              <span className="protocol-card-identity-text">Self</span>
+            ) : (
+              <ProtocolAccountChip
+                accountId={view.proposer}
+                profileName={profiles[view.proposer]?.displayName}
+                avatarUrl={profiles[view.proposer]?.avatarUrl}
+                dense
+                href={portfolioPath(view.proposer)}
+              />
+            )}
           </div>
         ) : null}
 
@@ -286,10 +324,34 @@ export function ProtocolProposalCard({
 
         <div className="protocol-card-votes">
           <div className="protocol-card-vote-counts">
-            <span className="is-approve">{view.approveVotes} approve</span>
-            <span className="is-reject">{view.rejectVotes} reject</span>
-            {view.removeVotes > 0 ? (
-              <span className="is-remove">{view.removeVotes} remove</span>
+            <span
+              className={`is-approve${
+                view.currentVote === 'Approve' ? ' is-confirmed' : ''
+              }`}
+            >
+              <CheckIcon className="protocol-card-vote-icon" aria-hidden />
+              <span>{view.approveVotes}</span>
+            </span>
+            <span
+              className={`is-reject${
+                view.currentVote === 'Reject' ? ' is-confirmed' : ''
+              }`}
+            >
+              <MultiplyIcon className="protocol-card-vote-icon" aria-hidden />
+              <span>{view.rejectVotes}</span>
+            </span>
+            {view.removeVotes > 0 || view.currentVote === 'Remove' ? (
+              <span
+                className={`is-remove${
+                  view.currentVote === 'Remove' ? ' is-confirmed' : ''
+                }`}
+              >
+                <UserMinusIcon
+                  className="protocol-card-vote-icon"
+                  aria-hidden
+                />
+                <span>{view.removeVotes}</span>
+              </span>
             ) : null}
             {progress.threshold != null && progress.totalWeight != null ? (
               <span className="protocol-card-vote-rule">

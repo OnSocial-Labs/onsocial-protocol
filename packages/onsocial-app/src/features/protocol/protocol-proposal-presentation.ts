@@ -22,18 +22,19 @@ export interface ProtocolProposalPresentation {
   subjectText: string | null;
   subjectEyebrow: string | null;
   showProposerSeparately: boolean;
+  /** Membership self-propose — show "Self" instead of a second chip. */
+  showProposerAsSelf: boolean;
 }
 
-function readStringField(
-  payload: unknown,
-  key: string
-): string | null {
+function readStringField(payload: unknown, key: string): string | null {
   if (!payload || typeof payload !== 'object') return null;
   const value = (payload as Record<string, unknown>)[key];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function firstDescriptionLine(description: string | null | undefined): string | null {
+function firstDescriptionLine(
+  description: string | null | undefined
+): string | null {
   if (!description?.trim()) return null;
   const line = description
     .split(/\r?\n/)
@@ -50,7 +51,9 @@ function formatRoleDisplayName(roleId: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function shortContractName(accountId: string | null | undefined): string | null {
+function shortContractName(
+  accountId: string | null | undefined
+): string | null {
   const value = accountId?.trim();
   if (!value) return null;
   const base = value.split('.')[0]?.trim();
@@ -183,7 +186,9 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     : null;
   const args = firstAction ? decodeFunctionCallArgs(firstAction.args) : null;
   const config =
-    args?.config && typeof args.config === 'object' && !Array.isArray(args.config)
+    args?.config &&
+    typeof args.config === 'object' &&
+    !Array.isArray(args.config)
       ? (args.config as Record<string, unknown>)
       : null;
   const msg = readStringField(args, 'msg');
@@ -245,6 +250,7 @@ export function deriveProtocolProposalPresentation({
     subjectText: null,
     subjectEyebrow: null,
     showProposerSeparately: false,
+    showProposerAsSelf: false,
     ...partial,
     actionBadge: partial.actionBadge ?? fallbackBadge ?? null,
   });
@@ -270,6 +276,11 @@ export function deriveProtocolProposalPresentation({
     const roleId = readStringField(kindPayload, 'role');
     const roleName = roleId ? formatRoleDisplayName(roleId) : null;
     const verb = kindKey === 'AddMemberToRole' ? 'Add to' : 'Remove from';
+    const sameAsProposer = Boolean(
+      normalizedProposer &&
+        memberId &&
+        normalizedProposer.toLowerCase() === memberId.toLowerCase()
+    );
     return finish({
       headline: roleName
         ? `${verb} ${roleName}`
@@ -283,10 +294,9 @@ export function deriveProtocolProposalPresentation({
       subjectAccount: memberId,
       subjectEyebrow: memberId ? 'Member' : null,
       showProposerSeparately: Boolean(
-        normalizedProposer &&
-          memberId &&
-          normalizedProposer.toLowerCase() !== memberId.toLowerCase()
+        normalizedProposer && memberId && !sameAsProposer
       ),
+      showProposerAsSelf: sameAsProposer,
     });
   }
 
@@ -357,8 +367,7 @@ export function deriveProtocolProposalPresentation({
       const amountLabel = shape.amountYocto
         ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
         : null;
-      const verb =
-        shape.methodName === 'withdraw_infra' ? 'Withdraw' : 'Sweep';
+      const verb = shape.methodName === 'withdraw_infra' ? 'Withdraw' : 'Sweep';
       return finish({
         headline: amountLabel
           ? `${verb} ${amountLabel}`
@@ -563,8 +572,7 @@ export function deriveProtocolProposalPresentation({
 
   if (kindKey === 'ChangeConfig') {
     return finish({
-      headline:
-        firstDescriptionLine(onChainDescription) ?? 'Update DAO config',
+      headline: firstDescriptionLine(onChainDescription) ?? 'Update DAO config',
       actionBadge: 'Config',
       targetKind: null,
       targetValue: null,
