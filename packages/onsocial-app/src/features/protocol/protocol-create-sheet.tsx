@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
+import { osFieldSoftClassName } from '@onsocial/ui';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
   fetchProtocolDaoBoostInfra,
@@ -696,6 +697,7 @@ export function ProtocolCreateSheet({
               value={roleId}
               onChange={(event) => setRoleId(event.target.value)}
               disabled={pending || roles.length === 0}
+              className={osFieldSoftClassName}
             >
               {roles.length === 0 ? (
                 <option value="">No roles available</option>
@@ -722,6 +724,7 @@ export function ProtocolCreateSheet({
               placeholder="alice.near"
               onChange={(event) => setMemberId(event.target.value)}
               disabled={pending}
+              className={osFieldSoftClassName}
             />
           </label>
         )}
@@ -737,6 +740,7 @@ export function ProtocolCreateSheet({
                   setFormError(null);
                 }}
                 disabled={pending || transferAssetsLoading}
+                className={osFieldSoftClassName}
               >
                 {transferAssets.length === 0 ? (
                   <option value="">
@@ -766,6 +770,7 @@ export function ProtocolCreateSheet({
                 placeholder="alice.near"
                 onChange={(event) => setReceiverId(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
             <label className="guild-field">
@@ -777,6 +782,7 @@ export function ProtocolCreateSheet({
                 placeholder="0"
                 onChange={(event) => setAmountNear(event.target.value)}
                 disabled={pending || transferAssetsLoading}
+                className={osFieldSoftClassName}
               />
             </label>
             {selectedTransferAsset ? (
@@ -801,6 +807,7 @@ export function ProtocolCreateSheet({
                   value={seasonId}
                   onChange={(event) => setSeasonId(event.target.value)}
                   disabled={pending || socialSpendLoading}
+                  className={osFieldSoftClassName}
                 >
                   {socialSpendContext.fundableSeasonIds.map((id) => (
                     <option key={id} value={id}>
@@ -821,6 +828,7 @@ export function ProtocolCreateSheet({
                   placeholder="season2"
                   onChange={(event) => setSeasonId(event.target.value)}
                   disabled={pending || socialSpendLoading}
+                  className={osFieldSoftClassName}
                 />
               </label>
             )}
@@ -833,6 +841,7 @@ export function ProtocolCreateSheet({
                 placeholder="0"
                 onChange={(event) => setAmountSocial(event.target.value)}
                 disabled={pending || socialSpendLoading}
+                className={osFieldSoftClassName}
               />
             </label>
             <p className="protocol-compose-note">
@@ -885,6 +894,7 @@ export function ProtocolCreateSheet({
                       !boostInfraContext.canWithdrawBoostInfra
                   )
                 }
+                className={osFieldSoftClassName}
               />
             </label>
             <label className="guild-field">
@@ -897,6 +907,7 @@ export function ProtocolCreateSheet({
                 spellCheck={false}
                 onChange={(event) => setReceiverId(event.target.value)}
                 disabled={pending || boostInfraLoading}
+                className={osFieldSoftClassName}
               />
             </label>
             {boostInfraContext ? (
@@ -920,6 +931,7 @@ export function ProtocolCreateSheet({
                 spellCheck={false}
                 onChange={(event) => setAuthorityId(event.target.value)}
                 disabled={pending || boostInfraLoading}
+                className={osFieldSoftClassName}
               />
             </label>
             {boostInfraContext ? (
@@ -939,6 +951,7 @@ export function ProtocolCreateSheet({
               value={contractId}
               onChange={(event) => setContractId(event.target.value)}
               disabled={pending || managedContractsLoading}
+              className={osFieldSoftClassName}
             >
               {(kind === 'contract_upgrade'
                 ? upgradableContractOptions
@@ -974,6 +987,7 @@ export function ProtocolCreateSheet({
               placeholder="alice.near"
               onChange={(event) => setNewOwnerId(event.target.value)}
               disabled={pending}
+              className={osFieldSoftClassName}
             />
           </label>
         ) : null}
@@ -990,6 +1004,7 @@ export function ProtocolCreateSheet({
               placeholder="Near base58 hash"
               onChange={(event) => setCodeHash(event.target.value)}
               disabled={pending}
+              className={osFieldSoftClassName}
             />
           </label>
         ) : null}
@@ -1006,6 +1021,7 @@ export function ProtocolCreateSheet({
                   )
                 }
                 disabled={pending}
+                className={osFieldSoftClassName}
               >
                 {PROTOCOL_CONTRACT_CONFIG_OPS.map((op) => (
                   <option key={op.id} value={op.id}>
@@ -1023,6 +1039,7 @@ export function ProtocolCreateSheet({
                   value={treasuryBps}
                   onChange={(event) => setTreasuryBps(event.target.value)}
                   disabled={pending}
+                  className={osFieldSoftClassName}
                 />
               </label>
               <label className="guild-field">
@@ -1033,6 +1050,7 @@ export function ProtocolCreateSheet({
                   value={seasonPoolBps}
                   onChange={(event) => setSeasonPoolBps(event.target.value)}
                   disabled={pending}
+                  className={osFieldSoftClassName}
                 />
               </label>
             </div>
@@ -1045,6 +1063,7 @@ export function ProtocolCreateSheet({
                   value={targetBps}
                   onChange={(event) => setTargetBps(event.target.value)}
                   disabled={pending}
+                  className={osFieldSoftClassName}
                 />
               </label>
               <label className="guild-field">
@@ -1055,6 +1074,7 @@ export function ProtocolCreateSheet({
                   value={burnBps}
                   onChange={(event) => setBurnBps(event.target.value)}
                   disabled={pending}
+                  className={osFieldSoftClassName}
                 />
               </label>
             </div>
@@ -1074,6 +1094,7 @@ export function ProtocolCreateSheet({
                 placeholder="season-two"
                 onChange={(event) => setSeasonId(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
             <label className="guild-field">
@@ -1083,6 +1104,7 @@ export function ProtocolCreateSheet({
                 value={seasonLabel}
                 onChange={(event) => setSeasonLabel(event.target.value)}
                 disabled={pending}
+                className={osFieldSoftClassName}
               />
             </label>
             <div className="protocol-community-row">
@@ -1096,6 +1118,7 @@ export function ProtocolCreateSheet({
                     setSeasonDurationDays(event.target.value)
                   }
                   disabled={pending}
+                  className={osFieldSoftClassName}
                 />
               </label>
               <label className="guild-field">
@@ -1106,6 +1129,7 @@ export function ProtocolCreateSheet({
                     setSeasonActive(event.target.value === 'true')
                   }
                   disabled={pending}
+                  className={osFieldSoftClassName}
                 >
                   <option value="true">Active</option>
                   <option value="false">Paused</option>
@@ -1131,6 +1155,7 @@ export function ProtocolCreateSheet({
                 : 'Optional rationale'
             }
             disabled={pending}
+            className={osFieldSoftClassName}
           />
         </label>
 

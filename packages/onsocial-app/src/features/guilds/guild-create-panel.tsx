@@ -7,6 +7,7 @@ import {
   OsSheetActions,
   OsIconAction,
   QuestionMarkCircleFillIcon,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { InfoDrawer } from '@/components/ui/info-drawer';
@@ -189,6 +190,7 @@ export function GuildCreatePanel() {
             placeholder="Builder Room"
             maxLength={GUILD_MAX_NAME_LENGTH}
             disabled={pending}
+            className={osFieldBorderedClassName}
           />
         </label>
 
@@ -208,7 +210,7 @@ export function GuildCreatePanel() {
             autoCapitalize="none"
             autoCorrect="off"
             aria-invalid={idAvailability === 'taken'}
-            className={idAvailabilityClass}
+            className={`${osFieldBorderedClassName} ${idAvailabilityClass}`}
           />
           <small className={idAvailabilityClass}>
             {entityIdAvailabilityLead(idAvailability)} · /groups/
@@ -226,6 +228,7 @@ export function GuildCreatePanel() {
             maxLength={GUILD_MAX_DESCRIPTION_LENGTH}
             disabled={pending}
             aria-describedby={fieldId('description-count')}
+            className={osFieldBorderedClassName}
           />
           <small id={fieldId('description-count')}>
             {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}

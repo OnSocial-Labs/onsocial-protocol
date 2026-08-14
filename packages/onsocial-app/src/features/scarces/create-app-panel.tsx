@@ -7,6 +7,7 @@ import {
   OsSheetActions,
   OsIconAction,
   QuestionMarkCircleFillIcon,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { SuffixField } from '@/components/ui/suffix-field';
@@ -159,9 +160,7 @@ export function CreateAppPanel() {
         setTxResult({
           type: 'error',
           msg:
-            detail &&
-            !detail.startsWith('{') &&
-            detail.length < 160
+            detail && !detail.startsWith('{') && detail.length < 160
               ? detail
               : txToastError.createAppFailed,
         });
@@ -219,6 +218,7 @@ export function CreateAppPanel() {
             placeholder="Midnight Records"
             maxLength={MAX_NAME}
             disabled={pending}
+            className={osFieldBorderedClassName}
           />
         </label>
 
@@ -238,7 +238,7 @@ export function CreateAppPanel() {
             autoCapitalize="none"
             autoCorrect="off"
             aria-invalid={idAvailability === 'taken'}
-            className={idAvailabilityClass}
+            className={`${osFieldBorderedClassName} ${idAvailabilityClass}`}
           />
           <small className={idAvailabilityClass}>
             {entityIdAvailabilityLead(idAvailability)} ·{' '}
@@ -256,6 +256,7 @@ export function CreateAppPanel() {
             maxLength={MAX_DESCRIPTION}
             disabled={pending}
             aria-describedby={fieldId('description-count')}
+            className={osFieldBorderedClassName}
           />
           <small id={fieldId('description-count')}>
             {description.length}/{MAX_DESCRIPTION}

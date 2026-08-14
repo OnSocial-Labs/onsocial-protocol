@@ -9,17 +9,17 @@ import {
   type ReactNode,
 } from 'react';
 import Link from 'next/link';
-import { ProfileEditorMediaToolbar } from '@onsocial/ui';
+import {
+  ProfileEditorMediaToolbar,
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
   useDiscardConfirm,
 } from '@/components/ui/discard-confirm';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-action';
+import { OsSheetAction, OsSheetActions } from '@/components/ui/os-sheet-action';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { SuffixField } from '@/components/ui/suffix-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -456,6 +456,7 @@ export function HubLookSheet({
               const trimmed = name.trim().replace(/\s+/g, ' ');
               if (trimmed !== name) setName(trimmed);
             }}
+            className={osFieldBorderedClassName}
           />
         </label>
         <label className="guild-field" htmlFor="hub-look-about">
@@ -472,6 +473,7 @@ export function HubLookSheet({
               const trimmed = description.trim();
               if (trimmed !== description) setDescription(trimmed);
             }}
+            className={osFieldBorderedClassName}
           />
           <small id="hub-look-about-count">
             {description.length}/{MAX_DESCRIPTION}
@@ -892,11 +894,7 @@ export function HubTransferSheet({
     ? 'is-taken'
     : nearAccountStatusClass(accountStatus);
   const dirty = transferTo.trim().length > 0;
-  const canTransfer =
-    dirty &&
-    !pending &&
-    !isSelf &&
-    accountStatus === 'found';
+  const canTransfer = dirty && !pending && !isSelf && accountStatus === 'found';
 
   const transfer = async () => {
     const nextOwner = normalizedTo;
@@ -1023,6 +1021,7 @@ function RosterEditor({
             disabled={disabled}
             aria-label="Accounts to add"
             rows={3}
+            className={osFieldBorderedClassName}
           />
         ) : (
           <input
@@ -1033,6 +1032,7 @@ function RosterEditor({
             placeholder={placeholder}
             disabled={disabled}
             aria-label="Account to add"
+            className={osFieldBorderedClassName}
           />
         )}
         <button

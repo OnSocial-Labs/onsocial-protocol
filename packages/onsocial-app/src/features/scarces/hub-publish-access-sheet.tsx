@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import { OsHugSheet } from '@onsocial/ui';
+import { OsHugSheet, osFieldBorderedClassName } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -208,6 +208,7 @@ export function HubPublishAccessSheet({
           const trimmed = message.trim();
           if (trimmed !== message) setMessage(trimmed);
         }}
+        className={osFieldBorderedClassName}
       />
       <small id={`${messageId}-count`}>{message.length}/280</small>
     </label>
