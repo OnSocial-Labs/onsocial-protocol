@@ -12,7 +12,7 @@ import {
   SheetFactCopy,
   SheetFactRow,
   SheetFactSection,
-} from '@/components/ui/sheet-facts';
+} from '@onsocial/ui';
 import {
   guildModeDescription,
   guildModeLabel,

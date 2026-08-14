@@ -10,7 +10,7 @@ import {
 import {
   SheetFactRow,
   SheetFactSection,
-} from '@/components/ui/sheet-facts';
+} from '@onsocial/ui';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { marketMediumLabel } from '@/features/market/market-medium';
 import {

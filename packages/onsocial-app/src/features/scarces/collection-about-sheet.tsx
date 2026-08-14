@@ -16,7 +16,7 @@ import {
   SheetFactCopy,
   SheetFactRow,
   SheetFactSection,
-} from '@/components/ui/sheet-facts';
+} from '@onsocial/ui';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { seriesPagePath } from '@/lib/app-routes';

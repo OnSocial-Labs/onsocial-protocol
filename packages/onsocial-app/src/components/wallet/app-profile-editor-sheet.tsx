@@ -19,7 +19,7 @@ import {
 import {
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
-} from '@/components/ui/discard-confirm';
+} from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,

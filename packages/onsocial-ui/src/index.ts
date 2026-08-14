@@ -254,6 +254,20 @@ export {
   type StandingIdentityShowHandle,
 } from './standing-identity.js';
 export {
+  SheetFactCopy,
+  SheetFactCount,
+  SheetFactRow,
+  SheetFactSection,
+} from './sheet-facts.js';
+export {
+  DiscardConfirmFooter,
+  discardConfirmFooterA11y,
+  useDiscardConfirm,
+  type DiscardConfirmFooterProps,
+  type UseDiscardConfirmOptions,
+  type UseDiscardConfirmResult,
+} from './discard-confirm.js';
+export {
   configureScrollLockContainerFinder,
   useScrollLock,
   type ScrollLockContainerFinder,

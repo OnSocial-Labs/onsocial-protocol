@@ -1,0 +1,164 @@
+/**
+ * @onsocial/ui — sheet facts chrome (label / value sections).
+ *
+ * Canonical: `.os-sheet-facts-*`
+ * Legacy aliases: `.guild-facts-*` (app hosts + product CSS).
+ * Pair with {@link SheetFactSection} / {@link SheetFactRow} / etc.
+ */
+
+.os-sheet-facts,
+.guild-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.os-sheet-facts-section,
+.guild-facts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0 0.65rem;
+}
+
+.os-sheet-facts-section-title,
+.guild-facts-section-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.64rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.38);
+}
+
+.os-sheet-facts-section-rows,
+.guild-facts-section-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.os-sheet-facts-row,
+.guild-facts-row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.os-sheet-facts-label,
+.guild-facts-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgb(var(--fg-rgb) / 0.4);
+}
+
+.os-sheet-facts-value,
+.guild-facts-value {
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.88);
+  word-break: break-word;
+}
+
+.os-sheet-facts-copy,
+.guild-facts-copy {
+  margin: 0;
+  padding-left: calc(5.5rem + 0.75rem);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.os-sheet-facts-link,
+.guild-facts-link {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.28rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.os-sheet-facts-link:hover,
+.os-sheet-facts-link:focus-visible,
+.guild-facts-link:hover,
+.guild-facts-link:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
+.os-sheet-facts-link-label,
+.guild-facts-link-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.os-sheet-facts-link-arrow,
+.guild-facts-link-arrow {
+  flex-shrink: 0;
+  width: 0.72rem;
+  height: 0.72rem;
+  opacity: 0.42;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.os-sheet-facts-link:hover .os-sheet-facts-link-arrow,
+.os-sheet-facts-link:focus-visible .os-sheet-facts-link-arrow,
+.os-sheet-facts-link.group:hover .os-sheet-facts-link-arrow,
+.guild-facts-link:hover .guild-facts-link-arrow,
+.guild-facts-link:focus-visible .guild-facts-link-arrow,
+.guild-facts-link.group:hover .guild-facts-link-arrow {
+  opacity: 0.72;
+  transform: translateX(1px);
+}
+
+.os-sheet-facts-count-value,
+.guild-facts-count-value {
+  display: inline;
+}
+
+.os-sheet-facts-count-value.is-loading,
+.guild-facts-count-value.is-loading {
+  opacity: 0.42;
+}
+
+.os-sheet-facts-count,
+.guild-facts-count {
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.os-sheet-facts-unit,
+.guild-facts-unit {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.os-sheet-facts-id,
+.guild-facts-id {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgb(var(--fg-rgb) / 0.48);
+  word-break: break-all;
+}
