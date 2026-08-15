@@ -13,9 +13,8 @@ import {
   deriveCollectionStatus,
   type CollectionView,
 } from '@/features/scarces/collections-data';
-import {
-  type CollectionRedeemAttendance,
-} from '@/features/scarces/ticket-attendance';
+import { type CollectionRedeemAttendance } from '@/features/scarces/ticket-attendance';
+import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
 import {
   formatFutureRelativeTime,
@@ -72,15 +71,19 @@ export function TicketDoorEventSheet({
   view,
   attendance,
   voice,
+  logRevision = 0,
 }: {
   open: boolean;
   onClose: () => void;
   view: CollectionView;
   attendance: CollectionRedeemAttendance | null;
   voice: PassStaffVoice;
+  /** Bump after admit so Door log refetches. */
+  logRevision?: number;
 }) {
   const [sheetOpen, setSheetOpen] = useState(open);
   if (open && !sheetOpen) setSheetOpen(true);
+  const [doorLogOpen, setDoorLogOpen] = useState(false);
 
   const requestClose = useCallback(() => {
     setSheetOpen(false);
@@ -108,82 +111,117 @@ export function TicketDoorEventSheet({
   const minted = attendance?.minted ?? view.minted;
   const supply = attendance?.totalSupply || view.totalSupply;
   const dropHref = collectionPath(view.collectionId);
+  const attendanceSuffix =
+    attendance && attendance.collectionId === view.collectionId
+      ? redeemVoice
+        ? `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} redeemed`
+        : `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} in`
+      : null;
 
   return (
-    <OsHugSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      label="Event"
-      copy={view.title}
-      closeAriaLabel="Close event"
-      backdropLabel="Close event"
-      zIndex={57}
-      panelClassName="guild-facts-sheet-panel"
-      bodyClassName="guild-facts-sheet-body"
-    >
-      <div className="guild-facts">
-        <SheetFactSection title={redeemVoice ? 'Tonight' : 'Door'}>
-          {attendance && attendance.collectionId === view.collectionId ? (
-            <>
+    <>
+      <OsHugSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleClosed}
+        label="Event"
+        copy={view.title}
+        closeAriaLabel="Close event"
+        backdropLabel="Close event"
+        zIndex={57}
+        panelClassName="guild-facts-sheet-panel"
+        bodyClassName="guild-facts-sheet-body"
+      >
+        <div className="guild-facts">
+          <SheetFactSection title={redeemVoice ? 'Tonight' : 'Door'}>
+            {attendance && attendance.collectionId === view.collectionId ? (
+              <>
+                <SheetFactRow
+                  label={redeemVoice ? 'Redeemed' : 'Checked in'}
+                  value={`${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted}`}
+                />
+                {maxRedeems != null && maxRedeems > 1 ? (
+                  <SheetFactRow
+                    label={redeemVoice ? 'Redeems' : 'Check-ins'}
+                    value={`${attendance.redeemedCount} total`}
+                  />
+                ) : null}
+              </>
+            ) : (
               <SheetFactRow
                 label={redeemVoice ? 'Redeemed' : 'Checked in'}
-                value={`${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted}`}
+                value="…"
               />
-              {maxRedeems != null && maxRedeems > 1 ? (
-                <SheetFactRow
-                  label={redeemVoice ? 'Redeems' : 'Check-ins'}
-                  value={`${attendance.redeemedCount} total`}
-                />
-              ) : null}
-            </>
-          ) : (
+            )}
+            {perPass ? (
+              <SheetFactRow
+                label={redeemVoice ? 'Per coupon' : 'Per pass'}
+                value={perPass}
+              />
+            ) : null}
             <SheetFactRow
-              label={redeemVoice ? 'Redeemed' : 'Checked in'}
-              value="…"
+              label="Minted"
+              value={supply > 0 ? `${minted} / ${supply}` : `${minted} minted`}
             />
-          )}
-          {perPass ? (
             <SheetFactRow
-              label={redeemVoice ? 'Per coupon' : 'Per pass'}
-              value={perPass}
+              label={redeemVoice ? 'Redeem log' : 'Door log'}
+              value={
+                <button
+                  type="button"
+                  className="guild-facts-link"
+                  onClick={() => setDoorLogOpen(true)}
+                >
+                  See who
+                </button>
+              }
             />
-          ) : null}
-          <SheetFactRow
-            label="Minted"
-            value={
-              supply > 0 ? `${minted} / ${supply}` : `${minted} minted`
-            }
-          />
-        </SheetFactSection>
+          </SheetFactSection>
 
-        <SheetFactSection title="Drop">
-          <SheetFactRow label="Status" value={collectionStatusLabel(status)} />
-          {schedule.opens ? (
-            <SheetFactRow label="Opens" value={schedule.opens} />
-          ) : null}
-          {schedule.closes ? (
+          <SheetFactSection title="Drop">
             <SheetFactRow
-              label={schedule.closesLabel}
-              value={schedule.closes}
+              label="Status"
+              value={collectionStatusLabel(status)}
             />
-          ) : null}
-          {!schedule.opens && !schedule.closes ? (
-            <SheetFactRow label="Schedule" value="No timed window" />
-          ) : null}
-          {schedule.next ? (
-            <SheetFactCopy>{schedule.next}</SheetFactCopy>
-          ) : null}
-          <SheetFactRow
-            label="Drop"
-            value={
-              <Link href={dropHref} className="guild-facts-link" scroll={false}>
-                View drop
-              </Link>
-            }
-          />
-        </SheetFactSection>
-      </div>
-    </OsHugSheet>
+            {schedule.opens ? (
+              <SheetFactRow label="Opens" value={schedule.opens} />
+            ) : null}
+            {schedule.closes ? (
+              <SheetFactRow
+                label={schedule.closesLabel}
+                value={schedule.closes}
+              />
+            ) : null}
+            {!schedule.opens && !schedule.closes ? (
+              <SheetFactRow label="Schedule" value="No timed window" />
+            ) : null}
+            {schedule.next ? (
+              <SheetFactCopy>{schedule.next}</SheetFactCopy>
+            ) : null}
+            <SheetFactRow
+              label="Drop"
+              value={
+                <Link
+                  href={dropHref}
+                  className="guild-facts-link"
+                  scroll={false}
+                >
+                  View drop
+                </Link>
+              }
+            />
+          </SheetFactSection>
+        </div>
+      </OsHugSheet>
+
+      <CollectionDoorLogSheet
+        open={doorLogOpen}
+        onClose={() => setDoorLogOpen(false)}
+        collectionId={view.collectionId}
+        dropTitle={view.title}
+        voice={voice}
+        attendanceLine={attendanceSuffix}
+        revision={logRevision}
+      />
+    </>
   );
 }

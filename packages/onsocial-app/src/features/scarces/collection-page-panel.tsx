@@ -74,6 +74,7 @@ import { isPassMediumKind, passStaffVoice } from '@/features/scarces/ticket-pass
 import { fetchIsCollectionRedeemer } from '@/features/scarces/ticket-redeemers';
 import { TicketShowPassSheet } from '@/features/scarces/ticket-show-pass-sheet';
 import { CollectionDoorStaffManager } from '@/features/scarces/collection-door-staff-manager';
+import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import { useScarceDropLoves } from '@/hooks/use-scarce-drop-loves';
@@ -205,6 +206,7 @@ export function CollectionPagePanel({
   );
   const [activityOpen, setActivityOpen] = useState(false);
   const [activityClosing, setActivityClosing] = useState(false);
+  const [doorLogOpen, setDoorLogOpen] = useState(false);
   const [factsOpen, setFactsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [writingReadOpen, setWritingReadOpen] = useState(false);
@@ -1221,21 +1223,44 @@ export function CollectionPagePanel({
             aria-label={isOwner ? 'Host tools' : 'Door'}
           >
             {canDoor ? (
-              <div className="collection-reading-row">
-                <p className="collection-section-label">
-                  {staffVoice === 'redeem' ? 'Counter' : 'Door'}
-                </p>
-                <Link
-                  href={
-                    staffVoice === 'redeem'
-                      ? collectionRedeemPath(view.collectionId)
-                      : collectionDoorPath(view.collectionId)
-                  }
-                  className="collection-reading-open"
-                >
-                  {staffVoice === 'redeem' ? 'Redeem' : 'Admit'}
-                </Link>
-              </div>
+              <>
+                <div className="collection-reading-row">
+                  <p className="collection-section-label">
+                    {staffVoice === 'redeem' ? 'Counter' : 'Door'}
+                  </p>
+                  <Link
+                    href={
+                      staffVoice === 'redeem'
+                        ? collectionRedeemPath(view.collectionId)
+                        : collectionDoorPath(view.collectionId)
+                    }
+                    className="collection-reading-open"
+                  >
+                    {staffVoice === 'redeem' ? 'Redeem' : 'Admit'}
+                  </Link>
+                </div>
+                <div className="collection-reading-row">
+                  <p className="collection-section-label">
+                    {staffVoice === 'redeem' ? 'Redeem log' : 'Door log'}
+                  </p>
+                  <button
+                    type="button"
+                    className="collection-reading-open"
+                    onClick={() => setDoorLogOpen(true)}
+                  >
+                    See who
+                  </button>
+                </div>
+              </>
+            ) : null}
+            {canDoor ? (
+              <CollectionDoorLogSheet
+                open={doorLogOpen}
+                onClose={() => setDoorLogOpen(false)}
+                collectionId={view.collectionId}
+                dropTitle={view.title}
+                voice={staffVoice}
+              />
             ) : null}
             {isOwner &&
             view.maxRedeems != null &&

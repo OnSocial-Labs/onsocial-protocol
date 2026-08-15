@@ -2931,6 +2931,8 @@ describe('QueryModule', () => {
       creatorPayment: null,
       quantity: null,
       totalSupply: null,
+      redeemCount: null,
+      maxRedeems: null,
       reservePrice: null,
       buyNowPrice: null,
       expiresAt: null,

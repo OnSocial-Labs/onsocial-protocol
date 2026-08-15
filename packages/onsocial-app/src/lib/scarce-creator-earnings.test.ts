@@ -40,6 +40,8 @@ function row(partial: Partial<ScarcesEventRow>): ScarcesEventRow {
     creatorPayment: '985000000000000000000000',
     quantity: null,
     totalSupply: null,
+    redeemCount: null,
+    maxRedeems: null,
     reservePrice: null,
     buyNowPrice: null,
     expiresAt: null,
@@ -211,8 +213,8 @@ describe('sourcePostPath / postHref', () => {
   });
 
   it('builds a personal post href', () => {
-    expect(
-      postHrefFromSourcePath('alice.onsocial.testnet/post/123')
-    ).toBe('/@alice.onsocial.testnet/posts/123');
+    expect(postHrefFromSourcePath('alice.onsocial.testnet/post/123')).toBe(
+      '/@alice.onsocial.testnet/posts/123'
+    );
   });
 });

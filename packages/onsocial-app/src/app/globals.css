@@ -21538,6 +21538,96 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  .collection-door-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+
+  .collection-door-log-empty {
+    margin: 0.35rem 0 0;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-door-log-list {
+    margin-top: 0.1rem;
+  }
+
+  .collection-door-log-row {
+    padding-block: 0.35rem;
+  }
+
+  /* Same mute meta as collection-activity-standing-kind. */
+  .collection-door-log-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    margin: 0;
+    margin-top: 0.12rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-door-log-seat {
+    display: block;
+  }
+
+  .collection-door-log-staff-line {
+    display: block;
+  }
+
+  /*
+   * Island above `.standing-row-hit` (same as bio @/#/$ and earnings post link):
+   * parent copy is pointer-events:none when a row hit is present.
+   */
+  .collection-door-log-staff {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+    cursor: pointer;
+    color: rgb(var(--fg-rgb) / 0.78);
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .collection-door-log-staff:hover,
+  .collection-door-log-staff:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.96);
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+  }
+
+  .collection-door-log-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.08rem;
+    text-align: right;
+  }
+
+  .collection-door-log-aside time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.08rem;
+  }
+
+  .collection-door-log-absolute {
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .collection-door-log-search {
+    margin: 0 0 0.15rem;
+  }
+
   .collection-activity-standing {
     margin-top: 0.1rem;
   }
