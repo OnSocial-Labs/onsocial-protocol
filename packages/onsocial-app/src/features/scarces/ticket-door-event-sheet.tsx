@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   OsHugSheet,
   SheetFactCopy,
@@ -90,10 +90,7 @@ export function TicketDoorEventSheet({
     onClose();
   }, [onClose]);
 
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    if (open) setNowMs(Date.now());
-  }, [open]);
+  const [nowMs] = useState(() => Date.now());
   const schedule = scheduleLines(view, nowMs);
   const status = deriveCollectionStatus(view, nowMs);
   const maxRedeems = attendance?.maxRedeems ?? view.maxRedeems;
