@@ -22342,6 +22342,50 @@ a.os-surface-row {
     background: transparent;
   }
 
+  /*
+   * Profile edit workspace — full-bleed banner under slide-over header;
+   * links stay inline; sticky frosted save bar at the bottom of the form.
+   */
+  .profile-edit-slide .os-slide-over-content.profile-edit-slide-body {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+  }
+
+  .profile-edit-slide .account-editor-form.profile-edit-form {
+    flex: 1 1 auto;
+    min-height: 100%;
+  }
+
+  .profile-edit-slide .account-editor-form-main {
+    overflow: visible;
+    background: transparent;
+  }
+
+  .profile-edit-slide .account-editor-cover-stage {
+    border-radius: 0;
+    transform: none;
+  }
+
+  .profile-edit-slide .account-editor-hero.is-dimmed {
+    pointer-events: none;
+  }
+
+  .profile-edit-slide .account-editor-footer {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    padding: 0.65rem 1rem calc(0.45rem + env(safe-area-inset-bottom, 0px));
+    background: color-mix(
+      in srgb,
+      rgb(var(--bg-rgb) / 0.82) 88%,
+      transparent
+    );
+    backdrop-filter: blur(16px) saturate(1.35);
+    -webkit-backdrop-filter: blur(16px) saturate(1.35);
+  }
+
   .drop-variation-set-slide-grid {
     --drop-seat-tile: clamp(4.5rem, 22vw, 6rem);
     width: 100%;

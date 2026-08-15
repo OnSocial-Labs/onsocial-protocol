@@ -1,37 +1,31 @@
 'use client';
 
 import {
+  useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type FormEvent,
-  type MutableRefObject,
 } from 'react';
 import {
   Divider,
-  GlassSheet,
-  ProfileEditorMediaToolbar,
-  useScrollLock,
-} from '@onsocial/ui';
-import {
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
-} from '@onsocial/ui';
-import {
   OsSheetAction,
   OsSheetActions,
+  ProfileEditorMediaToolbar,
+  useDiscardConfirm,
 } from '@onsocial/ui';
-import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-error';
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
-import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   useAppProfileEditor,
   type ProfileEditorSaveResult,
@@ -56,7 +50,8 @@ import { nearExplorerTxHref } from '@/lib/app-config';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const MOBILE_MAX_WIDTH_PX = 767;
-const EDITOR_PANEL_MAX_HEIGHT_PX = 44 * 16;
+/** Above account GlassSheet / chrome; matches Door log / series edit. */
+const PROFILE_EDIT_Z = 90;
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
@@ -104,9 +99,10 @@ function resolveBannerPreviewMedia(
 }
 
 interface ProfileEditorFormProps {
+  open: boolean;
   accountId: string;
   pageAccountId?: string;
-  editorOpen: boolean;
+  sessionKey: number;
   snapshot: ProfileEditorSnapshot;
   linksFromSnapshot: ProfileLinksInput;
   saving: boolean;
@@ -114,19 +110,17 @@ interface ProfileEditorFormProps {
   isBootstrappingSession: boolean;
   connect: () => void;
   saveProfile: ReturnType<typeof useAppProfileEditor>['saveProfile'];
-  dirtyRef: MutableRefObject<boolean>;
+  onLeave: () => void;
   onSaved: (result: ProfileEditorSaveResult) => void;
-  onBack: () => void;
-  onHeaderClose: () => void;
-  discardConfirmOpen: boolean;
-  onKeepEditing: () => void;
-  onDiscard: () => void;
+  onBeforeCloseChange: (guard: (() => boolean) | null) => void;
+  onSavingChange: (saving: boolean) => void;
 }
 
 function ProfileEditorForm({
+  open,
   accountId,
   pageAccountId,
-  editorOpen,
+  sessionKey,
   snapshot,
   linksFromSnapshot,
   saving,
@@ -134,19 +128,14 @@ function ProfileEditorForm({
   isBootstrappingSession,
   connect,
   saveProfile,
-  dirtyRef,
+  onLeave,
   onSaved,
-  onBack,
-  onHeaderClose,
-  discardConfirmOpen,
-  onKeepEditing,
-  onDiscard,
+  onBeforeCloseChange,
+  onSavingChange,
 }: ProfileEditorFormProps) {
+  const formId = useId();
   const { setTxResult } = useAppTransactionFeedback();
-  const keepEditingRef = useRef<HTMLButtonElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const resumeFocusAfterDiscardRef = useRef(false);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const [name, setName] = useState(snapshot.name);
   const [bio, setBio] = useState(snapshot.bio);
@@ -173,15 +162,10 @@ function ProfileEditorForm({
   }, [bio]);
 
   useEffect(() => {
-    if (!editorOpen || discardConfirmOpen) {
+    if (!open) {
       return;
     }
 
-    if (resumeFocusAfterDiscardRef.current) {
-      return;
-    }
-
-    // Mobile: let the user tap — autofocus fights keyboard + sheet settle.
     if (window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches) {
       return;
     }
@@ -193,42 +177,7 @@ function ProfileEditorForm({
     return () => {
       window.clearTimeout(focusTimer);
     };
-  }, [discardConfirmOpen, editorOpen]);
-
-  useEffect(() => {
-    if (discardConfirmOpen) {
-      resumeFocusAfterDiscardRef.current = true;
-      const focusTimer = window.setTimeout(() => {
-        keepEditingRef.current?.focus();
-      }, 0);
-
-      const onKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          event.stopPropagation();
-          onKeepEditing();
-        }
-      };
-
-      window.addEventListener('keydown', onKeyDown, true);
-      return () => {
-        window.clearTimeout(focusTimer);
-        window.removeEventListener('keydown', onKeyDown, true);
-      };
-    }
-
-    if (!resumeFocusAfterDiscardRef.current) {
-      return;
-    }
-
-    resumeFocusAfterDiscardRef.current = false;
-    const restoreTimer = window.setTimeout(() => {
-      closeButtonRef.current?.focus();
-    }, 0);
-    return () => {
-      window.clearTimeout(restoreTimer);
-    };
-  }, [discardConfirmOpen, onKeepEditing]);
+  }, [open, sessionKey]);
 
   const avatarPreview = useObjectUrl(avatarFile);
   const bannerPreview = useObjectUrl(bannerFile);
@@ -267,9 +216,47 @@ function ProfileEditorForm({
       snapshot,
     ]
   );
+
+  const {
+    discardConfirmOpen,
+    discardTitleId,
+    discardBodyId,
+    keepEditingRef,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open,
+    dirty: isDirty,
+    pending: saving,
+    onClose: onLeave,
+  });
+
   useEffect(() => {
-    dirtyRef.current = isDirty;
-  }, [dirtyRef, isDirty]);
+    onSavingChange(saving);
+  }, [onSavingChange, saving]);
+
+  useEffect(() => {
+    const guard = () => {
+      if (discardConfirmOpen) {
+        keepEditing();
+        return false;
+      }
+      return requestCloseOrConfirm();
+    };
+    onBeforeCloseChange(guard);
+    return () => {
+      onBeforeCloseChange(null);
+      clearDiscardConfirm();
+    };
+  }, [
+    clearDiscardConfirm,
+    discardConfirmOpen,
+    keepEditing,
+    onBeforeCloseChange,
+    requestCloseOrConfirm,
+  ]);
 
   const nameReady = name.trim().length > 0;
   const hasInvalidLinks = useMemo(
@@ -284,7 +271,7 @@ function ProfileEditorForm({
   const hasLinkInput = Object.values(links).some((value) => value.trim());
   const submitLabel = snapshot.hasProfile ? 'Save' : 'Create';
   const handleLabel = fallbackLabel(accountId);
-  const pageMoodId = usePageMoodId(pageAccountId, accountId, editorOpen);
+  const pageMoodId = usePageMoodId(pageAccountId, accountId, open);
   const handleHint = portfolioHandleHint(accountId, pageMoodId);
   const avatarInitial = initials(
     displayName(accountId, name.trim() || undefined)
@@ -373,15 +360,15 @@ function ProfileEditorForm({
         msg: txToastSuccess.profileSaved,
         explorerHref: nearExplorerTxHref(result.txHash),
       });
-      onBack();
+      onLeave();
     } catch (err) {
       if (isWalletUserCancellation(err)) {
         return;
       }
       setTxResult({ type: 'error', msg: txToastError.profileSaveFailed });
-      const validationErrors = profileLinkEditorFieldErrors(links);
-      if (Object.keys(validationErrors).length > 0) {
-        setLinkFieldErrors(validationErrors);
+      const nextValidationErrors = profileLinkEditorFieldErrors(links);
+      if (Object.keys(nextValidationErrors).length > 0) {
+        setLinkFieldErrors(nextValidationErrors);
       }
     }
   };
@@ -408,11 +395,17 @@ function ProfileEditorForm({
 
   return (
     <form
-      className={`account-editor-form${discardConfirmOpen ? ' is-discard-confirm' : ''}`}
+      id={formId}
+      className={`account-editor-form profile-edit-form${discardConfirmOpen ? ' is-discard-confirm' : ''}`}
       onSubmit={(event) => void handleSubmit(event)}
     >
-      <div className="account-editor-form-main">
-        <section className="account-editor-hero" aria-label="Profile">
+      <div
+        className={`account-editor-form-main${discardConfirmOpen ? ' is-discard-confirm' : ''}`}
+      >
+        <section
+          className={`account-editor-hero${discardConfirmOpen ? ' is-dimmed' : ''}`}
+          aria-label="Profile"
+        >
           <div
             className={`account-editor-cover-stage${displayBannerMedia ? ' has-media' : ''}`}
           >
@@ -466,14 +459,6 @@ function ProfileEditorForm({
                 </p>
               </div>
             </div>
-
-            <AccountEditorChrome
-              titleId="profile-editor-title"
-              title="Edit profile"
-              onClose={onHeaderClose}
-              className="account-editor-hero-chrome"
-              closeButtonRef={closeButtonRef}
-            />
 
             <div className="account-editor-hero-overlap">
               <div className="account-editor-identity">
@@ -609,17 +594,17 @@ function ProfileEditorForm({
         className={`account-editor-footer${discardConfirmOpen ? ' is-discard-confirm' : ''}`}
         {...discardConfirmFooterA11y(
           discardConfirmOpen,
-          'account-editor-discard-title',
-          'account-editor-discard-copy'
+          discardTitleId,
+          discardBodyId
         )}
       >
         {discardConfirmOpen ? (
           <DiscardConfirmFooter
             className="account-editor-discard-card"
-            titleId="account-editor-discard-title"
-            bodyId="account-editor-discard-copy"
-            onDiscard={onDiscard}
-            onKeepEditing={onKeepEditing}
+            titleId={discardTitleId}
+            bodyId={discardBodyId}
+            onDiscard={discard}
+            onKeepEditing={keepEditing}
             keepEditingRef={keepEditingRef}
           />
         ) : !hasSocialSession ? (
@@ -699,9 +684,7 @@ interface AppProfileEditorSheetProps {
   onSaved: (result: ProfileEditorSaveResult) => void;
 }
 
-type LeaveAction = 'back' | 'close';
-
-/** Nested full sheet — edit profile without leaving the OS account drawer stack. */
+/** Nested slide-over — edit profile without leaving the OS account drawer stack. */
 export function AppProfileEditorSheet({
   open,
   sessionKey,
@@ -711,13 +694,8 @@ export function AppProfileEditorSheet({
   onClose,
   onSaved,
 }: AppProfileEditorSheetProps) {
-  const [closing, setClosing] = useState(false);
-  const [discardOpen, setDiscardOpen] = useState(false);
-  const dirtyRef = useRef(false);
-  const pendingLeaveRef = useRef<LeaveAction | null>(null);
-
-  const sheetOpen = open && !closing;
-  const viewport = useVisualViewportSheetMetrics(sheetOpen);
+  const [formSaving, setFormSaving] = useState(false);
+  const beforeCloseRef = useRef<(() => boolean) | null>(null);
   const {
     snapshot,
     loading,
@@ -729,129 +707,77 @@ export function AppProfileEditorSheet({
     isBootstrappingSession,
     connect,
     linksFromSnapshot,
-  } = useAppProfileEditor(accountId, sheetOpen);
+  } = useAppProfileEditor(accountId, open);
   const { moodId: portfolioMoodId, style: portfolioMoodStyle } =
-    usePortfolioMoodVars(pageAccountId, accountId, sheetOpen);
-  const pageMoodPanelClass = portfolioMoodId
-    ? ' account-editor-panel--page-mood'
-    : '';
+    usePortfolioMoodVars(pageAccountId, accountId, open);
 
-  const panelStyle = useMemo((): CSSProperties | undefined => {
-    const mood = portfolioMoodStyle;
-    if (!viewport.isMobile || viewport.height <= 0) {
-      return mood;
-    }
+  const handleLeave = useCallback(() => {
+    onBack();
+  }, [onBack]);
 
-    const height = Math.min(viewport.height, EDITOR_PANEL_MAX_HEIGHT_PX);
-    return {
-      ...mood,
-      height: `${height}px`,
-      maxHeight: `${height}px`,
-      ...(viewport.lift > 0
-        ? {
-            marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
-          }
-        : null),
-    };
-  }, [portfolioMoodStyle, viewport.height, viewport.isMobile, viewport.lift]);
-
-  useScrollLock(open || closing);
-
-  const completeLeave = (action: LeaveAction) => {
-    pendingLeaveRef.current = null;
-    setDiscardOpen(false);
-
-    if (action === 'back') {
-      onBack();
-      return;
-    }
-
-    setClosing(true);
-  };
-
-  const tryLeave = (action: LeaveAction) => {
-    if (dirtyRef.current && !saving) {
-      pendingLeaveRef.current = action;
-      setDiscardOpen(true);
-      return;
-    }
-
-    completeLeave(action);
-  };
-
-  const requestClose = () => {
-    if (discardOpen) {
-      pendingLeaveRef.current = null;
-      setDiscardOpen(false);
-      return;
-    }
-
-    tryLeave('close');
-  };
-
-  const handleSheetClosed = () => {
-    setClosing(false);
-    setDiscardOpen(false);
-    pendingLeaveRef.current = null;
+  const handleClosed = useCallback(() => {
+    beforeCloseRef.current = null;
+    setFormSaving(false);
     onClose();
-  };
+  }, [onClose]);
 
-  const handleDiscard = () => {
-    const action = pendingLeaveRef.current ?? 'close';
-    completeLeave(action);
-  };
+  const handleBeforeClose = useCallback(() => {
+    const guard = beforeCloseRef.current;
+    if (guard) {
+      return guard();
+    }
+    return true;
+  }, []);
+
+  const handleBeforeCloseChange = useCallback(
+    (guard: (() => boolean) | null) => {
+      beforeCloseRef.current = guard;
+    },
+    []
+  );
 
   return (
-    <>
-      <GlassSheet
-        open={sheetOpen}
-        onClose={requestClose}
-        onClosed={handleSheetClosed}
-        tone="os"
-        initialDetent="full"
-        zIndex={56}
-        ariaLabelledBy="profile-editor-title"
-        backdropLabel="Close editor"
-        panelClassName={`account-editor-panel${pageMoodPanelClass}${portfolioMoodId ? ` account-editor-panel--${portfolioMoodId}` : ''}`}
-        panelStyle={panelStyle}
-        bodyClassName="account-editor-body"
-      >
-        {loading && !snapshot ? (
-          <ProfileEditorLoadingSkeleton onClose={requestClose} />
-        ) : snapshot ? (
-          <ProfileEditorForm
-            key={sessionKey}
-            accountId={accountId}
-            pageAccountId={pageAccountId}
-            editorOpen={sheetOpen}
-            snapshot={snapshot}
-            linksFromSnapshot={linksFromSnapshot}
-            saving={saving}
-            hasSocialSession={hasSocialSession}
-            isBootstrappingSession={isBootstrappingSession}
-            connect={() => void connect()}
-            saveProfile={saveProfile}
-            dirtyRef={dirtyRef}
-            onSaved={onSaved}
-            onBack={() => completeLeave('back')}
-            onHeaderClose={requestClose}
-            discardConfirmOpen={discardOpen}
-            onKeepEditing={() => {
-              pendingLeaveRef.current = null;
-              setDiscardOpen(false);
-            }}
-            onDiscard={handleDiscard}
-          />
-        ) : loadError ? (
-          <ProfileEditorLoadError
-            message={loadError}
-            onRetry={() => void loadProfile()}
-            onClose={requestClose}
-          />
-        ) : (
-          <ProfileEditorLoadingSkeleton onClose={requestClose} />
-        )}
-      </GlassSheet>
-    </>
+    <OsSlideOverScreen
+      open={open}
+      onClose={handleLeave}
+      onClosed={handleClosed}
+      onBeforeClose={handleBeforeClose}
+      title="Edit profile"
+      closeAriaLabel="Back"
+      closeDisabled={formSaving || saving}
+      zIndex={PROFILE_EDIT_Z}
+      moodId={portfolioMoodId}
+      moodStyle={portfolioMoodStyle}
+      className="profile-edit-slide"
+      contentClassName="profile-edit-slide-body"
+    >
+      {snapshot ? (
+        <ProfileEditorForm
+          key={`${accountId}:${sessionKey}`}
+          open={open}
+          accountId={accountId}
+          pageAccountId={pageAccountId}
+          sessionKey={sessionKey}
+          snapshot={snapshot}
+          linksFromSnapshot={linksFromSnapshot}
+          saving={saving}
+          hasSocialSession={hasSocialSession}
+          isBootstrappingSession={isBootstrappingSession}
+          connect={() => void connect()}
+          saveProfile={saveProfile}
+          onLeave={handleLeave}
+          onSaved={onSaved}
+          onBeforeCloseChange={handleBeforeCloseChange}
+          onSavingChange={setFormSaving}
+        />
+      ) : loading || !loadError ? (
+        <ProfileEditorLoadingSkeleton />
+      ) : (
+        <ProfileEditorLoadError
+          message={loadError}
+          onRetry={() => void loadProfile()}
+        />
+      )}
+    </OsSlideOverScreen>
   );
 }
