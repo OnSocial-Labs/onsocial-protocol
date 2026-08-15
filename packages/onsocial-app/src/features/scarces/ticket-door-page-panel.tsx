@@ -31,13 +31,7 @@ import {
   collectionRedeemPath,
 } from '@/lib/app-routes';
 
-function DoorEmpty({
-  copy,
-  dropHref,
-}: {
-  copy: ReactNode;
-  dropHref?: string;
-}) {
+function DoorEmpty({ copy, dropHref }: { copy: ReactNode; dropHref?: string }) {
   return (
     <div className="market-page-empty">
       <p className="market-page-empty-copy">{copy}</p>
@@ -141,8 +135,7 @@ export function TicketDoorPagePanel({
     redeemerKey != null &&
     redeemerCheck?.key === redeemerKey &&
     redeemerCheck.ok;
-  const accessReady =
-    redeemerKey == null || redeemerCheck?.key === redeemerKey;
+  const accessReady = redeemerKey == null || redeemerCheck?.key === redeemerKey;
 
   const canStaff =
     isPassMediumKind(view?.kind) &&
@@ -253,9 +246,7 @@ export function TicketDoorPagePanel({
   } else if (!accessReady) {
     body = (
       <DoorEmpty
-        copy={
-          redeemVoice ? 'Checking redeem access…' : 'Checking door access…'
-        }
+        copy={redeemVoice ? 'Checking redeem access…' : 'Checking door access…'}
       />
     );
   } else if (!canStaff) {
@@ -375,6 +366,7 @@ export function TicketDoorPagePanel({
           view={view}
           attendance={attendance}
           voice={voiceProp}
+          logRevision={attendanceRefresh}
         />
       ) : null}
     </OsAppScreen>

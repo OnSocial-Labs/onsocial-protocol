@@ -16,7 +16,10 @@ export interface DoorLogEntry {
   /** Staff wallet that called redeem (tx author). */
   staffId: string;
   blockTimestamp: number;
+  /** Relative time — e.g. `2m ago`. */
   timeLabel: string;
+  /** Calendar + clock — e.g. `Aug 15 · 2:34 PM`. */
+  timeAbsolute: string;
   redeemCount: number | null;
   maxRedeems: number | null;
 }
@@ -25,6 +28,29 @@ function asOptionalInt(value: unknown): number | null {
   if (value == null || value === '') return null;
   const n = Math.floor(Number(value));
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function timestampMs(timestamp: number): number {
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return 0;
+  return timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
+}
+
+/** Absolute door-log clock for disputes / overnight ops. */
+export function formatDoorLogAbsoluteTime(
+  timestamp: number,
+  nowMs: number = Date.now()
+): string {
+  const ms = timestampMs(timestamp);
+  if (!ms) return '';
+  const date = new Date(ms);
+  const sameYear = date.getFullYear() === new Date(nowMs).getFullYear();
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 /** Map indexer redeem rows → Door log entries (newest first preserved). */
@@ -49,6 +75,7 @@ export function mapDoorLogEntries(
       staffId,
       blockTimestamp,
       timeLabel: formatMarketRelativeTime(blockTimestamp, nowMs) ?? '',
+      timeAbsolute: formatDoorLogAbsoluteTime(blockTimestamp, nowMs),
       redeemCount: asOptionalInt(row.redeemCount),
       maxRedeems: asOptionalInt(row.maxRedeems),
     });
@@ -56,21 +83,56 @@ export function mapDoorLogEntries(
   return out;
 }
 
-/** Quiet meta under the guest — seat + which staff admitted. */
-export function doorLogEntryMeta(
-  entry: DoorLogEntry,
-  staffLabel: string,
-  voice: PassStaffVoice = 'admit'
-): string {
-  const by = staffLabel.trim() || entry.staffId;
-  const verb = voice === 'redeem' ? 'Redeemed by' : 'Admitted by';
+/** Seat (+ multi-redeem) line under the guest name. */
+export function doorLogEntrySeatLine(entry: DoorLogEntry): string {
   const multi =
     entry.maxRedeems != null &&
     entry.maxRedeems > 1 &&
     entry.redeemCount != null
       ? ` · ${entry.redeemCount}/${entry.maxRedeems}`
       : '';
-  return `${entry.seatLabel}${multi} · ${verb} ${by}`;
+  return `${entry.seatLabel}${multi}`;
+}
+
+export function doorLogStaffVerb(voice: PassStaffVoice = 'admit'): string {
+  return voice === 'redeem' ? 'Redeemed by' : 'Admitted by';
+}
+
+/**
+ * Quiet one-line meta (tests + compact surfaces).
+ * UI prefers seat line + linked staff separately.
+ */
+export function doorLogEntryMeta(
+  entry: DoorLogEntry,
+  staffLabel: string,
+  voice: PassStaffVoice = 'admit'
+): string {
+  const by = staffLabel.trim() || entry.staffId;
+  return `${doorLogEntrySeatLine(entry)} · ${doorLogStaffVerb(voice)} ${by}`;
+}
+
+/** Filter by guest, staff, seat, or display names. */
+export function filterDoorLogEntries(
+  entries: DoorLogEntry[],
+  query: string,
+  nameByAccount?: Record<string, string | null | undefined>
+): DoorLogEntry[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return entries;
+  return entries.filter((entry) => {
+    const guestName =
+      nameByAccount?.[entry.guestId]?.trim().toLowerCase() ?? '';
+    const staffName =
+      nameByAccount?.[entry.staffId]?.trim().toLowerCase() ?? '';
+    return (
+      entry.guestId.toLowerCase().includes(q) ||
+      entry.staffId.toLowerCase().includes(q) ||
+      entry.seatLabel.toLowerCase().includes(q) ||
+      entry.tokenId.toLowerCase().includes(q) ||
+      guestName.includes(q) ||
+      staffName.includes(q)
+    );
+  });
 }
 
 /** Newest redeem / check-in events for a drop. */

@@ -21561,30 +21561,52 @@ a.os-surface-row {
   }
 
   .collection-door-log-meta {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
     margin-top: 0.12rem;
     font-size: 0.72rem;
     line-height: 1.35;
     color: var(--os-surface-muted);
   }
 
-  .collection-door-log-refresh {
-    border: 0;
-    margin: 0;
-    padding: 0.28rem 0.55rem;
-    border-radius: 999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    color: rgb(var(--fg-rgb) / 0.78);
-    font: inherit;
-    font-size: 0.72rem;
-    font-weight: 650;
-    cursor: pointer;
+  .collection-door-log-seat {
+    display: block;
   }
 
-  .collection-door-log-refresh:hover,
-  .collection-door-log-refresh:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.12);
-    color: rgb(var(--fg-rgb) / 0.92);
+  .collection-door-log-staff-line {
+    display: block;
+  }
+
+  .collection-door-log-staff {
+    color: rgb(var(--fg-rgb) / 0.78);
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .collection-door-log-staff:hover,
+  .collection-door-log-staff:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.96);
+    text-decoration: underline;
+  }
+
+  .collection-door-log-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.08rem;
+    text-align: right;
+  }
+
+  .collection-door-log-absolute {
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: rgb(var(--fg-rgb) / 0.72);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .collection-door-log-search {
+    margin: 0 0 0.15rem;
   }
 
   .collection-activity-standing {

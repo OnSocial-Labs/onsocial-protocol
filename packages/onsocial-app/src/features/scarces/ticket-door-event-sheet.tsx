@@ -71,12 +71,15 @@ export function TicketDoorEventSheet({
   view,
   attendance,
   voice,
+  logRevision = 0,
 }: {
   open: boolean;
   onClose: () => void;
   view: CollectionView;
   attendance: CollectionRedeemAttendance | null;
   voice: PassStaffVoice;
+  /** Bump after admit so Door log refetches. */
+  logRevision?: number;
 }) {
   const [sheetOpen, setSheetOpen] = useState(open);
   if (open && !sheetOpen) setSheetOpen(true);
@@ -217,6 +220,7 @@ export function TicketDoorEventSheet({
         dropTitle={view.title}
         voice={voice}
         attendanceLine={attendanceSuffix}
+        revision={logRevision}
       />
     </>
   );

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { ScarcesEventRow } from '@onsocial/sdk';
 import {
   doorLogEntryMeta,
+  doorLogEntrySeatLine,
+  filterDoorLogEntries,
+  formatDoorLogAbsoluteTime,
   mapDoorLogEntries,
 } from '@/features/scarces/ticket-door-log';
 
@@ -48,7 +51,7 @@ function redeemRow(
 }
 
 describe('ticket-door-log', () => {
-  it('maps redeem events to guest + staff + seat', () => {
+  it('maps redeem events to guest + staff + seat + absolute time', () => {
     const now = Date.UTC(2026, 7, 15, 12, 0, 0);
     const entries = mapDoorLogEntries(
       [
@@ -77,9 +80,11 @@ describe('ticket-door-log', () => {
       tokenId: 'night-drive:3',
     });
     expect(entries[0]!.timeLabel.length).toBeGreaterThan(0);
+    expect(entries[0]!.timeAbsolute.length).toBeGreaterThan(0);
+    expect(formatDoorLogAbsoluteTime(now * 1e6, now)).toMatch(/Aug/);
   });
 
-  it('builds meta with staff label and multi-redeem', () => {
+  it('builds seat + meta lines with staff label and multi-redeem', () => {
     const entry = mapDoorLogEntries([
       redeemRow({
         author: 'door.near',
@@ -90,11 +95,38 @@ describe('ticket-door-log', () => {
         maxRedeems: 3,
       }),
     ])[0]!;
+    expect(doorLogEntrySeatLine(entry)).toBe('Pass 3 · 2/3');
     expect(doorLogEntryMeta(entry, 'Door Lead', 'admit')).toBe(
       'Pass 3 · 2/3 · Admitted by Door Lead'
     );
     expect(doorLogEntryMeta(entry, 'Door Lead', 'redeem')).toBe(
       'Pass 3 · 2/3 · Redeemed by Door Lead'
     );
+  });
+
+  it('filters by guest, staff, seat, and display names', () => {
+    const entries = mapDoorLogEntries([
+      redeemRow({
+        author: 'door.near',
+        ownerId: 'guest.near',
+        tokenId: 'night-drive:3',
+        blockTimestamp: 1,
+      }),
+      redeemRow({
+        author: 'other.near',
+        ownerId: 'bob.near',
+        tokenId: 'night-drive:9',
+        blockTimestamp: 2,
+      }),
+    ]);
+    expect(filterDoorLogEntries(entries, 'pass 9')).toHaveLength(1);
+    expect(filterDoorLogEntries(entries, 'door.near')).toHaveLength(1);
+    expect(
+      filterDoorLogEntries(entries, 'alex', {
+        'guest.near': 'Alex Night',
+        'bob.near': 'Bob',
+      })
+    ).toHaveLength(1);
+    expect(filterDoorLogEntries(entries, '')).toHaveLength(2);
   });
 });
