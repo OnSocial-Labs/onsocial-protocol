@@ -24074,7 +24074,7 @@ a.os-surface-row {
   .series-hero-title {
     margin: 0;
     font-size: 1.35rem;
-    font-weight: 750;
+    font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
@@ -24145,6 +24145,12 @@ a.os-surface-row {
 
   .series-empty-create {
     margin-top: 0.55rem;
+  }
+
+  .series-logo-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.55rem;
   }
 
   /* Square logo picker in the series edit sheet. */

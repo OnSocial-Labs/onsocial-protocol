@@ -107,7 +107,7 @@ export function SeriesPagePanel({
         </>
       }
     >
-      <div className="series-page">
+      <div className="market-page series-page">
         <header className="series-hero">
           <div className="series-hero-identity">
             <span className={`series-hero-logo${logoUrl ? ' has-media' : ''}`}>
@@ -156,29 +156,30 @@ export function SeriesPagePanel({
           ) : null}
         </header>
 
-        <Divider variant="item" className="series-hero-divider" />
-
         {drops.length > 0 ? (
-          <div className="series-catalog">
-            {groups.map((group) => (
-              <section
-                key={group.bucket}
-                className="series-catalog-section"
-                aria-label={group.label}
-              >
-                {showSectionLabels ? (
-                  <p className="collection-section-label">{group.label}</p>
-                ) : null}
-                <ul className="app-drop-list">
-                  {group.drops.map((drop) => (
-                    <li key={drop.collectionId}>
-                      <StoreDropCard view={drop} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+          <>
+            <Divider variant="item" className="series-hero-divider" />
+            <div className="series-catalog">
+              {groups.map((group) => (
+                <section
+                  key={group.bucket}
+                  className="series-catalog-section"
+                  aria-label={group.label}
+                >
+                  {showSectionLabels ? (
+                    <p className="collection-section-label">{group.label}</p>
+                  ) : null}
+                  <ul className="app-drop-list">
+                    {group.drops.map((drop) => (
+                      <li key={drop.collectionId}>
+                        <StoreDropCard view={drop} />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="standing-panel-empty-block is-centered">
             <div className="standing-panel-empty-state">

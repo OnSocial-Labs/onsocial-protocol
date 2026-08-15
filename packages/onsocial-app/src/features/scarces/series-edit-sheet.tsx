@@ -8,10 +8,12 @@ import {
   useState,
   type ChangeEvent,
 } from 'react';
-import { osFieldBorderedClassName } from '@onsocial/ui';
 import {
+  OsField,
+  OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -19,6 +21,7 @@ import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   buildSeriesBrandingPayload,
   invalidateSeriesBrandingCache,
+  seedSeriesBrandingCache,
   seriesDataPath,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
@@ -62,10 +65,14 @@ export function SeriesEditSheet({
   const fieldIdBase = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const [sheetOpen, setSheetOpen] = useState(open);
+  if (open && !sheetOpen) setSheetOpen(true);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoRemoved, setLogoRemoved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +84,7 @@ export function SeriesEditSheet({
     setDescription(branding?.description ?? '');
     setLogoFile(null);
     setLogoPreview(null);
+    setLogoRemoved(false);
     setError(null);
   }, [open, branding, fallbackTitle]);
 
@@ -86,6 +94,15 @@ export function SeriesEditSheet({
     },
     [logoPreview]
   );
+
+  const requestClose = useCallback(() => {
+    if (pending) return;
+    setSheetOpen(false);
+  }, [pending]);
+
+  const handleClosed = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   const onLogoChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -100,6 +117,7 @@ export function SeriesEditSheet({
       return;
     }
     setError(null);
+    setLogoRemoved(false);
     setLogoFile(file);
     setLogoPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -107,7 +125,18 @@ export function SeriesEditSheet({
     });
   }, []);
 
+  const clearLogo = useCallback(() => {
+    setLogoFile(null);
+    setLogoRemoved(true);
+    setLogoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
   const canSave = title.trim().length >= 2 && !pending;
+  const logoSrc =
+    logoPreview ?? (logoRemoved ? null : (branding?.logoUrl ?? null));
 
   const save = useCallback(async () => {
     if (!canSave) return;
@@ -119,6 +148,8 @@ export function SeriesEditSheet({
       if (logoFile) {
         const uploaded = await client.storage.upload(logoFile);
         logo = `ipfs://${uploaded.cid}`;
+      } else if (logoRemoved) {
+        logo = null;
       }
       const payload = buildSeriesBrandingPayload({
         title: title.trim(),
@@ -136,16 +167,18 @@ export function SeriesEditSheet({
         failureMessage: txToastError.saveSeriesFailed,
       });
       if (!confirmed) return;
-      invalidateSeriesBrandingCache(creatorId, seriesId);
-      onSaved({
+      const next: SeriesBranding = {
         creatorId,
         seriesId,
         title: title.trim(),
         description: description.trim() || null,
         logo,
         logoUrl: resolveProfileMediaUrl(logo),
-      });
-      onClose();
+      };
+      invalidateSeriesBrandingCache(creatorId, seriesId);
+      seedSeriesBrandingCache(creatorId, seriesId, next);
+      onSaved(next);
+      setSheetOpen(false);
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -163,6 +196,7 @@ export function SeriesEditSheet({
     getClient,
     branding,
     logoFile,
+    logoRemoved,
     title,
     description,
     seriesId,
@@ -170,18 +204,16 @@ export function SeriesEditSheet({
     trackTransaction,
     setTxResult,
     onSaved,
-    onClose,
   ]);
-
-  const logoSrc = logoPreview ?? branding?.logoUrl ?? null;
 
   return (
     <OsSlideOverScreen
-      open={open}
-      onClose={onClose}
+      open={sheetOpen}
+      onClose={requestClose}
+      onClosed={handleClosed}
       title="Edit series"
       subtitle="Brand the series — drops keep their own art."
-      closeAriaLabel="Back"
+      closeAriaLabel="Back from edit series"
       closeDisabled={pending}
       zIndex={SERIES_EDIT_Z}
       className="hub-manage-slide"
@@ -201,21 +233,32 @@ export function SeriesEditSheet({
       }
     >
       <div className="hub-manage-form">
-        <div className="guild-field">
-          <span>Logo</span>
-          <button
-            type="button"
-            className={`series-logo-picker${logoSrc ? ' has-media' : ''}`}
-            disabled={pending}
-            onClick={() => logoInputRef.current?.click()}
-            aria-label={logoSrc ? 'Change series logo' : 'Add series logo'}
-          >
+        <OsField
+          label="Logo"
+          hint="Square works best · JPG, PNG, or WebP · up to 5 MB"
+        >
+          <div className="series-logo-row">
+            <button
+              type="button"
+              className={`series-logo-picker${logoSrc ? ' has-media' : ''}`}
+              disabled={pending}
+              onClick={() => logoInputRef.current?.click()}
+              aria-label={logoSrc ? 'Change series logo' : 'Add series logo'}
+            >
+              {logoSrc ? (
+                <img src={logoSrc} alt="" />
+              ) : (
+                <span aria-hidden>+</span>
+              )}
+            </button>
             {logoSrc ? (
-              <img src={logoSrc} alt="" />
-            ) : (
-              <span aria-hidden>+</span>
-            )}
-          </button>
+              <OsFieldRemove
+                aria-label="Remove series logo"
+                disabled={pending}
+                onClick={clearLogo}
+              />
+            ) : null}
+          </div>
           <input
             ref={logoInputRef}
             type="file"
@@ -226,11 +269,13 @@ export function SeriesEditSheet({
             disabled={pending}
             onChange={onLogoChange}
           />
-          <small>Square works best · JPG, PNG, or WebP · up to 5 MB</small>
-        </div>
+        </OsField>
 
-        <label className="guild-field" htmlFor={`${fieldIdBase}-title`}>
-          <span>Title</span>
+        <OsField
+          label="Title"
+          htmlFor={`${fieldIdBase}-title`}
+          hint={`${title.length}/${MAX_TITLE}`}
+        >
           <input
             id={`${fieldIdBase}-title`}
             value={title}
@@ -239,10 +284,13 @@ export function SeriesEditSheet({
             onChange={(event) => setTitle(event.target.value)}
             className={osFieldBorderedClassName}
           />
-        </label>
+        </OsField>
 
-        <label className="guild-field" htmlFor={`${fieldIdBase}-description`}>
-          <span>Description (optional)</span>
+        <OsField
+          label="Description (optional)"
+          htmlFor={`${fieldIdBase}-description`}
+          hint={`${description.length}/${MAX_DESCRIPTION}`}
+        >
           <textarea
             id={`${fieldIdBase}-description`}
             rows={3}
@@ -253,10 +301,7 @@ export function SeriesEditSheet({
             onChange={(event) => setDescription(event.target.value)}
             className={osFieldBorderedClassName}
           />
-          <small>
-            {description.length}/{MAX_DESCRIPTION}
-          </small>
-        </label>
+        </OsField>
 
         {error ? <p className="guild-form-error">{error}</p> : null}
       </div>
