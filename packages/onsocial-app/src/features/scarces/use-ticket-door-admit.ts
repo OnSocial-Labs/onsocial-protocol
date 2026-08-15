@@ -6,6 +6,10 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import {
+  verifyTicketPassLiveCrypto,
+  verifyTicketPassLiveOwnerKey,
+} from '@/features/scarces/ticket-pass-live';
+import {
   parseTicketPassPayload,
   ticketPassRemaining,
   type PassStaffVoice,
@@ -23,9 +27,7 @@ import {
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 type BarcodeDetectorLike = {
-  detect: (
-    source: ImageBitmapSource
-  ) => Promise<Array<{ rawValue?: string }>>;
+  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
 };
 
 function getBarcodeDetector():
@@ -117,16 +119,33 @@ export function useTicketDoorAdmit({
 
   const applyLookup = useCallback(
     async (raw: string) => {
-      const parsed = parseTicketPassPayload(raw, collectionId);
-      if (!parsed) {
+      const trimmed = raw.trim();
+      if (!trimmed.startsWith('os2|')) {
         setStatus(null);
         setAdmitConfirmed(false);
-        setLookupError('That code is not for this drop.');
+        setLookupError('Ask the guest to open Show pass for a live door code.');
         return;
       }
+
       setLookupPending(true);
       setLookupError(null);
       try {
+        const live = await verifyTicketPassLiveCrypto(trimmed, collectionId);
+        if (!live.ok) {
+          setStatus(null);
+          setAdmitConfirmed(false);
+          setLookupError(live.error);
+          return;
+        }
+
+        const parsed = parseTicketPassPayload(trimmed, collectionId);
+        if (!parsed) {
+          setStatus(null);
+          setAdmitConfirmed(false);
+          setLookupError('That code is not for this drop.');
+          return;
+        }
+
         const next = await fetchTicketTokenStatus(parsed.tokenId);
         if (!next) {
           setStatus(null);
@@ -143,9 +162,23 @@ export function useTicketDoorAdmit({
           setLookupError('That pass belongs to another drop.');
           return;
         }
+
+        const keyOk = await verifyTicketPassLiveOwnerKey(
+          next.ownerId,
+          live.payload.publicKeyB64u
+        );
+        if (!keyOk) {
+          setStatus(null);
+          setAdmitConfirmed(false);
+          setLookupError(
+            'Pass signature does not match the ticket owner. Ask them to reopen Show pass.'
+          );
+          return;
+        }
+
         setStatus(next);
         setAdmitConfirmed(false);
-        setManualInput(next.tokenId);
+        setManualInput(trimmed);
         setScanHint(null);
         setLastAdmittedTokenId(null);
         stopCamera();
@@ -350,7 +383,6 @@ export function useTicketDoorAdmit({
     resetSession,
     /** True when current owner differs from original minter. */
     passWasReceived:
-      status != null &&
-      !accountIdsEqual(status.ownerId, status.minterId),
+      status != null && !accountIdsEqual(status.ownerId, status.minterId),
   };
 }

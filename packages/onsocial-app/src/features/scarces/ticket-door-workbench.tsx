@@ -106,8 +106,7 @@ export function TicketDoorWorkbench({
       })
     : null;
 
-  const lastLine =
-    voice === 'redeem' ? 'Last redeemed' : 'Last admitted';
+  const lastLine = voice === 'redeem' ? 'Last redeemed' : 'Last admitted';
   const redeemVoice = voice === 'redeem';
   const leadText =
     lead !== undefined
@@ -115,14 +114,14 @@ export function TicketDoorWorkbench({
       : status
         ? null
         : cameraError && !cameraActive
-          ? 'Camera unavailable — paste a pass code, then Look up.'
+          ? 'Camera unavailable — paste a live Show pass code, then Look up.'
           : cameraActive
             ? redeemVoice
-              ? 'Point at a coupon QR.'
-              : 'Point at a Show pass QR.'
+              ? 'Point at a live coupon QR.'
+              : 'Point at a live Show pass QR.'
             : redeemVoice
-              ? 'Start the camera or paste a coupon code.'
-              : 'Start the camera or paste a pass code.';
+              ? 'Start the camera or paste a live coupon code.'
+              : 'Start the camera or paste a live Show pass code.';
 
   const holderHandle = ownerId ? fallbackLabel(ownerId) : '';
   const holderDisplay = holderFaceForOwner?.displayName?.trim() || null;

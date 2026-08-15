@@ -18,12 +18,16 @@ import {
   SheetCloseButton,
   useScrollLock,
 } from '@onsocial/ui';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   fetchCollectionCreatorFace,
   type CollectionCreatorFace,
 } from '@/features/scarces/collection-creator-face';
 import {
-  encodeTicketPassPayload,
+  signTicketPassLive,
+  TICKET_PASS_LIVE_REFRESH_MS,
+} from '@/features/scarces/ticket-pass-live';
+import {
   ticketPassSeatLabel,
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
@@ -33,6 +37,12 @@ import {
   type TicketTokenStatus,
 } from '@/features/scarces/ticket-token-status';
 import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import { accountIdsEqual } from '@/lib/account-match';
+import { restoreAppSocialSession } from '@/lib/app-social-session';
+import {
+  getCachedAppSocialSession,
+  setCachedAppSocialSession,
+} from '@/lib/app-social-session-cache';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fallbackLabel } from '@/lib/profile-display';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
@@ -43,8 +53,8 @@ const getServerMountedSnapshot = () => false;
 const LIGHTBOX_EXIT_MS = 180;
 
 /**
- * Full-screen Show pass — QR-first for the door.
- * Frost scrim like drawers; glass card; quiet copyable backup code.
+ * Full-screen Show pass — live signed QR for the door.
+ * Frost scrim like drawers; glass card; quiet copyable live code.
  */
 export function TicketShowPassSheet({
   open,
@@ -71,6 +81,9 @@ export function TicketShowPassSheet({
   const [statusReady, setStatusReady] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [livePayload, setLivePayload] = useState<string | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveReady, setLiveReady] = useState(false);
   const [holderFace, setHolderFace] = useState<CollectionCreatorFace | null>(
     null
   );
@@ -78,6 +91,7 @@ export function TicketShowPassSheet({
     null
   );
   const [holderFetchDone, setHolderFetchDone] = useState(false);
+  const { accountId } = useAppWallet();
   const mounted = useSyncExternalStore(
     clientMountedSubscribe,
     getClientMountedSnapshot,
@@ -94,6 +108,9 @@ export function TicketShowPassSheet({
       setStatusReady(false);
       setThumbFailed(false);
       setCodeCopied(false);
+      setLivePayload(null);
+      setLiveError(null);
+      setLiveReady(false);
       setHolderFace(null);
       setHolderFetchOwnerId(null);
       setHolderFetchDone(false);
@@ -106,9 +123,7 @@ export function TicketShowPassSheet({
   useScrollLock(lightboxOpen);
 
   const lightboxStyle = useMemo((): CSSProperties => {
-    const frost = closing
-      ? 'blur(0px)'
-      : resolveGlassScrimBackdropFilter();
+    const frost = closing ? 'blur(0px)' : resolveGlassScrimBackdropFilter();
     const style: CSSProperties = {
       backdropFilter: frost,
       WebkitBackdropFilter: frost,
@@ -139,7 +154,7 @@ export function TicketShowPassSheet({
     setEntered(false);
   }, []);
 
-  const passCode = tokenId.trim();
+  const passCode = livePayload?.trim() || '';
   const copyPassCode = useCallback(async () => {
     if (!passCode) return;
     try {
@@ -234,14 +249,80 @@ export function TicketShowPassSheet({
     };
   }, [shouldFetchHolder, ownerId]);
 
+  // Silent live QR — session key, refresh while open.
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    if (!statusReady || !status) return;
+
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const refresh = async () => {
+      const viewer = accountId?.trim() || '';
+      if (!viewer) {
+        if (!cancelled) {
+          setLivePayload(null);
+          setLiveError('Connect your wallet to show a live pass.');
+          setLiveReady(true);
+        }
+        return;
+      }
+      const owner = status.ownerId.trim();
+      if (!owner || !accountIdsEqual(viewer, owner)) {
+        if (!cancelled) {
+          setLivePayload(null);
+          setLiveError('Only the pass owner can show a live door code.');
+          setLiveReady(true);
+        }
+        return;
+      }
+
+      let session = getCachedAppSocialSession(viewer);
+      if (!session) {
+        session = await restoreAppSocialSession(viewer);
+        if (session) setCachedAppSocialSession(viewer, session);
+      }
+      if (!session?.key?.sign) {
+        if (!cancelled) {
+          setLivePayload(null);
+          setLiveError('Enable your App session to show a live pass.');
+          setLiveReady(true);
+        }
+        return;
+      }
+
+      const next = await signTicketPassLive({
+        session,
+        collectionId,
+        tokenId,
+      });
+      if (cancelled) return;
+      if (!next) {
+        setLivePayload(null);
+        setLiveError('Could not refresh pass code.');
+        setLiveReady(true);
+        return;
+      }
+      setLivePayload(next);
+      setLiveError(null);
+      setLiveReady(true);
+    };
+
+    void refresh();
+    timer = window.setInterval(() => {
+      void refresh();
+    }, TICKET_PASS_LIVE_REFRESH_MS);
+
+    return () => {
+      cancelled = true;
+      if (timer != null) window.clearInterval(timer);
+    };
+  }, [accountId, collectionId, lightboxOpen, status, statusReady, tokenId]);
+
   const name = (status?.title ?? title).trim() || 'Pass';
   const coverUrl = resolveScarceMediaUrl(cover?.trim() || null);
   const statusUrl = resolveScarceMediaUrl(status?.mediaUrl?.trim() || null);
   const media = thumbFailed ? null : coverUrl || statusUrl;
-  const payload = useMemo(
-    () => encodeTicketPassPayload(collectionId, tokenId),
-    [collectionId, tokenId]
-  );
   const statusLine = status
     ? ticketPassStatusLabel({
         isValid: status.isValid,
@@ -268,6 +349,11 @@ export function TicketShowPassSheet({
   const holderDisplay = holderFaceForOwner?.displayName?.trim() || null;
   const holderPrimary = holderDisplay || null;
   const holderAccount = holderHandle ? `@${holderHandle}` : '';
+  const qrHint = !liveReady
+    ? 'Preparing live pass…'
+    : liveError
+      ? liveError
+      : null;
 
   if (!mounted || (!open && !closing)) return null;
 
@@ -317,14 +403,16 @@ export function TicketShowPassSheet({
               </p>
             </div>
 
-            {payload ? (
+            {livePayload ? (
               <TicketPassQr
-                value={payload}
+                value={livePayload}
                 title={`QR for ${name}`}
                 className="ticket-show-pass-qr"
               />
             ) : (
-              <p className="ticket-show-pass-hint">Pass code unavailable.</p>
+              <p className="ticket-show-pass-hint">
+                {qrHint ?? 'Pass code unavailable.'}
+              </p>
             )}
 
             <div className="ticket-show-pass-footer">
@@ -361,9 +449,9 @@ export function TicketShowPassSheet({
                       type="button"
                       className="ticket-show-pass-code"
                       onClick={() => void copyPassCode()}
-                      aria-label="Copy pass code for door entry"
+                      aria-label="Copy live pass code for door entry"
                     >
-                      {codeCopied ? 'Copied' : passCode}
+                      {codeCopied ? 'Copied' : 'Copy live code'}
                     </button>
                   ) : null}
                 </div>
