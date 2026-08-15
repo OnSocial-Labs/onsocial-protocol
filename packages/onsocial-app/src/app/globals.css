@@ -21538,6 +21538,55 @@ a.os-surface-row {
     color: var(--os-surface-muted);
   }
 
+  .collection-door-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+
+  .collection-door-log-empty {
+    margin: 0.35rem 0 0;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-door-log-list {
+    margin-top: 0.1rem;
+  }
+
+  .collection-door-log-row {
+    padding-block: 0.35rem;
+  }
+
+  .collection-door-log-meta {
+    display: block;
+    margin-top: 0.12rem;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--os-surface-muted);
+  }
+
+  .collection-door-log-refresh {
+    border: 0;
+    margin: 0;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    color: rgb(var(--fg-rgb) / 0.78);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .collection-door-log-refresh:hover,
+  .collection-door-log-refresh:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.12);
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
   .collection-activity-standing {
     margin-top: 0.1rem;
   }

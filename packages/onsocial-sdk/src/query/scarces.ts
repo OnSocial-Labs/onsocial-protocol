@@ -60,6 +60,10 @@ export interface ScarcesEventRow {
   // ── Quantity ───────────────────────────────────────────────────────────
   quantity: number | null;
   totalSupply: number | null;
+  /** Populated on `redeem` — check-in count after this event. */
+  redeemCount: number | null;
+  /** Populated on `redeem` — collection max redeems per token. */
+  maxRedeems: number | null;
 
   // ── Auction-specific ───────────────────────────────────────────────────
   reservePrice: string | null;
@@ -304,6 +308,8 @@ const SCARCES_EVENT_FIELDS = `
   creatorPayment
   quantity
   totalSupply
+  redeemCount
+  maxRedeems
   reservePrice
   buyNowPrice
   expiresAt
