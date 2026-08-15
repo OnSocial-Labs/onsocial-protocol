@@ -13,6 +13,7 @@ import {
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { CollectionActivitySkeleton } from '@/features/scarces/collection-page-skeleton';
 import {
+  doorLogEntryIso,
   doorLogEntrySeatLine,
   doorLogStaffVerb,
   fetchCollectionDoorLog,
@@ -51,16 +52,18 @@ export function CollectionDoorLogSheet({
   const [sheetOpen, setSheetOpen] = useState(open);
   if (open && !sheetOpen) setSheetOpen(true);
 
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [query, setQuery] = useState('');
+
   const requestClose = useCallback(() => {
     setSheetOpen(false);
   }, []);
 
   const handleClosed = useCallback(() => {
+    setQuery('');
     onClose();
   }, [onClose]);
 
-  const [refreshNonce, setRefreshNonce] = useState(0);
-  const [query, setQuery] = useState('');
   const requestKey = `${collectionId.trim()}:${refreshNonce}:${revision}`;
   const [fetched, setFetched] = useState<{
     key: string;
@@ -156,7 +159,9 @@ export function CollectionDoorLogSheet({
         onValueChange={setQuery}
         placeholder="Search guest, staff, or pass"
         ariaLabel={redeemVoice ? 'Search redeem log' : 'Search door log'}
-        clearAriaLabel="Clear door log search"
+        clearAriaLabel={
+          redeemVoice ? 'Clear redeem log search' : 'Clear door log search'
+        }
         chrome="sheet"
         className="collection-door-log-search"
       />
@@ -191,6 +196,7 @@ export function CollectionDoorLogSheet({
               staffProfile?.displayName
             ).label;
             const seatLine = doorLogEntrySeatLine(entry);
+            const timeIso = doorLogEntryIso(entry.blockTimestamp);
 
             return (
               <div key={entry.key}>
@@ -218,6 +224,7 @@ export function CollectionDoorLogSheet({
                             href={portfolioPath(entry.staffId)}
                             className="collection-door-log-staff"
                             scroll={false}
+                            aria-label={`View ${staffLabel}'s profile`}
                             onClick={(event) => event.stopPropagation()}
                           >
                             {staffLabel}
@@ -226,19 +233,20 @@ export function CollectionDoorLogSheet({
                       </span>
                     </StandingIdentity>
                   </div>
-                  <div
-                    className="standing-row-aside collection-door-log-aside"
-                    title={entry.timeLabel || undefined}
-                  >
-                    {entry.timeAbsolute ? (
-                      <span className="collection-door-log-absolute">
-                        {entry.timeAbsolute}
-                      </span>
-                    ) : null}
-                    {entry.timeLabel ? (
-                      <span className="standing-row-time">
-                        {entry.timeLabel}
-                      </span>
+                  <div className="standing-row-aside collection-door-log-aside">
+                    {entry.timeAbsolute || entry.timeLabel ? (
+                      <time dateTime={timeIso} title={entry.timeAbsolute || undefined}>
+                        {entry.timeAbsolute ? (
+                          <span className="collection-door-log-absolute">
+                            {entry.timeAbsolute}
+                          </span>
+                        ) : null}
+                        {entry.timeLabel ? (
+                          <span className="standing-row-time">
+                            {entry.timeLabel}
+                          </span>
+                        ) : null}
+                      </time>
                     ) : null}
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ScarcesEventRow } from '@onsocial/sdk';
 import {
+  doorLogEntryIso,
   doorLogEntryMeta,
   doorLogEntrySeatLine,
   filterDoorLogEntries,
@@ -80,8 +81,11 @@ describe('ticket-door-log', () => {
       tokenId: 'night-drive:3',
     });
     expect(entries[0]!.timeLabel.length).toBeGreaterThan(0);
-    expect(entries[0]!.timeAbsolute.length).toBeGreaterThan(0);
-    expect(formatDoorLogAbsoluteTime(now * 1e6, now)).toMatch(/Aug/);
+    expect(entries[0]!.timeAbsolute).toMatch(/Aug .* · /);
+    expect(formatDoorLogAbsoluteTime(now * 1e6, now)).toMatch(
+      /^Aug 15 · /
+    );
+    expect(doorLogEntryIso(now * 1e6)).toBe(new Date(now).toISOString());
   });
 
   it('builds seat + meta lines with staff label and multi-redeem', () => {

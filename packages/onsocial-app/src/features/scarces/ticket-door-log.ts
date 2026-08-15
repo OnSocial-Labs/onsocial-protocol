@@ -35,7 +35,7 @@ function timestampMs(timestamp: number): number {
   return timestamp > 1e15 ? Math.floor(timestamp / 1e6) : timestamp;
 }
 
-/** Absolute door-log clock for disputes / overnight ops. */
+/** Absolute door-log clock for disputes / overnight ops — `Aug 15 · 2:34 PM`. */
 export function formatDoorLogAbsoluteTime(
   timestamp: number,
   nowMs: number = Date.now()
@@ -44,13 +44,23 @@ export function formatDoorLogAbsoluteTime(
   if (!ms) return '';
   const date = new Date(ms);
   const sameYear = date.getFullYear() === new Date(nowMs).getFullYear();
-  return new Intl.DateTimeFormat('en-US', {
+  const day = new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
     ...(sameYear ? {} : { year: 'numeric' }),
+  }).format(date);
+  const clock = new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
   }).format(date);
+  return `${day} · ${clock}`;
+}
+
+/** ISO for `<time dateTime>` when the indexer stamp is valid. */
+export function doorLogEntryIso(timestamp: number): string | undefined {
+  const ms = timestampMs(timestamp);
+  if (!ms) return undefined;
+  return new Date(ms).toISOString();
 }
 
 /** Map indexer redeem rows → Door log entries (newest first preserved). */

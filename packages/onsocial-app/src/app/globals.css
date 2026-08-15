@@ -21560,13 +21560,16 @@ a.os-surface-row {
     padding-block: 0.35rem;
   }
 
+  /* Same mute meta as collection-activity-standing-kind. */
   .collection-door-log-meta {
     display: flex;
     flex-direction: column;
     gap: 0.1rem;
+    margin: 0;
     margin-top: 0.12rem;
     font-size: 0.72rem;
-    line-height: 1.35;
+    font-weight: 500;
+    line-height: 1.3;
     color: var(--os-surface-muted);
   }
 
@@ -21578,7 +21581,15 @@ a.os-surface-row {
     display: block;
   }
 
+  /*
+   * Island above `.standing-row-hit` (same as bio @/#/$ and earnings post link):
+   * parent copy is pointer-events:none when a row hit is present.
+   */
   .collection-door-log-staff {
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+    cursor: pointer;
     color: rgb(var(--fg-rgb) / 0.78);
     font-weight: 650;
     text-decoration: none;
@@ -21588,6 +21599,7 @@ a.os-surface-row {
   .collection-door-log-staff:focus-visible {
     color: rgb(var(--fg-rgb) / 0.96);
     text-decoration: underline;
+    text-underline-offset: 0.12em;
   }
 
   .collection-door-log-aside {
@@ -21596,6 +21608,13 @@ a.os-surface-row {
     align-items: flex-end;
     gap: 0.08rem;
     text-align: right;
+  }
+
+  .collection-door-log-aside time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.08rem;
   }
 
   .collection-door-log-absolute {

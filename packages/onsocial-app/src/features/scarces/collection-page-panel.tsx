@@ -1248,7 +1248,7 @@ export function CollectionPagePanel({
                     className="collection-reading-open"
                     onClick={() => setDoorLogOpen(true)}
                   >
-                    Open
+                    See who
                   </button>
                 </div>
               </>
