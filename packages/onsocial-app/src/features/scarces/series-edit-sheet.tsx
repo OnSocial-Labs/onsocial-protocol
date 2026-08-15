@@ -34,7 +34,8 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const MAX_TITLE = 48;
 const MAX_DESCRIPTION = 280;
-const SERIES_EDIT_Z = 58;
+/** Above glass chrome; matches Door log / nested slide-overs. */
+const SERIES_EDIT_Z = 90;
 
 interface SeriesEditSheetProps {
   open: boolean;

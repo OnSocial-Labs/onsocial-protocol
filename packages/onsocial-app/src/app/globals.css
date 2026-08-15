@@ -24086,18 +24086,8 @@ a.os-surface-row {
   }
 
   .series-hero-creator {
-    display: flex;
-    width: 100%;
     margin: 0;
-    padding: 0.35rem 0.15rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .series-hero-creator:hover,
-  .series-hero-creator:focus-visible {
-    background: var(--os-surface-row-hover);
-    outline: none;
+    width: 100%;
   }
 
   .series-hero-creator-role {
@@ -24114,6 +24104,32 @@ a.os-surface-row {
     color: var(--os-surface-muted-strong);
   }
 
+  .series-hero-brand-hint {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--os-surface-muted-strong);
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 0.14em;
+    cursor: pointer;
+  }
+
+  .series-hero-brand-hint:hover,
+  .series-hero-brand-hint:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.92);
+    outline: none;
+  }
+
+  .series-hero-divider {
+    margin: 0;
+  }
+
   .series-catalog {
     display: flex;
     flex-direction: column;
@@ -24125,6 +24141,10 @@ a.os-surface-row {
     flex-direction: column;
     gap: 0.45rem;
     min-width: 0;
+  }
+
+  .series-empty-create {
+    margin-top: 0.55rem;
   }
 
   /* Square logo picker in the series edit sheet. */

@@ -102,4 +102,41 @@ describe('series-catalog', () => {
     expect(groups[0]!.bucket).toBe('live');
     expect(groups[0]!.drops).toHaveLength(2);
   });
+
+  it('sorts live by ending soon and upcoming by opens soon', () => {
+    const now = Date.UTC(2026, 7, 15, 12, 0, 0);
+    const groups = groupSeriesDrops(
+      [
+        drop({
+          collectionId: 'live-later',
+          startTimeMs: now - 60_000,
+          endTimeMs: now + 120_000,
+          createdAtMs: 2,
+        }),
+        drop({
+          collectionId: 'live-soon',
+          startTimeMs: now - 60_000,
+          endTimeMs: now + 30_000,
+          createdAtMs: 1,
+        }),
+        drop({
+          collectionId: 'upcoming-later',
+          startTimeMs: now + 120_000,
+        }),
+        drop({
+          collectionId: 'upcoming-soon',
+          startTimeMs: now + 30_000,
+        }),
+      ],
+      now
+    );
+    expect(groups[0]!.drops.map((d) => d.collectionId)).toEqual([
+      'live-soon',
+      'live-later',
+    ]);
+    expect(groups[1]!.drops.map((d) => d.collectionId)).toEqual([
+      'upcoming-soon',
+      'upcoming-later',
+    ]);
+  });
 });

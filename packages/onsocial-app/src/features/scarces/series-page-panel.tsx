@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  Divider,
   OsIconAction,
   SettingsIcon,
   ShopFillIcon,
   StandingIdentity,
+  standingIdentityLabel,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -15,13 +17,13 @@ import { groupSeriesDrops } from '@/features/scarces/series-catalog';
 import { SeriesEditSheet } from '@/features/scarces/series-edit-sheet';
 import {
   fetchSeriesBrandingCached,
+  seedSeriesBrandingCache,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
 import { StoreDropCard } from '@/features/scarces/store-catalog';
 import { accountIdsEqual } from '@/lib/account-match';
-import { marketCreatorPath } from '@/lib/app-routes';
+import { APP_DROP_CREATE_PATH, marketCreatorPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 
 interface SeriesPagePanelProps {
   creatorId: string;
@@ -49,6 +51,10 @@ export function SeriesPagePanel({
   const [editing, setEditing] = useState(false);
   const [nowMs] = useState(() => Date.now());
 
+  useEffect(() => {
+    seedSeriesBrandingCache(creatorId, seriesId, initialBranding);
+  }, [creatorId, initialBranding, seriesId]);
+
   // Brand lives on chain (`social.get`); soft-fill if SSR missed it.
   useEffect(() => {
     if (initialBranding) return;
@@ -70,6 +76,12 @@ export function SeriesPagePanel({
   const dropCountLabel = `${drops.length} ${drops.length === 1 ? 'drop' : 'drops'}`;
   const groups = useMemo(() => groupSeriesDrops(drops, nowMs), [drops, nowMs]);
   const showSectionLabels = groups.length > 1;
+  const creatorLabel = standingIdentityLabel(
+    creatorId,
+    creatorDisplayName
+  ).label;
+  const needsBrand =
+    isOwner && !branding?.description?.trim() && !branding?.logo;
 
   return (
     <OsAppScreen
@@ -111,27 +123,40 @@ export function SeriesPagePanel({
             </div>
           </div>
 
-          <Link
-            href={portfolioPath(creatorId)}
-            className="series-hero-creator standing-row"
-            scroll={false}
-            aria-label={`View ${creatorDisplayName?.trim() || fallbackLabel(creatorId)}'s profile`}
-          >
-            <StandingIdentity
-              accountId={creatorId}
-              profileName={creatorDisplayName}
-              avatarUrl={creatorAvatarUrl}
-              size="md"
-              copyLeading={
-                <span className="series-hero-creator-role">Series by</span>
-              }
-            />
-          </Link>
+          <div className="standing-row series-hero-creator">
+            <div className="standing-row-main">
+              <Link
+                href={portfolioPath(creatorId)}
+                className="standing-row-hit"
+                scroll={false}
+                aria-label={`View ${creatorLabel}'s profile`}
+              />
+              <StandingIdentity
+                accountId={creatorId}
+                profileName={creatorDisplayName}
+                avatarUrl={creatorAvatarUrl}
+                size="md"
+                copyLeading={
+                  <span className="series-hero-creator-role">Series by</span>
+                }
+              />
+            </div>
+          </div>
 
           {branding?.description ? (
             <p className="series-hero-description">{branding.description}</p>
+          ) : needsBrand ? (
+            <button
+              type="button"
+              className="series-hero-brand-hint"
+              onClick={() => setEditing(true)}
+            >
+              Add a logo and story for this series
+            </button>
           ) : null}
         </header>
+
+        <Divider variant="item" className="series-hero-divider" />
 
         {drops.length > 0 ? (
           <div className="series-catalog">
@@ -161,9 +186,18 @@ export function SeriesPagePanel({
                 No drops in this series yet.
               </p>
               {isOwner ? (
-                <p className="standing-panel-empty-secondary">
-                  Add this series when you create the next drop.
-                </p>
+                <>
+                  <p className="standing-panel-empty-secondary">
+                    Start the next drop in this line from Create.
+                  </p>
+                  <Link
+                    href={APP_DROP_CREATE_PATH}
+                    className="page-drawer-section-action series-empty-create"
+                    scroll={false}
+                  >
+                    Create a drop
+                  </Link>
+                </>
               ) : null}
             </div>
           </div>

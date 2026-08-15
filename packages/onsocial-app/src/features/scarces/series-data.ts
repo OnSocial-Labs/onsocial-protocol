@@ -212,6 +212,18 @@ export function invalidateSeriesBrandingCache(
   brandingCache.delete(`${creatorId}:${seriesId}`);
 }
 
+/** Seed the session cache from SSR so headings / soft-fill skip a refetch. */
+export function seedSeriesBrandingCache(
+  creatorId: string,
+  seriesId: string,
+  branding: SeriesBranding | null
+): void {
+  const creator = creatorId.trim();
+  const id = seriesId.trim();
+  if (!creator || !id) return;
+  brandingCache.set(`${creator}:${id}`, Promise.resolve(branding));
+}
+
 /**
  * SSR branding via the server gateway client. Falls back to null when the
  * API key is missing or the creator never set a brand (client soft-fills).

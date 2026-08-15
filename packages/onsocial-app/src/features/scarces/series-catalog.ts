@@ -28,9 +28,45 @@ export function seriesDropBucket(status: CollectionStatus): SeriesDropBucket {
   return 'past';
 }
 
+function compareLive(a: CollectionView, b: CollectionView): number {
+  // Ending soon first, then newest created.
+  const aEnd = a.endTimeMs ?? Number.POSITIVE_INFINITY;
+  const bEnd = b.endTimeMs ?? Number.POSITIVE_INFINITY;
+  if (aEnd !== bEnd) return aEnd - bEnd;
+  return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
+}
+
+function compareUpcoming(a: CollectionView, b: CollectionView): number {
+  // Opens soonest first.
+  const aStart = a.startTimeMs ?? Number.POSITIVE_INFINITY;
+  const bStart = b.startTimeMs ?? Number.POSITIVE_INFINITY;
+  if (aStart !== bStart) return aStart - bStart;
+  return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
+}
+
+function comparePast(a: CollectionView, b: CollectionView): number {
+  // Most recently closed / created first.
+  const aEnd = a.endTimeMs ?? a.createdAtMs ?? 0;
+  const bEnd = b.endTimeMs ?? b.createdAtMs ?? 0;
+  if (aEnd !== bEnd) return bEnd - aEnd;
+  return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
+}
+
+function sortBucket(
+  bucket: SeriesDropBucket,
+  drops: CollectionView[]
+): CollectionView[] {
+  const next = [...drops];
+  if (bucket === 'live') next.sort(compareLive);
+  else if (bucket === 'upcoming') next.sort(compareUpcoming);
+  else next.sort(comparePast);
+  return next;
+}
+
 /**
  * Group series drops for the catalog.
  * Empty buckets are omitted. Callers hide section labels when only one group.
+ * Within a bucket: live (ending soon), upcoming (opens soon), past (newest).
  */
 export function groupSeriesDrops(
   drops: CollectionView[],
@@ -48,7 +84,7 @@ export function groupSeriesDrops(
     (bucket) => ({
       bucket,
       label: BUCKET_LABEL[bucket],
-      drops: buckets[bucket],
+      drops: sortBucket(bucket, buckets[bucket]),
     })
   );
 }
