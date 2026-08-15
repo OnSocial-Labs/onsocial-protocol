@@ -92,3 +92,31 @@ export function staffAttendanceLine(opts: {
   }
   return `Checked in ${fully} of ${minted}`;
 }
+
+/**
+ * Compact header suffix — e.g. `1 of 1 in` / `47 of 200 in`.
+ * Null when there is nothing useful to show yet.
+ */
+export function staffAttendanceHeaderSuffix(opts: {
+  voice: PassStaffVoice;
+  minted: number;
+  redeemedCount: number;
+  fullyRedeemedCount: number;
+  maxRedeems: number | null;
+}): string | null {
+  const minted = Math.max(0, Math.floor(opts.minted));
+  if (minted <= 0) return null;
+  const fully = Math.min(
+    minted,
+    Math.max(0, Math.floor(opts.fullyRedeemedCount))
+  );
+  const redeems = Math.max(0, Math.floor(opts.redeemedCount));
+  const max = opts.maxRedeems != null && opts.maxRedeems > 0 ? opts.maxRedeems : 1;
+  const multi = max > 1;
+  if (opts.voice === 'redeem') {
+    if (multi) return `${redeems} · ${fully}/${minted}`;
+    return `${fully} of ${minted}`;
+  }
+  if (multi) return `${redeems} · ${fully}/${minted} in`;
+  return `${fully} of ${minted} in`;
+}

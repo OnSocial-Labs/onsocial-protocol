@@ -117,6 +117,8 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   { method: 'POST', path: 'compose/prepare/add-redeemer', body: 'json' },
   { method: 'POST', path: 'compose/prepare/remove-redeemer', body: 'json' },
   { method: 'POST', path: 'compose/prepare/set-redeemers', body: 'json' },
+  // Scarces — door Admit / coupon Redeem (staff wallet signs).
+  { method: 'POST', path: 'compose/prepare/redeem-token', body: 'json' },
   // Scarces — creator pause / resume / delete (empty only).
   { method: 'POST', path: 'compose/prepare/pause-collection', body: 'json' },
   { method: 'POST', path: 'compose/prepare/resume-collection', body: 'json' },

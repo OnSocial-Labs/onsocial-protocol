@@ -10,6 +10,8 @@ export interface TicketTokenStatus {
   tokenId: string;
   ownerId: string;
   creatorId: string;
+  /** Account that minted this edition — may differ from current owner after transfer. */
+  minterId: string;
   collectionId: string | null;
   title: string | null;
   mediaUrl: string | null;
@@ -17,6 +19,7 @@ export interface TicketTokenStatus {
   isRevoked: boolean;
   isExpired: boolean;
   isFullyRedeemed: boolean;
+  isRefunded: boolean;
   redeemCount: number;
   maxRedeems: number | null;
 }
@@ -43,6 +46,7 @@ export async function fetchTicketTokenStatus(
     token_id?: string;
     owner_id?: string;
     creator_id?: string;
+    minter_id?: string;
     collection_id?: string | null;
     metadata?: {
       title?: string | null;
@@ -52,6 +56,7 @@ export async function fetchTicketTokenStatus(
     is_revoked?: boolean;
     is_expired?: boolean;
     is_fully_redeemed?: boolean;
+    is_refunded?: boolean;
     redeem_count?: number;
     max_redeems?: number | null;
   } | null>(SCARCES_CONTRACT, 'get_token_status', { token_id: id });
@@ -60,7 +65,9 @@ export async function fetchTicketTokenStatus(
 
   const ownerId = asOptionalString(status.owner_id);
   const creatorId = asOptionalString(status.creator_id);
-  if (!ownerId || !creatorId) return null;
+  const minterId =
+    asOptionalString(status.minter_id) ?? ownerId;
+  if (!ownerId || !creatorId || !minterId) return null;
 
   const maxRedeemsRaw = status.max_redeems;
   const maxRedeems =
@@ -72,6 +79,7 @@ export async function fetchTicketTokenStatus(
     tokenId: asOptionalString(status.token_id) ?? id,
     ownerId,
     creatorId,
+    minterId,
     collectionId: asOptionalString(status.collection_id),
     title: asOptionalString(status.metadata?.title),
     mediaUrl: asOptionalString(status.metadata?.media),
@@ -79,6 +87,7 @@ export async function fetchTicketTokenStatus(
     isRevoked: Boolean(status.is_revoked),
     isExpired: Boolean(status.is_expired),
     isFullyRedeemed: Boolean(status.is_fully_redeemed),
+    isRefunded: Boolean(status.is_refunded),
     redeemCount: asNonNegInt(status.redeem_count),
     maxRedeems,
   };

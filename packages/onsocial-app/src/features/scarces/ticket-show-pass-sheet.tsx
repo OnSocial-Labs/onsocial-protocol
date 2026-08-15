@@ -248,6 +248,7 @@ export function TicketShowPassSheet({
         isFullyRedeemed: status.isFullyRedeemed,
         isRevoked: status.isRevoked,
         isExpired: status.isExpired,
+        isRefunded: status.isRefunded,
         redeemCount: status.redeemCount,
         maxRedeems: status.maxRedeems,
       })

@@ -20626,6 +20626,33 @@ a.os-surface-row {
     }
   }
 
+  @media (min-width: 640px) {
+    .os-app-screen-actions .ticket-door-event-action {
+      font-size: 0.8rem;
+    }
+  }
+
+  .ticket-door-event-action {
+    margin: 0;
+    padding: 0.28rem 0.55rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 999px;
+    background: rgb(var(--fg-rgb) / 0.05);
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: rgb(var(--fg-rgb) / 0.78);
+    cursor: pointer;
+  }
+
+  .ticket-door-event-action:hover,
+  .ticket-door-event-action:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.95);
+    background: rgb(var(--fg-rgb) / 0.08);
+    outline: none;
+  }
+
   .ticket-door {
     position: relative;
     display: flex;
@@ -20787,29 +20814,77 @@ a.os-surface-row {
   .ticket-door-preview {
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
+    gap: 0.2rem;
   }
 
-  .ticket-door-preview-title {
+  .ticket-door-preview-holder {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    min-width: 0;
+  }
+
+  .ticket-door-preview-holder-avatar {
+    flex-shrink: 0;
+    margin-top: 0.06rem;
+  }
+
+  .ticket-door-preview-holder-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.02rem;
+    min-width: 0;
+  }
+
+  .ticket-door-preview-holder-name,
+  .ticket-door-preview-holder-account {
     margin: 0;
-    font-size: 1.02rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ticket-door-preview-holder-name {
+    font-size: 0.98rem;
     font-weight: 700;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.95);
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.94);
   }
 
-  .ticket-door-preview-meta,
-  .ticket-door-preview-token {
-    margin: 0;
-    font-size: 0.8rem;
-    color: rgb(var(--fg-rgb) / 0.58);
-    overflow-wrap: anywhere;
+  .ticket-door-preview-holder-account {
+    font-size: 0.78rem;
+    font-weight: 550;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .ticket-door-preview-holder-copy:not(
+      :has(.ticket-door-preview-holder-name)
+    )
+    .ticket-door-preview-holder-account {
+    font-size: 0.95rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .ticket-door-preview-origin {
+    margin: 0.12rem 0 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: rgb(var(--fg-rgb) / 0.52);
   }
 
   .ticket-door-preview-status {
-    margin: 0;
-    font-size: 0.88rem;
+    margin: 0.28rem 0 0;
+    font-size: 0.84rem;
     font-weight: 650;
+    line-height: 1.25;
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
@@ -20820,6 +20895,39 @@ a.os-surface-row {
   .ticket-door-preview-status.is-used,
   .ticket-door-preview-status.is-invalid {
     color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .ticket-door-preview-seat {
+    margin: 0.06rem 0 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    color: rgb(var(--fg-rgb) / 0.68);
+  }
+
+  .ticket-door-preview-token {
+    margin: 0;
+    font-size: 0.58rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.34);
+    overflow-wrap: anywhere;
+  }
+
+  .ticket-door-preview-confirm {
+    margin: 0.35rem 0 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .ticket-door-preview-confirm.is-ready {
+    color: var(--signal-reputation, var(--protocol-green));
   }
 
   .ticket-door-staff {

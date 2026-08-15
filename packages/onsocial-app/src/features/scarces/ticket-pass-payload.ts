@@ -100,6 +100,21 @@ export function ticketPassSeatLabel(tokenId: string): string {
   return id;
 }
 
+/**
+ * Quiet door cue when the current owner is not the original minter
+ * (gift / transfer / secondary).
+ */
+export function ticketPassOriginLabel(opts: {
+  ownerId: string;
+  minterId: string;
+}): string | null {
+  const owner = opts.ownerId.trim();
+  const minter = opts.minterId.trim();
+  if (!owner || !minter) return null;
+  if (owner.toLowerCase() === minter.toLowerCase()) return null;
+  return 'Received';
+}
+
 /** Remaining check-ins before the pass is fully redeemed. */
 export function ticketPassRemaining(opts: {
   redeemCount: number;
@@ -115,6 +130,7 @@ export function ticketPassStatusLabel(opts: {
   isFullyRedeemed: boolean;
   isRevoked: boolean;
   isExpired: boolean;
+  isRefunded?: boolean;
   redeemCount: number;
   maxRedeems: number | null | undefined;
   /** Coupon staff surface uses redeem wording. */
@@ -126,6 +142,7 @@ export function ticketPassStatusLabel(opts: {
   const unitMany = (n: number) =>
     redeemVoice ? `${n} redeems left` : `${n} check-ins left`;
 
+  if (opts.isRefunded) return 'Refunded';
   if (opts.isRevoked) return 'Revoked';
   if (opts.isExpired) return 'Expired';
   if (opts.isFullyRedeemed) return fullyDone;

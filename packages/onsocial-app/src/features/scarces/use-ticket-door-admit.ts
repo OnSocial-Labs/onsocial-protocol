@@ -14,6 +14,7 @@ import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
 } from '@/features/scarces/ticket-token-status';
+import { accountIdsEqual } from '@/lib/account-match';
 import {
   txToastConfirming,
   txToastError,
@@ -80,6 +81,8 @@ export function useTicketDoorAdmit({
   const [lastAdmittedTokenId, setLastAdmittedTokenId] = useState<string | null>(
     null
   );
+  /** Staff must confirm the holder before the wallet Admit / Redeem step. */
+  const [admitConfirmed, setAdmitConfirmed] = useState(false);
 
   const { isConnected, getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
@@ -92,6 +95,7 @@ export function useTicketDoorAdmit({
     setLookupError(null);
     setAdmitPending(false);
     setLookupPending(false);
+    setAdmitConfirmed(false);
   }, []);
 
   const stopCamera = useCallback(() => {
@@ -116,6 +120,7 @@ export function useTicketDoorAdmit({
       const parsed = parseTicketPassPayload(raw, collectionId);
       if (!parsed) {
         setStatus(null);
+        setAdmitConfirmed(false);
         setLookupError('That code is not for this drop.');
         return;
       }
@@ -125,6 +130,7 @@ export function useTicketDoorAdmit({
         const next = await fetchTicketTokenStatus(parsed.tokenId);
         if (!next) {
           setStatus(null);
+          setAdmitConfirmed(false);
           setLookupError('Pass not found.');
           return;
         }
@@ -133,16 +139,19 @@ export function useTicketDoorAdmit({
           next.collectionId.trim() !== collectionId.trim()
         ) {
           setStatus(null);
+          setAdmitConfirmed(false);
           setLookupError('That pass belongs to another drop.');
           return;
         }
         setStatus(next);
+        setAdmitConfirmed(false);
         setManualInput(next.tokenId);
-        setScanHint('Pass loaded.');
+        setScanHint(null);
         setLastAdmittedTokenId(null);
         stopCamera();
       } catch {
         setStatus(null);
+        setAdmitConfirmed(false);
         setLookupError('Could not load this pass.');
       } finally {
         setLookupPending(false);
@@ -215,11 +224,21 @@ export function useTicketDoorAdmit({
     status != null &&
     status.isValid &&
     !status.isFullyRedeemed &&
+    !status.isRefunded &&
     !admitPending &&
     !lookupPending;
 
+  const confirmAdmit = useCallback(() => {
+    if (!canAdmit) return;
+    setAdmitConfirmed(true);
+  }, [canAdmit]);
+
+  const clearAdmitConfirm = useCallback(() => {
+    setAdmitConfirmed(false);
+  }, []);
+
   const handleAdmit = useCallback(async () => {
-    if (!status || !canAdmit) return;
+    if (!status || !canAdmit || !admitConfirmed) return;
     const redeemVoice = voice === 'redeem';
     if (!isConnected) {
       setTxResult({
@@ -263,6 +282,7 @@ export function useTicketDoorAdmit({
           isFullyRedeemed: remaining === 0,
           isValid: remaining == null ? status.isValid : remaining > 0,
         });
+        setAdmitConfirmed(false);
         if (afterAdmit === 'close') {
           onRequestClose?.();
         } else {
@@ -291,6 +311,7 @@ export function useTicketDoorAdmit({
       setAdmitPending(false);
     }
   }, [
+    admitConfirmed,
     afterAdmit,
     canAdmit,
     collectionId,
@@ -319,10 +340,17 @@ export function useTicketDoorAdmit({
     setLookupError,
     lastAdmittedTokenId,
     canAdmit,
+    admitConfirmed,
+    confirmAdmit,
+    clearAdmitConfirm,
     applyLookup,
     startCamera,
     stopCamera,
     handleAdmit,
     resetSession,
+    /** True when current owner differs from original minter. */
+    passWasReceived:
+      status != null &&
+      !accountIdsEqual(status.ownerId, status.minterId),
   };
 }

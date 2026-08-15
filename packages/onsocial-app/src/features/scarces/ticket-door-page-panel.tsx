@@ -12,9 +12,10 @@ import {
 } from '@/features/scarces/collections-data';
 import {
   fetchCollectionRedeemAttendance,
-  staffAttendanceLine,
+  staffAttendanceHeaderSuffix,
   type CollectionRedeemAttendance,
 } from '@/features/scarces/ticket-attendance';
+import { TicketDoorEventSheet } from '@/features/scarces/ticket-door-event-sheet';
 import { TicketDoorWorkbench } from '@/features/scarces/ticket-door-workbench';
 import {
   isPassMediumKind,
@@ -91,6 +92,7 @@ export function TicketDoorPagePanel({
   const [attendance, setAttendance] =
     useState<CollectionRedeemAttendance | null>(null);
   const [attendanceRefresh, setAttendanceRefresh] = useState(0);
+  const [eventOpen, setEventOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,18 +181,25 @@ export function TicketDoorPagePanel({
   const eventName = view?.title?.trim() || 'Drop';
   const dropHref = collectionPath(collectionId);
   const redeemVoice = voiceProp === 'redeem';
-  const screenSubtitle = redeemVoice ? 'Redeem' : 'Admit';
-  const screenTitle = view ? eventName : screenSubtitle;
-  const attendanceLine =
+  const screenTitle = view ? eventName : redeemVoice ? 'Redeem' : 'Admit';
+  const attendanceOpts =
     doorActive && attendance && attendance.collectionId === collectionId
-      ? staffAttendanceLine({
+      ? {
           voice: voiceProp,
           minted: attendance.minted,
           redeemedCount: attendance.redeemedCount,
           fullyRedeemedCount: attendance.fullyRedeemedCount,
           maxRedeems: attendance.maxRedeems ?? view?.maxRedeems ?? null,
-        })
+        }
       : null;
+  const attendanceSuffix = attendanceOpts
+    ? staffAttendanceHeaderSuffix(attendanceOpts)
+    : null;
+  const screenSubtitle = attendanceSuffix
+    ? `${redeemVoice ? 'Redeem' : 'Admit'} · ${attendanceSuffix}`
+    : redeemVoice
+      ? 'Redeem'
+      : 'Admit';
 
   let body: ReactNode;
   let footer: ReactNode = null;
@@ -278,7 +287,8 @@ export function TicketDoorPagePanel({
         lastAdmittedTokenId={door.lastAdmittedTokenId}
         applyLookup={door.applyLookup}
         voice={voiceProp}
-        attendanceLine={attendanceLine}
+        admitConfirmed={door.admitConfirmed}
+        canAdmit={door.canAdmit}
       />
     );
     const cameraCta = door.cameraActive
@@ -286,31 +296,53 @@ export function TicketDoorPagePanel({
       : door.cameraError
         ? 'Try camera'
         : 'Start camera';
+    const primaryReady = door.canAdmit;
+    const primaryPending = door.admitPending;
+    const primaryLabel = !door.admitConfirmed
+      ? 'Confirm'
+      : redeemVoice
+        ? 'Redeem'
+        : 'Admit';
+    const primaryPendingLabel = redeemVoice ? 'Redeeming…' : 'Admitting…';
     footer = (
       <DoorFooter stacked>
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
           <OsSheetAction
             type="button"
             variant="primary"
-            ready={door.canAdmit}
-            pending={door.admitPending}
-            pendingLabel={redeemVoice ? 'Redeeming…' : 'Admitting…'}
-            disabled={!door.canAdmit}
-            onClick={() => void door.handleAdmit()}
-          >
-            {redeemVoice ? 'Redeem' : 'Admit'}
-          </OsSheetAction>
-          <OsSheetAction
-            type="button"
-            variant="ghost"
+            ready={primaryReady}
+            pending={door.admitConfirmed ? primaryPending : false}
+            pendingLabel={primaryPendingLabel}
+            disabled={!primaryReady || (door.admitConfirmed && primaryPending)}
             onClick={() => {
-              if (door.cameraActive) door.stopCamera();
-              else void door.startCamera();
+              if (!door.admitConfirmed) door.confirmAdmit();
+              else void door.handleAdmit();
             }}
-            disabled={door.admitPending || door.lookupPending}
           >
-            {cameraCta}
+            {primaryLabel}
           </OsSheetAction>
+          {door.admitConfirmed && door.canAdmit ? (
+            <OsSheetAction
+              type="button"
+              variant="ghost"
+              onClick={() => door.clearAdmitConfirm()}
+              disabled={door.admitPending}
+            >
+              Back
+            </OsSheetAction>
+          ) : (
+            <OsSheetAction
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                if (door.cameraActive) door.stopCamera();
+                else void door.startCamera();
+              }}
+              disabled={door.admitPending || door.lookupPending}
+            >
+              {cameraCta}
+            </OsSheetAction>
+          )}
         </OsSheetActions>
       </DoorFooter>
     );
@@ -323,8 +355,28 @@ export function TicketDoorPagePanel({
       backFallbackHref={dropHref}
       glassChrome
       footer={footer}
+      actions={
+        view && canStaff && accessReady && isConnected ? (
+          <button
+            type="button"
+            className="ticket-door-event-action"
+            onClick={() => setEventOpen(true)}
+          >
+            Event
+          </button>
+        ) : null
+      }
     >
       <div className="market-page ticket-door-page">{body}</div>
+      {view && canStaff && accessReady && isConnected ? (
+        <TicketDoorEventSheet
+          open={eventOpen}
+          onClose={() => setEventOpen(false)}
+          view={view}
+          attendance={attendance}
+          voice={voiceProp}
+        />
+      ) : null}
     </OsAppScreen>
   );
 }

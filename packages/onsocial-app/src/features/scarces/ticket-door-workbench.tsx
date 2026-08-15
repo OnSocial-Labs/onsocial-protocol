@@ -1,9 +1,20 @@
 'use client';
 
-import { Divider, osFieldBorderedClassName } from '@onsocial/ui';
-import { ticketPassStatusLabel, type PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
+import { useEffect, useState, type RefObject } from 'react';
+import { Divider, osFieldBorderedClassName, ProfileAvatar } from '@onsocial/ui';
+import {
+  fetchCollectionCreatorFace,
+  type CollectionCreatorFace,
+} from '@/features/scarces/collection-creator-face';
+import {
+  ticketPassOriginLabel,
+  ticketPassSeatLabel,
+  ticketPassStatusLabel,
+  type PassStaffVoice,
+} from '@/features/scarces/ticket-pass-payload';
 import type { TicketTokenStatus } from '@/features/scarces/ticket-token-status';
-import type { RefObject } from 'react';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { fallbackLabel } from '@/lib/profile-display';
 
 /** Shared camera + paste + preview body for Door Admit and coupon Redeem. */
 export function TicketDoorWorkbench({
@@ -23,7 +34,8 @@ export function TicketDoorWorkbench({
   applyLookup,
   lead,
   voice = 'admit',
-  attendanceLine,
+  admitConfirmed = false,
+  canAdmit = false,
 }: {
   eventName: string;
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -41,15 +53,53 @@ export function TicketDoorWorkbench({
   applyLookup: (raw: string) => void | Promise<void>;
   lead?: string;
   voice?: PassStaffVoice;
-  /** Live collection attendance, e.g. Checked in 47 of 200. */
-  attendanceLine?: string | null;
+  /** Staff confirmed holder — ready for wallet Admit / Redeem. */
+  admitConfirmed?: boolean;
+  canAdmit?: boolean;
 }) {
+  const [holderFace, setHolderFace] = useState<CollectionCreatorFace | null>(
+    null
+  );
+  const [holderFetchOwnerId, setHolderFetchOwnerId] = useState('');
+  const [holderFetchDone, setHolderFetchDone] = useState(false);
+
+  const ownerId = status?.ownerId?.trim() || '';
+  const shouldFetchHolder = Boolean(ownerId);
+  const holderFaceForOwner =
+    shouldFetchHolder && holderFetchOwnerId === ownerId ? holderFace : null;
+  const holderReady = shouldFetchHolder
+    ? holderFetchOwnerId === ownerId && holderFetchDone
+    : true;
+
+  useEffect(() => {
+    if (!shouldFetchHolder) return;
+    let cancelled = false;
+    const client = createReadOnlyOnSocialClient();
+    void fetchCollectionCreatorFace(client, ownerId)
+      .then((face) => {
+        if (cancelled) return;
+        setHolderFetchOwnerId(ownerId);
+        setHolderFace(face);
+        setHolderFetchDone(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setHolderFetchOwnerId(ownerId);
+        setHolderFace({ avatarUrl: null, displayName: null });
+        setHolderFetchDone(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldFetchHolder, ownerId]);
+
   const previewLine = status
     ? ticketPassStatusLabel({
         isValid: status.isValid,
         isFullyRedeemed: status.isFullyRedeemed,
         isRevoked: status.isRevoked,
         isExpired: status.isExpired,
+        isRefunded: status.isRefunded,
         redeemCount: status.redeemCount,
         maxRedeems: status.maxRedeems,
         voice,
@@ -59,16 +109,13 @@ export function TicketDoorWorkbench({
   const lastLine =
     voice === 'redeem' ? 'Last redeemed' : 'Last admitted';
   const redeemVoice = voice === 'redeem';
-  const emptyMinted =
-    attendanceLine === 'No passes minted yet' ||
-    attendanceLine === 'No coupons minted yet';
   const leadText =
     lead !== undefined
       ? lead
-      : emptyMinted
+      : status
         ? null
-        : cameraError
-          ? 'Paste into the Pass code field, then Look up.'
+        : cameraError && !cameraActive
+          ? 'Camera unavailable — paste a pass code, then Look up.'
           : cameraActive
             ? redeemVoice
               ? 'Point at a coupon QR.'
@@ -77,19 +124,30 @@ export function TicketDoorWorkbench({
               ? 'Start the camera or paste a coupon code.'
               : 'Start the camera or paste a pass code.';
 
+  const holderHandle = ownerId ? fallbackLabel(ownerId) : '';
+  const holderDisplay = holderFaceForOwner?.displayName?.trim() || null;
+  const holderAccount = holderHandle ? `@${holderHandle}` : '';
+  const previewLabel = status?.title?.trim() || eventName;
+  const originLine = status
+    ? ticketPassOriginLabel({
+        ownerId: status.ownerId,
+        minterId: status.minterId,
+      })
+    : null;
+  const confirmCue =
+    status && canAdmit
+      ? admitConfirmed
+        ? voice === 'redeem'
+          ? 'Confirmed — ready to redeem'
+          : 'Confirmed — ready to admit'
+        : voice === 'redeem'
+          ? 'Confirm this guest to redeem'
+          : 'Confirm this guest to admit'
+      : null;
+
   return (
     <div className="ticket-door">
-      {attendanceLine ? (
-        <p className="ticket-door-attendance" aria-live="polite">
-          {attendanceLine}
-        </p>
-      ) : null}
-
       {leadText ? <p className="ticket-door-lead">{leadText}</p> : null}
-
-      {cameraError && !cameraActive ? (
-        <p className="ticket-door-hint">{cameraError}</p>
-      ) : null}
 
       <label className="ticket-door-field">
         <span className="ticket-door-field-label">Pass code</span>
@@ -150,35 +208,102 @@ export function TicketDoorWorkbench({
         />
       </div>
 
-      {scanHint ? <p className="ticket-door-hint">{scanHint}</p> : null}
+      {scanHint && !status ? (
+        <p className="ticket-door-hint">{scanHint}</p>
+      ) : null}
       {lastAdmittedTokenId ? (
         <p className="ticket-door-hint is-success">
-          {lastLine} · {lastAdmittedTokenId}
+          {lastLine} · {ticketPassSeatLabel(lastAdmittedTokenId)}
         </p>
       ) : null}
 
       {status ? (
         <>
           <Divider variant="detail" />
-          <div className="ticket-door-preview">
-            <p className="ticket-door-preview-title">
-              {status.title?.trim() || eventName}
-            </p>
-            <p className="ticket-door-preview-meta">
-              Holder · {status.ownerId}
-            </p>
-            <p
-              className={`ticket-door-preview-status${
-                status.isValid
-                  ? ' is-valid'
-                  : status.isFullyRedeemed
-                    ? ' is-used'
-                    : ' is-invalid'
-              }`}
-            >
-              {previewLine}
-            </p>
-            <p className="ticket-door-preview-token">{status.tokenId}</p>
+          <div
+            className="ticket-door-preview"
+            aria-label={`Pass for ${previewLabel}`}
+          >
+            {ownerId ? (
+              <div className="ticket-door-preview-holder">
+                <ProfileAvatar
+                  src={holderFaceForOwner?.avatarUrl ?? null}
+                  fallbackInitial={holderDisplay || ownerId}
+                  size="md"
+                  shellLoading={!holderReady}
+                  className="ticket-door-preview-holder-avatar"
+                />
+                <div className="ticket-door-preview-holder-copy">
+                  {holderDisplay ? (
+                    <p className="ticket-door-preview-holder-name">
+                      {holderDisplay}
+                    </p>
+                  ) : null}
+                  {holderAccount ? (
+                    <p className="ticket-door-preview-holder-account">
+                      {holderAccount}
+                    </p>
+                  ) : null}
+                  {originLine ? (
+                    <p className="ticket-door-preview-origin">{originLine}</p>
+                  ) : null}
+                  <p
+                    className={`ticket-door-preview-status${
+                      status.isValid && !status.isRefunded
+                        ? ' is-valid'
+                        : status.isFullyRedeemed
+                          ? ' is-used'
+                          : ' is-invalid'
+                    }`}
+                  >
+                    {previewLine}
+                  </p>
+                  <p className="ticket-door-preview-seat">
+                    {ticketPassSeatLabel(status.tokenId)}
+                  </p>
+                  <p className="ticket-door-preview-token">{status.tokenId}</p>
+                  {confirmCue ? (
+                    <p
+                      className={`ticket-door-preview-confirm${
+                        admitConfirmed ? ' is-ready' : ''
+                      }`}
+                    >
+                      {confirmCue}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <>
+                {originLine ? (
+                  <p className="ticket-door-preview-origin">{originLine}</p>
+                ) : null}
+                <p
+                  className={`ticket-door-preview-status${
+                    status.isValid && !status.isRefunded
+                      ? ' is-valid'
+                      : status.isFullyRedeemed
+                        ? ' is-used'
+                        : ' is-invalid'
+                  }`}
+                >
+                  {previewLine}
+                </p>
+                <p className="ticket-door-preview-seat">
+                  {ticketPassSeatLabel(status.tokenId)}
+                </p>
+                <p className="ticket-door-preview-token">{status.tokenId}</p>
+                {confirmCue ? (
+                  <p
+                    className={`ticket-door-preview-confirm${
+                      admitConfirmed ? ' is-ready' : ''
+                    }`}
+                  >
+                    {confirmCue}
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         </>
       ) : null}

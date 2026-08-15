@@ -4,6 +4,7 @@ import {
   isPassMediumKind,
   parseTicketPassPayload,
   passStaffVoice,
+  ticketPassOriginLabel,
   ticketPassRemaining,
   ticketPassSeatLabel,
   ticketPassStatusLabel,
@@ -100,5 +101,34 @@ describe('ticket-pass-payload', () => {
     expect(ticketPassSeatLabel('onsocial-14oliw:1')).toBe('Pass 1');
     expect(ticketPassSeatLabel('night-drive:12')).toBe('Pass 12');
     expect(ticketPassSeatLabel('')).toBe('Pass');
+  });
+
+  it('flags received passes when owner differs from minter', () => {
+    expect(
+      ticketPassOriginLabel({
+        ownerId: 'test05.onsocial.testnet',
+        minterId: 'test05.onsocial.testnet',
+      })
+    ).toBeNull();
+    expect(
+      ticketPassOriginLabel({
+        ownerId: 'bob.near',
+        minterId: 'alice.near',
+      })
+    ).toBe('Received');
+  });
+
+  it('labels refunded passes', () => {
+    expect(
+      ticketPassStatusLabel({
+        isValid: true,
+        isFullyRedeemed: false,
+        isRevoked: false,
+        isExpired: false,
+        isRefunded: true,
+        redeemCount: 0,
+        maxRedeems: 1,
+      })
+    ).toBe('Refunded');
   });
 });

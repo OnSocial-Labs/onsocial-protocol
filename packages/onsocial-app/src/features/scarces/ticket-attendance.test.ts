@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { staffAttendanceLine } from '@/features/scarces/ticket-attendance';
+import {
+  staffAttendanceHeaderSuffix,
+  staffAttendanceLine,
+} from '@/features/scarces/ticket-attendance';
 
 describe('staffAttendanceLine', () => {
   it('covers single-use door admit', () => {
@@ -48,5 +51,31 @@ describe('staffAttendanceLine', () => {
         maxRedeems: 1,
       })
     ).toBe('No passes minted yet');
+  });
+});
+
+describe('staffAttendanceHeaderSuffix', () => {
+  it('compacts single-use door counts for the header', () => {
+    expect(
+      staffAttendanceHeaderSuffix({
+        voice: 'admit',
+        minted: 200,
+        redeemedCount: 47,
+        fullyRedeemedCount: 47,
+        maxRedeems: 1,
+      })
+    ).toBe('47 of 200 in');
+  });
+
+  it('returns null when nothing is minted', () => {
+    expect(
+      staffAttendanceHeaderSuffix({
+        voice: 'admit',
+        minted: 0,
+        redeemedCount: 0,
+        fullyRedeemedCount: 0,
+        maxRedeems: 1,
+      })
+    ).toBeNull();
   });
 });
