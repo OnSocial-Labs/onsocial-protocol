@@ -20627,31 +20627,17 @@ a.os-surface-row {
     }
   }
 
-  @media (min-width: 640px) {
-    .os-app-screen-actions .ticket-door-event-action {
-      font-size: 0.8rem;
-    }
+  /* Header chip — denser soft pill on glass chrome (same family as play “View drop”). */
+  .os-app-screen-actions .ticket-door-event-action {
+    gap: 0.32rem;
+    padding: 0.34rem 0.62rem;
+    border: 0;
+    font-size: 0.72rem;
   }
 
-  .ticket-door-event-action {
-    margin: 0;
-    padding: 0.28rem 0.55rem;
-    border: 1px solid rgb(var(--fg-rgb) / 0.12);
-    border-radius: 999px;
-    background: rgb(var(--fg-rgb) / 0.05);
-    font: inherit;
-    font-size: 0.76rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-    color: rgb(var(--fg-rgb) / 0.78);
-    cursor: pointer;
-  }
-
-  .ticket-door-event-action:hover,
-  .ticket-door-event-action:focus-visible {
-    color: rgb(var(--fg-rgb) / 0.95);
-    background: rgb(var(--fg-rgb) / 0.08);
-    outline: none;
+  .os-app-screen-actions .ticket-door-event-action:hover,
+  .os-app-screen-actions .ticket-door-event-action:focus-visible {
+    border: 0;
   }
 
   .ticket-door {

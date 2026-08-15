@@ -350,8 +350,11 @@ export function TicketDoorPagePanel({
         view && canStaff && accessReady && isConnected ? (
           <button
             type="button"
-            className="ticket-door-event-action"
+            className="page-drawer-section-action ticket-door-event-action"
             onClick={() => setEventOpen(true)}
+            aria-label={
+              redeemVoice ? 'Open event redeem details' : 'Open event door details'
+            }
           >
             Event
           </button>
