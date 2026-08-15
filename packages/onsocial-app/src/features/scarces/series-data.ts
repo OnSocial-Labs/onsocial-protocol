@@ -211,3 +211,39 @@ export function invalidateSeriesBrandingCache(
 ): void {
   brandingCache.delete(`${creatorId}:${seriesId}`);
 }
+
+/** Seed the session cache from SSR so headings / soft-fill skip a refetch. */
+export function seedSeriesBrandingCache(
+  creatorId: string,
+  seriesId: string,
+  branding: SeriesBranding | null
+): void {
+  const creator = creatorId.trim();
+  const id = seriesId.trim();
+  if (!creator || !id) return;
+  brandingCache.set(`${creator}:${id}`, Promise.resolve(branding));
+}
+
+/**
+ * SSR branding via the server gateway client. Falls back to null when the
+ * API key is missing or the creator never set a brand (client soft-fills).
+ */
+export async function fetchSeriesBrandingServer(
+  creatorId: string,
+  seriesId: string
+): Promise<SeriesBranding | null> {
+  const creator = creatorId.trim();
+  const id = seriesId.trim();
+  if (!creator || !id) return null;
+  try {
+    const { createServerOnSocialClient } = await import(
+      '@/lib/create-server-onsocial-client'
+    );
+    const client = createServerOnSocialClient();
+    const entry = await client.social.getOne(seriesDataPath(id), creator);
+    if (!entry || entry.deleted || entry.value == null) return null;
+    return parseBranding(creator, id, entry.value);
+  } catch {
+    return null;
+  }
+}
