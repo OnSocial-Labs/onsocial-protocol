@@ -20,6 +20,24 @@ describe('ticket-pass-payload', () => {
     });
   });
 
+  it('parses live os2 payloads for collection + token', () => {
+    expect(
+      parseTicketPassPayload(
+        'os2|night-drive|night-drive:3|1700000000000|pk|nonce|sig',
+        'night-drive'
+      )
+    ).toEqual({
+      collectionId: 'night-drive',
+      tokenId: 'night-drive:3',
+    });
+    expect(
+      parseTicketPassPayload(
+        'os2|other|other:1|1700000000000|pk|nonce|sig',
+        'night-drive'
+      )
+    ).toBeNull();
+  });
+
   it('parses bare token ids for the expected collection', () => {
     expect(parseTicketPassPayload('night-drive:3', 'night-drive')).toEqual({
       collectionId: 'night-drive',
@@ -48,7 +66,9 @@ describe('ticket-pass-payload', () => {
   it('computes remaining check-ins and status copy', () => {
     expect(ticketPassRemaining({ redeemCount: 0, maxRedeems: 1 })).toBe(1);
     expect(ticketPassRemaining({ redeemCount: 1, maxRedeems: 1 })).toBe(0);
-    expect(ticketPassRemaining({ redeemCount: 0, maxRedeems: null })).toBeNull();
+    expect(
+      ticketPassRemaining({ redeemCount: 0, maxRedeems: null })
+    ).toBeNull();
 
     expect(
       ticketPassStatusLabel({

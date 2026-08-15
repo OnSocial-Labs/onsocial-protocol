@@ -1,8 +1,10 @@
 /**
  * Compact Show-pass QR payload.
- * Door scan parses this; manual entry can still paste a raw token id.
+ * Door scan prefers live `os2|…` (signed); legacy `os1:` and bare token
+ * ids still parse for collection/token identity.
  *
- * Format: `os1:{collectionId}:{tokenId}`
+ * Legacy: `os1:{collectionId}:{tokenId}`
+ * Live:   `os2|{collection}|{token}|{exp}|{pk}|{nonce}|{sig}`
  */
 export const TICKET_PASS_PAYLOAD_PREFIX = 'os1';
 
@@ -12,7 +14,9 @@ export interface TicketPassPayload {
 }
 
 /** True for ticket / membership / coupon drops that use redeem check-ins. */
-export function isPassMediumKind(mediumKind: string | null | undefined): boolean {
+export function isPassMediumKind(
+  mediumKind: string | null | undefined
+): boolean {
   const key = (mediumKind ?? '').trim().toLowerCase();
   return key === 'ticket' || key === 'membership' || key === 'coupon';
 }
@@ -49,7 +53,7 @@ export function encodeTicketPassPayload(
 
 /**
  * Parse a scanned QR / pasted string into collection + token.
- * Accepts `os1:…` payloads or a bare `{collection}:{edition}` token id.
+ * Accepts live `os2|…`, legacy `os1:…`, or a bare `{collection}:{edition}` token id.
  */
 export function parseTicketPassPayload(
   raw: string,
@@ -57,6 +61,22 @@ export function parseTicketPassPayload(
 ): TicketPassPayload | null {
   const value = raw.trim();
   if (!value) return null;
+
+  if (value.startsWith('os2|')) {
+    const parts = value.split('|');
+    if (parts.length < 3) return null;
+    const collectionId = (parts[1] ?? '').trim();
+    const tokenId = (parts[2] ?? '').trim();
+    if (!collectionId || !tokenId) return null;
+    if (
+      expectedCollectionId?.trim() &&
+      collectionId !== expectedCollectionId.trim()
+    ) {
+      return null;
+    }
+    if (!tokenId.startsWith(`${collectionId}:`)) return null;
+    return { collectionId, tokenId };
+  }
 
   if (value.startsWith(`${TICKET_PASS_PAYLOAD_PREFIX}:`)) {
     const rest = value.slice(TICKET_PASS_PAYLOAD_PREFIX.length + 1);
@@ -121,7 +141,10 @@ export function ticketPassRemaining(opts: {
   maxRedeems: number | null | undefined;
 }): number | null {
   if (opts.maxRedeems == null || opts.maxRedeems <= 0) return null;
-  return Math.max(0, Math.floor(opts.maxRedeems) - Math.floor(opts.redeemCount));
+  return Math.max(
+    0,
+    Math.floor(opts.maxRedeems) - Math.floor(opts.redeemCount)
+  );
 }
 
 /** One-line status for Show pass / Door / Redeem preview. */
