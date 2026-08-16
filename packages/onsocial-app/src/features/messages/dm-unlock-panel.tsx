@@ -8,6 +8,7 @@ import {
   osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   canOfferDmPasskey,
   hasDmPasskeyEnrolled,
@@ -41,6 +42,7 @@ export function DmUnlockPanel({
   onReset,
 }: DmUnlockPanelProps) {
   const { getClient } = useAppOnSocialClient();
+  const { hasSocialSession } = useAppWallet();
   const [recoveryInput, setRecoveryInput] = useState('');
   const [unlockPending, setUnlockPending] = useState(false);
   const [passkeyPending, setPasskeyPending] = useState(false);
@@ -104,6 +106,10 @@ export function DmUnlockPanel({
     setResetPending(true);
     setError(null);
     try {
+      if (!hasSocialSession) {
+        setError('Connect your session to reset messaging keys.');
+        return;
+      }
       const { client } = await getClient();
       const result = await resetDmMessagingKeys({ accountId, client });
       setResetConfirm(false);

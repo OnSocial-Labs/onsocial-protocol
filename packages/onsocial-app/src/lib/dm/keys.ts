@@ -481,6 +481,17 @@ export async function restoreDmKeysFromRecoveryCode(opts: {
       });
       const claimedPublicKey = decodeDmPublicKey(backup.publicKey);
       assertDerivedPublicKey(claimedPublicKey, secretKey);
+
+      // Stale local wrap must not win over a rotated profile identity.
+      if (
+        preferredRemote &&
+        preferredRemote.publicKey !== backup.publicKey
+      ) {
+        throw new DmKeysMismatchError(
+          'Your profile messaging keys were reset. Use the new recovery code, or reset messaging keys again.'
+        );
+      }
+
       const secretEncoded = encodeDmSecretKey(secretKey);
       const sameIdentity = stored?.publicKey === backup.publicKey;
       setMemorySecret(id, secretEncoded);
@@ -627,6 +638,14 @@ export type ResetDmMessagingKeysResult = {
  * Ciphertext sealed to the previous pubkey stays unreadable forever.
  */
 export async function resetDmMessagingKeys(opts: {
+  accountId: string;
+  client: OnSocial;
+}): Promise<ResetDmMessagingKeysResult> {
+  const id = opts.accountId.trim().toLowerCase();
+  return withBootstrapLock(id, () => resetDmMessagingKeysUnlocked(opts));
+}
+
+async function resetDmMessagingKeysUnlocked(opts: {
   accountId: string;
   client: OnSocial;
 }): Promise<ResetDmMessagingKeysResult> {

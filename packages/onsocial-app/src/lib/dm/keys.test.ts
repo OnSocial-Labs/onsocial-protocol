@@ -307,11 +307,41 @@ describe('dm keys bootstrap', () => {
     ).rejects.toBeInstanceOf(DmKeysUnavailableError);
   });
 
-  it('clearDmKeysLocal removes disk and memory secrets', async () => {
-    await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
-    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
-    clearDmKeysLocal(ACCOUNT);
-    expect(hasUnlockedDmKey(ACCOUNT)).toBe(false);
-    expect(getStoredDmIdentity(ACCOUNT)).toBeNull();
+  it('refuses to unlock a stale local wrap after profile reset', async () => {
+    const prior = await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    const priorCode = prior.recoveryCode!;
+    acknowledgeDmRecoveryCode(ACCOUNT);
+
+    const rotated = generateDmKeyPair();
+    const newCode = generateDmRecoveryCode();
+    const wrapKey = await recoveryCodeToWrapKey(newCode);
+    const rotatedWrap = await wrapDmSecretKey({
+      secretKey: rotated.secretKey,
+      wrapKey,
+    });
+    const remoteBackup = {
+      publicKey: encodeDmPublicKey(rotated.publicKey),
+      wrapped: rotatedWrap,
+    };
+
+    await expect(
+      restoreDmKeysFromRecoveryCode({
+        accountId: ACCOUNT,
+        recoveryCode: priorCode,
+        remoteBackup,
+        preferRemote: true,
+      })
+    ).rejects.toBeInstanceOf(DmKeysMismatchError);
+
+    // New code against remote still works.
+    const restored = await restoreDmKeysFromRecoveryCode({
+      accountId: ACCOUNT,
+      recoveryCode: newCode,
+      remoteBackup,
+      preferRemote: true,
+    });
+    expect(Array.from(restored.publicKey)).toEqual(
+      Array.from(rotated.publicKey)
+    );
   });
 });
