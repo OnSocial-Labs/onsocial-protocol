@@ -1,22 +1,43 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   encodeDmPublicKey,
+  encodeDmSecretKey,
   generateDmKeyPair,
   generateDmRecoveryCode,
   recoveryCodeToWrapKey,
   wrapDmSecretKey,
 } from '@/lib/dm/crypto';
+
+const publishDmKeyBackup = vi.fn();
+const lookupDmKeyBackup = vi.fn();
+
+vi.mock('@/lib/dm/pubkey', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/dm/pubkey')>();
+  return {
+    ...actual,
+    publishDmKeyBackup: (...args: unknown[]) => publishDmKeyBackup(...args),
+    lookupDmKeyBackup: (...args: unknown[]) => lookupDmKeyBackup(...args),
+  };
+});
+
 import {
   DmKeysLockedError,
   DmKeysMismatchError,
   DmKeysUnavailableError,
+  __peekPendingDmRotationForTests,
   __resetDmKeyMemoryForTests,
   acknowledgeDmRecoveryCode,
+  clearDmKeysLocal,
   ensureDmKeys,
+  getStoredDmIdentity,
+  hasDmPasskeyEnrolled,
   hasUnlockedDmKey,
   peekPendingDmRecoveryCode,
+  resetDmMessagingKeys,
   restoreDmKeysFromRecoveryCode,
 } from '@/lib/dm/keys';
+import { getDmKeysResetAt } from '@/lib/dm/thread-archive';
+import type { OnSocial } from '@onsocial/sdk';
 
 const ACCOUNT = 'alice.testnet';
 
@@ -56,6 +77,10 @@ describe('dm keys bootstrap', () => {
   beforeEach(() => {
     installMemoryLocalStorage();
     __resetDmKeyMemoryForTests();
+    publishDmKeyBackup.mockReset();
+    lookupDmKeyBackup.mockReset();
+    publishDmKeyBackup.mockResolvedValue(undefined);
+    lookupDmKeyBackup.mockResolvedValue({ status: 'absent' });
   });
 
   it('creates keys when remote is verified absent', async () => {
@@ -136,6 +161,20 @@ describe('dm keys bootstrap', () => {
       publicKey: local.publicKeyEncoded,
       wrapped: local.backup!.wrapped,
     };
+    // Stale passkey for the old identity — must be cleared on remote reset.
+    window.localStorage.setItem(
+      `onsocial.app.dm.${ACCOUNT}`,
+      JSON.stringify({
+        ...JSON.parse(window.localStorage.getItem(`onsocial.app.dm.${ACCOUNT}`)!),
+        passkeyWrapped: {
+          ciphertext: 'x',
+          nonce: 'y',
+          credentialId: 'cred',
+        },
+      })
+    );
+    expect(hasDmPasskeyEnrolled(ACCOUNT)).toBe(true);
+
     const other = generateDmKeyPair();
     const code = generateDmRecoveryCode();
     const wrapKey = await recoveryCodeToWrapKey(code);
@@ -155,6 +194,7 @@ describe('dm keys bootstrap', () => {
       })
     ).rejects.toBeInstanceOf(DmKeysMismatchError);
     expect(hasUnlockedDmKey(ACCOUNT)).toBe(false);
+    expect(hasDmPasskeyEnrolled(ACCOUNT)).toBe(false);
 
     const stored = JSON.parse(
       window.localStorage.getItem(`onsocial.app.dm.${ACCOUNT}`)!
@@ -162,9 +202,11 @@ describe('dm keys bootstrap', () => {
       publicKey: string;
       wrapped: { ciphertext: string; nonce: string };
       quarantinedRemote?: { publicKey: string };
+      passkeyWrapped?: unknown;
     };
     expect(stored.publicKey).toBe(localBackup.publicKey);
     expect(stored.wrapped).toEqual(localBackup.wrapped);
+    expect(stored.passkeyWrapped).toBeUndefined();
     expect(stored.quarantinedRemote?.publicKey).toBe(
       encodeDmPublicKey(other.publicKey)
     );
@@ -179,6 +221,7 @@ describe('dm keys bootstrap', () => {
       preferRemote: true,
     });
     expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(getDmKeysResetAt(ACCOUNT)).toBeTruthy();
     const again = await ensureDmKeys(ACCOUNT, {
       remote: {
         status: 'found',
@@ -228,5 +271,140 @@ describe('dm keys bootstrap', () => {
         },
       })
     ).rejects.toBeInstanceOf(DmKeysMismatchError);
+  });
+
+  it('resets messaging keys after publish confirms, abandoning prior local identity', async () => {
+    const prior = await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    const priorCode = prior.recoveryCode!;
+    acknowledgeDmRecoveryCode(ACCOUNT);
+
+    lookupDmKeyBackup.mockResolvedValue({
+      status: 'found',
+      value: prior.backup!,
+    });
+
+    const client = {} as OnSocial;
+    const reset = await resetDmMessagingKeys({ accountId: ACCOUNT, client });
+    expect(publishDmKeyBackup).toHaveBeenCalledTimes(1);
+    expect(reset.recoveryCode).toBeTruthy();
+    expect(reset.recoveryCode).not.toBe(priorCode);
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(peekPendingDmRecoveryCode(ACCOUNT)).toBe(reset.recoveryCode);
+    expect(getStoredDmIdentity(ACCOUNT)?.publicKey).toBe(reset.publicKeyEncoded);
+    expect(getStoredDmIdentity(ACCOUNT)?.keysResetAt).toBeTruthy();
+    expect(getDmKeysResetAt(ACCOUNT)).toBeTruthy();
+    expect(__peekPendingDmRotationForTests(ACCOUNT)).toBeNull();
+
+    await expect(
+      restoreDmKeysFromRecoveryCode({
+        accountId: ACCOUNT,
+        recoveryCode: priorCode,
+        remoteBackup: reset.backup,
+        preferRemote: true,
+      })
+    ).rejects.toThrow(/Invalid recovery code/);
+  });
+
+  it('leaves prior local keys intact when reset publish fails', async () => {
+    const prior = await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    const priorPk = prior.publicKeyEncoded;
+    lookupDmKeyBackup.mockResolvedValue({
+      status: 'found',
+      value: prior.backup!,
+    });
+    publishDmKeyBackup.mockRejectedValueOnce(new Error('chain down'));
+
+    await expect(
+      resetDmMessagingKeys({ accountId: ACCOUNT, client: {} as OnSocial })
+    ).rejects.toThrow(/chain down/);
+
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(getStoredDmIdentity(ACCOUNT)?.publicKey).toBe(priorPk);
+    expect(__peekPendingDmRotationForTests(ACCOUNT)).toBeNull();
+  });
+
+  it('resumes pending rotation when profile matches after crash', async () => {
+    const keyPair = generateDmKeyPair();
+    const code = generateDmRecoveryCode();
+    const wrapKey = await recoveryCodeToWrapKey(code);
+    const wrapped = await wrapDmSecretKey({
+      secretKey: keyPair.secretKey,
+      wrapKey,
+    });
+    const publicKey = encodeDmPublicKey(keyPair.publicKey);
+    const secretKey = encodeDmSecretKey(keyPair.secretKey);
+    window.localStorage.setItem(
+      `onsocial.app.dm.pending-rotation.${ACCOUNT}`,
+      JSON.stringify({
+        accountId: ACCOUNT,
+        publicKey,
+        secretKey,
+        wrapped,
+        recoveryCode: code,
+        createdAt: new Date().toISOString(),
+      })
+    );
+
+    const result = await ensureDmKeys(ACCOUNT, {
+      remote: {
+        status: 'found',
+        value: { publicKey, wrapped },
+      },
+    });
+
+    expect(result.fromPendingRotation).toBe(true);
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(peekPendingDmRecoveryCode(ACCOUNT)).toBe(code);
+    expect(__peekPendingDmRotationForTests(ACCOUNT)).toBeNull();
+    expect(getDmKeysResetAt(ACCOUNT)).toBeTruthy();
+    expect(getStoredDmIdentity(ACCOUNT)?.keysResetAt).toBeTruthy();
+  });
+
+  it('refuses reset when profile lookup is unavailable', async () => {
+    lookupDmKeyBackup.mockResolvedValue({
+      status: 'unavailable',
+      cause: new Error('network'),
+    });
+    await expect(
+      resetDmMessagingKeys({ accountId: ACCOUNT, client: {} as OnSocial })
+    ).rejects.toBeInstanceOf(DmKeysUnavailableError);
+  });
+
+  it('refuses to unlock a stale local wrap after profile reset', async () => {
+    const prior = await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    const priorCode = prior.recoveryCode!;
+    acknowledgeDmRecoveryCode(ACCOUNT);
+
+    const rotated = generateDmKeyPair();
+    const newCode = generateDmRecoveryCode();
+    const wrapKey = await recoveryCodeToWrapKey(newCode);
+    const rotatedWrap = await wrapDmSecretKey({
+      secretKey: rotated.secretKey,
+      wrapKey,
+    });
+    const remoteBackup = {
+      publicKey: encodeDmPublicKey(rotated.publicKey),
+      wrapped: rotatedWrap,
+    };
+
+    await expect(
+      restoreDmKeysFromRecoveryCode({
+        accountId: ACCOUNT,
+        recoveryCode: priorCode,
+        remoteBackup,
+        preferRemote: true,
+      })
+    ).rejects.toBeInstanceOf(DmKeysMismatchError);
+
+    // New code against remote still works.
+    const restored = await restoreDmKeysFromRecoveryCode({
+      accountId: ACCOUNT,
+      recoveryCode: newCode,
+      remoteBackup,
+      preferRemote: true,
+    });
+    expect(Array.from(restored.publicKey)).toEqual(
+      Array.from(rotated.publicKey)
+    );
   });
 });

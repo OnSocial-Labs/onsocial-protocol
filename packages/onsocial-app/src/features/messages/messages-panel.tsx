@@ -42,6 +42,12 @@ import {
   lookupDmPublicKey,
   reconcileAndPublishDmIdentity,
 } from '@/lib/dm/pubkey';
+import {
+  archiveSealedDmThreads,
+  isDmThreadSealedArchived,
+  recordDmKeysReset,
+  reconcileDmThreadArchiveAfterDecrypt,
+} from '@/lib/dm/thread-archive';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
@@ -68,9 +74,14 @@ export function MessagesPanel() {
   const [plainById, setPlainById] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [recoveryVariant, setRecoveryVariant] = useState<'created' | 'reset'>(
+    'created'
+  );
   const [enrollPending, setEnrollPending] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
   const [keysTick, setKeysTick] = useState(0);
+  const [archiveTick, setArchiveTick] = useState(0);
+  const [showSealedArchive, setShowSealedArchive] = useState(false);
   const activeThreadIdRef = useRef(activeThreadId);
   const messagesRef = useRef(messages);
   const openThreadSeqRef = useRef(0);
@@ -123,6 +134,24 @@ export function MessagesPanel() {
     [threads]
   );
   const profiles = usePostAuthorProfiles(peerIds);
+
+  const { inboxThreads, sealedThreads } = useMemo(() => {
+    if (!threads || !accountId) {
+      return { inboxThreads: threads, sealedThreads: [] as DmThreadSummary[] };
+    }
+    // archiveTick forces re-read of local archive after reset / decrypt.
+    void archiveTick;
+    const sealed: DmThreadSummary[] = [];
+    const inbox: DmThreadSummary[] = [];
+    for (const thread of threads) {
+      if (isDmThreadSealedArchived(accountId, thread.threadId)) {
+        sealed.push(thread);
+      } else {
+        inbox.push(thread);
+      }
+    }
+    return { inboxThreads: inbox, sealedThreads: sealed };
+  }, [accountId, archiveTick, threads]);
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -189,7 +218,10 @@ export function MessagesPanel() {
         return;
       }
       const pending = keys.recoveryCode ?? peekPendingDmRecoveryCode(accountId);
-      if (pending) setRecoveryCode(pending);
+      if (pending) {
+        setRecoveryVariant(keys.fromPendingRotation ? 'reset' : 'created');
+        setRecoveryCode(pending);
+      }
       setKeysTick((n) => n + 1);
     } catch (cause) {
       if (
@@ -224,7 +256,7 @@ export function MessagesPanel() {
     setActiveThreadId('');
     setError(null);
     setRecoveryCode(null);
-    setError(null);
+    setRecoveryVariant('created');
   }, []);
 
   useEffect(() => {
@@ -338,6 +370,16 @@ export function MessagesPanel() {
       if (activeThreadIdRef.current !== threadId) return plain;
       if (!isCurrentAccount(expectedAccount)) return plain;
       setPlainById((prev) => ({ ...prev, ...plain }));
+      const archiveChange = reconcileDmThreadArchiveAfterDecrypt({
+        accountId: expectedAccount,
+        threadId,
+        messageIds: next.map((msg) => msg.id),
+        plainById: plain,
+        isDecryptFailure: isDmDecryptFailureText,
+      });
+      if (archiveChange !== 'unchanged') {
+        setArchiveTick((n) => n + 1);
+      }
       return plain;
     },
     [accountId, isCurrentAccount]
@@ -526,9 +568,10 @@ export function MessagesPanel() {
   const handleUnlocked = useCallback(async () => {
     setError(null);
     setKeysTick((n) => n + 1);
+    await bootstrapKeys();
     if (activeThreadId) await openThread(activeThreadId);
     else await refreshThreads();
-  }, [activeThreadId, openThread, refreshThreads]);
+  }, [activeThreadId, bootstrapKeys, openThread, refreshThreads]);
 
   /** Mobile: leave the full-thread pane and return to the conversation list. */
   const closeThread = useCallback(() => {
@@ -636,7 +679,25 @@ export function MessagesPanel() {
       </header>
 
       {!isUnlocked && accountId ? (
-        <DmUnlockPanel accountId={accountId} onUnlocked={() => void handleUnlocked()} />
+        <DmUnlockPanel
+          accountId={accountId}
+          onUnlocked={() => void handleUnlocked()}
+          onReset={(code) => {
+            if (accountId) {
+              recordDmKeysReset(accountId);
+              archiveSealedDmThreads(
+                accountId,
+                (threads ?? []).map((thread) => thread.threadId)
+              );
+              setArchiveTick((n) => n + 1);
+              setShowSealedArchive(false);
+            }
+            setPlainById({});
+            setRecoveryVariant('reset');
+            setRecoveryCode(code);
+            void handleUnlocked();
+          }}
+        />
       ) : isUnlocked && canPasskey && !passkeyEnrolled ? (
         <section className="messages-unlock" aria-label="Enable passkey unlock">
           <p>
@@ -668,9 +729,18 @@ export function MessagesPanel() {
             <p className="messages-panel-empty">Loading…</p>
           ) : threads.length === 0 ? (
             <p className="messages-panel-empty">No conversations yet.</p>
+          ) : inboxThreads &&
+            inboxThreads.length === 0 &&
+            sealedThreads.length > 0 ? (
+            <p className="messages-panel-empty">
+              No open conversations. Sealed threads from before a key reset are
+              below.
+            </p>
+          ) : inboxThreads && inboxThreads.length === 0 ? (
+            <p className="messages-panel-empty">No conversations yet.</p>
           ) : (
             <OsSurfaceRowList as="div" aria-label="Conversations">
-              {threads.map((thread) => {
+              {(inboxThreads ?? []).map((thread) => {
                 const profile = profiles[thread.peerAccountId];
                 const name = displayName(
                   thread.peerAccountId,
@@ -698,6 +768,52 @@ export function MessagesPanel() {
               })}
             </OsSurfaceRowList>
           )}
+          {sealedThreads.length > 0 ? (
+            <div className="messages-sealed-archive">
+              <button
+                type="button"
+                className="messages-sealed-archive-toggle"
+                aria-expanded={showSealedArchive}
+                onClick={() => setShowSealedArchive((open) => !open)}
+              >
+                {showSealedArchive ? 'Hide' : 'Show'} sealed before reset (
+                {sealedThreads.length})
+              </button>
+              {showSealedArchive ? (
+                <OsSurfaceRowList as="div" aria-label="Sealed conversations">
+                  {sealedThreads.map((thread) => {
+                    const profile = profiles[thread.peerAccountId];
+                    const name = displayName(
+                      thread.peerAccountId,
+                      profile?.displayName
+                    );
+                    const handle = fallbackLabel(thread.peerAccountId);
+                    return (
+                      <OsSurfaceRow
+                        key={thread.threadId}
+                        active={thread.threadId === activeThreadId}
+                        label={name}
+                        description={
+                          name !== handle
+                            ? `@${handle} · sealed`
+                            : 'Sealed before reset'
+                        }
+                        leading={
+                          <ProfileAvatar
+                            src={profile?.avatarUrl ?? undefined}
+                            fallbackInitial={name.slice(0, 1)}
+                            size="sm"
+                          />
+                        }
+                        trailing="navigate"
+                        onClick={() => void openThread(thread.threadId)}
+                      />
+                    );
+                  })}
+                </OsSurfaceRowList>
+              ) : null}
+            </div>
+          ) : null}
         </aside>
 
         <section className="messages-thread" aria-label="Thread">
@@ -733,6 +849,14 @@ export function MessagesPanel() {
               <p className="messages-panel-empty">Loading…</p>
             ) : (
               <>
+                {accountId &&
+                activeThreadId &&
+                isDmThreadSealedArchived(accountId, activeThreadId) ? (
+                  <p className="messages-sealed-banner" role="status">
+                    Sealed before a key reset — these messages stay unreadable.
+                    New replies in this conversation will open normally.
+                  </p>
+                ) : null}
                 {hasMoreMessages ? (
                   <div className="messages-load-older">
                     <OsSheetAction
@@ -791,7 +915,10 @@ export function MessagesPanel() {
                   void refreshThreads();
                   if (activeThreadId) void openThread(activeThreadId);
                 }}
-                onRecoveryCode={(code) => setRecoveryCode(code)}
+                onRecoveryCode={(code) => {
+                  setRecoveryVariant('created');
+                  setRecoveryCode(code);
+                }}
               />
               <Link
                 className="messages-thread-profile-link"
@@ -821,6 +948,7 @@ export function MessagesPanel() {
         open={Boolean(recoveryCode)}
         code={recoveryCode ?? ''}
         accountId={accountId}
+        variant={recoveryVariant}
         onClose={() => {
           // Passive dismiss keeps pendingRecoveryCode so the sheet can reappear.
           setRecoveryCode(null);
@@ -828,6 +956,7 @@ export function MessagesPanel() {
         onAcknowledge={() => {
           if (accountId) acknowledgeDmRecoveryCode(accountId);
           setRecoveryCode(null);
+          setRecoveryVariant('created');
         }}
         onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
       />
