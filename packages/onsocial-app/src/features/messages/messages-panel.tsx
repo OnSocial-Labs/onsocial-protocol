@@ -24,15 +24,21 @@ import { messagesPath } from '@/lib/app-routes';
 import { decryptDmMessage } from '@/lib/dm/send';
 import {
   DmKeysLockedError,
+  DmKeysUnavailableError,
+  acknowledgeDmRecoveryCode,
   canOfferDmPasskey,
   enrollDmPasskeyUnlock,
   ensureDmKeys,
   hasDmPasskeyEnrolled,
   hasUnlockedDmKey,
+  peekPendingDmRecoveryCode,
   restoreDmKeysFromRecoveryCode,
   unlockDmKeysWithPasskey,
 } from '@/lib/dm/keys';
-import { fetchDmKeyBackup, publishDmKeyBackup } from '@/lib/dm/pubkey';
+import {
+  lookupDmKeyBackup,
+  reconcileAndPublishDmIdentity,
+} from '@/lib/dm/pubkey';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
@@ -62,10 +68,16 @@ export function MessagesPanel() {
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
   const [keysTick, setKeysTick] = useState(0);
   const activeThreadIdRef = useRef(activeThreadId);
+  const messagesRef = useRef(messages);
+  const openThreadSeqRef = useRef(0);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
   }, [activeThreadId]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // keysTick forces a re-read of localStorage after unlock / bootstrap.
   const isUnlocked = Boolean(
@@ -110,21 +122,35 @@ export function MessagesPanel() {
   const bootstrapKeys = useCallback(async () => {
     if (!accountId || !hasSocialSession) return;
     const { client } = await getClient();
-    const remoteBackup = await fetchDmKeyBackup(client, accountId);
+    const remote = await lookupDmKeyBackup(client, accountId);
+    if (remote.status === 'unavailable') {
+      setError(
+        'Could not verify messaging keys. Check your connection and try again.'
+      );
+      setKeysTick((n) => n + 1);
+      return;
+    }
     try {
-      const keys = await ensureDmKeys(accountId, { remoteBackup });
-      if (keys.created && keys.backup) {
-        await publishDmKeyBackup(client, keys.backup);
-      } else if (keys.backup) {
-        const remote = await fetchDmKeyBackup(client, accountId);
-        if (!remote) {
-          await publishDmKeyBackup(client, keys.backup);
-        }
+      const keys = await ensureDmKeys(accountId, { remote });
+      if (keys.backup) {
+        await reconcileAndPublishDmIdentity({
+          client,
+          accountId,
+          publicKeyEncoded: keys.publicKeyEncoded,
+          backup: keys.backup,
+          created: keys.created,
+        });
       }
-      if (keys.recoveryCode) setRecoveryCode(keys.recoveryCode);
+      const pending = keys.recoveryCode ?? peekPendingDmRecoveryCode(accountId);
+      if (pending) setRecoveryCode(pending);
       setKeysTick((n) => n + 1);
     } catch (cause) {
       if (cause instanceof DmKeysLockedError) {
+        setKeysTick((n) => n + 1);
+        return;
+      }
+      if (cause instanceof DmKeysUnavailableError) {
+        setError(cause.message);
         setKeysTick((n) => n + 1);
         return;
       }
@@ -140,7 +166,8 @@ export function MessagesPanel() {
   }, [accountId, withAuth]);
 
   const decryptMessages = useCallback(
-    async (next: DmMessageRecord[]) => {
+    async (next: DmMessageRecord[], threadId: string) => {
+      if (activeThreadIdRef.current !== threadId) return;
       if (!accountId || !hasUnlockedDmKey(accountId)) {
         setPlainById({});
         return;
@@ -162,6 +189,7 @@ export function MessagesPanel() {
           plain[msg.id] = 'Unable to decrypt on this device.';
         }
       }
+      if (activeThreadIdRef.current !== threadId) return;
       setPlainById(plain);
     },
     [accountId]
@@ -169,18 +197,25 @@ export function MessagesPanel() {
 
   const openThread = useCallback(
     async (threadId: string) => {
+      const seq = ++openThreadSeqRef.current;
       setActiveThreadId(threadId);
       setError(null);
       router.replace(messagesPath({ threadId }));
       const { client } = await withAuth();
+      if (openThreadSeqRef.current !== seq) return;
       const { messages: next } = await client.dm.listMessages(threadId);
+      if (openThreadSeqRef.current !== seq) return;
       setMessages(next);
-      await client.dm.markRead(threadId);
-      await decryptMessages(next);
+      const unlocked = Boolean(accountId && hasUnlockedDmKey(accountId));
+      if (unlocked) {
+        await client.dm.markRead(threadId);
+      }
+      if (openThreadSeqRef.current !== seq) return;
+      await decryptMessages(next, threadId);
       void refreshThreads();
-      requestDmUnreadRefresh();
+      if (unlocked) requestDmUnreadRefresh();
     },
-    [decryptMessages, refreshThreads, router, withAuth]
+    [accountId, decryptMessages, refreshThreads, router, withAuth]
   );
 
   const softRefreshOpenThread = useCallback(
@@ -189,25 +224,30 @@ export function MessagesPanel() {
         const { client } = await withAuth();
         const { messages: next } = await client.dm.listMessages(threadId);
         if (activeThreadIdRef.current !== threadId) return;
-        setMessages((prev) => {
-          const grew =
-            !prev ||
-            next.length > prev.length ||
-            next.at(-1)?.id !== prev.at(-1)?.id;
-          if (grew) {
-            void client.dm.markRead(threadId).then(() => {
-              requestDmUnreadRefresh();
-              void refreshThreads();
-            });
-          }
-          return next;
-        });
-        await decryptMessages(next);
+        const prev = messagesRef.current;
+        const grew =
+          !prev ||
+          next.length > prev.length ||
+          next.at(-1)?.id !== prev.at(-1)?.id;
+        setMessages(next);
+        await decryptMessages(next, threadId);
+        if (
+          grew &&
+          accountId &&
+          hasUnlockedDmKey(accountId) &&
+          typeof document !== 'undefined' &&
+          document.visibilityState === 'visible' &&
+          activeThreadIdRef.current === threadId
+        ) {
+          await client.dm.markRead(threadId);
+          requestDmUnreadRefresh();
+          void refreshThreads();
+        }
       } catch {
         // Soft poll — ignore transient errors.
       }
     },
-    [decryptMessages, refreshThreads, withAuth]
+    [accountId, decryptMessages, refreshThreads, withAuth]
   );
 
   useEffect(() => {
@@ -265,11 +305,17 @@ export function MessagesPanel() {
     setUnlockPending(true);
     try {
       const { client } = await getClient();
-      const remoteBackup = await fetchDmKeyBackup(client, accountId);
+      const remote = await lookupDmKeyBackup(client, accountId);
+      if (remote.status === 'unavailable') {
+        setError(
+          'Could not verify messaging keys. Check your connection and try again.'
+        );
+        return;
+      }
       await restoreDmKeysFromRecoveryCode({
         accountId,
         recoveryCode: recoveryInput.trim(),
-        remoteBackup,
+        remoteBackup: remote.status === 'found' ? remote.value : null,
       });
       setRecoveryInput('');
       setError(null);
@@ -296,7 +342,9 @@ export function MessagesPanel() {
       else await refreshThreads();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : 'Could not unlock with passkey.'
+        cause instanceof Error
+          ? cause.message
+          : 'Could not unlock with passkey.'
       );
     } finally {
       setPasskeyPending(false);
@@ -398,7 +446,9 @@ export function MessagesPanel() {
         </section>
       ) : isUnlocked && canPasskey && !passkeyEnrolled ? (
         <section className="messages-unlock" aria-label="Enable passkey unlock">
-          <p>Optional: unlock next time with this device instead of your code.</p>
+          <p>
+            Optional: unlock next time with this device instead of your code.
+          </p>
           <OsSheetActions>
             <OsSheetAction
               type="button"
@@ -471,8 +521,7 @@ export function MessagesPanel() {
           ) : (
             <ul className="messages-bubble-list">
               {messages.map((msg) => {
-                const mine =
-                  msg.senderAccountId === accountId.toLowerCase();
+                const mine = msg.senderAccountId === accountId.toLowerCase();
                 const text = plainById[msg.id];
                 return (
                   <li
@@ -481,7 +530,7 @@ export function MessagesPanel() {
                       mine ? 'messages-bubble is-mine' : 'messages-bubble'
                     }
                   >
-                    {text ? <p>{text}</p> : <p>…</p>}
+                    {text != null ? text ? <p>{text}</p> : null : <p>…</p>}
                     {msg.media?.length
                       ? msg.media.map((item) => (
                           <DmMediaBubble
@@ -533,9 +582,7 @@ export function MessagesPanel() {
         onClose={() => {
           setComposeOpen(false);
           if (peerParam) {
-            router.replace(
-              messagesPath({ threadId: activeThreadId || null })
-            );
+            router.replace(messagesPath({ threadId: activeThreadId || null }));
           }
         }}
         onSent={() => {
@@ -547,7 +594,10 @@ export function MessagesPanel() {
         open={Boolean(recoveryCode)}
         code={recoveryCode ?? ''}
         accountId={accountId}
-        onClose={() => setRecoveryCode(null)}
+        onClose={() => {
+          if (accountId) acknowledgeDmRecoveryCode(accountId);
+          setRecoveryCode(null);
+        }}
         onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
       />
     </div>

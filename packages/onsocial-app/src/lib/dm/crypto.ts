@@ -67,6 +67,22 @@ export function decodeDmSecretKey(encoded: string): Uint8Array {
   return bytes;
 }
 
+/** Derive the box public key that belongs to a secret key. */
+export function publicKeyFromSecretKey(secretKey: Uint8Array): Uint8Array {
+  assertKeyLength(secretKey, nacl.box.secretKeyLength, 'secretKey');
+  return nacl.box.keyPair.fromSecretKey(secretKey).publicKey;
+}
+
+/** Constant-time-ish equality for key material. */
+export function dmKeysEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a[i]! ^ b[i]!;
+  }
+  return diff === 0;
+}
+
 function boxTo(
   message: Uint8Array,
   recipientPublicKey: Uint8Array,

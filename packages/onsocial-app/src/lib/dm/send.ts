@@ -12,10 +12,9 @@ import {
 } from '@/lib/dm/crypto';
 import { ensureDmKeys, loadDmKeyPair } from '@/lib/dm/keys';
 import {
-  fetchDmKeyBackup,
-  fetchDmPublicKey,
-  publishDmKeyBackup,
-  publishDmPublicKey,
+  lookupDmKeyBackup,
+  lookupDmPublicKey,
+  reconcileAndPublishDmIdentity,
 } from '@/lib/dm/pubkey';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
@@ -42,25 +41,6 @@ async function withDmAuth(opts: {
     allowWalletFallback: true,
   });
   opts.client.auth.setToken(token);
-}
-
-async function publishIdentity(
-  client: OnSocial,
-  accountId: string,
-  keys: Awaited<ReturnType<typeof ensureDmKeys>>
-): Promise<void> {
-  if (keys.created && keys.backup) {
-    await publishDmKeyBackup(client, keys.backup);
-    return;
-  }
-  const remotePk = await fetchDmPublicKey(client, accountId);
-  if (!remotePk && keys.backup) {
-    await publishDmKeyBackup(client, keys.backup);
-    return;
-  }
-  if (!remotePk) {
-    await publishDmPublicKey(client, keys.publicKeyEncoded);
-  }
 }
 
 /** Dual-seal media into one Lighthouse blob (recipient + sender copies). */
@@ -134,8 +114,15 @@ export async function sendEncryptedDm(opts: {
 
   let keys;
   try {
-    const remoteBackup = await fetchDmKeyBackup(opts.client, opts.accountId);
-    keys = await ensureDmKeys(opts.accountId, { remoteBackup });
+    const remote = await lookupDmKeyBackup(opts.client, opts.accountId);
+    keys = await ensureDmKeys(opts.accountId, { remote });
+    await reconcileAndPublishDmIdentity({
+      client: opts.client,
+      accountId: opts.accountId,
+      publicKeyEncoded: keys.publicKeyEncoded,
+      backup: keys.backup,
+      created: keys.created,
+    });
   } catch (error) {
     return {
       ok: false,
@@ -146,16 +133,21 @@ export async function sendEncryptedDm(opts: {
     };
   }
 
-  await publishIdentity(opts.client, opts.accountId, keys);
-
-  const recipientPubkey = await fetchDmPublicKey(opts.client, recipient);
-  if (!recipientPubkey) {
+  const recipientLookup = await lookupDmPublicKey(opts.client, recipient);
+  if (recipientLookup.status === 'unavailable') {
+    return {
+      ok: false,
+      error: 'Could not look up their messaging key. Try again.',
+    };
+  }
+  if (recipientLookup.status === 'absent') {
     return {
       ok: false,
       error:
         'They have not enabled private messages yet. Ask them to open Messages once.',
     };
   }
+  const recipientPubkey = recipientLookup.value;
 
   const sealed = sealDmText({
     text: opts.text.trim() || (opts.mediaFile ? '' : ''),
@@ -316,9 +308,7 @@ export async function decryptDmMedia(opts: {
   } catch {
     if (!opts.nonce) throw new Error('Failed to open media');
     const sealerPubkey = decodeDmPublicKey(
-      opts.ephemeralPubkey?.trim()
-        ? opts.ephemeralPubkey
-        : opts.senderPubkey
+      opts.ephemeralPubkey?.trim() ? opts.ephemeralPubkey : opts.senderPubkey
     );
     plain = openDmBytes({
       ciphertext: raw,

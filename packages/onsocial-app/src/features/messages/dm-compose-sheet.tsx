@@ -24,6 +24,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { sendEncryptedDm } from '@/lib/dm/send';
+import { acknowledgeDmRecoveryCode } from '@/lib/dm/keys';
 import { messagesPath } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -320,6 +321,7 @@ export function DmComposeSheet({
         code={recoveryCode ?? ''}
         accountId={accountId}
         onClose={() => {
+          if (accountId) acknowledgeDmRecoveryCode(accountId);
           const threadId = pendingThreadId;
           setRecoveryCode(null);
           setPendingThreadId(null);

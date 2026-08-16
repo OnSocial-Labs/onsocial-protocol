@@ -155,9 +155,12 @@ class MemoryDmStore implements DmStore {
           ? last.recipientAccountId
           : last.senderAccountId;
       const readAt = this.reads.get(`${accountId}:${threadId}`) ?? null;
-      const unread =
-        last.recipientAccountId === accountId &&
-        (readAt == null || readAt < last.createdAt);
+      const unread = this.messages.some(
+        (msg) =>
+          msg.threadId === threadId &&
+          msg.recipientAccountId === accountId &&
+          (readAt == null || readAt < msg.createdAt)
+      );
       threads.push({
         threadId,
         peerAccountId,
@@ -183,7 +186,10 @@ class MemoryDmStore implements DmStore {
           (msg.senderAccountId === accountId ||
             msg.recipientAccountId === accountId)
       )
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .sort((a, b) => {
+        const byTime = a.createdAt.localeCompare(b.createdAt);
+        return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
+      })
       .slice(-limit);
   }
 
@@ -232,6 +238,7 @@ class PostgresDmStore implements DmStore {
       created_at: Date;
       id: string;
       last_read_at: Date | null;
+      unread: boolean;
     }>(
       `WITH latest AS (
          SELECT DISTINCT ON (thread_id)
@@ -239,33 +246,38 @@ class PostgresDmStore implements DmStore {
          FROM dm_messages
          WHERE sender_account_id = $1 OR recipient_account_id = $1
          ORDER BY thread_id, created_at DESC
+       ),
+       unread AS (
+         SELECT m.thread_id
+         FROM dm_messages m
+         LEFT JOIN dm_thread_reads r
+           ON r.thread_id = m.thread_id AND r.account_id = $1
+         WHERE (m.sender_account_id = $1 OR m.recipient_account_id = $1)
+           AND m.recipient_account_id = $1
+           AND (r.last_read_at IS NULL OR m.created_at > r.last_read_at)
+         GROUP BY m.thread_id
        )
-       SELECT l.*, r.last_read_at
+       SELECT l.*, r.last_read_at, (u.thread_id IS NOT NULL) AS unread
        FROM latest l
        LEFT JOIN dm_thread_reads r
          ON r.thread_id = l.thread_id AND r.account_id = $1
+       LEFT JOIN unread u ON u.thread_id = l.thread_id
        ORDER BY l.created_at DESC`,
       [accountId]
     );
 
     return result.rows.map((row) => {
       const lastMessageAt = new Date(row.created_at).toISOString();
-      const readAt = row.last_read_at
-        ? new Date(row.last_read_at).toISOString()
-        : null;
       const peerAccountId =
         row.sender_account_id === accountId
           ? row.recipient_account_id
           : row.sender_account_id;
-      const unread =
-        row.recipient_account_id === accountId &&
-        (readAt == null || readAt < lastMessageAt);
       return {
         threadId: row.thread_id,
         peerAccountId,
         lastMessageAt,
         lastMessageId: row.id,
-        unread,
+        unread: Boolean(row.unread),
       };
     });
   }
@@ -275,6 +287,7 @@ class PostgresDmStore implements DmStore {
     threadId: string,
     limit: number
   ): Promise<DmMessageRecord[]> {
+    // Newest page first, then flip ascending for UI (matches MemoryDmStore).
     const result = await this.pool.query<{
       id: string;
       thread_id: string;
@@ -289,12 +302,16 @@ class PostgresDmStore implements DmStore {
       sender_pubkey: string;
       ephemeral_pubkey: string | null;
     }>(
-      `SELECT *
-       FROM dm_messages
-       WHERE thread_id = $1
-         AND (sender_account_id = $2 OR recipient_account_id = $2)
-       ORDER BY created_at ASC
-       LIMIT $3`,
+      `WITH page AS (
+         SELECT *
+         FROM dm_messages
+         WHERE thread_id = $1
+           AND (sender_account_id = $2 OR recipient_account_id = $2)
+         ORDER BY created_at DESC, id DESC
+         LIMIT $3
+       )
+       SELECT * FROM page
+       ORDER BY created_at ASC, id ASC`,
       [threadId, accountId, limit]
     );
 
@@ -336,6 +353,16 @@ class PostgresDmStore implements DmStore {
 }
 
 const databaseUrl = process.env.DATABASE_URL;
+const allowMemoryStore =
+  process.env.NODE_ENV !== 'production' ||
+  process.env.DM_ALLOW_MEMORY_STORE === '1';
+
+if (!databaseUrl && !allowMemoryStore) {
+  throw new Error(
+    'FATAL: DATABASE_URL is required for the DM mailbox in production'
+  );
+}
+
 const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
 const store: DmStore = pool ? new PostgresDmStore(pool) : new MemoryDmStore();
 

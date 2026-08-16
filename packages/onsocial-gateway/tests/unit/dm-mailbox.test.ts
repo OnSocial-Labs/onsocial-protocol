@@ -96,4 +96,55 @@ describe('dm mailbox service', () => {
       expect(msgs[0]?.senderPubkey).toBe('identity-pk');
     }
   });
+
+  it('keeps unread after recipient replies without reading', async () => {
+    __resetDmStoreForTests();
+    await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'from-alice',
+      nonce: 'n1',
+      senderPubkey: 'pk-a',
+    });
+    await sendDmMessage({
+      senderAccountId: 'bob.testnet',
+      recipientAccountId: 'alice.testnet',
+      ciphertext: 'from-bob',
+      nonce: 'n2',
+      senderPubkey: 'pk-b',
+    });
+    const bobThreads = await listDmThreads('bob.testnet');
+    expect(Array.isArray(bobThreads)).toBe(true);
+    if (Array.isArray(bobThreads)) {
+      expect(bobThreads[0]?.unread).toBe(true);
+    }
+  });
+
+  it('returns the newest page of messages when limited', async () => {
+    __resetDmStoreForTests();
+    let threadId = '';
+    for (let i = 0; i < 5; i += 1) {
+      const sent = await sendDmMessage({
+        senderAccountId: 'alice.testnet',
+        recipientAccountId: 'bob.testnet',
+        ciphertext: `cipher-${i}`,
+        nonce: `nonce-${i}`,
+        senderPubkey: 'pk',
+      });
+      expect('code' in sent).toBe(false);
+      if ('code' in sent) return;
+      threadId = sent.threadId;
+      // Ensure distinct createdAt ordering in memory store.
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+    const msgs = await listDmMessages('bob.testnet', threadId, 3);
+    expect(Array.isArray(msgs)).toBe(true);
+    if (!Array.isArray(msgs)) return;
+    expect(msgs).toHaveLength(3);
+    expect(msgs.map((m) => m.ciphertext)).toEqual([
+      'cipher-2',
+      'cipher-3',
+      'cipher-4',
+    ]);
+  });
 });
