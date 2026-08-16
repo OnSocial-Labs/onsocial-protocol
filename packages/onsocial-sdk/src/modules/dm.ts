@@ -51,6 +51,15 @@ export interface SendDmInput {
   media?: DmMediaRef[] | null;
 }
 
+export interface ListDmMessagesOptions {
+  limit?: number;
+  /**
+   * Load messages older than this id (cursor pagination).
+   * Pass the oldest message id currently displayed.
+   */
+  beforeMessageId?: string;
+}
+
 /**
  * Private E2EE DM mailbox via gateway.
  * Client encrypts before send; server stores ciphertext only.
@@ -66,13 +75,15 @@ export class DmModule {
 
   async listMessages(
     threadId: string,
-    opts?: { limit?: number }
-  ): Promise<{ messages: DmMessageRecord[] }> {
-    const q =
-      opts?.limit != null
-        ? `?limit=${encodeURIComponent(String(opts.limit))}`
-        : '';
-    return this.http.get<{ messages: DmMessageRecord[] }>(
+    opts?: ListDmMessagesOptions
+  ): Promise<{ messages: DmMessageRecord[]; hasMore: boolean }> {
+    const qs = new URLSearchParams();
+    if (opts?.limit != null) qs.set('limit', String(opts.limit));
+    if (opts?.beforeMessageId) {
+      qs.set('beforeMessageId', opts.beforeMessageId);
+    }
+    const q = qs.toString() ? `?${qs.toString()}` : '';
+    return this.http.get<{ messages: DmMessageRecord[]; hasMore: boolean }>(
       `/developer/dm/threads/${encodeURIComponent(threadId)}${q}`
     );
   }

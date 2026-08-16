@@ -71,6 +71,9 @@ interface NotificationStore {
     recipient: string;
     ids?: string[];
     all?: boolean;
+    /** When set with type, mark matching unread rows (e.g. DM thread context). */
+    type?: string;
+    contextContains?: Record<string, unknown>;
   }): Promise<number>;
 }
 
@@ -149,6 +152,8 @@ class MemoryNotificationStore implements NotificationStore {
     recipient: string;
     ids?: string[];
     all?: boolean;
+    type?: string;
+    contextContains?: Record<string, unknown>;
   }): Promise<number> {
     let updated = 0;
     for (const item of this.notifications) {
@@ -157,10 +162,18 @@ class MemoryNotificationStore implements NotificationStore {
         item.appId === params.appId &&
         item.recipient === params.recipient &&
         !item.read;
+      const matchesType = !params.type || item.type === params.type;
+      const matchesContext =
+        !params.contextContains ||
+        Object.entries(params.contextContains).every(
+          ([key, value]) => item.context?.[key] === value
+        );
       const matchesSelection =
-        params.all || (params.ids?.includes(item.id) ?? false);
+        params.all ||
+        (params.ids?.includes(item.id) ?? false) ||
+        (Boolean(params.type) && matchesType && matchesContext);
 
-      if (matchesScope && matchesSelection) {
+      if (matchesScope && matchesType && matchesContext && matchesSelection) {
         item.read = true;
         updated++;
       }
@@ -360,7 +373,47 @@ class HasuraNotificationStore implements NotificationStore {
     recipient: string;
     ids?: string[];
     all?: boolean;
+    type?: string;
+    contextContains?: Record<string, unknown>;
   }): Promise<number> {
+    if (params.type && params.contextContains && !params.all && !params.ids) {
+      const result = await this.gql<{
+        updateNotifications: { affectedRows: number };
+      }>(
+        `mutation(
+          $owner: String!,
+          $app: String!,
+          $recipient: String!,
+          $type: String!,
+          $context: jsonb!,
+          $readAt: timestamptz!
+        ) {
+          updateNotifications(
+            where: {
+              ownerAccountId: { _eq: $owner }
+              appId: { _eq: $app }
+              recipient: { _eq: $recipient }
+              notificationType: { _eq: $type }
+              read: { _eq: false }
+              context: { _contains: $context }
+            }
+            _set: { read: true, readAt: $readAt }
+          ) {
+            affectedRows
+          }
+        }`,
+        {
+          owner: params.ownerAccountId,
+          app: params.appId,
+          recipient: params.recipient,
+          type: params.type,
+          context: params.contextContains,
+          readAt: new Date().toISOString(),
+        }
+      );
+      return result.updateNotifications.affectedRows;
+    }
+
     const mutation = params.all
       ? `mutation($owner: String!, $app: String!, $recipient: String!, $readAt: timestamptz!) {
           updateNotifications(
@@ -485,6 +538,28 @@ export async function markNotificationsRead(params: {
     ids: params.ids,
     all: params.all,
   });
+}
+
+/** Mark unread `dm` notifications for a thread when the mailbox is marked read. */
+export async function markDmNotificationsReadForThread(
+  accountId: string,
+  threadId: string
+): Promise<number> {
+  const id = accountId.trim().toLowerCase();
+  const thread = threadId.trim();
+  if (!id || !thread) return 0;
+  try {
+    return await store.markRead({
+      ownerAccountId: id,
+      appId: 'default',
+      recipient: id,
+      type: 'dm',
+      contextContains: { threadId: thread },
+    });
+  } catch (error) {
+    logger.warn({ error, threadId: thread }, 'Failed to sync DM notifications');
+    return 0;
+  }
 }
 
 export function listNotificationTypes(): readonly NotificationType[] {

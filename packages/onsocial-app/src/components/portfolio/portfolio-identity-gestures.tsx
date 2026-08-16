@@ -28,7 +28,7 @@ import {
 } from '@/lib/block-confirm-copy';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
+import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { messagesPath } from '@/lib/app-routes';
@@ -78,6 +78,8 @@ export function PortfolioIdentityGestures({
   const mutePending = isMutePendingForTarget(pageAccountId);
   const blockPending = isBlockPendingForTarget(pageAccountId);
   const blockEitherWay = isBlockEitherWay(pageAccountId);
+  const viewerMuted = muted || isViewerMuting(pageAccountId);
+  const messagingBlocked = blockEitherWay || viewerMuted;
 
   const runBlock = async (shouldBlock: boolean) => {
     try {
@@ -293,12 +295,18 @@ export function PortfolioIdentityGestures({
           <button
             type="button"
             className="portfolio-identity-gesture portfolio-identity-gesture--message group"
-            disabled={blockEitherWay}
+            disabled={messagingBlocked}
             onClick={() => {
-              if (blockEitherWay) return;
+              if (messagingBlocked) return;
               setMessageOpen(true);
             }}
-            aria-label={`Message ${label}`}
+            aria-label={
+              viewerMuted
+                ? `Unmute to message ${label}`
+                : blockEitherWay
+                  ? `Messaging unavailable for ${label}`
+                  : `Message ${label}`
+            }
           >
             Message
           </button>

@@ -70,6 +70,58 @@ describe('dm crypto', () => {
     ).toThrow(/authentication failed/);
   });
 
+  it('rejects stripped auth tag on ephemeral envelopes', () => {
+    const alice = generateDmKeyPair();
+    const bob = generateDmKeyPair();
+    const sealed = sealDmText({
+      text: 'hello bob',
+      recipientPublicKey: bob.publicKey,
+      senderKeyPair: alice,
+    });
+    expect(() =>
+      openDmText({
+        ciphertext: sealed.ciphertext,
+        nonce: sealed.nonce,
+        senderPubkey: sealed.senderPubkey,
+        ephemeralPubkey: sealed.ephemeralPubkey,
+        recipientSecretKey: bob.secretKey,
+      })
+    ).toThrow(/requires auth tag/);
+  });
+
+  it('binds media CIDs into the auth tag', () => {
+    const alice = generateDmKeyPair();
+    const bob = generateDmKeyPair();
+    const sealed = sealDmText({
+      text: 'with photo',
+      recipientPublicKey: bob.publicKey,
+      senderKeyPair: alice,
+      mediaCids: ['cid-b', 'cid-a'],
+    });
+    expect(
+      openDmText({
+        ciphertext: sealed.ciphertext,
+        nonce: sealed.nonce,
+        senderPubkey: sealed.senderPubkey,
+        ephemeralPubkey: sealed.ephemeralPubkey,
+        authTag: sealed.authTag,
+        recipientSecretKey: bob.secretKey,
+        mediaCids: ['cid-a', 'cid-b'],
+      }).text
+    ).toBe('with photo');
+    expect(() =>
+      openDmText({
+        ciphertext: sealed.ciphertext,
+        nonce: sealed.nonce,
+        senderPubkey: sealed.senderPubkey,
+        ephemeralPubkey: sealed.ephemeralPubkey,
+        authTag: sealed.authTag,
+        recipientSecretKey: bob.secretKey,
+        mediaCids: ['cid-swapped'],
+      })
+    ).toThrow(/authentication failed/);
+  });
+
   it('opens legacy identity-key seals when ephemeral is absent', async () => {
     const nacl = (await import('tweetnacl')).default;
     const { decodeUTF8, encodeBase64 } = await import('tweetnacl-util');

@@ -32523,6 +32523,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: rgb(var(--fg-rgb) / 0.04);
 }
 
+.messages-load-older {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
 .dm-compose-form,
 .dm-recovery-sheet {
   display: grid;

@@ -727,6 +727,8 @@ export interface StorageUploadResponse {
 
 export interface ApiError {
   error: string;
+  /** Machine-readable gateway code when present (e.g. MUTED, BLOCKED). */
+  code?: string;
   details?: string;
   tier?: Tier;
   limit?: number;
