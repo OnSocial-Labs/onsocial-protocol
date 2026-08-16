@@ -32,7 +32,7 @@ import { messagesPath } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
-import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
+import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
@@ -163,6 +163,10 @@ export function DmComposeSheet({
     }
     if (isBlockEitherWay(peerAccountId)) {
       setError('Messaging is unavailable while a block is in place.');
+      return;
+    }
+    if (isViewerMuting(peerAccountId)) {
+      setError('You muted them. Unmute to send a message.');
       return;
     }
     if (!hasSocialSession) {

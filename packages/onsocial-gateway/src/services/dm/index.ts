@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { logger } from '../../logger.js';
 import { checkBlockEitherWay } from '../blocks/index.js';
-import { hasMute } from '../mutes/index.js';
+import { checkMute } from '../mutes/index.js';
 import { markDmNotificationsReadForThread } from '../notifications/index.js';
 
 export interface DmMediaRef {
@@ -605,18 +605,14 @@ function validateCipherFields(input: {
   if (!senderPubkey || senderPubkey.length > MAX_PUBKEY_CHARS) {
     return { code: 'INVALID_PAYLOAD', message: 'senderPubkey is required' };
   }
-  if (ephemeralPubkey.length > MAX_PUBKEY_CHARS) {
-    return { code: 'INVALID_PAYLOAD', message: 'Invalid ephemeralPubkey' };
-  }
-  if (authTag.length > MAX_AUTH_TAG_CHARS) {
-    return { code: 'INVALID_PAYLOAD', message: 'Invalid authTag' };
-  }
-  // New authenticated envelopes require ephemeral + authTag together.
-  if (authTag && !ephemeralPubkey) {
+  if (!ephemeralPubkey || ephemeralPubkey.length > MAX_PUBKEY_CHARS) {
     return {
       code: 'INVALID_PAYLOAD',
-      message: 'authTag requires ephemeralPubkey',
+      message: 'ephemeralPubkey is required',
     };
+  }
+  if (!authTag || authTag.length > MAX_AUTH_TAG_CHARS) {
+    return { code: 'INVALID_PAYLOAD', message: 'authTag is required' };
   }
   if (senderCiphertext.length > MAX_CIPHERTEXT_CHARS) {
     return { code: 'INVALID_PAYLOAD', message: 'senderCiphertext too large' };
@@ -661,13 +657,27 @@ export async function sendDmMessage(
     };
   }
 
-  if (await hasMute(recipient, sender)) {
+  const incomingMute = await checkMute(recipient, sender);
+  if (!incomingMute.ok) {
+    return {
+      code: 'UNAVAILABLE',
+      message: 'Could not verify messaging permission. Try again.',
+    };
+  }
+  if (incomingMute.muted) {
     return {
       code: 'MUTED',
       message: 'They muted you, so you can’t message them.',
     };
   }
-  if (await hasMute(sender, recipient)) {
+  const outgoingMute = await checkMute(sender, recipient);
+  if (!outgoingMute.ok) {
+    return {
+      code: 'UNAVAILABLE',
+      message: 'Could not verify messaging permission. Try again.',
+    };
+  }
+  if (outgoingMute.muted) {
     return {
       code: 'MUTED',
       message: 'You muted them. Unmute to send a message.',

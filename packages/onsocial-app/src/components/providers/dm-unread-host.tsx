@@ -165,6 +165,8 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
       setTxResultRef.current({
         type: 'success',
         msg: txToastSuccess.newPrivateMessage,
+        actionHref: APP_MESSAGES_PATH,
+        actionLabel: 'Open messages',
       });
     }
   }, [unread]);

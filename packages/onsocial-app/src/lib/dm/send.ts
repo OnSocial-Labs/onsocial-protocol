@@ -6,10 +6,13 @@ import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
 import { ensureAppGatewayAuth } from '@/lib/app-gateway-auth';
 import {
   decodeDmPublicKey,
+  encodeDmPublicKey,
+  generateDmKeyPair,
   openDmBytes,
   openDmText,
   sealDmBytes,
   sealDmText,
+  type DmKeyPair,
 } from '@/lib/dm/crypto';
 import {
   DmKeysLockedError,
@@ -37,6 +40,12 @@ export type SendDmResult =
     }
   | { ok: false; error: string; needsUnlock?: boolean };
 
+const DECRYPT_FAIL_PLACEHOLDER = 'Unable to decrypt on this device.';
+
+export function isDmDecryptFailureText(text: string | undefined): boolean {
+  return !text || text === DECRYPT_FAIL_PLACEHOLDER;
+}
+
 function mapSendError(error: unknown): { error: string; needsUnlock?: boolean } {
   if (error instanceof DmKeysLockedError || error instanceof DmKeysMismatchError) {
     return { error: error.message, needsUnlock: true };
@@ -52,6 +61,11 @@ function mapSendError(error: unknown): { error: string; needsUnlock?: boolean } 
     if (error.code === 'BLOCKED') {
       return {
         error: 'Messaging is unavailable while a block is in place.',
+      };
+    }
+    if (error.code === 'UNAVAILABLE') {
+      return {
+        error: 'Could not verify messaging permission. Try again.',
       };
     }
     return { error: error.message };
@@ -85,7 +99,8 @@ async function sealAndUploadMedia(opts: {
   client: OnSocial;
   file: File;
   recipientPublicKey: Uint8Array;
-  senderKeyPair: NonNullable<ReturnType<typeof loadDmKeyPair>>;
+  senderKeyPair: DmKeyPair;
+  ephemeral: DmKeyPair;
 }): Promise<{
   cid: string;
   mime: string;
@@ -98,12 +113,13 @@ async function sealAndUploadMedia(opts: {
     bytes,
     recipientPublicKey: opts.recipientPublicKey,
     senderKeyPair: opts.senderKeyPair,
+    ephemeral: opts.ephemeral,
   });
   const forSender = sealDmBytes({
     bytes,
     recipientPublicKey: opts.senderKeyPair.publicKey,
     senderKeyPair: opts.senderKeyPair,
-    ephemeral: forRecipient.ephemeral,
+    ephemeral: opts.ephemeral,
   });
   const envelope = new TextEncoder().encode(
     JSON.stringify({
@@ -191,12 +207,7 @@ export async function sendEncryptedDm(opts: {
     };
   }
   const recipientPubkey = recipientLookup.value;
-
-  const sealed = sealDmText({
-    text: opts.text.trim() || (opts.mediaFile ? '' : ''),
-    recipientPublicKey: recipientPubkey,
-    senderKeyPair: keys.keyPair,
-  });
+  const sharedEphemeral = generateDmKeyPair();
 
   let media:
     | Array<{
@@ -214,9 +225,18 @@ export async function sendEncryptedDm(opts: {
         file: opts.mediaFile,
         recipientPublicKey: recipientPubkey,
         senderKeyPair: keys.keyPair,
+        ephemeral: sharedEphemeral,
       }),
     ];
   }
+
+  const sealed = sealDmText({
+    text: opts.text.trim() || (opts.mediaFile ? '' : ''),
+    recipientPublicKey: recipientPubkey,
+    senderKeyPair: keys.keyPair,
+    ephemeral: sharedEphemeral,
+    mediaCids: media?.map((item) => item.cid) ?? null,
+  });
 
   try {
     await withDmAuth(opts);
@@ -244,6 +264,7 @@ export async function sendEncryptedDm(opts: {
 }
 
 export async function decryptDmMessage(opts: {
+  client: OnSocial;
   accountId: string;
   ciphertext: string;
   nonce: string;
@@ -253,6 +274,12 @@ export async function decryptDmMessage(opts: {
   senderNonce?: string | null;
   ephemeralPubkey?: string | null;
   authTag?: string | null;
+  mediaCids?: readonly string[] | null;
+  /**
+   * When set, skip profile lookup and require the claimed senderPubkey to match.
+   * Pass from a per-thread cache after one successful lookup.
+   */
+  expectedSenderPublicKey?: Uint8Array | null;
 }): Promise<string> {
   const keyPair = loadDmKeyPair(opts.accountId);
   if (!keyPair) {
@@ -261,6 +288,27 @@ export async function decryptDmMessage(opts: {
   const viewerIsSender =
     opts.senderAccountId.trim().toLowerCase() ===
     opts.accountId.trim().toLowerCase();
+
+  if (!viewerIsSender) {
+    let profileKey = opts.expectedSenderPublicKey ?? null;
+    if (!profileKey) {
+      const lookup = await lookupDmPublicKey(
+        opts.client,
+        opts.senderAccountId
+      );
+      if (lookup.status === 'unavailable') {
+        throw new Error('Could not verify sender messaging key.');
+      }
+      if (lookup.status === 'absent') {
+        throw new Error('Sender has no published messaging key.');
+      }
+      profileKey = lookup.value;
+    }
+    if (encodeDmPublicKey(profileKey) !== opts.senderPubkey.trim()) {
+      throw new Error('Sender key does not match their profile.');
+    }
+  }
+
   const body = openDmText({
     ciphertext: opts.ciphertext,
     nonce: opts.nonce,
@@ -271,6 +319,7 @@ export async function decryptDmMessage(opts: {
     ephemeralPubkey: opts.ephemeralPubkey,
     authTag: opts.authTag,
     viewerIsSender,
+    mediaCids: opts.mediaCids,
   });
   return body.text;
 }

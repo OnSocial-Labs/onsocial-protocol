@@ -124,6 +124,18 @@ function concatBytes(...parts: Uint8Array[]): Uint8Array {
  * mailbox cannot re-attribute ciphertext to another account.
  * Shared secret = ECDH(peerPublic, localSecret); tag = SHA-512 truncated.
  */
+/** Stable auth binding for attached media CIDs (order-independent). */
+export function normalizeDmMediaCidsForAuth(
+  mediaCids?: readonly string[] | null
+): string {
+  if (!mediaCids?.length) return '';
+  return mediaCids
+    .map((cid) => cid.trim())
+    .filter(Boolean)
+    .sort()
+    .join('|');
+}
+
 export function computeDmAuthTag(opts: {
   ciphertext: string;
   nonce: string;
@@ -132,6 +144,8 @@ export function computeDmAuthTag(opts: {
   /** Peer identity pubkey (recipient when sealing; claimed sender when verifying). */
   peerPublicKey: Uint8Array;
   localSecretKey: Uint8Array;
+  /** Optional media CIDs bound into the tag so mailbox cannot swap attachments. */
+  mediaCids?: readonly string[] | null;
 }): string {
   const shared = nacl.box.before(opts.peerPublicKey, opts.localSecretKey);
   const material = concatBytes(
@@ -140,7 +154,8 @@ export function computeDmAuthTag(opts: {
     decodeUTF8(opts.ciphertext.trim()),
     decodeUTF8(opts.nonce.trim()),
     decodeUTF8(opts.senderPubkey.trim()),
-    decodeUTF8(opts.ephemeralPubkey.trim())
+    decodeUTF8(opts.ephemeralPubkey.trim()),
+    decodeUTF8(normalizeDmMediaCidsForAuth(opts.mediaCids))
   );
   return encodeBase64(nacl.hash(material).slice(0, 32));
 }
@@ -153,6 +168,7 @@ export function verifyDmAuthTag(opts: {
   authTag: string;
   peerPublicKey: Uint8Array;
   localSecretKey: Uint8Array;
+  mediaCids?: readonly string[] | null;
 }): boolean {
   const expected = computeDmAuthTag({
     ciphertext: opts.ciphertext,
@@ -161,6 +177,7 @@ export function verifyDmAuthTag(opts: {
     ephemeralPubkey: opts.ephemeralPubkey,
     peerPublicKey: opts.peerPublicKey,
     localSecretKey: opts.localSecretKey,
+    mediaCids: opts.mediaCids,
   });
   const a = decodeBase64(expected);
   const b = decodeBase64(opts.authTag.trim());
@@ -171,17 +188,21 @@ export function verifyDmAuthTag(opts: {
  * Seal text with a fresh ephemeral keypair (forward secrecy for ciphertext).
  * Recipient opens with ephemeralPubkey + their secret.
  * Sender opens self-copy with ephemeralPubkey + their secret.
- * authTag binds the long-term sender identity to the envelope.
+ * authTag binds the long-term sender identity (and optional media CIDs) to the envelope.
+ * Returns the ephemeral so callers can dual-seal media with the same key.
  */
 export function sealDmText(opts: {
   text: string;
   recipientPublicKey: Uint8Array;
   senderKeyPair: DmKeyPair;
-}): DmSealedPayload {
+  /** Reuse when dual-sealing media after text (or vice versa). */
+  ephemeral?: DmKeyPair;
+  mediaCids?: readonly string[] | null;
+}): DmSealedPayload & { ephemeral: DmKeyPair } {
   const message = decodeUTF8(
     JSON.stringify({ text: opts.text } satisfies DmPlainBody)
   );
-  const ephemeral = generateDmKeyPair();
+  const ephemeral = opts.ephemeral ?? generateDmKeyPair();
   const forRecipient = boxTo(
     message,
     opts.recipientPublicKey,
@@ -201,6 +222,7 @@ export function sealDmText(opts: {
     ephemeralPubkey,
     peerPublicKey: opts.recipientPublicKey,
     localSecretKey: opts.senderKeyPair.secretKey,
+    mediaCids: opts.mediaCids,
   });
   return {
     v: DM_CRYPTO_VERSION,
@@ -211,13 +233,15 @@ export function sealDmText(opts: {
     senderPubkey,
     ephemeralPubkey,
     authTag,
+    ephemeral,
   };
 }
 
 /**
  * Open a DM. Prefer ephemeral pubkey when present (v2);
  * fall back to identity senderPubkey for legacy v1 rows.
- * When authTag is present, verify sender attribution before decrypt.
+ * v2 envelopes (ephemeral present) require authTag for recipients —
+ * stripping the tag is treated as forgery, not a legacy downgrade.
  */
 export function openDmText(opts: {
   ciphertext: string;
@@ -229,13 +253,15 @@ export function openDmText(opts: {
   senderNonce?: string | null;
   authTag?: string | null;
   viewerIsSender?: boolean;
+  mediaCids?: readonly string[] | null;
 }): DmPlainBody {
   const ephemeral = opts.ephemeralPubkey?.trim() || '';
+  const authTag = opts.authTag?.trim() || '';
   // Auth binds sender identity ↔ recipient secret. Skip for the sender's
   // self-copy (ECDH peer would be self, not the recipient).
-  if (opts.authTag?.trim() && !opts.viewerIsSender) {
-    if (!ephemeral) {
-      throw new Error('Authenticated envelope requires ephemeral pubkey');
+  if (!opts.viewerIsSender && ephemeral) {
+    if (!authTag) {
+      throw new Error('Authenticated envelope requires auth tag');
     }
     const claimedSender = decodeDmPublicKey(opts.senderPubkey);
     const ok = verifyDmAuthTag({
@@ -243,13 +269,16 @@ export function openDmText(opts: {
       nonce: opts.nonce,
       senderPubkey: opts.senderPubkey,
       ephemeralPubkey: ephemeral,
-      authTag: opts.authTag,
+      authTag,
       peerPublicKey: claimedSender,
       localSecretKey: opts.recipientSecretKey,
+      mediaCids: opts.mediaCids,
     });
     if (!ok) {
       throw new Error('Message authentication failed');
     }
+  } else if (!opts.viewerIsSender && authTag) {
+    throw new Error('Authenticated envelope requires ephemeral pubkey');
   }
 
   const peerPubkey = ephemeral

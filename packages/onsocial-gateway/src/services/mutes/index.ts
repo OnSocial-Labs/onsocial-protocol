@@ -19,6 +19,11 @@ function isValidAccountId(accountId: string): boolean {
   return accountId.length > 0 && accountId.includes('.');
 }
 
+export type MuteCheckResult =
+  | { ok: true; muted: boolean }
+  /** Hasura configured but unreachable — callers should fail closed. */
+  | { ok: false; unavailable: true };
+
 interface MuteStore {
   list(ownerAccountId: string): Promise<MuteRecord[]>;
   add(ownerAccountId: string, mutedAccountId: string): Promise<MuteRecord>;
@@ -88,14 +93,19 @@ class HasuraMuteStore implements MuteStore {
       },
       body: JSON.stringify({ query, variables }),
     });
+    if (!res.ok) {
+      throw new Error(`Hasura mutes HTTP ${res.status}`);
+    }
     const json = (await res.json()) as {
       data?: T;
       errors?: Array<{ message: string }>;
     };
-    if (json.errors?.length) {
-      throw new Error(`Hasura mutes: ${json.errors[0].message}`);
+    if (json.errors?.length || !json.data) {
+      throw new Error(
+        `Hasura mutes: ${json.errors?.[0]?.message ?? 'empty data'}`
+      );
     }
-    return json.data!;
+    return json.data;
   }
 
   async list(ownerAccountId: string): Promise<MuteRecord[]> {
@@ -258,8 +268,30 @@ export async function hasMute(
   ownerAccountId: string,
   mutedAccountId: string
 ): Promise<boolean> {
-  return store.has(
-    normalizeAccountId(ownerAccountId),
-    normalizeAccountId(mutedAccountId)
-  );
+  const result = await checkMute(ownerAccountId, mutedAccountId);
+  if (!result.ok) return true; // fail closed for boolean callers
+  return result.muted;
+}
+
+/**
+ * Tri-state mute lookup mirroring {@link checkBlockEitherWay}.
+ * - Memory store / no Hasura: not muted
+ * - Hasura error: unavailable (DM send fails closed)
+ */
+export async function checkMute(
+  ownerAccountId: string,
+  mutedAccountId: string
+): Promise<MuteCheckResult> {
+  const owner = normalizeAccountId(ownerAccountId);
+  const muted = normalizeAccountId(mutedAccountId);
+  if (!owner || !muted || owner === muted) {
+    return { ok: true, muted: false };
+  }
+  try {
+    const mutedHit = await store.has(owner, muted);
+    return { ok: true, muted: mutedHit };
+  } catch (error) {
+    logger.warn({ error }, 'checkMute failed; unavailable');
+    return { ok: false, unavailable: true };
+  }
 }

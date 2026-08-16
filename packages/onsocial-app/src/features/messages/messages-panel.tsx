@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { DmMessageRecord, DmThreadSummary } from '@onsocial/sdk';
+import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -19,7 +19,10 @@ import {
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { messagesPath } from '@/lib/app-routes';
-import { decryptDmMessage } from '@/lib/dm/send';
+import {
+  decryptDmMessage,
+  isDmDecryptFailureText,
+} from '@/lib/dm/send';
 import {
   DmKeysLockedError,
   DmKeysMismatchError,
@@ -34,6 +37,7 @@ import {
 } from '@/lib/dm/keys';
 import {
   lookupDmKeyBackup,
+  lookupDmPublicKey,
   reconcileAndPublishDmIdentity,
 } from '@/lib/dm/pubkey';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
@@ -249,10 +253,18 @@ export function MessagesPanel() {
     async (
       client: Awaited<ReturnType<typeof withAuth>>['client'],
       threadId: string,
-      msgs: DmMessageRecord[]
+      msgs: DmMessageRecord[],
+      plain: Record<string, string>
     ) => {
-      const last = msgs.at(-1);
-      if (!last) return;
+      let lastReadable: DmMessageRecord | undefined;
+      for (let i = msgs.length - 1; i >= 0; i -= 1) {
+        const msg = msgs[i]!;
+        if (!isDmDecryptFailureText(plain[msg.id])) {
+          lastReadable = msg;
+          break;
+        }
+      }
+      if (!lastReadable) return;
       if (
         typeof document !== 'undefined' &&
         document.visibilityState !== 'visible'
@@ -260,24 +272,50 @@ export function MessagesPanel() {
         return;
       }
       await client.dm.markRead(threadId, {
-        lastReadMessageId: last.id,
+        lastReadMessageId: lastReadable.id,
       });
     },
     []
   );
 
   const decryptMessages = useCallback(
-    async (next: DmMessageRecord[], threadId: string) => {
-      if (activeThreadIdRef.current !== threadId) return;
+    async (
+      client: OnSocial,
+      next: DmMessageRecord[],
+      threadId: string
+    ): Promise<Record<string, string>> => {
+      if (activeThreadIdRef.current !== threadId) return {};
       if (!accountId || !hasUnlockedDmKey(accountId)) {
         setPlainById({});
-        return;
+        return {};
       }
       const expectedAccount = accountId;
       const plain: Record<string, string> = {};
+      const senderKeyCache = new Map<
+        string,
+        Awaited<ReturnType<typeof lookupDmPublicKey>>
+      >();
       for (const msg of next) {
         try {
+          const senderId = msg.senderAccountId.trim().toLowerCase();
+          const viewerIsSender = senderId === accountId.trim().toLowerCase();
+          let expectedSenderPublicKey: Uint8Array | null | undefined;
+          if (!viewerIsSender) {
+            let lookup = senderKeyCache.get(senderId);
+            if (!lookup) {
+              lookup = await lookupDmPublicKey(client, senderId);
+              senderKeyCache.set(senderId, lookup);
+            }
+            if (lookup.status === 'unavailable') {
+              throw new Error('Could not verify sender messaging key.');
+            }
+            if (lookup.status === 'absent') {
+              throw new Error('Sender has no published messaging key.');
+            }
+            expectedSenderPublicKey = lookup.value;
+          }
           plain[msg.id] = await decryptDmMessage({
+            client,
             accountId,
             ciphertext: msg.ciphertext,
             nonce: msg.nonce,
@@ -287,14 +325,17 @@ export function MessagesPanel() {
             senderNonce: msg.senderNonce,
             ephemeralPubkey: msg.ephemeralPubkey,
             authTag: msg.authTag,
+            mediaCids: msg.media?.map((item) => item.cid) ?? null,
+            expectedSenderPublicKey,
           });
         } catch {
           plain[msg.id] = 'Unable to decrypt on this device.';
         }
       }
-      if (activeThreadIdRef.current !== threadId) return;
-      if (!isCurrentAccount(expectedAccount)) return;
-      setPlainById(plain);
+      if (activeThreadIdRef.current !== threadId) return plain;
+      if (!isCurrentAccount(expectedAccount)) return plain;
+      setPlainById((prev) => ({ ...prev, ...plain }));
+      return plain;
     },
     [accountId, isCurrentAccount]
   );
@@ -328,6 +369,7 @@ export function MessagesPanel() {
       }
       setMessages(next);
       setHasMoreMessages(hasMore);
+      setPlainById({});
       const unlocked = Boolean(accountId && hasUnlockedDmKey(accountId));
       if (
         openThreadSeqRef.current !== seq ||
@@ -336,7 +378,7 @@ export function MessagesPanel() {
       ) {
         return;
       }
-      await decryptMessages(next, threadId);
+      const plain = await decryptMessages(client, next, threadId);
       if (
         openThreadSeqRef.current !== seq ||
         accountGenRef.current !== gen ||
@@ -345,7 +387,7 @@ export function MessagesPanel() {
         return;
       }
       if (unlocked) {
-        await markThreadReadThrough(client, threadId, next);
+        await markThreadReadThrough(client, threadId, next, plain);
         requestDmUnreadRefresh();
       }
       void refreshThreads();
@@ -401,7 +443,7 @@ export function MessagesPanel() {
         if (!prev || prev.length <= THREAD_PAGE_SIZE) {
           setHasMoreMessages(hasMore);
         }
-        await decryptMessages(merged, threadId);
+        const plain = await decryptMessages(client, merged, threadId);
         if (
           grew &&
           accountId &&
@@ -410,7 +452,7 @@ export function MessagesPanel() {
           accountGenRef.current === gen &&
           isCurrentAccount(expectedAccount)
         ) {
-          await markThreadReadThrough(client, threadId, merged);
+          await markThreadReadThrough(client, threadId, merged, plain);
           requestDmUnreadRefresh();
           void refreshThreads();
         }
@@ -515,7 +557,7 @@ export function MessagesPanel() {
       });
       setMessages(merged);
       setHasMoreMessages(hasMore);
-      await decryptMessages(merged, activeThreadId);
+      await decryptMessages(client, merged, activeThreadId);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'Could not load older messages.'
