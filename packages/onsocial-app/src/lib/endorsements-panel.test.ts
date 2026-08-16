@@ -45,3 +45,12 @@ describe('endorsements panel payload shape', () => {
     expect(sample.givenHasMore).toBe(true);
   });
 });
+
+describe('endorse compose intent contract', () => {
+  it('documents create vs edit vs auto roles', () => {
+    const intents = ['auto', 'create', 'edit'] as const;
+    expect(intents).toContain('auto');
+    expect(intents).toContain('create');
+    expect(intents).toContain('edit');
+  });
+});

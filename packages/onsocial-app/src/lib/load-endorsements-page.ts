@@ -29,39 +29,54 @@ export function enrichEndorsementItem(
 }
 
 async function enrichList(
-  items: EndorsementListItem[]
+  items: EndorsementListItem[],
+  profiles?: Map<string, ProfileSearchRow>
 ): Promise<EndorsementPanelItem[]> {
   if (items.length === 0) return [];
-  const os = createAppOnSocialClient();
-  const accountIds = [
-    ...new Set(items.flatMap((item) => [item.issuer, item.target])),
-  ];
-  const profiles = profileMap(
-    await os.query.profiles.statsForAccounts(accountIds).catch(() => [])
-  );
-  return items.map((item) => enrichEndorsementItem(item, profiles));
+  const map =
+    profiles ??
+    profileMap(
+      await createAppOnSocialClient()
+        .query.profiles.statsForAccounts([
+          ...new Set(items.flatMap((item) => [item.issuer, item.target])),
+        ])
+        .catch(() => [])
+    );
+  return items.map((item) => enrichEndorsementItem(item, map));
 }
 
-/** SSR endorsements shell — both rails + counts (same as initial API). */
+/** SSR endorsements shell — counts + both rails (enriched). */
 export const loadEndorsementsPageData = cache(
   async (accountId: string): Promise<EndorsementsPanelResponse | null> => {
     const id = accountId.trim();
     if (!id) return null;
     try {
       const os = createAppOnSocialClient();
-      const [bundle, receivedItems, givenItems] = await Promise.all([
-        os.endorsements.previewBundle(id, { limit: ENDORSEMENTS_PAGE_SIZE }),
+      const [counts, receivedItems, givenItems] = await Promise.all([
+        os.endorsements.counts(id),
         os.endorsements.listReceived(id, { limit: ENDORSEMENTS_PAGE_SIZE }),
         os.endorsements.listGiven(id, { limit: ENDORSEMENTS_PAGE_SIZE }),
       ]);
-      const profiles = profileMap(bundle.profiles);
+      const participantIds = [
+        ...new Set(
+          [...receivedItems, ...givenItems].flatMap((item) => [
+            item.issuer,
+            item.target,
+          ])
+        ),
+      ];
+      const profiles = profileMap(
+        participantIds.length > 0
+          ? await os.query.profiles
+              .statsForAccounts(participantIds)
+              .catch(() => [])
+          : []
+      );
       return {
         accountId: id,
-        counts: bundle.counts,
-        received: receivedItems.map((item) =>
-          enrichEndorsementItem(item, profiles)
-        ),
-        given: givenItems.map((item) => enrichEndorsementItem(item, profiles)),
+        counts,
+        received: await enrichList(receivedItems, profiles),
+        given: await enrichList(givenItems, profiles),
         receivedHasMore: receivedItems.length >= ENDORSEMENTS_PAGE_SIZE,
         givenHasMore: givenItems.length >= ENDORSEMENTS_PAGE_SIZE,
       };

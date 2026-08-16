@@ -9,7 +9,10 @@ import type {
   EndorsementsPanelResponse,
 } from '@/lib/endorsements-panel-data';
 import { ENDORSEMENTS_PAGE_SIZE } from '@/lib/endorsements-panel-data';
-import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
+import {
+  EndorseComposeSheet,
+  type EndorseComposeIntent,
+} from '@/components/panels/endorse-compose-sheet';
 import {
   EndorsementListRow,
   EndorsementListSkeleton,
@@ -28,6 +31,14 @@ interface EndorsementsPanelProps {
   mood?: ResolvedMood | null;
   initial?: EndorsementsPanelResponse | null;
 }
+
+type ComposeSession = {
+  targetAccountId: string;
+  targetName: string | null;
+  targetAvatarUrl: string | null;
+  intent: EndorseComposeIntent;
+  existing: EndorseExistingDraft | null;
+};
 
 async function fetchEndorsementsBundle(
   accountId: string
@@ -116,8 +127,9 @@ export function EndorsementsPanel({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeExisting, setComposeExisting] =
-    useState<EndorseExistingDraft | null>(null);
+  const [composeSession, setComposeSession] = useState<ComposeSession | null>(
+    null
+  );
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const isSelf =
@@ -153,7 +165,8 @@ export function EndorsementsPanel({
     void load({ soft: Boolean(initial) });
   }, [accountId, initial, load]);
 
-  const items = mode === 'received' ? (data?.received ?? []) : (data?.given ?? []);
+  const items =
+    mode === 'received' ? (data?.received ?? []) : (data?.given ?? []);
   const hasMore =
     mode === 'received'
       ? Boolean(data?.receivedHasMore)
@@ -172,21 +185,19 @@ export function EndorsementsPanel({
       );
       setData((prev) => {
         if (!prev) return prev;
-        const merged =
-          mode === 'received'
-            ? {
-                ...prev,
-                counts: page.counts,
-                received: [...prev.received, ...page.items],
-                receivedHasMore: page.hasMore,
-              }
-            : {
-                ...prev,
-                counts: page.counts,
-                given: [...prev.given, ...page.items],
-                givenHasMore: page.hasMore,
-              };
-        return merged;
+        return mode === 'received'
+          ? {
+              ...prev,
+              counts: page.counts,
+              received: [...prev.received, ...page.items],
+              receivedHasMore: page.hasMore,
+            }
+          : {
+              ...prev,
+              counts: page.counts,
+              given: [...prev.given, ...page.items],
+              givenHasMore: page.hasMore,
+            };
       });
     } catch {
       /* Keep prior list; user can retry by scrolling again. */
@@ -203,17 +214,23 @@ export function EndorsementsPanel({
     },
   });
 
-  function openCompose(draft: EndorseExistingDraft | null = null) {
+  function openCompose(session: ComposeSession) {
     if (!isConnected) {
       void connect();
       return;
     }
-    setComposeExisting(draft);
+    setComposeSession(session);
     setComposeOpen(true);
   }
 
   function handleEndorseClick() {
-    openCompose(null);
+    openCompose({
+      targetAccountId: accountId,
+      targetName: profileName,
+      targetAvatarUrl: avatarUrl,
+      intent: 'create',
+      existing: null,
+    });
   }
 
   return (
@@ -293,8 +310,7 @@ export function EndorsementsPanel({
           {items.map((item) => {
             const viewerOwns =
               Boolean(viewerAccountId) &&
-              accountIdsEqual(viewerAccountId!, item.issuer) &&
-              accountIdsEqual(item.target, accountId);
+              accountIdsEqual(viewerAccountId!, item.issuer);
             return (
               <EndorsementListRow
                 key={rowKey(item)}
@@ -304,8 +320,14 @@ export function EndorsementsPanel({
                 canEdit={viewerOwns}
                 onEdit={() =>
                   openCompose({
-                    topic: item.topic ?? null,
-                    note: item.note ?? null,
+                    targetAccountId: item.target,
+                    targetName: item.targetName,
+                    targetAvatarUrl: item.targetAvatarUrl,
+                    intent: 'edit',
+                    existing: {
+                      topic: item.topic ?? null,
+                      note: item.note ?? null,
+                    },
                   })
                 }
               />
@@ -320,14 +342,20 @@ export function EndorsementsPanel({
 
       <EndorseComposeSheet
         open={composeOpen}
-        pageAccountId={accountId}
-        profileName={profileName}
-        avatarUrl={avatarUrl}
-        mood={mood}
-        existing={composeExisting}
+        pageAccountId={composeSession?.targetAccountId ?? accountId}
+        profileName={composeSession?.targetName ?? profileName}
+        avatarUrl={composeSession?.targetAvatarUrl ?? avatarUrl}
+        mood={
+          composeSession &&
+          !accountIdsEqual(composeSession.targetAccountId, accountId)
+            ? null
+            : mood
+        }
+        intent={composeSession?.intent ?? 'create'}
+        existing={composeSession?.existing ?? null}
         onOpenChange={(next) => {
           setComposeOpen(next);
-          if (!next) setComposeExisting(null);
+          if (!next) setComposeSession(null);
         }}
         onSuccess={() => void load({ soft: true })}
       />

@@ -26,9 +26,7 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
-import {
-  humanizeEndorsementTopic,
-} from '@/lib/endorsement-display';
+import { humanizeEndorsementTopic } from '@/lib/endorsement-display';
 import type { EndorseExistingDraft } from '@/lib/endorsements-panel-data';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -46,17 +44,23 @@ const SUGGESTED_TOPICS = [
   'Research',
 ] as const;
 
+/**
+ * `auto` — face/drawer: load viewer’s latest vouch and edit if present.
+ * `create` — panel Endorse: always a fresh vouch (multi-topic).
+ * `edit` — row Edit: prefill the supplied draft.
+ */
+export type EndorseComposeIntent = 'auto' | 'create' | 'edit';
+
 export interface EndorseComposeSheetProps {
   open: boolean;
+  /** Endorsement target (the account being vouched for). */
   pageAccountId: string;
   profileName?: string | null;
   avatarUrl?: string | null;
   /** Page owner mood when already known (portfolio). Otherwise fetched. */
   mood?: ResolvedMood | null;
-  /**
-   * Prefill when editing a known row. When omitted, the sheet loads the
-   * viewer’s most recent vouch to this target (if any).
-   */
+  intent?: EndorseComposeIntent;
+  /** Required when `intent="edit"`. Ignored for `create`. */
   existing?: EndorseExistingDraft | null;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
@@ -65,7 +69,7 @@ export interface EndorseComposeSheetProps {
 /**
  * Face Endorse compose — same hug gesture family as Support (host mood +
  * OsGestureSheet). Bordered type-ins so mood wash shows through. Edit/remove
- * via upsert; dirty close uses discard confirm; rewards on first save.
+ * via upsert; dirty close uses discard confirm; rewards on first create save.
  */
 export function EndorseComposeSheet({
   open,
@@ -73,6 +77,7 @@ export function EndorseComposeSheet({
   profileName = null,
   avatarUrl: _avatarUrl = null,
   mood = null,
+  intent = 'auto',
   existing = null,
   onOpenChange,
   onSuccess,
@@ -141,7 +146,10 @@ export function EndorseComposeSheet({
     setPending(false);
     setRemoving(false);
 
-    const applyDraft = (draft: EndorseExistingDraft | null, editing: boolean) => {
+    const applyDraft = (
+      draft: EndorseExistingDraft | null,
+      editing: boolean
+    ) => {
       const nextTopic = humanizeEndorsementTopic(draft?.topic);
       const nextNote = draft?.note?.trim() ?? '';
       setTopic(nextTopic);
@@ -151,8 +159,14 @@ export function EndorseComposeSheet({
       setIsEditing(editing);
     };
 
-    if (existing) {
-      applyDraft(existing, true);
+    if (intent === 'edit') {
+      applyDraft(existing ?? null, true);
+      setLoadingExisting(false);
+      return;
+    }
+
+    if (intent === 'create') {
+      applyDraft(null, false);
       setLoadingExisting(false);
       return;
     }
@@ -193,6 +207,7 @@ export function EndorseComposeSheet({
     };
   }, [
     open,
+    intent,
     existing,
     isConnected,
     isSelf,
@@ -213,10 +228,7 @@ export function EndorseComposeSheet({
   }, [clearDiscardConfirm, onOpenChange]);
 
   const canSubmit =
-    !isSelf &&
-    isConnected &&
-    !busy &&
-    (!isEditing || dirty);
+    !isSelf && isConnected && !busy && (!isEditing || dirty);
 
   async function handleSubmit() {
     setFieldError(null);
@@ -240,9 +252,8 @@ export function EndorseComposeSheet({
     setPending(true);
     try {
       const { client, session } = await getClient();
-      const previousTopic = isEditing
-        ? normalizeEndorsementTopic(baselineTopic)
-        : undefined;
+      // When editing, always pass previousTopic ('' = general path) so topic
+      // moves withdraw the prior slot — including general → named.
       const response = await client.endorsements.upsert(
         pageAccountId,
         {
@@ -250,7 +261,12 @@ export function EndorseComposeSheet({
           ...(trimmedNote ? { note: trimmedNote } : {}),
         },
         {
-          ...(previousTopic !== undefined ? { previousTopic } : {}),
+          ...(isEditing
+            ? {
+                previousTopic:
+                  normalizeEndorsementTopic(baselineTopic) ?? '',
+              }
+            : {}),
           wait: true,
         }
       );
