@@ -31506,6 +31506,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   box-sizing: border-box;
 }
 
+.protocol-task-form .guild-field .os-choice-chip {
+  align-self: flex-start;
+}
+
 .protocol-task-form .guild-field > textarea {
   resize: vertical;
   min-height: 5.5rem;
