@@ -313,12 +313,15 @@ export const txToastError = {
 /** Governance / partners — formal one-liners for DAO act_proposal flows. */
 export const txToastGovPending = {
   actionSubmitted: (actionLabel: string) => `${actionLabel} submitted…`,
+  creatingDao: 'Creating DAO…',
 } as const;
 
 export const txToastGovSuccess = {
   actionConfirmed: (actionLabel: string) => `${actionLabel} confirmed.`,
+  daoCreated: 'DAO created.',
 } as const;
 
 export const txToastGovError = {
   actionFailed: (actionLabel: string) => `${actionLabel} failed.`,
+  daoCreateFailed: 'Could not create DAO.',
 } as const;
