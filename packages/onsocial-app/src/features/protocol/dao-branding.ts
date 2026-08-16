@@ -32,6 +32,8 @@ export interface DaoBranding {
   /** Raw ipfs / https ref for round-trip. */
   avatar: string | null;
   banner: string | null;
+  /** Normalized profile links from metadata (when present). */
+  links: Record<string, string> | null;
   avatarUrl: string | null;
   bannerUrl: string | null;
   bannerMedia: ResolvedPageHero | null;
@@ -44,6 +46,7 @@ export interface DaoBrandingPayload {
   description?: string | null;
   avatar?: string | null;
   banner?: string | null;
+  links?: Record<string, string> | null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -65,6 +68,20 @@ function readString(record: Record<string, unknown>, key: string): string | null
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function readLinks(
+  record: Record<string, unknown>
+): Record<string, string> | null {
+  const value = record.links;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const next: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'string' && entry.trim()) {
+      next[key] = entry.trim();
+    }
+  }
+  return Object.keys(next).length > 0 ? next : null;
+}
+
 /** Parse OnSocial branding from Sputnik `metadata` string. */
 export function parseDaoBrandingMetadata(
   metadata: string | null | undefined
@@ -84,6 +101,7 @@ export function parseDaoBrandingMetadata(
     description: readString(onsocial, 'description'),
     avatar: readString(onsocial, 'avatar'),
     banner: readString(onsocial, 'banner'),
+    links: readLinks(onsocial),
   };
 }
 
@@ -95,6 +113,7 @@ export function buildDaoBrandingMetadata(
     description?: string | null;
     avatar?: string | null;
     banner?: string | null;
+    links?: Record<string, string> | null;
   }
 ): string {
   const raw = existingMetadata?.trim();
@@ -121,6 +140,13 @@ export function buildDaoBrandingMetadata(
   if (branding.banner !== undefined) {
     if (branding.banner) next.banner = branding.banner;
     else delete next.banner;
+  }
+  if (branding.links !== undefined) {
+    if (branding.links && Object.keys(branding.links).length > 0) {
+      next.links = branding.links;
+    } else {
+      delete next.links;
+    }
   }
   return JSON.stringify({
     ...root,
@@ -213,6 +239,12 @@ export function composeDaoBranding(opts: {
     description,
     avatar,
     banner,
+    links:
+      meta?.links ??
+      (profile?.links && Object.keys(profile.links).length > 0
+        ? profile.links
+        : null),
+
     avatarUrl,
     bannerUrl,
     bannerMedia,

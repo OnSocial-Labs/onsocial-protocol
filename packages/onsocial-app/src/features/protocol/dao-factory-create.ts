@@ -3,9 +3,16 @@ import {
   ACTIVE_NEAR_NETWORK,
   SPUTNIK_DAO_FACTORY,
   SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT,
+  SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR,
+  SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR,
 } from '@/lib/app-config';
-import { extractNearTransactionHashes, viewAccount } from '@/lib/app-near-rpc';
+import {
+  extractNearTransactionHashes,
+  nearToYocto,
+  viewAccount,
+} from '@/lib/app-near-rpc';
 import { isValidNearAccountId } from '@/lib/app-near-account';
+import { daysToProposalPeriodNs } from '@/features/protocol/protocol-policy';
 
 /** Gas for factory `create` (300 TGas). */
 export const DAO_FACTORY_CREATE_GAS = '300000000000000';
@@ -19,14 +26,46 @@ export const DAO_FACTORY_NAME_MAX = 64;
 /** Purpose max (Sputnik config.purpose). */
 export const DAO_FACTORY_PURPOSE_MAX = 240;
 
+/** Simple majority — matches Settings / gov style (same math as factory 1/2). */
+export const DAO_FACTORY_VOTE_THRESHOLD: [number, number] = [50, 100];
+
+/** Factory-default council permissions (not full `*:*`). */
+export const DAO_FACTORY_COUNCIL_PERMISSIONS = [
+  '*:AddProposal',
+  '*:VoteApprove',
+  '*:VoteReject',
+  '*:VoteRemove',
+  '*:Finalize',
+] as const;
+
+export type DaoFactoryPolicyRole = {
+  name: string;
+  kind: 'Everyone' | { Group: string[] };
+  permissions: string[];
+  vote_policy: Record<string, never>;
+};
+
+export type DaoFactoryPolicy = {
+  roles: DaoFactoryPolicyRole[];
+  default_vote_policy: {
+    weight_kind: 'RoleWeight';
+    quorum: string;
+    threshold: [number, number];
+  };
+  proposal_bond: string;
+  proposal_period: string;
+  bounty_bond: string;
+  bounty_forgiveness_period: string;
+};
+
 export type DaoFactoryInitArgs = {
   config: {
     name: string;
     purpose: string;
     metadata: string;
   };
-  /** Simple council list — factory expands to default policy. */
-  policy: string[];
+  /** Full policy — 50/100 vote + 0.1 Ⓝ bond (not bare council list). */
+  policy: DaoFactoryPolicy;
 };
 
 /**
@@ -71,10 +110,46 @@ export function encodeDaoFactoryInitArgs(init: DaoFactoryInitArgs): string {
   return btoa(binary);
 }
 
+/**
+ * Factory-starter policy with OnSocial defaults:
+ * everyone can propose · council votes · 50/100 · 0.1 Ⓝ bond · 7-day period.
+ */
+export function buildDaoFactoryPolicy(
+  councilAccountId: string
+): DaoFactoryPolicy {
+  const council = councilAccountId.trim().toLowerCase();
+  return {
+    roles: [
+      {
+        name: 'all',
+        kind: 'Everyone',
+        permissions: ['*:AddProposal'],
+        vote_policy: {},
+      },
+      {
+        name: 'council',
+        kind: { Group: [council] },
+        permissions: [...DAO_FACTORY_COUNCIL_PERMISSIONS],
+        vote_policy: {},
+      },
+    ],
+    default_vote_policy: {
+      weight_kind: 'RoleWeight',
+      quorum: '0',
+      threshold: [...DAO_FACTORY_VOTE_THRESHOLD],
+    },
+    proposal_bond: nearToYocto(SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR),
+    proposal_period: daysToProposalPeriodNs('7'),
+    bounty_bond: nearToYocto('1'),
+    bounty_forgiveness_period: daysToProposalPeriodNs('1'),
+  };
+}
+
 export function buildDaoFactoryInitArgs(opts: {
   displayName: string;
   purpose: string;
   councilAccountId: string;
+  metadata?: string;
 }): DaoFactoryInitArgs {
   const name = opts.displayName.trim().slice(0, DAO_FACTORY_NAME_MAX);
   const purpose = opts.purpose.trim().slice(0, DAO_FACTORY_PURPOSE_MAX);
@@ -83,9 +158,26 @@ export function buildDaoFactoryInitArgs(opts: {
     config: {
       name: name || 'DAO',
       purpose,
-      metadata: '',
+      metadata: opts.metadata?.trim() ?? '',
     },
-    policy: [council],
+    policy: buildDaoFactoryPolicy(council),
+  };
+}
+
+/** Short facts for the create sheet “You get” strip. */
+export function daoFactoryCreatePolicyFacts(): {
+  council: string;
+  publicPropose: string;
+  vote: string;
+  bond: string;
+  createDeposit: string;
+} {
+  return {
+    council: 'You start as council',
+    publicPropose: 'Anyone can propose',
+    vote: '50% majority',
+    bond: `${SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR proposal bond`,
+    createDeposit: `~${SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR} NEAR to create`,
   };
 }
 
@@ -112,6 +204,7 @@ export async function submitDaoFactoryCreate(opts: {
   slug: string;
   displayName: string;
   purpose: string;
+  metadata?: string;
 }): Promise<{ daoAccountId: string; txHashes: string[] }> {
   const slug = normalizeDaoFactorySlug(opts.slug);
   if (!isValidDaoFactorySlug(slug)) {
@@ -126,6 +219,7 @@ export async function submitDaoFactoryCreate(opts: {
     displayName: opts.displayName,
     purpose: opts.purpose,
     councilAccountId: council,
+    metadata: opts.metadata,
   });
 
   const result = await opts.wallet.signAndSendTransaction({

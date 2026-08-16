@@ -314,14 +314,17 @@ export const txToastError = {
 export const txToastGovPending = {
   actionSubmitted: (actionLabel: string) => `${actionLabel} submitted…`,
   creatingDao: 'Creating DAO…',
+  publishingDaoProfile: 'Publishing OnSocial profile…',
 } as const;
 
 export const txToastGovSuccess = {
   actionConfirmed: (actionLabel: string) => `${actionLabel} confirmed.`,
   daoCreated: 'DAO created.',
+  daoProfileProposed: 'OnSocial profile proposal submitted.',
 } as const;
 
 export const txToastGovError = {
   actionFailed: (actionLabel: string) => `${actionLabel} failed.`,
   daoCreateFailed: 'Could not create DAO.',
+  daoProfilePublishFailed: 'Could not propose OnSocial profile.',
 } as const;

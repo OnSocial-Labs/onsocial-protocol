@@ -101,3 +101,6 @@ export const SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT =
 
 /** Human NEAR amount matching `SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT` (UI copy). */
 export const SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR = '6';
+
+/** Default proposal bond baked into factory-create policy (0.1 NEAR). */
+export const SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR = '0.1';

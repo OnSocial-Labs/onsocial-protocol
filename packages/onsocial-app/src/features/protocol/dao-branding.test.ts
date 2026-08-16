@@ -30,6 +30,18 @@ describe('dao branding', () => {
       description: 'Builders',
       avatar: 'ipfs://avatar',
       banner: 'ipfs://banner',
+      links: null,
+    });
+  });
+
+  it('round-trips links in metadata', () => {
+    const metadata = buildDaoBrandingMetadata('', {
+      name: 'Linked DAO',
+      links: { website: 'https://example.com', x: 'dao' },
+    });
+    expect(parseDaoBrandingMetadata(metadata)?.links).toEqual({
+      website: 'https://example.com',
+      x: 'dao',
     });
   });
 
