@@ -192,9 +192,12 @@ export function LeaderboardSheet({
   initialTrack?: LeaderboardTrack;
 }) {
   const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
-
   const [track, setTrack] = useState<LeaderboardTrack>(initialTrack);
+  if (open && !sheetOpen) {
+    setSheetOpen(true);
+    setTrack(initialTrack);
+  }
+
   const [influence, setInfluence] = useState<InfluenceEntry[] | null>(null);
   const [reputation, setReputation] = useState<ReputationEntry[] | null>(null);
   const [earners, setEarners] = useState<EarnerEntry[] | null>(null);
@@ -213,11 +216,6 @@ export function LeaderboardSheet({
     setPending(false);
     onClose();
   }, [onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    setTrack(initialTrack);
-  }, [open, initialTrack]);
 
   useEffect(() => {
     if (!sheetOpen) return;
