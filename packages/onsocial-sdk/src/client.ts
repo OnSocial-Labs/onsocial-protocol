@@ -33,6 +33,7 @@ import { PagesModule } from './modules/pages.js';
 import { StandingsModule } from './modules/standings.js';
 import { BlocksModule } from './modules/blocks.js';
 import { MutesModule } from './modules/mutes.js';
+import { DmModule } from './modules/dm.js';
 import { StorageAccountModule } from './modules/storage-account.js';
 import type { Session } from './advanced/session.js';
 import { composeAndSign, signAndRelay } from './internal/session-bridge.js';
@@ -268,6 +269,8 @@ export class OnSocial {
   readonly blocks: BlocksModule;
   /** Mutes — private off-chain mute prefs (gateway). */
   readonly mutes: MutesModule;
+  /** Direct messages — E2EE ciphertext mailbox (gateway). */
+  readonly dm: DmModule;
   /** Scarces / NFTs (mint, collections, marketplace, offers). */
   readonly scarces: ScarcesModule;
   /** Rewards (credit, claim, balance). */
@@ -512,6 +515,7 @@ export class OnSocial {
     this.standings = new StandingsModule(this.social, this.query);
     this.blocks = new BlocksModule(this.social, this.query);
     this.mutes = new MutesModule(this.http);
+    this.dm = new DmModule(this.http);
 
     // Grouped namespaces — same instances, organised for discoverability.
     this.content = {
@@ -537,6 +541,7 @@ export class OnSocial {
       permissions: this.permissions,
       notifications: this.notifications,
       mutes: this.mutes,
+      dm: this.dm,
       webhooks: this.webhooks,
       pages: this.pages,
     };

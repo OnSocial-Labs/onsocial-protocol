@@ -35,6 +35,8 @@
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
     "uqr": "0.1.2"
   },
   "devDependencies": {
