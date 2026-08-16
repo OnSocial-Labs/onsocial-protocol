@@ -3,6 +3,8 @@ import {
   APP_APPS_PATH,
   APP_COLLECTION_PATH,
   APP_COLLECTIBLES_PATH,
+  APP_DAO_PATH,
+  APP_DAOS_PATH,
   APP_DISCOVER_PATH,
   APP_DROPS_PATH,
   APP_GROUPS_PATH,
@@ -65,6 +67,12 @@ export function resolveActiveOsAppId(
   if (path === APP_GROUPS_PATH || path.startsWith(`${APP_GROUPS_PATH}/`)) {
     return 'groups';
   }
+  if (path === APP_DAOS_PATH || path.startsWith(`${APP_DAOS_PATH}/`)) {
+    return 'daos';
+  }
+  if (path === APP_DAO_PATH || path.startsWith(`${APP_DAO_PATH}/`)) {
+    return 'daos';
+  }
   if (
     path === APP_PROTOCOL_PATH ||
     path.startsWith(`${APP_PROTOCOL_PATH}/`)
@@ -124,6 +132,13 @@ const PROTOCOL_APP: OsAppLink = {
   href: APP_PROTOCOL_PATH,
 };
 
+const DAOS_APP: OsAppLink = {
+  id: 'daos',
+  label: 'DAOs',
+  kind: 'app',
+  href: APP_DAOS_PATH,
+};
+
 const HUBS_APP: OsAppLink = {
   id: 'hubs',
   label: 'Hubs',
@@ -164,6 +179,7 @@ export function gateOsApps(): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
     {
       id: 'boost',
       label: 'Boost',
@@ -203,6 +219,7 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
     PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
@@ -236,6 +253,7 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
     PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
@@ -264,6 +282,7 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
     PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];

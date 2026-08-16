@@ -1,8 +1,7 @@
 'use client';
 
-import {
-  osFieldBorderedClassName,
-} from '@onsocial/ui';
+import { osFieldBorderedClassName } from '@onsocial/ui';
+import Link from 'next/link';
 import { useId, useState } from 'react';
 import {
   PROTOCOL_COMMUNITY_DAO_SEED,
@@ -12,7 +11,7 @@ import {
   rememberCommunityDao,
   resolveKnownBoardForDaoAccount,
 } from '@/features/protocol/dao-accounts';
-import type { ProtocolDaoBoard } from '@/lib/app-routes';
+import { daoPath, type ProtocolDaoBoard } from '@/lib/app-routes';
 
 export function ProtocolCommunityRegistry({
   onOpenDao,
@@ -49,8 +48,8 @@ export function ProtocolCommunityRegistry({
   return (
     <div className="protocol-community">
       <p className="protocol-action-lede">
-        Open any Sputnik DAO by account. Known OnSocial boards stay on
-        Governance / Treasury; everything else opens here.
+        Open any Sputnik DAO board here, or visit its portfolio page for cover
+        and crest. Governance / Treasury stay on their dedicated boards.
       </p>
 
       <label className="protocol-field" htmlFor={fieldId}>
@@ -82,7 +81,7 @@ export function ProtocolCommunityRegistry({
             disabled={!isValidProtocolDaoAccountId(draft)}
             onClick={() => openAccount(draft)}
           >
-            Open
+            Board
           </button>
         </div>
       </label>
@@ -93,21 +92,29 @@ export function ProtocolCommunityRegistry({
         <ul className="protocol-community-list">
           {PROTOCOL_COMMUNITY_DAO_SEED.map((entry) => (
             <li key={entry.accountId}>
-              <button
-                type="button"
-                className="protocol-community-item"
-                onClick={() => openAccount(entry.accountId)}
-              >
-                <span className="protocol-community-item-title">
-                  {entry.label}
-                </span>
-                <span className="protocol-community-item-meta">
-                  @{entry.accountId}
-                </span>
-                <span className="protocol-community-item-desc">
-                  {entry.description}
-                </span>
-              </button>
+              <div className="protocol-community-item protocol-community-item--split">
+                <button
+                  type="button"
+                  className="protocol-community-item-main"
+                  onClick={() => openAccount(entry.accountId)}
+                >
+                  <span className="protocol-community-item-title">
+                    {entry.label}
+                  </span>
+                  <span className="protocol-community-item-meta">
+                    @{entry.accountId}
+                  </span>
+                  <span className="protocol-community-item-desc">
+                    {entry.description}
+                  </span>
+                </button>
+                <Link
+                  href={daoPath(entry.accountId)}
+                  className="protocol-community-page-link"
+                >
+                  Page
+                </Link>
+              </div>
             </li>
           ))}
         </ul>
@@ -119,15 +126,23 @@ export function ProtocolCommunityRegistry({
           <ul className="protocol-community-list">
             {recent.map((accountId) => (
               <li key={accountId}>
-                <button
-                  type="button"
-                  className="protocol-community-item"
-                  onClick={() => openAccount(accountId)}
-                >
-                  <span className="protocol-community-item-title">
-                    @{accountId}
-                  </span>
-                </button>
+                <div className="protocol-community-item protocol-community-item--split">
+                  <button
+                    type="button"
+                    className="protocol-community-item-main"
+                    onClick={() => openAccount(accountId)}
+                  >
+                    <span className="protocol-community-item-title">
+                      @{accountId}
+                    </span>
+                  </button>
+                  <Link
+                    href={daoPath(accountId)}
+                    className="protocol-community-page-link"
+                  >
+                    Page
+                  </Link>
+                </div>
               </li>
             ))}
           </ul>

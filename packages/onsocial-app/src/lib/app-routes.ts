@@ -4,6 +4,10 @@ export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';
 /** Protocol DAO governance + treasury (in-app). */
 export const APP_PROTOCOL_PATH = '/protocol';
+/** Community DAO directory — portfolio homes for org DAOs. */
+export const APP_DAOS_PATH = '/daos';
+/** Single DAO portfolio page (`/dao/[accountId]`). */
+export const APP_DAO_PATH = '/dao';
 /** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
 export const APP_DROPS_PATH = '/drops';
 /** Query key for Drops catalog sort. */
@@ -188,6 +192,13 @@ export function protocolPath(opts?: {
   }
   const query = params.toString();
   return query ? `${APP_PROTOCOL_PATH}?${query}` : APP_PROTOCOL_PATH;
+}
+
+/** Public DAO portfolio page — cover + square crest. */
+export function daoPath(daoAccountId: string): string {
+  const id = daoAccountId.trim().toLowerCase();
+  if (!id) return APP_DAOS_PATH;
+  return `${APP_DAO_PATH}/${encodeURIComponent(id)}`;
 }
 
 /** Market pre-filtered to a single creator's live listings. */

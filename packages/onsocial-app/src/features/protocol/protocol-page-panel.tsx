@@ -77,6 +77,7 @@ import {
   parseProtocolProposalId,
   parseProtocolSearchQuery,
   protocolPath,
+  daoPath,
   type ProtocolDaoBoard,
   type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
@@ -871,6 +872,15 @@ export function ProtocolPagePanel() {
                 }}
               >
                 Info
+              </button>
+              <button
+                type="button"
+                className="protocol-tool"
+                onClick={() => {
+                  router.push(daoPath(daoAccountId));
+                }}
+              >
+                Page
               </button>
               {board === 'community' ? (
                 <button

@@ -31629,3 +31629,376 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 /* Affix field shell pad: @onsocial/ui/os-account-field.css / os-amount-field.css */
+
+/* ── DAO portfolio + directory ───────────────────────────────── */
+
+.dao-portfolio-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.dao-portfolio-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.dao-portfolio-cover-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dao-portfolio-cover-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(
+      circle at 20% 30%,
+      rgb(var(--fg-rgb) / 0.1),
+      transparent 55%
+    ),
+    linear-gradient(180deg, rgb(var(--fg-rgb) / 0.08), transparent);
+}
+
+.dao-portfolio-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-top: -1.75rem;
+  padding: 0 0.15rem 0.35rem;
+}
+
+.dao-portfolio-crest {
+  flex-shrink: 0;
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 3px solid var(--bg, #0a0a0a);
+  background: rgb(var(--fg-rgb) / 0.08);
+  box-shadow: 0 8px 20px -12px rgb(0 0 0 / 0.45);
+}
+
+.dao-portfolio-crest-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dao-portfolio-crest-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.dao-portfolio-identity-copy {
+  min-width: 0;
+  padding-top: 1.85rem;
+}
+
+.dao-portfolio-kind {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.dao-portfolio-name {
+  margin: 0.15rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
+.dao-portfolio-handle {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: rgb(var(--fg-rgb) / 0.5);
+  word-break: break-all;
+}
+
+.dao-portfolio-bio {
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.dao-portfolio-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  padding: 0 0.1rem;
+}
+
+.dao-portfolio-secondary-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.dao-portfolio-text-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgb(var(--fg-rgb) / 0.55);
+  text-decoration: none;
+}
+
+.dao-portfolio-text-link:hover,
+.dao-portfolio-text-link:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.9);
+  outline: none;
+}
+
+.dao-portfolio-divider {
+  margin: 1rem 0 0.75rem;
+}
+
+.dao-portfolio-facts-title {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.dao-portfolio-facts-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.dao-portfolio-facts-list > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.dao-portfolio-facts-list dt {
+  font-size: 0.72rem;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.dao-portfolio-facts-list dd {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.86);
+  word-break: break-word;
+}
+
+.dao-edit-cover {
+  border-radius: 0;
+  transform: none;
+  margin-bottom: 0.75rem;
+}
+
+.dao-edit-crest-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+}
+
+.dao-edit-crest-picker {
+  flex-shrink: 0;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: rgb(var(--fg-rgb) / 0.08);
+  color: rgb(var(--fg-rgb) / 0.55);
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+
+.dao-edit-crest-picker img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dao-edit-crest-hint,
+.dao-edit-footnote {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.48);
+}
+
+.dao-edit-footnote {
+  margin-top: 0.35rem;
+}
+
+.daos-index {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  padding-bottom: 1.5rem;
+}
+
+.daos-index-lede {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.68);
+}
+
+.daos-index-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.daos-index-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.78);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.daos-index-chip:hover,
+.daos-index-chip:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.1);
+  outline: none;
+}
+
+.daos-index-heading {
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.daos-index-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.daos-index-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding: 0.75rem 0.15rem;
+  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.daos-index-item:hover,
+.daos-index-item:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.04);
+  outline: none;
+}
+
+.daos-index-item-kind {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.daos-index-item-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgb(var(--fg-rgb) / 0.94);
+}
+
+.daos-index-item-copy,
+.daos-index-item-id {
+  font-size: 0.8rem;
+  color: rgb(var(--fg-rgb) / 0.55);
+  line-height: 1.35;
+}
+
+.protocol-community-item--split {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0;
+  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
+  cursor: default;
+}
+
+.protocol-community-item--split:hover,
+.protocol-community-item--split:focus-visible {
+  background: transparent;
+}
+
+.protocol-community-item-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  border: 0;
+  margin: 0;
+  padding: 0.7rem 0.15rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.protocol-community-item-main:hover,
+.protocol-community-item-main:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.04);
+  outline: none;
+}
+
+.protocol-community-page-link {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0.4rem 0.65rem;
+  border-radius: 9999px;
+  background: rgb(var(--fg-rgb) / 0.08);
+  color: rgb(var(--fg-rgb) / 0.78);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.protocol-community-page-link:hover,
+.protocol-community-page-link:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.12);
+  color: rgb(var(--fg-rgb) / 0.95);
+  outline: none;
+}
