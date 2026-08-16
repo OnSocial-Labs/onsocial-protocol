@@ -32523,36 +32523,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: rgb(var(--fg-rgb) / 0.04);
 }
 
-.messages-unlock-reset-link {
-  justify-self: start;
+.messages-unlock-title {
   margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: rgb(var(--fg-rgb) / 0.62);
-  font: inherit;
-  font-size: 0.875rem;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-  cursor: pointer;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.88);
 }
 
-.messages-unlock-reset-link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.messages-unlock-reset {
-  display: grid;
+.messages-unlock .os-action-drawer-confirm {
   gap: 0.65rem;
-  padding-top: 0.25rem;
-}
-
-.messages-unlock-reset > p {
-  margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.4;
-  color: rgb(var(--fg-rgb) / 0.78);
 }
 
 .messages-load-older {
