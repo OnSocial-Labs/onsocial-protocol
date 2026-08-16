@@ -21,12 +21,9 @@ function asMedia(value: unknown): DmMediaRef[] | null {
     const row = entry as Record<string, unknown>;
     const cid = typeof row.cid === 'string' ? row.cid.trim() : '';
     const mime = typeof row.mime === 'string' ? row.mime.trim() : '';
-    const nonce =
-      typeof row.nonce === 'string' ? row.nonce.trim() : undefined;
+    const nonce = typeof row.nonce === 'string' ? row.nonce.trim() : undefined;
     const senderNonce =
-      typeof row.senderNonce === 'string'
-        ? row.senderNonce.trim()
-        : undefined;
+      typeof row.senderNonce === 'string' ? row.senderNonce.trim() : undefined;
     const size = typeof row.size === 'number' ? row.size : Number(row.size);
     if (!cid || !mime || !Number.isFinite(size)) continue;
     media.push({
