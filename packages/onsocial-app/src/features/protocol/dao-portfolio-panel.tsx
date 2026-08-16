@@ -42,6 +42,21 @@ interface DaoPortfolioPanelProps {
   configMetadata: string;
 }
 
+type OptimisticDaoProfile = {
+  daoAccountId: string;
+  branding: DaoBranding;
+  metadata: string;
+};
+
+type EligibilitySnapshot = {
+  key: string;
+  value: ProtocolGovernanceEligibility;
+};
+
+function eligibilityKey(accountId: string, daoAccountId: string): string {
+  return `${accountId}:${daoAccountId}`;
+}
+
 export function DaoPortfolioPanel({
   initialBranding,
   configName,
@@ -50,20 +65,26 @@ export function DaoPortfolioPanel({
 }: DaoPortfolioPanelProps) {
   const router = useRouter();
   const { accountId } = useAppWallet();
-  const [branding, setBranding] = useState(initialBranding);
-  const [metadata, setMetadata] = useState(configMetadata);
+  const [optimistic, setOptimistic] = useState<OptimisticDaoProfile | null>(
+    null
+  );
   const [editing, setEditing] = useState(false);
-  const [eligibility, setEligibility] =
-    useState<ProtocolGovernanceEligibility | null>(null);
+  const [eligibility, setEligibility] = useState<EligibilitySnapshot | null>(
+    null
+  );
+
+  const branding =
+    optimistic?.daoAccountId === initialBranding.daoAccountId
+      ? optimistic.branding
+      : initialBranding;
+  const metadata =
+    optimistic?.daoAccountId === initialBranding.daoAccountId
+      ? optimistic.metadata
+      : configMetadata;
 
   useEffect(() => {
-    seedDaoBrandingCache(initialBranding.daoAccountId, initialBranding);
-  }, [initialBranding]);
-
-  useEffect(() => {
-    setBranding(initialBranding);
-    setMetadata(configMetadata);
-  }, [initialBranding, configMetadata]);
+    seedDaoBrandingCache(initialBranding.daoAccountId, branding);
+  }, [branding, initialBranding.daoAccountId]);
 
   useEffect(() => {
     if (branding.kind === 'community') {
@@ -72,23 +93,26 @@ export function DaoPortfolioPanel({
   }, [branding.daoAccountId, branding.kind]);
 
   useEffect(() => {
-    if (!accountId) {
-      setEligibility(null);
-      return;
-    }
+    if (!accountId) return;
+    const key = eligibilityKey(accountId, branding.daoAccountId);
     let cancelled = false;
     void getProtocolGovernanceEligibility(
       accountId,
       branding.daoAccountId
     ).then((next) => {
-      if (!cancelled) setEligibility(next);
+      if (!cancelled) setEligibility({ key, value: next });
     });
     return () => {
       cancelled = true;
     };
   }, [accountId, branding.daoAccountId]);
 
-  const canEdit = Boolean(eligibility?.canPropose);
+  const canEdit = Boolean(
+    accountId &&
+      eligibility?.key ===
+        eligibilityKey(accountId, branding.daoAccountId) &&
+      eligibility.value.canPropose
+  );
   const kindLabel = daoEntityKindLabel(branding.kind);
   const title = branding.name;
   const summary = branding.description?.trim() || null;
@@ -98,8 +122,11 @@ export function DaoPortfolioPanel({
   });
 
   const handleSaved = useCallback((next: DaoBranding, nextMetadata: string) => {
-    setBranding(next);
-    setMetadata(nextMetadata);
+    setOptimistic({
+      daoAccountId: next.daoAccountId,
+      branding: next,
+      metadata: nextMetadata,
+    });
     seedDaoBrandingCache(next.daoAccountId, next);
     setEditing(false);
   }, []);
