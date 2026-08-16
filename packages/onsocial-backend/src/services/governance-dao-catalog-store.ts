@@ -1,0 +1,391 @@
+import { query } from '../db/index.js';
+import { config } from '../config/index.js';
+
+export type DaoCatalogSource = 'factory' | 'seed' | 'manual';
+
+export type DaoCatalogRow = {
+  daoAccountId: string;
+  factoryAccountId: string;
+  network: string;
+  source: DaoCatalogSource;
+  name: string | null;
+  purpose: string | null;
+  metadata: string | null;
+  factoryIndex: number | null;
+  configSyncedAt: string | null;
+  listedAt: string;
+  updatedAt: string;
+};
+
+export type DaoFactorySyncState = {
+  factoryAccountId: string;
+  network: string;
+  lastNumberDaos: number;
+  lastFromIndex: number;
+  lastFullScanAt: string | null;
+  lastIncrementalAt: string | null;
+  status: string;
+};
+
+function toIso(value: string | Date | null | undefined): string | null {
+  if (value == null) return null;
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+function mapCatalogRow(row: {
+  dao_account_id: string;
+  factory_account_id: string;
+  network: string;
+  source: string;
+  name: string | null;
+  purpose: string | null;
+  metadata: string | null;
+  factory_index: string | number | null;
+  config_synced_at: string | Date | null;
+  listed_at: string | Date;
+  updated_at: string | Date;
+}): DaoCatalogRow {
+  const factoryIndex = Number(row.factory_index);
+  return {
+    daoAccountId: row.dao_account_id,
+    factoryAccountId: row.factory_account_id,
+    network: row.network,
+    source: (row.source as DaoCatalogSource) || 'factory',
+    name: row.name,
+    purpose: row.purpose,
+    metadata: row.metadata,
+    factoryIndex:
+      Number.isFinite(factoryIndex) && factoryIndex >= 0 ? factoryIndex : null,
+    configSyncedAt: toIso(row.config_synced_at),
+    listedAt: toIso(row.listed_at) ?? new Date().toISOString(),
+    updatedAt: toIso(row.updated_at) ?? new Date().toISOString(),
+  };
+}
+
+export async function upsertDaoCatalogAccount(opts: {
+  daoAccountId: string;
+  factoryAccountId: string;
+  network: string;
+  source: DaoCatalogSource;
+  factoryIndex?: number | null;
+  name?: string | null;
+  purpose?: string | null;
+  metadata?: string | null;
+  configSynced?: boolean;
+}): Promise<void> {
+  const daoAccountId = opts.daoAccountId.trim().toLowerCase();
+  if (!daoAccountId) return;
+
+  await query(
+    `INSERT INTO governance_dao_catalog (
+       dao_account_id,
+       factory_account_id,
+       network,
+       source,
+       name,
+       purpose,
+       metadata,
+       factory_index,
+       config_synced_at,
+       listed_at,
+       updated_at
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8,
+       CASE WHEN $9::boolean THEN now() ELSE NULL END,
+       now(),
+       now()
+     )
+     ON CONFLICT (dao_account_id) DO UPDATE SET
+       factory_account_id = COALESCE(
+         NULLIF(excluded.factory_account_id, ''),
+         governance_dao_catalog.factory_account_id
+       ),
+       network = excluded.network,
+       source = CASE
+         WHEN governance_dao_catalog.source = 'seed' THEN 'seed'
+         WHEN excluded.source = 'seed' THEN 'seed'
+         ELSE excluded.source
+       END,
+       name = COALESCE(excluded.name, governance_dao_catalog.name),
+       purpose = COALESCE(excluded.purpose, governance_dao_catalog.purpose),
+       metadata = COALESCE(excluded.metadata, governance_dao_catalog.metadata),
+       factory_index = COALESCE(
+         excluded.factory_index,
+         governance_dao_catalog.factory_index
+       ),
+       config_synced_at = CASE
+         WHEN $9::boolean THEN now()
+         ELSE governance_dao_catalog.config_synced_at
+       END,
+       updated_at = now()`,
+    [
+      daoAccountId,
+      opts.factoryAccountId.trim().toLowerCase(),
+      opts.network,
+      opts.source,
+      opts.name?.trim() || null,
+      opts.purpose?.trim() || null,
+      opts.metadata ?? null,
+      opts.factoryIndex ?? null,
+      Boolean(opts.configSynced),
+    ]
+  );
+}
+
+export async function upsertDaoCatalogAccountsBatch(
+  rows: Array<{
+    daoAccountId: string;
+    factoryAccountId: string;
+    network: string;
+    source: DaoCatalogSource;
+    factoryIndex?: number | null;
+  }>
+): Promise<number> {
+  let count = 0;
+  for (const row of rows) {
+    await upsertDaoCatalogAccount(row);
+    count += 1;
+  }
+  return count;
+}
+
+export async function ensureSeedDaoCatalogRows(): Promise<void> {
+  const network = config.nearNetwork === 'mainnet' ? 'mainnet' : 'testnet';
+  const factoryAccountId = config.sputnikDaoFactory;
+  await upsertDaoCatalogAccount({
+    daoAccountId: config.governanceDao,
+    factoryAccountId,
+    network,
+    source: 'seed',
+    name: 'OnSocial Governance',
+    purpose: 'Protocol policy and upgrades',
+    configSynced: true,
+  });
+  await upsertDaoCatalogAccount({
+    daoAccountId: config.treasuryDao,
+    factoryAccountId,
+    network,
+    source: 'seed',
+    name: 'OnSocial Treasury',
+    purpose: 'Protocol treasury decisions',
+    configSynced: true,
+  });
+}
+
+export async function searchDaoCatalog(opts: {
+  query?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ rows: DaoCatalogRow[]; total: number }> {
+  const limit = Math.min(Math.max(opts.limit ?? 20, 1), 50);
+  const offset = Math.max(opts.offset ?? 0, 0);
+  const q = opts.query?.trim().toLowerCase() ?? '';
+
+  if (!q) {
+    const [rowsResult, countResult] = await Promise.all([
+      query<{
+        dao_account_id: string;
+        factory_account_id: string;
+        network: string;
+        source: string;
+        name: string | null;
+        purpose: string | null;
+        metadata: string | null;
+        factory_index: string | number | null;
+        config_synced_at: string | Date | null;
+        listed_at: string | Date;
+        updated_at: string | Date;
+      }>(
+        `SELECT *
+           FROM governance_dao_catalog
+          ORDER BY
+            CASE source WHEN 'seed' THEN 0 ELSE 1 END,
+            listed_at DESC,
+            dao_account_id ASC
+          LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      ),
+      query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM governance_dao_catalog`
+      ),
+    ]);
+    return {
+      rows: rowsResult.rows.map(mapCatalogRow),
+      total: Number(countResult.rows[0]?.count ?? 0),
+    };
+  }
+
+  const like = `%${q.replace(/[%_]/g, '')}%`;
+  const [rowsResult, countResult] = await Promise.all([
+    query<{
+      dao_account_id: string;
+      factory_account_id: string;
+      network: string;
+      source: string;
+      name: string | null;
+      purpose: string | null;
+      metadata: string | null;
+      factory_index: string | number | null;
+      config_synced_at: string | Date | null;
+      listed_at: string | Date;
+      updated_at: string | Date;
+    }>(
+      `SELECT *
+         FROM governance_dao_catalog
+        WHERE lower(dao_account_id) LIKE $1
+           OR lower(coalesce(name, '')) LIKE $1
+           OR lower(coalesce(purpose, '')) LIKE $1
+        ORDER BY
+          CASE
+            WHEN lower(dao_account_id) = $2 THEN 0
+            WHEN lower(dao_account_id) LIKE $2 || '%' THEN 1
+            WHEN lower(coalesce(name, '')) LIKE $2 || '%' THEN 2
+            ELSE 3
+          END,
+          listed_at DESC,
+          dao_account_id ASC
+        LIMIT $3 OFFSET $4`,
+      [like, q, limit, offset]
+    ),
+    query<{ count: string }>(
+      `SELECT count(*)::text AS count
+         FROM governance_dao_catalog
+        WHERE lower(dao_account_id) LIKE $1
+           OR lower(coalesce(name, '')) LIKE $1
+           OR lower(coalesce(purpose, '')) LIKE $1`,
+      [like]
+    ),
+  ]);
+
+  return {
+    rows: rowsResult.rows.map(mapCatalogRow),
+    total: Number(countResult.rows[0]?.count ?? 0),
+  };
+}
+
+export async function getDaoCatalogRow(
+  daoAccountIdInput: string
+): Promise<DaoCatalogRow | null> {
+  const daoAccountId = daoAccountIdInput.trim().toLowerCase();
+  if (!daoAccountId) return null;
+  const result = await query<{
+    dao_account_id: string;
+    factory_account_id: string;
+    network: string;
+    source: string;
+    name: string | null;
+    purpose: string | null;
+    metadata: string | null;
+    factory_index: string | number | null;
+    config_synced_at: string | Date | null;
+    listed_at: string | Date;
+    updated_at: string | Date;
+  }>(`SELECT * FROM governance_dao_catalog WHERE dao_account_id = $1`, [
+    daoAccountId,
+  ]);
+  const row = result.rows[0];
+  return row ? mapCatalogRow(row) : null;
+}
+
+export async function listDaoCatalogMissingConfig(
+  limit = 20
+): Promise<string[]> {
+  const safeLimit = Math.min(Math.max(limit, 1), 50);
+  const result = await query<{ dao_account_id: string }>(
+    `SELECT dao_account_id
+       FROM governance_dao_catalog
+      WHERE config_synced_at IS NULL
+        AND source <> 'seed'
+      ORDER BY listed_at DESC
+      LIMIT $1`,
+    [safeLimit]
+  );
+  return result.rows.map((row) => row.dao_account_id);
+}
+
+export async function countDaoCatalog(): Promise<number> {
+  const result = await query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM governance_dao_catalog`
+  );
+  return Number(result.rows[0]?.count ?? 0);
+}
+
+export async function loadFactorySyncState(
+  factoryAccountId: string
+): Promise<DaoFactorySyncState | null> {
+  const id = factoryAccountId.trim().toLowerCase();
+  const result = await query<{
+    factory_account_id: string;
+    network: string;
+    last_number_daos: string | number;
+    last_from_index: string | number;
+    last_full_scan_at: string | Date | null;
+    last_incremental_at: string | Date | null;
+    status: string;
+  }>(
+    `SELECT *
+       FROM governance_dao_factory_sync
+      WHERE factory_account_id = $1`,
+    [id]
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    factoryAccountId: row.factory_account_id,
+    network: row.network,
+    lastNumberDaos: Number(row.last_number_daos) || 0,
+    lastFromIndex: Number(row.last_from_index) || 0,
+    lastFullScanAt: toIso(row.last_full_scan_at),
+    lastIncrementalAt: toIso(row.last_incremental_at),
+    status: row.status,
+  };
+}
+
+export async function saveFactorySyncState(opts: {
+  factoryAccountId: string;
+  network: string;
+  lastNumberDaos: number;
+  lastFromIndex: number;
+  status: string;
+  markFullScan?: boolean;
+  markIncremental?: boolean;
+}): Promise<void> {
+  await query(
+    `INSERT INTO governance_dao_factory_sync (
+       factory_account_id,
+       network,
+       last_number_daos,
+       last_from_index,
+       last_full_scan_at,
+       last_incremental_at,
+       status
+     ) VALUES (
+       $1, $2, $3, $4,
+       CASE WHEN $5::boolean THEN now() ELSE NULL END,
+       CASE WHEN $6::boolean THEN now() ELSE NULL END,
+       $7
+     )
+     ON CONFLICT (factory_account_id) DO UPDATE SET
+       network = excluded.network,
+       last_number_daos = excluded.last_number_daos,
+       last_from_index = excluded.last_from_index,
+       last_full_scan_at = CASE
+         WHEN $5::boolean THEN now()
+         ELSE governance_dao_factory_sync.last_full_scan_at
+       END,
+       last_incremental_at = CASE
+         WHEN $6::boolean THEN now()
+         ELSE governance_dao_factory_sync.last_incremental_at
+       END,
+       status = excluded.status`,
+    [
+      opts.factoryAccountId.trim().toLowerCase(),
+      opts.network,
+      opts.lastNumberDaos,
+      opts.lastFromIndex,
+      Boolean(opts.markFullScan),
+      Boolean(opts.markIncremental),
+      opts.status,
+    ]
+  );
+}
