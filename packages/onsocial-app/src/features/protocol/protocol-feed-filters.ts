@@ -139,3 +139,20 @@ export function findProtocolApplicationByProposalId(
     }) ?? null
   );
 }
+
+/** Portal parity — first paint a short batch, reveal more on scroll. */
+export const PROTOCOL_FEED_PAGE_SIZE = 10;
+
+export function getVisibleProtocolBatch<T>(
+  items: T[],
+  visibleCount: number,
+  batchSize: number = PROTOCOL_FEED_PAGE_SIZE
+) {
+  const shownCount = Math.min(Math.max(0, visibleCount), items.length);
+  return {
+    visibleItems: items.slice(0, shownCount),
+    hasMore: shownCount < items.length,
+    shownCount,
+    batchSize,
+  };
+}

@@ -76,10 +76,8 @@ router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = parseGovernanceFeedScope(req.query.scope);
     const daoAccountId = readDaoAccountId(req.query.daoAccountId);
-    const { applications, daoPolicy } = await getGovernanceFeedApplications(
-      scope,
-      daoAccountId
-    );
+    const { applications, daoPolicy, syncing } =
+      await getGovernanceFeedApplications(scope, daoAccountId);
 
     res.json({
       success: true,
@@ -87,6 +85,7 @@ router.get('/feed', async (req: Request, res: Response): Promise<void> => {
       daoAccountId,
       applications,
       daoPolicy,
+      syncing,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

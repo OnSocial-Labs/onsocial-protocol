@@ -7,8 +7,15 @@ import {
   type GovernanceDaoPolicySnapshot,
 } from './governance-proposal-policy-snapshot.js';
 import { indexDaoMembershipsFromPolicy } from './governance-dao-membership-sync.js';
-import { ensureDaoProposalsSynced } from './governance-dao-proposal-sync.js';
-import { loadAllDaoProposalSnapshots } from './governance-dao-proposal-store.js';
+import {
+  DAO_FEED_SYNC_BUDGET_MS,
+  ensureDaoProposalsSynced,
+  isDaoProposalsSyncInFlight,
+} from './governance-dao-proposal-sync.js';
+import {
+  getMaxPersistedProposalId,
+  loadAllDaoProposalSnapshots,
+} from './governance-dao-proposal-store.js';
 import { loadPersistedPolicySnapshotsByProposalIds } from './governance-proposal-policy-store.js';
 import {
   isRewardsAppRegistered,
@@ -976,6 +983,7 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
   daoPolicy: GovernanceDaoPolicySnapshot | null;
   snapshotsById: Map<number, GovernanceDaoProposalSnapshot>;
   scannedProposalIds: Set<number>;
+  syncing: boolean;
 }> {
   const empty = {
     partnerItems: [],
@@ -983,21 +991,43 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
     daoPolicy: null,
     snapshotsById: new Map<number, GovernanceDaoProposalSnapshot>(),
     scannedProposalIds: new Set<number>(),
+    syncing: false,
   };
 
   try {
-    await ensureDaoProposalsSynced(daoAccountId);
+    // Soft wait — paint from DB quickly while first-open sync continues.
+    const syncResult = await ensureDaoProposalsSynced(daoAccountId, {
+      budgetMs: DAO_FEED_SYNC_BUDGET_MS,
+    });
+    const syncCompleted =
+      typeof syncResult === 'object' &&
+      syncResult != null &&
+      'completed' in syncResult
+        ? Boolean((syncResult as { completed: boolean }).completed)
+        : true;
 
-    const [storedSnapshots, daoPolicy] = await Promise.all([
-      loadAllDaoProposalSnapshots(daoAccountId),
-      viewContractAt<GovernanceDaoPolicySnapshot>(
-        daoAccountId,
-        'get_policy',
-        {}
-      ).catch(() => null),
-    ]);
+    const [storedSnapshots, daoPolicy, lastProposalId, maxPersistedId] =
+      await Promise.all([
+        loadAllDaoProposalSnapshots(daoAccountId),
+        viewContractAt<GovernanceDaoPolicySnapshot>(
+          daoAccountId,
+          'get_policy',
+          {}
+        ).catch(() => null),
+        viewContractAt<number>(daoAccountId, 'get_last_proposal_id', {}).catch(
+          () => null
+        ),
+        getMaxPersistedProposalId(daoAccountId).catch(() => null),
+      ]);
 
     void indexDaoMembershipsFromPolicy(daoAccountId, daoPolicy);
+
+    const behindChain =
+      typeof lastProposalId === 'number' &&
+      lastProposalId >= 0 &&
+      (maxPersistedId === null || maxPersistedId < lastProposalId);
+    const syncing =
+      !syncCompleted || behindChain || isDaoProposalsSyncInFlight(daoAccountId);
 
     const snapshotsById = new Map<number, GovernanceDaoProposalSnapshot>();
     const proposals: GovernanceDaoProposalRecord[] = [];
@@ -1032,12 +1062,6 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
       .map((proposal) => mapProtocolProposalToFeedItem(proposal, daoAccountId))
       .filter((item): item is PublicGovernanceApplication => item !== null);
 
-    const lastProposalId = await viewContractAt<number>(
-      daoAccountId,
-      'get_last_proposal_id',
-      {}
-    ).catch(() => null);
-
     const gapItems =
       typeof lastProposalId === 'number' && lastProposalId >= 0
         ? buildMissingProposalFeedItems(
@@ -1069,6 +1093,7 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
       daoPolicy,
       snapshotsById,
       scannedProposalIds,
+      syncing,
     };
   } catch {
     return empty;
@@ -1256,6 +1281,7 @@ export async function getGovernanceFeedApplications(
 ): Promise<{
   applications: PublicGovernanceApplication[];
   daoPolicy: GovernanceDaoPolicySnapshot | null;
+  syncing: boolean;
 }> {
   const isTreasuryBoard = daoAccountId === config.treasuryDao;
   const includePartners =
@@ -1306,6 +1332,7 @@ export async function getGovernanceFeedApplications(
           daoPolicy: null,
           snapshotsById: new Map<number, GovernanceDaoProposalSnapshot>(),
           scannedProposalIds: new Set<number>(),
+          syncing: false,
         };
 
   // For DAO-scanned partner items that don't appear in the feed SQL
@@ -1346,5 +1373,6 @@ export async function getGovernanceFeedApplications(
   return {
     applications,
     daoPolicy: daoFeed.daoPolicy,
+    syncing: daoFeed.syncing,
   };
 }

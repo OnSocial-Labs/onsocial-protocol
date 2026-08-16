@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { OsProposalCardList } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
@@ -34,12 +34,17 @@ import {
   countProtocolApplicationsByStatus,
   filterProtocolApplications,
   findProtocolApplicationByProposalId,
+  getVisibleProtocolBatch,
+  PROTOCOL_FEED_PAGE_SIZE,
   PROTOCOL_FEED_STATUS_OPTIONS,
 } from '@/features/protocol/protocol-feed-filters';
 import {
   fetchProtocolFeed,
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
+import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
+import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
+import { rememberOptimisticMyDao } from '@/features/protocol/my-daos-optimistic';
 import {
   ensureProtocolProposalEventSource,
   subscribeProtocolProposalUpdates,
@@ -66,6 +71,7 @@ import type {
   ProtocolDaoPolicy,
   ProtocolDaoVote,
 } from '@/features/protocol/types';
+import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   PROTOCOL_DAO_ACCOUNT_PARAM,
   PROTOCOL_DAO_BOARD_PARAM,
@@ -115,6 +121,7 @@ export function ProtocolPagePanel() {
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
     'loading'
   );
+  const [feedSyncing, setFeedSyncing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionAppId, setActionAppId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
@@ -139,10 +146,18 @@ export function ProtocolPagePanel() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [focusHandled, setFocusHandled] = useState<number | null>(null);
   const [searchDraft, setSearchDraft] = useState(searchQuery);
+  const [visibleCount, setVisibleCount] = useState(PROTOCOL_FEED_PAGE_SIZE);
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setSearchDraft(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setVisibleCount(PROTOCOL_FEED_PAGE_SIZE);
+    });
+  }, [board, daoAccountId, statusFilter, searchQuery]);
 
   const actionApplication = useMemo(
     () => applications.find((row) => row.app_id === actionAppId) ?? null,
@@ -164,7 +179,7 @@ export function ProtocolPagePanel() {
     [applications, softExpired, searchQuery]
   );
 
-  const visibleApplications = useMemo(
+  const filteredApplications = useMemo(
     () =>
       filterProtocolApplications(applications, statusFilter, {
         isSoftExpired: softExpired,
@@ -172,6 +187,34 @@ export function ProtocolPagePanel() {
       }),
     [applications, statusFilter, softExpired, searchQuery]
   );
+
+  const {
+    visibleItems: paintedApplications,
+    hasMore: hasMorePainted,
+    shownCount: paintedCount,
+  } = useMemo(
+    () => getVisibleProtocolBatch(filteredApplications, visibleCount),
+    [filteredApplications, visibleCount]
+  );
+
+  const loadMorePainted = useCallback(() => {
+    setVisibleCount((count) =>
+      Math.min(count + PROTOCOL_FEED_PAGE_SIZE, filteredApplications.length)
+    );
+  }, [filteredApplications.length]);
+
+  useInfiniteScrollSentinel({
+    sentinelRef: loadMoreSentinelRef,
+    enabled: hasMorePainted && loadState === 'ready',
+    onIntersect: loadMorePainted,
+  });
+
+  const feedEndSummary =
+    !hasMorePainted && filteredApplications.length > PROTOCOL_FEED_PAGE_SIZE
+      ? searchQuery.trim()
+        ? `All ${filteredApplications.length} ${filteredApplications.length === 1 ? 'result' : 'results'}`
+        : `All ${filteredApplications.length} proposals`
+      : null;
 
   const buildProtocolHref = useCallback(
     (opts?: {
@@ -201,35 +244,79 @@ export function ProtocolPagePanel() {
     }
   }, [board, daoAccountId]);
 
-  const loadFeed = useCallback(async () => {
+  useEffect(() => {
+    if (daoAccountId) softIndexDaoMemberships(daoAccountId);
+  }, [daoAccountId]);
+
+  const loadFeed = useCallback(async (opts?: { soft?: boolean }) => {
     if (!daoAccountId) {
       setApplications([]);
       setDaoPolicy(null);
+      setFeedSyncing(false);
       setLoadState('ready');
       setLoadError(null);
       return;
     }
-    setLoadState('loading');
+    if (!opts?.soft) {
+      setLoadState((prev) => (prev === 'ready' ? prev : 'loading'));
+    }
     setLoadError(null);
     try {
       const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
       setApplications(feed.applications);
       setDaoPolicy(feed.daoPolicy);
+      setFeedSyncing(Boolean(feed.syncing));
       setLoadState('ready');
+
+      if (accountId && feed.daoPolicy) {
+        const roleNames = (feed.daoPolicy.roles ?? [])
+          .filter((role) =>
+            role.kind?.Group?.some(
+              (member) =>
+                member.trim().toLowerCase() === accountId.trim().toLowerCase()
+            )
+          )
+          .map((role) => role.name?.trim() ?? '')
+          .filter(Boolean);
+        if (
+          roleNames.length > 0 ||
+          isProtocolDaoGroupMember(feed.daoPolicy, accountId)
+        ) {
+          rememberOptimisticMyDao({
+            daoAccountId,
+            roleNames:
+              roleNames.length > 0 ? roleNames : ['member'],
+          });
+        }
+      }
     } catch (error) {
-      setLoadState('error');
-      setLoadError(
-        error instanceof Error ? error.message : 'Could not load proposals.'
-      );
+      if (!opts?.soft) {
+        setLoadState('error');
+        setLoadError(
+          error instanceof Error ? error.message : 'Could not load proposals.'
+        );
+      }
     }
-  }, [daoAccountId]);
+  }, [accountId, daoAccountId]);
 
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
 
   useEffect(() => {
-    setFocusHandled(null);
+    if (!daoAccountId || !feedSyncing || loadState !== 'ready') return;
+    const timer = window.setInterval(() => {
+      void loadFeed({ soft: true });
+    }, 1600);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [daoAccountId, feedSyncing, loadFeed, loadState]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setFocusHandled(null);
+    });
   }, [focusedProposalId, daoAccountId]);
 
   useEffect(() => {
@@ -263,22 +350,56 @@ export function ProtocolPagePanel() {
       return;
     }
 
+    const paintedIndex = filteredApplications.findIndex(
+      (row) => row.app_id === match.app_id
+    );
+    if (paintedIndex >= 0) {
+      setVisibleCount((count) => Math.max(count, paintedIndex + 1));
+    }
     setFocusHandled(focusedProposalId);
-    window.requestAnimationFrame(() => {
-      document
-        .getElementById(`protocol-proposal-${focusedProposalId}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
   }, [
     loadState,
     focusedProposalId,
     focusHandled,
     applications,
+    filteredApplications,
     statusFilter,
     router,
     board,
     daoAccountId,
   ]);
+
+  const scrolledFocusRef = useRef<number | null>(null);
+  useEffect(() => {
+    scrolledFocusRef.current = null;
+  }, [focusedProposalId, daoAccountId]);
+
+  useEffect(() => {
+    if (
+      focusedProposalId == null ||
+      focusHandled !== focusedProposalId ||
+      loadState !== 'ready' ||
+      scrolledFocusRef.current === focusedProposalId
+    ) {
+      return;
+    }
+    const painted = paintedApplications.some((row) => {
+      const id =
+        resolveLiveProposal(row)?.id ??
+        row.governance_proposal?.proposal_id ??
+        null;
+      return id === focusedProposalId;
+    });
+    if (!painted) return;
+
+    scrolledFocusRef.current = focusedProposalId;
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`protocol-proposal-${focusedProposalId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusHandled, focusedProposalId, loadState, paintedApplications]);
 
   const navigateBoard = useCallback(
     (next: { board: ProtocolDaoBoard; account?: string | null }) => {
@@ -957,7 +1078,12 @@ export function ProtocolPagePanel() {
         ) : null}
 
         {!showRegistry && loadState === 'loading' ? (
-          <p className="protocol-empty">Loading proposals…</p>
+          <p className="protocol-empty">Opening board…</p>
+        ) : null}
+        {!showRegistry && loadState === 'ready' && feedSyncing ? (
+          <p className="protocol-sync-banner" role="status">
+            Indexing proposals… new ones appear as they sync.
+          </p>
         ) : null}
         {!showRegistry && loadState === 'error' ? (
           <div className="protocol-empty">
@@ -974,12 +1100,16 @@ export function ProtocolPagePanel() {
         {!showRegistry &&
         loadState === 'ready' &&
         applications.length === 0 ? (
-          <p className="protocol-empty">No protocol proposals yet.</p>
+          <p className="protocol-empty">
+            {feedSyncing
+              ? 'No proposals indexed yet — syncing this DAO…'
+              : 'No protocol proposals yet.'}
+          </p>
         ) : null}
         {!showRegistry &&
         loadState === 'ready' &&
         applications.length > 0 &&
-        visibleApplications.length === 0 ? (
+        filteredApplications.length === 0 ? (
           <p className="protocol-empty">
             {searchQuery
               ? `No matches for “${searchQuery}”.`
@@ -988,54 +1118,82 @@ export function ProtocolPagePanel() {
         ) : null}
         {!showRegistry &&
         loadState === 'ready' &&
-        visibleApplications.length > 0 ? (
-          <OsProposalCardList className="protocol-card-list">
-            {visibleApplications.map((application) => {
-              const proposalId =
-                resolveLiveProposal(application)?.id ??
-                application.governance_proposal?.proposal_id ??
-                null;
-              const shareHref =
-                proposalId != null
-                  ? buildProtocolHref({ proposal: proposalId })
-                  : null;
-              return (
-                <ProtocolProposalCard
-                  key={application.app_id}
-                  application={application}
-                  daoPolicy={daoPolicy}
-                  accountId={accountId}
-                  nowMs={nowMs}
-                  focused={
-                    focusedProposalId != null &&
-                    proposalId === focusedProposalId
-                  }
-                  shareHref={shareHref}
-                  onOpenActions={() => {
-                    setActionAppId(application.app_id);
-                    if (proposalId != null) {
-                      router.replace(
-                        buildProtocolHref({ proposal: proposalId }),
-                        { scroll: false }
-                      );
+        paintedApplications.length > 0 ? (
+          <>
+            <OsProposalCardList className="protocol-card-list">
+              {paintedApplications.map((application) => {
+                const proposalId =
+                  resolveLiveProposal(application)?.id ??
+                  application.governance_proposal?.proposal_id ??
+                  null;
+                const shareHref =
+                  proposalId != null
+                    ? buildProtocolHref({ proposal: proposalId })
+                    : null;
+                return (
+                  <ProtocolProposalCard
+                    key={application.app_id}
+                    application={application}
+                    daoPolicy={daoPolicy}
+                    accountId={accountId}
+                    nowMs={nowMs}
+                    focused={
+                      focusedProposalId != null &&
+                      proposalId === focusedProposalId
                     }
-                  }}
-                  onCopyLink={
-                    shareHref
-                      ? () => {
-                          void navigator.clipboard?.writeText(
-                            new URL(
-                              shareHref,
-                              window.location.origin
-                            ).toString()
-                          );
-                        }
-                      : undefined
-                  }
-                />
-              );
-            })}
-          </OsProposalCardList>
+                    shareHref={shareHref}
+                    onOpenActions={() => {
+                      setActionAppId(application.app_id);
+                      if (proposalId != null) {
+                        router.replace(
+                          buildProtocolHref({ proposal: proposalId }),
+                          { scroll: false }
+                        );
+                      }
+                    }}
+                    onCopyLink={
+                      shareHref
+                        ? () => {
+                            void navigator.clipboard?.writeText(
+                              new URL(
+                                shareHref,
+                                window.location.origin
+                              ).toString()
+                            );
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })}
+            </OsProposalCardList>
+            {hasMorePainted || feedEndSummary ? (
+              <div className="protocol-feed-load-more">
+                {hasMorePainted ? (
+                  <>
+                    <div
+                      ref={loadMoreSentinelRef}
+                      className="protocol-feed-sentinel"
+                      aria-hidden
+                    />
+                    <button
+                      type="button"
+                      className="protocol-feed-more"
+                      onClick={loadMorePainted}
+                    >
+                      Load more
+                      <span className="protocol-status-count">
+                        {paintedCount}/{filteredApplications.length}
+                      </span>
+                    </button>
+                  </>
+                ) : null}
+                {feedEndSummary ? (
+                  <p className="protocol-feed-end">{feedEndSummary}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </>
         ) : null}
       </div>
 

@@ -23,12 +23,15 @@ const BACKFILL_BATCH_PAUSE_MS = 250;
 const LIVE_SYNC_COALESCE_MS = 4_000;
 const OPEN_PROPOSAL_FEED_REFRESH_TTL_MS = 30_000;
 const OPEN_PROPOSAL_BACKGROUND_REFRESH_MS = 60_000;
+/** Feed first paint: wait this long for sync, then return DB state + syncing. */
+export const DAO_FEED_SYNC_BUDGET_MS = 750;
 
 const liveSyncInFlight = new Map<
   string,
   Promise<PersistedDaoProposalSnapshot | null>
 >();
 const lastLiveSyncAt = new Map<string, number>();
+const incrementalSyncInFlight = new Map<string, Promise<void>>();
 
 type GovernanceDaoProposalRecord = {
   id?: number;
@@ -42,7 +45,6 @@ type GovernanceDaoProposalRecord = {
   last_actions_log?: Array<{ block_height: string }>;
 };
 
-const incrementalSyncInFlight = new Map<string, Promise<void>>();
 const backfillInFlight = new Map<string, Promise<void>>();
 const openProposalRefreshTimers = new Map<
   string,
@@ -434,33 +436,62 @@ export async function syncDaoProposalsBackfill(
   return { synced, lastProposalId };
 }
 
-export async function ensureDaoProposalsSynced(
-  daoAccountId: string
-): Promise<void> {
-  let inFlight = incrementalSyncInFlight.get(daoAccountId);
+/**
+ * Start incremental proposal sync for a DAO (coalesced). Does not await.
+ */
+export function kickDaoProposalsSync(daoAccountId: string): Promise<void> {
+  const key = daoAccountId.trim().toLowerCase();
+  let inFlight = incrementalSyncInFlight.get(key);
   if (!inFlight) {
-    inFlight = syncDaoProposalsIncremental(daoAccountId)
+    inFlight = syncDaoProposalsIncremental(key)
       .then(({ synced, lastProposalId }) => {
         if (synced > 0) {
           logger.info(
-            { daoAccountId, synced, lastProposalId },
+            { daoAccountId: key, synced, lastProposalId },
             'Synced new DAO proposals'
           );
         }
       })
       .catch((error) => {
         logger.warn(
-          { err: error, daoAccountId },
+          { err: error, daoAccountId: key },
           'DAO proposal incremental sync failed'
         );
       })
       .finally(() => {
-        incrementalSyncInFlight.delete(daoAccountId);
+        incrementalSyncInFlight.delete(key);
       });
-    incrementalSyncInFlight.set(daoAccountId, inFlight);
+    incrementalSyncInFlight.set(key, inFlight);
+  }
+  return inFlight;
+}
+
+export function isDaoProposalsSyncInFlight(daoAccountId: string): boolean {
+  return incrementalSyncInFlight.has(daoAccountId.trim().toLowerCase());
+}
+
+/**
+ * Ensure proposals are syncing. With `budgetMs`, returns after the budget so
+ * feeds can paint from DB while sync continues in the background.
+ */
+export async function ensureDaoProposalsSynced(
+  daoAccountId: string,
+  opts: { budgetMs?: number } = {}
+): Promise<{ completed: boolean }> {
+  const syncPromise = kickDaoProposalsSync(daoAccountId);
+  if (opts.budgetMs == null) {
+    await syncPromise;
+    return { completed: true };
   }
 
-  await inFlight;
+  let completed = false;
+  await Promise.race([
+    syncPromise.then(() => {
+      completed = true;
+    }),
+    sleep(Math.max(0, opts.budgetMs)),
+  ]);
+  return { completed };
 }
 
 export function startOpenDaoProposalRefreshInBackground(
