@@ -4,7 +4,9 @@ import {
   APP_GROUPS_PATH,
   APP_HOME_PATH,
   collectionPath,
+  daoPortfolioPath,
   messagesPath,
+  type ProtocolFeedStatusFilter,
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { postThreadPath } from '@/lib/post-routes';
@@ -20,6 +22,62 @@ function textField(
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function numberField(
+  context: Record<string, unknown> | null | undefined,
+  key: string
+): number | null {
+  const value = context?.[key];
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    return Number(value.trim());
+  }
+  return null;
+}
+
+function daoStatusFilter(
+  status: string | null | undefined
+): ProtocolFeedStatusFilter | null {
+  switch ((status ?? '').trim()) {
+    case 'Approved':
+      return 'approved';
+    case 'Rejected':
+      return 'rejected';
+    case 'Removed':
+      return 'removed';
+    case 'Expired':
+      return 'expired';
+    case 'Failed':
+      return 'failed';
+    case 'Moved':
+      return 'moved';
+    case 'InProgress':
+      return 'open';
+    default:
+      return null;
+  }
+}
+
+function daoResolvedVerb(status: string | null | undefined): string {
+  switch ((status ?? '').trim()) {
+    case 'Approved':
+      return 'DAO proposal approved';
+    case 'Rejected':
+      return 'DAO proposal rejected';
+    case 'Removed':
+      return 'DAO proposal removed';
+    case 'Expired':
+      return 'DAO proposal expired';
+    case 'Failed':
+      return 'DAO proposal failed';
+    case 'Moved':
+      return 'DAO proposal moved';
+    default:
+      return 'DAO proposal resolved';
+  }
 }
 
 /** Parse `author/post/{id}` content paths used in notification context. */
@@ -70,6 +128,10 @@ export function notificationVerb(
       return 'invited you to a guild';
     case 'group_proposal':
       return 'opened a guild proposal';
+    case 'dao_proposal':
+      return 'opened a DAO proposal';
+    case 'dao_proposal_resolved':
+      return daoResolvedVerb(textField(context, 'status'));
     case 'scarces_sold':
       return 'bought your scarce';
     case 'scarces_offer':
@@ -172,6 +234,18 @@ export function notificationHref(
       return `${APP_GROUPS_PATH}/${encodeURIComponent(groupId)}`;
     }
     return APP_GROUPS_PATH;
+  }
+
+  if (type === 'dao_proposal' || type === 'dao_proposal_resolved') {
+    const daoAccountId = textField(context, 'daoAccountId');
+    if (daoAccountId) {
+      const proposalId = numberField(context, 'proposalId');
+      const status = daoStatusFilter(textField(context, 'status'));
+      return daoPortfolioPath(daoAccountId, {
+        proposal: proposalId,
+        status: type === 'dao_proposal_resolved' ? status : 'open',
+      });
+    }
   }
 
   if (type === 'scarces_sold' || type === 'scarces_offer') {

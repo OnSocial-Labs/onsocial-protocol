@@ -135,6 +135,26 @@ export async function listMyDaoMemberships(accountIdInput: string): Promise<
   }));
 }
 
+/** Current Group-role member account ids for a DAO (notification fan-out). */
+export async function listDaoMemberAccountIds(
+  daoAccountIdInput: string
+): Promise<string[]> {
+  const daoAccountId = normalizeDaoAccountId(daoAccountIdInput);
+  if (!daoAccountId) return [];
+
+  const result = await query<{ account_id: string }>(
+    `SELECT account_id
+       FROM governance_dao_memberships
+      WHERE dao_account_id = $1
+      ORDER BY account_id ASC`,
+    [daoAccountId]
+  );
+
+  return result.rows
+    .map((row) => normalizeAccountId(row.account_id))
+    .filter(Boolean);
+}
+
 export async function listIndexedDaoAccountIds(): Promise<string[]> {
   const result = await query<{ dao_account_id: string }>(
     `SELECT dao_account_id
