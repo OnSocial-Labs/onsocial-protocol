@@ -40,6 +40,9 @@ import {
   fetchProtocolFeed,
   fetchProtocolProposal,
 } from '@/features/protocol/protocol-feed-client';
+import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
+import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
+import { rememberOptimisticMyDao } from '@/features/protocol/my-daos-optimistic';
 import {
   ensureProtocolProposalEventSource,
   subscribeProtocolProposalUpdates,
@@ -115,6 +118,7 @@ export function ProtocolPagePanel() {
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
     'loading'
   );
+  const [feedSyncing, setFeedSyncing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionAppId, setActionAppId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
@@ -201,32 +205,74 @@ export function ProtocolPagePanel() {
     }
   }, [board, daoAccountId]);
 
-  const loadFeed = useCallback(async () => {
+  useEffect(() => {
+    if (daoAccountId) softIndexDaoMemberships(daoAccountId);
+  }, [daoAccountId]);
+
+  const loadFeed = useCallback(async (opts?: { soft?: boolean }) => {
     if (!daoAccountId) {
       setApplications([]);
       setDaoPolicy(null);
+      setFeedSyncing(false);
       setLoadState('ready');
       setLoadError(null);
       return;
     }
-    setLoadState('loading');
+    if (!opts?.soft) {
+      setLoadState((prev) => (prev === 'ready' ? prev : 'loading'));
+    }
     setLoadError(null);
     try {
       const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
       setApplications(feed.applications);
       setDaoPolicy(feed.daoPolicy);
+      setFeedSyncing(Boolean(feed.syncing));
       setLoadState('ready');
+
+      if (accountId && feed.daoPolicy) {
+        const roleNames = (feed.daoPolicy.roles ?? [])
+          .filter((role) =>
+            role.kind?.Group?.some(
+              (member) =>
+                member.trim().toLowerCase() === accountId.trim().toLowerCase()
+            )
+          )
+          .map((role) => role.name?.trim() ?? '')
+          .filter(Boolean);
+        if (
+          roleNames.length > 0 ||
+          isProtocolDaoGroupMember(feed.daoPolicy, accountId)
+        ) {
+          rememberOptimisticMyDao({
+            daoAccountId,
+            roleNames:
+              roleNames.length > 0 ? roleNames : ['member'],
+          });
+        }
+      }
     } catch (error) {
-      setLoadState('error');
-      setLoadError(
-        error instanceof Error ? error.message : 'Could not load proposals.'
-      );
+      if (!opts?.soft) {
+        setLoadState('error');
+        setLoadError(
+          error instanceof Error ? error.message : 'Could not load proposals.'
+        );
+      }
     }
-  }, [daoAccountId]);
+  }, [accountId, daoAccountId]);
 
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
+
+  useEffect(() => {
+    if (!daoAccountId || !feedSyncing || loadState !== 'ready') return;
+    const timer = window.setInterval(() => {
+      void loadFeed({ soft: true });
+    }, 1600);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [daoAccountId, feedSyncing, loadFeed, loadState]);
 
   useEffect(() => {
     setFocusHandled(null);
@@ -957,7 +1003,12 @@ export function ProtocolPagePanel() {
         ) : null}
 
         {!showRegistry && loadState === 'loading' ? (
-          <p className="protocol-empty">Loading proposals…</p>
+          <p className="protocol-empty">Opening board…</p>
+        ) : null}
+        {!showRegistry && loadState === 'ready' && feedSyncing ? (
+          <p className="protocol-sync-banner" role="status">
+            Indexing proposals… new ones appear as they sync.
+          </p>
         ) : null}
         {!showRegistry && loadState === 'error' ? (
           <div className="protocol-empty">
@@ -974,7 +1025,11 @@ export function ProtocolPagePanel() {
         {!showRegistry &&
         loadState === 'ready' &&
         applications.length === 0 ? (
-          <p className="protocol-empty">No protocol proposals yet.</p>
+          <p className="protocol-empty">
+            {feedSyncing
+              ? 'No proposals indexed yet — syncing this DAO…'
+              : 'No protocol proposals yet.'}
+          </p>
         ) : null}
         {!showRegistry &&
         loadState === 'ready' &&

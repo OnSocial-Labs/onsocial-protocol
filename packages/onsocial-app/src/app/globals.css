@@ -31151,6 +31151,17 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   line-height: 1.45;
 }
 
+.protocol-sync-banner {
+  margin: 0.85rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--protocol-blue-border, rgb(96 165 250 / 0.35));
+  background: var(--protocol-blue-bg, rgb(96 165 250 / 0.08));
+  color: rgb(var(--fg-rgb) / 0.78);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .protocol-retry {
   margin-top: 0.65rem;
   border: 0;

@@ -20,6 +20,11 @@ import {
   type MyDaoMembership,
 } from '@/features/protocol/my-daos-client';
 import {
+  clearOptimisticMyDao,
+  readOptimisticMyDaos,
+  type OptimisticMyDao,
+} from '@/features/protocol/my-daos-optimistic';
+import {
   APP_GROUPS_PATH,
   APP_PROTOCOL_PATH,
   daoPath,
@@ -36,6 +41,32 @@ interface DaoDirectoryEntry {
 }
 
 const DISCOVER_PAGE_SIZE = 20;
+const MY_DAOS_SOFT_RETRY_MS = 2500;
+const DISCOVER_SOFT_POLL_MS = 2800;
+
+function mergeMyDaosWithOptimistic(
+  apiRows: MyDaoMembership[],
+  optimistic: OptimisticMyDao[]
+): MyDaoMembership[] {
+  const byId = new Map(
+    apiRows.map((row) => [row.daoAccountId.trim().toLowerCase(), row])
+  );
+  for (const hint of optimistic) {
+    const id = hint.daoAccountId.trim().toLowerCase();
+    if (byId.has(id)) {
+      clearOptimisticMyDao(id);
+      continue;
+    }
+    byId.set(id, {
+      daoAccountId: hint.daoAccountId,
+      roleNames: hint.roleNames,
+      updatedAt: new Date(hint.labeledAt).toISOString(),
+    });
+  }
+  return [...byId.values()].sort((a, b) =>
+    a.daoAccountId.localeCompare(b.daoAccountId)
+  );
+}
 
 function resolveDaoLabel(accountId: string): string {
   const seed = PROTOCOL_COMMUNITY_DAO_SEED.find(
@@ -107,17 +138,70 @@ export function DaosIndexPanel() {
   const [discoverPending, setDiscoverPending] = useState(true);
 
   useEffect(() => {
-    if (!accountId) return;
     let cancelled = false;
-    void fetchMyDaos(accountId)
-      .then((response) => {
-        if (!cancelled) setMyDaos(response.daos);
-      })
-      .catch(() => {
-        if (!cancelled) setMyDaos([]);
+    let softRetry: number | undefined;
+
+    if (!accountId) {
+      queueMicrotask(() => {
+        if (!cancelled) setMyDaos(null);
       });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const optimistic = readOptimisticMyDaos();
+      if (optimistic.length > 0) {
+        setMyDaos(mergeMyDaosWithOptimistic([], optimistic));
+      }
+    });
+
+    const loadMyDaos = () => {
+      void fetchMyDaos(accountId)
+        .then((response) => {
+          if (cancelled) return;
+          const merged = mergeMyDaosWithOptimistic(
+            response.daos,
+            readOptimisticMyDaos()
+          );
+          setMyDaos(merged);
+          const stillMissing = readOptimisticMyDaos().some(
+            (hint) =>
+              !response.daos.some(
+                (row) =>
+                  row.daoAccountId.trim().toLowerCase() ===
+                  hint.daoAccountId.trim().toLowerCase()
+              )
+          );
+          if (stillMissing && softRetry == null) {
+            softRetry = window.setTimeout(() => {
+              softRetry = undefined;
+              loadMyDaos();
+            }, MY_DAOS_SOFT_RETRY_MS);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setMyDaos(mergeMyDaosWithOptimistic([], readOptimisticMyDaos()));
+          }
+        });
+    };
+
+    loadMyDaos();
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadMyDaos();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+
     return () => {
       cancelled = true;
+      if (softRetry != null) window.clearTimeout(softRetry);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
     };
   }, [accountId]);
 
@@ -154,6 +238,37 @@ export function DaosIndexPanel() {
       cancelled = true;
     };
   }, [discoverOffset, discoverQuery]);
+
+  useEffect(() => {
+    if (!discoverSyncing) return;
+    let cancelled = false;
+    const loaded = Math.max(
+      DISCOVER_PAGE_SIZE,
+      discoverOffset + DISCOVER_PAGE_SIZE
+    );
+    const timer = window.setInterval(() => {
+      void fetchDaoCatalog({
+        q: discoverQuery,
+        limit: loaded,
+        offset: 0,
+      })
+        .then((response) => {
+          if (cancelled) return;
+          setDiscoverRows(response.daos);
+          setDiscoverTotal(response.total);
+          setDiscoverSyncing(response.syncing);
+          setDiscoverFactoryCount(response.factoryCount);
+          setDiscoverIndexedCount(response.indexedCount);
+        })
+        .catch(() => {
+          // soft poll best-effort
+        });
+    }, DISCOVER_SOFT_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [discoverOffset, discoverQuery, discoverSyncing]);
 
   const myEntries = useMemo(
     () => (myDaos ? toMyDaoEntries(myDaos) : []),
@@ -253,8 +368,9 @@ export function DaosIndexPanel() {
               <p className="daos-index-empty">Loading memberships…</p>
             ) : myEntries.length === 0 ? (
               <p className="daos-index-empty">
-                No indexed DAO roles yet. Open a DAO board once to index it —
-                Governance and Treasury are warmed automatically.
+                No DAO roles yet. Open a Protocol board once — memberships
+                appear here as soon as roles sync. Governance and Treasury are
+                warmed automatically.
               </p>
             ) : (
               <ul className="daos-index-list">

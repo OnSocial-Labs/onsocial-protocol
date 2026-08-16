@@ -81,4 +81,6 @@ export interface ProtocolFeedResponse {
   applications: ProtocolApplication[];
   daoPolicy: ProtocolDaoPolicy | null;
   daoAccountId: string;
+  /** True while backend is still catching up proposal snapshots. */
+  syncing?: boolean;
 }

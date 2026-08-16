@@ -36,6 +36,7 @@ export async function fetchProtocolFeed(
     applications?: ProtocolFeedResponse['applications'];
     daoPolicy?: ProtocolDaoPolicy | null;
     daoAccountId?: string;
+    syncing?: boolean;
     error?: string;
   }>(
     await fetch(`/api/governance?${search.toString()}`, {
@@ -49,6 +50,7 @@ export async function fetchProtocolFeed(
     applications: Array.isArray(body.applications) ? body.applications : [],
     daoPolicy: body.daoPolicy ?? null,
     daoAccountId: body.daoAccountId?.trim() || dao,
+    syncing: Boolean(body.syncing),
   };
 }
 
