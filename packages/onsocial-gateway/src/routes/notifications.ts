@@ -25,7 +25,10 @@ export const notificationRouter = Router();
 /** All notification routes require auth. */
 notificationRouter.use('/notifications', requireAuth);
 
-/** Write operations (events, rules, webhooks) require a paid tier. */
+/**
+ * Developer write surface only. List / count / mark-read stay open to free
+ * so first-party Activity works for every account; tier still caps page size.
+ */
 const requirePaidTier = requireTier('pro', 'scale', 'service');
 
 function parseRead(value: unknown): boolean | undefined {

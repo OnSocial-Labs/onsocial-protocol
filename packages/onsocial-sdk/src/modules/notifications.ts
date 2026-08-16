@@ -156,7 +156,7 @@ export class NotificationsModule {
   }
 
   /**
-   * Send custom notification events (app_event type).
+   * Send custom notification events (app_event type). Requires pro tier+.
    * These are picked up by the notification worker and delivered via
    * webhooks if configured.
    */
@@ -176,7 +176,7 @@ export class NotificationsModule {
     return res.rules;
   }
 
-  /** Create a notification rule. */
+  /** Create a notification rule. Requires pro tier+. */
   async createRule(params: CreateRuleParams): Promise<NotificationRule> {
     const res = await this.http.post<{ rule: NotificationRule }>(
       '/developer/notifications/rules',

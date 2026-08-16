@@ -348,13 +348,13 @@ await os.economy.rewards.claim(claimId);
 
 ### `os.platform` — dev-platform & integration
 
-| Module          | Purpose                                 |
-| --------------- | --------------------------------------- |
-| `storage`       | IPFS file / JSON upload                 |
-| `permissions`   | Account + key permission management     |
-| `notifications` | Push + in-app notifications (pro tier+) |
-| `webhooks`      | Outbound webhook endpoints (pro tier+)  |
-| `pages`         | onsocial.id page configuration          |
+| Module          | Purpose                                                     |
+| --------------- | ----------------------------------------------------------- |
+| `storage`       | IPFS file / JSON upload                                     |
+| `permissions`   | Account + key permission management                         |
+| `notifications` | Inbox list/count/mark-read (all tiers); events/rules (pro+) |
+| `webhooks`      | Outbound webhook endpoints (pro tier+)                      |
+| `pages`         | onsocial.id page configuration                              |
 
 ```ts
 const { cid } = await os.platform.storage.upload(file);

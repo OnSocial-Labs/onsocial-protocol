@@ -164,7 +164,7 @@ function findMintedTokenId(value: unknown, depth = 0): string | undefined {
  * | `os.pages`            | onsocial.id page configuration                               |
  * | `os.chain`            | On-chain storage + contract introspection                    |
  * | `os.webhooks`         | Webhook endpoints (pro+)                                     |
- * | `os.notifications`    | Notifications (pro+)                                         |
+ * | `os.notifications`    | Inbox read (all tiers); events/rules (pro+)                  |
  * | `os.query`            | Typed GraphQL helpers over indexed data (see below)          |
  *
  * `os.query` sub-namespaces:
