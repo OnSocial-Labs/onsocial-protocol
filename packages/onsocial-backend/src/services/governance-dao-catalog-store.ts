@@ -287,6 +287,43 @@ export async function getDaoCatalogRow(
   return row ? mapCatalogRow(row) : null;
 }
 
+/** Batch catalog lookup for standing / directory enrichment (capped). */
+export async function getDaoCatalogRowsByIds(
+  daoAccountIds: string[],
+  limit = 64
+): Promise<DaoCatalogRow[]> {
+  const ids = Array.from(
+    new Set(
+      daoAccountIds
+        .map((id) => id.trim().toLowerCase())
+        .filter((id) => /^[a-z0-9][a-z0-9._-]{1,63}$/.test(id))
+    )
+  ).slice(0, Math.min(Math.max(limit, 1), 64));
+
+  if (ids.length === 0) return [];
+
+  const result = await query<{
+    dao_account_id: string;
+    factory_account_id: string;
+    network: string;
+    source: string;
+    name: string | null;
+    purpose: string | null;
+    metadata: string | null;
+    factory_index: string | number | null;
+    config_synced_at: string | Date | null;
+    listed_at: string | Date;
+    updated_at: string | Date;
+  }>(
+    `SELECT *
+       FROM governance_dao_catalog
+      WHERE dao_account_id = ANY($1::text[])`,
+    [ids]
+  );
+
+  return result.rows.map(mapCatalogRow);
+}
+
 export async function listDaoCatalogMissingConfig(
   limit = 20
 ): Promise<string[]> {

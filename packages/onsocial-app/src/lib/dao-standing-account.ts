@@ -1,37 +1,18 @@
 /**
  * Classify standing targets as people vs DAO orgs.
- * Used to keep DAO stands out of the default People standing list.
+ * Prefer server `isDao` when present; fall back to local heuristics.
  */
 
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/app-config';
 import { readRecentCommunityDaos } from '@/features/protocol/dao-accounts';
+import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 
 export type StandingEntityFilter = 'people' | 'daos';
 
 const DAO_STANDING_TARGETS_KEY = 'onsocial.standing.dao-targets';
 const DAO_STANDING_TARGETS_LIMIT = 200;
 
-const SPUTNIK_DAO_SUFFIXES = [
-  '.sputnik-dao.near',
-  '.sputnik-dao.testnet',
-] as const;
-
 function normalizeAccountId(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? '';
-}
-
-function isProtocolPortfolioDao(accountId: string): boolean {
-  return (
-    accountId === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
-    accountId === TREASURY_DAO_ACCOUNT.trim().toLowerCase()
-  );
-}
-
-function hasSputnikDaoSuffix(accountId: string): boolean {
-  return SPUTNIK_DAO_SUFFIXES.some((suffix) => accountId.endsWith(suffix));
 }
 
 export function readDaoStandingTargets(): string[] {
@@ -50,7 +31,7 @@ export function readDaoStandingTargets(): string[] {
   }
 }
 
-/** Remember a DAO account so standing lists can route it to the DAOs filter. */
+/** Remember a DAO account so optimistic / unindexed rows stay in the DAOs filter. */
 export function rememberDaoStandingTarget(
   accountId: string | null | undefined
 ): string[] {
@@ -73,24 +54,26 @@ export function rememberDaoStandingTarget(
 
 /**
  * True when this account should be treated as a DAO org in standing lists.
- * Conservative: unknown accounts stay in People.
+ * Prefer server `isDao === true`; keep local memory/heuristics for unindexed DAOs.
  */
 export function isDaoStandingTarget(
-  accountId: string | null | undefined
+  accountId: string | null | undefined,
+  serverIsDao?: boolean | null
 ): boolean {
+  if (serverIsDao === true) return true;
+
   const id = normalizeAccountId(accountId);
   if (!id) return false;
-  if (isProtocolPortfolioDao(id)) return true;
-  if (hasSputnikDaoSuffix(id)) return true;
+  if (isHeuristicDaoAccountId(id)) return true;
   if (readDaoStandingTargets().includes(id)) return true;
   if (readRecentCommunityDaos().includes(id)) return true;
   return false;
 }
 
 export function matchesStandingEntityFilter(
-  accountId: string,
+  account: { accountId: string; isDao?: boolean },
   filter: StandingEntityFilter
 ): boolean {
-  const isDao = isDaoStandingTarget(accountId);
+  const isDao = isDaoStandingTarget(account.accountId, account.isDao);
   return filter === 'daos' ? isDao : !isDao;
 }

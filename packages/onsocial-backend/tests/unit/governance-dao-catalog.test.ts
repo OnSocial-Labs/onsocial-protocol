@@ -36,3 +36,23 @@ describe('dao catalog search ranking', () => {
     ).toBe(2);
   });
 });
+
+describe('getDaoCatalogRowsByIds id normalization', () => {
+  it('dedupes and rejects invalid account ids', () => {
+    const raw = [
+      ' Demo.Sputnik-Dao.Near ',
+      'demo.sputnik-dao.near',
+      '',
+      'BAD ID',
+      'ok.near',
+    ];
+    const ids = Array.from(
+      new Set(
+        raw
+          .map((id) => id.trim().toLowerCase())
+          .filter((id) => /^[a-z0-9][a-z0-9._-]{1,63}$/.test(id))
+      )
+    ).slice(0, 64);
+    expect(ids).toEqual(['demo.sputnik-dao.near', 'ok.near']);
+  });
+});

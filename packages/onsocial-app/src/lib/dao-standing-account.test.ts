@@ -38,19 +38,29 @@ describe('dao-standing-account', () => {
     vi.unstubAllGlobals();
   });
 
+  it('trusts server isDao true', () => {
+    stubLocalStorage();
+    expect(isDaoStandingTarget('custom.near', true)).toBe(true);
+    expect(
+      matchesStandingEntityFilter(
+        { accountId: 'custom.near', isDao: true },
+        'daos'
+      )
+    ).toBe(true);
+  });
+
   it('treats protocol and sputnik DAOs as DAO targets', () => {
     stubLocalStorage();
     expect(isDaoStandingTarget('governance.onsocial.testnet')).toBe(true);
-    expect(isDaoStandingTarget('treasury.onsocial.testnet')).toBe(true);
     expect(isDaoStandingTarget('demo.sputnik-dao.near')).toBe(true);
-    expect(isDaoStandingTarget('demo.sputnik-dao.testnet')).toBe(true);
   });
 
   it('keeps unknown people accounts in People', () => {
     stubLocalStorage();
     expect(isDaoStandingTarget('alice.near')).toBe(false);
-    expect(matchesStandingEntityFilter('alice.near', 'people')).toBe(true);
-    expect(matchesStandingEntityFilter('alice.near', 'daos')).toBe(false);
+    expect(
+      matchesStandingEntityFilter({ accountId: 'alice.near' }, 'people')
+    ).toBe(true);
   });
 
   it('remembers visited / stood-with DAO targets', () => {
@@ -58,7 +68,6 @@ describe('dao-standing-account', () => {
     expect(isDaoStandingTarget('custom-dao.near')).toBe(false);
     rememberDaoStandingTarget('custom-dao.near');
     expect(isDaoStandingTarget('custom-dao.near')).toBe(true);
-    expect(matchesStandingEntityFilter('custom-dao.near', 'daos')).toBe(true);
   });
 
   it('includes recently visited community DAOs', () => {

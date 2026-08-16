@@ -51,6 +51,7 @@ export function DaoPortfolioStandGesture({
           name: daoName.trim() || null,
           bio: bio ?? null,
           avatarUrl: avatarUrl ?? null,
+          isDao: true,
         },
         !viewerStanding
       );

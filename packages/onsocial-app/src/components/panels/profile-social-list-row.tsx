@@ -229,7 +229,7 @@ export function ProfileSocialListRow({
   const showRelationshipSignals =
     sharedSolidarity || theyStandWithViewer || showEndorsedYou;
   const moodId = account.moodId ?? 'protocol';
-  const isDaoTarget = isDaoStandingTarget(account.accountId);
+  const isDaoTarget = isDaoStandingTarget(account.accountId, account.isDao);
   const targetHref = isDaoTarget
     ? daoPath(account.accountId)
     : portfolioPath(account.accountId);

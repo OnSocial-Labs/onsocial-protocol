@@ -375,7 +375,7 @@ export function StandingPanelProvider({
 
   const filteredAccounts = useMemo(() => {
     const byEntity = displayAccounts.filter((account) =>
-      matchesStandingEntityFilter(account.accountId, entityFilter)
+      matchesStandingEntityFilter(account, entityFilter)
     );
 
     if (serverSearchActive) return byEntity;

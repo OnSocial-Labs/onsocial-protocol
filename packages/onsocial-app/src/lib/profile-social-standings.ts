@@ -56,6 +56,8 @@ export interface StandingAccountSummary {
   theyStandWithViewer?: boolean;
   targetEndorsedViewer?: boolean;
   moodId?: PageMoodId;
+  /** Server-enriched when peer is a DAO org. */
+  isDao?: boolean;
 }
 
 export interface ProfileSocialStandingsResponse {
