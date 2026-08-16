@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary, OnSocial } from '@onsocial/sdk';
 import {
+  ArrowLeftIcon,
+  OsIconAction,
   OsSheetAction,
   OsSheetActions,
   OsSurfaceRow,
@@ -528,6 +530,17 @@ export function MessagesPanel() {
     else await refreshThreads();
   }, [activeThreadId, openThread, refreshThreads]);
 
+  /** Mobile: leave the full-thread pane and return to the conversation list. */
+  const closeThread = useCallback(() => {
+    openThreadSeqRef.current += 1;
+    setActiveThreadId('');
+    setMessages(null);
+    setHasMoreMessages(false);
+    setPlainById({});
+    setError(null);
+    router.replace(messagesPath({ peer: peerParam || null }));
+  }, [peerParam, router]);
+
   const loadOlderMessages = useCallback(async () => {
     if (!activeThreadId || !accountId || loadingOlder) return;
     const oldest = messagesRef.current?.[0];
@@ -608,8 +621,15 @@ export function MessagesPanel() {
     );
   }
 
+  const mobilePane = activeThreadId ? 'thread' : 'list';
+  const peerProfile = peerFromThread ? profiles[peerFromThread] : undefined;
+  const peerName = peerFromThread
+    ? displayName(peerFromThread, peerProfile?.displayName)
+    : '';
+  const peerHandle = peerFromThread ? fallbackLabel(peerFromThread) : '';
+
   return (
-    <div className="messages-panel">
+    <div className="messages-panel" data-mobile-pane={mobilePane}>
       <header className="messages-panel-header">
         <h1>Messages</h1>
         <p>Private · sealed on your device</p>
@@ -642,7 +662,7 @@ export function MessagesPanel() {
         </p>
       ) : null}
 
-      <div className="messages-layout">
+      <div className="messages-layout" data-mobile-pane={mobilePane}>
         <aside className="messages-thread-list" aria-label="Conversations">
           {threads == null ? (
             <p className="messages-panel-empty">Loading…</p>
@@ -681,68 +701,89 @@ export function MessagesPanel() {
         </aside>
 
         <section className="messages-thread" aria-label="Thread">
-          {!activeThreadId ? (
-            <p className="messages-panel-empty">
-              Pick a conversation or message someone from their profile.
-            </p>
-          ) : !isUnlocked ? (
-            <p className="messages-panel-empty">
-              Unlock messages to read this conversation.
-            </p>
-          ) : messages == null ? (
-            <p className="messages-panel-empty">Loading…</p>
-          ) : (
-            <>
-              {hasMoreMessages ? (
-                <div className="messages-load-older">
-                  <OsSheetAction
-                    type="button"
-                    ready={!loadingOlder}
-                    pending={loadingOlder}
-                    pendingLabel="Loading…"
-                    onClick={() => void loadOlderMessages()}
-                  >
-                    Load earlier messages
-                  </OsSheetAction>
-                </div>
-              ) : null}
-              <ul className="messages-bubble-list">
-                {messages.map((msg) => {
-                  const mine = msg.senderAccountId === accountId.toLowerCase();
-                  const text = plainById[msg.id];
-                  return (
-                    <li
-                      key={msg.id}
-                      className={
-                        mine ? 'messages-bubble is-mine' : 'messages-bubble'
-                      }
+          {activeThreadId ? (
+            <header className="messages-thread-nav">
+              <OsIconAction
+                className="messages-thread-back"
+                ariaLabel="Back to conversations"
+                onClick={closeThread}
+              >
+                <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
+              </OsIconAction>
+              <div className="messages-thread-nav-heading">
+                <h2 className="messages-thread-nav-title">
+                  {peerName || 'Conversation'}
+                </h2>
+                {peerHandle && peerName !== peerHandle ? (
+                  <p className="messages-thread-nav-subtitle">@{peerHandle}</p>
+                ) : null}
+              </div>
+            </header>
+          ) : null}
+          <div className="messages-thread-scroll">
+            {!activeThreadId ? (
+              <p className="messages-panel-empty">
+                Pick a conversation or message someone from their profile.
+              </p>
+            ) : !isUnlocked ? (
+              <p className="messages-panel-empty">
+                Unlock messages to read this conversation.
+              </p>
+            ) : messages == null ? (
+              <p className="messages-panel-empty">Loading…</p>
+            ) : (
+              <>
+                {hasMoreMessages ? (
+                  <div className="messages-load-older">
+                    <OsSheetAction
+                      type="button"
+                      ready={!loadingOlder}
+                      pending={loadingOlder}
+                      pendingLabel="Loading…"
+                      onClick={() => void loadOlderMessages()}
                     >
-                      {text != null ? text ? <p>{text}</p> : null : <p>…</p>}
-                      {msg.media?.length
-                        ? msg.media.map((item) => (
-                            <DmMediaBubble
-                              key={`${msg.id}-${item.cid}`}
-                              accountId={accountId}
-                              senderAccountId={msg.senderAccountId}
-                              senderPubkey={msg.senderPubkey}
-                              ephemeralPubkey={msg.ephemeralPubkey}
-                              cid={item.cid}
-                              mime={item.mime}
-                              nonce={item.nonce}
-                              senderNonce={item.senderNonce}
-                            />
-                          ))
-                        : null}
-                      <time dateTime={msg.createdAt}>
-                        {new Date(msg.createdAt).toLocaleString()}
-                      </time>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
-          {peerFromThread && isUnlocked ? (
+                      Load earlier messages
+                    </OsSheetAction>
+                  </div>
+                ) : null}
+                <ul className="messages-bubble-list">
+                  {messages.map((msg) => {
+                    const mine = msg.senderAccountId === accountId.toLowerCase();
+                    const text = plainById[msg.id];
+                    return (
+                      <li
+                        key={msg.id}
+                        className={
+                          mine ? 'messages-bubble is-mine' : 'messages-bubble'
+                        }
+                      >
+                        {text != null ? text ? <p>{text}</p> : null : <p>…</p>}
+                        {msg.media?.length
+                          ? msg.media.map((item) => (
+                              <DmMediaBubble
+                                key={`${msg.id}-${item.cid}`}
+                                accountId={accountId}
+                                senderAccountId={msg.senderAccountId}
+                                senderPubkey={msg.senderPubkey}
+                                ephemeralPubkey={msg.ephemeralPubkey}
+                                cid={item.cid}
+                                mime={item.mime}
+                                nonce={item.nonce}
+                                senderNonce={item.senderNonce}
+                              />
+                            ))
+                          : null}
+                        <time dateTime={msg.createdAt}>
+                          {new Date(msg.createdAt).toLocaleString()}
+                        </time>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
+          {peerFromThread && isUnlocked && activeThreadId ? (
             <div className="messages-thread-footer">
               <DmThreadComposer
                 peerAccountId={peerFromThread}
