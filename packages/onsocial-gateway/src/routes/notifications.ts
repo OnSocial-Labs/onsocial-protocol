@@ -109,6 +109,10 @@ notificationRouter.get(
             : undefined,
         cursor:
           typeof req.query.cursor === 'string' ? req.query.cursor : undefined,
+        excludeType:
+          typeof req.query.excludeType === 'string'
+            ? req.query.excludeType
+            : undefined,
       });
 
       res.json(result);
@@ -253,6 +257,10 @@ notificationRouter.post(
         recipient,
         ids,
         all,
+        excludeType:
+          typeof req.body?.excludeType === 'string'
+            ? req.body.excludeType
+            : undefined,
       });
       res.json({ updated });
     } catch (error) {

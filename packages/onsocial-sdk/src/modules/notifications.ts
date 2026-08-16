@@ -31,6 +31,8 @@ export interface ListNotificationsParams {
   read?: boolean;
   type?: string;
   eventType?: string;
+  /** Omit a kind from the list (e.g. `dm` when Messages owns that surface). */
+  excludeType?: string;
 }
 
 export interface ListNotificationsResult {
@@ -106,6 +108,7 @@ export class NotificationsModule {
     if (params.read !== undefined) qs.set('read', String(params.read));
     if (params.type) qs.set('type', params.type);
     if (params.eventType) qs.set('eventType', params.eventType);
+    if (params.excludeType) qs.set('excludeType', params.excludeType);
     return this.http.get<ListNotificationsResult>(
       `/developer/notifications?${qs.toString()}`
     );
@@ -131,11 +134,23 @@ export class NotificationsModule {
   /** Mark notifications as read. Pass ids or `all: true`. */
   async markRead(
     recipient: string,
-    opts: { ids?: string[]; all?: boolean; appId?: string }
+    opts: {
+      ids?: string[];
+      all?: boolean;
+      appId?: string;
+      /** When set with `all`, leave this kind unread. */
+      excludeType?: string;
+    }
   ): Promise<number> {
     const res = await this.http.post<{ updated: number }>(
       '/developer/notifications/read',
-      { appId: this.appId(opts.appId), recipient, ids: opts.ids, all: opts.all }
+      {
+        appId: this.appId(opts.appId),
+        recipient,
+        ids: opts.ids,
+        all: opts.all,
+        excludeType: opts.excludeType,
+      }
     );
     return res.updated;
   }

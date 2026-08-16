@@ -23,11 +23,12 @@ import {
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import { APP_NOTIFICATIONS_PATH } from '@/lib/app-routes';
+import { ACTIVITY_EXCLUDE_TYPE } from '@/lib/notification-display';
 import { txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const POLL_MS = 20_000;
 /** Mailbox badge owns DMs — keep activity count free of double-count. */
-const EXCLUDE_TYPE = 'dm';
+const EXCLUDE_TYPE = ACTIVITY_EXCLUDE_TYPE;
 
 let globalUnread = 0;
 const listeners = new Set<() => void>();

@@ -133,7 +133,26 @@ describe('GET /developer/notifications', () => {
       type: 'reply',
       eventType: 'comment.reply',
       cursor: undefined,
+      excludeType: undefined,
     });
+  });
+
+  it('forwards excludeType for activity-style lists', async () => {
+    mockListNotifications.mockResolvedValue({
+      notifications: [],
+      nextCursor: null,
+    });
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    )
+      .get('/developer/notifications')
+      .query({ recipient: 'bob.testnet', excludeType: 'dm' });
+
+    expect(res.status).toBe(200);
+    expect(mockListNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ excludeType: 'dm' })
+    );
   });
 
   it('allows free-tier read access', async () => {
@@ -201,7 +220,23 @@ describe('GET /developer/notifications/count', () => {
       appId: 'portal',
       recipient: 'bob.testnet',
       eventType: 'comment.reply',
+      excludeType: undefined,
     });
+  });
+
+  it('forwards excludeType for activity unread badges', async () => {
+    mockGetUnreadNotificationCount.mockResolvedValue(3);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    )
+      .get('/developer/notifications/count')
+      .query({ recipient: 'bob.testnet', excludeType: 'dm' });
+
+    expect(res.status).toBe(200);
+    expect(mockGetUnreadNotificationCount).toHaveBeenCalledWith(
+      expect.objectContaining({ excludeType: 'dm' })
+    );
   });
 });
 
@@ -362,6 +397,7 @@ describe('POST /developer/notifications/read', () => {
       recipient: 'bob.testnet',
       ids: ['n1', 'n2'],
       all: false,
+      excludeType: undefined,
     });
   });
 
@@ -380,6 +416,33 @@ describe('POST /developer/notifications/read', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ updated: 5 });
+    expect(mockMarkNotificationsRead).toHaveBeenCalledWith({
+      ownerAccountId: 'alice.testnet',
+      appId: 'portal',
+      recipient: 'bob.testnet',
+      ids: undefined,
+      all: true,
+      excludeType: undefined,
+    });
+  });
+
+  it('forwards excludeType on mark-all for activity inbox', async () => {
+    mockMarkNotificationsRead.mockResolvedValue(4);
+
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt', tier: 'pro' })
+    )
+      .post('/developer/notifications/read')
+      .send({
+        recipient: 'bob.testnet',
+        all: true,
+        excludeType: 'dm',
+      });
+
+    expect(res.status).toBe(200);
+    expect(mockMarkNotificationsRead).toHaveBeenCalledWith(
+      expect.objectContaining({ all: true, excludeType: 'dm' })
+    );
   });
 
   it('requires ids or all=true', async () => {

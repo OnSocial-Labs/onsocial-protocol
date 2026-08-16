@@ -8,6 +8,9 @@ import {
 import { portfolioPath } from '@/lib/overlay-routes';
 import { personalPostPath } from '@/lib/post-routes';
 
+/** Mailbox owns DMs — Activity list/count/mark-all skip this kind. */
+export const ACTIVITY_EXCLUDE_TYPE = 'dm';
+
 function textField(
   context: Record<string, unknown> | null | undefined,
   key: string

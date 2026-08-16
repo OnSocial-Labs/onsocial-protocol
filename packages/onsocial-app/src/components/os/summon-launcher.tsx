@@ -37,6 +37,8 @@ import {
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
+import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
+import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
@@ -69,15 +71,31 @@ function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
   return app.label;
 }
 
+function formatLauncherUnread(count: number): string {
+  return count > 9 ? '9+' : String(count);
+}
+
+function launcherUnreadForApp(
+  appId: string,
+  activityUnread: number,
+  dmUnread: number
+): number {
+  if (appId === 'activity') return activityUnread;
+  if (appId === 'messages') return dmUnread;
+  return 0;
+}
+
 function LauncherAppTile({
   app,
   openingPage,
   active,
+  unread = 0,
   onActivate,
 }: {
   app: OsAppLink;
   openingPage: boolean;
   active: boolean;
+  unread?: number;
   onActivate: () => void;
 }) {
   const label = launcherAppLabel(app, openingPage);
@@ -85,6 +103,7 @@ function LauncherAppTile({
   const tileClassName = `${osLauncherItemClassName}${
     active ? ' is-current' : ''
   }${app.soon ? ' is-soon' : ''}`;
+  const ariaLabel = unread > 0 ? `${label}, ${unread} unread` : label;
   const tileBody = (
     <>
       <span
@@ -94,6 +113,10 @@ function LauncherAppTile({
         <OsAppIcon appId={app.id} className={osLauncherItemIconClassName} />
         {app.soon ? (
           <span className={osLauncherItemSoonClassName}>Soon</span>
+        ) : unread > 0 ? (
+          <span className="os-launcher-item-badge" aria-hidden="true">
+            {formatLauncherUnread(unread)}
+          </span>
         ) : null}
       </span>
       <span className={osLauncherItemLabelClassName}>{label}</span>
@@ -107,7 +130,7 @@ function LauncherAppTile({
         href={app.href}
         target="_blank"
         rel="noreferrer"
-        aria-label={label}
+        aria-label={ariaLabel}
         aria-current={active ? 'page' : undefined}
         onClick={onActivate}
       >
@@ -121,7 +144,7 @@ function LauncherAppTile({
       type="button"
       className={tileClassName}
       disabled={app.soon || (app.kind === 'open-page' && openingPage)}
-      aria-label={label}
+      aria-label={ariaLabel}
       aria-current={active ? 'page' : undefined}
       onClick={onActivate}
     >
@@ -150,6 +173,8 @@ export function SummonLauncher({
   const router = useRouter();
   const pathname = usePathname();
   const { accountId } = useAppWallet();
+  const activityUnread = useNotificationsUnreadCount();
+  const dmUnread = useDmUnreadCount();
   const { moodId: dockMoodId, style: dockMoodStyle } =
     useViewerDockMood(pageAccountId);
   const { navigate, openingPage } = useOsAppNavigate(pageAccountId);
@@ -486,6 +511,11 @@ export function SummonLauncher({
                     app={app}
                     openingPage={openingPage}
                     active={isOsAppActive(app.id, activeAppId)}
+                    unread={launcherUnreadForApp(
+                      app.id,
+                      activityUnread,
+                      dmUnread
+                    )}
                     onActivate={() => {
                       if (app.kind === 'external') {
                         closeLauncher();

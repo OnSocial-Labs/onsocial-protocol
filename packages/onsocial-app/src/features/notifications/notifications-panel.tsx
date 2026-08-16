@@ -14,17 +14,21 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { requestNotificationsUnreadRefresh } from '@/components/providers/notifications-host';
+import {
+  requestNotificationsUnreadRefresh,
+  useNotificationsUnreadCount,
+} from '@/components/providers/notifications-host';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
 import {
+  ACTIVITY_EXCLUDE_TYPE,
   formatNotificationTime,
   notificationHref,
   notificationVerb,
 } from '@/lib/notification-display';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 
 const PAGE_SIZE = 40;
 
@@ -32,6 +36,7 @@ export function NotificationsPanel() {
   const router = useRouter();
   const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const activityUnread = useNotificationsUnreadCount();
   const [items, setItems] = useState<Notification[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -39,6 +44,7 @@ export function NotificationsPanel() {
   const [markingAll, setMarkingAll] = useState(false);
   const accountGenRef = useRef(0);
   const accountIdRef = useRef(accountId);
+  const previousUnreadRef = useRef<number | null>(null);
 
   useEffect(() => {
     accountIdRef.current = accountId;
@@ -85,6 +91,7 @@ export function NotificationsPanel() {
       const result = await client.notifications.list({
         recipient: id,
         limit: PAGE_SIZE,
+        excludeType: ACTIVITY_EXCLUDE_TYPE,
       });
       if (accountGenRef.current !== gen || !isCurrentAccount(expected)) return;
       setItems(result.notifications);
@@ -104,8 +111,38 @@ export function NotificationsPanel() {
     setItems(null);
     setNextCursor(null);
     setError(null);
+    previousUnreadRef.current = null;
     if (!isConnected || !accountId || !hasSocialSession) return;
     void loadInitial();
+  }, [accountId, hasSocialSession, isConnected, loadInitial]);
+
+  // Soft refresh when host unread rises while viewing Activity (toast is suppressed).
+  useEffect(() => {
+    const previous = previousUnreadRef.current;
+    previousUnreadRef.current = activityUnread;
+    if (previous == null) return;
+    if (
+      activityUnread > previous &&
+      isConnected &&
+      accountId &&
+      hasSocialSession
+    ) {
+      void loadInitial();
+    }
+  }, [accountId, activityUnread, hasSocialSession, isConnected, loadInitial]);
+
+  useEffect(() => {
+    if (!isConnected || !accountId || !hasSocialSession) return;
+    const onFocus = () => {
+      if (document.visibilityState === 'hidden') return;
+      void loadInitial();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [accountId, hasSocialSession, isConnected, loadInitial]);
 
   const loadMore = useCallback(async () => {
@@ -119,6 +156,7 @@ export function NotificationsPanel() {
         recipient: id,
         limit: PAGE_SIZE,
         cursor: nextCursor,
+        excludeType: ACTIVITY_EXCLUDE_TYPE,
       });
       if (accountGenRef.current !== gen || !isCurrentAccount(accountId)) return;
       setItems((prev) => [...(prev ?? []), ...result.notifications]);
@@ -138,7 +176,10 @@ export function NotificationsPanel() {
     setError(null);
     try {
       const { client, accountId: id } = await withAuth();
-      await client.notifications.markRead(id, { all: true });
+      await client.notifications.markRead(id, {
+        all: true,
+        excludeType: ACTIVITY_EXCLUDE_TYPE,
+      });
       setItems((prev) =>
         prev ? prev.map((item) => ({ ...item, read: true })) : prev
       );
@@ -251,7 +292,6 @@ export function NotificationsPanel() {
               const name = actor
                 ? displayName(actor, profile?.displayName)
                 : 'OnSocial';
-              const handle = actor ? fallbackLabel(actor) : '';
               const verb = notificationVerb(item.type);
               const when = formatNotificationTime(item.createdAt);
               return (
@@ -290,8 +330,7 @@ export function NotificationsPanel() {
       )}
 
       <p className="notifications-panel-footnote">
-        Private messages live in{' '}
-        <Link href="/messages">Messages</Link>.
+        Private messages live in <Link href="/messages">Messages</Link>.
       </p>
     </div>
   );
