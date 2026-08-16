@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import {
+  ChartFillIcon,
   DotsCircleFillIcon,
   FireFillIcon,
   GlobeFillIcon,
@@ -21,6 +22,8 @@ const OS_APP_ICON_BY_ID: Record<string, ComponentType<MageFillIconProps>> = {
   /** @deprecated alias — prefer `hubs` */
   stores: StarMovingFillIcon,
   groups: UsersFillIcon,
+  /** Orgs — distinct from Guilds (`UsersFillIcon`). */
+  daos: ChartFillIcon,
   boost: FireFillIcon,
   protocol: GlobeFillIcon,
   page: UserCircleFillIcon,
