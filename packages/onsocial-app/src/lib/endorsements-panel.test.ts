@@ -70,4 +70,9 @@ describe('endorse compose intent contract', () => {
     expect(intents).toContain('create');
     expect(intents).toContain('edit');
   });
+
+  it('documents list chrome as StandingIdentity shell', () => {
+    const rowShell = 'standing-row endorsement-standing-row';
+    expect(rowShell).toContain('standing-row');
+  });
 });

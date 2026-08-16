@@ -119,6 +119,7 @@ export function EndorseComposeSheet({
   const [mediaRemoved, setMediaRemoved] = useState(false);
   const [mediaProcessing, setMediaProcessing] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [noteFieldVisible, setNoteFieldVisible] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [pending, setPending] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -235,6 +236,7 @@ export function EndorseComposeSheet({
       setExistingMediaUrl(nextMediaUrl);
       setBaselineMediaFp(mediaFingerprint(nextMedia));
       clearLocalMedia();
+      setNoteFieldVisible(Boolean(nextNote) || !nextMedia);
       setIsEditing(editing);
     };
 
@@ -330,6 +332,9 @@ export function EndorseComposeSheet({
       if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
       setFilePreviewUrl(URL.createObjectURL(file));
       setMediaRemoved(false);
+      if (!note.trim()) {
+        setNoteFieldVisible(false);
+      }
     } finally {
       setMediaProcessing(false);
     }
@@ -344,6 +349,7 @@ export function EndorseComposeSheet({
     setMediaRemoved(true);
     setMediaError(null);
     setFieldError(null);
+    setNoteFieldVisible(true);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -554,23 +560,36 @@ export function EndorseComposeSheet({
           ))}
         </div>
 
-        <label className="endorse-compose-field">
+        <div className="endorse-compose-field">
           <span className="endorse-compose-label">
             Note
-            <span className="endorse-compose-counter">
-              {note.trim().length}/{NOTE_MAX}
-            </span>
+            {noteFieldVisible || note.trim() || !hasMediaAttachment ? (
+              <span className="endorse-compose-counter">
+                {note.trim().length}/{NOTE_MAX}
+              </span>
+            ) : null}
           </span>
-          <textarea
-            value={note}
-            maxLength={NOTE_MAX}
-            rows={3}
-            placeholder="Optional — what you’re vouching for"
-            className={`${osFieldBorderedClassName} endorse-compose-textarea`}
-            disabled={busy || isSelf || discardConfirmOpen}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        </label>
+          {noteFieldVisible || note.trim() || !hasMediaAttachment ? (
+            <textarea
+              value={note}
+              maxLength={NOTE_MAX}
+              rows={3}
+              placeholder="Optional — what you’re vouching for"
+              className={`${osFieldBorderedClassName} endorse-compose-textarea`}
+              disabled={busy || isSelf || discardConfirmOpen}
+              onChange={(event) => setNote(event.target.value)}
+            />
+          ) : (
+            <button
+              type="button"
+              className="endorse-compose-add-note"
+              disabled={busy || isSelf || discardConfirmOpen}
+              onClick={() => setNoteFieldVisible(true)}
+            >
+              Add a note
+            </button>
+          )}
+        </div>
 
         <div className="endorse-compose-media">
           <input

@@ -109,7 +109,7 @@ Reference: create-post (`guild-composer-sheet`) may still pass viewer mood expli
 | Control | Arrow hue | Behavior |
 |---------|-----------|----------|
 | **Stand** / Standing / Step back | `--signal-standing` | Inline toggle (ledger + dots; Step back on hover) |
-| **Endorse** | `--signal-endorse` | Opens endorsements overlay (compose there) |
+| **Endorse** | `--signal-endorse` | Opens `EndorseComposeSheet` (compact gesture sheet) |
 | **Support** | `--signal-reputation` | Opens dedicated Support glass sheet |
 
 Even trio with · separators. Same control height as standing modal; **no border**; hover = soft bg wash.
@@ -125,7 +125,7 @@ Even trio with · separators. Same control height as standing modal; **no border
 ## Off-face depth
 
 - **Standing lists** — signal taps → standing overlay
-- **Endorsements** — endorse signal / face Endorse → endorsements overlay + compose sheet
+- **Endorsements** — endorse signal → endorsements list overlay; face / drawer / post **Endorse** → `EndorseComposeSheet` (topic · note · media); row **Support** → endorsement spend sheet (`trackTransaction`)
 - **Support** — face Support + drawer Stand · Support whisper → dedicated `ProfileSupportSheet` (amount + `trackTransaction`)
   - Form stack: amount → presets left / available right → outcome → CTA
   - Outcome line **live only** from `get_action_config` — never show hardcoded % fallback

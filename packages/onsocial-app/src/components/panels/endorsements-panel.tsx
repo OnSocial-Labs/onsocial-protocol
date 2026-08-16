@@ -21,7 +21,7 @@ import {
   EndorsementSupportSheet,
   type EndorsementSupportTarget,
 } from '@/components/panels/endorsement-support-sheet';
-import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { Divider, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -337,8 +337,8 @@ export function EndorsementsPanel({
           ) : null}
         </div>
       ) : (
-        <div className="endorsement-list">
-          {items.map((item) => {
+        <div className="standing-list endorsement-list">
+          {items.map((item, index) => {
             const viewerOwns =
               Boolean(viewerAccountId) &&
               accountIdsEqual(viewerAccountId!, item.issuer);
@@ -352,31 +352,33 @@ export function EndorsementsPanel({
               (!viewerAccountId ||
                 !accountIdsEqual(viewerAccountId, item.target));
             return (
-              <EndorsementListRow
-                key={rowKey(item)}
-                item={item}
-                pageAccountId={accountId}
-                mode={mode}
-                viewerAccountId={viewerAccountId}
-                canEdit={viewerOwns}
-                onEdit={() =>
-                  openCompose({
-                    targetAccountId: item.target,
-                    targetName: item.targetName,
-                    targetAvatarUrl: item.targetAvatarUrl,
-                    intent: 'edit',
-                    existing: {
-                      id: typeof item.id === 'string' ? item.id : null,
-                      topic: item.topic ?? null,
-                      note: item.note ?? null,
-                      media: parseEndorsementMediaRef(item.media),
-                      mediaUrl: item.mediaUrl ?? null,
-                    },
-                  })
-                }
-                canSupport={canSupport}
-                onSupport={() => openSupport(item)}
-              />
+              <div key={rowKey(item)}>
+                {index > 0 ? <Divider variant="item" /> : null}
+                <EndorsementListRow
+                  item={item}
+                  pageAccountId={accountId}
+                  mode={mode}
+                  viewerAccountId={viewerAccountId}
+                  canEdit={viewerOwns}
+                  onEdit={() =>
+                    openCompose({
+                      targetAccountId: item.target,
+                      targetName: item.targetName,
+                      targetAvatarUrl: item.targetAvatarUrl,
+                      intent: 'edit',
+                      existing: {
+                        id: typeof item.id === 'string' ? item.id : null,
+                        topic: item.topic ?? null,
+                        note: item.note ?? null,
+                        media: parseEndorsementMediaRef(item.media),
+                        mediaUrl: item.mediaUrl ?? null,
+                      },
+                    })
+                  }
+                  canSupport={canSupport}
+                  onSupport={() => openSupport(item)}
+                />
+              </div>
             );
           })}
           <div ref={loadMoreRef} className="endorsements-load-more" />

@@ -29635,62 +29635,8 @@ a.os-surface-row {
     flex-direction: column;
   }
 
-  .endorsement-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.55rem;
-    margin: 0 -0.35rem;
-    padding: 0.7rem 0.35rem;
-    border-radius: 0.85rem;
-    transition: background 160ms ease;
-  }
-
-  .endorsement-row:hover,
-  .endorsement-row:focus-within {
-    background: rgb(var(--fg-rgb) / 0.03);
-  }
-
-  .endorsement-row--skeleton {
-    pointer-events: none;
-  }
-
-  .endorsement-row-body {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .endorsement-row-main {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    align-items: flex-start;
-    gap: 0.75rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .endorsement-row-copy {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.22rem;
-  }
-
-  .endorsement-row-title {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.35rem 0.5rem;
-  }
-
-  .endorsement-row-name {
-    font-size: 0.88rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .endorsement-row-topic {
+  /* Endorsement vouch rows reuse StandingIdentity / .standing-row shell. */
+  .endorsement-standing-row .endorsement-row-topic {
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -29701,22 +29647,24 @@ a.os-surface-row {
     );
   }
 
-  .endorsement-row-note {
+  .endorsement-standing-row .endorsement-row-note {
+    display: block;
+    margin-top: 0.15rem;
     font-size: 0.78rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.68);
   }
 
-  .endorsement-row-media {
+  .endorsement-standing-row .endorsement-row-media {
     display: block;
-    margin-top: 0.35rem;
+    margin-top: 0.4rem;
     max-width: 100%;
     overflow: hidden;
     border-radius: 0.75rem;
     background: rgb(var(--fg-rgb) / 0.04);
   }
 
-  .endorsement-row-media-el {
+  .endorsement-standing-row .endorsement-row-media-el {
     display: block;
     width: auto;
     max-width: 100%;
@@ -29725,23 +29673,21 @@ a.os-surface-row {
     vertical-align: top;
   }
 
-  .endorsement-row-meta {
+  .endorsement-standing-row .endorsement-row-meta {
+    display: block;
+    margin-top: 0.2rem;
     font-size: 0.62rem;
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
-  .endorsement-row-actions {
-    display: flex;
-    flex-shrink: 0;
+  .endorsement-standing-row .standing-row-aside {
     flex-direction: column;
     align-items: stretch;
-    gap: 0.2rem;
-    margin-top: 0.15rem;
+    gap: 0.15rem;
   }
 
-  .endorsement-row-action,
-  .endorsement-row-edit {
+  .endorsement-row-action {
     flex-shrink: 0;
     padding: 0.35rem 0.55rem;
     border: 0;
@@ -29755,9 +29701,7 @@ a.os-surface-row {
   }
 
   .endorsement-row-action:hover,
-  .endorsement-row-action:focus-visible,
-  .endorsement-row-edit:hover,
-  .endorsement-row-edit:focus-visible {
+  .endorsement-row-action:focus-visible {
     background: rgb(var(--fg-rgb) / 0.06);
     color: rgb(var(--fg-rgb) / 0.88);
     outline: none;
@@ -29984,6 +29928,27 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .endorse-compose-add-note {
+    align-self: flex-start;
+    padding: 0.2rem 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .endorse-compose-add-note:hover:not(:disabled) {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .endorse-compose-add-note:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
   .endorse-compose-hint,
   .endorse-compose-error {
     margin: 0;
@@ -29999,17 +29964,6 @@ a.os-surface-row {
     color: var(--signal-error, #ef4444);
   }
 
-  .endorsement-support-context {
-    margin: 0 0 0.85rem;
-    font-size: 0.78rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  .endorsement-support-context strong {
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.88);
-  }
 
   /* ── Profile support sheet ──────────────────────────────── */
 

@@ -33,7 +33,8 @@ interface EndorsementSupportSheetProps {
 
 /**
  * SOCIAL spend sheet for supporting an endorsement — same money gesture
- * family as profile Support (`OsGestureSheet` + AmountField).
+ * family as profile Support (`OsGestureSheet` + AmountField). Topic lives in
+ * the header whisper, not a body intro block.
  */
 export function EndorsementSupportSheet({
   open,
@@ -54,6 +55,9 @@ export function EndorsementSupportSheet({
   );
   const handle = fallbackLabel(recipientAccountId);
   const topicLabel = humanizeEndorsementTopic(target?.topic);
+  const whisper = topicLabel
+    ? `Vouch for ${topicLabel}`
+    : 'Support this public vouch with SOCIAL.';
   const fetchedMood = usePageOwnerMood(
     recipientAccountId,
     Boolean(recipientAccountId) && (open || closing)
@@ -90,6 +94,7 @@ export function EndorsementSupportSheet({
       personName={name}
       handle={handle}
       signal="reputation"
+      whisper={whisper}
       closeAriaLabel="Close endorsement support"
       backdropLabel="Close endorsement support"
       moodId={effectiveMood?.id}
@@ -99,29 +104,18 @@ export function EndorsementSupportSheet({
       zIndex={57}
     >
       {target ? (
-        <>
-          {topicLabel ? (
-            <p className="endorsement-support-context">
-              Supporting the vouch for <strong>{topicLabel}</strong>
-            </p>
-          ) : (
-            <p className="endorsement-support-context">
-              Supporting this public vouch with SOCIAL.
-            </p>
-          )}
-          <EndorsementSupportForm
-            key={formKey}
-            endorsementId={target.endorsementId}
-            recipientAccountId={target.recipientAccountId}
-            recipientName={target.recipientName}
-            issuer={target.issuer}
-            topic={target.topic}
-            onSuccess={() => {
-              onSuccess?.();
-              requestClose();
-            }}
-          />
-        </>
+        <EndorsementSupportForm
+          key={formKey}
+          endorsementId={target.endorsementId}
+          recipientAccountId={target.recipientAccountId}
+          recipientName={target.recipientName}
+          issuer={target.issuer}
+          topic={target.topic}
+          onSuccess={() => {
+            onSuccess?.();
+            requestClose();
+          }}
+        />
       ) : null}
     </OsGestureSheet>
   );
