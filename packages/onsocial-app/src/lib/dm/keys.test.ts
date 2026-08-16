@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   encodeDmPublicKey,
   generateDmKeyPair,
@@ -6,17 +6,34 @@ import {
   recoveryCodeToWrapKey,
   wrapDmSecretKey,
 } from '@/lib/dm/crypto';
+
+const publishDmKeyBackup = vi.fn();
+const lookupDmKeyBackup = vi.fn();
+
+vi.mock('@/lib/dm/pubkey', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/dm/pubkey')>();
+  return {
+    ...actual,
+    publishDmKeyBackup: (...args: unknown[]) => publishDmKeyBackup(...args),
+    lookupDmKeyBackup: (...args: unknown[]) => lookupDmKeyBackup(...args),
+  };
+});
+
 import {
   DmKeysLockedError,
   DmKeysMismatchError,
   DmKeysUnavailableError,
   __resetDmKeyMemoryForTests,
   acknowledgeDmRecoveryCode,
+  clearDmKeysLocal,
   ensureDmKeys,
+  getStoredDmIdentity,
   hasUnlockedDmKey,
   peekPendingDmRecoveryCode,
+  resetDmMessagingKeys,
   restoreDmKeysFromRecoveryCode,
 } from '@/lib/dm/keys';
+import type { OnSocial } from '@onsocial/sdk';
 
 const ACCOUNT = 'alice.testnet';
 
@@ -56,6 +73,10 @@ describe('dm keys bootstrap', () => {
   beforeEach(() => {
     installMemoryLocalStorage();
     __resetDmKeyMemoryForTests();
+    publishDmKeyBackup.mockReset();
+    lookupDmKeyBackup.mockReset();
+    publishDmKeyBackup.mockResolvedValue(undefined);
+    lookupDmKeyBackup.mockResolvedValue({ status: 'absent' });
   });
 
   it('creates keys when remote is verified absent', async () => {
@@ -228,5 +249,69 @@ describe('dm keys bootstrap', () => {
         },
       })
     ).rejects.toBeInstanceOf(DmKeysMismatchError);
+  });
+
+  it('resets messaging keys after publish confirms, abandoning prior local identity', async () => {
+    const prior = await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    const priorCode = prior.recoveryCode!;
+    acknowledgeDmRecoveryCode(ACCOUNT);
+
+    lookupDmKeyBackup.mockResolvedValue({
+      status: 'found',
+      value: prior.backup!,
+    });
+
+    const client = {} as OnSocial;
+    const reset = await resetDmMessagingKeys({ accountId: ACCOUNT, client });
+    expect(publishDmKeyBackup).toHaveBeenCalledTimes(1);
+    expect(reset.recoveryCode).toBeTruthy();
+    expect(reset.recoveryCode).not.toBe(priorCode);
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(peekPendingDmRecoveryCode(ACCOUNT)).toBe(reset.recoveryCode);
+    expect(getStoredDmIdentity(ACCOUNT)?.publicKey).toBe(reset.publicKeyEncoded);
+
+    await expect(
+      restoreDmKeysFromRecoveryCode({
+        accountId: ACCOUNT,
+        recoveryCode: priorCode,
+        remoteBackup: reset.backup,
+        preferRemote: true,
+      })
+    ).rejects.toThrow(/Invalid recovery code/);
+  });
+
+  it('leaves prior local keys intact when reset publish fails', async () => {
+    const prior = await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    const priorPk = prior.publicKeyEncoded;
+    lookupDmKeyBackup.mockResolvedValue({
+      status: 'found',
+      value: prior.backup!,
+    });
+    publishDmKeyBackup.mockRejectedValueOnce(new Error('chain down'));
+
+    await expect(
+      resetDmMessagingKeys({ accountId: ACCOUNT, client: {} as OnSocial })
+    ).rejects.toThrow(/chain down/);
+
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(getStoredDmIdentity(ACCOUNT)?.publicKey).toBe(priorPk);
+  });
+
+  it('refuses reset when profile lookup is unavailable', async () => {
+    lookupDmKeyBackup.mockResolvedValue({
+      status: 'unavailable',
+      cause: new Error('network'),
+    });
+    await expect(
+      resetDmMessagingKeys({ accountId: ACCOUNT, client: {} as OnSocial })
+    ).rejects.toBeInstanceOf(DmKeysUnavailableError);
+  });
+
+  it('clearDmKeysLocal removes disk and memory secrets', async () => {
+    await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    clearDmKeysLocal(ACCOUNT);
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(false);
+    expect(getStoredDmIdentity(ACCOUNT)).toBeNull();
   });
 });

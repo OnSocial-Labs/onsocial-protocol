@@ -18,6 +18,8 @@ import {
   unlockDmPasskey,
 } from '@/lib/dm/passkey';
 import type { DmKeyBackup, DmLookupResult } from '@/lib/dm/pubkey';
+import { lookupDmKeyBackup, publishDmKeyBackup } from '@/lib/dm/pubkey';
+import type { OnSocial } from '@onsocial/sdk';
 
 const STORE_PREFIX = 'onsocial.app.dm.';
 
@@ -599,4 +601,73 @@ export function lockDmKeys(accountId: string): void {
     ...stored,
     secretKey: undefined,
   });
+}
+
+/** Wipe all local messaging key material for an account (memory + disk). */
+export function clearDmKeysLocal(accountId: string): void {
+  const id = accountId.trim().toLowerCase();
+  clearMemorySecret(id);
+  bootstrapInflight.delete(id);
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(storageKey(id));
+}
+
+export type ResetDmMessagingKeysResult = {
+  keyPair: DmKeyPair;
+  publicKeyEncoded: string;
+  recoveryCode: string;
+  backup: DmKeyBackup;
+};
+
+/**
+ * Rotate messaging identity after total recovery loss.
+ *
+ * Publish-first: new pubkey+wrap are confirmed on-chain before local storage
+ * is replaced, so a failed publish leaves the previous local material intact.
+ * Ciphertext sealed to the previous pubkey stays unreadable forever.
+ */
+export async function resetDmMessagingKeys(opts: {
+  accountId: string;
+  client: OnSocial;
+}): Promise<ResetDmMessagingKeysResult> {
+  const id = opts.accountId.trim().toLowerCase();
+
+  const remote = await lookupDmKeyBackup(opts.client, id);
+  if (remote.status === 'unavailable') {
+    throw new DmKeysUnavailableError(
+      'Could not reach your profile to reset messaging keys. Try again.'
+    );
+  }
+
+  const keyPair = generateDmKeyPair();
+  const recoveryCode = generateDmRecoveryCode();
+  const wrapKey = await recoveryCodeToWrapKey(recoveryCode);
+  const wrapped = await wrapDmSecretKey({
+    secretKey: keyPair.secretKey,
+    wrapKey,
+  });
+  const publicKeyEncoded = encodeDmPublicKey(keyPair.publicKey);
+  const backup: DmKeyBackup = { publicKey: publicKeyEncoded, wrapped };
+
+  // Intentionally overwrite profile identity (unlike reconcile, which refuses mismatch).
+  await publishDmKeyBackup(opts.client, backup, id);
+
+  clearDmKeysLocal(id);
+  const secretEncoded = encodeDmSecretKey(keyPair.secretKey);
+  setMemorySecret(id, secretEncoded);
+  writeStore({
+    accountId: id,
+    publicKey: publicKeyEncoded,
+    secretKey: secretEncoded,
+    wrapped,
+    createdAt: new Date().toISOString(),
+    pendingRecoveryCode: recoveryCode,
+  });
+
+  return {
+    keyPair,
+    publicKeyEncoded,
+    recoveryCode,
+    backup,
+  };
 }

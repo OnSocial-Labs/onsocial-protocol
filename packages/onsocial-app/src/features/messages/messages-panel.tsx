@@ -65,6 +65,9 @@ export function MessagesPanel() {
   const [plainById, setPlainById] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [recoveryVariant, setRecoveryVariant] = useState<'created' | 'reset'>(
+    'created'
+  );
   const [composeOpen, setComposeOpen] = useState(false);
   const [enrollPending, setEnrollPending] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
@@ -186,7 +189,10 @@ export function MessagesPanel() {
         return;
       }
       const pending = keys.recoveryCode ?? peekPendingDmRecoveryCode(accountId);
-      if (pending) setRecoveryCode(pending);
+      if (pending) {
+        setRecoveryVariant('created');
+        setRecoveryCode(pending);
+      }
       setKeysTick((n) => n + 1);
     } catch (cause) {
       if (
@@ -221,6 +227,7 @@ export function MessagesPanel() {
     setActiveThreadId('');
     setError(null);
     setRecoveryCode(null);
+    setRecoveryVariant('created');
     setComposeOpen(false);
   }, []);
 
@@ -615,7 +622,16 @@ export function MessagesPanel() {
       </header>
 
       {!isUnlocked && accountId ? (
-        <DmUnlockPanel accountId={accountId} onUnlocked={() => void handleUnlocked()} />
+        <DmUnlockPanel
+          accountId={accountId}
+          onUnlocked={() => void handleUnlocked()}
+          onReset={(code) => {
+            setPlainById({});
+            setRecoveryVariant('reset');
+            setRecoveryCode(code);
+            void handleUnlocked();
+          }}
+        />
       ) : isUnlocked && canPasskey && !passkeyEnrolled ? (
         <section className="messages-unlock" aria-label="Enable passkey unlock">
           <p>
@@ -781,6 +797,7 @@ export function MessagesPanel() {
         open={Boolean(recoveryCode)}
         code={recoveryCode ?? ''}
         accountId={accountId}
+        variant={recoveryVariant}
         onClose={() => {
           // Passive dismiss keeps pendingRecoveryCode so the sheet can reappear.
           setRecoveryCode(null);
@@ -788,6 +805,7 @@ export function MessagesPanel() {
         onAcknowledge={() => {
           if (accountId) acknowledgeDmRecoveryCode(accountId);
           setRecoveryCode(null);
+          setRecoveryVariant('created');
         }}
         onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
       />
