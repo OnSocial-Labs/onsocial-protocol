@@ -30490,6 +30490,12 @@ button.scarce-clip-cover-expand:focus-visible {
   cursor: pointer;
 }
 
+a.protocol-board-chip {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .protocol-board-chip.is-active {
   background: rgb(var(--fg-rgb) / 0.12);
   color: rgb(var(--fg-rgb) / 0.94);
@@ -31803,101 +31809,19 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.72);
 }
 
-.dao-portfolio-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  margin-top: 0.85rem;
-  padding: 0 0.1rem;
-}
-
-.dao-portfolio-flipper {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.85rem;
-  padding: 0 0.1rem;
-}
-
-.dao-portfolio-flip {
-  border: 0;
-  margin: 0;
-  padding: 0.42rem 0.78rem;
-  border-radius: 999px;
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.62);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  text-decoration: none;
-}
-
-.dao-portfolio-flip.is-active {
-  background: rgb(var(--fg-rgb) / 0.14);
-  color: rgb(var(--fg-rgb) / 0.92);
-}
-
-.dao-portfolio-flip:hover,
-.dao-portfolio-flip:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.92);
-  outline: none;
-}
-
-.dao-portfolio-entry {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+/* Reuse Protocol rail/tool chrome; only space under identity. */
+.dao-portfolio-controls {
   margin-top: 0.75rem;
   padding: 0 0.1rem;
 }
 
-.dao-portfolio-chip {
-  border: 0;
-  margin: 0;
-  padding: 0.42rem 0.78rem;
-  border-radius: 999px;
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.72);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.dao-portfolio-chip:hover,
-.dao-portfolio-chip:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.11);
-  color: rgb(var(--fg-rgb) / 0.92);
-  outline: none;
-}
-
 .dao-portfolio-workspace {
   min-width: 0;
-}
-
-.dao-portfolio-secondary-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: center;
-}
-
-.dao-portfolio-text-link {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: rgb(var(--fg-rgb) / 0.55);
-  text-decoration: none;
-}
-
-.dao-portfolio-text-link:hover,
-.dao-portfolio-text-link:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.9);
-  outline: none;
+  margin-top: 1.1rem;
 }
 
 .dao-portfolio-divider {
-  margin: 1rem 0 0.75rem;
+  margin: 1.1rem 0 0.75rem;
 }
 
 .dao-portfolio-facts-title {

@@ -221,7 +221,7 @@ export function DaoPortfolioPanel({
 
           {showFlipper ? (
             <div
-              className="dao-portfolio-flipper"
+              className="protocol-board-rail dao-portfolio-controls"
               role="tablist"
               aria-label="Protocol DAO"
             >
@@ -229,7 +229,7 @@ export function DaoPortfolioPanel({
                 href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
                 role="tab"
                 aria-selected={isGovernance}
-                className={`dao-portfolio-flip${isGovernance ? ' is-active' : ''}`}
+                className={`protocol-board-chip${isGovernance ? ' is-active' : ''}`}
               >
                 Governance
               </Link>
@@ -237,7 +237,7 @@ export function DaoPortfolioPanel({
                 href={daoPath(TREASURY_DAO_ACCOUNT)}
                 role="tab"
                 aria-selected={!isGovernance}
-                className={`dao-portfolio-flip${!isGovernance ? ' is-active' : ''}`}
+                className={`protocol-board-chip${!isGovernance ? ' is-active' : ''}`}
               >
                 Treasury
               </Link>
@@ -245,34 +245,32 @@ export function DaoPortfolioPanel({
           ) : null}
 
           <div
-            className="dao-portfolio-entry"
+            className="protocol-tools dao-portfolio-controls"
             role="toolbar"
             aria-label="DAO entry"
           >
             <button
               type="button"
-              className="dao-portfolio-chip"
+              className="protocol-tool"
               onClick={() => setOverlay('members')}
             >
               Members
             </button>
             <button
               type="button"
-              className="dao-portfolio-chip"
+              className="protocol-tool"
               onClick={() => setOverlay('treasury')}
             >
               Treasury
             </button>
             <button
               type="button"
-              className="dao-portfolio-chip"
+              className="protocol-tool"
               onClick={() => setOverlay('manage')}
             >
               Manage
             </button>
           </div>
-
-          <Divider variant="section" className="dao-portfolio-divider" />
 
           <section
             className="dao-portfolio-workspace"
