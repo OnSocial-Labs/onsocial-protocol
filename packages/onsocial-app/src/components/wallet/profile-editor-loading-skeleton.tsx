@@ -1,13 +1,8 @@
 'use client';
 
 import { Divider } from '@onsocial/ui';
-import { AccountEditorChrome } from '@/components/wallet/account-editor-chrome';
 
-export function ProfileEditorLoadingSkeleton({
-  onClose,
-}: {
-  onClose: () => void;
-}) {
+export function ProfileEditorLoadingSkeleton() {
   return (
     <div
       className="account-editor-loading-shell"
@@ -26,13 +21,6 @@ export function ProfileEditorLoadingSkeleton({
               </p>
             </div>
           </div>
-
-          <AccountEditorChrome
-            titleId="profile-editor-title"
-            title="Edit profile"
-            onClose={onClose}
-            className="account-editor-hero-chrome"
-          />
 
           <div className="account-editor-hero-overlap">
             <div className="account-editor-identity">
@@ -57,10 +45,6 @@ export function ProfileEditorLoadingSkeleton({
           <div className="account-editor-shimmer account-editor-shimmer-link-chip" />
           <div className="account-editor-shimmer account-editor-shimmer-link-chip" />
         </div>
-      </div>
-
-      <div className="account-editor-footer account-editor-footer--skeleton">
-        <div className="account-editor-shimmer account-editor-shimmer-save" />
       </div>
     </div>
   );
