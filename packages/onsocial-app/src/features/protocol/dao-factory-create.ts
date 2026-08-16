@@ -12,6 +12,7 @@ import {
   viewAccount,
 } from '@/lib/app-near-rpc';
 import { isValidNearAccountId } from '@/lib/app-near-account';
+import { encodeDaoConfigMetadata } from '@/features/protocol/dao-branding';
 import { daysToProposalPeriodNs } from '@/features/protocol/protocol-policy';
 
 /** Gas for factory `create` (300 TGas). */
@@ -158,7 +159,8 @@ export function buildDaoFactoryInitArgs(opts: {
     config: {
       name: name || 'DAO',
       purpose,
-      metadata: opts.metadata?.trim() ?? '',
+      // Sputnik Config.metadata is Base64VecU8 — never plain JSON.
+      metadata: encodeDaoConfigMetadata(opts.metadata),
     },
     policy: buildDaoFactoryPolicy(council),
   };
