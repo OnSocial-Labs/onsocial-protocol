@@ -667,6 +667,25 @@ export function StandingPanelProvider({
     viewerKey,
   ]);
 
+  // DAOs may sit past the first People page — keep fetching until one appears
+  // or pages are exhausted (empty state has no load-more sentinel).
+  useEffect(() => {
+    if (entityFilter !== 'daos') return;
+    if (query.trim()) return;
+    if (filteredAccounts.length > 0) return;
+    if (!hasMore || isLoading || isLoadingMore || loadError) return;
+    void loadMore();
+  }, [
+    entityFilter,
+    query,
+    filteredAccounts.length,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    loadError,
+    loadMore,
+  ]);
+
   const handleUpdateStanding = useCallback(
     async (account: StandingAccountSummary, shouldStand: boolean) => {
       if (mergedPendingIds.has(account.accountId)) {
@@ -700,29 +719,48 @@ export function StandingPanelProvider({
     [mergedPendingIds, updateStanding]
   );
 
-  const emptyState = useMemo(
-    () =>
-      buildStandingEmptyState({
-        kind: activeKind,
-        isSelf,
-        displayName: profileDisplayName,
-        query,
-        showDiscoverLink,
-        entityFilter,
-      }),
-    [
+  const emptyState = useMemo(() => {
+    const scanningDaos =
+      entityFilter === 'daos' &&
+      !query.trim() &&
+      filteredAccounts.length === 0 &&
+      (hasMore || isLoading || isLoadingMore);
+
+    if (scanningDaos) {
+      return {
+        primary: 'Looking for DAOs…',
+        showClearSearch: false,
+        showDiscover: false,
+      };
+    }
+
+    return buildStandingEmptyState({
+      kind: activeKind,
       isSelf,
-      activeKind,
-      profileDisplayName,
+      displayName: profileDisplayName,
       query,
       showDiscoverLink,
       entityFilter,
-    ]
-  );
+    });
+  }, [
+    isSelf,
+    activeKind,
+    profileDisplayName,
+    query,
+    showDiscoverLink,
+    entityFilter,
+    filteredAccounts.length,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+  ]);
 
   const clearSearch = useCallback(() => {
     setQuery('');
   }, []);
+
+  const entityNoun = entityFilter === 'daos' ? 'DAO' : 'profile';
+  const entityNounPlural = entityFilter === 'daos' ? 'DAOs' : 'profiles';
 
   const summary = useMemo(() => {
     if (filteredAccounts.length === 0 && isLoading) return null;
@@ -736,18 +774,24 @@ export function StandingPanelProvider({
     if (serverSearchActive) {
       if (totalCount > 0) {
         return hasMore
-          ? `Showing ${shown} of ${formatProfileCount(totalCount)} matching profiles`
-          : `${formatProfileCount(totalCount)} matching profile${totalCount === 1 ? '' : 's'}`;
+          ? `Showing ${shown} of ${formatProfileCount(totalCount)} matching ${entityNounPlural}`
+          : `${formatProfileCount(totalCount)} matching ${
+              totalCount === 1 ? entityNoun : entityNounPlural
+            }`;
       }
       return hasMore
-        ? `Showing ${shown} matching profiles`
-        : `${shown} matching profile${filteredAccounts.length === 1 ? '' : 's'}`;
+        ? `Showing ${shown} matching ${entityNounPlural}`
+        : `${shown} matching ${
+            filteredAccounts.length === 1 ? entityNoun : entityNounPlural
+          }`;
     }
 
     if (query.trim()) {
       return hasMore
-        ? `Showing ${shown} matching profiles`
-        : `${shown} matching profile${filteredAccounts.length === 1 ? '' : 's'}`;
+        ? `Showing ${shown} matching ${entityNounPlural}`
+        : `${shown} matching ${
+            filteredAccounts.length === 1 ? entityNoun : entityNounPlural
+          }`;
     }
 
     if (totalCount > 0) {
@@ -757,6 +801,8 @@ export function StandingPanelProvider({
     return null;
   }, [
     displayAccounts.length,
+    entityNoun,
+    entityNounPlural,
     filteredAccounts.length,
     hasMore,
     isLoading,
@@ -783,9 +829,7 @@ export function StandingPanelProvider({
       (!listBootstrapReady && isLoading) ||
       (!listBootstrapReady && !relationshipSynced));
   const showLoadMoreSentinel =
-    hasMore &&
-    !query.trim() &&
-    (filteredAccounts.length > 0 || entityFilter === 'daos');
+    hasMore && !query.trim() && filteredAccounts.length > 0;
 
   useInfiniteScrollSentinel({
     scrollRootRef,

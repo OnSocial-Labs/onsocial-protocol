@@ -10600,6 +10600,10 @@ a.os-surface-row {
     .standing-view-menu .os-floating-panel-trigger {
       max-width: 9rem;
     }
+
+    .standing-entity-menu .os-floating-panel-trigger {
+      max-width: 6.5rem;
+    }
   }
 
   .os-floating-panel-count--loading.standing-row-shimmer {

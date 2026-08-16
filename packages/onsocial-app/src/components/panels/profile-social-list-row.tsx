@@ -56,7 +56,27 @@ function MetricCount({
   );
 }
 
-function ProfileRowMetrics({ account }: { account: ProfileListAccount }) {
+function ProfileRowMetrics({
+  account,
+  isDao = false,
+}: {
+  account: ProfileListAccount;
+  isDao?: boolean;
+}) {
+  if (isDao) {
+    return (
+      <div className="standing-row-metrics">
+        <span
+          className="standing-row-metric"
+          aria-label={`${formatProfileCount(account.standingCount)} stand with them`}
+        >
+          <ProtocolMotionArrow static className="standing-row-metric-arrow" />
+          <MetricCount value={account.standingCount} tone="standing" />
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="standing-row-metrics">
       <span
@@ -292,7 +312,7 @@ export function ProfileSocialListRow({
               <PostRichText text={bio} emptyFallback="" showLinkIcon />
             </span>
           ) : null}
-          <ProfileRowMetrics account={account} />
+          <ProfileRowMetrics account={account} isDao={isDaoTarget} />
         </StandingIdentity>
       </div>
 

@@ -8,12 +8,11 @@ export type DaoManageAction =
   | 'stake'
   | 'settings'
   | 'info'
-  | 'edit'
-  | 'members'
-  | 'treasury';
+  | 'edit';
 
 /**
- * Portfolio Manage hub — Propose / Stake / Settings / Info / lists / edit.
+ * Portfolio Manage hub — Propose / Stake / Settings / Info / edit.
+ * Members and Treasury stay on the face chips (not duplicated here).
  */
 export function DaoManageSheet({
   open,
@@ -84,16 +83,6 @@ export function DaoManageSheet({
           label="Info"
           description="Policy, bond, and treasury snapshot"
           onClick={() => run('info')}
-        />
-        <OsSurfaceRow
-          label="Members"
-          description="Group roles on this DAO"
-          onClick={() => run('members')}
-        />
-        <OsSurfaceRow
-          label="Treasury"
-          description="Balances held by this DAO"
-          onClick={() => run('treasury')}
         />
         {canEdit ? (
           <OsSurfaceRow

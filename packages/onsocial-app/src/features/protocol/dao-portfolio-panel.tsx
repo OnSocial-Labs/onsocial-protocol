@@ -188,14 +188,6 @@ export function DaoPortfolioPanel({
       setOverlay('edit');
       return;
     }
-    if (action === 'members') {
-      setOverlay('members');
-      return;
-    }
-    if (action === 'treasury') {
-      setOverlay('treasury');
-      return;
-    }
     // Propose / Stake / Settings / Info live on the proposals workspace.
     setOverlay('proposals');
     setToolRequest(action);
@@ -326,10 +318,6 @@ export function DaoPortfolioPanel({
           <section className="dao-portfolio-facts" aria-label="DAO facts">
             <h2 className="dao-portfolio-facts-title">About</h2>
             <dl className="dao-portfolio-facts-list">
-              <div>
-                <dt>Account</dt>
-                <dd>{branding.daoAccountId}</dd>
-              </div>
               <div>
                 <dt>Type</dt>
                 <dd>{kindLabel}</dd>
