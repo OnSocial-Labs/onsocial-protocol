@@ -10,18 +10,22 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
   type FormEvent,
 } from 'react';
 import {
+  DiscardConfirmFooter,
+  discardConfirmFooterA11y,
   OsField,
   OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
   osFieldBorderedClassName,
+  useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -74,8 +78,6 @@ export function DaoEditSheet({
   const { getSigningWallet } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
 
   const [name, setName] = useState(branding.name);
   const [description, setDescription] = useState(branding.description ?? '');
@@ -111,14 +113,51 @@ export function DaoEditSheet({
     [avatarPreview, bannerPreview]
   );
 
-  const requestClose = useCallback(() => {
-    if (pending) return;
-    setSheetOpen(false);
-  }, [pending]);
+  const isDirty = useMemo(() => {
+    const baselineName = branding.name.trim();
+    const baselineDescription = (branding.description ?? '').trim();
+    return (
+      name.trim() !== baselineName ||
+      description.trim() !== baselineDescription ||
+      avatarFile !== null ||
+      bannerFile !== null ||
+      avatarRemoved ||
+      bannerRemoved
+    );
+  }, [
+    avatarFile,
+    avatarRemoved,
+    bannerFile,
+    bannerRemoved,
+    branding.description,
+    branding.name,
+    description,
+    name,
+  ]);
 
-  const handleClosed = useCallback(() => {
-    onClose();
-  }, [onClose]);
+  const {
+    discardConfirmOpen,
+    discardTitleId,
+    discardBodyId,
+    keepEditingRef,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({
+    open,
+    dirty: isDirty,
+    pending,
+    onClose,
+  });
+
+  const handleBeforeClose = useCallback(() => {
+    if (discardConfirmOpen) {
+      keepEditing();
+      return false;
+    }
+    return requestCloseOrConfirm();
+  }, [discardConfirmOpen, keepEditing, requestCloseOrConfirm]);
 
   const onAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -191,7 +230,7 @@ export function DaoEditSheet({
     avatarPreview ?? (avatarRemoved ? null : branding.avatarUrl);
   const bannerSrc =
     bannerPreview ?? (bannerRemoved ? null : branding.bannerUrl);
-  const canSave = name.trim().length >= 2 && !pending;
+  const canSave = name.trim().length >= 2 && isDirty && !pending;
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -275,7 +314,6 @@ export function DaoEditSheet({
         },
         metadata
       );
-      setSheetOpen(false);
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -292,9 +330,10 @@ export function DaoEditSheet({
 
   return (
     <OsSlideOverScreen
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
+      open={open}
+      onClose={onClose}
+      onBeforeClose={handleBeforeClose}
+      onClosed={clearDiscardConfirm}
       title="Edit DAO profile"
       subtitle="Cover + square crest — publishes as a config proposal."
       closeAriaLabel="Back from edit DAO"
@@ -303,18 +342,40 @@ export function DaoEditSheet({
       className="hub-manage-slide"
       contentClassName="hub-manage-slide-body"
       footer={
-        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="submit"
-            form={formId}
-            ready={canSave}
-            pending={pending}
-            pendingLabel="Proposing…"
-            disabled={!canSave}
-          >
-            Propose profile
-          </OsSheetAction>
-        </OsSheetActions>
+        <div
+          className={`hub-manage-sheet-footer${
+            discardConfirmOpen ? ' is-discard-confirm' : ''
+          }`}
+          {...discardConfirmFooterA11y(
+            discardConfirmOpen,
+            discardTitleId,
+            discardBodyId
+          )}
+        >
+          {discardConfirmOpen ? (
+            <DiscardConfirmFooter
+              className="dao-edit-discard-card"
+              titleId={discardTitleId}
+              bodyId={discardBodyId}
+              onDiscard={discard}
+              onKeepEditing={keepEditing}
+              keepEditingRef={keepEditingRef}
+            />
+          ) : (
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="submit"
+                form={formId}
+                ready={canSave}
+                pending={pending}
+                pendingLabel="Proposing…"
+                disabled={!canSave}
+              >
+                Propose profile
+              </OsSheetAction>
+            </OsSheetActions>
+          )}
+        </div>
       }
     >
       <form id={formId} className="hub-manage-form" onSubmit={(e) => void save(e)}>
