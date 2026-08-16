@@ -26170,10 +26170,6 @@ a.os-surface-row {
     padding: 0.2rem 1.15rem 1.25rem;
   }
 
-  .guild-settings-sheet-body {
-    /* Inset from OsHugSheet `.os-hug-sheet-body` — no host padding. */
-  }
-
   .guild-settings-sheet-header {
     padding-bottom: 0.45rem;
   }
