@@ -32685,11 +32685,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   position: sticky;
   bottom: 0;
   z-index: 1;
-  background: color-mix(
-    in srgb,
-    rgb(var(--bg-rgb, 255 255 255)) 92%,
-    rgb(var(--fg-rgb) / 0.02)
-  );
+  background: rgb(var(--bg-rgb) / 0.96);
   padding-bottom: max(0.15rem, env(safe-area-inset-bottom, 0px));
 }
 
