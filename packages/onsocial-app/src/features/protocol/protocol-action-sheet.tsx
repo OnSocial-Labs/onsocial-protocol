@@ -6,6 +6,7 @@ import {
   OsSheetActions,
 } from '@onsocial/ui';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
+import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
 import type {
   ProtocolApplication,
   ProtocolDaoAction,
@@ -57,7 +58,7 @@ export function ProtocolActionSheet({
       {...(view?.headline ? { copy: view.headline } : {})}
       closeAriaLabel="Close actions"
       backdropLabel="Close actions"
-      zIndex={58}
+      zIndex={PROTOCOL_TASK_SHEET_Z}
       initialDetent="peek"
       peekRatio={0.42}
       bodyClassName="protocol-action-sheet-body"

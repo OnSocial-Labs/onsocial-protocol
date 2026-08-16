@@ -59,9 +59,9 @@ import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact } from '@/lib/format-social-balance';
-
-/** Nest above ProtocolTaskSheet (z=58). */
-const PROTOCOL_NESTED_CHOICE_Z = 70;
+import {
+  PROTOCOL_NESTED_CHOICE_Z,
+} from '@/features/protocol/protocol-sheet-z';
 
 function tryNearToYocto(value: string): string | null {
   try {

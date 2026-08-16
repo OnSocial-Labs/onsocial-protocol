@@ -30471,23 +30471,34 @@ button.scarce-clip-cover-expand:focus-visible {
   color: var(--os-surface-muted-strong);
 }
 
-.protocol-board-rail {
+.protocol-board-rail,
+.protocol-tools,
+.protocol-status-rail,
+.protocol-mode-rail {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 
-.protocol-board-chip {
+/* Protocol rail pills — larger than os-surface-chip; fill from surface tokens. */
+.protocol-board-chip,
+.protocol-tool {
   border: 0;
   margin: 0;
   padding: 0.42rem 0.78rem;
   border-radius: 999px;
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.62);
   font: inherit;
   font-size: 0.78rem;
-  font-weight: 650;
   cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.protocol-board-chip {
+  background: var(--os-surface-fill);
+  color: var(--os-surface-muted-strong);
+  font-weight: 650;
 }
 
 a.protocol-board-chip {
@@ -30497,19 +30508,44 @@ a.protocol-board-chip {
 }
 
 .protocol-board-chip.is-active {
-  background: rgb(var(--fg-rgb) / 0.12);
-  color: rgb(var(--fg-rgb) / 0.94);
+  background: var(--os-surface-fill-active);
+  color: var(--os-surface-emphasis);
 }
 
+.protocol-board-chip:hover,
 .protocol-board-chip:focus-visible {
-  outline: 2px solid rgb(var(--fg-rgb) / 0.35);
-  outline-offset: 2px;
+  background: var(--os-surface-fill-hover);
+  color: var(--os-surface-emphasis);
+  outline: none;
+}
+
+.protocol-tool {
+  background: var(--os-surface-fill-strong);
+  color: var(--os-surface-emphasis);
+  font-weight: 700;
+}
+
+.protocol-tool.is-ghost {
+  background: transparent;
+  color: var(--os-surface-muted-strong);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  padding-inline: 0.35rem;
+}
+
+.protocol-tool:hover,
+.protocol-tool:focus-visible {
+  background: var(--os-surface-fill-hover);
+  outline: none;
+}
+
+.protocol-tool.is-ghost:hover,
+.protocol-tool.is-ghost:focus-visible {
+  background: transparent;
+  color: var(--os-surface-emphasis);
 }
 
 .protocol-status-rail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
   margin-top: 0.35rem;
 }
 
@@ -31307,51 +31343,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   margin: 0.15rem 0 0;
   font-size: 0.86rem;
   color: rgb(var(--fg-rgb) / 0.86);
-}
-
-.protocol-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.protocol-tool {
-  border: 0;
-  margin: 0;
-  padding: 0.42rem 0.78rem;
-  border-radius: 999px;
-  background: rgb(var(--fg-rgb) / 0.1);
-  color: rgb(var(--fg-rgb) / 0.92);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.protocol-tool.is-ghost {
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.62);
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-  padding-inline: 0.35rem;
-}
-
-.protocol-tool:hover,
-.protocol-tool:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.16);
-  outline: none;
-}
-
-.protocol-tool.is-ghost:hover,
-.protocol-tool.is-ghost:focus-visible {
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.88);
-}
-
-.protocol-mode-rail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
 }
 
 .protocol-propose-kind {

@@ -10,6 +10,7 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
+import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
 
 /**
  * Full-height Protocol task sheet — same chrome as Scarces sell/list/buy
@@ -70,7 +71,7 @@ export function ProtocolTaskSheet({
       panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body protocol-task-sheet-body"
       titleId={titleId}
-      zIndex={58}
+      zIndex={PROTOCOL_TASK_SHEET_Z}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter

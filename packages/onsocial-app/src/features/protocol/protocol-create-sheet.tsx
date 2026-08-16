@@ -50,9 +50,9 @@ import {
   yoctoToSocial,
 } from '@/lib/format-social-balance';
 import { socialToYocto } from '@/lib/social-spend-profile';
-
-/** Nest above ProtocolTaskSheet (z=58). */
-const PROTOCOL_NESTED_CHOICE_Z = 70;
+import {
+  PROTOCOL_NESTED_CHOICE_Z,
+} from '@/features/protocol/protocol-sheet-z';
 
 function tokenSmallestToDisplay(value: string, decimals: number): string {
   if (!value || value === '0') return '0';

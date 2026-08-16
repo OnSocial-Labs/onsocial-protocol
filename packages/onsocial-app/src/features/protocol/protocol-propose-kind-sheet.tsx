@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { OsHugSheet } from '@onsocial/ui';
 import {
   PROTOCOL_CREATE_KIND_COMMON,
   PROTOCOL_CREATE_KIND_GROUPS,
@@ -10,14 +9,19 @@ import {
   rememberProtocolCreateKind,
   type ProtocolCreateKind,
 } from '@/features/protocol/protocol-create';
-import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
+import {
+  ProtocolPickerItem,
+  ProtocolPickerSection,
+  ProtocolPickerSheet,
+  ProtocolPickerStatus,
+  protocolPickerItemLockReason,
+  useProtocolPickerEligibility,
+} from '@/features/protocol/protocol-picker-sheet';
 import {
   canProposeProtocolCreateKind,
   getProtocolCreateKindLockReason,
-  isProtocolDaoGroupMember,
 } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
-import { formatSocialCompact } from '@/lib/format-social-balance';
 
 /**
  * Propose kind picker — choose a proposal type, then the create form opens.
@@ -42,61 +46,19 @@ export function ProtocolProposeKindSheet({
   onSelectKind: (kind: ProtocolCreateKind) => void;
   onOpenStake: () => void;
 }) {
-  const [loadState, setLoadState] = useState<
-    'idle' | 'loading' | 'ready' | 'error'
-  >('idle');
-  const [delegatedWeight, setDelegatedWeight] = useState('0');
-  const [canProposeAny, setCanProposeAny] = useState(true);
-  const [remainingLabel, setRemainingLabel] = useState<string | null>(null);
   const [highlightedKind, setHighlightedKind] =
     useState<ProtocolCreateKind | null>(lastKind);
-
-  const isGroupMember = useMemo(
-    () => isProtocolDaoGroupMember(daoPolicy, accountId),
-    [daoPolicy, accountId]
-  );
+  const eligibility = useProtocolPickerEligibility({
+    open,
+    daoAccountId,
+    accountId,
+    daoPolicy,
+  });
 
   useEffect(() => {
-    if (!open) {
-      setLoadState('idle');
-      setDelegatedWeight('0');
-      setCanProposeAny(true);
-      setRemainingLabel(null);
-      return;
-    }
+    if (!open) return;
     setHighlightedKind(lastKind ?? readLastProtocolCreateKind());
-    if (!daoAccountId || !accountId) {
-      setLoadState('ready');
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      setLoadState('loading');
-      try {
-        const eligibility = await getProtocolGovernanceEligibility(
-          accountId,
-          daoAccountId
-        );
-        if (cancelled) return;
-        setDelegatedWeight(eligibility.delegatedWeight);
-        setCanProposeAny(eligibility.canPropose || isGroupMember);
-        setRemainingLabel(
-          BigInt(eligibility.remainingToThreshold) > 0n
-            ? formatSocialCompact(eligibility.remainingToThreshold)
-            : null
-        );
-        setLoadState('ready');
-      } catch {
-        if (cancelled) return;
-        setLoadState('error');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, daoAccountId, accountId, isGroupMember, lastKind]);
+  }, [open, lastKind]);
 
   const commonOptions = useMemo(
     () =>
@@ -126,96 +88,55 @@ export function ProtocolProposeKindSheet({
     [commonIds]
   );
 
-  const stakeBlocked =
-    Boolean(accountId) &&
-    loadState === 'ready' &&
-    !canProposeAny &&
-    !isGroupMember;
+  const selectKind = (kind: ProtocolCreateKind) => {
+    rememberProtocolCreateKind(kind);
+    onSelectKind(kind);
+  };
 
   return (
-    <OsHugSheet
+    <ProtocolPickerSheet
       open={open}
       onClose={onClose}
       label="Propose"
       copy="Choose what to put on-chain."
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
-      zIndex={58}
-      initialDetent="peek"
-      peekRatio={0.62}
-      bodyClassName="protocol-action-sheet-body"
     >
-      <div className="protocol-propose-kind">
-        {!accountId ? (
-          <p className="protocol-empty">Connect a wallet to propose.</p>
-        ) : null}
+      <ProtocolPickerStatus
+        accountId={accountId}
+        loadState={eligibility.loadState}
+        connectEmpty="Connect a wallet to propose."
+        loadingEmpty="Checking what you can propose…"
+        errorNote="Could not verify proposal eligibility. Close and try again."
+        stakeBlocked={eligibility.stakeBlocked}
+        stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose.`}
+        onOpenStake={onOpenStake}
+        onClose={onClose}
+      />
 
-        {accountId && loadState === 'loading' ? (
-          <p className="protocol-empty">Checking what you can propose…</p>
-        ) : null}
+      <KindSection
+        label="Common"
+        options={commonOptions}
+        accountId={accountId}
+        eligibility={eligibility}
+        daoPolicy={daoPolicy}
+        highlightedKind={highlightedKind}
+        onSelectKind={selectKind}
+      />
 
-        {accountId && loadState === 'error' ? (
-          <p className="protocol-compose-note is-warn">
-            Could not verify proposal eligibility. Close and try again.
-          </p>
-        ) : null}
-
-        {stakeBlocked ? (
-          <div className="protocol-propose-kind-block">
-            <p className="protocol-compose-note is-warn">
-              Need {remainingLabel ?? 'more'} SOCIAL delegated to propose.
-            </p>
-            <button
-              type="button"
-              className="protocol-tool"
-              onClick={() => {
-                onClose();
-                onOpenStake();
-              }}
-            >
-              Stake
-            </button>
-          </div>
-        ) : null}
-
+      {grouped.map((group) => (
         <KindSection
-          label="Common"
-          options={commonOptions}
+          key={group.id}
+          label={group.label}
+          options={group.options}
           accountId={accountId}
-          loadState={loadState}
+          eligibility={eligibility}
           daoPolicy={daoPolicy}
-          delegatedWeight={delegatedWeight}
-          canProposeAny={canProposeAny}
-          isGroupMember={isGroupMember}
-          remainingLabel={remainingLabel}
           highlightedKind={highlightedKind}
-          onSelectKind={(kind) => {
-            rememberProtocolCreateKind(kind);
-            onSelectKind(kind);
-          }}
+          onSelectKind={selectKind}
         />
-
-        {grouped.map((group) => (
-          <KindSection
-            key={group.id}
-            label={group.label}
-            options={group.options}
-            accountId={accountId}
-            loadState={loadState}
-            daoPolicy={daoPolicy}
-            delegatedWeight={delegatedWeight}
-            canProposeAny={canProposeAny}
-            isGroupMember={isGroupMember}
-            remainingLabel={remainingLabel}
-            highlightedKind={highlightedKind}
-            onSelectKind={(kind) => {
-              rememberProtocolCreateKind(kind);
-              onSelectKind(kind);
-            }}
-          />
-        ))}
-      </div>
-    </OsHugSheet>
+      ))}
+    </ProtocolPickerSheet>
   );
 }
 
@@ -223,96 +144,57 @@ function KindSection({
   label,
   options,
   accountId,
-  loadState,
+  eligibility,
   daoPolicy,
-  delegatedWeight,
-  canProposeAny,
-  isGroupMember,
-  remainingLabel,
   highlightedKind,
   onSelectKind,
 }: {
   label: string;
   options: typeof PROTOCOL_CREATE_KIND_OPTIONS;
   accountId: string | null;
-  loadState: 'idle' | 'loading' | 'ready' | 'error';
+  eligibility: ReturnType<typeof useProtocolPickerEligibility>;
   daoPolicy: ProtocolDaoPolicy | null;
-  delegatedWeight: string;
-  canProposeAny: boolean;
-  isGroupMember: boolean;
-  remainingLabel: string | null;
   highlightedKind: ProtocolCreateKind | null;
   onSelectKind: (kind: ProtocolCreateKind) => void;
 }) {
   if (options.length === 0) return null;
 
   return (
-    <section className="protocol-propose-kind-group">
-      <h3 className="protocol-propose-kind-group-label">{label}</h3>
-      <ul className="protocol-propose-kind-list">
-        {options.map((option) => {
-          const canProposeKind =
-            Boolean(accountId) &&
-            loadState === 'ready' &&
-            canProposeProtocolCreateKind(
-              daoPolicy,
-              accountId,
-              delegatedWeight,
-              option.id
-            );
-          const lockReason =
-            loadState === 'ready'
-              ? getProtocolCreateKindLockReason({
-                  kind: option.id,
-                  accountId,
-                  canProposeAny,
-                  isGroupMember,
-                  remainingLabel,
-                  canProposeKind,
-                })
-              : loadState === 'loading'
-                ? 'Checking…'
-                : loadState === 'error'
-                  ? 'Unavailable'
-                  : accountId
-                    ? null
-                    : 'Connect a wallet';
-          const disabled = Boolean(lockReason);
-          const isLast = highlightedKind === option.id;
-
-          return (
-            <li key={option.id}>
-              <button
-                type="button"
-                className={[
-                  'protocol-propose-kind-item',
-                  isLast ? 'is-last' : '',
-                  disabled ? 'is-locked' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                disabled={disabled}
-                aria-current={isLast ? 'true' : undefined}
-                onClick={() => onSelectKind(option.id)}
-              >
-                <span className="protocol-propose-kind-item-top">
-                  <span className="protocol-propose-kind-item-label">
-                    {option.label}
-                  </span>
-                  {isLast ? (
-                    <span className="protocol-propose-kind-item-badge">
-                      Last used
-                    </span>
-                  ) : null}
-                </span>
-                <span className="protocol-propose-kind-item-hint">
-                  {disabled && lockReason ? lockReason : option.hint}
-                </span>
-              </button>
-            </li>
+    <ProtocolPickerSection label={label}>
+      {options.map((option) => {
+        const canProposeKind =
+          Boolean(accountId) &&
+          eligibility.loadState === 'ready' &&
+          canProposeProtocolCreateKind(
+            daoPolicy,
+            accountId,
+            eligibility.delegatedWeight,
+            option.id
           );
-        })}
-      </ul>
-    </section>
+        const lockReason = protocolPickerItemLockReason({
+          accountId,
+          loadState: eligibility.loadState,
+          readyReason: getProtocolCreateKindLockReason({
+            kind: option.id,
+            accountId,
+            canProposeAny: eligibility.canProposeAny,
+            isGroupMember: eligibility.isGroupMember,
+            remainingLabel: eligibility.remainingLabel,
+            canProposeKind,
+          }),
+        });
+
+        return (
+          <ProtocolPickerItem
+            key={option.id}
+            label={option.label}
+            hint={option.hint}
+            lockReason={lockReason}
+            isLast={highlightedKind === option.id}
+            onSelect={() => onSelectKind(option.id)}
+          />
+        );
+      })}
+    </ProtocolPickerSection>
   );
 }

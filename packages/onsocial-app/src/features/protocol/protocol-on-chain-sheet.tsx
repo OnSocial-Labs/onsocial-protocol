@@ -10,6 +10,7 @@ import {
 } from '@onsocial/ui';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
 import { formatProtocolDaoProposalForRawDisplay } from '@/features/protocol/protocol-proposal-raw-display';
+import { PROTOCOL_TASK_SHEET_Z } from '@/features/protocol/protocol-sheet-z';
 import type { ProtocolApplication } from '@/features/protocol/types';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/app-config';
 
@@ -84,7 +85,7 @@ export function ProtocolOnChainSheet({
       {...(view?.headline ? { copy: view.headline } : {})}
       closeAriaLabel="Close on-chain details"
       backdropLabel="Close on-chain details"
-      zIndex={58}
+      zIndex={PROTOCOL_TASK_SHEET_Z}
       initialDetent="peek"
       peekRatio={0.62}
       bodyClassName="protocol-on-chain-sheet-body guild-facts-sheet-body"
