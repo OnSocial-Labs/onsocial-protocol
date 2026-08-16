@@ -15,13 +15,10 @@ import {
 } from 'react';
 import {
   AmountFieldMetaRow,
-  ChartFillIcon,
   Divider,
   GlassSheet,
-  OsIconAction,
   SheetCloseButton,
   TokenIcon,
-  osIconActionGlyphClassName,
   useScrollLock,
 } from '@onsocial/ui';
 import {
@@ -69,6 +66,7 @@ import {
   SOCIAL_TOKEN_CONTRACT,
 } from '@/lib/app-config';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
+import { LeaderboardChartAction } from '@/features/leaderboard/leaderboard-chart-action';
 import { LeaderboardSheet } from '@/features/leaderboard/leaderboard-sheet';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import {
@@ -857,15 +855,10 @@ export function PortfolioBoostSheet({
                 </div>
               </div>
               <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <OsIconAction
+                <LeaderboardChartAction
                   ariaLabel="Open boost leaderboard"
                   onClick={() => setLeaderboardOpen(true)}
-                >
-                  <ChartFillIcon
-                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                    aria-hidden
-                  />
-                </OsIconAction>
+                />
                 <SheetCloseButton
                   onClick={requestClose}
                   ariaLabel="Close boost"

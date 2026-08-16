@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
+  LEADERBOARD_PAGE_SIZE,
   REPUTATION_BOARD_GRAPHQL_FIELDS,
   type LeaderboardTrack,
 } from '@/lib/leaderboard';
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
   const scope = (request.nextUrl.searchParams.get('scope') ??
     'reputation') as LeaderboardTrack;
   const limit = Number.parseInt(
-    request.nextUrl.searchParams.get('limit') ?? '20',
+    request.nextUrl.searchParams.get('limit') ?? String(LEADERBOARD_PAGE_SIZE),
     10
   );
 

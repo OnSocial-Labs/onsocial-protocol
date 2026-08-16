@@ -6469,6 +6469,21 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.4);
   }
 
+  .reputation-panel-body {
+    position: relative;
+  }
+
+  .reputation-panel-facts {
+    position: relative;
+  }
+
+  .reputation-panel-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1;
+  }
+
   .leaderboard-sheet-content {
     display: flex;
     flex-direction: column;

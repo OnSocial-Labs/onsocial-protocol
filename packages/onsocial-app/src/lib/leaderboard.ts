@@ -38,6 +38,25 @@ export interface ReputationEntry {
   rank: number;
 }
 
+export interface LeaderboardBoardResponse {
+  leaderboardBoost?: InfluenceEntry[];
+  reputationScores?: ReputationEntry[];
+  leaderboardRewards?: EarnerEntry[];
+}
+
+export const LEADERBOARD_TRACKS: {
+  id: LeaderboardTrack;
+  label: string;
+}[] = [
+  { id: 'reputation', label: 'Reputation' },
+  { id: 'influence', label: 'Influence' },
+  { id: 'earners', label: 'Earners' },
+];
+
+export const LEADERBOARD_PAGE_SIZE = 20;
+/** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
+export const LEADERBOARD_Z = 74;
+
 export const REPUTATION_BOARD_GRAPHQL_FIELDS = `
   accountId
   standingWith
@@ -66,7 +85,8 @@ export function formatReputationScore(value: string | number): string {
   return num.toFixed(1);
 }
 
-export function formatLeaderboardScore(value: string | number): string {
+/** Component scores in the reputation breakdown (0–100 scale). */
+export function formatReputationComponent(value: string | number): string {
   const num = Number.parseFloat(String(value));
   if (!Number.isFinite(num) || num === 0) return '0';
   if (num >= 100) return num.toFixed(0);
@@ -84,12 +104,43 @@ export function commitmentLabel(months: number): string {
   return 'Observer';
 }
 
+/** Quiet rank band for list meta — not a verified badge. */
 export function reputationTierLabel(rank: number): string {
   if (rank <= 1) return 'Legend';
   if (rank <= 3) return 'Elite';
   if (rank <= 10) return 'Rising';
   if (rank <= 25) return 'Active';
   return 'New';
+}
+
+export function reputationConfidenceLabel(
+  confidenceScore?: string | number | null
+): { label: string; detail: string } {
+  const score = Number.parseFloat(String(confidenceScore ?? ''));
+  if (!Number.isFinite(score)) {
+    return {
+      label: 'Building',
+      detail:
+        'Updates from indexed stands, endorsements, posts, boost, and marketplace activity.',
+    };
+  }
+  if (score < 0.35) {
+    return {
+      label: 'Limited data',
+      detail: 'Few signals indexed yet — rank may shift as activity grows.',
+    };
+  }
+  if (score < 0.6) {
+    return {
+      label: 'Building',
+      detail:
+        'Forming from indexed stands, posts, boost, and marketplace activity.',
+    };
+  }
+  return {
+    label: 'Established',
+    detail: 'Backed by a broad set of indexed protocol signals.',
+  };
 }
 
 export function pctOfLeader(
@@ -102,15 +153,21 @@ export function pctOfLeader(
   return Math.max(0, Math.min(100, (n / top) * 100));
 }
 
+export function entriesForTrack(
+  scope: LeaderboardTrack,
+  data: LeaderboardBoardResponse | null | undefined
+): InfluenceEntry[] | ReputationEntry[] | EarnerEntry[] | null {
+  if (!data) return null;
+  if (scope === 'influence') return data.leaderboardBoost ?? [];
+  if (scope === 'reputation') return data.reputationScores ?? [];
+  return data.leaderboardRewards ?? [];
+}
+
 /** Client fetch for the in-app leaderboard slide-over. */
 export async function fetchLeaderboardBoard(
   scope: LeaderboardTrack,
-  limit = 20
-): Promise<{
-  leaderboardBoost?: InfluenceEntry[];
-  reputationScores?: ReputationEntry[];
-  leaderboardRewards?: EarnerEntry[];
-} | null> {
+  limit = LEADERBOARD_PAGE_SIZE
+): Promise<LeaderboardBoardResponse | null> {
   const params = new URLSearchParams({
     scope,
     limit: String(limit),
@@ -120,11 +177,7 @@ export async function fetchLeaderboardBoard(
       cache: 'no-store',
     });
     if (!res.ok) return null;
-    return (await res.json()) as {
-      leaderboardBoost?: InfluenceEntry[];
-      reputationScores?: ReputationEntry[];
-      leaderboardRewards?: EarnerEntry[];
-    };
+    return (await res.json()) as LeaderboardBoardResponse;
   } catch {
     return null;
   }

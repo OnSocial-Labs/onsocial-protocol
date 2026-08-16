@@ -1,33 +1,32 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Divider, StandingIdentity } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import {
+  usePostAuthorProfiles,
+  type PostAuthorProfile,
+} from '@/hooks/use-post-author-profiles';
+import {
   commitmentLabel,
+  entriesForTrack,
   fetchLeaderboardBoard,
-  formatLeaderboardScore,
   formatReputationScore,
   formatSocialCompact,
+  LEADERBOARD_PAGE_SIZE,
+  LEADERBOARD_TRACKS,
+  LEADERBOARD_Z,
   pctOfLeader,
   reputationTierLabel,
   type EarnerEntry,
   type InfluenceEntry,
+  type LeaderboardBoardResponse,
   type LeaderboardTrack,
   type ReputationEntry,
 } from '@/lib/leaderboard';
 import { portfolioPath } from '@/lib/overlay-routes';
-
-const BOARD_LIMIT = 20;
-const LEADERBOARD_Z = 74;
-
-const TRACKS: { id: LeaderboardTrack; label: string }[] = [
-  { id: 'reputation', label: 'Reputation' },
-  { id: 'influence', label: 'Influence' },
-  { id: 'earners', label: 'Earners' },
-];
 
 function ProgressBar({ pct }: { pct: number }) {
   return (
@@ -40,13 +39,14 @@ function ProgressBar({ pct }: { pct: number }) {
   );
 }
 
-function BoardRowShell({
+function BoardRow({
   accountId,
   rank,
   meta,
   primary,
   primaryLabel,
   pct,
+  profile,
   onNavigate,
 }: {
   accountId: string;
@@ -55,26 +55,36 @@ function BoardRowShell({
   primary: string;
   primaryLabel: string;
   pct: number;
+  profile?: PostAuthorProfile;
   onNavigate?: () => void;
 }) {
   return (
     <div className="standing-row leaderboard-row">
-      <div className="standing-row-main">
-        <Link
-          href={portfolioPath(accountId)}
-          className="standing-row-hit"
-          scroll={false}
-          aria-label={`@${accountId}`}
-          onClick={onNavigate}
-        />
+      <Link
+        href={portfolioPath(accountId)}
+        className="standing-row-main"
+        scroll={false}
+        aria-label={
+          profile?.displayName?.trim()
+            ? `${profile.displayName} · rank ${rank}`
+            : `@${accountId} · rank ${rank}`
+        }
+        onClick={onNavigate}
+      >
         <span className="leaderboard-row-rank" aria-hidden>
           {rank}
         </span>
-        <StandingIdentity accountId={accountId} size="md" showHandle={false}>
+        <StandingIdentity
+          accountId={accountId}
+          profileName={profile?.displayName}
+          avatarUrl={profile?.avatarUrl}
+          size="lg"
+          showHandle="when-named"
+        >
           <span className="standing-row-bio leaderboard-row-meta">{meta}</span>
           <ProgressBar pct={pct} />
         </StandingIdentity>
-      </div>
+      </Link>
       <div className="standing-row-aside leaderboard-row-aside">
         <span className="leaderboard-row-primary">{primary}</span>
         <span className="leaderboard-row-primary-label">{primaryLabel}</span>
@@ -83,44 +93,61 @@ function BoardRowShell({
   );
 }
 
+function BoardList({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="standing-list leaderboard-list" role="list">
+      {children}
+    </div>
+  );
+}
+
 function InfluenceRows({
   rows,
+  profiles,
   onNavigate,
 }: {
   rows: InfluenceEntry[];
+  profiles: Record<string, PostAuthorProfile>;
   onNavigate?: () => void;
 }) {
   const leader = rows[0]?.effectiveBoost ?? '1';
   return (
-    <div className="leaderboard-list" role="list">
+    <BoardList>
       {rows.map((entry, index) => (
         <div key={entry.accountId} role="listitem">
-          <BoardRowShell
+          {index > 0 ? <Divider variant="item" /> : null}
+          <BoardRow
             accountId={entry.accountId}
             rank={entry.rank}
             meta={commitmentLabel(entry.lockMonths)}
             primary={formatSocialCompact(entry.effectiveBoost)}
             primaryLabel="Boost"
             pct={pctOfLeader(entry.effectiveBoost, leader)}
+            profile={profiles[entry.accountId]}
             onNavigate={onNavigate}
           />
-          {index < rows.length - 1 ? <Divider /> : null}
         </div>
       ))}
-    </div>
+    </BoardList>
   );
 }
 
 function ReputationRows({
   rows,
+  profiles,
   onNavigate,
 }: {
   rows: ReputationEntry[];
+  profiles: Record<string, PostAuthorProfile>;
   onNavigate?: () => void;
 }) {
   const leader = rows[0]?.reputation ?? '1';
   return (
-    <div className="leaderboard-list" role="list">
+    <BoardList>
       {rows.map((entry, index) => {
         const bits = [
           entry.standingWith > 0 ? `${entry.standingWith} stand` : null,
@@ -129,33 +156,36 @@ function ReputationRows({
         ].filter(Boolean);
         return (
           <div key={entry.accountId} role="listitem">
-            <BoardRowShell
+            {index > 0 ? <Divider variant="item" /> : null}
+            <BoardRow
               accountId={entry.accountId}
               rank={entry.rank}
               meta={[reputationTierLabel(entry.rank), ...bits].join(' · ')}
               primary={formatReputationScore(entry.reputation)}
               primaryLabel="Rep"
               pct={pctOfLeader(entry.reputation, leader)}
+              profile={profiles[entry.accountId]}
               onNavigate={onNavigate}
             />
-            {index < rows.length - 1 ? <Divider /> : null}
           </div>
         );
       })}
-    </div>
+    </BoardList>
   );
 }
 
 function EarnerRows({
   rows,
+  profiles,
   onNavigate,
 }: {
   rows: EarnerEntry[];
+  profiles: Record<string, PostAuthorProfile>;
   onNavigate?: () => void;
 }) {
   const leader = rows[0]?.totalEarned ?? '1';
   return (
-    <div className="leaderboard-list" role="list">
+    <BoardList>
       {rows.map((entry, index) => {
         const unclaimed =
           entry.unclaimed &&
@@ -165,20 +195,21 @@ function EarnerRows({
             : null;
         return (
           <div key={entry.accountId} role="listitem">
-            <BoardRowShell
+            {index > 0 ? <Divider variant="item" /> : null}
+            <BoardRow
               accountId={entry.accountId}
               rank={entry.rank}
               meta={unclaimed ?? 'Earned on protocol'}
               primary={formatSocialCompact(entry.totalEarned)}
               primaryLabel="Earned"
               pct={pctOfLeader(entry.totalEarned, leader)}
+              profile={profiles[entry.accountId]}
               onNavigate={onNavigate}
             />
-            {index < rows.length - 1 ? <Divider /> : null}
           </div>
         );
       })}
-    </div>
+    </BoardList>
   );
 }
 
@@ -198,20 +229,19 @@ export function LeaderboardSheet({
     setTrack(initialTrack);
   }
 
-  const [influence, setInfluence] = useState<InfluenceEntry[] | null>(null);
-  const [reputation, setReputation] = useState<ReputationEntry[] | null>(null);
-  const [earners, setEarners] = useState<EarnerEntry[] | null>(null);
+  const [cache, setCache] = useState<
+    Partial<Record<LeaderboardTrack, LeaderboardBoardResponse>>
+  >({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const requestClose = useCallback(() => {
     setSheetOpen(false);
   }, []);
 
   const handleClosed = useCallback(() => {
-    setInfluence(null);
-    setReputation(null);
-    setEarners(null);
+    setCache({});
     setError(null);
     setPending(false);
     onClose();
@@ -219,45 +249,45 @@ export function LeaderboardSheet({
 
   useEffect(() => {
     if (!sheetOpen) return;
+    if (cache[track]) return;
+
+    const requestId = ++requestIdRef.current;
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) {
+      if (!cancelled && requestId === requestIdRef.current) {
         setPending(true);
         setError(null);
       }
     });
 
-    void fetchLeaderboardBoard(track, BOARD_LIMIT).then((data) => {
-      if (cancelled) return;
+    void fetchLeaderboardBoard(track, LEADERBOARD_PAGE_SIZE).then((data) => {
+      if (cancelled || requestId !== requestIdRef.current) return;
       setPending(false);
       if (!data) {
         setError('Could not load leaderboard.');
         return;
       }
-      if (track === 'influence') {
-        setInfluence(data.leaderboardBoost ?? []);
-      } else if (track === 'reputation') {
-        setReputation(data.reputationScores ?? []);
-      } else {
-        setEarners(data.leaderboardRewards ?? []);
-      }
+      setCache((prev) => ({ ...prev, [track]: data }));
     });
 
     return () => {
       cancelled = true;
     };
-  }, [sheetOpen, track]);
+  }, [sheetOpen, track, cache]);
 
-  const rows =
-    track === 'influence'
-      ? influence
-      : track === 'reputation'
-        ? reputation
-        : earners;
+  const board = cache[track] ?? null;
+  const rows = entriesForTrack(track, board);
+  const accountIds = useMemo(
+    () => (rows ?? []).map((row) => row.accountId),
+    [rows]
+  );
+  const profiles = usePostAuthorProfiles(accountIds);
+
   const empty =
     rows != null && rows.length === 0
       ? 'No rankings yet. Activity will appear once indexed.'
       : null;
+  const showSkeleton = pending && rows == null;
 
   return (
     <OsSlideOverScreen
@@ -274,7 +304,7 @@ export function LeaderboardSheet({
           role="tablist"
           aria-label="Leaderboard tracks"
         >
-          {TRACKS.map((item) => (
+          {LEADERBOARD_TRACKS.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -283,7 +313,10 @@ export function LeaderboardSheet({
               className={`os-surface-chip${
                 track === item.id ? ' is-selected' : ''
               }`}
-              onClick={() => setTrack(item.id)}
+              onClick={() => {
+                setError(null);
+                setTrack(item.id);
+              }}
             >
               {item.label}
             </button>
@@ -294,26 +327,31 @@ export function LeaderboardSheet({
     >
       {error ? (
         <p className="leaderboard-sheet-empty">{error}</p>
-      ) : pending && rows == null ? (
+      ) : showSkeleton ? (
         <ProfileSocialListSkeleton count={6} />
       ) : empty ? (
         <p className="leaderboard-sheet-empty">{empty}</p>
-      ) : track === 'influence' && influence ? (
-        <InfluenceRows rows={influence} onNavigate={requestClose} />
-      ) : track === 'reputation' && reputation ? (
-        <ReputationRows rows={reputation} onNavigate={requestClose} />
-      ) : track === 'earners' && earners ? (
-        <EarnerRows rows={earners} onNavigate={requestClose} />
+      ) : track === 'influence' && rows ? (
+        <InfluenceRows
+          rows={rows as InfluenceEntry[]}
+          profiles={profiles}
+          onNavigate={requestClose}
+        />
+      ) : track === 'reputation' && rows ? (
+        <ReputationRows
+          rows={rows as ReputationEntry[]}
+          profiles={profiles}
+          onNavigate={requestClose}
+        />
+      ) : track === 'earners' && rows ? (
+        <EarnerRows
+          rows={rows as EarnerEntry[]}
+          profiles={profiles}
+          onNavigate={requestClose}
+        />
       ) : (
         <ProfileSocialListSkeleton count={6} />
       )}
-      {track === 'reputation' && reputation?.[0] ? (
-        <p className="leaderboard-sheet-footnote">
-          Top score {formatLeaderboardScore(reputation[0].socialScore)} social ·{' '}
-          {formatLeaderboardScore(reputation[0].commitmentScore)} commitment ·{' '}
-          {formatLeaderboardScore(reputation[0].qualityScore)} quality
-        </p>
-      ) : null}
     </OsSlideOverScreen>
   );
 }
