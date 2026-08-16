@@ -44,6 +44,7 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
+import { DmThreadComposer } from '@/features/messages/dm-thread-composer';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
 import { requestDmUnreadRefresh } from '@/components/providers/dm-unread-host';
 
@@ -65,7 +66,6 @@ export function MessagesPanel() {
   const [plainById, setPlainById] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
-  const [composeOpen, setComposeOpen] = useState(false);
   const [enrollPending, setEnrollPending] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
   const [keysTick, setKeysTick] = useState(0);
@@ -112,8 +112,9 @@ export function MessagesPanel() {
     return parts.find((p) => p !== accountId.toLowerCase()) ?? peerParam;
   }, [activeThreadId, accountId, peerParam]);
 
-  const composePeer = peerParam || peerFromThread;
-  const showCompose = composeOpen || Boolean(peerParam);
+  const composePeer = peerParam;
+  /** Sheet only for starting a DM from `?peer=` (profile still uses its own sheet). */
+  const showCompose = Boolean(peerParam);
 
   const peerIds = useMemo(
     () => (threads ?? []).map((t) => t.peerAccountId),
@@ -221,7 +222,7 @@ export function MessagesPanel() {
     setActiveThreadId('');
     setError(null);
     setRecoveryCode(null);
-    setComposeOpen(false);
+    setError(null);
   }, []);
 
   useEffect(() => {
@@ -742,16 +743,15 @@ export function MessagesPanel() {
             </>
           )}
           {peerFromThread && isUnlocked ? (
-            <div className="messages-thread-actions">
-              <OsSheetActions>
-                <OsSheetAction
-                  type="button"
-                  ready
-                  onClick={() => setComposeOpen(true)}
-                >
-                  Reply
-                </OsSheetAction>
-              </OsSheetActions>
+            <div className="messages-thread-footer">
+              <DmThreadComposer
+                peerAccountId={peerFromThread}
+                onSent={() => {
+                  void refreshThreads();
+                  if (activeThreadId) void openThread(activeThreadId);
+                }}
+                onRecoveryCode={(code) => setRecoveryCode(code)}
+              />
               <Link
                 className="messages-thread-profile-link"
                 href={`/${peerFromThread}`}
@@ -767,7 +767,6 @@ export function MessagesPanel() {
         open={showCompose && Boolean(composePeer)}
         peerAccountId={composePeer}
         onClose={() => {
-          setComposeOpen(false);
           if (peerParam) {
             router.replace(messagesPath({ threadId: activeThreadId || null }));
           }

@@ -32596,7 +32596,21 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-wrap: wrap;
 }
 
+.messages-thread-footer {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+}
+
+.messages-thread-composer {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .messages-thread-profile-link {
+  justify-self: start;
   font-size: 0.9rem;
   color: rgb(var(--fg-rgb) / 0.72);
   text-decoration: underline;
