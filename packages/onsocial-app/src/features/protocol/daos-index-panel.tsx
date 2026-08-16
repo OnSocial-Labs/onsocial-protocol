@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { OsIconAction, PlusIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   PROTOCOL_COMMUNITY_DAO_SEED,
   readRecentCommunityDaos,
 } from '@/features/protocol/dao-accounts';
+import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
 import {
   daoDirectoryEntryFromMembership,
   daoDirectoryEntryFromRecent,
@@ -64,6 +66,7 @@ export function DaosIndexPanel() {
   );
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
   const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,18 +163,29 @@ export function DaosIndexPanel() {
   const showMyDaos = Boolean(accountId);
   const myDaosReady = myDaos !== null;
 
+  const createAction = (
+    <OsIconAction
+      ariaLabel="Create DAO"
+      aria-expanded={createOpen}
+      aria-haspopup="dialog"
+      onClick={() => setCreateOpen(true)}
+    >
+      <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+    </OsIconAction>
+  );
+
   return (
     <OsAppScreen
       title="DAOs"
       subtitle="Org homes — cover, crest, proposals"
       backFallbackHref="/"
       glassChrome
+      actions={createAction}
     >
       <div className="daos-index">
         <p className="daos-index-lede">
-          Each DAO has a portfolio — cover, square crest, and About. Open
-          Proposals from the page. Protocol opens Governance; flip to Treasury
-          there. Discover opens the full factory catalog.
+          Each DAO has a portfolio — cover, square crest, and About. Tap + to
+          create on the factory; Discover browses every listed DAO.
         </p>
 
         <div className="daos-index-shortcuts">
@@ -237,6 +251,10 @@ export function DaosIndexPanel() {
       <DaoDiscoverSheet
         open={discoverOpen}
         onClose={() => setDiscoverOpen(false)}
+      />
+      <DaoCreateSheet
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
       />
     </OsAppScreen>
   );

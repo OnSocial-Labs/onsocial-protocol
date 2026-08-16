@@ -83,3 +83,21 @@ export const STAKING_TREASURY_DAO_ACCOUNT =
 export const GOVERNANCE_PROPOSAL_BOND =
   process.env.NEXT_PUBLIC_GOVERNANCE_PROPOSAL_BOND ??
   '1000000000000000000000000';
+
+/**
+ * Sputnik DAO factory — `create` deploys `{slug}.{factory}`.
+ * Mainnet: `name.sputnik-dao.near` · Testnet: `name.sputnikv2.testnet`.
+ */
+export const SPUTNIK_DAO_FACTORY =
+  process.env.NEXT_PUBLIC_SPUTNIK_DAO_FACTORY ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'sputnik-dao.near'
+    : 'sputnikv2.testnet');
+
+/** Attached deposit for factory `create` (6 NEAR — storage for classic deploy). */
+export const SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT =
+  process.env.NEXT_PUBLIC_SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT ??
+  '6000000000000000000000000';
+
+/** Human NEAR amount matching `SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT` (UI copy). */
+export const SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR = '6';
