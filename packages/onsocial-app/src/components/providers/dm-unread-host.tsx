@@ -11,7 +11,7 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { usePathname } from 'next/navigation';
@@ -27,6 +27,27 @@ import { txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const POLL_MS = 20_000;
 
+let globalUnread = 0;
+const listeners = new Set<() => void>();
+let refreshBridge: (() => Promise<void>) | null = null;
+
+function publishUnread(count: number) {
+  if (globalUnread === count) return;
+  globalUnread = count;
+  for (const listener of listeners) listener();
+}
+
+function subscribeUnread(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getUnreadSnapshot(): number {
+  return globalUnread;
+}
+
 interface DmUnreadContextValue {
   unread: number;
   refresh: () => Promise<void>;
@@ -35,34 +56,45 @@ interface DmUnreadContextValue {
 const DmUnreadContext = createContext<DmUnreadContextValue | null>(null);
 
 export function useDmUnreadCount(): number {
-  return useContext(DmUnreadContext)?.unread ?? 0;
+  const fromContext = useContext(DmUnreadContext)?.unread;
+  const fromStore = useSyncExternalStore(
+    subscribeUnread,
+    getUnreadSnapshot,
+    () => 0
+  );
+  return fromContext ?? fromStore;
 }
 
 /** Trigger an immediate unread refresh (e.g. after markRead). */
 export function requestDmUnreadRefresh(): void {
-  // Resolved by provider via module bridge so non-React callers stay simple.
   void refreshBridge?.();
 }
-
-let refreshBridge: (() => Promise<void>) | null = null;
 
 export function DmUnreadHost({ children }: { children?: ReactNode }) {
   const { accountId, isConnected, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
   const pathname = usePathname();
-  const [unread, setUnread] = useState(0);
+  const unread = useSyncExternalStore(
+    subscribeUnread,
+    getUnreadSnapshot,
+    () => 0
+  );
   const previousUnreadRef = useRef<number | null>(null);
   const pathnameRef = useRef(pathname);
+  const setTxResultRef = useRef(setTxResult);
 
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
 
+  useEffect(() => {
+    setTxResultRef.current = setTxResult;
+  }, [setTxResult]);
+
   const refresh = useCallback(async () => {
     if (!accountId || !isConnected || !hasSocialSession) {
-      previousUnreadRef.current = 0;
-      setUnread(0);
+      publishUnread(0);
       return;
     }
     try {
@@ -79,28 +111,11 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
       }
       client.auth.setToken(token);
       const { unread: next } = await client.dm.unreadCount();
-      const count = Number.isFinite(next) ? next : 0;
-      const previous = previousUnreadRef.current;
-      previousUnreadRef.current = count;
-      setUnread(count);
-      const onMessages =
-        pathnameRef.current === APP_MESSAGES_PATH ||
-        pathnameRef.current.startsWith(`${APP_MESSAGES_PATH}/`);
-      // Skip the first sample so existing unread doesn't toast on load.
-      if (
-        previous != null &&
-        count > previous &&
-        !onMessages
-      ) {
-        setTxResult({
-          type: 'success',
-          msg: txToastSuccess.newPrivateMessage,
-        });
-      }
+      publishUnread(Number.isFinite(next) ? next : 0);
     } catch {
       // Soft poll — ignore transient auth/network errors.
     }
-  }, [accountId, getClient, hasSocialSession, isConnected, setTxResult]);
+  }, [accountId, getClient, hasSocialSession, isConnected]);
 
   useEffect(() => {
     refreshBridge = refresh;
@@ -122,6 +137,22 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
       document.removeEventListener('visibilitychange', onFocus);
     };
   }, [hasSocialSession, isConnected, refresh]);
+
+  // Toast when unread rises while away from Messages (skip first sample).
+  useEffect(() => {
+    const previous = previousUnreadRef.current;
+    previousUnreadRef.current = unread;
+    if (previous == null) return;
+    const onMessages =
+      pathnameRef.current === APP_MESSAGES_PATH ||
+      pathnameRef.current.startsWith(`${APP_MESSAGES_PATH}/`);
+    if (unread > previous && !onMessages) {
+      setTxResultRef.current({
+        type: 'success',
+        msg: txToastSuccess.newPrivateMessage,
+      });
+    }
+  }, [unread]);
 
   const value = useMemo(
     () => ({
