@@ -352,8 +352,8 @@ await os.economy.rewards.claim(claimId);
 | --------------- | --------------------------------------- |
 | `storage`       | IPFS file / JSON upload                 |
 | `permissions`   | Account + key permission management     |
-| `notifications` | Push + in-app notifications (pro tier+) |
-| `webhooks`      | Outbound webhook endpoints (pro tier+)  |
+| `notifications` | Inbox list/count/mark-read (all tiers); events/rules (pro+) |
+| `webhooks`      | Outbound webhook endpoints (pro tier+)                      |
 | `pages`         | onsocial.id page configuration          |
 
 ```ts

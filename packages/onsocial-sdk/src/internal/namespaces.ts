@@ -86,7 +86,7 @@ export interface EconomyNamespace {
  *
  * - `storage`       — IPFS file/JSON upload
  * - `permissions`   — account + key permissions
- * - `notifications` — push + in-app notifications (pro tier+)
+ * - `notifications` — list / count / mark-read (all tiers); sendEvents / rules (pro+)
  * - `mutes`         — private mute prefs
  * - `webhooks`      — outbound webhook endpoints (pro tier+)
  * - `pages`         — onsocial.id page configuration

@@ -526,7 +526,13 @@ function normalizeEventType(eventType: string | undefined): string | undefined {
   return normalized || undefined;
 }
 
-function limitForTier(tier: Tier): number {
+/**
+ * Per-request list page size by API key tier.
+ * Free is allowed to read Activity; this only caps page size.
+ * Align free with the first-party inbox (`PAGE_SIZE` 40 in onsocial-app).
+ * Custom event ingest / rules / webhooks stay paid-gated on the routes.
+ */
+export function notificationListLimitForTier(tier: Tier): number {
   switch (tier) {
     case 'service':
       return 500;
@@ -535,7 +541,7 @@ function limitForTier(tier: Tier): number {
     case 'pro':
       return 50;
     default:
-      return 20;
+      return 40;
   }
 }
 
@@ -551,7 +557,7 @@ export async function listNotifications(params: {
   cursor?: string;
   excludeType?: string;
 }): Promise<NotificationListResult> {
-  const maxLimit = limitForTier(params.tier);
+  const maxLimit = notificationListLimitForTier(params.tier);
   const limit = Math.min(Math.max(params.limit ?? 50, 1), maxLimit);
 
   return store.list({
