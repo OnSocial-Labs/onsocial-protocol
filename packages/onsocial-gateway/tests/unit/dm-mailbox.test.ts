@@ -38,7 +38,9 @@ describe('dm mailbox service', () => {
       expect(msgs[0]?.ciphertext).toBe('cipher');
     }
 
-    await markDmThreadRead('bob.testnet', sent.threadId);
+    await markDmThreadRead('bob.testnet', sent.threadId, {
+      lastReadAt: sent.createdAt,
+    });
     const bobAfter = await listDmThreads('bob.testnet');
     if (Array.isArray(bobAfter)) {
       expect(bobAfter[0]?.unread).toBe(false);
@@ -146,5 +148,46 @@ describe('dm mailbox service', () => {
       'cipher-3',
       'cipher-4',
     ]);
+  });
+
+  it('advances read watermark only through observed message time', async () => {
+    __resetDmStoreForTests();
+    const first = await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'one',
+      nonce: 'n1',
+      senderPubkey: 'pk',
+    });
+    expect('code' in first).toBe(false);
+    if ('code' in first) return;
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const second = await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'two',
+      nonce: 'n2',
+      senderPubkey: 'pk',
+    });
+    expect('code' in second).toBe(false);
+    if ('code' in second) return;
+
+    await markDmThreadRead('bob.testnet', first.threadId, {
+      lastReadMessageId: first.id,
+    });
+    const mid = await listDmThreads('bob.testnet');
+    expect(Array.isArray(mid)).toBe(true);
+    if (Array.isArray(mid)) {
+      expect(mid[0]?.unread).toBe(true);
+    }
+
+    await markDmThreadRead('bob.testnet', first.threadId, {
+      lastReadAt: second.createdAt,
+    });
+    const after = await listDmThreads('bob.testnet');
+    expect(Array.isArray(after)).toBe(true);
+    if (Array.isArray(after)) {
+      expect(after[0]?.unread).toBe(false);
+    }
   });
 });

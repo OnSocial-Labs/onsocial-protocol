@@ -133,10 +133,7 @@ export function getStoredDmIdentity(
 }
 
 export function hasUnlockedDmKey(accountId: string): boolean {
-  const id = accountId.trim().toLowerCase();
-  if (memorySecrets.has(id)) return true;
-  const stored = readStore(id);
-  return Boolean(stored?.secretKey && stored.publicKey);
+  return loadDmKeyPair(accountId) != null;
 }
 
 export function hasDmPasskeyEnrolled(accountId: string): boolean {
@@ -320,7 +317,12 @@ async function ensureDmKeysUnlocked(
     if (remote?.status === 'found') {
       const localPk = encodeDmPublicKey(existing.publicKey);
       if (remote.value.publicKey !== localPk) {
-        throw new DmKeysMismatchError();
+        // Local unlocked keys disagree with profile — lock and force recovery.
+        lockDmKeys(id);
+        seedDmKeyBackupFromRemote(id, remote.value);
+        throw new DmKeysMismatchError(
+          'This device’s messaging keys do not match your profile. Enter your recovery code to restore the profile keys.'
+        );
       }
     }
     return {
@@ -338,8 +340,16 @@ async function ensureDmKeysUnlocked(
   }
 
   const stored = readStore(id);
-  if (stored?.wrapped && !stored.secretKey && !memorySecrets.has(id)) {
-    throw new DmKeysLockedError();
+  // Any existing identity material (even corrupt) must not be silently replaced.
+  if (
+    stored?.publicKey ||
+    stored?.wrapped ||
+    stored?.secretKey ||
+    stored?.passkeyWrapped
+  ) {
+    throw new DmKeysLockedError(
+      'Messaging keys on this device need recovery. Enter your recovery code to unlock.'
+    );
   }
 
   // Verified absent (or caller omitted remote in unit tests) — mint once.
@@ -372,19 +382,25 @@ async function ensureDmKeysUnlocked(
 
 /**
  * Restore messaging secret from recovery code.
- * Uses local wrap first; otherwise `remoteBackup` from social (new device).
+ * Prefer `remoteBackup` when provided so a mismatched local wrap can be replaced.
  */
 export async function restoreDmKeysFromRecoveryCode(opts: {
   accountId: string;
   recoveryCode: string;
   remoteBackup?: DmKeyBackup | null;
+  /** Prefer remote wrap over local when both exist (mismatch recovery). */
+  preferRemote?: boolean;
 }): Promise<DmKeyPair> {
   const id = opts.accountId.trim().toLowerCase();
   const stored = readStore(id);
-  const backup: DmKeyBackup | null =
+  const localBackup: DmKeyBackup | null =
     stored?.wrapped && stored.publicKey
       ? { publicKey: stored.publicKey, wrapped: stored.wrapped }
-      : (opts.remoteBackup ?? null);
+      : null;
+  const backup: DmKeyBackup | null =
+    opts.preferRemote || !localBackup
+      ? (opts.remoteBackup ?? localBackup)
+      : (localBackup ?? opts.remoteBackup ?? null);
 
   if (!backup?.wrapped) {
     throw new Error(

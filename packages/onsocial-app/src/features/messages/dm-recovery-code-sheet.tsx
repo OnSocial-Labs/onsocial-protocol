@@ -2,29 +2,30 @@
 
 import { useState } from 'react';
 import { OsHugSheet, OsSheetAction, OsSheetActions } from '@onsocial/ui';
-import {
-  canOfferDmPasskey,
-  enrollDmPasskeyUnlock,
-} from '@/lib/dm/keys';
+import { canOfferDmPasskey, enrollDmPasskeyUnlock } from '@/lib/dm/keys';
 
 interface DmRecoveryCodeSheetProps {
   open: boolean;
   code: string;
   accountId?: string | null;
+  /** Passive close (X / backdrop) — does NOT acknowledge the code. */
   onClose: () => void;
+  /** Explicit “I saved it” — acknowledge + dismiss. */
+  onAcknowledge: () => void;
   onPasskeyEnrolled?: () => void;
 }
 
 /**
  * One-time recovery code for messaging keys.
- * Shown only when keys are first created on this device.
- * Optionally enrolls passkey unlock on supporting browsers.
+ * Shown when keys were just created or a pending code remains.
+ * Backdrop/X dismiss keeps the code pending so it can reappear.
  */
 export function DmRecoveryCodeSheet({
   open,
   code,
   accountId,
   onClose,
+  onAcknowledge,
   onPasskeyEnrolled,
 }: DmRecoveryCodeSheetProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -91,7 +92,7 @@ export function DmRecoveryCodeSheet({
               Unlock with this device
             </OsSheetAction>
           ) : null}
-          <OsSheetAction type="button" variant="ghost" onClick={onClose}>
+          <OsSheetAction type="button" variant="ghost" onClick={onAcknowledge}>
             I saved it
           </OsSheetAction>
         </OsSheetActions>

@@ -81,8 +81,10 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
     () => 0
   );
   const previousUnreadRef = useRef<number | null>(null);
+  const previousAccountRef = useRef<string | null>(null);
   const pathnameRef = useRef(pathname);
   const setTxResultRef = useRef(setTxResult);
+  const refreshGenRef = useRef(0);
 
   useEffect(() => {
     pathnameRef.current = pathname;
@@ -92,9 +94,20 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
     setTxResultRef.current = setTxResult;
   }, [setTxResult]);
 
-  const refresh = useCallback(async () => {
-    if (!accountId || !isConnected || !hasSocialSession) {
+  useEffect(() => {
+    const nextAccount = accountId?.trim().toLowerCase() || null;
+    if (previousAccountRef.current !== nextAccount) {
+      previousAccountRef.current = nextAccount;
+      previousUnreadRef.current = null;
       publishUnread(0);
+      refreshGenRef.current += 1;
+    }
+  }, [accountId]);
+
+  const refresh = useCallback(async () => {
+    const gen = refreshGenRef.current;
+    if (!accountId || !isConnected || !hasSocialSession) {
+      if (gen === refreshGenRef.current) publishUnread(0);
       return;
     }
     try {
@@ -111,6 +124,8 @@ export function DmUnreadHost({ children }: { children?: ReactNode }) {
       }
       client.auth.setToken(token);
       const { unread: next } = await client.dm.unreadCount();
+      if (gen !== refreshGenRef.current) return;
+      if (id.trim().toLowerCase() !== accountId.trim().toLowerCase()) return;
       publishUnread(Number.isFinite(next) ? next : 0);
     } catch {
       // Soft poll — ignore transient auth/network errors.

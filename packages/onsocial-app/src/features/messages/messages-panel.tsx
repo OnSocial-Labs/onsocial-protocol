@@ -24,6 +24,7 @@ import { messagesPath } from '@/lib/app-routes';
 import { decryptDmMessage } from '@/lib/dm/send';
 import {
   DmKeysLockedError,
+  DmKeysMismatchError,
   DmKeysUnavailableError,
   acknowledgeDmRecoveryCode,
   canOfferDmPasskey,
@@ -145,7 +146,11 @@ export function MessagesPanel() {
       if (pending) setRecoveryCode(pending);
       setKeysTick((n) => n + 1);
     } catch (cause) {
-      if (cause instanceof DmKeysLockedError) {
+      if (
+        cause instanceof DmKeysLockedError ||
+        cause instanceof DmKeysMismatchError
+      ) {
+        setError(cause.message);
         setKeysTick((n) => n + 1);
         return;
       }
@@ -158,12 +163,50 @@ export function MessagesPanel() {
     }
   }, [accountId, getClient, hasSocialSession]);
 
+  const clearThreadState = useCallback(() => {
+    openThreadSeqRef.current += 1;
+    setThreads(null);
+    setMessages(null);
+    setPlainById({});
+    setActiveThreadId('');
+    setError(null);
+    setRecoveryInput('');
+    setRecoveryCode(null);
+    setComposeOpen(false);
+  }, []);
+
+  useEffect(() => {
+    clearThreadState();
+  }, [accountId, clearThreadState]);
+
   const refreshThreads = useCallback(async () => {
     if (!accountId) return;
     const { client } = await withAuth();
     const { threads: next } = await client.dm.listThreads();
     setThreads(next);
   }, [accountId, withAuth]);
+
+  const markThreadReadThrough = useCallback(
+    async (
+      client: Awaited<ReturnType<typeof withAuth>>['client'],
+      threadId: string,
+      msgs: DmMessageRecord[]
+    ) => {
+      const last = msgs.at(-1);
+      if (!last) return;
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState !== 'visible'
+      ) {
+        return;
+      }
+      await client.dm.markRead(threadId, {
+        lastReadMessageId: last.id,
+        lastReadAt: last.createdAt,
+      });
+    },
+    []
+  );
 
   const decryptMessages = useCallback(
     async (next: DmMessageRecord[], threadId: string) => {
@@ -207,15 +250,23 @@ export function MessagesPanel() {
       if (openThreadSeqRef.current !== seq) return;
       setMessages(next);
       const unlocked = Boolean(accountId && hasUnlockedDmKey(accountId));
-      if (unlocked) {
-        await client.dm.markRead(threadId);
-      }
       if (openThreadSeqRef.current !== seq) return;
       await decryptMessages(next, threadId);
+      if (openThreadSeqRef.current !== seq) return;
+      if (unlocked) {
+        await markThreadReadThrough(client, threadId, next);
+        requestDmUnreadRefresh();
+      }
       void refreshThreads();
-      if (unlocked) requestDmUnreadRefresh();
     },
-    [accountId, decryptMessages, refreshThreads, router, withAuth]
+    [
+      accountId,
+      decryptMessages,
+      markThreadReadThrough,
+      refreshThreads,
+      router,
+      withAuth,
+    ]
   );
 
   const softRefreshOpenThread = useCallback(
@@ -235,11 +286,9 @@ export function MessagesPanel() {
           grew &&
           accountId &&
           hasUnlockedDmKey(accountId) &&
-          typeof document !== 'undefined' &&
-          document.visibilityState === 'visible' &&
           activeThreadIdRef.current === threadId
         ) {
-          await client.dm.markRead(threadId);
+          await markThreadReadThrough(client, threadId, next);
           requestDmUnreadRefresh();
           void refreshThreads();
         }
@@ -247,7 +296,13 @@ export function MessagesPanel() {
         // Soft poll — ignore transient errors.
       }
     },
-    [accountId, decryptMessages, refreshThreads, withAuth]
+    [
+      accountId,
+      decryptMessages,
+      markThreadReadThrough,
+      refreshThreads,
+      withAuth,
+    ]
   );
 
   useEffect(() => {
@@ -316,6 +371,7 @@ export function MessagesPanel() {
         accountId,
         recoveryCode: recoveryInput.trim(),
         remoteBackup: remote.status === 'found' ? remote.value : null,
+        preferRemote: remote.status === 'found',
       });
       setRecoveryInput('');
       setError(null);
@@ -595,6 +651,10 @@ export function MessagesPanel() {
         code={recoveryCode ?? ''}
         accountId={accountId}
         onClose={() => {
+          // Passive dismiss keeps pendingRecoveryCode so the sheet can reappear.
+          setRecoveryCode(null);
+        }}
+        onAcknowledge={() => {
           if (accountId) acknowledgeDmRecoveryCode(accountId);
           setRecoveryCode(null);
         }}

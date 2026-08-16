@@ -150,6 +150,46 @@ describe('dm keys bootstrap', () => {
         },
       })
     ).rejects.toBeInstanceOf(DmKeysMismatchError);
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(false);
+
+    await restoreDmKeysFromRecoveryCode({
+      accountId: ACCOUNT,
+      recoveryCode: code,
+      remoteBackup: {
+        publicKey: encodeDmPublicKey(other.publicKey),
+        wrapped,
+      },
+      preferRemote: true,
+    });
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    const again = await ensureDmKeys(ACCOUNT, {
+      remote: {
+        status: 'found',
+        value: {
+          publicKey: encodeDmPublicKey(other.publicKey),
+          wrapped,
+        },
+      },
+    });
+    expect(Array.from(again.keyPair.publicKey)).toEqual(
+      Array.from(other.publicKey)
+    );
+  });
+
+  it('refuses to mint over corrupt local identity material', async () => {
+    window.localStorage.setItem(
+      `onsocial.app.dm.${ACCOUNT}`,
+      JSON.stringify({
+        accountId: ACCOUNT,
+        publicKey: 'not-a-valid-key',
+        secretKey: 'also-invalid',
+        createdAt: new Date().toISOString(),
+      })
+    );
+    await expect(
+      ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } })
+    ).rejects.toBeInstanceOf(DmKeysLockedError);
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(false);
   });
 
   it('rejects recovery restore when wrap public key does not match secret', async () => {

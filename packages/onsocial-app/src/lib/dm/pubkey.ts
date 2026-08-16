@@ -170,6 +170,21 @@ export async function reconcileAndPublishDmIdentity(opts: {
         'This device’s messaging keys do not match your profile. Unlock with your recovery code, or contact support before sending.'
       );
     }
+    // Cross-check profile pubkey vs wrap pubkey when both exist.
+    const remotePk = await lookupDmPublicKey(opts.client, opts.accountId);
+    if (remotePk.status === 'unavailable') {
+      throw new Error(
+        'Could not verify messaging keys on your profile. Try again.'
+      );
+    }
+    if (remotePk.status === 'found') {
+      const encoded = encodeDmPublicKey(remotePk.value);
+      if (encoded !== remote.value.publicKey) {
+        throw new Error(
+          'Your profile messaging keys are inconsistent. Restore with your recovery code before sending.'
+        );
+      }
+    }
     // Remote wrap already matches — nothing to publish.
     return;
   }

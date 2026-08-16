@@ -133,8 +133,13 @@ dmRouter.post('/dm/send', async (req: Request, res: Response) => {
 
 dmRouter.post('/dm/read', async (req: Request, res: Response) => {
   const threadId = String(req.body?.threadId ?? '').trim();
+  const lastReadAt = String(req.body?.lastReadAt ?? '').trim();
+  const lastReadMessageId = String(req.body?.lastReadMessageId ?? '').trim();
   try {
-    const result = await markDmThreadRead(req.auth!.accountId, threadId);
+    const result = await markDmThreadRead(req.auth!.accountId, threadId, {
+      lastReadAt: lastReadAt || null,
+      lastReadMessageId: lastReadMessageId || null,
+    });
     if (result !== true) {
       const status =
         result.code === 'FORBIDDEN'

@@ -321,6 +321,14 @@ export function DmComposeSheet({
         code={recoveryCode ?? ''}
         accountId={accountId}
         onClose={() => {
+          // Keep pending code; navigate into Messages so it can be acknowledged.
+          const threadId = pendingThreadId;
+          setRecoveryCode(null);
+          setPendingThreadId(null);
+          onClose();
+          router.push(messagesPath({ threadId: threadId || null }));
+        }}
+        onAcknowledge={() => {
           if (accountId) acknowledgeDmRecoveryCode(accountId);
           const threadId = pendingThreadId;
           setRecoveryCode(null);

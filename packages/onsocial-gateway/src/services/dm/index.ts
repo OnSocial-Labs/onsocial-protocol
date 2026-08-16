@@ -121,7 +121,11 @@ interface DmStore {
     threadId: string,
     limit: number
   ): Promise<DmMessageRecord[]>;
-  markRead(accountId: string, threadId: string): Promise<void>;
+  markRead(
+    accountId: string,
+    threadId: string,
+    lastReadAt: string
+  ): Promise<void>;
   getReadAt(accountId: string, threadId: string): Promise<string | null>;
 }
 
@@ -193,8 +197,16 @@ class MemoryDmStore implements DmStore {
       .slice(-limit);
   }
 
-  async markRead(accountId: string, threadId: string): Promise<void> {
-    this.reads.set(`${accountId}:${threadId}`, new Date().toISOString());
+  async markRead(
+    accountId: string,
+    threadId: string,
+    lastReadAt: string
+  ): Promise<void> {
+    const key = `${accountId}:${threadId}`;
+    const prev = this.reads.get(key);
+    if (!prev || prev < lastReadAt) {
+      this.reads.set(key, lastReadAt);
+    }
   }
 
   async getReadAt(accountId: string, threadId: string): Promise<string | null> {
@@ -331,13 +343,20 @@ class PostgresDmStore implements DmStore {
     }));
   }
 
-  async markRead(accountId: string, threadId: string): Promise<void> {
+  async markRead(
+    accountId: string,
+    threadId: string,
+    lastReadAt: string
+  ): Promise<void> {
     await this.pool.query(
       `INSERT INTO dm_thread_reads (account_id, thread_id, last_read_at)
-       VALUES ($1, $2, NOW())
+       VALUES ($1, $2, $3::timestamptz)
        ON CONFLICT (account_id, thread_id)
-       DO UPDATE SET last_read_at = EXCLUDED.last_read_at`,
-      [accountId, threadId]
+       DO UPDATE SET last_read_at = GREATEST(
+         dm_thread_reads.last_read_at,
+         EXCLUDED.last_read_at
+       )`,
+      [accountId, threadId, lastReadAt]
     );
   }
 
@@ -532,7 +551,8 @@ export async function listDmMessages(
 
 export async function markDmThreadRead(
   accountId: string,
-  threadId: string
+  threadId: string,
+  opts?: { lastReadAt?: string | null; lastReadMessageId?: string | null }
 ): Promise<true | DmError> {
   const id = normalizeAccountId(accountId);
   const thread = threadId.trim();
@@ -546,7 +566,29 @@ export async function markDmThreadRead(
   if (id !== a && id !== b) {
     return { code: 'FORBIDDEN', message: 'Not a participant in this thread' };
   }
-  await store.markRead(id, thread);
+
+  let lastReadAt = opts?.lastReadAt?.trim() || '';
+  const messageId = opts?.lastReadMessageId?.trim() || '';
+  if (!lastReadAt && messageId) {
+    const messages = await store.listMessages(id, thread, 200);
+    const match = messages.find((msg) => msg.id === messageId);
+    if (!match) {
+      return { code: 'NOT_FOUND', message: 'Message not found in thread' };
+    }
+    lastReadAt = match.createdAt;
+  }
+  if (!lastReadAt) {
+    return {
+      code: 'INVALID_PAYLOAD',
+      message: 'lastReadAt or lastReadMessageId is required',
+    };
+  }
+  const parsed = Date.parse(lastReadAt);
+  if (!Number.isFinite(parsed)) {
+    return { code: 'INVALID_PAYLOAD', message: 'Invalid lastReadAt' };
+  }
+
+  await store.markRead(id, thread, new Date(parsed).toISOString());
   return true;
 }
 

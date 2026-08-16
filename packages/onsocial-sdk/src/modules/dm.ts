@@ -90,8 +90,15 @@ export class DmModule {
     return res.message;
   }
 
-  async markRead(threadId: string): Promise<void> {
-    await this.http.post('/developer/dm/read', { threadId });
+  async markRead(
+    threadId: string,
+    opts?: { lastReadAt?: string; lastReadMessageId?: string }
+  ): Promise<void> {
+    await this.http.post('/developer/dm/read', {
+      threadId,
+      lastReadAt: opts?.lastReadAt ?? null,
+      lastReadMessageId: opts?.lastReadMessageId ?? null,
+    });
   }
 
   async unreadCount(): Promise<{ unread: number }> {
