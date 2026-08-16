@@ -28,6 +28,7 @@ import {
   useDiscardConfirm,
 } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -35,11 +36,18 @@ import {
   composeDaoBranding,
   type DaoBranding,
 } from '@/features/protocol/dao-branding';
+import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-social-profile';
 import { buildProtocolPolicyConfigPayload } from '@/features/protocol/protocol-policy';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
+import {
+  normalizeProfileLinksInput,
+  profileLinkEditorFieldErrors,
+  profileLinksInputFromRecord,
+  type ProfileLinksInput,
+} from '@/lib/profile-links';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import {
   txToastGovError,
@@ -47,6 +55,7 @@ import {
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR } from '@/lib/app-config';
 
 const DAO_EDIT_Z = 90;
 const MAX_NAME = 64;
@@ -81,7 +90,15 @@ export function DaoEditSheet({
 
   const [name, setName] = useState(branding.name);
   const [description, setDescription] = useState(branding.description ?? '');
+  const [links, setLinks] = useState<ProfileLinksInput>(() =>
+    profileLinksInputFromRecord(branding.links)
+  );
+  const [linkErrors, setLinkErrors] = useState<
+    Partial<Record<keyof ProfileLinksInput, string>>
+  >({});
+  const [publishSocial, setPublishSocial] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
@@ -96,6 +113,9 @@ export function DaoEditSheet({
     if (!open) return;
     setName(branding.name);
     setDescription(branding.description ?? '');
+    setLinks(profileLinksInputFromRecord(branding.links));
+    setLinkErrors({});
+    setPublishSocial(false);
     setAvatarFile(null);
     setBannerFile(null);
     setAvatarPreview(null);
@@ -113,12 +133,26 @@ export function DaoEditSheet({
     [avatarPreview, bannerPreview]
   );
 
+  const baselineLinks = useMemo(
+    () =>
+      normalizeProfileLinksInput(
+        profileLinksInputFromRecord(branding.links),
+        undefined
+      ),
+    [branding.links]
+  );
+
   const isDirty = useMemo(() => {
     const baselineName = branding.name.trim();
     const baselineDescription = (branding.description ?? '').trim();
+    const nextLinks = normalizeProfileLinksInput(links, undefined);
+    const linksDirty =
+      JSON.stringify(nextLinks) !== JSON.stringify(baselineLinks);
     return (
       name.trim() !== baselineName ||
       description.trim() !== baselineDescription ||
+      linksDirty ||
+      publishSocial ||
       avatarFile !== null ||
       bannerFile !== null ||
       avatarRemoved ||
@@ -129,10 +163,13 @@ export function DaoEditSheet({
     avatarRemoved,
     bannerFile,
     bannerRemoved,
+    baselineLinks,
     branding.description,
     branding.name,
     description,
+    links,
     name,
+    publishSocial,
   ]);
 
   const {
@@ -235,6 +272,12 @@ export function DaoEditSheet({
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!canSave) return;
+    const nextLinkErrors = profileLinkEditorFieldErrors(links);
+    if (Object.keys(nextLinkErrors).length > 0) {
+      setLinkErrors(nextLinkErrors);
+      setError('Fix the link fields before proposing.');
+      return;
+    }
     setPending(true);
     setError(null);
     try {
@@ -254,6 +297,7 @@ export function DaoEditSheet({
         banner = null;
       }
 
+      const normalizedLinks = normalizeProfileLinksInput(links, undefined);
       const onChainName = (configName || name).trim() || name.trim();
       const onChainPurpose =
         (configPurpose || description).trim() ||
@@ -264,12 +308,14 @@ export function DaoEditSheet({
         description: description.trim() || null,
         avatar,
         banner,
+        links:
+          Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
       });
       const payload = buildProtocolPolicyConfigPayload({
         name: onChainName,
         purpose: onChainPurpose,
         metadata,
-        description: `Update OnSocial profile for ${name.trim()}.`,
+        description: `Update DAO profile for ${name.trim()}.`,
       });
       const { accountId: signerId, wallet } = await getSigningWallet();
       const response = await submitProtocolProposal({
@@ -285,6 +331,40 @@ export function DaoEditSheet({
         failureMessage: txToastGovError.actionFailed('DAO profile'),
       });
       if (!confirmed) return;
+
+      if (publishSocial) {
+        try {
+          const socialPayload = buildDaoSocialProfileProposalPayload({
+            name: name.trim(),
+            bio: description.trim() || undefined,
+            avatar,
+            banner,
+            links:
+              Object.keys(normalizedLinks).length > 0
+                ? normalizedLinks
+                : null,
+          });
+          const socialResponse = await submitProtocolProposal({
+            daoAccountId,
+            accountId: signerId,
+            wallet,
+            payload: socialPayload,
+          });
+          await trackTransaction({
+            txHashes: socialResponse.txHashes,
+            submittedMessage: txToastGovPending.publishingDaoProfile,
+            successMessage: txToastGovSuccess.daoProfileProposed,
+            failureMessage: txToastGovError.daoProfilePublishFailed,
+          });
+        } catch (cause) {
+          if (!isWalletUserCancellation(cause)) {
+            setTxResult({
+              type: 'error',
+              msg: txToastGovError.daoProfilePublishFailed,
+            });
+          }
+        }
+      }
 
       const next = composeDaoBranding({
         daoAccountId,
@@ -305,6 +385,8 @@ export function DaoEditSheet({
           description: description.trim() || null,
           avatar,
           banner,
+          links:
+            Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
           avatarUrl: resolvedAvatar ?? next.avatarUrl,
           bannerUrl: resolvedBanner ?? next.bannerUrl,
           bannerMedia: resolvedBanner
@@ -471,6 +553,58 @@ export function DaoEditSheet({
             className={osFieldBorderedClassName}
           />
         </OsField>
+
+        <div className="dao-edit-links">
+          <ProfileLinksEditor
+            links={links}
+            fieldErrors={linkErrors}
+            onUpdateLink={(key, value) => {
+              setLinks((prev) => ({ ...prev, [key]: value }));
+              setLinkErrors((prev) => {
+                if (!prev[key]) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+            }}
+            onClearFieldError={(key) => {
+              setLinkErrors((prev) => {
+                if (!prev[key]) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+            }}
+            onSetFieldError={(key, nextError) => {
+              setLinkErrors((prev) => {
+                if (!nextError) {
+                  if (!prev[key]) return prev;
+                  const next = { ...prev };
+                  delete next[key];
+                  return next;
+                }
+                return { ...prev, [key]: nextError };
+              });
+            }}
+          />
+        </div>
+
+        <label className="dao-create-toggle dao-edit-social-toggle">
+          <input
+            type="checkbox"
+            checked={publishSocial}
+            disabled={pending}
+            onChange={(event) => setPublishSocial(event.target.checked)}
+          />
+          <span>
+            Also publish OnSocial profile
+            <small>
+              Submits a second proposal (Call) so feeds can use the same crest
+              and name. ~{SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR bond —
+              approve on the DAO after.
+            </small>
+          </span>
+        </label>
 
         {error ? <p className="guild-form-error">{error}</p> : null}
         <p className="dao-edit-footnote">

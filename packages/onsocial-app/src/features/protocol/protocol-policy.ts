@@ -4,6 +4,7 @@ import type {
   ProtocolDaoPolicy,
   ProtocolDaoRole,
 } from '@/features/protocol/types';
+import { encodeDaoConfigMetadata } from '@/features/protocol/dao-branding';
 
 export type ProtocolPolicyActionId =
   | 'update_parameters'
@@ -393,7 +394,8 @@ export function buildProtocolPolicyConfigPayload(opts: {
           config: {
             name,
             purpose,
-            metadata: opts.metadata?.trim() ?? '',
+            // Sputnik Config.metadata is Base64VecU8 — never plain JSON.
+            metadata: encodeDaoConfigMetadata(opts.metadata),
           },
         },
       },

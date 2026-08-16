@@ -3,6 +3,8 @@ import {
   buildDaoBrandingMetadata,
   composeDaoBranding,
   daoEntityKindLabel,
+  decodeDaoConfigMetadata,
+  encodeDaoConfigMetadata,
   parseDaoBrandingMetadata,
   resolveDaoEntityKind,
 } from '@/features/protocol/dao-branding';
@@ -19,7 +21,7 @@ describe('dao branding', () => {
         banner: 'ipfs://banner',
       }
     );
-    const parsed = JSON.parse(metadata) as {
+    const parsed = JSON.parse(decodeDaoConfigMetadata(metadata)) as {
       note: string;
       onsocial: Record<string, unknown>;
     };
@@ -30,7 +32,54 @@ describe('dao branding', () => {
       description: 'Builders',
       avatar: 'ipfs://avatar',
       banner: 'ipfs://banner',
+      links: null,
     });
+  });
+
+  it('round-trips links in metadata', () => {
+    const metadata = buildDaoBrandingMetadata('', {
+      name: 'Linked DAO',
+      links: { website: 'https://example.com', x: 'dao' },
+    });
+    expect(parseDaoBrandingMetadata(metadata)?.links).toEqual({
+      website: 'https://example.com',
+      x: 'dao',
+    });
+  });
+
+  it('encodes Sputnik metadata as Base64VecU8 and accepts wire on read', () => {
+    const plain = JSON.stringify({
+      onsocial: { v: 1, name: 'Wire DAO', avatar: 'ipfs://crest' },
+    });
+    const wire = encodeDaoConfigMetadata(plain);
+    expect(wire).not.toContain('{');
+    expect(encodeDaoConfigMetadata(wire)).toBe(wire);
+    expect(decodeDaoConfigMetadata(wire)).toBe(plain);
+    expect(parseDaoBrandingMetadata(wire)).toEqual({
+      v: 1,
+      name: 'Wire DAO',
+      description: null,
+      avatar: 'ipfs://crest',
+      banner: null,
+      links: null,
+    });
+    expect(parseDaoBrandingMetadata(plain)?.name).toBe('Wire DAO');
+  });
+
+  it('merges into existing base64 wire metadata without wiping siblings', () => {
+    const existing = encodeDaoConfigMetadata(
+      JSON.stringify({
+        flagLogo: 'ipfs://astro',
+        onsocial: { v: 1, name: 'Old' },
+      })
+    );
+    const next = buildDaoBrandingMetadata(existing, { name: 'New' });
+    const root = JSON.parse(decodeDaoConfigMetadata(next)) as {
+      flagLogo: string;
+      onsocial: { name: string };
+    };
+    expect(root.flagLogo).toBe('ipfs://astro');
+    expect(root.onsocial.name).toBe('New');
   });
 
   it('composes branding preferring profile media when present', () => {
