@@ -314,6 +314,7 @@ export function PortfolioIdentityGestures({
         open={messageOpen}
         peerAccountId={pageAccountId}
         peerName={profileName}
+        mood={mood}
         onClose={() => setMessageOpen(false)}
       />
       <EndorseComposeSheet

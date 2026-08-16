@@ -25,6 +25,15 @@ export type StoredDmIdentity = {
   recoveryCodeShownAt?: string;
 };
 
+export class DmKeysLockedError extends Error {
+  constructor(
+    message = 'Messages are locked on this device. Enter your recovery code to unlock.'
+  ) {
+    super(message);
+    this.name = 'DmKeysLockedError';
+  }
+}
+
 function storageKey(accountId: string): string {
   return `${STORE_PREFIX}${accountId.trim().toLowerCase()}`;
 }
@@ -82,6 +91,24 @@ export function getLocalDmKeyBackup(accountId: string): DmKeyBackup | null {
   };
 }
 
+/**
+ * Persist a remote wrap without unlocking — unlock UI can work offline next.
+ * Never overwrites an unlocked local secret.
+ */
+export function seedDmKeyBackupFromRemote(
+  accountId: string,
+  remote: DmKeyBackup
+): void {
+  const id = accountId.trim().toLowerCase();
+  if (loadDmKeyPair(id)) return;
+  writeStore({
+    accountId: id,
+    publicKey: remote.publicKey,
+    wrapped: remote.wrapped,
+    createdAt: new Date().toISOString(),
+  });
+}
+
 export type EnsureDmKeysResult = {
   keyPair: DmKeyPair;
   publicKeyEncoded: string;
@@ -92,11 +119,13 @@ export type EnsureDmKeysResult = {
 };
 
 /**
- * Ensure this device has messaging keys.
- * New keys return a one-time recovery code the UI must show.
+ * Ensure this device has unlocked messaging keys.
+ * Pass `remoteBackup` from social so we never mint a new identity over an
+ * existing published wrap (silent key rotation).
  */
 export async function ensureDmKeys(
-  accountId: string
+  accountId: string,
+  opts?: { remoteBackup?: DmKeyBackup | null }
 ): Promise<EnsureDmKeysResult> {
   const id = accountId.trim().toLowerCase();
   const existing = loadDmKeyPair(id);
@@ -111,11 +140,17 @@ export async function ensureDmKeys(
     };
   }
 
+  const remote = opts?.remoteBackup ?? null;
+  if (remote?.wrapped) {
+    seedDmKeyBackupFromRemote(id, remote);
+  }
+
   const stored = readStore(id);
   if (stored?.wrapped && !stored.secretKey) {
-    throw new Error(
-      'Messages are locked on this device. Enter your recovery code to unlock.'
-    );
+    throw new DmKeysLockedError();
+  }
+  if (remote?.wrapped) {
+    throw new DmKeysLockedError();
   }
 
   const keyPair = generateDmKeyPair();

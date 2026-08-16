@@ -4,8 +4,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary } from '@onsocial/sdk';
+import {
+  OsField,
+  OsSheetAction,
+  OsSheetActions,
+  OsSurfaceRow,
+  OsSurfaceRowList,
+  ProfileAvatar,
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
@@ -13,11 +23,13 @@ import {
 import { messagesPath } from '@/lib/app-routes';
 import { decryptDmMessage } from '@/lib/dm/send';
 import {
+  DmKeysLockedError,
   ensureDmKeys,
   hasUnlockedDmKey,
   restoreDmKeysFromRecoveryCode,
 } from '@/lib/dm/keys';
 import { fetchDmKeyBackup, publishDmKeyBackup } from '@/lib/dm/pubkey';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
@@ -37,9 +49,14 @@ export function MessagesPanel() {
   const [recoveryInput, setRecoveryInput] = useState('');
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [unlockPending, setUnlockPending] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
+  const [keysTick, setKeysTick] = useState(0);
 
-  const unlocked = accountId ? hasUnlockedDmKey(accountId) : false;
+  // keysTick forces a re-read of localStorage after unlock / bootstrap.
+  const isUnlocked = Boolean(
+    accountId && keysTick >= 0 && hasUnlockedDmKey(accountId)
+  );
 
   const peerFromThread = useMemo(() => {
     if (!activeThreadId || !accountId) return peerParam;
@@ -49,6 +66,12 @@ export function MessagesPanel() {
 
   const composePeer = peerParam || peerFromThread;
   const showCompose = composeOpen || Boolean(peerParam);
+
+  const peerIds = useMemo(
+    () => (threads ?? []).map((t) => t.peerAccountId),
+    [threads]
+  );
+  const profiles = usePostAuthorProfiles(peerIds);
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -69,16 +92,26 @@ export function MessagesPanel() {
   const bootstrapKeys = useCallback(async () => {
     if (!accountId || !hasSocialSession) return;
     const { client } = await getClient();
-    const keys = await ensureDmKeys(accountId);
-    if (keys.created && keys.backup) {
-      await publishDmKeyBackup(client, keys.backup);
-    } else if (keys.backup) {
-      const remote = await fetchDmKeyBackup(client, accountId);
-      if (!remote) {
+    const remoteBackup = await fetchDmKeyBackup(client, accountId);
+    try {
+      const keys = await ensureDmKeys(accountId, { remoteBackup });
+      if (keys.created && keys.backup) {
         await publishDmKeyBackup(client, keys.backup);
+      } else if (keys.backup) {
+        const remote = await fetchDmKeyBackup(client, accountId);
+        if (!remote) {
+          await publishDmKeyBackup(client, keys.backup);
+        }
       }
+      if (keys.recoveryCode) setRecoveryCode(keys.recoveryCode);
+      setKeysTick((n) => n + 1);
+    } catch (cause) {
+      if (cause instanceof DmKeysLockedError) {
+        setKeysTick((n) => n + 1);
+        return;
+      }
+      throw cause;
     }
-    if (keys.recoveryCode) setRecoveryCode(keys.recoveryCode);
   }, [accountId, getClient, hasSocialSession]);
 
   const refreshThreads = useCallback(async () => {
@@ -97,7 +130,11 @@ export function MessagesPanel() {
       const { messages: next } = await client.dm.listMessages(threadId);
       setMessages(next);
       await client.dm.markRead(threadId);
-      if (!accountId) return;
+      if (!accountId || !hasUnlockedDmKey(accountId)) {
+        setPlainById({});
+        void refreshThreads();
+        return;
+      }
       const plain: Record<string, string> = {};
       for (const msg of next) {
         try {
@@ -145,6 +182,7 @@ export function MessagesPanel() {
 
   const handleRestore = async () => {
     if (!accountId || !recoveryInput.trim()) return;
+    setUnlockPending(true);
     try {
       const { client } = await getClient();
       const remoteBackup = await fetchDmKeyBackup(client, accountId);
@@ -155,12 +193,15 @@ export function MessagesPanel() {
       });
       setRecoveryInput('');
       setError(null);
+      setKeysTick((n) => n + 1);
       if (activeThreadId) await openThread(activeThreadId);
       else await refreshThreads();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'Could not restore keys.'
       );
+    } finally {
+      setUnlockPending(false);
     }
   };
 
@@ -169,13 +210,16 @@ export function MessagesPanel() {
       <div className="messages-panel">
         <header className="messages-panel-header">
           <h1>Messages</h1>
+          <p>Private · encrypted on your device</p>
         </header>
         <p className="messages-panel-empty">
           Connect your wallet to send private messages.
         </p>
-        <button type="button" className="os-sheet-action" onClick={() => void connect()}>
-          Connect
-        </button>
+        <OsSheetActions>
+          <OsSheetAction type="button" ready onClick={() => void connect()}>
+            Connect
+          </OsSheetAction>
+        </OsSheetActions>
       </div>
     );
   }
@@ -187,51 +231,77 @@ export function MessagesPanel() {
         <p>Private · encrypted on your device</p>
       </header>
 
-      {!unlocked ? (
+      {!isUnlocked ? (
         <section className="messages-unlock" aria-label="Unlock messages">
           <p>
             Enter your recovery code to unlock private messages on this device.
           </p>
-          <input
-            className="os-field-bordered"
-            value={recoveryInput}
-            onChange={(e) => setRecoveryInput(e.target.value)}
-            placeholder="XXXX-XXXX-XXXX-XXXX"
-            autoComplete="off"
-          />
-          <button type="button" onClick={() => void handleRestore()}>
-            Unlock
-          </button>
+          <OsField label="Recovery code" htmlFor="dm-unlock-code">
+            <input
+              id="dm-unlock-code"
+              className={osFieldBorderedClassName}
+              value={recoveryInput}
+              onChange={(e) => setRecoveryInput(e.target.value)}
+              placeholder="XXXX-XXXX-XXXX-XXXX"
+              autoComplete="off"
+              disabled={unlockPending}
+            />
+          </OsField>
+          <OsSheetActions>
+            <OsSheetAction
+              type="button"
+              ready={Boolean(recoveryInput.trim())}
+              pending={unlockPending}
+              pendingLabel="Unlocking…"
+              onClick={() => void handleRestore()}
+            >
+              Unlock
+            </OsSheetAction>
+          </OsSheetActions>
         </section>
       ) : null}
 
-      {error ? <p className="messages-panel-error">{error}</p> : null}
+      {error ? (
+        <p className="messages-panel-error" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="messages-layout">
         <aside className="messages-thread-list" aria-label="Conversations">
           {threads == null ? (
-            <p>Loading…</p>
+            <p className="messages-panel-empty">Loading…</p>
           ) : threads.length === 0 ? (
             <p className="messages-panel-empty">No conversations yet.</p>
           ) : (
-            <ul>
-              {threads.map((thread) => (
-                <li key={thread.threadId}>
-                  <button
-                    type="button"
-                    className={
-                      thread.threadId === activeThreadId
-                        ? 'messages-thread-row is-active'
-                        : 'messages-thread-row'
+            <OsSurfaceRowList as="div" aria-label="Conversations">
+              {threads.map((thread) => {
+                const profile = profiles[thread.peerAccountId];
+                const name = displayName(
+                  thread.peerAccountId,
+                  profile?.displayName
+                );
+                const handle = fallbackLabel(thread.peerAccountId);
+                return (
+                  <OsSurfaceRow
+                    key={thread.threadId}
+                    active={thread.threadId === activeThreadId}
+                    label={name}
+                    description={name !== handle ? `@${handle}` : undefined}
+                    leading={
+                      <ProfileAvatar
+                        src={profile?.avatarUrl ?? undefined}
+                        fallbackInitial={name.slice(0, 1)}
+                        size="sm"
+                      />
                     }
+                    badge={thread.unread ? 'New' : undefined}
+                    trailing={thread.unread ? undefined : 'navigate'}
                     onClick={() => void openThread(thread.threadId)}
-                  >
-                    <span>{thread.peerAccountId}</span>
-                    {thread.unread ? <span className="messages-unread">New</span> : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
+                  />
+                );
+              })}
+            </OsSurfaceRowList>
           )}
         </aside>
 
@@ -240,8 +310,12 @@ export function MessagesPanel() {
             <p className="messages-panel-empty">
               Pick a conversation or message someone from their profile.
             </p>
+          ) : !isUnlocked ? (
+            <p className="messages-panel-empty">
+              Unlock messages to read this conversation.
+            </p>
           ) : messages == null ? (
-            <p>Loading…</p>
+            <p className="messages-panel-empty">Loading…</p>
           ) : (
             <ul className="messages-bubble-list">
               {messages.map((msg) => {
@@ -256,7 +330,7 @@ export function MessagesPanel() {
                     }
                   >
                     {text ? <p>{text}</p> : <p>…</p>}
-                    {unlocked && msg.media?.length
+                    {msg.media?.length
                       ? msg.media.map((item) => (
                           <DmMediaBubble
                             key={`${msg.id}-${item.cid}`}
@@ -278,19 +352,30 @@ export function MessagesPanel() {
               })}
             </ul>
           )}
-          {peerFromThread ? (
+          {peerFromThread && isUnlocked ? (
             <div className="messages-thread-actions">
-              <button type="button" onClick={() => setComposeOpen(true)}>
-                Reply
-              </button>
-              <Link href={`/${peerFromThread}`}>View profile</Link>
+              <OsSheetActions>
+                <OsSheetAction
+                  type="button"
+                  ready
+                  onClick={() => setComposeOpen(true)}
+                >
+                  Reply
+                </OsSheetAction>
+              </OsSheetActions>
+              <Link
+                className="messages-thread-profile-link"
+                href={`/${peerFromThread}`}
+              >
+                View profile
+              </Link>
             </div>
           ) : null}
         </section>
       </div>
 
       <DmComposeSheet
-        open={showCompose && Boolean(composePeer)}
+        open={showCompose && Boolean(composePeer) && isUnlocked}
         peerAccountId={composePeer}
         onClose={() => {
           setComposeOpen(false);
@@ -299,6 +384,10 @@ export function MessagesPanel() {
               messagesPath({ threadId: activeThreadId || null })
             );
           }
+        }}
+        onSent={() => {
+          void refreshThreads();
+          if (activeThreadId) void openThread(activeThreadId);
         }}
       />
       <DmRecoveryCodeSheet

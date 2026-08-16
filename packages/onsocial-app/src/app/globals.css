@@ -32469,32 +32469,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: rgb(var(--fg-rgb) / 0.02);
 }
 
-.messages-thread-row {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.7rem 0.75rem;
-  border: 0;
-  border-radius: 0.75rem;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.messages-thread-row.is-active,
-.messages-thread-row:hover {
-  background: rgb(var(--fg-rgb) / 0.06);
-}
-
-.messages-unread {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: rgb(37 99 235);
-}
-
 .messages-bubble-list {
   list-style: none;
   margin: 0;
@@ -32514,7 +32488,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .messages-bubble.is-mine {
   align-self: flex-end;
-  background: rgb(37 99 235 / 0.14);
+  background: color-mix(
+    in srgb,
+    var(--signal-endorse, rgb(37 99 235)) 14%,
+    transparent
+  );
 }
 
 .messages-bubble time {
@@ -32533,12 +32511,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .messages-panel-error,
 .dm-compose-error {
-  color: rgb(185 28 28);
+  color: var(--signal-error, rgb(185 28 28));
 }
 
 .messages-unlock {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.65rem;
   margin-bottom: 1rem;
   padding: 0.85rem;
   border-radius: 0.9rem;
@@ -32551,11 +32529,42 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.85rem;
 }
 
+.dm-compose-form.is-discard-confirm {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .dm-compose-media {
   display: grid;
   gap: 0.35rem;
-  font-size: 0.85rem;
+}
+
+.dm-compose-media-attach,
+.dm-compose-media-remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.9rem;
   color: rgb(var(--fg-rgb) / 0.72);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.dm-compose-media-preview {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.dm-compose-media-el {
+  display: block;
+  max-width: 100%;
+  max-height: 12rem;
+  border-radius: 0.65rem;
+  object-fit: cover;
 }
 
 .messages-media {
@@ -32578,6 +32587,21 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.75rem;
   align-items: center;
   margin-top: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.messages-thread-profile-link {
+  font-size: 0.9rem;
+  color: rgb(var(--fg-rgb) / 0.72);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.dm-recovery-lead {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.72);
 }
 
 .dm-recovery-code {
@@ -32592,9 +32616,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   word-break: break-all;
 }
 
-.messages-thread-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.85rem;
-  align-items: center;
+.messages-thread-list .os-surface-row-list {
+  gap: 0.15rem;
 }

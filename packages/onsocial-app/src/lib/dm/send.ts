@@ -12,6 +12,7 @@ import {
 } from '@/lib/dm/crypto';
 import { ensureDmKeys, loadDmKeyPair } from '@/lib/dm/keys';
 import {
+  fetchDmKeyBackup,
   fetchDmPublicKey,
   publishDmKeyBackup,
   publishDmPublicKey,
@@ -131,7 +132,8 @@ export async function sendEncryptedDm(opts: {
 
   let keys;
   try {
-    keys = await ensureDmKeys(opts.accountId);
+    const remoteBackup = await fetchDmKeyBackup(opts.client, opts.accountId);
+    keys = await ensureDmKeys(opts.accountId, { remoteBackup });
   } catch (error) {
     return {
       ok: false,

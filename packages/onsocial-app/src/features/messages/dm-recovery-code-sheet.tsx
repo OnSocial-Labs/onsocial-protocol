@@ -1,6 +1,7 @@
 'use client';
 
-import { OsGestureSheet, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { useState } from 'react';
+import { OsHugSheet, OsSheetAction, OsSheetActions } from '@onsocial/ui';
 
 interface DmRecoveryCodeSheetProps {
   open: boolean;
@@ -17,16 +18,38 @@ export function DmRecoveryCodeSheet({
   code,
   onClose,
 }: DmRecoveryCodeSheetProps) {
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const copied = open && copiedCode === code;
+
   return (
-    <OsGestureSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      verb="Save"
-      personName="recovery code"
-      signal="standing"
-      whisper="Only you can see this · we cannot reset it"
+      label="Recovery code"
+      copy="Only you can see this · we cannot reset it"
+      chrome="choice"
       closeAriaLabel="Close recovery code"
-      size="compact"
+      backdropLabel="Close recovery code"
+      footer={
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            ready
+            succeeded={copied}
+            succeededLabel="Copied"
+            onClick={() => {
+              void navigator.clipboard?.writeText(code).then(() => {
+                setCopiedCode(code);
+              });
+            }}
+          >
+            Copy code
+          </OsSheetAction>
+          <OsSheetAction type="button" variant="ghost" onClick={onClose}>
+            I saved it
+          </OsSheetAction>
+        </OsSheetActions>
+      }
     >
       <div className="dm-recovery-sheet">
         <p className="dm-recovery-lead">
@@ -36,24 +59,7 @@ export function DmRecoveryCodeSheet({
         <p className="dm-recovery-code" aria-label="Recovery code">
           {code}
         </p>
-        <OsSheetActions>
-          <OsSheetAction
-            type="button"
-            onClick={() => {
-              void navigator.clipboard?.writeText(code);
-            }}
-          >
-            Copy code
-          </OsSheetAction>
-          <OsSheetAction
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-          >
-            I saved it
-          </OsSheetAction>
-        </OsSheetActions>
       </div>
-    </OsGestureSheet>
+    </OsHugSheet>
   );
 }
