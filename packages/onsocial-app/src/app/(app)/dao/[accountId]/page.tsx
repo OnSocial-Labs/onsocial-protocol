@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { DaoPortfolioPanel } from '@/features/protocol/dao-portfolio-panel';
 import { isValidProtocolDaoAccountId } from '@/features/protocol/dao-accounts';
@@ -38,11 +39,13 @@ export default async function DaoPage({ params }: DaoPageProps) {
   if (!data) notFound();
 
   return (
-    <DaoPortfolioPanel
-      initialBranding={data.branding}
-      configName={data.configName}
-      configPurpose={data.configPurpose}
-      configMetadata={data.configMetadata}
-    />
+    <Suspense fallback={null}>
+      <DaoPortfolioPanel
+        initialBranding={data.branding}
+        configName={data.configName}
+        configPurpose={data.configPurpose}
+        configMetadata={data.configMetadata}
+      />
+    </Suspense>
   );
 }
