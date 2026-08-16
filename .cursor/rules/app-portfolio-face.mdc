@@ -150,6 +150,21 @@ Do not hand-roll `GlassSheet` + `GestureSheetHeader` for this family. Amount / s
 
 Shared header primitive: `GestureSheetHeader`. Identity labels use `fallbackLabel` / raw `accountId` — full NEAR id.
 
+### Spacing / inset (aligned across app + UI)
+
+Do **not** invent per-feature padding for gesture sheets or social list overlays.
+
+| Surface | Source of truth |
+|---------|-----------------|
+| Gesture form body inset | UI `.os-gesture-sheet-body` (1.15rem column + safe-area bottom) — Support, Endorse, scarce, protocol |
+| Host body class | App `profile-support-sheet-body` only for keyboard/footer overrides — **not** a second padding system |
+| Form stack gap | `0.85rem` (`.profile-support-form` / `.endorse-compose-form`) |
+| Social list overlay panel | Same denser rhythm as `.standing-panel` (`gap: 0.65rem`, `padding: 0.35rem … 1.25rem`) |
+| List row shell | UI `.standing-row` + `StandingIdentity` (Standing, endorsements, discover peers) |
+| Row aside actions | Right-aligned (`flex-end`) like Stand toggle |
+
+New gesture sheets: `OsGestureSheet` + `bodyClassName="profile-support-sheet-body"`. New social list overlays: match Standing panel pad/gap; rows use StandingIdentity — never a one-off row padding recipe.
+
 ## Do not
 
 - Copy Portal’s bordered Support + Endorse + Stand pill cluster
@@ -161,3 +176,4 @@ Shared header primitive: `GestureSheetHeader`. Identity labels use `fallbackLabe
 - Re-introduce the person in the page drawer (no second avatar · name · handle card; no bio bridge)
 - Stack avatar · name · handle **and** a bare verb title on gesture sheets when already on their face
 - Open the page drawer as a full-bleed wipe — keep a mood-face peek
+- Add host-only body padding that fights UI `.os-gesture-sheet-body` or drifts from `.standing-panel`
