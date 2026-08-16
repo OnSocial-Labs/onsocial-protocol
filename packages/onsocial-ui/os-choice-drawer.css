@@ -69,11 +69,6 @@
   max-height: min(72dvh, 720px);
 }
 
-.os-choice-sheet-body {
-  /* Match guild-facts / collect-info nested sheet inset. */
-  padding: 0.15rem 1.15rem 1.35rem;
-}
-
 .os-choice-sheet-list {
   display: flex;
   flex-direction: column;

@@ -12,6 +12,7 @@ import {
   GlassSheet,
   ProtocolMotionArrow,
   SheetCloseButton,
+  osHugSheetBodyClassName,
 } from '@onsocial/ui';
 import {
   SheetFactCount,
@@ -248,7 +249,7 @@ export function PageJoinedFactsSheet({
       zIndex={52}
       ariaLabelledBy="page-joined-facts-title"
       backdropLabel="Close account facts"
-      bodyClassName="page-joined-facts-body"
+      bodyClassName={osHugSheetBodyClassName}
       panelClassName="page-joined-facts-panel"
       header={
         <>

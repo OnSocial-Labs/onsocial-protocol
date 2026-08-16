@@ -5620,7 +5620,6 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
-    padding: 0.15rem 1.15rem 1.35rem;
   }
 
   .portfolio-support-collect-info-legend {
@@ -9124,10 +9123,6 @@ a.os-surface-row {
     letter-spacing: -0.01em;
     line-height: 1.25;
     color: rgb(var(--fg-rgb) / 0.9);
-  }
-
-  .page-joined-facts-body {
-    padding: 0.15rem 1.15rem 1.35rem;
   }
 
   /* Row/section/count chrome: shared `.guild-facts-*` via SheetFact*. */
@@ -14415,7 +14410,6 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding: 0.2rem 1.15rem 1.25rem;
     overflow: hidden;
   }
 
@@ -21479,10 +21473,7 @@ a.os-surface-row {
     padding: 0.35rem 1.15rem 0.55rem;
   }
 
-  /* Same inset as guild-facts / Add member sheets (height hug is unlayered). */
-  .collection-allowlist-sheet-body {
-    padding: 0.15rem 1.15rem 1.35rem;
-  }
+  /* Height hug is unlayered on the panel; body inset from OsHugSheet. */
 
   .collection-allowlist-sheet-panel .discover-sheet-subtitle {
     font-size: 0.8rem;
@@ -21566,10 +21557,6 @@ a.os-surface-row {
     max-height: min(88dvh, 36rem);
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
-  }
-
-  .collection-activity-sheet-body {
-    padding: 0.15rem 1.15rem 1.35rem;
   }
 
   .collection-activity-empty {
@@ -21676,10 +21663,6 @@ a.os-surface-row {
     max-height: min(88dvh, 36rem);
     --glass-header-scrim-height: min(5rem, 24%);
     --glass-sheet-body-opacity: 0.64;
-  }
-
-  .scarce-fans-sheet-body {
-    padding: 0.15rem 1.15rem 1.35rem;
   }
 
   .scarce-fans-empty {
@@ -24429,10 +24412,6 @@ a.os-surface-row {
 
   /* ── Hub manage sheets ─── */
 
-  .hub-manage-sheet-body {
-    padding: 0.35rem 1.15rem 1.35rem;
-  }
-
   .glass-sheet-panel.hub-manage-sheet-panel {
     --glass-sheet-body-opacity: 0.72;
   }
@@ -25985,10 +25964,6 @@ a.os-surface-row {
     display: block;
   }
 
-  .guild-facts-sheet-body {
-    padding: 0.15rem 1.15rem 1.35rem;
-  }
-
   .guild-facts-sheet-header {
     padding-bottom: 0.45rem;
   }
@@ -26162,18 +26137,6 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.62);
   }
 
-  .guild-manage-sheet-body {
-    padding: 0 1rem 1.25rem;
-  }
-
-  .guild-add-space-sheet-body {
-    padding: 0.2rem 1.15rem 1.25rem;
-  }
-
-  .guild-settings-sheet-body {
-    padding: 0.35rem 1.15rem 1.35rem;
-  }
-
   .guild-settings-sheet-header {
     padding-bottom: 0.45rem;
   }
@@ -26334,10 +26297,6 @@ a.os-surface-row {
 
   .guild-edit-access .app-storage-presets {
     justify-content: flex-start;
-  }
-
-  .guild-rooms-sheet-body {
-    padding: 0.35rem 1.15rem 1.25rem;
   }
 
   .guild-add-space-sheet-header {
@@ -29797,10 +29756,6 @@ a.os-surface-row {
 
   /* ── Endorse compose sheet ──────────────────────────────── */
 
-  .endorse-compose-body {
-    padding: 0.2rem 1.15rem 1.35rem;
-  }
-
   .endorse-compose-form {
     display: flex;
     flex-direction: column;
@@ -31279,18 +31234,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 }
 
 .protocol-action-sheet-body {
-  /* Match Action/Choice / guild-facts sheet inset (SheetHeader = 1.15rem). */
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  padding: 0.15rem 1.15rem 1.35rem;
 }
 
 .protocol-on-chain-sheet-body {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  padding: 0.15rem 1.15rem 1.35rem;
 }
 
 .protocol-on-chain-action-value {
