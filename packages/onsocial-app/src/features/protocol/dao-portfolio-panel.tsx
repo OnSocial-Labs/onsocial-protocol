@@ -1,20 +1,13 @@
 'use client';
 
 /**
- * DAO portfolio page — shared portfolio language with square crest.
- * Protocol stays the fast lane; this is the org home.
+ * DAO portfolio — presence (cover + square crest) with proposals in context.
+ * Members / Treasury / Manage open overlays; Protocol tools live in Manage.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import {
-  Divider,
-  OsIconAction,
-  OsSheetAction,
-  OsSheetActions,
-  SettingsIcon,
-} from '@onsocial/ui';
+import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
@@ -24,17 +17,27 @@ import {
 } from '@/features/protocol/dao-branding';
 import { DaoEditSheet } from '@/features/protocol/dao-edit-sheet';
 import {
+  DaoManageSheet,
+  type DaoManageAction,
+} from '@/features/protocol/dao-manage-sheet';
+import { DaoMembersSheet } from '@/features/protocol/dao-members-sheet';
+import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
+import {
+  DaoWorkspacePanel,
+  type DaoWorkspaceTool,
+} from '@/features/protocol/dao-workspace-panel';
+import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
-import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
+import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
 import { initials } from '@/lib/profile-display';
 import {
-  APP_DAOS_PATH,
-  APP_GROUPS_PATH,
-  protocolPath,
-} from '@/lib/app-routes';
+  GOVERNANCE_DAO_ACCOUNT,
+  TREASURY_DAO_ACCOUNT,
+} from '@/lib/app-config';
+import { APP_DAOS_PATH, daoPath } from '@/lib/app-routes';
 
 interface DaoPortfolioPanelProps {
   initialBranding: DaoBranding;
@@ -54,8 +57,18 @@ type EligibilitySnapshot = {
   value: ProtocolGovernanceEligibility;
 };
 
+type PortfolioOverlay = 'manage' | 'members' | 'treasury' | 'edit' | null;
+
 function eligibilityKey(accountId: string, daoAccountId: string): string {
   return `${accountId}:${daoAccountId}`;
+}
+
+function isProtocolFlipDao(daoAccountId: string): boolean {
+  const id = daoAccountId.trim().toLowerCase();
+  return (
+    id === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
+    id === TREASURY_DAO_ACCOUNT.trim().toLowerCase()
+  );
 }
 
 export function DaoPortfolioPanel({
@@ -64,12 +77,12 @@ export function DaoPortfolioPanel({
   configPurpose,
   configMetadata,
 }: DaoPortfolioPanelProps) {
-  const router = useRouter();
   const { accountId } = useAppWallet();
   const [optimistic, setOptimistic] = useState<OptimisticDaoProfile | null>(
     null
   );
-  const [editing, setEditing] = useState(false);
+  const [overlay, setOverlay] = useState<PortfolioOverlay>(null);
+  const [toolRequest, setToolRequest] = useState<DaoWorkspaceTool>(null);
   const [eligibility, setEligibility] = useState<EligibilitySnapshot | null>(
     null
   );
@@ -121,10 +134,10 @@ export function DaoPortfolioPanel({
   const kindLabel = daoEntityKindLabel(branding.kind);
   const title = branding.name;
   const summary = branding.description?.trim() || null;
-  const protocolHref = protocolPath({
-    board: branding.kind,
-    account: branding.kind === 'community' ? branding.daoAccountId : null,
-  });
+  const showFlipper = isProtocolFlipDao(branding.daoAccountId);
+  const isGovernance =
+    branding.daoAccountId.trim().toLowerCase() ===
+    GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase();
 
   const handleSaved = useCallback((next: DaoBranding, nextMetadata: string) => {
     setOptimistic({
@@ -133,7 +146,23 @@ export function DaoPortfolioPanel({
       metadata: nextMetadata,
     });
     seedDaoBrandingCache(next.daoAccountId, next);
-    setEditing(false);
+    setOverlay(null);
+  }, []);
+
+  const handleManageAction = useCallback((action: DaoManageAction) => {
+    if (action === 'edit') {
+      setOverlay('edit');
+      return;
+    }
+    if (action === 'members') {
+      setOverlay('members');
+      return;
+    }
+    if (action === 'treasury') {
+      setOverlay('treasury');
+      return;
+    }
+    setToolRequest(action);
   }, []);
 
   const crest = useMemo(() => {
@@ -160,16 +189,6 @@ export function DaoPortfolioPanel({
         subtitle={kindLabel}
         backFallbackHref={APP_DAOS_PATH}
         glassChrome
-        actions={
-          canEdit ? (
-            <OsIconAction
-              ariaLabel="Edit DAO profile"
-              onClick={() => setEditing(true)}
-            >
-              <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
-            </OsIconAction>
-          ) : null
-        }
       >
         <article className="dao-portfolio-card">
           <div
@@ -200,28 +219,72 @@ export function DaoPortfolioPanel({
             </div>
           </div>
 
-          <div className="dao-portfolio-actions">
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                ready
-                onClick={() => {
-                  router.push(protocolHref);
-                }}
+          {showFlipper ? (
+            <div
+              className="dao-portfolio-flipper"
+              role="tablist"
+              aria-label="Protocol DAO"
+            >
+              <Link
+                href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
+                role="tab"
+                aria-selected={isGovernance}
+                className={`dao-portfolio-flip${isGovernance ? ' is-active' : ''}`}
               >
-                Open in Protocol
-              </OsSheetAction>
-            </OsSheetActions>
-            <div className="dao-portfolio-secondary-links">
-              <Link href={protocolHref} className="dao-portfolio-text-link">
-                Proposals board
+                Governance
               </Link>
-              <Link href={APP_GROUPS_PATH} className="dao-portfolio-text-link">
-                Communities
+              <Link
+                href={daoPath(TREASURY_DAO_ACCOUNT)}
+                role="tab"
+                aria-selected={!isGovernance}
+                className={`dao-portfolio-flip${!isGovernance ? ' is-active' : ''}`}
+              >
+                Treasury
               </Link>
             </div>
+          ) : null}
+
+          <div
+            className="dao-portfolio-entry"
+            role="toolbar"
+            aria-label="DAO entry"
+          >
+            <button
+              type="button"
+              className="dao-portfolio-chip"
+              onClick={() => setOverlay('members')}
+            >
+              Members
+            </button>
+            <button
+              type="button"
+              className="dao-portfolio-chip"
+              onClick={() => setOverlay('treasury')}
+            >
+              Treasury
+            </button>
+            <button
+              type="button"
+              className="dao-portfolio-chip"
+              onClick={() => setOverlay('manage')}
+            >
+              Manage
+            </button>
           </div>
+
+          <Divider variant="section" className="dao-portfolio-divider" />
+
+          <section
+            className="dao-portfolio-workspace"
+            aria-label="Proposals"
+          >
+            <DaoWorkspacePanel
+              daoAccountId={branding.daoAccountId}
+              hideTools
+              toolRequest={toolRequest}
+              onToolRequestHandled={() => setToolRequest(null)}
+            />
+          </section>
 
           <Divider variant="section" className="dao-portfolio-divider" />
 
@@ -253,14 +316,44 @@ export function DaoPortfolioPanel({
         </article>
       </OsAppScreen>
 
+      <DaoManageSheet
+        open={overlay === 'manage'}
+        daoName={title}
+        canEdit={canEdit}
+        onClose={() =>
+          setOverlay((current) => (current === 'manage' ? null : current))
+        }
+        onAction={handleManageAction}
+      />
+
+      <DaoMembersSheet
+        open={overlay === 'members'}
+        daoAccountId={branding.daoAccountId}
+        daoName={title}
+        onClose={() =>
+          setOverlay((current) => (current === 'members' ? null : current))
+        }
+      />
+
+      <DaoTreasurySheet
+        open={overlay === 'treasury'}
+        daoAccountId={branding.daoAccountId}
+        daoName={title}
+        onClose={() =>
+          setOverlay((current) => (current === 'treasury' ? null : current))
+        }
+      />
+
       <DaoEditSheet
-        open={editing}
+        open={overlay === 'edit'}
         daoAccountId={branding.daoAccountId}
         branding={branding}
         configName={configName ?? branding.name}
         configPurpose={configPurpose ?? branding.description ?? ''}
         configMetadata={metadata}
-        onClose={() => setEditing(false)}
+        onClose={() =>
+          setOverlay((current) => (current === 'edit' ? null : current))
+        }
         onSaved={handleSaved}
       />
     </>

@@ -1,17 +1,32 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { ProtocolPagePanel } from '@/features/protocol/protocol-page-panel';
+import { redirect } from 'next/navigation';
+import { resolveProtocolEntryRedirect } from '@/features/protocol/protocol-entry-redirect';
 
 export const metadata: Metadata = {
   title: 'Protocol • OnSocial',
   description:
-    'OnSocial governance and treasury — proposals, votes, and decision-making.',
+    'OnSocial governance and treasury — open the Governance portfolio.',
 };
 
-export default function ProtocolPage() {
-  return (
-    <Suspense fallback={null}>
-      <ProtocolPagePanel />
-    </Suspense>
-  );
+type ProtocolPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function firstParam(
+  value: string | string[] | undefined
+): string | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+export default async function ProtocolPage({
+  searchParams,
+}: ProtocolPageProps) {
+  const resolved = (await searchParams) ?? {};
+  const href = resolveProtocolEntryRedirect({
+    get(name) {
+      return firstParam(resolved[name]);
+    },
+  });
+  redirect(href);
 }

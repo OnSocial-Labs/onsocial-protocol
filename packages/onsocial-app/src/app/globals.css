@@ -31811,6 +31811,71 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   padding: 0 0.1rem;
 }
 
+.dao-portfolio-flipper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+  padding: 0 0.1rem;
+}
+
+.dao-portfolio-flip {
+  border: 0;
+  margin: 0;
+  padding: 0.42rem 0.78rem;
+  border-radius: 999px;
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.62);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.dao-portfolio-flip.is-active {
+  background: rgb(var(--fg-rgb) / 0.14);
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.dao-portfolio-flip:hover,
+.dao-portfolio-flip:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.92);
+  outline: none;
+}
+
+.dao-portfolio-entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding: 0 0.1rem;
+}
+
+.dao-portfolio-chip {
+  border: 0;
+  margin: 0;
+  padding: 0.42rem 0.78rem;
+  border-radius: 999px;
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.72);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.dao-portfolio-chip:hover,
+.dao-portfolio-chip:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.11);
+  color: rgb(var(--fg-rgb) / 0.92);
+  outline: none;
+}
+
+.dao-portfolio-workspace {
+  min-width: 0;
+}
+
 .dao-portfolio-secondary-links {
   display: flex;
   flex-wrap: wrap;
@@ -31867,6 +31932,59 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   line-height: 1.4;
   color: rgb(var(--fg-rgb) / 0.86);
   word-break: break-word;
+}
+
+.dao-manage-sheet-list {
+  margin: 0;
+}
+
+.dao-members-sheet,
+.dao-treasury-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dao-members-empty,
+.dao-treasury-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.dao-members-error,
+.dao-treasury-error {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgb(180 60 60 / 0.95);
+}
+
+.dao-members-role-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.dao-members-role-count {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: rgb(var(--fg-rgb) / 0.35);
+}
+
+.dao-treasury-balance {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.86);
 }
 
 .dao-edit-cover {

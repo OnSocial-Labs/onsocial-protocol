@@ -25,10 +25,10 @@ import {
   type OptimisticMyDao,
 } from '@/features/protocol/my-daos-optimistic';
 import {
-  APP_GROUPS_PATH,
-  APP_PROTOCOL_PATH,
-  protocolPath,
-} from '@/lib/app-routes';
+  GOVERNANCE_DAO_ACCOUNT,
+  TREASURY_DAO_ACCOUNT,
+} from '@/lib/app-config';
+import { daoPath } from '@/lib/app-routes';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
 
@@ -169,29 +169,23 @@ export function DaosIndexPanel() {
     >
       <div className="daos-index">
         <p className="daos-index-lede">
-          Each DAO has a portfolio page with cover and square crest. Protocol
-          stays the fast lane for Governance and Treasury. Discover opens the
-          full factory catalog.
+          Each DAO has a portfolio — cover, square crest, and proposals in
+          context. Protocol opens Governance; flip to Treasury from that page.
+          Discover opens the full factory catalog.
         </p>
 
         <div className="daos-index-shortcuts">
           <Link
-            href={protocolPath({ board: 'governance' })}
+            href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
             className="daos-index-chip"
           >
-            Governance board
+            Governance
           </Link>
           <Link
-            href={protocolPath({ board: 'treasury' })}
+            href={daoPath(TREASURY_DAO_ACCOUNT)}
             className="daos-index-chip"
           >
-            Treasury board
-          </Link>
-          <Link href={APP_GROUPS_PATH} className="daos-index-chip">
-            Communities
-          </Link>
-          <Link href={APP_PROTOCOL_PATH} className="daos-index-chip">
-            Protocol
+            Treasury
           </Link>
         </div>
 
@@ -203,7 +197,7 @@ export function DaosIndexPanel() {
             ) : (
               <DaoDirectoryList
                 entries={myEntries}
-                empty="No DAO roles yet. Open a Protocol board once — memberships appear here as soon as roles sync. Governance and Treasury are warmed automatically."
+                empty="No DAO roles yet. Open a DAO portfolio once — memberships appear here as soon as roles sync. Governance and Treasury are warmed automatically."
               />
             )}
           </section>
