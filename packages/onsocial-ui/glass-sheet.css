@@ -102,6 +102,15 @@
 }
 
 /*
+ * Default hug body inset — same 1.15rem column as SheetHeader.
+ * OsHugSheet applies `.os-hug-sheet-body` for every chrome; hosts that need a
+ * flush body override padding on their bodyClassName (app CSS loads later).
+ */
+.os-hug-sheet-body {
+  padding: 0.15rem 1.15rem 1.35rem;
+}
+
+/*
  * Panel locals above override :root tokens. Light needs denser white glass or
  * the dark page/scrim reads through as a muddy gray sheet.
  */

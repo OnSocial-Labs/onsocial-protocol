@@ -214,6 +214,7 @@ export {
 } from './os-action-drawer-confirm.js';
 export {
   OsHugSheet,
+  osHugSheetBodyClassName,
   type OsHugSheetChrome,
   type OsHugSheetProps,
 } from './os-hug-sheet.js';

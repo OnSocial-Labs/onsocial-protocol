@@ -56,9 +56,6 @@ export function DaoManageSheet({
       backdropLabel="Close DAO manage"
       zIndex={57}
       initialDetent="peek"
-      headerClassName="dao-manage-sheet-header"
-      panelClassName="dao-manage-sheet-panel"
-      bodyClassName="dao-manage-sheet-body"
     >
       <OsSurfaceRowList
         className="dao-manage-sheet-list"

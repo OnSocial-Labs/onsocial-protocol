@@ -12,9 +12,12 @@ import {
 import {
   osChoiceSheetBodyClassName,
   osChoiceSheetPanelClassName,
+  osHugSheetBodyClassName,
 } from './os-choice-tokens.js';
 import { useScrollLock } from './use-scroll-lock.js';
 import { cn } from './cn.js';
+
+export { osHugSheetBodyClassName } from './os-choice-tokens.js';
 
 export type OsHugSheetChrome = 'choice' | 'plain';
 
@@ -67,7 +70,9 @@ export interface OsHugSheetProps {
 /**
  * Shared content-hugging OS sheet shell — header + divider + GlassSheet hug.
  * Choice / Action / Info drawers use `chrome="choice"`; facts & protocol use plain.
- * Pair with `os-choice-drawer.css` when `chrome="choice"`.
+ * Body inset is standard via `.os-hug-sheet-body` (override with bodyClassName
+ * when a flush body is required). Pair with `os-choice-drawer.css` when
+ * `chrome="choice"`.
  */
 export function OsHugSheet({
   open,
@@ -121,6 +126,7 @@ export function OsHugSheet({
         panelClassName
       )}
       bodyClassName={cn(
+        osHugSheetBodyClassName,
         chrome === 'choice' && osChoiceSheetBodyClassName,
         bodyClassName
       )}

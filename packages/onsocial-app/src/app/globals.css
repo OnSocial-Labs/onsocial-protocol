@@ -26171,7 +26171,7 @@ a.os-surface-row {
   }
 
   .guild-settings-sheet-body {
-    padding: 0.35rem 1.15rem 1.35rem;
+    /* Inset from OsHugSheet `.os-hug-sheet-body` — no host padding. */
   }
 
   .guild-settings-sheet-header {
@@ -31871,15 +31871,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   line-height: 1.4;
   color: rgb(var(--fg-rgb) / 0.86);
   word-break: break-word;
-}
-
-/* Match guild-settings-sheet inset (SheetHeader = 1.15rem). */
-.dao-manage-sheet-body {
-  padding: 0.35rem 1.15rem 1.35rem;
-}
-
-.dao-manage-sheet-header {
-  padding-bottom: 0.45rem;
 }
 
 .dao-manage-sheet-list {
