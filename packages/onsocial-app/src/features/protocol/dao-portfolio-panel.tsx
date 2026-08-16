@@ -22,6 +22,7 @@ import {
   type DaoManageAction,
 } from '@/features/protocol/dao-manage-sheet';
 import { DaoMembersSheet } from '@/features/protocol/dao-members-sheet';
+import { DaoPortfolioStandGesture } from '@/features/protocol/dao-portfolio-stand-gesture';
 import { DaoProposalsSheet } from '@/features/protocol/dao-proposals-sheet';
 import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
 import type { DaoWorkspaceTool } from '@/features/protocol/dao-workspace-panel';
@@ -30,6 +31,7 @@ import {
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
+import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
 import { initials } from '@/lib/profile-display';
 import {
@@ -125,6 +127,7 @@ export function DaoPortfolioPanel({
   }, [branding, initialBranding.daoAccountId]);
 
   useEffect(() => {
+    rememberDaoStandingTarget(branding.daoAccountId);
     if (branding.kind === 'community') {
       rememberCommunityDao(branding.daoAccountId);
     }
@@ -249,6 +252,12 @@ export function DaoPortfolioPanel({
               {summary ? (
                 <p className="dao-portfolio-bio">{summary}</p>
               ) : null}
+              <DaoPortfolioStandGesture
+                daoAccountId={branding.daoAccountId}
+                daoName={title}
+                bio={summary}
+                avatarUrl={branding.avatarUrl}
+              />
             </div>
           </div>
 

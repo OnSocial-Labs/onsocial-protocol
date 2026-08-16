@@ -33,6 +33,10 @@ import {
   type StandingPanelEmptyState,
 } from '@/lib/standing-empty-state';
 import {
+  matchesStandingEntityFilter,
+  type StandingEntityFilter,
+} from '@/lib/dao-standing-account';
+import {
   fetchProfileSocialStandings,
   formatProfileCount,
   mergeStandingAccounts,
@@ -75,6 +79,8 @@ interface StandingPanelContextValue {
   kind: StanceDetailKind;
   counts: { incoming: number; outgoing: number; mutual: number };
   isSelf: boolean;
+  entityFilter: StandingEntityFilter;
+  setEntityFilter: Dispatch<SetStateAction<StandingEntityFilter>>;
   query: string;
   setQuery: Dispatch<SetStateAction<string>>;
   viewerAccountId: string | null;
@@ -207,6 +213,8 @@ export function StandingPanelProvider({
       hasStandingCounts(initialCounts)
   );
   const [query, setQuery] = useState(initialQuery);
+  const [entityFilter, setEntityFilter] =
+    useState<StandingEntityFilter>('people');
   const [activeKind, setActiveKind] = useState(kind);
   const standingSyncPath = useMemo(
     () => standingPath(accountId, activeKind),
@@ -366,12 +374,16 @@ export function StandingPanelProvider({
       );
 
   const filteredAccounts = useMemo(() => {
-    if (serverSearchActive) return displayAccounts;
+    const byEntity = displayAccounts.filter((account) =>
+      matchesStandingEntityFilter(account.accountId, entityFilter)
+    );
+
+    if (serverSearchActive) return byEntity;
 
     const localQuery = query.trim().toLowerCase();
-    if (!localQuery) return displayAccounts;
+    if (!localQuery) return byEntity;
 
-    return displayAccounts.filter((account) => {
+    return byEntity.filter((account) => {
       const label = accountLabel(account).toLowerCase();
       const accountIdLabel = account.accountId.toLowerCase();
       const bio = account.bio?.toLowerCase() ?? '';
@@ -381,7 +393,7 @@ export function StandingPanelProvider({
         bio.includes(localQuery)
       );
     });
-  }, [displayAccounts, query, serverSearchActive]);
+  }, [displayAccounts, entityFilter, query, serverSearchActive]);
 
   const mergedPendingIds = useMemo(() => {
     void standingSyncVersion;
@@ -696,8 +708,16 @@ export function StandingPanelProvider({
         displayName: profileDisplayName,
         query,
         showDiscoverLink,
+        entityFilter,
       }),
-    [isSelf, activeKind, profileDisplayName, query, showDiscoverLink]
+    [
+      isSelf,
+      activeKind,
+      profileDisplayName,
+      query,
+      showDiscoverLink,
+      entityFilter,
+    ]
   );
 
   const clearSearch = useCallback(() => {
@@ -763,7 +783,9 @@ export function StandingPanelProvider({
       (!listBootstrapReady && isLoading) ||
       (!listBootstrapReady && !relationshipSynced));
   const showLoadMoreSentinel =
-    hasMore && !query.trim() && filteredAccounts.length > 0;
+    hasMore &&
+    !query.trim() &&
+    (filteredAccounts.length > 0 || entityFilter === 'daos');
 
   useInfiniteScrollSentinel({
     scrollRootRef,
@@ -776,7 +798,7 @@ export function StandingPanelProvider({
 
   const footerSummary =
     filteredAccounts.length > 0 && !showListSkeleton ? summary : null;
-  const listKey = `${activeKind}:${query.trim() || '__all__'}`;
+  const listKey = `${activeKind}:${entityFilter}:${query.trim() || '__all__'}`;
 
   const retryLoad = useCallback(() => {
     setReloadNonce((current) => current + 1);
@@ -792,6 +814,8 @@ export function StandingPanelProvider({
       kind: activeKind,
       counts,
       isSelf,
+      entityFilter,
+      setEntityFilter,
       query,
       setQuery,
       viewerAccountId: viewerAccountId ?? null,
@@ -824,6 +848,7 @@ export function StandingPanelProvider({
       countsLoading,
       clearSearch,
       emptyState,
+      entityFilter,
       filteredAccounts,
       footerSummary,
       handleUpdateStanding,

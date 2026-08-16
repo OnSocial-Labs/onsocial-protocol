@@ -11,6 +11,8 @@ import { StandingRelationshipSignal } from '@/components/ui/standing-relationshi
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { daoPath } from '@/lib/app-routes';
+import { isDaoStandingTarget } from '@/lib/dao-standing-account';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { isProfileListAccountDisplayReady } from '@/lib/profile-list-display';
 import { standingTimeMeta } from '@/lib/standing-list-meta';
@@ -227,20 +229,32 @@ export function ProfileSocialListRow({
   const showRelationshipSignals =
     sharedSolidarity || theyStandWithViewer || showEndorsedYou;
   const moodId = account.moodId ?? 'protocol';
+  const isDaoTarget = isDaoStandingTarget(account.accountId);
+  const targetHref = isDaoTarget
+    ? daoPath(account.accountId)
+    : portfolioPath(account.accountId);
+  const targetAriaLabel = isDaoTarget
+    ? `View ${accountLabel(account)} DAO`
+    : `View ${accountLabel(account)}'s profile`;
 
   return (
-    <div className="standing-row">
+    <div className={`standing-row${isDaoTarget ? ' standing-row--dao' : ''}`}>
       <div className="standing-row-main">
         <Link
-          href={portfolioPath(account.accountId)}
+          href={targetHref}
           className="standing-row-hit"
           scroll={false}
-          aria-label={`View ${accountLabel(account)}'s profile`}
+          aria-label={targetAriaLabel}
         />
         <StandingIdentity
           accountId={account.accountId}
           profileName={account.name}
           avatarUrl={account.avatarUrl}
+          avatarClassName={
+            isDaoTarget
+              ? 'standing-row-avatar-slot dao-directory-crest'
+              : 'standing-row-avatar-slot'
+          }
           copyLeading={
             showRelationshipSignals ? (
               <div className="standing-row-signals">

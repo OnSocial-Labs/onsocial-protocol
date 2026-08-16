@@ -10576,6 +10576,12 @@ a.os-surface-row {
     z-index: 2;
   }
 
+  .standing-entity-menu {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
   .standing-view-menu:has(.standing-view-menu-panel) {
     z-index: 4;
   }
@@ -31802,6 +31808,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-size: 0.9rem;
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.72);
+}
+
+.dao-portfolio-stand {
+  margin-top: 0.7rem;
+}
+
+.dao-portfolio-stand .portfolio-identity-gesture-row {
+  justify-content: flex-start;
 }
 
 /* Reuse Protocol rail/tool chrome; only space under identity. */
