@@ -20,31 +20,79 @@ export type DmLookupResult<T> =
   | { status: 'absent' }
   | { status: 'unavailable'; cause?: unknown };
 
+function backupsEqual(a: DmKeyBackup, b: DmKeyBackup): boolean {
+  return (
+    a.publicKey === b.publicKey &&
+    a.wrapped.ciphertext === b.wrapped.ciphertext &&
+    a.wrapped.nonce === b.wrapped.nonce
+  );
+}
+
 /** Publish messaging public key under profile for recipients to seal to. */
 export async function publishDmPublicKey(
   client: OnSocial,
-  publicKeyEncoded: string
+  publicKeyEncoded: string,
+  accountId: string
 ): Promise<void> {
-  await client.social.set(`profile/${DM_PUBKEY_PROFILE_KEY}`, publicKeyEncoded);
+  await client.social.set(`profile/${DM_PUBKEY_PROFILE_KEY}`, publicKeyEncoded, {
+    wait: true,
+  });
+  const readback = await lookupDmPublicKey(client, accountId);
+  if (readback.status !== 'found') {
+    throw new Error(
+      'Messaging key publish did not confirm on-chain. Try again.'
+    );
+  }
+  if (encodeDmPublicKey(readback.value) !== publicKeyEncoded) {
+    throw new Error(
+      'Messaging key publish did not match after confirmation. Try again.'
+    );
+  }
 }
 
 /**
  * Publish pubkey + recovery-wrapped secret so another device can restore
  * with the recovery code. The wrap is ciphertext-only (not the secret).
+ * Waits for chain confirmation and verifies readback before returning.
  */
 export async function publishDmKeyBackup(
   client: OnSocial,
-  backup: DmKeyBackup
+  backup: DmKeyBackup,
+  accountId: string
 ): Promise<void> {
-  await client.social.set({
-    [`profile/${DM_PUBKEY_PROFILE_KEY}`]: backup.publicKey,
-    [`profile/${DM_WRAP_PROFILE_KEY}`]: JSON.stringify({
-      v: 1,
-      ciphertext: backup.wrapped.ciphertext,
-      nonce: backup.wrapped.nonce,
-      publicKey: backup.publicKey,
-    }),
-  });
+  await client.social.set(
+    {
+      [`profile/${DM_PUBKEY_PROFILE_KEY}`]: backup.publicKey,
+      [`profile/${DM_WRAP_PROFILE_KEY}`]: JSON.stringify({
+        v: 1,
+        ciphertext: backup.wrapped.ciphertext,
+        nonce: backup.wrapped.nonce,
+        publicKey: backup.publicKey,
+      }),
+    },
+    { wait: true }
+  );
+
+  const wrapReadback = await lookupDmKeyBackup(client, accountId);
+  if (
+    wrapReadback.status !== 'found' ||
+    !backupsEqual(wrapReadback.value, backup)
+  ) {
+    throw new Error(
+      'Messaging backup publish did not confirm on-chain. Try again before sending.'
+    );
+  }
+  const pkReadback = await lookupDmPublicKey(client, accountId);
+  if (pkReadback.status !== 'found') {
+    throw new Error(
+      'Messaging key publish did not confirm on-chain. Try again.'
+    );
+  }
+  if (encodeDmPublicKey(pkReadback.value) !== backup.publicKey) {
+    throw new Error(
+      'Messaging key publish did not match after confirmation. Try again.'
+    );
+  }
 }
 
 /** Lookup a peer's messaging public key (tri-state). */
@@ -149,6 +197,7 @@ export async function fetchDmKeyBackup(
 /**
  * Publish local identity only when remote is verified absent / matching.
  * Never publishes when remote lookup is unavailable.
+ * Uses chain-confirmed publish + readback before returning.
  */
 export async function reconcileAndPublishDmIdentity(opts: {
   client: OnSocial;
@@ -184,6 +233,9 @@ export async function reconcileAndPublishDmIdentity(opts: {
           'Your profile messaging keys are inconsistent. Restore with your recovery code before sending.'
         );
       }
+    } else if (opts.backup) {
+      // Wrap matches but pubkey missing — republish both with confirm.
+      await publishDmKeyBackup(opts.client, opts.backup, opts.accountId);
     }
     // Remote wrap already matches — nothing to publish.
     return;
@@ -205,16 +257,16 @@ export async function reconcileAndPublishDmIdentity(opts: {
     }
     // Pubkey matches but wrap missing — publish wrap if we have one.
     if (opts.backup) {
-      await publishDmKeyBackup(opts.client, opts.backup);
+      await publishDmKeyBackup(opts.client, opts.backup, opts.accountId);
     }
     return;
   }
 
   if (opts.backup) {
-    await publishDmKeyBackup(opts.client, opts.backup);
+    await publishDmKeyBackup(opts.client, opts.backup, opts.accountId);
     return;
   }
   if (opts.created || opts.publicKeyEncoded) {
-    await publishDmPublicKey(opts.client, opts.publicKeyEncoded);
+    await publishDmPublicKey(opts.client, opts.publicKeyEncoded, opts.accountId);
   }
 }

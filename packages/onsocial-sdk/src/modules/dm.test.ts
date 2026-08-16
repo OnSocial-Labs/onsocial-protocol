@@ -41,6 +41,8 @@ describe('DmModule', () => {
         senderNonce: 'sn',
         media: null,
         senderPubkey: 'pk',
+        ephemeralPubkey: 'epk',
+        authTag: 'tag',
       },
     });
     const dm = new DmModule(mockHttp({ get, post }));
@@ -60,11 +62,23 @@ describe('DmModule', () => {
       senderCiphertext: 'sc',
       senderNonce: 'sn',
       senderPubkey: 'pk',
+      ephemeralPubkey: 'epk',
+      authTag: 'tag',
     });
     expect(message.threadId).toBe('a::b');
     expect(post).toHaveBeenCalledWith(
       '/developer/dm/send',
-      expect.objectContaining({ recipientAccountId: 'bob.testnet' })
+      expect.objectContaining({
+        recipientAccountId: 'bob.testnet',
+        authTag: 'tag',
+        ephemeralPubkey: 'epk',
+      })
     );
+
+    await dm.markRead('a::b', { lastReadMessageId: '1' });
+    expect(post).toHaveBeenCalledWith('/developer/dm/read', {
+      threadId: 'a::b',
+      lastReadMessageId: '1',
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  encodeDmPublicKey,
   generateDmKeyPair,
   generateDmRecoveryCode,
   openDmBytes,
@@ -12,7 +13,7 @@ import {
 } from '@/lib/dm/crypto';
 
 describe('dm crypto', () => {
-  it('seals and opens text with per-message ephemeral (PFS)', () => {
+  it('seals and opens text with per-message ephemeral + auth tag', () => {
     const alice = generateDmKeyPair();
     const bob = generateDmKeyPair();
     const sealed = sealDmText({
@@ -22,12 +23,14 @@ describe('dm crypto', () => {
     });
     expect(sealed.v).toBe(2);
     expect(sealed.ephemeralPubkey).toBeTruthy();
+    expect(sealed.authTag).toBeTruthy();
 
     const opened = openDmText({
       ciphertext: sealed.ciphertext,
       nonce: sealed.nonce,
       senderPubkey: sealed.senderPubkey,
       ephemeralPubkey: sealed.ephemeralPubkey,
+      authTag: sealed.authTag,
       recipientSecretKey: bob.secretKey,
     });
     expect(opened.text).toBe('hello bob');
@@ -37,12 +40,34 @@ describe('dm crypto', () => {
       nonce: sealed.nonce,
       senderPubkey: sealed.senderPubkey,
       ephemeralPubkey: sealed.ephemeralPubkey,
+      authTag: sealed.authTag,
       recipientSecretKey: alice.secretKey,
       senderCiphertext: sealed.senderCiphertext,
       senderNonce: sealed.senderNonce,
       viewerIsSender: true,
     });
     expect(sentCopy.text).toBe('hello bob');
+  });
+
+  it('rejects forged sender attribution via auth tag', () => {
+    const alice = generateDmKeyPair();
+    const bob = generateDmKeyPair();
+    const mallory = generateDmKeyPair();
+    const sealed = sealDmText({
+      text: 'hello bob',
+      recipientPublicKey: bob.publicKey,
+      senderKeyPair: alice,
+    });
+    expect(() =>
+      openDmText({
+        ciphertext: sealed.ciphertext,
+        nonce: sealed.nonce,
+        senderPubkey: encodeDmPublicKey(mallory.publicKey),
+        ephemeralPubkey: sealed.ephemeralPubkey,
+        authTag: sealed.authTag,
+        recipientSecretKey: bob.secretKey,
+      })
+    ).toThrow(/authentication failed/);
   });
 
   it('opens legacy identity-key seals when ephemeral is absent', async () => {

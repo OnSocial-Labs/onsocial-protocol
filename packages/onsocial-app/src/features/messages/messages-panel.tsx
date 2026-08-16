@@ -71,6 +71,9 @@ export function MessagesPanel() {
   const activeThreadIdRef = useRef(activeThreadId);
   const messagesRef = useRef(messages);
   const openThreadSeqRef = useRef(0);
+  /** Bumps on account change so late async commits cannot leak across wallets. */
+  const accountGenRef = useRef(0);
+  const accountIdRef = useRef(accountId);
 
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -79,6 +82,19 @@ export function MessagesPanel() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    accountIdRef.current = accountId;
+    accountGenRef.current += 1;
+  }, [accountId]);
+
+  const isCurrentAccount = useCallback((expected: string | null | undefined) => {
+    if (!expected) return false;
+    const current = accountIdRef.current;
+    return Boolean(
+      current && current.toLowerCase() === expected.toLowerCase()
+    );
+  }, []);
 
   // keysTick forces a re-read of localStorage after unlock / bootstrap.
   const isUnlocked = Boolean(
@@ -122,8 +138,22 @@ export function MessagesPanel() {
 
   const bootstrapKeys = useCallback(async () => {
     if (!accountId || !hasSocialSession) return;
+    const gen = accountGenRef.current;
+    const expectedAccount = accountId;
     const { client } = await getClient();
+    if (
+      accountGenRef.current !== gen ||
+      !isCurrentAccount(expectedAccount)
+    ) {
+      return;
+    }
     const remote = await lookupDmKeyBackup(client, accountId);
+    if (
+      accountGenRef.current !== gen ||
+      !isCurrentAccount(expectedAccount)
+    ) {
+      return;
+    }
     if (remote.status === 'unavailable') {
       setError(
         'Could not verify messaging keys. Check your connection and try again.'
@@ -133,6 +163,12 @@ export function MessagesPanel() {
     }
     try {
       const keys = await ensureDmKeys(accountId, { remote });
+      if (
+        accountGenRef.current !== gen ||
+        !isCurrentAccount(expectedAccount)
+      ) {
+        return;
+      }
       if (keys.backup) {
         await reconcileAndPublishDmIdentity({
           client,
@@ -142,10 +178,22 @@ export function MessagesPanel() {
           created: keys.created,
         });
       }
+      if (
+        accountGenRef.current !== gen ||
+        !isCurrentAccount(expectedAccount)
+      ) {
+        return;
+      }
       const pending = keys.recoveryCode ?? peekPendingDmRecoveryCode(accountId);
       if (pending) setRecoveryCode(pending);
       setKeysTick((n) => n + 1);
     } catch (cause) {
+      if (
+        accountGenRef.current !== gen ||
+        !isCurrentAccount(expectedAccount)
+      ) {
+        return;
+      }
       if (
         cause instanceof DmKeysLockedError ||
         cause instanceof DmKeysMismatchError
@@ -161,7 +209,7 @@ export function MessagesPanel() {
       }
       throw cause;
     }
-  }, [accountId, getClient, hasSocialSession]);
+  }, [accountId, getClient, hasSocialSession, isCurrentAccount]);
 
   const clearThreadState = useCallback(() => {
     openThreadSeqRef.current += 1;
@@ -181,10 +229,24 @@ export function MessagesPanel() {
 
   const refreshThreads = useCallback(async () => {
     if (!accountId) return;
+    const gen = accountGenRef.current;
+    const expectedAccount = accountId;
     const { client } = await withAuth();
+    if (
+      accountGenRef.current !== gen ||
+      !isCurrentAccount(expectedAccount)
+    ) {
+      return;
+    }
     const { threads: next } = await client.dm.listThreads();
+    if (
+      accountGenRef.current !== gen ||
+      !isCurrentAccount(expectedAccount)
+    ) {
+      return;
+    }
     setThreads(next);
-  }, [accountId, withAuth]);
+  }, [accountId, isCurrentAccount, withAuth]);
 
   const markThreadReadThrough = useCallback(
     async (
@@ -202,7 +264,6 @@ export function MessagesPanel() {
       }
       await client.dm.markRead(threadId, {
         lastReadMessageId: last.id,
-        lastReadAt: last.createdAt,
       });
     },
     []
@@ -215,6 +276,7 @@ export function MessagesPanel() {
         setPlainById({});
         return;
       }
+      const expectedAccount = accountId;
       const plain: Record<string, string> = {};
       for (const msg of next) {
         try {
@@ -227,32 +289,60 @@ export function MessagesPanel() {
             senderCiphertext: msg.senderCiphertext,
             senderNonce: msg.senderNonce,
             ephemeralPubkey: msg.ephemeralPubkey,
+            authTag: msg.authTag,
           });
         } catch {
           plain[msg.id] = 'Unable to decrypt on this device.';
         }
       }
       if (activeThreadIdRef.current !== threadId) return;
+      if (!isCurrentAccount(expectedAccount)) return;
       setPlainById(plain);
     },
-    [accountId]
+    [accountId, isCurrentAccount]
   );
 
   const openThread = useCallback(
     async (threadId: string) => {
       const seq = ++openThreadSeqRef.current;
+      const gen = accountGenRef.current;
+      const expectedAccount = accountId;
       setActiveThreadId(threadId);
       setError(null);
       router.replace(messagesPath({ threadId }));
       const { client } = await withAuth();
-      if (openThreadSeqRef.current !== seq) return;
+      if (
+        openThreadSeqRef.current !== seq ||
+        accountGenRef.current !== gen ||
+        !isCurrentAccount(expectedAccount)
+      ) {
+        return;
+      }
       const { messages: next } = await client.dm.listMessages(threadId);
-      if (openThreadSeqRef.current !== seq) return;
+      if (
+        openThreadSeqRef.current !== seq ||
+        accountGenRef.current !== gen ||
+        !isCurrentAccount(expectedAccount)
+      ) {
+        return;
+      }
       setMessages(next);
       const unlocked = Boolean(accountId && hasUnlockedDmKey(accountId));
-      if (openThreadSeqRef.current !== seq) return;
+      if (
+        openThreadSeqRef.current !== seq ||
+        accountGenRef.current !== gen ||
+        !isCurrentAccount(expectedAccount)
+      ) {
+        return;
+      }
       await decryptMessages(next, threadId);
-      if (openThreadSeqRef.current !== seq) return;
+      if (
+        openThreadSeqRef.current !== seq ||
+        accountGenRef.current !== gen ||
+        !isCurrentAccount(expectedAccount)
+      ) {
+        return;
+      }
       if (unlocked) {
         await markThreadReadThrough(client, threadId, next);
         requestDmUnreadRefresh();
@@ -262,6 +352,7 @@ export function MessagesPanel() {
     [
       accountId,
       decryptMessages,
+      isCurrentAccount,
       markThreadReadThrough,
       refreshThreads,
       router,
@@ -272,9 +363,23 @@ export function MessagesPanel() {
   const softRefreshOpenThread = useCallback(
     async (threadId: string) => {
       try {
+        const gen = accountGenRef.current;
+        const expectedAccount = accountId;
         const { client } = await withAuth();
+        if (
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
+          return;
+        }
         const { messages: next } = await client.dm.listMessages(threadId);
-        if (activeThreadIdRef.current !== threadId) return;
+        if (
+          activeThreadIdRef.current !== threadId ||
+          accountGenRef.current !== gen ||
+          !isCurrentAccount(expectedAccount)
+        ) {
+          return;
+        }
         const prev = messagesRef.current;
         const grew =
           !prev ||
@@ -286,7 +391,9 @@ export function MessagesPanel() {
           grew &&
           accountId &&
           hasUnlockedDmKey(accountId) &&
-          activeThreadIdRef.current === threadId
+          activeThreadIdRef.current === threadId &&
+          accountGenRef.current === gen &&
+          isCurrentAccount(expectedAccount)
         ) {
           await markThreadReadThrough(client, threadId, next);
           requestDmUnreadRefresh();
@@ -299,6 +406,7 @@ export function MessagesPanel() {
     [
       accountId,
       decryptMessages,
+      isCurrentAccount,
       markThreadReadThrough,
       refreshThreads,
       withAuth,

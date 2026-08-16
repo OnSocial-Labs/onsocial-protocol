@@ -39,7 +39,7 @@ describe('dm mailbox service', () => {
     }
 
     await markDmThreadRead('bob.testnet', sent.threadId, {
-      lastReadAt: sent.createdAt,
+      lastReadMessageId: sent.id,
     });
     const bobAfter = await listDmThreads('bob.testnet');
     if (Array.isArray(bobAfter)) {
@@ -77,7 +77,7 @@ describe('dm mailbox service', () => {
     expect(aliceUnread).toBe(0);
   });
 
-  it('persists per-message ephemeral pubkey for PFS seals', async () => {
+  it('persists per-message ephemeral pubkey and auth tag', async () => {
     __resetDmStoreForTests();
     const sent = await sendDmMessage({
       senderAccountId: 'alice.testnet',
@@ -86,17 +86,52 @@ describe('dm mailbox service', () => {
       nonce: 'nonce',
       senderPubkey: 'identity-pk',
       ephemeralPubkey: 'ephemeral-pk',
+      authTag: 'auth-tag',
     });
     expect('code' in sent).toBe(false);
     if ('code' in sent) return;
     expect(sent.ephemeralPubkey).toBe('ephemeral-pk');
+    expect(sent.authTag).toBe('auth-tag');
 
     const msgs = await listDmMessages('bob.testnet', sent.threadId);
     expect(Array.isArray(msgs)).toBe(true);
     if (Array.isArray(msgs)) {
       expect(msgs[0]?.ephemeralPubkey).toBe('ephemeral-pk');
       expect(msgs[0]?.senderPubkey).toBe('identity-pk');
+      expect(msgs[0]?.authTag).toBe('auth-tag');
     }
+  });
+
+  it('rejects authTag without ephemeral pubkey', async () => {
+    __resetDmStoreForTests();
+    const result = await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'cipher',
+      nonce: 'nonce',
+      senderPubkey: 'pk',
+      authTag: 'tag',
+    });
+    expect(result).toMatchObject({ code: 'INVALID_PAYLOAD' });
+  });
+
+  it('rejects oversized media', async () => {
+    __resetDmStoreForTests();
+    const result = await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'cipher',
+      nonce: 'nonce',
+      senderPubkey: 'pk',
+      media: [
+        {
+          cid: 'bafy',
+          mime: 'image/png',
+          size: 20 * 1024 * 1024,
+        },
+      ],
+    });
+    expect(result).toMatchObject({ code: 'INVALID_PAYLOAD' });
   });
 
   it('keeps unread after recipient replies without reading', async () => {
@@ -150,7 +185,7 @@ describe('dm mailbox service', () => {
     ]);
   });
 
-  it('advances read watermark only through observed message time', async () => {
+  it('derives read watermark only from message id', async () => {
     __resetDmStoreForTests();
     const first = await sendDmMessage({
       senderAccountId: 'alice.testnet',
@@ -182,12 +217,17 @@ describe('dm mailbox service', () => {
     }
 
     await markDmThreadRead('bob.testnet', first.threadId, {
-      lastReadAt: second.createdAt,
+      lastReadMessageId: second.id,
     });
     const after = await listDmThreads('bob.testnet');
     expect(Array.isArray(after)).toBe(true);
     if (Array.isArray(after)) {
       expect(after[0]?.unread).toBe(false);
     }
+
+    const missing = await markDmThreadRead('bob.testnet', first.threadId, {
+      lastReadMessageId: 'missing-id',
+    });
+    expect(missing).toMatchObject({ code: 'NOT_FOUND' });
   });
 });

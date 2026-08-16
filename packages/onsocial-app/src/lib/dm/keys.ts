@@ -48,6 +48,11 @@ export type StoredDmIdentity = {
    * send/publish cannot permanently lose it. Cleared by {@link acknowledgeDmRecoveryCode}.
    */
   pendingRecoveryCode?: string;
+  /**
+   * Conflicting remote wrap kept for recovery without destroying local material.
+   * Cleared after a successful restore that adopts the remote identity.
+   */
+  quarantinedRemote?: DmKeyBackup;
 };
 
 export class DmKeysLockedError extends Error {
@@ -175,7 +180,9 @@ export function getLocalDmKeyBackup(accountId: string): DmKeyBackup | null {
 /**
  * Persist a remote wrap without unlocking — unlock UI can work offline next.
  * Never overwrites an unlocked local secret.
- * Clears passkey wrap when the remote identity differs.
+ * Never overwrites an existing local wrap/pubkey with a different identity
+ * (mismatch must go through quarantine + recovery).
+ * Clears passkey wrap when the remote identity differs and local was empty.
  */
 export function seedDmKeyBackupFromRemote(
   accountId: string,
@@ -184,6 +191,15 @@ export function seedDmKeyBackupFromRemote(
   const id = accountId.trim().toLowerCase();
   if (loadDmKeyPair(id)) return;
   const existing = readStore(id);
+  if (
+    existing?.publicKey &&
+    existing.publicKey !== remote.publicKey &&
+    (existing.wrapped || existing.secretKey || existing.passkeyWrapped)
+  ) {
+    // Keep local material; stash remote for recovery UI.
+    quarantineRemoteDmBackup(id, remote);
+    return;
+  }
   const sameIdentity = existing?.publicKey === remote.publicKey;
   writeStore({
     accountId: id,
@@ -197,7 +213,34 @@ export function seedDmKeyBackupFromRemote(
     pendingRecoveryCode: sameIdentity
       ? existing?.pendingRecoveryCode
       : undefined,
+    quarantinedRemote: undefined,
   });
+}
+
+/** Stash a conflicting remote wrap without destroying local recovery material. */
+export function quarantineRemoteDmBackup(
+  accountId: string,
+  remote: DmKeyBackup
+): void {
+  const id = accountId.trim().toLowerCase();
+  const existing = readStore(id);
+  writeStore({
+    accountId: id,
+    publicKey: existing?.publicKey ?? remote.publicKey,
+    secretKey: existing?.secretKey,
+    wrapped: existing?.wrapped,
+    passkeyWrapped: existing?.passkeyWrapped,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    recoveryCodeShownAt: existing?.recoveryCodeShownAt,
+    pendingRecoveryCode: existing?.pendingRecoveryCode,
+    quarantinedRemote: remote,
+  });
+}
+
+export function getQuarantinedDmBackup(
+  accountId: string
+): DmKeyBackup | null {
+  return readStore(accountId)?.quarantinedRemote ?? null;
 }
 
 /** Clear pending recovery plaintext after the user acknowledges the sheet. */
@@ -317,9 +360,10 @@ async function ensureDmKeysUnlocked(
     if (remote?.status === 'found') {
       const localPk = encodeDmPublicKey(existing.publicKey);
       if (remote.value.publicKey !== localPk) {
-        // Local unlocked keys disagree with profile — lock and force recovery.
+        // Local unlocked keys disagree with profile — lock and quarantine.
+        // Do not overwrite local wrap; recovery must adopt remote explicitly.
         lockDmKeys(id);
-        seedDmKeyBackupFromRemote(id, remote.value);
+        quarantineRemoteDmBackup(id, remote.value);
         throw new DmKeysMismatchError(
           'This device’s messaging keys do not match your profile. Enter your recovery code to restore the profile keys.'
         );
@@ -382,7 +426,8 @@ async function ensureDmKeysUnlocked(
 
 /**
  * Restore messaging secret from recovery code.
- * Prefer `remoteBackup` when provided so a mismatched local wrap can be replaced.
+ * Prefer `remoteBackup` / quarantined remote when provided so a mismatched
+ * local wrap can be replaced only after a successful unwrap.
  */
 export async function restoreDmKeysFromRecoveryCode(opts: {
   accountId: string;
@@ -397,41 +442,71 @@ export async function restoreDmKeysFromRecoveryCode(opts: {
     stored?.wrapped && stored.publicKey
       ? { publicKey: stored.publicKey, wrapped: stored.wrapped }
       : null;
-  const backup: DmKeyBackup | null =
-    opts.preferRemote || !localBackup
-      ? (opts.remoteBackup ?? localBackup)
-      : (localBackup ?? opts.remoteBackup ?? null);
+  const quarantined = stored?.quarantinedRemote ?? null;
+  const preferredRemote = opts.remoteBackup ?? quarantined;
 
-  if (!backup?.wrapped) {
+  const candidates: DmKeyBackup[] = [];
+  if (opts.preferRemote || !localBackup) {
+    if (preferredRemote) candidates.push(preferredRemote);
+    if (localBackup && localBackup.publicKey !== preferredRemote?.publicKey) {
+      candidates.push(localBackup);
+    }
+  } else {
+    if (localBackup) candidates.push(localBackup);
+    if (
+      preferredRemote &&
+      preferredRemote.publicKey !== localBackup?.publicKey
+    ) {
+      candidates.push(preferredRemote);
+    }
+  }
+
+  if (candidates.length === 0) {
     throw new Error(
       'No messaging backup found. Open Messages on a device that already has keys, or check that your recovery wrap was published.'
     );
   }
 
   const wrapKey = await recoveryCodeToWrapKey(opts.recoveryCode);
-  const secretKey = await unwrapDmSecretKey({
-    ciphertext: backup.wrapped.ciphertext,
-    nonce: backup.wrapped.nonce,
-    wrapKey,
-  });
-  const claimedPublicKey = decodeDmPublicKey(backup.publicKey);
-  assertDerivedPublicKey(claimedPublicKey, secretKey);
-  const secretEncoded = encodeDmSecretKey(secretKey);
-  const sameIdentity = stored?.publicKey === backup.publicKey;
-  setMemorySecret(id, secretEncoded);
-  writeStore({
-    accountId: id,
-    publicKey: encodeDmPublicKey(claimedPublicKey),
-    // Keep disk secret only until passkey enroll strips it.
-    secretKey:
-      stored?.passkeyWrapped && sameIdentity ? undefined : secretEncoded,
-    wrapped: backup.wrapped,
-    passkeyWrapped: sameIdentity ? stored?.passkeyWrapped : undefined,
-    createdAt: stored?.createdAt ?? new Date().toISOString(),
-    recoveryCodeShownAt: sameIdentity ? stored?.recoveryCodeShownAt : undefined,
-    pendingRecoveryCode: sameIdentity ? stored?.pendingRecoveryCode : undefined,
-  });
-  return { publicKey: claimedPublicKey, secretKey };
+  let lastError: unknown;
+  for (const backup of candidates) {
+    if (!backup.wrapped) continue;
+    try {
+      const secretKey = await unwrapDmSecretKey({
+        ciphertext: backup.wrapped.ciphertext,
+        nonce: backup.wrapped.nonce,
+        wrapKey,
+      });
+      const claimedPublicKey = decodeDmPublicKey(backup.publicKey);
+      assertDerivedPublicKey(claimedPublicKey, secretKey);
+      const secretEncoded = encodeDmSecretKey(secretKey);
+      const sameIdentity = stored?.publicKey === backup.publicKey;
+      setMemorySecret(id, secretEncoded);
+      writeStore({
+        accountId: id,
+        publicKey: encodeDmPublicKey(claimedPublicKey),
+        secretKey:
+          stored?.passkeyWrapped && sameIdentity ? undefined : secretEncoded,
+        wrapped: backup.wrapped,
+        passkeyWrapped: sameIdentity ? stored?.passkeyWrapped : undefined,
+        createdAt: stored?.createdAt ?? new Date().toISOString(),
+        recoveryCodeShownAt: sameIdentity
+          ? stored?.recoveryCodeShownAt
+          : undefined,
+        pendingRecoveryCode: sameIdentity
+          ? stored?.pendingRecoveryCode
+          : undefined,
+        quarantinedRemote: undefined,
+      });
+      return { publicKey: claimedPublicKey, secretKey };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError instanceof DmKeysMismatchError) throw lastError;
+  if (lastError instanceof Error) throw lastError;
+  throw new Error('Invalid recovery code');
 }
 
 /**
@@ -514,7 +589,7 @@ export async function unlockDmKeysWithPasskey(
   return { publicKey, secretKey };
 }
 
-/** Lock local secret (keep recovery + passkey wraps). */
+/** Lock local secret (keep recovery + passkey wraps + quarantine). */
 export function lockDmKeys(accountId: string): void {
   const id = accountId.trim().toLowerCase();
   clearMemorySecret(id);

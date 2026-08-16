@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { requireAuth } from '../middleware/index.js';
+import { rateLimitMiddleware, requireAuth } from '../middleware/index.js';
 import {
   countUnreadDmThreads,
   listDmMessages,
@@ -12,7 +12,7 @@ import {
 
 export const dmRouter = Router();
 
-dmRouter.use('/dm', requireAuth);
+dmRouter.use('/dm', requireAuth, rateLimitMiddleware);
 
 function asMedia(value: unknown): DmMediaRef[] | null {
   if (!Array.isArray(value)) return null;
@@ -100,6 +100,7 @@ dmRouter.post('/dm/send', async (req: Request, res: Response) => {
   const senderNonce = String(req.body?.senderNonce ?? '').trim();
   const senderPubkey = String(req.body?.senderPubkey ?? '').trim();
   const ephemeralPubkey = String(req.body?.ephemeralPubkey ?? '').trim();
+  const authTag = String(req.body?.authTag ?? '').trim();
   const media = asMedia(req.body?.media);
 
   try {
@@ -112,6 +113,7 @@ dmRouter.post('/dm/send', async (req: Request, res: Response) => {
       senderNonce: senderNonce || null,
       senderPubkey,
       ephemeralPubkey: ephemeralPubkey || null,
+      authTag: authTag || null,
       media,
     });
     if ('code' in result) {
@@ -133,12 +135,10 @@ dmRouter.post('/dm/send', async (req: Request, res: Response) => {
 
 dmRouter.post('/dm/read', async (req: Request, res: Response) => {
   const threadId = String(req.body?.threadId ?? '').trim();
-  const lastReadAt = String(req.body?.lastReadAt ?? '').trim();
   const lastReadMessageId = String(req.body?.lastReadMessageId ?? '').trim();
   try {
     const result = await markDmThreadRead(req.auth!.accountId, threadId, {
-      lastReadAt: lastReadAt || null,
-      lastReadMessageId: lastReadMessageId || null,
+      lastReadMessageId,
     });
     if (result !== true) {
       const status =

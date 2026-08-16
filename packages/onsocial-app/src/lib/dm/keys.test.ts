@@ -130,8 +130,12 @@ describe('dm keys bootstrap', () => {
     );
   });
 
-  it('detects local/remote identity mismatch', async () => {
-    await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+  it('detects local/remote identity mismatch without destroying local wrap', async () => {
+    const local = await ensureDmKeys(ACCOUNT, { remote: { status: 'absent' } });
+    const localBackup = {
+      publicKey: local.publicKeyEncoded,
+      wrapped: local.backup!.wrapped,
+    };
     const other = generateDmKeyPair();
     const code = generateDmRecoveryCode();
     const wrapKey = await recoveryCodeToWrapKey(code);
@@ -151,6 +155,19 @@ describe('dm keys bootstrap', () => {
       })
     ).rejects.toBeInstanceOf(DmKeysMismatchError);
     expect(hasUnlockedDmKey(ACCOUNT)).toBe(false);
+
+    const stored = JSON.parse(
+      window.localStorage.getItem(`onsocial.app.dm.${ACCOUNT}`)!
+    ) as {
+      publicKey: string;
+      wrapped: { ciphertext: string; nonce: string };
+      quarantinedRemote?: { publicKey: string };
+    };
+    expect(stored.publicKey).toBe(localBackup.publicKey);
+    expect(stored.wrapped).toEqual(localBackup.wrapped);
+    expect(stored.quarantinedRemote?.publicKey).toBe(
+      encodeDmPublicKey(other.publicKey)
+    );
 
     await restoreDmKeysFromRecoveryCode({
       accountId: ACCOUNT,

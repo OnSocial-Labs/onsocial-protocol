@@ -25,6 +25,8 @@ export interface DmMessageRecord {
   senderPubkey: string;
   /** Per-message ephemeral pubkey for forward secrecy (v2+). */
   ephemeralPubkey: string | null;
+  /** Sender-authenticated MAC binding identity to the envelope. */
+  authTag: string | null;
 }
 
 export interface DmThreadSummary {
@@ -44,6 +46,8 @@ export interface SendDmInput {
   senderPubkey: string;
   /** Per-message ephemeral pubkey (forward secrecy). */
   ephemeralPubkey?: string | null;
+  /** Sender-authenticated MAC (required for new envelopes). */
+  authTag?: string | null;
   media?: DmMediaRef[] | null;
 }
 
@@ -84,6 +88,7 @@ export class DmModule {
         senderNonce: input.senderNonce ?? null,
         senderPubkey: input.senderPubkey,
         ephemeralPubkey: input.ephemeralPubkey ?? null,
+        authTag: input.authTag ?? null,
         media: input.media ?? null,
       }
     );
@@ -92,12 +97,11 @@ export class DmModule {
 
   async markRead(
     threadId: string,
-    opts?: { lastReadAt?: string; lastReadMessageId?: string }
+    opts: { lastReadMessageId: string }
   ): Promise<void> {
     await this.http.post('/developer/dm/read', {
       threadId,
-      lastReadAt: opts?.lastReadAt ?? null,
-      lastReadMessageId: opts?.lastReadMessageId ?? null,
+      lastReadMessageId: opts.lastReadMessageId,
     });
   }
 

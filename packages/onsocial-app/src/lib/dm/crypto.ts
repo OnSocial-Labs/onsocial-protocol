@@ -6,7 +6,11 @@ import {
   encodeUTF8,
 } from 'tweetnacl-util';
 
-/** v1 = identity-key box; v2 = per-message ephemeral box (forward secrecy). */
+/**
+ * v1 = identity-key box;
+ * v2 = per-message ephemeral box (forward secrecy for ciphertext only —
+ * not Signal-style PFS / ratchet; identity still binds attribution via authTag).
+ */
 export const DM_CRYPTO_VERSION = 2;
 export const DM_PUBKEY_PROFILE_KEY = 'messaging_pubkey';
 /** Recovery-wrapped secret (ciphertext only) — safe to publish; needs recovery code to open. */
@@ -27,8 +31,13 @@ export type DmSealedPayload = {
   senderNonce: string;
   /** Long-term identity pubkey (attribution). */
   senderPubkey: string;
-  /** Ephemeral pubkey used for this seal (PFS). */
+  /** Ephemeral pubkey used for this seal (forward secrecy). */
   ephemeralPubkey: string;
+  /**
+   * Sender-authenticated MAC binding identity key to the envelope.
+   * Prevents a malicious mailbox from forging attribution.
+   */
+  authTag: string;
 };
 
 export type DmPlainBody = {
@@ -97,10 +106,71 @@ function boxTo(
   };
 }
 
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  let total = 0;
+  for (const part of parts) total += part.length;
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
 /**
- * Seal text with a fresh ephemeral keypair (forward secrecy).
+ * Bind long-term sender identity to the sealed envelope so a malicious
+ * mailbox cannot re-attribute ciphertext to another account.
+ * Shared secret = ECDH(peerPublic, localSecret); tag = SHA-512 truncated.
+ */
+export function computeDmAuthTag(opts: {
+  ciphertext: string;
+  nonce: string;
+  senderPubkey: string;
+  ephemeralPubkey: string;
+  /** Peer identity pubkey (recipient when sealing; claimed sender when verifying). */
+  peerPublicKey: Uint8Array;
+  localSecretKey: Uint8Array;
+}): string {
+  const shared = nacl.box.before(opts.peerPublicKey, opts.localSecretKey);
+  const material = concatBytes(
+    decodeUTF8('onsocial-dm-auth-v1'),
+    shared,
+    decodeUTF8(opts.ciphertext.trim()),
+    decodeUTF8(opts.nonce.trim()),
+    decodeUTF8(opts.senderPubkey.trim()),
+    decodeUTF8(opts.ephemeralPubkey.trim())
+  );
+  return encodeBase64(nacl.hash(material).slice(0, 32));
+}
+
+export function verifyDmAuthTag(opts: {
+  ciphertext: string;
+  nonce: string;
+  senderPubkey: string;
+  ephemeralPubkey: string;
+  authTag: string;
+  peerPublicKey: Uint8Array;
+  localSecretKey: Uint8Array;
+}): boolean {
+  const expected = computeDmAuthTag({
+    ciphertext: opts.ciphertext,
+    nonce: opts.nonce,
+    senderPubkey: opts.senderPubkey,
+    ephemeralPubkey: opts.ephemeralPubkey,
+    peerPublicKey: opts.peerPublicKey,
+    localSecretKey: opts.localSecretKey,
+  });
+  const a = decodeBase64(expected);
+  const b = decodeBase64(opts.authTag.trim());
+  return dmKeysEqual(a, b);
+}
+
+/**
+ * Seal text with a fresh ephemeral keypair (forward secrecy for ciphertext).
  * Recipient opens with ephemeralPubkey + their secret.
  * Sender opens self-copy with ephemeralPubkey + their secret.
+ * authTag binds the long-term sender identity to the envelope.
  */
 export function sealDmText(opts: {
   text: string;
@@ -121,20 +191,32 @@ export function sealDmText(opts: {
     opts.senderKeyPair.publicKey,
     ephemeral.secretKey
   );
+  const senderPubkey = encodeDmPublicKey(opts.senderKeyPair.publicKey);
+  const ephemeralPubkey = encodeDmPublicKey(ephemeral.publicKey);
+  const authTag = computeDmAuthTag({
+    ciphertext: forRecipient.ciphertext,
+    nonce: forRecipient.nonce,
+    senderPubkey,
+    ephemeralPubkey,
+    peerPublicKey: opts.recipientPublicKey,
+    localSecretKey: opts.senderKeyPair.secretKey,
+  });
   return {
     v: DM_CRYPTO_VERSION,
     ciphertext: forRecipient.ciphertext,
     nonce: forRecipient.nonce,
     senderCiphertext: forSender.ciphertext,
     senderNonce: forSender.nonce,
-    senderPubkey: encodeDmPublicKey(opts.senderKeyPair.publicKey),
-    ephemeralPubkey: encodeDmPublicKey(ephemeral.publicKey),
+    senderPubkey,
+    ephemeralPubkey,
+    authTag,
   };
 }
 
 /**
- * Open a DM. Prefer ephemeral pubkey when present (v2 PFS);
+ * Open a DM. Prefer ephemeral pubkey when present (v2);
  * fall back to identity senderPubkey for legacy v1 rows.
+ * When authTag is present, verify sender attribution before decrypt.
  */
 export function openDmText(opts: {
   ciphertext: string;
@@ -144,10 +226,33 @@ export function openDmText(opts: {
   ephemeralPubkey?: string | null;
   senderCiphertext?: string | null;
   senderNonce?: string | null;
+  authTag?: string | null;
   viewerIsSender?: boolean;
 }): DmPlainBody {
-  const peerPubkey = opts.ephemeralPubkey?.trim()
-    ? decodeDmPublicKey(opts.ephemeralPubkey)
+  const ephemeral = opts.ephemeralPubkey?.trim() || '';
+  // Auth binds sender identity ↔ recipient secret. Skip for the sender's
+  // self-copy (ECDH peer would be self, not the recipient).
+  if (opts.authTag?.trim() && !opts.viewerIsSender) {
+    if (!ephemeral) {
+      throw new Error('Authenticated envelope requires ephemeral pubkey');
+    }
+    const claimedSender = decodeDmPublicKey(opts.senderPubkey);
+    const ok = verifyDmAuthTag({
+      ciphertext: opts.ciphertext,
+      nonce: opts.nonce,
+      senderPubkey: opts.senderPubkey,
+      ephemeralPubkey: ephemeral,
+      authTag: opts.authTag,
+      peerPublicKey: claimedSender,
+      localSecretKey: opts.recipientSecretKey,
+    });
+    if (!ok) {
+      throw new Error('Message authentication failed');
+    }
+  }
+
+  const peerPubkey = ephemeral
+    ? decodeDmPublicKey(ephemeral)
     : decodeDmPublicKey(opts.senderPubkey);
 
   if (opts.viewerIsSender && opts.senderCiphertext && opts.senderNonce) {
@@ -181,7 +286,7 @@ export function openDmText(opts: {
   return { text: parsed.text };
 }
 
-/** Seal arbitrary bytes with a fresh ephemeral key (same as text PFS). */
+/** Seal arbitrary bytes with a fresh ephemeral key (same as text forward secrecy). */
 export function sealDmBytes(opts: {
   bytes: Uint8Array;
   recipientPublicKey: Uint8Array;

@@ -105,6 +105,12 @@ export async function sendEncryptedDm(opts: {
   if (!opts.text.trim() && !opts.mediaFile) {
     return { ok: false, error: 'Write a message or add media.' };
   }
+  if (opts.text.length > 8_000) {
+    return { ok: false, error: 'Message is too long.' };
+  }
+  if (opts.mediaFile && opts.mediaFile.size > 12 * 1024 * 1024) {
+    return { ok: false, error: 'Media must be 12MB or smaller.' };
+  }
   if (isBlockEitherWay(recipient)) {
     return {
       ok: false,
@@ -184,6 +190,7 @@ export async function sendEncryptedDm(opts: {
     senderNonce: sealed.senderNonce,
     senderPubkey: sealed.senderPubkey,
     ephemeralPubkey: sealed.ephemeralPubkey,
+    authTag: sealed.authTag,
     media: media ?? null,
   });
 
@@ -204,6 +211,7 @@ export async function decryptDmMessage(opts: {
   senderCiphertext?: string | null;
   senderNonce?: string | null;
   ephemeralPubkey?: string | null;
+  authTag?: string | null;
 }): Promise<string> {
   const keyPair = loadDmKeyPair(opts.accountId);
   if (!keyPair) {
@@ -220,6 +228,7 @@ export async function decryptDmMessage(opts: {
     senderCiphertext: opts.senderCiphertext,
     senderNonce: opts.senderNonce,
     ephemeralPubkey: opts.ephemeralPubkey,
+    authTag: opts.authTag,
     viewerIsSender,
   });
   return body.text;

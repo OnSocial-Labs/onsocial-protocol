@@ -28,6 +28,8 @@ export interface DmMessageRecord {
   senderPubkey: string;
   /** Per-message ephemeral pubkey for forward secrecy (v2+). */
   ephemeralPubkey: string | null;
+  /** Sender-authenticated MAC binding identity to the envelope. */
+  authTag: string | null;
 }
 
 export interface DmThreadSummary {
@@ -47,6 +49,7 @@ export interface DmSendInput {
   senderNonce?: string | null;
   senderPubkey: string;
   ephemeralPubkey?: string | null;
+  authTag?: string | null;
   media?: DmMediaRef[] | null;
 }
 
@@ -64,6 +67,15 @@ export interface DmError {
   code: DmErrorCode;
   message: string;
 }
+
+const MAX_CIPHERTEXT_CHARS = 120_000;
+const MAX_NONCE_CHARS = 128;
+const MAX_PUBKEY_CHARS = 128;
+const MAX_AUTH_TAG_CHARS = 128;
+const MAX_MEDIA_ITEMS = 4;
+const MAX_MEDIA_BYTES = 12 * 1024 * 1024;
+const MAX_CID_CHARS = 128;
+const MAX_MIME_CHARS = 128;
 
 function normalizeAccountId(accountId: string): string {
   return accountId.trim().toLowerCase();
@@ -113,6 +125,41 @@ function parseMediaJson(raw: string | null): DmMediaRef[] | null {
   }
 }
 
+function mapMessageRow(row: {
+  id: string;
+  thread_id: string;
+  sender_account_id: string;
+  recipient_account_id: string;
+  created_at: Date | string;
+  ciphertext: string;
+  nonce: string;
+  sender_ciphertext: string | null;
+  sender_nonce: string | null;
+  media_json: string | null;
+  sender_pubkey: string;
+  ephemeral_pubkey: string | null;
+  auth_tag?: string | null;
+}): DmMessageRecord {
+  return {
+    id: row.id,
+    threadId: row.thread_id,
+    senderAccountId: row.sender_account_id,
+    recipientAccountId: row.recipient_account_id,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : new Date(row.created_at).toISOString(),
+    ciphertext: row.ciphertext,
+    nonce: row.nonce,
+    senderCiphertext: row.sender_ciphertext,
+    senderNonce: row.sender_nonce,
+    media: parseMediaJson(row.media_json),
+    senderPubkey: row.sender_pubkey,
+    ephemeralPubkey: row.ephemeral_pubkey ?? null,
+    authTag: row.auth_tag ?? null,
+  };
+}
+
 interface DmStore {
   insert(message: DmMessageRecord): Promise<DmMessageRecord>;
   listThreads(accountId: string): Promise<DmThreadSummary[]>;
@@ -121,6 +168,11 @@ interface DmStore {
     threadId: string,
     limit: number
   ): Promise<DmMessageRecord[]>;
+  getMessage(
+    accountId: string,
+    threadId: string,
+    messageId: string
+  ): Promise<DmMessageRecord | null>;
   markRead(
     accountId: string,
     threadId: string,
@@ -197,6 +249,22 @@ class MemoryDmStore implements DmStore {
       .slice(-limit);
   }
 
+  async getMessage(
+    accountId: string,
+    threadId: string,
+    messageId: string
+  ): Promise<DmMessageRecord | null> {
+    return (
+      this.messages.find(
+        (msg) =>
+          msg.id === messageId &&
+          msg.threadId === threadId &&
+          (msg.senderAccountId === accountId ||
+            msg.recipientAccountId === accountId)
+      ) ?? null
+    );
+  }
+
   async markRead(
     accountId: string,
     threadId: string,
@@ -222,8 +290,8 @@ class PostgresDmStore implements DmStore {
       `INSERT INTO dm_messages (
          id, thread_id, sender_account_id, recipient_account_id,
          created_at, ciphertext, nonce, sender_ciphertext, sender_nonce,
-         media_json, sender_pubkey, ephemeral_pubkey
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+         media_json, sender_pubkey, ephemeral_pubkey, auth_tag
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         message.id,
         message.threadId,
@@ -237,6 +305,7 @@ class PostgresDmStore implements DmStore {
         message.media ? JSON.stringify(message.media) : null,
         message.senderPubkey,
         message.ephemeralPubkey,
+        message.authTag,
       ]
     );
     return message;
@@ -313,6 +382,7 @@ class PostgresDmStore implements DmStore {
       media_json: string | null;
       sender_pubkey: string;
       ephemeral_pubkey: string | null;
+      auth_tag: string | null;
     }>(
       `WITH page AS (
          SELECT *
@@ -327,20 +397,39 @@ class PostgresDmStore implements DmStore {
       [threadId, accountId, limit]
     );
 
-    return result.rows.map((row) => ({
-      id: row.id,
-      threadId: row.thread_id,
-      senderAccountId: row.sender_account_id,
-      recipientAccountId: row.recipient_account_id,
-      createdAt: new Date(row.created_at).toISOString(),
-      ciphertext: row.ciphertext,
-      nonce: row.nonce,
-      senderCiphertext: row.sender_ciphertext,
-      senderNonce: row.sender_nonce,
-      media: parseMediaJson(row.media_json),
-      senderPubkey: row.sender_pubkey,
-      ephemeralPubkey: row.ephemeral_pubkey ?? null,
-    }));
+    return result.rows.map((row) => mapMessageRow(row));
+  }
+
+  async getMessage(
+    accountId: string,
+    threadId: string,
+    messageId: string
+  ): Promise<DmMessageRecord | null> {
+    const result = await this.pool.query<{
+      id: string;
+      thread_id: string;
+      sender_account_id: string;
+      recipient_account_id: string;
+      created_at: Date;
+      ciphertext: string;
+      nonce: string;
+      sender_ciphertext: string | null;
+      sender_nonce: string | null;
+      media_json: string | null;
+      sender_pubkey: string;
+      ephemeral_pubkey: string | null;
+      auth_tag: string | null;
+    }>(
+      `SELECT *
+       FROM dm_messages
+       WHERE id = $1
+         AND thread_id = $2
+         AND (sender_account_id = $3 OR recipient_account_id = $3)
+       LIMIT 1`,
+      [messageId, threadId, accountId]
+    );
+    const row = result.rows[0];
+    return row ? mapMessageRow(row) : null;
   }
 
   async markRead(
@@ -425,25 +514,88 @@ async function emitDmReceivedNotification(
   }
 }
 
+function validateMedia(media: DmMediaRef[] | null): DmError | null {
+  if (!media) return null;
+  if (media.length > MAX_MEDIA_ITEMS) {
+    return {
+      code: 'INVALID_PAYLOAD',
+      message: `At most ${MAX_MEDIA_ITEMS} media attachments allowed`,
+    };
+  }
+  for (const item of media) {
+    if (!item.cid || item.cid.length > MAX_CID_CHARS) {
+      return { code: 'INVALID_PAYLOAD', message: 'Invalid media cid' };
+    }
+    if (!item.mime || item.mime.length > MAX_MIME_CHARS) {
+      return { code: 'INVALID_PAYLOAD', message: 'Invalid media mime' };
+    }
+    if (
+      !Number.isFinite(item.size) ||
+      item.size < 1 ||
+      item.size > MAX_MEDIA_BYTES
+    ) {
+      return {
+        code: 'INVALID_PAYLOAD',
+        message: `Media size must be 1–${MAX_MEDIA_BYTES} bytes`,
+      };
+    }
+    if (item.nonce && item.nonce.length > MAX_NONCE_CHARS) {
+      return { code: 'INVALID_PAYLOAD', message: 'Invalid media nonce' };
+    }
+    if (item.senderNonce && item.senderNonce.length > MAX_NONCE_CHARS) {
+      return { code: 'INVALID_PAYLOAD', message: 'Invalid media senderNonce' };
+    }
+  }
+  return null;
+}
+
 function validateCipherFields(input: {
   ciphertext?: string;
   nonce?: string;
   senderPubkey?: string;
+  ephemeralPubkey?: string | null;
+  authTag?: string | null;
+  senderCiphertext?: string | null;
+  senderNonce?: string | null;
 }): DmError | null {
   const ciphertext = input.ciphertext?.trim() ?? '';
   const nonce = input.nonce?.trim() ?? '';
   const senderPubkey = input.senderPubkey?.trim() ?? '';
-  if (!ciphertext || ciphertext.length > 200_000) {
+  const ephemeralPubkey = input.ephemeralPubkey?.trim() ?? '';
+  const authTag = input.authTag?.trim() ?? '';
+  const senderCiphertext = input.senderCiphertext?.trim() ?? '';
+  const senderNonce = input.senderNonce?.trim() ?? '';
+
+  if (!ciphertext || ciphertext.length > MAX_CIPHERTEXT_CHARS) {
     return {
       code: 'INVALID_PAYLOAD',
-      message: 'ciphertext is required and must be under 200KB',
+      message: `ciphertext is required and must be under ${MAX_CIPHERTEXT_CHARS} chars`,
     };
   }
-  if (!nonce || nonce.length > 128) {
+  if (!nonce || nonce.length > MAX_NONCE_CHARS) {
     return { code: 'INVALID_PAYLOAD', message: 'nonce is required' };
   }
-  if (!senderPubkey || senderPubkey.length > 128) {
+  if (!senderPubkey || senderPubkey.length > MAX_PUBKEY_CHARS) {
     return { code: 'INVALID_PAYLOAD', message: 'senderPubkey is required' };
+  }
+  if (ephemeralPubkey.length > MAX_PUBKEY_CHARS) {
+    return { code: 'INVALID_PAYLOAD', message: 'Invalid ephemeralPubkey' };
+  }
+  if (authTag.length > MAX_AUTH_TAG_CHARS) {
+    return { code: 'INVALID_PAYLOAD', message: 'Invalid authTag' };
+  }
+  // New authenticated envelopes require ephemeral + authTag together.
+  if (authTag && !ephemeralPubkey) {
+    return {
+      code: 'INVALID_PAYLOAD',
+      message: 'authTag requires ephemeralPubkey',
+    };
+  }
+  if (senderCiphertext.length > MAX_CIPHERTEXT_CHARS) {
+    return { code: 'INVALID_PAYLOAD', message: 'senderCiphertext too large' };
+  }
+  if (senderNonce.length > MAX_NONCE_CHARS) {
+    return { code: 'INVALID_PAYLOAD', message: 'Invalid senderNonce' };
   }
   return null;
 }
@@ -461,6 +613,12 @@ export async function sendDmMessage(
   }
   const payloadError = validateCipherFields(input);
   if (payloadError) return payloadError;
+
+  const media = Array.isArray(input.media)
+    ? input.media.slice(0, MAX_MEDIA_ITEMS)
+    : null;
+  const mediaError = validateMedia(media);
+  if (mediaError) return mediaError;
 
   const blockCheck = await checkBlockEitherWay(sender, recipient);
   if (!blockCheck.ok) {
@@ -489,7 +647,6 @@ export async function sendDmMessage(
     };
   }
 
-  const media = Array.isArray(input.media) ? input.media.slice(0, 8) : null;
   const message: DmMessageRecord = {
     id: randomUUID(),
     threadId: buildDmThreadId(sender, recipient),
@@ -503,6 +660,7 @@ export async function sendDmMessage(
     media,
     senderPubkey: input.senderPubkey.trim(),
     ephemeralPubkey: input.ephemeralPubkey?.trim() || null,
+    authTag: input.authTag?.trim() || null,
   };
   const inserted = await store.insert(message);
   void emitDmReceivedNotification(inserted);
@@ -549,13 +707,19 @@ export async function listDmMessages(
   return store.listMessages(id, thread, capped);
 }
 
+/**
+ * Mark thread read through a specific message id.
+ * Watermark is always derived server-side from the message's createdAt —
+ * clients cannot advance the cursor with an arbitrary timestamp.
+ */
 export async function markDmThreadRead(
   accountId: string,
   threadId: string,
-  opts?: { lastReadAt?: string | null; lastReadMessageId?: string | null }
+  opts: { lastReadMessageId: string }
 ): Promise<true | DmError> {
   const id = normalizeAccountId(accountId);
   const thread = threadId.trim();
+  const messageId = opts.lastReadMessageId?.trim() || '';
   if (!isValidAccountId(id)) {
     return { code: 'INVALID_ACCOUNT', message: 'Invalid account id' };
   }
@@ -566,29 +730,19 @@ export async function markDmThreadRead(
   if (id !== a && id !== b) {
     return { code: 'FORBIDDEN', message: 'Not a participant in this thread' };
   }
-
-  let lastReadAt = opts?.lastReadAt?.trim() || '';
-  const messageId = opts?.lastReadMessageId?.trim() || '';
-  if (!lastReadAt && messageId) {
-    const messages = await store.listMessages(id, thread, 200);
-    const match = messages.find((msg) => msg.id === messageId);
-    if (!match) {
-      return { code: 'NOT_FOUND', message: 'Message not found in thread' };
-    }
-    lastReadAt = match.createdAt;
-  }
-  if (!lastReadAt) {
+  if (!messageId) {
     return {
       code: 'INVALID_PAYLOAD',
-      message: 'lastReadAt or lastReadMessageId is required',
+      message: 'lastReadMessageId is required',
     };
   }
-  const parsed = Date.parse(lastReadAt);
-  if (!Number.isFinite(parsed)) {
-    return { code: 'INVALID_PAYLOAD', message: 'Invalid lastReadAt' };
+
+  const match = await store.getMessage(id, thread, messageId);
+  if (!match) {
+    return { code: 'NOT_FOUND', message: 'Message not found in thread' };
   }
 
-  await store.markRead(id, thread, new Date(parsed).toISOString());
+  await store.markRead(id, thread, match.createdAt);
   return true;
 }
 
