@@ -66,6 +66,9 @@ export function DmComposeSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [recoveryVariant, setRecoveryVariant] = useState<'created' | 'reset'>(
+    'created'
+  );
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const [keysTick, setKeysTick] = useState(0);
@@ -197,6 +200,7 @@ export function DmComposeSheet({
       }
       onSent?.();
       if (result.recoveryCode) {
+        setRecoveryVariant('created');
         setRecoveryCode(result.recoveryCode);
         setPendingThreadId(result.threadId);
         return;
@@ -254,6 +258,12 @@ export function DmComposeSheet({
             onUnlocked={() => {
               setError(null);
               setKeysTick((n) => n + 1);
+            }}
+            onReset={(code) => {
+              setError(null);
+              setKeysTick((n) => n + 1);
+              setRecoveryVariant('reset');
+              setRecoveryCode(code);
             }}
           />
         ) : (
@@ -351,9 +361,11 @@ export function DmComposeSheet({
         open={Boolean(recoveryCode)}
         code={recoveryCode ?? ''}
         accountId={accountId}
+        variant={recoveryVariant}
         onClose={() => {
           const threadId = pendingThreadId;
           setRecoveryCode(null);
+          setRecoveryVariant('created');
           setPendingThreadId(null);
           onClose();
           router.push(messagesPath({ threadId: threadId || null }));
@@ -362,6 +374,7 @@ export function DmComposeSheet({
           if (accountId) acknowledgeDmRecoveryCode(accountId);
           const threadId = pendingThreadId;
           setRecoveryCode(null);
+          setRecoveryVariant('created');
           setPendingThreadId(null);
           onClose();
           router.push(messagesPath({ threadId: threadId || null }));

@@ -13,6 +13,8 @@ interface DmRecoveryCodeSheetProps {
   /** Explicit “I saved it” — acknowledge + dismiss. */
   onAcknowledge: () => void;
   onPasskeyEnrolled?: () => void;
+  /** After key reset — emphasize that old messages are gone. */
+  variant?: 'created' | 'reset';
 }
 
 /**
@@ -27,6 +29,7 @@ export function DmRecoveryCodeSheet({
   onClose,
   onAcknowledge,
   onPasskeyEnrolled,
+  variant = 'created',
 }: DmRecoveryCodeSheetProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [passkeyPending, setPasskeyPending] = useState(false);
@@ -61,8 +64,12 @@ export function DmRecoveryCodeSheet({
     <OsHugSheet
       open={open}
       onClose={onClose}
-      label="Recovery code"
-      copy="Only you can see this · we cannot reset it"
+      label={variant === 'reset' ? 'New recovery code' : 'Recovery code'}
+      copy={
+        variant === 'reset'
+          ? 'Old messages stay sealed · we cannot open them'
+          : 'Only you can see this · we cannot reset it'
+      }
       chrome="choice"
       closeAriaLabel="Close recovery code"
       backdropLabel="Close recovery code"
@@ -100,8 +107,9 @@ export function DmRecoveryCodeSheet({
     >
       <div className="dm-recovery-sheet">
         <p className="dm-recovery-lead">
-          Save this code to restore private messages on a new device. Anyone
-          with it can read your DMs.
+          {variant === 'reset'
+            ? 'Old private messages can’t be opened anymore. Save this new code for future devices — anyone with it can read your new DMs.'
+            : 'Save this code to restore private messages on a new device. Anyone with it can read your DMs.'}
         </p>
         <p className="dm-recovery-code" aria-label="Recovery code">
           {code}
