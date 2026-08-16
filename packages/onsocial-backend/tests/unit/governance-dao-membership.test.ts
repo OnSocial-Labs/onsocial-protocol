@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractGroupMembershipsFromPolicy } from '../../src/services/governance-dao-membership-store.js';
+import { extractGroupMembershipsFromPolicy } from '../../src/services/governance-dao-membership.js';
 
 describe('extractGroupMembershipsFromPolicy', () => {
   it('indexes Group role members and merges multiple roles', () => {
