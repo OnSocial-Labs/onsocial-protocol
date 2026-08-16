@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GOVERNANCE_DAO_ACCOUNT,
+  TREASURY_DAO_ACCOUNT,
+} from '@/lib/app-config';
+import {
   APP_COLLECTIBLES_PATH,
   collectionDoorPath,
   collectionPath,
   collectionRedeemPath,
   collectiblesKindPath,
   collectiblesPlayPath,
+  daoPath,
   isAppRoutePath,
 } from '@/lib/app-routes';
 import {
@@ -64,9 +69,20 @@ describe('collectibles os apps', () => {
         '/protocol?dao=community&account=example.sputnik-dao.near'
       )
     ).toBe('protocol');
+    expect(resolveActiveOsAppId(daoPath(GOVERNANCE_DAO_ACCOUNT))).toBe(
+      'protocol'
+    );
+    expect(resolveActiveOsAppId(daoPath(TREASURY_DAO_ACCOUNT))).toBe(
+      'protocol'
+    );
+    expect(
+      resolveActiveOsAppId(
+        `/dao/${encodeURIComponent('example.sputnik-dao.near')}`
+      )
+    ).toBe('daos');
     const protocol = gateOsApps().find((app) => app.id === 'protocol');
     expect(protocol?.kind).toBe('app');
-    expect(protocol?.href).toBe('/protocol');
+    expect(protocol?.href).toBe(daoPath(GOVERNANCE_DAO_ACCOUNT));
     expect(
       appShellOsApps('alice.near').some((app) => app.id === 'protocol')
     ).toBe(true);

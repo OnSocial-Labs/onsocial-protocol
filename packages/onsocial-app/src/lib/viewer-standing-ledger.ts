@@ -6,7 +6,7 @@ import type {
 /** Minimal profile shell for injecting confirmed stands into stale list reads. */
 export type StandingListSnapshot = Pick<
   StandingAccountSummary,
-  'accountId' | 'name' | 'avatarUrl' | 'bio'
+  'accountId' | 'name' | 'avatarUrl' | 'bio' | 'isDao'
 >;
 
 export type ViewerStandingLedgerEntry = {
@@ -94,6 +94,7 @@ function buildInjectedStandingAccount(
     theyStandWithViewer: false,
     standingSince: now,
     standingBlockTimestamp: now,
+    isDao: snapshot?.isDao,
   };
 }
 

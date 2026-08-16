@@ -10576,6 +10576,12 @@ a.os-surface-row {
     z-index: 2;
   }
 
+  .standing-entity-menu {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 2;
+  }
+
   .standing-view-menu:has(.standing-view-menu-panel) {
     z-index: 4;
   }
@@ -10593,6 +10599,10 @@ a.os-surface-row {
   @media (max-width: 639px) {
     .standing-view-menu .os-floating-panel-trigger {
       max-width: 9rem;
+    }
+
+    .standing-entity-menu .os-floating-panel-trigger {
+      max-width: 6.5rem;
     }
   }
 
@@ -30451,6 +30461,13 @@ button.scarce-clip-cover-expand:focus-visible {
   /* Horizontal/vertical inset: shared OsAppScreen body padding. */
 }
 
+/* Embedded DAO workspace feed (DaoWorkspacePanel) — inset owned by the host. */
+.dao-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
 .protocol-page-head {
   display: flex;
   flex-direction: column;
@@ -30464,39 +30481,81 @@ button.scarce-clip-cover-expand:focus-visible {
   color: var(--os-surface-muted-strong);
 }
 
-.protocol-board-rail {
+.protocol-board-rail,
+.protocol-tools,
+.protocol-status-rail,
+.protocol-mode-rail {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 
-.protocol-board-chip {
+/* Protocol rail pills — larger than os-surface-chip; fill from surface tokens. */
+.protocol-board-chip,
+.protocol-tool {
   border: 0;
   margin: 0;
   padding: 0.42rem 0.78rem;
   border-radius: 999px;
-  background: rgb(var(--fg-rgb) / 0.06);
-  color: rgb(var(--fg-rgb) / 0.62);
   font: inherit;
   font-size: 0.78rem;
-  font-weight: 650;
   cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.protocol-board-chip {
+  background: var(--os-surface-fill);
+  color: var(--os-surface-muted-strong);
+  font-weight: 650;
+}
+
+a.protocol-board-chip {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .protocol-board-chip.is-active {
-  background: rgb(var(--fg-rgb) / 0.12);
-  color: rgb(var(--fg-rgb) / 0.94);
+  background: var(--os-surface-fill-active);
+  color: var(--os-surface-emphasis);
 }
 
+.protocol-board-chip:hover,
 .protocol-board-chip:focus-visible {
-  outline: 2px solid rgb(var(--fg-rgb) / 0.35);
-  outline-offset: 2px;
+  background: var(--os-surface-fill-hover);
+  color: var(--os-surface-emphasis);
+  outline: none;
+}
+
+.protocol-tool {
+  background: var(--os-surface-fill-strong);
+  color: var(--os-surface-emphasis);
+  font-weight: 700;
+}
+
+.protocol-tool.is-ghost {
+  background: transparent;
+  color: var(--os-surface-muted-strong);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  padding-inline: 0.35rem;
+}
+
+.protocol-tool:hover,
+.protocol-tool:focus-visible {
+  background: var(--os-surface-fill-hover);
+  outline: none;
+}
+
+.protocol-tool.is-ghost:hover,
+.protocol-tool.is-ghost:focus-visible {
+  background: transparent;
+  color: var(--os-surface-emphasis);
 }
 
 .protocol-status-rail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
   margin-top: 0.35rem;
 }
 
@@ -31296,51 +31355,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.86);
 }
 
-.protocol-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.protocol-tool {
-  border: 0;
-  margin: 0;
-  padding: 0.42rem 0.78rem;
-  border-radius: 999px;
-  background: rgb(var(--fg-rgb) / 0.1);
-  color: rgb(var(--fg-rgb) / 0.92);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.protocol-tool.is-ghost {
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.62);
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
-  padding-inline: 0.35rem;
-}
-
-.protocol-tool:hover,
-.protocol-tool:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.16);
-  outline: none;
-}
-
-.protocol-tool.is-ghost:hover,
-.protocol-tool.is-ghost:focus-visible {
-  background: transparent;
-  color: rgb(var(--fg-rgb) / 0.88);
-}
-
-.protocol-mode-rail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
 .protocol-propose-kind {
   display: flex;
   flex-direction: column;
@@ -31491,6 +31505,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .protocol-task-form .guild-field > select {
   width: 100%;
   box-sizing: border-box;
+}
+
+.protocol-task-form .guild-field .os-choice-chip {
+  align-self: flex-start;
 }
 
 .protocol-task-form .guild-field > textarea {
@@ -31796,36 +31814,29 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.72);
 }
 
-.dao-portfolio-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  margin-top: 0.85rem;
+.dao-portfolio-stand {
+  margin-top: 0.7rem;
+}
+
+.dao-portfolio-stand .portfolio-identity-gesture-row {
+  justify-content: flex-start;
+}
+
+/* Reuse Protocol rail/tool chrome; only space under identity. */
+.dao-portfolio-controls {
+  margin-top: 0.75rem;
   padding: 0 0.1rem;
 }
 
-.dao-portfolio-secondary-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: center;
-}
-
-.dao-portfolio-text-link {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: rgb(var(--fg-rgb) / 0.55);
-  text-decoration: none;
-}
-
-.dao-portfolio-text-link:hover,
-.dao-portfolio-text-link:focus-visible {
-  color: rgb(var(--fg-rgb) / 0.9);
-  outline: none;
-}
-
 .dao-portfolio-divider {
-  margin: 1rem 0 0.75rem;
+  margin: 1.1rem 0 0.75rem;
+}
+
+.dao-proposals-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
 }
 
 .dao-portfolio-facts-title {
@@ -31860,6 +31871,59 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   line-height: 1.4;
   color: rgb(var(--fg-rgb) / 0.86);
   word-break: break-word;
+}
+
+.dao-manage-sheet-list {
+  margin: 0;
+}
+
+.dao-members-sheet,
+.dao-treasury-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dao-members-empty,
+.dao-treasury-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.dao-members-error,
+.dao-treasury-error {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgb(180 60 60 / 0.95);
+}
+
+.dao-members-role-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.dao-members-role-count {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: rgb(var(--fg-rgb) / 0.35);
+}
+
+.dao-treasury-balance {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.86);
 }
 
 .dao-edit-cover {

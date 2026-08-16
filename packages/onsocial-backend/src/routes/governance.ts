@@ -14,7 +14,10 @@ import {
   listIndexedDaoAccountIds,
   listMyDaoMemberships,
 } from '../services/governance-dao-membership-store.js';
-import { searchDaoCatalog } from '../services/governance-dao-catalog-store.js';
+import {
+  searchDaoCatalog,
+  getDaoCatalogRowsByIds,
+} from '../services/governance-dao-catalog-store.js';
 import {
   getDaoCatalogSyncStatus,
   resolveDaoCatalogAccount,
@@ -256,6 +259,35 @@ router.get('/daos', async (req: Request, res: Response): Promise<void> => {
     res.status(400).json({ success: false, error: msg });
   }
 });
+
+/** Batch lookup by account ids — standing / directory enrichment. */
+router.get(
+  '/daos/lookup',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const raw = typeof req.query.ids === 'string' ? req.query.ids : '';
+      const ids = raw
+        .split(',')
+        .map((id) => id.trim().toLowerCase())
+        .filter(Boolean);
+      const rows = await getDaoCatalogRowsByIds(ids);
+      res.json({
+        success: true,
+        daos: rows.map((row) => ({
+          daoAccountId: row.daoAccountId,
+          name: row.name,
+          purpose: row.purpose,
+          metadata: row.metadata,
+          source: row.source,
+          listedAt: row.listedAt,
+        })),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+);
 
 router.get('/my-daos', async (req: Request, res: Response): Promise<void> => {
   try {

@@ -1,5 +1,9 @@
 import { accountIdsEqual } from '@/lib/account-match';
 import {
+  GOVERNANCE_DAO_ACCOUNT,
+  TREASURY_DAO_ACCOUNT,
+} from '@/lib/app-config';
+import {
   APP_APPS_PATH,
   APP_COLLECTION_PATH,
   APP_COLLECTIBLES_PATH,
@@ -11,6 +15,7 @@ import {
   APP_HOME_PATH,
   APP_MARKET_PATH,
   APP_PROTOCOL_PATH,
+  daoPath,
 } from '@/lib/app-routes';
 import { portalHref } from '@/lib/app-links';
 import type { OverlayPanel } from '@/lib/overlay-routes';
@@ -71,6 +76,19 @@ export function resolveActiveOsAppId(
     return 'daos';
   }
   if (path === APP_DAO_PATH || path.startsWith(`${APP_DAO_PATH}/`)) {
+    const daoSegment = path.slice(APP_DAO_PATH.length + 1).split('/')[0] ?? '';
+    let daoAccountId = '';
+    try {
+      daoAccountId = decodeURIComponent(daoSegment).trim().toLowerCase();
+    } catch {
+      daoAccountId = daoSegment.trim().toLowerCase();
+    }
+    if (
+      daoAccountId === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
+      daoAccountId === TREASURY_DAO_ACCOUNT.trim().toLowerCase()
+    ) {
+      return 'protocol';
+    }
     return 'daos';
   }
   if (
@@ -129,7 +147,7 @@ const PROTOCOL_APP: OsAppLink = {
   id: 'protocol',
   label: 'Protocol',
   kind: 'app',
-  href: APP_PROTOCOL_PATH,
+  href: daoPath(GOVERNANCE_DAO_ACCOUNT),
 };
 
 const DAOS_APP: OsAppLink = {

@@ -130,6 +130,7 @@ export function useViewerStanding(listAccountId: string) {
           name: targetAccount.name,
           avatarUrl: targetAccount.avatarUrl,
           bio: targetAccount.bio ?? null,
+          isDao: targetAccount.isDao,
         };
 
         if (shouldStand) {

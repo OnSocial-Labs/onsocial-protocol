@@ -5,6 +5,8 @@ import type {
   ProfileSearchRow,
 } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { lookupDaoCatalogByIds } from '@/lib/dao-catalog-lookup';
+import { enrichStandingAccountWithDaoCatalog } from '@/lib/enrich-standing-with-dao';
 import {
   isProfileSearchQuery,
   searchMatchingAccountIds,
@@ -28,6 +30,8 @@ export interface StandingAccountSummary {
   viewerStanding: boolean;
   theyStandWithViewer: boolean;
   moodId: PageMoodId;
+  /** True when this peer is a DAO org (catalog / heuristic). */
+  isDao: boolean;
 }
 
 export interface StandingListItem {
@@ -111,6 +115,7 @@ function mapStandingRowsToSummaries(
       viewerStanding: viewerOutgoingSet.has(id),
       theyStandWithViewer: viewerIncomingSet.has(id),
       moodId: moodIds[id] ?? 'protocol',
+      isDao: false,
     };
   });
 }
@@ -157,7 +162,7 @@ async function buildStandingAccountSummaries(
   const viewerOutgoingSet = new Set(enrichment.viewerOutgoingPeerIds);
   const viewerIncomingSet = new Set(enrichment.viewerIncomingPeerIds);
 
-  return mapStandingRowsToSummaries(
+  const summaries = mapStandingRowsToSummaries(
     os,
     rows,
     direction,
@@ -167,6 +172,21 @@ async function buildStandingAccountSummaries(
     viewerIncomingSet,
     moodIds
   );
+
+  const catalog = await lookupDaoCatalogByIds(
+    summaries.map((account) => account.accountId)
+  );
+
+  return summaries.map((account) => {
+    const enriched = enrichStandingAccountWithDaoCatalog(account, catalog);
+    return {
+      ...account,
+      isDao: enriched.isDao,
+      name: enriched.name,
+      bio: enriched.bio,
+      avatarUrl: enriched.avatarUrl,
+    };
+  });
 }
 
 export async function listStandingAccountsPage(

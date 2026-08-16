@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
-import { osFieldBorderedClassName } from '@onsocial/ui';
+import {
+  ChoiceDrawerField,
+  osFieldBorderedClassName,
+  type ChoiceOption,
+} from '@onsocial/ui';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
 import { findProtocolRole } from '@/features/protocol/protocol-create';
@@ -55,6 +59,9 @@ import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact } from '@/lib/format-social-balance';
+import {
+  PROTOCOL_NESTED_CHOICE_Z,
+} from '@/features/protocol/protocol-sheet-z';
 
 function tryNearToYocto(value: string): string | null {
   try {
@@ -697,60 +704,61 @@ export function ProtocolSettingsSheet({
 
         {actionId === 'update_vote_policy' ? (
           <>
-            <label className="guild-field">
-              <span>Approval threshold</span>
-              <select
+            <div className="guild-field">
+              <ChoiceDrawerField
+                label="Approval threshold"
                 value={voteThresholdPresetId}
-                onChange={(event) => {
-                  setVoteThresholdPresetId(
-                    event.target.value as ProtocolVoteThresholdPresetId
-                  );
-                  setFormError(null);
-                }}
-                disabled={pending}
-                className={osFieldBorderedClassName}
-              >
-                {PROTOCOL_VOTE_THRESHOLD_PRESETS.map((preset) => {
-                  const isCurrent = preset.id === currentThresholdPresetId;
-                  return (
-                    <option key={preset.id} value={preset.id}>
-                      {formatVoteThresholdOptionLabel(
+                options={PROTOCOL_VOTE_THRESHOLD_PRESETS.map(
+                  (
+                    preset
+                  ): ChoiceOption<ProtocolVoteThresholdPresetId> => {
+                    const isCurrent = preset.id === currentThresholdPresetId;
+                    return {
+                      value: preset.id,
+                      label: formatVoteThresholdOptionLabel(
                         preset,
                         isCurrent
                           ? (currentVoteThreshold ?? preset.threshold)
                           : preset.threshold
-                      )}
-                      {isCurrent ? ' · Current' : ''}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
+                      ),
+                      description: isCurrent ? 'Current' : undefined,
+                    };
+                  }
+                )}
+                onChange={(next) => {
+                  setVoteThresholdPresetId(next);
+                  setFormError(null);
+                }}
+                disabled={pending}
+                zIndex={PROTOCOL_NESTED_CHOICE_Z}
+              />
+            </div>
 
             {usesRoleWeightVotePolicy ? (
               <>
-                <label className="guild-field">
-                  <span>Minimum approvals</span>
-                  <select
+                <div className="guild-field">
+                  <ChoiceDrawerField
+                    label="Minimum approvals"
                     value={voteQuorum}
-                    onChange={(event) => {
-                      setVoteQuorum(event.target.value);
+                    options={voteQuorumOptions.map(
+                      (option): ChoiceOption<string> => {
+                        const isCurrent = option.quorum === currentVoteQuorum;
+                        return {
+                          value: option.quorum,
+                          label: formatVoteQuorumOptionLabel(option),
+                          description: isCurrent ? 'Current' : undefined,
+                        };
+                      }
+                    )}
+                    onChange={(next) => {
+                      setVoteQuorum(next);
                       setFormError(null);
                     }}
                     disabled={pending}
-                    className={osFieldBorderedClassName}
-                  >
-                    {voteQuorumOptions.map((option) => {
-                      const isCurrent = option.quorum === currentVoteQuorum;
-                      return (
-                        <option key={option.quorum} value={option.quorum}>
-                          {formatVoteQuorumOptionLabel(option)}
-                          {isCurrent ? ' · Current' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
+                    hint="Uses whichever is stricter: this floor or the approval threshold."
+                    zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                  />
+                </div>
                 <p className="protocol-compose-note">
                   Uses whichever is stricter: this floor or the approval
                   threshold.
@@ -767,25 +775,25 @@ export function ProtocolSettingsSheet({
 
         {actionId === 'update_permissions' ? (
           <>
-            <label className="guild-field">
-              <span>Role</span>
-              <select
-                value={permissionsRoleId}
-                onChange={(event) => setPermissionsRoleId(event.target.value)}
-                disabled={pending || editableRoles.length === 0}
-                className={osFieldBorderedClassName}
-              >
-                {editableRoles.length === 0 ? (
-                  <option value="">No editable roles</option>
-                ) : (
-                  editableRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {role}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
+            {editableRoles.length === 0 ? (
+              <p className="protocol-compose-note">No editable roles.</p>
+            ) : (
+              <div className="guild-field">
+                <ChoiceDrawerField
+                  label="Role"
+                  value={permissionsRoleId}
+                  options={editableRoles.map(
+                    (role): ChoiceOption<string> => ({
+                      value: role,
+                      label: role,
+                    })
+                  )}
+                  onChange={setPermissionsRoleId}
+                  disabled={pending}
+                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                />
+              </div>
+            )}
 
             <div
               className="protocol-preset-rail"
@@ -874,25 +882,22 @@ export function ProtocolSettingsSheet({
                 className={osFieldBorderedClassName}
               />
             </label>
-            <label className="guild-field">
-              <span>Access</span>
-              <select
+            <div className="guild-field">
+              <ChoiceDrawerField
+                label="Access"
                 value={addRoleAccessMode}
-                onChange={(event) =>
-                  setAddRoleAccessMode(
-                    event.target.value as ProtocolAddRoleAccessMode
-                  )
-                }
+                options={PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.map(
+                  (option): ChoiceOption<ProtocolAddRoleAccessMode> => ({
+                    value: option.id,
+                    label: option.label,
+                    description: option.hint,
+                  })
+                )}
+                onChange={setAddRoleAccessMode}
                 disabled={pending}
-                className={osFieldBorderedClassName}
-              >
-                {PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                zIndex={PROTOCOL_NESTED_CHOICE_Z}
+              />
+            </div>
             <p className="protocol-compose-note">
               {
                 PROTOCOL_ADD_ROLE_ACCESS_OPTIONS.find(
@@ -931,25 +936,25 @@ export function ProtocolSettingsSheet({
         ) : null}
 
         {actionId === 'remove_role' ? (
-          <label className="guild-field">
-            <span>Role</span>
-            <select
-              value={removeRoleId}
-              onChange={(event) => setRemoveRoleId(event.target.value)}
-              disabled={pending || removableRoles.length === 0}
-              className={osFieldBorderedClassName}
-            >
-              {removableRoles.length === 0 ? (
-                <option value="">No removable roles</option>
-              ) : (
-                removableRoles.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
+          removableRoles.length === 0 ? (
+            <p className="protocol-compose-note">No removable roles.</p>
+          ) : (
+            <div className="guild-field">
+              <ChoiceDrawerField
+                label="Role"
+                value={removeRoleId}
+                options={removableRoles.map(
+                  (role): ChoiceOption<string> => ({
+                    value: role,
+                    label: role,
+                  })
+                )}
+                onChange={setRemoveRoleId}
+                disabled={pending}
+                zIndex={PROTOCOL_NESTED_CHOICE_Z}
+              />
+            </div>
+          )
         ) : null}
 
         <label className="guild-field">

@@ -201,6 +201,35 @@ export function daoPath(daoAccountId: string): string {
   return `${APP_DAO_PATH}/${encodeURIComponent(id)}`;
 }
 
+/**
+ * DAO portfolio page deep-linked to a proposal feed state.
+ * Opens `/dao/[accountId]` and the Proposals overlay (shareable).
+ */
+export function daoPortfolioPath(
+  daoAccountId: string,
+  opts?: {
+    status?: ProtocolFeedStatusFilter | null;
+    proposal?: number | null;
+    q?: string | null;
+  }
+): string {
+  const base = daoPath(daoAccountId);
+  const params = new URLSearchParams();
+  const status = opts?.status ?? null;
+  if (status && status !== 'open') {
+    params.set(PROTOCOL_STATUS_PARAM, status);
+  }
+  const q = opts?.q?.trim() ?? '';
+  if (q) {
+    params.set(PROTOCOL_SEARCH_PARAM, q);
+  }
+  if (opts?.proposal != null && Number.isInteger(opts.proposal)) {
+    params.set(PROTOCOL_PROPOSAL_PARAM, String(opts.proposal));
+  }
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
+}
+
 /** Market pre-filtered to a single creator's live listings. */
 export function marketCreatorPath(accountId: string): string {
   const seller = accountId.trim();

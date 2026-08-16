@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
-import { osFieldBorderedClassName } from '@onsocial/ui';
+import {
+  ChoiceDrawerField,
+  osFieldBorderedClassName,
+  type ChoiceOption,
+} from '@onsocial/ui';
 import type { CommerceSheetFooterState } from '@/features/scarces/commerce-sheet-footer';
 import {
   fetchProtocolDaoBoostInfra,
@@ -46,6 +50,9 @@ import {
   yoctoToSocial,
 } from '@/lib/format-social-balance';
 import { socialToYocto } from '@/lib/social-spend-profile';
+import {
+  PROTOCOL_NESTED_CHOICE_Z,
+} from '@/features/protocol/protocol-sheet-z';
 
 function tokenSmallestToDisplay(value: string, decimals: number): string {
   if (!value || value === '0') return '0';
@@ -690,27 +697,27 @@ export function ProtocolCreateSheet({
         {(kind === 'join_self' ||
           kind === 'add_member' ||
           kind === 'leave_self' ||
-          kind === 'remove_member') && (
-          <label className="guild-field">
-            <span>Role</span>
-            <select
-              value={roleId}
-              onChange={(event) => setRoleId(event.target.value)}
-              disabled={pending || roles.length === 0}
-              className={osFieldBorderedClassName}
-            >
-              {roles.length === 0 ? (
-                <option value="">No roles available</option>
-              ) : (
-                roles.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-        )}
+          kind === 'remove_member') &&
+          (roles.length === 0 ? (
+            <p className="protocol-compose-note">No roles available.</p>
+          ) : (
+            <div className="guild-field">
+              <ChoiceDrawerField
+                label="Role"
+                value={roleId}
+                options={roles.map(
+                  (role): ChoiceOption<string> => ({
+                    value: role,
+                    label: role,
+                  })
+                )}
+                onChange={setRoleId}
+                disabled={pending}
+                copy="Group role for this membership proposal"
+                zIndex={PROTOCOL_NESTED_CHOICE_Z}
+              />
+            </div>
+          ))}
 
         {(kind === 'add_member' || kind === 'remove_member') && (
           <label className="guild-field">
@@ -731,34 +738,35 @@ export function ProtocolCreateSheet({
 
         {kind === 'transfer' ? (
           <>
-            <label className="guild-field">
-              <span>Asset</span>
-              <select
-                value={selectedTransferAsset?.tokenId ?? transferTokenId}
-                onChange={(event) => {
-                  setTransferTokenId(event.target.value);
-                  setFormError(null);
-                }}
-                disabled={pending || transferAssetsLoading}
-                className={osFieldBorderedClassName}
-              >
-                {transferAssets.length === 0 ? (
-                  <option value="">
-                    {transferAssetsLoading ? 'Loading assets…' : 'No assets'}
-                  </option>
-                ) : (
-                  transferAssets.map((asset) => (
-                    <option key={asset.tokenId || 'near'} value={asset.tokenId}>
-                      {asset.symbol} ·{' '}
-                      {tokenSmallestToDisplay(
+            {transferAssets.length === 0 ? (
+              <p className="protocol-compose-note">
+                {transferAssetsLoading ? 'Loading assets…' : 'No assets'}
+              </p>
+            ) : (
+              <div className="guild-field">
+                <ChoiceDrawerField
+                  label="Asset"
+                  value={selectedTransferAsset?.tokenId ?? transferTokenId}
+                  options={transferAssets.map(
+                    (asset): ChoiceOption<string> => ({
+                      value: asset.tokenId,
+                      label: asset.symbol,
+                      description: `${tokenSmallestToDisplay(
                         asset.balanceSmallest,
                         asset.decimals
-                      )}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
+                      )} available`,
+                    })
+                  )}
+                  onChange={(next) => {
+                    setTransferTokenId(next);
+                    setFormError(null);
+                  }}
+                  disabled={pending || transferAssetsLoading}
+                  copy="Spendable balance held by this DAO"
+                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                />
+              </div>
+            )}
             <label className="guild-field">
               <span>Recipient</span>
               <input
@@ -801,21 +809,22 @@ export function ProtocolCreateSheet({
         {kind === 'fund_season_pool' ? (
           <>
             {socialSpendContext?.fundableSeasonIds.length ? (
-              <label className="guild-field">
-                <span>Season</span>
-                <select
+              <div className="guild-field">
+                <ChoiceDrawerField
+                  label="Season"
                   value={seasonId}
-                  onChange={(event) => setSeasonId(event.target.value)}
+                  options={socialSpendContext.fundableSeasonIds.map(
+                    (id): ChoiceOption<string> => ({
+                      value: id,
+                      label: id,
+                    })
+                  )}
+                  onChange={setSeasonId}
                   disabled={pending || socialSpendLoading}
-                  className={osFieldBorderedClassName}
-                >
-                  {socialSpendContext.fundableSeasonIds.map((id) => (
-                    <option key={id} value={id}>
-                      {id}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  copy="Live rally seasons reported on-chain"
+                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                />
+              </div>
             ) : (
               <label className="guild-field">
                 <span>Season id</span>
@@ -945,34 +954,30 @@ export function ProtocolCreateSheet({
         ) : null}
 
         {kind === 'transfer_ownership' || kind === 'contract_upgrade' ? (
-          <label className="guild-field">
-            <span>Contract</span>
-            <select
+          <div className="guild-field">
+            <ChoiceDrawerField
+              label="Contract"
               value={contractId}
-              onChange={(event) => setContractId(event.target.value)}
-              disabled={pending || managedContractsLoading}
-              className={osFieldBorderedClassName}
-            >
-              {(kind === 'contract_upgrade'
+              options={(kind === 'contract_upgrade'
                 ? upgradableContractOptions
                 : managedContractOptions
-              ).map((entry) => (
-                <option key={entry.contractId} value={entry.contractId}>
-                  {entry.label} · {entry.contractId}
-                </option>
-              ))}
-            </select>
-            {managedContracts.length > 0 ? (
-              <p className="protocol-compose-note">
-                Showing contracts currently owned by this DAO.
-              </p>
-            ) : (
-              <p className="protocol-compose-note">
-                Live ownership list unavailable or empty; showing protocol
-                defaults.
-              </p>
-            )}
-          </label>
+              ).map(
+                (entry): ChoiceOption<string> => ({
+                  value: entry.contractId,
+                  label: entry.label,
+                  description: entry.contractId,
+                })
+              )}
+              onChange={setContractId}
+              disabled={pending || managedContractsLoading}
+              copy={
+                managedContracts.length > 0
+                  ? 'Contracts currently owned by this DAO'
+                  : 'Live ownership list unavailable; showing protocol defaults'
+              }
+              zIndex={PROTOCOL_NESTED_CHOICE_Z}
+            />
+          </div>
         ) : null}
 
         {kind === 'transfer_ownership' ? (
@@ -1011,25 +1016,21 @@ export function ProtocolCreateSheet({
 
         {kind === 'contract_config' ? (
           <>
-            <label className="guild-field">
-              <span>Setting</span>
-              <select
+            <div className="guild-field">
+              <ChoiceDrawerField
+                label="Setting"
                 value={configOpId}
-                onChange={(event) =>
-                  setConfigOpId(
-                    event.target.value as ProtocolContractConfigOpId
-                  )
-                }
+                options={PROTOCOL_CONTRACT_CONFIG_OPS.map(
+                  (op): ChoiceOption<ProtocolContractConfigOpId> => ({
+                    value: op.id,
+                    label: op.label,
+                  })
+                )}
+                onChange={setConfigOpId}
                 disabled={pending}
-                className={osFieldBorderedClassName}
-              >
-                {PROTOCOL_CONTRACT_CONFIG_OPS.map((op) => (
-                  <option key={op.id} value={op.id}>
-                    {op.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                zIndex={PROTOCOL_NESTED_CHOICE_Z}
+              />
+            </div>
             <div className="protocol-community-row">
               <label className="guild-field">
                 <span>Treasury bps</span>
@@ -1121,20 +1122,25 @@ export function ProtocolCreateSheet({
                   className={osFieldBorderedClassName}
                 />
               </label>
-              <label className="guild-field">
-                <span>Active</span>
-                <select
+              <div className="guild-field">
+                <ChoiceDrawerField
+                  label="Status"
                   value={seasonActive ? 'true' : 'false'}
-                  onChange={(event) =>
-                    setSeasonActive(event.target.value === 'true')
-                  }
+                  options={[
+                    {
+                      value: 'true' as const,
+                      label: 'Active',
+                    },
+                    {
+                      value: 'false' as const,
+                      label: 'Paused',
+                    },
+                  ]}
+                  onChange={(next) => setSeasonActive(next === 'true')}
                   disabled={pending}
-                  className={osFieldBorderedClassName}
-                >
-                  <option value="true">Active</option>
-                  <option value="false">Paused</option>
-                </select>
-              </label>
+                  zIndex={PROTOCOL_NESTED_CHOICE_Z}
+                />
+              </div>
             </div>
             <p className="protocol-compose-note">
               Starts about 10 minutes after submission; end time is derived from

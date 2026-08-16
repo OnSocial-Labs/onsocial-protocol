@@ -22,6 +22,8 @@ export interface ProfileListAccount {
   standingBlockTimestamp?: number | null;
   /** False for ledger-injected rows until API enrichment lands. */
   rowHydrated?: boolean;
+  /** Server/client hint that this peer is a DAO org. */
+  isDao?: boolean;
 }
 
 export function standingAccountToProfileListAccount(
@@ -44,6 +46,7 @@ export function standingAccountToProfileListAccount(
     standingSince: account.standingSince,
     standingBlockTimestamp: account.standingBlockTimestamp,
     rowHydrated: isStandingAccountDisplayReady(account),
+    isDao: account.isDao,
   };
 }
 
@@ -88,5 +91,6 @@ export function profileListAccountToStandingSummary(
     moodId: account.moodId,
     standingSince: account.standingSince,
     standingBlockTimestamp: account.standingBlockTimestamp,
+    isDao: account.isDao,
   };
 }

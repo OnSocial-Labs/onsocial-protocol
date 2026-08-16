@@ -30,6 +30,12 @@ describe('buildStandingSearchEmptyPrimary', () => {
       buildStandingSearchEmptyPrimary('mutual', true, 'You', 'alice')
     ).toBe('No solidarity matches "alice".');
   });
+
+  it('scopes DAO entity search copy', () => {
+    expect(
+      buildStandingSearchEmptyPrimary('outgoing', true, 'You', 'gov', 'daos')
+    ).toBe('No matches for "gov" among DAOs you stand with.');
+  });
 });
 
 describe('buildStandingEmptyState', () => {
@@ -63,6 +69,23 @@ describe('buildStandingEmptyState', () => {
       primary: 'You do not stand with anyone yet.',
       showClearSearch: false,
       showDiscover: true,
+    });
+  });
+
+  it('uses DAO-specific empty copy', () => {
+    expect(
+      buildStandingEmptyState({
+        kind: 'outgoing',
+        isSelf: true,
+        displayName: 'You',
+        query: '',
+        showDiscoverLink: true,
+        entityFilter: 'daos',
+      })
+    ).toEqual({
+      primary: 'You do not stand with any DAOs yet.',
+      showClearSearch: false,
+      showDiscover: false,
     });
   });
 });

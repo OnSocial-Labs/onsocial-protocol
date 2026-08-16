@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { OsHugSheet } from '@onsocial/ui';
-import { getProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
+import { useMemo } from 'react';
 import {
   PROTOCOL_POLICY_ACTION_COMMON,
   PROTOCOL_POLICY_ACTION_GROUPS,
@@ -12,12 +10,18 @@ import {
   type ProtocolPolicyActionId,
 } from '@/features/protocol/protocol-policy';
 import {
+  ProtocolPickerItem,
+  ProtocolPickerSection,
+  ProtocolPickerSheet,
+  ProtocolPickerStatus,
+  protocolPickerItemLockReason,
+  useProtocolPickerEligibility,
+} from '@/features/protocol/protocol-picker-sheet';
+import {
   canProposeProtocolPolicyAction,
   getProtocolPolicyActionLockReason,
-  isProtocolDaoGroupMember,
 } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
-import { formatSocialCompact } from '@/lib/format-social-balance';
 
 /**
  * Settings action picker — choose a policy action, then the form opens.
@@ -42,61 +46,17 @@ export function ProtocolSettingsActionSheet({
   onSelectAction: (actionId: ProtocolPolicyActionId) => void;
   onOpenStake: () => void;
 }) {
-  const [loadState, setLoadState] = useState<
-    'idle' | 'loading' | 'ready' | 'error'
-  >('idle');
-  const [delegatedWeight, setDelegatedWeight] = useState('0');
-  const [canProposeAny, setCanProposeAny] = useState(true);
-  const [remainingLabel, setRemainingLabel] = useState<string | null>(null);
-  const [highlightedAction, setHighlightedAction] =
-    useState<ProtocolPolicyActionId | null>(lastAction);
+  const eligibility = useProtocolPickerEligibility({
+    open,
+    daoAccountId,
+    accountId,
+    daoPolicy,
+  });
 
-  const isGroupMember = useMemo(
-    () => isProtocolDaoGroupMember(daoPolicy, accountId),
-    [daoPolicy, accountId]
-  );
-
-  useEffect(() => {
-    if (!open) {
-      setLoadState('idle');
-      setDelegatedWeight('0');
-      setCanProposeAny(true);
-      setRemainingLabel(null);
-      return;
-    }
-    setHighlightedAction(lastAction ?? readLastProtocolPolicyAction());
-    if (!daoAccountId || !accountId) {
-      setLoadState('ready');
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      setLoadState('loading');
-      try {
-        const eligibility = await getProtocolGovernanceEligibility(
-          accountId,
-          daoAccountId
-        );
-        if (cancelled) return;
-        setDelegatedWeight(eligibility.delegatedWeight);
-        setCanProposeAny(eligibility.canPropose || isGroupMember);
-        setRemainingLabel(
-          BigInt(eligibility.remainingToThreshold) > 0n
-            ? formatSocialCompact(eligibility.remainingToThreshold)
-            : null
-        );
-        setLoadState('ready');
-      } catch {
-        if (cancelled) return;
-        setLoadState('error');
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, daoAccountId, accountId, isGroupMember, lastAction]);
+  const highlightedAction = useMemo(() => {
+    if (!open) return lastAction;
+    return lastAction ?? readLastProtocolPolicyAction();
+  }, [open, lastAction]);
 
   const commonOptions = useMemo(
     () =>
@@ -126,97 +86,55 @@ export function ProtocolSettingsActionSheet({
     [commonIds]
   );
 
-  const stakeBlocked =
-    Boolean(accountId) &&
-    loadState === 'ready' &&
-    !canProposeAny &&
-    !isGroupMember;
+  const selectAction = (actionId: ProtocolPolicyActionId) => {
+    rememberProtocolPolicyAction(actionId);
+    onSelectAction(actionId);
+  };
 
   return (
-    <OsHugSheet
+    <ProtocolPickerSheet
       open={open}
       onClose={onClose}
       label="Settings"
       copy="Choose a DAO policy change."
       closeAriaLabel="Close settings"
       backdropLabel="Close settings"
-      zIndex={58}
-      initialDetent="peek"
-      peekRatio={0.62}
-      bodyClassName="protocol-action-sheet-body"
     >
-      <div className="protocol-propose-kind">
-        {!accountId ? (
-          <p className="protocol-empty">Connect a wallet to propose settings.</p>
-        ) : null}
+      <ProtocolPickerStatus
+        accountId={accountId}
+        loadState={eligibility.loadState}
+        connectEmpty="Connect a wallet to propose settings."
+        loadingEmpty="Checking what you can change…"
+        errorNote="Could not verify settings eligibility. Close and try again."
+        stakeBlocked={eligibility.stakeBlocked}
+        stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose settings.`}
+        onOpenStake={onOpenStake}
+        onClose={onClose}
+      />
 
-        {accountId && loadState === 'loading' ? (
-          <p className="protocol-empty">Checking what you can change…</p>
-        ) : null}
+      <ActionSection
+        label="Common"
+        options={commonOptions}
+        accountId={accountId}
+        eligibility={eligibility}
+        daoPolicy={daoPolicy}
+        highlightedAction={highlightedAction}
+        onSelectAction={selectAction}
+      />
 
-        {accountId && loadState === 'error' ? (
-          <p className="protocol-compose-note is-warn">
-            Could not verify settings eligibility. Close and try again.
-          </p>
-        ) : null}
-
-        {stakeBlocked ? (
-          <div className="protocol-propose-kind-block">
-            <p className="protocol-compose-note is-warn">
-              Need {remainingLabel ?? 'more'} SOCIAL delegated to propose
-              settings.
-            </p>
-            <button
-              type="button"
-              className="protocol-tool"
-              onClick={() => {
-                onClose();
-                onOpenStake();
-              }}
-            >
-              Stake
-            </button>
-          </div>
-        ) : null}
-
+      {grouped.map((group) => (
         <ActionSection
-          label="Common"
-          options={commonOptions}
+          key={group.id}
+          label={group.label}
+          options={group.options}
           accountId={accountId}
-          loadState={loadState}
+          eligibility={eligibility}
           daoPolicy={daoPolicy}
-          delegatedWeight={delegatedWeight}
-          canProposeAny={canProposeAny}
-          isGroupMember={isGroupMember}
-          remainingLabel={remainingLabel}
           highlightedAction={highlightedAction}
-          onSelectAction={(actionId) => {
-            rememberProtocolPolicyAction(actionId);
-            onSelectAction(actionId);
-          }}
+          onSelectAction={selectAction}
         />
-
-        {grouped.map((group) => (
-          <ActionSection
-            key={group.id}
-            label={group.label}
-            options={group.options}
-            accountId={accountId}
-            loadState={loadState}
-            daoPolicy={daoPolicy}
-            delegatedWeight={delegatedWeight}
-            canProposeAny={canProposeAny}
-            isGroupMember={isGroupMember}
-            remainingLabel={remainingLabel}
-            highlightedAction={highlightedAction}
-            onSelectAction={(actionId) => {
-              rememberProtocolPolicyAction(actionId);
-              onSelectAction(actionId);
-            }}
-          />
-        ))}
-      </div>
-    </OsHugSheet>
+      ))}
+    </ProtocolPickerSheet>
   );
 }
 
@@ -224,96 +142,57 @@ function ActionSection({
   label,
   options,
   accountId,
-  loadState,
+  eligibility,
   daoPolicy,
-  delegatedWeight,
-  canProposeAny,
-  isGroupMember,
-  remainingLabel,
   highlightedAction,
   onSelectAction,
 }: {
   label: string;
   options: typeof PROTOCOL_POLICY_ACTION_OPTIONS;
   accountId: string | null;
-  loadState: 'idle' | 'loading' | 'ready' | 'error';
+  eligibility: ReturnType<typeof useProtocolPickerEligibility>;
   daoPolicy: ProtocolDaoPolicy | null;
-  delegatedWeight: string;
-  canProposeAny: boolean;
-  isGroupMember: boolean;
-  remainingLabel: string | null;
   highlightedAction: ProtocolPolicyActionId | null;
   onSelectAction: (actionId: ProtocolPolicyActionId) => void;
 }) {
   if (options.length === 0) return null;
 
   return (
-    <section className="protocol-propose-kind-group">
-      <h3 className="protocol-propose-kind-group-label">{label}</h3>
-      <ul className="protocol-propose-kind-list">
-        {options.map((option) => {
-          const canProposeAction =
-            Boolean(accountId) &&
-            loadState === 'ready' &&
-            canProposeProtocolPolicyAction(
-              daoPolicy,
-              accountId,
-              delegatedWeight,
-              option.id
-            );
-          const lockReason =
-            loadState === 'ready'
-              ? getProtocolPolicyActionLockReason({
-                  actionId: option.id,
-                  accountId,
-                  canProposeAny,
-                  isGroupMember,
-                  remainingLabel,
-                  canProposeAction,
-                })
-              : loadState === 'loading'
-                ? 'Checking…'
-                : loadState === 'error'
-                  ? 'Unavailable'
-                  : accountId
-                    ? null
-                    : 'Connect a wallet';
-          const disabled = Boolean(lockReason);
-          const isLast = highlightedAction === option.id;
-
-          return (
-            <li key={option.id}>
-              <button
-                type="button"
-                className={[
-                  'protocol-propose-kind-item',
-                  isLast ? 'is-last' : '',
-                  disabled ? 'is-locked' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                disabled={disabled}
-                aria-current={isLast ? 'true' : undefined}
-                onClick={() => onSelectAction(option.id)}
-              >
-                <span className="protocol-propose-kind-item-top">
-                  <span className="protocol-propose-kind-item-label">
-                    {option.label}
-                  </span>
-                  {isLast ? (
-                    <span className="protocol-propose-kind-item-badge">
-                      Last used
-                    </span>
-                  ) : null}
-                </span>
-                <span className="protocol-propose-kind-item-hint">
-                  {disabled && lockReason ? lockReason : option.hint}
-                </span>
-              </button>
-            </li>
+    <ProtocolPickerSection label={label}>
+      {options.map((option) => {
+        const canProposeAction =
+          Boolean(accountId) &&
+          eligibility.loadState === 'ready' &&
+          canProposeProtocolPolicyAction(
+            daoPolicy,
+            accountId,
+            eligibility.delegatedWeight,
+            option.id
           );
-        })}
-      </ul>
-    </section>
+        const lockReason = protocolPickerItemLockReason({
+          accountId,
+          loadState: eligibility.loadState,
+          readyReason: getProtocolPolicyActionLockReason({
+            actionId: option.id,
+            accountId,
+            canProposeAny: eligibility.canProposeAny,
+            isGroupMember: eligibility.isGroupMember,
+            remainingLabel: eligibility.remainingLabel,
+            canProposeAction,
+          }),
+        });
+
+        return (
+          <ProtocolPickerItem
+            key={option.id}
+            label={option.label}
+            hint={option.hint}
+            lockReason={lockReason}
+            isLast={highlightedAction === option.id}
+            onSelect={() => onSelectAction(option.id)}
+          />
+        );
+      })}
+    </ProtocolPickerSection>
   );
 }
