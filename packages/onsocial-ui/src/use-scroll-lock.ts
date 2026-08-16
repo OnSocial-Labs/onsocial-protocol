@@ -39,9 +39,7 @@ export function configureScrollLockContainerFinder(
 function eventIsInsideSlideOver(event: Event): boolean {
   for (const node of event.composedPath()) {
     if (!(node instanceof Element)) continue;
-    return Boolean(
-      node.closest('.os-slide-over, [data-os-slide-over="true"]')
-    );
+    return Boolean(node.closest('.os-slide-over, [data-os-slide-over="true"]'));
   }
   return false;
 }

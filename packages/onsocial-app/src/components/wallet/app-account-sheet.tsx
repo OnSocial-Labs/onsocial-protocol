@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import {
   AccountActionList,
@@ -76,7 +76,9 @@ export function AppAccountSheet({
   const editorOpenRef = useRef(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  editorOpenRef.current = editorOpen;
+  useLayoutEffect(() => {
+    editorOpenRef.current = editorOpen;
+  }, [editorOpen]);
 
   const sheetOpen = open && !closing && !editorOpen;
 
