@@ -29971,14 +29971,7 @@ a.os-surface-row {
 
   /* ── Profile support sheet ──────────────────────────────── */
 
-  /*
-   * Host alias for gesture form bodies. Inset lives on UI
-   * `.os-gesture-sheet-body`; keep this class so commerce sheets share
-   * keyboard / footer overrides without one-off padding.
-   */
-  .profile-support-sheet-body {
-    /* padding from @onsocial/ui `.os-gesture-sheet-body` */
-  }
+  /* Body inset: UI `.os-gesture-sheet-body`. Host class kept for footer/keyboard. */
 
   .profile-support-sheet-panel:has(.profile-support-sheet-footer)
     .profile-support-sheet-body {
