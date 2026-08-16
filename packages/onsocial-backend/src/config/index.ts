@@ -76,6 +76,12 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'treasury.onsocial.near'
       : 'treasury.onsocial.testnet'),
+  /** SputnikDAO factory — source of network-wide DAO discovery. */
+  sputnikDaoFactory:
+    process.env.SPUTNIK_DAO_FACTORY ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'sputnik-dao.near'
+      : 'sputnikv2.testnet'),
   relayerAccount:
     process.env.RELAYER_ACCOUNT ||
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'

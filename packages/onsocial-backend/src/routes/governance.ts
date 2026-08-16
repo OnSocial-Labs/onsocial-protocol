@@ -14,6 +14,11 @@ import {
   listIndexedDaoAccountIds,
   listMyDaoMemberships,
 } from '../services/governance-dao-membership-store.js';
+import { searchDaoCatalog } from '../services/governance-dao-catalog-store.js';
+import {
+  getDaoCatalogSyncStatus,
+  resolveDaoCatalogAccount,
+} from '../services/governance-dao-catalog-sync.js';
 
 const router = Router();
 
@@ -197,6 +202,54 @@ router.get('/proposal', async (req: Request, res: Response): Promise<void> => {
       proposalId,
       live,
       proposal,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ success: false, error: msg });
+  }
+});
+
+router.get('/daos', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const limitRaw = Number.parseInt(String(req.query.limit ?? '20'), 10);
+    const offsetRaw = Number.parseInt(String(req.query.offset ?? '0'), 10);
+    const limit = Number.isFinite(limitRaw) ? limitRaw : 20;
+    const offset = Number.isFinite(offsetRaw) ? offsetRaw : 0;
+
+    let { rows, total } = await searchDaoCatalog({ query: q, limit, offset });
+
+    // Exact account search: resolve live get_config and upsert if missing.
+    if (
+      q &&
+      rows.length === 0 &&
+      /^[a-z0-9][a-z0-9._-]{1,63}$/.test(q.toLowerCase())
+    ) {
+      const resolved = await resolveDaoCatalogAccount(q);
+      if (resolved) {
+        ({ rows, total } = await searchDaoCatalog({ query: q, limit, offset }));
+      }
+    }
+
+    const sync = await getDaoCatalogSyncStatus();
+
+    res.json({
+      success: true,
+      q: q || null,
+      limit: Math.min(Math.max(limit, 1), 50),
+      offset: Math.max(offset, 0),
+      total,
+      daos: rows.map((row) => ({
+        daoAccountId: row.daoAccountId,
+        name: row.name,
+        purpose: row.purpose,
+        source: row.source,
+        listedAt: row.listedAt,
+      })),
+      factoryAccountId: sync.factoryAccountId,
+      indexedCount: sync.indexedCount,
+      factoryCount: sync.factoryCount,
+      syncing: sync.syncing,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

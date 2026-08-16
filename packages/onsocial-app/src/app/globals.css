@@ -31875,6 +31875,44 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.55);
 }
 
+.daos-discover-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.daos-discover-submit,
+.daos-discover-more {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 9999px;
+  padding: 0.45rem 0.85rem;
+  background: rgb(var(--fg-rgb) / 0.1);
+  color: rgb(var(--fg-rgb) / 0.88);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.daos-discover-submit:hover,
+.daos-discover-submit:focus-visible,
+.daos-discover-more:hover,
+.daos-discover-more:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.14);
+  outline: none;
+}
+
+.daos-discover-more {
+  margin-top: 0.55rem;
+}
+
+.daos-discover-more:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .daos-index-shortcuts {
   display: flex;
   flex-wrap: wrap;
