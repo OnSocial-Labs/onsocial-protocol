@@ -242,6 +242,7 @@ router.get('/daos', async (req: Request, res: Response): Promise<void> => {
         daoAccountId: row.daoAccountId,
         name: row.name,
         purpose: row.purpose,
+        metadata: row.metadata,
         source: row.source,
         listedAt: row.listedAt,
       })),
@@ -271,6 +272,9 @@ router.get('/my-daos', async (req: Request, res: Response): Promise<void> => {
         daoAccountId: row.daoAccountId,
         roleNames: row.roleNames,
         updatedAt: row.updatedAt,
+        name: row.name,
+        purpose: row.purpose,
+        metadata: row.metadata,
       })),
       indexedDaoAccountIds,
     });

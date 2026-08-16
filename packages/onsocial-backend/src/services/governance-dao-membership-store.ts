@@ -85,9 +85,15 @@ export async function replaceDaoMembershipsFromPolicy(
   return { roleCount, memberCount };
 }
 
-export async function listMyDaoMemberships(
-  accountIdInput: string
-): Promise<DaoMembershipRow[]> {
+export async function listMyDaoMemberships(accountIdInput: string): Promise<
+  Array<
+    DaoMembershipRow & {
+      name: string | null;
+      purpose: string | null;
+      metadata: string | null;
+    }
+  >
+> {
   const accountId = normalizeAccountId(accountIdInput);
   if (!accountId) return [];
 
@@ -96,11 +102,22 @@ export async function listMyDaoMemberships(
     dao_account_id: string;
     role_names: string[] | null;
     updated_at: string | Date;
+    name: string | null;
+    purpose: string | null;
+    metadata: string | null;
   }>(
-    `SELECT account_id, dao_account_id, role_names, updated_at
-       FROM governance_dao_memberships
-      WHERE account_id = $1
-      ORDER BY updated_at DESC, dao_account_id ASC`,
+    `SELECT m.account_id,
+            m.dao_account_id,
+            m.role_names,
+            m.updated_at,
+            c.name,
+            c.purpose,
+            c.metadata
+       FROM governance_dao_memberships m
+       LEFT JOIN governance_dao_catalog c
+         ON c.dao_account_id = m.dao_account_id
+      WHERE m.account_id = $1
+      ORDER BY m.updated_at DESC, m.dao_account_id ASC`,
     [accountId]
   );
 
@@ -112,6 +129,9 @@ export async function listMyDaoMemberships(
       row.updated_at instanceof Date
         ? row.updated_at.toISOString()
         : String(row.updated_at),
+    name: row.name,
+    purpose: row.purpose,
+    metadata: row.metadata,
   }));
 }
 
