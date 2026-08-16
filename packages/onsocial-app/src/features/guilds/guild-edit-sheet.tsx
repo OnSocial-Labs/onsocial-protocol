@@ -401,6 +401,7 @@ export function GuildEditSheet({
       zIndex={GUILD_EDIT_Z}
       className="guild-edit-slide"
       contentClassName="guild-edit-slide-body"
+      immersiveHeader
       footer={footer}
     >
       {loadState === 'loading' || loadState === 'idle' ? (

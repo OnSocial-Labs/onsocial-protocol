@@ -51,6 +51,12 @@ export interface OsSlideOverScreenProps {
   toolbar?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
+  /**
+   * Overlay chrome on top media (guild page recipe). Banner starts at the
+   * screen top; back + title sit on frost. Default is glass chrome with
+   * body offset — use this for cover/identity editors.
+   */
+  immersiveHeader?: boolean;
   zIndex?: number;
   closeAriaLabel?: string;
   /** When true, back + Escape do nothing (e.g. post pending). */
@@ -83,6 +89,7 @@ export function OsSlideOverScreen({
   toolbar,
   footer,
   children,
+  immersiveHeader = false,
   zIndex = 70,
   closeAriaLabel = 'Back',
   closeDisabled = false,
@@ -158,10 +165,10 @@ export function OsSlideOverScreen({
   useEffect(() => {
     if (!layerOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        requestClose();
-      }
+      if (event.key !== 'Escape') return;
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      requestClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -216,7 +223,8 @@ export function OsSlideOverScreen({
         className ? ` ${className}` : ''
       }`}
       data-tone="os"
-      data-glass-chrome="true"
+      data-immersive-header={immersiveHeader ? 'true' : undefined}
+      data-glass-chrome={immersiveHeader ? undefined : 'true'}
       data-screen-footer={hasFooter ? 'true' : undefined}
       data-os-slide-over="true"
       data-mood={hasMood ? resolvedMoodId! : undefined}
@@ -229,7 +237,7 @@ export function OsSlideOverScreen({
         <header
           ref={headerRef}
           className={`os-app-screen-header${
-            glassElevated ? ' is-elevated' : ''
+            immersiveHeader ? '' : glassElevated ? ' is-elevated' : ''
           }`}
         >
           <div className="os-app-screen-nav-row">

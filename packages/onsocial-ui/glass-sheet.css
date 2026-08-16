@@ -449,31 +449,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  /* scrollbar-width is not inherited — every drawer scroll surface needs this. */
-  scrollbar-width: thin;
-  scrollbar-color: rgb(var(--fg-rgb) / 0.14) transparent;
-}
-
-.glass-sheet-body::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-
-.glass-sheet-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.glass-sheet-body::-webkit-scrollbar-thumb {
-  background: rgb(var(--fg-rgb) / 0.12);
-  border-radius: 9999px;
-}
-
-.glass-sheet-body::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--fg-rgb) / 0.22);
-}
-
-.glass-sheet-body::-webkit-scrollbar-corner {
-  background: transparent;
 }
 
 .glass-sheet-footer {

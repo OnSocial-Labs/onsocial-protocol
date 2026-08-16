@@ -73,9 +73,12 @@ export function AppAccountSheet({
   >({});
   const pendingCustomizeRef = useRef(false);
   const autoResumeAttemptedRef = useRef<string | null>(null);
+  const editorOpenRef = useRef(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const sheetOpen = open && !closing;
+  editorOpenRef.current = editorOpen;
+
+  const sheetOpen = open && !closing && !editorOpen;
 
   // Re-attempt session restore when the drawer opens (same as page-load bootstrap).
   useEffect(() => {
@@ -101,7 +104,13 @@ export function AppAccountSheet({
   useEffect(() => {
     if (!accountId) autoResumeAttemptedRef.current = null;
   }, [accountId]);
-  const editorSheetOpen = editorOpen && open;
+  /*
+   * Edit profile is an OS page (portaled into the phone card). The wallet is a
+   * GlassSheet on document.body — keeping both open stacks the drawer on top
+   * of the page. Hide the drawer while editing; keep editorOpen independent so
+   * dismissing the wallet does not unmount the page.
+   */
+  const editorSheetOpen = editorOpen;
   const storageSheetOpen = storageOpen && open;
   const swapSheetOpen = swapOpen && open;
   const platformStorage = usePlatformStorageSummary(
@@ -131,9 +140,12 @@ export function AppAccountSheet({
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
-    setEditorOpen(false);
     setStorageOpen(false);
     setSwapOpen(false);
+    setMuteBlockOpen(false);
+    if (editorOpenRef.current) {
+      return;
+    }
     onClose();
 
     if (pendingCustomizeRef.current) {
@@ -315,7 +327,6 @@ export function AppAccountSheet({
         open={editorSheetOpen}
         sessionKey={editorSession}
         accountId={accountId}
-        pageAccountId={pageAccountId}
         onBack={handleEditorBack}
         onClose={handleEditorClose}
         onSaved={handleProfileSaved}

@@ -286,6 +286,51 @@
 }
 
 /*
+ * Cover editors — float back disc + verb pill on the banner. No full-width
+ * frost slab (that reads as a reserved header).
+ */
+.os-slide-over[data-immersive-header='true'] .os-app-screen-header {
+  overflow: visible;
+  pointer-events: none;
+}
+
+.os-slide-over[data-immersive-header='true'] .os-app-screen-header::before {
+  content: none;
+}
+
+.os-slide-over[data-immersive-header='true'] .os-app-screen-heading {
+  flex: 0 1 auto;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.os-slide-over[data-immersive-header='true']
+  .os-app-screen-header:not(.is-elevated)
+  .os-app-screen-title {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 1.85rem;
+  padding: 0 0.72rem;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.42);
+  color: rgb(255 255 255 / 0.96);
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.22));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.os-slide-over[data-immersive-header='true']
+  .os-app-screen-header
+  .glass-sheet-icon-action {
+  pointer-events: auto;
+}
+
+/*
  * Scarce card lightbox — unlayered so it beats glass-sheet.css
  * (.glass-sheet-icon-action uses --fg). Icon only — no fill, border, or ring.
  */
@@ -2092,15 +2137,17 @@ a.os-surface-row {
 
   html {
     scrollbar-gutter: stable;
-    scrollbar-width: thin;
-    scrollbar-color: rgb(var(--fg-rgb) / 0.12) transparent;
     font-size: 100%;
   }
 
-  /* Webkit (Chrome, Safari, Edge) custom scrollbar */
+  /*
+   * One overlay scrollbar — same language as OS screens (feed / edit profile).
+   * Touch: no rail. Desktop pointer: 3px thumb on hover. Do not set
+   * scrollbar-width in Chromium or it paints a second, thicker OS rail.
+   */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 0;
+    height: 0;
   }
 
   ::-webkit-scrollbar-track {
@@ -2108,21 +2155,47 @@ a.os-surface-row {
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgb(var(--fg-rgb) / 0.1);
+    background: transparent;
     border-radius: 9999px;
-    transition: background 0.2s ease;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--fg-rgb) / 0.2);
-  }
-
-  ::-webkit-scrollbar-thumb:active {
-    background: rgb(var(--fg-rgb) / 0.28);
   }
 
   ::-webkit-scrollbar-corner {
     background: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    ::-webkit-scrollbar {
+      width: 3px;
+      height: 3px;
+    }
+
+    :hover::-webkit-scrollbar-thumb,
+    :focus-within::-webkit-scrollbar-thumb {
+      background: rgb(var(--fg-rgb) / 0.16);
+    }
+
+    :hover::-webkit-scrollbar-thumb:hover,
+    :focus-within::-webkit-scrollbar-thumb:hover {
+      background: rgb(var(--fg-rgb) / 0.28);
+    }
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-width: none;
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+      }
+
+      :hover,
+      :focus-within {
+        scrollbar-color: rgb(var(--fg-rgb) / 0.18) transparent;
+      }
+    }
   }
 
   html,
@@ -7543,8 +7616,8 @@ a.os-surface-row {
   /*
    * Elevate frost — glass-sheet style: translucent fill on a frost layer so
    * copy stays sharp and feed/banner show through (not a solid slab).
-   * The layer is always mounted and fades 220ms, in step with the room rail
-   * frost below, so header + rail read as one continuous chrome.
+   * The layer is always mounted; opacity snaps with scroll so a flick does
+   * not outrun the blur (a 220ms fade left a clear bar over content).
    */
   .os-app-screen[data-immersive-header='true']
     .os-app-screen-header.is-elevated {
@@ -7566,7 +7639,6 @@ a.os-surface-row {
     background: rgb(var(--bg-rgb) / 0.72);
     backdrop-filter: blur(20px) saturate(1.3);
     opacity: 0;
-    transition: opacity 220ms ease;
   }
 
   /*
@@ -7650,6 +7722,15 @@ a.os-surface-row {
     opacity: var(--title-handoff, 0);
     pointer-events: none;
     will-change: opacity;
+  }
+
+  /* Cover editors keep the verb in chrome — no hero-name handoff. */
+  .os-slide-over[data-immersive-header='true'] .os-app-screen-heading {
+    opacity: 1;
+    flex: 0 1 auto;
+    overflow: visible;
+    pointer-events: auto;
+    will-change: auto;
   }
 
   .os-app-screen[data-immersive-header='true']
@@ -7790,55 +7871,19 @@ a.os-surface-row {
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    /* Touch / mobile: no rail. Desktop pointer: see hover overlay below. */
-    scrollbar-width: none;
     /* Short clearance only — feed scrolls under the floating dock pill. */
     padding-bottom: calc(3.25rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .os-app-screen-body::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+  /* Overlay lock — hide the background rail without toggling overflow (shift). */
+  [data-scroll-locked='true'] {
+    scrollbar-width: none;
   }
 
-  /*
-   * Desktop pointer only — thin thumb appears on hover/focus, not a permanent
-   * rail through the immersive banner.
-   */
-  @media (hover: hover) and (pointer: fine) {
-    .os-app-screen-body {
-      scrollbar-width: thin;
-      scrollbar-color: transparent transparent;
-    }
-
-    .os-app-screen-body:hover,
-    .os-app-screen-body:focus-within {
-      scrollbar-color: rgb(var(--fg-rgb) / 0.18) transparent;
-    }
-
-    .os-app-screen-body::-webkit-scrollbar {
-      width: 3px;
-      height: 3px;
-    }
-
-    .os-app-screen-body::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .os-app-screen-body::-webkit-scrollbar-thumb {
-      background: transparent;
-      border-radius: 9999px;
-    }
-
-    .os-app-screen-body:hover::-webkit-scrollbar-thumb,
-    .os-app-screen-body:focus-within::-webkit-scrollbar-thumb {
-      background: rgb(var(--fg-rgb) / 0.16);
-    }
-
-    .os-app-screen-body:hover::-webkit-scrollbar-thumb:hover,
-    .os-app-screen-body:focus-within::-webkit-scrollbar-thumb:hover {
-      background: rgb(var(--fg-rgb) / 0.28);
-    }
+  .os-app-screen-body[data-scroll-locked='true']::-webkit-scrollbar,
+  [data-scroll-locked='true']::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 
   /*
@@ -12952,20 +12997,20 @@ a.os-surface-row {
     );
   }
 
-  /* No banner — mood bloom matches live Minimal (on-page edit only). */
-  .account-editor-panel--page-mood
+  /* No banner — mood bloom matches live Minimal. */
+  .profile-edit-slide[data-mood]
     .account-editor-cover-stage:not(.has-media)
     .account-editor-banner-button {
     background: transparent;
   }
 
-  .account-editor-panel--page-mood
+  .profile-edit-slide[data-mood]
     .account-editor-cover-stage:not(.has-media)
     .account-editor-banner-wrap::after {
     content: none;
   }
 
-  .account-editor-panel--page-mood
+  .profile-edit-slide[data-mood]
     .account-editor-cover-stage:not(.has-media)
     .account-editor-banner-empty {
     background:
@@ -12985,13 +13030,13 @@ a.os-surface-row {
       );
   }
 
-  .account-editor-panel--page-mood.account-editor-panel--glass
+  .profile-edit-slide[data-mood='glass']
     .account-editor-cover-stage:not(.has-media)
     .account-editor-banner-empty {
     background: var(--glass-card-glint, transparent);
   }
 
-  .account-editor-panel--page-mood.account-editor-panel--carbon
+  .profile-edit-slide[data-mood='carbon']
     .account-editor-cover-stage:not(.has-media)
     .account-editor-banner-empty {
     background: transparent;
@@ -13128,7 +13173,7 @@ a.os-surface-row {
   }
 
   /* Minimal — no avatar halo (matches live portfolio mood-only face). */
-  .account-editor-panel--page-mood
+  .profile-edit-slide[data-mood]
     .account-editor-cover-stage:not(.has-media)
     .account-editor-avatar {
     border: none;
@@ -13169,7 +13214,7 @@ a.os-surface-row {
     outline: none;
   }
 
-  .account-editor-panel--page-mood .account-editor-name {
+  .profile-edit-slide[data-mood] .account-editor-name {
     font-family: var(
       --mood-font-display,
       var(--font-space-grotesk),
@@ -13181,8 +13226,7 @@ a.os-surface-row {
     color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
   }
 
-  .account-editor-panel--page-mood.account-editor-panel--signature
-    .account-editor-name {
+  .profile-edit-slide[data-mood='signature'] .account-editor-name {
     font-size: clamp(1.62rem, 6.4vw, 2.2rem);
     letter-spacing: 0.01em;
   }
@@ -13708,7 +13752,7 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .account-editor-panel--page-mood .account-editor-handle {
+  .profile-edit-slide[data-mood] .account-editor-handle {
     font-size: 0.82rem;
     color: color-mix(
       in srgb,
@@ -13717,17 +13761,17 @@ a.os-surface-row {
     );
   }
 
-  .account-editor-panel--page-mood .account-editor-bio {
+  .profile-edit-slide[data-mood] .account-editor-bio {
     margin-top: 0.35rem;
     line-height: 1.5;
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.55));
   }
 
-  .account-editor-panel--page-mood .account-editor-bio.is-rich-overlay {
+  .profile-edit-slide[data-mood] .account-editor-bio.is-rich-overlay {
     color: transparent;
   }
 
-  .account-editor-panel--page-mood .account-editor-bio-backdrop {
+  .profile-edit-slide[data-mood] .account-editor-bio-backdrop {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.55));
   }
 
@@ -22145,6 +22189,13 @@ a.os-surface-row {
     border-radius: inherit;
   }
 
+  /* Host card is covered — it must not keep a second (page) rail. */
+  .app-surface:has(> .os-slide-over),
+  .portfolio-frame:has(> .os-slide-over),
+  .frame:has(> .os-slide-over) {
+    overflow: hidden;
+  }
+
   .os-slide-over.is-open {
     transform: translate3d(0, 0, 0);
   }
@@ -22282,6 +22333,19 @@ a.os-surface-row {
     padding: 0.15rem 0 1.25rem;
   }
 
+  /*
+   * One scroller: `.os-app-screen-body`. Nested editor mains still overflow-y
+   * auto from the GlassSheet recipe and would show the global 6px rail beside
+   * the 3px overlay.
+   */
+  .os-slide-over .account-editor-form,
+  .os-slide-over .account-editor-form-main,
+  .os-slide-over .os-slide-over-content {
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+  }
+
   .os-slide-over-footer-inner {
     width: 100%;
     max-width: 36rem;
@@ -22343,9 +22407,13 @@ a.os-surface-row {
   }
 
   /*
-   * Profile edit workspace — full-bleed banner under slide-over header;
-   * links stay inline; screen footer owns save / discard (guild family).
+   * Profile edit — identity page, not a nested card: live-face banner scale,
+   * square cover, links continue the face, footer owns save.
    */
+  .profile-edit-slide[data-screen-footer='true'] {
+    --os-screen-footer-band: 4.25rem;
+  }
+
   .profile-edit-slide .os-slide-over-content.profile-edit-slide-body {
     padding: 0;
   }
@@ -22354,6 +22422,27 @@ a.os-surface-row {
     max-width: none;
     width: 100%;
     padding: 0;
+  }
+
+  .profile-edit-slide .account-editor-hero {
+    --account-editor-avatar-size: 5.5rem;
+    --account-editor-hero-height: min(34svh, 17rem);
+    --account-editor-card-identity-lift: 0.75rem;
+  }
+
+  @media (max-height: 42rem) {
+    .profile-edit-slide .account-editor-hero {
+      --account-editor-hero-height: min(30svh, 14rem);
+      --account-editor-card-identity-lift: 0.65rem;
+    }
+  }
+
+  .profile-edit-slide .account-editor-identity {
+    gap: 0.75rem;
+  }
+
+  .profile-edit-slide .account-editor-form-body {
+    padding-top: 0.72rem;
   }
 
   .profile-edit-slide .account-editor-form-main.profile-edit-form-main {
@@ -22366,9 +22455,17 @@ a.os-surface-row {
     transform: none;
   }
 
-  .profile-edit-slide .profile-edit-hero.is-dimmed {
+  .profile-edit-slide
+    .account-editor-form.is-discard-confirm
+    .account-editor-form-main {
     opacity: 0.45;
-    pointer-events: none;
+  }
+
+  .profile-edit-slide
+    .account-editor-form.is-discard-confirm
+    .account-editor-form-main::after {
+    content: none;
+    animation: none;
   }
 
   .profile-edit-sheet-footer {
@@ -27712,9 +27809,13 @@ a.os-surface-row {
     overflow-y: hidden;
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    scrollbar-width: none;
     padding-bottom: 0.15rem;
     touch-action: pan-x;
+  }
+
+  .guild-composer-media-preview::-webkit-scrollbar {
+    display: none;
   }
 
   .guild-composer-media-preview > [role='listitem'] {
@@ -28702,10 +28803,11 @@ a.os-surface-row {
   /*
    * Chrome glass — ONE viewport-anchored pane for nav + rail. A zero-height
    * sticky band at the top of the scroller owns the frost, so the sheet is
-   * always in its final position: header and rail zones frost together in a
-   * single fade, and the chips dock into glass that is already there (no
-   * travel, no header-later stagger). Hiding the chips only retracts the
-   * pane's bottom edge, so the nav zone never loses its frost.
+   * always in its final position: header and rail zones frost together.
+   * Opacity snaps with scroll so a flick does not outrun the blur. Chips dock
+   * into glass that is already there (no travel, no header-later stagger).
+   * Hiding the chips only retracts the pane's bottom edge, so the nav zone
+   * never loses its frost.
    * Standard property only (Lightning CSS drops it if a -webkit- pair follows).
    */
   .os-chrome-glass {
@@ -28737,9 +28839,8 @@ a.os-surface-row {
     background: rgb(var(--bg-rgb) / 0.72);
     backdrop-filter: blur(20px) saturate(1.3);
     opacity: 0;
-    transition:
-      opacity 220ms ease,
-      height 220ms ease;
+    /* Height still eases — that's rail retract, not elevate. */
+    transition: height 220ms ease;
   }
 
   .os-chrome-glass.is-frosted::before {

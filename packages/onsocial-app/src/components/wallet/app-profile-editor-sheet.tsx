@@ -16,7 +16,6 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  Divider,
   DiscardConfirmFooter,
   discardConfirmFooterA11y,
   OsSheetAction,
@@ -29,22 +28,16 @@ import { ProfileEditorLoadError } from '@/components/wallet/profile-editor-load-
 import { ProfileEditorLoadingSkeleton } from '@/components/wallet/profile-editor-loading-skeleton';
 import { ProfileBioRichTextarea } from '@/components/wallet/profile-bio-rich-textarea';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
-import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import {
   useAppProfileEditor,
   type ProfileEditorSaveResult,
   type ProfileEditorSnapshot,
 } from '@/hooks/use-app-profile-editor';
 import { isProfileEditorDirty } from '@/lib/profile-editor-dirty';
-import {
-  displayName,
-  fallbackLabel,
-  initials,
-  portfolioHandleHint,
-} from '@/lib/profile-display';
+import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
-import { usePageMoodId } from '@/hooks/use-page-mood-id';
 import {
   profileLinkEditorFieldErrors,
   profileLinksInputFromRecord,
@@ -58,6 +51,10 @@ import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 const MOBILE_MAX_WIDTH_PX = 767;
 /** Above account GlassSheet; matches Door log / series edit. */
 const PROFILE_EDIT_Z = 90;
+const PROFILE_NAME_MAX = 50;
+const PROFILE_BIO_MAX = 180;
+const PROFILE_NAME_LIMIT_WARN = 40;
+const PROFILE_BIO_LIMIT_WARN = 150;
 
 const PROFILE_BANNER_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm';
@@ -102,7 +99,6 @@ interface AppProfileEditorSheetProps {
   open: boolean;
   sessionKey: number;
   accountId: string;
-  pageAccountId?: string;
   onBack: () => void;
   onClose: () => void;
   onSaved: (result: ProfileEditorSaveResult) => void;
@@ -113,7 +109,6 @@ export function AppProfileEditorSheet({
   open,
   sessionKey,
   accountId,
-  pageAccountId,
   onBack,
   onClose,
   onSaved,
@@ -138,8 +133,7 @@ export function AppProfileEditorSheet({
     connect,
     linksFromSnapshot,
   } = useAppProfileEditor(accountId, open);
-  const { moodId: portfolioMoodId, style: portfolioMoodStyle } =
-    usePortfolioMoodVars(pageAccountId, accountId, open);
+  const { moodId: viewerMoodId, style: viewerMoodStyle } = useViewerDockMood();
 
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
@@ -280,10 +274,10 @@ export function AppProfileEditorSheet({
     snapshot?.links && Object.keys(snapshot.links).length > 0
   );
   const hasLinkInput = Object.values(links).some((value) => value.trim());
-  const submitLabel = snapshot?.hasProfile ? 'Save' : 'Create';
+  const nameNearLimit = name.length >= PROFILE_NAME_LIMIT_WARN;
+  const bioNearLimit = bio.trim().length >= PROFILE_BIO_LIMIT_WARN;
+  const submitLabel = snapshot?.hasProfile === false ? 'Create' : 'Save';
   const handleLabel = fallbackLabel(accountId);
-  const pageMoodId = usePageMoodId(pageAccountId, accountId, open);
-  const handleHint = portfolioHandleHint(accountId, pageMoodId);
   const avatarInitial = initials(
     displayName(accountId, name.trim() || undefined)
   );
@@ -382,63 +376,62 @@ export function AppProfileEditorSheet({
     if (bannerInputRef.current) bannerInputRef.current.value = '';
   };
 
-  const footer =
-    snapshot && seedKey === readyKey ? (
-      <div
-        className={`profile-edit-sheet-footer${
-          discardConfirmOpen ? ' is-discard-confirm' : ''
-        }`}
-        {...discardConfirmFooterA11y(
-          discardConfirmOpen,
-          discardTitleId,
-          discardBodyId
-        )}
-      >
-        {discardConfirmOpen ? (
-          <DiscardConfirmFooter
-            className="account-editor-discard-card"
-            titleId={discardTitleId}
-            bodyId={discardBodyId}
-            onDiscard={discard}
-            onKeepEditing={keepEditing}
-            keepEditingRef={keepEditingRef}
-          />
-        ) : !hasSocialSession ? (
-          <div className="os-commit-actions account-editor-session-actions">
-            <button
-              type="button"
-              className="os-commit-cancel"
-              disabled={isBootstrappingSession}
-              onClick={() => void connect()}
-            >
-              {isBootstrappingSession ? 'Resuming…' : 'Resume'}
-            </button>
-            <OsSheetActions
-              layout="row-compact"
-              tone="frosted-primary"
-              borderless
-            >
-              <OsSheetAction type="submit" form={formId} disabled>
-                {submitLabel}
-              </OsSheetAction>
-            </OsSheetActions>
-          </div>
-        ) : (
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetAction
-              type="submit"
-              form={formId}
-              ready={canSubmit}
-              pending={saving}
-              pendingLabel="Saving…"
-              disabled={!canSubmit}
-            >
+  const formReady = Boolean(snapshot && seedKey === readyKey);
+
+  const footer = (
+    <div
+      className={`profile-edit-sheet-footer${
+        discardConfirmOpen ? ' is-discard-confirm' : ''
+      }`}
+      {...(formReady
+        ? discardConfirmFooterA11y(
+            discardConfirmOpen,
+            discardTitleId,
+            discardBodyId
+          )
+        : {})}
+    >
+      {discardConfirmOpen ? (
+        <DiscardConfirmFooter
+          className="account-editor-discard-card"
+          titleId={discardTitleId}
+          bodyId={discardBodyId}
+          onDiscard={discard}
+          onKeepEditing={keepEditing}
+          keepEditingRef={keepEditingRef}
+        />
+      ) : formReady && !hasSocialSession ? (
+        <div className="os-commit-actions account-editor-session-actions">
+          <button
+            type="button"
+            className="os-commit-cancel"
+            disabled={isBootstrappingSession}
+            onClick={() => void connect()}
+          >
+            {isBootstrappingSession ? 'Resuming…' : 'Resume'}
+          </button>
+          <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+            <OsSheetAction type="submit" form={formId} disabled>
               {submitLabel}
             </OsSheetAction>
           </OsSheetActions>
-        )}
-      </div>
-    ) : undefined;
+        </div>
+      ) : (
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type={formReady ? 'submit' : 'button'}
+            form={formReady ? formId : undefined}
+            ready={formReady && canSubmit}
+            pending={formReady && saving}
+            pendingLabel="Saving…"
+            disabled={!formReady || !canSubmit}
+          >
+            {submitLabel}
+          </OsSheetAction>
+        </OsSheetActions>
+      )}
+    </div>
+  );
 
   return (
     <OsSlideOverScreen
@@ -450,13 +443,14 @@ export function AppProfileEditorSheet({
       closeAriaLabel="Back"
       closeDisabled={saving}
       zIndex={PROFILE_EDIT_Z}
-      moodId={portfolioMoodId}
-      moodStyle={portfolioMoodStyle}
+      moodId={viewerMoodId ?? undefined}
+      moodStyle={viewerMoodStyle}
       className="profile-edit-slide"
       contentClassName="profile-edit-slide-body"
+      immersiveHeader
       footer={footer}
     >
-      {snapshot && seedKey === readyKey ? (
+      {formReady ? (
         <form
           id={formId}
           className={`account-editor-form profile-edit-form${
@@ -469,12 +463,7 @@ export function AppProfileEditorSheet({
               discardConfirmOpen ? ' is-discard-confirm' : ''
             }`}
           >
-            <section
-              className={`account-editor-hero profile-edit-hero${
-                discardConfirmOpen ? ' is-dimmed' : ''
-              }`}
-              aria-label="Profile"
-            >
+            <section className="account-editor-hero profile-edit-hero" aria-label="Profile">
               <div
                 className={`account-editor-cover-stage${
                   displayBannerMedia ? ' has-media' : ''
@@ -533,12 +522,14 @@ export function AppProfileEditorSheet({
                         displayBannerMedia ? handleRemoveBanner : undefined
                       }
                     />
-                    <p
-                      className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
-                      aria-hidden
-                    >
-                      1500&times;300 · photo or video
-                    </p>
+                    {displayBannerMedia ? null : (
+                      <p
+                        className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+                        aria-hidden
+                      >
+                        1500&times;300 · photo or video
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -582,7 +573,7 @@ export function AppProfileEditorSheet({
                         <ProfileEditorMediaToolbar
                           layout="avatar"
                           removeLabel={
-                            displayAvatarUrl ? 'Remove avatar' : undefined
+                            displayAvatarUrl ? 'Remove photo' : undefined
                           }
                           onRemove={
                             displayAvatarUrl ? handleRemoveAvatar : undefined
@@ -600,7 +591,7 @@ export function AppProfileEditorSheet({
                         id="profile-editor-name"
                         className="account-editor-name"
                         value={name}
-                        maxLength={50}
+                        maxLength={PROFILE_NAME_MAX}
                         autoComplete="name"
                         placeholder={handleLabel}
                         aria-required="true"
@@ -615,11 +606,6 @@ export function AppProfileEditorSheet({
                       <p className="profile-handle account-editor-handle">
                         @{handleLabel}
                       </p>
-                      {handleHint ? (
-                        <p className="account-editor-handle-hint">
-                          {handleHint}
-                        </p>
-                      ) : null}
                       <label htmlFor="profile-editor-bio" className="sr-only">
                         Bio
                       </label>
@@ -627,8 +613,8 @@ export function AppProfileEditorSheet({
                         textareaRef={bioRef}
                         id="profile-editor-bio"
                         value={bio}
-                        maxLength={180}
-                        placeholder="Bio — #topics, $tickers, @accounts, links…"
+                        maxLength={PROFILE_BIO_MAX}
+                        placeholder="Bio"
                         onFocus={scrollFieldIntoView}
                         onChange={setBio}
                         onBlur={() => {
@@ -636,13 +622,31 @@ export function AppProfileEditorSheet({
                           if (trimmed !== bio) setBio(trimmed);
                         }}
                       />
-                      <p className="account-editor-limits" aria-live="polite">
-                        <span>{name.length}/50</span>
-                        <span className="account-editor-limits-sep" aria-hidden>
-                          ·
-                        </span>
-                        <span>{bio.trim().length}/180</span>
-                      </p>
+                      {nameNearLimit || bioNearLimit ? (
+                        <p
+                          className="account-editor-limits is-near-limit"
+                          aria-live="polite"
+                        >
+                          {nameNearLimit ? (
+                            <span>
+                              {name.length}/{PROFILE_NAME_MAX}
+                            </span>
+                          ) : null}
+                          {nameNearLimit && bioNearLimit ? (
+                            <span
+                              className="account-editor-limits-sep"
+                              aria-hidden
+                            >
+                              ·
+                            </span>
+                          ) : null}
+                          {bioNearLimit ? (
+                            <span>
+                              {bio.trim().length}/{PROFILE_BIO_MAX}
+                            </span>
+                          ) : null}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -650,11 +654,6 @@ export function AppProfileEditorSheet({
             </section>
 
             <div className="account-editor-form-body">
-              <Divider
-                variant="section"
-                className="account-editor-section-divider"
-              />
-
               <ProfileLinksEditor
                 links={links}
                 fieldErrors={linkFieldErrors}
@@ -662,14 +661,6 @@ export function AppProfileEditorSheet({
                 onClearFieldError={clearLinkFieldError}
                 onSetFieldError={setLinkFieldError}
               />
-
-              {!hasSocialSession ? (
-                <p className="account-editor-session-hint">
-                  {isBootstrappingSession
-                    ? 'Approve in your wallet…'
-                    : 'Resume session to save.'}
-                </p>
-              ) : null}
             </div>
           </div>
 
