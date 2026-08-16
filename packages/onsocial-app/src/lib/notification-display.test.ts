@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatNotificationTime,
+  notificationDescription,
   notificationHref,
   notificationVerb,
   parseNotificationPostPath,
@@ -17,9 +19,15 @@ describe('notification display', () => {
   it('maps verbs', () => {
     expect(notificationVerb('standing_new')).toBe('stood with you');
     expect(notificationVerb('dm')).toBe('sent a private message');
+    expect(notificationVerb('boost_locked')).toBe('boost locked');
+    expect(
+      notificationVerb('reaction', {
+        reactionValue: JSON.stringify({ type: 'like' }),
+      })
+    ).toBe('liked your post');
   });
 
-  it('deep-links social and dm notifications', () => {
+  it('deep-links social, guild, and dm notifications', () => {
     expect(
       notificationHref({
         type: 'reply',
@@ -27,6 +35,17 @@ describe('notification display', () => {
         context: { parentPath: 'alice.testnet/post/9', postId: '10' },
       })
     ).toBe('/@alice.testnet/posts/9');
+
+    expect(
+      notificationHref({
+        type: 'mention',
+        actor: 'bob.testnet',
+        context: {
+          path: 'bob.testnet/post/3',
+          groupId: 'guild.near',
+        },
+      })
+    ).toBe('/groups/guild.near/posts/bob.testnet/3');
 
     expect(
       notificationHref({
@@ -51,5 +70,17 @@ describe('notification display', () => {
         context: { groupId: 'guild.near' },
       })
     ).toBe('/groups/guild.near/proposals');
+  });
+
+  it('builds relative description lines', () => {
+    const createdAt = new Date(Date.now() - 5 * 60_000).toISOString();
+    expect(
+      notificationDescription({
+        type: 'standing_new',
+        context: {},
+        createdAt,
+      })
+    ).toBe('stood with you · 5m ago');
+    expect(formatNotificationTime(createdAt).label).toBe('5m ago');
   });
 });

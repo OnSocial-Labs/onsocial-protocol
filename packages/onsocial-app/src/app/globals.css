@@ -32796,14 +32796,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   padding: 1.25rem 1rem 4rem;
 }
 
-.notifications-panel-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.85rem;
-}
-
 .notifications-panel-heading h1 {
   margin: 0;
   font-size: 1.6rem;
@@ -32814,6 +32806,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   margin: 0.25rem 0 0;
   color: rgb(var(--fg-rgb) / 0.62);
   font-size: 0.9rem;
+}
+
+.notifications-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .notifications-panel-empty,

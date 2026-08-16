@@ -149,7 +149,7 @@ export class NotificationsModule {
         recipient,
         ids: opts.ids,
         all: opts.all,
-        excludeType: opts.excludeType,
+        ...(opts.excludeType ? { excludeType: opts.excludeType } : {}),
       }
     );
     return res.updated;

@@ -25,8 +25,8 @@ import {
 import {
   ACTIVITY_EXCLUDE_TYPE,
   formatNotificationTime,
+  notificationDescription,
   notificationHref,
-  notificationVerb,
 } from '@/lib/notification-display';
 import { displayName } from '@/lib/profile-display';
 
@@ -116,7 +116,7 @@ export function NotificationsPanel() {
     void loadInitial();
   }, [accountId, hasSocialSession, isConnected, loadInitial]);
 
-  // Soft refresh when host unread rises while viewing Activity (toast is suppressed).
+  // Soft refresh when host unread rises while viewing Activity (toast suppressed).
   useEffect(() => {
     const previous = previousUnreadRef.current;
     previousUnreadRef.current = activityUnread;
@@ -130,20 +130,6 @@ export function NotificationsPanel() {
       void loadInitial();
     }
   }, [accountId, activityUnread, hasSocialSession, isConnected, loadInitial]);
-
-  useEffect(() => {
-    if (!isConnected || !accountId || !hasSocialSession) return;
-    const onFocus = () => {
-      if (document.visibilityState === 'hidden') return;
-      void loadInitial();
-    };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onFocus);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onFocus);
-    };
-  }, [accountId, hasSocialSession, isConnected, loadInitial]);
 
   const loadMore = useCallback(async () => {
     if (!accountId || !nextCursor || loadingMore) return;
@@ -194,23 +180,25 @@ export function NotificationsPanel() {
   }, [accountId, markingAll, withAuth]);
 
   const openItem = useCallback(
-    async (item: Notification) => {
+    (item: Notification) => {
       const href = notificationHref(item);
       if (!item.read && accountId) {
-        try {
-          const { client, accountId: id } = await withAuth();
-          await client.notifications.markRead(id, { ids: [item.id] });
-          setItems((prev) =>
-            prev
-              ? prev.map((row) =>
-                  row.id === item.id ? { ...row, read: true } : row
-                )
-              : prev
-          );
-          requestNotificationsUnreadRefresh();
-        } catch {
-          // Still navigate — read state can catch up on next poll.
-        }
+        setItems((prev) =>
+          prev
+            ? prev.map((row) =>
+                row.id === item.id ? { ...row, read: true } : row
+              )
+            : prev
+        );
+        void (async () => {
+          try {
+            const { client, accountId: id } = await withAuth();
+            await client.notifications.markRead(id, { ids: [item.id] });
+            requestNotificationsUnreadRefresh();
+          } catch {
+            // Read state catches up on next poll; navigation already happened.
+          }
+        })();
       }
       router.push(href);
     },
@@ -221,8 +209,10 @@ export function NotificationsPanel() {
     return (
       <div className="notifications-panel">
         <header className="notifications-panel-header">
-          <h1>Activity</h1>
-          <p>Stands, mentions, sales, and more</p>
+          <div className="notifications-panel-heading">
+            <h1>Activity</h1>
+            <p>Stands, mentions, sales, and more</p>
+          </div>
         </header>
         <p className="notifications-panel-empty">
           Connect your wallet to see activity.
@@ -240,8 +230,10 @@ export function NotificationsPanel() {
     return (
       <div className="notifications-panel">
         <header className="notifications-panel-header">
-          <h1>Activity</h1>
-          <p>Stands, mentions, sales, and more</p>
+          <div className="notifications-panel-heading">
+            <h1>Activity</h1>
+            <p>Stands, mentions, sales, and more</p>
+          </div>
         </header>
         <p className="notifications-panel-empty">
           Connect your session to load activity.
@@ -259,11 +251,11 @@ export function NotificationsPanel() {
           <h1>Activity</h1>
           <p>Stands, mentions, sales, and more</p>
         </div>
-        {items && items.length > 0 ? (
+        {unreadCount > 0 ? (
           <OsSheetAction
             type="button"
             variant="ghost"
-            ready={unreadCount > 0 && !markingAll}
+            ready={!markingAll}
             pending={markingAll}
             pendingLabel="Marking…"
             onClick={() => void markAllRead()}
@@ -292,13 +284,17 @@ export function NotificationsPanel() {
               const name = actor
                 ? displayName(actor, profile?.displayName)
                 : 'OnSocial';
-              const verb = notificationVerb(item.type);
               const when = formatNotificationTime(item.createdAt);
+              const unread = !item.read;
               return (
                 <OsSurfaceRow
                   key={item.id}
                   label={name}
-                  description={`${verb}${when ? ` · ${when}` : ''}`}
+                  description={
+                    <span title={when.title || undefined}>
+                      {notificationDescription(item)}
+                    </span>
+                  }
                   leading={
                     <ProfileAvatar
                       src={profile?.avatarUrl ?? undefined}
@@ -306,9 +302,9 @@ export function NotificationsPanel() {
                       size="sm"
                     />
                   }
-                  badge={!item.read ? 'New' : undefined}
-                  trailing="navigate"
-                  onClick={() => void openItem(item)}
+                  badge={unread ? 'New' : undefined}
+                  trailing={unread ? undefined : 'navigate'}
+                  onClick={() => openItem(item)}
                 />
               );
             })}
