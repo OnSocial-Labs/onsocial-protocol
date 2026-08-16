@@ -1,4 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../src/services/blocks/index.js', () => ({
+  checkBlockEitherWay: vi.fn(async () => ({ ok: true, blocked: false })),
+  hasBlockEitherWay: vi.fn(async () => false),
+}));
+
+vi.mock('../../src/services/mutes/index.js', () => ({
+  hasMute: vi.fn(async () => false),
+}));
+
 import {
   __resetDmStoreForTests,
   buildDmThreadId,
@@ -7,10 +17,20 @@ import {
   markDmThreadRead,
   sendDmMessage,
 } from '../../src/services/dm/index.js';
+import { checkBlockEitherWay } from '../../src/services/blocks/index.js';
+import { hasMute } from '../../src/services/mutes/index.js';
 
 describe('dm mailbox service', () => {
-  it('stores ciphertext and lists threads for both peers', async () => {
+  beforeEach(() => {
     __resetDmStoreForTests();
+    vi.mocked(checkBlockEitherWay).mockResolvedValue({
+      ok: true,
+      blocked: false,
+    });
+    vi.mocked(hasMute).mockResolvedValue(false);
+  });
+
+  it('stores ciphertext and lists threads for both peers', async () => {
     const sent = await sendDmMessage({
       senderAccountId: 'alice.testnet',
       recipientAccountId: 'bob.testnet',
@@ -48,7 +68,6 @@ describe('dm mailbox service', () => {
   });
 
   it('rejects self messages', async () => {
-    __resetDmStoreForTests();
     const result = await sendDmMessage({
       senderAccountId: 'alice.testnet',
       recipientAccountId: 'alice.testnet',
@@ -59,8 +78,36 @@ describe('dm mailbox service', () => {
     expect(result).toMatchObject({ code: 'SELF_MESSAGE' });
   });
 
+  it('fails closed when block check is unavailable', async () => {
+    vi.mocked(checkBlockEitherWay).mockResolvedValueOnce({
+      ok: false,
+      unavailable: true,
+    });
+    const result = await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'cipher',
+      nonce: 'nonce',
+      senderPubkey: 'pk',
+    });
+    expect(result).toMatchObject({ code: 'UNAVAILABLE' });
+  });
+
+  it('rejects when either peer has muted the other', async () => {
+    vi.mocked(hasMute).mockImplementation(async (owner, target) => {
+      return owner === 'bob.testnet' && target === 'alice.testnet';
+    });
+    const result = await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'cipher',
+      nonce: 'nonce',
+      senderPubkey: 'pk',
+    });
+    expect(result).toMatchObject({ code: 'MUTED' });
+  });
+
   it('counts unread threads for the recipient', async () => {
-    __resetDmStoreForTests();
     const { countUnreadDmThreads } = await import(
       '../../src/services/dm/index.js'
     );
@@ -78,7 +125,6 @@ describe('dm mailbox service', () => {
   });
 
   it('persists per-message ephemeral pubkey and auth tag', async () => {
-    __resetDmStoreForTests();
     const sent = await sendDmMessage({
       senderAccountId: 'alice.testnet',
       recipientAccountId: 'bob.testnet',
@@ -103,7 +149,6 @@ describe('dm mailbox service', () => {
   });
 
   it('rejects authTag without ephemeral pubkey', async () => {
-    __resetDmStoreForTests();
     const result = await sendDmMessage({
       senderAccountId: 'alice.testnet',
       recipientAccountId: 'bob.testnet',
@@ -116,7 +161,6 @@ describe('dm mailbox service', () => {
   });
 
   it('rejects oversized media', async () => {
-    __resetDmStoreForTests();
     const result = await sendDmMessage({
       senderAccountId: 'alice.testnet',
       recipientAccountId: 'bob.testnet',
@@ -135,7 +179,6 @@ describe('dm mailbox service', () => {
   });
 
   it('keeps unread after recipient replies without reading', async () => {
-    __resetDmStoreForTests();
     await sendDmMessage({
       senderAccountId: 'alice.testnet',
       recipientAccountId: 'bob.testnet',
@@ -158,7 +201,6 @@ describe('dm mailbox service', () => {
   });
 
   it('returns the newest page of messages when limited', async () => {
-    __resetDmStoreForTests();
     let threadId = '';
     for (let i = 0; i < 5; i += 1) {
       const sent = await sendDmMessage({
@@ -186,7 +228,6 @@ describe('dm mailbox service', () => {
   });
 
   it('derives read watermark only from message id', async () => {
-    __resetDmStoreForTests();
     const first = await sendDmMessage({
       senderAccountId: 'alice.testnet',
       recipientAccountId: 'bob.testnet',
