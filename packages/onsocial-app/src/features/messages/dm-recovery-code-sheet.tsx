@@ -2,24 +2,59 @@
 
 import { useState } from 'react';
 import { OsHugSheet, OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import {
+  canOfferDmPasskey,
+  enrollDmPasskeyUnlock,
+} from '@/lib/dm/keys';
 
 interface DmRecoveryCodeSheetProps {
   open: boolean;
   code: string;
+  accountId?: string | null;
   onClose: () => void;
+  onPasskeyEnrolled?: () => void;
 }
 
 /**
  * One-time recovery code for messaging keys.
  * Shown only when keys are first created on this device.
+ * Optionally enrolls passkey unlock on supporting browsers.
  */
 export function DmRecoveryCodeSheet({
   open,
   code,
+  accountId,
   onClose,
+  onPasskeyEnrolled,
 }: DmRecoveryCodeSheetProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [passkeyPending, setPasskeyPending] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+  const [passkeyDone, setPasskeyDone] = useState(false);
   const copied = open && copiedCode === code;
+  const showPasskey = Boolean(accountId && canOfferDmPasskey() && !passkeyDone);
+
+  const handleEnrollPasskey = async () => {
+    if (!accountId) return;
+    setPasskeyError(null);
+    setPasskeyPending(true);
+    try {
+      const result = await enrollDmPasskeyUnlock(accountId);
+      if (!result.ok) {
+        if (result.reason === 'cancelled') return;
+        if (result.reason === 'unsupported') {
+          setPasskeyError('Passkey unlock isn’t available on this device.');
+          return;
+        }
+        setPasskeyError('Couldn’t enable passkey unlock. You can try later.');
+        return;
+      }
+      setPasskeyDone(true);
+      onPasskeyEnrolled?.();
+    } finally {
+      setPasskeyPending(false);
+    }
+  };
 
   return (
     <OsHugSheet
@@ -45,6 +80,17 @@ export function DmRecoveryCodeSheet({
           >
             Copy code
           </OsSheetAction>
+          {showPasskey ? (
+            <OsSheetAction
+              type="button"
+              ready={!passkeyPending}
+              pending={passkeyPending}
+              pendingLabel="Enabling…"
+              onClick={() => void handleEnrollPasskey()}
+            >
+              Unlock with this device
+            </OsSheetAction>
+          ) : null}
           <OsSheetAction type="button" variant="ghost" onClick={onClose}>
             I saved it
           </OsSheetAction>
@@ -59,6 +105,17 @@ export function DmRecoveryCodeSheet({
         <p className="dm-recovery-code" aria-label="Recovery code">
           {code}
         </p>
+        {passkeyDone ? (
+          <p className="dm-recovery-lead">
+            Passkey unlock is on for this device. Use your recovery code on new
+            devices.
+          </p>
+        ) : null}
+        {passkeyError ? (
+          <p className="dm-compose-error" role="alert">
+            {passkeyError}
+          </p>
+        ) : null}
       </div>
     </OsHugSheet>
   );

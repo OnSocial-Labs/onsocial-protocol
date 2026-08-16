@@ -318,6 +318,7 @@ export function DmComposeSheet({
       <DmRecoveryCodeSheet
         open={Boolean(recoveryCode)}
         code={recoveryCode ?? ''}
+        accountId={accountId}
         onClose={() => {
           const threadId = pendingThreadId;
           setRecoveryCode(null);

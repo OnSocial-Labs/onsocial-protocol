@@ -24,9 +24,13 @@ import { messagesPath } from '@/lib/app-routes';
 import { decryptDmMessage } from '@/lib/dm/send';
 import {
   DmKeysLockedError,
+  canOfferDmPasskey,
+  enrollDmPasskeyUnlock,
   ensureDmKeys,
+  hasDmPasskeyEnrolled,
   hasUnlockedDmKey,
   restoreDmKeysFromRecoveryCode,
+  unlockDmKeysWithPasskey,
 } from '@/lib/dm/keys';
 import { fetchDmKeyBackup, publishDmKeyBackup } from '@/lib/dm/pubkey';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
@@ -50,6 +54,8 @@ export function MessagesPanel() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [unlockPending, setUnlockPending] = useState(false);
+  const [passkeyPending, setPasskeyPending] = useState(false);
+  const [enrollPending, setEnrollPending] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
   const [keysTick, setKeysTick] = useState(0);
 
@@ -57,6 +63,10 @@ export function MessagesPanel() {
   const isUnlocked = Boolean(
     accountId && keysTick >= 0 && hasUnlockedDmKey(accountId)
   );
+  const passkeyEnrolled = Boolean(
+    accountId && keysTick >= 0 && hasDmPasskeyEnrolled(accountId)
+  );
+  const canPasskey = canOfferDmPasskey();
 
   const peerFromThread = useMemo(() => {
     if (!activeThreadId || !accountId) return peerParam;
@@ -205,6 +215,45 @@ export function MessagesPanel() {
     }
   };
 
+  const handlePasskeyUnlock = async () => {
+    if (!accountId) return;
+    setPasskeyPending(true);
+    setError(null);
+    try {
+      await unlockDmKeysWithPasskey(accountId);
+      setKeysTick((n) => n + 1);
+      if (activeThreadId) await openThread(activeThreadId);
+      else await refreshThreads();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Could not unlock with passkey.'
+      );
+    } finally {
+      setPasskeyPending(false);
+    }
+  };
+
+  const handleEnrollPasskey = async () => {
+    if (!accountId || !isUnlocked) return;
+    setEnrollPending(true);
+    setError(null);
+    try {
+      const result = await enrollDmPasskeyUnlock(accountId);
+      if (!result.ok) {
+        if (result.reason === 'cancelled') return;
+        setError(
+          result.reason === 'unsupported'
+            ? 'Passkey unlock isn’t available on this device.'
+            : 'Couldn’t enable passkey unlock.'
+        );
+        return;
+      }
+      setKeysTick((n) => n + 1);
+    } finally {
+      setEnrollPending(false);
+    }
+  };
+
   if (!isConnected || !accountId) {
     return (
       <div className="messages-panel">
@@ -234,9 +283,27 @@ export function MessagesPanel() {
       {!isUnlocked ? (
         <section className="messages-unlock" aria-label="Unlock messages">
           <p>
-            Enter your recovery code to unlock private messages on this device.
+            {passkeyEnrolled
+              ? 'Unlock private messages on this device.'
+              : 'Enter your recovery code to unlock private messages on this device.'}
           </p>
-          <OsField label="Recovery code" htmlFor="dm-unlock-code">
+          {passkeyEnrolled ? (
+            <OsSheetActions layout="stack">
+              <OsSheetAction
+                type="button"
+                ready={!passkeyPending}
+                pending={passkeyPending}
+                pendingLabel="Unlocking…"
+                onClick={() => void handlePasskeyUnlock()}
+              >
+                Unlock with this device
+              </OsSheetAction>
+            </OsSheetActions>
+          ) : null}
+          <OsField
+            label={passkeyEnrolled ? 'Or recovery code' : 'Recovery code'}
+            htmlFor="dm-unlock-code"
+          >
             <input
               id="dm-unlock-code"
               className={osFieldBorderedClassName}
@@ -244,7 +311,7 @@ export function MessagesPanel() {
               onChange={(e) => setRecoveryInput(e.target.value)}
               placeholder="XXXX-XXXX-XXXX-XXXX"
               autoComplete="off"
-              disabled={unlockPending}
+              disabled={unlockPending || passkeyPending}
             />
           </OsField>
           <OsSheetActions>
@@ -255,7 +322,22 @@ export function MessagesPanel() {
               pendingLabel="Unlocking…"
               onClick={() => void handleRestore()}
             >
-              Unlock
+              Unlock with code
+            </OsSheetAction>
+          </OsSheetActions>
+        </section>
+      ) : isUnlocked && canPasskey && !passkeyEnrolled ? (
+        <section className="messages-unlock" aria-label="Enable passkey unlock">
+          <p>Optional: unlock next time with this device instead of your code.</p>
+          <OsSheetActions>
+            <OsSheetAction
+              type="button"
+              ready={!enrollPending}
+              pending={enrollPending}
+              pendingLabel="Enabling…"
+              onClick={() => void handleEnrollPasskey()}
+            >
+              Enable device unlock
             </OsSheetAction>
           </OsSheetActions>
         </section>
@@ -393,7 +475,9 @@ export function MessagesPanel() {
       <DmRecoveryCodeSheet
         open={Boolean(recoveryCode)}
         code={recoveryCode ?? ''}
+        accountId={accountId}
         onClose={() => setRecoveryCode(null)}
+        onPasskeyEnrolled={() => setKeysTick((n) => n + 1)}
       />
     </div>
   );

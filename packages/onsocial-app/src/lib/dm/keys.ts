@@ -10,17 +10,31 @@ import {
   wrapDmSecretKey,
   type DmKeyPair,
 } from '@/lib/dm/crypto';
+import {
+  enrollDmPasskey,
+  isDmPasskeySupported,
+  unlockDmPasskey,
+} from '@/lib/dm/passkey';
 import type { DmKeyBackup } from '@/lib/dm/pubkey';
 
 const STORE_PREFIX = 'onsocial.app.dm.';
 
+/** In-tab unlocked secrets — preferred when passkey enroll clears disk secret. */
+const memorySecrets = new Map<string, string>();
+
 export type StoredDmIdentity = {
   accountId: string;
   publicKey: string;
-  /** Local unwrapped secret — only on this device after unlock. */
+  /** Local unwrapped secret — legacy / until passkey enroll. */
   secretKey?: string;
-  /** Recovery-wrapped secret for restore. */
+  /** Recovery-wrapped secret for restore (also published to social). */
   wrapped?: { ciphertext: string; nonce: string };
+  /** Device passkey-wrapped secret (local only). */
+  passkeyWrapped?: {
+    ciphertext: string;
+    nonce: string;
+    credentialId: string;
+  };
   createdAt: string;
   recoveryCodeShownAt?: string;
 };
@@ -57,6 +71,19 @@ function writeStore(identity: StoredDmIdentity): void {
   );
 }
 
+function setMemorySecret(accountId: string, secretKeyEncoded: string): void {
+  memorySecrets.set(accountId.trim().toLowerCase(), secretKeyEncoded);
+}
+
+function clearMemorySecret(accountId: string): void {
+  memorySecrets.delete(accountId.trim().toLowerCase());
+}
+
+/** Test helper — clear in-tab secrets between unit tests. */
+export function __resetDmKeyMemoryForTests(): void {
+  memorySecrets.clear();
+}
+
 export function getStoredDmIdentity(
   accountId: string
 ): StoredDmIdentity | null {
@@ -64,17 +91,32 @@ export function getStoredDmIdentity(
 }
 
 export function hasUnlockedDmKey(accountId: string): boolean {
-  const stored = readStore(accountId);
+  const id = accountId.trim().toLowerCase();
+  if (memorySecrets.has(id)) return true;
+  const stored = readStore(id);
   return Boolean(stored?.secretKey && stored.publicKey);
 }
 
-export function loadDmKeyPair(accountId: string): DmKeyPair | null {
+export function hasDmPasskeyEnrolled(accountId: string): boolean {
   const stored = readStore(accountId);
-  if (!stored?.secretKey || !stored.publicKey) return null;
+  return Boolean(stored?.passkeyWrapped?.credentialId);
+}
+
+export function canOfferDmPasskey(): boolean {
+  return isDmPasskeySupported();
+}
+
+export function loadDmKeyPair(accountId: string): DmKeyPair | null {
+  const id = accountId.trim().toLowerCase();
+  const stored = readStore(id);
+  if (!stored?.publicKey) return null;
+  const fromMemory = memorySecrets.get(id);
+  const secretEncoded = fromMemory ?? stored.secretKey;
+  if (!secretEncoded) return null;
   try {
     return {
       publicKey: decodeDmPublicKey(stored.publicKey),
-      secretKey: decodeDmSecretKey(stored.secretKey),
+      secretKey: decodeDmSecretKey(secretEncoded),
     };
   } catch {
     return null;
@@ -101,11 +143,14 @@ export function seedDmKeyBackupFromRemote(
 ): void {
   const id = accountId.trim().toLowerCase();
   if (loadDmKeyPair(id)) return;
+  const existing = readStore(id);
   writeStore({
     accountId: id,
     publicKey: remote.publicKey,
     wrapped: remote.wrapped,
-    createdAt: new Date().toISOString(),
+    passkeyWrapped: existing?.passkeyWrapped,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    recoveryCodeShownAt: existing?.recoveryCodeShownAt,
   });
 }
 
@@ -146,7 +191,7 @@ export async function ensureDmKeys(
   }
 
   const stored = readStore(id);
-  if (stored?.wrapped && !stored.secretKey) {
+  if (stored?.wrapped && !stored.secretKey && !memorySecrets.has(id)) {
     throw new DmKeysLockedError();
   }
   if (remote?.wrapped) {
@@ -161,10 +206,12 @@ export async function ensureDmKeys(
     wrapKey,
   });
   const publicKeyEncoded = encodeDmPublicKey(keyPair.publicKey);
+  const secretEncoded = encodeDmSecretKey(keyPair.secretKey);
+  setMemorySecret(id, secretEncoded);
   writeStore({
     accountId: id,
     publicKey: publicKeyEncoded,
-    secretKey: encodeDmSecretKey(keyPair.secretKey),
+    secretKey: secretEncoded,
     wrapped,
     createdAt: new Date().toISOString(),
     recoveryCodeShownAt: new Date().toISOString(),
@@ -207,20 +254,105 @@ export async function restoreDmKeysFromRecoveryCode(opts: {
     wrapKey,
   });
   const publicKey = decodeDmPublicKey(backup.publicKey);
+  const secretEncoded = encodeDmSecretKey(secretKey);
+  setMemorySecret(id, secretEncoded);
   writeStore({
     accountId: id,
     publicKey: encodeDmPublicKey(publicKey),
-    secretKey: encodeDmSecretKey(secretKey),
+    // Keep disk secret only until passkey enroll strips it.
+    secretKey: stored?.passkeyWrapped ? undefined : secretEncoded,
     wrapped: backup.wrapped,
+    passkeyWrapped: stored?.passkeyWrapped,
     createdAt: stored?.createdAt ?? new Date().toISOString(),
     recoveryCodeShownAt: stored?.recoveryCodeShownAt,
   });
   return { publicKey, secretKey };
 }
 
-/** Lock local secret (keep wrapped backup). */
+/**
+ * Enroll platform passkey and wrap the messaging secret for biometric unlock.
+ * Removes plaintext secret from disk; keeps it in memory for this tab.
+ */
+export async function enrollDmPasskeyUnlock(
+  accountId: string
+): Promise<
+  | { ok: true }
+  | { ok: false; reason: 'unsupported' | 'cancelled' | 'failed' | 'locked' }
+> {
+  const id = accountId.trim().toLowerCase();
+  const keyPair = loadDmKeyPair(id);
+  const stored = readStore(id);
+  if (!keyPair || !stored?.publicKey) {
+    return { ok: false, reason: 'locked' };
+  }
+
+  const enrolled = await enrollDmPasskey({ accountId: id });
+  if (!enrolled.ok) {
+    return { ok: false, reason: enrolled.reason };
+  }
+
+  const wrapped = await wrapDmSecretKey({
+    secretKey: keyPair.secretKey,
+    wrapKey: enrolled.wrapKey,
+  });
+  const secretEncoded = encodeDmSecretKey(keyPair.secretKey);
+  setMemorySecret(id, secretEncoded);
+  writeStore({
+    ...stored,
+    accountId: id,
+    publicKey: encodeDmPublicKey(keyPair.publicKey),
+    secretKey: undefined,
+    passkeyWrapped: {
+      ciphertext: wrapped.ciphertext,
+      nonce: wrapped.nonce,
+      credentialId: enrolled.credentialId,
+    },
+  });
+  return { ok: true };
+}
+
+/** Unlock with enrolled passkey / biometric. */
+export async function unlockDmKeysWithPasskey(
+  accountId: string
+): Promise<DmKeyPair> {
+  const id = accountId.trim().toLowerCase();
+  const stored = readStore(id);
+  const passkey = stored?.passkeyWrapped;
+  if (!passkey?.credentialId || !stored?.publicKey) {
+    throw new Error('Passkey unlock is not set up on this device.');
+  }
+
+  const result = await unlockDmPasskey({
+    accountId: id,
+    credentialId: passkey.credentialId,
+  });
+  if (!result.ok) {
+    if (result.reason === 'cancelled') {
+      throw new Error('Passkey unlock cancelled.');
+    }
+    if (result.reason === 'unsupported') {
+      throw new Error(
+        'This device cannot unlock with a passkey. Use your recovery code.'
+      );
+    }
+    throw new Error('Passkey unlock failed. Try your recovery code.');
+  }
+
+  const secretKey = await unwrapDmSecretKey({
+    ciphertext: passkey.ciphertext,
+    nonce: passkey.nonce,
+    wrapKey: result.wrapKey,
+  });
+  const publicKey = decodeDmPublicKey(stored.publicKey);
+  setMemorySecret(id, encodeDmSecretKey(secretKey));
+  return { publicKey, secretKey };
+}
+
+/** Lock local secret (keep recovery + passkey wraps). */
 export function lockDmKeys(accountId: string): void {
-  const stored = readStore(accountId);
+  const id = accountId.trim().toLowerCase();
+  clearMemorySecret(id);
+  const stored = readStore(id);
   if (!stored) return;
   writeStore({
     ...stored,

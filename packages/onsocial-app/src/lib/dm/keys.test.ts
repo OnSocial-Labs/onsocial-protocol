@@ -8,6 +8,7 @@ import {
 } from '@/lib/dm/crypto';
 import {
   DmKeysLockedError,
+  __resetDmKeyMemoryForTests,
   ensureDmKeys,
   hasUnlockedDmKey,
   restoreDmKeysFromRecoveryCode,
@@ -50,6 +51,7 @@ function installMemoryLocalStorage() {
 describe('dm keys bootstrap', () => {
   beforeEach(() => {
     installMemoryLocalStorage();
+    __resetDmKeyMemoryForTests();
   });
 
   it('creates keys when no remote backup exists', async () => {
