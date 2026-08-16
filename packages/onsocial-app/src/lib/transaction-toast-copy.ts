@@ -193,6 +193,7 @@ export const txToastSuccess = {
   collectionCreated: 'Drop is live.',
   collectionMinted: 'Minted from the drop.',
   newPrivateMessage: 'New private message.',
+  newNotification: 'New activity.',
   ticketAdmitted: 'Checked in.',
   couponRedeemed: 'Redeemed.',
   doorStaffAdded: 'Door staff added.',

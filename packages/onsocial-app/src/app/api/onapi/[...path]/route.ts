@@ -203,6 +203,32 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     body: 'json',
     forwardAuthorization: true,
   },
+
+  // First-party notifications inbox (viewer JWT — default app namespace).
+  {
+    method: 'GET',
+    path: 'developer/notifications',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/notifications/count',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/notifications/types',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/notifications/read',
+    body: 'json',
+    forwardAuthorization: true,
+  },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;

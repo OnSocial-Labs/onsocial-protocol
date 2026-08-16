@@ -17,6 +17,7 @@ import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context'
 import { DropComposeHost } from '@/features/scarces/drop-compose-host';
 import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-host';
 import { DmUnreadHost } from '@/components/providers/dm-unread-host';
+import { NotificationsHost } from '@/components/providers/notifications-host';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -32,10 +33,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                       <OsPortalHostProvider>
                         <CollectiblesNowPlayingProvider>
                           <DmUnreadHost>
-                            {children}
-                            <ViewerMuteBlockHost />
-                            <DropComposeHost />
-                            <AppAccountSheetHost />
+                            <NotificationsHost>
+                              {children}
+                              <ViewerMuteBlockHost />
+                              <DropComposeHost />
+                              <AppAccountSheetHost />
+                            </NotificationsHost>
                           </DmUnreadHost>
                         </CollectiblesNowPlayingProvider>
                       </OsPortalHostProvider>

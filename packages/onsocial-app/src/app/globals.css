@@ -32787,3 +32787,62 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: #fff;
   background: var(--signal-endorse, rgb(37 99 235));
 }
+
+/* ── Activity / notifications ─────────────────────────────────────────────── */
+
+.notifications-panel {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+}
+
+.notifications-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.notifications-panel-heading h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.notifications-panel-heading p {
+  margin: 0.25rem 0 0;
+  color: rgb(var(--fg-rgb) / 0.62);
+  font-size: 0.9rem;
+}
+
+.notifications-panel-empty,
+.notifications-panel-error,
+.notifications-panel-footnote {
+  color: rgb(var(--fg-rgb) / 0.7);
+  font-size: 0.9rem;
+}
+
+.notifications-panel-error {
+  color: var(--signal-error, rgb(185 28 28));
+}
+
+.notifications-panel-footnote {
+  margin-top: 1.25rem;
+}
+
+.notifications-panel-footnote a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.notifications-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.notifications-panel .os-surface-row-list {
+  gap: 0.15rem;
+}

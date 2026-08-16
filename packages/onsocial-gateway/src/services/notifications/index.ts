@@ -63,7 +63,8 @@ interface NotificationStore {
     ownerAccountId: string,
     appId: string,
     recipient: string,
-    eventType?: string
+    eventType?: string,
+    excludeType?: string
   ): Promise<number>;
   markRead(params: {
     ownerAccountId: string;
@@ -134,7 +135,8 @@ class MemoryNotificationStore implements NotificationStore {
     ownerAccountId: string,
     appId: string,
     recipient: string,
-    eventType?: string
+    eventType?: string,
+    excludeType?: string
   ): Promise<number> {
     return this.notifications.filter(
       (item) =>
@@ -142,6 +144,7 @@ class MemoryNotificationStore implements NotificationStore {
         item.appId === appId &&
         item.recipient === recipient &&
         (!eventType || item.context.eventType === eventType) &&
+        (!excludeType || item.type !== excludeType) &&
         !item.read
     ).length;
   }
@@ -321,9 +324,11 @@ class HasuraNotificationStore implements NotificationStore {
     ownerAccountId: string,
     appId: string,
     recipient: string,
-    eventType?: string
+    eventType?: string,
+    excludeType?: string
   ): Promise<number> {
     const eventTypeFilter = normalizeEventType(eventType);
+    const exclude = excludeType?.trim() || undefined;
     const whereFields = [
       'ownerAccountId: { _eq: $owner }',
       'appId: { _eq: $app }',
@@ -334,6 +339,9 @@ class HasuraNotificationStore implements NotificationStore {
     if (eventTypeFilter) {
       whereFields.push('context: { _contains: $eventContext }');
     }
+    if (exclude) {
+      whereFields.push('notificationType: { _neq: $excludeType }');
+    }
 
     const countVarDecls = [
       '$owner: String!',
@@ -341,6 +349,7 @@ class HasuraNotificationStore implements NotificationStore {
       '$recipient: String!',
     ];
     if (eventTypeFilter) countVarDecls.push('$eventContext: jsonb');
+    if (exclude) countVarDecls.push('$excludeType: String!');
 
     const result = await this.gql<{
       notificationsAggregate: { aggregate: { count: number } };
@@ -361,6 +370,7 @@ class HasuraNotificationStore implements NotificationStore {
         ...(eventTypeFilter
           ? { eventContext: { eventType: eventTypeFilter } }
           : {}),
+        ...(exclude ? { excludeType: exclude } : {}),
       }
     );
 
@@ -515,12 +525,15 @@ export async function getUnreadNotificationCount(params: {
   appId?: string;
   recipient: string;
   eventType?: string;
+  /** Omit a kind from the unread total (e.g. `dm` when mailbox has its own badge). */
+  excludeType?: string;
 }): Promise<number> {
   return store.countUnread(
     params.ownerAccountId,
     normalizeAppId(params.appId),
     params.recipient,
-    normalizeEventType(params.eventType)
+    normalizeEventType(params.eventType),
+    params.excludeType?.trim() || undefined
   );
 }
 

@@ -14,6 +14,8 @@ import {
   APP_GROUPS_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
+  APP_MESSAGES_PATH,
+  APP_NOTIFICATIONS_PATH,
   APP_PROTOCOL_PATH,
   daoPath,
 } from '@/lib/app-routes';
@@ -44,6 +46,18 @@ export function resolveActiveOsAppId(
 
   if (path === APP_HOME_PATH || path.startsWith(`${APP_HOME_PATH}/`)) {
     return 'home';
+  }
+  if (
+    path === APP_NOTIFICATIONS_PATH ||
+    path.startsWith(`${APP_NOTIFICATIONS_PATH}/`)
+  ) {
+    return 'activity';
+  }
+  if (
+    path === APP_MESSAGES_PATH ||
+    path.startsWith(`${APP_MESSAGES_PATH}/`)
+  ) {
+    return 'messages';
   }
   if (path === APP_DISCOVER_PATH || path.startsWith(`${APP_DISCOVER_PATH}/`)) {
     return 'discover';
@@ -174,6 +188,18 @@ const COLLECTIBLES_APP: OsAppLink = {
 export function gateOsApps(): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
+    {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
     { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
     { id: 'page', label: 'OnPage', kind: 'open-page' },
     { id: 'feed', label: 'Feed', kind: 'app', href: APP_HOME_PATH },
@@ -212,6 +238,18 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
     {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
+    {
       id: 'discover',
       label: 'Discover',
       kind: 'overlay',
@@ -247,6 +285,18 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
     {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
+    {
       id: 'discover',
       label: 'Discover',
       kind: 'overlay',
@@ -280,6 +330,18 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
 export function appShellOsApps(accountId: string | null): OsAppLink[] {
   const apps: OsAppLink[] = [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
+    {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
     { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
     {
       id: 'market',
