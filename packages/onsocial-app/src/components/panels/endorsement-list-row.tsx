@@ -69,7 +69,6 @@ export function EndorsementListRow({
 
   useEffect(() => {
     if (!spendTargetId || !isEndorsementSpendTargetId(spendTargetId)) {
-      setSupporterCount(0);
       return;
     }
     let cancelled = false;
@@ -124,7 +123,6 @@ export function EndorsementListRow({
                     preload="metadata"
                   />
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element -- endorsement CDN
                   <img
                     src={mediaUrl}
                     alt=""

@@ -596,7 +596,6 @@ export function EndorseComposeSheet({
                   preload="metadata"
                 />
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element -- endorsement CDN / blob preview
                 <img
                   src={previewMediaUrl}
                   alt=""
