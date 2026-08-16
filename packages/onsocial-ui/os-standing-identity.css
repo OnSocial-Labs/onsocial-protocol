@@ -68,9 +68,7 @@
 }
 
 .standing-row:hover .standing-row-avatar-slot,
-.standing-row:focus-within .standing-row-avatar-slot,
-.endorsement-row:hover .standing-row-avatar-slot,
-.endorsement-row:focus-within .standing-row-avatar-slot {
+.standing-row:focus-within .standing-row-avatar-slot {
   box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
 }
 

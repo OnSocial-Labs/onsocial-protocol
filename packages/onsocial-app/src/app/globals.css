@@ -29564,8 +29564,9 @@ a.os-surface-row {
   .endorsements-panel {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
-    padding: 0.15rem var(--os-screen-body-pad-x, 1rem) 1.35rem;
+    /* Same denser rhythm as `.standing-panel` — social list overlays share inset. */
+    gap: 0.65rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
   .endorsements-panel-toolbar {
@@ -29635,57 +29636,8 @@ a.os-surface-row {
     flex-direction: column;
   }
 
-  .endorsement-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.55rem;
-    margin: 0 -0.35rem;
-    padding: 0.7rem 0.35rem;
-    border-radius: 0.85rem;
-    transition: background 160ms ease;
-  }
-
-  .endorsement-row:hover,
-  .endorsement-row:focus-within {
-    background: rgb(var(--fg-rgb) / 0.03);
-  }
-
-  .endorsement-row--skeleton {
-    pointer-events: none;
-  }
-
-  .endorsement-row-main {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    align-items: flex-start;
-    gap: 0.75rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .endorsement-row-copy {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.22rem;
-  }
-
-  .endorsement-row-title {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.35rem 0.5rem;
-  }
-
-  .endorsement-row-name {
-    font-size: 0.88rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .endorsement-row-topic {
+  /* Endorsement vouch rows reuse StandingIdentity / .standing-row shell. */
+  .endorsement-standing-row .endorsement-row-topic {
     font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.02em;
@@ -29696,15 +29648,76 @@ a.os-surface-row {
     );
   }
 
-  .endorsement-row-note {
+  .endorsement-standing-row .endorsement-row-note {
+    display: block;
+    margin-top: 0.15rem;
     font-size: 0.78rem;
     line-height: 1.45;
     color: rgb(var(--fg-rgb) / 0.68);
   }
 
-  .endorsement-row-meta {
+  .endorsement-standing-row .endorsement-row-media {
+    display: block;
+    margin-top: 0.4rem;
+    max-width: 100%;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    /* Island above `.standing-row-hit` (Standing bio links pattern). */
+    pointer-events: auto;
+  }
+
+  .endorsement-standing-row .endorsement-row-media-el {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 11rem;
+    height: auto;
+    vertical-align: top;
+  }
+
+  .endorsement-standing-row .endorsement-row-meta {
+    display: block;
+    margin-top: 0.2rem;
     font-size: 0.62rem;
     font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .endorsement-standing-row .standing-row-aside {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+  }
+
+  .endorsement-row-action {
+    flex-shrink: 0;
+    padding: 0.35rem 0.55rem;
+    border: 0;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .endorsement-row-action:hover,
+  .endorsement-row-action:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .endorsements-load-more {
+    height: 1px;
+  }
+
+  .endorsements-loading-more {
+    margin: 0;
+    padding: 0.55rem 0.15rem 0.2rem;
+    font-size: 0.72rem;
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
@@ -29759,7 +29772,13 @@ a.os-surface-row {
   .endorse-compose-form {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    /* Same stack rhythm as `.profile-support-form`. */
+    gap: 0.85rem;
+  }
+
+  .endorse-compose-form.is-discard-confirm {
+    pointer-events: none;
+    opacity: 0.45;
   }
 
   .endorse-compose-field {
@@ -29845,6 +29864,95 @@ a.os-surface-row {
     opacity: 0.55;
   }
 
+  .endorse-compose-media {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .endorse-compose-media-attach {
+    align-self: flex-start;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 0.7rem;
+    background: rgb(var(--fg-rgb) / 0.03);
+    color: rgb(var(--fg-rgb) / 0.78);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .endorse-compose-media-attach:hover:not(:disabled) {
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .endorse-compose-media-attach:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .endorse-compose-media-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .endorse-compose-media-el {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 12rem;
+    height: auto;
+    border-radius: 0.75rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .endorse-compose-media-remove {
+    padding: 0.2rem 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .endorse-compose-media-remove:hover:not(:disabled) {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .endorse-compose-media-hint {
+    margin: 0;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .endorse-compose-add-note {
+    align-self: flex-start;
+    padding: 0.2rem 0;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .endorse-compose-add-note:hover:not(:disabled) {
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .endorse-compose-add-note:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
   .endorse-compose-hint,
   .endorse-compose-error {
     margin: 0;
@@ -29860,11 +29968,10 @@ a.os-surface-row {
     color: var(--signal-error, #ef4444);
   }
 
+
   /* ── Profile support sheet ──────────────────────────────── */
 
-  .profile-support-sheet-body {
-    padding: 0.2rem 1.15rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
-  }
+  /* Body inset: UI `.os-gesture-sheet-body`. Host class kept for footer/keyboard. */
 
   .profile-support-sheet-panel:has(.profile-support-sheet-footer)
     .profile-support-sheet-body {
