@@ -543,7 +543,6 @@ export function DaoCreateSheet({
                   aria-label={bannerPreview ? 'Change cover' : 'Add cover'}
                 >
                   {bannerPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={bannerPreview}
                       alt=""
@@ -569,7 +568,6 @@ export function DaoCreateSheet({
                 aria-label={avatarPreview ? 'Change crest' : 'Add crest'}
               >
                 {avatarPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarPreview}
                     alt=""
