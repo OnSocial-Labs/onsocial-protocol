@@ -19,9 +19,12 @@ import {
 } from '@/lib/dm/passkey';
 import type { DmKeyBackup, DmLookupResult } from '@/lib/dm/pubkey';
 import { lookupDmKeyBackup, publishDmKeyBackup } from '@/lib/dm/pubkey';
+import { recordDmKeysReset } from '@/lib/dm/thread-archive';
 import type { OnSocial } from '@onsocial/sdk';
 
 const STORE_PREFIX = 'onsocial.app.dm.';
+/** Survives {@link clearDmKeysLocal} so a crash after publish can finish locally. */
+const PENDING_ROTATION_PREFIX = 'onsocial.app.dm.pending-rotation.';
 
 /** In-tab unlocked secrets — preferred when passkey enroll clears disk secret. */
 const memorySecrets = new Map<string, string>();
@@ -43,6 +46,8 @@ export type StoredDmIdentity = {
     credentialId: string;
   };
   createdAt: string;
+  /** When this device last completed a messaging-key reset. */
+  keysResetAt?: string;
   /** Set only after the user acknowledges the recovery sheet. */
   recoveryCodeShownAt?: string;
   /**
@@ -55,6 +60,15 @@ export type StoredDmIdentity = {
    * Cleared after a successful restore that adopts the remote identity.
    */
   quarantinedRemote?: DmKeyBackup;
+};
+
+type PendingDmRotation = {
+  accountId: string;
+  publicKey: string;
+  secretKey: string;
+  wrapped: { ciphertext: string; nonce: string };
+  recoveryCode: string;
+  createdAt: string;
 };
 
 export class DmKeysLockedError extends Error {
@@ -77,15 +91,76 @@ export class DmKeysUnavailableError extends Error {
 
 export class DmKeysMismatchError extends Error {
   constructor(
-    message = 'This device’s messaging keys do not match your profile. Unlock with your recovery code before continuing.'
+    message = 'Messaging keys were reset elsewhere. Enter the new recovery code, or reset messaging keys again on this device.'
   ) {
     super(message);
     this.name = 'DmKeysMismatchError';
   }
 }
 
+const KEYS_RESET_ELSEWHERE_MESSAGE =
+  'Messaging keys were reset elsewhere. Enter the new recovery code, or reset messaging keys again on this device.';
+
 function storageKey(accountId: string): string {
   return `${STORE_PREFIX}${accountId.trim().toLowerCase()}`;
+}
+
+function pendingRotationKey(accountId: string): string {
+  return `${PENDING_ROTATION_PREFIX}${accountId.trim().toLowerCase()}`;
+}
+
+function readPendingRotation(accountId: string): PendingDmRotation | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(pendingRotationKey(accountId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingDmRotation>;
+    if (
+      typeof parsed.accountId !== 'string' ||
+      typeof parsed.publicKey !== 'string' ||
+      typeof parsed.secretKey !== 'string' ||
+      typeof parsed.recoveryCode !== 'string' ||
+      typeof parsed.createdAt !== 'string' ||
+      !parsed.wrapped ||
+      typeof parsed.wrapped.ciphertext !== 'string' ||
+      typeof parsed.wrapped.nonce !== 'string'
+    ) {
+      return null;
+    }
+    return {
+      accountId: parsed.accountId,
+      publicKey: parsed.publicKey,
+      secretKey: parsed.secretKey,
+      wrapped: {
+        ciphertext: parsed.wrapped.ciphertext,
+        nonce: parsed.wrapped.nonce,
+      },
+      recoveryCode: parsed.recoveryCode,
+      createdAt: parsed.createdAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writePendingRotation(pending: PendingDmRotation): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(
+    pendingRotationKey(pending.accountId),
+    JSON.stringify(pending)
+  );
+}
+
+function clearPendingRotation(accountId: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(pendingRotationKey(accountId));
+}
+
+/** Test helper — inspect durable pending rotation after a simulated crash. */
+export function __peekPendingDmRotationForTests(
+  accountId: string
+): PendingDmRotation | null {
+  return readPendingRotation(accountId);
 }
 
 function readStore(accountId: string): StoredDmIdentity | null {
@@ -209,6 +284,7 @@ export function seedDmKeyBackupFromRemote(
     wrapped: remote.wrapped,
     passkeyWrapped: sameIdentity ? existing?.passkeyWrapped : undefined,
     createdAt: existing?.createdAt ?? new Date().toISOString(),
+    keysResetAt: sameIdentity ? existing?.keysResetAt : undefined,
     recoveryCodeShownAt: sameIdentity
       ? existing?.recoveryCodeShownAt
       : undefined,
@@ -222,7 +298,8 @@ export function seedDmKeyBackupFromRemote(
 /** Stash a conflicting remote wrap without destroying local recovery material. */
 export function quarantineRemoteDmBackup(
   accountId: string,
-  remote: DmKeyBackup
+  remote: DmKeyBackup,
+  opts?: { clearPasskey?: boolean }
 ): void {
   const id = accountId.trim().toLowerCase();
   const existing = readStore(id);
@@ -231,8 +308,9 @@ export function quarantineRemoteDmBackup(
     publicKey: existing?.publicKey ?? remote.publicKey,
     secretKey: existing?.secretKey,
     wrapped: existing?.wrapped,
-    passkeyWrapped: existing?.passkeyWrapped,
+    passkeyWrapped: opts?.clearPasskey ? undefined : existing?.passkeyWrapped,
     createdAt: existing?.createdAt ?? new Date().toISOString(),
+    keysResetAt: existing?.keysResetAt,
     recoveryCodeShownAt: existing?.recoveryCodeShownAt,
     pendingRecoveryCode: existing?.pendingRecoveryCode,
     quarantinedRemote: remote,
@@ -267,6 +345,8 @@ export type EnsureDmKeysResult = {
   /** Present when keys were just created, or pending acknowledgement remains. */
   recoveryCode: string | null;
   created: boolean;
+  /** True when a durable pending rotation was finished after publish. */
+  fromPendingRotation?: boolean;
   backup: DmKeyBackup | null;
 };
 
@@ -290,6 +370,57 @@ function resolveRemoteOption(
       : { status: 'absent' };
   }
   return undefined;
+}
+
+/**
+ * Finish a reset that published on-chain but crashed before local write.
+ * Pending slot is separate from identity storage so clear+rewrite can resume.
+ */
+function tryCommitPendingRotation(
+  id: string,
+  remote: DmLookupResult<DmKeyBackup> | undefined
+): EnsureDmKeysResult | null {
+  const pending = readPendingRotation(id);
+  if (!pending) return null;
+
+  if (remote?.status === 'unavailable') {
+    // Do not discard — retry when profile is reachable.
+    return null;
+  }
+
+  if (remote?.status === 'found' && remote.value.publicKey === pending.publicKey) {
+    const publicKey = decodeDmPublicKey(pending.publicKey);
+    const secretKey = decodeDmSecretKey(pending.secretKey);
+    assertDerivedPublicKey(publicKey, secretKey);
+    const resetAt = new Date().toISOString();
+    setMemorySecret(id, pending.secretKey);
+    writeStore({
+      accountId: id,
+      publicKey: pending.publicKey,
+      secretKey: pending.secretKey,
+      wrapped: pending.wrapped,
+      createdAt: pending.createdAt,
+      keysResetAt: resetAt,
+      pendingRecoveryCode: pending.recoveryCode,
+    });
+    clearPendingRotation(id);
+    recordDmKeysReset(id, resetAt);
+    return {
+      keyPair: { publicKey, secretKey },
+      publicKeyEncoded: pending.publicKey,
+      recoveryCode: pending.recoveryCode,
+      created: false,
+      fromPendingRotation: true,
+      backup: {
+        publicKey: pending.publicKey,
+        wrapped: pending.wrapped,
+      },
+    };
+  }
+
+  // Publish never landed, or a different identity is on profile — drop stale pending.
+  clearPendingRotation(id);
+  return null;
 }
 
 async function withBootstrapLock<T>(
@@ -342,6 +473,9 @@ async function ensureDmKeysUnlocked(
 ): Promise<EnsureDmKeysResult> {
   const remote = resolveRemoteOption(opts);
 
+  const pendingCommit = tryCommitPendingRotation(id, remote);
+  if (pendingCommit) return pendingCommit;
+
   if (remote?.status === 'unavailable') {
     // If we already have unlocked local keys, keep using them — but never mint.
     const existing = loadDmKeyPair(id);
@@ -363,12 +497,10 @@ async function ensureDmKeysUnlocked(
       const localPk = encodeDmPublicKey(existing.publicKey);
       if (remote.value.publicKey !== localPk) {
         // Local unlocked keys disagree with profile — lock and quarantine.
-        // Do not overwrite local wrap; recovery must adopt remote explicitly.
+        // Passkey wraps the old secret and must not keep unlocking stale identity.
         lockDmKeys(id);
-        quarantineRemoteDmBackup(id, remote.value);
-        throw new DmKeysMismatchError(
-          'This device’s messaging keys do not match your profile. Enter your recovery code to restore the profile keys.'
-        );
+        quarantineRemoteDmBackup(id, remote.value, { clearPasskey: true });
+        throw new DmKeysMismatchError(KEYS_RESET_ELSEWHERE_MESSAGE);
       }
     }
     return {
@@ -487,13 +619,17 @@ export async function restoreDmKeysFromRecoveryCode(opts: {
         preferredRemote &&
         preferredRemote.publicKey !== backup.publicKey
       ) {
-        throw new DmKeysMismatchError(
-          'Your profile messaging keys were reset. Use the new recovery code, or reset messaging keys again.'
-        );
+        throw new DmKeysMismatchError(KEYS_RESET_ELSEWHERE_MESSAGE);
       }
 
       const secretEncoded = encodeDmSecretKey(secretKey);
       const sameIdentity = stored?.publicKey === backup.publicKey;
+      const rotatedIdentity = Boolean(
+        stored?.publicKey && stored.publicKey !== backup.publicKey
+      );
+      const resetAt = rotatedIdentity
+        ? new Date().toISOString()
+        : stored?.keysResetAt;
       setMemorySecret(id, secretEncoded);
       writeStore({
         accountId: id,
@@ -503,6 +639,7 @@ export async function restoreDmKeysFromRecoveryCode(opts: {
         wrapped: backup.wrapped,
         passkeyWrapped: sameIdentity ? stored?.passkeyWrapped : undefined,
         createdAt: stored?.createdAt ?? new Date().toISOString(),
+        keysResetAt: resetAt,
         recoveryCodeShownAt: sameIdentity
           ? stored?.recoveryCodeShownAt
           : undefined,
@@ -511,6 +648,9 @@ export async function restoreDmKeysFromRecoveryCode(opts: {
           : undefined,
         quarantinedRemote: undefined,
       });
+      if (rotatedIdentity && resetAt) {
+        recordDmKeysReset(id, resetAt);
+      }
       return { publicKey: claimedPublicKey, secretKey };
     } catch (error) {
       lastError = error;
@@ -633,8 +773,9 @@ export type ResetDmMessagingKeysResult = {
 /**
  * Rotate messaging identity after total recovery loss.
  *
- * Publish-first: new pubkey+wrap are confirmed on-chain before local storage
- * is replaced, so a failed publish leaves the previous local material intact.
+ * Publish-first with a durable pending-rotation slot: new material is written
+ * locally before publish, confirmed on-chain, then committed as the active
+ * identity. A crash after publish resumes via {@link ensureDmKeys}.
  * Ciphertext sealed to the previous pubkey stays unreadable forever.
  */
 export async function resetDmMessagingKeys(opts: {
@@ -666,22 +807,42 @@ async function resetDmMessagingKeysUnlocked(opts: {
     wrapKey,
   });
   const publicKeyEncoded = encodeDmPublicKey(keyPair.publicKey);
+  const secretEncoded = encodeDmSecretKey(keyPair.secretKey);
   const backup: DmKeyBackup = { publicKey: publicKeyEncoded, wrapped };
+  const createdAt = new Date().toISOString();
 
-  // Intentionally overwrite profile identity (unlike reconcile, which refuses mismatch).
-  await publishDmKeyBackup(opts.client, backup, id);
+  // Durable before publish so a crash after chain confirm can finish locally.
+  writePendingRotation({
+    accountId: id,
+    publicKey: publicKeyEncoded,
+    secretKey: secretEncoded,
+    wrapped,
+    recoveryCode,
+    createdAt,
+  });
+
+  try {
+    // Intentionally overwrite profile identity (unlike reconcile, which refuses mismatch).
+    await publishDmKeyBackup(opts.client, backup, id);
+  } catch (error) {
+    clearPendingRotation(id);
+    throw error;
+  }
 
   clearDmKeysLocal(id);
-  const secretEncoded = encodeDmSecretKey(keyPair.secretKey);
+  const resetAt = new Date().toISOString();
   setMemorySecret(id, secretEncoded);
   writeStore({
     accountId: id,
     publicKey: publicKeyEncoded,
     secretKey: secretEncoded,
     wrapped,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    keysResetAt: resetAt,
     pendingRecoveryCode: recoveryCode,
   });
+  clearPendingRotation(id);
+  recordDmKeysReset(id, resetAt);
 
   return {
     keyPair,

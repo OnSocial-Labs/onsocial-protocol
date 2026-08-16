@@ -32637,6 +32637,37 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.15rem;
 }
 
+.messages-sealed-archive {
+  margin-top: 0.85rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.messages-sealed-archive-toggle {
+  border: 0;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.68);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.15rem 0;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.messages-sealed-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.75rem;
+  background: rgb(var(--fg-rgb) / 0.05);
+  color: rgb(var(--fg-rgb) / 0.72);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
 .portfolio-identity-gesture--message {
   display: inline-flex;
   align-items: center;

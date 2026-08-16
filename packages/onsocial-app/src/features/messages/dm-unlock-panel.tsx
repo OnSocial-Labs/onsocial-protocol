@@ -11,7 +11,9 @@ import {
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
+  DmKeysMismatchError,
   canOfferDmPasskey,
+  ensureDmKeys,
   hasDmPasskeyEnrolled,
   resetDmMessagingKeys,
   restoreDmKeysFromRecoveryCode,
@@ -91,7 +93,28 @@ export function DmUnlockPanel({
     setPasskeyPending(true);
     setError(null);
     try {
+      // Verify profile identity before leaving unlock chrome — stale passkeys
+      // after a reset elsewhere must not look like a successful unlock.
+      const { client } = await getClient();
+      const remote = await lookupDmKeyBackup(client, accountId);
+      if (remote.status === 'unavailable') {
+        setError(
+          'Could not verify messaging keys. Check your connection and try again.'
+        );
+        return;
+      }
       await unlockDmKeysWithPasskey(accountId);
+      if (remote.status === 'found') {
+        try {
+          await ensureDmKeys(accountId, { remote });
+        } catch (cause) {
+          if (cause instanceof DmKeysMismatchError) {
+            setError(cause.message);
+            return;
+          }
+          throw cause;
+        }
+      }
       setResetConfirm(false);
       onUnlocked();
     } catch (cause) {
@@ -152,7 +175,7 @@ export function DmUnlockPanel({
           </p>
           <div id={resetBodyId}>
             <OsActionDrawerConfirm
-              body="Old private messages stay sealed forever. New ones open after you save a new recovery code."
+              body="Old private messages stay sealed forever. Other devices need this new recovery code. New DMs open after you save it."
               confirmLabel="Reset keys"
               cancelLabel="Keep trying"
               variant="danger"

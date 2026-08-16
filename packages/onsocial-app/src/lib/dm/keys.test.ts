@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   encodeDmPublicKey,
+  encodeDmSecretKey,
   generateDmKeyPair,
   generateDmRecoveryCode,
   recoveryCodeToWrapKey,
@@ -23,16 +24,19 @@ import {
   DmKeysLockedError,
   DmKeysMismatchError,
   DmKeysUnavailableError,
+  __peekPendingDmRotationForTests,
   __resetDmKeyMemoryForTests,
   acknowledgeDmRecoveryCode,
   clearDmKeysLocal,
   ensureDmKeys,
   getStoredDmIdentity,
+  hasDmPasskeyEnrolled,
   hasUnlockedDmKey,
   peekPendingDmRecoveryCode,
   resetDmMessagingKeys,
   restoreDmKeysFromRecoveryCode,
 } from '@/lib/dm/keys';
+import { getDmKeysResetAt } from '@/lib/dm/thread-archive';
 import type { OnSocial } from '@onsocial/sdk';
 
 const ACCOUNT = 'alice.testnet';
@@ -157,6 +161,20 @@ describe('dm keys bootstrap', () => {
       publicKey: local.publicKeyEncoded,
       wrapped: local.backup!.wrapped,
     };
+    // Stale passkey for the old identity — must be cleared on remote reset.
+    window.localStorage.setItem(
+      `onsocial.app.dm.${ACCOUNT}`,
+      JSON.stringify({
+        ...JSON.parse(window.localStorage.getItem(`onsocial.app.dm.${ACCOUNT}`)!),
+        passkeyWrapped: {
+          ciphertext: 'x',
+          nonce: 'y',
+          credentialId: 'cred',
+        },
+      })
+    );
+    expect(hasDmPasskeyEnrolled(ACCOUNT)).toBe(true);
+
     const other = generateDmKeyPair();
     const code = generateDmRecoveryCode();
     const wrapKey = await recoveryCodeToWrapKey(code);
@@ -176,6 +194,7 @@ describe('dm keys bootstrap', () => {
       })
     ).rejects.toBeInstanceOf(DmKeysMismatchError);
     expect(hasUnlockedDmKey(ACCOUNT)).toBe(false);
+    expect(hasDmPasskeyEnrolled(ACCOUNT)).toBe(false);
 
     const stored = JSON.parse(
       window.localStorage.getItem(`onsocial.app.dm.${ACCOUNT}`)!
@@ -183,9 +202,11 @@ describe('dm keys bootstrap', () => {
       publicKey: string;
       wrapped: { ciphertext: string; nonce: string };
       quarantinedRemote?: { publicKey: string };
+      passkeyWrapped?: unknown;
     };
     expect(stored.publicKey).toBe(localBackup.publicKey);
     expect(stored.wrapped).toEqual(localBackup.wrapped);
+    expect(stored.passkeyWrapped).toBeUndefined();
     expect(stored.quarantinedRemote?.publicKey).toBe(
       encodeDmPublicKey(other.publicKey)
     );
@@ -200,6 +221,7 @@ describe('dm keys bootstrap', () => {
       preferRemote: true,
     });
     expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(getDmKeysResetAt(ACCOUNT)).toBeTruthy();
     const again = await ensureDmKeys(ACCOUNT, {
       remote: {
         status: 'found',
@@ -269,6 +291,9 @@ describe('dm keys bootstrap', () => {
     expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
     expect(peekPendingDmRecoveryCode(ACCOUNT)).toBe(reset.recoveryCode);
     expect(getStoredDmIdentity(ACCOUNT)?.publicKey).toBe(reset.publicKeyEncoded);
+    expect(getStoredDmIdentity(ACCOUNT)?.keysResetAt).toBeTruthy();
+    expect(getDmKeysResetAt(ACCOUNT)).toBeTruthy();
+    expect(__peekPendingDmRotationForTests(ACCOUNT)).toBeNull();
 
     await expect(
       restoreDmKeysFromRecoveryCode({
@@ -295,6 +320,44 @@ describe('dm keys bootstrap', () => {
 
     expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
     expect(getStoredDmIdentity(ACCOUNT)?.publicKey).toBe(priorPk);
+    expect(__peekPendingDmRotationForTests(ACCOUNT)).toBeNull();
+  });
+
+  it('resumes pending rotation when profile matches after crash', async () => {
+    const keyPair = generateDmKeyPair();
+    const code = generateDmRecoveryCode();
+    const wrapKey = await recoveryCodeToWrapKey(code);
+    const wrapped = await wrapDmSecretKey({
+      secretKey: keyPair.secretKey,
+      wrapKey,
+    });
+    const publicKey = encodeDmPublicKey(keyPair.publicKey);
+    const secretKey = encodeDmSecretKey(keyPair.secretKey);
+    window.localStorage.setItem(
+      `onsocial.app.dm.pending-rotation.${ACCOUNT}`,
+      JSON.stringify({
+        accountId: ACCOUNT,
+        publicKey,
+        secretKey,
+        wrapped,
+        recoveryCode: code,
+        createdAt: new Date().toISOString(),
+      })
+    );
+
+    const result = await ensureDmKeys(ACCOUNT, {
+      remote: {
+        status: 'found',
+        value: { publicKey, wrapped },
+      },
+    });
+
+    expect(result.fromPendingRotation).toBe(true);
+    expect(hasUnlockedDmKey(ACCOUNT)).toBe(true);
+    expect(peekPendingDmRecoveryCode(ACCOUNT)).toBe(code);
+    expect(__peekPendingDmRotationForTests(ACCOUNT)).toBeNull();
+    expect(getDmKeysResetAt(ACCOUNT)).toBeTruthy();
+    expect(getStoredDmIdentity(ACCOUNT)?.keysResetAt).toBeTruthy();
   });
 
   it('refuses reset when profile lookup is unavailable', async () => {
