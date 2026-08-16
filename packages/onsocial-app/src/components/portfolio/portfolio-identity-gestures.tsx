@@ -20,6 +20,7 @@ import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
+import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   BLOCK_ACTION_DESCRIPTION,
@@ -31,7 +32,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-import { messagesPath } from '@/lib/app-routes';
+import { messagesPath, notificationsPath } from '@/lib/app-routes';
 
 interface PortfolioIdentityGesturesProps {
   pageAccountId: string;
@@ -61,6 +62,7 @@ export function PortfolioIdentityGestures({
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
   const dmUnread = useDmUnreadCount();
+  const activityUnread = useNotificationsUnreadCount();
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
@@ -185,6 +187,21 @@ export function PortfolioIdentityGestures({
     return (
       <div className="portfolio-identity-gestures">
         <PortfolioOwnerPayoutMarks accountId={pageAccountId} />
+        <button
+          type="button"
+          className="portfolio-identity-gesture portfolio-identity-gesture--message"
+          onClick={() => router.push(notificationsPath())}
+        >
+          Activity
+          {activityUnread > 0 ? (
+            <span
+              className="messages-nav-badge"
+              aria-label={`${activityUnread} unread`}
+            >
+              {activityUnread > 9 ? '9+' : activityUnread}
+            </span>
+          ) : null}
+        </button>
         <button
           type="button"
           className="portfolio-identity-gesture portfolio-identity-gesture--message"

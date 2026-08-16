@@ -8,6 +8,8 @@ export const APP_PROTOCOL_PATH = '/protocol';
 export const APP_DAOS_PATH = '/daos';
 /** Private messages inbox. */
 export const APP_MESSAGES_PATH = '/messages';
+/** Activity / notifications inbox. */
+export const APP_NOTIFICATIONS_PATH = '/notifications';
 /** Single DAO portfolio page (`/dao/[accountId]`). */
 export const APP_DAO_PATH = '/dao';
 /** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
@@ -217,6 +219,11 @@ export function messagesPath(opts?: {
   return query ? `${APP_MESSAGES_PATH}?${query}` : APP_MESSAGES_PATH;
 }
 
+/** Activity inbox. */
+export function notificationsPath(): string {
+  return APP_NOTIFICATIONS_PATH;
+}
+
 /**
  * DAO portfolio page deep-linked to a proposal feed state.
  * Opens `/dao/[accountId]` and the Proposals overlay (shareable).
@@ -386,6 +393,10 @@ export function isAppRoutePath(pathname: string): boolean {
   return (
     pathname === APP_HOME_PATH ||
     pathname.startsWith(`${APP_HOME_PATH}/`) ||
+    pathname === APP_NOTIFICATIONS_PATH ||
+    pathname.startsWith(`${APP_NOTIFICATIONS_PATH}/`) ||
+    pathname === APP_MESSAGES_PATH ||
+    pathname.startsWith(`${APP_MESSAGES_PATH}/`) ||
     pathname === APP_DISCOVER_PATH ||
     pathname.startsWith(`${APP_DISCOVER_PATH}/`) ||
     pathname === APP_GROUPS_PATH ||

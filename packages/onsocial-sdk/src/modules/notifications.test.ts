@@ -56,6 +56,17 @@ describe('NotificationsModule.list', () => {
     expect(url).toContain('eventType=app_event');
   });
 
+  it('forwards excludeType for activity-style lists', async () => {
+    const { http, spies } = makeHttp({
+      get: {
+        '/developer/notifications': { notifications: [], nextCursor: null },
+      },
+    });
+    const m = new NotificationsModule(http);
+    await m.list({ recipient: 'alice.near', excludeType: 'dm' });
+    expect(spies.get.mock.calls[0]![0]).toContain('excludeType=dm');
+  });
+
   it('uses constructor appId when no override given', async () => {
     const { http, spies } = makeHttp({
       get: {
@@ -106,6 +117,20 @@ describe('NotificationsModule.unreadCount', () => {
     await m.unreadCount('alice.near', { eventType: 'mention' });
     expect(spies.get.mock.calls[0]![0]).toContain('eventType=mention');
   });
+
+  it('forwards excludeType for activity unread badges', async () => {
+    const { http, spies } = makeHttp({
+      get: {
+        '/developer/notifications/count': {
+          recipient: 'alice.near',
+          unread: 2,
+        },
+      },
+    });
+    const m = new NotificationsModule(http);
+    await m.unreadCount('alice.near', { excludeType: 'dm' });
+    expect(spies.get.mock.calls[0]![0]).toContain('excludeType=dm');
+  });
 });
 
 describe('NotificationsModule.markRead', () => {
@@ -132,6 +157,21 @@ describe('NotificationsModule.markRead', () => {
     const updated = await m.markRead('alice.near', { all: true });
     expect(updated).toBe(42);
     expect((spies.post.mock.calls[0]![1] as { all: boolean }).all).toBe(true);
+  });
+
+  it('forwards excludeType on mark-all', async () => {
+    const { http, spies } = makeHttp({
+      post: { '/developer/notifications/read': { updated: 4 } },
+    });
+    const m = new NotificationsModule(http);
+    await m.markRead('alice.near', { all: true, excludeType: 'dm' });
+    expect(spies.post.mock.calls[0]![1]).toEqual({
+      appId: 'default',
+      recipient: 'alice.near',
+      ids: undefined,
+      all: true,
+      excludeType: 'dm',
+    });
   });
 });
 
