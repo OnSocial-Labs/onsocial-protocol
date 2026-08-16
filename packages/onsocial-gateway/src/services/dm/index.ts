@@ -7,7 +7,9 @@ export interface DmMediaRef {
   cid: string;
   mime: string;
   size: number;
-  nonce: string;
+  /** Optional — dual-seal envelope may embed nonces in the CID blob. */
+  nonce?: string;
+  senderNonce?: string;
 }
 
 export interface DmMessageRecord {
@@ -83,10 +85,21 @@ function parseMediaJson(raw: string | null): DmMediaRef[] | null {
       const row = entry as Record<string, unknown>;
       const cid = typeof row.cid === 'string' ? row.cid.trim() : '';
       const mime = typeof row.mime === 'string' ? row.mime.trim() : '';
-      const nonce = typeof row.nonce === 'string' ? row.nonce.trim() : '';
+      const nonce =
+        typeof row.nonce === 'string' ? row.nonce.trim() : undefined;
+      const senderNonce =
+        typeof row.senderNonce === 'string'
+          ? row.senderNonce.trim()
+          : undefined;
       const size = typeof row.size === 'number' ? row.size : Number(row.size);
-      if (!cid || !mime || !nonce || !Number.isFinite(size)) continue;
-      media.push({ cid, mime, size, nonce });
+      if (!cid || !mime || !Number.isFinite(size)) continue;
+      media.push({
+        cid,
+        mime,
+        size,
+        ...(nonce ? { nonce } : {}),
+        ...(senderNonce ? { senderNonce } : {}),
+      });
     }
     return media.length > 0 ? media : null;
   } catch {

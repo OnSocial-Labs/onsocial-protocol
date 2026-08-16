@@ -17,8 +17,9 @@ import {
   hasUnlockedDmKey,
   restoreDmKeysFromRecoveryCode,
 } from '@/lib/dm/keys';
-import { publishDmPublicKey } from '@/lib/dm/pubkey';
+import { fetchDmKeyBackup, publishDmKeyBackup } from '@/lib/dm/pubkey';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
+import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
 
 export function MessagesPanel() {
@@ -37,8 +38,6 @@ export function MessagesPanel() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
-  const composePeer = peerParam || peerFromThread;
-  const showCompose = composeOpen || Boolean(peerParam);
 
   const unlocked = accountId ? hasUnlockedDmKey(accountId) : false;
 
@@ -47,6 +46,9 @@ export function MessagesPanel() {
     const parts = activeThreadId.split('::');
     return parts.find((p) => p !== accountId.toLowerCase()) ?? peerParam;
   }, [activeThreadId, accountId, peerParam]);
+
+  const composePeer = peerParam || peerFromThread;
+  const showCompose = composeOpen || Boolean(peerParam);
 
   const withAuth = useCallback(async () => {
     const { client, session, wallet, accountId: id } = await getClient();
@@ -68,7 +70,14 @@ export function MessagesPanel() {
     if (!accountId || !hasSocialSession) return;
     const { client } = await getClient();
     const keys = await ensureDmKeys(accountId);
-    await publishDmPublicKey(client, keys.publicKeyEncoded);
+    if (keys.created && keys.backup) {
+      await publishDmKeyBackup(client, keys.backup);
+    } else if (keys.backup) {
+      const remote = await fetchDmKeyBackup(client, accountId);
+      if (!remote) {
+        await publishDmKeyBackup(client, keys.backup);
+      }
+    }
     if (keys.recoveryCode) setRecoveryCode(keys.recoveryCode);
   }, [accountId, getClient, hasSocialSession]);
 
@@ -102,7 +111,7 @@ export function MessagesPanel() {
             senderNonce: msg.senderNonce,
           });
         } catch {
-          plain[msg.id] = '🔒 Unable to decrypt on this device.';
+          plain[msg.id] = 'Unable to decrypt on this device.';
         }
       }
       setPlainById(plain);
@@ -134,16 +143,15 @@ export function MessagesPanel() {
     threadParam,
   ]);
 
-  useEffect(() => {
-    if (peerParam) setComposeOpen(true);
-  }, [peerParam]);
-
   const handleRestore = async () => {
     if (!accountId || !recoveryInput.trim()) return;
     try {
+      const { client } = await getClient();
+      const remoteBackup = await fetchDmKeyBackup(client, accountId);
       await restoreDmKeysFromRecoveryCode({
         accountId,
         recoveryCode: recoveryInput.trim(),
+        remoteBackup,
       });
       setRecoveryInput('');
       setError(null);
@@ -239,6 +247,7 @@ export function MessagesPanel() {
               {messages.map((msg) => {
                 const mine =
                   msg.senderAccountId === accountId.toLowerCase();
+                const text = plainById[msg.id];
                 return (
                   <li
                     key={msg.id}
@@ -246,7 +255,21 @@ export function MessagesPanel() {
                       mine ? 'messages-bubble is-mine' : 'messages-bubble'
                     }
                   >
-                    <p>{plainById[msg.id] ?? '…'}</p>
+                    {text ? <p>{text}</p> : <p>…</p>}
+                    {unlocked && msg.media?.length
+                      ? msg.media.map((item) => (
+                          <DmMediaBubble
+                            key={`${msg.id}-${item.cid}`}
+                            accountId={accountId}
+                            senderAccountId={msg.senderAccountId}
+                            senderPubkey={msg.senderPubkey}
+                            cid={item.cid}
+                            mime={item.mime}
+                            nonce={item.nonce}
+                            senderNonce={item.senderNonce}
+                          />
+                        ))
+                      : null}
                     <time dateTime={msg.createdAt}>
                       {new Date(msg.createdAt).toLocaleString()}
                     </time>
@@ -267,9 +290,16 @@ export function MessagesPanel() {
       </div>
 
       <DmComposeSheet
-        open={composeOpen}
-        peerAccountId={peerFromThread || peerParam}
-        onClose={() => setComposeOpen(false)}
+        open={showCompose && Boolean(composePeer)}
+        peerAccountId={composePeer}
+        onClose={() => {
+          setComposeOpen(false);
+          if (peerParam) {
+            router.replace(
+              messagesPath({ threadId: activeThreadId || null })
+            );
+          }
+        }}
       />
       <DmRecoveryCodeSheet
         open={Boolean(recoveryCode)}

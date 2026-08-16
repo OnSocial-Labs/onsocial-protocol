@@ -4,7 +4,10 @@ export interface DmMediaRef {
   cid: string;
   mime: string;
   size: number;
-  nonce: string;
+  /** Recipient-box nonce (legacy single-seal uploads). */
+  nonce?: string;
+  /** Sender self-copy nonce when dual-sealed outside the envelope. */
+  senderNonce?: string;
 }
 
 export interface DmMessageRecord {

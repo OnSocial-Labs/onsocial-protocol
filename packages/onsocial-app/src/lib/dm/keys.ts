@@ -10,6 +10,7 @@ import {
   wrapDmSecretKey,
   type DmKeyPair,
 } from '@/lib/dm/crypto';
+import type { DmKeyBackup } from '@/lib/dm/pubkey';
 
 const STORE_PREFIX = 'onsocial.app.dm.';
 
@@ -71,12 +72,23 @@ export function loadDmKeyPair(accountId: string): DmKeyPair | null {
   }
 }
 
+/** Local wrap backup for publishing / restore, if present. */
+export function getLocalDmKeyBackup(accountId: string): DmKeyBackup | null {
+  const stored = readStore(accountId);
+  if (!stored?.wrapped || !stored.publicKey) return null;
+  return {
+    publicKey: stored.publicKey,
+    wrapped: stored.wrapped,
+  };
+}
+
 export type EnsureDmKeysResult = {
   keyPair: DmKeyPair;
   publicKeyEncoded: string;
   /** Present only when keys were just created. */
   recoveryCode: string | null;
   created: boolean;
+  backup: DmKeyBackup | null;
 };
 
 /**
@@ -89,11 +101,13 @@ export async function ensureDmKeys(
   const id = accountId.trim().toLowerCase();
   const existing = loadDmKeyPair(id);
   if (existing) {
+    const backup = getLocalDmKeyBackup(id);
     return {
       keyPair: existing,
       publicKeyEncoded: encodeDmPublicKey(existing.publicKey),
       recoveryCode: null,
       created: false,
+      backup,
     };
   }
 
@@ -125,34 +139,46 @@ export async function ensureDmKeys(
     publicKeyEncoded,
     recoveryCode,
     created: true,
+    backup: { publicKey: publicKeyEncoded, wrapped },
   };
 }
 
-/** Restore messaging secret from recovery code (new device). */
+/**
+ * Restore messaging secret from recovery code.
+ * Uses local wrap first; otherwise `remoteBackup` from social (new device).
+ */
 export async function restoreDmKeysFromRecoveryCode(opts: {
   accountId: string;
   recoveryCode: string;
-  publicKeyEncoded?: string;
+  remoteBackup?: DmKeyBackup | null;
 }): Promise<DmKeyPair> {
   const id = opts.accountId.trim().toLowerCase();
   const stored = readStore(id);
-  if (!stored?.wrapped) {
-    throw new Error('No backup found on this device for that account.');
+  const backup: DmKeyBackup | null =
+    stored?.wrapped && stored.publicKey
+      ? { publicKey: stored.publicKey, wrapped: stored.wrapped }
+      : (opts.remoteBackup ?? null);
+
+  if (!backup?.wrapped) {
+    throw new Error(
+      'No messaging backup found. Open Messages on a device that already has keys, or check that your recovery wrap was published.'
+    );
   }
+
   const wrapKey = await recoveryCodeToWrapKey(opts.recoveryCode);
   const secretKey = await unwrapDmSecretKey({
-    ciphertext: stored.wrapped.ciphertext,
-    nonce: stored.wrapped.nonce,
+    ciphertext: backup.wrapped.ciphertext,
+    nonce: backup.wrapped.nonce,
     wrapKey,
   });
-  const publicKey = opts.publicKeyEncoded
-    ? decodeDmPublicKey(opts.publicKeyEncoded)
-    : decodeDmPublicKey(stored.publicKey);
+  const publicKey = decodeDmPublicKey(backup.publicKey);
   writeStore({
-    ...stored,
     accountId: id,
     publicKey: encodeDmPublicKey(publicKey),
     secretKey: encodeDmSecretKey(secretKey),
+    wrapped: backup.wrapped,
+    createdAt: stored?.createdAt ?? new Date().toISOString(),
+    recoveryCodeShownAt: stored?.recoveryCodeShownAt,
   });
   return { publicKey, secretKey };
 }

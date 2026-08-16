@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   generateDmKeyPair,
   generateDmRecoveryCode,
+  openDmBytes,
   openDmText,
   recoveryCodeToWrapKey,
+  sealDmBytes,
   sealDmText,
   unwrapDmSecretKey,
   wrapDmSecretKey,
@@ -67,5 +69,41 @@ describe('dm crypto', () => {
         wrapKey: await recoveryCodeToWrapKey('BAD-CODE-HERE-TEST'),
       })
     ).rejects.toThrow(/Invalid recovery code/);
+  });
+
+  it('dual-seals media bytes for recipient and sender', () => {
+    const alice = generateDmKeyPair();
+    const bob = generateDmKeyPair();
+    const bytes = new TextEncoder().encode('secret-photo');
+    const forBob = sealDmBytes({
+      bytes,
+      recipientPublicKey: bob.publicKey,
+      senderKeyPair: alice,
+    });
+    const forAlice = sealDmBytes({
+      bytes,
+      recipientPublicKey: alice.publicKey,
+      senderKeyPair: alice,
+    });
+    expect(
+      Array.from(
+        openDmBytes({
+          ciphertext: forBob.ciphertext,
+          nonce: forBob.nonce,
+          senderPubkey: alice.publicKey,
+          recipientSecretKey: bob.secretKey,
+        })
+      )
+    ).toEqual(Array.from(bytes));
+    expect(
+      Array.from(
+        openDmBytes({
+          ciphertext: forAlice.ciphertext,
+          nonce: forAlice.nonce,
+          senderPubkey: alice.publicKey,
+          recipientSecretKey: alice.secretKey,
+        })
+      )
+    ).toEqual(Array.from(bytes));
   });
 });

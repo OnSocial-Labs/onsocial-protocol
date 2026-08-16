@@ -33,6 +33,7 @@ export function DmComposeSheet({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -83,6 +84,7 @@ export function DmComposeSheet({
       }
       if (result.recoveryCode) {
         setRecoveryCode(result.recoveryCode);
+        setPendingThreadId(result.threadId);
         return;
       }
       onClose();
@@ -146,12 +148,11 @@ export function DmComposeSheet({
         open={Boolean(recoveryCode)}
         code={recoveryCode ?? ''}
         onClose={() => {
-          const code = recoveryCode;
+          const threadId = pendingThreadId;
           setRecoveryCode(null);
+          setPendingThreadId(null);
           onClose();
-          if (code) {
-            router.push(messagesPath());
-          }
+          router.push(messagesPath({ threadId: threadId || null }));
         }}
       />
     </>

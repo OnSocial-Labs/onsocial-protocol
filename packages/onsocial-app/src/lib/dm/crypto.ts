@@ -8,6 +8,8 @@ import {
 
 export const DM_CRYPTO_VERSION = 1;
 export const DM_PUBKEY_PROFILE_KEY = 'messaging_pubkey';
+/** Recovery-wrapped secret (ciphertext only) — safe to publish; needs recovery code to open. */
+export const DM_WRAP_PROFILE_KEY = 'messaging_wrap';
 
 export type DmKeyPair = {
   publicKey: Uint8Array;
