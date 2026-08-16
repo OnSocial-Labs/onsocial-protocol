@@ -214,7 +214,10 @@ async function enrichAndPersistProposal(
     return null;
   }
 
-  const previous = await loadPersistedProposalSnapshot(daoAccountId, proposalId);
+  const previous = await loadPersistedProposalSnapshot(
+    daoAccountId,
+    proposalId
+  );
 
   const normalizedStatus = normalizeDaoProposalStatus(proposal.status);
   const normalizedProposal: GovernanceDaoProposalRecord = {
