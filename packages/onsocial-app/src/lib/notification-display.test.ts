@@ -20,6 +20,10 @@ describe('notification display', () => {
     expect(notificationVerb('standing_new')).toBe('stood with you');
     expect(notificationVerb('dm')).toBe('sent a private message');
     expect(notificationVerb('boost_locked')).toBe('boost locked');
+    expect(notificationVerb('dao_proposal')).toBe('opened a DAO proposal');
+    expect(
+      notificationVerb('dao_proposal_resolved', { status: 'Approved' })
+    ).toBe('DAO proposal approved');
     expect(
       notificationVerb('reaction', {
         reactionValue: JSON.stringify({ type: 'like' }),
@@ -27,7 +31,7 @@ describe('notification display', () => {
     ).toBe('liked your post');
   });
 
-  it('deep-links social, guild, and dm notifications', () => {
+  it('deep-links social, guild, dao, and dm notifications', () => {
     expect(
       notificationHref({
         type: 'reply',
@@ -70,6 +74,30 @@ describe('notification display', () => {
         context: { groupId: 'guild.near' },
       })
     ).toBe('/groups/guild.near/proposals');
+
+    expect(
+      notificationHref({
+        type: 'dao_proposal',
+        actor: 'bob.testnet',
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          proposalId: 12,
+          status: 'InProgress',
+        },
+      })
+    ).toBe('/dao/gov.sputnik-dao.testnet?proposal=12');
+
+    expect(
+      notificationHref({
+        type: 'dao_proposal_resolved',
+        actor: 'gov.sputnik-dao.testnet',
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          proposalId: 12,
+          status: 'Approved',
+        },
+      })
+    ).toBe('/dao/gov.sputnik-dao.testnet?status=approved&proposal=12');
   });
 
   it('builds relative description lines', () => {
@@ -82,5 +110,28 @@ describe('notification display', () => {
       })
     ).toBe('stood with you · 5m ago');
     expect(formatNotificationTime(createdAt).label).toBe('5m ago');
+
+    expect(
+      notificationDescription({
+        type: 'dao_proposal',
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          proposalId: 12,
+          description: 'Fund builders',
+        },
+        createdAt,
+      })
+    ).toBe('opened a DAO proposal · Fund builders · 5m ago');
+
+    expect(
+      notificationDescription({
+        type: 'dao_proposal_resolved',
+        context: {
+          status: 'Approved',
+          description: 'Fund builders',
+        },
+        createdAt,
+      })
+    ).toBe('DAO proposal approved · Fund builders · 5m ago');
   });
 });

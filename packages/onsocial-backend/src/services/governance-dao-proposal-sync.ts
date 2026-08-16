@@ -17,6 +17,7 @@ import {
 } from './governance-dao-proposal-store.js';
 import { publishDaoProposalUpdated } from './governance-proposal-events.js';
 import { scheduleDaoMembershipSyncAfterProposal } from './governance-dao-membership-sync.js';
+import { emitDaoProposalNotifications } from './governance-dao-notification-emit.js';
 
 const SYNC_BATCH_SIZE = 50;
 const BACKFILL_BATCH_PAUSE_MS = 250;
@@ -76,7 +77,7 @@ async function loadPersistedProposalSnapshot(
 async function fetchAndPersistDaoProposalFromChain(
   daoAccountId: string,
   proposalId: number,
-  opts: { publishUpdate?: boolean } = {}
+  opts: { publishUpdate?: boolean; emitNotifications?: boolean } = {}
 ): Promise<PersistedDaoProposalSnapshot | null> {
   const proposal = await viewContractAt<GovernanceDaoProposalRecord>(
     daoAccountId,
@@ -88,10 +89,14 @@ async function fetchAndPersistDaoProposalFromChain(
     return null;
   }
 
-  const persisted = await enrichAndPersistProposal(daoAccountId, {
-    ...proposal,
-    id: proposal.id ?? proposalId,
-  });
+  const persisted = await enrichAndPersistProposal(
+    daoAccountId,
+    {
+      ...proposal,
+      id: proposal.id ?? proposalId,
+    },
+    { emitNotifications: opts.emitNotifications ?? true }
+  );
 
   if (persisted && opts.publishUpdate) {
     publishDaoProposalUpdated({ daoAccountId, proposalId });
@@ -200,13 +205,19 @@ async function fetchDaoProposalsBatch(
 
 async function enrichAndPersistProposal(
   daoAccountId: string,
-  proposal: GovernanceDaoProposalRecord
+  proposal: GovernanceDaoProposalRecord,
+  opts: { emitNotifications?: boolean } = {}
 ): Promise<PersistedDaoProposalSnapshot | null> {
   const proposalId =
     typeof proposal.id === 'number' && proposal.id >= 0 ? proposal.id : null;
   if (proposalId === null) {
     return null;
   }
+
+  const previous = await loadPersistedProposalSnapshot(
+    daoAccountId,
+    proposalId
+  );
 
   const normalizedStatus = normalizeDaoProposalStatus(proposal.status);
   const normalizedProposal: GovernanceDaoProposalRecord = {
@@ -232,19 +243,31 @@ async function enrichAndPersistProposal(
     resolvedAt
   );
 
+  const submissionBlockHeight =
+    readProposalSubmissionBlockHeight(normalizedProposal);
+  const resolvedBlockHeight = resolvedAt
+    ? readProposalLastActionBlockHeight(normalizedProposal)
+    : null;
+
   await persistDaoProposalSnapshot({
     daoAccountId,
     proposal: persisted,
     policySnapshot,
-    submissionBlockHeight:
-      readProposalSubmissionBlockHeight(normalizedProposal),
-    resolvedBlockHeight: resolvedAt
-      ? readProposalLastActionBlockHeight(normalizedProposal)
-      : null,
+    submissionBlockHeight,
+    resolvedBlockHeight,
     resolvedAt,
   });
 
   scheduleDaoMembershipSyncAfterProposal(daoAccountId, persisted);
+
+  if (opts.emitNotifications) {
+    await emitDaoProposalNotifications({
+      daoAccountId,
+      previous,
+      next: persisted,
+      blockHeight: resolvedBlockHeight ?? submissionBlockHeight,
+    });
+  }
 
   return persisted;
 }
@@ -305,9 +328,11 @@ export async function syncDaoProposalById(
 async function syncProposalRange(
   daoAccountId: string,
   fromIndex: number,
-  toProposalId: number
+  toProposalId: number,
+  opts: { emitNotifications?: boolean } = {}
 ): Promise<number> {
   let synced = 0;
+  const emitNotifications = opts.emitNotifications ?? false;
 
   for (let start = fromIndex; start <= toProposalId; start += SYNC_BATCH_SIZE) {
     const limit = Math.min(SYNC_BATCH_SIZE, toProposalId - start + 1);
@@ -315,7 +340,7 @@ async function syncProposalRange(
 
     await Promise.all(
       proposals.map((proposal) =>
-        enrichAndPersistProposal(daoAccountId, proposal)
+        enrichAndPersistProposal(daoAccountId, proposal, { emitNotifications })
       )
     );
 
@@ -409,10 +434,15 @@ export async function syncDaoProposalsIncremental(
     return { synced: 0, lastProposalId };
   }
 
+  // Initial catch-up (empty DB) must not spam Activity; only notify for
+  // proposals discovered after we already had a watermark.
+  const emitNotifications = maxPersistedId !== null;
+
   const synced = await syncProposalRange(
     daoAccountId,
     fromIndex,
-    lastProposalId
+    lastProposalId,
+    { emitNotifications }
   );
   await refreshOpenDaoProposals(daoAccountId);
   await refreshTerminalProposalsMissingResolvedAt(daoAccountId);
@@ -432,7 +462,9 @@ export async function syncDaoProposalsBackfill(
     return { synced: 0, lastProposalId: null };
   }
 
-  const synced = await syncProposalRange(daoAccountId, 0, lastProposalId);
+  const synced = await syncProposalRange(daoAccountId, 0, lastProposalId, {
+    emitNotifications: false,
+  });
   return { synced, lastProposalId };
 }
 
