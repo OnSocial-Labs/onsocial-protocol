@@ -4,57 +4,65 @@
  * Soft-polls DM unread count for the signed-in viewer.
  * Mount once under wallet providers — no plaintext, metadata only.
  */
-import { useCallback, useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { usePathname } from 'next/navigation';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
+import { APP_MESSAGES_PATH } from '@/lib/app-routes';
+import { txToastSuccess } from '@/lib/transaction-toast-copy';
 
 const POLL_MS = 20_000;
 
-let globalUnread = 0;
-const listeners = new Set<(count: number) => void>();
-let refreshImpl: (() => Promise<void>) | null = null;
-
-function publishUnread(count: number) {
-  globalUnread = count;
-  for (const listener of listeners) listener(count);
+interface DmUnreadContextValue {
+  unread: number;
+  refresh: () => Promise<void>;
 }
 
-export function getGlobalDmUnreadCount(): number {
-  return globalUnread;
-}
-
-export function subscribeDmUnreadCount(
-  listener: (count: number) => void
-): () => void {
-  listeners.add(listener);
-  listener(globalUnread);
-  return () => {
-    listeners.delete(listener);
-  };
-}
+const DmUnreadContext = createContext<DmUnreadContextValue | null>(null);
 
 export function useDmUnreadCount(): number {
-  const [count, setCount] = useState(globalUnread);
-  useEffect(() => subscribeDmUnreadCount(setCount), []);
-  return count;
+  return useContext(DmUnreadContext)?.unread ?? 0;
 }
 
 /** Trigger an immediate unread refresh (e.g. after markRead). */
 export function requestDmUnreadRefresh(): void {
-  void refreshImpl?.();
+  // Resolved by provider via module bridge so non-React callers stay simple.
+  void refreshBridge?.();
 }
 
-export function DmUnreadHost() {
+let refreshBridge: (() => Promise<void>) | null = null;
+
+export function DmUnreadHost({ children }: { children?: ReactNode }) {
   const { accountId, isConnected, hasSocialSession } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const { setTxResult } = useAppTransactionFeedback();
+  const pathname = usePathname();
+  const [unread, setUnread] = useState(0);
+  const previousUnreadRef = useRef<number | null>(null);
+  const pathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   const refresh = useCallback(async () => {
     if (!accountId || !isConnected || !hasSocialSession) {
-      publishUnread(0);
+      previousUnreadRef.current = 0;
+      setUnread(0);
       return;
     }
     try {
@@ -70,17 +78,34 @@ export function DmUnreadHost() {
         });
       }
       client.auth.setToken(token);
-      const { unread } = await client.dm.unreadCount();
-      publishUnread(Number.isFinite(unread) ? unread : 0);
+      const { unread: next } = await client.dm.unreadCount();
+      const count = Number.isFinite(next) ? next : 0;
+      const previous = previousUnreadRef.current;
+      previousUnreadRef.current = count;
+      setUnread(count);
+      const onMessages =
+        pathnameRef.current === APP_MESSAGES_PATH ||
+        pathnameRef.current.startsWith(`${APP_MESSAGES_PATH}/`);
+      // Skip the first sample so existing unread doesn't toast on load.
+      if (
+        previous != null &&
+        count > previous &&
+        !onMessages
+      ) {
+        setTxResult({
+          type: 'success',
+          msg: txToastSuccess.newPrivateMessage,
+        });
+      }
     } catch {
       // Soft poll — ignore transient auth/network errors.
     }
-  }, [accountId, getClient, hasSocialSession, isConnected]);
+  }, [accountId, getClient, hasSocialSession, isConnected, setTxResult]);
 
   useEffect(() => {
-    refreshImpl = refresh;
+    refreshBridge = refresh;
     return () => {
-      if (refreshImpl === refresh) refreshImpl = null;
+      if (refreshBridge === refresh) refreshBridge = null;
     };
   }, [refresh]);
 
@@ -98,5 +123,17 @@ export function DmUnreadHost() {
     };
   }, [hasSocialSession, isConnected, refresh]);
 
-  return null;
+  const value = useMemo(
+    () => ({
+      unread,
+      refresh,
+    }),
+    [refresh, unread]
+  );
+
+  return (
+    <DmUnreadContext.Provider value={value}>
+      {children ?? null}
+    </DmUnreadContext.Provider>
+  );
 }

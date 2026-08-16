@@ -12,7 +12,7 @@ import {
 } from '@/lib/dm/crypto';
 
 describe('dm crypto', () => {
-  it('seals and opens text between two keypairs', () => {
+  it('seals and opens text with per-message ephemeral (PFS)', () => {
     const alice = generateDmKeyPair();
     const bob = generateDmKeyPair();
     const sealed = sealDmText({
@@ -20,10 +20,14 @@ describe('dm crypto', () => {
       recipientPublicKey: bob.publicKey,
       senderKeyPair: alice,
     });
+    expect(sealed.v).toBe(2);
+    expect(sealed.ephemeralPubkey).toBeTruthy();
+
     const opened = openDmText({
       ciphertext: sealed.ciphertext,
       nonce: sealed.nonce,
       senderPubkey: sealed.senderPubkey,
+      ephemeralPubkey: sealed.ephemeralPubkey,
       recipientSecretKey: bob.secretKey,
     });
     expect(opened.text).toBe('hello bob');
@@ -32,12 +36,32 @@ describe('dm crypto', () => {
       ciphertext: sealed.ciphertext,
       nonce: sealed.nonce,
       senderPubkey: sealed.senderPubkey,
+      ephemeralPubkey: sealed.ephemeralPubkey,
       recipientSecretKey: alice.secretKey,
       senderCiphertext: sealed.senderCiphertext,
       senderNonce: sealed.senderNonce,
       viewerIsSender: true,
     });
     expect(sentCopy.text).toBe('hello bob');
+  });
+
+  it('opens legacy identity-key seals when ephemeral is absent', async () => {
+    const nacl = (await import('tweetnacl')).default;
+    const { decodeUTF8, encodeBase64 } = await import('tweetnacl-util');
+    const { encodeDmPublicKey } = await import('@/lib/dm/crypto');
+    const alice = generateDmKeyPair();
+    const bob = generateDmKeyPair();
+    const message = decodeUTF8(JSON.stringify({ text: 'legacy hello' }));
+    const nonce = nacl.randomBytes(nacl.box.nonceLength);
+    const boxed = nacl.box(message, nonce, bob.publicKey, alice.secretKey);
+    if (!boxed) throw new Error('seal failed');
+    const opened = openDmText({
+      ciphertext: encodeBase64(boxed),
+      nonce: encodeBase64(nonce),
+      senderPubkey: encodeDmPublicKey(alice.publicKey),
+      recipientSecretKey: bob.secretKey,
+    });
+    expect(opened.text).toBe('legacy hello');
   });
 
   it('wraps and unwraps secret with recovery code', async () => {
@@ -71,7 +95,7 @@ describe('dm crypto', () => {
     ).rejects.toThrow(/Invalid recovery code/);
   });
 
-  it('dual-seals media bytes for recipient and sender', () => {
+  it('dual-seals media bytes with a shared ephemeral', () => {
     const alice = generateDmKeyPair();
     const bob = generateDmKeyPair();
     const bytes = new TextEncoder().encode('secret-photo');
@@ -84,13 +108,15 @@ describe('dm crypto', () => {
       bytes,
       recipientPublicKey: alice.publicKey,
       senderKeyPair: alice,
+      ephemeral: forBob.ephemeral,
     });
+    expect(forAlice.ephemeralPubkey).toBe(forBob.ephemeralPubkey);
     expect(
       Array.from(
         openDmBytes({
           ciphertext: forBob.ciphertext,
           nonce: forBob.nonce,
-          senderPubkey: alice.publicKey,
+          senderPubkey: forBob.ephemeral.publicKey,
           recipientSecretKey: bob.secretKey,
         })
       )
@@ -100,7 +126,7 @@ describe('dm crypto', () => {
         openDmBytes({
           ciphertext: forAlice.ciphertext,
           nonce: forAlice.nonce,
-          senderPubkey: alice.publicKey,
+          senderPubkey: forAlice.ephemeral.publicKey,
           recipientSecretKey: alice.secretKey,
         })
       )

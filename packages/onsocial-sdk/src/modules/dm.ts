@@ -21,7 +21,10 @@ export interface DmMessageRecord {
   senderCiphertext: string | null;
   senderNonce: string | null;
   media: DmMediaRef[] | null;
+  /** Long-term identity pubkey (attribution). */
   senderPubkey: string;
+  /** Per-message ephemeral pubkey for forward secrecy (v2+). */
+  ephemeralPubkey: string | null;
 }
 
 export interface DmThreadSummary {
@@ -39,6 +42,8 @@ export interface SendDmInput {
   senderCiphertext?: string | null;
   senderNonce?: string | null;
   senderPubkey: string;
+  /** Per-message ephemeral pubkey (forward secrecy). */
+  ephemeralPubkey?: string | null;
   media?: DmMediaRef[] | null;
 }
 
@@ -78,6 +83,7 @@ export class DmModule {
         senderCiphertext: input.senderCiphertext ?? null,
         senderNonce: input.senderNonce ?? null,
         senderPubkey: input.senderPubkey,
+        ephemeralPubkey: input.ephemeralPubkey ?? null,
         media: input.media ?? null,
       }
     );

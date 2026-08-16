@@ -86,14 +86,16 @@ async function sealAndUploadMedia(opts: {
     bytes,
     recipientPublicKey: opts.senderKeyPair.publicKey,
     senderKeyPair: opts.senderKeyPair,
+    ephemeral: forRecipient.ephemeral,
   });
   const envelope = new TextEncoder().encode(
     JSON.stringify({
-      v: 1,
+      v: 2,
       recipient: encodeBase64(forRecipient.ciphertext),
       nonce: encodeBase64(forRecipient.nonce),
       sender: encodeBase64(forSender.ciphertext),
       senderNonce: encodeBase64(forSender.nonce),
+      ephemeralPubkey: forRecipient.ephemeralPubkey,
     })
   );
   const uploaded = await opts.client.storage.upload(
@@ -189,6 +191,7 @@ export async function sendEncryptedDm(opts: {
     senderCiphertext: sealed.senderCiphertext,
     senderNonce: sealed.senderNonce,
     senderPubkey: sealed.senderPubkey,
+    ephemeralPubkey: sealed.ephemeralPubkey,
     media: media ?? null,
   });
 
@@ -208,6 +211,7 @@ export async function decryptDmMessage(opts: {
   senderAccountId: string;
   senderCiphertext?: string | null;
   senderNonce?: string | null;
+  ephemeralPubkey?: string | null;
 }): Promise<string> {
   const keyPair = loadDmKeyPair(opts.accountId);
   if (!keyPair) {
@@ -223,6 +227,7 @@ export async function decryptDmMessage(opts: {
     recipientSecretKey: keyPair.secretKey,
     senderCiphertext: opts.senderCiphertext,
     senderNonce: opts.senderNonce,
+    ephemeralPubkey: opts.ephemeralPubkey,
     viewerIsSender,
   });
   return body.text;
@@ -235,7 +240,7 @@ export type DecryptedDmMedia = {
 
 /**
  * Fetch sealed media from CDN and open with the viewer's messaging key.
- * Supports dual-seal envelope (v1) and legacy single-box ciphertext files.
+ * Supports dual-seal envelope (v1/v2) and legacy single-box ciphertext files.
  */
 export async function decryptDmMedia(opts: {
   accountId: string;
@@ -245,6 +250,7 @@ export async function decryptDmMedia(opts: {
   mime: string;
   nonce?: string | null;
   senderNonce?: string | null;
+  ephemeralPubkey?: string | null;
 }): Promise<DecryptedDmMedia> {
   const keyPair = loadDmKeyPair(opts.accountId);
   if (!keyPair) {
@@ -260,7 +266,6 @@ export async function decryptDmMedia(opts: {
   const viewerIsSender =
     opts.senderAccountId.trim().toLowerCase() ===
     opts.accountId.trim().toLowerCase();
-  const senderPubkey = decodeDmPublicKey(opts.senderPubkey);
 
   let plain: Uint8Array;
   try {
@@ -271,12 +276,21 @@ export async function decryptDmMedia(opts: {
       nonce?: string;
       sender?: string;
       senderNonce?: string;
+      ephemeralPubkey?: string;
     };
     if (
-      envelope?.v === 1 &&
+      (envelope?.v === 1 || envelope?.v === 2) &&
       typeof envelope.recipient === 'string' &&
       typeof envelope.nonce === 'string'
     ) {
+      const sealerPubkey = decodeDmPublicKey(
+        (typeof envelope.ephemeralPubkey === 'string' &&
+        envelope.ephemeralPubkey.trim()
+          ? envelope.ephemeralPubkey
+          : null) ||
+          (opts.ephemeralPubkey?.trim() ? opts.ephemeralPubkey : null) ||
+          opts.senderPubkey
+      );
       if (
         viewerIsSender &&
         typeof envelope.sender === 'string' &&
@@ -285,14 +299,14 @@ export async function decryptDmMedia(opts: {
         plain = openDmBytes({
           ciphertext: decodeBase64(envelope.sender),
           nonce: decodeBase64(envelope.senderNonce),
-          senderPubkey,
+          senderPubkey: sealerPubkey,
           recipientSecretKey: keyPair.secretKey,
         });
       } else {
         plain = openDmBytes({
           ciphertext: decodeBase64(envelope.recipient),
           nonce: decodeBase64(envelope.nonce),
-          senderPubkey,
+          senderPubkey: sealerPubkey,
           recipientSecretKey: keyPair.secretKey,
         });
       }
@@ -301,10 +315,15 @@ export async function decryptDmMedia(opts: {
     }
   } catch {
     if (!opts.nonce) throw new Error('Failed to open media');
+    const sealerPubkey = decodeDmPublicKey(
+      opts.ephemeralPubkey?.trim()
+        ? opts.ephemeralPubkey
+        : opts.senderPubkey
+    );
     plain = openDmBytes({
       ciphertext: raw,
       nonce: decodeBase64(opts.nonce),
-      senderPubkey,
+      senderPubkey: sealerPubkey,
       recipientSecretKey: keyPair.secretKey,
     });
   }

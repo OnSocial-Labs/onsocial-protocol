@@ -192,6 +192,7 @@ export const txToastSuccess = {
   scarceAuctionListed: 'Auction listed.',
   collectionCreated: 'Drop is live.',
   collectionMinted: 'Minted from the drop.',
+  newPrivateMessage: 'New private message.',
   ticketAdmitted: 'Checked in.',
   couponRedeemed: 'Redeemed.',
   doorStaffAdded: 'Door staff added.',

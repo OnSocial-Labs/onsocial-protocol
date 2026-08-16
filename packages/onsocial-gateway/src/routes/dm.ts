@@ -99,6 +99,7 @@ dmRouter.post('/dm/send', async (req: Request, res: Response) => {
   const senderCiphertext = String(req.body?.senderCiphertext ?? '').trim();
   const senderNonce = String(req.body?.senderNonce ?? '').trim();
   const senderPubkey = String(req.body?.senderPubkey ?? '').trim();
+  const ephemeralPubkey = String(req.body?.ephemeralPubkey ?? '').trim();
   const media = asMedia(req.body?.media);
 
   try {
@@ -110,11 +111,16 @@ dmRouter.post('/dm/send', async (req: Request, res: Response) => {
       senderCiphertext: senderCiphertext || null,
       senderNonce: senderNonce || null,
       senderPubkey,
+      ephemeralPubkey: ephemeralPubkey || null,
       media,
     });
     if ('code' in result) {
       const status =
-        result.code === 'MUTED' || result.code === 'BLOCKED' ? 403 : 400;
+        result.code === 'MUTED' || result.code === 'BLOCKED'
+          ? 403
+          : result.code === 'UNAVAILABLE'
+            ? 503
+            : 400;
       res.status(status).json({ error: result.message, code: result.code });
       return;
     }

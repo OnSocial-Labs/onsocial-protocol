@@ -6,7 +6,8 @@ import {
   encodeUTF8,
 } from 'tweetnacl-util';
 
-export const DM_CRYPTO_VERSION = 1;
+/** v1 = identity-key box; v2 = per-message ephemeral box (forward secrecy). */
+export const DM_CRYPTO_VERSION = 2;
 export const DM_PUBKEY_PROFILE_KEY = 'messaging_pubkey';
 /** Recovery-wrapped secret (ciphertext only) — safe to publish; needs recovery code to open. */
 export const DM_WRAP_PROFILE_KEY = 'messaging_wrap';
@@ -24,7 +25,10 @@ export type DmSealedPayload = {
   /** Sealed to sender so Sent/thread UI can decrypt locally. */
   senderCiphertext: string;
   senderNonce: string;
+  /** Long-term identity pubkey (attribution). */
   senderPubkey: string;
+  /** Ephemeral pubkey used for this seal (PFS). */
+  ephemeralPubkey: string;
 };
 
 export type DmPlainBody = {
@@ -77,6 +81,11 @@ function boxTo(
   };
 }
 
+/**
+ * Seal text with a fresh ephemeral keypair (forward secrecy).
+ * Recipient opens with ephemeralPubkey + their secret.
+ * Sender opens self-copy with ephemeralPubkey + their secret.
+ */
 export function sealDmText(opts: {
   text: string;
   recipientPublicKey: Uint8Array;
@@ -85,15 +94,16 @@ export function sealDmText(opts: {
   const message = decodeUTF8(
     JSON.stringify({ text: opts.text } satisfies DmPlainBody)
   );
+  const ephemeral = generateDmKeyPair();
   const forRecipient = boxTo(
     message,
     opts.recipientPublicKey,
-    opts.senderKeyPair.secretKey
+    ephemeral.secretKey
   );
   const forSender = boxTo(
     message,
     opts.senderKeyPair.publicKey,
-    opts.senderKeyPair.secretKey
+    ephemeral.secretKey
   );
   return {
     v: DM_CRYPTO_VERSION,
@@ -102,31 +112,33 @@ export function sealDmText(opts: {
     senderCiphertext: forSender.ciphertext,
     senderNonce: forSender.nonce,
     senderPubkey: encodeDmPublicKey(opts.senderKeyPair.publicKey),
+    ephemeralPubkey: encodeDmPublicKey(ephemeral.publicKey),
   };
 }
 
 /**
- * Open a DM. Recipient uses the main box; sender uses the self-sealed copy.
+ * Open a DM. Prefer ephemeral pubkey when present (v2 PFS);
+ * fall back to identity senderPubkey for legacy v1 rows.
  */
 export function openDmText(opts: {
   ciphertext: string;
   nonce: string;
   senderPubkey: string;
   recipientSecretKey: Uint8Array;
-  /** When reading your own sent message. */
+  ephemeralPubkey?: string | null;
   senderCiphertext?: string | null;
   senderNonce?: string | null;
   viewerIsSender?: boolean;
 }): DmPlainBody {
-  if (
-    opts.viewerIsSender &&
-    opts.senderCiphertext &&
-    opts.senderNonce
-  ) {
+  const peerPubkey = opts.ephemeralPubkey?.trim()
+    ? decodeDmPublicKey(opts.ephemeralPubkey)
+    : decodeDmPublicKey(opts.senderPubkey);
+
+  if (opts.viewerIsSender && opts.senderCiphertext && opts.senderNonce) {
     const opened = nacl.box.open(
       decodeBase64(opts.senderCiphertext),
       decodeBase64(opts.senderNonce),
-      decodeDmPublicKey(opts.senderPubkey),
+      peerPubkey,
       opts.recipientSecretKey
     );
     if (!opened) throw new Error('Failed to open sent message');
@@ -140,7 +152,7 @@ export function openDmText(opts: {
   const opened = nacl.box.open(
     decodeBase64(opts.ciphertext),
     decodeBase64(opts.nonce),
-    decodeDmPublicKey(opts.senderPubkey),
+    peerPubkey,
     opts.recipientSecretKey
   );
   if (!opened) {
@@ -153,26 +165,40 @@ export function openDmText(opts: {
   return { text: parsed.text };
 }
 
-/** Seal arbitrary bytes (e.g. media) with the same box keys. */
+/** Seal arbitrary bytes with a fresh ephemeral key (same as text PFS). */
 export function sealDmBytes(opts: {
   bytes: Uint8Array;
   recipientPublicKey: Uint8Array;
   senderKeyPair: DmKeyPair;
-}): { ciphertext: Uint8Array; nonce: Uint8Array } {
+  /** Reuse an ephemeral from the accompanying text seal when dual-sealing media. */
+  ephemeral?: DmKeyPair;
+}): {
+  ciphertext: Uint8Array;
+  nonce: Uint8Array;
+  ephemeralPubkey: string;
+  ephemeral: DmKeyPair;
+} {
+  const ephemeral = opts.ephemeral ?? generateDmKeyPair();
   const nonce = nacl.randomBytes(nacl.box.nonceLength);
   const boxed = nacl.box(
     opts.bytes,
     nonce,
     opts.recipientPublicKey,
-    opts.senderKeyPair.secretKey
+    ephemeral.secretKey
   );
   if (!boxed) throw new Error('Failed to seal bytes');
-  return { ciphertext: boxed, nonce };
+  return {
+    ciphertext: boxed,
+    nonce,
+    ephemeralPubkey: encodeDmPublicKey(ephemeral.publicKey),
+    ephemeral,
+  };
 }
 
 export function openDmBytes(opts: {
   ciphertext: Uint8Array;
   nonce: Uint8Array;
+  /** Ephemeral or legacy identity pubkey of the sealer. */
   senderPubkey: Uint8Array;
   recipientSecretKey: Uint8Array;
 }): Uint8Array {

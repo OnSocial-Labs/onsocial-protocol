@@ -3,7 +3,11 @@
 import type { ReactNode } from 'react';
 import { SheetCloseButton } from './glass-sheet.js';
 
-export type GestureSheetSignal = 'reputation' | 'endorse' | 'standing';
+export type GestureSheetSignal =
+  | 'reputation'
+  | 'endorse'
+  | 'standing'
+  | 'message';
 
 export interface GestureSheetHeaderProps {
   titleId: string;

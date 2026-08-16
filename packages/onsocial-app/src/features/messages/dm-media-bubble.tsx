@@ -11,6 +11,7 @@ interface DmMediaBubbleProps {
   mime: string;
   nonce?: string | null;
   senderNonce?: string | null;
+  ephemeralPubkey?: string | null;
 }
 
 export function DmMediaBubble({
@@ -21,6 +22,7 @@ export function DmMediaBubble({
   mime,
   nonce,
   senderNonce,
+  ephemeralPubkey,
 }: DmMediaBubbleProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -38,6 +40,7 @@ export function DmMediaBubble({
           mime,
           nonce,
           senderNonce,
+          ephemeralPubkey,
         });
         if (cancelled) {
           URL.revokeObjectURL(opened.objectUrl);
@@ -56,6 +59,7 @@ export function DmMediaBubble({
   }, [
     accountId,
     cid,
+    ephemeralPubkey,
     mime,
     nonce,
     senderAccountId,

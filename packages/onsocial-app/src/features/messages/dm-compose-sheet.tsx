@@ -203,7 +203,7 @@ export function DmComposeSheet({
         verb="Message"
         personName={name}
         handle={handle}
-        signal="endorse"
+        signal="message"
         whisper="Private · only they can read"
         closeAriaLabel="Close message"
         backdropLabel="Close message"

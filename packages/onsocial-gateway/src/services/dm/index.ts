@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { logger } from '../../logger.js';
-import { hasBlockEitherWay } from '../blocks/index.js';
+import { checkBlockEitherWay } from '../blocks/index.js';
 import { hasMute } from '../mutes/index.js';
 
 export interface DmMediaRef {
@@ -24,7 +24,10 @@ export interface DmMessageRecord {
   senderCiphertext: string | null;
   senderNonce: string | null;
   media: DmMediaRef[] | null;
+  /** Long-term identity pubkey (attribution). */
   senderPubkey: string;
+  /** Per-message ephemeral pubkey for forward secrecy (v2+). */
+  ephemeralPubkey: string | null;
 }
 
 export interface DmThreadSummary {
@@ -43,6 +46,7 @@ export interface DmSendInput {
   senderCiphertext?: string | null;
   senderNonce?: string | null;
   senderPubkey: string;
+  ephemeralPubkey?: string | null;
   media?: DmMediaRef[] | null;
 }
 
@@ -51,6 +55,7 @@ export type DmErrorCode =
   | 'SELF_MESSAGE'
   | 'BLOCKED'
   | 'MUTED'
+  | 'UNAVAILABLE'
   | 'INVALID_PAYLOAD'
   | 'NOT_FOUND'
   | 'FORBIDDEN';
@@ -199,8 +204,8 @@ class PostgresDmStore implements DmStore {
       `INSERT INTO dm_messages (
          id, thread_id, sender_account_id, recipient_account_id,
          created_at, ciphertext, nonce, sender_ciphertext, sender_nonce,
-         media_json, sender_pubkey
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+         media_json, sender_pubkey, ephemeral_pubkey
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         message.id,
         message.threadId,
@@ -213,6 +218,7 @@ class PostgresDmStore implements DmStore {
         message.senderNonce,
         message.media ? JSON.stringify(message.media) : null,
         message.senderPubkey,
+        message.ephemeralPubkey,
       ]
     );
     return message;
@@ -281,6 +287,7 @@ class PostgresDmStore implements DmStore {
       sender_nonce: string | null;
       media_json: string | null;
       sender_pubkey: string;
+      ephemeral_pubkey: string | null;
     }>(
       `SELECT *
        FROM dm_messages
@@ -303,6 +310,7 @@ class PostgresDmStore implements DmStore {
       senderNonce: row.sender_nonce,
       media: parseMediaJson(row.media_json),
       senderPubkey: row.sender_pubkey,
+      ephemeralPubkey: row.ephemeral_pubkey ?? null,
     }));
   }
 
@@ -408,7 +416,14 @@ export async function sendDmMessage(
   const payloadError = validateCipherFields(input);
   if (payloadError) return payloadError;
 
-  if (await hasBlockEitherWay(sender, recipient)) {
+  const blockCheck = await checkBlockEitherWay(sender, recipient);
+  if (!blockCheck.ok) {
+    return {
+      code: 'UNAVAILABLE',
+      message: 'Could not verify messaging permission. Try again.',
+    };
+  }
+  if (blockCheck.blocked) {
     return {
       code: 'BLOCKED',
       message: 'Messaging is unavailable while a block is in place.',
@@ -441,6 +456,7 @@ export async function sendDmMessage(
     senderNonce: input.senderNonce?.trim() || null,
     media,
     senderPubkey: input.senderPubkey.trim(),
+    ephemeralPubkey: input.ephemeralPubkey?.trim() || null,
   };
   const inserted = await store.insert(message);
   void emitDmReceivedNotification(inserted);

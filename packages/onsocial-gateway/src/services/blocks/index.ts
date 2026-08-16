@@ -5,18 +5,28 @@ function normalizeAccountId(accountId: string): string {
   return accountId.trim().toLowerCase();
 }
 
+export type BlockCheckResult =
+  | { ok: true; blocked: boolean }
+  /** Hasura configured but unreachable — callers should fail closed. */
+  | { ok: false; unavailable: true };
+
 /**
  * True when either account has a live `blocks_current` edge against the other.
- * Fail-open when Hasura is unavailable so mailbox stays usable in local/dev.
+ * - No admin secret (local/dev memory): treated as not blocked.
+ * - Hasura configured but error: `unavailable` so send can fail closed.
  */
-export async function hasBlockEitherWay(
+export async function checkBlockEitherWay(
   a: string,
   b: string
-): Promise<boolean> {
+): Promise<BlockCheckResult> {
   const viewer = normalizeAccountId(a);
   const target = normalizeAccountId(b);
-  if (!viewer || !target || viewer === target) return false;
-  if (!config.hasuraAdminSecret) return false;
+  if (!viewer || !target || viewer === target) {
+    return { ok: true, blocked: false };
+  }
+  if (!config.hasuraAdminSecret) {
+    return { ok: true, blocked: false };
+  }
 
   try {
     const response = await fetch(config.hasuraUrl, {
@@ -45,6 +55,13 @@ export async function hasBlockEitherWay(
         variables: { viewer, target },
       }),
     });
+    if (!response.ok) {
+      logger.warn(
+        { status: response.status },
+        'checkBlockEitherWay Hasura HTTP error; unavailable'
+      );
+      return { ok: false, unavailable: true };
+    }
     const json = (await response.json()) as {
       data?: {
         outgoing?: Array<{ accountId: string }>;
@@ -52,19 +69,29 @@ export async function hasBlockEitherWay(
       };
       errors?: Array<{ message: string }>;
     };
-    if (json.errors?.length) {
+    if (json.errors?.length || !json.data) {
       logger.warn(
-        { error: json.errors[0]?.message },
-        'hasBlockEitherWay Hasura error; failing open'
+        { error: json.errors?.[0]?.message },
+        'checkBlockEitherWay Hasura GraphQL error; unavailable'
       );
-      return false;
+      return { ok: false, unavailable: true };
     }
-    return (
-      (json.data?.outgoing?.length ?? 0) > 0 ||
-      (json.data?.incoming?.length ?? 0) > 0
-    );
+    const blocked =
+      (json.data.outgoing?.length ?? 0) > 0 ||
+      (json.data.incoming?.length ?? 0) > 0;
+    return { ok: true, blocked };
   } catch (error) {
-    logger.warn({ error }, 'hasBlockEitherWay failed; failing open');
-    return false;
+    logger.warn({ error }, 'checkBlockEitherWay failed; unavailable');
+    return { ok: false, unavailable: true };
   }
+}
+
+/** @deprecated Prefer {@link checkBlockEitherWay}. */
+export async function hasBlockEitherWay(
+  a: string,
+  b: string
+): Promise<boolean> {
+  const result = await checkBlockEitherWay(a, b);
+  if (!result.ok) return true; // fail closed for boolean callers
+  return result.blocked;
 }

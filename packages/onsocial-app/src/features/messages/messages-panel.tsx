@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DmMessageRecord, DmThreadSummary } from '@onsocial/sdk';
@@ -61,6 +61,11 @@ export function MessagesPanel() {
   const [enrollPending, setEnrollPending] = useState(false);
   const [activeThreadId, setActiveThreadId] = useState(threadParam);
   const [keysTick, setKeysTick] = useState(0);
+  const activeThreadIdRef = useRef(activeThreadId);
+
+  useEffect(() => {
+    activeThreadIdRef.current = activeThreadId;
+  }, [activeThreadId]);
 
   // keysTick forces a re-read of localStorage after unlock / bootstrap.
   const isUnlocked = Boolean(
@@ -134,18 +139,10 @@ export function MessagesPanel() {
     setThreads(next);
   }, [accountId, withAuth]);
 
-  const openThread = useCallback(
-    async (threadId: string) => {
-      setActiveThreadId(threadId);
-      setError(null);
-      router.replace(messagesPath({ threadId }));
-      const { client } = await withAuth();
-      const { messages: next } = await client.dm.listMessages(threadId);
-      setMessages(next);
-      await client.dm.markRead(threadId);
+  const decryptMessages = useCallback(
+    async (next: DmMessageRecord[]) => {
       if (!accountId || !hasUnlockedDmKey(accountId)) {
         setPlainById({});
-        void refreshThreads();
         return;
       }
       const plain: Record<string, string> = {};
@@ -159,16 +156,58 @@ export function MessagesPanel() {
             senderAccountId: msg.senderAccountId,
             senderCiphertext: msg.senderCiphertext,
             senderNonce: msg.senderNonce,
+            ephemeralPubkey: msg.ephemeralPubkey,
           });
         } catch {
           plain[msg.id] = 'Unable to decrypt on this device.';
         }
       }
       setPlainById(plain);
+    },
+    [accountId]
+  );
+
+  const openThread = useCallback(
+    async (threadId: string) => {
+      setActiveThreadId(threadId);
+      setError(null);
+      router.replace(messagesPath({ threadId }));
+      const { client } = await withAuth();
+      const { messages: next } = await client.dm.listMessages(threadId);
+      setMessages(next);
+      await client.dm.markRead(threadId);
+      await decryptMessages(next);
       void refreshThreads();
       requestDmUnreadRefresh();
     },
-    [accountId, refreshThreads, router, withAuth]
+    [decryptMessages, refreshThreads, router, withAuth]
+  );
+
+  const softRefreshOpenThread = useCallback(
+    async (threadId: string) => {
+      try {
+        const { client } = await withAuth();
+        const { messages: next } = await client.dm.listMessages(threadId);
+        if (activeThreadIdRef.current !== threadId) return;
+        setMessages((prev) => {
+          const grew =
+            !prev ||
+            next.length > prev.length ||
+            next.at(-1)?.id !== prev.at(-1)?.id;
+          if (grew) {
+            void client.dm.markRead(threadId).then(() => {
+              requestDmUnreadRefresh();
+              void refreshThreads();
+            });
+          }
+          return next;
+        });
+        await decryptMessages(next);
+      } catch {
+        // Soft poll — ignore transient errors.
+      }
+    },
+    [decryptMessages, refreshThreads, withAuth]
   );
 
   useEffect(() => {
@@ -200,6 +239,9 @@ export function MessagesPanel() {
     const tick = () => {
       void refreshThreads();
       requestDmUnreadRefresh();
+      if (activeThreadId && isUnlocked) {
+        void softRefreshOpenThread(activeThreadId);
+      }
     };
     const id = window.setInterval(tick, THREAD_POLL_MS);
     const onFocus = () => tick();
@@ -208,7 +250,15 @@ export function MessagesPanel() {
       window.clearInterval(id);
       window.removeEventListener('focus', onFocus);
     };
-  }, [accountId, hasSocialSession, isConnected, refreshThreads]);
+  }, [
+    accountId,
+    activeThreadId,
+    hasSocialSession,
+    isConnected,
+    isUnlocked,
+    refreshThreads,
+    softRefreshOpenThread,
+  ]);
 
   const handleRestore = async () => {
     if (!accountId || !recoveryInput.trim()) return;
@@ -439,6 +489,7 @@ export function MessagesPanel() {
                             accountId={accountId}
                             senderAccountId={msg.senderAccountId}
                             senderPubkey={msg.senderPubkey}
+                            ephemeralPubkey={msg.ephemeralPubkey}
                             cid={item.cid}
                             mime={item.mime}
                             nonce={item.nonce}

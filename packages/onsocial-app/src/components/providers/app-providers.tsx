@@ -31,11 +31,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                     <ComposeLauncherProvider>
                       <OsPortalHostProvider>
                         <CollectiblesNowPlayingProvider>
-                          {children}
-                          <ViewerMuteBlockHost />
-                          <DmUnreadHost />
-                          <DropComposeHost />
-                          <AppAccountSheetHost />
+                          <DmUnreadHost>
+                            {children}
+                            <ViewerMuteBlockHost />
+                            <DropComposeHost />
+                            <AppAccountSheetHost />
+                          </DmUnreadHost>
                         </CollectiblesNowPlayingProvider>
                       </OsPortalHostProvider>
                     </ComposeLauncherProvider>

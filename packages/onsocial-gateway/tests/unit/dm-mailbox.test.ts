@@ -74,4 +74,26 @@ describe('dm mailbox service', () => {
     const aliceUnread = await countUnreadDmThreads('alice.testnet');
     expect(aliceUnread).toBe(0);
   });
+
+  it('persists per-message ephemeral pubkey for PFS seals', async () => {
+    __resetDmStoreForTests();
+    const sent = await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'cipher',
+      nonce: 'nonce',
+      senderPubkey: 'identity-pk',
+      ephemeralPubkey: 'ephemeral-pk',
+    });
+    expect('code' in sent).toBe(false);
+    if ('code' in sent) return;
+    expect(sent.ephemeralPubkey).toBe('ephemeral-pk');
+
+    const msgs = await listDmMessages('bob.testnet', sent.threadId);
+    expect(Array.isArray(msgs)).toBe(true);
+    if (Array.isArray(msgs)) {
+      expect(msgs[0]?.ephemeralPubkey).toBe('ephemeral-pk');
+      expect(msgs[0]?.senderPubkey).toBe('identity-pk');
+    }
+  });
 });
