@@ -31929,16 +31929,101 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.55);
 }
 
-.daos-discover-form {
+.daos-index-section {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  margin-bottom: 0.55rem;
+  gap: 0.15rem;
 }
 
-.daos-discover-submit,
+.dao-directory-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dao-directory-row .dao-directory-crest.profile-avatar,
+.dao-directory-crest.profile-avatar {
+  border-radius: 0.85rem;
+}
+
+.dao-directory-meta {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.dao-directory-aside {
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.dao-directory-kind {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgb(var(--fg-rgb) / 0.42);
+  text-align: right;
+  max-width: 6.5rem;
+  line-height: 1.25;
+}
+
+.daos-discover-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.85rem 0.15rem;
+  border: 0;
+  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.daos-discover-open:hover,
+.daos-discover-open:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.04);
+  outline: none;
+}
+
+.daos-discover-open-title {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.92);
+}
+
+.daos-discover-open-copy {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.dao-discover-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dao-discover-status {
+  margin-top: -0.15rem;
+}
+
+.dao-discover-load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding-top: 0.35rem;
+}
+
 .daos-discover-more {
-  align-self: flex-start;
+  align-self: center;
   border: 0;
   border-radius: 9999px;
   padding: 0.45rem 0.85rem;
@@ -31950,16 +32035,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   cursor: pointer;
 }
 
-.daos-discover-submit:hover,
-.daos-discover-submit:focus-visible,
 .daos-discover-more:hover,
 .daos-discover-more:focus-visible {
   background: rgb(var(--fg-rgb) / 0.14);
   outline: none;
-}
-
-.daos-discover-more {
-  margin-top: 0.55rem;
 }
 
 .daos-discover-more:disabled {
@@ -31998,52 +32077,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.daos-index-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.daos-index-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.12rem;
-  padding: 0.75rem 0.15rem;
-  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
-  text-decoration: none;
-  color: inherit;
-}
-
-.daos-index-item:hover,
-.daos-index-item:focus-visible {
-  background: rgb(var(--fg-rgb) / 0.04);
-  outline: none;
-}
-
-.daos-index-item-kind {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.daos-index-item-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: rgb(var(--fg-rgb) / 0.94);
-}
-
-.daos-index-item-copy,
-.daos-index-item-id {
-  font-size: 0.8rem;
-  color: rgb(var(--fg-rgb) / 0.55);
-  line-height: 1.35;
 }
 
 .protocol-community-item--split {

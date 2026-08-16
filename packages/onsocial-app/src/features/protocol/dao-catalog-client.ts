@@ -4,6 +4,7 @@ export type DaoCatalogEntry = {
   daoAccountId: string;
   name: string | null;
   purpose: string | null;
+  metadata: string | null;
   source: string;
   listedAt: string;
 };
@@ -67,7 +68,16 @@ export async function fetchDaoCatalog(opts: {
     limit: body.limit ?? opts.limit ?? 20,
     offset: body.offset ?? opts.offset ?? 0,
     total: body.total ?? 0,
-    daos: Array.isArray(body.daos) ? body.daos : [],
+    daos: Array.isArray(body.daos)
+      ? body.daos.map((row) => ({
+          daoAccountId: row.daoAccountId,
+          name: row.name ?? null,
+          purpose: row.purpose ?? null,
+          metadata: row.metadata ?? null,
+          source: row.source,
+          listedAt: row.listedAt,
+        }))
+      : [],
     factoryAccountId: body.factoryAccountId ?? '',
     indexedCount: body.indexedCount ?? 0,
     factoryCount: body.factoryCount ?? 0,

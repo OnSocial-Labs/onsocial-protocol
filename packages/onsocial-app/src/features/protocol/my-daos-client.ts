@@ -4,6 +4,9 @@ export type MyDaoMembership = {
   daoAccountId: string;
   roleNames: string[];
   updatedAt: string;
+  name?: string | null;
+  purpose?: string | null;
+  metadata?: string | null;
 };
 
 export type MyDaosResponse = {
@@ -48,7 +51,16 @@ export async function fetchMyDaos(accountId: string): Promise<MyDaosResponse> {
   }
   return {
     accountId: body.accountId?.trim() || id,
-    daos: Array.isArray(body.daos) ? body.daos : [],
+    daos: Array.isArray(body.daos)
+      ? body.daos.map((row) => ({
+          daoAccountId: row.daoAccountId,
+          roleNames: Array.isArray(row.roleNames) ? row.roleNames : [],
+          updatedAt: row.updatedAt,
+          name: row.name ?? null,
+          purpose: row.purpose ?? null,
+          metadata: row.metadata ?? null,
+        }))
+      : [],
     indexedDaoAccountIds: Array.isArray(body.indexedDaoAccountIds)
       ? body.indexedDaoAccountIds
       : [],
