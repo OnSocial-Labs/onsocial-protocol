@@ -6,7 +6,8 @@
  * 2. Sputnik `get_config.metadata` OnSocial JSON (`onsocial` blob)
  * 3. Sputnik name / purpose only
  *
- * Write path: ChangeConfig proposal with `metadata.onsocial` (DAO-native).
+ * Write path: ChangeConfig / factory create with `metadata` as Sputnik
+ * `Base64VecU8` (base64 of UTF-8 JSON). Empty string = no metadata.
  * After approval, branding is public for every surface.
  */
 
@@ -63,6 +64,61 @@ function safeJsonParse(value: string): unknown {
   }
 }
 
+function utf8ToBase64(text: string): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(text, 'utf8').toString('base64');
+  }
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function base64ToUtf8(b64: string): string | null {
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(b64, 'base64').toString('utf8');
+    }
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Decode Sputnik `Config.metadata` (`Base64VecU8`) to UTF-8 JSON text.
+ * Also accepts plain JSON (tests / mistaken legacy writes).
+ */
+export function decodeDaoConfigMetadata(
+  wire: string | null | undefined
+): string {
+  const raw = wire?.trim() ?? '';
+  if (!raw) return '';
+  if (raw.startsWith('{') || raw.startsWith('[')) return raw;
+  const decoded = base64ToUtf8(raw);
+  if (decoded == null) return '';
+  return decoded.trim();
+}
+
+/**
+ * Encode UTF-8 JSON for Sputnik `Config.metadata` (`Base64VecU8`).
+ * Empty → `""` (empty vec). Idempotent for already-encoded wire values.
+ */
+export function encodeDaoConfigMetadata(
+  utf8JsonOrWire: string | null | undefined
+): string {
+  const text = decodeDaoConfigMetadata(utf8JsonOrWire);
+  if (!text) return '';
+  return utf8ToBase64(text);
+}
+
 function readString(record: Record<string, unknown>, key: string): string | null {
   const value = record[key];
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -82,13 +138,13 @@ function readLinks(
   return Object.keys(next).length > 0 ? next : null;
 }
 
-/** Parse OnSocial branding from Sputnik `metadata` string. */
+/** Parse OnSocial branding from Sputnik `metadata` (wire or plain JSON). */
 export function parseDaoBrandingMetadata(
   metadata: string | null | undefined
 ): DaoBrandingPayload | null {
-  const raw = metadata?.trim();
+  const raw = decodeDaoConfigMetadata(metadata);
   if (!raw) return null;
-  const root = asRecord(safeJsonParse(raw)) ?? asRecord(raw);
+  const root = asRecord(safeJsonParse(raw));
   if (!root) return null;
   const onsocial = asRecord(root[DAO_BRANDING_METADATA_KEY]) ?? root;
   if (!onsocial) return null;
@@ -105,7 +161,10 @@ export function parseDaoBrandingMetadata(
   };
 }
 
-/** Merge branding into Sputnik metadata without wiping unknown keys. */
+/**
+ * Merge branding into Sputnik metadata without wiping unknown keys.
+ * Returns wire-format `Base64VecU8` (base64 of UTF-8 JSON).
+ */
 export function buildDaoBrandingMetadata(
   existingMetadata: string | null | undefined,
   branding: {
@@ -116,7 +175,7 @@ export function buildDaoBrandingMetadata(
     links?: Record<string, string> | null;
   }
 ): string {
-  const raw = existingMetadata?.trim();
+  const raw = decodeDaoConfigMetadata(existingMetadata);
   const root = (raw ? asRecord(safeJsonParse(raw)) : null) ?? {};
   const prev = asRecord(root[DAO_BRANDING_METADATA_KEY]) ?? {};
   const next: Record<string, unknown> = {
@@ -148,10 +207,12 @@ export function buildDaoBrandingMetadata(
       delete next.links;
     }
   }
-  return JSON.stringify({
-    ...root,
-    [DAO_BRANDING_METADATA_KEY]: next,
-  });
+  return encodeDaoConfigMetadata(
+    JSON.stringify({
+      ...root,
+      [DAO_BRANDING_METADATA_KEY]: next,
+    })
+  );
 }
 
 export function resolveDaoEntityKind(daoAccountId: string): DaoEntityKind {

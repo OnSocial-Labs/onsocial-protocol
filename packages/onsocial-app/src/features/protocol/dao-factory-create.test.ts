@@ -61,18 +61,21 @@ describe('dao-factory-create', () => {
   });
 
   it('encodes init args as base64 JSON for factory create', () => {
-    const metadata = JSON.stringify({
+    const metadataPlain = JSON.stringify({
       onsocial: { v: 1, name: 'Primitives', avatar: 'ipfs://crest' },
     });
     const init = buildDaoFactoryInitArgs({
       displayName: 'Primitives',
       purpose: 'Building on NEAR',
       councilAccountId: 'alice.testnet',
-      metadata,
+      metadata: metadataPlain,
     });
     expect(init.config.name).toBe('Primitives');
     expect(init.config.purpose).toBe('Building on NEAR');
-    expect(init.config.metadata).toBe(metadata);
+    // Config.metadata must be Base64VecU8, not plain JSON.
+    expect(init.config.metadata).toBe(
+      Buffer.from(metadataPlain, 'utf8').toString('base64')
+    );
     expect(init.policy.roles).toHaveLength(2);
 
     const encoded = encodeDaoFactoryInitArgs(init);
