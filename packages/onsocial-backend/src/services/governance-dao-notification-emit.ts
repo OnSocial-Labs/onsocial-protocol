@@ -69,6 +69,9 @@ async function insertNotificationRows(
 /**
  * After a proposal snapshot write: fan out Activity notifications when enabled.
  * Idempotent via dedupe keys. Never throws into the sync path.
+ *
+ * If membership rows are empty (policy not indexed yet), force one membership
+ * sync and retry so the first proposal is not silently dropped.
  */
 export async function emitDaoProposalNotifications(params: {
   daoAccountId: string;
@@ -77,14 +80,33 @@ export async function emitDaoProposalNotifications(params: {
   blockHeight?: number | null;
 }): Promise<void> {
   try {
-    const members = await listDaoMemberAccountIds(params.daoAccountId);
+    let members = await listDaoMemberAccountIds(params.daoAccountId);
+    if (members.length === 0) {
+      const { syncDaoMemberships } = await import(
+        './governance-dao-membership-sync.js'
+      );
+      await syncDaoMemberships(params.daoAccountId, { force: true });
+      members = await listDaoMemberAccountIds(params.daoAccountId);
+    }
+
     const plans = planDaoProposalNotifications({
       daoAccountId: params.daoAccountId,
       previous: params.previous,
       next: params.next,
       memberAccountIds: members,
     });
-    if (plans.length === 0) return;
+    if (plans.length === 0) {
+      if (members.length === 0) {
+        logger.warn(
+          {
+            daoAccountId: params.daoAccountId,
+            proposalId: params.next.id,
+          },
+          'Skipped DAO notification emit — no indexed members'
+        );
+      }
+      return;
+    }
 
     const inserted = await insertNotificationRows(plans, {
       daoAccountId: normalizeAccountId(params.daoAccountId),

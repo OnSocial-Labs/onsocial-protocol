@@ -272,11 +272,19 @@ export function formatNotificationTime(iso: string): {
   return { label: calendar.label, title: calendar.title };
 }
 
-/** Row subtitle: verb · relative time. */
+/** Row subtitle: verb · optional DAO snippet · relative time. */
 export function notificationDescription(
   notification: Pick<Notification, 'type' | 'context' | 'createdAt'>
 ): string {
   const verb = notificationVerb(notification.type, notification.context);
   const when = formatNotificationTime(notification.createdAt).label;
-  return when ? `${verb} · ${when}` : verb;
+  const snippet =
+    notification.type === 'dao_proposal' ||
+    notification.type === 'dao_proposal_resolved'
+      ? textField(notification.context, 'description')
+      : null;
+  const parts = [verb, snippet, when || null].filter(
+    (part): part is string => Boolean(part)
+  );
+  return parts.join(' · ');
 }

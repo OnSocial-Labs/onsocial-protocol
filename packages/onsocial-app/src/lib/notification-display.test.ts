@@ -110,5 +110,28 @@ describe('notification display', () => {
       })
     ).toBe('stood with you · 5m ago');
     expect(formatNotificationTime(createdAt).label).toBe('5m ago');
+
+    expect(
+      notificationDescription({
+        type: 'dao_proposal',
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          proposalId: 12,
+          description: 'Fund builders',
+        },
+        createdAt,
+      })
+    ).toBe('opened a DAO proposal · Fund builders · 5m ago');
+
+    expect(
+      notificationDescription({
+        type: 'dao_proposal_resolved',
+        context: {
+          status: 'Approved',
+          description: 'Fund builders',
+        },
+        createdAt,
+      })
+    ).toBe('DAO proposal approved · Fund builders · 5m ago');
   });
 });
