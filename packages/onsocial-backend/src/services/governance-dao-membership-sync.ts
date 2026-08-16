@@ -76,10 +76,7 @@ export async function syncDaoMemberships(
       await indexDaoMembershipsFromPolicy(daoAccountId, policy);
     })()
       .catch((error) => {
-        logger.warn(
-          { err: error, daoAccountId },
-          'DAO membership sync failed'
-        );
+        logger.warn({ err: error, daoAccountId }, 'DAO membership sync failed');
       })
       .finally(() => {
         inFlight.delete(daoAccountId);

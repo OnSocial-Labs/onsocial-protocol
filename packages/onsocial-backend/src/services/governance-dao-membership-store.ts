@@ -28,7 +28,9 @@ function normalizeDaoAccountId(value: string | null | undefined): string {
   return value?.trim().toLowerCase() ?? '';
 }
 
-function asPolicyRoles(policy: GovernanceDaoPolicySnapshot | null): PolicyRole[] {
+function asPolicyRoles(
+  policy: GovernanceDaoPolicySnapshot | null
+): PolicyRole[] {
   if (!policy || !Array.isArray(policy.roles)) return [];
   return policy.roles as PolicyRole[];
 }
