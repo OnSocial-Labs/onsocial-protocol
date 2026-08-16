@@ -16,6 +16,7 @@ import {
   type PersistedDaoProposalSnapshot,
 } from './governance-dao-proposal-store.js';
 import { publishDaoProposalUpdated } from './governance-proposal-events.js';
+import { scheduleDaoMembershipSyncAfterProposal } from './governance-dao-membership-sync.js';
 
 const SYNC_BATCH_SIZE = 50;
 const BACKFILL_BATCH_PAUSE_MS = 250;
@@ -240,6 +241,8 @@ async function enrichAndPersistProposal(
       : null,
     resolvedAt,
   });
+
+  scheduleDaoMembershipSyncAfterProposal(daoAccountId, persisted);
 
   return persisted;
 }

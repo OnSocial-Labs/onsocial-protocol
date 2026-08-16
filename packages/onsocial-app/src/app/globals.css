@@ -31868,6 +31868,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.68);
 }
 
+.daos-index-empty {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: rgb(var(--fg-rgb) / 0.55);
+}
+
 .daos-index-shortcuts {
   display: flex;
   flex-wrap: wrap;

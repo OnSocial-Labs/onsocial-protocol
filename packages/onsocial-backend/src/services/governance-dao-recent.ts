@@ -1,6 +1,7 @@
 import { config } from '../config/index.js';
 import { viewContractAt } from './near.js';
 import type { GovernanceDaoPolicySnapshot } from './governance-proposal-policy-snapshot.js';
+import { indexDaoMembershipsFromPolicy } from './governance-dao-membership-sync.js';
 import { ensureDaoProposalsSynced } from './governance-dao-proposal-sync.js';
 import {
   loadRecentDaoProposalSnapshots,
@@ -44,6 +45,8 @@ export async function getDaoGovernanceRecent(
       {}
     ).catch(() => null),
   ]);
+
+  void indexDaoMembershipsFromPolicy(daoAccountId, daoPolicy);
 
   return {
     daoAccountId,

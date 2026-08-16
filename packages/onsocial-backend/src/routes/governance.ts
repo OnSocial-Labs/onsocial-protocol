@@ -10,6 +10,10 @@ import { getDaoGovernanceRecent } from '../services/governance-dao-recent.js';
 import { getDaoGovernancePolicy } from '../services/governance-dao-policy.js';
 import { syncDaoProposalById } from '../services/governance-dao-proposal-sync.js';
 import { loadPersistedPolicySnapshot } from '../services/governance-proposal-policy-store.js';
+import {
+  listIndexedDaoAccountIds,
+  listMyDaoMemberships,
+} from '../services/governance-dao-membership-store.js';
 
 const router = Router();
 
@@ -50,6 +54,17 @@ function readDaoAccountId(value: unknown): string {
   }
 
   return daoAccountId;
+}
+
+function readAccountId(value: unknown): string {
+  const accountId =
+    typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : '';
+
+  if (!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(accountId)) {
+    throw new Error('Invalid accountId');
+  }
+
+  return accountId;
 }
 
 router.get('/feed', async (req: Request, res: Response): Promise<void> => {
@@ -182,6 +197,30 @@ router.get('/proposal', async (req: Request, res: Response): Promise<void> => {
       proposalId,
       live,
       proposal,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ success: false, error: msg });
+  }
+});
+
+router.get('/my-daos', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const accountId = readAccountId(req.query.accountId);
+    const [daos, indexedDaoAccountIds] = await Promise.all([
+      listMyDaoMemberships(accountId),
+      listIndexedDaoAccountIds(),
+    ]);
+
+    res.json({
+      success: true,
+      accountId,
+      daos: daos.map((row) => ({
+        daoAccountId: row.daoAccountId,
+        roleNames: row.roleNames,
+        updatedAt: row.updatedAt,
+      })),
+      indexedDaoAccountIds,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
