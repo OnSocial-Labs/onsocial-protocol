@@ -8,8 +8,9 @@ import {
 
 /**
  * v1 = identity-key box;
- * v2 = per-message ephemeral box (forward secrecy for ciphertext only —
- * not Signal-style PFS / ratchet; identity still binds attribution via authTag).
+ * v2 = per-message ephemeral box (forward secrecy for ciphertext —
+ * ephemeral keys are discarded after seal; not a Signal-style Double Ratchet).
+ * Identity still binds attribution via authTag.
  */
 export const DM_CRYPTO_VERSION = 2;
 export const DM_PUBKEY_PROFILE_KEY = 'messaging_pubkey';

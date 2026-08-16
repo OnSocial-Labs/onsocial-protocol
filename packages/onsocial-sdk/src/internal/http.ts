@@ -244,6 +244,7 @@ export class HttpClient {
 
 export class OnSocialError extends Error {
   status: number;
+  code?: string;
   details?: string;
   retryAfter?: number;
 
@@ -251,6 +252,7 @@ export class OnSocialError extends Error {
     super(body.error);
     this.name = 'OnSocialError';
     this.status = status;
+    this.code = body.code;
     this.details = body.details;
     this.retryAfter = body.retryAfter;
   }

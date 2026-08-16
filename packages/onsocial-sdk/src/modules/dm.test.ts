@@ -55,6 +55,16 @@ describe('DmModule', () => {
     expect(unread).toEqual({ unread: 2 });
     expect(get).toHaveBeenCalledWith('/developer/dm/unread-count');
 
+    get.mockResolvedValueOnce({ messages: [], hasMore: true });
+    const page = await dm.listMessages('a::b', {
+      limit: 20,
+      beforeMessageId: 'msg-1',
+    });
+    expect(page.hasMore).toBe(true);
+    expect(get).toHaveBeenCalledWith(
+      '/developer/dm/threads/a%3A%3Ab?limit=20&beforeMessageId=msg-1'
+    );
+
     const message = await dm.send({
       recipientAccountId: 'bob.testnet',
       ciphertext: 'c',

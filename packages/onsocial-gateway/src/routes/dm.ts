@@ -69,12 +69,12 @@ dmRouter.get('/dm/unread-count', async (req: Request, res: Response) => {
 dmRouter.get('/dm/threads/:threadId', async (req: Request, res: Response) => {
   const threadId = String(req.params.threadId ?? '').trim();
   const limit = Number(req.query.limit ?? 100);
+  const beforeMessageId = String(req.query.beforeMessageId ?? '').trim();
   try {
-    const result = await listDmMessages(
-      req.auth!.accountId,
-      threadId,
-      Number.isFinite(limit) ? limit : 100
-    );
+    const result = await listDmMessages(req.auth!.accountId, threadId, {
+      limit: Number.isFinite(limit) ? limit : 100,
+      beforeMessageId: beforeMessageId || null,
+    });
     if ('code' in result) {
       const status =
         result.code === 'FORBIDDEN'
@@ -85,7 +85,7 @@ dmRouter.get('/dm/threads/:threadId', async (req: Request, res: Response) => {
       res.status(status).json({ error: result.message, code: result.code });
       return;
     }
-    res.json({ messages: result });
+    res.json({ messages: result.messages, hasMore: result.hasMore });
   } catch (error) {
     req.log.error({ error }, 'Failed to list DM messages');
     res.status(500).json({ error: 'Failed to list messages' });

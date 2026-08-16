@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { logger } from '../../logger.js';
 import { checkBlockEitherWay } from '../blocks/index.js';
 import { hasMute } from '../mutes/index.js';
+import { markDmNotificationsReadForThread } from '../notifications/index.js';
 
 export interface DmMediaRef {
   cid: string;
@@ -166,7 +167,8 @@ interface DmStore {
   listMessages(
     accountId: string,
     threadId: string,
-    limit: number
+    limit: number,
+    before?: { createdAt: string; id: string } | null
   ): Promise<DmMessageRecord[]>;
   getMessage(
     accountId: string,
@@ -233,20 +235,27 @@ class MemoryDmStore implements DmStore {
   async listMessages(
     accountId: string,
     threadId: string,
-    limit: number
+    limit: number,
+    before?: { createdAt: string; id: string } | null
   ): Promise<DmMessageRecord[]> {
-    return this.messages
+    const filtered = this.messages
       .filter(
         (msg) =>
           msg.threadId === threadId &&
           (msg.senderAccountId === accountId ||
             msg.recipientAccountId === accountId)
       )
+      .filter((msg) => {
+        if (!before) return true;
+        if (msg.createdAt < before.createdAt) return true;
+        if (msg.createdAt > before.createdAt) return false;
+        return msg.id < before.id;
+      })
       .sort((a, b) => {
         const byTime = a.createdAt.localeCompare(b.createdAt);
         return byTime !== 0 ? byTime : a.id.localeCompare(b.id);
-      })
-      .slice(-limit);
+      });
+    return filtered.slice(-limit);
   }
 
   async getMessage(
@@ -366,9 +375,10 @@ class PostgresDmStore implements DmStore {
   async listMessages(
     accountId: string,
     threadId: string,
-    limit: number
+    limit: number,
+    before?: { createdAt: string; id: string } | null
   ): Promise<DmMessageRecord[]> {
-    // Newest page first, then flip ascending for UI (matches MemoryDmStore).
+    // Newest page first (or older-than cursor), then flip ascending for UI.
     const result = await this.pool.query<{
       id: string;
       thread_id: string;
@@ -384,17 +394,34 @@ class PostgresDmStore implements DmStore {
       ephemeral_pubkey: string | null;
       auth_tag: string | null;
     }>(
-      `WITH page AS (
-         SELECT *
-         FROM dm_messages
-         WHERE thread_id = $1
-           AND (sender_account_id = $2 OR recipient_account_id = $2)
-         ORDER BY created_at DESC, id DESC
-         LIMIT $3
-       )
-       SELECT * FROM page
-       ORDER BY created_at ASC, id ASC`,
-      [threadId, accountId, limit]
+      before
+        ? `WITH page AS (
+             SELECT *
+             FROM dm_messages
+             WHERE thread_id = $1
+               AND (sender_account_id = $2 OR recipient_account_id = $2)
+               AND (
+                 created_at < $4::timestamptz
+                 OR (created_at = $4::timestamptz AND id < $5)
+               )
+             ORDER BY created_at DESC, id DESC
+             LIMIT $3
+           )
+           SELECT * FROM page
+           ORDER BY created_at ASC, id ASC`
+        : `WITH page AS (
+             SELECT *
+             FROM dm_messages
+             WHERE thread_id = $1
+               AND (sender_account_id = $2 OR recipient_account_id = $2)
+             ORDER BY created_at DESC, id DESC
+             LIMIT $3
+           )
+           SELECT * FROM page
+           ORDER BY created_at ASC, id ASC`,
+      before
+        ? [threadId, accountId, limit, before.createdAt, before.id]
+        : [threadId, accountId, limit]
     );
 
     return result.rows.map((row) => mapMessageRow(row));
@@ -637,13 +664,13 @@ export async function sendDmMessage(
   if (await hasMute(recipient, sender)) {
     return {
       code: 'MUTED',
-      message: 'Recipient is not accepting messages from you',
+      message: 'They muted you, so you can’t message them.',
     };
   }
   if (await hasMute(sender, recipient)) {
     return {
       code: 'MUTED',
-      message: 'Unmute this account before messaging',
+      message: 'You muted them. Unmute to send a message.',
     };
   }
 
@@ -689,8 +716,8 @@ export async function countUnreadDmThreads(
 export async function listDmMessages(
   accountId: string,
   threadId: string,
-  limit = 100
-): Promise<DmMessageRecord[] | DmError> {
+  opts?: { limit?: number; beforeMessageId?: string | null }
+): Promise<{ messages: DmMessageRecord[]; hasMore: boolean } | DmError> {
   const id = normalizeAccountId(accountId);
   const thread = threadId.trim();
   if (!isValidAccountId(id)) {
@@ -703,8 +730,21 @@ export async function listDmMessages(
   if (id !== a && id !== b) {
     return { code: 'FORBIDDEN', message: 'Not a participant in this thread' };
   }
-  const capped = Math.min(Math.max(limit, 1), 200);
-  return store.listMessages(id, thread, capped);
+  const capped = Math.min(Math.max(opts?.limit ?? 100, 1), 200);
+  const beforeId = opts?.beforeMessageId?.trim() || '';
+  let before: { createdAt: string; id: string } | null = null;
+  if (beforeId) {
+    const anchor = await store.getMessage(id, thread, beforeId);
+    if (!anchor) {
+      return { code: 'NOT_FOUND', message: 'Cursor message not found' };
+    }
+    before = { createdAt: anchor.createdAt, id: anchor.id };
+  }
+  // Fetch one extra to detect hasMore without a separate count query.
+  const page = await store.listMessages(id, thread, capped + 1, before);
+  const hasMore = page.length > capped;
+  const messages = hasMore ? page.slice(page.length - capped) : page;
+  return { messages, hasMore };
 }
 
 /**
@@ -743,6 +783,8 @@ export async function markDmThreadRead(
   }
 
   await store.markRead(id, thread, match.createdAt);
+  // Keep notification inbox in sync with mailbox unread.
+  void markDmNotificationsReadForThread(id, thread);
   return true;
 }
 

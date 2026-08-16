@@ -24,7 +24,10 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { sendEncryptedDm } from '@/lib/dm/send';
-import { acknowledgeDmRecoveryCode } from '@/lib/dm/keys';
+import {
+  acknowledgeDmRecoveryCode,
+  hasUnlockedDmKey,
+} from '@/lib/dm/keys';
 import { messagesPath } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -32,6 +35,7 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
+import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
 
 interface DmComposeSheetProps {
   open: boolean;
@@ -64,6 +68,11 @@ export function DmComposeSheet({
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
+  const [keysTick, setKeysTick] = useState(0);
+
+  const isUnlocked = Boolean(
+    accountId && keysTick >= 0 && hasUnlockedDmKey(accountId)
+  );
 
   const name = displayName(peerAccountId, peerName ?? undefined);
   const handle = fallbackLabel(peerAccountId);
@@ -96,7 +105,7 @@ export function DmComposeSheet({
     discard,
   } = useDiscardConfirm({
     open,
-    dirty: dirty && !recoveryCode,
+    dirty: dirty && !recoveryCode && isUnlocked,
     pending,
     onClose: finishClose,
   });
@@ -119,6 +128,8 @@ export function DmComposeSheet({
       setPreviewUrl(null);
       setError(null);
       setPending(false);
+    } else {
+      setKeysTick((n) => n + 1);
     }
   }, [open]);
 
@@ -144,6 +155,10 @@ export function DmComposeSheet({
     setError(null);
     if (!isConnected || !accountId) {
       await connect();
+      return;
+    }
+    if (!isUnlocked) {
+      setError('Unlock private messages on this device first.');
       return;
     }
     if (isBlockEitherWay(peerAccountId)) {
@@ -173,6 +188,7 @@ export function DmComposeSheet({
       });
       if (!result.ok) {
         setError(result.error);
+        if (result.needsUnlock) setKeysTick((n) => n + 1);
         return;
       }
       onSent?.();
@@ -193,7 +209,7 @@ export function DmComposeSheet({
     }
   };
 
-  const canSend = Boolean(text.trim() || mediaFile);
+  const canSend = Boolean(text.trim() || mediaFile) && isUnlocked;
 
   return (
     <>
@@ -205,7 +221,7 @@ export function DmComposeSheet({
         personName={name}
         handle={handle}
         signal="message"
-        whisper="Private · only they can read"
+        whisper="Private · sealed on your device"
         closeAriaLabel="Close message"
         backdropLabel="Close message"
         moodId={effectiveMood?.id}
@@ -227,93 +243,104 @@ export function DmComposeSheet({
           ) : undefined
         }
       >
-        <form
-          className={`dm-compose-form${
-            discardConfirmOpen ? ' is-discard-confirm' : ''
-          }`}
-          onSubmit={(e) => void handleSubmit(e)}
-        >
-          <OsField label="Message" htmlFor="dm-compose-text">
-            <textarea
-              id="dm-compose-text"
-              className={osFieldBorderedClassName}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Write something private…"
-              rows={5}
-              disabled={pending || discardConfirmOpen}
-            />
-          </OsField>
+        {accountId && !isUnlocked ? (
+          <DmUnlockPanel
+            accountId={accountId}
+            compact
+            onUnlocked={() => {
+              setError(null);
+              setKeysTick((n) => n + 1);
+            }}
+          />
+        ) : (
+          <form
+            className={`dm-compose-form${
+              discardConfirmOpen ? ' is-discard-confirm' : ''
+            }`}
+            onSubmit={(e) => void handleSubmit(e)}
+          >
+            <OsField label="Message" htmlFor="dm-compose-text">
+              <textarea
+                id="dm-compose-text"
+                className={osFieldBorderedClassName}
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                placeholder="Write something private…"
+                rows={5}
+                disabled={pending || discardConfirmOpen}
+              />
+            </OsField>
 
-          <div className="dm-compose-media">
-            <input
-              ref={fileInputRef}
-              id={mediaInputId}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-              className="sr-only"
-              disabled={pending || discardConfirmOpen}
-              onChange={(event) =>
-                setMediaFile(event.target.files?.[0] ?? null)
-              }
-            />
-            {previewUrl && mediaFile ? (
-              <div className="dm-compose-media-preview">
-                {mediaFile.type.startsWith('video/') ? (
-                  <video
-                    src={previewUrl}
-                    className="dm-compose-media-el"
-                    controls
-                    playsInline
-                    preload="metadata"
-                  />
-                ) : (
-                  <img
-                    src={previewUrl}
-                    alt=""
-                    className="dm-compose-media-el"
-                  />
-                )}
+            <div className="dm-compose-media">
+              <input
+                ref={fileInputRef}
+                id={mediaInputId}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+                className="sr-only"
+                disabled={pending || discardConfirmOpen}
+                onChange={(event) =>
+                  setMediaFile(event.target.files?.[0] ?? null)
+                }
+              />
+              {previewUrl && mediaFile ? (
+                <div className="dm-compose-media-preview">
+                  {mediaFile.type.startsWith('video/') ? (
+                    <video
+                      src={previewUrl}
+                      className="dm-compose-media-el"
+                      controls
+                      playsInline
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt=""
+                      className="dm-compose-media-el"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className="dm-compose-media-remove"
+                    disabled={pending || discardConfirmOpen}
+                    onClick={clearMedia}
+                  >
+                    Remove media
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  className="dm-compose-media-remove"
+                  className="dm-compose-media-attach"
                   disabled={pending || discardConfirmOpen}
-                  onClick={clearMedia}
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  Remove media
+                  Attach photo or video
                 </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="dm-compose-media-attach"
-                disabled={pending || discardConfirmOpen}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Attach photo or video
-              </button>
-            )}
-          </div>
+              )}
+            </div>
 
-          {error ? (
-            <p className="dm-compose-error" role="alert">
-              {error}
-            </p>
-          ) : null}
+            {error ? (
+              <p className="dm-compose-error" role="alert">
+                {error}
+              </p>
+            ) : null}
 
-          {!discardConfirmOpen ? (
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="submit"
-                ready={canSend && !pending}
-                pending={pending}
-                pendingLabel="Sending…"
-              >
-                {!isConnected ? 'Connect wallet' : 'Send'}
-              </OsSheetAction>
-            </OsSheetActions>
-          ) : null}
-        </form>
+            {!discardConfirmOpen ? (
+              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+                <OsSheetAction
+                  type="submit"
+                  ready={canSend && !pending}
+                  pending={pending}
+                  pendingLabel="Sending…"
+                >
+                  {!isConnected ? 'Connect wallet' : 'Send'}
+                </OsSheetAction>
+              </OsSheetActions>
+            ) : null}
+          </form>
+        )}
       </OsGestureSheet>
 
       <DmRecoveryCodeSheet
@@ -321,7 +348,6 @@ export function DmComposeSheet({
         code={recoveryCode ?? ''}
         accountId={accountId}
         onClose={() => {
-          // Keep pending code; navigate into Messages so it can be acknowledged.
           const threadId = pendingThreadId;
           setRecoveryCode(null);
           setPendingThreadId(null);

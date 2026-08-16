@@ -9,6 +9,10 @@ vi.mock('../../src/services/mutes/index.js', () => ({
   hasMute: vi.fn(async () => false),
 }));
 
+vi.mock('../../src/services/notifications/index.js', () => ({
+  markDmNotificationsReadForThread: vi.fn(async () => 0),
+}));
+
 import {
   __resetDmStoreForTests,
   buildDmThreadId,
@@ -19,6 +23,7 @@ import {
 } from '../../src/services/dm/index.js';
 import { checkBlockEitherWay } from '../../src/services/blocks/index.js';
 import { hasMute } from '../../src/services/mutes/index.js';
+import { markDmNotificationsReadForThread } from '../../src/services/notifications/index.js';
 
 describe('dm mailbox service', () => {
   beforeEach(() => {
@@ -28,6 +33,7 @@ describe('dm mailbox service', () => {
       blocked: false,
     });
     vi.mocked(hasMute).mockResolvedValue(false);
+    vi.mocked(markDmNotificationsReadForThread).mockResolvedValue(0);
   });
 
   it('stores ciphertext and lists threads for both peers', async () => {
@@ -52,15 +58,19 @@ describe('dm mailbox service', () => {
       expect(bobThreads[0]?.unread).toBe(true);
     }
 
-    const msgs = await listDmMessages('bob.testnet', sent.threadId);
-    expect(Array.isArray(msgs)).toBe(true);
-    if (Array.isArray(msgs)) {
-      expect(msgs[0]?.ciphertext).toBe('cipher');
-    }
+    const listed = await listDmMessages('bob.testnet', sent.threadId);
+    expect('code' in listed).toBe(false);
+    if ('code' in listed) return;
+    expect(listed.messages[0]?.ciphertext).toBe('cipher');
+    expect(listed.hasMore).toBe(false);
 
     await markDmThreadRead('bob.testnet', sent.threadId, {
       lastReadMessageId: sent.id,
     });
+    expect(markDmNotificationsReadForThread).toHaveBeenCalledWith(
+      'bob.testnet',
+      sent.threadId
+    );
     const bobAfter = await listDmThreads('bob.testnet');
     if (Array.isArray(bobAfter)) {
       expect(bobAfter[0]?.unread).toBe(false);
@@ -104,7 +114,10 @@ describe('dm mailbox service', () => {
       nonce: 'nonce',
       senderPubkey: 'pk',
     });
-    expect(result).toMatchObject({ code: 'MUTED' });
+    expect(result).toMatchObject({
+      code: 'MUTED',
+      message: expect.stringMatching(/muted you/i),
+    });
   });
 
   it('counts unread threads for the recipient', async () => {
@@ -139,13 +152,12 @@ describe('dm mailbox service', () => {
     expect(sent.ephemeralPubkey).toBe('ephemeral-pk');
     expect(sent.authTag).toBe('auth-tag');
 
-    const msgs = await listDmMessages('bob.testnet', sent.threadId);
-    expect(Array.isArray(msgs)).toBe(true);
-    if (Array.isArray(msgs)) {
-      expect(msgs[0]?.ephemeralPubkey).toBe('ephemeral-pk');
-      expect(msgs[0]?.senderPubkey).toBe('identity-pk');
-      expect(msgs[0]?.authTag).toBe('auth-tag');
-    }
+    const listed = await listDmMessages('bob.testnet', sent.threadId);
+    expect('code' in listed).toBe(false);
+    if ('code' in listed) return;
+    expect(listed.messages[0]?.ephemeralPubkey).toBe('ephemeral-pk');
+    expect(listed.messages[0]?.senderPubkey).toBe('identity-pk');
+    expect(listed.messages[0]?.authTag).toBe('auth-tag');
   });
 
   it('rejects authTag without ephemeral pubkey', async () => {
@@ -200,8 +212,9 @@ describe('dm mailbox service', () => {
     }
   });
 
-  it('returns the newest page of messages when limited', async () => {
+  it('returns the newest page and pages older with beforeMessageId', async () => {
     let threadId = '';
+    const ids: string[] = [];
     for (let i = 0; i < 5; i += 1) {
       const sent = await sendDmMessage({
         senderAccountId: 'alice.testnet',
@@ -213,17 +226,29 @@ describe('dm mailbox service', () => {
       expect('code' in sent).toBe(false);
       if ('code' in sent) return;
       threadId = sent.threadId;
-      // Ensure distinct createdAt ordering in memory store.
+      ids.push(sent.id);
       await new Promise((resolve) => setTimeout(resolve, 2));
     }
-    const msgs = await listDmMessages('bob.testnet', threadId, 3);
-    expect(Array.isArray(msgs)).toBe(true);
-    if (!Array.isArray(msgs)) return;
-    expect(msgs).toHaveLength(3);
-    expect(msgs.map((m) => m.ciphertext)).toEqual([
+    const newest = await listDmMessages('bob.testnet', threadId, { limit: 3 });
+    expect('code' in newest).toBe(false);
+    if ('code' in newest) return;
+    expect(newest.hasMore).toBe(true);
+    expect(newest.messages.map((m) => m.ciphertext)).toEqual([
       'cipher-2',
       'cipher-3',
       'cipher-4',
+    ]);
+
+    const older = await listDmMessages('bob.testnet', threadId, {
+      limit: 3,
+      beforeMessageId: newest.messages[0]!.id,
+    });
+    expect('code' in older).toBe(false);
+    if ('code' in older) return;
+    expect(older.hasMore).toBe(false);
+    expect(older.messages.map((m) => m.ciphertext)).toEqual([
+      'cipher-0',
+      'cipher-1',
     ]);
   });
 

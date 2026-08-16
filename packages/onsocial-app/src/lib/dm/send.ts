@@ -1,4 +1,5 @@
 import type { OnSocial } from '@onsocial/sdk';
+import { OnSocialError } from '@onsocial/sdk';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import type { Session } from '@onsocial/sdk/advanced';
 import { decodeBase64, encodeBase64 } from 'tweetnacl-util';
@@ -10,14 +11,22 @@ import {
   sealDmBytes,
   sealDmText,
 } from '@/lib/dm/crypto';
-import { ensureDmKeys, loadDmKeyPair } from '@/lib/dm/keys';
+import {
+  DmKeysLockedError,
+  DmKeysMismatchError,
+  ensureDmKeys,
+  loadDmKeyPair,
+} from '@/lib/dm/keys';
 import {
   lookupDmKeyBackup,
   lookupDmPublicKey,
   reconcileAndPublishDmIdentity,
 } from '@/lib/dm/pubkey';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
-import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
+import {
+  isBlockEitherWay,
+  isViewerMuting,
+} from '@/lib/viewer-mute-block-filter';
 
 export type SendDmResult =
   | {
@@ -26,7 +35,35 @@ export type SendDmResult =
       messageId: string;
       recoveryCode: string | null;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; needsUnlock?: boolean };
+
+function mapSendError(error: unknown): { error: string; needsUnlock?: boolean } {
+  if (error instanceof DmKeysLockedError || error instanceof DmKeysMismatchError) {
+    return { error: error.message, needsUnlock: true };
+  }
+  if (error instanceof OnSocialError) {
+    if (error.code === 'MUTED') {
+      return {
+        error:
+          error.message ||
+          'Messaging isn’t available because of a mute.',
+      };
+    }
+    if (error.code === 'BLOCKED') {
+      return {
+        error: 'Messaging is unavailable while a block is in place.',
+      };
+    }
+    return { error: error.message };
+  }
+  if (error instanceof Error) {
+    const locked =
+      /unlock|recovery code|messaging keys/i.test(error.message) &&
+      !/look up|enabled private/i.test(error.message);
+    return { error: error.message, needsUnlock: locked || undefined };
+  }
+  return { error: 'Unlock messages on this device first.', needsUnlock: true };
+}
 
 async function withDmAuth(opts: {
   client: OnSocial;
@@ -117,6 +154,12 @@ export async function sendEncryptedDm(opts: {
       error: 'Messaging is unavailable while a block is in place.',
     };
   }
+  if (isViewerMuting(recipient)) {
+    return {
+      ok: false,
+      error: 'You muted them. Unmute to send a message.',
+    };
+  }
 
   let keys;
   try {
@@ -130,13 +173,7 @@ export async function sendEncryptedDm(opts: {
       created: keys.created,
     });
   } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Unlock messages on this device first.',
-    };
+    return { ok: false, ...mapSendError(error) };
   }
 
   const recipientLookup = await lookupDmPublicKey(opts.client, recipient);
@@ -181,25 +218,29 @@ export async function sendEncryptedDm(opts: {
     ];
   }
 
-  await withDmAuth(opts);
-  const message = await opts.client.dm.send({
-    recipientAccountId: recipient,
-    ciphertext: sealed.ciphertext,
-    nonce: sealed.nonce,
-    senderCiphertext: sealed.senderCiphertext,
-    senderNonce: sealed.senderNonce,
-    senderPubkey: sealed.senderPubkey,
-    ephemeralPubkey: sealed.ephemeralPubkey,
-    authTag: sealed.authTag,
-    media: media ?? null,
-  });
+  try {
+    await withDmAuth(opts);
+    const message = await opts.client.dm.send({
+      recipientAccountId: recipient,
+      ciphertext: sealed.ciphertext,
+      nonce: sealed.nonce,
+      senderCiphertext: sealed.senderCiphertext,
+      senderNonce: sealed.senderNonce,
+      senderPubkey: sealed.senderPubkey,
+      ephemeralPubkey: sealed.ephemeralPubkey,
+      authTag: sealed.authTag,
+      media: media ?? null,
+    });
 
-  return {
-    ok: true,
-    threadId: message.threadId,
-    messageId: message.id,
-    recoveryCode: keys.recoveryCode,
-  };
+    return {
+      ok: true,
+      threadId: message.threadId,
+      messageId: message.id,
+      recoveryCode: keys.recoveryCode,
+    };
+  } catch (error) {
+    return { ok: false, ...mapSendError(error) };
+  }
 }
 
 export async function decryptDmMessage(opts: {
