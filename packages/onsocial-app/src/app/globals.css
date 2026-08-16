@@ -31873,6 +31873,15 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   word-break: break-word;
 }
 
+/* Match guild-settings-sheet inset (SheetHeader = 1.15rem). */
+.dao-manage-sheet-body {
+  padding: 0.35rem 1.15rem 1.35rem;
+}
+
+.dao-manage-sheet-header {
+  padding-bottom: 0.45rem;
+}
+
 .dao-manage-sheet-list {
   margin: 0;
 }
