@@ -211,7 +211,7 @@ export function DaosIndexPanel() {
             ) : (
               <DaoDirectoryList
                 entries={myEntries}
-                empty="No DAO roles yet. Open a DAO portfolio once — memberships appear here as soon as roles sync. Governance and Treasury are warmed automatically."
+                empty="No DAO roles yet. Tap + to create one, or open a portfolio — memberships appear here as roles sync."
               />
             )}
           </section>
