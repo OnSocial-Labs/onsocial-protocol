@@ -29564,8 +29564,9 @@ a.os-surface-row {
   .endorsements-panel {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
-    padding: 0.15rem var(--os-screen-body-pad-x, 1rem) 1.35rem;
+    /* Same denser rhythm as `.standing-panel` — social list overlays share inset. */
+    gap: 0.65rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
 
   .endorsements-panel-toolbar {
@@ -29662,6 +29663,8 @@ a.os-surface-row {
     overflow: hidden;
     border-radius: 0.75rem;
     background: rgb(var(--fg-rgb) / 0.04);
+    /* Island above `.standing-row-hit` (Standing bio links pattern). */
+    pointer-events: auto;
   }
 
   .endorsement-standing-row .endorsement-row-media-el {
@@ -29683,7 +29686,7 @@ a.os-surface-row {
 
   .endorsement-standing-row .standing-row-aside {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-end;
     gap: 0.15rem;
   }
 
@@ -29769,7 +29772,8 @@ a.os-surface-row {
   .endorse-compose-form {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    /* Same stack rhythm as `.profile-support-form`. */
+    gap: 0.85rem;
   }
 
   .endorse-compose-form.is-discard-confirm {
@@ -29967,8 +29971,13 @@ a.os-surface-row {
 
   /* ── Profile support sheet ──────────────────────────────── */
 
+  /*
+   * Host alias for gesture form bodies. Inset lives on UI
+   * `.os-gesture-sheet-body`; keep this class so commerce sheets share
+   * keyboard / footer overrides without one-off padding.
+   */
   .profile-support-sheet-body {
-    padding: 0.2rem 1.15rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+    /* padding from @onsocial/ui `.os-gesture-sheet-body` */
   }
 
   .profile-support-sheet-panel:has(.profile-support-sheet-footer)

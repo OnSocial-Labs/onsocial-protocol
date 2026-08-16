@@ -502,7 +502,7 @@ export function EndorseComposeSheet({
       moodId={effectiveMood?.id}
       panelStyle={panelStyle}
       size="compact"
-      bodyClassName="endorse-compose-body"
+      bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={56}
       footer={

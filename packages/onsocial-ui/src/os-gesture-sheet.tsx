@@ -61,8 +61,10 @@ export interface OsGestureSheetProps {
 
 /**
  * Face / commerce gesture sheet — GlassSheet hug + GestureSheetHeader.
- * Pair with `os-gesture-sheet-header.css` (panel + header). Host owns mood
- * resolve and form bodies.
+ * Pair with `os-gesture-sheet-header.css` (panel + header + body inset). Host
+ * owns mood resolve and form bodies. Prefer `bodyClassName="profile-support-sheet-body"`
+ * in app hosts for shared keyboard/footer overrides; inset comes from
+ * `.os-gesture-sheet-body`.
  */
 export function OsGestureSheet({
   open,
