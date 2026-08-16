@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   PROTOCOL_CREATE_KIND_COMMON,
   PROTOCOL_CREATE_KIND_GROUPS,
@@ -46,8 +46,6 @@ export function ProtocolProposeKindSheet({
   onSelectKind: (kind: ProtocolCreateKind) => void;
   onOpenStake: () => void;
 }) {
-  const [highlightedKind, setHighlightedKind] =
-    useState<ProtocolCreateKind | null>(lastKind);
   const eligibility = useProtocolPickerEligibility({
     open,
     daoAccountId,
@@ -55,9 +53,9 @@ export function ProtocolProposeKindSheet({
     daoPolicy,
   });
 
-  useEffect(() => {
-    if (!open) return;
-    setHighlightedKind(lastKind ?? readLastProtocolCreateKind());
+  const highlightedKind = useMemo(() => {
+    if (!open) return lastKind;
+    return lastKind ?? readLastProtocolCreateKind();
   }, [open, lastKind]);
 
   const commonOptions = useMemo(

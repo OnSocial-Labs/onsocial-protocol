@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   PROTOCOL_POLICY_ACTION_COMMON,
   PROTOCOL_POLICY_ACTION_GROUPS,
@@ -46,8 +46,6 @@ export function ProtocolSettingsActionSheet({
   onSelectAction: (actionId: ProtocolPolicyActionId) => void;
   onOpenStake: () => void;
 }) {
-  const [highlightedAction, setHighlightedAction] =
-    useState<ProtocolPolicyActionId | null>(lastAction);
   const eligibility = useProtocolPickerEligibility({
     open,
     daoAccountId,
@@ -55,9 +53,9 @@ export function ProtocolSettingsActionSheet({
     daoPolicy,
   });
 
-  useEffect(() => {
-    if (!open) return;
-    setHighlightedAction(lastAction ?? readLastProtocolPolicyAction());
+  const highlightedAction = useMemo(() => {
+    if (!open) return lastAction;
+    return lastAction ?? readLastProtocolPolicyAction();
   }, [open, lastAction]);
 
   const commonOptions = useMemo(
