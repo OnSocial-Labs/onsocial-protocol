@@ -7,6 +7,10 @@ import type {
   EndorsementsPanelResponse,
 } from '@/lib/endorsements-panel-data';
 import { ENDORSEMENTS_PAGE_SIZE } from '@/lib/endorsements-panel-data';
+import {
+  parseEndorsementMediaRef,
+  resolveEndorsementDisplayMediaUrl,
+} from '@/lib/endorsement-media';
 import { createAppOnSocialClient } from '@/lib/profile-social-server';
 
 function profileMap(rows: ProfileSearchRow[]): Map<string, ProfileSearchRow> {
@@ -15,34 +19,46 @@ function profileMap(rows: ProfileSearchRow[]): Map<string, ProfileSearchRow> {
 
 export function enrichEndorsementItem(
   item: EndorsementListItem,
-  profiles: Map<string, ProfileSearchRow>
+  profiles: Map<string, ProfileSearchRow>,
+  mediaUrlResolver?: (cid: string) => string
 ): EndorsementPanelItem {
   const issuer = profiles.get(item.issuer);
   const target = profiles.get(item.target);
+  const media = parseEndorsementMediaRef(item.media);
+  const mediaUrl = media
+    ? (mediaUrlResolver?.(media.cid) ??
+      resolveEndorsementDisplayMediaUrl({ media }))
+    : null;
   return {
     ...item,
     issuerName: issuer?.name ?? null,
     issuerAvatarUrl: issuer?.avatar ?? null,
     targetName: target?.name ?? null,
     targetAvatarUrl: target?.avatar ?? null,
+    mediaUrl,
   };
 }
 
 async function enrichList(
   items: EndorsementListItem[],
-  profiles?: Map<string, ProfileSearchRow>
+  profiles?: Map<string, ProfileSearchRow>,
+  mediaUrlResolver?: (cid: string) => string
 ): Promise<EndorsementPanelItem[]> {
   if (items.length === 0) return [];
+  const os = profiles ? null : createAppOnSocialClient();
   const map =
     profiles ??
     profileMap(
-      await createAppOnSocialClient()
+      await os!
         .query.profiles.statsForAccounts([
           ...new Set(items.flatMap((item) => [item.issuer, item.target])),
         ])
         .catch(() => [])
     );
-  return items.map((item) => enrichEndorsementItem(item, map));
+  const resolveUrl =
+    mediaUrlResolver ??
+    (os ? (cid: string) => os.storage.url(cid) : undefined);
+  return items.map((item) => enrichEndorsementItem(item, map, resolveUrl));
 }
 
 /** SSR endorsements shell — counts + both rails (enriched). */
@@ -72,11 +88,12 @@ export const loadEndorsementsPageData = cache(
               .catch(() => [])
           : []
       );
+      const mediaUrl = (cid: string) => os.storage.url(cid);
       return {
         accountId: id,
         counts,
-        received: await enrichList(receivedItems, profiles),
-        given: await enrichList(givenItems, profiles),
+        received: await enrichList(receivedItems, profiles, mediaUrl),
+        given: await enrichList(givenItems, profiles, mediaUrl),
         receivedHasMore: receivedItems.length >= ENDORSEMENTS_PAGE_SIZE,
         givenHasMore: givenItems.length >= ENDORSEMENTS_PAGE_SIZE,
       };

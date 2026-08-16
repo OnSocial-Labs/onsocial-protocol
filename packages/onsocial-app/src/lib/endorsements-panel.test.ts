@@ -44,6 +44,23 @@ describe('endorsements panel payload shape', () => {
     expect(ENDORSEMENTS_PAGE_SIZE).toBe(24);
     expect(sample.givenHasMore).toBe(true);
   });
+
+  it('types enriched rows with mediaUrl', () => {
+    const item: EndorsementsPanelResponse['received'][number] = {
+      issuer: 'alice.near',
+      target: 'bob.near',
+      v: 1,
+      since: 1,
+      blockHeight: 1,
+      blockTimestamp: 1,
+      issuerName: 'Alice',
+      issuerAvatarUrl: null,
+      targetName: 'Bob',
+      targetAvatarUrl: null,
+      mediaUrl: 'https://cdn.testnet.onsocial.id/ipfs/bafy',
+    };
+    expect(item.mediaUrl).toContain('bafy');
+  });
 });
 
 describe('endorse compose intent contract', () => {

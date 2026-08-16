@@ -17,11 +17,17 @@ import {
   EndorsementListRow,
   EndorsementListSkeleton,
 } from '@/components/panels/endorsement-list-row';
+import {
+  EndorsementSupportSheet,
+  type EndorsementSupportTarget,
+} from '@/components/panels/endorsement-support-sheet';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import { accountIdsEqual } from '@/lib/account-match';
+import { parseEndorsementMediaRef } from '@/lib/endorsement-media';
 import { displayName } from '@/lib/profile-display';
+import { resolveEndorsementSpendTargetId } from '@/lib/social-spend-endorsement';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface EndorsementsPanelProps {
@@ -130,6 +136,9 @@ export function EndorsementsPanel({
   const [composeSession, setComposeSession] = useState<ComposeSession | null>(
     null
   );
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportTarget, setSupportTarget] =
+    useState<EndorsementSupportTarget | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const isSelf =
@@ -233,6 +242,28 @@ export function EndorsementsPanel({
     });
   }
 
+  function openSupport(item: EndorsementPanelItem) {
+    const endorsementId = resolveEndorsementSpendTargetId({
+      id: typeof item.id === 'string' ? item.id : null,
+      issuer: item.issuer,
+      target: item.target,
+      topic: item.topic,
+    });
+    if (!endorsementId) return;
+    if (!isConnected) {
+      void connect();
+      return;
+    }
+    setSupportTarget({
+      endorsementId,
+      recipientAccountId: item.target,
+      recipientName: item.targetName,
+      issuer: item.issuer,
+      topic: item.topic ?? null,
+    });
+    setSupportOpen(true);
+  }
+
   return (
     <div className="endorsements-panel">
       <div className="endorsements-panel-toolbar">
@@ -311,12 +342,22 @@ export function EndorsementsPanel({
             const viewerOwns =
               Boolean(viewerAccountId) &&
               accountIdsEqual(viewerAccountId!, item.issuer);
+            const canSupport =
+              Boolean(resolveEndorsementSpendTargetId({
+                id: typeof item.id === 'string' ? item.id : null,
+                issuer: item.issuer,
+                target: item.target,
+                topic: item.topic,
+              })) &&
+              (!viewerAccountId ||
+                !accountIdsEqual(viewerAccountId, item.target));
             return (
               <EndorsementListRow
                 key={rowKey(item)}
                 item={item}
                 pageAccountId={accountId}
                 mode={mode}
+                viewerAccountId={viewerAccountId}
                 canEdit={viewerOwns}
                 onEdit={() =>
                   openCompose({
@@ -325,11 +366,16 @@ export function EndorsementsPanel({
                     targetAvatarUrl: item.targetAvatarUrl,
                     intent: 'edit',
                     existing: {
+                      id: typeof item.id === 'string' ? item.id : null,
                       topic: item.topic ?? null,
                       note: item.note ?? null,
+                      media: parseEndorsementMediaRef(item.media),
+                      mediaUrl: item.mediaUrl ?? null,
                     },
                   })
                 }
+                canSupport={canSupport}
+                onSupport={() => openSupport(item)}
               />
             );
           })}
@@ -356,6 +402,22 @@ export function EndorsementsPanel({
         onOpenChange={(next) => {
           setComposeOpen(next);
           if (!next) setComposeSession(null);
+        }}
+        onSuccess={() => void load({ soft: true })}
+      />
+
+      <EndorsementSupportSheet
+        open={supportOpen}
+        target={supportTarget}
+        mood={
+          supportTarget &&
+          !accountIdsEqual(supportTarget.recipientAccountId, accountId)
+            ? null
+            : mood
+        }
+        onOpenChange={(next) => {
+          setSupportOpen(next);
+          if (!next) setSupportTarget(null);
         }}
         onSuccess={() => void load({ soft: true })}
       />

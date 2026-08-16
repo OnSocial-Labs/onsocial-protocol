@@ -5,12 +5,14 @@ import {
   useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from 'react';
 import {
   EndorsementTopicConflictError,
   normalizeEndorsementTopic,
+  type MediaRef,
 } from '@onsocial/sdk';
 import {
   DiscardConfirmFooter,
@@ -27,6 +29,14 @@ import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { accountIdsEqual } from '@/lib/account-match';
 import { creditAppPlatformSocialReward } from '@/lib/app-platform-rewards';
 import { humanizeEndorsementTopic } from '@/lib/endorsement-display';
+import {
+  ENDORSEMENT_IMAGE_MAX_BYTES,
+  ENDORSEMENT_VIDEO_MAX_BYTES,
+  ENDORSEMENT_VIDEO_MAX_SECONDS,
+  parseEndorsementMediaRef,
+  resolveEndorsementDisplayMediaUrl,
+  validateEndorsementMediaFile,
+} from '@/lib/endorsement-media';
 import type { EndorseExistingDraft } from '@/lib/endorsements-panel-data';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
@@ -66,10 +76,16 @@ export interface EndorseComposeSheetProps {
   onSuccess?: () => void;
 }
 
+function mediaFingerprint(media: MediaRef | null): string {
+  if (!media) return '';
+  return `${media.cid}:${media.mime}`;
+}
+
 /**
  * Face Endorse compose — same hug gesture family as Support (host mood +
  * OsGestureSheet). Bordered type-ins so mood wash shows through. Edit/remove
  * via upsert; dirty close uses discard confirm; rewards on first create save.
+ * Optional photo/video attach mirrors portal endorsement media.
  */
 export function EndorseComposeSheet({
   open,
@@ -84,6 +100,8 @@ export function EndorseComposeSheet({
 }: EndorseComposeSheetProps) {
   void _avatarUrl;
   const titleId = useId();
+  const mediaInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { accountId, isConnected, connect } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { setTxResult } = useAppTransactionFeedback();
@@ -92,6 +110,15 @@ export function EndorseComposeSheet({
   const [note, setNote] = useState('');
   const [baselineTopic, setBaselineTopic] = useState('');
   const [baselineNote, setBaselineNote] = useState('');
+  const [endorsementId, setEndorsementId] = useState<string | null>(null);
+  const [existingMedia, setExistingMedia] = useState<MediaRef | null>(null);
+  const [baselineMediaFp, setBaselineMediaFp] = useState('');
+  const [existingMediaUrl, setExistingMediaUrl] = useState<string | null>(null);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [mediaRemoved, setMediaRemoved] = useState(false);
+  const [mediaProcessing, setMediaProcessing] = useState(false);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [pending, setPending] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -113,10 +140,29 @@ export function EndorseComposeSheet({
     [effectiveMood]
   );
 
+  const hasMediaAttachment =
+    Boolean(mediaFile) || (!mediaRemoved && Boolean(existingMedia));
+  const previewMediaUrl = mediaFile
+    ? filePreviewUrl
+    : !mediaRemoved
+      ? existingMediaUrl
+      : null;
+  const previewMediaMime =
+    mediaFile?.type ?? existingMedia?.mime ?? null;
+  const currentMediaFp = mediaFile
+    ? `file:${mediaFile.name}:${mediaFile.size}:${mediaFile.lastModified}`
+    : mediaRemoved
+      ? ''
+      : mediaFingerprint(existingMedia);
+  const mediaDirty = currentMediaFp !== baselineMediaFp;
+
   const dirty =
     topic.trim() !== baselineTopic.trim() ||
-    note.trim() !== baselineNote.trim();
-  const busy = pending || removing || loadingExisting;
+    note.trim() !== baselineNote.trim() ||
+    mediaDirty;
+  const busy = pending || removing || loadingExisting || mediaProcessing;
+
+  const mediaLimitsHint = `Photo ≤${Math.round(ENDORSEMENT_IMAGE_MAX_BYTES / (1024 * 1024))} MB · video ≤${Math.round(ENDORSEMENT_VIDEO_MAX_BYTES / (1024 * 1024))} MB, ${ENDORSEMENT_VIDEO_MAX_SECONDS}s`;
 
   const finishClose = useCallback(() => {
     setClosing(true);
@@ -139,12 +185,29 @@ export function EndorseComposeSheet({
   });
 
   useEffect(() => {
+    return () => {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    };
+  }, [filePreviewUrl]);
+
+  useEffect(() => {
     if (!open) return;
 
     let cancelled = false;
     setFieldError(null);
+    setMediaError(null);
     setPending(false);
     setRemoving(false);
+    setMediaProcessing(false);
+
+    const clearLocalMedia = () => {
+      setMediaFile(null);
+      setMediaRemoved(false);
+      if (filePreviewUrl) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+      setFilePreviewUrl(null);
+    };
 
     const applyDraft = (
       draft: EndorseExistingDraft | null,
@@ -152,10 +215,26 @@ export function EndorseComposeSheet({
     ) => {
       const nextTopic = humanizeEndorsementTopic(draft?.topic);
       const nextNote = draft?.note?.trim() ?? '';
+      const nextMedia = parseEndorsementMediaRef(draft?.media);
+      const nextMediaUrl =
+        draft?.mediaUrl?.trim() ||
+        resolveEndorsementDisplayMediaUrl({
+          media: nextMedia,
+          mediaUrl: draft?.mediaUrl,
+        });
       setTopic(nextTopic);
       setNote(nextNote);
       setBaselineTopic(nextTopic);
       setBaselineNote(nextNote);
+      setEndorsementId(
+        typeof draft?.id === 'string' && draft.id.trim()
+          ? draft.id.trim()
+          : null
+      );
+      setExistingMedia(nextMedia);
+      setExistingMediaUrl(nextMediaUrl);
+      setBaselineMediaFp(mediaFingerprint(nextMedia));
+      clearLocalMedia();
       setIsEditing(editing);
     };
 
@@ -190,8 +269,15 @@ export function EndorseComposeSheet({
         if (cancelled) return;
         const latest = rows[0] ?? null;
         if (latest) {
+          const media = parseEndorsementMediaRef(latest.media);
           applyDraft(
-            { topic: latest.topic ?? null, note: latest.note ?? null },
+            {
+              id: typeof latest.id === 'string' ? latest.id : null,
+              topic: latest.topic ?? null,
+              note: latest.note ?? null,
+              media,
+              mediaUrl: resolveEndorsementDisplayMediaUrl({ media }),
+            },
             true
           );
         }
@@ -205,6 +291,8 @@ export function EndorseComposeSheet({
     return () => {
       cancelled = true;
     };
+    // filePreviewUrl intentionally omitted — cleared inside applyDraft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open reset only
   }, [
     open,
     intent,
@@ -227,6 +315,49 @@ export function EndorseComposeSheet({
     onOpenChange(false);
   }, [clearDiscardConfirm, onOpenChange]);
 
+  const handleMediaPick = async (file: File | null) => {
+    setMediaError(null);
+    setFieldError(null);
+    if (!file) return;
+    setMediaProcessing(true);
+    try {
+      const validationError = await validateEndorsementMediaFile(file);
+      if (validationError) {
+        setMediaError(validationError);
+        return;
+      }
+      setMediaFile(file);
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+      setFilePreviewUrl(URL.createObjectURL(file));
+      setMediaRemoved(false);
+    } finally {
+      setMediaProcessing(false);
+    }
+  };
+
+  const handleClearMedia = () => {
+    setMediaFile(null);
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+      setFilePreviewUrl(null);
+    }
+    setMediaRemoved(true);
+    setMediaError(null);
+    setFieldError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const resolveSubmitMedia = ():
+    | File
+    | MediaRef
+    | null
+    | undefined => {
+    if (mediaFile) return mediaFile;
+    if (mediaRemoved) return null;
+    if (existingMedia) return existingMedia;
+    return undefined;
+  };
+
   const canSubmit =
     !isSelf && isConnected && !busy && (!isEditing || dirty);
 
@@ -241,6 +372,10 @@ export function EndorseComposeSheet({
       setFieldError('You can’t endorse yourself.');
       return;
     }
+    if (mediaError) {
+      setFieldError(mediaError);
+      return;
+    }
 
     const normalizedTopic = normalizeEndorsementTopic(topic);
     const trimmedNote = note.trim();
@@ -248,6 +383,8 @@ export function EndorseComposeSheet({
       setFieldError(`Note must be ${NOTE_MAX} characters or fewer.`);
       return;
     }
+
+    const submitMedia = resolveSubmitMedia();
 
     setPending(true);
     try {
@@ -258,7 +395,13 @@ export function EndorseComposeSheet({
         pageAccountId,
         {
           ...(normalizedTopic ? { topic: normalizedTopic } : {}),
-          ...(trimmedNote ? { note: trimmedNote } : {}),
+          ...(trimmedNote
+            ? { note: trimmedNote }
+            : isEditing
+              ? { note: '' }
+              : {}),
+          ...(isEditing && endorsementId ? { id: endorsementId } : {}),
+          ...(submitMedia !== undefined ? { media: submitMedia } : {}),
         },
         {
           ...(isEditing
@@ -365,7 +508,7 @@ export function EndorseComposeSheet({
             onKeepEditing={keepEditing}
             keepEditingRef={keepEditingRef}
             title="Discard endorsement?"
-            body="Your topic and note won’t be saved."
+            body="Your topic, note, and media won’t be saved."
           />
         ) : undefined
       }
@@ -429,9 +572,64 @@ export function EndorseComposeSheet({
           />
         </label>
 
-        {fieldError ? (
+        <div className="endorse-compose-media">
+          <input
+            ref={fileInputRef}
+            id={mediaInputId}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+            className="sr-only"
+            disabled={busy || isSelf || discardConfirmOpen}
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              void handleMediaPick(file);
+            }}
+          />
+          {previewMediaUrl ? (
+            <div className="endorse-compose-media-preview">
+              {previewMediaMime?.toLowerCase().startsWith('video/') ? (
+                <video
+                  src={previewMediaUrl}
+                  className="endorse-compose-media-el"
+                  controls
+                  playsInline
+                  preload="metadata"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- endorsement CDN / blob preview
+                <img
+                  src={previewMediaUrl}
+                  alt=""
+                  className="endorse-compose-media-el"
+                />
+              )}
+              <button
+                type="button"
+                className="endorse-compose-media-remove"
+                disabled={busy || discardConfirmOpen}
+                onClick={handleClearMedia}
+              >
+                Remove media
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="endorse-compose-media-attach"
+              disabled={busy || isSelf || discardConfirmOpen}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {mediaProcessing ? 'Checking media…' : 'Attach photo or video'}
+            </button>
+          )}
+          {!hasMediaAttachment ? (
+            <p className="endorse-compose-media-hint">{mediaLimitsHint}</p>
+          ) : null}
+        </div>
+
+        {fieldError || mediaError ? (
           <p className="endorse-compose-error" role="alert">
-            {fieldError}
+            {fieldError ?? mediaError}
           </p>
         ) : isSelf ? (
           <p className="endorse-compose-hint">You can’t endorse yourself.</p>
@@ -447,7 +645,7 @@ export function EndorseComposeSheet({
           </p>
         ) : (
           <p className="endorse-compose-hint">
-            Public vouch — topic optional, note optional.
+            Public vouch — topic, note, and media are optional.
           </p>
         )}
 
