@@ -169,9 +169,9 @@ export function DaosIndexPanel() {
     >
       <div className="daos-index">
         <p className="daos-index-lede">
-          Each DAO has a portfolio — cover, square crest, and proposals in
-          context. Protocol opens Governance; flip to Treasury from that page.
-          Discover opens the full factory catalog.
+          Each DAO has a portfolio — cover, square crest, and About. Open
+          Proposals from the page. Protocol opens Governance; flip to Treasury
+          there. Discover opens the full factory catalog.
         </p>
 
         <div className="daos-index-shortcuts">

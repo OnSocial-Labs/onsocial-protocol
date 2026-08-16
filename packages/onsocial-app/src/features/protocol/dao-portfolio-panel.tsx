@@ -1,12 +1,13 @@
 'use client';
 
 /**
- * DAO portfolio — presence (cover + square crest) with proposals in context.
- * Members / Treasury / Manage open overlays; Protocol tools live in Manage.
+ * DAO portfolio — presence (cover + square crest).
+ * Proposals / Members / Treasury / Manage open overlays.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -21,11 +22,9 @@ import {
   type DaoManageAction,
 } from '@/features/protocol/dao-manage-sheet';
 import { DaoMembersSheet } from '@/features/protocol/dao-members-sheet';
+import { DaoProposalsSheet } from '@/features/protocol/dao-proposals-sheet';
 import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
-import {
-  DaoWorkspacePanel,
-  type DaoWorkspaceTool,
-} from '@/features/protocol/dao-workspace-panel';
+import type { DaoWorkspaceTool } from '@/features/protocol/dao-workspace-panel';
 import {
   getProtocolGovernanceEligibility,
   type ProtocolGovernanceEligibility,
@@ -37,7 +36,13 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
-import { APP_DAOS_PATH, daoPath } from '@/lib/app-routes';
+import {
+  APP_DAOS_PATH,
+  PROTOCOL_PROPOSAL_PARAM,
+  PROTOCOL_SEARCH_PARAM,
+  PROTOCOL_STATUS_PARAM,
+  daoPath,
+} from '@/lib/app-routes';
 
 interface DaoPortfolioPanelProps {
   initialBranding: DaoBranding;
@@ -57,7 +62,13 @@ type EligibilitySnapshot = {
   value: ProtocolGovernanceEligibility;
 };
 
-type PortfolioOverlay = 'manage' | 'members' | 'treasury' | 'edit' | null;
+type PortfolioOverlay =
+  | 'manage'
+  | 'members'
+  | 'treasury'
+  | 'proposals'
+  | 'edit'
+  | null;
 
 function eligibilityKey(accountId: string, daoAccountId: string): string {
   return `${accountId}:${daoAccountId}`;
@@ -71,17 +82,30 @@ function isProtocolFlipDao(daoAccountId: string): boolean {
   );
 }
 
+function hasProposalsDeepLink(searchParams: {
+  get(name: string): string | null;
+}): boolean {
+  return Boolean(
+    searchParams.get(PROTOCOL_PROPOSAL_PARAM)?.trim() ||
+      searchParams.get(PROTOCOL_STATUS_PARAM)?.trim() ||
+      searchParams.get(PROTOCOL_SEARCH_PARAM)?.trim()
+  );
+}
+
 export function DaoPortfolioPanel({
   initialBranding,
   configName,
   configPurpose,
   configMetadata,
 }: DaoPortfolioPanelProps) {
+  const searchParams = useSearchParams();
   const { accountId } = useAppWallet();
   const [optimistic, setOptimistic] = useState<OptimisticDaoProfile | null>(
     null
   );
-  const [overlay, setOverlay] = useState<PortfolioOverlay>(null);
+  const [overlay, setOverlay] = useState<PortfolioOverlay>(() =>
+    hasProposalsDeepLink(searchParams) ? 'proposals' : null
+  );
   const [toolRequest, setToolRequest] = useState<DaoWorkspaceTool>(null);
   const [eligibility, setEligibility] = useState<EligibilitySnapshot | null>(
     null
@@ -109,6 +133,13 @@ export function DaoPortfolioPanel({
   useEffect(() => {
     softIndexDaoMemberships(branding.daoAccountId);
   }, [branding.daoAccountId]);
+
+  useEffect(() => {
+    if (!hasProposalsDeepLink(searchParams)) return;
+    queueMicrotask(() => {
+      setOverlay((current) => (current == null ? 'proposals' : current));
+    });
+  }, [searchParams]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -162,6 +193,8 @@ export function DaoPortfolioPanel({
       setOverlay('treasury');
       return;
     }
+    // Propose / Stake / Settings / Info live on the proposals workspace.
+    setOverlay('proposals');
     setToolRequest(action);
   }, []);
 
@@ -252,6 +285,13 @@ export function DaoPortfolioPanel({
             <button
               type="button"
               className="protocol-tool"
+              onClick={() => setOverlay('proposals')}
+            >
+              Proposals
+            </button>
+            <button
+              type="button"
+              className="protocol-tool"
               onClick={() => setOverlay('members')}
             >
               Members
@@ -271,18 +311,6 @@ export function DaoPortfolioPanel({
               Manage
             </button>
           </div>
-
-          <section
-            className="dao-portfolio-workspace"
-            aria-label="Proposals"
-          >
-            <DaoWorkspacePanel
-              daoAccountId={branding.daoAccountId}
-              hideTools
-              toolRequest={toolRequest}
-              onToolRequestHandled={() => setToolRequest(null)}
-            />
-          </section>
 
           <Divider variant="section" className="dao-portfolio-divider" />
 
@@ -322,6 +350,17 @@ export function DaoPortfolioPanel({
           setOverlay((current) => (current === 'manage' ? null : current))
         }
         onAction={handleManageAction}
+      />
+
+      <DaoProposalsSheet
+        open={overlay === 'proposals'}
+        daoAccountId={branding.daoAccountId}
+        daoName={title}
+        toolRequest={toolRequest}
+        onToolRequestHandled={() => setToolRequest(null)}
+        onClose={() =>
+          setOverlay((current) => (current === 'proposals' ? null : current))
+        }
       />
 
       <DaoMembersSheet

@@ -202,8 +202,8 @@ export function daoPath(daoAccountId: string): string {
 }
 
 /**
- * DAO portfolio page deep-linked to a proposal feed state — the embedded
- * `DaoWorkspacePanel` equivalent of {@link protocolPath} for `/dao/[accountId]`.
+ * DAO portfolio page deep-linked to a proposal feed state.
+ * Opens `/dao/[accountId]` and the Proposals overlay (shareable).
  */
 export function daoPortfolioPath(
   daoAccountId: string,
