@@ -28,6 +28,7 @@ import {
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
+import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import { initials } from '@/lib/profile-display';
 import {
   APP_DAOS_PATH,
@@ -91,6 +92,10 @@ export function DaoPortfolioPanel({
       rememberCommunityDao(branding.daoAccountId);
     }
   }, [branding.daoAccountId, branding.kind]);
+
+  useEffect(() => {
+    softIndexDaoMemberships(branding.daoAccountId);
+  }, [branding.daoAccountId]);
 
   useEffect(() => {
     if (!accountId) return;

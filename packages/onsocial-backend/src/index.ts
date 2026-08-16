@@ -19,6 +19,7 @@ import {
   startOpenDaoProposalRefreshInBackground,
   stopOpenDaoProposalRefreshInBackground,
 } from './services/governance-dao-proposal-sync.js';
+import { startDaoMembershipSyncInBackground } from './services/governance-dao-membership-sync.js';
 import {
   startSeasonAutoFinalizeInBackground,
   stopSeasonAutoFinalizeInBackground,
@@ -152,6 +153,8 @@ const server = app.listen(config.port, async () => {
   startOpenDaoProposalRefreshInBackground(config.governanceDao);
   startDaoProposalBackfillInBackground(config.treasuryDao);
   startOpenDaoProposalRefreshInBackground(config.treasuryDao);
+  startDaoMembershipSyncInBackground(config.governanceDao);
+  startDaoMembershipSyncInBackground(config.treasuryDao);
 
   startSeasonAutoFinalizeInBackground();
 

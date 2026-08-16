@@ -6,6 +6,7 @@ import {
   isTerminalDaoProposalStatus,
   type GovernanceDaoPolicySnapshot,
 } from './governance-proposal-policy-snapshot.js';
+import { indexDaoMembershipsFromPolicy } from './governance-dao-membership-sync.js';
 import { ensureDaoProposalsSynced } from './governance-dao-proposal-sync.js';
 import { loadAllDaoProposalSnapshots } from './governance-dao-proposal-store.js';
 import { loadPersistedPolicySnapshotsByProposalIds } from './governance-proposal-policy-store.js';
@@ -995,6 +996,8 @@ async function fetchDaoGovernanceFeed(daoAccountId: string): Promise<{
         {}
       ).catch(() => null),
     ]);
+
+    void indexDaoMembershipsFromPolicy(daoAccountId, daoPolicy);
 
     const snapshotsById = new Map<number, GovernanceDaoProposalSnapshot>();
     const proposals: GovernanceDaoProposalRecord[] = [];
