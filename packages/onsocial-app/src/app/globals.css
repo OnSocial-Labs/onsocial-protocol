@@ -30451,6 +30451,13 @@ button.scarce-clip-cover-expand:focus-visible {
   /* Horizontal/vertical inset: shared OsAppScreen body padding. */
 }
 
+/* Embedded DAO workspace feed (DaoWorkspacePanel) — inset owned by the host. */
+.dao-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
 .protocol-page-head {
   display: flex;
   flex-direction: column;
