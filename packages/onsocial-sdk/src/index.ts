@@ -384,6 +384,13 @@ export type {
 export { StandingsModule } from './modules/standings.js';
 export { BlocksModule } from './modules/blocks.js';
 export { MutesModule } from './modules/mutes.js';
+export { DmModule } from './modules/dm.js';
+export type {
+  DmMediaRef,
+  DmMessageRecord,
+  DmThreadSummary,
+  SendDmInput,
+} from './modules/dm.js';
 export type { MuteRecord, ListMutesResult } from './modules/mutes.js';
 export {
   StorageAccountModule,

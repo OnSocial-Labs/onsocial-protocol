@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -11,12 +12,14 @@ import { PortfolioOwnerPayoutMarks } from '@/components/portfolio/portfolio-owne
 import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
+import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerBlock } from '@/hooks/use-viewer-block';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   BLOCK_ACTION_DESCRIPTION,
@@ -28,6 +31,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { messagesPath } from '@/lib/app-routes';
 
 interface PortfolioIdentityGesturesProps {
   pageAccountId: string;
@@ -56,10 +60,13 @@ export function PortfolioIdentityGestures({
     useViewerStanding(pageAccountId);
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
+  const dmUnread = useDmUnreadCount();
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
+  const router = useRouter();
 
   const isSelf =
     Boolean(viewerAccountId) &&
@@ -173,7 +180,23 @@ export function PortfolioIdentityGestures({
   }
 
   if (isSelf) {
-    return <PortfolioOwnerPayoutMarks accountId={pageAccountId} />;
+    return (
+      <div className="portfolio-identity-gestures">
+        <PortfolioOwnerPayoutMarks accountId={pageAccountId} />
+        <button
+          type="button"
+          className="portfolio-identity-gesture portfolio-identity-gesture--message"
+          onClick={() => router.push(messagesPath())}
+        >
+          Messages
+          {dmUnread > 0 ? (
+            <span className="messages-nav-badge" aria-label={`${dmUnread} unread`}>
+              {dmUnread > 9 ? '9+' : dmUnread}
+            </span>
+          ) : null}
+        </button>
+      </div>
+    );
   }
 
   async function handleStandToggle() {
@@ -269,6 +292,23 @@ export function PortfolioIdentityGestures({
 
           <button
             type="button"
+            className="portfolio-identity-gesture portfolio-identity-gesture--message group"
+            disabled={blockEitherWay}
+            onClick={() => {
+              if (blockEitherWay) return;
+              setMessageOpen(true);
+            }}
+            aria-label={`Message ${label}`}
+          >
+            Message
+          </button>
+
+          <span className="portfolio-identity-gesture-sep" aria-hidden>
+            ·
+          </span>
+
+          <button
+            type="button"
             className="portfolio-identity-gesture portfolio-identity-gesture--more group"
             onClick={() => setMoreOpen(true)}
             aria-label={`More actions for ${label}`}
@@ -277,6 +317,13 @@ export function PortfolioIdentityGestures({
           </button>
         </div>
       )}
+      <DmComposeSheet
+        open={messageOpen}
+        peerAccountId={pageAccountId}
+        peerName={profileName}
+        mood={mood}
+        onClose={() => setMessageOpen(false)}
+      />
       <EndorseComposeSheet
         open={endorseOpen}
         pageAccountId={pageAccountId}

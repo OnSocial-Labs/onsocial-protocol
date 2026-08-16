@@ -171,6 +171,38 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     body: 'none',
     forwardAuthorization: true,
   },
+
+  // Private DM mailbox (ciphertext envelopes — viewer JWT).
+  {
+    method: 'GET',
+    path: 'developer/dm/threads',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/dm/unread-count',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/dm/threads/*',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/dm/send',
+    body: 'json',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/dm/read',
+    body: 'json',
+    forwardAuthorization: true,
+  },
 ];
 
 const FORWARDED_RESPONSE_HEADERS = ['content-type', 'cache-control'] as const;

@@ -31,6 +31,7 @@ import type { StorageModule } from '../storage/module.js';
 import type { PermissionsModule } from '../modules/permissions.js';
 import type { NotificationsModule } from '../modules/notifications.js';
 import type { MutesModule } from '../modules/mutes.js';
+import type { DmModule } from '../modules/dm.js';
 import type { WebhooksModule } from '../modules/webhooks.js';
 import type { PagesModule } from '../modules/pages.js';
 import type { SocialModule } from '../modules/social.js';
@@ -95,6 +96,7 @@ export interface PlatformNamespace {
   readonly permissions: PermissionsModule;
   readonly notifications: NotificationsModule;
   readonly mutes: MutesModule;
+  readonly dm: DmModule;
   readonly webhooks: WebhooksModule;
   readonly pages: PagesModule;
 }

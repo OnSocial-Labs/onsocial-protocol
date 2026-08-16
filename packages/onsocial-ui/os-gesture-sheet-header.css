@@ -21,6 +21,7 @@
   --signal-standing: var(--mood-signal-standing, #5ecf9a);
   --signal-endorse: var(--mood-signal-endorse, #dab872);
   --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
+  --signal-message: var(--mood-signal-message, #7eb8d4);
 }
 
 .glass-sheet-panel.os-gesture-sheet-panel--tall,
@@ -99,6 +100,14 @@
   color: color-mix(
     in srgb,
     var(--signal-standing, var(--mood-signal-standing, #5ecf9a)) 88%,
+    rgb(var(--fg-rgb) / 0.55)
+  );
+}
+
+.gesture-sheet-verb--message {
+  color: color-mix(
+    in srgb,
+    var(--signal-message, var(--mood-signal-message, #7eb8d4)) 88%,
     rgb(var(--fg-rgb) / 0.55)
   );
 }

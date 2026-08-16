@@ -6,6 +6,8 @@ export const APP_MARKET_PATH = '/market';
 export const APP_PROTOCOL_PATH = '/protocol';
 /** Community DAO directory — portfolio homes for org DAOs. */
 export const APP_DAOS_PATH = '/daos';
+/** Private messages inbox. */
+export const APP_MESSAGES_PATH = '/messages';
 /** Single DAO portfolio page (`/dao/[accountId]`). */
 export const APP_DAO_PATH = '/dao';
 /** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
@@ -199,6 +201,20 @@ export function daoPath(daoAccountId: string): string {
   const id = daoAccountId.trim().toLowerCase();
   if (!id) return APP_DAOS_PATH;
   return `${APP_DAO_PATH}/${encodeURIComponent(id)}`;
+}
+
+/** Private messages inbox, optionally deep-linked to a peer or thread. */
+export function messagesPath(opts?: {
+  peer?: string | null;
+  threadId?: string | null;
+}): string {
+  const params = new URLSearchParams();
+  const peer = opts?.peer?.trim().toLowerCase();
+  const threadId = opts?.threadId?.trim();
+  if (peer) params.set('peer', peer);
+  if (threadId) params.set('thread', threadId);
+  const query = params.toString();
+  return query ? `${APP_MESSAGES_PATH}?${query}` : APP_MESSAGES_PATH;
 }
 
 /**

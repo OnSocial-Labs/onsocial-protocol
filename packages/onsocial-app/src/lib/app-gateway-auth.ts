@@ -30,7 +30,8 @@ export type EnsureAppGatewayAuthInput = {
 };
 
 let memoryCache: CachedGatewayJwt | null = null;
-let authPromise: Promise<string> | null = null;
+/** In-flight auth promises keyed by account — never share across wallets. */
+const authPromises = new Map<string, Promise<string>>();
 
 function decodePayload(
   token: string
@@ -79,9 +80,16 @@ function writeStoredToken(accountId: string, token: string): void {
 }
 
 export function clearAppGatewayAuth(accountId?: string | null): void {
-  memoryCache = null;
-  authPromise = null;
-  if (!accountId) return;
+  if (!accountId) {
+    memoryCache = null;
+    authPromises.clear();
+    return;
+  }
+  const id = accountId.trim().toLowerCase();
+  if (memoryCache?.accountId.toLowerCase() === id) {
+    memoryCache = null;
+  }
+  authPromises.delete(id);
   try {
     window.sessionStorage.removeItem(storageKey(accountId));
   } catch {
@@ -205,23 +213,29 @@ export function getCachedAppGatewayAuth(accountId: string): string | null {
 }
 
 /**
- * Ensure a viewer JWT for private gateway prefs (mutes).
+ * Ensure a viewer JWT for private gateway prefs (mutes / DMs).
  * Prefers silent session-key NEP-413; wallet signMessage only as fallback.
+ * In-flight auth is account-scoped so wallet switches cannot share a JWT.
  */
 export async function ensureAppGatewayAuth(
   input: EnsureAppGatewayAuthInput
 ): Promise<string> {
   const { accountId, wallet, session, allowWalletFallback = true } = input;
-  const cached = getCachedAppGatewayAuth(accountId);
+  const id = accountId.trim().toLowerCase();
+  const cached = getCachedAppGatewayAuth(id);
   if (cached) return cached;
 
-  if (authPromise) return authPromise;
+  const existing = authPromises.get(id);
+  if (existing) return existing;
 
-  authPromise = (async () => {
+  const promise = (async () => {
     if (session?.key?.sign && session.key.publicKey) {
       try {
-        const token = await loginWithSessionKey(session, accountId);
-        writeStoredToken(accountId, token);
+        const token = await loginWithSessionKey(session, id);
+        if (!isTokenValidForAccount(token, id)) {
+          throw new Error('Gateway token account mismatch after session login.');
+        }
+        writeStoredToken(id, token);
         return token;
       } catch (error) {
         if (!allowWalletFallback) throw error;
@@ -236,12 +250,18 @@ export async function ensureAppGatewayAuth(
       throw new Error('Gateway auth requires a social session.');
     }
 
-    const token = await loginWithWallet(wallet, accountId);
-    writeStoredToken(accountId, token);
+    const token = await loginWithWallet(wallet, id);
+    if (!isTokenValidForAccount(token, id)) {
+      throw new Error('Gateway token account mismatch after wallet login.');
+    }
+    writeStoredToken(id, token);
     return token;
   })().finally(() => {
-    authPromise = null;
+    if (authPromises.get(id) === promise) {
+      authPromises.delete(id);
+    }
   });
 
-  return authPromise;
+  authPromises.set(id, promise);
+  return promise;
 }

@@ -147,6 +147,12 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+      tweetnacl:
+        specifier: ^1.0.3
+        version: 1.0.3
+      tweetnacl-util:
+        specifier: ^0.15.1
+        version: 0.15.1
       uqr:
         specifier: 0.1.2
         version: 0.1.2

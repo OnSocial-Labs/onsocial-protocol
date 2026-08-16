@@ -29,6 +29,9 @@ const TABLES_BY_MIGRATION: Record<string, string[]> = {
   ],
   '009_app_notification_events.sql': ['app_notification_events'],
   '010_user_mutes.sql': ['user_mutes'],
+  '011_dm_mailbox.sql': ['dm_messages', 'dm_thread_reads'],
+  '012_dm_ephemeral_pubkey.sql': ['dm_messages'],
+  '013_dm_auth_tag.sql': ['dm_messages'],
 };
 
 function requireDatabaseUrl(): string {

@@ -13,6 +13,7 @@ import { analyticsRouter } from './routes/analytics.js';
 import { developerRouter } from './routes/developer.js';
 import { notificationRouter } from './routes/notifications.js';
 import { muteRouter } from './routes/mutes.js';
+import { dmRouter } from './routes/dm.js';
 import { subscriptionRouter } from './routes/subscription.js';
 import { webhookRouter } from './routes/webhooks.js';
 import { graphRouter } from './routes/graph.js';
@@ -116,6 +117,7 @@ app.use('/developer', subscriptionRouter); // before developerRouter — /plans 
 app.use('/developer', analyticsRouter);
 app.use('/developer', notificationRouter);
 app.use('/developer', muteRouter);
+app.use('/developer', dmRouter);
 app.use('/developer', developerRouter);
 
 // Rate limiting only applies to actual API traffic, not auth/billing/dashboard flows.
