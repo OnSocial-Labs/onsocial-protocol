@@ -29708,6 +29708,38 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .endorsement-row-edit {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    padding: 0.35rem 0.55rem;
+    border: 0;
+    border-radius: 0.55rem;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.55);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .endorsement-row-edit:hover,
+  .endorsement-row-edit:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.88);
+    outline: none;
+  }
+
+  .endorsements-load-more {
+    height: 1px;
+  }
+
+  .endorsements-loading-more {
+    margin: 0;
+    padding: 0.55rem 0.15rem 0.2rem;
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
   .endorsement-row-shimmer-name {
     width: 42%;
     height: 0.72rem;
@@ -29760,6 +29792,11 @@ a.os-surface-row {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .endorse-compose-form.is-discard-confirm {
+    pointer-events: none;
+    opacity: 0.45;
   }
 
   .endorse-compose-field {

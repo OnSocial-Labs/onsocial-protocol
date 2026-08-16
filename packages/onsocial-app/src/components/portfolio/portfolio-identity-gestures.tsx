@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import {
   ActionDrawer,
@@ -9,6 +8,7 @@ import {
 } from '@/components/ui/action-drawer';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PortfolioOwnerPayoutMarks } from '@/components/portfolio/portfolio-owner-payout-marks';
+import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -23,7 +23,6 @@ import {
   MUTE_ACTION_DESCRIPTION,
   blockConfirmCopy,
 } from '@/lib/block-confirm-copy';
-import { overlayPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
@@ -58,6 +57,7 @@ export function PortfolioIdentityGestures({
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
   const [supportOpen, setSupportOpen] = useState(false);
+  const [endorseOpen, setEndorseOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
 
@@ -66,7 +66,6 @@ export function PortfolioIdentityGestures({
     accountIdsEqual(viewerAccountId!, pageAccountId);
   const pending = isStandingPendingForTarget(pageAccountId);
   const label = displayName(pageAccountId, profileName ?? undefined);
-  const endorsementsHref = overlayPath(pageAccountId, 'endorsements');
   const muted = isMuting(pageAccountId);
   const blocked = isBlocking(pageAccountId);
   const mutePending = isMutePendingForTarget(pageAccountId);
@@ -236,17 +235,17 @@ export function PortfolioIdentityGestures({
             ·
           </span>
 
-          <Link
-            href={endorsementsHref}
-            scroll={false}
+          <button
+            type="button"
             className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
+            onClick={() => setEndorseOpen(true)}
             aria-label={`Endorse ${label}`}
           >
             <span className="signal-group signal-group-endorse" aria-hidden>
               <ProtocolMotionArrow className="signal-metric-arrow" />
             </span>
             Endorse
-          </Link>
+          </button>
 
           <span className="portfolio-identity-gesture-sep" aria-hidden>
             ·
@@ -278,6 +277,14 @@ export function PortfolioIdentityGestures({
           </button>
         </div>
       )}
+      <EndorseComposeSheet
+        open={endorseOpen}
+        pageAccountId={pageAccountId}
+        profileName={profileName}
+        avatarUrl={avatarUrl}
+        mood={mood}
+        onOpenChange={setEndorseOpen}
+      />
       <ProfileSupportSheet
         open={supportOpen}
         pageAccountId={pageAccountId}

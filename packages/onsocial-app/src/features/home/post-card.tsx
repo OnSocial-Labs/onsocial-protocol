@@ -32,6 +32,7 @@ import {
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
 import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
+import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import {
   BLOCK_ACTION_DESCRIPTION,
@@ -95,7 +96,7 @@ import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
 import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
-import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
+import { portfolioPath } from '@/lib/overlay-routes';
 import {
   txToastConfirming,
   txToastError,
@@ -217,6 +218,7 @@ function PostCardMenu({
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
   const [supportOpen, setSupportOpen] = useState(false);
+  const [endorseOpen, setEndorseOpen] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -239,7 +241,6 @@ function PostCardMenu({
     isConnected && isSelf && canCancelScarce && onCancelScarce;
   const pending = isStandingPendingForTarget(accountId);
   const profileHref = portfolioPath(accountId);
-  const endorsementsHref = overlayPath(accountId, 'endorsements');
 
   const copyLink = async () => {
     if (!href || typeof window === 'undefined') return;
@@ -376,8 +377,8 @@ function PostCardMenu({
         label: 'Endorse',
         leading: <FireBIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          setEndorseOpen(true);
           requestClose();
-          router.push(endorsementsHref, { scroll: false });
         },
       });
       items.push({
@@ -462,7 +463,6 @@ function PostCardMenu({
     cancelScarcePending,
     href,
     profileHref,
-    endorsementsHref,
   ]);
 
   return (
@@ -519,6 +519,13 @@ function PostCardMenu({
           ) : null}
         </ActionDrawer>
       </div>
+      <EndorseComposeSheet
+        open={endorseOpen}
+        pageAccountId={accountId}
+        profileName={authorProfile?.displayName}
+        avatarUrl={authorProfile?.avatarUrl}
+        onOpenChange={setEndorseOpen}
+      />
       <ProfileSupportSheet
         open={supportOpen}
         pageAccountId={accountId}

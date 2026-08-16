@@ -15,12 +15,17 @@ interface EndorsementListRowProps {
   /** Whose page this list is on — drives which party is the “other”. */
   pageAccountId: string;
   mode: 'received' | 'given';
+  /** When set, show Edit for the viewer’s own vouch on this target. */
+  canEdit?: boolean;
+  onEdit?: () => void;
 }
 
 export function EndorsementListRow({
   item,
   pageAccountId,
   mode,
+  canEdit = false,
+  onEdit,
 }: EndorsementListRowProps) {
   const otherAccountId = mode === 'received' ? item.issuer : item.target;
   const otherName =
@@ -62,6 +67,15 @@ export function EndorsementListRow({
           </span>
         </span>
       </Link>
+      {canEdit && onEdit ? (
+        <button
+          type="button"
+          className="endorsement-row-edit"
+          onClick={onEdit}
+        >
+          Edit
+        </button>
+      ) : null}
     </article>
   );
 }
