@@ -534,9 +534,6 @@ export function PortfolioCustomize({
             </div>
             <div className="profile-editor-media-compact-copy">
               <p className="profile-editor-media-compact-label">Avatar</p>
-              <p className="profile-editor-media-compact-hint">
-                512&times;512 recommended.
-              </p>
               <div
                 className={`profile-editor-media-host profile-editor-media-host--compact-banner${bannerUrl ? ' has-media' : ''}`}
               >
@@ -583,7 +580,7 @@ export function PortfolioCustomize({
                 />
               </div>
               <p className="profile-editor-media-compact-hint">
-                1500&times;300 · photo or video
+                Photo or video
               </p>
             </div>
           </div>

@@ -527,7 +527,7 @@ export function AppProfileEditorSheet({
                         className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
                         aria-hidden
                       >
-                        1500&times;300 · photo or video
+                        Photo or video
                       </p>
                     )}
                   </div>

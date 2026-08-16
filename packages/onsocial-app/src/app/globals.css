@@ -851,8 +851,8 @@
 
 /*
  * Unlayered: imported profile-editor-media.css docks reserve 0.75rem under the
- * tile. Editor hint lives on the banner host — kill that gap so 1500×300 sits
- * on the media, not in the strip between banner and identity.
+ * tile. Editor hint lives on the banner host — kill that gap so “Photo or video”
+ * sits on the media, not in the strip between banner and identity.
  */
 .account-editor-banner-wrap.profile-editor-media-banner-dock,
 .account-editor-banner-wrap {
