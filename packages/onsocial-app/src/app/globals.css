@@ -32619,3 +32619,24 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .messages-thread-list .os-surface-row-list {
   gap: 0.15rem;
 }
+
+.portfolio-identity-gesture--message {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.messages-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--signal-endorse, rgb(37 99 235));
+}

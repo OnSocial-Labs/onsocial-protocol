@@ -181,6 +181,12 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
   },
   {
     method: 'GET',
+    path: 'developer/dm/unread-count',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
     path: 'developer/dm/threads/*',
     body: 'none',
     forwardAuthorization: true,

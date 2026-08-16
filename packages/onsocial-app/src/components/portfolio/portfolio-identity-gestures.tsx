@@ -19,6 +19,7 @@ import { useViewerBlock } from '@/hooks/use-viewer-block';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   BLOCK_ACTION_DESCRIPTION,
@@ -59,6 +60,7 @@ export function PortfolioIdentityGestures({
     useViewerStanding(pageAccountId);
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
+  const dmUnread = useDmUnreadCount();
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
@@ -187,6 +189,11 @@ export function PortfolioIdentityGestures({
           onClick={() => router.push(messagesPath())}
         >
           Messages
+          {dmUnread > 0 ? (
+            <span className="messages-nav-badge" aria-label={`${dmUnread} unread`}>
+              {dmUnread > 9 ? '9+' : dmUnread}
+            </span>
+          ) : null}
         </button>
       </div>
     );

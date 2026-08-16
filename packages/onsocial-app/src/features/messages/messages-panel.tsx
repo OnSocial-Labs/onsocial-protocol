@@ -37,6 +37,9 @@ import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { DmMediaBubble } from '@/features/messages/dm-media-bubble';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
+import { requestDmUnreadRefresh } from '@/components/providers/dm-unread-host';
+
+const THREAD_POLL_MS = 12_000;
 
 export function MessagesPanel() {
   const router = useRouter();
@@ -163,6 +166,7 @@ export function MessagesPanel() {
       }
       setPlainById(plain);
       void refreshThreads();
+      requestDmUnreadRefresh();
     },
     [accountId, refreshThreads, router, withAuth]
   );
@@ -189,6 +193,22 @@ export function MessagesPanel() {
     refreshThreads,
     threadParam,
   ]);
+
+  // Soft refresh while the inbox is open so new sealed DMs appear without reload.
+  useEffect(() => {
+    if (!isConnected || !accountId || !hasSocialSession) return;
+    const tick = () => {
+      void refreshThreads();
+      requestDmUnreadRefresh();
+    };
+    const id = window.setInterval(tick, THREAD_POLL_MS);
+    const onFocus = () => tick();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [accountId, hasSocialSession, isConnected, refreshThreads]);
 
   const handleRestore = async () => {
     if (!accountId || !recoveryInput.trim()) return;

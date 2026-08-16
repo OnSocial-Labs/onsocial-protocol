@@ -48,6 +48,11 @@ describe('DmModule', () => {
     expect(threads).toHaveLength(1);
     expect(get).toHaveBeenCalledWith('/developer/dm/threads');
 
+    get.mockResolvedValueOnce({ unread: 2 });
+    const unread = await dm.unreadCount();
+    expect(unread).toEqual({ unread: 2 });
+    expect(get).toHaveBeenCalledWith('/developer/dm/unread-count');
+
     const message = await dm.send({
       recipientAccountId: 'bob.testnet',
       ciphertext: 'c',

@@ -56,4 +56,22 @@ describe('dm mailbox service', () => {
     });
     expect(result).toMatchObject({ code: 'SELF_MESSAGE' });
   });
+
+  it('counts unread threads for the recipient', async () => {
+    __resetDmStoreForTests();
+    const { countUnreadDmThreads } = await import(
+      '../../src/services/dm/index.js'
+    );
+    await sendDmMessage({
+      senderAccountId: 'alice.testnet',
+      recipientAccountId: 'bob.testnet',
+      ciphertext: 'cipher',
+      nonce: 'nonce',
+      senderPubkey: 'pk',
+    });
+    const unread = await countUnreadDmThreads('bob.testnet');
+    expect(unread).toBe(1);
+    const aliceUnread = await countUnreadDmThreads('alice.testnet');
+    expect(aliceUnread).toBe(0);
+  });
 });

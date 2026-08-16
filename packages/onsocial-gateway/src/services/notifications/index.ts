@@ -21,6 +21,7 @@ export const NOTIFICATION_TYPES = [
   'group_proposal',
   'group_invite',
   'app_event',
+  'dm',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

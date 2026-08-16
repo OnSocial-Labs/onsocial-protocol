@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { logger } from '../../logger.js';
+import { hasBlockEitherWay } from '../blocks/index.js';
 import { hasMute } from '../mutes/index.js';
 
 export interface DmMediaRef {
@@ -327,14 +328,47 @@ class PostgresDmStore implements DmStore {
 }
 
 const databaseUrl = process.env.DATABASE_URL;
-const store: DmStore = databaseUrl
-  ? new PostgresDmStore(new Pool({ connectionString: databaseUrl }))
-  : new MemoryDmStore();
+const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
+const store: DmStore = pool ? new PostgresDmStore(pool) : new MemoryDmStore();
 
 if (databaseUrl) {
   logger.info('DM mailbox store: PostgreSQL');
 } else {
   logger.info('DM mailbox store: in-memory');
+}
+
+/** Metadata-only DM ping — never includes ciphertext. */
+async function emitDmReceivedNotification(
+  message: DmMessageRecord
+): Promise<void> {
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO notifications (
+         owner_account_id, app_id, recipient, actor, notification_type,
+         source_contract, source_receipt_id, source_block_height,
+         dedupe_key, context, created_at
+       ) VALUES (
+         $1, 'default', $2, $3, 'dm',
+         'dm', NULL, NULL,
+         $4, $5::jsonb, $6
+       )
+       ON CONFLICT (owner_account_id, app_id, dedupe_key) DO NOTHING`,
+      [
+        message.recipientAccountId,
+        message.recipientAccountId,
+        message.senderAccountId,
+        `dm:${message.id}`,
+        JSON.stringify({
+          threadId: message.threadId,
+          peerAccountId: message.senderAccountId,
+        }),
+        message.createdAt,
+      ]
+    );
+  } catch (error) {
+    logger.warn({ error }, 'Failed to emit DM notification');
+  }
 }
 
 function validateCipherFields(input: {
@@ -374,6 +408,13 @@ export async function sendDmMessage(
   const payloadError = validateCipherFields(input);
   if (payloadError) return payloadError;
 
+  if (await hasBlockEitherWay(sender, recipient)) {
+    return {
+      code: 'BLOCKED',
+      message: 'Messaging is unavailable while a block is in place.',
+    };
+  }
+
   if (await hasMute(recipient, sender)) {
     return {
       code: 'MUTED',
@@ -401,7 +442,9 @@ export async function sendDmMessage(
     media,
     senderPubkey: input.senderPubkey.trim(),
   };
-  return store.insert(message);
+  const inserted = await store.insert(message);
+  void emitDmReceivedNotification(inserted);
+  return inserted;
 }
 
 export async function listDmThreads(
@@ -412,6 +455,15 @@ export async function listDmThreads(
     return { code: 'INVALID_ACCOUNT', message: 'Invalid account id' };
   }
   return store.listThreads(id);
+}
+
+/** Count unread threads for the viewer (mailbox metadata only). */
+export async function countUnreadDmThreads(
+  accountId: string
+): Promise<number | DmError> {
+  const threads = await listDmThreads(accountId);
+  if ('code' in threads) return threads;
+  return threads.filter((thread) => thread.unread).length;
 }
 
 export async function listDmMessages(

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { requireAuth } from '../middleware/index.js';
 import {
+  countUnreadDmThreads,
   listDmMessages,
   listDmThreads,
   markDmThreadRead,
@@ -48,6 +49,20 @@ dmRouter.get('/dm/threads', async (req: Request, res: Response) => {
   } catch (error) {
     req.log.error({ error }, 'Failed to list DM threads');
     res.status(500).json({ error: 'Failed to list threads' });
+  }
+});
+
+dmRouter.get('/dm/unread-count', async (req: Request, res: Response) => {
+  try {
+    const result = await countUnreadDmThreads(req.auth!.accountId);
+    if (typeof result !== 'number') {
+      res.status(400).json({ error: result.message, code: result.code });
+      return;
+    }
+    res.json({ unread: result });
+  } catch (error) {
+    req.log.error({ error }, 'Failed to count unread DMs');
+    res.status(500).json({ error: 'Failed to count unread' });
   }
 });
 

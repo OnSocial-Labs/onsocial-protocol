@@ -87,4 +87,8 @@ export class DmModule {
   async markRead(threadId: string): Promise<void> {
     await this.http.post('/developer/dm/read', { threadId });
   }
+
+  async unreadCount(): Promise<{ unread: number }> {
+    return this.http.get<{ unread: number }>('/developer/dm/unread-count');
+  }
 }
