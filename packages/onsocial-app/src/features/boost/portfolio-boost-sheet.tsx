@@ -68,8 +68,8 @@ import {
   BOOST_CONTRACT,
   SOCIAL_TOKEN_CONTRACT,
 } from '@/lib/app-config';
-import { portalHref } from '@/lib/app-links';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
+import { LeaderboardSheet } from '@/features/leaderboard/leaderboard-sheet';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import {
   formatSocialCompact,
@@ -370,6 +370,7 @@ export function PortfolioBoostSheet({
   );
   const [balanceYocto, setBalanceYocto] = useState<bigint | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -793,6 +794,7 @@ export function PortfolioBoostSheet({
   })();
 
   return (
+    <>
     <GlassSheet
       open={sheetOpen}
       onClose={requestClose}
@@ -855,17 +857,14 @@ export function PortfolioBoostSheet({
                 </div>
               </div>
               <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <OsIconAction asChild ariaLabel="Open boost leaderboard">
-                  <a
-                    href={portalHref('/boost/leaderboard')}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <ChartFillIcon
-                      className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                      aria-hidden
-                    />
-                  </a>
+                <OsIconAction
+                  ariaLabel="Open boost leaderboard"
+                  onClick={() => setLeaderboardOpen(true)}
+                >
+                  <ChartFillIcon
+                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                    aria-hidden
+                  />
                 </OsIconAction>
                 <SheetCloseButton
                   onClick={requestClose}
@@ -1115,5 +1114,11 @@ export function PortfolioBoostSheet({
         </div>
       )}
     </GlassSheet>
+    <LeaderboardSheet
+      open={leaderboardOpen}
+      onClose={() => setLeaderboardOpen(false)}
+      initialTrack="influence"
+    />
+    </>
   );
 }

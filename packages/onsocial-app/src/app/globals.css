@@ -6446,6 +6446,127 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.4);
   }
 
+  .reputation-facts-headline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-bottom: 1rem;
+  }
+
+  .reputation-facts-score {
+    font-size: 2.1rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: color-mix(in srgb, var(--signal-reputation) 96%, transparent);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .reputation-facts-score-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.4);
+  }
+
+  .leaderboard-sheet-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .leaderboard-track-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .leaderboard-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .leaderboard-row {
+    align-items: center;
+  }
+
+  .leaderboard-row-rank {
+    flex-shrink: 0;
+    width: 1.6rem;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--fg-rgb) / 0.45);
+    text-align: center;
+  }
+
+  .leaderboard-row-meta {
+    display: block;
+    margin-top: 0.15rem;
+  }
+
+  .leaderboard-row-bar {
+    margin-top: 0.4rem;
+    height: 0.28rem;
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    overflow: hidden;
+  }
+
+  .leaderboard-row-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--signal-reputation) 78%, transparent);
+  }
+
+  .leaderboard-row-aside {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.1rem;
+    min-width: 3.5rem;
+  }
+
+  .leaderboard-row-primary {
+    font-size: 0.92rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .leaderboard-row-primary-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
+  .leaderboard-sheet-empty {
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-align: center;
+  }
+
+  .leaderboard-sheet-footnote {
+    margin: 0.5rem 0 0;
+    font-size: 0.72rem;
+    color: rgb(var(--fg-rgb) / 0.42);
+    line-height: 1.4;
+  }
+
+  button.signal-metric {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: inherit;
+  }
+
   .portfolio-links-scroll {
     width: 100%;
     max-width: var(--portfolio-content-width);
