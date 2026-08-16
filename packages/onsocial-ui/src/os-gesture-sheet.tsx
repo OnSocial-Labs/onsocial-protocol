@@ -13,6 +13,7 @@ import {
   type GestureSheetSignal,
 } from './gesture-sheet-header.js';
 import { useScrollLock } from './use-scroll-lock.js';
+import { osHugSheetBodyClassName } from './os-choice-tokens.js';
 import { cn } from './cn.js';
 
 /** Shared gesture panel chrome (signal fallbacks + body opacity). */
@@ -116,7 +117,11 @@ export function OsGestureSheet({
         keyboardOpen && 'is-keyboard-open',
         panelClassName
       )}
-      bodyClassName={cn(osGestureSheetBodyClassName, bodyClassName)}
+      bodyClassName={cn(
+        osHugSheetBodyClassName,
+        osGestureSheetBodyClassName,
+        bodyClassName
+      )}
       header={
         <>
           <GestureSheetHeader

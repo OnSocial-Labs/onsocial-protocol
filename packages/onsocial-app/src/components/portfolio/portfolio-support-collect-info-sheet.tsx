@@ -14,6 +14,7 @@ import {
   Divider,
   GlassSheet,
   SheetCloseButton,
+  osHugSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
@@ -331,7 +332,7 @@ export function PortfolioSupportCollectInfoSheet({
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close support"
-      bodyClassName="portfolio-support-collect-info-body"
+      bodyClassName={`portfolio-support-collect-info-body ${osHugSheetBodyClassName}`}
       bodyRef={bodyRef}
       panelClassName="portfolio-support-collect-info-panel"
       panelStyle={panelStyle}

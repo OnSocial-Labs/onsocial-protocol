@@ -68,7 +68,6 @@ export function HubSettingsSheet({
       initialDetent="peek"
       headerClassName="guild-settings-sheet-header"
       panelClassName="guild-settings-sheet-panel"
-      bodyClassName="guild-settings-sheet-body"
     >
       <OsSurfaceRowList
         className="guild-settings-sheet-list"
