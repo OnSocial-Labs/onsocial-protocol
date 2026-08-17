@@ -24,7 +24,7 @@ export interface PortfolioHoldingPeek {
   collectionId: string | null;
   mediumKind: string | null;
   /** Audio release format when known. */
-  audioFormat?: 'single' | 'album' | 'podcast' | null;
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   /** Discovery facets (genres / subjects). */
   facets?: string[];
   /** Deep link into Collectibles / drop / source post when known. */

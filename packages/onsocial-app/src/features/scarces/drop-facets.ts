@@ -282,10 +282,17 @@ export function dropFacetsExtraFields(
 
 export function parseAudioFormat(
   raw: unknown
-): 'single' | 'album' | 'podcast' | null {
+): 'single' | 'album' | 'podcast' | 'audiobook' | null {
   if (typeof raw !== 'string') return null;
   const key = raw.trim().toLowerCase();
-  if (key === 'single' || key === 'album' || key === 'podcast') return key;
+  if (
+    key === 'single' ||
+    key === 'album' ||
+    key === 'podcast' ||
+    key === 'audiobook'
+  ) {
+    return key;
+  }
   return null;
 }
 

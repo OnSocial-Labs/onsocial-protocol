@@ -104,7 +104,7 @@ export interface CollectionView {
   /** Medium taxonomy from metadata.extra.kind when set. */
   kind: string | null;
   /** Audio release format from `extra.audioFormat` (or inferred from playables). */
-  audioFormat: 'single' | 'album' | 'podcast' | null;
+  audioFormat: 'single' | 'album' | 'podcast' | 'audiobook' | null;
   /** Discovery facets (genres / subjects) from `extra.facets`. */
   facets: string[];
   /** Audio / video clips from metadata.extra.playable (music albums, etc.). */
@@ -265,7 +265,7 @@ interface TemplateMeta {
   sourcePostPath?: string;
   cardBg?: string;
   kind?: string;
-  audioFormat?: 'single' | 'album' | 'podcast';
+  audioFormat?: 'single' | 'album' | 'podcast' | 'audiobook';
   facets?: string[];
   playables?: ScarcePlayableMedia[];
   readables?: ScarceReadableMedia[];
@@ -438,7 +438,7 @@ function parseTemplate(
     let sourcePostPath: string | undefined;
     let cardBg: string | undefined;
     let kind: string | undefined;
-    let audioFormat: 'single' | 'album' | 'podcast' | undefined;
+    let audioFormat: 'single' | 'album' | 'podcast' | 'audiobook' | undefined;
     let facets: string[] | undefined;
     let playables: ScarcePlayableMedia[] | undefined;
     let readables: ScarceReadableMedia[] | undefined;

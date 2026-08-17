@@ -125,6 +125,7 @@ function dropRowFormatLabel(item: DropDiscoveryItem): string | null {
   if (format === 'album') return 'Album';
   if (format === 'single') return 'Single';
   if (format === 'podcast') return 'Podcast';
+  if (format === 'audiobook') return 'Audiobook';
   return null;
 }
 

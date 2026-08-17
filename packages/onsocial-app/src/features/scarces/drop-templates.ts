@@ -70,9 +70,8 @@ export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'audio',
     label: 'Audio',
-    tagline:
-      'Single, album, or podcast — one cover, playable audio, shared release.',
-    hint: 'Every edition gets the same audio. Cover fronts wallets; play in OnSocial.',
+    tagline: 'Music, podcast, or audiobook — one cover, shared playable release.',
+    hint: 'Split long shows into episodes or chapters (≤20 MB each). Cover fronts wallets.',
     kind: 'audio',
     unit: 'editions',
     unitSingular: 'edition',

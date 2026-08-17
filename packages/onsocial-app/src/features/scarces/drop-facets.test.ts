@@ -80,6 +80,7 @@ describe('drop-facets', () => {
   it('parses and infers audioFormat', () => {
     expect(parseAudioFormat('Album')).toBe('album');
     expect(parseAudioFormat('podcast')).toBe('podcast');
+    expect(parseAudioFormat('audiobook')).toBe('audiobook');
     expect(parseAudioFormat('lp')).toBeNull();
     expect(inferAudioFormatFromPlayableCount(1)).toBe('single');
     expect(inferAudioFormatFromPlayableCount(4)).toBe('album');

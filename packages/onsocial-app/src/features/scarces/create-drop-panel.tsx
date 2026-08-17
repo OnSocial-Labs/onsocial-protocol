@@ -59,9 +59,12 @@ import {
 import {
   DROP_AUDIO_MAX_BYTES,
   DROP_AUDIO_MAX_TRACKS,
+  audioPartNoun,
+  audioPartsFieldLabel,
   audioReleaseFormatLabel,
   isDropAudioMime,
   isMultiTrackAudioFormat,
+  musicTracksInvalidMessage,
   musicTracksValid,
   normalizeTrackLyrics,
   sha256BlobBase64,
@@ -1028,15 +1031,7 @@ export function CreateDropPanel() {
           ? trackFiles.length
           : (pinnedMusic?.playable.length ?? 0);
       if (audioCount > 0) {
-        const unit =
-          musicFormat === 'podcast'
-            ? audioCount === 1
-              ? 'episode'
-              : 'episodes'
-            : audioCount === 1
-              ? 'track'
-              : 'tracks';
-        kindParts.push(`${audioCount} ${unit}`);
+        kindParts.push(`${audioCount} ${audioPartNoun(musicFormat, audioCount)}`);
       }
     } else if (isWriting) {
       kindParts.push(writingFormat === 'book' ? 'Book' : 'Article');
@@ -1212,13 +1207,7 @@ export function CreateDropPanel() {
       !pinnedMusic &&
       !musicTracksValid(musicFormat, trackFiles.length)
     ) {
-      setError(
-        musicFormat === 'single'
-          ? 'Add one track for this single.'
-          : musicFormat === 'podcast'
-            ? `Add 1–${DROP_AUDIO_MAX_TRACKS} episodes for this podcast.`
-            : `Add 2–${DROP_AUDIO_MAX_TRACKS} tracks for an album.`
-      );
+      setError(musicTracksInvalidMessage(musicFormat));
       return;
     }
     if (
@@ -2028,6 +2017,18 @@ export function CreateDropPanel() {
               >
                 Podcast
               </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={musicFormat === 'audiobook'}
+                className={`app-access-option${
+                  musicFormat === 'audiobook' ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setMusicReleaseFormat('audiobook')}
+              >
+                Audiobook
+              </button>
             </div>
           </div>
         ) : isWriting ? (
@@ -2367,11 +2368,7 @@ export function CreateDropPanel() {
         {isAudio ? (
           <div className="guild-field">
             <span>
-              {musicFormat === 'single'
-                ? 'Track'
-                : musicFormat === 'podcast'
-                  ? `Episodes${trackFiles.length ? ` · ${trackFiles.length}` : ''}`
-                  : `Tracks${trackFiles.length ? ` · ${trackFiles.length}` : ''}`}
+              {audioPartsFieldLabel(musicFormat, trackFiles.length)}
             </span>
             {trackFiles.length > 0 ? (
               <DropTrackPreviewList
@@ -2387,9 +2384,7 @@ export function CreateDropPanel() {
             <div
               className="app-storage-presets"
               role="group"
-              aria-label={
-                musicFormat === 'podcast' ? 'Episode actions' : 'Track actions'
-              }
+              aria-label={`${audioPartNoun(musicFormat, 2)} actions`}
             >
               <button
                 type="button"
@@ -2405,9 +2400,7 @@ export function CreateDropPanel() {
                 {trackFiles.length === 0
                   ? musicFormat === 'single'
                     ? 'Add track'
-                    : musicFormat === 'podcast'
-                      ? 'Add episodes'
-                      : 'Add tracks'
+                    : `Add ${audioPartNoun(musicFormat, 2)}`
                   : musicFormat === 'single'
                     ? 'Replace track'
                     : 'Add more'}
@@ -2431,8 +2424,10 @@ export function CreateDropPanel() {
               {musicFormat === 'single'
                 ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
                 : musicFormat === 'podcast'
-                  ? `Drag to reorder · tap to preview · 1–${DROP_AUDIO_MAX_TRACKS} episodes · ≤20 MB each`
-                  : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
+                  ? `Split long shows into episodes · 1–${DROP_AUDIO_MAX_TRACKS} · ≤20 MB each (~20–25 min)`
+                  : musicFormat === 'audiobook'
+                    ? `Split by chapter · 1–${DROP_AUDIO_MAX_TRACKS} · ≤20 MB each (~20–25 min)`
+                    : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
             </small>
             <input
               ref={tracksInputRef}

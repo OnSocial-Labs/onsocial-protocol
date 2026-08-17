@@ -27,9 +27,9 @@ const DROP_FIELD_INFO: Record<
   release: {
     title: 'Release',
     summary:
-      'Single is one track, Album is multi-track music, Podcast is one or more episodes — all under Audio.',
+      'Single / Album for music, Podcast for episodes, Audiobook for chapters — all under Audio.',
     detail:
-      'Every edition shares the same release. Add audio below after you pick the format. Audiobooks can land here later as another Audio format.',
+      'Every edition shares the same release. Split long podcasts into episodes and audiobooks into chapters — each file is ≤20 MB (~20–25 minutes at typical bitrates).',
   },
   format: {
     title: 'Format',
