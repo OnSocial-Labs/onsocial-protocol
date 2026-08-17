@@ -262,12 +262,6 @@ export function MarketListingRow({
             {item.priceLabel ? `${item.priceLabel} · ` : ''}
             {formatPriceNear(item.priceNear)} NEAR
           </span>
-          {item.fanCount != null && item.fanCount > 0 ? (
-            <span className="market-listing-own">
-              {' · '}
-              {item.fanCount === 1 ? '1 fan' : `${item.fanCount} fans`}
-            </span>
-          ) : null}
           {bidCount != null ? (
             <span className="market-listing-own">
               {' · '}
@@ -280,11 +274,15 @@ export function MarketListingRow({
             </span>
           ) : item.kind === 'native' ? (
             <span className="market-listing-own"> · Resale</span>
+          ) : isPrimaryMint && !isOwnListing ? (
+            <span className="market-listing-own"> · Primary</span>
           ) : isOwnListing ? (
             <span className="market-listing-own"> · Yours</span>
-          ) : item.copies != null &&
-            item.remaining != null &&
-            item.remaining < item.copies ? (
+          ) : null}
+          {isPrimaryMint &&
+          item.copies != null &&
+          item.remaining != null &&
+          item.remaining >= 0 ? (
             <span className="market-listing-own">
               {' · '}
               {item.remaining} of {item.copies} left

@@ -127,9 +127,8 @@ export interface MarketListingItem {
   /** Discovery facets (genres / subjects) from `extra.facets`. */
   facets?: string[];
   /**
-   * Distinct fans when this listing maps to a drop (`scarce_collection_love_fans`
-   * = track ∪ drop-level; falls back to album track fans). Omitted / 0 → Market
-   * hides the chip.
+   * Distinct fans when this listing maps to a drop. Populated on Drops
+   * discovery only — Market commerce rows omit fan social proof.
    */
   fanCount?: number;
 }
@@ -777,51 +776,6 @@ export function albumCollectionIdForListing(
     collectionIdFromTokenId(item.tokenId ?? '') ||
     (item.kind === 'lazy' ? item.listingId?.trim() || null : null)
   );
-}
-
-/**
- * Attach collection fan counts (track ∪ drop-level loves) for Market rows.
- * Soft-fails — browse still works if the fans view is unavailable.
- */
-async function withAlbumFanCounts(
-  items: MarketListingItem[],
-  client: OnSocial
-): Promise<MarketListingItem[]> {
-  if (items.length === 0) return items;
-  const ids = [
-    ...new Set(
-      items
-        .map((item) => albumCollectionIdForListing(item))
-        .filter((id): id is string => Boolean(id))
-    ),
-  ];
-  if (ids.length === 0) return items;
-  try {
-    let rows: Array<{ collectionId: string; fanCount: number }> = [];
-    try {
-      rows =
-        await client.query.scarces.collectionLoveFansByCollectionIds(ids);
-    } catch {
-      rows = await client.query.scarces.albumLoveFansByCollectionIds(ids);
-    }
-    if (rows.length === 0) return items;
-    const byId = new Map<string, number>();
-    for (const row of rows) {
-      const id = row.collectionId?.trim();
-      const count = Number(row.fanCount) || 0;
-      if (!id || count <= 0) continue;
-      const prev = byId.get(id) ?? 0;
-      if (count > prev) byId.set(id, count);
-    }
-    if (byId.size === 0) return items;
-    return items.map((item) => {
-      const id = albumCollectionIdForListing(item);
-      const fanCount = id ? byId.get(id) : undefined;
-      return fanCount != null ? { ...item, fanCount } : item;
-    });
-  } catch {
-    return items;
-  }
 }
 
 async function withResolvedOwnedPostHrefs(
@@ -2083,7 +2037,7 @@ export async function fetchMarketListings(
       .filter((item): item is MarketListingItem => item != null);
     const withHrefs = await withResolvedPostHrefs(items);
     return {
-      items: await withAlbumFanCounts(withHrefs, client),
+      items: withHrefs,
       // Advance by raw row count so client-dropped rows don't re-fetch.
       nextOffset: offset + rows.length,
       hasMore: rows.length === limit,
@@ -2105,10 +2059,7 @@ export async function fetchMarketListings(
         )
       : fallbackAll;
     return {
-      items: await withAlbumFanCounts(
-        await withResolvedPostHrefs(fallback),
-        createReadOnlyOnSocialClient()
-      ),
+      items: await withResolvedPostHrefs(fallback),
       nextOffset: fallback.length,
       hasMore: false,
     };
