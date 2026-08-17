@@ -572,7 +572,7 @@ function EmptyDropsStatus({
   if (query.trim()) {
     return (
       <p className="market-page-status">
-        No drops match “{query.trim()}”.
+        No loaded drops match “{query.trim()}”. Try another tab or clear search.
       </p>
     );
   }
@@ -625,11 +625,17 @@ function EmptyDropsStatus({
 export function DropsPagePanel({
   initialSort = 'live',
   initialItems = [],
+  initialHasMore,
+  initialFetchFailed = false,
   initialCreators = [],
   initialNowMs,
 }: {
   initialSort?: DropsSort;
   initialItems?: DropDiscoveryItem[];
+  /** From SSR `fetchDropsPage`; defaults to a full-page guess. */
+  initialHasMore?: boolean;
+  /** True when the RSC seed request failed (not merely empty). */
+  initialFetchFailed?: boolean;
   initialCreators?: CreatorLeaderRow[];
   /** SSR clock — keeps relative times / Featured stable across hydrate. */
   initialNowMs?: number;
@@ -664,10 +670,12 @@ export function DropsPagePanel({
   const [creators, setCreators] = useState(initialCreators);
   const [offset, setOffset] = useState(initialItems.length);
   const [hasMore, setHasMore] = useState(
-    initialItems.length >= DROPS_PAGE_SIZE
+    () => initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE
   );
   const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(initialFetchFailed);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [allowlistById, setAllowlistById] = useState<
     Record<string, number | null>
   >({});
@@ -713,6 +721,7 @@ export function DropsPagePanel({
     async (nextSort: DropsSort, nextMedium: MarketMediumFilter) => {
       setLoading(true);
       setFailed(false);
+      setLoadMoreFailed(false);
       setItems([]);
       setOffset(0);
       setHasMore(false);
@@ -751,6 +760,8 @@ export function DropsPagePanel({
 
   useEffect(() => {
     if (
+      reloadKey === 0 &&
+      !initialFetchFailed &&
       sort === initialSort &&
       sort !== 'saved' &&
       medium === 'all' &&
@@ -759,7 +770,16 @@ export function DropsPagePanel({
       return;
     }
     void reload(sort, medium);
-  }, [sort, medium, initialSort, initialItems.length, reload, accountId]);
+  }, [
+    sort,
+    medium,
+    initialSort,
+    initialItems.length,
+    initialFetchFailed,
+    reload,
+    reloadKey,
+    accountId,
+  ]);
 
   // Soft-fill allowlist remaining for Upcoming rows (N× RPC, after paint).
   useEffect(() => {
@@ -841,6 +861,7 @@ export function DropsPagePanel({
   const loadMore = () => {
     if (!hasMore || loading) return;
     setLoading(true);
+    setLoadMoreFailed(false);
     void fetchDropsPage({
       sort,
       mediumKind: medium === 'all' ? null : medium,
@@ -853,7 +874,9 @@ export function DropsPagePanel({
         setOffset((value) => value + page.items.length);
         setHasMore(page.hasMore);
       })
-      .catch(() => setHasMore(false))
+      .catch(() => {
+        setLoadMoreFailed(true);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -1064,7 +1087,16 @@ export function DropsPagePanel({
               {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
             </h2>
             {failed ? (
-              <p className="market-page-status">Couldn’t load drops.</p>
+              <p className="market-page-status" role="alert">
+                Couldn’t load drops.{' '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={() => setReloadKey((value) => value + 1)}
+                >
+                  Retry
+                </button>
+              </p>
             ) : showCatalogSkeleton ? (
               <MarketListSkeleton rows={5} />
             ) : visibleItems.length === 0 && !loading ? (
@@ -1098,7 +1130,19 @@ export function DropsPagePanel({
                 )}
               </>
             )}
-            {hasMore && needle.length === 0 ? (
+            {loadMoreFailed ? (
+              <p className="market-page-status" role="alert">
+                Couldn’t load more.{' '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={loadMore}
+                >
+                  Retry
+                </button>
+              </p>
+            ) : null}
+            {hasMore && needle.length === 0 && !failed ? (
               <button
                 type="button"
                 className="market-sales-more"

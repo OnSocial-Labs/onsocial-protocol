@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DROPS_CLOSING_MS,
+  closingPageHasMore,
   isDropClosing,
   upcomingBucket,
 } from '@/features/drops/drops-data';
@@ -59,6 +60,56 @@ describe('isDropClosing', () => {
         now
       )
     ).toBe(false);
+  });
+});
+
+describe('closingPageHasMore', () => {
+  it('pages when the merged window still has rows', () => {
+    expect(
+      closingPageHasMore({
+        mergedCount: 40,
+        offset: 0,
+        limit: 24,
+        pageItemCount: 24,
+        liveExhausted: true,
+      })
+    ).toBe(true);
+  });
+
+  it('stops when the merged window is exhausted and live is done', () => {
+    expect(
+      closingPageHasMore({
+        mergedCount: 10,
+        offset: 0,
+        limit: 24,
+        pageItemCount: 10,
+        liveExhausted: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not keep Show more on a short page just because live remains', () => {
+    expect(
+      closingPageHasMore({
+        mergedCount: 3,
+        offset: 0,
+        limit: 24,
+        pageItemCount: 3,
+        liveExhausted: false,
+      })
+    ).toBe(false);
+  });
+
+  it('keeps paging a full page when more live rows may still close', () => {
+    expect(
+      closingPageHasMore({
+        mergedCount: 24,
+        offset: 0,
+        limit: 24,
+        pageItemCount: 24,
+        liveExhausted: false,
+      })
+    ).toBe(true);
   });
 });
 

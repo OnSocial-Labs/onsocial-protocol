@@ -311,6 +311,23 @@ export function isDropClosing(
 }
 
 /**
+ * Closing tab paging — prefer the merged window; only keep asking for more live
+ * rows when this page filled (avoids Show more → empty when leftovers aren't closing).
+ */
+export function closingPageHasMore(opts: {
+  mergedCount: number;
+  offset: number;
+  limit: number;
+  pageItemCount: number;
+  liveExhausted: boolean;
+}): boolean {
+  return (
+    opts.mergedCount > opts.offset + opts.limit ||
+    (!opts.liveExhausted && opts.pageItemCount >= opts.limit)
+  );
+}
+
+/**
  * Closing = time window (Hasura) ∪ scarce remaining ratio (client overfetch).
  * Paginate after merge so the tab matches `isDropClosing`.
  */
@@ -366,8 +383,13 @@ async function fetchClosingPage(
     (a, b) => closingSortKey(a) - closingSortKey(b)
   );
   const items = merged.slice(opts.offset, opts.offset + opts.limit);
-  const hasMore =
-    merged.length > opts.offset + opts.limit || !liveExhausted;
+  const hasMore = closingPageHasMore({
+    mergedCount: merged.length,
+    offset: opts.offset,
+    limit: opts.limit,
+    pageItemCount: items.length,
+    liveExhausted,
+  });
   return { items, hasMore };
 }
 
