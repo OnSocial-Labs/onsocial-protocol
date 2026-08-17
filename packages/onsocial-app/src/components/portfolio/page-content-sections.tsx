@@ -48,10 +48,10 @@ interface PageContentSectionsProps {
   createdPeeks?: ProfileCreatedPeek[];
   /** Indexed mint total for Created count chip (may exceed peeks). */
   createdMintCount?: number;
-  /** Owner wallet holdings for Collectibles (empty for visitors). */
+  /** Public wallet holdings for Collectibles peeks (on-chain flex). */
   holdings?: PortfolioHoldingPeek[];
   storeShelf?: ProfileStoreShelf;
-  /** Collectibles chapter is owner Launch only. */
+  /** Owner sees Collectibles vault CTA; visitors only get peeks for now. */
   isOwner?: boolean;
 }
 
@@ -121,7 +121,6 @@ export function PageContentSections({
         createdCount,
         storeListingCount,
         postPeekCount: postPeeks.length,
-        isOwner,
       }),
     [
       config,
@@ -132,7 +131,6 @@ export function PageContentSections({
       createdCount,
       storeListingCount,
       postPeeks.length,
-      isOwner,
     ]
   );
 
@@ -161,8 +159,7 @@ export function PageContentSections({
         const showPosts = section === 'posts';
         const showStore = section === 'store' && storeListingCount > 0;
         const showCreated = section === 'created' && createdCount > 0;
-        const showHoldings =
-          section === 'collectibles' && isOwner && holdingsCount > 0;
+        const showHoldings = section === 'collectibles' && holdingsCount > 0;
 
         return (
           <Fragment key={section}>
@@ -223,7 +220,7 @@ export function PageContentSections({
               {showHoldings ? (
                 <div className="page-drawer-peek-stack">
                   <PageDrawerHoldingsRail holdings={holdings} />
-                  <PageDrawerHoldingsSeeAll />
+                  {isOwner ? <PageDrawerHoldingsSeeAll /> : null}
                 </div>
               ) : null}
 

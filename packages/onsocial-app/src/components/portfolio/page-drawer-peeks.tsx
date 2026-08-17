@@ -72,7 +72,7 @@ export function PageDrawerHoldingsRail({
   }
 
   return (
-    <div className="page-drawer-media-rail" aria-label="Your collectibles">
+    <div className="page-drawer-media-rail" aria-label="Collectibles">
       {holdings.map((item) => (
         <Link
           key={item.tokenId}

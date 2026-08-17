@@ -172,14 +172,13 @@ describe('isPageSectionVisible', () => {
     ).toBe(false);
   });
 
-  it('shows collectibles for owners with holdings and hides badges and support', () => {
+  it('shows collectibles from holdings for anyone and hides badges and support', () => {
     expect(
       isPageSectionVisible('collectibles', {
         stats: emptyStats,
         guilds: [],
         links: [],
         scarceCount: 3,
-        isOwner: true,
       })
     ).toBe(true);
     expect(
@@ -187,16 +186,7 @@ describe('isPageSectionVisible', () => {
         stats: emptyStats,
         guilds: [],
         links: [],
-        scarceCount: 3,
-        isOwner: false,
-      })
-    ).toBe(false);
-    expect(
-      isPageSectionVisible('collectibles', {
-        stats: emptyStats,
-        guilds: [],
-        links: [],
-        scarceCount: 3,
+        scarceCount: 0,
       })
     ).toBe(false);
     expect(

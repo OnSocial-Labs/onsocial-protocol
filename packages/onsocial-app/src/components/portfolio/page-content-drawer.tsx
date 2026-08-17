@@ -251,7 +251,7 @@ export function PageContentDrawer({
   );
 
   useEffect(() => {
-    if (!isOwner || !isOpen) return;
+    if (!isOpen) return;
     let cancelled = false;
     void fetchOwnedScarcesPage(pageAccountId, {
       pageSize: PAGE_DRAWER_HOLDINGS_PEEK,
@@ -266,9 +266,9 @@ export function PageContentDrawer({
     return () => {
       cancelled = true;
     };
-  }, [isOwner, isOpen, pageAccountId]);
+  }, [isOpen, pageAccountId]);
 
-  const holdings = isOwner ? ownedHoldings : [];
+  const holdings = ownedHoldings;
   const holdingsCount = holdings.length;
   const createdCount = Math.max(
     createdPeeksResolved.length,
@@ -293,7 +293,6 @@ export function PageContentDrawer({
           createdCount,
           storeListingCount,
           postPeekCount: postPeeks.length,
-          isOwner,
         })
       ),
     [
@@ -305,7 +304,6 @@ export function PageContentDrawer({
       holdingsCount,
       createdCount,
       storeListingCount,
-      isOwner,
     ]
   );
 
