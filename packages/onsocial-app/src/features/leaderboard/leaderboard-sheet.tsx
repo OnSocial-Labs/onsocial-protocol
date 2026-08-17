@@ -58,7 +58,8 @@ import {
   type LeaderboardTrackCache,
   type ReputationEntry,
 } from '@/lib/leaderboard';
-import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
+import { leaderboardPath } from '@/lib/app-routes';
+import { portfolioPath } from '@/lib/overlay-routes';
 import { shareUrl } from '@/lib/share-url';
 
 function ProgressBar({
@@ -461,17 +462,35 @@ export function LeaderboardSheet({
   open,
   onClose,
   initialTrack = 'reputation',
+  track: trackProp,
+  onTrackChange,
 }: {
   open: boolean;
   onClose: () => void;
   initialTrack?: LeaderboardTrack;
+  /** Controlled track (URL-driven `/leaderboard?track=`). */
+  track?: LeaderboardTrack;
+  onTrackChange?: (track: LeaderboardTrack) => void;
 }) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const [sheetOpen, setSheetOpen] = useState(open);
-  const [track, setTrack] = useState<LeaderboardTrack>(initialTrack);
+  const [internalTrack, setInternalTrack] =
+    useState<LeaderboardTrack>(initialTrack);
+  const track = trackProp ?? internalTrack;
+  const setTrack = useCallback(
+    (next: LeaderboardTrack) => {
+      onTrackChange?.(next);
+      if (trackProp === undefined) {
+        setInternalTrack(next);
+      }
+    },
+    [onTrackChange, trackProp]
+  );
   if (open && !sheetOpen) {
     setSheetOpen(true);
-    setTrack(initialTrack);
+    if (trackProp === undefined) {
+      setInternalTrack(initialTrack);
+    }
   }
 
   const viewerKey = isConnected ? (viewerAccountId ?? '') : '';
@@ -665,11 +684,10 @@ export function LeaderboardSheet({
       rank: shareViewer.rank,
       accountId: viewerAccountId,
     });
-    const path =
-      track === 'reputation'
-        ? overlayPath(viewerAccountId, 'reputation')
-        : portfolioPath(viewerAccountId);
-    const url = new URL(path, window.location.origin).toString();
+    const url = new URL(
+      leaderboardPath({ track }),
+      window.location.origin
+    ).toString();
     const result = await shareUrl({
       url,
       title: copy.title,

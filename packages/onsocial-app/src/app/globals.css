@@ -6690,6 +6690,14 @@ a.os-surface-row {
     text-decoration: underline;
   }
 
+  .leaderboard-route-underlay {
+    margin: 1.25rem 0 0;
+    padding-inline: 0.15rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
   button.signal-metric {
     appearance: none;
     border: 0;
