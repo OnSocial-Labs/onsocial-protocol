@@ -11,6 +11,8 @@
 --                             endorsements_current, standing_counts,
 --                             standing_out_counts, mutual_standings_current
 --   scarces_schema.sql     → scarces_events
+--   social_spend_schema.sql→ social_spend_events (paid inbound social)
+--   core views             → thread_replies, quotes (conversation received)
 --
 -- Views:
 --   1. leaderboard_boost       — ranked by effective_boost
@@ -20,7 +22,7 @@
 --   5. reward_weights          — standing × boost multiplier
 --   6. content_activity        — posts, replies, reactions, active days
 --   7. scarces_activity         — scarce creation, sales, revenue
---   8. reputation_scores       — composite reputation per user (v2)
+--   8. reputation_scores       — composite reputation per user (v2.1)
 --   9. leaderboard_agent_features — deterministic rank-consumer signals
 --  10. leaderboard_by_app      — per-partner rankings
 --  11. leaderboard_by_group    — per-community rankings
@@ -309,15 +311,16 @@ WHERE account_id IS NOT NULL AND account_id != ''
 GROUP BY account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 8. reputation_scores — composite reputation score per user (v2)
+-- 8. reputation_scores — composite reputation score per user (v2.1)
 -- ────────────────────────────────────────────────────────────────────────────
 -- Combines: weighted social graph × token commitment × content quality ×
 --           consistency × scarces marketplace activity.
 -- Depends on: standings_current, endorsements_current, standing_counts,
 --             standing_out_counts, booster_state, leaderboard_rewards,
---             content_activity, scarces_activity
+--             content_activity, scarces_activity, social_spend_events,
+--             thread_replies, quotes
 --
--- v2 formula:
+-- v2.1 formula:
 --   issuer_weight(S) =
 --     min(2.5, 1 + ln(1 + standing_with(S))/ln(21) + ln(1 + boost(S))/ln(11))
 --     (prior from graph + boost only — no circular dependency on reputation)
@@ -325,16 +328,24 @@ GROUP BY account_id;
 --   weighted_stands(T) = Σ issuer_weight(S) × mutual_mult × recency(S→T)
 --     mutual_mult = 1.75 when S↔T mutual, else 1.0
 --   weighted_endorsements(T) = Σ issuer_weight(I) × 0.55 × recency(I→T)
---   social_graph = weighted_stands + weighted_endorsements
+--   paid_inbound(T) = Σ_spender min(3.5, Σ_events issuer_weight × action_w
+--                     × min(2.5, ln(1+SOCIAL)/ln(11)) × recency)
+--     actions: support_profile 1.0, support_endorsement 0.85,
+--              signal_profile 0.7, endorse_profile 0.7; exclude self
+--   social_graph = weighted_stands + weighted_endorsements + paid_inbound
 --   social       = 1 + ln(1 + social_graph)
 --   commitment   = 1 + ln(1 + effective_boost / 1e18)
---   quality      = 1 + (avg_reactions_per_post / 12) × min(total_posts / 8, 1)
+--   quality      = 1 + (avg_reactions / 12) × min(posts/8, 1)
+--                    + ln(1 + unique_inbound_peers)/ln(21)
+--                      × min(posts/8, 1) × 0.55
+--     unique_inbound_peers = distinct accounts that replied or quoted you
 --   consistency  = 1 + 0.65×ln(1+recent_active_days)/ln(31)
 --                    + 0.35×ln(1+active_days)/ln(91)
 --   scarces      = 1 + ln(1 + items_created + items_sold) / 10
 --   reputation   = social × commitment × quality × consistency × scarces
 --
--- Raw standing / mutual / endorsement counts stay as display columns.
+-- Raw standing / mutual / endorsement / paid-support / inbound-conversation
+-- counts stay as display columns.
 -- rewards_earned is exposed for context but does not enter the product.
 -- confidence_score estimates how much indexed evidence backs the rank.
 -- ────────────────────────────────────────────────────────────────────────────
@@ -343,6 +354,17 @@ GROUP BY account_id;
 DROP VIEW IF EXISTS app_reputation CASCADE;
 DROP VIEW IF EXISTS leaderboard_agent_features CASCADE;
 DROP VIEW IF EXISTS reputation_scores CASCADE;
+
+-- Stub replaced by social_spend_schema_views.sql when social_spend_events exists.
+-- Keeps leaderboard views installable before / without social-spend tables.
+CREATE OR REPLACE VIEW paid_support_inbound_events AS
+SELECT
+  NULL::TEXT AS account_id,
+  NULL::TEXT AS spender_id,
+  NULL::BIGINT AS block_timestamp,
+  0.0::NUMERIC AS action_weight,
+  0.0::NUMERIC AS amount_social
+WHERE false;
 
 CREATE VIEW reputation_scores AS
 WITH issuer_priors AS (
@@ -367,6 +389,11 @@ WITH issuer_priors AS (
     SELECT issuer AS account_id FROM endorsements_current
     UNION
     SELECT account_id FROM standings_current
+    UNION
+    SELECT spender_id AS account_id
+    FROM paid_support_inbound_events
+    WHERE spender_id IS NOT NULL
+      AND spender_id != ''
   ) a
   LEFT JOIN standing_counts s ON s.account_id = a.account_id
   LEFT JOIN booster_state b ON b.account_id = a.account_id
@@ -429,6 +456,81 @@ weighted_endorsements AS (
     AND e.target != ''
   GROUP BY e.target
 ),
+paid_support_spender AS (
+  -- Cap each spender→recipient contribution so one wallet cannot dominate.
+  SELECT
+    pe.account_id,
+    pe.spender_id,
+    SUM(
+      COALESCE(ip.issuer_weight, 1.0)
+      * pe.action_weight
+      * LEAST(2.5, LN(1.0 + GREATEST(pe.amount_social, 0)) / LN(11.0))
+      * GREATEST(
+          0.2,
+          EXP(
+            -GREATEST(
+              0.0,
+              EXTRACT(
+                EPOCH FROM (
+                  (NOW() AT TIME ZONE 'utc')
+                  - TO_TIMESTAMP(pe.block_timestamp / 1e9)
+                )
+              ) / 86400.0
+            ) / 180.0
+          )
+        )
+    )::NUMERIC AS spender_points,
+    SUM(pe.amount_social)::NUMERIC AS spender_social,
+    COUNT(*)::BIGINT AS spender_events
+  FROM paid_support_inbound_events pe
+  LEFT JOIN issuer_priors ip ON ip.account_id = pe.spender_id
+  WHERE pe.account_id IS NOT NULL
+    AND pe.account_id != ''
+    AND pe.account_id != pe.spender_id
+    AND pe.action_weight > 0
+  GROUP BY pe.account_id, pe.spender_id
+),
+weighted_paid_support AS (
+  SELECT
+    account_id,
+    SUM(LEAST(3.5, spender_points))::NUMERIC AS weighted_paid_support,
+    SUM(spender_social)::NUMERIC AS paid_support_social,
+    SUM(spender_events)::BIGINT AS paid_support_events,
+    COUNT(*)::BIGINT AS paid_support_spenders
+  FROM paid_support_spender
+  GROUP BY account_id
+),
+inbound_conversation AS (
+  SELECT
+    account_id,
+    COUNT(DISTINCT peer)::BIGINT AS unique_inbound_peers,
+    COUNT(*) FILTER (WHERE kind = 'reply')::BIGINT AS replies_received,
+    COUNT(*) FILTER (WHERE kind = 'quote')::BIGINT AS quotes_received
+  FROM (
+    SELECT
+      parent_author AS account_id,
+      reply_author AS peer,
+      'reply'::TEXT AS kind
+    FROM thread_replies
+    WHERE parent_author IS NOT NULL
+      AND parent_author != ''
+      AND reply_author IS NOT NULL
+      AND reply_author != ''
+      AND reply_author != parent_author
+    UNION ALL
+    SELECT
+      ref_author AS account_id,
+      quote_author AS peer,
+      'quote'::TEXT AS kind
+    FROM quotes
+    WHERE ref_author IS NOT NULL
+      AND ref_author != ''
+      AND quote_author IS NOT NULL
+      AND quote_author != ''
+      AND quote_author != ref_author
+  ) edges
+  GROUP BY account_id
+),
 mutual_counts AS (
   SELECT
     account_id,
@@ -466,6 +568,10 @@ accounts AS (
   SELECT account_id FROM weighted_stands
   UNION
   SELECT account_id FROM weighted_endorsements
+  UNION
+  SELECT account_id FROM weighted_paid_support
+  UNION
+  SELECT account_id FROM inbound_conversation
 ),
 joined AS (
   SELECT
@@ -476,6 +582,13 @@ joined AS (
     COALESCE(er.endorsements_received, 0)                       AS endorsements_received,
     COALESCE(ws.weighted_standing, 0)                           AS weighted_standing,
     COALESCE(we.weighted_endorsement, 0)                        AS weighted_endorsement,
+    COALESCE(ps.weighted_paid_support, 0)                       AS weighted_paid_support,
+    COALESCE(ps.paid_support_social, 0)                         AS paid_support_social,
+    COALESCE(ps.paid_support_events, 0)                         AS paid_support_events,
+    COALESCE(ps.paid_support_spenders, 0)                       AS paid_support_spenders,
+    COALESCE(ic.unique_inbound_peers, 0)                        AS unique_inbound_peers,
+    COALESCE(ic.replies_received, 0)                            AS replies_received,
+    COALESCE(ic.quotes_received, 0)                             AS quotes_received,
     COALESCE(b.effective_boost, '0')::NUMERIC / 1e18            AS boost,
     COALESCE(b.lock_months, 0)                                  AS lock_months,
     COALESCE(r.total_earned, 0) / 1e18                         AS rewards_earned,
@@ -492,6 +605,7 @@ joined AS (
     (
       COALESCE(ws.weighted_standing, 0)
       + COALESCE(we.weighted_endorsement, 0)
+      + COALESCE(ps.weighted_paid_support, 0)
     )                                                           AS social_graph_points,
     LEAST(
       COALESCE(c.total_posts, 0)::NUMERIC / 8.0,
@@ -504,6 +618,8 @@ joined AS (
   LEFT JOIN endorsement_received er ON er.account_id = a.account_id
   LEFT JOIN weighted_stands      ws ON ws.account_id = a.account_id
   LEFT JOIN weighted_endorsements we ON we.account_id = a.account_id
+  LEFT JOIN weighted_paid_support ps ON ps.account_id = a.account_id
+  LEFT JOIN inbound_conversation ic ON ic.account_id = a.account_id
   LEFT JOIN booster_state        b  ON b.account_id  = a.account_id
   LEFT JOIN leaderboard_rewards  r  ON r.account_id  = a.account_id
   LEFT JOIN content_activity     c  ON c.account_id  = a.account_id
@@ -517,6 +633,9 @@ scored AS (
     ROUND((
       1.0
       + (avg_reactions::NUMERIC / 12.0) * quality_post_factor
+      + (
+          LN(1.0 + unique_inbound_peers::NUMERIC) / LN(21.0)
+        ) * quality_post_factor * 0.55
     )::NUMERIC, 4)                                              AS quality_score,
     ROUND((
       1.0
@@ -546,6 +665,8 @@ composite AS (
       + COALESCE(scarces_created, 0)
       + COALESCE(scarces_sold, 0)
       + COALESCE(endorsements_received, 0)
+      + COALESCE(paid_support_events, 0)
+      + COALESCE(unique_inbound_peers, 0)
     )::NUMERIC                                                  AS evidence_points,
     (
       CASE WHEN COALESCE(standing_with, 0) + COALESCE(standing_out, 0) > 0 THEN 1 ELSE 0 END
@@ -556,6 +677,8 @@ composite AS (
       + CASE WHEN COALESCE(scarces_created, 0) + COALESCE(scarces_sold, 0)
                   + COALESCE(scarces_revenue_near, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(endorsements_received, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(paid_support_events, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(unique_inbound_peers, 0) > 0 THEN 1 ELSE 0 END
     )                                                           AS signal_sources
   FROM scored
 )
@@ -565,6 +688,12 @@ SELECT
   standing_out,
   mutual_standing,
   endorsements_received,
+  paid_support_social,
+  paid_support_events,
+  paid_support_spenders,
+  unique_inbound_peers,
+  replies_received,
+  quotes_received,
   boost,
   lock_months,
   rewards_earned,
@@ -586,7 +715,7 @@ SELECT
   ROUND((
     LEAST(LN(1 + GREATEST(evidence_points, 0)) / LN(101), 1.0) * 0.55
     + LEAST(active_days::NUMERIC / 14.0, 1.0) * 0.25
-    + LEAST(signal_sources::NUMERIC / 4.0, 1.0) * 0.20
+    + LEAST(signal_sources::NUMERIC / 5.0, 1.0) * 0.20
   )::NUMERIC, 4)                                                AS confidence_score,
   RANK() OVER (ORDER BY reputation DESC)                        AS rank
 FROM composite;
@@ -613,6 +742,12 @@ WITH base AS (
     rs.standing_out,
     rs.mutual_standing,
     rs.endorsements_received,
+    rs.paid_support_social,
+    rs.paid_support_events,
+    rs.paid_support_spenders,
+    rs.unique_inbound_peers,
+    rs.replies_received,
+    rs.quotes_received,
     rs.boost,
     rs.lock_months,
     rs.rewards_earned,
@@ -640,6 +775,8 @@ WITH base AS (
       + COALESCE(rs.scarces_created, 0)
       + COALESCE(rs.scarces_sold, 0)
       + COALESCE(rs.endorsements_received, 0)
+      + COALESCE(rs.paid_support_events, 0)
+      + COALESCE(rs.unique_inbound_peers, 0)
       + COALESCE(lr.credit_count, 0)
     )::NUMERIC                                                 AS evidence_points,
     (
@@ -651,6 +788,8 @@ WITH base AS (
       + CASE WHEN COALESCE(rs.scarces_created, 0) + COALESCE(rs.scarces_sold, 0)
                   + COALESCE(rs.scarces_revenue_near, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(rs.endorsements_received, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(rs.paid_support_events, 0) > 0 THEN 1 ELSE 0 END
+      + CASE WHEN COALESCE(rs.unique_inbound_peers, 0) > 0 THEN 1 ELSE 0 END
     )                                                           AS signal_sources
   FROM reputation_scores rs
   LEFT JOIN content_activity   c  ON c.account_id  = rs.account_id
@@ -676,7 +815,7 @@ WITH base AS (
     ROUND((
       LEAST(LN(1 + GREATEST(evidence_points, 0)) / LN(101), 1.0) * 0.55
       + LEAST(COALESCE(active_days, 0)::NUMERIC / 14.0, 1.0) * 0.25
-      + LEAST(COALESCE(signal_sources, 0)::NUMERIC / 4.0, 1.0) * 0.20
+      + LEAST(COALESCE(signal_sources, 0)::NUMERIC / 5.0, 1.0) * 0.20
     )::NUMERIC, 4)                                             AS confidence_score,
     ARRAY_REMOVE(ARRAY[
       CASE WHEN evidence_points < 5 THEN 'low_evidence' END,

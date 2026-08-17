@@ -17,12 +17,14 @@ export interface EarnerEntry {
   rank: number;
 }
 
-/** `reputation_scores` view (protocol reputation v1). */
+/** `reputation_scores` view (protocol reputation v2.1). */
 export interface ReputationEntry {
   accountId: string;
   standingWith: number;
   mutualStanding: number;
   endorsementsReceived: number;
+  paidSupportSpenders?: number;
+  uniqueInboundPeers?: number;
   boost: string;
   lockMonths: number;
   totalPosts: number;
@@ -63,6 +65,8 @@ export const REPUTATION_BOARD_GRAPHQL_FIELDS = `
   standingWith
   mutualStanding
   endorsementsReceived
+  paidSupportSpenders
+  uniqueInboundPeers
   boost
   lockMonths
   totalPosts
@@ -123,7 +127,7 @@ export function reputationConfidenceLabel(
     return {
       label: 'Building',
       detail:
-        'Updates from indexed stands, endorsements, posts, boost, and marketplace activity.',
+        'Updates from weighted stands, endorsements, paid support, posts, boost, and marketplace activity.',
     };
   }
   if (score < 0.35) {
@@ -136,7 +140,7 @@ export function reputationConfidenceLabel(
     return {
       label: 'Building',
       detail:
-        'Forming from weighted stands/endorsements, posts, boost, and marketplace activity.',
+        'Forming from social graph, conversations, boost, and marketplace activity.',
     };
   }
   return {

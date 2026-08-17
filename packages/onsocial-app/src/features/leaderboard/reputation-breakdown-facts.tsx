@@ -24,7 +24,8 @@ export function ReputationBreakdownFacts({
     return (
       <p className="portfolio-support-collect-info-empty">
         No protocol reputation indexed for @{accountId} yet. Weighted
-        stands, endorsements, posting, and consistency build this score.
+        stands, endorsements, paid support, posts, and consistency build
+        this score.
       </p>
     );
   }
@@ -74,6 +75,30 @@ export function ReputationBreakdownFacts({
             <SheetFactCount
               count={reputation.totalPosts}
               unit={reputation.totalPosts === 1 ? 'post' : 'posts'}
+            />
+          }
+        />
+        <SheetFactRow
+          label="Paid supporters"
+          value={
+            <SheetFactCount
+              count={reputation.paidSupportSpenders}
+              unit={
+                reputation.paidSupportSpenders === 1
+                  ? 'spender'
+                  : 'spenders'
+              }
+            />
+          }
+        />
+        <SheetFactRow
+          label="Inbound conversations"
+          value={
+            <SheetFactCount
+              count={reputation.uniqueInboundPeers}
+              unit={
+                reputation.uniqueInboundPeers === 1 ? 'peer' : 'peers'
+              }
             />
           }
         />

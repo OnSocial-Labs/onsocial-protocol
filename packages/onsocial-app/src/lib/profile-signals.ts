@@ -11,6 +11,8 @@ export interface ProfileReputation {
   scarcesScore: number;
   confidenceScore: number;
   totalPosts: number;
+  paidSupportSpenders: number;
+  uniqueInboundPeers: number;
 }
 
 export interface ProfileSignals {
@@ -41,6 +43,8 @@ interface ReputationRow {
   scarcesScore: string | number | null;
   confidenceScore: string | number | null;
   totalPosts: number | null;
+  paidSupportSpenders: number | null;
+  uniqueInboundPeers: number | null;
 }
 
 async function fetchReputationRow(
@@ -53,6 +57,7 @@ async function fetchReputationRow(
         reputationScores(where: {accountId: {_eq: $id}}, limit: 1) {
           reputation rank socialScore commitmentScore qualityScore
           consistencyScore scarcesScore confidenceScore totalPosts
+          paidSupportSpenders uniqueInboundPeers
         }
       }`,
       variables: { id: accountId },
@@ -71,6 +76,8 @@ async function fetchReputationRow(
       scarcesScore: toNumber(row.scarcesScore),
       confidenceScore: toNumber(row.confidenceScore),
       totalPosts: toNumber(row.totalPosts),
+      paidSupportSpenders: toNumber(row.paidSupportSpenders),
+      uniqueInboundPeers: toNumber(row.uniqueInboundPeers),
     };
   } catch {
     return null;

@@ -30,6 +30,8 @@ while revalidating in the background.
 
 Empty Discover (no `query`) ranks via `profile_discover` —
 `discover_score = reputation × confidence`, then standing count, then activity.
+Reputation Social includes weighted stands/endorsements and paid inbound
+support; Quality includes reactions plus unique inbound reply/quote peers.
 Text search uses the same view and order. The public leaderboard still ranks by
 raw reputation.
 
