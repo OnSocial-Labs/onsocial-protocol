@@ -24,6 +24,7 @@ import {
   fetchDropsPage,
   isDropClosing,
   pickFeaturedLiveDrop,
+  softFillDropFanRosters,
   upcomingBucket,
   type CreatorLeaderRow,
   type DropAudioFormatFilter,
@@ -71,8 +72,34 @@ import {
 import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
-/** Debounce before search keystrokes hit the indexer (Market-aligned). */
-const SEARCH_DEBOUNCE_MS = 300;
+/** Debounce before search keystrokes hit the indexer (snappy, still typed). */
+const SEARCH_DEBOUNCE_MS = 200;
+
+/** Keep recent catalog pages so flipping back is instant. */
+const CATALOG_CACHE_TTL_MS = 90_000;
+
+type CatalogCacheEntry = {
+  items: DropDiscoveryItem[];
+  hasMore: boolean;
+  creators: CreatorLeaderRow[];
+  at: number;
+};
+
+function dropsCatalogCacheKey(opts: {
+  sort: DropsSort;
+  medium: MarketMediumFilter;
+  audioFormat: MarketAudioFormatFilter;
+  search: string;
+  viewer: string;
+}): string {
+  return [
+    opts.sort,
+    opts.medium,
+    opts.audioFormat ?? '',
+    opts.search,
+    opts.viewer,
+  ].join('|');
+}
 
 const BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
   { id: 'live', label: 'Live' },
@@ -745,9 +772,12 @@ export function DropsPagePanel({
     () => initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE
   );
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [failed, setFailed] = useState(initialFetchFailed);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const catalogCacheRef = useRef<Map<string, CatalogCacheEntry>>(new Map());
+  const reloadGenRef = useRef(0);
   const [allowlistById, setAllowlistById] = useState<
     Record<string, number | null>
   >({});
@@ -854,16 +884,45 @@ export function DropsPagePanel({
       nextSearch: string,
       nextFormat: MarketAudioFormatFilter
     ) => {
-      setLoading(true);
+      const viewer = accountId?.trim() ?? '';
+      const cacheKey = dropsCatalogCacheKey({
+        sort: nextSort,
+        medium: nextMedium,
+        audioFormat: nextFormat,
+        search: nextSearch,
+        viewer,
+      });
+      const gen = ++reloadGenRef.current;
       setFailed(false);
       setLoadMoreFailed(false);
-      setItems([]);
-      setOffset(0);
-      setHasMore(false);
-      setAllowlistById({});
+
+      const cached = catalogCacheRef.current.get(cacheKey);
+      const cacheFresh =
+        cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS;
+      if (cacheFresh && cached) {
+        // Instant flip-back — paint cache, then soft-revalidate.
+        setItems(cached.items);
+        setOffset(cached.items.length);
+        setHasMore(cached.hasMore);
+        setCreators(cached.creators);
+        setLoading(false);
+        setRefreshing(true);
+      } else {
+        // Keep previous rows visible (stale-while-revalidate); skeleton only
+        // when we have nothing to show.
+        setRefreshing(true);
+        setLoading(true);
+        setOffset(0);
+        setHasMore(false);
+        setAllowlistById({});
+      }
+
       try {
-        if (nextSort === 'saved' && !accountId) {
+        if (nextSort === 'saved' && !viewer) {
+          if (gen !== reloadGenRef.current) return;
+          setItems([]);
           setCreators([]);
+          setHasMore(false);
           return;
         }
         const [page, leaders] = await Promise.all([
@@ -879,17 +938,30 @@ export function DropsPagePanel({
             ? fetchCreatorLeaders({ limit: 8 })
             : Promise.resolve([] as CreatorLeaderRow[]),
         ]);
+        if (gen !== reloadGenRef.current) return;
+        catalogCacheRef.current.set(cacheKey, {
+          items: page.items,
+          hasMore: page.hasMore,
+          creators: leaders,
+          at: Date.now(),
+        });
         setItems(page.items);
         setOffset(page.items.length);
         setHasMore(page.hasMore);
         setCreators(leaders);
       } catch {
+        if (gen !== reloadGenRef.current) return;
         setFailed(true);
-        setItems([]);
-        setHasMore(false);
-        setCreators([]);
+        if (!cacheFresh) {
+          setItems([]);
+          setHasMore(false);
+          setCreators([]);
+        }
       } finally {
-        setLoading(false);
+        if (gen === reloadGenRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [accountId]
@@ -922,6 +994,72 @@ export function DropsPagePanel({
     reloadKey,
     accountId,
   ]);
+
+  useEffect(() => {
+    // Seed SSR page into the flip cache so Live ↔ other ↔ Live is instant.
+    if (initialFetchFailed) return;
+    const key = dropsCatalogCacheKey({
+      sort: initialSort,
+      medium: toPanelMedium(initialMedium),
+      audioFormat: initialAudioFormat,
+      search: '',
+      viewer: '',
+    });
+    catalogCacheRef.current.set(key, {
+      items: initialItems,
+      hasMore: initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE,
+      creators: initialCreators,
+      at: Date.now(),
+    });
+    // One-shot seed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
+  }, []);
+
+  // Soft-fill fan counts after paint (kept off the critical fetch path).
+  const fanFillAttemptedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    fanFillAttemptedRef.current = new Set();
+  }, [sort, medium, audioFormat, debouncedQuery]);
+
+  useEffect(() => {
+    if (sort === 'loved') return;
+    const targets = items.filter(
+      (item) =>
+        (item.fanCount == null || item.fanCount <= 0) &&
+        !fanFillAttemptedRef.current.has(item.collectionId)
+    );
+    if (targets.length === 0) return;
+    for (const item of targets) {
+      fanFillAttemptedRef.current.add(item.collectionId);
+    }
+    let cancelled = false;
+    void softFillDropFanRosters(targets).then((filled) => {
+      if (cancelled || filled.length === 0) return;
+      const byId = new Map(
+        filled
+          .filter((row) => row.fanCount != null && row.fanCount > 0)
+          .map((row) => [row.collectionId.trim(), row] as const)
+      );
+      if (byId.size === 0) return;
+      setItems((current) => {
+        let changed = false;
+        const next = current.map((item) => {
+          const row = byId.get(item.collectionId.trim());
+          if (!row) return item;
+          changed = true;
+          return {
+            ...item,
+            fanCount: row.fanCount,
+            ...(row.fanIds ? { fanIds: row.fanIds } : {}),
+          };
+        });
+        return changed ? next : current;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [items, sort]);
 
   // Soft-fill allowlist remaining for Upcoming rows (N× RPC, after paint).
   useEffect(() => {
@@ -1063,6 +1201,7 @@ export function DropsPagePanel({
   const showCreators =
     sort === 'new' && creators.length > 0 && !searching && !audioFormat;
   const showCatalogSkeleton = loading && items.length === 0 && !failed;
+  const catalogRefreshing = refreshing && items.length > 0;
 
   const renderRow = (item: DropDiscoveryItem, opts?: { featured?: boolean }) => (
     <DropRow
@@ -1236,7 +1375,13 @@ export function DropsPagePanel({
             </section>
           ) : null}
 
-          <section className="market-section" aria-labelledby="drops-catalog">
+          <section
+            className={`market-section${
+              catalogRefreshing ? ' drops-catalog--refreshing' : ''
+            }`}
+            aria-labelledby="drops-catalog"
+            aria-busy={catalogRefreshing || undefined}
+          >
             <h2 id="drops-catalog" className="market-section-title">
               {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
             </h2>

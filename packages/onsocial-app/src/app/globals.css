@@ -25516,6 +25516,12 @@ a.os-surface-row {
     min-width: 3.5rem;
   }
 
+  .drops-catalog--refreshing .market-listing-list,
+  .drops-catalog--refreshing .drops-upcoming-group {
+    opacity: 0.72;
+    transition: opacity 120ms ease;
+  }
+
   .drops-discovery-row.drops-discovery-row--featured {
     position: relative;
     margin-bottom: 0.65rem;

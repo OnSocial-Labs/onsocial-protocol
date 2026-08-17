@@ -293,12 +293,24 @@ async function withDropCreatorFaces(
   }
 }
 
+/**
+ * Paint-fast decorate: faces in the critical path.
+ * Fan rosters soft-fill after paint (see panel) so tab flips stay snappy.
+ */
 async function decorateDropItems(
   items: DropDiscoveryItem[],
   client: OnSocial
 ): Promise<DropDiscoveryItem[]> {
-  const withFans = await withDropFanRosters(items, client);
-  return withDropCreatorFaces(withFans, client);
+  return withDropCreatorFaces(items, client);
+}
+
+/** Soft-fill fan counts / facepile ids after the catalog paints. */
+export async function softFillDropFanRosters(
+  items: DropDiscoveryItem[],
+  client?: OnSocial
+): Promise<DropDiscoveryItem[]> {
+  const os = client ?? createReadOnlyOnSocialClient();
+  return withDropFanRosters(items, os);
 }
 
 function closingSortKey(item: DropDiscoveryItem): number {
@@ -407,24 +419,46 @@ async function fetchClosingPage(
   const batch = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
   const byId = new Map<string, DropDiscoveryItem>();
 
-  const timed = await client.query.scarces.collectionsCurrent({
-    limit: Math.max(opts.offset + opts.limit, batch),
-    offset: 0,
-    lifecycle: 'closing',
-    nowNs: ns,
-    closingNs: closingNs(ns),
-    ...mediumFilter,
-    ...searchFilter,
-  });
+  // Timed closing window + first live batch in parallel (biggest Closing win).
+  const [timed, firstLive] = await Promise.all([
+    client.query.scarces.collectionsCurrent({
+      limit: Math.max(opts.offset + opts.limit, batch),
+      offset: 0,
+      lifecycle: 'closing',
+      nowNs: ns,
+      closingNs: closingNs(ns),
+      ...mediumFilter,
+      ...searchFilter,
+    }),
+    client.query.scarces.collectionsCurrent({
+      limit: batch,
+      offset: 0,
+      lifecycle: 'live',
+      nowNs: ns,
+      ...mediumFilter,
+      ...searchFilter,
+    }),
+  ]);
   for (const row of timed) {
     const item = rowToDiscoveryItem(row);
     if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
     byId.set(item.collectionId.trim(), item);
   }
 
-  let liveOffset = 0;
-  let liveExhausted = false;
-  for (let round = 0; round < MEDIUM_FETCH_ROUNDS; round += 1) {
+  let liveOffset = firstLive.length;
+  let liveExhausted = firstLive.length < batch;
+  const absorbLive = (rows: typeof firstLive) => {
+    for (const row of rows) {
+      const item = rowToDiscoveryItem(row);
+      if (!isDropClosing(item)) continue;
+      if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
+      byId.set(item.collectionId.trim(), item);
+    }
+  };
+  absorbLive(firstLive);
+
+  for (let round = 1; round < MEDIUM_FETCH_ROUNDS; round += 1) {
+    if (liveExhausted) break;
     const rows = await client.query.scarces.collectionsCurrent({
       limit: batch,
       offset: liveOffset,
@@ -435,12 +469,7 @@ async function fetchClosingPage(
     });
     liveOffset += rows.length;
     if (rows.length < batch) liveExhausted = true;
-    for (const row of rows) {
-      const item = rowToDiscoveryItem(row);
-      if (!isDropClosing(item)) continue;
-      if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
-      byId.set(item.collectionId.trim(), item);
-    }
+    absorbLive(rows);
     if (liveExhausted) break;
   }
 
