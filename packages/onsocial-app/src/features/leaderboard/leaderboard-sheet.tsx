@@ -469,7 +469,6 @@ export function LeaderboardSheet({
 
   useEffect(() => {
     if (!sheetOpen || !viewerInListRow) {
-      setViewerPinned(false);
       return;
     }
 
