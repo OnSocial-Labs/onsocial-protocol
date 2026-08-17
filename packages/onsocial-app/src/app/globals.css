@@ -25256,7 +25256,7 @@ a.os-surface-row {
   /* Inherit Market cover scale; reset border/shadow for Drops chrome. */
   .drops-discovery-row .drops-discovery-thumb.market-listing-thumb {
     border: 0;
-    border-radius: 0.75rem;
+    border-radius: var(--os-catalog-cover-radius);
     outline: none;
     box-shadow: none;
   }
@@ -25582,14 +25582,14 @@ a.os-surface-row {
     background: var(--os-surface-row-hover);
   }
 
-  /* Guild-search / Drops catalog scale — covers read as product, not icons. */
+  /* Catalog cover scale — tokens from @onsocial/ui os-surface-interactive. */
   .market-listing-thumb {
     position: relative;
     flex-shrink: 0;
-    width: 4.85rem;
-    height: 4.85rem;
+    width: var(--os-catalog-cover);
+    height: var(--os-catalog-cover);
     border: 0;
-    border-radius: 0.75rem;
+    border-radius: var(--os-catalog-cover-radius);
     padding: 0;
     overflow: hidden;
     background: rgb(var(--fg-rgb) / 0.08);
@@ -25598,8 +25598,8 @@ a.os-surface-row {
 
   @media (min-width: 640px) {
     .market-listing-thumb {
-      width: 5.5rem;
-      height: 5.5rem;
+      width: var(--os-catalog-cover-sm);
+      height: var(--os-catalog-cover-sm);
     }
   }
 
@@ -25780,15 +25780,15 @@ a.os-surface-row {
 
   .market-listing-thumb-shimmer {
     flex-shrink: 0;
-    width: 4.85rem;
-    height: 4.85rem;
-    border-radius: 0.75rem;
+    width: var(--os-catalog-cover);
+    height: var(--os-catalog-cover);
+    border-radius: var(--os-catalog-cover-radius);
   }
 
   @media (min-width: 640px) {
     .market-listing-thumb-shimmer {
-      width: 5.5rem;
-      height: 5.5rem;
+      width: var(--os-catalog-cover-sm);
+      height: var(--os-catalog-cover-sm);
     }
   }
 
