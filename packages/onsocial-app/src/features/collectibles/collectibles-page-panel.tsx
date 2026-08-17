@@ -259,8 +259,6 @@ export function CollectiblesPagePanel({
 
   useEffect(() => {
     if (!isSelf) {
-      setOfflineHoldings([]);
-      setOfflineReady(true);
       return;
     }
     let cancelled = false;
@@ -323,18 +321,21 @@ export function CollectiblesPagePanel({
     holdings.loadKey != null &&
     holdings.loadKey.startsWith(`${ownerAccountId}:`) &&
     holdings.items.length > 0;
+  /** Offline library is owner-vault only — skip when browsing someone else. */
+  const selfOfflineHoldings = isSelf ? offlineHoldings : [];
+  const selfOfflineReady = isSelf ? offlineReady : true;
   const vaultItems = sameOwnerHoldings
     ? holdings.items
     : isSelf
-      ? offlineHoldings
+      ? selfOfflineHoldings
       : [];
   const usingOfflineLibrary =
-    isSelf && !sameOwnerHoldings && offlineHoldings.length > 0;
+    isSelf && !sameOwnerHoldings && selfOfflineHoldings.length > 0;
   const showVaultSkeleton =
     (Boolean(ownerAccountId) &&
       status === 'loading' &&
       vaultItems.length === 0) ||
-    (!pageAccountId && !offlineReady && !viewerAccountId);
+    (!pageAccountId && !selfOfflineReady && !viewerAccountId);
 
   const filtered = useMemo(() => {
     let byKind = filterHoldingsByMedium(vaultItems, mediumFilter);
@@ -395,7 +396,7 @@ export function CollectiblesPagePanel({
   /** OS vault entry with no wallet — portfolio routes always have pageAccountId. */
   const showConnectPrompt =
     !pageAccountId &&
-    offlineReady &&
+    selfOfflineReady &&
     (!isConnected || !viewerAccountId) &&
     !usingOfflineLibrary;
 
