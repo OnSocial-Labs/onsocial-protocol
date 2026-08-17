@@ -101,8 +101,14 @@ function formatDropWindow(
   return kind === 'opens' ? `Opens ${rel}` : `Ends ${rel}`;
 }
 
-/** Primary Drop mediums — same taxonomy as Market, minus listing-only noise. */
-const DROP_MEDIUM_FILTERS = MARKET_MEDIUM_FILTERS.filter((entry) =>
+/**
+ * Primary Drop mediums — Market taxonomy minus listing-only noise
+ * (coupons / memberships / custom). Ticket medium shows as Events on Drops.
+ */
+const DROP_MEDIUM_FILTERS: ReadonlyArray<{
+  id: MarketMediumFilter;
+  label: string;
+}> = MARKET_MEDIUM_FILTERS.filter((entry) =>
   (
     [
       'all',
@@ -111,8 +117,11 @@ const DROP_MEDIUM_FILTERS = MARKET_MEDIUM_FILTERS.filter((entry) =>
       'writing',
       'audio',
       'video',
+      'ticket',
     ] as MarketMediumFilter[]
   ).includes(entry.id)
+).map((entry) =>
+  entry.id === 'ticket' ? { ...entry, label: 'Events' } : entry
 );
 
 function dropsCountLabel(count: number): string {
