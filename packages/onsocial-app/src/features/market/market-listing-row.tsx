@@ -94,6 +94,13 @@ export function MarketListingRow({
   const creatorId = item.artistId?.trim() || sellerId;
   const creatorHandle = fallbackLabel(creatorId);
   const creatorHref = portfolioPath(creatorId);
+  const sellerHandle = fallbackLabel(sellerId);
+  const sellerHref = portfolioPath(sellerId);
+  /** Resale / auction where seller ≠ mint creator — show Listed by @seller. */
+  const showListedBySeller =
+    Boolean(item.artistId?.trim()) &&
+    !isOwnListing &&
+    (item.kind === 'native' || item.kind === 'auction');
   const creatorLabel = displayName(
     creatorId,
     item.creatorDisplayName ?? undefined
