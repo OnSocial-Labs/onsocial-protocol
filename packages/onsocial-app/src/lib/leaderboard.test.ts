@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appendLeaderboardPage,
   commitmentLabel,
   entriesForTrack,
   formatReputationComponent,
   formatReputationScore,
   pctOfLeader,
   reputationConfidenceLabel,
+  reputationEntryToProfile,
   reputationTierLabel,
 } from '@/lib/leaderboard';
 
@@ -53,5 +55,45 @@ describe('leaderboard helpers', () => {
     ).toHaveLength(1);
     expect(entriesForTrack('reputation', { reputationScores: [] })).toEqual([]);
     expect(entriesForTrack('earners', null)).toBeNull();
+  });
+
+  it('appends leaderboard pages without duplicate accounts', () => {
+    const row = (accountId: string, rank: number) => ({
+      accountId,
+      standingWith: 0,
+      mutualStanding: 0,
+      endorsementsReceived: 0,
+      boost: '1',
+      lockMonths: 0,
+      totalPosts: 0,
+      activeDays: 0,
+      reactionsReceived: 0,
+      scarcesCreated: 0,
+      socialScore: '0',
+      commitmentScore: '0',
+      qualityScore: '0',
+      consistencyScore: '0',
+      scarcesScore: '0',
+      reputation: String(10 - rank),
+      confidenceScore: '0.5',
+      rank,
+    });
+    const first = appendLeaderboardPage(
+      'reputation',
+      null,
+      { reputationScores: [row('a.near', 1)] },
+      1
+    );
+    expect(first.hasMore).toBe(true);
+    const second = appendLeaderboardPage(
+      'reputation',
+      first.board,
+      { reputationScores: [row('a.near', 1), row('b.near', 2)] },
+      2
+    );
+    expect(second.board.reputationScores).toHaveLength(2);
+    expect(
+      reputationEntryToProfile(second.board.reputationScores![1]!).rank
+    ).toBe(2);
   });
 });
