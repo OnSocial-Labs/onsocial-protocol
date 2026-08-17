@@ -39,6 +39,7 @@ import {
   excludeOwnedNativeListings,
   formatMarketRelativeTime,
   invalidateLiveListingsCache,
+  listingCreatorAccountId,
   marketListingRowKey,
   viewerOwnsRelatedEdition,
   type MarketListingItem,
@@ -558,6 +559,54 @@ export function MarketPagePanel({
     onIntersect: loadMoreListings,
     rootMargin: '240px 0px',
   });
+
+  // Soft-fill creator faces when SSR/page load missed them (same as Drops).
+  useEffect(() => {
+    const missing = listingsState.items.filter((item) => {
+      const id = listingCreatorAccountId(item);
+      return (
+        id &&
+        item.creatorAvatarUrl === undefined &&
+        item.creatorDisplayName === undefined
+      );
+    });
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      const { fetchCollectionCreatorFaces } = await import(
+        '@/features/scarces/collection-creator-face'
+      );
+      const { createReadOnlyOnSocialClient } = await import(
+        '@/lib/create-readonly-onsocial-client'
+      );
+      const faces = await fetchCollectionCreatorFaces(
+        createReadOnlyOnSocialClient(),
+        missing.map((item) => listingCreatorAccountId(item))
+      );
+      if (cancelled) return;
+      setListingsState((current) => ({
+        ...current,
+        items: current.items.map((item) => {
+          const face = faces.get(listingCreatorAccountId(item));
+          if (!face) return item;
+          if (
+            item.creatorAvatarUrl !== undefined ||
+            item.creatorDisplayName !== undefined
+          ) {
+            return item;
+          }
+          return {
+            ...item,
+            creatorAvatarUrl: face.avatarUrl,
+            creatorDisplayName: face.displayName,
+          };
+        }),
+      }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [listingsState.items]);
 
   useEffect(() => {
     if (ssrSalesSkipRef.current && retryKey === 0) {

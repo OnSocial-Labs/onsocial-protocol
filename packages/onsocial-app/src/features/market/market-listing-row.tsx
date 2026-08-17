@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   OsSheetAction,
   OsSheetActions,
+  ProfileAvatar,
 } from '@onsocial/ui';
 import {
   collectionIdFromTokenId,
@@ -20,7 +21,7 @@ import {
 import { collectionPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { personalPostPath } from '@/lib/post-routes';
-import { fallbackLabel } from '@/lib/profile-display';
+import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 interface MarketListingRowProps {
   item: MarketListingItem;
@@ -93,6 +94,21 @@ export function MarketListingRow({
   const creatorId = item.artistId?.trim() || sellerId;
   const creatorHandle = fallbackLabel(creatorId);
   const creatorHref = portfolioPath(creatorId);
+  const sellerHandle = fallbackLabel(sellerId);
+  const sellerHref = portfolioPath(sellerId);
+  /** Resale / auction where seller ≠ mint creator — show Listed by @seller. */
+  const showListedBySeller =
+    Boolean(item.artistId?.trim()) &&
+    !isOwnListing &&
+    (item.kind === 'native' || item.kind === 'auction');
+  const creatorLabel = displayName(
+    creatorId,
+    item.creatorDisplayName ?? undefined
+  );
+  const creatorNameIsCustom =
+    Boolean(creatorLabel) &&
+    creatorLabel.toLowerCase() !== creatorHandle.toLowerCase() &&
+    creatorLabel.toLowerCase() !== creatorId.trim().toLowerCase();
   const postHref = item.postHref ?? postHrefFromSourcePath(item.sourcePostPath);
   // Social post when listed from a post; else drop page for edition tokens.
   const detailHref =
@@ -242,21 +258,52 @@ export function MarketListingRow({
           )}
         </button>
       )}
-      <div className="market-listing-copy">
-        <div className="market-listing-head">
+      <div className="market-listing-copy drops-discovery-copy">
+        <div className="market-listing-head drops-discovery-head">
           <p className="market-listing-title">{titleNode}</p>
         </div>
-        <p className="market-listing-creator">
-          <span className="market-listing-own">by </span>
+        {/* by Name / @handle — same party chrome as Drops. */}
+        <div className="drops-discovery-party">
           <Link
             href={creatorHref}
             scroll={false}
-            className="market-listing-handle"
-            aria-label={`Creator @${creatorHandle}`}
+            className="drops-discovery-party-avatar-link"
+            tabIndex={creatorNameIsCustom ? -1 : undefined}
+            aria-hidden={creatorNameIsCustom ? true : undefined}
+            aria-label={
+              creatorNameIsCustom ? undefined : `Creator @${creatorHandle}`
+            }
           >
-            @{creatorHandle}
+            <ProfileAvatar
+              src={item.creatorAvatarUrl}
+              size="sm"
+              fallbackInitial={creatorHandle.slice(0, 1)}
+              className="drops-discovery-party-avatar"
+            />
           </Link>
-        </p>
+          <div className="drops-discovery-party-stack">
+            {creatorNameIsCustom ? (
+              <Link
+                href={creatorHref}
+                scroll={false}
+                className="drops-discovery-by"
+              >
+                by {creatorLabel}
+              </Link>
+            ) : (
+              <Link
+                href={creatorHref}
+                scroll={false}
+                className="drops-discovery-by"
+              >
+                @{creatorHandle}
+              </Link>
+            )}
+            {creatorNameIsCustom ? (
+              <span className="drops-discovery-sub">@{creatorHandle}</span>
+            ) : null}
+          </div>
+        </div>
         <p className="market-listing-meta market-listing-meta--price">
           <span className="market-listing-price">
             {item.priceLabel ? `${item.priceLabel} · ` : ''}
