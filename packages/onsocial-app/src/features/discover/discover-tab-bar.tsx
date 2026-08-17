@@ -1,5 +1,6 @@
 'use client';
 
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
   DISCOVER_TABS,
   discoverTabLabel,
@@ -16,30 +17,17 @@ export function DiscoverTabBar({
   className?: string;
 }) {
   return (
-    <div
-      className={['discover-tab-bar', className].filter(Boolean).join(' ')}
-      role="tablist"
-      aria-label="Discover"
-    >
-      <div className="discover-tab-bar-scroller">
-        {DISCOVER_TABS.map((option) => {
-          const selected = option === tab;
-          return (
-            <button
-              key={option}
-              type="button"
-              role="tab"
-              id={`discover-tab-${option}`}
-              aria-selected={selected}
-              aria-controls={`discover-panel-${option}`}
-              className={selected ? 'is-active' : undefined}
-              onClick={() => onTabChange(option)}
-            >
-              {discoverTabLabel(option)}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <OsChipRail
+      ariaLabel="Discover"
+      className={className}
+      value={tab}
+      onValueChange={onTabChange}
+      tabIdFor={(option) => `discover-tab-${option}`}
+      ariaControls={(option) => `discover-panel-${option}`}
+      items={DISCOVER_TABS.map((option) => ({
+        id: option,
+        label: discoverTabLabel(option),
+      }))}
+    />
   );
 }

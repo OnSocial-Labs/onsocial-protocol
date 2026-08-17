@@ -1,5 +1,6 @@
 'use client';
 
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
   dropFacetFieldLabel,
   dropFacetSuggestionsForMedium,
@@ -58,53 +59,30 @@ export function MarketFacetRail({
   return (
     <div className="market-facet-rail" aria-label="Discovery filters">
       {showFormat ? (
-        <div
-          className="discover-tab-bar market-facet-rail-row"
-          role="tablist"
-          aria-label="Release format"
-        >
-          <div className="discover-tab-bar-scroller">
-            {AUDIO_FORMAT_CHIPS.map((chip) => {
-              const active = audioFormat === chip.id;
-              return (
-                <button
-                  key={chip.label}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  className={active ? 'is-active' : undefined}
-                  onClick={() => onAudioFormatChange(chip.id)}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <OsChipRail
+          className="market-facet-rail-row"
+          ariaLabel="Release format"
+          value={audioFormat}
+          onValueChange={onAudioFormatChange}
+          items={AUDIO_FORMAT_CHIPS.map((chip) => ({
+            id: chip.id,
+            label: chip.label,
+            key: chip.label,
+          }))}
+        />
       ) : null}
       {suggestions.length > 0 ? (
-        <div
-          className="discover-tab-bar market-facet-rail-row"
-          role="group"
-          aria-label={dropFacetFieldLabel(medium)}
-        >
-          <div className="discover-tab-bar-scroller">
-            {suggestions.map((entry) => {
-              const active = selectedFacets.includes(entry.id);
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  aria-pressed={active}
-                  className={active ? 'is-active' : undefined}
-                  onClick={() => toggleFacet(entry.id)}
-                >
-                  {entry.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <OsChipRail
+          selection="multi"
+          className="market-facet-rail-row"
+          ariaLabel={dropFacetFieldLabel(medium)}
+          values={selectedFacets}
+          onToggle={toggleFacet}
+          items={suggestions.map((entry) => ({
+            id: entry.id,
+            label: entry.label,
+          }))}
+        />
       ) : null}
     </div>
   );

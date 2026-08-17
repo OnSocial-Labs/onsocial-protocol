@@ -9,6 +9,7 @@ import {
   UsersFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
@@ -255,26 +256,16 @@ export function LiveGuildsIndexPanel({
             toolbarHidden ? ' is-scroll-hidden' : ''
           }`}
         >
-          <div
-            className="discover-tab-bar market-listing-filters guild-topic-filters"
-            role="tablist"
-            aria-label="Filter by topic"
-          >
-            <div className="discover-tab-bar-scroller">
-              {topicChips.map((chip) => (
-                <button
-                  key={chip.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={topicFilter === chip.id}
-                  className={topicFilter === chip.id ? 'is-active' : undefined}
-                  onClick={() => setTopicFilter(chip.id)}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <OsChipRail
+            className="market-listing-filters guild-topic-filters"
+            ariaLabel="Filter by topic"
+            value={topicFilter}
+            onValueChange={setTopicFilter}
+            items={topicChips.map((chip) => ({
+              id: chip.id,
+              label: chip.label,
+            }))}
+          />
         </div>
       }
     >

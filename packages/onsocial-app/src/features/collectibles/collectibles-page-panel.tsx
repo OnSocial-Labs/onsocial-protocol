@@ -11,6 +11,7 @@ import {
   StarsCFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { CollectiblesHoldingRow } from '@/features/collectibles/collectibles-holding-row';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
@@ -413,30 +414,18 @@ export function CollectiblesPagePanel({
             }`}
           >
             <div className="market-listing-filter-stack">
-              <div
-                className="discover-tab-bar market-listing-filters"
-                role="tablist"
-                aria-label="Collectible kind"
-              >
-                <div className="discover-tab-bar-scroller">
-                  {MARKET_MEDIUM_FILTERS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      id={`collectibles-kind-tab-${tab.id}`}
-                      aria-controls="collectibles-results"
-                      aria-selected={mediumFilter === tab.id}
-                      className={
-                        mediumFilter === tab.id ? 'is-active' : undefined
-                      }
-                      onClick={() => setMediumFilter(tab.id)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <OsChipRail
+                className="market-listing-filters"
+                ariaLabel="Collectible kind"
+                value={mediumFilter}
+                onValueChange={setMediumFilter}
+                tabIdFor={(id) => `collectibles-kind-tab-${id}`}
+                ariaControls="collectibles-results"
+                items={MARKET_MEDIUM_FILTERS.map((tab) => ({
+                  id: tab.id,
+                  label: tab.label,
+                }))}
+              />
               {facetMedium ? (
                 <MarketFacetRail
                   medium={facetMedium}

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   clickTab,
   clickTabAndWaitUrl,
-  E2E_CHROME_TIMEOUT_MS,
+  expectSearchVisible,
   expectTabSelected,
   expectTabVisible,
   gotoApp,
@@ -16,9 +16,7 @@ test.describe('drops discovery', () => {
   test('loads catalog chrome and switches sort + medium', async ({ page }) => {
     await gotoApp(page, '/drops');
 
-    await expect(
-      page.getByRole('textbox', { name: 'Search drops' })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expectSearchVisible(page, 'Search drops');
 
     await expectTabVisible(page, 'Drop sort', 'Live');
     await expectTabVisible(page, 'Drop sort', 'Upcoming');
@@ -70,9 +68,7 @@ test.describe('drops discovery', () => {
       .poll(() => new URL(page.url()).searchParams.has('sort'))
       .toBe(false);
 
-    await expect(
-      page.getByRole('textbox', { name: 'Search drops' })
-    ).toBeVisible();
+    await expectSearchVisible(page, 'Search drops');
     await expectTabSelected(page, 'Drop sort', 'Live');
   });
 });

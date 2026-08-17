@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 import {
   clickTab,
   clickTabAndWaitUrl,
-  E2E_CHROME_TIMEOUT_MS,
+  expectChoiceMenuVisible,
+  expectSearchVisible,
   expectTabSelected,
   expectTabVisible,
   gotoApp,
@@ -19,9 +20,7 @@ test.describe('market discovery', () => {
   }) => {
     await gotoApp(page, '/market');
 
-    await expect(
-      page.getByRole('textbox', { name: 'Search Market listings' })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expectSearchVisible(page, 'Search Market listings');
 
     await expectTabVisible(page, 'Listing type', 'All');
     await expectTabVisible(page, 'Listing type', 'Auctions');
@@ -67,9 +66,9 @@ test.describe('market discovery', () => {
     await gotoApp(page, '/market?sort=ending');
     await expectTabSelected(page, 'Listing type', 'Auctions');
     // ChoiceDrawerMenu a11y name is "Open sort menu"; visible label is Ending soon.
-    const sortTrigger = page.getByRole('button', { name: 'Open sort menu' });
-    await expect(sortTrigger).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
-    await expect(sortTrigger).toContainText('Ending soon');
+    await expectChoiceMenuVisible(page, 'Sort', {
+      containsText: 'Ending soon',
+    });
   });
 
   test('listing-type tab stays selected after flip', async ({ page }) => {

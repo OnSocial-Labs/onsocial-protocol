@@ -9,6 +9,7 @@ import {
   osFloatingPanelTriggerMetaClassName,
 } from '@onsocial/ui';
 import { ActionDrawer } from '@/components/ui/action-drawer';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -198,57 +199,33 @@ export function MarketFilterMenu({
         <div className="market-filter-sheet">
           <section className="market-filter-sheet-block" aria-label="Medium">
             <p className="os-choice-sheet-section-title">Medium</p>
-            <div
-              className="discover-tab-bar market-filter-chip-row"
-              role="listbox"
-              aria-label="Medium"
-            >
-              <div className="discover-tab-bar-scroller">
-                {MARKET_MEDIUM_FILTERS.map((entry) => {
-                  const selected = entry.id === medium;
-                  return (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      className={selected ? 'is-active' : undefined}
-                      onClick={() => onMediumChange(entry.id)}
-                    >
-                      {entry.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <OsChipRail
+              selection="option"
+              className="market-filter-chip-row"
+              ariaLabel="Medium"
+              value={medium}
+              onValueChange={onMediumChange}
+              items={MARKET_MEDIUM_FILTERS.map((entry) => ({
+                id: entry.id,
+                label: entry.label,
+              }))}
+            />
           </section>
 
           {showFormat ? (
             <section className="market-filter-sheet-block" aria-label="Format">
               <p className="os-choice-sheet-section-title">Format</p>
-              <div
-                className="discover-tab-bar market-filter-chip-row"
-                role="tablist"
-                aria-label="Release format"
-              >
-                <div className="discover-tab-bar-scroller">
-                  {AUDIO_FORMAT_OPTIONS.map((entry) => {
-                    const selected = audioFormat === entry.id;
-                    return (
-                      <button
-                        key={entry.label}
-                        type="button"
-                        role="tab"
-                        aria-selected={selected}
-                        className={selected ? 'is-active' : undefined}
-                        onClick={() => onAudioFormatChange(entry.id)}
-                      >
-                        {entry.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <OsChipRail
+                className="market-filter-chip-row"
+                ariaLabel="Release format"
+                value={audioFormat}
+                onValueChange={onAudioFormatChange}
+                items={AUDIO_FORMAT_OPTIONS.map((entry) => ({
+                  id: entry.id,
+                  label: entry.label,
+                  key: entry.label,
+                }))}
+              />
             </section>
           ) : null}
 
@@ -260,28 +237,18 @@ export function MarketFilterMenu({
               <p className="os-choice-sheet-section-title">
                 {dropFacetFieldLabel(facetMedium)}
               </p>
-              <div
-                className="discover-tab-bar market-filter-chip-row"
-                role="group"
-                aria-label={dropFacetFieldLabel(facetMedium)}
-              >
-                <div className="discover-tab-bar-scroller market-filter-chip-wrap">
-                  {suggestions.map((entry) => {
-                    const selected = selectedFacets.includes(entry.id);
-                    return (
-                      <button
-                        key={entry.id}
-                        type="button"
-                        aria-pressed={selected}
-                        className={selected ? 'is-active' : undefined}
-                        onClick={() => toggleFacet(entry.id)}
-                      >
-                        {entry.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              <OsChipRail
+                selection="multi"
+                className="market-filter-chip-row"
+                scrollerClassName="market-filter-chip-wrap"
+                ariaLabel={dropFacetFieldLabel(facetMedium)}
+                values={selectedFacets}
+                onToggle={toggleFacet}
+                items={suggestions.map((entry) => ({
+                  id: entry.id,
+                  label: entry.label,
+                }))}
+              />
             </section>
           ) : null}
         </div>
