@@ -349,7 +349,7 @@ describe('QueryModule', () => {
           lastActivityBlock: 120,
         },
       ];
-      const { os, fetch } = makeOs({ data: { profileSearch: rows } });
+      const { os, fetch } = makeOs({ data: { profileDiscover: rows } });
 
       await expect(
         os.query.profiles.search({ query: 'alice', limit: 10 })
@@ -362,7 +362,8 @@ describe('QueryModule', () => {
         limit: 10,
         offset: 0,
       });
-      expect(body.query).toContain('profileSearch');
+      expect(body.query).toContain('profileDiscover');
+      expect(body.query).toContain('discoverScore');
       expect(body.query).toContain('searchText');
     });
 
@@ -385,7 +386,7 @@ describe('QueryModule', () => {
           lastActivityBlock: 1,
         },
       ];
-      const { os, fetch } = makeOs({ data: { profileSearch: rows } });
+      const { os, fetch } = makeOs({ data: { profileDiscover: rows } });
 
       const page = await os.query.profiles.discoverPage({ limit: 10 });
       expect(page.profiles).toEqual(rows);
@@ -415,7 +416,7 @@ describe('QueryModule', () => {
         }
         return {
           data: {
-            profileSearch: [
+            profileDiscover: [
               {
                 accountId: 'carol.near',
                 name: 'Carol',
@@ -461,7 +462,7 @@ describe('QueryModule', () => {
     });
 
     it('discoverPage with viewer skips context query when search is empty', async () => {
-      const { os, fetch } = makeOs({ data: { profileSearch: [] } });
+      const { os, fetch } = makeOs({ data: { profileDiscover: [] } });
 
       const page = await os.query.profiles.discoverPage({
         viewerAccountId: 'bob.near',

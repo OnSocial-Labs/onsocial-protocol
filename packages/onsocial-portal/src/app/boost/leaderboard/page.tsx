@@ -686,8 +686,10 @@ export default function BoostLeaderboardPage() {
             How reputation works
           </BoostPanelSectionTitle>
           <p className="mx-auto mb-4 max-w-lg text-center text-xs text-muted-foreground">
-            Five indexed signals combine into one score. Early contributions
-            count more; large totals are softened.
+            Five indexed signals combine into one score. Weighted stands,
+            endorsements, and paid support feed Social; replies and quotes
+            received strengthen Quality. Early contributions count more; large
+            totals are softened.
           </p>
           <div className="grid gap-3 md:grid-cols-5">
             <SurfacePanel
@@ -697,9 +699,9 @@ export default function BoostLeaderboardPage() {
               className="text-center"
             >
               <Crown className="mx-auto mb-1 h-4 w-4 portal-purple-text" />
-              <p className="text-xs font-semibold">Standing</p>
+              <p className="text-xs font-semibold">Social</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                People standing with you
+                Weighted stands, endorsements, paid support
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -711,7 +713,7 @@ export default function BoostLeaderboardPage() {
               <Flame className="mx-auto mb-1 h-4 w-4 portal-gold-text" />
               <p className="text-xs font-semibold">Commitment</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Locked SOCIAL, softened at scale
+                Locked SOCIAL and lock duration
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -723,7 +725,7 @@ export default function BoostLeaderboardPage() {
               <Shield className="mx-auto mb-1 h-4 w-4 portal-blue-text" />
               <p className="text-xs font-semibold">Quality</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Posts that earn reactions
+                Reactions, conversations, and amplifies received
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -747,12 +749,12 @@ export default function BoostLeaderboardPage() {
               <Zap className="mx-auto mb-1 h-4 w-4 portal-pink-text" />
               <p className="text-xs font-semibold">Scarces</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Marketplace collectibles
+                Creates, sales, and unique love fans
               </p>
             </SurfacePanel>
           </div>
           <p className="mt-3 text-center portal-eyebrow text-muted-foreground">
-            Reputation = Standing × Commitment × Quality × Consistency × Scarces
+            Reputation = Social × Commitment × Quality × Consistency × Scarces
           </p>
         </SurfacePanel>
       </motion.section>
