@@ -19,6 +19,7 @@ import {
   peekOwnedVaultPage,
   putOwnedVaultPage,
 } from '@/features/market/owned-vault-cache';
+import { fetchCollectionCreatorFaces } from '@/features/scarces/collection-creator-face';
 
 /**
  * Market data plane (indexer-first, same pattern as feed/standings):
@@ -89,6 +90,10 @@ export interface MarketListingItem {
    * Omitted when equal to `creatorId` (primary listings).
    */
   artistId?: string;
+  /** Creator profile avatar (mint artist when set, else seller). */
+  creatorAvatarUrl?: string | null;
+  /** Creator display name when distinct from handle. */
+  creatorDisplayName?: string | null;
   title: string;
   /** NEP-177 description — full post text when minted from a post. */
   description?: string;
@@ -768,7 +773,50 @@ async function withResolvedPostHrefs(
   });
 }
 
-/** Drop id for album fan counts — edition tokens or primary lazy listing id. */
+/** Account shown on the row — mint artist when set, else seller. */
+export function listingCreatorAccountId(
+  item: Pick<MarketListingItem, 'creatorId' | 'artistId'>
+): string {
+  return item.artistId?.trim() || item.creatorId.trim();
+}
+
+/** Soft-attach creator avatar + display name (same path as Drops). */
+async function withMarketCreatorFaces(
+  items: MarketListingItem[],
+  client: OnSocial
+): Promise<MarketListingItem[]> {
+  if (items.length === 0) return items;
+  const creatorIds = [
+    ...new Set(
+      items.map((item) => listingCreatorAccountId(item)).filter(Boolean)
+    ),
+  ];
+  if (creatorIds.length === 0) return items;
+  try {
+    const faces = await fetchCollectionCreatorFaces(client, creatorIds);
+    return items.map((item) => {
+      const face = faces.get(listingCreatorAccountId(item));
+      if (!face) return item;
+      return {
+        ...item,
+        creatorAvatarUrl: face.avatarUrl,
+        creatorDisplayName: face.displayName,
+      };
+    });
+  } catch {
+    return items;
+  }
+}
+
+async function decorateMarketListings(
+  items: MarketListingItem[],
+  client: OnSocial
+): Promise<MarketListingItem[]> {
+  const withHrefs = await withResolvedPostHrefs(items);
+  return withMarketCreatorFaces(withHrefs, client);
+}
+
+/** Drop id for album / collection lookups — edition tokens or lazy listing id. */
 export function albumCollectionIdForListing(
   item: Pick<MarketListingItem, 'tokenId' | 'listingId' | 'kind'>
 ): string | null {
@@ -2035,9 +2083,8 @@ export async function fetchMarketListings(
     const items = rows
       .map((row) => listingFromActiveRow(row))
       .filter((item): item is MarketListingItem => item != null);
-    const withHrefs = await withResolvedPostHrefs(items);
     return {
-      items: withHrefs,
+      items: await decorateMarketListings(items, client),
       // Advance by raw row count so client-dropped rows don't re-fetch.
       nextOffset: offset + rows.length,
       hasMore: rows.length === limit,
@@ -2059,7 +2106,10 @@ export async function fetchMarketListings(
         )
       : fallbackAll;
     return {
-      items: await withResolvedPostHrefs(fallback),
+      items: await decorateMarketListings(
+        fallback,
+        createReadOnlyOnSocialClient()
+      ),
       nextOffset: fallback.length,
       hasMore: false,
     };
