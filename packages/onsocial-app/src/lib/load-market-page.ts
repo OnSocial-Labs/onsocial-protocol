@@ -16,6 +16,8 @@ export type MarketPageData = {
  * Soft client refresh covers filter/sort/search and wallet “Yours”.
  * Discovery URL params (`kind` / `facets` / `audioFormat` / creator / app)
  * skip this seed in the panel and fetch the narrowed catalog instead.
+ * Primary thought post-mints are stripped from the All seed in the panel;
+ * open `?kind=thought` for those.
  */
 export async function loadMarketPageData(): Promise<MarketPageData | null> {
   try {

@@ -3,6 +3,7 @@ import {
   excludeOwnedNativeListings,
   formatMarketRelativeTime,
   hasUnresolvedTitleTemplate,
+  isPrimaryThoughtListing,
   resolveTokenDisplayTitle,
   sortMarketListings,
   type MarketListingItem,
@@ -77,6 +78,29 @@ describe('excludeOwnedNativeListings', () => {
     expect(
       excludeOwnedNativeListings(listings, new Set(['s:1', 's:2']))
     ).toEqual([listings[0], listings[3]]);
+  });
+});
+
+describe('isPrimaryThoughtListing', () => {
+  it('matches lazy thought post-mints only', () => {
+    expect(
+      isPrimaryThoughtListing({
+        kind: 'lazy',
+        mediumKind: 'thought',
+      })
+    ).toBe(true);
+    expect(
+      isPrimaryThoughtListing({
+        kind: 'native',
+        mediumKind: 'thought',
+      })
+    ).toBe(false);
+    expect(
+      isPrimaryThoughtListing({
+        kind: 'lazy',
+        mediumKind: 'audio',
+      })
+    ).toBe(false);
   });
 });
 

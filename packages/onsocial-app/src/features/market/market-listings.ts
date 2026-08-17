@@ -14,7 +14,7 @@ import {
   parseAudioFormat,
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
-import { isAudioMediumKind } from '@/features/market/market-medium';
+import { isAudioMediumKind, normalizeMediumKind } from '@/features/market/market-medium';
 import {
   peekOwnedVaultPage,
   putOwnedVaultPage,
@@ -597,6 +597,19 @@ export function excludeOwnedNativeListings(
         (item.kind === 'native' || item.kind === 'auction') &&
         ownedTokenIds.has(item.tokenId)
       )
+  );
+}
+
+/**
+ * Primary post-mint (lazy + thought). Default Market All hides these so the
+ * catalog stays drops + secondary; open the Thoughts medium to mint them.
+ * Thought *resales* (native/auction) stay in All.
+ */
+export function isPrimaryThoughtListing(
+  item: Pick<MarketListingItem, 'kind' | 'mediumKind'>
+): boolean {
+  return (
+    item.kind === 'lazy' && normalizeMediumKind(item.mediumKind) === 'thought'
   );
 }
 
