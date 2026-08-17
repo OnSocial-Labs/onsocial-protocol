@@ -88,12 +88,29 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in posts_current posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarce_album_love_fans; do
+      for view_name in posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarce_album_love_fans scarce_album_love_fan_ids; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"
         if [ "$exists" != "t" ]; then
           echo "error: expected view public.${view_name} in $db" >&2
+          exit 1
+        fi
+      done
+
+      for table_name in posts_current reactions_current saves_current; do
+        is_table="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+          SELECT EXISTS (
+            SELECT 1
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = '"'"'public'"'"'
+              AND c.relname = '"'"'${table_name}'"'"'
+              AND c.relkind = '"'"'r'"'"'
+          );
+        ")"
+        if [ "$is_table" != "t" ]; then
+          echo "error: expected base table public.${table_name} in $db" >&2
           exit 1
         fi
       done
@@ -146,6 +163,20 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         echo "  actual:   ${members_columns:-missing}" >&2
         exit 1
       fi
+
+      blacklist_columns="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
+        SELECT string_agg(column_name, '"'"','"'"' ORDER BY ordinal_position)
+        FROM information_schema.columns
+        WHERE table_schema = '"'"'public'"'"'
+          AND table_name = '"'"'group_blacklist_current'"'"';
+      ")"
+      expected_blacklist_columns="group_id,member_id,block_height,block_timestamp,group_name,is_public,is_member_driven"
+      if [ "$blacklist_columns" != "$expected_blacklist_columns" ]; then
+        echo "error: unexpected group_blacklist_current column order in $db" >&2
+        echo "  expected: $expected_blacklist_columns" >&2
+        echo "  actual:   ${blacklist_columns:-missing}" >&2
+        exit 1
+      fi
     }
 
     validate_reputation_view_upgrade() {
@@ -189,9 +220,10 @@ SQLEOF
       db="$1"
       echo ">>> Guild view upgrade (append-only columns)"
       psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 <<SQLEOF >/dev/null
--- Dependents of groups_current must drop first (posts_feed joins guild name).
+-- Dependents of groups_current must drop first (posts_feed / members / bans).
 DROP VIEW IF EXISTS posts_feed;
 DROP VIEW IF EXISTS group_members_current;
+DROP VIEW IF EXISTS group_blacklist_current;
 DROP VIEW IF EXISTS groups_current;
 CREATE VIEW groups_current AS
 SELECT

@@ -1,13 +1,23 @@
 import { accountIdsEqual } from '@/lib/account-match';
 import {
+  GOVERNANCE_DAO_ACCOUNT,
+  TREASURY_DAO_ACCOUNT,
+} from '@/lib/app-config';
+import {
   APP_APPS_PATH,
   APP_COLLECTION_PATH,
   APP_COLLECTIBLES_PATH,
+  APP_DAO_PATH,
+  APP_DAOS_PATH,
   APP_DISCOVER_PATH,
   APP_DROPS_PATH,
   APP_GROUPS_PATH,
   APP_HOME_PATH,
   APP_MARKET_PATH,
+  APP_MESSAGES_PATH,
+  APP_NOTIFICATIONS_PATH,
+  APP_PROTOCOL_PATH,
+  daoPath,
 } from '@/lib/app-routes';
 import { portalHref } from '@/lib/app-links';
 import type { OverlayPanel } from '@/lib/overlay-routes';
@@ -25,7 +35,7 @@ export interface OsAppLink {
 
 /**
  * Which launcher app is "here" for the current route.
- * External portals (Boost / Protocol) are never active in-app.
+ * External portals (Boost) are never active in-app.
  * Hubs covers `/apps` and drop pages under `/collection`.
  */
 export function resolveActiveOsAppId(
@@ -36,6 +46,18 @@ export function resolveActiveOsAppId(
 
   if (path === APP_HOME_PATH || path.startsWith(`${APP_HOME_PATH}/`)) {
     return 'home';
+  }
+  if (
+    path === APP_NOTIFICATIONS_PATH ||
+    path.startsWith(`${APP_NOTIFICATIONS_PATH}/`)
+  ) {
+    return 'activity';
+  }
+  if (
+    path === APP_MESSAGES_PATH ||
+    path.startsWith(`${APP_MESSAGES_PATH}/`)
+  ) {
+    return 'messages';
   }
   if (path === APP_DISCOVER_PATH || path.startsWith(`${APP_DISCOVER_PATH}/`)) {
     return 'discover';
@@ -63,6 +85,31 @@ export function resolveActiveOsAppId(
   }
   if (path === APP_GROUPS_PATH || path.startsWith(`${APP_GROUPS_PATH}/`)) {
     return 'groups';
+  }
+  if (path === APP_DAOS_PATH || path.startsWith(`${APP_DAOS_PATH}/`)) {
+    return 'daos';
+  }
+  if (path === APP_DAO_PATH || path.startsWith(`${APP_DAO_PATH}/`)) {
+    const daoSegment = path.slice(APP_DAO_PATH.length + 1).split('/')[0] ?? '';
+    let daoAccountId = '';
+    try {
+      daoAccountId = decodeURIComponent(daoSegment).trim().toLowerCase();
+    } catch {
+      daoAccountId = daoSegment.trim().toLowerCase();
+    }
+    if (
+      daoAccountId === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
+      daoAccountId === TREASURY_DAO_ACCOUNT.trim().toLowerCase()
+    ) {
+      return 'protocol';
+    }
+    return 'daos';
+  }
+  if (
+    path === APP_PROTOCOL_PATH ||
+    path.startsWith(`${APP_PROTOCOL_PATH}/`)
+  ) {
+    return 'protocol';
   }
 
   const portfolio = path.match(/^\/@([^/]+)(?:\/([^/]+))?/);
@@ -108,13 +155,21 @@ const OS_EXTERNAL_LINKS: OsAppLink[] = [
     kind: 'external',
     href: portalHref('/boost'),
   },
-  {
-    id: 'protocol',
-    label: 'Protocol',
-    kind: 'external',
-    href: portalHref('/'),
-  },
 ];
+
+const PROTOCOL_APP: OsAppLink = {
+  id: 'protocol',
+  label: 'Protocol',
+  kind: 'app',
+  href: daoPath(GOVERNANCE_DAO_ACCOUNT),
+};
+
+const DAOS_APP: OsAppLink = {
+  id: 'daos',
+  label: 'DAOs',
+  kind: 'app',
+  href: APP_DAOS_PATH,
+};
 
 const HUBS_APP: OsAppLink = {
   id: 'hubs',
@@ -133,6 +188,18 @@ const COLLECTIBLES_APP: OsAppLink = {
 export function gateOsApps(): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
+    {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
     { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
     { id: 'page', label: 'OnPage', kind: 'open-page' },
     { id: 'feed', label: 'Feed', kind: 'app', href: APP_HOME_PATH },
@@ -156,24 +223,32 @@ export function gateOsApps(): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
     {
       id: 'boost',
       label: 'Boost',
       kind: 'external',
       href: portalHref('/boost'),
     },
-    {
-      id: 'protocol',
-      label: 'Protocol',
-      kind: 'external',
-      href: portalHref('/'),
-    },
+    PROTOCOL_APP,
   ];
 }
 
 export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
+    {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
     {
       id: 'discover',
       label: 'Discover',
@@ -200,6 +275,8 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
+    PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
 }
@@ -207,6 +284,18 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
 export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
+    {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
     {
       id: 'discover',
       label: 'Discover',
@@ -232,6 +321,8 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
+    PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
 }
@@ -239,6 +330,18 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
 export function appShellOsApps(accountId: string | null): OsAppLink[] {
   const apps: OsAppLink[] = [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
+    {
+      id: 'activity',
+      label: 'Activity',
+      kind: 'app',
+      href: APP_NOTIFICATIONS_PATH,
+    },
+    {
+      id: 'messages',
+      label: 'Messages',
+      kind: 'app',
+      href: APP_MESSAGES_PATH,
+    },
     { id: 'discover', label: 'Discover', kind: 'app', href: APP_DISCOVER_PATH },
     {
       id: 'market',
@@ -259,6 +362,8 @@ export function appShellOsApps(accountId: string | null): OsAppLink[] {
       kind: 'app',
       href: APP_GROUPS_PATH,
     },
+    DAOS_APP,
+    PROTOCOL_APP,
     ...OS_EXTERNAL_LINKS,
   ];
 

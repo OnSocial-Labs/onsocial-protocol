@@ -495,6 +495,39 @@ export interface CollectionOptions {
   burnable?: boolean;
   /** Max times each token may be redeemed (music / pass-style drops). */
   maxRedeems?: number;
+  /**
+   * Skip gateway auto text-card when no cover media is supplied.
+   * Default: false (text Drops get a permanent Letter/Thought PNG cover).
+   */
+  skipAutoMedia?: boolean;
+  /** Author profile rendered on the auto-generated cover card. */
+  creator?: {
+    accountId: string;
+    displayName?: string;
+  };
+  /** Auto-card background theme key. */
+  cardBg?: string;
+  /** Locked curated layout: thought, poster, letter, receipt, or proof. */
+  cardFormat?:
+    | 'thought'
+    | 'poster'
+    | 'letter'
+    | 'journal'
+    | 'mono'
+    | 'receipt'
+    | 'proof';
+  /** Curated finish selected for `cardFormat`. */
+  cardPalette?: string;
+  /** Auto-card typography key. */
+  cardFont?: string;
+  /** Lock the author-mark colour (named palette colour). */
+  cardMarkColor?: string;
+  /** Author-mark shape: 'rule' | 'dot' | 'square' | 'bar'. */
+  cardMarkShape?: string;
+  /** Title alignment on the auto-card: 'left' | 'center'. */
+  cardTitleAlign?: string;
+  /** Photo CID embedded in Receipt / Proof card layouts. */
+  cardPhotoCid?: string;
 }
 
 /** One pinned IPFS directory of seat-named files (`1.<ext>` … `N.<ext>`). */
@@ -694,6 +727,8 @@ export interface StorageUploadResponse {
 
 export interface ApiError {
   error: string;
+  /** Machine-readable gateway code when present (e.g. MUTED, BLOCKED). */
+  code?: string;
   details?: string;
   tier?: Tier;
   limit?: number;

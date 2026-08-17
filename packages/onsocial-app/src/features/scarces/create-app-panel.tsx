@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
+  OsIconAction,
   QuestionMarkCircleFillIcon,
-  osIconActionClassName,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -159,9 +160,7 @@ export function CreateAppPanel() {
         setTxResult({
           type: 'error',
           msg:
-            detail &&
-            !detail.startsWith('{') &&
-            detail.length < 160
+            detail && !detail.startsWith('{') && detail.length < 160
               ? detail
               : txToastError.createAppFailed,
         });
@@ -192,16 +191,17 @@ export function CreateAppPanel() {
       backFallbackHref={APP_APPS_PATH}
       glassChrome
       actions={
-        <button
-          type="button"
-          className={osIconActionClassName}
-          aria-label={HUB_CREATE_HELP_TITLE}
+        <OsIconAction
+          ariaLabel={HUB_CREATE_HELP_TITLE}
           aria-expanded={helpOpen}
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
         >
-          <QuestionMarkCircleFillIcon aria-hidden />
-        </button>
+          <QuestionMarkCircleFillIcon
+            aria-hidden
+            className="glass-sheet-close-icon"
+          />
+        </OsIconAction>
       }
     >
       <form className="drop-create-form" onSubmit={handleSubmit}>
@@ -218,6 +218,7 @@ export function CreateAppPanel() {
             placeholder="Midnight Records"
             maxLength={MAX_NAME}
             disabled={pending}
+            className={osFieldBorderedClassName}
           />
         </label>
 
@@ -237,7 +238,7 @@ export function CreateAppPanel() {
             autoCapitalize="none"
             autoCorrect="off"
             aria-invalid={idAvailability === 'taken'}
-            className={idAvailabilityClass}
+            className={`${osFieldBorderedClassName} ${idAvailabilityClass}`}
           />
           <small className={idAvailabilityClass}>
             {entityIdAvailabilityLead(idAvailability)} ·{' '}
@@ -255,6 +256,7 @@ export function CreateAppPanel() {
             maxLength={MAX_DESCRIPTION}
             disabled={pending}
             aria-describedby={fieldId('description-count')}
+            className={osFieldBorderedClassName}
           />
           <small id={fieldId('description-count')}>
             {description.length}/{MAX_DESCRIPTION}
@@ -282,22 +284,18 @@ export function CreateAppPanel() {
               </button>
             ))}
           </div>
-          <div className="drop-create-suffix-field">
-            <input
-              id={fieldId('commission')}
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={commissionInput}
-              onChange={(event) =>
-                setCommissionInput(event.target.value.replace(/[^\d.]/g, ''))
-              }
-              placeholder="2.5"
-              aria-label="Commission percentage"
-              disabled={pending}
-            />
-            <span>% per sale</span>
-          </div>
+          <SuffixField
+            id={fieldId('commission')}
+            value={commissionInput}
+            inputMode="decimal"
+            onValueChange={(value) =>
+              setCommissionInput(value.replace(/[^\d.]/g, ''))
+            }
+            placeholder="2.5"
+            aria-label="Commission percentage"
+            suffix="% per sale"
+            disabled={pending}
+          />
           <small>Locked on each new drop · max {MAX_COMMISSION_PCT}%.</small>
         </label>
 
@@ -349,7 +347,7 @@ export function CreateAppPanel() {
               Connect wallet
             </OsSheetAction>
           ) : null}
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="submit"
             ready={canSubmit}
             pending={pending}
@@ -357,7 +355,7 @@ export function CreateAppPanel() {
             disabled={!canSubmit}
           >
             Open hub
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       </form>
       <HubCreateHelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />

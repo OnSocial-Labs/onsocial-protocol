@@ -5,6 +5,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ContextualBack } from '@/components/app/contextual-back';
 import { AppShellLauncher } from '@/components/os/summon-launcher';
+import { useRegisterOsPortalHost } from '@/contexts/os-portal-host-context';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 
 export interface OsAppScreenProps {
   title: string;
@@ -46,6 +48,15 @@ export interface OsAppScreenProps {
   footer?: ReactNode;
   /** Scroll container for nested infinite lists (`.os-app-screen-body`). */
   scrollRootRef?: RefObject<HTMLElement | null>;
+  /**
+   * Mood wash in the app column (`data-mood` + CSS vars).
+   * `undefined` (default) → connected viewer mood via `useViewerDockMood`.
+   * `null` → keep blue-corner trial (no mood).
+   * string → explicit mood id (rare override).
+   */
+  moodId?: string | null;
+  /** CSS vars; defaults with viewer mood when `moodId` is omitted. */
+  moodStyle?: CSSProperties;
   style?: CSSProperties;
   children: ReactNode;
 }
@@ -65,14 +76,23 @@ export function OsAppScreen({
   toolbar,
   footer,
   scrollRootRef,
+  moodId,
+  moodStyle,
   style,
   children,
 }: OsAppScreenProps) {
   const glassMode = glassChrome && !immersiveHeader;
   const headerRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLElement | null>(null);
+  const portalHostRef = useRegisterOsPortalHost<HTMLDivElement>();
   const [glassElevated, setGlassElevated] = useState(false);
   const hasFooter = footer != null;
+  const viewerMood = useViewerDockMood();
+  const resolvedMoodId =
+    moodId !== undefined ? moodId : viewerMood.moodId;
+  const resolvedMoodStyle =
+    moodStyle !== undefined ? moodStyle : viewerMood.style;
+  const hasMood = Boolean(resolvedMoodId);
 
   const setBodyRef = (node: HTMLElement | null) => {
     bodyRef.current = node;
@@ -110,24 +130,26 @@ export function OsAppScreen({
     };
   }, [glassMode]);
 
-  const screenStyle =
-    immersiveHeaderBanner != null && immersiveHeaderBanner !== ''
-      ? ({
-          ...style,
-          ['--os-immersive-header-banner' as string]: immersiveHeaderBanner,
-        } satisfies CSSProperties)
-      : style;
+  const screenStyle: CSSProperties = {
+    ...resolvedMoodStyle,
+    ...(immersiveHeaderBanner != null && immersiveHeaderBanner !== ''
+      ? { ['--os-immersive-header-banner' as string]: immersiveHeaderBanner }
+      : null),
+    ...style,
+  };
 
   const elevated = headerElevated || (glassMode && glassElevated);
 
   return (
     <div
-      className="os-app-screen app-surface"
+      ref={portalHostRef}
+      className={`os-app-screen app-surface${hasMood ? ' os-app-screen--mood' : ''}`}
       data-tone="os"
       data-immersive-header={immersiveHeader ? 'true' : undefined}
       data-immersive-banner={immersiveHeaderBanner ? 'true' : undefined}
       data-glass-chrome={glassMode ? 'true' : undefined}
       data-screen-footer={hasFooter ? 'true' : undefined}
+      data-mood={hasMood ? resolvedMoodId! : undefined}
       style={screenStyle}
     >
       <div className="os-app-screen-column">

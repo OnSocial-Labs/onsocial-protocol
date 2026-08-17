@@ -90,6 +90,10 @@ CREATE INDEX IF NOT EXISTS idx_group_updates_member_lookup
   ON group_updates(member_id, block_height DESC)
   WHERE member_id IS NOT NULL AND member_id != '';
 
+CREATE INDEX IF NOT EXISTS idx_group_updates_blacklist_current
+  ON group_updates(group_id, member_id, block_height DESC)
+  WHERE operation IN ('add_to_blacklist', 'remove_from_blacklist');
+
 -- ────────────────────────────────────────────────────────────────────────────
 -- 1. profiles_current — latest profile fields per account
 -- ────────────────────────────────────────────────────────────────────────────
@@ -123,54 +127,8 @@ WHERE data_type = 'page'
 ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 2. posts_current — latest state of each post (deduped edits + deletes)
+-- 2. posts_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)
 -- ────────────────────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE VIEW posts_current AS
-SELECT
-  account_id,
-  data_id                      AS post_id,
-  value,
-  block_height,
-  block_timestamp,
-  receipt_id,
-  parent_path,
-  parent_author,
-  parent_type,
-  ref_path,
-  ref_author,
-  ref_type,
-  channel,
-  kind,
-  audiences,
-  group_id,
-  is_group_content
-FROM (
-  SELECT DISTINCT ON (account_id, data_id)
-    account_id,
-    data_id,
-    value,
-    block_height,
-    block_timestamp,
-    receipt_id,
-    parent_path,
-    parent_author,
-    parent_type,
-    ref_path,
-    ref_author,
-    ref_type,
-    channel,
-    kind,
-    audiences,
-    group_id,
-    is_group_content,
-    operation,
-    id
-  FROM data_updates
-  WHERE data_type = 'post'
-  ORDER BY account_id, data_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
-) latest
-WHERE operation = 'set';
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3. standings_current - standing relationships
@@ -397,22 +355,55 @@ LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
 WHERE latest.operation IN ('create_group', 'add_member');
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 4. reactions_current — per-user reaction state on a target post
+-- 3e. group_blacklist_current — active guild bans (blacklist)
+-- Latest add_to_blacklist / remove_from_blacklist per (group, member);
+-- keep only rows whose latest op is add_to_blacklist.
+-- Unban clears the ban; membership is not restored (user must rejoin).
 -- ────────────────────────────────────────────────────────────────────────────
 
-CREATE OR REPLACE VIEW reactions_current AS
-SELECT DISTINCT ON (account_id, path)
-  account_id,
-  target_account               AS post_owner,
-  reaction_kind,
-  path,
-  value,
-  block_height,
-  block_timestamp,
-  operation
-FROM data_updates
-WHERE data_type = 'reaction'
-ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+CREATE OR REPLACE VIEW group_blacklist_current AS
+WITH blacklist_events AS (
+  SELECT
+    group_id,
+    member_id,
+    operation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id
+  FROM group_updates
+  WHERE group_id IS NOT NULL
+    AND group_id != ''
+    AND member_id IS NOT NULL
+    AND member_id != ''
+    AND operation IN ('add_to_blacklist', 'remove_from_blacklist')
+), latest AS (
+  SELECT DISTINCT ON (group_id, member_id)
+    group_id,
+    member_id,
+    operation,
+    block_height,
+    block_timestamp,
+    receipt_id,
+    id
+  FROM blacklist_events
+  ORDER BY group_id, member_id, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+)
+SELECT
+  latest.group_id,
+  latest.member_id,
+  latest.block_height,
+  latest.block_timestamp,
+  groups_current.group_name,
+  groups_current.is_public,
+  groups_current.is_member_driven
+FROM latest
+LEFT JOIN groups_current ON groups_current.group_id = latest.group_id
+WHERE latest.operation = 'add_to_blacklist';
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 4. reactions_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)
+-- ────────────────────────────────────────────────────────────────────────────
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 5. reaction_counts — aggregate reaction counts per target post, per kind
@@ -448,6 +439,232 @@ WHERE operation = 'set'
   AND reaction_kind = 'love'
   AND path LIKE '%/scarce/%/track/%'
 GROUP BY post_owner, SUBSTRING(path FROM '/scarce/([^/]+)/track/');
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5c. scarce_album_love_fan_ids — top recent fans per music drop (facepile)
+-- ────────────────────────────────────────────────────────────────────────────
+-- One row per (creator, collection). fan_account_ids = up to 5 most recent
+-- non-creator lovers (by last love block). fan_count matches the count view.
+
+CREATE OR REPLACE VIEW scarce_album_love_fan_ids AS
+WITH fan_loves AS (
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)/track/') AS collection_id,
+    account_id,
+    MAX(block_height) AS last_love_block
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path LIKE '%/scarce/%/track/%'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+  GROUP BY
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)/track/'),
+    account_id
+),
+ranked AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    last_love_block,
+    ROW_NUMBER() OVER (
+      PARTITION BY post_owner, collection_id
+      ORDER BY last_love_block DESC, account_id ASC
+    ) AS rn
+  FROM fan_loves
+)
+SELECT
+  post_owner,
+  collection_id,
+  COALESCE(
+    array_agg(account_id ORDER BY rn) FILTER (WHERE rn <= 5),
+    ARRAY[]::text[]
+  ) AS fan_account_ids,
+  COUNT(*)::bigint AS fan_count,
+  MAX(last_love_block) AS last_love_block
+FROM ranked
+GROUP BY post_owner, collection_id;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5d. scarce_drop_love_fans — distinct non-creator loves on the Drop as a whole
+-- ────────────────────────────────────────────────────────────────────────────
+-- Content path `scarce/{collectionId}` (cards, books, optional album-level love).
+-- Excludes track loves (`scarce/{id}/track/...`) — those stay in 5b/5c.
+
+CREATE OR REPLACE VIEW scarce_drop_love_fans AS
+SELECT
+  post_owner,
+  SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+  COUNT(DISTINCT account_id) FILTER (
+    WHERE lower(account_id) IS DISTINCT FROM lower(post_owner)
+  ) AS fan_count,
+  MAX(block_height) AS last_love_block
+FROM reactions_current
+WHERE operation = 'set'
+  AND reaction_kind = 'love'
+  AND path ~ '/scarce/[^/]+$'
+GROUP BY post_owner, SUBSTRING(path FROM '/scarce/([^/]+)$');
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5e. scarce_drop_love_fan_ids — top recent fans for whole-Drop loves
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW scarce_drop_love_fan_ids AS
+WITH fan_loves AS (
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+    account_id,
+    MAX(block_height) AS last_love_block
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path ~ '/scarce/[^/]+$'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+  GROUP BY
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$'),
+    account_id
+),
+ranked AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    last_love_block,
+    ROW_NUMBER() OVER (
+      PARTITION BY post_owner, collection_id
+      ORDER BY last_love_block DESC, account_id ASC
+    ) AS rn
+  FROM fan_loves
+)
+SELECT
+  post_owner,
+  collection_id,
+  COALESCE(
+    array_agg(account_id ORDER BY rn) FILTER (WHERE rn <= 5),
+    ARRAY[]::text[]
+  ) AS fan_account_ids,
+  COUNT(*)::bigint AS fan_count,
+  MAX(last_love_block) AS last_love_block
+FROM ranked
+GROUP BY post_owner, collection_id;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5f. scarce_collection_love_fans — discovery fans (track ∪ drop-level, distinct)
+-- ────────────────────────────────────────────────────────────────────────────
+-- One row per (creator, collection). Music track loves + whole-Drop loves,
+-- deduped by account so a person who loved two tracks (or track + drop) counts once.
+
+CREATE OR REPLACE VIEW scarce_collection_love_fans AS
+WITH loves AS (
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)/track/') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path LIKE '%/scarce/%/track/%'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+
+  UNION ALL
+
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path ~ '/scarce/[^/]+$'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+),
+dedup AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    MAX(block_height) AS last_love_block
+  FROM loves
+  WHERE collection_id IS NOT NULL AND collection_id <> ''
+  GROUP BY post_owner, collection_id, account_id
+)
+SELECT
+  post_owner,
+  collection_id,
+  COUNT(*)::bigint AS fan_count,
+  MAX(last_love_block) AS last_love_block
+FROM dedup
+GROUP BY post_owner, collection_id;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 5g. scarce_collection_love_fan_ids — discovery facepile (union, top 5)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW scarce_collection_love_fan_ids AS
+WITH loves AS (
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)/track/') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path LIKE '%/scarce/%/track/%'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+
+  UNION ALL
+
+  SELECT
+    post_owner,
+    SUBSTRING(path FROM '/scarce/([^/]+)$') AS collection_id,
+    account_id,
+    block_height
+  FROM reactions_current
+  WHERE operation = 'set'
+    AND reaction_kind = 'love'
+    AND path ~ '/scarce/[^/]+$'
+    AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+),
+fan_loves AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    MAX(block_height) AS last_love_block
+  FROM loves
+  WHERE collection_id IS NOT NULL AND collection_id <> ''
+  GROUP BY post_owner, collection_id, account_id
+),
+ranked AS (
+  SELECT
+    post_owner,
+    collection_id,
+    account_id,
+    last_love_block,
+    ROW_NUMBER() OVER (
+      PARTITION BY post_owner, collection_id
+      ORDER BY last_love_block DESC, account_id ASC
+    ) AS rn
+  FROM fan_loves
+)
+SELECT
+  post_owner,
+  collection_id,
+  COALESCE(
+    array_agg(account_id ORDER BY rn) FILTER (WHERE rn <= 5),
+    ARRAY[]::text[]
+  ) AS fan_account_ids,
+  COUNT(*)::bigint AS fan_count,
+  MAX(last_love_block) AS last_love_block
+FROM ranked
+GROUP BY post_owner, collection_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 6. standing_counts — incoming standing counts per account
@@ -1000,23 +1217,11 @@ WHERE p.field = 'mentions'
   AND length(trim(m.account)) > 0;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 14. saves_current — latest save state per (account, path)
+-- 14. saves_current — sink-maintained TABLE (see core_schema.sql / combined_schema.sql)
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE INDEX IF NOT EXISTS idx_data_updates_saved_dedup
   ON data_updates(account_id, path, block_height DESC) WHERE data_type = 'saved';
-
-CREATE OR REPLACE VIEW saves_current AS
-SELECT DISTINCT ON (account_id, path)
-  account_id,
-  path                         AS content_path,
-  value,
-  block_height,
-  block_timestamp,
-  operation
-FROM data_updates
-WHERE data_type = 'saved'
-ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 15. endorsements_current — latest endorsement per (issuer, target[, topic])
@@ -1038,3 +1243,35 @@ SELECT DISTINCT ON (account_id, path)
 FROM data_updates
 WHERE data_type = 'endorsement'
 ORDER BY account_id, path, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 16. blocks_current — hard account blocks (data_type = 'block')
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS idx_data_updates_block_dedup
+  ON data_updates(account_id, target_account, block_height DESC) WHERE data_type = 'block';
+
+CREATE OR REPLACE VIEW blocks_current AS
+SELECT
+  account_id,
+  target_account,
+  value,
+  block_height,
+  block_timestamp
+FROM (
+  SELECT DISTINCT ON (account_id, target_account)
+    account_id,
+    target_account,
+    value,
+    block_height,
+    block_timestamp,
+    operation,
+    receipt_id,
+    id
+  FROM data_updates
+  WHERE data_type = 'block'
+    AND target_account IS NOT NULL
+    AND target_account != ''
+  ORDER BY account_id, target_account, block_height DESC, block_timestamp DESC, receipt_id DESC, id DESC
+) latest
+WHERE operation = 'set';

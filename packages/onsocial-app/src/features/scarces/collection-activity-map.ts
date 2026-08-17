@@ -23,6 +23,8 @@ const OPERATION_LABEL: Record<string, string> = {
   cancel: 'Cancelled',
   refund: 'Refunded',
   set_allowlist: 'Allowlist updated',
+  redeemer_added: 'Door staff added',
+  redeemer_removed: 'Door staff removed',
   pause: 'Paused',
   resume: 'Resumed',
 };

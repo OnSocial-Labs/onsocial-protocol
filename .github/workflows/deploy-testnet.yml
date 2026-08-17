@@ -180,6 +180,26 @@ jobs:
             set -euo pipefail
             cd /opt/onsocial
 
+            # ── Disk preflight (postgres dies with ENOSPC when full) ──
+            echo "Disk before cleanup:"
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+            docker system df </dev/null || true
+            # Safe only: unused images + build cache. Never prune volumes.
+            docker image prune -af </dev/null || true
+            docker builder prune -af </dev/null || true
+            journalctl --vacuum-size=200M </dev/null 2>/dev/null || true
+            # Truncate runaway container json logs (common ENOSPC cause).
+            find /var/lib/docker/containers -name '*-json.log' -size +200M \
+              -exec truncate -s 0 {} \; 2>/dev/null || true
+            echo "Disk after cleanup:"
+            df -h / /var/lib/docker 2>/dev/null || df -h /
+            root_use="$(df -P / | awk 'NR==2 {gsub(/%/,""); print $5}')"
+            if [ "${root_use:-0}" -ge 95 ]; then
+              echo "❌ root filesystem still ${root_use}% full after cleanup — aborting"
+              docker system df -v </dev/null || true
+              exit 1
+            fi
+
             if [ ! -f .env.production ]; then
               echo "❌ Missing /opt/onsocial/.env.production"
               exit 1
@@ -233,11 +253,60 @@ jobs:
               echo "  ❌ $name failed after $retries attempts"
               return 1
             }
+            # pg_isready alone can pass while recovery still blocks queries
+            # ("Consistent recovery state has not been yet reached").
+            check_postgres_accepting() {
+              local retries="${1:-60}" delay="${2:-5}"
+              local user="${POSTGRES_USER:-onsocial}" db="${POSTGRES_DB:-onsocial}"
+              local status err
+              for i in $(seq 1 "$retries"); do
+                status="$(docker inspect --format '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' postgres </dev/null 2>/dev/null || echo missing)"
+                if [ "$status" != "missing" ] \
+                && err="$(dc exec -T postgres \
+                  pg_isready -U "$user" -d "$db" </dev/null 2>&1)" \
+                && err="$(dc exec -T postgres \
+                  psql -U "$user" -d "$db" -v ON_ERROR_STOP=1 -c 'SELECT 1' \
+                  </dev/null 2>&1)"; then
+                  echo "  ✅ postgres accepting connections (attempt $i/$retries)"
+                  return 0
+                fi
+                echo "  ⏳ postgres not accepting connections ($i/$retries; state=${status})..."
+                if [ $((i % 10)) -eq 0 ]; then
+                  echo "     last error: ${err:-unknown}"
+                fi
+                sleep "$delay"
+              done
+              echo "  ❌ postgres failed after $retries attempts (state=${status:-unknown})"
+              echo "     last error: ${err:-unknown}"
+              return 1
+            }
             print_service_logs() {
               local service="$1"
               echo "----- ${service} logs (last 200 lines) -----"
               dc logs --tail=200 "$service" </dev/null || true
               echo "----- end ${service} logs -----"
+            }
+            ensure_postgres_ready() {
+              # Never `up` hasura in the same command — its depends_on
+              # condition:service_healthy aborts the whole deploy when
+              # postgres is already marked unhealthy.
+              echo "Ensuring postgres is up..."
+              dc up -d --no-deps postgres </dev/null || true
+              if check_postgres_accepting 24 5; then
+                return 0
+              fi
+              echo "⚠️ postgres still not accepting — dumping logs and restarting once..."
+              print_service_logs "postgres"
+              docker inspect --format '{{json .State.Health}}' postgres </dev/null || true
+              docker restart postgres </dev/null || true
+              sleep 5
+              if check_postgres_accepting 60 5; then
+                return 0
+              fi
+              echo "❌ postgres not ready after restart"
+              print_service_logs "postgres"
+              docker inspect --format '{{json .State}}' postgres </dev/null || true
+              return 1
             }
 
             # ── Rollback helper (skips if no previous tag) ───────────
@@ -326,6 +395,15 @@ jobs:
               exit 1
             fi
 
+            # ── Data tier (postgres/hasura stay up across app rolls) ──
+            if ! ensure_postgres_ready; then
+              echo "❌ postgres not ready before migrations — aborting"
+              exit 1
+            fi
+
+            echo "Ensuring hasura is up..."
+            dc up -d --no-deps hasura </dev/null || true
+
             # ── Run gateway SQL migrations (tracked + locked) ─────
             echo "Running gateway migrations..."
             DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
@@ -345,6 +423,20 @@ jobs:
             # chunk), and runs an end-to-end smoke test as the `service` role
             # afterwards. Exits non-zero on any unexpected per-op error or
             # smoke-test failure so the deploy fails loudly.
+            # Wait again: rolling restarts can leave Postgres in recovery
+            # between migrations and the Hasura view-retrack storm.
+            echo "Waiting for postgres + hasura before permission sync..."
+            if ! check_postgres_accepting 60 5; then
+              echo "❌ postgres not ready before Hasura sync — aborting"
+              print_service_logs "postgres"
+              exit 1
+            fi
+            if ! check_health "hasura" "http://localhost:8080/healthz" 30 4; then
+              echo "❌ hasura not ready before permission sync — aborting"
+              print_service_logs "hasura"
+              exit 1
+            fi
+
             echo "Syncing Hasura permissions..."
             mkdir -p /opt/onsocial/backups
             dc exec -T \

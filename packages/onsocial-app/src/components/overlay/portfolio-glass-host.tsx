@@ -15,11 +15,10 @@ import {
   useOverlayChromeClear,
 } from '@/contexts/overlay-chrome-context';
 import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
-import { GlassSheet } from '@onsocial/ui';
+import { GlassSheet, useScrollLock } from '@onsocial/ui';
 
 function PortfolioGlassSheet({
   accountId,

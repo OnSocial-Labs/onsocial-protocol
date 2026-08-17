@@ -2,8 +2,10 @@
 
 import {
   useCallback,
+  useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { PenFillIcon, StarsCFillIcon } from '@onsocial/ui';
@@ -13,7 +15,9 @@ import { usePageContentDrawer } from '@/contexts/page-content-drawer-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { accountIdsEqual } from '@/lib/account-match';
+import { portfolioMoodShellStyle } from '@/lib/moods/resolve';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { SummonLauncher } from '@/components/os/summon-launcher';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
@@ -46,8 +50,9 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
   const { open: openPageDrawer } = usePageContentDrawer();
   const { accountId, isConnected } = useAppWallet();
   const compose = useComposeLauncher();
-  const { isPreviewingMood } = usePortfolioMoodPreview();
+  const { effectiveMood, isPreviewingMood } = usePortfolioMoodPreview();
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
+  const viewerDockMood = useViewerDockMood(pageAccountId);
   const [osOpen, setOsOpen] = useState(false);
   const [showHint, setShowHint] = useState(readDockHintPending);
   const previewPinned = isPreviewingMood || isPreviewingFace;
@@ -66,6 +71,17 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
   const apps = isOwner
     ? ownerPortfolioOsApps(pageAccountId)
     : visitorPortfolioOsApps(pageAccountId);
+
+  // Face = page mood; dock = viewer mood when visiting (live preview when owner).
+  const dockMoodId = isOwner
+    ? String(effectiveMood.id)
+    : viewerDockMood.moodId;
+  const dockMoodStyle = useMemo(() => {
+    if (isOwner) {
+      return portfolioMoodShellStyle(effectiveMood.cssVars) as CSSProperties;
+    }
+    return viewerDockMood.style;
+  }, [effectiveMood.cssVars, isOwner, viewerDockMood.style]);
 
   const dismissHint = useCallback(() => {
     setShowHint(false);
@@ -150,6 +166,8 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
     <>
       <div
         className={`portfolio-summon-dock${osOpen ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}`}
+        data-mood={dockMoodId ?? undefined}
+        style={dockMoodStyle}
       >
         {showHint ? (
           <p className="portfolio-summon-hint" aria-hidden="true">
@@ -179,14 +197,22 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
               <button
                 type="button"
                 className={`portfolio-summon-compose${
-                  compose.kind === 'drop' ? ' is-drop' : ''
+                  compose.kind === 'drop'
+                    ? ' is-drop'
+                    : compose.kind === 'mint'
+                      ? ' is-mint'
+                      : ''
                 }`}
                 onClick={compose.action}
                 aria-label={
-                  compose.kind === 'drop' ? 'Start a drop' : 'Compose a post'
+                  compose.kind === 'drop'
+                    ? 'Start a drop'
+                    : compose.kind === 'mint'
+                      ? 'Mint'
+                      : 'Compose a post'
                 }
               >
-                {compose.kind === 'drop' ? (
+                {compose.kind === 'drop' || compose.kind === 'mint' ? (
                   <StarsCFillIcon
                     className="portfolio-summon-compose-icon"
                     aria-hidden

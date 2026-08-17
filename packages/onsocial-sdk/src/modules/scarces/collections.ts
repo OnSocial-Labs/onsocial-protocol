@@ -13,8 +13,11 @@ import type {
   VariationSetUpload,
 } from '../../types.js';
 import {
+  broadcastViaWalletBatch,
   composeAndSign,
   composeFormAndSign,
+  prepareCompose,
+  prepareComposeForm,
   signAndRelay,
   type SessionGetter,
   type BroadcastGetter,
@@ -26,7 +29,7 @@ import {
   withCollectionProvenance,
 } from '../../builders/scarces/collections.js';
 import { hasLocalUpload, resolveScarceMedia } from './_media.js';
-import { scarcesRelayOptions } from './_relay.js';
+import { ONE_YOCTO_NEAR, scarcesRelayOptions } from './_relay.js';
 
 /** Allowlist entry as accepted by the scarces contract. */
 export interface AllowlistEntry {
@@ -77,6 +80,9 @@ export class ScarcesCollectionsApi {
    * drops (`appId`) cannot use platform storage — without a funded app pool
    * or personal storage balance, create fails unless a deposit is attached.
    *
+   * When `relay.allowlist` is non-empty and broadcast is wallet mode, create
+   * and set-allowlist are packed into **one** wallet confirmation.
+   *
    * ```ts
    * await os.scarces.collections.create({
    *   collectionId: 'genesis',
@@ -88,7 +94,7 @@ export class ScarcesCollectionsApi {
    */
   async create(
     options: CollectionOptions,
-    relay?: { depositYocto?: string }
+    relay?: { depositYocto?: string; allowlist?: AllowlistEntry[] }
   ): Promise<RelayResponse> {
     // Every minted token carries drop / series / creator provenance in its
     // NEP-177 `extra` — wallets and marketplaces can attribute it anywhere.
@@ -98,6 +104,20 @@ export class ScarcesCollectionsApi {
         ? { depositYocto: relay.depositYocto }
         : undefined
     );
+    const allowlist = relay?.allowlist?.filter(
+      (entry) => entry.account_id.trim().length > 0
+    );
+    const batchAllowlist = Boolean(allowlist && allowlist.length > 0);
+    const broadcast = relayOpts.broadcast;
+    const isWallet =
+      typeof broadcast === 'object' && broadcast.kind === 'wallet';
+
+    if (batchAllowlist && !isWallet) {
+      throw new Error(
+        'create with allowlist requires wallet broadcast (one confirmation)'
+      );
+    }
+
     // Variation sets, trait directories, and random drops always go through
     // the gateway — directory pins and CID liveness checks happen server-side.
     const needsGatewayCompose =
@@ -114,28 +134,98 @@ export class ScarcesCollectionsApi {
       !needsGatewayCompose &&
       ((Boolean(opts.mediaCid?.trim()) && Boolean(opts.mediaHash?.trim())) ||
         hasLocalUpload(this._storage, opts.image, opts.mediaCid));
+
+    let createAction: Record<string, unknown>;
+    let createDeposit = relayOpts.depositYocto;
+    let createTarget = this._scarcesContract;
+
     if (canClientBuild) {
       const { mediaCid, mediaHash } = await resolveScarceMedia(
         opts,
         this._storage
       );
-      const action = buildCreateCollectionAction({
+      createAction = buildCreateCollectionAction({
         ...opts,
         ...(mediaCid ? { mediaCid } : {}),
         ...(mediaHash ? { mediaHash } : {}),
-      });
+      }) as Record<string, unknown>;
+    } else {
+      const form = this._buildCreateForm(opts);
+      if (batchAllowlist) {
+        const prepared = await prepareComposeForm(
+          this._http,
+          SCARCES_VERBS.CREATE_COLLECTION,
+          form
+        );
+        createAction = prepared.action as Record<string, unknown>;
+        createTarget = prepared.target_account || this._scarcesContract;
+        if (createDeposit === undefined) {
+          const fromPrepared = (prepared as { deposit_yocto?: string })
+            .deposit_yocto;
+          if (typeof fromPrepared === 'string') createDeposit = fromPrepared;
+        }
+      } else {
+        const result = await composeFormAndSign(
+          this._http,
+          this._getSession(),
+          SCARCES_VERBS.CREATE_COLLECTION,
+          form,
+          'scarces.collections.create',
+          relayOpts
+        );
+        return result.relay;
+      }
+    }
+
+    if (!batchAllowlist) {
       return signAndRelay(
         this._http,
         this._getSession(),
-        action as Record<string, unknown>,
-        this._scarcesContract,
+        createAction,
+        createTarget,
         'scarces.collections.create',
         relayOpts
       );
     }
 
-    // FormData upload route — gateway uploads media + builds the action,
-    // SDK signs with the session key and relays via /relay/delegate.
+    if (typeof broadcast !== 'object' || broadcast.kind !== 'wallet') {
+      throw new Error(
+        'create with allowlist requires wallet broadcast (one confirmation)'
+      );
+    }
+
+    const preparedAllowlist = await prepareCompose(
+      this._http,
+      SCARCES_VERBS.SET_ALLOWLIST,
+      {
+        collectionId: opts.collectionId,
+        entries: allowlist,
+      }
+    );
+    const allowlistTarget =
+      preparedAllowlist.target_account || this._scarcesContract;
+    if (allowlistTarget !== createTarget) {
+      throw new Error('Create and allowlist must target the same contract');
+    }
+
+    return broadcastViaWalletBatch(
+      [
+        {
+          action: createAction,
+          targetContract: createTarget,
+          depositYocto: createDeposit,
+        },
+        {
+          action: preparedAllowlist.action as Record<string, unknown>,
+          targetContract: allowlistTarget,
+          depositYocto: ONE_YOCTO_NEAR,
+        },
+      ],
+      broadcast
+    );
+  }
+
+  private _buildCreateForm(opts: CollectionOptions): FormData {
     const form = new FormData();
     form.append('collectionId', opts.collectionId);
     form.append('totalSupply', String(opts.totalSupply));
@@ -169,20 +259,21 @@ export class ScarcesCollectionsApi {
     if (opts.referenceExt) form.append('referenceExt', opts.referenceExt);
     if (opts.randomAssignment !== undefined)
       form.append('randomAssignment', String(opts.randomAssignment));
+    if (opts.skipAutoMedia) form.append('skipAutoMedia', 'true');
+    if (opts.creator) form.append('creator', JSON.stringify(opts.creator));
+    if (opts.cardBg) form.append('cardBg', opts.cardBg);
+    if (opts.cardFormat) form.append('cardFormat', opts.cardFormat);
+    if (opts.cardPalette) form.append('cardPalette', opts.cardPalette);
+    if (opts.cardFont) form.append('cardFont', opts.cardFont);
+    if (opts.cardMarkColor) form.append('cardMarkColor', opts.cardMarkColor);
+    if (opts.cardMarkShape) form.append('cardMarkShape', opts.cardMarkShape);
+    if (opts.cardTitleAlign) form.append('cardTitleAlign', opts.cardTitleAlign);
+    if (opts.cardPhotoCid) form.append('cardPhotoCid', opts.cardPhotoCid);
     if (opts.image) form.append('image', opts.image);
     for (const file of opts.images ?? []) {
       form.append('images', file);
     }
-
-    const result = await composeFormAndSign(
-      this._http,
-      this._getSession(),
-      SCARCES_VERBS.CREATE_COLLECTION,
-      form,
-      'scarces.collections.create',
-      relayOpts
-    );
-    return result.relay;
+    return form;
   }
 
   /**
@@ -461,6 +552,60 @@ export class ScarcesCollectionsApi {
         accounts,
       },
       'scarces.removeFromAllowlist',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Add a door-staff redeemer for this collection (creator only). */
+  async addRedeemer(
+    collectionId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.ADD_REDEEMER,
+      {
+        collectionId,
+        accountId,
+      },
+      'scarces.addRedeemer',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Remove a door-staff redeemer from this collection (creator only). */
+  async removeRedeemer(
+    collectionId: string,
+    accountId: string
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.REMOVE_REDEEMER,
+      {
+        collectionId,
+        accountId,
+      },
+      'scarces.removeRedeemer',
+      this._relayOpts({ confirmation: true })
+    );
+  }
+
+  /** Replace the door-staff redeemer roster (empty clears). */
+  async setRedeemers(
+    collectionId: string,
+    accountIds: string[]
+  ): Promise<RelayResponse> {
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      SCARCES_VERBS.SET_REDEEMERS,
+      {
+        collectionId,
+        accountIds,
+      },
+      'scarces.setRedeemers',
       this._relayOpts({ confirmation: true })
     );
   }

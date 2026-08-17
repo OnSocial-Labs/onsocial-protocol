@@ -39,26 +39,52 @@ export async function fetchCollectionCreatorFace(
   client: OnSocial,
   creatorId: string
 ): Promise<CollectionCreatorFace> {
-  const id = creatorId.trim();
-  if (!id) return { avatarUrl: null, displayName: null };
+  const map = await fetchCollectionCreatorFaces(client, [creatorId]);
+  return map.get(creatorId.trim()) ?? { avatarUrl: null, displayName: null };
+}
+
+/** Batch creator faces for list rows (getMany + stats). Soft-fails per account. */
+export async function fetchCollectionCreatorFaces(
+  client: OnSocial,
+  creatorIds: ReadonlyArray<string>
+): Promise<Map<string, CollectionCreatorFace>> {
+  const ids = [
+    ...new Set(creatorIds.map((id) => id.trim()).filter(Boolean)),
+  ];
+  const out = new Map<string, CollectionCreatorFace>();
+  if (ids.length === 0) return out;
   try {
-    const [profile, statsRows] = await Promise.all([
-      client.profiles.get(id),
-      client.query.profiles.statsForAccounts([id]),
+    const [profiles, statsRows] = await Promise.all([
+      client.profiles.getMany(ids),
+      client.query.profiles.statsForAccounts(ids),
     ]);
-    const media = profile ? client.profiles.avatarMedia(profile) : null;
-    const faceFromProfile =
-      media?.kind === 'image'
-        ? media.url
-        : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
-    const stats = statsRows[0];
-    return resolveCollectionCreatorFace(id, {
-      profileName: profile?.name ?? null,
-      profileAvatarUrl: faceFromProfile,
-      statsName: stats?.name ?? null,
-      statsAvatar: stats?.avatar ?? null,
-    });
+    const statsById = new Map(
+      statsRows.map((row) => [row.accountId.trim(), row] as const)
+    );
+    for (const id of ids) {
+      const profile = profiles[id];
+      const media = profile ? client.profiles.avatarMedia(profile) : null;
+      const faceFromProfile =
+        media?.kind === 'image'
+          ? media.url
+          : (media?.poster ??
+            (profile ? client.profiles.avatarUrl(profile) : null) ??
+            null);
+      const stats = statsById.get(id);
+      out.set(
+        id,
+        resolveCollectionCreatorFace(id, {
+          profileName: profile?.name ?? null,
+          profileAvatarUrl: faceFromProfile,
+          statsName: stats?.name ?? null,
+          statsAvatar: stats?.avatar ?? null,
+        })
+      );
+    }
   } catch {
-    return { avatarUrl: null, displayName: null };
+    for (const id of ids) {
+      if (!out.has(id)) out.set(id, { avatarUrl: null, displayName: null });
+    }
   }
+  return out;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeftIcon, osIconActionClassName } from '@onsocial/ui';
+import { ArrowLeftIcon, OsIconAction } from '@onsocial/ui';
 
 interface ContextualBackProps {
   fallbackHref?: string;
@@ -11,10 +11,8 @@ export function ContextualBack({ fallbackHref = '/' }: ContextualBackProps) {
   const router = useRouter();
 
   return (
-    <button
-      type="button"
-      className={osIconActionClassName}
-      aria-label="Back"
+    <OsIconAction
+      ariaLabel="Back"
       onClick={() => {
         if (typeof window !== 'undefined' && window.history.length > 1) {
           router.back();
@@ -24,6 +22,6 @@ export function ContextualBack({ fallbackHref = '/' }: ContextualBackProps) {
       }}
     >
       <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
-    </button>
+    </OsIconAction>
   );
 }

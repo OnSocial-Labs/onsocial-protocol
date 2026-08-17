@@ -8,7 +8,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
@@ -194,7 +194,9 @@ export function LivePersonalPostPanel({
   const {
     engagement,
     toggleReaction,
+    toggleSave,
     isReactionPending,
+    isSavePending,
     confirmAmplify,
   } = usePostEngagement(engagementPosts, {
     initial: initial?.engagement ?? null,
@@ -551,7 +553,9 @@ export function LivePersonalPostPanel({
                       engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
                     }
                     reactionPending={isReactionPending(ancestor)}
+                    savePending={isSavePending(ancestor)}
                     onToggleReaction={toggleReaction}
+                    onToggleSave={toggleSave}
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
@@ -600,7 +604,9 @@ export function LivePersonalPostPanel({
                     EMPTY_POST_ENGAGEMENT
                   }
                   reactionPending={isReactionPending(conversation.root)}
+                  savePending={isSavePending(conversation.root)}
                   onToggleReaction={toggleReaction}
+                  onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
@@ -743,7 +749,9 @@ export function LivePersonalPostPanel({
                               EMPTY_POST_ENGAGEMENT
                             }
                             reactionPending={isReactionPending(row.post)}
+                            savePending={isSavePending(row.post)}
                             onToggleReaction={toggleReaction}
+                            onToggleSave={toggleSave}
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
@@ -786,7 +794,9 @@ export function LivePersonalPostPanel({
                         engagement[postKey(quote)] ?? EMPTY_POST_ENGAGEMENT
                       }
                       reactionPending={isReactionPending(quote)}
+                      savePending={isSavePending(quote)}
                       onToggleReaction={toggleReaction}
+                      onToggleSave={toggleSave}
                       onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}

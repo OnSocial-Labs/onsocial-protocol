@@ -44,6 +44,8 @@ function ProfileLinkInputRow({
 
     if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
+      event.nativeEvent.stopPropagation();
       onCancel();
     }
   };

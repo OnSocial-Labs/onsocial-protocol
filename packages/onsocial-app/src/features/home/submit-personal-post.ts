@@ -13,16 +13,21 @@ import type {
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import {
-  collectionEmbedFromDraft,
+  commerceEmbedFromDraft,
   dropPostKind,
   dropSnapshotExtra,
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
+import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import {
   applyMediaKindOverride,
   buildOptimisticMediaEntries,
   mediaKindFromFile,
 } from '@/lib/post-media';
+import {
+  normalizeComposerContentLabels,
+  type PostContentLabels,
+} from '@/lib/post-content-labels';
 import {
   txToastConfirming,
   txToastError,
@@ -77,11 +82,21 @@ function buildOptimisticPost(args: {
   } | null;
   drop: ComposerDropDraft | null;
   files?: File[];
+  contentLabels?: PostContentLabels;
 }): PostRow {
-  const { accountId, newPostId, text, mode, target, pollEmbed, drop, files } =
-    args;
+  const {
+    accountId,
+    newPostId,
+    text,
+    mode,
+    target,
+    pollEmbed,
+    drop,
+    files,
+    contentLabels,
+  } = args;
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
-  const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
   const mediaKind =
     !pollEmbed && !drop && files?.length
@@ -96,11 +111,12 @@ function buildOptimisticPost(args: {
       ...postMetaFromText(text),
       ...(pollEmbed
         ? { embeds: [pollEmbed] }
-        : collectionEmbed
-          ? { embeds: [collectionEmbed] }
+        : commerceEmbed
+          ? { embeds: [commerceEmbed] }
           : {}),
       ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
       ...(media ? { media } : {}),
+      ...contentLabels,
     }),
     blockHeight: 0,
     blockTimestamp: Date.now(),
@@ -193,9 +209,10 @@ export async function submitPersonalPost(args: {
         }
       : null;
 
-  const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
   const bodyText = resolvedDropPostText(text, drop);
+  const contentLabels = normalizeComposerContentLabels(payload);
 
   const newPostId = Date.now().toString();
   const filePayload = files.length ? { files } : {};
@@ -210,11 +227,12 @@ export async function submitPersonalPost(args: {
         ...tags,
         ...(pollEmbed
           ? { embeds: [pollEmbed] }
-          : collectionEmbed
-            ? { embeds: [collectionEmbed] }
+          : commerceEmbed
+            ? { embeds: [commerceEmbed] }
             : {}),
         ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
         ...(dropKind ? { kind: dropKind } : {}),
+        ...contentLabels,
         ...filePayload,
       },
       newPostId
@@ -238,6 +256,7 @@ export async function submitPersonalPost(args: {
       timestamp: Date.now(),
       ...tags,
       ...feedMeta,
+      ...contentLabels,
       ...filePayload,
     };
     response =
@@ -261,6 +280,7 @@ export async function submitPersonalPost(args: {
       timestamp: Date.now(),
       ...tags,
       ...feedMeta,
+      ...contentLabels,
       ...filePayload,
     };
     response =
@@ -289,6 +309,7 @@ export async function submitPersonalPost(args: {
       pollEmbed,
       drop,
       files: files.length ? files : undefined,
+      contentLabels,
     }),
   };
 }

@@ -21,6 +21,12 @@ interface PortfolioMoodPreviewContextValue {
   isPreviewingMood: boolean;
   setPreviewMood: (moodId: PageMoodId) => void;
   discardMoodPreview: () => void;
+  /**
+   * After a successful on-chain save — keep this mood as committed
+   * locally so the shell doesn’t snap back while `router.refresh()`
+   * catches up (SSR props can lag until a hard reload).
+   */
+  commitMoodPreview: (moodId: PageMoodId) => void;
   registerMoodSheetOpen: (open: () => void) => void;
   unregisterMoodSheetOpen: () => void;
   registerMoodSheetClose: (close: () => void) => void;
@@ -44,10 +50,18 @@ export function PortfolioMoodPreviewProvider({
   children,
 }: PortfolioMoodPreviewProviderProps) {
   const [previewMoodId, setPreviewMoodId] = useState<PageMoodId | null>(null);
+  const [committedOverride, setCommittedOverride] =
+    useState<ResolvedMood | null>(null);
   const closeMoodSheetRef = useRef<(() => void) | null>(null);
   const openMoodSheetRef = useRef<(() => void) | null>(null);
 
-  const committedMoodId = String(committedMood.id);
+  // Prefer optimistic override until RSC props catch up to the same mood id.
+  const resolvedCommitted =
+    committedOverride != null &&
+    String(committedOverride.id) !== String(committedMood.id)
+      ? committedOverride
+      : committedMood;
+  const committedMoodId = String(resolvedCommitted.id);
 
   const activePreview =
     previewMoodId !== null && previewMoodId !== committedMoodId
@@ -57,6 +71,14 @@ export function PortfolioMoodPreviewProvider({
   const discardMoodPreview = useCallback(() => {
     setPreviewMoodId(null);
   }, []);
+
+  const commitMoodPreview = useCallback(
+    (moodId: PageMoodId) => {
+      setCommittedOverride(resolvePortfolioMoodForPreview(config, moodId));
+      setPreviewMoodId(null);
+    },
+    [config]
+  );
 
   const setPreviewMood = useCallback(
     (moodId: PageMoodId) => {
@@ -98,15 +120,16 @@ export function PortfolioMoodPreviewProvider({
     const isPreviewingMood = activePreview !== null;
     const effectiveMood = isPreviewingMood
       ? resolvePortfolioMoodForPreview(config, activePreview)
-      : committedMood;
+      : resolvedCommitted;
 
     return {
-      committedMood,
+      committedMood: resolvedCommitted,
       previewMoodId: activePreview,
       effectiveMood,
       isPreviewingMood,
       setPreviewMood,
       discardMoodPreview,
+      commitMoodPreview,
       registerMoodSheetOpen,
       unregisterMoodSheetOpen,
       registerMoodSheetClose,
@@ -116,13 +139,14 @@ export function PortfolioMoodPreviewProvider({
     };
   }, [
     activePreview,
-    committedMood,
+    commitMoodPreview,
     config,
     discardMoodPreview,
     registerMoodSheetOpen,
     registerMoodSheetClose,
     requestCloseMoodSheet,
     requestOpenMoodSheet,
+    resolvedCommitted,
     setPreviewMood,
     unregisterMoodSheetOpen,
     unregisterMoodSheetClose,

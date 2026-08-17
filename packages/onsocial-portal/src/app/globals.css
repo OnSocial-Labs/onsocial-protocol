@@ -5,6 +5,8 @@
 @import '@onsocial/ui/os-sheet-action.css';
 @import '@onsocial/ui/profile-editor-media.css';
 @import '@onsocial/ui/glass-sheet.css';
+@import '@onsocial/ui/os-token-icon.css';
+@import '@onsocial/ui/os-standing-identity.css';
 
 @source "../../../onsocial-ui/src/**/*.{js,ts,jsx,tsx}";
 

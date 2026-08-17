@@ -7,6 +7,7 @@ import type {
 import {
   hydrateCollectionEmbedsForPosts,
   hydrateLazyScarceEmbedsForPosts,
+  hydrateTokenEmbedsForPosts,
   loadPostEngagementMap,
 } from '@/lib/feed-paint-hydrate';
 
@@ -78,6 +79,7 @@ describe('feed-paint-hydrate', () => {
       viewerReacted: false,
       amplifyCount: 3,
       viewerAmplified: false,
+      viewerSaved: false,
     });
     expect(countsByPaths).toHaveBeenCalledTimes(1);
     expect(statesForPosts).toHaveBeenCalledTimes(1);
@@ -201,6 +203,81 @@ describe('feed-paint-hydrate', () => {
       creatorId: 'creator.near',
       remaining: 8,
       mediumKind: 'audio',
+    });
+  });
+
+  it('hydrateTokenEmbedsForPosts resolves listed token embeds', async () => {
+    activeListings.mockResolvedValue([
+      {
+        listingKey: 'native:s:post-1',
+        kind: 'native',
+        listingId: 'nl:1',
+        tokenId: 's:post-1',
+        sellerId: 'alice.near',
+        creatorId: 'alice.near',
+        appId: null,
+        price: ONE_NEAR,
+        priceNumeric: '1',
+        reservePrice: null,
+        buyNowPrice: null,
+        highestBid: null,
+        bidCount: null,
+        copies: 1,
+        remaining: null,
+        mintedCount: null,
+        expiresAt: null,
+        title: 'Night',
+        media: 'ipfs://bafycover',
+        sourcePostPath: 'alice.near/post/orig',
+        cardBg: null,
+        extraJson: null,
+        mediumKind: 'art',
+        audioFormat: null,
+        facets: null,
+        listedBlockHeight: 1,
+        listedBlockTimestamp: 9,
+        updatedBlockHeight: 1,
+        updatedBlockTimestamp: 9,
+      } satisfies ScarcesActiveListingRow,
+    ]);
+
+    const map = await hydrateTokenEmbedsForPosts(os as never, [
+      {
+        ...post('alice.near', 'announce'),
+        value: JSON.stringify({
+          v: 1,
+          text: 'for sale',
+          embeds: [
+            {
+              kind: 'token',
+              chain: 'near',
+              contract: 'scarces.onsocial.testnet',
+              tokenId: 's:post-1',
+            },
+          ],
+          x: {
+            onsocial: {
+              drop: {
+                tokenId: 's:post-1',
+                title: 'Night',
+                sourcePostPath: 'alice.near/post/orig',
+              },
+            },
+          },
+        }),
+      },
+    ]);
+
+    expect(activeListings).toHaveBeenCalledWith({
+      sellerId: 'alice.near',
+      kinds: ['native', 'auction'],
+      limit: 40,
+    });
+    expect(map['alice.near/post/announce']).toMatchObject({
+      status: 'listed',
+      tokenId: 's:post-1',
+      listingId: 'nl:1',
+      priceNear: '1',
     });
   });
 });

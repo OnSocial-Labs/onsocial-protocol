@@ -292,6 +292,8 @@ async function fetchCidHash(
 export async function uploadToLighthouse(
   file: UploadedFile
 ): Promise<UploadResult> {
+  // Feed clips encode on POST /storage/upload only — not here.
+  // Compose (drops / mint) may pin longer video as-is.
   const result = await uploadNamedBufferToLighthouse({
     buffer: file.buffer,
     apiKey: getApiKey(),

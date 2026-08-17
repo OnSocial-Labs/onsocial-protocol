@@ -2,8 +2,102 @@ export const APP_HOME_PATH = '/home';
 export const APP_DISCOVER_PATH = '/discover';
 export const APP_GROUPS_PATH = '/groups';
 export const APP_MARKET_PATH = '/market';
-/** Social drop discovery — New / Minting / Loved / Volume. */
+/** Protocol DAO governance + treasury (in-app). */
+export const APP_PROTOCOL_PATH = '/protocol';
+/** Community DAO directory — portfolio homes for org DAOs. */
+export const APP_DAOS_PATH = '/daos';
+/** Private messages inbox. */
+export const APP_MESSAGES_PATH = '/messages';
+/** Activity / notifications inbox. */
+export const APP_NOTIFICATIONS_PATH = '/notifications';
+/** Protocol leaderboard slide-over destination. */
+export const APP_LEADERBOARD_PATH = '/leaderboard';
+/** Query key for leaderboard track (`reputation` | `influence` | `earners`). */
+export const LEADERBOARD_TRACK_PARAM = 'track';
+/** Single DAO portfolio page (`/dao/[accountId]`). */
+export const APP_DAO_PATH = '/dao';
+/** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
 export const APP_DROPS_PATH = '/drops';
+/** Query key for Drops catalog sort. */
+export const DROPS_SORT_PARAM = 'sort';
+
+export type DropsSortParam =
+  | 'live'
+  | 'closing'
+  | 'upcoming'
+  | 'finished'
+  | 'new'
+  | 'loved'
+  | 'saved';
+
+export type LeaderboardTrackParam =
+  | 'reputation'
+  | 'influence'
+  | 'earners';
+
+const LEADERBOARD_TRACK_VALUES = new Set<string>([
+  'reputation',
+  'influence',
+  'earners',
+]);
+
+/** Parse `?track=` for leaderboard; defaults to reputation. */
+export function parseLeaderboardTrackParam(
+  raw: string | null | undefined
+): LeaderboardTrackParam {
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (LEADERBOARD_TRACK_VALUES.has(value)) {
+    return value as LeaderboardTrackParam;
+  }
+  return 'reputation';
+}
+
+/** Leaderboard path, optionally deep-linked to a track tab. */
+export function leaderboardPath(opts?: {
+  track?: LeaderboardTrackParam | null;
+}): string {
+  const track = opts?.track?.trim().toLowerCase() ?? '';
+  if (!track || track === 'reputation' || !LEADERBOARD_TRACK_VALUES.has(track)) {
+    return APP_LEADERBOARD_PATH;
+  }
+  return `${APP_LEADERBOARD_PATH}?${LEADERBOARD_TRACK_PARAM}=${encodeURIComponent(track)}`;
+}
+
+const DROPS_SORT_VALUES = new Set<string>([
+  'live',
+  'closing',
+  'upcoming',
+  'finished',
+  'new',
+  'loved',
+  'saved',
+]);
+
+/** Legacy URL aliases → Live (Minting / Minted tabs removed). */
+const DROPS_SORT_ALIASES: Record<string, DropsSortParam> = {
+  minting: 'live',
+  volume: 'live',
+};
+
+/** Parse `?sort=` for Drops; defaults to `live`. */
+export function parseDropsSortParam(
+  raw: string | null | undefined
+): DropsSortParam {
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (DROPS_SORT_ALIASES[value]) return DROPS_SORT_ALIASES[value];
+  if (DROPS_SORT_VALUES.has(value)) return value as DropsSortParam;
+  return 'live';
+}
+
+/** Drops catalog path, optionally deep-linked to a sort tab. */
+export function dropsPath(opts?: { sort?: DropsSortParam | null }): string {
+  const sort = opts?.sort?.trim().toLowerCase() ?? '';
+  if (!sort || sort === 'live' || !DROPS_SORT_VALUES.has(sort)) {
+    return APP_DROPS_PATH;
+  }
+  return `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=${encodeURIComponent(sort)}`;
+}
+
 /** Owner vault — use holdings (Read / Play / Show pass). Create stays on Market. */
 export const APP_COLLECTIBLES_PATH = '/collectibles';
 /** Focused Collectibles player for music / video holdings. */
@@ -33,6 +127,168 @@ export const MARKET_AUDIO_FORMAT_PARAM = 'audioFormat';
 export const COLLECTIBLES_PLAY_PARAM = 'c';
 /** Optional owned edition for Sell on the focused player (`?t=tokenId`). */
 export const COLLECTIBLES_PLAY_TOKEN_PARAM = 't';
+
+/** Query key for Protocol board (`governance` | `treasury` | `community`). */
+export const PROTOCOL_DAO_BOARD_PARAM = 'dao';
+
+/** Query key for community / arbitrary Sputnik DAO account. */
+export const PROTOCOL_DAO_ACCOUNT_PARAM = 'account';
+
+/** Query key for a focused proposal id on Protocol. */
+export const PROTOCOL_PROPOSAL_PARAM = 'proposal';
+
+/** Query key for Protocol feed status filter. */
+export const PROTOCOL_STATUS_PARAM = 'status';
+
+/** Query key for Protocol feed text search. */
+export const PROTOCOL_SEARCH_PARAM = 'q';
+
+export type ProtocolDaoBoard = 'governance' | 'treasury' | 'community';
+
+export type ProtocolFeedStatusFilter =
+  | 'open'
+  | 'approved'
+  | 'rejected'
+  | 'removed'
+  | 'expired'
+  | 'failed'
+  | 'moved'
+  | 'all';
+
+export function parseProtocolDaoBoard(
+  raw: string | null | undefined
+): ProtocolDaoBoard {
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (value === 'treasury') return 'treasury';
+  if (value === 'community') return 'community';
+  return 'governance';
+}
+
+export function parseProtocolFeedStatus(
+  raw: string | null | undefined
+): ProtocolFeedStatusFilter {
+  const value = raw?.trim().toLowerCase() ?? '';
+  switch (value) {
+    case 'approved':
+    case 'rejected':
+    case 'removed':
+    case 'expired':
+    case 'failed':
+    case 'moved':
+    case 'all':
+      return value;
+    case 'open':
+    case 'inprogress':
+    case 'in_progress':
+    case 'review':
+      return 'open';
+    default:
+      return 'open';
+  }
+}
+
+export function parseProtocolProposalId(
+  raw: string | null | undefined
+): number | null {
+  if (!raw?.trim()) return null;
+  const value = Number.parseInt(raw.trim(), 10);
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+export function parseProtocolSearchQuery(
+  raw: string | null | undefined
+): string {
+  return raw?.trim() ?? '';
+}
+
+/** Protocol home, optionally deep-linked to board, account, status, search, or proposal. */
+export function protocolPath(opts?: {
+  board?: ProtocolDaoBoard | null;
+  account?: string | null;
+  status?: ProtocolFeedStatusFilter | null;
+  proposal?: number | null;
+  q?: string | null;
+}): string {
+  const board = opts?.board ?? 'governance';
+  const account = opts?.account?.trim().toLowerCase() ?? '';
+  const params = new URLSearchParams();
+  if (board === 'treasury') {
+    params.set(PROTOCOL_DAO_BOARD_PARAM, 'treasury');
+  } else if (board === 'community') {
+    params.set(PROTOCOL_DAO_BOARD_PARAM, 'community');
+    if (account) {
+      params.set(PROTOCOL_DAO_ACCOUNT_PARAM, account);
+    }
+  }
+  const status = opts?.status ?? null;
+  if (status && status !== 'open') {
+    params.set(PROTOCOL_STATUS_PARAM, status);
+  }
+  const q = opts?.q?.trim() ?? '';
+  if (q) {
+    params.set(PROTOCOL_SEARCH_PARAM, q);
+  }
+  if (opts?.proposal != null && Number.isInteger(opts.proposal)) {
+    params.set(PROTOCOL_PROPOSAL_PARAM, String(opts.proposal));
+  }
+  const query = params.toString();
+  return query ? `${APP_PROTOCOL_PATH}?${query}` : APP_PROTOCOL_PATH;
+}
+
+/** Public DAO portfolio page — cover + square crest. */
+export function daoPath(daoAccountId: string): string {
+  const id = daoAccountId.trim().toLowerCase();
+  if (!id) return APP_DAOS_PATH;
+  return `${APP_DAO_PATH}/${encodeURIComponent(id)}`;
+}
+
+/** Private messages inbox, optionally deep-linked to a peer or thread. */
+export function messagesPath(opts?: {
+  peer?: string | null;
+  threadId?: string | null;
+}): string {
+  const params = new URLSearchParams();
+  const peer = opts?.peer?.trim().toLowerCase();
+  const threadId = opts?.threadId?.trim();
+  if (peer) params.set('peer', peer);
+  if (threadId) params.set('thread', threadId);
+  const query = params.toString();
+  return query ? `${APP_MESSAGES_PATH}?${query}` : APP_MESSAGES_PATH;
+}
+
+/** Activity inbox. */
+export function notificationsPath(): string {
+  return APP_NOTIFICATIONS_PATH;
+}
+
+/**
+ * DAO portfolio page deep-linked to a proposal feed state.
+ * Opens `/dao/[accountId]` and the Proposals overlay (shareable).
+ */
+export function daoPortfolioPath(
+  daoAccountId: string,
+  opts?: {
+    status?: ProtocolFeedStatusFilter | null;
+    proposal?: number | null;
+    q?: string | null;
+  }
+): string {
+  const base = daoPath(daoAccountId);
+  const params = new URLSearchParams();
+  const status = opts?.status ?? null;
+  if (status && status !== 'open') {
+    params.set(PROTOCOL_STATUS_PARAM, status);
+  }
+  const q = opts?.q?.trim() ?? '';
+  if (q) {
+    params.set(PROTOCOL_SEARCH_PARAM, q);
+  }
+  if (opts?.proposal != null && Number.isInteger(opts.proposal)) {
+    params.set(PROTOCOL_PROPOSAL_PARAM, String(opts.proposal));
+  }
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
+}
 
 /** Market pre-filtered to a single creator's live listings. */
 export function marketCreatorPath(accountId: string): string {
@@ -93,11 +349,66 @@ export function collectiblesPlayPath(
   return `${APP_COLLECTIBLES_PLAY_PATH}?${params.toString()}`;
 }
 
-/** Public collection (drop) page. */
-export function collectionPath(collectionId: string): string {
+/** Open immersive writing reader on the collection page (`?read=1`). */
+export const COLLECTION_READ_QUERY = 'read';
+
+/** Open Show pass on the collection page (`?pass=1`). */
+export const COLLECTION_PASS_QUERY = 'pass';
+
+/**
+ * Legacy Door deep-link on the drop page (`?door=1`).
+ * Prefer {@link collectionDoorPath} / `collectionPath(..., { door: true })`.
+ */
+export const COLLECTION_DOOR_QUERY = 'door';
+
+/**
+ * Legacy coupon Redeem deep-link on the drop page (`?redeem=1`).
+ * Prefer {@link collectionRedeemPath} / `collectionPath(..., { redeem: true })`.
+ */
+export const COLLECTION_REDEEM_QUERY = 'redeem';
+
+/** Optional owned edition for Show pass (`?t=tokenId`). */
+export const COLLECTION_PASS_TOKEN_PARAM = COLLECTIBLES_PLAY_TOKEN_PARAM;
+
+/** Fullscreen Door Admit page for event staff. */
+export function collectionDoorPath(collectionId: string): string {
   const id = collectionId.trim();
   if (!id) return APP_MARKET_PATH;
-  return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}`;
+  return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}/door`;
+}
+
+/** Fullscreen coupon Redeem page for staff. */
+export function collectionRedeemPath(collectionId: string): string {
+  const id = collectionId.trim();
+  if (!id) return APP_MARKET_PATH;
+  return `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}/redeem`;
+}
+
+/** Public collection (drop) page. */
+export function collectionPath(
+  collectionId: string,
+  opts?: {
+    read?: boolean;
+    pass?: boolean;
+    door?: boolean;
+    redeem?: boolean;
+    tokenId?: string | null;
+  }
+): string {
+  const id = collectionId.trim();
+  if (!id) return APP_MARKET_PATH;
+  if (opts?.door) return collectionDoorPath(id);
+  if (opts?.redeem) return collectionRedeemPath(id);
+  const base = `${APP_COLLECTION_PATH}/${encodeURIComponent(id)}`;
+  const params = new URLSearchParams();
+  if (opts?.read) params.set(COLLECTION_READ_QUERY, '1');
+  if (opts?.pass) params.set(COLLECTION_PASS_QUERY, '1');
+  const tokenId = opts?.tokenId?.trim();
+  if (tokenId && opts?.pass) {
+    params.set(COLLECTION_PASS_TOKEN_PARAM, tokenId);
+  }
+  const query = params.toString();
+  return query ? `${base}?${query}` : base;
 }
 
 /** Public app (store) page. */
@@ -119,12 +430,22 @@ export function isAppRoutePath(pathname: string): boolean {
   return (
     pathname === APP_HOME_PATH ||
     pathname.startsWith(`${APP_HOME_PATH}/`) ||
+    pathname === APP_LEADERBOARD_PATH ||
+    pathname.startsWith(`${APP_LEADERBOARD_PATH}/`) ||
+    pathname === APP_NOTIFICATIONS_PATH ||
+    pathname.startsWith(`${APP_NOTIFICATIONS_PATH}/`) ||
+    pathname === APP_MESSAGES_PATH ||
+    pathname.startsWith(`${APP_MESSAGES_PATH}/`) ||
     pathname === APP_DISCOVER_PATH ||
     pathname.startsWith(`${APP_DISCOVER_PATH}/`) ||
     pathname === APP_GROUPS_PATH ||
     pathname.startsWith(`${APP_GROUPS_PATH}/`) ||
+    pathname === APP_PROTOCOL_PATH ||
+    pathname.startsWith(`${APP_PROTOCOL_PATH}/`) ||
     pathname === APP_MARKET_PATH ||
     pathname.startsWith(`${APP_MARKET_PATH}/`) ||
+    pathname === APP_DROPS_PATH ||
+    pathname.startsWith(`${APP_DROPS_PATH}/`) ||
     pathname === APP_COLLECTIBLES_PATH ||
     pathname.startsWith(`${APP_COLLECTIBLES_PATH}/`) ||
     pathname === APP_COLLECTION_PATH ||

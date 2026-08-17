@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
   Divider,
-  GlassSheet,
+  GLASS_SHEET_PEEK_RATIO,
+  OsHugSheet,
+  OsProposalCardList,
   PulsingDots,
-  SheetCloseButton,
 } from '@onsocial/ui';
 import { listActiveJoinRequestProposals } from '@/features/guilds/guild-config';
 import {
@@ -136,13 +137,14 @@ export function GuildProposalsSheet({
   const refreshOneProposal = useCallback(
     async (proposalId: string) => {
       const client = createReadOnlyOnSocialClient();
-      const [proposalResult, tallyResult, voteResult] = await Promise.allSettled([
-        client.groups.getProposal(groupId, proposalId),
-        client.groups.getProposalTally(groupId, proposalId),
-        accountId
-          ? client.groups.getVote(groupId, proposalId, accountId)
-          : Promise.resolve(null),
-      ]);
+      const [proposalResult, tallyResult, voteResult] =
+        await Promise.allSettled([
+          client.groups.getProposal(groupId, proposalId),
+          client.groups.getProposalTally(groupId, proposalId),
+          accountId
+            ? client.groups.getVote(groupId, proposalId, accountId)
+            : Promise.resolve(null),
+        ]);
 
       const proposal =
         proposalResult.status === 'fulfilled' ? proposalResult.value : null;
@@ -300,47 +302,28 @@ export function GuildProposalsSheet({
   }, [proposals, resolvedProposals]);
   const profiles = usePostAuthorProfiles(profileIds);
 
+  const subtitle = canVote
+    ? 'Support or oppose active governance items.'
+    : memberDriven
+      ? 'Join this guild to vote on proposals.'
+      : 'Active governance items excluding join requests.';
+
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy="guild-proposals-title"
+      label="Proposals"
+      copy={subtitle}
+      closeAriaLabel="Close"
       backdropLabel="Close proposals"
+      zIndex={57}
+      sizing="full"
+      initialDetent="peek"
+      peekRatio={GLASS_SHEET_PEEK_RATIO}
+      titleId="guild-proposals-title"
+      headerClassName="guild-manage-sheet-header"
       panelClassName="guild-manage-sheet-panel"
       bodyClassName="guild-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header guild-manage-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2
-                    id="guild-proposals-title"
-                    className="standing-sheet-subject-name"
-                  >
-                    Proposals
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {canVote
-                      ? 'Support or oppose active governance items.'
-                      : memberDriven
-                        ? 'Join this guild to vote on proposals.'
-                        : 'Active governance items excluding join requests.'}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={onClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-proposals-sheet">
         {onOpenRequests && joinRequestCount > 0 ? (
@@ -399,7 +382,7 @@ export function GuildProposalsSheet({
         ) : null}
 
         {loadState === 'ready' && proposals.length > 0 ? (
-          <div className="guild-proposal-list">
+          <OsProposalCardList className="guild-proposal-list">
             {proposals.map((proposal) => (
               <GuildProposalCard
                 key={proposal.id}
@@ -413,7 +396,7 @@ export function GuildProposalsSheet({
                 onOppose={() => void runVote(proposal, false)}
               />
             ))}
-          </div>
+          </OsProposalCardList>
         ) : null}
 
         {loadState === 'ready' && resolvedProposals.length > 0 ? (
@@ -423,7 +406,7 @@ export function GuildProposalsSheet({
               className="guild-proposals-section-divider"
             />
             <p className="guild-proposals-section-label">Recently resolved</p>
-            <div className="guild-proposal-list guild-proposal-list--resolved">
+            <OsProposalCardList className="guild-proposal-list guild-proposal-list--resolved">
               {resolvedProposals.map((proposal) => (
                 <GuildProposalCard
                   key={proposal.id}
@@ -435,10 +418,10 @@ export function GuildProposalsSheet({
                   profiles={profiles}
                 />
               ))}
-            </div>
+            </OsProposalCardList>
           </>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

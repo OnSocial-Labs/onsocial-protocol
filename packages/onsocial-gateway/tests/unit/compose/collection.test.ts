@@ -9,6 +9,7 @@ import {
   mockFetch,
   mockLighthouseUpload,
   mockLighthouseDirectoryUpload,
+  mockUploadNamedBuffer,
   mockRelaySuccess,
   makeFile,
 } from './helpers.js';
@@ -16,6 +17,15 @@ import {
   buildCreateCollectionAction,
   ComposeError,
 } from '../../../src/services/compose/index.js';
+
+// Stub the on-chain profile lookup so auto-card tests don't try to
+// hit the NEAR RPC mock and consume mockFetch slots meant for the relay.
+vi.mock('../../../src/services/compose/profileLookup.js', () => ({
+  getProfileName: vi.fn(async () => ''),
+  getProfileAvatar: vi.fn(async () => ''),
+  resolveCreatorAvatarDataUri: vi.fn(async () => undefined),
+  _resetProfileCache: vi.fn(),
+}));
 
 describe('buildCreateCollectionAction', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -59,6 +69,7 @@ describe('buildCreateCollectionAction', () => {
         collectionId: 'membership',
         totalSupply: 500,
         title: 'Premium Member',
+        skipAutoMedia: true,
       },
       undefined
     );
@@ -72,6 +83,31 @@ describe('buildCreateCollectionAction', () => {
     const template = JSON.parse(result.action.metadata_template as string);
     expect(template.title).toBe('Premium Member');
     expect(template.media).toBeUndefined();
+  });
+
+  it('auto-generates text-card cover when no media', async () => {
+    mockLighthouseUpload('QmAutoCardCover', 4200);
+
+    const result = await buildCreateCollectionAction(
+      'creator.testnet',
+      {
+        collectionId: 'letter-drop',
+        totalSupply: 25,
+        title: 'Hello Letter',
+        cardFormat: 'letter',
+        cardPalette: 'graphite',
+      },
+      undefined
+    );
+
+    expect(result.media).toBeDefined();
+    expect(result.media!.cid).toBe('QmAutoCardCover');
+    expect(mockUploadNamedBuffer).toHaveBeenCalled();
+
+    const template = JSON.parse(result.action.metadata_template as string);
+    expect(template.media).toBe(
+      'https://test-gw.lighthouseweb3.xyz/ipfs/QmAutoCardCover'
+    );
   });
 
   it('rejects invalid collection ID', async () => {
@@ -126,6 +162,7 @@ describe('buildCreateCollectionAction', () => {
         collectionId: 'freebie',
         totalSupply: 10,
         title: 'Free',
+        skipAutoMedia: true,
       },
       undefined
     );
@@ -262,6 +299,7 @@ describe('buildCreateCollectionAction', () => {
         startPrice: '10',
         startTime: 1000,
         endTime: 2000,
+        skipAutoMedia: true,
       },
       undefined
     );
@@ -288,6 +326,7 @@ describe('buildCreateCollectionAction', () => {
           cover: { seat: 2 },
         }),
         extra: { kind: 'art' },
+        skipAutoMedia: true,
       },
       undefined
     );
@@ -312,6 +351,7 @@ describe('buildCreateCollectionAction', () => {
         totalSupply: 5,
         title: 'Solo',
         extra: { creator: 'evil.testnet' },
+        skipAutoMedia: true,
       },
       undefined
     );
@@ -353,6 +393,7 @@ describe('buildCreateCollectionAction', () => {
         title: 'Custom',
         priceNear: '1',
         targetAccount: 'my-nft.testnet',
+        skipAutoMedia: true,
       },
       undefined
     );
@@ -587,6 +628,7 @@ describe('buildCreateCollectionAction — traits & random assignment', () => {
           totalSupply: 10,
           title: 'Same Art',
           randomAssignment: true,
+          skipAutoMedia: true,
         },
         undefined
       )

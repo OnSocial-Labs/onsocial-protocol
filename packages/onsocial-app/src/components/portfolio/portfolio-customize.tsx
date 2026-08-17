@@ -5,6 +5,7 @@ import {
   GlassSheet,
   ProfileEditorMediaToolbar,
   SheetCloseButton,
+  useScrollLock,
 } from '@onsocial/ui';
 import {
   useRef,
@@ -34,7 +35,6 @@ import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 
@@ -289,6 +289,7 @@ export function PortfolioCustomize({
         open={open}
         onClose={() => setOpen(false)}
         tone="mood-thread"
+        sizing="hug"
         moodId={portfolioMoodId ?? mood.id}
         panelStyle={customizePanelStyle}
         initialDetent="full"
@@ -533,9 +534,6 @@ export function PortfolioCustomize({
             </div>
             <div className="profile-editor-media-compact-copy">
               <p className="profile-editor-media-compact-label">Avatar</p>
-              <p className="profile-editor-media-compact-hint">
-                512&times;512 recommended.
-              </p>
               <div
                 className={`profile-editor-media-host profile-editor-media-host--compact-banner${bannerUrl ? ' has-media' : ''}`}
               >
@@ -582,7 +580,7 @@ export function PortfolioCustomize({
                 />
               </div>
               <p className="profile-editor-media-compact-hint">
-                1500&times;300 · photo or video
+                Photo or video
               </p>
             </div>
           </div>

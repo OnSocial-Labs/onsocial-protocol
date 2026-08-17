@@ -1,12 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { Divider, ProfileAvatar, ProtocolMotionArrow } from '@onsocial/ui';
+import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
 import { DiscoverMoodDot } from '@/components/moods/discover-mood-dot';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@onsocial/ui';
 import { StandingRelationshipSignal } from '@/components/ui/standing-relationship-signal';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { portfolioPath } from '@/lib/overlay-routes';
+import { daoPath } from '@/lib/app-routes';
+import { isDaoStandingTarget } from '@/lib/dao-standing-account';
 import type { ProfileListAccount } from '@/lib/profile-list-account';
 import { isProfileListAccountDisplayReady } from '@/lib/profile-list-display';
 import { standingTimeMeta } from '@/lib/standing-list-meta';
@@ -29,17 +35,7 @@ function resolveStandingTimeMeta(
 }
 
 function accountLabel(account: ProfileListAccount): string {
-  return account.name?.trim() || `@${account.accountId}`;
-}
-
-function AccountAvatar({ avatarUrl }: { avatarUrl: string | null }) {
-  return (
-    <ProfileAvatar
-      src={avatarUrl}
-      size="lg"
-      className="standing-row-avatar-slot"
-    />
-  );
+  return standingIdentityLabel(account.accountId, account.name).label;
 }
 
 function MetricCount({
@@ -60,7 +56,27 @@ function MetricCount({
   );
 }
 
-function ProfileRowMetrics({ account }: { account: ProfileListAccount }) {
+function ProfileRowMetrics({
+  account,
+  isDao = false,
+}: {
+  account: ProfileListAccount;
+  isDao?: boolean;
+}) {
+  if (isDao) {
+    return (
+      <div className="standing-row-metrics">
+        <span
+          className="standing-row-metric"
+          aria-label={`${formatProfileCount(account.standingCount)} stand with them`}
+        >
+          <ProtocolMotionArrow static className="standing-row-metric-arrow" />
+          <MetricCount value={account.standingCount} tone="standing" />
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="standing-row-metrics">
       <span
@@ -233,60 +249,71 @@ export function ProfileSocialListRow({
   const showRelationshipSignals =
     sharedSolidarity || theyStandWithViewer || showEndorsedYou;
   const moodId = account.moodId ?? 'protocol';
+  const isDaoTarget = isDaoStandingTarget(account.accountId, account.isDao);
+  const targetHref = isDaoTarget
+    ? daoPath(account.accountId)
+    : portfolioPath(account.accountId);
+  const targetAriaLabel = isDaoTarget
+    ? `View ${accountLabel(account)} DAO`
+    : `View ${accountLabel(account)}'s profile`;
 
   return (
-    <div className="standing-row">
+    <div className={`standing-row${isDaoTarget ? ' standing-row--dao' : ''}`}>
       <div className="standing-row-main">
         <Link
-          href={portfolioPath(account.accountId)}
+          href={targetHref}
           className="standing-row-hit"
           scroll={false}
-          aria-label={`View ${accountLabel(account)}'s profile`}
+          aria-label={targetAriaLabel}
         />
-        <AccountAvatar avatarUrl={account.avatarUrl} />
-        <div className="standing-row-copy">
-          {showRelationshipSignals ? (
-            <div className="standing-row-signals">
-              {sharedSolidarity ? (
-                <StandingRelationshipSignal
-                  label="Solidarity"
-                  tone="solidarity"
-                  title="You both stand with each other"
-                />
-              ) : theyStandWithViewer ? (
-                <StandingRelationshipSignal
-                  label="Stands with you"
-                  tone="standing"
-                  title="This account stands with you"
-                />
-              ) : null}
-              {showEndorsedYou ? (
-                <StandingRelationshipSignal
-                  label="Endorsed you"
-                  tone="endorse"
-                  title="This account has endorsed you"
-                />
-              ) : null}
-            </div>
-          ) : null}
-          <span className="standing-row-head">
-            <span className="standing-row-name-row">
-              <span className="standing-row-name">{accountLabel(account)}</span>
-              {moodId !== 'protocol' ? (
-                <DiscoverMoodDot moodId={moodId} />
-              ) : null}
-            </span>
-            {account.name?.trim() ? (
-              <span className="standing-row-handle">@{account.accountId}</span>
-            ) : null}
-          </span>
+        <StandingIdentity
+          accountId={account.accountId}
+          profileName={account.name}
+          avatarUrl={account.avatarUrl}
+          avatarClassName={
+            isDaoTarget
+              ? 'standing-row-avatar-slot dao-directory-crest'
+              : 'standing-row-avatar-slot'
+          }
+          copyLeading={
+            showRelationshipSignals ? (
+              <div className="standing-row-signals">
+                {sharedSolidarity ? (
+                  <StandingRelationshipSignal
+                    label="Solidarity"
+                    tone="solidarity"
+                    title="You both stand with each other"
+                  />
+                ) : theyStandWithViewer ? (
+                  <StandingRelationshipSignal
+                    label="Stands with you"
+                    tone="standing"
+                    title="This account stands with you"
+                  />
+                ) : null}
+                {showEndorsedYou ? (
+                  <StandingRelationshipSignal
+                    label="Endorsed you"
+                    tone="endorse"
+                    title="This account has endorsed you"
+                  />
+                ) : null}
+              </div>
+            ) : null
+          }
+          nameTrailing={
+            moodId !== 'protocol' ? (
+              <DiscoverMoodDot moodId={moodId} />
+            ) : null
+          }
+        >
           {bio ? (
             <span className="standing-row-bio">
               <PostRichText text={bio} emptyFallback="" showLinkIcon />
             </span>
           ) : null}
-          <ProfileRowMetrics account={account} />
-        </div>
+          <ProfileRowMetrics account={account} isDao={isDaoTarget} />
+        </StandingIdentity>
       </div>
 
       <div

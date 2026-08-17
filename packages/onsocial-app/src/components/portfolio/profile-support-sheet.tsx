@@ -7,11 +7,9 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import { ProfileSupportForm } from '@/components/portfolio/profile-support-form';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
@@ -63,8 +61,6 @@ export function ProfileSupportSheet({
     if (open) setFormKey((key) => key + 1);
   }
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -75,34 +71,21 @@ export function ProfileSupportSheet({
   }, [onOpenChange]);
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
+      verb="Support"
+      personName={name}
+      handle={handle}
+      signal="reputation"
+      closeAriaLabel="Close support"
+      backdropLabel="Close support"
       moodId={effectiveMood?.id}
       panelStyle={panelStyle}
-      panelClassName="profile-support-sheet-panel"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={56}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close support"
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Support"
-            personName={name}
-            handle={handle}
-            signal="reputation"
-            closeAriaLabel="Close support"
-            onClose={requestClose}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
     >
       <ProfileSupportForm
         key={formKey}
@@ -110,6 +93,6 @@ export function ProfileSupportSheet({
         profileName={profileName}
         onSuccess={requestClose}
       />
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

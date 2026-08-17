@@ -15,14 +15,37 @@ export function postScarceKey(accountId: string, postId: string): string {
   return `${accountId}/post/${postId}`;
 }
 
-/** Seed lazy CTAs from SSR / page hydrate (safe during render; emits on change). */
+function scarceSeedPaintEqual(
+  a: PostScarceEmbed,
+  b: PostScarceEmbed
+): boolean {
+  return (
+    a.status === b.status &&
+    a.listingId === b.listingId &&
+    a.collectionId === b.collectionId &&
+    a.tokenId === b.tokenId &&
+    a.priceNear === b.priceNear &&
+    a.remaining === b.remaining &&
+    a.copies === b.copies &&
+    a.mediaUrl === b.mediaUrl &&
+    a.appId === b.appId
+  );
+}
+
+/**
+ * Seed lazy CTAs from SSR / page hydrate (safe during render; emits on change).
+ * Overwrites stale seeds when paint data changes; never clobbers live overrides.
+ */
 export function seedScarceEmbedsFromSsr(
   map: Record<string, PostScarceEmbed> | null | undefined
 ): void {
   if (!map) return;
   let changed = false;
   for (const [key, embed] of Object.entries(map)) {
-    if (!key || !embed || ssrSeeds.has(key)) continue;
+    if (!key || !embed) continue;
+    if (overrides.has(key)) continue;
+    const previous = ssrSeeds.get(key);
+    if (previous && scarceSeedPaintEqual(previous, embed)) continue;
     ssrSeeds.set(key, embed);
     changed = true;
   }
@@ -89,6 +112,11 @@ export function reconcileScarceEmbedFromApi(
       ) {
         return false;
       }
+      // Keep mint PNG / cover until indexer media lands — clearing early
+      // flashes live SVG (softer / blurrier than the stamped raster).
+      if (override.mediaUrl?.trim() && !fetched.mediaUrl?.trim()) {
+        return false;
+      }
       clearScarceEmbedOverride(key);
       return true;
     }
@@ -104,6 +132,9 @@ export function reconcileScarceEmbedFromApi(
       fetched.collectionId &&
       (!override.collectionId || override.collectionId === fetched.collectionId)
     ) {
+      if (override.mediaUrl?.trim() && !fetched.mediaUrl?.trim()) {
+        return false;
+      }
       clearScarceEmbedOverride(key);
       return true;
     }

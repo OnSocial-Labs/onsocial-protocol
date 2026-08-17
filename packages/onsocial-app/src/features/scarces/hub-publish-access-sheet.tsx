@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import { OsHugSheet, osFieldBorderedClassName } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -19,7 +19,6 @@ import {
   type StorePublishRequest,
 } from '@/features/scarces/store-publish-requests';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import {
   txToastConfirming,
   txToastError,
@@ -45,7 +44,6 @@ export function HubPublishAccessSheet({
   onClose,
   onChanged,
 }: HubPublishAccessSheetProps) {
-  const titleId = useId();
   const messageId = useId();
   const { accountId } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
@@ -58,8 +56,6 @@ export function HubPublishAccessSheet({
   const [refreshKey, setRefreshKey] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open) {
@@ -212,49 +208,26 @@ export function HubPublishAccessSheet({
           const trimmed = message.trim();
           if (trimmed !== message) setMessage(trimmed);
         }}
+        className={osFieldBorderedClassName}
       />
-      <small id={`${messageId}-count`}>
-        {message.length}/280
-      </small>
+      <small id={`${messageId}-count`}>{message.length}/280</small>
     </label>
   );
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
+      label="Publish access"
+      copy={subtitle}
+      closeAriaLabel="Close publish access"
+      backdropLabel="Close publish access"
+      zIndex={58}
       initialDetent="peek"
       peekRatio={1}
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close publish access"
       panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-access-sheet-panel"
       bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Publish access
-                  </h2>
-                  <p className="discover-sheet-subtitle">{subtitle}</p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close publish access"
-                />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       {!loaded ? (
         <p className="hub-manage-hint">Loading…</p>
@@ -303,6 +276,6 @@ export function HubPublishAccessSheet({
           </OsSheetActions>
         </div>
       )}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

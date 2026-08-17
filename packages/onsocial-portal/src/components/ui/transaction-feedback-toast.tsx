@@ -93,7 +93,7 @@ export function TransactionFeedbackToast({
   const canAutoDismiss = Boolean(result && result.type !== 'pending');
   const dismissMs =
     result && result.type !== 'pending' ? DISMISS_MS[result.type] : 0;
-  const { barRef, pauseProps } = useToastDismissTimer({
+  const { barRef, hostRef, pauseProps } = useToastDismissTimer({
     active: canAutoDismiss,
     durationMs: dismissMs,
     onDone: () => onCloseRef.current(),
@@ -126,6 +126,7 @@ export function TransactionFeedbackToast({
           className={TOAST_POSITION_CLASS}
         >
           <div
+            ref={hostRef}
             className="portal-toast pointer-events-auto relative overflow-hidden rounded-xl"
             {...pauseProps}
           >

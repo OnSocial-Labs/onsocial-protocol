@@ -7,4 +7,4 @@
 export {
   ChoiceDrawerField as ScarceChoiceField,
   type ChoiceOption as ScarceChoiceOption,
-} from '@/components/ui/choice-drawer';
+} from '@onsocial/ui';

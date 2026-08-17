@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Divider,
-  GlassSheet,
   InformationCircleIcon,
+  OsHugSheet,
   PlusIcon,
   ProtocolMotionArrow,
-  SheetHeader,
+} from '@onsocial/ui';
+import {
+  SheetFactCount,
+  SheetFactRow,
+  SheetFactSection,
 } from '@onsocial/ui';
 import {
   GUILD_SPACE_KIND_OPTIONS,
@@ -22,7 +25,6 @@ import {
   loadGuildSpaceWriterCounts,
   type GuildSpaceWritersShareDisplay,
 } from '@/features/guilds/guild-space-write';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
 function spaceKindLabel(kind: GuildSpace['kind']): string {
@@ -36,43 +38,18 @@ function audienceLabel(audience: GuildSpace['audience']): string {
   return audience === 'public' ? 'Public' : 'Members';
 }
 
-function GuildRoomFactsRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ReactNode;
-}) {
-  return (
-    <div className="guild-facts-row">
-      <span className="guild-facts-label">{label}</span>
-      <span className="guild-facts-value">{value}</span>
-    </div>
-  );
-}
-
 function WritersShareValue({
   display,
 }: {
   display: GuildSpaceWritersShareDisplay;
 }) {
   if (display.kind === 'loading') {
-    return (
-      <span className="guild-facts-count-value is-loading" aria-hidden>
-        <span className="guild-facts-count">–</span>
-        <span className="guild-facts-unit"> can share</span>
-      </span>
-    );
+    return <SheetFactCount count="–" unit="can share" loading />;
   }
   if (display.kind === 'leaders-only') {
     return <span className="guild-facts-link-label">Leaders only</span>;
   }
-  return (
-    <span className="guild-facts-count-value">
-      <span className="guild-facts-count">{display.count}</span>
-      <span className="guild-facts-unit"> can share</span>
-    </span>
-  );
+  return <SheetFactCount count={display.count} unit="can share" />;
 }
 
 function writersShareAriaLabel(display: GuildSpaceWritersShareDisplay): string {
@@ -97,7 +74,6 @@ function GuildRoomFactsSheet({
   onClose: () => void;
   onOpenWriters?: () => void;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const [writersDisplay, setWritersDisplay] =
@@ -114,8 +90,6 @@ function GuildRoomFactsSheet({
       setWritersDisplay({ kind: 'loading' });
     }
   }
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open || space.postPolicy !== 'allowlist') return;
@@ -158,88 +132,68 @@ function GuildRoomFactsSheet({
     );
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={() => {
         setClosing(false);
         onClose();
       }}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={56}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label={space.title}
+      copy="Room details"
+      closeAriaLabel="Close room info"
       backdropLabel="Close room info"
+      zIndex={56}
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title={space.title}
-            subtitle="Room details"
-            onClose={requestClose}
-            closeAriaLabel="Close room info"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts">
-        <section className="guild-facts-section">
-          <h3 className="guild-facts-section-title">Sharing</h3>
-          <div className="guild-facts-section-rows">
-            <GuildRoomFactsRow
-              label="Who can share"
-              value={
-                canViewWriters ? (
-                  <button
-                    type="button"
-                    className="guild-facts-link group"
-                    aria-label={writersShareAriaLabel(writersDisplay)}
-                    onClick={() => {
-                      requestClose();
-                      onOpenWriters?.();
-                    }}
-                  >
-                    {whoCanShareValue}
-                    <ProtocolMotionArrow className="guild-facts-link-arrow" />
-                  </button>
-                ) : (
-                  whoCanShareValue
-                )
-              }
+        <SheetFactSection title="Sharing">
+          <SheetFactRow
+            label="Who can share"
+            value={
+              canViewWriters ? (
+                <button
+                  type="button"
+                  className="guild-facts-link group"
+                  aria-label={writersShareAriaLabel(writersDisplay)}
+                  onClick={() => {
+                    requestClose();
+                    onOpenWriters?.();
+                  }}
+                >
+                  {whoCanShareValue}
+                  <ProtocolMotionArrow className="guild-facts-link-arrow" />
+                </button>
+              ) : (
+                whoCanShareValue
+              )
+            }
+          />
+          <SheetFactRow
+            label="Rule"
+            value={postPolicyHint(space.postPolicy)}
+          />
+          {viewer.isMember ? (
+            <SheetFactRow
+              label="You"
+              value={canShare ? 'Can share' : "Can't share yet"}
             />
-            <GuildRoomFactsRow
-              label="Rule"
-              value={postPolicyHint(space.postPolicy)}
-            />
-            {viewer.isMember ? (
-              <GuildRoomFactsRow
-                label="You"
-                value={canShare ? 'Can share' : "Can't share yet"}
-              />
-            ) : null}
-          </div>
-        </section>
+          ) : null}
+        </SheetFactSection>
 
-        <section className="guild-facts-section">
-          <h3 className="guild-facts-section-title">Details</h3>
-          <div className="guild-facts-section-rows">
-            <GuildRoomFactsRow
-              label="Type"
-              value={spaceKindLabel(space.kind)}
-            />
-            <GuildRoomFactsRow
-              label="Who sees this"
-              value={audienceLabel(space.audience)}
-            />
-          </div>
-        </section>
+        <SheetFactSection title="Details">
+          <SheetFactRow
+            label="Type"
+            value={spaceKindLabel(space.kind)}
+          />
+          <SheetFactRow
+            label="Who sees this"
+            value={audienceLabel(space.audience)}
+          />
+        </SheetFactSection>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }
 

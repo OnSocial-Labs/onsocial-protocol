@@ -19,6 +19,11 @@ import {
   startOpenDaoProposalRefreshInBackground,
   stopOpenDaoProposalRefreshInBackground,
 } from './services/governance-dao-proposal-sync.js';
+import { startDaoMembershipSyncInBackground } from './services/governance-dao-membership-sync.js';
+import {
+  startDaoCatalogSyncInBackground,
+  stopDaoCatalogSyncInBackground,
+} from './services/governance-dao-catalog-sync.js';
 import {
   startSeasonAutoFinalizeInBackground,
   stopSeasonAutoFinalizeInBackground,
@@ -152,6 +157,9 @@ const server = app.listen(config.port, async () => {
   startOpenDaoProposalRefreshInBackground(config.governanceDao);
   startDaoProposalBackfillInBackground(config.treasuryDao);
   startOpenDaoProposalRefreshInBackground(config.treasuryDao);
+  startDaoMembershipSyncInBackground(config.governanceDao);
+  startDaoMembershipSyncInBackground(config.treasuryDao);
+  startDaoCatalogSyncInBackground();
 
   startSeasonAutoFinalizeInBackground();
 
@@ -185,6 +193,7 @@ const SHUTDOWN_TIMEOUT_MS = 15_000;
 function shutdown(signal: string): void {
   logger.info({ signal }, 'Shutdown signal received, draining connections...');
   stopOpenDaoProposalRefreshInBackground();
+  stopDaoCatalogSyncInBackground();
   stopSeasonAutoFinalizeInBackground();
   server.close(async () => {
     try {

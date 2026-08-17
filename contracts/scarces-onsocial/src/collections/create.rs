@@ -202,6 +202,7 @@ impl Contract {
             max_per_purchase,
             app_commission_bps,
             random_assignment,
+            redeemers: Vec::new(),
         };
 
         let before = self.storage_usage_flushed();

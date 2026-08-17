@@ -12,9 +12,14 @@ import {
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { invalidatePageOwnerMoodCache } from '@/hooks/use-page-owner-mood';
-import { invalidateViewerCommittedMoodCache } from '@/hooks/use-viewer-wallet-mood-vars';
+import {
+  invalidateViewerCommittedMoodCache,
+  seedViewerCommittedMood,
+} from '@/hooks/use-viewer-wallet-mood-vars';
+import { useViewerWalletMoodContext } from '@/contexts/viewer-wallet-mood-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
+import { resolvePortfolioMood } from '@/lib/moods/resolve';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 
@@ -41,6 +46,7 @@ export function useApplyMood(pageAccountId: string) {
     connect,
   } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
+  const { setMood } = useViewerWalletMoodContext();
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,12 +76,15 @@ export function useApplyMood(pageAccountId: string) {
           (id: string) => pageMoodPresetForId(id).label
         );
 
-        const response = await client.pages.setConfig(
-          mergeMoodIntoPageConfig(current, moodId),
-          { wait: true }
-        );
+        const nextConfig = mergeMoodIntoPageConfig(current, moodId);
+        const response = await client.pages.setConfig(nextConfig, {
+          wait: true,
+        });
+        const nextMood = resolvePortfolioMood(nextConfig);
         invalidateViewerCommittedMoodCache(signingAccountId);
         invalidatePageOwnerMoodCache(signingAccountId);
+        seedViewerCommittedMood(signingAccountId, nextMood);
+        setMood(nextMood);
         router.refresh();
         return collectRelayTxHashes(response)[0] ?? '';
       } catch (err) {
@@ -88,7 +97,7 @@ export function useApplyMood(pageAccountId: string) {
         setIsApplying(false);
       }
     },
-    [getClient, pageAccountId, router]
+    [getClient, pageAccountId, router, setMood]
   );
 
   return {

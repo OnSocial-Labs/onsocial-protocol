@@ -63,9 +63,7 @@
   }
 }
 
-.os-sheet-action,
-.os-sheet-primary-action,
-.os-sheet-ghost-action {
+.os-sheet-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -92,23 +90,20 @@
     backdrop-filter 160ms ease;
 }
 
-.os-sheet-action--primary,
-.os-sheet-primary-action {
+.os-sheet-action--primary {
   position: relative;
   isolation: isolate;
   overflow: hidden;
 }
 
-.os-sheet-action__shell,
-.os-sheet-primary-action-shell {
+.os-sheet-action__shell {
   position: relative;
   display: inline-grid;
   place-items: center;
   width: 100%;
 }
 
-.os-sheet-action__label,
-.os-sheet-primary-action-label {
+.os-sheet-action__label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -116,13 +111,11 @@
   grid-area: 1 / 1;
 }
 
-.os-sheet-action__label.is-hidden,
-.os-sheet-primary-action-label.is-hidden {
+.os-sheet-action__label.is-hidden {
   visibility: hidden;
 }
 
-.os-sheet-action__pending,
-.os-sheet-primary-action-pending {
+.os-sheet-action__pending {
   grid-area: 1 / 1;
   display: flex;
   align-items: center;
@@ -130,9 +123,7 @@
   pointer-events: none;
 }
 
-.os-sheet-action:focus-visible,
-.os-sheet-primary-action:focus-visible,
-.os-sheet-ghost-action:focus-visible {
+.os-sheet-action:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px
     color-mix(in srgb, var(--protocol-blue, #60a5fa) 35%, transparent);
@@ -140,10 +131,7 @@
 
 .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-dirty):not(
     .is-pending
-  ):not(.is-succeeded):hover,
-.os-sheet-primary-action:not(:disabled):not(.is-dirty):not(.is-pending):not(
-    .is-succeeded
-  ):hover {
+  ):not(.is-succeeded):hover {
   border-color: rgb(var(--fg-rgb) / 0.2);
   background: rgb(var(--fg-rgb) / 0.04);
   color: rgb(var(--fg-rgb) / 0.78);
@@ -154,18 +142,13 @@
   ),
 .os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded):not(
     .is-pending
-  ),
-.os-sheet-primary-action.is-dirty:not(:disabled):not(.is-succeeded):not(
-    .is-pending
   ) {
   animation: os-action-ready-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
 .os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded),
-.os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
-.os-sheet-primary-action.is-dirty:not(:disabled):not(.is-succeeded),
-.os-sheet-primary-action.is-pending:disabled:not(.is-succeeded) {
+.os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
   border-color: var(--os-action-border-strong);
   background: color-mix(
     in srgb,
@@ -181,8 +164,7 @@
 }
 
 .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
-.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded):hover,
-.os-sheet-primary-action.is-dirty:not(:disabled):not(.is-succeeded):hover {
+.os-sheet-action--primary.is-dirty:not(:disabled):not(.is-succeeded):hover {
   border-color: rgb(var(--fg-rgb) / 0.32);
   background: color-mix(
     in srgb,
@@ -194,13 +176,11 @@
     0 6px 14px -4px var(--os-action-shadow);
 }
 
-.os-sheet-action--primary:active:not(:disabled),
-.os-sheet-primary-action:active:not(:disabled) {
+.os-sheet-action--primary:active:not(:disabled) {
   transform: scale(0.985);
 }
 
-.os-sheet-action--primary:disabled:not(.is-succeeded):not(.is-pending),
-.os-sheet-primary-action:disabled:not(.is-succeeded):not(.is-pending) {
+.os-sheet-action--primary:disabled:not(.is-succeeded):not(.is-pending) {
   opacity: 1;
   border-color: rgb(var(--fg-rgb) / 0.1);
   background: transparent;
@@ -209,13 +189,11 @@
   cursor: default;
 }
 
-.os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
-.os-sheet-primary-action.is-pending:disabled:not(.is-succeeded) {
+.os-sheet-action--primary.is-pending:disabled:not(.is-succeeded) {
   cursor: progress;
 }
 
-.os-sheet-action--primary.is-succeeded,
-.os-sheet-primary-action.is-succeeded {
+.os-sheet-action--primary.is-succeeded {
   border-color: color-mix(in srgb, var(--protocol-green) 32%, transparent);
   background: color-mix(in srgb, var(--protocol-green) 10%, transparent);
   color: var(--protocol-green);
@@ -226,8 +204,7 @@
     0 3px 8px -2px color-mix(in srgb, var(--protocol-green) 12%, transparent);
 }
 
-.os-sheet-action--primary.is-failed,
-.os-sheet-primary-action.is-failed {
+.os-sheet-action--primary.is-failed {
   border-color: color-mix(in srgb, var(--protocol-red) 32%, transparent);
   background: color-mix(in srgb, var(--protocol-red) 10%, transparent);
   color: var(--protocol-red);
@@ -238,29 +215,24 @@
     0 3px 8px -2px color-mix(in srgb, var(--protocol-red) 12%, transparent);
 }
 
-.os-sheet-action__icon,
-.os-sheet-primary-action-icon {
+.os-sheet-action__icon {
   width: 0.95rem;
   height: 0.95rem;
 }
 
-.os-sheet-action--primary.is-succeeded .os-sheet-action__icon,
-.os-sheet-primary-action.is-succeeded .os-sheet-primary-action-icon {
+.os-sheet-action--primary.is-succeeded .os-sheet-action__icon {
   animation: os-action-check-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.os-sheet-action--primary.is-failed .os-sheet-action__icon,
-.os-sheet-primary-action.is-failed .os-sheet-primary-action-icon {
+.os-sheet-action--primary.is-failed .os-sheet-action__icon {
   animation: os-action-check-in 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.os-sheet-action--ghost,
-.os-sheet-ghost-action {
+.os-sheet-action--ghost {
   color: rgb(var(--fg-rgb) / 0.52);
 }
 
-.os-sheet-action--ghost:hover,
-.os-sheet-ghost-action:hover {
+.os-sheet-action--ghost:hover {
   border-color: rgb(var(--fg-rgb) / 0.2);
   background: var(--os-action-bg);
   color: rgb(var(--fg-rgb) / 0.78);
@@ -269,13 +241,12 @@
   box-shadow: 0 3px 8px -2px var(--os-action-shadow-soft);
 }
 
-.os-sheet-action--ghost:active,
-.os-sheet-ghost-action:active {
+.os-sheet-action--ghost:active {
   transform: scale(0.985);
 }
 
 /*
- * Danger stays muted until `.is-ready` (host sets ready={canTransfer}).
+ * Danger stays muted until `.is-ready` (host sets ready= {canTransfer}).
  * Do not arm on :not(:disabled) alone — that raced frosted footer styles.
  */
 .os-sheet-action--danger {
@@ -331,10 +302,60 @@
   opacity: 1;
 }
 
+/*
+ * Dismiss — same compact affordance as danger ×, chip wash + fg mark
+ * (no protocol-red).
+ */
+.os-sheet-action--dismiss {
+  border-color: transparent;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.35);
+  cursor: default;
+}
+
+.os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
+  border-color: transparent;
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.94);
+  cursor: pointer;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded):hover,
+.os-sheet-action--dismiss.is-ready:not(:disabled):focus-visible {
+  border-color: transparent;
+  background: rgb(var(--fg-rgb) / 0.09);
+  color: rgb(var(--fg-rgb) / 0.94);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.os-sheet-action--dismiss.is-ready:not(:disabled):active {
+  transform: scale(0.985);
+  background: rgb(var(--fg-rgb) / 0.12);
+}
+
+.os-sheet-action--dismiss:disabled:not(.is-pending):not(.is-succeeded),
+.os-sheet-action--dismiss:not(.is-ready):not(.is-pending):not(.is-succeeded) {
+  opacity: 1;
+  border-color: transparent;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.26);
+  box-shadow: none;
+  cursor: default;
+}
+
+.os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
+  cursor: progress;
+  opacity: 1;
+}
+
 @media (min-width: 640px) {
-  .os-sheet-action,
-  .os-sheet-primary-action,
-  .os-sheet-ghost-action {
+  .os-sheet-action {
     min-height: 2.875rem;
     padding: 0.72rem 1.1rem;
     font-size: 0.9rem;
@@ -342,16 +363,13 @@
 }
 
 @media (max-width: 380px) {
-  .os-sheet-action,
-  .os-sheet-primary-action,
-  .os-sheet-ghost-action {
+  .os-sheet-action {
     min-height: 2.625rem;
     padding: 0.62rem 0.9rem;
     font-size: 0.8125rem;
   }
 
-  .os-sheet-actions--row-compact .os-sheet-action,
-  .os-sheet-actions--row-compact .os-sheet-primary-action {
+  .os-sheet-actions--row-compact .os-sheet-action {
     min-height: 2.5rem;
     padding: 0.55rem 0.65rem;
     font-size: 0.75rem;
@@ -359,28 +377,23 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .os-sheet-action,
-  .os-sheet-primary-action,
-  .os-sheet-ghost-action {
+  .os-sheet-action {
     transition: none;
   }
 
   .os-sheet-action--primary:active:not(:disabled),
-  .os-sheet-primary-action:active:not(:disabled),
   .os-sheet-action--ghost:active,
-  .os-sheet-ghost-action:active,
-  .os-sheet-action--danger:active {
+  .os-sheet-action--danger:active,
+  .os-sheet-action--dismiss:active {
     transform: none;
   }
 
-  .os-sheet-action--primary.is-succeeded .os-sheet-action__icon,
-  .os-sheet-primary-action.is-succeeded .os-sheet-primary-action-icon {
+  .os-sheet-action--primary.is-succeeded .os-sheet-action__icon {
     animation: none;
   }
 
   .os-sheet-action--primary.is-ready,
-  .os-sheet-action--primary.is-dirty,
-  .os-sheet-primary-action.is-dirty {
+  .os-sheet-action--primary.is-dirty {
     animation: none;
   }
 }
@@ -390,11 +403,7 @@
   .os-sheet-action--primary.is-dirty,
   .os-sheet-action--primary.is-pending,
   .os-sheet-action--primary.is-succeeded,
-  .os-sheet-primary-action.is-dirty,
-  .os-sheet-primary-action.is-pending,
-  .os-sheet-primary-action.is-succeeded,
   .os-sheet-action--ghost:hover,
-  .os-sheet-ghost-action:hover,
   .os-sheet-action--danger,
   .os-sheet-action--danger:hover {
     backdrop-filter: none;
@@ -420,35 +429,27 @@
 }
 
 .os-sheet-actions--row .os-sheet-action,
-.os-sheet-actions--row-compact .os-sheet-action,
-.os-sheet-actions--row .os-sheet-primary-action,
-.os-sheet-actions--row-compact .os-sheet-primary-action {
+.os-sheet-actions--row-compact .os-sheet-action {
   flex: 1 1 0;
   width: auto;
   min-width: 0;
 }
 
-.os-sheet-actions--row-compact .os-sheet-action,
-.os-sheet-actions--row-compact .os-sheet-primary-action {
+.os-sheet-actions--row-compact .os-sheet-action {
   min-height: 2.75rem;
   padding: 0.65rem 0.75rem;
   font-size: 0.8125rem;
 }
 
-.os-sheet-actions--row-compact .os-sheet-action__shell,
-.os-sheet-actions--row-compact .os-sheet-primary-action-shell {
+.os-sheet-actions--row-compact .os-sheet-action__shell {
   width: 100%;
 }
 
-.os-sheet-actions--row-compact .os-sheet-action--expanded,
-.os-sheet-actions--row-compact
-  .os-sheet-primary-action.os-sheet-action--expanded {
+.os-sheet-actions--row-compact .os-sheet-action--expanded {
   flex: 1 1 100%;
 }
 
-.os-sheet-actions--row-compact .os-sheet-action--inert-slot,
-.os-sheet-actions--row-compact
-  .os-sheet-primary-action.os-sheet-action--inert-slot {
+.os-sheet-actions--row-compact .os-sheet-action--inert-slot {
   visibility: hidden;
   pointer-events: none;
 }
@@ -457,15 +458,9 @@
 .os-sheet-actions.os-sheet-actions--frosted-primary
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-primary-action.is-ready:not(:disabled):not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--frosted-primary
   .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
 .os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-primary-action.is-pending:disabled:not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded),
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-primary-action:not(:disabled):not(.is-ready):not(.is-succeeded) {
+  .os-sheet-action--primary:not(:disabled):not(.is-ready):not(.is-succeeded) {
   border-color: var(--os-action-border-strong);
   background: color-mix(
     in srgb,
@@ -483,13 +478,7 @@
 .os-sheet-actions.os-sheet-actions--frosted-primary
   .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded):hover,
 .os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-primary-action.is-ready:not(:disabled):not(.is-succeeded):hover,
-.os-sheet-actions.os-sheet-actions--frosted-primary
   .os-sheet-action--primary:not(:disabled):not(.is-ready):not(
-    .is-succeeded
-  ):hover,
-.os-sheet-actions.os-sheet-actions--frosted-primary
-  .os-sheet-primary-action:not(:disabled):not(.is-ready):not(
     .is-succeeded
   ):hover {
   border-color: rgb(var(--fg-rgb) / 0.32);
@@ -516,8 +505,6 @@
 @media (prefers-reduced-transparency: reduce) {
   .os-sheet-actions.os-sheet-actions--frosted-primary
     .os-sheet-action--primary.is-ready:not(:disabled):not(.is-succeeded),
-  .os-sheet-actions.os-sheet-actions--frosted-primary
-    .os-sheet-primary-action.is-ready:not(:disabled):not(.is-succeeded),
   .os-sheet-actions.os-sheet-actions--frosted-primary
     .os-sheet-action--primary.is-pending:disabled:not(.is-succeeded),
   .os-sheet-actions.os-sheet-actions--frosted-primary
@@ -614,6 +601,35 @@
   color: var(--protocol-red);
   backdrop-filter: blur(10px) saturate(140%);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+/* Borderless dismiss — chip wash + fg mark (never danger red). */
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--dismiss.is-ready:not(:disabled):not(.is-succeeded),
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--dismiss.is-pending:disabled:not(.is-succeeded) {
+  background: rgb(var(--fg-rgb) / 0.06);
+  color: rgb(var(--fg-rgb) / 0.94);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--dismiss.is-ready:not(:disabled):hover,
+.os-sheet-actions.os-sheet-actions--borderless
+  .os-sheet-action--dismiss.is-ready:not(:disabled):focus-visible,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--dismiss.is-ready:not(:disabled):hover,
+.os-sheet-actions.os-sheet-actions--borderless.os-sheet-actions--frosted-primary
+  .os-sheet-action--dismiss.is-ready:not(:disabled):focus-visible {
+  background: rgb(var(--fg-rgb) / 0.09);
+  color: rgb(var(--fg-rgb) / 0.94);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .os-sheet-actions.os-sheet-actions--borderless

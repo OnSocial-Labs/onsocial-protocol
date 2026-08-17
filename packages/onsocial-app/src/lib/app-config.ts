@@ -50,3 +50,57 @@ export const RELAYER_ACCOUNT =
   ACTIVE_NEAR_NETWORK === 'mainnet'
     ? 'relayer.onsocial.near'
     : 'relayer.onsocial.testnet';
+
+/** Protocol governance DAO (Sputnik). */
+export const GOVERNANCE_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'governance.onsocial.near'
+    : 'governance.onsocial.testnet');
+
+/** Protocol treasury DAO (Sputnik). */
+export const TREASURY_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_TREASURY_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'treasury.onsocial.near'
+    : 'treasury.onsocial.testnet');
+
+/** Sputnik staking contract wired to governance DAO delegation. */
+export const STAKING_GOVERNANCE_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_STAKING_GOVERNANCE_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'staking-governance.onsocial.near'
+    : 'staking-governance.onsocial.testnet');
+
+/** Sputnik staking contract wired to treasury DAO delegation. */
+export const STAKING_TREASURY_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_STAKING_TREASURY_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'staking-treasury.onsocial.near'
+    : 'staking-treasury.onsocial.testnet');
+
+/** Fallback proposal bond when DAO policy is unavailable (1 NEAR). */
+export const GOVERNANCE_PROPOSAL_BOND =
+  process.env.NEXT_PUBLIC_GOVERNANCE_PROPOSAL_BOND ??
+  '1000000000000000000000000';
+
+/**
+ * Sputnik DAO factory — `create` deploys `{slug}.{factory}`.
+ * Mainnet: `name.sputnik-dao.near` · Testnet: `name.sputnikv2.testnet`.
+ */
+export const SPUTNIK_DAO_FACTORY =
+  process.env.NEXT_PUBLIC_SPUTNIK_DAO_FACTORY ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'sputnik-dao.near'
+    : 'sputnikv2.testnet');
+
+/** Attached deposit for factory `create` (6 NEAR — storage for classic deploy). */
+export const SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT =
+  process.env.NEXT_PUBLIC_SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT ??
+  '6000000000000000000000000';
+
+/** Human NEAR amount matching `SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT` (UI copy). */
+export const SPUTNIK_DAO_FACTORY_CREATE_DEPOSIT_NEAR = '6';
+
+/** Default proposal bond baked into factory-create policy (0.1 NEAR). */
+export const SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR = '0.1';

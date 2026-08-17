@@ -161,6 +161,7 @@ export type {
   GroupCurrentRow,
   GroupMembershipCurrentRow,
   GroupMemberRow,
+  GroupBannedRow,
   ThreadCounts,
   ThreadEdge,
   ThreadNode,
@@ -171,6 +172,9 @@ export type {
   FeedFilter,
   GroupFeedFilter,
   StorageEventRow,
+  GroupSponsorQuotaEventRow,
+  GroupSponsorDefaultEventRow,
+  GroupSponsorSpendEventRow,
   PermissionEventRow,
   GovernanceEventRow,
   RewardsEventRow,
@@ -200,6 +204,34 @@ export type {
   SupportReceivedRow,
 } from './query/index.js';
 export { SUPPORT_POT_ACTIONS } from './query/index.js';
+export {
+  LEADERBOARD_PAGE_SIZE,
+  LEADERBOARD_TRACKS,
+  REPUTATION_BOARD_GRAPHQL_FIELDS,
+  REPUTATION_SCORES_GRAPHQL_FIELDS,
+  canonicalLeaderboardAccountId,
+  commitmentAccent,
+  commitmentLabel,
+  findViewerEntry,
+  formatReputation,
+  formatReputationComponent,
+  formatReputationScore,
+  formatScore,
+  leaderboardTrackSubtitle,
+  leaderboardShareCopy,
+  pctOfLeader,
+  reputationBoardMeta,
+  reputationConfidenceLabel,
+  reputationTier,
+  reputationTierLabel,
+  truncateAccountId,
+} from './leaderboard.js';
+export type {
+  EarnerEntry,
+  InfluenceEntry,
+  LeaderboardTrack,
+  ReputationEntry,
+} from './leaderboard.js';
 export {
   PERMISSION_OPERATIONS,
   GOVERNANCE_OPERATIONS,
@@ -378,10 +410,22 @@ export type {
   PageMoodTier,
 } from './modules/pages/premium-moods.js';
 export { StandingsModule } from './modules/standings.js';
+export { BlocksModule } from './modules/blocks.js';
+export { MutesModule } from './modules/mutes.js';
+export { DmModule } from './modules/dm.js';
+export type {
+  DmMediaRef,
+  DmMessageRecord,
+  DmThreadSummary,
+  SendDmInput,
+} from './modules/dm.js';
+export type { MuteRecord, ListMutesResult } from './modules/mutes.js';
 export {
   StorageAccountModule,
   type AmountInput,
   type DepositWriteOptions,
+  type GroupSponsorDefaultInfo,
+  type GroupSponsorQuotaInfo,
   type TransactionSigner,
   type TxObserver,
   type WriteOptions,
@@ -427,6 +471,7 @@ export {
   validatePostV1,
   validateReactionV1,
   validateStandingV1,
+  validateBlockV1,
   validateGroupConfigV1,
   validateSaveV1,
   validateEndorsementV1,
@@ -435,6 +480,7 @@ export {
   assertPostV1,
   assertReactionV1,
   assertStandingV1,
+  assertBlockV1,
   assertGroupConfigV1,
   assertSaveV1,
   assertEndorsementV1,
@@ -444,6 +490,7 @@ export {
   postV1,
   reactionV1,
   standingV1,
+  blockV1,
   groupConfigV1,
   saveV1,
   endorsementV1,
@@ -464,6 +511,7 @@ export type {
   ReactionV1,
   ReactionKind,
   StandingV1,
+  BlockV1,
   GroupConfigV1,
   SaveV1,
   EndorsementV1,

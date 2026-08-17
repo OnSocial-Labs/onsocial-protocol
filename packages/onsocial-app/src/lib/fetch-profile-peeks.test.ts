@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { toProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
+import {
+  toProfileCreatedPeek,
+  toProfilePostPeek,
+} from '@/lib/fetch-profile-peeks';
+import type { PostRow } from '@onsocial/sdk';
 
 describe('toProfileCreatedPeek', () => {
   it('maps mint rows to collection deep links', () => {
@@ -32,5 +36,31 @@ describe('toProfileCreatedPeek', () => {
 
   it('skips rows without a token id', () => {
     expect(toProfileCreatedPeek({ tokenId: '  ' })).toBeNull();
+  });
+});
+
+describe('toProfilePostPeek', () => {
+  it('carries content labels for Safe mode peeks', () => {
+    const post = {
+      accountId: 'alice.testnet',
+      postId: '1',
+      value: JSON.stringify({
+        v: 1,
+        text: 'behind the curtain',
+        contentWarning: 'Spoilers',
+        nsfw: true,
+      }),
+      blockHeight: 1,
+      blockTimestamp: 1_700_000_000_000,
+      kind: 'text',
+    } as PostRow;
+
+    expect(toProfilePostPeek(post)).toMatchObject({
+      accountId: 'alice.testnet',
+      postId: '1',
+      text: 'behind the curtain',
+      contentWarning: 'Spoilers',
+      nsfw: true,
+    });
   });
 });

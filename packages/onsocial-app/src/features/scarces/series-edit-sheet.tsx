@@ -8,21 +8,24 @@ import {
   useState,
   type ChangeEvent,
 } from 'react';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
 import {
+  OsField,
+  OsFieldRemove,
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   buildSeriesBrandingPayload,
   invalidateSeriesBrandingCache,
+  seedSeriesBrandingCache,
   seriesDataPath,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import {
@@ -34,6 +37,8 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const MAX_TITLE = 48;
 const MAX_DESCRIPTION = 280;
+/** Above glass chrome; matches Door log / nested slide-overs. */
+const SERIES_EDIT_Z = 90;
 
 interface SeriesEditSheetProps {
   open: boolean;
@@ -47,7 +52,7 @@ interface SeriesEditSheetProps {
   onSaved: (next: SeriesBranding) => void;
 }
 
-/** Creator-only sheet: brand a series with a logo and description. */
+/** Creator-only workspace: brand a series with a logo and description. */
 export function SeriesEditSheet({
   open,
   creatorId,
@@ -57,21 +62,20 @@ export function SeriesEditSheet({
   onClose,
   onSaved,
 }: SeriesEditSheetProps) {
-  const titleId = useId();
   const fieldIdBase = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
-  const [closing, setClosing] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(open);
+  if (open && !sheetOpen) setSheetOpen(true);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoRemoved, setLogoRemoved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   // Seed the form from current branding each time the sheet opens.
   useEffect(() => {
@@ -80,6 +84,7 @@ export function SeriesEditSheet({
     setDescription(branding?.description ?? '');
     setLogoFile(null);
     setLogoPreview(null);
+    setLogoRemoved(false);
     setError(null);
   }, [open, branding, fallbackTitle]);
 
@@ -92,11 +97,10 @@ export function SeriesEditSheet({
 
   const requestClose = useCallback(() => {
     if (pending) return;
-    setClosing(true);
+    setSheetOpen(false);
   }, [pending]);
 
   const handleClosed = useCallback(() => {
-    setClosing(false);
     onClose();
   }, [onClose]);
 
@@ -113,6 +117,7 @@ export function SeriesEditSheet({
       return;
     }
     setError(null);
+    setLogoRemoved(false);
     setLogoFile(file);
     setLogoPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -120,7 +125,18 @@ export function SeriesEditSheet({
     });
   }, []);
 
+  const clearLogo = useCallback(() => {
+    setLogoFile(null);
+    setLogoRemoved(true);
+    setLogoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
+
   const canSave = title.trim().length >= 2 && !pending;
+  const logoSrc =
+    logoPreview ?? (logoRemoved ? null : (branding?.logoUrl ?? null));
 
   const save = useCallback(async () => {
     if (!canSave) return;
@@ -132,6 +148,8 @@ export function SeriesEditSheet({
       if (logoFile) {
         const uploaded = await client.storage.upload(logoFile);
         logo = `ipfs://${uploaded.cid}`;
+      } else if (logoRemoved) {
+        logo = null;
       }
       const payload = buildSeriesBrandingPayload({
         title: title.trim(),
@@ -149,16 +167,18 @@ export function SeriesEditSheet({
         failureMessage: txToastError.saveSeriesFailed,
       });
       if (!confirmed) return;
-      invalidateSeriesBrandingCache(creatorId, seriesId);
-      onSaved({
+      const next: SeriesBranding = {
         creatorId,
         seriesId,
         title: title.trim(),
         description: description.trim() || null,
         logo,
         logoUrl: resolveProfileMediaUrl(logo),
-      });
-      setClosing(true);
+      };
+      invalidateSeriesBrandingCache(creatorId, seriesId);
+      seedSeriesBrandingCache(creatorId, seriesId, next);
+      onSaved(next);
+      setSheetOpen(false);
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
@@ -176,6 +196,7 @@ export function SeriesEditSheet({
     getClient,
     branding,
     logoFile,
+    logoRemoved,
     title,
     description,
     seriesId,
@@ -185,105 +206,19 @@ export function SeriesEditSheet({
     onSaved,
   ]);
 
-  const logoSrc = logoPreview ?? branding?.logoUrl ?? null;
-
   return (
-    <GlassSheet
+    <OsSlideOverScreen
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="peek"
-      peekRatio={1}
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close series editor"
-      panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug"
-      bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Edit series
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    Brand the series — drops keep their own art.
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close series editor"
-                />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
-    >
-      <div className="hub-manage-form">
-        <div className="guild-field">
-          <span>Logo</span>
-          <button
-            type="button"
-            className={`series-logo-picker${logoSrc ? ' has-media' : ''}`}
-            disabled={pending}
-            onClick={() => logoInputRef.current?.click()}
-            aria-label={logoSrc ? 'Change series logo' : 'Add series logo'}
-          >
-            {logoSrc ? (
-              <img src={logoSrc} alt="" />
-            ) : (
-              <span aria-hidden>+</span>
-            )}
-          </button>
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="scarce-cover-file-input"
-            tabIndex={-1}
-            aria-hidden
-            disabled={pending}
-            onChange={onLogoChange}
-          />
-          <small>Square works best · JPG, PNG, or WebP · up to 5 MB</small>
-        </div>
-
-        <label className="guild-field" htmlFor={`${fieldIdBase}-title`}>
-          <span>Title</span>
-          <input
-            id={`${fieldIdBase}-title`}
-            value={title}
-            maxLength={MAX_TITLE}
-            disabled={pending}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
-
-        <label className="guild-field" htmlFor={`${fieldIdBase}-description`}>
-          <span>Description (optional)</span>
-          <textarea
-            id={`${fieldIdBase}-description`}
-            rows={3}
-            value={description}
-            maxLength={MAX_DESCRIPTION}
-            disabled={pending}
-            placeholder="What ties these drops together?"
-            onChange={(event) => setDescription(event.target.value)}
-          />
-          <small>
-            {description.length}/{MAX_DESCRIPTION}
-          </small>
-        </label>
-
-        {error ? <p className="guild-form-error">{error}</p> : null}
-
+      title="Edit series"
+      subtitle="Brand the series — drops keep their own art."
+      closeAriaLabel="Back from edit series"
+      closeDisabled={pending}
+      zIndex={SERIES_EDIT_Z}
+      className="hub-manage-slide"
+      contentClassName="hub-manage-slide-body"
+      footer={
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
           <OsSheetAction
             type="button"
@@ -295,7 +230,81 @@ export function SeriesEditSheet({
             {pending ? 'Saving…' : 'Save series'}
           </OsSheetAction>
         </OsSheetActions>
+      }
+    >
+      <div className="hub-manage-form">
+        <OsField
+          label="Logo"
+          hint="Square works best · JPG, PNG, or WebP · up to 5 MB"
+        >
+          <div className="series-logo-row">
+            <button
+              type="button"
+              className={`series-logo-picker${logoSrc ? ' has-media' : ''}`}
+              disabled={pending}
+              onClick={() => logoInputRef.current?.click()}
+              aria-label={logoSrc ? 'Change series logo' : 'Add series logo'}
+            >
+              {logoSrc ? (
+                <img src={logoSrc} alt="" />
+              ) : (
+                <span aria-hidden>+</span>
+              )}
+            </button>
+            {logoSrc ? (
+              <OsFieldRemove
+                aria-label="Remove series logo"
+                disabled={pending}
+                onClick={clearLogo}
+              />
+            ) : null}
+          </div>
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="scarce-cover-file-input"
+            tabIndex={-1}
+            aria-hidden
+            disabled={pending}
+            onChange={onLogoChange}
+          />
+        </OsField>
+
+        <OsField
+          label="Title"
+          htmlFor={`${fieldIdBase}-title`}
+          hint={`${title.length}/${MAX_TITLE}`}
+        >
+          <input
+            id={`${fieldIdBase}-title`}
+            value={title}
+            maxLength={MAX_TITLE}
+            disabled={pending}
+            onChange={(event) => setTitle(event.target.value)}
+            className={osFieldBorderedClassName}
+          />
+        </OsField>
+
+        <OsField
+          label="Description (optional)"
+          htmlFor={`${fieldIdBase}-description`}
+          hint={`${description.length}/${MAX_DESCRIPTION}`}
+        >
+          <textarea
+            id={`${fieldIdBase}-description`}
+            rows={3}
+            value={description}
+            maxLength={MAX_DESCRIPTION}
+            disabled={pending}
+            placeholder="What ties these drops together?"
+            onChange={(event) => setDescription(event.target.value)}
+            className={osFieldBorderedClassName}
+          />
+        </OsField>
+
+        {error ? <p className="guild-form-error">{error}</p> : null}
       </div>
-    </GlassSheet>
+    </OsSlideOverScreen>
   );
 }

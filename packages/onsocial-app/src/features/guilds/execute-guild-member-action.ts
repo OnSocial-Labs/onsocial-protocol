@@ -111,6 +111,22 @@ export async function executeGuildMemberAction(
         );
       }
       return client.groups.removeMember(groupId, memberId);
+    case 'ban-from-guild':
+      if (memberDriven) {
+        return client.groups.proposeBan(groupId, memberId, {
+          reason: 'Ban member',
+          ...proposeOpts,
+        });
+      }
+      return client.groups.blacklist(groupId, memberId);
+    case 'unban-from-guild':
+      if (memberDriven) {
+        return client.groups.proposeUnban(groupId, memberId, {
+          reason: 'Unban member',
+          ...proposeOpts,
+        });
+      }
+      return client.groups.unblacklist(groupId, memberId);
     case 'transfer-ownership':
       if (memberDriven) {
         return client.groups.proposeTransferOwnership(groupId, memberId, {

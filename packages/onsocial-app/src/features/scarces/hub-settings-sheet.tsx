@@ -1,14 +1,13 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  Divider,
-  GlassSheet,
-  SheetCloseButton,
+  OsHugSheet,
+  OsSurfaceRow,
+  OsSurfaceRowList,
   osFloatingPanelCountClassName,
 } from '@onsocial/ui';
 import type { HubManageSheetId } from '@/features/scarces/hub-manage-sheets';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
 interface HubSettingsSheetProps {
@@ -38,11 +37,8 @@ export function HubSettingsSheet({
   onClose,
   onOpenSheet,
 }: HubSettingsSheetProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -60,128 +56,75 @@ export function HubSettingsSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Settings"
+      copy={hubName?.trim() || 'Hub tools and configuration'}
+      closeAriaLabel="Close"
       backdropLabel="Close hub settings"
+      zIndex={57}
+      initialDetent="peek"
+      headerClassName="guild-settings-sheet-header"
       panelClassName="guild-settings-sheet-panel"
-      bodyClassName="guild-settings-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header guild-settings-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Settings
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {hubName?.trim() || 'Hub tools and configuration'}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
-      <nav
-        className="os-surface-row-list guild-settings-sheet-list"
+      <OsSurfaceRowList
+        className="guild-settings-sheet-list"
         aria-label="Hub settings"
       >
         {showOwnerTools ? (
-          <button
-            type="button"
-            className="os-surface-row"
+          <OsSurfaceRow
+            label="Edit look"
+            description="Logo, banner, name, categories"
             onClick={() => openSheet('look')}
-          >
-            <span className="os-surface-row-copy">
-              <span className="os-surface-row-label">Edit look</span>
-              <span className="os-surface-row-description">
-                Logo, banner, name, categories
-              </span>
-            </span>
-          </button>
+          />
         ) : null}
 
         {showOwnerTools ? (
-          <button
-            type="button"
-            className="os-surface-row"
+          <OsSurfaceRow
+            label="Access & sales"
+            description="Commission and who can create drops"
             onClick={() => openSheet('access')}
-          >
-            <span className="os-surface-row-copy">
-              <span className="os-surface-row-label">Access & sales</span>
-              <span className="os-surface-row-description">
-                Commission and who can create drops
-              </span>
-            </span>
-          </button>
+          />
         ) : null}
 
         {showPeople ? (
-          <button
-            type="button"
-            className="os-surface-row"
+          <OsSurfaceRow
+            label="People"
+            description="Moderators and approved creators"
             onClick={() => openSheet('people')}
-          >
-            <span className="os-surface-row-copy">
-              <span className="os-surface-row-label">People</span>
-              <span className="os-surface-row-description">
-                Moderators and approved creators
-              </span>
-            </span>
-          </button>
+          />
         ) : null}
 
         {showPublishRequests ? (
-          <button
-            type="button"
-            className="os-surface-row"
+          <OsSurfaceRow
+            label="Publish requests"
+            description="Approve creators waiting to publish"
             onClick={() => openSheet('publish-requests')}
-          >
-            <span className="os-surface-row-copy">
-              <span className="os-surface-row-label">Publish requests</span>
-              <span className="os-surface-row-description">
-                Approve creators waiting to publish
-              </span>
-            </span>
-            {publishRequestCount > 0 ? (
-              <span
-                className={`${osFloatingPanelCountClassName} os-floating-panel-count--solidarity`}
-                aria-hidden
-              >
-                {formatProfileCount(publishRequestCount)}
-              </span>
-            ) : null}
-          </button>
+            {...(publishRequestCount > 0
+              ? {
+                  trailing: (
+                    <span
+                      className={`${osFloatingPanelCountClassName} os-floating-panel-count--solidarity`}
+                      aria-hidden
+                    >
+                      {formatProfileCount(publishRequestCount)}
+                    </span>
+                  ),
+                }
+              : {})}
+          />
         ) : null}
 
         {showOwnerTools ? (
-          <button
-            type="button"
-            className="os-surface-row"
+          <OsSurfaceRow
+            label="Transfer hub"
+            description="Hand ownership to another account"
             onClick={() => openSheet('transfer')}
-          >
-            <span className="os-surface-row-copy">
-              <span className="os-surface-row-label">Transfer hub</span>
-              <span className="os-surface-row-description">
-                Hand ownership to another account
-              </span>
-            </span>
-          </button>
+          />
         ) : null}
-      </nav>
-    </GlassSheet>
+      </OsSurfaceRowList>
+    </OsHugSheet>
   );
 }

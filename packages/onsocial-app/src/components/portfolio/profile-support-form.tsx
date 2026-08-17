@@ -2,16 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AmountField,
+  AmountFieldMetaRow,
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
-import { TokenIcon } from '@/components/ui/token-icon';
+  TokenIcon,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useSocialTokenIcon } from '@/hooks/use-social-token-icon';
 import { accountIdsEqual } from '@/lib/account-match';
-import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
+import { finalizeAmountInput } from '@/lib/amount-input';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { displayName } from '@/lib/profile-display';
@@ -115,12 +117,8 @@ export function ProfileSupportForm({
 
   const applyAmountInput = useCallback(
     (raw: string) => {
-      const normalized = normalizeAmountInput(
-        raw,
-        SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
-      );
       setAmountInput(
-        clampSocialSpendAmountInput(normalized, {
+        clampSocialSpendAmountInput(raw, {
           balanceYocto: walletBalanceYocto,
         })
       );
@@ -322,59 +320,30 @@ export function ProfileSupportForm({
         void handleSubmit();
       }}
     >
-      <div className="app-storage-amount-field profile-support-amount-field">
-        <input
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={amountInput}
-          onChange={(event) => applyAmountInput(event.target.value)}
-          onBlur={() =>
-            applyAmountInput(
-              finalizeAmountInput(
-                amountInput,
-                SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS
-              )
-            )
-          }
-          placeholder={amountHint}
-          aria-label="Amount in SOCIAL"
-          aria-invalid={Boolean(amountError)}
-          className="app-storage-amount-input"
-          disabled={pending}
-        />
-        <span className="account-card-balance-unit profile-support-token-unit">
-          <TokenIcon src={socialIcon} label="SOCIAL" />
-          SOCIAL
-        </span>
-      </div>
+      <AmountField
+        value={amountInput}
+        onValueChange={applyAmountInput}
+        maxDecimals={SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS}
+        placeholder={amountHint}
+        aria-label="Amount in SOCIAL"
+        invalid={Boolean(amountError)}
+        unit="SOCIAL"
+        unitIcon={<TokenIcon src={socialIcon} label="SOCIAL" />}
+        disabled={pending}
+      />
 
-      <div className="profile-support-quick-row">
-        <div
-          className="app-storage-presets profile-support-presets"
-          role="group"
-          aria-label="Quick amounts"
-        >
-          {presets.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              className={`os-surface-chip${
-                normalizedAmount === preset ? ' is-selected' : ''
-              }`}
-              disabled={pending}
-              onClick={() => applyAmountInput(preset)}
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-        {walletBalanceYocto != null ? (
-          <p className="profile-support-balance">
-            {formatSocialCompact(walletBalanceYocto.toString())} available
-          </p>
-        ) : null}
-      </div>
+      <AmountFieldMetaRow
+        tone="support"
+        presets={presets}
+        selectedValue={normalizedAmount}
+        onSelectPreset={applyAmountInput}
+        disabled={pending}
+        meta={
+          walletBalanceYocto != null
+            ? `${formatSocialCompact(walletBalanceYocto.toString())} available`
+            : null
+        }
+      />
 
       <div className="profile-support-outcome">
         {routingActive && outcomeSplit ? (

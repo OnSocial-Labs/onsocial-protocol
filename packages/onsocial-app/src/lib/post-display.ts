@@ -140,13 +140,55 @@ export function parsePostCollectionEmbed(
   return null;
 }
 
+/** Token embed for post-minted / non-collection resale announces. */
+export interface PostTokenEmbed {
+  kind: 'token';
+  chain: string;
+  contract: string;
+  tokenId: string;
+}
+
+export function parsePostTokenEmbed(value: string): PostTokenEmbed | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as { embeds?: unknown };
+    if (!Array.isArray(parsed.embeds)) return null;
+
+    for (const entry of parsed.embeds) {
+      if (!entry || typeof entry !== 'object') continue;
+      const embed = entry as Record<string, unknown>;
+      if (embed.kind !== 'token') continue;
+      if (typeof embed.chain !== 'string' || !embed.chain.trim()) continue;
+      if (typeof embed.contract !== 'string' || !embed.contract.trim()) {
+        continue;
+      }
+      if (typeof embed.tokenId !== 'string' || !embed.tokenId.trim()) continue;
+      return {
+        kind: 'token',
+        chain: embed.chain.trim(),
+        contract: embed.contract.trim(),
+        tokenId: embed.tokenId.trim(),
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 /** Optional first-paint snapshot under `x.onsocial.drop`. */
 export interface DropPaintSnapshot {
-  collectionId: string;
+  /** Present for Drop announces; omitted for token-only (`s:`) resales. */
+  collectionId?: string;
   tokenId?: string;
   title?: string;
   mediaUrl?: string;
   mediumKind?: string;
+  /** Original mint post path for See original. */
+  sourcePostPath?: string;
 }
 
 export function parseDropPaintSnapshot(
@@ -162,16 +204,15 @@ export function parseDropPaintSnapshot(
     const drop = parsed.x?.onsocial?.drop;
     if (!drop || typeof drop !== 'object' || Array.isArray(drop)) return null;
     const record = drop as Record<string, unknown>;
-    if (
-      typeof record.collectionId !== 'string' ||
-      !record.collectionId.trim()
-    ) {
-      return null;
-    }
+    const collectionId =
+      typeof record.collectionId === 'string' && record.collectionId.trim()
+        ? record.collectionId.trim()
+        : undefined;
     const tokenId =
       typeof record.tokenId === 'string' && record.tokenId.trim()
         ? record.tokenId.trim()
         : undefined;
+    if (!collectionId && !tokenId) return null;
     const title =
       typeof record.title === 'string' && record.title.trim()
         ? record.title.trim()
@@ -186,24 +227,32 @@ export function parseDropPaintSnapshot(
       typeof record.mediumKind === 'string' && record.mediumKind.trim()
         ? record.mediumKind.trim().toLowerCase()
         : undefined;
+    const sourcePostPath =
+      typeof record.sourcePostPath === 'string' && record.sourcePostPath.trim()
+        ? record.sourcePostPath.trim()
+        : undefined;
     return {
-      collectionId: record.collectionId.trim(),
+      ...(collectionId ? { collectionId } : {}),
       ...(tokenId ? { tokenId } : {}),
       ...(title ? { title } : {}),
       ...(mediaUrl ? { mediaUrl } : {}),
       ...(mediumKind ? { mediumKind } : {}),
+      ...(sourcePostPath ? { sourcePostPath } : {}),
     };
   } catch {
     return null;
   }
 }
 
+/** Fixed locale so SSR and the browser never disagree on month/day order. */
+const POST_TIMESTAMP_LOCALE = 'en-US';
+
 export function formatPostTimestamp(blockTimestamp: number | string): string {
   const date = resolvePostDate(blockTimestamp);
   if (!date) return 'Unknown time';
 
   // Always include the year — clearer on thread roots than “Jul 15, 4:12 PM”.
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(POST_TIMESTAMP_LOCALE, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -263,7 +312,7 @@ export function formatRelativePostTimestamp(
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(POST_TIMESTAMP_LOCALE, {
     month: 'short',
     day: 'numeric',
     ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}),

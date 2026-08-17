@@ -639,6 +639,15 @@ export class ScarcesFromPostApi {
         ...(base.image ? { image: base.image } : {}),
         ...(base.royalty ? { royalty: base.royalty } : {}),
         ...(base.appId ? { appId: base.appId } : {}),
+        ...(base.creator ? { creator: base.creator } : {}),
+        ...(base.cardBg ? { cardBg: base.cardBg } : {}),
+        ...(base.cardFormat ? { cardFormat: base.cardFormat } : {}),
+        ...(base.cardPalette ? { cardPalette: base.cardPalette } : {}),
+        ...(base.cardFont ? { cardFont: base.cardFont } : {}),
+        ...(base.cardMarkColor ? { cardMarkColor: base.cardMarkColor } : {}),
+        ...(base.cardMarkShape ? { cardMarkShape: base.cardMarkShape } : {}),
+        ...(base.cardTitleAlign ? { cardTitleAlign: base.cardTitleAlign } : {}),
+        ...(base.cardPhotoCid ? { cardPhotoCid: base.cardPhotoCid } : {}),
         ...(opts.transferable != null
           ? { transferable: opts.transferable }
           : {}),

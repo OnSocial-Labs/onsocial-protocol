@@ -1,10 +1,12 @@
 import { cache } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { parsePostText } from '@/lib/post-display';
 import { collectionIdFromTokenId } from '@/features/market/market-listings';
 import { marketMediumLabel } from '@/features/market/market-medium';
 import { holdingsHrefForOwned } from '@/lib/portfolio-holdings';
+import { APP_COLLECTIBLES_PATH } from '@/lib/app-routes';
 
 export const PAGE_DRAWER_POST_PEEK = 3;
 /** Public Created rail — recent editions this account minted. */
@@ -16,6 +18,8 @@ export interface ProfilePostPeek {
   text: string;
   blockTimestamp: number;
   kind: string | null;
+  contentWarning?: string;
+  nsfw?: boolean;
 }
 
 /** Minted-by peek for the public Created drawer section. */
@@ -125,12 +129,14 @@ function sourcePostPathFromScarceRow(row: ScarceMintRow): string | undefined {
 }
 
 export function toProfilePostPeek(post: PostRow): ProfilePostPeek {
+  const labels = parsePostContentLabels(post.value);
   return {
     accountId: post.accountId,
     postId: post.postId,
     text: truncatePeekText(parsePostText(post.value)),
     blockTimestamp: Number(post.blockTimestamp) || 0,
     kind: post.kind && post.kind !== 'text' ? post.kind : null,
+    ...labels,
   };
 }
 
@@ -146,11 +152,12 @@ export function toProfileCreatedPeek(
     title: titleFromScarceRow(row),
     mediaUrl: mediaFromScarceRow(row),
     blockTimestamp: Number(row.blockTimestamp) || 0,
-    href: holdingsHrefForOwned({
-      tokenId,
-      collectionId: collectionIdFromTokenId(tokenId),
-      sourcePostPath: sourcePostPathFromScarceRow(row),
-    }),
+    href:
+      holdingsHrefForOwned({
+        tokenId,
+        collectionId: collectionIdFromTokenId(tokenId),
+        sourcePostPath: sourcePostPathFromScarceRow(row),
+      }) ?? APP_COLLECTIBLES_PATH,
     kindLabel: kindFromScarceRow(row),
   };
 }
@@ -166,7 +173,14 @@ export const fetchProfilePostPeeks = cache(
         author: accountId,
         limit,
       });
-      return page.items.map(toProfilePostPeek).filter((post) => post.text);
+      return page.items
+        .map(toProfilePostPeek)
+        .filter(
+          (post) =>
+            Boolean(post.text) ||
+            Boolean(post.nsfw) ||
+            Boolean(post.contentWarning)
+        );
     } catch {
       return [];
     }

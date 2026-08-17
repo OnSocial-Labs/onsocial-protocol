@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Divider, GlassSheet, useScrollLock } from '@onsocial/ui';
 import {
   AccountActionList,
   AccountSessionChip,
@@ -10,7 +10,9 @@ import {
 } from '@/components/wallet/account-card-parts';
 import { AccountDrawerChrome } from '@/components/wallet/account-drawer-chrome';
 import { AppProfileEditorSheet } from '@/components/wallet/app-profile-editor-sheet';
+import { AppSocialSwapSheet } from '@/components/wallet/app-social-swap-sheet';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
+import { MuteBlockListsSheet } from '@/components/wallet/mute-block-lists-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
@@ -20,7 +22,7 @@ import {
 } from '@/contexts/portfolio-profile-seed-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { ACCOUNT_SHEET_PEEK_RATIO } from '@/lib/account-sheet-config';
 import { accountSheetPageMoodPanel } from '@/lib/account-sheet-page-mood';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -58,9 +60,12 @@ export function AppAccountSheet({
   const profileSeed = usePortfolioProfileSeed(accountId ?? '');
   const patchProfileSeed = usePortfolioProfileSeedPatch();
   const viewerShell = useViewerProfileShellContext();
+  const { safeMode, toggleSafeMode } = useViewerSafeMode();
   const [closing, setClosing] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [muteBlockOpen, setMuteBlockOpen] = useState(false);
   const [storageRefreshKey, setStorageRefreshKey] = useState(0);
   const [editorSession, setEditorSession] = useState(0);
   const [identityOverrides, setIdentityOverrides] = useState<
@@ -68,13 +73,23 @@ export function AppAccountSheet({
   >({});
   const pendingCustomizeRef = useRef(false);
   const autoResumeAttemptedRef = useRef<string | null>(null);
+  const editorOpenRef = useRef(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const sheetOpen = open && !closing;
+  useLayoutEffect(() => {
+    editorOpenRef.current = editorOpen;
+  }, [editorOpen]);
+
+  const sheetOpen = open && !closing && !editorOpen;
 
   // Re-attempt session restore when the drawer opens (same as page-load bootstrap).
   useEffect(() => {
-    if (!sheetOpen || !accountId || hasSocialSession || isBootstrappingSession) {
+    if (
+      !sheetOpen ||
+      !accountId ||
+      hasSocialSession ||
+      isBootstrappingSession
+    ) {
       return;
     }
     if (autoResumeAttemptedRef.current === accountId) return;
@@ -91,8 +106,15 @@ export function AppAccountSheet({
   useEffect(() => {
     if (!accountId) autoResumeAttemptedRef.current = null;
   }, [accountId]);
-  const editorSheetOpen = editorOpen && open;
+  /*
+   * Edit profile is an OS page (portaled into the phone card). The wallet is a
+   * GlassSheet on document.body — keeping both open stacks the drawer on top
+   * of the page. Hide the drawer while editing; keep editorOpen independent so
+   * dismissing the wallet does not unmount the page.
+   */
+  const editorSheetOpen = editorOpen;
   const storageSheetOpen = storageOpen && open;
+  const swapSheetOpen = swapOpen && open;
   const platformStorage = usePlatformStorageSummary(
     accountId,
     sheetOpen,
@@ -120,8 +142,12 @@ export function AppAccountSheet({
 
   const handleSheetClosed = useCallback(() => {
     setClosing(false);
-    setEditorOpen(false);
     setStorageOpen(false);
+    setSwapOpen(false);
+    setMuteBlockOpen(false);
+    if (editorOpenRef.current) {
+      return;
+    }
     onClose();
 
     if (pendingCustomizeRef.current) {
@@ -150,6 +176,10 @@ export function AppAccountSheet({
     setEditorOpen(true);
   }, []);
 
+  const handleMutedBlocked = useCallback(() => {
+    setMuteBlockOpen(true);
+  }, []);
+
   const handleEditorBack = useCallback(() => {
     setEditorOpen(false);
   }, []);
@@ -162,8 +192,16 @@ export function AppAccountSheet({
     setStorageOpen(true);
   }, []);
 
+  const handleOpenSwap = useCallback(() => {
+    setSwapOpen(true);
+  }, []);
+
   const handleStorageBack = useCallback(() => {
     setStorageOpen(false);
+  }, []);
+
+  const handleSwapBack = useCallback(() => {
+    setSwapOpen(false);
   }, []);
 
   const handleStorageChanged = useCallback(() => {
@@ -224,6 +262,7 @@ export function AppAccountSheet({
         onClose={requestClose}
         onClosed={handleSheetClosed}
         tone="os"
+        sizing="hug"
         initialDetent="full"
         peekRatio={ACCOUNT_SHEET_PEEK_RATIO}
         zIndex={55}
@@ -258,6 +297,7 @@ export function AppAccountSheet({
           <AccountWalletZone
             enabled={sheetOpen}
             onOpenStorage={handleOpenStorage}
+            onOpenSwap={handleOpenSwap}
             platformStorageLoading={platformStorage.loading}
             platformStorageError={platformStorage.error}
             platformStorageSummary={platformStorage.summary}
@@ -271,6 +311,9 @@ export function AppAccountSheet({
             onClose={requestClose}
             onEditProfile={handleEditProfile}
             onCustomize={isOwnerOnPage ? handleCustomize : undefined}
+            onMutedBlocked={handleMutedBlocked}
+            safeMode={safeMode}
+            onToggleSafeMode={toggleSafeMode}
           />
 
           <AccountShortcutDock
@@ -286,7 +329,6 @@ export function AppAccountSheet({
         open={editorSheetOpen}
         sessionKey={editorSession}
         accountId={accountId}
-        pageAccountId={pageAccountId}
         onBack={handleEditorBack}
         onClose={handleEditorClose}
         onSaved={handleProfileSaved}
@@ -300,6 +342,17 @@ export function AppAccountSheet({
         refreshKey={storageRefreshKey}
         onClose={handleStorageBack}
         onStorageChanged={handleStorageChanged}
+      />
+
+      <AppSocialSwapSheet
+        open={swapSheetOpen}
+        panelStyle={accountPanelStyle}
+        onClose={handleSwapBack}
+      />
+
+      <MuteBlockListsSheet
+        open={muteBlockOpen && open}
+        onClose={() => setMuteBlockOpen(false)}
       />
     </>
   );

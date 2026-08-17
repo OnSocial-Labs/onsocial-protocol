@@ -1,16 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { StandingToggle } from '@/components/ui/standing-toggle';
+import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
-import { overlayPath } from '@/lib/overlay-routes';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -47,6 +46,7 @@ export function PageDrawerGestures({
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding(pageAccountId);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [endorseOpen, setEndorseOpen] = useState(false);
 
   const isSelf =
     Boolean(viewerAccountId) &&
@@ -57,7 +57,6 @@ export function PageDrawerGestures({
   }
 
   const label = displayName(pageAccountId, profileName ?? undefined);
-  const endorsementsHref = overlayPath(pageAccountId, 'endorsements');
 
   const dockClassName = `page-drawer-gestures${
     dockHidden ? ' is-hidden' : ''
@@ -147,18 +146,18 @@ export function PageDrawerGestures({
               ·
             </span>
 
-            <Link
-              href={endorsementsHref}
-              scroll={false}
+            <button
+              type="button"
               className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
               aria-label={`Endorse ${label}`}
               tabIndex={dockHidden ? -1 : undefined}
+              onClick={() => setEndorseOpen(true)}
             >
               <span className="signal-group signal-group-endorse" aria-hidden>
                 <ProtocolMotionArrow className="signal-metric-arrow" />
               </span>
               Endorse
-            </Link>
+            </button>
 
             <span className="portfolio-identity-gesture-sep" aria-hidden>
               ·
@@ -182,6 +181,14 @@ export function PageDrawerGestures({
           </div>
         )}
       </div>
+      <EndorseComposeSheet
+        open={endorseOpen}
+        pageAccountId={pageAccountId}
+        profileName={profileName}
+        avatarUrl={avatarUrl}
+        mood={mood}
+        onOpenChange={setEndorseOpen}
+      />
       <ProfileSupportSheet
         open={supportOpen}
         pageAccountId={pageAccountId}

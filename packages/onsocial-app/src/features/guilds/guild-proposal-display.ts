@@ -221,6 +221,60 @@ function isChainGeneratedCopy(value: string | null | undefined): boolean {
   );
 }
 
+function readGroupUpdateFields(proposal: Proposal): {
+  updateType: string | null;
+  targetAccountId: string | null;
+  reason: string | null;
+} {
+  const nested = readProposalDataRecord(proposal, 'GroupUpdate', 'group_update');
+  const nestedType =
+    typeof nested?.update_type === 'string' ? nested.update_type.trim() : '';
+  const nestedTarget =
+    typeof nested?.target_user === 'string' ? nested.target_user.trim() : '';
+  const nestedReason =
+    typeof nested?.reason === 'string' ? nested.reason.trim() : '';
+
+  const directType =
+    typeof proposal.data.update_type === 'string'
+      ? proposal.data.update_type.trim()
+      : '';
+  const directTarget =
+    typeof proposal.data.target_user === 'string'
+      ? proposal.data.target_user.trim()
+      : typeof proposal.target === 'string'
+        ? proposal.target.trim()
+        : '';
+  const directReason =
+    typeof proposal.data.reason === 'string'
+      ? proposal.data.reason.trim()
+      : '';
+
+  const typeFromProposal =
+    proposal.type === 'group_update_ban'
+      ? 'ban'
+      : proposal.type === 'group_update_unban'
+        ? 'unban'
+        : proposal.type === 'group_update_remove_member'
+          ? 'remove_member'
+          : proposal.type === 'group_update_transfer_ownership'
+            ? 'transfer_ownership'
+            : proposal.type === 'group_update_metadata'
+              ? 'metadata'
+              : null;
+
+  return {
+    updateType: nestedType || directType || typeFromProposal,
+    targetAccountId: nestedTarget || directTarget || null,
+    reason:
+      nestedReason ||
+      directReason ||
+      (typeof proposal.description === 'string'
+        ? proposal.description.trim()
+        : '') ||
+      null,
+  };
+}
+
 export function guildProposalPresentation(
   proposal: Proposal
 ): GuildProposalPresentation {
@@ -310,6 +364,41 @@ export function guildProposalPresentation(
     };
   }
 
+  const groupUpdate = readGroupUpdateFields(proposal);
+  if (
+    proposal.type === 'group_update_ban' ||
+    proposal.type === 'group_update_unban' ||
+    groupUpdate.updateType === 'ban' ||
+    groupUpdate.updateType === 'unban'
+  ) {
+    const isBan =
+      proposal.type === 'group_update_ban' || groupUpdate.updateType === 'ban';
+    const targetAccountId = groupUpdate.targetAccountId;
+    const name = targetAccountId ? fallbackLabel(targetAccountId) : null;
+    const cleanedReason =
+      groupUpdate.reason && !isChainGeneratedCopy(groupUpdate.reason)
+        ? groupUpdate.reason
+        : null;
+
+    return {
+      kind: isBan ? 'Ban' : 'Unban',
+      kindTone: 'access',
+      headline: name
+        ? isBan
+          ? `Ban ${name}`
+          : `Unban ${name}`
+        : isBan
+          ? 'Ban member'
+          : 'Unban member',
+      targetAccountId,
+      targetLabel: name,
+      roleLabel: null,
+      detail: cleanedReason,
+      proposerLabel,
+      suppressDescription: true,
+    };
+  }
+
   if (
     proposal.type === 'group_update_metadata' ||
     proposal.type === 'group_update'
@@ -373,6 +462,10 @@ function proposalTypeKind(type: string): string {
     case 'path_permission_grant':
     case 'path_permission_revoke':
       return 'Room';
+    case 'group_update_ban':
+      return 'Ban';
+    case 'group_update_unban':
+      return 'Unban';
     case 'group_update_metadata':
     case 'group_update':
       return 'Update';
@@ -398,6 +491,8 @@ function proposalKindTone(
     case 'member_invite':
     case 'path_permission_grant':
     case 'path_permission_revoke':
+    case 'group_update_ban':
+    case 'group_update_unban':
       return 'access';
     case 'voting_config_change':
     case 'transfer_ownership':
@@ -418,6 +513,10 @@ function guildProposalFallbackTitle(proposal: Proposal): string {
       return 'Allow room sharing';
     case 'path_permission_revoke':
       return 'Remove room sharing';
+    case 'group_update_ban':
+      return 'Ban member';
+    case 'group_update_unban':
+      return 'Unban member';
     case 'group_update_metadata':
     case 'group_update':
       return 'Update guild settings';
@@ -518,9 +617,13 @@ export function guildProposalOutcome(
           ? `${resolvedPresentation.roleLabel} role applied`
           : resolvedPresentation.kind === 'Room'
             ? 'Room access applied'
-            : resolvedPresentation.kind === 'Update'
-              ? 'Guild updated'
-              : 'Approved and applied',
+            : resolvedPresentation.kind === 'Ban'
+              ? 'Ban applied'
+              : resolvedPresentation.kind === 'Unban'
+                ? 'Unban applied'
+                : resolvedPresentation.kind === 'Update'
+                  ? 'Guild updated'
+                  : 'Approved and applied',
         isTerminal: true,
       };
     case 'rejected':

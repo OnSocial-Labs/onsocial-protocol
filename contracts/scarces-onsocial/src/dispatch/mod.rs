@@ -39,6 +39,9 @@ impl Contract {
             | Action::ResumeCollection { .. }
             | Action::SetAllowlist { .. }
             | Action::RemoveFromAllowlist { .. }
+            | Action::AddRedeemer { .. }
+            | Action::RemoveRedeemer { .. }
+            | Action::SetRedeemers { .. }
             | Action::SetCollectionMetadata { .. }
             | Action::SetCollectionAppMetadata { .. }
             | Action::WithdrawUnclaimedRefunds { .. } => {

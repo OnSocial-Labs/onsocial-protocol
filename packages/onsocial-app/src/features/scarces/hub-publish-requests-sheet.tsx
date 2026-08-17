@@ -1,18 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
-  MultiplyIcon,
-  ProfileAvatar,
-  SheetCloseButton,
+  OsFieldRemove,
+  OsHugSheet,
 } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@onsocial/ui';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -27,9 +29,7 @@ import {
 } from '@/features/scarces/store-publish-requests';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
   txToastError,
@@ -56,7 +56,7 @@ function formatRequestedWhen(ms: number): string {
 }
 
 /**
- * Staff inbox for hub publish access — GlassSheet, standing-style rows.
+ * Staff inbox for hub publish access — standing-style rows.
  * Approve → on-chain grant. Decline → staff-owned social decision note.
  */
 export function HubPublishRequestsSheet({
@@ -66,7 +66,6 @@ export function HubPublishRequestsSheet({
   onClose,
   onChanged,
 }: HubPublishRequestsSheetProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [inbox, setInbox] = useState<StorePublishRequest[] | null>(null);
   const [pendingAction, setPendingAction] = useState<{
@@ -88,8 +87,6 @@ export function HubPublishRequestsSheet({
         .join('|'),
     [approvedCreatorIds]
   );
-
-  useScrollLock(open || closing);
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -226,49 +223,27 @@ export function HubPublishRequestsSheet({
   );
   const profiles = usePostAuthorProfiles(requesterIds);
 
+  const subtitle =
+    inbox == null
+      ? 'Loading…'
+      : inbox.length === 0
+        ? 'No pending requests'
+        : `${inbox.length} waiting for approval`;
+
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
+      label="Publish requests"
+      copy={subtitle}
+      closeAriaLabel="Close publish requests"
+      backdropLabel="Close publish requests"
+      zIndex={58}
       initialDetent="peek"
       peekRatio={1}
-      zIndex={58}
-      presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel="Close publish requests"
       panelClassName="hub-manage-sheet-panel hub-manage-sheet-panel--hug hub-publish-requests-sheet-panel"
       bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Publish requests
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {inbox == null
-                      ? 'Loading…'
-                      : inbox.length === 0
-                        ? 'No pending requests'
-                        : `${inbox.length} waiting for approval`}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close publish requests"
-                />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       {loadError ? (
         <p className="hub-manage-hint is-danger">{loadError}</p>
@@ -280,8 +255,10 @@ export function HubPublishRequestsSheet({
         <div className="standing-list">
           {inbox.map((request, index) => {
             const profile = profiles[request.requesterId];
-            const name = profile?.displayName?.trim() || null;
-            const label = name || `@${fallbackLabel(request.requesterId)}`;
+            const { label } = standingIdentityLabel(
+              request.requesterId,
+              profile?.displayName
+            );
             const when = formatRequestedWhen(request.requestedAt);
             const busyApprove =
               pendingAction?.requesterId === request.requesterId &&
@@ -298,33 +275,17 @@ export function HubPublishRequestsSheet({
                     className="standing-row-main"
                     scroll={false}
                   >
-                    <ProfileAvatar
-                      src={profile?.avatarUrl ?? null}
-                      fallbackInitial={name || request.requesterId}
-                      size="lg"
-                      className="standing-row-avatar-slot"
-                    />
-                    <div className="standing-row-copy">
-                      <span className="standing-row-head">
-                        <span className="standing-row-name-row">
-                          <span className="standing-row-name">{label}</span>
-                        </span>
-                        {name ? (
-                          <span className="standing-row-handle">
-                            @{fallbackLabel(request.requesterId)}
-                          </span>
-                        ) : null}
+                    <StandingIdentity
+                      accountId={request.requesterId}
+                      profileName={profile?.displayName}
+                      avatarUrl={profile?.avatarUrl}
+                    >
+                      <span className="standing-row-bio">
+                        {request.message
+                          ? request.message
+                          : 'Wants publishing access'}
                       </span>
-                      {request.message ? (
-                        <span className="standing-row-bio">
-                          {request.message}
-                        </span>
-                      ) : (
-                        <span className="standing-row-bio">
-                          Wants publishing access
-                        </span>
-                      )}
-                    </div>
+                    </StandingIdentity>
                   </Link>
                   <div className="standing-row-aside">
                     {when ? (
@@ -336,22 +297,16 @@ export function HubPublishRequestsSheet({
                       borderless
                       className="hub-publish-request-actions"
                     >
-                      <OsSheetAction
-                        type="button"
+                      <OsFieldRemove
+                        standalone={false}
                         variant="danger"
                         ready={!pendingAction}
                         pending={busyDecline}
                         pendingLabel="Declining…"
                         disabled={Boolean(pendingAction)}
                         aria-label={`Decline request from ${label}`}
-                        className="hub-publish-request-dismiss"
                         onClick={() => void declineRequest(request)}
-                      >
-                        <MultiplyIcon
-                          className="hub-publish-request-dismiss-icon"
-                          aria-hidden
-                        />
-                      </OsSheetAction>
+                      />
                       <OsSheetAction
                         type="button"
                         variant="primary"
@@ -360,9 +315,7 @@ export function HubPublishRequestsSheet({
                         pendingLabel="Approving…"
                         disabled={Boolean(pendingAction)}
                         aria-label={`Approve ${label}`}
-                        onClick={() =>
-                          void approveRequest(request.requesterId)
-                        }
+                        onClick={() => void approveRequest(request.requesterId)}
                       >
                         Approve
                       </OsSheetAction>
@@ -374,6 +327,6 @@ export function HubPublishRequestsSheet({
           })}
         </div>
       )}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

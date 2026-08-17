@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
+  commerceFooterStatesEqual,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
@@ -12,7 +12,6 @@ import {
   ScarceOfferForm,
   type ScarceOfferSuccessDetail,
 } from '@/features/scarces/scarce-offer-form';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 export interface ScarceOfferListing {
@@ -58,8 +57,6 @@ export function ScarceOfferSheet({
     if (open) setFormKey((key) => key + 1);
   }
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -71,42 +68,30 @@ export function ScarceOfferSheet({
 
   const handleFooterStateChange = useCallback(
     (state: CommerceSheetFooterState | null) => {
-      setFooterState(state);
+      setFooterState((prev) =>
+        commerceFooterStatesEqual(prev, state) ? prev : state
+      );
     },
     []
   );
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-      panelStyle={panelStyle}
-      zIndex={56}
-      ariaLabelledBy={titleId}
+      verb="Offer"
+      personName={name}
+      handle={handle}
+      signal="reputation"
+      whisper="Offer NEAR for this scarce. Owner accepts when ready."
+      closeAriaLabel="Close offer scarce"
       backdropLabel="Close offer scarce"
+      keyboardOpen={keyboardOpen}
+      panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Offer"
-            personName={name}
-            handle={handle}
-            signal="reputation"
-            closeAriaLabel="Close offer scarce"
-            onClose={requestClose}
-            whisper="Offer NEAR for this scarce. Owner accepts when ready."
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -135,6 +120,6 @@ export function ScarceOfferSheet({
           }}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

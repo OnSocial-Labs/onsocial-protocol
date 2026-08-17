@@ -1,4 +1,7 @@
-import type { PlatformRewardAction, PlatformRewardCreditEvent } from '@onsocial/sdk';
+import type {
+  PlatformRewardAction,
+  PlatformRewardCreditEvent,
+} from '@onsocial/sdk';
 import { displayName } from '@/lib/profile-display';
 
 /** Window to merge nearby credits into one burst (stand + daily + mutual). */
@@ -23,7 +26,9 @@ export function resolveBurstAggregateDelayMs(
   return APP_REWARD_BURST_AGGREGATE_MS;
 }
 
-export function isSocialStandBatchAction(action: PlatformRewardAction): boolean {
+export function isSocialStandBatchAction(
+  action: PlatformRewardAction
+): boolean {
   return SOCIAL_STAND_BATCH_ACTIONS.has(action);
 }
 
@@ -110,14 +115,10 @@ export function resolveBurstDisplayAmount(
   );
 }
 
-/** Daily alone never gets its own pill — it rides with the social action batch. */
+/** Celebrate any positive credit, including a lone daily check-in (once per day). */
 export function shouldShowBurstCelebration(
   events: PlatformRewardCreditEvent[]
 ): boolean {
-  if (events.length === 1 && events[0].action === 'daily_active') {
-    return false;
-  }
-
   return resolveBurstDisplayAmount(events) > 0n;
 }
 

@@ -99,35 +99,51 @@ export function usePostScarceEmbed(
     void client.scarces.fromPost
       .embed({ author, postId })
       .then(async (embed) => {
-        // Indexer events omit sourcePost for lazy listings, so embed often
-        // returns `none` while Market still shows a live contract listing.
         let resolved = embed;
-        if (!isActivelyListed(embed)) {
-          const live = await findLiveListingForPost(author, author, postId);
-          if (live?.listingId) {
+        // Prefer a still-live primary lazy mint over a secondary list/auction
+        // event (e.g. holder resale of an earlier edition from this post).
+        const livePrimary = await findLiveListingForPost(
+          author,
+          author,
+          postId
+        );
+        const primaryLive =
+          livePrimary?.listingId &&
+          (livePrimary.remaining == null || livePrimary.remaining > 0);
+
+        if (primaryLive) {
+          const { tokenId: _secondaryToken, ...withoutToken } = embed;
+          resolved = {
+            ...withoutToken,
+            status: 'lazy_listing',
+            listingId: livePrimary.listingId,
+            priceNear: livePrimary.priceNear,
+            ...(livePrimary.mediaUrl ? { mediaUrl: livePrimary.mediaUrl } : {}),
+            ...(livePrimary.cardBg ? { cardBg: livePrimary.cardBg } : {}),
+            ...(livePrimary.copies != null
+              ? { copies: livePrimary.copies }
+              : {}),
+            ...(livePrimary.remaining != null
+              ? { remaining: livePrimary.remaining }
+              : {}),
+          };
+        } else if (!isActivelyListed(embed)) {
+          if (livePrimary?.listingId) {
             resolved = {
               ...embed,
               status: 'lazy_listing',
-              listingId: live.listingId,
-              priceNear: live.priceNear,
-              ...(live.mediaUrl ? { mediaUrl: live.mediaUrl } : {}),
-              ...(live.cardBg ? { cardBg: live.cardBg } : {}),
-              ...(live.copies != null ? { copies: live.copies } : {}),
-              ...(live.remaining != null ? { remaining: live.remaining } : {}),
-            };
-          }
-        } else if (embed.status === 'lazy_listing') {
-          // Refresh remaining from live state after multi-copy purchases.
-          const live = await findLiveListingForPost(author, author, postId);
-          if (live?.listingId) {
-            resolved = {
-              ...embed,
-              listingId: live.listingId,
-              priceNear: live.priceNear ?? embed.priceNear,
-              ...(live.mediaUrl ? { mediaUrl: live.mediaUrl } : {}),
-              ...(live.cardBg ? { cardBg: live.cardBg } : {}),
-              ...(live.copies != null ? { copies: live.copies } : {}),
-              ...(live.remaining != null ? { remaining: live.remaining } : {}),
+              listingId: livePrimary.listingId,
+              priceNear: livePrimary.priceNear,
+              ...(livePrimary.mediaUrl
+                ? { mediaUrl: livePrimary.mediaUrl }
+                : {}),
+              ...(livePrimary.cardBg ? { cardBg: livePrimary.cardBg } : {}),
+              ...(livePrimary.copies != null
+                ? { copies: livePrimary.copies }
+                : {}),
+              ...(livePrimary.remaining != null
+                ? { remaining: livePrimary.remaining }
+                : {}),
             };
           }
         } else if (

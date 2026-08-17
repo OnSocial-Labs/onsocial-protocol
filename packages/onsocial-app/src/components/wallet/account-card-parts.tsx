@@ -5,11 +5,13 @@ import {
   Divider,
   ExternalLinkIcon,
   LogoutIcon,
-  ProtocolMotionArrow,
+  OsSurfaceRow,
+  OsSurfaceRowList,
   PulsingDots,
   QuestionMarkCircleIcon,
   RepeatIcon,
   SearchIcon,
+  type OsSurfaceRowLinkProps,
 } from '@onsocial/ui';
 import Link from 'next/link';
 import { APP_DISCOVER_PATH } from '@/lib/app-routes';
@@ -36,6 +38,18 @@ import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import type { PlatformStorageSummary } from '@/lib/platform-storage-display';
 import { storageManageIsHighlighted } from '@/lib/user-storage-display';
 
+function AccountSurfaceRowLink({
+  href,
+  className,
+  onClick,
+  children,
+}: OsSurfaceRowLinkProps) {
+  return (
+    <Link href={href} className={className} onClick={onClick}>
+      {children}
+    </Link>
+  );
+}
 interface AccountSessionChipProps {
   isBootstrapping: boolean;
   onResume: () => void;
@@ -179,6 +193,7 @@ export function AccountClaimMetricRow({
 interface AccountWalletZoneProps {
   enabled: boolean;
   onOpenStorage?: () => void;
+  onOpenSwap?: () => void;
   platformStorageLoading?: boolean;
   platformStorageError?: string | null;
   platformStorageSummary?: PlatformStorageSummary | null;
@@ -188,6 +203,7 @@ interface AccountWalletZoneProps {
 export function AccountWalletZone({
   enabled,
   onOpenStorage,
+  onOpenSwap,
   platformStorageLoading = false,
   platformStorageError = null,
   platformStorageSummary = null,
@@ -265,6 +281,16 @@ export function AccountWalletZone({
         </div>
 
         <div className="account-wallet-balance-accessories">
+          {onOpenSwap ? (
+            <button
+              type="button"
+              className="account-wallet-get-social"
+              onClick={onOpenSwap}
+              aria-label="Get SOCIAL"
+            >
+              Get
+            </button>
+          ) : null}
           <button
             type="button"
             className={`account-wallet-accessory${socialHelpOpen ? ' is-active' : ''}`}
@@ -325,54 +351,16 @@ function AccountActionRow({
   onClick,
   showArrow = true,
 }: AccountActionRowProps) {
-  const rowClass = [
-    'os-surface-row',
-    showArrow ? 'os-surface-row--navigate' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const content = (
-    <>
-      <span className="os-surface-row-copy">
-        <span className="os-surface-row-label">{label}</span>
-        {hint ? (
-          <span className="os-surface-row-description">{hint}</span>
-        ) : null}
-      </span>
-      {showArrow ? (
-        <ProtocolMotionArrow className="account-card-action-arrow" />
-      ) : (
-        <ExternalLinkIcon
-          className="account-card-action-external"
-          aria-hidden
-        />
-      )}
-    </>
-  );
-
-  if (href) {
-    return external ? (
-      <a
-        className={rowClass}
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        onClick={onClick}
-      >
-        {content}
-      </a>
-    ) : (
-      <Link className={rowClass} href={href} onClick={onClick}>
-        {content}
-      </Link>
-    );
-  }
-
   return (
-    <button type="button" className={rowClass} onClick={onClick}>
-      {content}
-    </button>
+    <OsSurfaceRow
+      label={label}
+      description={hint}
+      href={href}
+      external={external}
+      onClick={onClick}
+      trailing={showArrow ? 'navigate' : 'external'}
+      linkComponent={AccountSurfaceRowLink}
+    />
   );
 }
 
@@ -438,6 +426,9 @@ interface AccountActionListProps {
   onClose: () => void;
   onEditProfile: () => void;
   onCustomize?: () => void;
+  onMutedBlocked?: () => void;
+  safeMode?: boolean;
+  onToggleSafeMode?: () => void;
 }
 
 /** Primary account actions — compact list rows (tertiary links live in AccountShortcutDock). */
@@ -447,13 +438,16 @@ export function AccountActionList({
   onClose,
   onEditProfile,
   onCustomize,
+  onMutedBlocked,
+  safeMode,
+  onToggleSafeMode,
 }: AccountActionListProps) {
   const showCustomize = isOwnerOnPage && Boolean(onCustomize);
 
   const rows: AccountActionRowProps[] = [
     {
       label: 'Edit profile',
-      hint: 'Name, bio, tags, links',
+      hint: 'Name, photo, bio, links',
       onClick: onEditProfile,
     },
     ...(showCustomize
@@ -462,6 +456,15 @@ export function AccountActionList({
             label: 'Customize page',
             hint: 'Mood, layout, media',
             onClick: onCustomize,
+          },
+        ]
+      : []),
+    ...(onMutedBlocked
+      ? [
+          {
+            label: 'Muted & blocked',
+            hint: 'Hide accounts from your feeds',
+            onClick: onMutedBlocked,
           },
         ]
       : []),
@@ -477,13 +480,33 @@ export function AccountActionList({
   ];
 
   return (
-    <nav
-      className="os-surface-row-list account-action-list"
+    <OsSurfaceRowList
+      className="account-action-list"
       aria-label="Account actions"
     >
       {rows.map((row) => (
         <AccountActionRow key={row.label} {...row} />
       ))}
-    </nav>
+      {onToggleSafeMode != null && safeMode != null ? (
+        <button
+          type="button"
+          className="os-surface-row account-safe-mode-row"
+          role="switch"
+          aria-checked={safeMode}
+          onClick={onToggleSafeMode}
+        >
+          <span className="os-surface-row-copy">
+            <span className="os-surface-row-label">Safe mode</span>
+            <span className="os-surface-row-description">
+              Hide NSFW and content warnings until you reveal them
+            </span>
+          </span>
+          <span
+            className={`account-safe-mode-switch${safeMode ? ' is-on' : ''}`}
+            aria-hidden
+          />
+        </button>
+      ) : null}
+    </OsSurfaceRowList>
   );
 }

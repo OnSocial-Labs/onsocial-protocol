@@ -1,24 +1,32 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ProfileAvatar } from '@onsocial/ui';
+import { AmountField, AmountFieldMetaRow } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
-import type { OwnedScarceItem } from '@/features/market/market-listings';
+import {
+  collectionIdFromTokenId,
+  fetchScarceListingMeta,
+  type OwnedScarceItem,
+  type ScarcePlayableMedia,
+} from '@/features/market/market-listings';
 import {
   useSyncCommerceSheetFooter,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
-import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
+import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
+import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
+import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
+import { accountIdsEqual } from '@/lib/account-match';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { personalPostPath } from '@/lib/post-routes';
-import { fallbackLabel } from '@/lib/profile-display';
+import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
 import {
   txToastConfirming,
   txToastError,
@@ -26,13 +34,10 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-function sourcePostCoords(
-  path: string | undefined
-): { author: string; postId: string } | null {
+function sourcePostAuthor(path: string | undefined): string | null {
   if (!path?.trim()) return null;
   const match = path.trim().match(/^(.+)\/post\/(.+)$/);
-  if (!match?.[1] || !match[2]) return null;
-  return { author: match[1], postId: match[2] };
+  return match?.[1]?.trim() || null;
 }
 
 const NEAR_INPUT_DECIMALS = 5;
@@ -59,6 +64,8 @@ export interface ScarceSellSuccessDetail {
 interface ScarceSellFormProps {
   item: OwnedScarceItem;
   formId: string;
+  /** Listing seller — usually the connected owner. */
+  sellerAccountId?: string | null;
   onSuccess?: (detail: ScarceSellSuccessDetail) => void;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
@@ -67,10 +74,15 @@ interface ScarceSellFormProps {
 export function ScarceSellForm({
   item,
   formId,
+  sellerAccountId = null,
   onSuccess,
   onFooterStateChange,
 }: ScarceSellFormProps) {
-  const { isConnected, getSigningWallet } = useAppWallet();
+  const {
+    accountId: viewerAccountId,
+    isConnected,
+    getSigningWallet,
+  } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const onAmountFocus = useMobileFieldFocusScroll<HTMLInputElement>();
   const [mode, setMode] = useState<SellMode>('fixed');
@@ -82,19 +94,71 @@ export function ScarceSellForm({
   const [durationNs, setDurationNs] = useState<number>(24 * NS_PER_HOUR);
   const [pending, setPending] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
-  const sourcePost = sourcePostCoords(item.sourcePostPath);
-  const sourcePostHref = sourcePost
-    ? personalPostPath(sourcePost.author, sourcePost.postId)
-    : null;
-  const sourceHandle = sourcePost ? fallbackLabel(sourcePost.author) : null;
-  const [sourceAuthorName, setSourceAuthorName] = useState<string | null>(null);
-  const [sourceAvatarUrl, setSourceAvatarUrl] = useState<string | null>(null);
+  const authorFromPost = sourcePostAuthor(item.sourcePostPath);
+  const sellerId =
+    sellerAccountId?.trim() ||
+    item.ownerId?.trim() ||
+    viewerAccountId?.trim() ||
+    null;
+  const sourcePostHref =
+    item.postHref?.trim() ||
+    postHrefFromSourcePath(item.sourcePostPath) ||
+    null;
+  const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
+  const [authorProfileName, setAuthorProfileName] = useState<string | null>(
+    null
+  );
+  const [authorAvatarUrl, setAuthorAvatarUrl] = useState<string | null>(null);
+  const [sellerProfileName, setSellerProfileName] = useState<string | null>(
+    null
+  );
+  const [sellerAvatarUrl, setSellerAvatarUrl] = useState<string | null>(null);
+  const [hydratedPlayable, setHydratedPlayable] =
+    useState<ScarcePlayableMedia | null>(null);
+  const [hydratedPlayables, setHydratedPlayables] = useState<
+    ScarcePlayableMedia[] | null
+  >(null);
+
+  const collectionId =
+    item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
 
   useEffect(() => {
-    const author = sourcePost?.author?.trim();
+    if (authorFromPost) {
+      setHydratedArtistId(null);
+      return;
+    }
+    const id = collectionId?.trim();
+    if (!id) {
+      setHydratedArtistId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await fetchCollectionPreferIndexer(id);
+        if (cancelled) return;
+        setHydratedArtistId(view?.creatorId?.trim() || null);
+      } catch {
+        if (!cancelled) setHydratedArtistId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authorFromPost, collectionId]);
+
+  // Fall back to seller so party lines never blank while creator hydrates.
+  const authorId = authorFromPost || hydratedArtistId || sellerId;
+  const showDistinctSeller =
+    Boolean(sellerId) &&
+    Boolean(authorId) &&
+    !accountIdsEqual(sellerId!, authorId!);
+
+  useEffect(() => {
+    const author = authorId?.trim();
     if (!author) {
-      setSourceAuthorName(null);
-      setSourceAvatarUrl(null);
+      setAuthorProfileName(null);
+      setAuthorAvatarUrl(null);
       return;
     }
     let cancelled = false;
@@ -103,26 +167,70 @@ export function ScarceSellForm({
         const client = createReadOnlyOnSocialClient();
         const profile = await client.profiles.get(author);
         if (cancelled) return;
-        setSourceAuthorName(profile?.name?.trim() || null);
-        setSourceAvatarUrl(
+        setAuthorProfileName(profile?.name?.trim() || null);
+        setAuthorAvatarUrl(
           profile ? client.profiles.avatarUrl(profile) : null
         );
       } catch {
         if (!cancelled) {
-          setSourceAuthorName(null);
-          setSourceAvatarUrl(null);
+          setAuthorProfileName(null);
+          setAuthorAvatarUrl(null);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sourcePost?.author]);
+  }, [authorId]);
 
-  const sourceDisplayName = sourceAuthorName?.trim() || null;
-  const sourceNameIsCustom =
-    Boolean(sourceDisplayName) &&
-    sourceDisplayName!.toLowerCase() !== sourceHandle?.toLowerCase();
+  useEffect(() => {
+    if (!showDistinctSeller || !sellerId?.trim()) {
+      setSellerProfileName(null);
+      setSellerAvatarUrl(null);
+      return;
+    }
+    const accountId = sellerId.trim();
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const profile = await client.profiles.get(accountId);
+        if (cancelled) return;
+        setSellerProfileName(profile?.name?.trim() || null);
+        setSellerAvatarUrl(
+          profile ? client.profiles.avatarUrl(profile) : null
+        );
+      } catch {
+        if (!cancelled) {
+          setSellerProfileName(null);
+          setSellerAvatarUrl(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showDistinctSeller, sellerId]);
+
+  useEffect(() => {
+    if (item.playable && item.playables?.length) return;
+    const tokenId = item.tokenId?.trim();
+    if (!tokenId) return;
+    let cancelled = false;
+    void (async () => {
+      const meta = await fetchScarceListingMeta({ tokenId });
+      if (cancelled || !meta) return;
+      if (!item.playable && meta.playable) {
+        setHydratedPlayable(meta.playable);
+      }
+      if (!item.playables?.length && meta.playables?.length) {
+        setHydratedPlayables(meta.playables);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [item.playable, item.playables, item.tokenId]);
 
   const applyAmountInput = useCallback((raw: string) => {
     setAmountInput(normalizeAmountInput(raw, NEAR_INPUT_DECIMALS));
@@ -295,6 +403,12 @@ export function ScarceSellForm({
     }
   }
 
+  const title = item.title?.trim() || 'Scarce';
+  const mediaUrl = item.mediaUrl?.trim() || null;
+  const resolvedPlayable = item.playable ?? hydratedPlayable;
+  const resolvedPlayables =
+    item.playables ?? hydratedPlayables ?? undefined;
+
   return (
     <form
       id={formId}
@@ -304,57 +418,52 @@ export function ScarceSellForm({
         void handleSubmit();
       }}
     >
-      <div className="market-listing-row scarce-sell-preview">
-        <div
-          className={`market-listing-thumb${item.mediaUrl ? ' has-media' : ''}`}
-          aria-hidden
-        >
-          {item.mediaUrl ? (
-            <img src={item.mediaUrl} alt="" />
-          ) : (
-            <span className="market-listing-thumb-fallback" />
-          )}
-        </div>
-        <div className="market-listing-copy">
-          <p className="market-listing-title">{item.title}</p>
-          <p className="market-listing-meta">
-            <span className="market-listing-own">{item.tokenId}</span>
-            {sourcePostHref && sourceHandle ? (
-              <>
-                <span className="market-listing-own">{' · Author '}</span>
-                <Link
-                  href={sourcePostHref}
-                  scroll={false}
-                  className="scarce-sell-from-author"
-                >
-                  <ProfileAvatar
-                    src={sourceAvatarUrl}
-                    size="sm"
-                    className="scarce-sell-from-avatar"
-                  />
-                  {sourceNameIsCustom ? (
-                    <>
-                      <span className="scarce-sell-from-name">
-                        {sourceDisplayName}
-                      </span>
-                      <span className="scarce-sell-from-handle">
-                        @{sourceHandle}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="scarce-sell-from-name">
-                      @{sourceHandle}
-                    </span>
-                  )}
-                </Link>
-              </>
-            ) : null}
-          </p>
-        </div>
+      {/* Same cover plane as Buy — persist keeps album playback continuous. */}
+      {resolvedPlayable ? (
+        <ScarceClipPlayer
+          key={resolvedPlayable.url}
+          clip={resolvedPlayable}
+          {...(resolvedPlayables?.length
+            ? { tracks: resolvedPlayables }
+            : {})}
+          poster={mediaUrl}
+          commerce
+          {...(collectionId
+            ? {
+                persist: {
+                  collectionId,
+                  title,
+                },
+                creatorId: authorId,
+              }
+            : {})}
+        />
+      ) : mediaUrl ? (
+        <ScarceBuyCover src={mediaUrl} label={title} />
+      ) : null}
+
+      <div className="scarce-buy-summary">
+        <p className="scarce-buy-title">{title}</p>
+        {authorId ? (
+          <ScarcePartyLine
+            label="Author"
+            accountId={authorId}
+            displayNameValue={authorProfileName}
+            avatarUrl={authorAvatarUrl}
+          />
+        ) : null}
+        {showDistinctSeller && sellerId ? (
+          <ScarcePartyLine
+            label="Seller"
+            accountId={sellerId}
+            displayNameValue={sellerProfileName}
+            avatarUrl={sellerAvatarUrl}
+          />
+        ) : null}
       </div>
 
       <ScarceProvenanceCopy
-        title={item.title}
+        title={title}
         description={item.description}
         postHref={sourcePostHref}
         sourcePostPath={item.sourcePostPath}
@@ -388,77 +497,41 @@ export function ScarceSellForm({
       ) : (
         <p className="scarce-mood-picker-label">Price</p>
       )}
-      <div className="app-storage-amount-field profile-support-amount-field">
-        <input
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={amountInput}
-          onChange={(event) => applyAmountInput(event.target.value)}
-          onFocus={onAmountFocus}
-          onBlur={() =>
-            applyAmountInput(
-              finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-            )
-          }
-          placeholder={MIN_PRICE_NEAR}
-          aria-label={mode === 'auction' ? 'Reserve in NEAR' : 'Price in NEAR'}
-          aria-invalid={Boolean(amountError)}
-          className="app-storage-amount-input"
-          disabled={pending}
-        />
-        <span className="account-card-balance-unit profile-support-token-unit">
-          NEAR
-        </span>
-      </div>
+      <AmountField
+        value={amountInput}
+        onValueChange={applyAmountInput}
+        maxDecimals={NEAR_INPUT_DECIMALS}
+        onFocus={onAmountFocus}
+        placeholder={MIN_PRICE_NEAR}
+        aria-label={mode === 'auction' ? 'Reserve in NEAR' : 'Price in NEAR'}
+        invalid={Boolean(amountError)}
+        unit="NEAR"
+        disabled={pending}
+      />
 
-      <div className="profile-support-quick-row">
-        <div
-          className="app-storage-presets"
-          role="group"
-          aria-label={mode === 'auction' ? 'Quick reserves' : 'Quick prices'}
-        >
-          {PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              className={`os-surface-chip${
-                normalizedAmount === preset ? ' is-selected' : ''
-              }`}
-              disabled={pending}
-              onClick={() => applyAmountInput(preset)}
-            >
-              {preset}
-            </button>
-          ))}
-        </div>
-      </div>
+      <AmountFieldMetaRow
+        presets={PRESETS}
+        selectedValue={normalizedAmount}
+        onSelectPreset={applyAmountInput}
+        presetsAriaLabel={
+          mode === 'auction' ? 'Quick reserves' : 'Quick prices'
+        }
+        disabled={pending}
+      />
 
       {mode === 'auction' ? (
         <>
           <p className="scarce-mood-picker-label">Min bid step</p>
-          <div className="app-storage-amount-field profile-support-amount-field">
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={incrementInput}
-              onChange={(event) => applyIncrementInput(event.target.value)}
-              onFocus={onAmountFocus}
-              onBlur={() =>
-                applyIncrementInput(
-                  finalizeAmountInput(incrementInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="0.1"
-              aria-label="Minimum bid increment in NEAR"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              NEAR
-            </span>
-          </div>
+          <AmountField
+            value={incrementInput}
+            onValueChange={applyIncrementInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            onFocus={onAmountFocus}
+            placeholder="0.1"
+            aria-label="Minimum bid increment in NEAR"
+            unit="NEAR"
+            disabled={pending}
+          />
           <div
             className="app-storage-presets"
             role="group"
@@ -501,28 +574,16 @@ export function ScarceSellForm({
           </div>
 
           <p className="scarce-mood-picker-label">Buy now (optional)</p>
-          <div className="app-storage-amount-field profile-support-amount-field">
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={buyNowInput}
-              onChange={(event) => applyBuyNowInput(event.target.value)}
-              onFocus={onAmountFocus}
-              onBlur={() =>
-                applyBuyNowInput(
-                  finalizeAmountInput(buyNowInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="Above reserve"
-              aria-label="Buy now price in NEAR"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              NEAR
-            </span>
-          </div>
+          <AmountField
+            value={buyNowInput}
+            onValueChange={applyBuyNowInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            onFocus={onAmountFocus}
+            placeholder="Above reserve"
+            aria-label="Buy now price in NEAR"
+            unit="NEAR"
+            disabled={pending}
+          />
           <p className="profile-support-hint">
             {normalizedBuyNow
               ? `Bid ≥ ${normalizedBuyNow} NEAR wins immediately · `
@@ -536,6 +597,8 @@ export function ScarceSellForm({
         <p className="app-error-text" role="alert">
           {fieldError ?? amountError ?? incrementError ?? buyNowError}
         </p>
+      ) : !isConnected ? (
+        <p className="profile-support-hint">Connect to list this scarce.</p>
       ) : null}
     </form>
   );

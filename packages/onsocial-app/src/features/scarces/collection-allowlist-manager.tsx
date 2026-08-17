@@ -11,20 +11,22 @@ import {
   type FocusEvent,
 } from 'react';
 import {
+  CollectionQtyStepper,
   Divider,
-  GlassSheet,
   MultiplyIcon,
+  OsFieldRemove,
+  OsHugSheet,
   ProfileAvatar,
   SearchField,
-  SheetHeader,
   UserPlusIcon,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import type { AllowlistEntry } from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
-import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
+} from '@onsocial/ui';
+import { StandingIdentity } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -37,8 +39,8 @@ import {
   parseAllowlistPaste,
 } from '@/features/scarces/collection-allowlist-parse';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { fetchAllowlistAllocation } from '@/features/scarces/collections-data';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import { viewAccount } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -81,9 +83,14 @@ interface SelectedFace {
   avatarUrl: string | null;
 }
 
-function saveLabel(count: number, pending: boolean, draft: boolean): string {
+function saveLabel(
+  count: number,
+  pending: boolean,
+  draft: boolean,
+  dirty: boolean
+): string {
   if (pending) return 'Saving…';
-  if (count === 0) return 'Select accounts';
+  if (!dirty) return draft ? 'Select accounts' : 'Done';
   if (draft) {
     if (count === 1) return 'Add 1 account';
     return `Add ${count} accounts`;
@@ -107,47 +114,6 @@ function accountsFromExtraData(extraData: string | null): string[] {
 }
 
 /** Same identity lines as Support / Sales drawers. */
-function standingAccountLabel(
-  accountId: string,
-  profileName?: string | null
-): { name: string | null; label: string; handle: string } {
-  const handle = fallbackLabel(accountId);
-  const name = profileName?.trim() || null;
-  return { name, label: name || `@${handle}`, handle };
-}
-
-function AllowlistStandingIdentity({
-  accountId,
-  profileName,
-  avatarUrl,
-}: {
-  accountId: string;
-  profileName?: string | null;
-  avatarUrl?: string | null;
-}) {
-  const { name, label, handle } = standingAccountLabel(accountId, profileName);
-  return (
-    <>
-      <ProfileAvatar
-        src={avatarUrl ?? null}
-        fallbackInitial={name || accountId}
-        size="lg"
-        className="standing-row-avatar-slot"
-      />
-      <span className="standing-row-copy">
-        <span className="standing-row-head">
-          <span className="standing-row-name-row">
-            <span className="standing-row-name">{label}</span>
-          </span>
-          {name ? (
-            <span className="standing-row-handle">@{handle}</span>
-          ) : null}
-        </span>
-      </span>
-    </>
-  );
-}
-
 function AllowlistAccountEditBody({
   face,
   capMax,
@@ -176,7 +142,7 @@ function AllowlistAccountEditBody({
         }`}
       >
         <div className="standing-row-main collection-allowlist-edit-main">
-          <AllowlistStandingIdentity
+          <StandingIdentity
             accountId={face.accountId}
             profileName={face.name}
             avatarUrl={face.avatarUrl}
@@ -195,31 +161,17 @@ function AllowlistAccountEditBody({
             increaseLabel="Increase mint cap"
             onChange={(next) => onSetCap(face.accountId, next)}
           />
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            borderless
-            className="hub-publish-request-actions drop-track-list-remove-actions"
-          >
-            <OsSheetAction
-              type="button"
-              variant="danger"
-              ready
-              aria-pressed={confirmingRemove}
-              aria-label={
-                confirmingRemove
-                  ? `Cancel remove @${handle}`
-                  : `Remove @${handle}`
-              }
-              className="hub-publish-request-dismiss"
-              onClick={onArmRemove}
-            >
-              <MultiplyIcon
-                className="hub-publish-request-dismiss-icon"
-                aria-hidden
-              />
-            </OsSheetAction>
-          </OsSheetActions>
+          <OsFieldRemove
+            variant="danger"
+            ready
+            aria-pressed={confirmingRemove}
+            aria-label={
+              confirmingRemove
+                ? `Cancel remove @${handle}`
+                : `Remove @${handle}`
+            }
+            onClick={onArmRemove}
+          />
         </div>
       </div>
     </div>
@@ -270,7 +222,6 @@ function CollectionAllowlistSheet({
   /** Before Opens the list gates minting; after Opens it does not. */
   earlyAccessActive?: boolean;
 }) {
-  const titleId = useId();
   const pasteId = useId();
   const editTitleId = useId();
   const { accountId: viewerId, getSigningWallet } = useAppWallet();
@@ -301,6 +252,7 @@ function CollectionAllowlistSheet({
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const confirmRemoveTimerRef = useRef<number | null>(null);
   const [recentAccounts, setRecentAccounts] = useState<string[]>([]);
+  const [listCaps, setListCaps] = useState<Record<string, number>>({});
   const [pending, setPending] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const initialEntriesRef = useRef(initialEntries);
@@ -311,7 +263,6 @@ function CollectionAllowlistSheet({
     initialEntriesRef.current = initialEntries;
   }, [initialEntries]);
 
-  useScrollLock(open || closing);
 
   const clearConfirmRemove = useCallback(() => {
     if (confirmRemoveTimerRef.current != null) {
@@ -370,6 +321,7 @@ function CollectionAllowlistSheet({
       setNote(null);
       setMembersLoading(false);
       setRecentAccounts([]);
+      setListCaps({});
       return;
     }
 
@@ -425,6 +377,7 @@ function CollectionAllowlistSheet({
     const liveCollectionId = collectionId?.trim();
     if (!liveCollectionId) {
       setRecentAccounts([]);
+      setListCaps({});
       return () => {
         cancelled = true;
       };
@@ -432,7 +385,7 @@ function CollectionAllowlistSheet({
 
     void client.query.scarces
       .collection(liveCollectionId, { limit: 80 })
-      .then((rows) => {
+      .then(async (rows) => {
         if (cancelled) return;
         const live = new Set<string>();
         for (const row of [...rows].reverse()) {
@@ -446,10 +399,26 @@ function CollectionAllowlistSheet({
             }
           }
         }
-        setRecentAccounts([...live].sort());
+        const candidates = [...live];
+        const caps: Record<string, number> = {};
+        await Promise.all(
+          candidates.map(async (id) => {
+            const allocation = await fetchAllowlistAllocation(
+              liveCollectionId,
+              id
+            );
+            if (allocation > 0) caps[id] = allocation;
+          })
+        );
+        if (cancelled) return;
+        setListCaps(caps);
+        setRecentAccounts(Object.keys(caps).sort());
       })
       .catch(() => {
-        if (!cancelled) setRecentAccounts([]);
+        if (!cancelled) {
+          setRecentAccounts([]);
+          setListCaps({});
+        }
       });
 
     return () => {
@@ -721,6 +690,21 @@ function CollectionAllowlistSheet({
     [clearConfirmRemove]
   );
 
+  /** Stage an on-list account (with live cap) and open the mint-cap editor. */
+  const openOnListEdit = useCallback(
+    (accountId: string) => {
+      const key = accountId.trim().toLowerCase();
+      if (!key) return;
+      const cap = listCaps[key] ?? 1;
+      if (!isSelected(key)) {
+        upsertAccount(key, cap);
+      }
+      setEditingAccountId(key);
+      setNote(null);
+    },
+    [isSelected, listCaps, upsertAccount]
+  );
+
   const confirmEditRemove = useCallback(() => {
     if (!editingAccountId) return;
     const onList = recentAccounts.some((id) =>
@@ -982,12 +966,24 @@ function CollectionAllowlistSheet({
 
   const selectedGuild = guilds.find((g) => g.groupId === selectedGuildId);
   const capMax = allowlistCapStepperMax(maxPerWallet);
-  const canSave = isDraft
-    ? !pasteBusy && mergedEntries.length <= ALLOWLIST_SAVE_MAX
-    : mergedEntries.length > 0 &&
-      mergedEntries.length <= ALLOWLIST_SAVE_MAX &&
-      !pending &&
-      !pasteBusy;
+  const stagedCount = mergedEntries.length;
+  const isDirty = stagedCount > 0;
+  const onListCount = recentAccounts.length;
+  const canPrimary = isDraft
+    ? isDirty && !pasteBusy && stagedCount <= ALLOWLIST_SAVE_MAX
+    : isDirty
+      ? stagedCount <= ALLOWLIST_SAVE_MAX && !pending && !pasteBusy
+      : !pending && !pasteBusy;
+  const headerPhase = isDraft
+    ? 'mint before Opens'
+    : earlyAccessActive
+      ? 'early access before Opens'
+      : 'public mint is open';
+  const headerCopy = isDirty
+    ? `${stagedCount}/${ALLOWLIST_SAVE_MAX} to save · ${headerPhase}`
+    : onListCount > 0
+      ? `${onListCount} on list · ${headerPhase}`
+      : `Empty · ${headerPhase}`;
   const showSources = !searchActive;
   const onListVisible = useMemo(
     () => recentAccounts.filter((id) => !isSelected(id)),
@@ -1014,43 +1010,41 @@ function CollectionAllowlistSheet({
       ? null
       : (selectedFaces.find((face) => face.accountId === editingAccountId) ??
         null);
+  const isOnList = useCallback(
+    (accountId: string) =>
+      recentAccounts.some((id) => accountIdsEqual(id, accountId)),
+    [recentAccounts]
+  );
   const visibleSearchProfiles = useMemo(
-    () => searchProfiles.filter((profile) => !isSelected(profile.accountId)),
-    [searchProfiles, isSelected]
+    () =>
+      searchProfiles.filter(
+        (profile) =>
+          !isSelected(profile.accountId) && !isOnList(profile.accountId)
+      ),
+    [searchProfiles, isSelected, isOnList]
+  );
+  const searchHitsAlreadyOnList = useMemo(
+    () =>
+      searchProfiles.filter(
+        (profile) =>
+          !isSelected(profile.accountId) && isOnList(profile.accountId)
+      ).length,
+    [searchProfiles, isSelected, isOnList]
   );
 
   return (
     <>
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={58}
-      ariaLabelledBy={titleId}
+      label="Allowlist"
+      copy={headerCopy}
+      closeAriaLabel="Close allowlist"
       backdropLabel="Close allowlist"
+      zIndex={58}
       panelClassName="collection-allowlist-sheet-panel"
       bodyClassName="collection-allowlist-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Allowlist"
-            subtitle={
-              isDraft
-                ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · mint before Opens`
-                : earlyAccessActive
-                  ? `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · early access before Opens`
-                  : `${mergedEntries.length}/${ALLOWLIST_SAVE_MAX} · public mint is open`
-            }
-            onClose={requestClose}
-            closeAriaLabel="Close allowlist"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         <div className="guild-add-member-footer">
           {note ? (
@@ -1075,15 +1069,20 @@ function CollectionAllowlistSheet({
             <OsSheetAction
               type="button"
               variant="primary"
-              ready={canSave}
-              disabled={!canSave}
+              ready={canPrimary}
+              disabled={!canPrimary}
               pending={!isDraft && pending}
               pendingLabel="Saving…"
               onClick={() => {
+                if (!isDirty) {
+                  if (isDraft) return;
+                  requestClose();
+                  return;
+                }
                 void handleSave();
               }}
             >
-              {saveLabel(mergedEntries.length, pending, isDraft)}
+              {saveLabel(stagedCount, pending, isDraft, isDirty)}
             </OsSheetAction>
           </OsSheetActions>
         </div>
@@ -1096,10 +1095,10 @@ function CollectionAllowlistSheet({
             setQuery(next);
             setNote(null);
           }}
-          placeholder="Search profiles"
+          placeholder="Search to add"
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
           clearAriaLabel="Clear profile search"
-          ariaLabel="Search profiles to allowlist"
+          ariaLabel="Search profiles to add to the allowlist"
           chrome="sheet"
           className="collection-allowlist-search"
           autoFocus
@@ -1196,7 +1195,9 @@ function CollectionAllowlistSheet({
             visibleSearchProfiles.length === 0 &&
             !searchError ? (
               <p className="guild-add-member-hint">
-                Added — keep typing to find more.
+                {searchHitsAlreadyOnList > 0
+                  ? 'Already on the list — edit from On list below.'
+                  : 'Added — keep typing to find more.'}
               </p>
             ) : null}
             {visibleSearchProfiles.length > 0 ? (
@@ -1223,7 +1224,7 @@ function CollectionAllowlistSheet({
                           })
                         }
                       >
-                        <AllowlistStandingIdentity
+                        <StandingIdentity
                           accountId={profile.accountId}
                           profileName={profile.name}
                           avatarUrl={profile.avatarUrl}
@@ -1255,17 +1256,35 @@ function CollectionAllowlistSheet({
                       accountId,
                       profile?.displayName || undefined
                     );
+                    const cap = listCaps[accountId.toLowerCase()];
                     return (
                       <li key={accountId} className="collection-allowlist-chip">
-                        <ProfileAvatar
-                          src={profile?.avatarUrl ?? null}
-                          fallbackInitial={name}
-                          size="sm"
-                          className="collection-allowlist-chip-avatar"
-                        />
-                        <span className="collection-allowlist-chip-label">
-                          @{fallbackLabel(accountId)}
-                        </span>
+                        <button
+                          type="button"
+                          className="collection-allowlist-chip-main"
+                          disabled={pending || pasteBusy}
+                          aria-label={
+                            cap != null
+                              ? `Edit @${fallbackLabel(accountId)}, mint cap ${cap}`
+                              : `Edit @${fallbackLabel(accountId)}`
+                          }
+                          onClick={() => openOnListEdit(accountId)}
+                        >
+                          <ProfileAvatar
+                            src={profile?.avatarUrl ?? null}
+                            fallbackInitial={name}
+                            size="sm"
+                            className="collection-allowlist-chip-avatar"
+                          />
+                          <span className="collection-allowlist-chip-label">
+                            @{fallbackLabel(accountId)}
+                          </span>
+                          {cap != null ? (
+                            <span className="collection-allowlist-chip-cap">
+                              {cap}
+                            </span>
+                          ) : null}
+                        </button>
                         <button
                           type="button"
                           className="collection-allowlist-chip-remove"
@@ -1376,7 +1395,7 @@ function CollectionAllowlistSheet({
                                         })
                                       }
                                     >
-                                      <AllowlistStandingIdentity
+                                      <StandingIdentity
                                         accountId={row.memberId}
                                         profileName={profile?.displayName}
                                         avatarUrl={profile?.avatarUrl}
@@ -1413,6 +1432,7 @@ function CollectionAllowlistSheet({
                   <label htmlFor={pasteId}>
                     <textarea
                       id={pasteId}
+                      className={osFieldBorderedClassName}
                       value={pasteText}
                       onChange={(event) => setPasteText(event.target.value)}
                       onPaste={handlePasteClipboard}
@@ -1432,33 +1452,19 @@ function CollectionAllowlistSheet({
           </div>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
 
-    <GlassSheet
+    <OsHugSheet
       open={editingFace != null}
       onClose={closeEditSheet}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={60}
-      ariaLabelledBy={editTitleId}
+      label="Mint cap"
+      {...(confirmingRemove ? { copy: 'Confirm removal' } : {})}
+      closeAriaLabel="Close mint cap"
       backdropLabel="Close account edit"
+      zIndex={60}
+      titleId={editTitleId}
       panelClassName="collection-allowlist-edit-sheet-panel"
       bodyClassName="collection-allowlist-edit-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={editTitleId}
-            title="Mint cap"
-            subtitle={
-              confirmingRemove ? 'Confirm removal' : undefined
-            }
-            onClose={closeEditSheet}
-            closeAriaLabel="Close mint cap"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         editingFace ? (
           <div className="guild-add-member-footer">
@@ -1488,7 +1494,7 @@ function CollectionAllowlistSheet({
           onArmRemove={armConfirmRemove}
         />
       ) : null}
-    </GlassSheet>
+    </OsHugSheet>
     </>
   );
 }
@@ -1503,28 +1509,38 @@ export function CollectionAllowlistManager({
   collectionId,
   creatorId,
   maxPerWallet = null,
+  hasList = false,
+  earlyAccessActive = true,
 }: {
   collectionId: string;
   creatorId: string;
   /** Drop max per wallet — allowlist caps cannot exceed this when set. */
   maxPerWallet?: number | null;
+  /** True when the drop already has allowlist entries. */
+  hasList?: boolean;
+  /** Before Opens the list gates minting. */
+  earlyAccessActive?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <button
-        type="button"
-        className="collection-allowlist-toggle"
-        onClick={() => setOpen(true)}
-      >
-        Allowlist
-      </button>
+      <div className="collection-reading-row">
+        <p className="collection-section-label">Allowlist</p>
+        <button
+          type="button"
+          className="collection-reading-open"
+          onClick={() => setOpen(true)}
+        >
+          {hasList ? 'Manage' : 'Add'}
+        </button>
+      </div>
       <CollectionAllowlistSheet
         open={open}
         collectionId={collectionId}
         creatorId={creatorId}
         maxPerWallet={maxPerWallet}
+        earlyAccessActive={earlyAccessActive}
         onClose={() => setOpen(false)}
       />
     </>

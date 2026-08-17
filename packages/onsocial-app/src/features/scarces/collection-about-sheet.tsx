@@ -4,34 +4,27 @@ import Link from 'next/link';
 import {
   useCallback,
   useEffect,
-  useId,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   ProtocolMotionArrow,
-  SheetHeader,
+} from '@onsocial/ui';
+import {
+  SheetFactCopy,
+  SheetFactRow,
+  SheetFactSection,
 } from '@onsocial/ui';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
-function MetaRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="guild-facts-row">
-      <span className="guild-facts-label">{label}</span>
-      <span className="guild-facts-value">{value}</span>
-    </div>
-  );
-}
-
 /**
- * One-line drop blurb. Shows an inline “more” only when the line truncates.
+ * One-line drop blurb. Shows an inline “…” only when the line truncates —
+ * same measure path as Buy.
  */
 export function CollectionAboutTeaser({
   text,
@@ -72,8 +65,9 @@ export function CollectionAboutTeaser({
           type="button"
           className="collection-about-read-more"
           onClick={onReadMore}
+          aria-label="Read more"
         >
-          more
+          …
         </button>
       ) : null}
     </div>
@@ -93,12 +87,9 @@ export function CollectionAboutSheet({
   onClose: () => void;
   view: CollectionView;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const description = view.description?.trim() ?? '';
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -118,31 +109,17 @@ export function CollectionAboutSheet({
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : null;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="About"
+      copy={view.title}
+      closeAriaLabel="Close about"
       backdropLabel="Close about"
+      zIndex={57}
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="About"
-            subtitle={view.title}
-            onClose={requestClose}
-            closeAriaLabel="Close about"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts collection-about-sheet">
         {description ? (
@@ -152,40 +129,37 @@ export function CollectionAboutSheet({
         {view.seriesId || createdAbs ? (
           <>
             {description ? <Divider variant="detail" /> : null}
-            <section className="guild-facts-section">
-              <h3 className="guild-facts-section-title">Details</h3>
-              <div className="guild-facts-section-rows">
-                {view.seriesId ? (
-                  <MetaRow
-                    label="Series"
-                    value={
-                      <Link
-                        href={seriesPagePath(view.creatorId, view.seriesId)}
-                        className="guild-facts-link group"
-                        scroll={false}
-                        onClick={requestClose}
-                      >
-                        <span className="guild-facts-link-label">
-                          {view.seriesTitle ?? view.seriesId}
-                        </span>
-                        <ProtocolMotionArrow className="guild-facts-link-arrow" />
-                      </Link>
-                    }
-                  />
-                ) : null}
-                {createdAbs ? (
-                  <>
-                    <MetaRow label="Created" value={createdAbs} />
-                    {createdRel && createdRel !== createdAbs ? (
-                      <p className="guild-facts-copy">{createdRel}</p>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            </section>
+            <SheetFactSection title="Details">
+              {view.seriesId ? (
+                <SheetFactRow
+                  label="Series"
+                  value={
+                    <Link
+                      href={seriesPagePath(view.creatorId, view.seriesId)}
+                      className="guild-facts-link group"
+                      scroll={false}
+                      onClick={requestClose}
+                    >
+                      <span className="guild-facts-link-label">
+                        {view.seriesTitle ?? view.seriesId}
+                      </span>
+                      <ProtocolMotionArrow className="guild-facts-link-arrow" />
+                    </Link>
+                  }
+                />
+              ) : null}
+              {createdAbs ? (
+                <>
+                  <SheetFactRow label="Created" value={createdAbs} />
+                  {createdRel && createdRel !== createdAbs ? (
+                    <SheetFactCopy>{createdRel}</SheetFactCopy>
+                  ) : null}
+                </>
+              ) : null}
+            </SheetFactSection>
           </>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

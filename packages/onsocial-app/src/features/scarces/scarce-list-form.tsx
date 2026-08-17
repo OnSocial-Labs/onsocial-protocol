@@ -17,6 +17,9 @@ import {
   type MoodKey,
 } from '@onsocial/text-card';
 import type { PostRow } from '@onsocial/sdk';
+import { osFieldBorderedClassName } from '@onsocial/ui';
+import { AmountField } from '@onsocial/ui';
+import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -245,6 +248,8 @@ interface ScarceListFormProps {
   authorName?: string | null;
   onSuccess?: (detail: ScarceListSuccessDetail) => void;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
+  /** Nested option / choice drawers above this list sheet. */
+  nestZIndex?: number;
 }
 
 export function ScarceListForm({
@@ -253,6 +258,7 @@ export function ScarceListForm({
   authorName = null,
   onSuccess,
   onFooterStateChange,
+  nestZIndex = 60,
 }: ScarceListFormProps) {
   const { accountId, isConnected, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -848,6 +854,10 @@ export function ScarceListForm({
                 post={post}
                 creatorDisplayName={authorName}
                 creatorAvatarUrl={creatorAvatarUrl}
+                disableLiveSvg={Boolean(
+                  coverPreviewUrl ||
+                    (mintPreviewUrl && usesGeneratedCard && !usesPhotoCard)
+                )}
                 {...(coverPreviewUrl && !usesPhotoCard
                   ? { mediaUrl: coverPreviewUrl }
                   : mintPreviewUrl && usesGeneratedCard && !usesPhotoCard
@@ -876,7 +886,7 @@ export function ScarceListForm({
 
       <div className="scarce-mood-picker-block">
         <div
-          className="app-storage-presets scarce-choice-chip-row"
+          className="app-storage-presets os-choice-chip-row"
           role="group"
           aria-label="Scarce options"
         >
@@ -885,6 +895,7 @@ export function ScarceListForm({
               label="Artwork"
               value={photoCardFormat}
               disabled={pending}
+              zIndex={nestZIndex}
               options={[
                 {
                   value: 'cover' as const,
@@ -921,6 +932,7 @@ export function ScarceListForm({
                   : videoCoverMode
               }
               disabled={pending || coverPending}
+              zIndex={nestZIndex}
               options={
                 showAudioCoverPicker ? AUDIO_COVER_OPTIONS : VIDEO_COVER_OPTIONS
               }
@@ -943,6 +955,7 @@ export function ScarceListForm({
               onChange={setCardTheme}
               disabled={pending}
               hasPhoto={usesPhotoCard}
+              zIndex={nestZIndex}
               formats={
                 usesPhotoCard
                   ? (['receipt', 'proof'] as const)
@@ -960,6 +973,7 @@ export function ScarceListForm({
             title={mintTitle}
             description={mintBody}
             disabled={pending}
+            zIndex={nestZIndex}
           />
         </div>
         {showMediaCoverPicker ? (
@@ -1076,18 +1090,16 @@ export function ScarceListForm({
       {commerceMode === 'drop' && !attachCollectionId ? (
         <div className="scarce-royalty-field">
           <p className="scarce-mood-picker-label">Series</p>
-          <div className="app-storage-amount-field profile-support-amount-field">
-            <input
-              type="text"
-              autoComplete="off"
-              value={seriesInput}
-              onChange={(event) => setSeriesInput(event.target.value)}
-              placeholder="Optional series name"
-              aria-label="Series name"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-          </div>
+          <input
+            type="text"
+            autoComplete="off"
+            value={seriesInput}
+            onChange={(event) => setSeriesInput(event.target.value)}
+            placeholder="Optional series name"
+            aria-label="Series name"
+            className={osFieldBorderedClassName}
+            disabled={pending}
+          />
           <p className="scarce-mood-picker-hint">
             Soft branding across Drops. Leave blank for a standalone Drop.
           </p>
@@ -1136,29 +1148,17 @@ export function ScarceListForm({
 
       <div className="scarce-royalty-field">
         <p className="scarce-mood-picker-label">Price</p>
-        <div className="app-storage-amount-field profile-support-amount-field">
-          <input
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            value={amountInput}
-            onChange={(event) => applyAmountInput(event.target.value)}
-            onFocus={onAmountFocus}
-            onBlur={() =>
-              applyAmountInput(
-                finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-              )
-            }
-            placeholder={MIN_PRICE_NEAR}
-            aria-label="Price in NEAR"
-            aria-invalid={Boolean(amountError)}
-            className="app-storage-amount-input"
-            disabled={pending}
-          />
-          <span className="account-card-balance-unit profile-support-token-unit">
-            NEAR
-          </span>
-        </div>
+        <AmountField
+          value={amountInput}
+          onValueChange={applyAmountInput}
+          maxDecimals={NEAR_INPUT_DECIMALS}
+          onFocus={onAmountFocus}
+          placeholder={MIN_PRICE_NEAR}
+          aria-label="Price in NEAR"
+          invalid={Boolean(amountError)}
+          unit="NEAR"
+          disabled={pending}
+        />
         <div
           className="app-storage-presets"
           role="group"
@@ -1215,33 +1215,26 @@ export function ScarceListForm({
           </button>
         </div>
         {isCustomCopies ? (
-          <div className="app-storage-amount-field profile-support-amount-field">
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              value={customCopiesInput}
-              onChange={(event) =>
-                setCustomCopiesInput((current) => {
-                  const next = event.target.value
-                    .replace(/[^\d]/g, '')
-                    .replace(/^0+(?=\d)/, '');
-                  if (!next) return '';
-                  const value = Number(next);
-                  return value >= MIN_COPIES && value <= MAX_COPIES
-                    ? next
-                    : current;
-                })
-              }
-              placeholder="1–100"
-              aria-label="Custom number of copies"
-              className="app-storage-amount-input"
-              disabled={pending}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              editions
-            </span>
-          </div>
+          <SuffixField
+            chrome="bordered"
+            value={customCopiesInput}
+            onValueChange={(value) =>
+              setCustomCopiesInput((current) => {
+                const next = value
+                  .replace(/[^\d]/g, '')
+                  .replace(/^0+(?=\d)/, '');
+                if (!next) return '';
+                const parsed = Number(next);
+                return parsed >= MIN_COPIES && parsed <= MAX_COPIES
+                  ? next
+                  : current;
+              })
+            }
+            placeholder="1–100"
+            aria-label="Custom number of copies"
+            suffix="editions"
+            disabled={pending}
+          />
         ) : null}
         <p className="profile-support-hint scarce-royalty-hint">
           {editionCount === 1
@@ -1260,7 +1253,7 @@ export function ScarceListForm({
         primaryAccountId={post.accountId}
         shares={royaltyShares}
         onSharesChange={setRoyaltyShares}
-        splitZIndex={62}
+        splitZIndex={nestZIndex}
         hint={`Keep first sales after 2%.${
           resolvedRoyaltyBps && resolvedRoyaltyBps > 0
             ? royaltyShares.length > 1

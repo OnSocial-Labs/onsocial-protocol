@@ -16,6 +16,7 @@ import {
   bootstrapAppSocialSession,
   restoreAppSocialSession,
 } from '@/lib/app-social-session';
+import { clearAppGatewayAuth } from '@/lib/app-gateway-auth';
 import { invalidateAppSocialSessionCache } from '@/lib/app-social-session-cache';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -323,9 +324,16 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
           throw new Error('Select a wallet account and try again.');
         }
 
+        const previousAccountId = accountId;
         setWallet(connectedWallet);
         setAccountId(nextAccountId);
         writeStoredWalletAccountId(nextAccountId);
+        if (
+          previousAccountId &&
+          previousAccountId.toLowerCase() !== nextAccountId.toLowerCase()
+        ) {
+          clearAppGatewayAuth(previousAccountId);
+        }
         await ensureSocialSession(nextAccountId);
       } finally {
         connector.off('wallet:signIn', captureSignIn);
@@ -341,18 +349,20 @@ export function AppWalletProvider({ children }: { children: ReactNode }) {
 
     connectPromiseRef.current = connectPromise;
     await connectPromise;
-  }, [ensureSocialSession, network]);
+  }, [accountId, ensureSocialSession, network]);
 
   const disconnect = useCallback(async () => {
     const connector = connectorRef.current;
     if (!connector) return;
+    const previousAccountId = accountId;
     await connector.disconnect();
     setWallet(null);
     setAccountId(null);
     setHasSocialSession(false);
     writeStoredWalletAccountId(null);
     invalidateAppSocialSessionCache();
-  }, []);
+    clearAppGatewayAuth(previousAccountId);
+  }, [accountId]);
 
   const getSigningWallet = useCallback(async (): Promise<SigningWallet> => {
     const connector = connectorRef.current;

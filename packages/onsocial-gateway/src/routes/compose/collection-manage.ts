@@ -18,9 +18,13 @@ import {
   buildWithdrawUnclaimedRefundsAction,
   buildSetAllowlistAction,
   buildRemoveFromAllowlistAction,
+  buildAddRedeemerAction,
+  buildRemoveRedeemerAction,
+  buildSetRedeemersAction,
   buildSetCollectionMetadataAction,
   buildSetCollectionAppMetadataAction,
 } from '../../services/compose/collection-manage.js';
+import { ComposeError } from '../../services/compose/shared.js';
 
 export const collectionManageRouter = Router();
 
@@ -189,6 +193,43 @@ const removeAl = actionHandlers(
   'remove-from-allowlist'
 );
 collectionManageRouter.post('/prepare/remove-from-allowlist', removeAl.prepare);
+
+// ── Add Redeemer (door staff) ───────────────────────────────────────────────
+const addRedeemer = actionHandlers(
+  (b) =>
+    buildAddRedeemerAction({
+      collectionId: String(b.collectionId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'add-redeemer'
+);
+collectionManageRouter.post('/prepare/add-redeemer', addRedeemer.prepare);
+
+// ── Remove Redeemer ─────────────────────────────────────────────────────────
+const removeRedeemer = actionHandlers(
+  (b) =>
+    buildRemoveRedeemerAction({
+      collectionId: String(b.collectionId || ''),
+      accountId: String(b.accountId || ''),
+      targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+    }),
+  'remove-redeemer'
+);
+collectionManageRouter.post('/prepare/remove-redeemer', removeRedeemer.prepare);
+
+// ── Set Redeemers (door staff roster replace) ───────────────────────────────
+const setRedeemers = actionHandlers((b) => {
+  if (!Array.isArray(b.accountIds)) {
+    throw new ComposeError(400, 'accountIds array is required');
+  }
+  return buildSetRedeemersAction({
+    collectionId: String(b.collectionId || ''),
+    accountIds: b.accountIds.map((id) => String(id)),
+    targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
+  });
+}, 'set-redeemers');
+collectionManageRouter.post('/prepare/set-redeemers', setRedeemers.prepare);
 
 // ── Set Collection Metadata ─────────────────────────────────────────────────
 const setMeta = actionHandlers(

@@ -167,6 +167,14 @@ export interface StandingV1 {
   expiresAt?: number;
 }
 
+// ── Block ──────────────────────────────────────────────────────────────────
+
+/** Hard account block edge — same shape as standing. */
+export interface BlockV1 {
+  v: 1;
+  since: number;
+}
+
 // ── Group config ───────────────────────────────────────────────────────────
 
 export interface GroupConfigV1 {
@@ -549,6 +557,13 @@ export function validateStandingV1(s: unknown): string | null {
   return null;
 }
 
+export function validateBlockV1(b: unknown): string | null {
+  if (!isPlainObj(b)) return 'block must be an object';
+  if (b.v !== SCHEMA_VERSION) return `block.v must be ${SCHEMA_VERSION}`;
+  if (!isNum(b.since)) return 'block.since required';
+  return null;
+}
+
 export function validateGroupConfigV1(g: unknown): string | null {
   if (!isPlainObj(g)) return 'group config must be an object';
   if (g.v !== SCHEMA_VERSION) return `group.v must be ${SCHEMA_VERSION}`;
@@ -594,6 +609,10 @@ export function assertReactionV1(r: unknown): asserts r is ReactionV1 {
 export function assertStandingV1(s: unknown): asserts s is StandingV1 {
   const e = validateStandingV1(s);
   if (e) throw new Error(`StandingV1: ${e}`);
+}
+export function assertBlockV1(b: unknown): asserts b is BlockV1 {
+  const e = validateBlockV1(b);
+  if (e) throw new Error(`BlockV1: ${e}`);
 }
 export function assertGroupConfigV1(g: unknown): asserts g is GroupConfigV1 {
   const e = validateGroupConfigV1(g);
@@ -642,6 +661,16 @@ export function standingV1(
   };
   if (input.since !== undefined) out.since = input.since;
   assertStandingV1(out);
+  return out;
+}
+export function blockV1(
+  input: Omit<BlockV1, 'v' | 'since'> & { since?: number } = {}
+): BlockV1 {
+  const out: BlockV1 = {
+    v: SCHEMA_VERSION,
+    since: input.since ?? Date.now(),
+  };
+  assertBlockV1(out);
   return out;
 }
 export function groupConfigV1(input: Omit<GroupConfigV1, 'v'>): GroupConfigV1 {

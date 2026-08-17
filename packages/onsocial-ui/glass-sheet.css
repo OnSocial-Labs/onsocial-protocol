@@ -54,7 +54,7 @@
 }
 
 .glass-sheet-root.is-visible.glass-sheet-root--enter .glass-sheet-backdrop {
-  animation: glass-sheet-backdrop-enter 220ms ease;
+  animation: glass-sheet-backdrop-enter 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .glass-sheet-panel {
@@ -67,11 +67,13 @@
   );
   --glass-header-scrim-top: 0.74;
   --glass-header-scrim-mid: 0.52;
-  --glass-header-scrim-height: min(12.5rem, 34%);
+  /* Compact top landing — standing/full sheets were min(12.5rem) and felt heavy. */
+  --glass-header-scrim-height: min(5.5rem, 24%);
   position: relative;
   display: flex;
   width: 100%;
-  max-width: 36rem;
+  /* Match OS column (host sets --os-column-width; fallback 36rem). */
+  max-width: var(--os-column-width, 36rem);
   height: min(100dvh, 720px);
   flex-direction: column;
   overflow: hidden;
@@ -83,6 +85,30 @@
   box-shadow: var(--glass-shadow, none);
   transform: translateY(100%);
   transition: transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/*
+ * Content-hug: open to what’s needed, grow with content, cap at 90dvh.
+ * Prefer `sizing="hug"` on GlassSheet over per-panel height:auto overrides.
+ */
+.glass-sheet-panel[data-sizing='hug'] {
+  height: auto;
+  max-height: min(90dvh, 720px);
+}
+
+.glass-sheet-panel[data-sizing='hug'] > .glass-sheet-body {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+/*
+ * Default hug body inset — same 1.15rem column as SheetHeader.
+ * OsHugSheet and OsGestureSheet apply `.os-hug-sheet-body`; raw GlassSheet
+ * hosts should add `osHugSheetBodyClassName`. Flush / safe-area / keyboard
+ * bodies override padding on their bodyClassName (app CSS loads later).
+ */
+.os-hug-sheet-body {
+  padding: 0.15rem 1.15rem 1.35rem;
 }
 
 /*
@@ -186,8 +212,8 @@
 }
 
 @media (min-width: 768px) {
-  /* Desktop: full-height sheet — peek/drag is mobile-only. */
-  .glass-sheet-panel.is-open {
+  /* Desktop rests full-height; drag still updates --sheet-y while pulling. */
+  .glass-sheet-panel.is-open:not(.is-dragging) {
     --sheet-y: 0px;
   }
 }
@@ -287,8 +313,8 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-height: 21px;
-  padding: 10px 0 6px;
+  min-height: 1rem;
+  padding: 0.35rem 0 0.12rem;
   cursor: grab;
   touch-action: none;
 }
@@ -300,31 +326,64 @@
 .glass-sheet-grip {
   display: block;
   flex: 0 0 auto;
-  width: 40px;
-  height: 5px;
+  width: 2.25rem;
+  height: 0.1875rem;
   border-radius: 9999px;
-  background: var(--glass-sheet-accent, rgb(var(--fg-rgb) / 0.22));
-  opacity: 0.55;
+  background: var(--glass-sheet-accent, rgb(var(--fg-rgb) / 0.28));
+  opacity: 0.4;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    background 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .glass-sheet-drag:hover .glass-sheet-grip {
+    opacity: 0.65;
+  }
+}
+
+.glass-sheet-drag:active .glass-sheet-grip {
+  opacity: 0.8;
+  transform: scaleX(1.05);
 }
 
 .glass-sheet-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   padding: 0 1.15rem 0.75rem;
 }
 
 .glass-sheet-header-copy {
   min-width: 0;
+  width: 100%;
+}
+
+.glass-sheet-header-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .glass-sheet-header-title {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  /* First line mid aligns with ✕ mid inside the 2.75rem hit target. */
+  padding-top: calc((2.75rem - 1.2em) / 2);
+}
+
+.glass-sheet-header-title-row > .glass-sheet-icon-action {
+  flex-shrink: 0;
+  margin-inline-start: auto;
 }
 
 .glass-sheet-header-subtitle {
@@ -444,10 +503,6 @@
 @media (min-width: 768px) {
   .glass-sheet-panel {
     height: min(calc(100dvh - env(safe-area-inset-bottom, 0px)), 720px);
-  }
-
-  .glass-sheet-drag {
-    display: none;
   }
 }
 

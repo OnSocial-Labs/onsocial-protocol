@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  POST_MEDIA_MAX_FILES,
+  POST_VIDEO_MAX_BYTES,
+  POST_VIDEO_MAX_SECONDS,
   appendPostMediaIndex,
   appendPostMediaUnmute,
   applyMediaKindOverride,
   formatMediaDuration,
+  isPostVideoMime,
   mediaKindFromFile,
   parsePostMedia,
   postMediaStripClassName,
@@ -12,6 +16,16 @@ import {
   revokeOptimisticMediaPreviewUrls,
   truncateQuoteText,
 } from '@/lib/post-media';
+
+describe('post video caps', () => {
+  it('allows 120s / 200 MB inbound (gateway encodes to ≤50 MB)', () => {
+    expect(POST_VIDEO_MAX_SECONDS).toBe(120);
+    expect(POST_VIDEO_MAX_BYTES).toBe(200 * 1024 * 1024);
+    expect(POST_MEDIA_MAX_FILES).toBe(4);
+    expect(isPostVideoMime('video/mp4')).toBe(true);
+    expect(isPostVideoMime('video/quicktime')).toBe(true);
+  });
+});
 
 describe('parsePostMedia', () => {
   it('returns empty for invalid or missing bodies', () => {
@@ -120,9 +134,7 @@ describe('collage + unmute helpers', () => {
     expect(
       readPostMediaUnmuteIndex({ get: (name) => (name === 'mi' ? '2' : null) })
     ).toBe(2);
-    expect(
-      readPostMediaUnmuteIndex({ get: () => null })
-    ).toBe(0);
+    expect(readPostMediaUnmuteIndex({ get: () => null })).toBe(0);
   });
 
   it('formatMediaDuration and truncateQuoteText', () => {
@@ -140,7 +152,9 @@ describe('revokeOptimisticMediaPreviewUrls', () => {
   });
 
   it('revokes blob preview URLs only', () => {
-    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const revoke = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {});
     revokeOptimisticMediaPreviewUrls(
       JSON.stringify({
         media: [
@@ -154,21 +168,27 @@ describe('revokeOptimisticMediaPreviewUrls', () => {
   });
 
   it('revokeDroppedOptimisticMedia only drops missing keys', () => {
-    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const revoke = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {});
     revokeDroppedOptimisticMedia(
       [
         {
           accountId: 'a',
           postId: '1',
           value: JSON.stringify({
-            media: [{ previewUrl: 'blob:keep', mime: 'image/png', cid: 'preview' }],
+            media: [
+              { previewUrl: 'blob:keep', mime: 'image/png', cid: 'preview' },
+            ],
           }),
         },
         {
           accountId: 'a',
           postId: '2',
           value: JSON.stringify({
-            media: [{ previewUrl: 'blob:drop', mime: 'image/png', cid: 'preview' }],
+            media: [
+              { previewUrl: 'blob:drop', mime: 'image/png', cid: 'preview' },
+            ],
           }),
         },
       ],

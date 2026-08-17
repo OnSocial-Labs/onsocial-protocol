@@ -1,12 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { OsSheetActions, OsSheetPrimaryAction } from '@onsocial/ui';
-import { MultiplyIcon, PlusIcon } from '@onsocial/ui';
+import {
+  AmountField,
+  AmountFieldMetaRow,
+  OsFieldRemove,
+  OsSheetAction,
+  OsSheetActions,
+  PlusIcon,
+} from '@onsocial/ui';
+import { NearAccountField } from '@/components/ui/near-account-field';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useStorageSharesGranted } from '@/hooks/use-storage-shares-granted';
 import { useStorageShareRecipientsValidation } from '@/hooks/use-storage-share-recipients';
 import type { ShareRecipientRowStatus } from '@/hooks/use-storage-share-recipients';
+import type { NearAccountStatus } from '@/hooks/use-near-account-status';
 import type { SharedStoragePoolSummary } from '@/hooks/use-shared-storage-pool';
 import { finalizeAmountInput } from '@/lib/amount-input';
 import {
@@ -14,10 +22,7 @@ import {
   sendStorageSharedPoolDepositTransaction,
   type SigningWallet,
 } from '@/lib/app-storage-transactions';
-import {
-  nearAccountPlaceholder,
-  sanitizeNearAccountInput,
-} from '@/lib/app-near-account';
+import { nearAccountPlaceholder } from '@/lib/app-near-account';
 import { formatNearCompact } from '@/lib/format-near-balance';
 import { formatCompactBytes } from '@/lib/platform-storage-display';
 import {
@@ -62,6 +67,26 @@ function shareRowIssueMessage(status: ShareRecipientRowStatus): string | null {
       return 'Already has shared storage.';
     default:
       return null;
+  }
+}
+
+function shareRowNearField(status: ShareRecipientRowStatus): {
+  status: NearAccountStatus;
+  statusClass?: string;
+} {
+  switch (status) {
+    case 'empty':
+      return { status: 'idle' };
+    case 'checking':
+      return { status: 'checking' };
+    case 'ready':
+      return { status: 'found', statusClass: 'is-available' };
+    case 'invalid':
+      return { status: 'invalid', statusClass: 'is-taken' };
+    case 'self':
+    case 'duplicate':
+    case 'already_sponsored':
+      return { status: 'found', statusClass: 'is-taken' };
   }
 }
 
@@ -207,25 +232,20 @@ function ShareRecipientRow({
   onRemove: () => void;
 }) {
   const issue = shareRowIssueMessage(status);
+  const nearField = shareRowNearField(status);
 
   return (
     <div className="app-storage-recipient-row">
       <label className="sr-only" htmlFor={`storage-share-recipient-${rowId}`}>
         Recipient account
       </label>
-      <input
+      <NearAccountField
         id={`storage-share-recipient-${rowId}`}
-        type="text"
-        inputMode="text"
-        autoCapitalize="none"
-        autoCorrect="off"
-        spellCheck={false}
-        placeholder={nearAccountPlaceholder()}
         value={value}
-        onChange={(event) =>
-          onValueChange(sanitizeNearAccountInput(event.target.value))
-        }
-        className="app-storage-recipient-input"
+        onValueChange={onValueChange}
+        placeholder={nearAccountPlaceholder()}
+        status={nearField.status}
+        statusClass={nearField.statusClass}
         aria-invalid={Boolean(issue)}
       />
       {allocationBytes != null && allocationBytes > 0 ? (
@@ -234,17 +254,10 @@ function ShareRecipientRow({
         <span className="app-storage-recipient-status">Checking</span>
       ) : null}
       {canRemove ? (
-        <button
-          type="button"
-          className="app-storage-recipient-remove"
-          onClick={onRemove}
+        <OsFieldRemove
           aria-label="Remove recipient"
-        >
-          <MultiplyIcon
-            aria-hidden
-            className="app-storage-recipient-remove-icon"
-          />
-        </button>
+          onClick={onRemove}
+        />
       ) : null}
       {issue ? <p className="app-storage-recipient-error">{issue}</p> : null}
     </div>
@@ -646,63 +659,40 @@ export function AppStorageSharePanel({
           <p className="app-storage-meta">
             Add NEAR to @{accountId}&apos;s share pool.
           </p>
-          <div className="app-storage-amount-field">
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={fundAmountInput}
-              onChange={(event) => applyFundAmountInput(event.target.value)}
-              onBlur={() =>
-                applyFundAmountInput(
-                  finalizeAmountInput(
-                    fundAmountInput,
-                    STORAGE_NEAR_INPUT_DECIMALS
-                  )
-                )
-              }
-              placeholder={amountHint}
-              aria-label="Share pool fund amount in NEAR"
-              aria-invalid={Boolean(fundAmountInput) && !canFundAmount}
-              className="app-storage-amount-input"
-            />
-            <span className="account-card-balance-unit">NEAR</span>
-          </div>
-          <div className="app-storage-quick-row">
-            <div
-              className="app-storage-presets"
-              role="group"
-              aria-label="Quick fund amounts"
-            >
-              {STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`os-surface-chip${normalizedFundAmount === preset ? ' is-selected' : ''}`}
-                  onClick={() => applyFundAmountInput(preset)}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-            <p className="app-storage-amount-meta">
-              {fundPreviewCapacityBytes != null &&
-              fundPreviewCapacityBytes > 0 ? (
-                <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
-              ) : null}
-              {walletNearYocto != null ? (
-                <>Balance {formatNearCompact(walletNearYocto.toString())} · </>
-              ) : null}
-              Min {amountHint}
-            </p>
-          </div>
+          <AmountField
+            value={fundAmountInput}
+            onValueChange={applyFundAmountInput}
+            maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}
+            placeholder={amountHint}
+            aria-label="Share pool fund amount in NEAR"
+            invalid={Boolean(fundAmountInput) && !canFundAmount}
+            unit="NEAR"
+          />
+          <AmountFieldMetaRow
+            presets={STORAGE_SHARE_POOL_DEPOSIT_PRESETS_NEAR}
+            selectedValue={normalizedFundAmount}
+            onSelectPreset={applyFundAmountInput}
+            presetsAriaLabel="Quick fund amounts"
+            meta={
+              <>
+                {fundPreviewCapacityBytes != null &&
+                fundPreviewCapacityBytes > 0 ? (
+                  <>≈ {formatCompactBytes(fundPreviewCapacityBytes)} · </>
+                ) : null}
+                {walletNearYocto != null ? (
+                  <>Balance {formatNearCompact(walletNearYocto.toString())} · </>
+                ) : null}
+                Min {amountHint}
+              </>
+            }
+          />
           {error ? (
             <p className="app-storage-error" role="alert">
               {error}
             </p>
           ) : null}
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={!pending && canFundAmount && !error}
               pending={pending}
@@ -711,7 +701,7 @@ export function AppStorageSharePanel({
               onClick={() => void handleFundPool()}
             >
               {needsFunding ? 'Fund share pool' : 'Add to share pool'}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
           <p className="app-storage-hint app-storage-hint--compact">
             {USER_STORAGE_SHARE_POOL_DEPOSIT_HINT}
@@ -791,7 +781,7 @@ export function AppStorageSharePanel({
           ) : null}
 
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={!pending && canShare && !error}
               pending={pending}
@@ -800,7 +790,7 @@ export function AppStorageSharePanel({
               onClick={() => void handleShare()}
             >
               Share storage
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
           <p className="app-storage-hint app-storage-hint--compact">
             {USER_STORAGE_SHARE_HINT}

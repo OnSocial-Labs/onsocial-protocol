@@ -1,13 +1,8 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
-import {
-  Divider,
-  GlassSheet,
-  SearchField,
-  SheetCloseButton,
-} from '@onsocial/ui';
+import { OsHugSheet, SearchField } from '@onsocial/ui';
 import { DiscoverFocusListSkeleton } from '@/features/discover/discover-loading-skeleton';
 import {
   formatTickerDisplay,
@@ -19,7 +14,6 @@ import {
 } from '@/features/home/home-feed-focus';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { PROFILE_SEARCH_MAX_QUERY_LENGTH } from '@/lib/profile-account-search';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 const SUGGEST_DEBOUNCE_MS = 220;
 const SUGGEST_LIMIT = 12;
@@ -39,7 +33,9 @@ async function loadFocusSuggestions(query: string): Promise<SuggestRow[]> {
 
   if (wantsTicker) {
     const tickers = tickerPrefix
-      ? await client.query.tickers.search(tickerPrefix, { limit: SUGGEST_LIMIT })
+      ? await client.query.tickers.search(tickerPrefix, {
+          limit: SUGGEST_LIMIT,
+        })
       : await client.query.tickers.trending({ limit: SUGGEST_LIMIT });
     for (const item of tickers) rows.push({ kind: 'ticker', item });
     return rows;
@@ -81,14 +77,11 @@ export function HomeSavedFeedSheet({
   onAddFocus: (focus: HomeFeedFocus) => void;
   existingFocusKeys: ReadonlySet<string>;
 }) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState<SuggestRow[]>([]);
   const [loading, setLoading] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   useEffect(() => {
     if (!open) {
@@ -131,42 +124,22 @@ export function HomeSavedFeedSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={() => {
         setClosing(false);
         onClose();
       }}
-      tone="os"
-      initialDetent="full"
-      zIndex={58}
-      ariaLabelledBy={titleId}
+      label="Add feed"
+      copy="Pick a #topic or $ticker. Saved on this device."
+      closeAriaLabel="Close"
       backdropLabel="Close add feed"
+      zIndex={58}
+      sizing="full"
+      headerClassName="home-saved-feed-sheet-header"
       panelClassName="home-saved-feed-sheet-panel"
       bodyClassName="home-saved-feed-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header home-saved-feed-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Add feed
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    Pick a #topic or $ticker. Saved on this device.
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="home-saved-feed-sheet">
         <form
@@ -272,6 +245,6 @@ export function HomeSavedFeedSheet({
           })}
         </div>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

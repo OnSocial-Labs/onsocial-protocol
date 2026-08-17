@@ -1,13 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useId, useState, type ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
   ProtocolMotionArrow,
-  SheetHeader,
   normalizeSocialTimestamp,
+} from '@onsocial/ui';
+import {
+  SheetFactCopy,
+  SheetFactRow,
+  SheetFactSection,
 } from '@onsocial/ui';
 import {
   guildModeDescription,
@@ -15,7 +19,6 @@ import {
 } from '@/features/guilds/guild-card-display';
 import { guildMemberTimeMeta } from '@/features/guilds/guild-member-time-meta';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { portfolioPath } from '@/lib/overlay-routes';
 import {
   formatCompactCount,
@@ -44,30 +47,6 @@ interface GuildFactsSheetProps {
   roomCount?: number | null;
   topics?: string[];
   onOpenMembers: () => void;
-}
-
-function FactRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="guild-facts-row">
-      <span className="guild-facts-label">{label}</span>
-      <span className="guild-facts-value">{value}</span>
-    </div>
-  );
-}
-
-function FactSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="guild-facts-section">
-      <h3 className="guild-facts-section-title">{title}</h3>
-      <div className="guild-facts-section-rows">{children}</div>
-    </section>
-  );
 }
 
 function viewerStatusLabel(input: {
@@ -127,7 +106,6 @@ export function GuildFactsSheet({
   onOpenMembers,
 }: GuildFactsSheetProps) {
   const topicList = topics;
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const ownerProfiles = usePostAuthorProfiles(ownerId ? [ownerId] : []);
@@ -136,8 +114,6 @@ export function GuildFactsSheet({
     ? (ownerProfile?.displayName ?? displayName(ownerId))
     : null;
   const ownerHandle = ownerId ? fallbackLabel(ownerId) : null;
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -175,41 +151,28 @@ export function GuildFactsSheet({
       : null;
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={57}
-      ariaLabelledBy={titleId}
+      label="Guild"
+      copy={guildName}
+      closeAriaLabel="Close guild facts"
       backdropLabel="Close guild facts"
+      zIndex={57}
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Guild"
-            subtitle={guildName}
-            onClose={requestClose}
-            closeAriaLabel="Close guild facts"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-facts">
-        <FactSection title="Access">
-          <FactRow label="Mode" value={mode} />
-          <p className="guild-facts-copy">{modeCopy}</p>
-        </FactSection>
+        <SheetFactSection title="Access">
+          <SheetFactRow label="Mode" value={mode} />
+          <SheetFactCopy>{modeCopy}</SheetFactCopy>
+        </SheetFactSection>
 
         <Divider variant="detail" />
 
-        <FactSection title="Details">
-          <FactRow
+        <SheetFactSection title="Details">
+          <SheetFactRow
             label="Members"
             value={
               <button
@@ -234,7 +197,7 @@ export function GuildFactsSheet({
             }
           />
           {ownerId && ownerLabel ? (
-            <FactRow
+            <SheetFactRow
               label="Owner"
               value={
                 <Link
@@ -251,7 +214,7 @@ export function GuildFactsSheet({
             />
           ) : null}
           {postCount != null ? (
-            <FactRow
+            <SheetFactRow
               label="Posts"
               value={
                 <span className="guild-facts-count-value">
@@ -267,7 +230,7 @@ export function GuildFactsSheet({
             />
           ) : null}
           {roomCount != null ? (
-            <FactRow
+            <SheetFactRow
               label="Rooms"
               value={
                 <span className="guild-facts-count-value">
@@ -283,24 +246,24 @@ export function GuildFactsSheet({
             />
           ) : null}
           {createdLabel ? (
-            <FactRow label="Created" value={createdLabel} />
+            <SheetFactRow label="Created" value={createdLabel} />
           ) : null}
-          {tagLine ? <FactRow label="Topics" value={tagLine} /> : null}
-          <FactRow
+          {tagLine ? <SheetFactRow label="Topics" value={tagLine} /> : null}
+          <SheetFactRow
             label="ID"
             value={<span className="guild-facts-id">{groupId}</span>}
           />
-        </FactSection>
+        </SheetFactSection>
 
         <Divider variant="detail" />
 
-        <FactSection title="You">
-          <FactRow label="Status" value={status} />
+        <SheetFactSection title="You">
+          <SheetFactRow label="Status" value={status} />
           {showJoinedMeta && joinedMeta ? (
-            <FactRow label={joinedMeta.prefix} value={joinedMeta.label} />
+            <SheetFactRow label={joinedMeta.prefix} value={joinedMeta.label} />
           ) : null}
-        </FactSection>
+        </SheetFactSection>
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

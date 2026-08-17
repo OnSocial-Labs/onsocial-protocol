@@ -24,6 +24,7 @@ import { formatSocialCompact } from '@/lib/format-social-balance';
 import {
   fetchScarceCreatorEarnings,
   formatEarningsNearCompact,
+  type ScarceCreatorEarningRow,
 } from '@/lib/scarce-creator-earnings';
 import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
@@ -45,7 +46,10 @@ export function PortfolioOwnerPayoutMarks({
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [salesYocto, setSalesYocto] = useState<string | null>(null);
+  const [salesItems, setSalesItems] = useState<ScarceCreatorEarningRow[]>([]);
+  const [salesFetchedAt, setSalesFetchedAt] = useState(0);
   const [listingActions, setListingActions] = useState<ListingActionItem[]>([]);
+  const [listingsFetchedAt, setListingsFetchedAt] = useState(0);
   const [listingsLoaded, setListingsLoaded] = useState(false);
   const [collectPending, setCollectPending] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
@@ -69,10 +73,15 @@ export function PortfolioOwnerPayoutMarks({
 
   const refreshSales = useCallback(async () => {
     try {
-      const page = await fetchScarceCreatorEarnings(accountId, { limit: 100 });
+      // Same page size as the sales sheet — one fetch seeds mark + drawer.
+      const page = await fetchScarceCreatorEarnings(accountId, { limit: 40 });
       setSalesYocto(page.totalYocto);
+      setSalesItems(page.items);
+      setSalesFetchedAt(Date.now());
     } catch {
       setSalesYocto('0');
+      setSalesItems([]);
+      setSalesFetchedAt(Date.now());
     }
   }, [accountId]);
 
@@ -80,8 +89,10 @@ export function PortfolioOwnerPayoutMarks({
     try {
       const page = await fetchListingActions(accountId);
       setListingActions(page.items);
+      setListingsFetchedAt(Date.now());
     } catch {
       setListingActions([]);
+      setListingsFetchedAt(Date.now());
     } finally {
       setListingsLoaded(true);
     }
@@ -90,7 +101,10 @@ export function PortfolioOwnerPayoutMarks({
   useEffect(() => {
     setClaimableYocto(null);
     setSalesYocto(null);
+    setSalesItems([]);
+    setSalesFetchedAt(0);
     setListingActions([]);
+    setListingsFetchedAt(0);
     setListingsLoaded(false);
     void refreshSupport({ fresh: true });
     void refreshSales();
@@ -281,6 +295,8 @@ export function PortfolioOwnerPayoutMarks({
         <PortfolioListingActionsSheet
           open={listingsOpen}
           accountId={accountId}
+          initialItems={listingActions}
+          initialFetchedAt={listingsFetchedAt}
           onOpenChange={setListingsOpen}
           onActionsChanged={() => {
             void refreshListingActions();
@@ -304,6 +320,8 @@ export function PortfolioOwnerPayoutMarks({
           open={salesOpen}
           accountId={accountId}
           totalLabel={salesLabel}
+          initialItems={salesItems}
+          initialFetchedAt={salesFetchedAt}
           onOpenChange={setSalesOpen}
         />
       ) : null}

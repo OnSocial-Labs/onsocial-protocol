@@ -87,6 +87,30 @@ describe('parseDropPaintSnapshot', () => {
       mediumKind: 'audio',
     });
   });
+
+  it('allows token-only paint without collectionId', () => {
+    expect(
+      parseDropPaintSnapshot(
+        JSON.stringify({
+          v: 1,
+          text: '',
+          x: {
+            onsocial: {
+              drop: {
+                tokenId: 's:post-1',
+                title: 'Night',
+                sourcePostPath: 'alice.near/post/p1',
+              },
+            },
+          },
+        })
+      )
+    ).toEqual({
+      tokenId: 's:post-1',
+      title: 'Night',
+      sourcePostPath: 'alice.near/post/p1',
+    });
+  });
 });
 
 describe('parsePostText', () => {
@@ -141,6 +165,13 @@ describe('post timestamps', () => {
     expect(postTimestampIso(Number.NaN)).toBeUndefined();
     expect(formatPostTimestamp(0)).toBe('Unknown time');
   });
+
+  it('formats absolute timestamps in fixed en-US order', () => {
+    // Avoid locale hydration drift (server en-US vs client en-GB → "18 Jul").
+    expect(formatPostTimestamp(Date.parse('2026-07-18T07:13:29.370Z'))).toMatch(
+      /^Jul 18, 2026,/
+    );
+  });
 });
 
 describe('formatRelativePostTimestamp', () => {
@@ -171,6 +202,8 @@ describe('formatRelativePostTimestamp', () => {
     );
     expect(formatted).not.toMatch(/^\d+[mhd]$/);
     expect(formatted).not.toContain('2026');
+    // en-US: "Jun 7" — not locale-dependent "7 Jun".
+    expect(formatted).toMatch(/^[A-Z][a-z]{2} \d{1,2}$/);
   });
 
   it('includes the year for older years', () => {

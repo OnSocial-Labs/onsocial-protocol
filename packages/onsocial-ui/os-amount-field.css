@@ -1,0 +1,163 @@
+/**
+ * @onsocial/ui — amount / suffix affix field shells.
+ *
+ * Chrome via .os-field-bordered | .os-field-soft on the shell.
+ * Shell keeps os-field pad; children pad 0 + detail divider rail.
+ *
+ * Canonical: .os-amount-field / .os-suffix-field
+ * Legacy aliases: .app-storage-amount-field / .suffix-field
+ */
+
+.os-amount-field,
+.app-storage-amount-field,
+.os-suffix-field,
+.suffix-field {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: var(--os-field-radius, 0.85rem);
+}
+
+.os-suffix-field-input,
+.suffix-field-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--os-field-font-size, 0.9rem);
+  line-height: var(--os-field-line-height, 1.35);
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.os-suffix-field-input:focus,
+.suffix-field-input:focus {
+  background: transparent;
+  box-shadow: none;
+}
+
+.os-amount-field-divider,
+.app-storage-amount-divider,
+.os-suffix-field-divider,
+.suffix-field-divider {
+  flex-shrink: 0;
+  align-self: stretch;
+  margin-block: 0;
+  margin-inline: 0.5rem;
+  opacity: 0.9;
+}
+
+.os-suffix-field-unit,
+.suffix-field-unit {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: var(--os-field-line-height, 1.35);
+  color: var(--os-surface-muted);
+}
+
+.os-amount-field-input,
+.app-storage-amount-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--fg-rgb) / 0.94);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  line-height: var(--os-field-line-height, 1.35);
+  outline: none;
+  padding: 0;
+}
+
+.os-amount-field > .os-amount-field-unit,
+.os-amount-field > .account-card-balance-unit,
+.os-amount-field > .app-swap-token-static,
+.os-amount-field > .profile-support-token-unit,
+.app-storage-amount-field > .account-card-balance-unit,
+.app-storage-amount-field > .app-swap-token-static,
+.app-storage-amount-field > .profile-support-token-unit {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+}
+
+.os-amount-field > .app-swap-receive-loading,
+.app-storage-amount-field > .app-swap-receive-loading {
+  padding: 0;
+}
+
+.os-amount-field-input::placeholder,
+.app-storage-amount-input::placeholder {
+  color: rgb(var(--fg-rgb) / 0.35);
+}
+
+/* Meta row — presets / Max / balance under AmountField */
+.os-amount-field-meta-row,
+.app-storage-quick-row,
+.profile-support-quick-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  min-height: 1.75rem;
+}
+
+.os-amount-field-presets,
+.app-storage-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.os-amount-field-preset-action,
+.app-storage-preset--action {
+  color: var(--protocol-blue);
+}
+
+.os-amount-field-max-placeholder,
+.app-storage-max-placeholder {
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 600;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.os-amount-field-meta,
+.app-storage-amount-meta {
+  margin: 0;
+  margin-left: auto;
+  font-size: 0.62rem;
+  line-height: 1.3;
+  color: rgb(var(--fg-rgb) / 0.45);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.profile-support-balance {
+  margin: 0;
+  margin-left: auto;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--fg-rgb) / 0.52);
+  text-align: right;
+  white-space: nowrap;
+}

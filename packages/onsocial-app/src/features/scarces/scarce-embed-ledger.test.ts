@@ -3,8 +3,10 @@ import type { PostScarceEmbed } from '@onsocial/sdk';
 import {
   clearScarceEmbedOverride,
   getScarceEmbedOverride,
+  getScarceEmbedSeed,
   reconcileScarceEmbedFromApi,
   resolveScarceEmbed,
+  seedScarceEmbedsFromSsr,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
 
@@ -110,6 +112,40 @@ describe('scarce-embed-ledger', () => {
     expect(getScarceEmbedOverride(KEY)).toBeNull();
   });
 
+  it('keeps override cover until indexer mediaUrl lands', () => {
+    setScarceEmbedOverride(
+      KEY,
+      embed({
+        status: 'lazy_listing',
+        listingId: 'll:1',
+        mediaUrl: 'data:image/png;base64,abc',
+        priceNear: '1',
+      })
+    );
+    expect(
+      reconcileScarceEmbedFromApi(
+        KEY,
+        embed({ status: 'lazy_listing', listingId: 'll:1', priceNear: '1' })
+      )
+    ).toBe(false);
+    expect(getScarceEmbedOverride(KEY)?.mediaUrl).toBe(
+      'data:image/png;base64,abc'
+    );
+
+    expect(
+      reconcileScarceEmbedFromApi(
+        KEY,
+        embed({
+          status: 'lazy_listing',
+          listingId: 'll:1',
+          mediaUrl: 'https://ipfs.example/mint.png',
+          priceNear: '1',
+        })
+      )
+    ).toBe(true);
+    expect(getScarceEmbedOverride(KEY)).toBeNull();
+  });
+
   it('clears sold override when API reports sold', () => {
     setScarceEmbedOverride(KEY, embed({ status: 'sold', listingId: 'll:1' }));
     expect(
@@ -139,5 +175,40 @@ describe('scarce-embed-ledger', () => {
       true
     );
     expect(getScarceEmbedOverride(KEY)).toBeNull();
+  });
+
+  it('overwrites stale SSR seeds but never clobbers overrides', () => {
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:old',
+        priceNear: '1',
+      }),
+    });
+    expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:old');
+
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:new',
+        priceNear: '2',
+      }),
+    });
+    expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:new');
+    expect(getScarceEmbedSeed(KEY)?.priceNear).toBe('2');
+
+    setScarceEmbedOverride(
+      KEY,
+      embed({ status: 'drop', collectionId: 'drop:1', priceNear: '3' })
+    );
+    seedScarceEmbedsFromSsr({
+      [KEY]: embed({
+        status: 'lazy_listing',
+        listingId: 'll:ignored',
+        priceNear: '9',
+      }),
+    });
+    expect(getScarceEmbedSeed(KEY)?.listingId).toBe('ll:new');
+    expect(getScarceEmbedOverride(KEY)?.collectionId).toBe('drop:1');
   });
 });

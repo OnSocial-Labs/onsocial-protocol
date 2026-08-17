@@ -2,8 +2,8 @@
 
 import type { ChangeEvent, ReactNode } from 'react';
 import { useMemo } from 'react';
+import { TokenIcon } from '@onsocial/ui';
 import { Button } from '@/components/ui/button';
-import { TokenIcon } from '@/components/ui/token-icon';
 import { SocialSpendAmountPill } from '@/components/social-spend-pill';
 import { portalConnectButtonLabel } from '@/lib/portal-connect-copy';
 import { portalElevatedShadowClass } from '@/components/ui/floating-panel';

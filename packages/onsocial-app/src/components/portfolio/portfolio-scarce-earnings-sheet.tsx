@@ -12,21 +12,25 @@ import {
 import {
   Divider,
   GlassSheet,
-  ProfileAvatar,
+  OsIconAction,
   SheetCloseButton,
   ShopFillIcon,
-  osIconActionClassName,
+  osHugSheetBodyClassName,
   osIconActionGlyphClassName,
+  useScrollLock,
 } from '@onsocial/ui';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
 import { PortfolioPayoutKindFilters } from '@/components/portfolio/portfolio-payout-kind-filters';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@onsocial/ui';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
   usePostAuthorProfiles,
   type PostAuthorProfile,
 } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { APP_MARKET_PATH } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -44,8 +48,14 @@ interface PortfolioScarceEarningsSheetProps {
   open: boolean;
   accountId: string;
   totalLabel: string;
+  /** Face-mark fetch — paint immediately; skip refetch while fresh. */
+  initialItems?: ScarceCreatorEarningRow[];
+  initialFetchedAt?: number;
   onOpenChange: (open: boolean) => void;
 }
+
+/** Skip refetch when face/cache seed is newer than this. */
+const SALES_SEED_FRESH_MS = 30_000;
 
 function formatSaleWhen(blockTimestamp: number): string {
   const ms =
@@ -72,11 +82,14 @@ function EarningsList({
     <div className="standing-list portfolio-support-collect-info-list">
       {items.map((row, index) => {
         const profile = profiles[row.buyerId];
-        const name = profile?.displayName?.trim() || null;
-        const label = name || `@${row.buyerId}`;
+        const { label } = standingIdentityLabel(
+          row.buyerId,
+          profile?.displayName
+        );
         const when = formatSaleWhen(row.blockTimestamp);
         const kindLabel = row.kind === 'royalty' ? 'Royalty' : 'Sale';
         const title = row.title.trim();
+        const kindSuffix = formatEarningKindSuffix(row);
         return (
           <div key={row.key}>
             {index > 0 ? <Divider variant="item" /> : null}
@@ -84,53 +97,46 @@ function EarningsList({
               <div className="standing-row-main">
                 <Link
                   href={portfolioPath(row.buyerId)}
-                  className="portfolio-scarce-earnings-avatar-link"
+                  className="standing-row-hit"
                   scroll={false}
-                  aria-label={label}
+                  aria-label={`View ${label}'s profile`}
+                />
+                <StandingIdentity
+                  accountId={row.buyerId}
+                  profileName={profile?.displayName}
+                  avatarUrl={profile?.avatarUrl}
                 >
-                  <ProfileAvatar
-                    src={profile?.avatarUrl ?? null}
-                    fallbackInitial={name || row.buyerId}
-                    size="lg"
-                    className="standing-row-avatar-slot"
-                  />
-                </Link>
-                <div className="standing-row-copy">
-                  <Link
-                    href={portfolioPath(row.buyerId)}
-                    className="standing-row-head"
-                    scroll={false}
-                  >
-                    <span className="standing-row-name-row">
-                      <span className="standing-row-name">{label}</span>
+                  <span className="portfolio-support-collect-info-row-kind">
+                    <span className="portfolio-scarce-earnings-kind-prefix">
+                      {kindLabel}
+                      {title ? ' · ' : ''}
                     </span>
-                    {name ? (
-                      <span className="standing-row-handle">
-                        @{row.buyerId}
+                    {title ? (
+                      row.postHref ? (
+                        <Link
+                          href={row.postHref}
+                          scroll={false}
+                          className="portfolio-scarce-earnings-kind-title portfolio-scarce-earnings-post-link"
+                          title={title}
+                        >
+                          {title}
+                        </Link>
+                      ) : (
+                        <span
+                          className="portfolio-scarce-earnings-kind-title"
+                          title={title}
+                        >
+                          {title}
+                        </span>
+                      )
+                    ) : null}
+                    {kindSuffix ? (
+                      <span className="portfolio-scarce-earnings-kind-suffix">
+                        {kindSuffix}
                       </span>
                     ) : null}
-                  </Link>
-                  <span className="portfolio-support-collect-info-row-kind">
-                    {kindLabel}
-                    {title ? (
-                      <>
-                        {' · '}
-                        {row.postHref ? (
-                          <Link
-                            href={row.postHref}
-                            scroll={false}
-                            className="portfolio-scarce-earnings-post-link"
-                          >
-                            {title}
-                          </Link>
-                        ) : (
-                          title
-                        )}
-                      </>
-                    ) : null}
-                    {formatEarningKindSuffix(row)}
                   </span>
-                </div>
+                </StandingIdentity>
               </div>
               <div className="standing-row-aside">
                 {when ? (
@@ -155,6 +161,8 @@ export function PortfolioScarceEarningsSheet({
   open,
   accountId,
   totalLabel,
+  initialItems,
+  initialFetchedAt = 0,
   onOpenChange,
 }: PortfolioScarceEarningsSheetProps) {
   const titleId = useId();
@@ -167,6 +175,13 @@ export function PortfolioScarceEarningsSheet({
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const loadingMoreRef = useRef(false);
+  /** Last successful page — reopen shows rows instead of guessing skeleton count. */
+  const cacheRef = useRef<{
+    accountId: string;
+    items: ScarceCreatorEarningRow[];
+    hasMore: boolean;
+    fetchedAt: number;
+  } | null>(null);
   const sheetOpen = open && !closing;
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? null;
@@ -182,20 +197,64 @@ export function PortfolioScarceEarningsSheet({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setItems(null);
-    setHasMore(false);
+    // Face fetch (even empty) seeds when fetchedAt is set.
+    const seed =
+      initialFetchedAt > 0 && initialItems != null ? initialItems : null;
+    const cached =
+      cacheRef.current?.accountId === accountId ? cacheRef.current : null;
+    const warmItems = seed ?? cached?.items ?? null;
+    const warmHasMore = seed
+      ? seed.length >= 40
+      : Boolean(cached?.hasMore);
+    const warmAt = seed
+      ? initialFetchedAt
+      : (cached?.fetchedAt ?? 0);
+
+    if (warmItems) {
+      setItems(warmItems);
+      setHasMore(warmHasMore);
+      if (seed) {
+        cacheRef.current = {
+          accountId,
+          items: seed,
+          hasMore: warmHasMore,
+          fetchedAt: initialFetchedAt,
+        };
+      }
+    } else {
+      setItems(null);
+      setHasMore(false);
+    }
     setLoadError(null);
     setKindFilter(null);
+
+    const fresh =
+      warmItems != null &&
+      warmAt > 0 &&
+      Date.now() - warmAt < SALES_SEED_FRESH_MS;
+    if (fresh) {
+      return;
+    }
+
     void (async () => {
       try {
         const page = await fetchScarceCreatorEarnings(accountId, { limit: 40 });
         if (cancelled) return;
+        const hasMoreNext = page.items.length >= 40;
         setItems(page.items);
-        setHasMore(page.items.length >= 40);
+        setHasMore(hasMoreNext);
+        cacheRef.current = {
+          accountId,
+          items: page.items,
+          hasMore: hasMoreNext,
+          fetchedAt: Date.now(),
+        };
       } catch (cause) {
         if (cancelled) return;
-        setItems([]);
-        setHasMore(false);
+        if (!warmItems) {
+          setItems([]);
+          setHasMore(false);
+        }
         setLoadError(
           cause instanceof Error ? cause.message : 'Could not load scarce sales'
         );
@@ -204,6 +263,8 @@ export function PortfolioScarceEarningsSheet({
     return () => {
       cancelled = true;
     };
+    // initialItems only seeds paint — omit from deps so parent refresh doesn’t remount mid-open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open/accountId gate
   }, [accountId, open]);
 
   const loadMore = useCallback(async () => {
@@ -268,12 +329,13 @@ export function PortfolioScarceEarningsSheet({
       onClose={requestClose}
       onClosed={handleSheetClosed}
       tone="os"
+      sizing="hug"
       moodId={mood?.id}
       initialDetent="full"
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close scarce earnings"
-      bodyClassName="portfolio-support-collect-info-body"
+      bodyClassName={`portfolio-support-collect-info-body ${osHugSheetBodyClassName}`}
       bodyRef={bodyRef}
       panelClassName="portfolio-support-collect-info-panel"
       panelStyle={panelStyle}
@@ -303,18 +365,18 @@ export function PortfolioScarceEarningsSheet({
                 </div>
               </div>
               <div className="standing-sheet-actions standing-sheet-actions--payout">
-                <Link
-                  href={APP_MARKET_PATH}
-                  className={osIconActionClassName}
-                  scroll={false}
-                  onClick={requestClose}
-                  aria-label="Open Market"
-                >
-                  <ShopFillIcon
-                    className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
-                    aria-hidden
-                  />
-                </Link>
+                <OsIconAction asChild ariaLabel="Open Market">
+                  <Link
+                    href={APP_MARKET_PATH}
+                    scroll={false}
+                    onClick={requestClose}
+                  >
+                    <ShopFillIcon
+                      className={`${osIconActionGlyphClassName} glass-sheet-close-icon`}
+                      aria-hidden
+                    />
+                  </Link>
+                </OsIconAction>
                 <SheetCloseButton
                   onClick={requestClose}
                   ariaLabel="Close scarce earnings"
@@ -330,7 +392,7 @@ export function PortfolioScarceEarningsSheet({
         {loadError ? (
           <p className="portfolio-support-collect-info-empty">{loadError}</p>
         ) : items == null || filteredItems == null ? (
-          <ProfileSocialListSkeleton count={5} />
+          <ProfileSocialListSkeleton count={3} />
         ) : items.length === 0 ? (
           <p className="portfolio-support-collect-info-empty">
             No scarce sales yet.

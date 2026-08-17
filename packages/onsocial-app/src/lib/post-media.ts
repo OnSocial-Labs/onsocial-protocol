@@ -5,14 +5,20 @@ import {
 } from '@/lib/post-display';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
-export const POST_VIDEO_MAX_SECONDS = 30;
-export const POST_VIDEO_MAX_BYTES = 8 * 1024 * 1024;
+export const POST_VIDEO_MAX_SECONDS = 120;
+/** Inbound size before gateway encode (encoded pin ≤ 50 MB). */
+export const POST_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
 export const POST_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const POST_MEDIA_MAX_FILES = 4;
 
 const POST_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
-const POST_VIDEO_MIMES = new Set(['video/mp4', 'video/webm']);
+/** QuickTime/HEVC from phones is accepted; gateway re-encodes to H.264 MP4. */
+const POST_VIDEO_MIMES = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+]);
 
 export interface PostMediaItem {
   url: string;
@@ -187,7 +193,7 @@ export async function validatePostMediaFile(
 ): Promise<string | null> {
   const mime = file.type.toLowerCase();
   if (!isPostMediaMime(mime)) {
-    return 'Use a JPG, PNG, WebP, MP4, or WebM file.';
+    return 'Use a JPG, PNG, WebP, MP4, WebM, or MOV file.';
   }
   if (isPostImageMime(mime)) {
     if (file.size > POST_IMAGE_MAX_BYTES) {
@@ -196,7 +202,7 @@ export async function validatePostMediaFile(
     return null;
   }
   if (file.size > POST_VIDEO_MAX_BYTES) {
-    return 'Video must be 8 MB or smaller.';
+    return `Video must be ${Math.round(POST_VIDEO_MAX_BYTES / (1024 * 1024))} MB or smaller.`;
   }
   try {
     const duration = await readVideoDurationSeconds(file);

@@ -1,25 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Divider,
-  GlassSheet,
+  OsHugSheet,
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
   ProfileAvatar,
   SearchField,
-  SheetHeader,
 } from '@onsocial/ui';
+import { StandingIdentity } from '@onsocial/ui';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import {
   fetchDiscoverProfiles,
   type DiscoverProfileSummary,
 } from '@/lib/discover-profiles';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { displayName } from '@/lib/profile-display';
 import {
   PROFILE_SEARCH_MAX_QUERY_LENGTH,
   PROFILE_SEARCH_MIN_QUERY_LENGTH,
@@ -54,7 +53,6 @@ export function GuildAddMemberSheet({
   onClose,
   onAdded,
 }: GuildAddMemberSheetProps) {
-  const titleId = useId();
   const { accountId: viewerId } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
@@ -69,8 +67,6 @@ export function GuildAddMemberSheet({
   const [error, setError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  useScrollLock(sheetOpen);
-
   const excludedIds = useMemo(() => {
     const set = new Set(
       memberIds.map((id) => id.trim().toLowerCase()).filter(Boolean)
@@ -201,31 +197,17 @@ export function GuildAddMemberSheet({
     : '';
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={60}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Add member"
+      copy="Search profiles to invite."
+      closeAriaLabel="Close add member"
       backdropLabel="Close add member"
+      zIndex={60}
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Add member"
-            subtitle="Search profiles to invite."
-            onClose={requestClose}
-            closeAriaLabel="Close add member"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         <div className="guild-add-member-footer">
           {error ? (
@@ -234,7 +216,7 @@ export function GuildAddMemberSheet({
             </p>
           ) : null}
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={Boolean(selected) && !pending}
               pending={pending}
@@ -254,7 +236,7 @@ export function GuildAddMemberSheet({
               ) : (
                 'Add member'
               )}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
         </div>
       }
@@ -307,11 +289,6 @@ export function GuildAddMemberSheet({
               const selectedRow =
                 selectedId != null &&
                 accountIdsEqual(profile.accountId, selectedId);
-              const name = displayName(
-                profile.accountId,
-                profile.name ?? undefined
-              );
-              const handle = fallbackLabel(profile.accountId);
               return (
                 <div key={profile.accountId}>
                   {index > 0 ? <Divider variant="item" /> : null}
@@ -328,16 +305,11 @@ export function GuildAddMemberSheet({
                       setError(null);
                     }}
                   >
-                    <ProfileAvatar
-                      src={profile.avatarUrl}
-                      fallbackInitial={name}
-                      size="lg"
-                      className="standing-row-avatar-slot"
+                    <StandingIdentity
+                      accountId={profile.accountId}
+                      profileName={profile.name}
+                      avatarUrl={profile.avatarUrl}
                     />
-                    <span className="standing-row-copy">
-                      <span className="standing-row-name">{name}</span>
-                      <span className="standing-row-handle">@{handle}</span>
-                    </span>
                   </button>
                 </div>
               );
@@ -345,6 +317,6 @@ export function GuildAddMemberSheet({
           </div>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

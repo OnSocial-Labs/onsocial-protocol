@@ -95,7 +95,10 @@ export function listingActionTimeLabel(item: ListingActionItem): string {
   return `Listed ${age}`;
 }
 
-/** Section headers — always shown so auction vs listing stays obvious. */
+/**
+ * Section headers when the drawer mixes settle vs manage.
+ * Manage-only stays untitled — sheet is already “Listings”.
+ */
 export function listingActionSectionTitle(kind: ListingActionKind): string {
   switch (kind) {
     case 'collect_win':
@@ -105,7 +108,7 @@ export function listingActionSectionTitle(kind: ListingActionKind): string {
     case 'cancel_auction':
     case 'delist':
     case 'cancel_lazy':
-      return 'Your listings';
+      return '';
   }
 }
 
@@ -136,7 +139,36 @@ export function listingActionRowMeta(item: ListingActionItem): string {
 
 /** True when the Market auction detail sheet can open for this row. */
 export function listingActionOpensBidSheet(kind: ListingActionKind): boolean {
-  return kind === 'collect_win' || kind === 'complete_sale';
+  return (
+    kind === 'collect_win' ||
+    kind === 'complete_sale' ||
+    kind === 'cancel_auction'
+  );
+}
+
+/** Fixed / lazy listings open the Buy sheet (public listing view). */
+export function listingActionOpensBuySheet(kind: ListingActionKind): boolean {
+  return kind === 'delist' || kind === 'cancel_lazy';
+}
+
+/** Destructive manage CTAs — same two-press confirm as Market Delist. */
+export function listingActionNeedsConfirm(kind: ListingActionKind): boolean {
+  return (
+    kind === 'delist' || kind === 'cancel_auction' || kind === 'cancel_lazy'
+  );
+}
+
+/** Second-press label while armed (`Delist?` / `Cancel?`). */
+export function listingActionConfirmLabel(kind: ListingActionKind): string {
+  switch (kind) {
+    case 'delist':
+      return 'Delist?';
+    case 'cancel_auction':
+    case 'cancel_lazy':
+      return 'Cancel?';
+    default:
+      return listingActionPrimaryLabel(kind);
+  }
 }
 
 function listingEnded(expiresAtNs: number | null, nowMs: number): boolean {

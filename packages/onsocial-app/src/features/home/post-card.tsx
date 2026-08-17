@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  BookmarkFillIcon,
+  BookmarkIcon,
   CheckIcon,
   CopyIcon,
   Divider,
@@ -15,6 +17,7 @@ import {
   HeartFillIcon,
   HeartIcon,
   MessageRoundIcon,
+  MultiplyIcon,
   ProfileAvatar,
   RepeatIcon,
   ShareIcon,
@@ -28,7 +31,15 @@ import {
   ActionDrawer,
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
+import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
+import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
+import {
+  BLOCK_ACTION_DESCRIPTION,
+  MUTE_ACTION_DESCRIPTION,
+  blockConfirmCopy,
+} from '@/lib/block-confirm-copy';
+import { displayName } from '@/lib/profile-display';
 import { PostAmplifySheet } from '@/features/home/post-amplify-sheet';
 import type { PostAmplifySuccessDetail } from '@/features/home/post-amplify-form';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
@@ -38,12 +49,20 @@ import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostMediaStrip } from '@/features/home/post-media';
 import { PostPollEmbedCard } from '@/features/home/post-poll-embed';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import {
   canCancelPostScarce,
   cancelPostScarceListing,
 } from '@/features/scarces/cancel-post-scarce';
 import { PostScarceCta } from '@/features/scarces/post-scarce-cta';
-import { invalidateLiveListingsCache } from '@/features/market/market-listings';
+import {
+  fetchOwnedScarceByTokenId,
+  fetchOwnedScarceForCollection,
+  fetchOwnedScarceForSourcePost,
+  invalidateLiveListingsCache,
+  type OwnedScarceItem,
+  type ScarcePlayableMedia,
+} from '@/features/market/market-listings';
 import {
   postScarceKey,
   setScarceEmbedOverride,
@@ -51,12 +70,14 @@ import {
 import { ScarceBidSheet } from '@/features/scarces/scarce-bid-sheet';
 import { ScarceBuySheet } from '@/features/scarces/scarce-buy-sheet';
 import { ScarceListSheet } from '@/features/scarces/scarce-list-sheet';
+import { ScarceSellSheet } from '@/features/scarces/scarce-sell-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   postScarceAudio,
   postScarceCoverImage,
   ScarcePostPreview,
 } from '@/features/scarces/scarce-post-preview';
-import { postDropIsPlayable } from '@/features/scarces/post-drop-cta';
+import { postDropIsPlayable, postDropIsReadable } from '@/features/scarces/post-drop-cta';
 import {
   resolveScarceFeedMediumMode,
   ScarceFeedMediumSheet,
@@ -64,13 +85,18 @@ import {
 } from '@/features/scarces/scarce-feed-medium-sheet';
 import { usePostCollectionEmbed } from '@/features/scarces/use-post-collection-embed';
 import { usePostScarceEmbed } from '@/features/scarces/use-post-scarce-embed';
-import type { ScarcePlayableMedia } from '@/features/market/market-listings';
+import { usePostTokenEmbed } from '@/features/scarces/use-post-token-embed';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import { useViewerMute } from '@/hooks/use-viewer-mute';
+import { useViewerBlock } from '@/hooks/use-viewer-block';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
+import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
+import { parsePostContentLabels } from '@/lib/post-content-labels';
 import { accountIdsEqual } from '@/lib/account-match';
-import { overlayPath, portfolioPath } from '@/lib/overlay-routes';
+import { portfolioPath } from '@/lib/overlay-routes';
 import {
   txToastConfirming,
   txToastError,
@@ -83,6 +109,7 @@ import {
   parsePostCollectionEmbed,
   parsePostPollEmbed,
   parsePostText,
+  parsePostTokenEmbed,
   postFeedPreviewLimit,
   postKey,
   postPreviewNeedsExpand,
@@ -131,7 +158,9 @@ interface PostCardProps {
   guildName?: string;
   engagement?: PostEngagement;
   reactionPending?: boolean;
+  savePending?: boolean;
   onToggleReaction?: (post: PostRow) => void;
+  onToggleSave?: (post: PostRow) => void;
   /** Optimistic amplify count / Hot heat after a confirmed spend. */
   onAmplifyConfirmed?: (
     post: PostRow,
@@ -186,7 +215,11 @@ function PostCardMenu({
   const { updateStanding, isStandingPendingForTarget } = useViewerStanding(
     relationshipAccountId || accountId
   );
+  const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
+  const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
   const [supportOpen, setSupportOpen] = useState(false);
+  const [endorseOpen, setEndorseOpen] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const isOpen = open && !closing;
@@ -196,8 +229,10 @@ function PostCardMenu({
   const handleClosed = useCallback(() => {
     setClosing(false);
     setOpen(false);
+    setConfirmBlock(false);
   }, []);
   const close = requestClose;
+  const authorLabel = displayName(accountId, authorProfile?.displayName);
 
   const isSelf =
     Boolean(viewerAccountId) && accountIdsEqual(viewerAccountId!, accountId);
@@ -206,21 +241,31 @@ function PostCardMenu({
     isConnected && isSelf && canCancelScarce && onCancelScarce;
   const pending = isStandingPendingForTarget(accountId);
   const profileHref = portfolioPath(accountId);
-  const endorsementsHref = overlayPath(accountId, 'endorsements');
 
   const copyLink = async () => {
     if (!href || typeof window === 'undefined') return;
     const url = new URL(href, window.location.origin).toString();
     try {
-      await navigator.clipboard.writeText(url);
+      if (!document.hasFocus()) window.focus?.();
+      if (document.hasFocus()) {
+        await navigator.clipboard.writeText(url);
+      }
     } catch {
-      // Clipboard can fail in insecure contexts — still close the menu.
+      // Clipboard can fail when unfocused or insecure — still close the menu.
     }
     close();
   };
 
   async function handleStandToggle() {
     if (pending || isLoading || !gesturesArmed) return;
+    if (isBlockEitherWay(accountId)) {
+      setTxResult({
+        type: 'error',
+        msg: 'Standing is unavailable while a block is in place.',
+      });
+      close();
+      return;
+    }
     try {
       await updateStanding(
         {
@@ -243,6 +288,52 @@ function PostCardMenu({
     }
   }
 
+  async function handleMuteToggle() {
+    if (isMutePendingForTarget(accountId)) return;
+    const next = !isMuting(accountId);
+    try {
+      await updateMute(accountId, next);
+      setTxResult({
+        type: 'success',
+        msg: next ? txToastSuccess.accountMuted : txToastSuccess.accountUnmuted,
+      });
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : next
+              ? txToastError.muteAccountFailed
+              : txToastError.unmuteAccountFailed,
+      });
+    } finally {
+      close();
+    }
+  }
+
+  async function handleBlockToggle(shouldBlock: boolean) {
+    if (isBlockPendingForTarget(accountId)) return;
+    try {
+      await updateBlock(accountId, shouldBlock);
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : shouldBlock
+              ? txToastError.blockAccountFailed
+              : txToastError.unblockAccountFailed,
+      });
+    } finally {
+      setConfirmBlock(false);
+      close();
+    }
+  }
+
   const standLabel = isLoading
     ? '…'
     : pending
@@ -253,24 +344,29 @@ function PostCardMenu({
         ? 'Step back'
         : 'Stand with';
 
+  const muted = isMuting(accountId);
+  const blocked = isBlocking(accountId);
+  const mutePending = isMutePendingForTarget(accountId);
+  const blockPending = isBlockPendingForTarget(accountId);
+
   const menuItems = useMemo<ActionDrawerItem[]>(() => {
     const items: ActionDrawerItem[] = [];
     if (showGestures) {
       items.push({
         id: 'stand',
         label: standLabel,
-        disabled: pending || isLoading,
+        disabled: pending || isLoading || isBlockEitherWay(accountId),
         leading: viewerStanding ? (
-          <UserMinusIcon className="action-drawer-icon" aria-hidden />
+          <UserMinusIcon className="os-action-drawer-icon" aria-hidden />
         ) : (
-          <UserPlusIcon className="action-drawer-icon" aria-hidden />
+          <UserPlusIcon className="os-action-drawer-icon" aria-hidden />
         ),
         onSelect: () => void handleStandToggle(),
       });
       items.push({
         id: 'support',
         label: 'Support',
-        leading: <GiftIcon className="action-drawer-icon" aria-hidden />,
+        leading: <GiftIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           setSupportOpen(true);
           requestClose();
@@ -279,10 +375,45 @@ function PostCardMenu({
       items.push({
         id: 'endorse',
         label: 'Endorse',
-        leading: <FireBIcon className="action-drawer-icon" aria-hidden />,
+        leading: <FireBIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
+          setEndorseOpen(true);
           requestClose();
-          router.push(endorsementsHref, { scroll: false });
+        },
+      });
+      items.push({
+        id: 'mute',
+        label: mutePending
+          ? muted
+            ? 'Unmuting…'
+            : 'Muting…'
+          : muted
+            ? 'Unmute'
+            : 'Mute',
+        description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
+        disabled: mutePending,
+        leading: <UserMinusIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => void handleMuteToggle(),
+      });
+      items.push({
+        id: 'block',
+        label: blockPending
+          ? blocked
+            ? 'Unblocking…'
+            : 'Blocking…'
+          : blocked
+            ? 'Unblock'
+            : 'Block',
+        description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
+        destructive: !blocked,
+        disabled: blockPending,
+        leading: <MultiplyIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => {
+          if (blocked) {
+            void handleBlockToggle(false);
+            return;
+          }
+          setConfirmBlock(true);
         },
       });
     }
@@ -294,7 +425,7 @@ function PostCardMenu({
         label: cancelScarcePending ? 'Canceling…' : 'Cancel listing',
         destructive: true,
         disabled: cancelScarcePending,
-        leading: <TrashIcon className="action-drawer-icon" aria-hidden />,
+        leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
           requestClose();
           onCancelScarce();
@@ -305,14 +436,14 @@ function PostCardMenu({
       id: 'view-profile',
       label: 'View profile',
       href: profileHref,
-      leading: <UserIcon className="action-drawer-icon" aria-hidden />,
+      leading: <UserIcon className="os-action-drawer-icon" aria-hidden />,
       onSelect: () => requestClose(),
     });
     if (href) {
       items.push({
         id: 'copy-link',
         label: 'Copy link',
-        leading: <CopyIcon className="action-drawer-icon" aria-hidden />,
+        leading: <CopyIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => void copyLink(),
       });
     }
@@ -324,11 +455,14 @@ function PostCardMenu({
     viewerStanding,
     pending,
     isLoading,
+    muted,
+    blocked,
+    mutePending,
+    blockPending,
     showCancelScarce,
     cancelScarcePending,
     href,
     profileHref,
-    endorsementsHref,
   ]);
 
   return (
@@ -355,13 +489,43 @@ function PostCardMenu({
 
         <ActionDrawer
           open={isOpen}
-          onClose={requestClose}
+          onClose={
+            confirmBlock ? () => setConfirmBlock(false) : requestClose
+          }
           onClosed={handleClosed}
-          label="Post options"
+          label={
+            confirmBlock
+              ? blockConfirmCopy({
+                  accountId,
+                  profileName: authorProfile?.displayName,
+                }).title
+              : 'Post options'
+          }
+          copy={confirmBlock ? authorLabel : undefined}
           listAriaLabel="Post options"
-          items={menuItems}
-        />
+          closeAriaLabel={
+            confirmBlock ? 'Back to post options' : 'Close post options'
+          }
+          items={confirmBlock ? undefined : menuItems}
+        >
+          {confirmBlock ? (
+            <BlockConfirmPanel
+              accountId={accountId}
+              profileName={authorProfile?.displayName}
+              pending={blockPending}
+              onConfirm={() => void handleBlockToggle(true)}
+              onCancel={() => setConfirmBlock(false)}
+            />
+          ) : null}
+        </ActionDrawer>
       </div>
+      <EndorseComposeSheet
+        open={endorseOpen}
+        pageAccountId={accountId}
+        profileName={authorProfile?.displayName}
+        avatarUrl={authorProfile?.avatarUrl}
+        onOpenChange={setEndorseOpen}
+      />
       <ProfileSupportSheet
         open={supportOpen}
         pageAccountId={accountId}
@@ -420,6 +584,8 @@ export function QuotedPostInset({
   href?: string;
 }) {
   const router = useRouter();
+  const { safeMode } = useViewerSafeMode();
+  const labels = parsePostContentLabels(post.value);
   const name =
     authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
   const text = truncateQuoteText(parsePostText(post.value));
@@ -476,35 +642,37 @@ export function QuotedPostInset({
             timestamp={post.blockTimestamp}
           />
         </span>
-        {thumb || collage || text ? (
-          <div
-            className={[
-              'post-card-quote-inset-body-row',
-              thumb ? 'has-media' : '',
-              collage ? 'is-stacked' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {/* Multi: text above mini-collage. Single: thumb beside text. */}
-            {collage && text ? (
-              <p className="post-card-quote-inset-body">
-                <PostRichText text={text} />
-              </p>
-            ) : null}
-            {collage ? (
-              <PostMediaStrip items={collage} size="quote" playbackDisabled />
-            ) : null}
-            {thumb ? <QuoteMediaThumb item={thumb} /> : null}
-            {!collage && text ? (
-              <p className="post-card-quote-inset-body">
-                <PostRichText text={text} />
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <p className="post-card-quote-inset-body">…</p>
-        )}
+        <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
+          {thumb || collage || text ? (
+            <div
+              className={[
+                'post-card-quote-inset-body-row',
+                thumb ? 'has-media' : '',
+                collage ? 'is-stacked' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {/* Multi: text above mini-collage. Single: thumb beside text. */}
+              {collage && text ? (
+                <p className="post-card-quote-inset-body">
+                  <PostRichText text={text} />
+                </p>
+              ) : null}
+              {collage ? (
+                <PostMediaStrip items={collage} size="quote" playbackDisabled />
+              ) : null}
+              {thumb ? <QuoteMediaThumb item={thumb} /> : null}
+              {!collage && text ? (
+                <p className="post-card-quote-inset-body">
+                  <PostRichText text={text} />
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="post-card-quote-inset-body">…</p>
+          )}
+        </PostSensitiveGate>
       </div>
     </div>
   );
@@ -574,6 +742,14 @@ function ReactIcon({ filled }: { filled: boolean }) {
 
 function AmplifyIcon({ filled }: { filled: boolean }) {
   return filled ? <FireBFillIcon aria-hidden /> : <FireBIcon aria-hidden />;
+}
+
+function BookmarkGlyph({ filled }: { filled: boolean }) {
+  return filled ? (
+    <BookmarkFillIcon aria-hidden />
+  ) : (
+    <BookmarkIcon aria-hidden />
+  );
 }
 
 function absolutePostUrl(href: string): string | null {
@@ -723,9 +899,11 @@ function PostEngagementRow({
   shareHref,
   shareTitle,
   reactionPending,
+  savePending,
   onReply,
   onQuote,
   onToggleReaction,
+  onToggleSave,
   onAmplify,
   post,
 }: {
@@ -733,9 +911,11 @@ function PostEngagementRow({
   shareHref: string;
   shareTitle?: string | null;
   reactionPending?: boolean;
+  savePending?: boolean;
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
   onToggleReaction?: (post: PostRow) => void;
+  onToggleSave?: (post: PostRow) => void;
   onAmplify: () => void;
   post: PostRow;
 }) {
@@ -793,7 +973,33 @@ function PostEngagementRow({
           onActivate={onAmplify}
         />
       </div>
-      <PostShareControl href={shareHref} title={shareTitle} />
+      <div className="post-card-engagement-trailing">
+        {onToggleSave ? (
+          <button
+            type="button"
+            className={`post-card-stat post-card-stat-button post-card-save${
+              engagement.viewerSaved ? ' is-active' : ''
+            }${savePending ? ' is-pending' : ''}`}
+            disabled={savePending}
+            aria-pressed={engagement.viewerSaved}
+            aria-label={
+              engagement.viewerSaved ? 'Remove from saved' : 'Save this post'
+            }
+            title={engagement.viewerSaved ? 'Saved' : 'Save'}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onToggleSave(post);
+            }}
+          >
+            <BookmarkGlyph filled={engagement.viewerSaved} />
+          </button>
+        ) : null}
+        <PostShareControl href={shareHref} title={shareTitle} />
+      </div>
     </div>
   );
 }
@@ -921,7 +1127,9 @@ export function PostCard({
   guildName,
   engagement,
   reactionPending,
+  savePending,
   onToggleReaction,
+  onToggleSave,
   onAmplifyConfirmed,
   onReply,
   onQuote,
@@ -937,10 +1145,16 @@ export function PostCard({
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const { safeMode } = useViewerSafeMode();
   const [amplifyOpen, setAmplifyOpen] = useState(false);
   const [listScarceOpen, setListScarceOpen] = useState(false);
   const [buyScarceOpen, setBuyScarceOpen] = useState(false);
   const [bidScarceOpen, setBidScarceOpen] = useState(false);
+  const [sellScarceOpen, setSellScarceOpen] = useState(false);
+  const [ownedScarceByKey, setOwnedScarceByKey] = useState<{
+    key: string;
+    item: OwnedScarceItem | null;
+  } | null>(null);
   const [feedMediumOpen, setFeedMediumOpen] = useState(false);
   const [feedMediumMode, setFeedMediumMode] =
     useState<ScarceFeedMediumMode>('viewer');
@@ -953,6 +1167,7 @@ export function PostCard({
     Boolean(viewerAccountId) &&
     accountIdsEqual(viewerAccountId!, post.accountId);
   const hasCollectionEmbed = Boolean(parsePostCollectionEmbed(post.value));
+  const hasTokenEmbed = Boolean(parsePostTokenEmbed(post.value));
   const {
     rootRef: collectionEmbedRef,
     embed: collectionEmbed,
@@ -965,25 +1180,130 @@ export function PostCard({
   } = usePostCollectionEmbed(post, {
     force: isSelf || menuForceEmbed,
   });
+  // Token resale announce — mutually exclusive with collection + fromPost.
+  const {
+    rootRef: tokenEmbedRef,
+    embed: tokenEmbed,
+    dropTitle: tokenDropTitle,
+    retry: retryTokenEmbed,
+  } = usePostTokenEmbed(post, {
+    enabled: !hasCollectionEmbed,
+    force: isSelf || menuForceEmbed,
+  });
   // Own posts: fetch embed immediately so ⋮ already knows list vs cancel.
-  // Skip fromPost resolve when this post is a Drop reference embed.
+  // Skip fromPost resolve when this post is a Drop / token reference embed.
   const {
     rootRef: scarceEmbedRef,
     embed: fromPostScarceEmbed,
     retry: retryFromPostScarceEmbed,
   } = usePostScarceEmbed(post, {
-    enabled: !hasCollectionEmbed,
+    enabled: !hasCollectionEmbed && !hasTokenEmbed,
     force: isSelf || menuForceEmbed,
   });
-  const scarceEmbed = collectionEmbed ?? fromPostScarceEmbed;
+  const scarceEmbed = collectionEmbed ?? tokenEmbed ?? fromPostScarceEmbed;
   const scarceEmbedMergedRef = (node: HTMLElement | null) => {
     scarceEmbedRef.current = node;
     collectionEmbedRef.current = node;
+    tokenEmbedRef.current = node;
   };
   const retryScarceEmbed = () => {
     retryCollectionEmbed();
+    retryTokenEmbed();
     retryFromPostScarceEmbed();
   };
+  const sourcePostPath = `${post.accountId}/post/${post.postId}`;
+  const scarceTokenId = scarceEmbed?.tokenId?.trim() || '';
+  const scarceCollectionId =
+    scarceEmbed?.collectionId?.trim() ||
+    scarceEmbed?.latest?.collectionId?.trim() ||
+    '';
+  const ownershipKey =
+    viewerAccountId &&
+    scarceEmbed &&
+    scarceEmbed.status !== 'none' &&
+    (scarceTokenId || scarceCollectionId || sourcePostPath)
+      ? `${viewerAccountId}|${sourcePostPath}|${scarceTokenId}|${scarceCollectionId}`
+      : null;
+
+  // Resolve owned edition so holders can Sell from the post (same as Mines).
+  useEffect(() => {
+    if (!ownershipKey || !viewerAccountId) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      let item: OwnedScarceItem | null = null;
+      if (scarceTokenId) {
+        item = await fetchOwnedScarceByTokenId(viewerAccountId, scarceTokenId);
+      }
+      if (!item && scarceCollectionId) {
+        item = await fetchOwnedScarceForCollection(
+          viewerAccountId,
+          scarceCollectionId
+        );
+      }
+      if (!item) {
+        item = await fetchOwnedScarceForSourcePost(
+          viewerAccountId,
+          sourcePostPath
+        );
+      }
+      if (!cancelled) setOwnedScarceByKey({ key: ownershipKey, item });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    ownershipKey,
+    viewerAccountId,
+    scarceTokenId,
+    scarceCollectionId,
+    sourcePostPath,
+  ]);
+
+  const ownedScarceItem =
+    ownershipKey && ownedScarceByKey?.key === ownershipKey
+      ? ownedScarceByKey.item
+      : null;
+  const canSellScarce =
+    isConnected &&
+    ownedScarceItem != null &&
+    ownedScarceItem.listingKind == null;
+  const sellListedScarce =
+    isConnected &&
+    ownedScarceItem != null &&
+    ownedScarceItem.listingKind != null;
+
+  const refreshOwnedScarce = useCallback(() => {
+    if (!ownershipKey || !viewerAccountId) return;
+    void (async () => {
+      let item: OwnedScarceItem | null = null;
+      if (scarceTokenId) {
+        item = await fetchOwnedScarceByTokenId(viewerAccountId, scarceTokenId);
+      }
+      if (!item && scarceCollectionId) {
+        item = await fetchOwnedScarceForCollection(
+          viewerAccountId,
+          scarceCollectionId
+        );
+      }
+      if (!item) {
+        item = await fetchOwnedScarceForSourcePost(
+          viewerAccountId,
+          sourcePostPath
+        );
+      }
+      setOwnedScarceByKey({ key: ownershipKey, item });
+    })();
+  }, [
+    ownershipKey,
+    viewerAccountId,
+    scarceTokenId,
+    scarceCollectionId,
+    sourcePostPath,
+  ]);
+
   const activelyListed =
     scarceEmbed?.status === 'lazy_listing' ||
     scarceEmbed?.status === 'listed' ||
@@ -1039,6 +1359,7 @@ export function PostCard({
   }
 
   const text = parsePostText(post.value);
+  const labels = parsePostContentLabels(post.value);
   const poll = parsePostPollEmbed(post.value);
   const dropPaint = parseDropPaintSnapshot(post.value);
   const mediaItems = parsePostMedia(post.value);
@@ -1073,8 +1394,16 @@ export function PostCard({
   const showDropListen =
     listenPlayables.length > 0 ||
     (postDropIsPlayable(scarceEmbed) && canHydrateAudio);
+  const showDropRead =
+    collectionReadables.length > 0 ||
+    Boolean(collectionBookPdf) ||
+    (postDropIsReadable(scarceEmbed) &&
+      Boolean(scarceEmbed?.collectionId?.trim()));
   const dropListenTitle =
-    collectionDropTitle?.trim() || dropPaint?.title?.trim() || 'Drop';
+    tokenDropTitle?.trim() ||
+    collectionDropTitle?.trim() ||
+    dropPaint?.title?.trim() ||
+    'Drop';
   const openFeedMedium = (
     mode: ScarceFeedMediumMode,
     coverSvg: string | null = null
@@ -1175,106 +1504,130 @@ export function PostCard({
             />
           </div>
         </header>
-        <PostCardBody
-          relationContext={relationContext}
-          badges={badges}
-          text={text}
-          hasMedia={hasMedia}
-          expandDisabled={mediaFocused}
-          hideText={
-            (Boolean(poll) && text === poll?.question) ||
-            (mediaItems.length > 0 && !text.trim())
-          }
-        />
-        {poll ? (
-          <PostPollEmbedCard
-            poll={poll}
-            tally={pollTally}
-            pending={pollVotePending}
-            onVote={
-              onPollVote
-                ? (optionIndex) => onPollVote(post, optionIndex)
-                : undefined
+        <PostSensitiveGate labels={labels} safeMode={safeMode}>
+          <PostCardBody
+            relationContext={relationContext}
+            badges={badges}
+            text={text}
+            hasMedia={hasMedia}
+            expandDisabled={mediaFocused}
+            hideText={
+              (Boolean(poll) && text === poll?.question) ||
+              (mediaItems.length > 0 && !text.trim())
             }
           />
-        ) : null}
-        {mediaItems.length > 0 ? (
-          <PostMediaStrip
-            items={mediaItems}
-            size={mediaFocused ? 'page' : 'compact'}
-            focused={mediaFocused}
-            focusedVideoMuted={!mediaUnmuted}
-            resumeFocusedVideo={mediaUnmuted}
-            resumeMediaIndex={mediaResumeIndex}
-            onActivate={
-              !mediaFocused && actionHref && hasMedia
-                ? (index) => {
-                    const item = mediaItems[index];
-                    const unmute = Boolean(
-                      item && isRenderablePostVideoMime(item.mime)
-                    );
-                    router.push(
-                      unmute
-                        ? appendPostMediaUnmute(actionHref, index)
-                        : appendPostMediaIndex(actionHref, index)
-                    );
-                  }
-                : undefined
-            }
-          />
-        ) : showScarceArt && scarceEmbed ? (
-          <ScarcePostPreview
-            post={post}
-            variant="feed"
-            mediaUrl={scarceCoverUrl}
-            cardBg={scarceEmbed.cardBg}
-            creatorDisplayName={authorProfile?.displayName}
-            onActivate={({ coverSvg }) =>
-              openFeedMedium(
-                resolveScarceFeedMediumMode(
-                  scarceEmbed.mediumKind ?? dropPaint?.mediumKind
-                ),
-                coverSvg
-              )
-            }
-          />
-        ) : null}
+          {poll ? (
+            <PostPollEmbedCard
+              poll={poll}
+              tally={pollTally}
+              pending={pollVotePending}
+              onVote={
+                onPollVote
+                  ? (optionIndex) => onPollVote(post, optionIndex)
+                  : undefined
+              }
+            />
+          ) : null}
+          {mediaItems.length > 0 ? (
+            <PostMediaStrip
+              items={mediaItems}
+              size={mediaFocused ? 'page' : 'compact'}
+              focused={mediaFocused}
+              focusedVideoMuted={!mediaUnmuted}
+              resumeFocusedVideo={mediaUnmuted}
+              resumeMediaIndex={mediaResumeIndex}
+              onActivate={
+                !mediaFocused && actionHref && hasMedia
+                  ? (index) => {
+                      const item = mediaItems[index];
+                      const unmute = Boolean(
+                        item && isRenderablePostVideoMime(item.mime)
+                      );
+                      router.push(
+                        unmute
+                          ? appendPostMediaUnmute(actionHref, index)
+                          : appendPostMediaIndex(actionHref, index)
+                      );
+                    }
+                  : undefined
+              }
+            />
+          ) : showScarceArt && scarceEmbed ? (
+            <ScarcePostPreview
+              post={post}
+              variant="feed"
+              mediaUrl={scarceCoverUrl}
+              disableLiveSvg
+              cardBg={scarceEmbed.cardBg}
+              creatorDisplayName={authorProfile?.displayName}
+              onActivate={({ coverSvg }) =>
+                openFeedMedium(
+                  resolveScarceFeedMediumMode(
+                    scarceEmbed.mediumKind ?? dropPaint?.mediumKind
+                  ),
+                  coverSvg
+                )
+              }
+            />
+          ) : null}
+          {scarceEmbed || canListScarce ? (
+            <PostScarceCta
+              embed={
+                scarceEmbed ?? {
+                  status: 'none',
+                  events: [],
+                }
+              }
+              isAuthor={isSelf}
+              authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
+              canList={canListScarce}
+              onList={() => setListScarceOpen(true)}
+              canSell={canSellScarce}
+              onSell={() => setSellScarceOpen(true)}
+              sellListed={sellListedScarce}
+              alreadyOwnsEdition={Boolean(ownedScarceItem)}
+              onBuy={() => setBuyScarceOpen(true)}
+              onBid={() => setBidScarceOpen(true)}
+              listenSlot={
+                showDropListen || showDropRead ? (
+                  <>
+                    {showDropRead ? (
+                      <button
+                        type="button"
+                        className="post-card-scarce-listen"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          openFeedMedium('writing');
+                        }}
+                      >
+                        Read
+                      </button>
+                    ) : null}
+                    {showDropListen ? (
+                      <button
+                        type="button"
+                        className="post-card-scarce-listen"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          openFeedMedium('audio');
+                        }}
+                      >
+                        Listen
+                      </button>
+                    ) : null}
+                  </>
+                ) : null
+              }
+            />
+          ) : null}
+        </PostSensitiveGate>
         {quotedPost ? (
           <QuotedPostInset
             post={quotedPost}
             authorProfile={quotedAuthorProfile}
             href={quotedHref}
-          />
-        ) : null}
-        {scarceEmbed || canListScarce ? (
-          <PostScarceCta
-            embed={
-              scarceEmbed ?? {
-                status: 'none',
-                events: [],
-              }
-            }
-            isAuthor={isSelf}
-            authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
-            canList={canListScarce}
-            onList={() => setListScarceOpen(true)}
-            onBuy={() => setBuyScarceOpen(true)}
-            onBid={() => setBidScarceOpen(true)}
-            listenSlot={
-              showDropListen ? (
-                <button
-                  type="button"
-                  className="post-card-scarce-listen"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    openFeedMedium('audio');
-                  }}
-                >
-                  Listen
-                </button>
-              ) : null
-            }
           />
         ) : null}
         {detailLayout ? (
@@ -1292,9 +1645,11 @@ export function PostCard({
             shareHref={shareHref}
             shareTitle={name}
             reactionPending={reactionPending}
+            savePending={savePending}
             onReply={onReply}
             onQuote={onQuote}
             onToggleReaction={onToggleReaction}
+            onToggleSave={onToggleSave}
             onAmplify={() => setAmplifyOpen(true)}
             post={post}
           />
@@ -1315,14 +1670,20 @@ export function PostCard({
         authorName={authorProfile?.displayName}
         onOpenChange={setListScarceOpen}
         onListed={() => retryScarceEmbed()}
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceBuySheet
         open={buyScarceOpen}
         post={buyScarceOpen ? post : null}
         authorName={authorProfile?.displayName}
         embed={scarceEmbed}
+        alreadyOwnsEdition={Boolean(ownedScarceItem)}
         onOpenChange={setBuyScarceOpen}
-        onPurchased={() => retryScarceEmbed()}
+        onPurchased={() => {
+          retryScarceEmbed();
+          refreshOwnedScarce();
+        }}
+        zIndex={SCARCE_Z.commerceOverListen}
       />
       <ScarceBidSheet
         open={bidScarceOpen}
@@ -1331,6 +1692,18 @@ export function PostCard({
         embed={scarceEmbed}
         onOpenChange={setBidScarceOpen}
         onBid={() => retryScarceEmbed()}
+        zIndex={SCARCE_Z.commerceOverListen}
+      />
+      <ScarceSellSheet
+        open={sellScarceOpen && ownedScarceItem != null}
+        item={ownedScarceItem}
+        sellerAccountId={viewerAccountId}
+        onOpenChange={setSellScarceOpen}
+        onListed={() => {
+          setSellScarceOpen(false);
+          retryScarceEmbed();
+          refreshOwnedScarce();
+        }}
       />
       <ScarceFeedMediumSheet
         open={feedMediumOpen}
@@ -1360,15 +1733,18 @@ export function PostCard({
               authorAccountId={scarceEmbed?.creatorId?.trim() || post.accountId}
               canList={canListScarce}
               onList={() => {
-                setFeedMediumOpen(false);
                 setListScarceOpen(true);
               }}
+              canSell={canSellScarce}
+              onSell={() => {
+                setSellScarceOpen(true);
+              }}
+              sellListed={sellListedScarce}
+              alreadyOwnsEdition={Boolean(ownedScarceItem)}
               onBuy={() => {
-                setFeedMediumOpen(false);
                 setBuyScarceOpen(true);
               }}
               onBid={() => {
-                setFeedMediumOpen(false);
                 setBidScarceOpen(true);
               }}
             />
@@ -1381,6 +1757,7 @@ export function PostCard({
               shareHref={shareHref}
               shareTitle={name}
               reactionPending={reactionPending}
+              savePending={savePending}
               onReply={
                 onReply
                   ? (target) => {
@@ -1398,6 +1775,7 @@ export function PostCard({
                   : undefined
               }
               onToggleReaction={onToggleReaction}
+              onToggleSave={onToggleSave}
               onAmplify={() => {
                 setFeedMediumOpen(false);
                 setAmplifyOpen(true);

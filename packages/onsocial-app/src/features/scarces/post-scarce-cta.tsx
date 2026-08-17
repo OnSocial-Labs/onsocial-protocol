@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { PostScarceEmbed } from '@onsocial/sdk';
+import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
 import {
   isPrimaryMintStatus,
   resolvePostDropCta,
@@ -24,10 +25,33 @@ interface PostScarceCtaProps {
   /** Author can list when status is none / minted (no active listing). */
   canList?: boolean;
   onList?: () => void;
+  /** Viewer owns an edition of this post’s scarce (unlisted). */
+  canSell?: boolean;
+  onSell?: () => void;
+  /** Viewer owns an edition and it is already listed for resale. */
+  sellListed?: boolean;
+  /**
+   * Viewer already owns an edition — used by drawer / Market for “another”.
+   * Post CTA stays Mint/Buy regardless.
+   */
+  alreadyOwnsEdition?: boolean;
   onBuy: () => void;
   onBid?: () => void;
   /** Compact Listen control rendered beside commerce CTAs when playable. */
   listenSlot?: ReactNode;
+}
+
+function primaryMintLive(embed: PostScarceEmbed): boolean {
+  if (embed.status === 'lazy_listing' && Boolean(embed.listingId?.trim())) {
+    return embed.remaining == null || embed.remaining > 0;
+  }
+  if (embed.status === 'drop') {
+    const collectionId =
+      embed.collectionId?.trim() || embed.latest?.collectionId?.trim();
+    if (!collectionId) return false;
+    return embed.remaining == null || embed.remaining > 0;
+  }
+  return false;
 }
 
 function formatPriceNear(priceNear: string | undefined): string | null {
@@ -45,7 +69,40 @@ function editionMeta(embed: PostScarceEmbed): string | null {
   if (embed.remaining != null) {
     return `${embed.remaining}/${embed.copies} left`;
   }
-  return `${embed.copies} editions`;
+  return `${embed.copies} ${supplyUnitForMediumKind(embed.mediumKind).unit}`;
+}
+
+/** Quiet secondary-market cue: listed/auction edition (not primary mint). */
+export function isResaleEmbed(embed: PostScarceEmbed): boolean {
+  return Boolean(
+    embed.tokenId?.trim() &&
+      (embed.status === 'listed' || embed.status === 'auction')
+  );
+}
+
+function ResaleMeta({ embed }: { embed: PostScarceEmbed }) {
+  if (!isResaleEmbed(embed)) return null;
+  return <span className="post-card-scarce-cta-meta">Resale</span>;
+}
+
+function BuyMetaRow({
+  embed,
+  edition,
+  className = 'post-card-scarce-buy-meta',
+}: {
+  embed: PostScarceEmbed;
+  edition: string | null;
+  className?: string;
+}) {
+  const resale = isResaleEmbed(embed);
+  if (!edition && !resale) return null;
+  if (edition && resale) {
+    return <span className={className}>{edition} · Resale</span>;
+  }
+  if (edition) {
+    return <span className={className}>{edition}</span>;
+  }
+  return <span className={className}>Resale</span>;
 }
 
 function commerceLinks(
@@ -130,7 +187,7 @@ function OpenDropButton({ collectionId }: { collectionId: string }) {
 
 /**
  * One-line commerce CTA under post media / above engagement.
- * Vocabulary: Mint · Buy · Open Drop · List (Amplify lives in engagement row).
+ * Vocabulary: Mint · Buy · Sell · Open Drop · List (Amplify lives in engagement row).
  */
 export function PostScarceCta({
   embed,
@@ -138,6 +195,9 @@ export function PostScarceCta({
   authorAccountId,
   canList = false,
   onList,
+  canSell = false,
+  onSell,
+  sellListed = false,
   onBuy,
   onBid,
   listenSlot = null,
@@ -147,6 +207,7 @@ export function PostScarceCta({
   const edition = editionMeta(embed);
   const collectionId =
     embed.collectionId?.trim() || embed.latest?.collectionId?.trim() || '';
+  const primaryLive = primaryMintLive(embed);
   const isDropFamily =
     Boolean(collectionId) &&
     (embed.status === 'drop' ||
@@ -176,6 +237,38 @@ export function PostScarceCta({
     return null;
   }
 
+  // Holder resale only when primary mint is no longer live — otherwise keep
+  // Mint so the source post stays the primary product.
+  if (!primaryLive && canSell && onSell) {
+    return (
+      <div className="post-card-scarce-cta">
+        <button
+          type="button"
+          className="post-card-scarce-buy"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onSell();
+          }}
+        >
+          <span className="post-card-scarce-buy-main">Sell</span>
+        </button>
+        {listenSlot}
+        <CommerceLinkRow links={links} />
+      </div>
+    );
+  }
+
+  if (!primaryLive && sellListed) {
+    return (
+      <div className="post-card-scarce-cta post-card-scarce-cta--muted">
+        <span className="post-card-scarce-cta-main">Listed</span>
+        {listenSlot}
+        <CommerceLinkRow links={links} />
+      </div>
+    );
+  }
+
   if (isDropFamily) {
     const dropCta = resolvePostDropCta({ embed, isPostAuthor: isAuthor });
     if (dropCta.kind === 'muted') {
@@ -189,6 +282,7 @@ export function PostScarceCta({
           {edition ? (
             <span className="post-card-scarce-cta-meta">{edition}</span>
           ) : null}
+          <ResaleMeta embed={embed} />
           {listenSlot}
           <CommerceLinkRow links={links} />
         </div>
@@ -218,13 +312,15 @@ export function PostScarceCta({
             <span className="post-card-scarce-buy-main">
               {price ? `Bid · ${price} NEAR` : 'Bid'}
             </span>
+            <BuyMetaRow embed={embed} edition={edition} />
           </button>
           {listenSlot}
           <CommerceLinkRow links={links} />
         </div>
       );
     }
-    // mint | buy
+    // mint | buy — post stays short; “another” lives in drawer / Market.
+    const mintVerb = dropCta.kind === 'mint' ? 'Mint' : 'Buy';
     return (
       <div className="post-card-scarce-cta">
         <button
@@ -237,17 +333,15 @@ export function PostScarceCta({
           }}
         >
           <span className="post-card-scarce-buy-main">
-            {dropCta.kind === 'mint'
-              ? price
-                ? `Mint · ${price} NEAR`
-                : 'Mint'
-              : price
-                ? `Buy · ${price} NEAR`
-                : 'Buy'}
+            {price ? `${mintVerb} · ${price} NEAR` : mintVerb}
           </span>
-          {edition && dropCta.kind === 'mint' ? (
-            <span className="post-card-scarce-buy-meta">{edition}</span>
-          ) : null}
+          {dropCta.kind === 'mint' ? (
+            edition ? (
+              <span className="post-card-scarce-buy-meta">{edition}</span>
+            ) : null
+          ) : (
+            <BuyMetaRow embed={embed} edition={edition} />
+          )}
         </button>
         {listenSlot}
         <CommerceLinkRow links={links} />
@@ -296,6 +390,7 @@ export function PostScarceCta({
           <span className="post-card-scarce-cta-main">
             {price ? `Auction · ${price} NEAR` : 'Your auction'}
           </span>
+          <ResaleMeta embed={embed} />
           {listenSlot}
           <CommerceLinkRow links={links} />
         </div>
@@ -307,6 +402,7 @@ export function PostScarceCta({
           <span className="post-card-scarce-cta-main">
             {price ? `Auction · ${price} NEAR…` : 'Auction…'}
           </span>
+          <ResaleMeta embed={embed} />
           {listenSlot}
           <CommerceLinkRow links={links} />
         </div>
@@ -326,6 +422,7 @@ export function PostScarceCta({
           <span className="post-card-scarce-buy-main">
             {price ? `Bid · ${price} NEAR` : 'Bid'}
           </span>
+          <BuyMetaRow embed={embed} edition={edition} />
         </button>
         {listenSlot}
         <CommerceLinkRow links={links} />
@@ -355,6 +452,7 @@ export function PostScarceCta({
         {edition ? (
           <span className="post-card-scarce-cta-meta">{edition}</span>
         ) : null}
+        <ResaleMeta embed={embed} />
         {listenSlot}
         <CommerceLinkRow links={links} />
       </div>
@@ -373,11 +471,15 @@ export function PostScarceCta({
               ? `Listing · ${price} NEAR…`
               : 'Listing…'}
         </span>
+        <ResaleMeta embed={embed} />
         {listenSlot}
         <CommerceLinkRow links={links} />
       </div>
     );
   }
+
+  // Post CTA stays Mint/Buy; drawer + Market keep “another” when owned.
+  const commerceVerb = primaryIsMint ? 'Mint' : 'Buy';
 
   return (
     <div className="post-card-scarce-cta">
@@ -391,17 +493,15 @@ export function PostScarceCta({
         }}
       >
         <span className="post-card-scarce-buy-main">
-          {primaryIsMint
-            ? price
-              ? `Mint · ${price} NEAR`
-              : 'Mint'
-            : price
-              ? `Buy · ${price} NEAR`
-              : 'Buy'}
+          {price ? `${commerceVerb} · ${price} NEAR` : commerceVerb}
         </span>
-        {edition && primaryIsMint ? (
-          <span className="post-card-scarce-buy-meta">{edition}</span>
-        ) : null}
+        {primaryIsMint ? (
+          edition ? (
+            <span className="post-card-scarce-buy-meta">{edition}</span>
+          ) : null
+        ) : (
+          <BuyMetaRow embed={embed} edition={edition} />
+        )}
       </button>
       {listenSlot}
       <CommerceLinkRow links={links} />

@@ -111,3 +111,23 @@ INSERT INTO scarces_active_listings (
   1,
   1
 );
+
+-- Pre-materialization social current state (LIVE VIEWs). Forces combined_schema
+-- to DROP VIEW before CREATE TABLE + CREATE INDEX (see 20260810_social_current_tables).
+CREATE OR REPLACE VIEW posts_current AS
+SELECT
+  ''::text AS account_id,
+  ''::text AS post_id
+WHERE false;
+
+CREATE OR REPLACE VIEW reactions_current AS
+SELECT
+  ''::text AS account_id,
+  ''::text AS path
+WHERE false;
+
+CREATE OR REPLACE VIEW saves_current AS
+SELECT
+  ''::text AS account_id,
+  ''::text AS content_path
+WHERE false;

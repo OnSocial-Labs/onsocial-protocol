@@ -17,6 +17,9 @@ import {
   buildWithdrawUnclaimedRefundsAction,
   buildSetAllowlistAction,
   buildRemoveFromAllowlistAction,
+  buildAddRedeemerAction,
+  buildRemoveRedeemerAction,
+  buildSetRedeemersAction,
   buildSetCollectionMetadataAction,
   buildSetCollectionAppMetadataAction,
   ComposeError,
@@ -263,6 +266,75 @@ describe('buildRemoveFromAllowlistAction', () => {
   it('throws on empty accounts', () => {
     expect(() =>
       buildRemoveFromAllowlistAction({ collectionId: 'art', accounts: [] })
+    ).toThrow(ComposeError);
+  });
+});
+
+describe('buildAddRedeemerAction', () => {
+  it('builds a valid add-redeemer action', () => {
+    const result = buildAddRedeemerAction({
+      collectionId: 'art',
+      accountId: 'door.near',
+    });
+    expect(result.action).toEqual({
+      type: 'add_redeemer',
+      collection_id: 'art',
+      account_id: 'door.near',
+    });
+  });
+
+  it('throws on missing accountId', () => {
+    expect(() =>
+      buildAddRedeemerAction({ collectionId: 'art', accountId: '  ' })
+    ).toThrow(ComposeError);
+  });
+});
+
+describe('buildRemoveRedeemerAction', () => {
+  it('builds a valid remove-redeemer action', () => {
+    const result = buildRemoveRedeemerAction({
+      collectionId: 'art',
+      accountId: 'door.near',
+    });
+    expect(result.action).toEqual({
+      type: 'remove_redeemer',
+      collection_id: 'art',
+      account_id: 'door.near',
+    });
+  });
+});
+
+describe('buildSetRedeemersAction', () => {
+  it('builds a valid set-redeemers action', () => {
+    const result = buildSetRedeemersAction({
+      collectionId: 'art',
+      accountIds: ['door.near', 'staff.near'],
+    });
+    expect(result.action).toEqual({
+      type: 'set_redeemers',
+      collection_id: 'art',
+      account_ids: ['door.near', 'staff.near'],
+    });
+  });
+
+  it('allows empty roster clear', () => {
+    const result = buildSetRedeemersAction({
+      collectionId: 'art',
+      accountIds: [],
+    });
+    expect(result.action).toEqual({
+      type: 'set_redeemers',
+      collection_id: 'art',
+      account_ids: [],
+    });
+  });
+
+  it('throws when over cap', () => {
+    expect(() =>
+      buildSetRedeemersAction({
+        collectionId: 'art',
+        accountIds: Array.from({ length: 21 }, (_, i) => `d${i}.near`),
+      })
     ).toThrow(ComposeError);
   });
 });

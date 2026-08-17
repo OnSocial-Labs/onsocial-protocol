@@ -425,26 +425,70 @@ async function broadcastViaWallet(
     depositYocto?: bigint | string;
   }
 ): Promise<RelayResponse> {
-  const request: Record<string, unknown> = { action };
-  if (opts?.targetAccount !== undefined) {
-    request.target_account = opts.targetAccount;
-  }
-  if (opts?.requestOptions !== undefined) {
-    request.options = opts.requestOptions;
-  }
-
-  const result = await target.signer({
-    receiverId: targetContract,
-    actions: [
+  return broadcastViaWalletBatch(
+    [
       {
-        type: 'FunctionCall',
-        methodName: opts?.methodName ?? 'execute',
-        args: { request },
-        gas: String(target.gas ?? DEFAULT_FUNCTION_CALL_GAS),
-        // Per-call deposit wins over wallet-target default (often '0').
-        deposit: String(opts?.depositYocto ?? target.deposit ?? '0'),
+        action,
+        targetContract,
+        targetAccount: opts?.targetAccount,
+        requestOptions: opts?.requestOptions,
+        methodName: opts?.methodName,
+        depositYocto: opts?.depositYocto,
       },
     ],
+    target
+  );
+}
+
+export type WalletBatchCall = {
+  action: Record<string, unknown>;
+  targetContract: string;
+  targetAccount?: string;
+  requestOptions?: Record<string, unknown>;
+  methodName?: string;
+  depositYocto?: bigint | string;
+};
+
+/**
+ * One wallet popup with multiple FunctionCalls (same or different receivers).
+ * All calls must share one receiverId — NEAR wallets sign one tx per receiver.
+ */
+export async function broadcastViaWalletBatch(
+  calls: WalletBatchCall[],
+  target: Extract<BroadcastTarget, { kind: 'wallet' }>
+): Promise<RelayResponse> {
+  if (calls.length === 0) {
+    throw new Error('Wallet batch requires at least one action');
+  }
+  const receiverId = calls[0]!.targetContract;
+  for (const call of calls) {
+    if (call.targetContract !== receiverId) {
+      throw new Error(
+        'Wallet batch actions must target the same contract receiver'
+      );
+    }
+  }
+
+  const actions = calls.map((call) => {
+    const request: Record<string, unknown> = { action: call.action };
+    if (call.targetAccount !== undefined) {
+      request.target_account = call.targetAccount;
+    }
+    if (call.requestOptions !== undefined) {
+      request.options = call.requestOptions;
+    }
+    return {
+      type: 'FunctionCall' as const,
+      methodName: call.methodName ?? 'execute',
+      args: { request },
+      gas: String(target.gas ?? DEFAULT_FUNCTION_CALL_GAS),
+      deposit: String(call.depositYocto ?? target.deposit ?? '0'),
+    };
+  });
+
+  const result = await target.signer({
+    receiverId,
+    actions,
   });
 
   const txHash =
@@ -457,6 +501,49 @@ async function broadcastViaWallet(
     ok: true,
     raw: result,
   };
+}
+
+/** Prepare a JSON compose verb without signing. */
+export async function prepareCompose(
+  http: HttpClient,
+  verb: string,
+  body: unknown
+): Promise<PrepareResponse> {
+  const prepared = await http.post<PrepareResponse>(
+    `/compose/prepare/${verb}`,
+    body ?? {}
+  );
+  if (!prepared || typeof prepared !== 'object' || !prepared.action) {
+    throw new Error(
+      `Gateway /compose/prepare/${verb} did not return a valid action`
+    );
+  }
+  return prepared;
+}
+
+/** Prepare a multipart compose verb without signing. */
+export async function prepareComposeForm(
+  http: HttpClient,
+  verb: string,
+  form: FormData
+): Promise<
+  PrepareResponse & {
+    media?: { cid: string; url: string; size: number; hash: string };
+    metadata?: { cid: string; url: string; size: number; hash: string };
+  }
+> {
+  const prepared = await http.requestForm<
+    PrepareResponse & {
+      media?: { cid: string; url: string; size: number; hash: string };
+      metadata?: { cid: string; url: string; size: number; hash: string };
+    }
+  >('POST', `/compose/prepare/${verb}`, form);
+  if (!prepared || typeof prepared !== 'object' || !prepared.action) {
+    throw new Error(
+      `Gateway /compose/prepare/${verb} did not return a valid action`
+    );
+  }
+  return prepared;
 }
 
 function mergePreparedOptions<T extends { depositYocto?: bigint | string }>(

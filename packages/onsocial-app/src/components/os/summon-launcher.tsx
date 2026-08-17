@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   useRef,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -28,17 +29,20 @@ import {
   osLauncherRootClassName,
   osLauncherSheetClassName,
   osLauncherFrostClassName,
-  resolveGlassScrimBackdropFilter,
-  resolveOsGlassPanelFilter,
+  resolveBackdropPresentation,
+  resolvePanelPresentation,
   SheetCloseButton,
   usePrefersReducedTransparency,
+  useScrollLock,
 } from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
+import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
+import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useViewerDockMood } from '@/hooks/use-viewer-dock-mood';
 import { ThemeToggle } from '@/components/os/theme-toggle';
 import { CollectiblesNowPlayingDockChip } from '@/components/os/collectibles-now-playing-dock-chip';
 import { OsDockPill } from '@/components/wallet/os-dock-pill';
@@ -55,14 +59,9 @@ import { OsAppIcon } from '@/lib/os-app-icons';
 import { osAppAccent } from '@/lib/os-app-accents';
 
 const LAUNCHER_DISMISS_PX = 96;
-const LAUNCHER_MOBILE_MQ = '(max-width: 767px)';
-
-function isLauncherMobile() {
-  return (
-    typeof window !== 'undefined' &&
-    window.matchMedia(LAUNCHER_MOBILE_MQ).matches
-  );
-}
+const LAUNCHER_PRESENTATION_MS = 320;
+const LAUNCHER_PRESENTATION_EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
+const LAUNCHER_DRAG_ACTIVATION_PX = 6;
 
 function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
   if (app.kind === 'open-page' && openingPage) {
@@ -72,15 +71,31 @@ function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
   return app.label;
 }
 
+function formatLauncherUnread(count: number): string {
+  return count > 9 ? '9+' : String(count);
+}
+
+function launcherUnreadForApp(
+  appId: string,
+  activityUnread: number,
+  dmUnread: number
+): number {
+  if (appId === 'activity') return activityUnread;
+  if (appId === 'messages') return dmUnread;
+  return 0;
+}
+
 function LauncherAppTile({
   app,
   openingPage,
   active,
+  unread = 0,
   onActivate,
 }: {
   app: OsAppLink;
   openingPage: boolean;
   active: boolean;
+  unread?: number;
   onActivate: () => void;
 }) {
   const label = launcherAppLabel(app, openingPage);
@@ -88,6 +103,7 @@ function LauncherAppTile({
   const tileClassName = `${osLauncherItemClassName}${
     active ? ' is-current' : ''
   }${app.soon ? ' is-soon' : ''}`;
+  const ariaLabel = unread > 0 ? `${label}, ${unread} unread` : label;
   const tileBody = (
     <>
       <span
@@ -97,6 +113,10 @@ function LauncherAppTile({
         <OsAppIcon appId={app.id} className={osLauncherItemIconClassName} />
         {app.soon ? (
           <span className={osLauncherItemSoonClassName}>Soon</span>
+        ) : unread > 0 ? (
+          <span className="os-launcher-item-badge" aria-hidden="true">
+            {formatLauncherUnread(unread)}
+          </span>
         ) : null}
       </span>
       <span className={osLauncherItemLabelClassName}>{label}</span>
@@ -110,7 +130,7 @@ function LauncherAppTile({
         href={app.href}
         target="_blank"
         rel="noreferrer"
-        aria-label={label}
+        aria-label={ariaLabel}
         aria-current={active ? 'page' : undefined}
         onClick={onActivate}
       >
@@ -124,7 +144,7 @@ function LauncherAppTile({
       type="button"
       className={tileClassName}
       disabled={app.soon || (app.kind === 'open-page' && openingPage)}
-      aria-label={label}
+      aria-label={ariaLabel}
       aria-current={active ? 'page' : undefined}
       onClick={onActivate}
     >
@@ -153,6 +173,10 @@ export function SummonLauncher({
   const router = useRouter();
   const pathname = usePathname();
   const { accountId } = useAppWallet();
+  const activityUnread = useNotificationsUnreadCount();
+  const dmUnread = useDmUnreadCount();
+  const { moodId: dockMoodId, style: dockMoodStyle } =
+    useViewerDockMood(pageAccountId);
   const { navigate, openingPage } = useOsAppNavigate(pageAccountId);
   const activeAppId = resolveActiveOsAppId(pathname, accountId);
   const [openInternal, setOpenInternal] = useState(false);
@@ -171,13 +195,30 @@ export function SummonLauncher({
   const compose = useComposeLauncher();
   const dockHidden = useDockAutoHide() && !open;
   const sheetRef = useRef<HTMLElement>(null);
-  const dragStateRef = useRef<{ startY: number; baseY: number } | null>(null);
+  const dragStateRef = useRef<{
+    startY: number;
+    baseY: number;
+    panelH: number;
+    active: boolean;
+  } | null>(null);
   const dragYRef = useRef(0);
-  const [dragY, setDragY] = useState<number | null>(null);
+  const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [enterAnimationDone, setEnterAnimationDone] = useState(false);
+  const [panelHeightPx, setPanelHeightPx] = useState(0);
+  const [openGate, setOpenGate] = useState(open);
+
+  // Reset presentation state when open flips — avoid setState-in-effect.
+  if (open !== openGate) {
+    setOpenGate(open);
+    setEnterAnimationDone(false);
+    setPanelHeightPx(0);
+    setDragY(0);
+    setDragging(false);
+  }
 
   const resetDrag = useCallback(() => {
-    setDragY(null);
+    setDragY(0);
     dragYRef.current = 0;
     setDragging(false);
     dragStateRef.current = null;
@@ -190,6 +231,28 @@ export function SummonLauncher({
   const reduceTransparency = usePrefersReducedTransparency();
 
   useScrollLock(open);
+
+  useEffect(() => {
+    if (!open) {
+      dragYRef.current = 0;
+      dragStateRef.current = null;
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const panel = sheetRef.current;
+    if (!panel) {
+      return;
+    }
+    const syncHeight = () => setPanelHeightPx(panel.offsetHeight);
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -212,11 +275,13 @@ export function SummonLauncher({
 
   const handleDragPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!isLauncherMobile()) {
-        return;
-      }
-      dragStateRef.current = { startY: event.clientY, baseY: dragYRef.current };
-      setDragging(true);
+      const panelH = sheetRef.current?.offsetHeight ?? 480;
+      dragStateRef.current = {
+        startY: event.clientY,
+        baseY: dragYRef.current,
+        panelH,
+        active: false,
+      };
       event.currentTarget.setPointerCapture(event.pointerId);
     },
     []
@@ -228,13 +293,19 @@ export function SummonLauncher({
       if (!state) {
         return;
       }
-      const panelH = sheetRef.current?.offsetHeight ?? 480;
-      const next = Math.min(
-        panelH,
-        Math.max(0, state.baseY + (event.clientY - state.startY))
-      );
-      setDragY(Math.round(next));
-      dragYRef.current = Math.round(next);
+      const deltaY = event.clientY - state.startY;
+      if (!state.active && Math.abs(deltaY) < LAUNCHER_DRAG_ACTIVATION_PX) {
+        return;
+      }
+      if (!state.active) {
+        state.active = true;
+        setDragging(true);
+        setEnterAnimationDone(true);
+      }
+      const next = Math.min(state.panelH, Math.max(0, state.baseY + deltaY));
+      const rounded = Math.round(next);
+      setDragY(rounded);
+      dragYRef.current = rounded;
     },
     []
   );
@@ -253,21 +324,59 @@ export function SummonLauncher({
     }
 
     dragYRef.current = 0;
-    setDragY(null);
+    setDragY(0);
   }, [closeLauncher]);
 
-  const frostStyle = glassSheetBackdropFilterStyle(
-    resolveOsGlassPanelFilter({ reduceTransparency })
+  const handleSheetAnimationEnd = useCallback(
+    (event: React.AnimationEvent<HTMLElement>) => {
+      if (event.animationName !== 'os-launcher-sheet-in') {
+        return;
+      }
+      setEnterAnimationDone(true);
+    },
+    []
   );
 
-  const sheetStyle = (
-    dragging || dragY != null
-      ? ({ '--os-launcher-y': `${Math.round(dragY ?? 0)}px` } as CSSProperties)
-      : undefined
-  ) as CSSProperties;
+  const coverProgress =
+    panelHeightPx > 0 ? Math.min(1, Math.max(0, dragY / panelHeightPx)) : 0;
+
+  const presentationTransition = dragging
+    ? 'none'
+    : `opacity ${LAUNCHER_PRESENTATION_MS}ms ${LAUNCHER_PRESENTATION_EASE}, backdrop-filter ${LAUNCHER_PRESENTATION_MS}ms ${LAUNCHER_PRESENTATION_EASE}`;
+
+  const backdropPresentation = useMemo(
+    () =>
+      resolveBackdropPresentation(coverProgress, {
+        reduceTransparency,
+      }),
+    [coverProgress, reduceTransparency]
+  );
+
+  const panelFilter = useMemo(
+    () =>
+      resolvePanelPresentation(coverProgress, 'os', undefined, {
+        reduceTransparency,
+      }),
+    [coverProgress, reduceTransparency]
+  );
+
+  const showEnterAnimation = open && !enterAnimationDone;
+
+  const frostStyle = glassSheetBackdropFilterStyle(panelFilter, {
+    transition: presentationTransition,
+  });
+
+  const sheetStyle = {
+    '--os-launcher-y': `${dragY}px`,
+    ...(dragging ? { transform: `translateY(${dragY}px)` } : null),
+  } as CSSProperties;
 
   const backdropStyle = glassSheetBackdropFilterStyle(
-    resolveGlassScrimBackdropFilter({ reduceTransparency })
+    backdropPresentation.filter,
+    {
+      opacity: showEnterAnimation ? undefined : backdropPresentation.opacity,
+      transition: showEnterAnimation ? undefined : presentationTransition,
+    }
   );
 
   return (
@@ -275,6 +384,8 @@ export function SummonLauncher({
       {!hideTrigger ? (
         <div
           className={`portfolio-summon-dock${open ? ' is-launcher-open' : ''}${dockHidden ? ' is-scroll-hidden' : ''}`}
+          data-mood={dockMoodId ?? undefined}
+          style={dockMoodStyle}
         >
           <OsDockPill
             pageAccountId={pageAccountId}
@@ -296,14 +407,22 @@ export function SummonLauncher({
                 <button
                   type="button"
                   className={`portfolio-summon-compose${
-                    compose.kind === 'drop' ? ' is-drop' : ''
+                    compose.kind === 'drop'
+                      ? ' is-drop'
+                      : compose.kind === 'mint'
+                        ? ' is-mint'
+                        : ''
                   }`}
                   onClick={compose.action}
                   aria-label={
-                    compose.kind === 'drop' ? 'Start a drop' : 'Compose a post'
+                    compose.kind === 'drop'
+                      ? 'Start a drop'
+                      : compose.kind === 'mint'
+                        ? 'Mint'
+                        : 'Compose a post'
                   }
                 >
-                  {compose.kind === 'drop' ? (
+                  {compose.kind === 'drop' || compose.kind === 'mint' ? (
                     <StarsCFillIcon
                       className="portfolio-summon-compose-icon"
                       aria-hidden
@@ -322,7 +441,10 @@ export function SummonLauncher({
       ) : null}
 
       {open ? (
-        <div className={osLauncherRootClassName} role="presentation">
+        <div
+          className={`${osLauncherRootClassName}${showEnterAnimation ? ' is-enter' : ''}`}
+          role="presentation"
+        >
           <button
             type="button"
             className={osLauncherBackdropClassName}
@@ -335,8 +457,11 @@ export function SummonLauncher({
             role="dialog"
             aria-modal="true"
             aria-label="OnSocial launcher"
-            className={`${osLauncherSheetClassName}${dragging ? ' is-dragging' : ''}`}
+            className={`${osLauncherSheetClassName}${
+              showEnterAnimation ? ' is-enter' : ''
+            }${dragging ? ' is-dragging' : ''}`}
             style={sheetStyle}
+            onAnimationEnd={handleSheetAnimationEnd}
           >
             <div
               className={osLauncherFrostClassName}
@@ -355,7 +480,9 @@ export function SummonLauncher({
               <span className="glass-sheet-grip" aria-hidden />
             </button>
 
-            <header className={`standing-sheet-header ${osLauncherHeaderClassName}`}>
+            <header
+              className={`standing-sheet-header ${osLauncherHeaderClassName}`}
+            >
               <div className="standing-sheet-subject-row">
                 <div className="standing-sheet-subject">
                   <OnSocialMark
@@ -363,7 +490,9 @@ export function SummonLauncher({
                     aria-hidden
                   />
                   <span className="standing-sheet-subject-copy">
-                    <span className="standing-sheet-subject-name">OnSocial</span>
+                    <span className="standing-sheet-subject-name">
+                      OnSocial
+                    </span>
                   </span>
                 </div>
                 <div className="standing-sheet-actions">
@@ -382,6 +511,11 @@ export function SummonLauncher({
                     app={app}
                     openingPage={openingPage}
                     active={isOsAppActive(app.id, activeAppId)}
+                    unread={launcherUnreadForApp(
+                      app.id,
+                      activityUnread,
+                      dmUnread
+                    )}
                     onActivate={() => {
                       if (app.kind === 'external') {
                         closeLauncher();
@@ -429,7 +563,9 @@ export function PortfolioLauncher({
   const { accountId, isConnected } = useAppWallet();
 
   const isOwner =
-    isConnected && Boolean(accountId) && accountIdsEqual(accountId!, pageAccountId);
+    isConnected &&
+    Boolean(accountId) &&
+    accountIdsEqual(accountId!, pageAccountId);
   const apps = isOwner
     ? ownerPortfolioOsApps(pageAccountId)
     : visitorPortfolioOsApps(pageAccountId);

@@ -224,6 +224,29 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'profile_discover',
+    columns: [
+      'account_id',
+      'name',
+      'bio',
+      'avatar',
+      'banner',
+      'standing_count',
+      'standing_with_count',
+      'mutual_standing_count',
+      'endorsements_received_count',
+      'endorsements_given_count',
+      'first_profile_timestamp',
+      'last_profile_block',
+      'last_profile_timestamp',
+      'last_activity_block',
+      'search_text',
+      'reputation',
+      'confidence_score',
+      'discover_score',
+    ],
+  },
+  {
     name: 'posts_current',
     columns: [
       'account_id',
@@ -286,6 +309,16 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'blocks_current',
+    columns: [
+      'account_id',
+      'target_account',
+      'value',
+      'block_height',
+      'block_timestamp',
+    ],
+  },
+  {
     name: 'mutual_standings_current',
     columns: [
       'account_id',
@@ -336,6 +369,18 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'group_blacklist_current',
+    columns: [
+      'group_id',
+      'member_id',
+      'block_height',
+      'block_timestamp',
+      'group_name',
+      'is_public',
+      'is_member_driven',
+    ],
+  },
+  {
     name: 'reactions_current',
     columns: [
       'account_id',
@@ -361,6 +406,44 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
   {
     name: 'scarce_album_love_fans',
     columns: ['post_owner', 'collection_id', 'fan_count', 'last_love_block'],
+  },
+  {
+    name: 'scarce_album_love_fan_ids',
+    columns: [
+      'post_owner',
+      'collection_id',
+      'fan_account_ids',
+      'fan_count',
+      'last_love_block',
+    ],
+  },
+  {
+    name: 'scarce_drop_love_fans',
+    columns: ['post_owner', 'collection_id', 'fan_count', 'last_love_block'],
+  },
+  {
+    name: 'scarce_drop_love_fan_ids',
+    columns: [
+      'post_owner',
+      'collection_id',
+      'fan_account_ids',
+      'fan_count',
+      'last_love_block',
+    ],
+  },
+  {
+    name: 'scarce_collection_love_fans',
+    columns: ['post_owner', 'collection_id', 'fan_count', 'last_love_block'],
+  },
+  {
+    name: 'scarce_collection_love_fan_ids',
+    columns: [
+      'post_owner',
+      'collection_id',
+      'fan_account_ids',
+      'fan_count',
+      'last_love_block',
+    ],
   },
   {
     name: 'standing_counts',
@@ -1007,6 +1090,16 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'standing_out',
       'mutual_standing',
       'endorsements_received',
+      'paid_support_social',
+      'paid_support_events',
+      'paid_support_spenders',
+      'unique_inbound_peers',
+      'replies_received',
+      'quotes_received',
+      'unique_scarce_fans',
+      'amplify_points',
+      'amplify_social',
+      'amplify_events',
       'boost',
       'lock_months',
       'rewards_earned',
@@ -1082,10 +1175,14 @@ export const ADMIN_ONLY_TABLES = [
   'notification_delivery_attempts',
   'notification_counts',
   'notification_cursors',
+  'user_mutes',
 ];
 
 export const INTENTIONALLY_UNEXPOSED_RELATIONS = [
   'leaderboard_agent_features',
   'leaderboard_snapshots',
   'reward_weights',
+  // Reputation helpers (joined into reputation_scores; not public GraphQL).
+  'paid_support_inbound_events',
+  'author_amplify_received',
 ];

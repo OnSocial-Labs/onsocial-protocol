@@ -511,6 +511,20 @@ coreView('/platform-allowance', 'get_platform_allowance', (q) => {
   return { account_id: accountId };
 });
 
+coreView('/group-sponsor-quota', 'get_group_sponsor_quota', (q) => {
+  const groupId = requireStr(q, 'groupId');
+  if (!groupId) return 'Missing required query param: groupId';
+  const targetId = requireStr(q, 'targetId');
+  if (!targetId) return 'Missing required query param: targetId';
+  return { group_id: groupId, target_id: targetId };
+});
+
+coreView('/group-sponsor-default', 'get_group_sponsor_default', (q) => {
+  const groupId = requireStr(q, 'groupId');
+  if (!groupId) return 'Missing required query param: groupId';
+  return { group_id: groupId };
+});
+
 // ===========================================================================
 // Contract info views
 // ===========================================================================

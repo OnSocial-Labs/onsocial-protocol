@@ -93,6 +93,34 @@ export function ChartFillIcon(props: MageFillIconProps) {
   );
 }
 
+/** Mage `image-fill` — media tool selected state. */
+export function ImageFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M16.25 2.75h-8.5A5.76 5.76 0 0 0 2 8.5v7a5.76 5.76 0 0 0 5.75 5.75h8.5A5.76 5.76 0 0 0 22 15.5v-7a5.76 5.76 0 0 0-5.75-5.75M8 6.1a2.41 2.41 0 1 1-.922 4.635A2.41 2.41 0 0 1 8.01 6.1zm12.5 6.68l-2.18-1.69a3.26 3.26 0 0 0-4.17.37l-2.33 2.33a3 3 0 0 1-3.72.36a1.48 1.48 0 0 0-.94-.24a1.46 1.46 0 0 0-.88.42l-2.43 2.84a4.25 4.25 0 0 1-.35-1.91l1.68-1.95a3 3 0 0 1 3.76-.41a1.43 1.43 0 0 0 1.82-.18l2.33-2.32a4.77 4.77 0 0 1 6.13-.51l1.28 1z"
+        fill="currentColor"
+      />
+      <path
+        d="M8.91 8.51a.91.91 0 1 1-1.82 0a.91.91 0 0 1 1.82 0"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `chart-vertical-fill` — poll tool selected state (same glyph as stroke). */
+export function ChartVerticalFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M12.685 3.065h-5.51c-.84 0-1.52.68-1.52 1.52v1.77c0 .84.68 1.52 1.52 1.52h5.51c.84 0 1.52-.68 1.52-1.52v-1.77c0-.84-.68-1.52-1.52-1.52m9.14 8.05v1.77a1.53 1.53 0 0 1-1.53 1.52H7.175a1.52 1.52 0 0 1-1.52-1.52v-1.77a1.52 1.52 0 0 1 1.52-1.52h13.12a1.53 1.53 0 0 1 1.53 1.52m-3.32 6.53v1.77a1.53 1.53 0 0 1-1.53 1.52h-9.78a1.52 1.52 0 0 1-1.52-1.52v-1.77a1.52 1.52 0 0 1 1.52-1.52h9.78a1.53 1.53 0 0 1 1.53 1.52m-15.68 3.71a.65.65 0 0 1-.65-.65V3.295a.65.65 0 1 1 1.3 0v17.41a.65.65 0 0 1-.65.65"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
 /** Mage bulk `fire-a` — Hot sort / portal Boost surfaces. */
 export function FireFillIcon(props: MageFillIconProps) {
   return (
@@ -263,6 +291,18 @@ export function HeartFillIcon(props: MageFillIconProps) {
     <MageFillSvg {...props}>
       <path
         d="M21.19 12.683c-2.5 5.41-8.62 8.2-8.88 8.32a.85.85 0 0 1-.62 0c-.25-.12-6.38-2.91-8.88-8.32c-1.55-3.37-.69-7 1-8.56a4.93 4.93 0 0 1 4.36-1.05a6.16 6.16 0 0 1 3.78 2.62a6.15 6.15 0 0 1 3.79-2.62a4.93 4.93 0 0 1 4.36 1.05c1.78 1.56 2.65 5.19 1.09 8.56"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `bookmark-fill` — saved / bookmarked active state. */
+export function BookmarkFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M19.97 6.321v13.33a2.47 2.47 0 0 1-1.45 2.13a2.53 2.53 0 0 1-1.3.2a2.46 2.46 0 0 1-1.22-.51l-3.41-2.53a1.07 1.07 0 0 0-1.23 0l-3.43 2.56a2.47 2.47 0 0 1-1.2.5h-.3a2.4 2.4 0 0 1-1-.22a2.5 2.5 0 0 1-1-.83a2.53 2.53 0 0 1-.43-1.25V6.342a4.49 4.49 0 0 1 4.65-4.34h6.73A4.49 4.49 0 0 1 20 6.321z"
         fill="currentColor"
       />
     </MageFillSvg>

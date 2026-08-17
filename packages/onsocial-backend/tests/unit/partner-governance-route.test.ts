@@ -8,6 +8,7 @@ const mockIsRewardsAppRegistered = vi.fn();
 const mockFetch = vi.fn();
 const mockEnsureDaoProposalsSynced = vi.fn();
 const mockLoadAllDaoProposalSnapshots = vi.fn();
+const mockGetMaxPersistedProposalId = vi.fn();
 
 vi.stubGlobal('fetch', mockFetch);
 
@@ -54,8 +55,10 @@ vi.mock('../../src/logger.js', () => ({
 }));
 
 vi.mock('../../src/services/governance-dao-proposal-sync.js', () => ({
+  DAO_FEED_SYNC_BUDGET_MS: 750,
   ensureDaoProposalsSynced: (...args: unknown[]) =>
     mockEnsureDaoProposalsSynced(...args),
+  isDaoProposalsSyncInFlight: () => false,
   syncDaoProposalById: vi.fn(),
   startDaoProposalBackfillInBackground: vi.fn(),
 }));
@@ -63,6 +66,8 @@ vi.mock('../../src/services/governance-dao-proposal-sync.js', () => ({
 vi.mock('../../src/services/governance-dao-proposal-store.js', () => ({
   loadAllDaoProposalSnapshots: (...args: unknown[]) =>
     mockLoadAllDaoProposalSnapshots(...args),
+  getMaxPersistedProposalId: (...args: unknown[]) =>
+    mockGetMaxPersistedProposalId(...args),
 }));
 
 import express from 'express';
@@ -240,11 +245,13 @@ beforeEach(() => {
   mockIsRewardsAppRegistered.mockReset();
   mockEnsureDaoProposalsSynced.mockReset();
   mockLoadAllDaoProposalSnapshots.mockReset();
+  mockGetMaxPersistedProposalId.mockReset();
   mockQuery.mockResolvedValue(makeRows([]));
   mockBuildRegisterAppGovernanceProposal.mockReturnValue(DRAFT_PROPOSAL);
   mockIsRewardsAppRegistered.mockResolvedValue(false);
-  mockEnsureDaoProposalsSynced.mockResolvedValue(undefined);
+  mockEnsureDaoProposalsSynced.mockResolvedValue({ completed: true });
   mockLoadAllDaoProposalSnapshots.mockResolvedValue([]);
+  mockGetMaxPersistedProposalId.mockResolvedValue(null);
   mockFetch.mockReset();
 });
 

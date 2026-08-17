@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -13,28 +12,45 @@ import {
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
-  CameraIcon,
-  Divider,
-  GlassSheet,
+  ChartVerticalFillIcon,
+  ChartVerticalIcon,
+  ImageFillIcon,
+  ImageIcon,
+  OsFieldRemove,
+  OsHugSheet,
   ProfileAvatar,
-  SheetCloseButton,
+  StarsCFillIcon,
+  StarsCIcon,
+  osFieldBorderedClassName,
+} from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import {
+  ChoiceDrawerMenu,
+  type ChoiceOption,
 } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@onsocial/ui';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerProfileShellContext } from '@/contexts/viewer-profile-shell-context';
+import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
+import {
+  pageContentDrawerPanelStyle,
+  portfolioMoodShellStyle,
+  resolvePortfolioMood,
+} from '@/lib/moods/resolve';
 import { QuotedPostInset } from '@/features/home/post-card';
 import { PostMediaBlock } from '@/features/home/post-media';
 import { PostIdentityMeta } from '@/features/home/post-identity-meta';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { ComposerHashtagTextarea } from '@/features/guilds/composer-hashtag-textarea';
+import { ComposerDropPicker } from '@/features/guilds/composer-drop-picker';
+import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import {
   scrollMobileFieldIntoView,
   useMobileFieldFocusScroll,
 } from '@/hooks/use-mobile-field-focus-scroll';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import type { PostAuthorProfile } from '@/hooks/use-post-author-profiles';
 import {
@@ -43,7 +59,17 @@ import {
   POST_TEXT_WARN_REMAINING,
 } from '@/lib/post-display';
 import { POST_MEDIA_MAX_FILES, validatePostMediaFile } from '@/lib/post-media';
+import {
+  normalizeComposerContentLabels,
+  parsePostContentLabels,
+} from '@/lib/post-content-labels';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
+import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
+
+/** Composer slide-over z-index — nested choice drawers stack above. */
+const COMPOSER_SHEET_Z = 58;
+const COMPOSER_NEST_Z = scarceNestZIndex(COMPOSER_SHEET_Z);
 
 export type ComposerMode = 'post' | 'reply' | 'quote';
 /** @deprecated Prefer `ComposerMode`. */
@@ -57,13 +83,17 @@ export interface ComposerPollDraft {
 /** @deprecated Prefer `ComposerPollDraft`. */
 export type GuildComposerPollDraft = ComposerPollDraft;
 
-/** Drop reference attached to a personal post (“Post this Drop”). */
+/** Drop / resale reference attached to a post (“Post this Drop”). */
 export interface ComposerDropDraft {
-  collectionId: string;
+  /** Drop collection when announcing a primary mint or Drop edition. */
+  collectionId?: string;
+  /** Specific edition — required for non-collection (`s:`) resale announces. */
   tokenId?: string;
   title: string;
   mediaUrl?: string | null;
   mediumKind?: string | null;
+  /** Original mint post path for See original on resale Buy/Bid. */
+  sourcePostPath?: string | null;
 }
 
 export interface ComposerSubmit {
@@ -72,6 +102,10 @@ export interface ComposerSubmit {
   drop?: ComposerDropDraft;
   /** Attached image/video files (uploaded by SDK on write). */
   files?: File[];
+  /** Optional spoiler / content warning (PostV1 `contentWarning`). */
+  contentWarning?: string;
+  /** Hard NSFW flag (PostV1 `nsfw`). */
+  nsfw?: boolean;
 }
 /** @deprecated Prefer `ComposerSubmit`. */
 export type GuildComposerSubmit = ComposerSubmit;
@@ -99,28 +133,6 @@ const POLL_DURATION_OPTIONS = [
 const MIN_POLL_OPTIONS = 2;
 const MAX_POLL_OPTIONS = 4;
 
-/** Compact poll glyph — three bars (no Mage poll icon yet). */
-function PollComposeIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      width="1.15rem"
-      height="1.15rem"
-      fill="none"
-      aria-hidden
-    >
-      <path
-        d="M6 19V11M12 19V5M18 19v-7"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 /** Where a new post lands — guild room or personal public feed. */
 export type ComposerDestination =
   | {
@@ -129,11 +141,13 @@ export type ComposerDestination =
       channels: { id: string; title: string }[];
       selectedChannelId: string;
       onChannelChange: (channelId: string) => void;
+      /** Rooms still fetching — show Room chip as Loading…. */
+      loading?: boolean;
     }
   | {
       kind: 'personal';
-      /** Whisper under the title, e.g. `@alice.near · Public`. */
-      label: string;
+      /** @deprecated Unused — identity + Post to menus cover this. */
+      label?: string;
     };
 /** @deprecated Prefer `ComposerDestination`. */
 export type GuildComposerDestination = ComposerDestination;
@@ -193,6 +207,8 @@ function ReplyTargetPreview({
   post: PostRow;
   authorProfile?: PostAuthorProfile;
 }) {
+  const { safeMode } = useViewerSafeMode();
+  const labels = parsePostContentLabels(post.value);
   const name =
     authorProfile?.displayName?.trim() || fallbackLabel(post.accountId);
 
@@ -201,7 +217,7 @@ function ReplyTargetPreview({
       <ProfileAvatar
         src={authorProfile?.avatarUrl ?? null}
         fallbackInitial={name}
-        size="md"
+        size="lg"
         className="guild-composer-row-avatar"
       />
       <div className="guild-composer-row-copy">
@@ -210,9 +226,11 @@ function ReplyTargetPreview({
           handle={post.accountId}
           timestamp={post.blockTimestamp}
         />
-        <p className="guild-composer-reply-text">
-          <PostRichText text={parsePostText(post.value)} />
-        </p>
+        <PostSensitiveGate labels={labels} safeMode={safeMode} compact>
+          <p className="guild-composer-reply-text">
+            <PostRichText text={parsePostText(post.value)} />
+          </p>
+        </PostSensitiveGate>
       </div>
     </div>
   );
@@ -223,8 +241,9 @@ function normalizePollOptions(options: string[]): string[] {
 }
 
 /**
- * WYSIWYG composer in a bottom GlassSheet. Polls attach as an inline card on
- * new posts only; replies/quotes stay text.
+ * WYSIWYG composer in an OsSlideOverScreen (same glass page shell as Manage
+ * set). Polls attach as an inline card on new posts only; replies/quotes stay
+ * text. Form + toolbar layout is unchanged from the sheet era.
  */
 export function ComposerSheet({
   open,
@@ -241,10 +260,27 @@ export function ComposerSheet({
   onClose,
   onSubmit,
 }: ComposerSheetProps) {
-  const titleId = useId();
   const formId = useId();
   const { accountId } = useAppWallet();
   const viewerShell = useViewerProfileShellContext();
+  const { moodId: fetchedMoodId, style: fetchedMoodStyle } =
+    useViewerWalletMoodVars(
+      accountId ?? '',
+      undefined,
+      open && Boolean(accountId)
+    );
+  // Seed protocol mood immediately so the slide never flashes the blue-corner
+  // trial while the wallet mood fetch catches up.
+  const fallbackMood = useMemo(() => resolvePortfolioMood({}), []);
+  const viewerMoodId = fetchedMoodId ?? (accountId ? fallbackMood.id : null);
+  const viewerMoodStyle = useMemo(() => {
+    if (fetchedMoodStyle) return fetchedMoodStyle;
+    if (!accountId) return undefined;
+    return {
+      ...portfolioMoodShellStyle(fallbackMood.cssVars),
+      ...pageContentDrawerPanelStyle(fallbackMood.cssVars),
+    } as CSSProperties;
+  }, [accountId, fallbackMood.cssVars, fetchedMoodStyle]);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   // Seed from props when the sheet mounts already open (DropComposeHost).
   // `wasOpen` starts false so the open transition below always applies
@@ -261,16 +297,21 @@ export function ComposerSheet({
     { url: string; mime: string }[]
   >([]);
   const [mediaError, setMediaError] = useState<string | null>(null);
-  const [closing, setClosing] = useState(false);
+  const [contentWarning, setContentWarning] = useState('');
+  const [nsfw, setNsfw] = useState(false);
+  const [labelsOpen, setLabelsOpen] = useState(false);
+  const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const mediaStripRef = useRef<HTMLDivElement>(null);
-  const sheetOpen = open && !closing;
-  const viewport = useVisualViewportSheetMetrics(sheetOpen);
+  const warningInputRef = useRef<HTMLInputElement>(null);
+  const viewport = useVisualViewportSheetMetrics(open);
   const canUsePoll = mode === 'post' && !dropDraft;
   const canUseMedia = !pollEnabled && !dropDraft;
+  const canUseDrop =
+    mode === 'post' && !pollEnabled && mediaFiles.length === 0;
 
   const viewerName = accountId
     ? displayName(accountId, viewerShell?.displayName)
@@ -302,14 +343,15 @@ export function ComposerSheet({
         return [];
       });
       setMediaError(null);
-      setClosing(false);
+      setContentWarning('');
+      setNsfw(false);
+      setLabelsOpen(false);
+      setDropPickerOpen(false);
     }
   }
 
-  useScrollLock(open || closing);
-
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!open) return;
     const focusTimer = window.setTimeout(() => {
       const field = textareaRef.current;
       if (!field) return;
@@ -317,32 +359,33 @@ export function ComposerSheet({
       scrollMobileFieldIntoView(field);
     }, 280);
     return () => window.clearTimeout(focusTimer);
-  }, [sheetOpen, mode, formKey]);
+  }, [open, mode, formKey]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
-    if (!el || !sheetOpen) return;
-    /* Grow with content; the sheet body is the only scroller (no nested field scroll). */
+    if (!el || !open) return;
+    /* Grow with content; the slide body is the only scroller (no nested field scroll). */
     el.style.height = '0px';
     el.style.height = `${el.scrollHeight}px`;
     el.style.overflowY = 'hidden';
-  }, [text, pollEnabled, formKey, sheetOpen]);
+  }, [text, pollEnabled, formKey, open]);
+
+  useEffect(() => {
+    if (!open || !labelsOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      const field = warningInputRef.current;
+      if (!field) return;
+      field.focus();
+      scrollMobileFieldIntoView(field);
+    }, 40);
+    return () => window.clearTimeout(focusTimer);
+  }, [open, labelsOpen, formKey]);
 
   useEffect(() => {
     return () => {
       for (const preview of mediaPreviews) URL.revokeObjectURL(preview.url);
     };
   }, [mediaPreviews]);
-
-  const requestClose = useCallback(() => {
-    if (pending) return;
-    setClosing(true);
-  }, [pending]);
-
-  const handleSheetClosed = useCallback(() => {
-    setClosing(false);
-    onClose();
-  }, [onClose]);
 
   const filledPollOptions = normalizePollOptions(pollOptions);
   const pollReady =
@@ -361,6 +404,10 @@ export function ComposerSheet({
       );
       return;
     }
+    const labels = normalizeComposerContentLabels({
+      contentWarning,
+      nsfw,
+    });
     onSubmit({
       text:
         trimmed ||
@@ -375,22 +422,17 @@ export function ComposerSheet({
         : {}),
       ...(dropDraft ? { drop: dropDraft } : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
+      ...labels,
     });
   };
 
   const panelStyle = useMemo((): CSSProperties | undefined => {
-    if (!viewport.isMobile || viewport.height <= 0) return undefined;
-    const height = Math.min(viewport.height, 720);
+    if (!viewport.isMobile || viewport.lift <= 0) return undefined;
     return {
-      height: `${height}px`,
-      maxHeight: `${height}px`,
-      ...(viewport.lift > 0
-        ? {
-            marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
-          }
-        : null),
+      // Keep the compose dock above the soft keyboard (same lift as the old sheet).
+      marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
     };
-  }, [viewport.height, viewport.isMobile, viewport.lift]);
+  }, [viewport.isMobile, viewport.lift]);
 
   const updatePollOption = (index: number, value: string) => {
     setPollOptions((current) =>
@@ -427,8 +469,23 @@ export function ComposerSheet({
         return [];
       });
       setMediaError(null);
+      setDropDraft(null);
       return true;
     });
+  };
+
+  const selectDrop = (drop: ComposerDropDraft) => {
+    setDropDraft(drop);
+    setPollEnabled(false);
+    setPollOptions(['', '']);
+    setPollDurationMs(undefined);
+    setMediaFiles([]);
+    setMediaPreviews((previews) => {
+      for (const preview of previews) URL.revokeObjectURL(preview.url);
+      return [];
+    });
+    setMediaError(null);
+    setDropPickerOpen(false);
   };
 
   const removeMediaAt = (index: number) => {
@@ -516,18 +573,98 @@ export function ComposerSheet({
     pollReady &&
     !textOverLimit;
 
-  const selfRow = (
-    <div className="guild-composer-self">
+  const showDestinationMenus =
+    mode === 'post' && Boolean(feedTargets && feedTargets.options.length > 0);
+  const roomOptions: ChoiceOption<string>[] | null =
+    mode === 'post' && destination?.kind === 'guild'
+      ? destination.loading && destination.channels.length === 0
+        ? [{ value: '__loading__', label: 'Loading…', disabled: true }]
+        : destination.channels.length > 0
+          ? destination.channels.map((channel) => ({
+              value: channel.id,
+              label: channel.title,
+            }))
+          : [{ value: '__empty__', label: 'No rooms', disabled: true }]
+      : null;
+  const roomValue =
+    destination?.kind === 'guild'
+      ? destination.loading && destination.channels.length === 0
+        ? '__loading__'
+        : destination.selectedChannelId
+      : '';
+  // Only block while loading / posting — a single room must still open so
+  // the chevron menu is not a dead control.
+  const roomDisabled =
+    pending ||
+    (destination?.kind === 'guild' &&
+      (Boolean(destination.loading) || destination.channels.length === 0));
+
+  const destinationMenus =
+    showDestinationMenus && feedTargets ? (
+      <div
+        className="guild-composer-destination-menus"
+        role="group"
+        aria-label="Post destination"
+      >
+        <ChoiceDrawerMenu
+          label="Post to"
+          value={feedTargets.selectedId}
+          options={feedTargets.options.map(
+            (option): ChoiceOption<string> => ({
+              value: option.id,
+              label: option.label,
+            })
+          )}
+          onChange={feedTargets.onChange}
+          disabled={pending}
+          copy="Where this post appears"
+          ariaLabel={`Post to ${
+            feedTargets.options.find(
+              (option) => option.id === feedTargets.selectedId
+            )?.label ?? 'feed'
+          }`}
+          className="standing-view-menu guild-composer-dest-menu"
+          zIndex={COMPOSER_NEST_Z}
+        />
+        {destination?.kind === 'guild' && roomOptions ? (
+          <ChoiceDrawerMenu
+            label="Room"
+            value={roomValue}
+            options={roomOptions}
+            onChange={destination.onChannelChange}
+            disabled={roomDisabled}
+            copy="Guild room for this post"
+            ariaLabel={`Room ${
+              roomOptions.find((option) => option.value === roomValue)
+                ?.label ?? ''
+            }`}
+            className="standing-view-menu guild-composer-dest-menu"
+            zIndex={COMPOSER_NEST_Z}
+          />
+        ) : null}
+      </div>
+    ) : null;
+
+  const identitySlot = showDestinationMenus ? (
+    destinationMenus
+  ) : accountId ? (
+    <IdentityLine name={viewerName} handle={accountId} />
+  ) : null;
+
+  const selfBlock = (
+    <div
+      className={`guild-composer-self${
+        showDestinationMenus ? ' has-destination-menus' : ''
+      }`}
+    >
       <ProfileAvatar
         src={viewerShell?.avatarUrl ?? null}
         fallbackInitial={viewerName}
-        size="md"
+        size="lg"
         className="guild-composer-row-avatar"
       />
       <div className="guild-composer-row-copy">
-        {accountId ? (
-          <IdentityLine name={viewerName} handle={accountId} />
-        ) : null}
+        {identitySlot}
         <ComposerHashtagTextarea
           textareaRef={textareaRef}
           placeholder={inputPlaceholder}
@@ -558,34 +695,37 @@ export function ComposerSheet({
           </div>
         ) : null}
         {dropDraft ? (
-          <div className="guild-composer-drop-chip" aria-label="Attached Drop">
-            <span
-              className={`guild-composer-drop-thumb${
-                dropDraft.mediaUrl ? ' has-media' : ''
-              }`}
-              aria-hidden
-            >
+          <div
+            className="guild-composer-media-preview"
+            role="list"
+            aria-label={`Attached Drop: ${dropDraft.title}`}
+          >
+            <div role="listitem">
               {dropDraft.mediaUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={dropDraft.mediaUrl} alt="" />
-              ) : null}
-            </span>
-            <span className="guild-composer-drop-copy">
-              <span className="guild-composer-drop-label">Drop</span>
-              <span className="guild-composer-drop-title">
-                {dropDraft.title}
-              </span>
-            </span>
-            {!pending ? (
-              <button
-                type="button"
-                className="guild-composer-poll-remove"
-                aria-label="Remove Drop"
-                onClick={() => setDropDraft(null)}
-              >
-                ×
-              </button>
-            ) : null}
+                <PostMediaBlock
+                  item={{
+                    url: dropDraft.mediaUrl,
+                    mime: 'image/*',
+                  }}
+                  size="preview"
+                  onRemove={pending ? undefined : () => setDropDraft(null)}
+                />
+              ) : (
+                <div className="post-media-tile post-media-tile--preview guild-composer-drop-fallback-tile">
+                  <span className="guild-composer-drop-preview-fallback" />
+                  {!pending ? (
+                    <button
+                      type="button"
+                      className="post-media-remove"
+                      aria-label="Remove Drop"
+                      onClick={() => setDropDraft(null)}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
           </div>
         ) : null}
         {canUsePoll && pollEnabled ? (
@@ -597,7 +737,7 @@ export function ComposerSheet({
                   className="guild-composer-poll-row"
                 >
                   <input
-                    className="guild-composer-poll-input"
+                    className={`${osFieldBorderedClassName} guild-composer-poll-input`}
                     value={option}
                     maxLength={48}
                     disabled={pending}
@@ -609,15 +749,12 @@ export function ComposerSheet({
                     onFocus={scrollFieldIntoView}
                   />
                   {pollOptions.length > MIN_POLL_OPTIONS ? (
-                    <button
-                      type="button"
-                      className="guild-composer-poll-remove"
-                      disabled={pending}
+                    <OsFieldRemove
                       aria-label={`Remove option ${index + 1}`}
+                      ready={!pending}
+                      disabled={pending}
                       onClick={() => removePollOption(index)}
-                    >
-                      ×
-                    </button>
+                    />
                   ) : null}
                 </div>
               ))}
@@ -670,141 +807,67 @@ export function ComposerSheet({
         {mode === 'quote' && target ? (
           <QuotedPostInset post={target} authorProfile={targetAuthorProfile} />
         ) : null}
+        {contentWarning.trim() || nsfw ? (
+          <div
+            className="guild-composer-label-chips"
+            role="group"
+            aria-label="Content labels"
+          >
+            {contentWarning.trim() ? (
+              <button
+                type="button"
+                className="guild-composer-label-chip"
+                disabled={pending}
+                onClick={() => setLabelsOpen(true)}
+              >
+                CW · {contentWarning.trim()}
+              </button>
+            ) : null}
+            {nsfw ? (
+              <button
+                type="button"
+                className="guild-composer-label-chip is-nsfw"
+                disabled={pending}
+                onClick={() => setLabelsOpen(true)}
+              >
+                NSFW
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
 
-  return (
-    <GlassSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleSheetClosed}
-      tone="os"
-      initialDetent="full"
-      zIndex={58}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close composer"
-      bodyClassName="guild-composer-sheet-body"
-      panelClassName="guild-composer-sheet-panel"
-      panelStyle={panelStyle}
-      header={
-        <>
-          <div className="standing-sheet-header guild-composer-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    {TITLE[mode]}
-                  </h2>
-                  {mode === 'post' && destination ? (
-                    <p className="discover-sheet-subtitle guild-composer-destination-whisper">
-                      {destination.kind === 'personal'
-                        ? destination.label
-                        : destination.channels.length === 1
-                          ? `${destination.name} · ${destination.channels[0]!.title}`
-                          : destination.name}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton
-                  onClick={requestClose}
-                  ariaLabel="Close composer"
-                />
-              </div>
-            </div>
-            {mode === 'post' &&
-            feedTargets &&
-            feedTargets.options.length > 1 ? (
-              <div className="standing-sheet-toolbar-row">
-                <div
-                  className="guild-composer-mode"
-                  role="radiogroup"
-                  aria-label="Feed"
-                >
-                  {feedTargets.options.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={feedTargets.selectedId === option.id}
-                      className={
-                        feedTargets.selectedId === option.id
-                          ? 'is-active'
-                          : undefined
-                      }
-                      disabled={pending}
-                      onClick={() => feedTargets.onChange(option.id)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {mode === 'post' &&
-            destination?.kind === 'guild' &&
-            destination.channels.length > 1 ? (
-              <div className="standing-sheet-toolbar-row">
-                <div
-                  className="guild-composer-mode"
-                  role="radiogroup"
-                  aria-label="Room"
-                >
-                  {destination.channels.map((channel) => (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={
-                        destination.selectedChannelId === channel.id
-                      }
-                      className={
-                        destination.selectedChannelId === channel.id
-                          ? 'is-active'
-                          : undefined
-                      }
-                      disabled={pending}
-                      onClick={() => destination.onChannelChange(channel.id)}
-                    >
-                      {channel.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : mode !== 'post' && onModeChange ? (
-              <div className="standing-sheet-toolbar-row">
-                <div
-                  className="guild-composer-mode"
-                  role="radiogroup"
-                  aria-label="Composer mode"
-                >
-                  {(['reply', 'quote'] as const).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      role="radio"
-                      aria-checked={mode === option}
-                      className={mode === option ? 'is-active' : undefined}
-                      disabled={pending}
-                      onClick={() => onModeChange(option)}
-                    >
-                      {option === 'reply' ? 'Reply' : 'Quote'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
-      footer={
+  const modeToolbar =
+    mode !== 'post' && onModeChange ? (
+      <div
+        className="guild-composer-mode"
+        role="radiogroup"
+        aria-label="Composer mode"
+      >
+        {(['reply', 'quote'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={mode === option}
+            className={mode === option ? 'is-active' : undefined}
+            disabled={pending}
+            onClick={() => onModeChange(option)}
+          >
+            {option === 'reply' ? 'Reply' : 'Quote'}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  const composerFooter = (
         <div
           className={`guild-composer-sheet-footer${
             viewport.lift > 0 ? ' is-keyboard-open' : ''
           }`}
+          style={panelStyle}
         >
           <div className="guild-composer-toolbar">
             <div
@@ -814,7 +877,9 @@ export function ComposerSheet({
             >
               <button
                 type="button"
-                className="guild-composer-tool"
+                className={`guild-composer-tool${
+                  mediaFiles.length > 0 ? ' is-active' : ''
+                }`}
                 disabled={
                   !canUseMedia ||
                   pending ||
@@ -822,9 +887,14 @@ export function ComposerSheet({
                 }
                 title="Add photo or video"
                 aria-label="Add photo or video"
+                aria-pressed={mediaFiles.length > 0}
                 onClick={() => mediaInputRef.current?.click()}
               >
-                <CameraIcon className="guild-composer-tool-icon" />
+                {mediaFiles.length > 0 ? (
+                  <ImageFillIcon className="guild-composer-tool-icon" />
+                ) : (
+                  <ImageIcon className="guild-composer-tool-icon" />
+                )}
               </button>
               <button
                 type="button"
@@ -849,7 +919,74 @@ export function ComposerSheet({
                 aria-pressed={pollEnabled}
                 onClick={togglePoll}
               >
-                <PollComposeIcon className="guild-composer-tool-icon" />
+                {pollEnabled ? (
+                  <ChartVerticalFillIcon className="guild-composer-tool-icon" />
+                ) : (
+                  <ChartVerticalIcon className="guild-composer-tool-icon" />
+                )}
+              </button>
+              <button
+                type="button"
+                className={`guild-composer-tool${
+                  dropDraft ? ' is-active' : ''
+                }`}
+                disabled={!canUseDrop || pending}
+                title={
+                  canUseDrop
+                    ? dropDraft
+                      ? 'Change Drop'
+                      : 'Post a Drop'
+                    : pollEnabled
+                      ? 'Remove poll to post a Drop'
+                      : mediaFiles.length > 0
+                        ? 'Remove photos to post a Drop'
+                        : 'Drops are for new posts'
+                }
+                aria-label={
+                  canUseDrop
+                    ? dropDraft
+                      ? 'Change Drop'
+                      : 'Post a Drop'
+                    : pollEnabled
+                      ? 'Remove poll to post a Drop'
+                      : mediaFiles.length > 0
+                        ? 'Remove photos to post a Drop'
+                        : 'Drops are for new posts'
+                }
+                aria-pressed={Boolean(dropDraft)}
+                onClick={() => {
+                  if (!canUseDrop || pending) return;
+                  setDropPickerOpen(true);
+                }}
+              >
+                {dropDraft ? (
+                  <StarsCFillIcon className="guild-composer-tool-icon" />
+                ) : (
+                  <StarsCIcon className="guild-composer-tool-icon" />
+                )}
+              </button>
+              <button
+                type="button"
+                className={`guild-composer-tool guild-composer-tool--cw${
+                  contentWarning.trim() || nsfw ? ' is-active' : ''
+                }`}
+                disabled={pending}
+                title={
+                  contentWarning.trim() || nsfw
+                    ? 'Edit content labels'
+                    : 'Add content warning'
+                }
+                aria-label={
+                  contentWarning.trim() || nsfw
+                    ? 'Edit content labels'
+                    : 'Add content warning'
+                }
+                aria-pressed={Boolean(contentWarning.trim() || nsfw)}
+                onClick={() => setLabelsOpen(true)}
+              >
+                <span className="guild-composer-tool-cw" aria-hidden>
+                  CW
+                </span>
               </button>
             </div>
             <div className="guild-composer-toolbar-end">
@@ -893,7 +1030,23 @@ export function ComposerSheet({
             </div>
           </div>
         </div>
-      }
+  );
+
+  return (
+    <>
+    <OsSlideOverScreen
+      open={open}
+      onClose={onClose}
+      title={TITLE[mode]}
+      closeAriaLabel="Back"
+      closeDisabled={pending}
+      zIndex={COMPOSER_SHEET_Z}
+      className="guild-composer-slide"
+      contentClassName="guild-composer-sheet-body"
+      moodId={viewerMoodId}
+      moodStyle={viewerMoodStyle}
+      toolbar={modeToolbar}
+      footer={composerFooter}
     >
       <form
         id={formId}
@@ -907,16 +1060,16 @@ export function ComposerSheet({
               post={target}
               authorProfile={targetAuthorProfile}
             />
-            {selfRow}
+            {selfBlock}
           </div>
         ) : (
-          selfRow
+          selfBlock
         )}
 
         <input
           ref={mediaInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+          accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
           multiple
           hidden
           aria-hidden
@@ -926,7 +1079,75 @@ export function ComposerSheet({
         {mediaError ? <p className="guild-form-error">{mediaError}</p> : null}
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
-    </GlassSheet>
+    </OsSlideOverScreen>
+    <ComposerDropPicker
+      open={dropPickerOpen && open}
+      enabled={open && mode === 'post'}
+      onClose={() => setDropPickerOpen(false)}
+      accountId={accountId}
+      selectedDropKey={
+        dropDraft?.tokenId?.trim() || dropDraft?.collectionId?.trim() || null
+      }
+      onSelect={selectDrop}
+      zIndex={COMPOSER_NEST_Z}
+    />
+    <OsHugSheet
+      open={labelsOpen && open}
+      onClose={() => setLabelsOpen(false)}
+      chrome="choice"
+      label="Content labels"
+      closeAriaLabel="Close"
+      backdropLabel="Close content labels"
+      zIndex={COMPOSER_NEST_Z}
+      bodyClassName="guild-composer-labels-sheet-body"
+      panelStyle={viewerMoodStyle}
+    >
+      <label className="guild-composer-labels-field">
+        <span className="guild-composer-labels-field-label">
+          Content warning
+        </span>
+        <input
+          ref={warningInputRef}
+          className={`${osFieldBorderedClassName} guild-composer-warning-input`}
+          value={contentWarning}
+          maxLength={80}
+          disabled={pending}
+          placeholder="Warn people about…"
+          aria-label="Content warning"
+          onChange={(event) => setContentWarning(event.target.value)}
+          onFocus={scrollFieldIntoView}
+        />
+      </label>
+      <label className={`guild-composer-nsfw-switch${nsfw ? ' is-on' : ''}`}>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={nsfw}
+          disabled={pending}
+          aria-checked={nsfw}
+          onChange={(event) => setNsfw(event.target.checked)}
+        />
+        <span className="guild-composer-nsfw-switch-track" aria-hidden />
+        <span className="guild-composer-nsfw-switch-copy">
+          <span className="guild-composer-nsfw-switch-title">
+            Mark as NSFW
+          </span>
+          <span className="guild-composer-nsfw-switch-hint">
+            Blurs in Safe mode
+          </span>
+        </span>
+      </label>
+      <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+        <OsSheetAction
+          type="button"
+          variant="primary"
+          onClick={() => setLabelsOpen(false)}
+        >
+          Done
+        </OsSheetAction>
+      </OsSheetActions>
+    </OsHugSheet>
+    </>
   );
 }
 

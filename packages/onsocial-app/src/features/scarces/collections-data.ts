@@ -93,7 +93,7 @@ export interface CollectionView {
   paused: boolean;
   cancelled: boolean;
   soldOut: boolean;
-  /** True when the drop has a non-empty allowlist (early access before Opens). */
+  /** True when the drop has a timed Opens — early mint is allowlist-gated before then. */
   hasAllowlist: boolean;
   appId: string | null;
   /**
@@ -305,21 +305,78 @@ interface SeriesMeta {
 }
 
 /**
- * Parse the creator-chosen cover piece (`cover.seat`) from the collection's
- * freeform metadata blob. Returns null when absent or malformed.
+ * Parse packaging cover from collection freeform metadata.
+ * `cover.seat` = hero variation; `cover.url` = optional collage (or packaging) face.
  */
-function parseCoverSeat(
-  metadataJson: string | null | undefined
-): number | null {
-  if (!metadataJson?.trim()) return null;
+export function parseCoverMeta(metadataJson: string | null | undefined): {
+  seat: number | null;
+  url: string | null;
+  style: string | null;
+  label: boolean | null;
+  showTitle: boolean | null;
+  paper: string | null;
+  font: string | null;
+} {
+  const empty = {
+    seat: null as number | null,
+    url: null as string | null,
+    style: null as string | null,
+    label: null as boolean | null,
+    showTitle: null as boolean | null,
+    paper: null as string | null,
+    font: null as string | null,
+  };
+  if (!metadataJson?.trim()) return empty;
   try {
     const meta = asRecord(JSON.parse(metadataJson));
     const cover = asRecord(meta?.cover);
-    const seat = Number(cover?.seat);
-    return Number.isSafeInteger(seat) && seat >= 1 ? seat : null;
+    if (!cover) return empty;
+    const seatNum = Number(cover.seat);
+    const seat =
+      Number.isSafeInteger(seatNum) && seatNum >= 1 ? seatNum : null;
+    const url =
+      typeof cover.url === 'string' && cover.url.trim()
+        ? cover.url.trim()
+        : null;
+    const style =
+      typeof cover.style === 'string' && cover.style.trim()
+        ? cover.style.trim()
+        : null;
+    const label =
+      typeof cover.label === 'boolean'
+        ? cover.label
+        : cover.label === 'true'
+          ? true
+          : cover.label === 'false'
+            ? false
+            : null;
+    const showTitle =
+      typeof cover.showTitle === 'boolean'
+        ? cover.showTitle
+        : cover.showTitle === 'true'
+          ? true
+          : cover.showTitle === 'false'
+            ? false
+            : null;
+    const paper =
+      typeof cover.paper === 'string' && cover.paper.trim()
+        ? cover.paper.trim()
+        : null;
+    const font =
+      typeof cover.font === 'string' && cover.font.trim()
+        ? cover.font.trim()
+        : null;
+    return { seat, url, style, label, showTitle, paper, font };
   } catch {
-    return null;
+    return empty;
   }
+}
+
+/** @deprecated Prefer parseCoverMeta — seat-only helper kept for call sites. */
+function parseCoverSeat(
+  metadataJson: string | null | undefined
+): number | null {
+  return parseCoverMeta(metadataJson).seat;
 }
 
 /** Parse `series` from the collection's freeform metadata blob. */
@@ -451,8 +508,9 @@ export function toCollectionView(
   const minted = Math.max(0, Math.floor(Number(record.minted_count) || 0));
   const remaining = Math.max(0, totalSupply - minted);
   const priceYocto = yoctoString(record.price_near);
-  const allowlistYocto = yoctoString(record.allowlist_price);
-  const coverSeatRaw = parseCoverSeat(record.metadata);
+  const startTimeMs = nsToMs(record.start_time);
+  const coverMeta = parseCoverMeta(record.metadata);
+  const coverSeatRaw = coverMeta.seat;
   // Fall back to seat 1 when the chosen seat is missing or out of range.
   const coverSeat =
     coverSeatRaw != null && (totalSupply === 0 || coverSeatRaw <= totalSupply)
@@ -463,6 +521,7 @@ export function toCollectionView(
     collectionId,
     coverSeat
   );
+  const packagingUrl = resolveScarceMediaUrl(coverMeta.url);
   const series = parseSeries(record.metadata);
   const maxRedeems =
     record.max_redeems != null && record.max_redeems > 0
@@ -483,13 +542,13 @@ export function toCollectionView(
     creatorId,
     title: template.title,
     ...(template.description ? { description: template.description } : {}),
-    mediaUrl: template.mediaUrl,
+    mediaUrl: packagingUrl ?? template.mediaUrl,
     priceNear: priceDisplay(priceYocto),
     priceYocto,
     totalSupply,
     minted,
     remaining,
-    startTimeMs: nsToMs(record.start_time),
+    startTimeMs,
     endTimeMs: nsToMs(record.end_time),
     createdAtMs: nsToMs(record.created_at) ?? 0,
     maxPerWallet:
@@ -500,7 +559,8 @@ export function toCollectionView(
     paused: Boolean(record.paused),
     cancelled: Boolean(record.cancelled),
     soldOut: totalSupply > 0 && remaining === 0,
-    hasAllowlist: allowlistYocto !== '0',
+    // Chain gates pre-Opens mint on allowlist entries, not allowlist_price.
+    hasAllowlist: startTimeMs != null,
     appId: record.app_id?.trim() || null,
     appCommissionBps: parseAppCommissionBps(
       record.app_commission_bps,
@@ -903,6 +963,27 @@ export async function fetchAllowlistRemaining(
   }
 }
 
+/** Stored allowlist mint cap for a wallet (0 = not on list). */
+export async function fetchAllowlistAllocation(
+  collectionId: string,
+  accountId: string
+): Promise<number> {
+  const id = collectionId.trim();
+  const account = accountId.trim();
+  if (!id || !account) return 0;
+  try {
+    const allocation = await viewNearContract<number>(
+      SCARCES_CONTRACT,
+      'get_allowlist_allocation',
+      { collection_id: id, account_id: account }
+    );
+    const n = Math.floor(Number(allocation));
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * True when `accountId` currently owns at least one edition of this drop.
  * Prefers indexer `scarcesTokenOwners`; falls back to full RPC ownership scan.
@@ -911,9 +992,21 @@ export async function fetchOwnsCollectionEdition(
   collectionId: string,
   accountId: string
 ): Promise<boolean> {
+  const tokenId = await fetchOwnedCollectionTokenId(collectionId, accountId);
+  return Boolean(tokenId);
+}
+
+/**
+ * First owned edition token id for this drop, or null.
+ * Prefers indexer `scarcesTokenOwners`; falls back to RPC ownership scan.
+ */
+export async function fetchOwnedCollectionTokenId(
+  collectionId: string,
+  accountId: string
+): Promise<string | null> {
   const id = collectionId.trim();
   const account = accountId.trim();
-  if (!id || !account) return false;
+  if (!id || !account) return null;
 
   try {
     const client = createAppOnSocialClient(account);
@@ -936,7 +1029,8 @@ export async function fetchOwnsCollectionEdition(
       `,
       variables: { ownerId: account, collectionId: id },
     });
-    if ((res.data?.scarcesTokenOwners?.length ?? 0) > 0) return true;
+    const tokenId = res.data?.scarcesTokenOwners?.[0]?.tokenId?.trim();
+    if (tokenId) return tokenId;
   } catch {
     // Indexer lag / schema — fall through to RPC.
   }
@@ -951,9 +1045,9 @@ export async function fetchOwnsCollectionEdition(
     );
     total = Math.floor(Number(supply));
   } catch {
-    return false;
+    return null;
   }
-  if (!Number.isFinite(total) || total <= 0) return false;
+  if (!Number.isFinite(total) || total <= 0) return null;
 
   const pageSize = 50;
   for (let fromIndex = 0; fromIndex < total; fromIndex += pageSize) {
@@ -971,11 +1065,11 @@ export async function fetchOwnsCollectionEdition(
       if (!Array.isArray(tokens)) continue;
       for (const token of tokens) {
         const tokenId = token.token_id?.trim() ?? '';
-        if (tokenId.startsWith(prefix)) return true;
+        if (tokenId.startsWith(prefix)) return tokenId;
       }
     } catch {
-      return false;
+      return null;
     }
   }
-  return false;
+  return null;
 }

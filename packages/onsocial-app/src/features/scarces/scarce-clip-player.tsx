@@ -27,6 +27,7 @@ import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import { ScarceTrackOptionsMenu } from '@/features/scarces/scarce-track-options-menu';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { useScarceTrackLoves } from '@/hooks/use-scarce-track-loves';
+import { useScarceCollectionSaves } from '@/hooks/use-scarce-collection-saves';
 import {
   albumHasAllTracksCached,
   cachedTrackCids,
@@ -76,6 +77,20 @@ interface ScarceClipPlayerProps {
    * chrome instead. Set false when the cover player already owns transport.
    */
   showTransport?: boolean;
+  /**
+   * Mint/Buy/Bid sheets — compact cover (same footprint as ScarceBuyCover),
+   * play + expand listen, no tracklist / download chrome.
+   */
+  commerce?: boolean;
+  /**
+   * When false, share cluster omits “Post” (Drop page — Post lives in dock).
+   * Default true for Collectibles play / listen.
+   */
+  showFeedPost?: boolean;
+  /** Link share in player chrome. Drop page keeps share next to bookmark. */
+  showShare?: boolean;
+  /** Save-to-device / offline download chrome. Drop page leaves this to play. */
+  showDownloads?: boolean;
   /**
    * Open full-screen listen immediately and hide the compact cover shell
    * (post-origin enlarge). Closing listen calls `onListenClose`.
@@ -132,6 +147,10 @@ export function ScarceClipPlayer({
   coverBadge = null,
   showTracks,
   showTransport = true,
+  commerce = false,
+  showFeedPost = true,
+  showShare = true,
+  showDownloads = true,
   immersiveListen = false,
   listenFooter = null,
   onListenClose,
@@ -139,13 +158,33 @@ export function ScarceClipPlayer({
   const nowPlaying = useCollectiblesNowPlayingOptional();
   const { setTxResult } = useAppTransactionFeedback();
   const browserOnline = useBrowserOnline();
-  const playlist =
-    tracks && tracks.length > 0 ? tracks : ([clip] as ScarcePlayableMedia[]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const hostSession =
+    persist?.collectionId &&
+    nowPlaying?.session?.collectionId === persist.collectionId
+      ? nowPlaying.session
+      : null;
+  // Prefer the live album list when Buy/Sell only hydrated a single playable.
+  const playlist = (() => {
+    const local =
+      tracks && tracks.length > 0 ? tracks : ([clip] as ScarcePlayableMedia[]);
+    if (hostSession && hostSession.tracks.length > local.length) {
+      return hostSession.tracks;
+    }
+    return local;
+  })();
+  const [activeIndex, setActiveIndex] = useState(() => {
+    // Join an in-flight album session on the same collection — don't flash track 1.
+    if (hostSession) return nowPlaying!.activeIndex;
+    return 0;
+  });
   const active = playlist[Math.min(activeIndex, playlist.length - 1)] ?? clip;
   const isAudio = isRenderablePostAudioMime(active.mime);
+  // Bind to the host whenever this drop is already playing — never mount a
+  // second <audio> beside the page player (even if mime hydrate lags).
   const persistMode = Boolean(
-    persist?.collectionId && isAudio && nowPlaying
+    persist?.collectionId &&
+      nowPlaying &&
+      (isAudio || hostSession != null)
   );
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const durationByUrlRef = useRef<Map<string, number>>(new Map());
@@ -253,6 +292,10 @@ export function ScarceClipPlayer({
     creatorId,
     collectionId: persist?.collectionId,
     tracks: playlist,
+  });
+  const collectionSaves = useScarceCollectionSaves({
+    collectionIds: persist?.collectionId ? [persist.collectionId] : [],
+    onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const facepileIds = loves.fanIds.slice(0, 5);
   const facepileProfiles = usePostAuthorProfiles(facepileIds);
@@ -685,10 +728,12 @@ export function ScarceClipPlayer({
   }
 
   const cover = poster?.trim() || null;
-  const showTrackList =
-    showTracks ?? (isAudio && (tracksOnly || playlist.length > 1));
+  const showTrackList = commerce
+    ? false
+    : (showTracks ?? (isAudio && (tracksOnly || playlist.length > 1)));
   const showTracksTransport = tracksOnly && showTransport && showProgress;
-  const canDownloadAudio = isAudio && playlist.length > 0;
+  const canDownloadAudio =
+    showDownloads && !commerce && isAudio && playlist.length > 0;
   const albumCids = playlist
     .map((track) => trackCidFromPlayable(track))
     .filter((cid): cid is string => Boolean(cid));
@@ -752,8 +797,8 @@ export function ScarceClipPlayer({
       className={`scarce-clip-player-shell${
         tracksOnly ? ' scarce-clip-player-shell--tracks' : ''
       }${isAudio ? ' scarce-clip-player-shell--audio' : ''}${
-        immersiveListen ? ' scarce-clip-player-shell--immersive' : ''
-      }`}
+        commerce ? ' scarce-clip-player-shell--commerce' : ''
+      }${immersiveListen ? ' scarce-clip-player-shell--immersive' : ''}`}
     >
       {tracksOnly ? (
         persistMode ? null : (
@@ -1046,7 +1091,7 @@ export function ScarceClipPlayer({
         <div className="scarce-clip-tracks-head">
             <div className="scarce-clip-download-bar">
               {fansFacepile}
-              {playlist.length > 1 ? (
+              {playlist.length > 1 && showDownloads ? (
                 <>
                   <MediaDownloadControl
                     className="scarce-clip-download-control"
@@ -1138,16 +1183,17 @@ export function ScarceClipPlayer({
                       }}
                     />
                   ) : null}
-                  {persist?.collectionId ? (
+                </>
+              ) : null}
+              {playlist.length > 1 && showShare && persist?.collectionId ? (
                     <ScarceClipShareButton
                       className="scarce-clip-download-control"
                       title={persist.title}
                       collectionId={persist.collectionId}
                       mediaUrl={poster}
                       mediumKind="audio"
+                      showFeedPost={showFeedPost}
                     />
-                  ) : null}
-                </>
               ) : null}
             </div>
         </div>
@@ -1291,7 +1337,7 @@ export function ScarceClipPlayer({
           {!tracksOnly && (playlist.length > 1 || showFansFacepile) ? (
             <div className="scarce-clip-download-bar">
               {fansFacepile}
-              {playlist.length > 1 ? (
+              {playlist.length > 1 && showDownloads ? (
                 <>
                   <MediaDownloadControl
                     className="scarce-clip-download-control"
@@ -1383,16 +1429,17 @@ export function ScarceClipPlayer({
                       }}
                     />
                   ) : null}
-                  {persist?.collectionId ? (
-                    <ScarceClipShareButton
-                      className="scarce-clip-download-control"
-                      title={persist.title}
-                      collectionId={persist.collectionId}
-                      mediaUrl={poster}
-                      mediumKind="audio"
-                    />
-                  ) : null}
                 </>
+              ) : null}
+              {playlist.length > 1 && showShare && persist?.collectionId ? (
+                <ScarceClipShareButton
+                  className="scarce-clip-download-control"
+                  title={persist.title}
+                  collectionId={persist.collectionId}
+                  mediaUrl={poster}
+                  mediumKind="audio"
+                  showFeedPost={showFeedPost}
+                />
               ) : null}
             </div>
           ) : null}
@@ -1473,14 +1520,14 @@ export function ScarceClipPlayer({
                         />
                       )}
                       <span
-                        className={`scarce-clip-track-love-count${
-                          loveCount > 0 ? '' : ' is-empty'
-                        }`}
+                        className="scarce-clip-track-love-count"
+                        aria-hidden={loveCount <= 0}
                       >
-                        {loveCount > 0 ? loveCount : 0}
+                        {loveCount > 0 ? loveCount : ''}
                       </span>
                     </button>
                   ) : null}
+                  {showDownloads ? (
                   <ScarceTrackOptionsMenu
                     label={label}
                     index={index}
@@ -1562,6 +1609,7 @@ export function ScarceClipPlayer({
                         : undefined
                     }
                   />
+                  ) : null}
                 </li>
               );
             })}
@@ -1599,13 +1647,12 @@ export function ScarceClipPlayer({
                 <HeartIcon className="scarce-clip-track-love-icon" aria-hidden />
               )}
               <span
-                className={`scarce-clip-track-love-count${
-                  loves.loveCountFor(active) > 0 ? '' : ' is-empty'
-                }`}
+                className="scarce-clip-track-love-count"
+                aria-hidden={loves.loveCountFor(active) <= 0}
               >
                 {loves.loveCountFor(active) > 0
                   ? loves.loveCountFor(active)
-                  : 0}
+                  : ''}
               </span>
             </button>
           ) : null}
@@ -1699,19 +1746,20 @@ export function ScarceClipPlayer({
               }}
             />
           ) : null}
-          {persist?.collectionId ? (
+          {showShare && persist?.collectionId ? (
             <ScarceClipShareButton
               className="scarce-clip-download-control"
               title={persist.title}
               collectionId={persist.collectionId}
               mediaUrl={poster}
               mediumKind="audio"
+              showFeedPost={showFeedPost}
             />
           ) : null}
         </div>
       ) : null}
 
-      {hasLyrics && !listenOpen ? (
+      {hasLyrics && !listenOpen && !commerce ? (
         <div className="scarce-clip-lyrics">
           <button
             type="button"
@@ -1766,6 +1814,23 @@ export function ScarceClipPlayer({
             persist?.collectionId && creatorId
               ? () => {
                   void loves.toggleLove(active);
+                }
+              : null
+          }
+          saved={
+            persist?.collectionId
+              ? collectionSaves.viewerSaved(persist.collectionId)
+              : false
+          }
+          savePending={
+            persist?.collectionId
+              ? collectionSaves.isSavePending(persist.collectionId)
+              : false
+          }
+          onToggleSave={
+            persist?.collectionId
+              ? () => {
+                  void collectionSaves.toggleSave(persist.collectionId!);
                 }
               : null
           }

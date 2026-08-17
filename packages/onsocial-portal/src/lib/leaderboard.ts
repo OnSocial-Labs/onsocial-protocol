@@ -1,90 +1,35 @@
 import { yoctoToNear, yoctoToSocial } from '@/lib/near-rpc';
+import {
+  LEADERBOARD_PAGE_SIZE,
+  REPUTATION_SCORES_GRAPHQL_FIELDS,
+  commitmentAccent,
+  commitmentLabel,
+  formatReputation,
+  formatScore,
+  pctOfLeader,
+  reputationBoardMeta,
+  reputationConfidenceLabel,
+  reputationTier,
+  truncateAccountId,
+  type EarnerEntry,
+  type InfluenceEntry,
+  type ReputationEntry,
+} from '@onsocial/sdk';
 
-// ---------------------------------------------------------------------------
-// Types — match Hasura graphql-default camelCase from materialized views
-// ---------------------------------------------------------------------------
-
-/** leaderboard_boost view */
-export interface InfluenceEntry {
-  accountId: string;
-  lockedAmount: string;
-  effectiveBoost: string;
-  lockMonths: number;
-  totalClaimed?: string;
-  totalCreditsPurchased?: string;
-  lastEventBlock?: number;
-  rank: number;
-}
-
-/** leaderboard_rewards view */
-export interface EarnerEntry {
-  accountId: string;
-  totalEarned: string;
-  totalClaimed?: string;
-  unclaimed?: string;
-  creditCount?: number;
-  lastCreditBlock?: number;
-  lastClaimBlock?: number;
-  rank: number;
-}
-
-/** reputation_scores view (protocol reputation v1, testnet) */
-export interface ReputationEntry {
-  accountId: string;
-  standingWith: number;
-  standingOut: number;
-  mutualStanding: number;
-  endorsementsReceived: number;
-  boost: string;
-  lockMonths: number;
-  rewardsEarned: string;
-  totalPosts: number;
-  replyCount: number;
-  reactionsReceived: number;
-  avgReactions: number;
-  activeDays: number;
-  uniqueConversations: number;
-  scarcesCreated: number;
-  scarcesSold: number;
-  scarcesRevenueNear: string;
-  socialScore: string;
-  commitmentScore: string;
-  qualityScore: string;
-  consistencyScore: string;
-  scarcesScore: string;
-  reputation: string;
-  confidenceScore: string;
-  rank: number;
-}
-
-/** GraphQL selection for `reputationScores` — keep in sync with ReputationEntry. */
-export const REPUTATION_SCORES_GRAPHQL_FIELDS = `
-  accountId
-  standingWith
-  standingOut
-  mutualStanding
-  endorsementsReceived
-  boost
-  lockMonths
-  rewardsEarned
-  totalPosts
-  replyCount
-  reactionsReceived
-  avgReactions
-  activeDays
-  uniqueConversations
-  scarcesCreated
-  scarcesSold
-  scarcesRevenueNear
-  socialScore
-  commitmentScore
-  qualityScore
-  consistencyScore
-  scarcesScore
-  reputation
-  confidenceScore
-  rank
-`.trim();
+export type { EarnerEntry, InfluenceEntry, ReputationEntry };
+export {
+  LEADERBOARD_PAGE_SIZE,
+  REPUTATION_SCORES_GRAPHQL_FIELDS,
+  commitmentAccent,
+  commitmentLabel,
+  formatReputation,
+  formatScore,
+  pctOfLeader,
+  reputationBoardMeta,
+  reputationConfidenceLabel,
+  reputationTier,
+  truncateAccountId,
+};
 
 /** Homepage compact preview */
 export interface CompactLeaderboard {
@@ -105,10 +50,6 @@ export interface CompactLeaderboard {
   earners: Pick<EarnerEntry, 'accountId' | 'totalEarned' | 'rank'>[];
 }
 
-// ---------------------------------------------------------------------------
-// Fetchers
-// ---------------------------------------------------------------------------
-
 async function fetchLeaderboard<T>(
   scope: string,
   limit?: number
@@ -126,19 +67,19 @@ async function fetchLeaderboard<T>(
 }
 
 export function fetchInfluenceBoard(
-  limit = 20
+  limit = LEADERBOARD_PAGE_SIZE
 ): Promise<{ leaderboardBoost: InfluenceEntry[] } | null> {
   return fetchLeaderboard('influence', limit);
 }
 
 export function fetchReputationBoard(
-  limit = 20
+  limit = LEADERBOARD_PAGE_SIZE
 ): Promise<{ reputationScores: ReputationEntry[] } | null> {
   return fetchLeaderboard('reputation', limit);
 }
 
 export function fetchEarnerBoard(
-  limit = 20
+  limit = LEADERBOARD_PAGE_SIZE
 ): Promise<{ leaderboardRewards: EarnerEntry[] } | null> {
   return fetchLeaderboard('earners', limit);
 }
@@ -146,10 +87,6 @@ export function fetchEarnerBoard(
 export function fetchCompactBoard(): Promise<CompactLeaderboard | null> {
   return fetchLeaderboard('compact');
 }
-
-// ---------------------------------------------------------------------------
-// Formatting
-// ---------------------------------------------------------------------------
 
 export function formatNearCompact(yocto: string | number): string {
   const raw = Number.parseFloat(yoctoToNear(String(yocto ?? '0')));
@@ -179,101 +116,4 @@ export function formatSocialCompact(yocto: string | number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-export function formatReputation(value: string | number): string {
-  const num = Number.parseFloat(String(value));
-  if (!Number.isFinite(num) || num === 0) return '0';
-  if (num >= 10_000) return `${(num / 1_000).toFixed(1)}K`;
-  if (num >= 100) return num.toFixed(0);
-  return num.toFixed(1);
-}
-
-export function formatScore(value: string | number): string {
-  const num = Number.parseFloat(String(value));
-  if (!Number.isFinite(num) || num === 0) return '0';
-  if (num >= 100) return num.toFixed(0);
-  return num.toFixed(1);
-}
-
-export function truncateAccountId(id: string, max = 20): string {
-  if (id.length <= max) return id;
-  return `${id.slice(0, max - 4)}…${id.slice(-4)}`;
-}
-
-export function commitmentLabel(months: number): string {
-  if (months >= 48) return 'Citadel';
-  if (months >= 24) return 'Vanguard';
-  if (months >= 12) return 'Anchor';
-  if (months >= 6) return 'Steady';
-  if (months >= 1) return 'Scout';
-  return 'Observer';
-}
-
-export function commitmentAccent(
-  months: number
-): 'gold' | 'purple' | 'blue' | 'green' | 'neutral' {
-  if (months >= 48) return 'gold';
-  if (months >= 24) return 'purple';
-  if (months >= 12) return 'blue';
-  if (months >= 6) return 'green';
-  return 'neutral';
-}
-
-/** Maps a reputation rank → tier name */
-export function reputationTier(rank: number): {
-  label: string;
-  accent: 'gold' | 'purple' | 'blue' | 'green' | 'neutral';
-} {
-  if (rank <= 1) return { label: 'Legend', accent: 'gold' };
-  if (rank <= 3) return { label: 'Elite', accent: 'purple' };
-  if (rank <= 10) return { label: 'Rising', accent: 'blue' };
-  if (rank <= 25) return { label: 'Active', accent: 'green' };
-  return { label: 'New', accent: 'neutral' };
-}
-
-/** Indexed-evidence confidence from reputation_scores.confidence_score (0–1). */
-export function reputationConfidenceLabel(
-  confidenceScore?: string | number | null
-): {
-  label: string;
-  detail: string;
-} {
-  const score = Number.parseFloat(String(confidenceScore ?? ''));
-  if (!Number.isFinite(score)) {
-    return {
-      label: 'Building',
-      detail:
-        'Reputation updates from indexed stands, endorsements, posts, boost, and marketplace activity.',
-    };
-  }
-  if (score < 0.35) {
-    return {
-      label: 'Limited data',
-      detail:
-        'Few on-chain signals indexed yet — rank may shift as activity grows.',
-    };
-  }
-  if (score < 0.6) {
-    return {
-      label: 'Building',
-      detail:
-        'Reputation is forming from indexed stands, posts, boost, and marketplace activity.',
-    };
-  }
-  return {
-    label: 'Established',
-    detail: 'Backed by a broad set of indexed protocol signals.',
-  };
-}
-
-/** Percent bar width (0–100) for a value against the leader */
-export function pctOfLeader(
-  value: string | number,
-  leader: string | number
-): number {
-  const v = Number.parseFloat(String(value));
-  const l = Number.parseFloat(String(leader));
-  if (!Number.isFinite(v) || !Number.isFinite(l) || l === 0) return 0;
-  return Math.min(100, Math.round((v / l) * 100));
 }

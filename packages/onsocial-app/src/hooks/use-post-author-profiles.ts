@@ -35,6 +35,12 @@ function readCachedProfiles(
   return out;
 }
 
+/** True once each id has been fetched (profile or confirmed miss). */
+export function arePostAuthorProfilesResolved(accountIds: string[]): boolean {
+  if (accountIds.length === 0) return true;
+  return accountIds.every((accountId) => profileCache.has(accountId));
+}
+
 function mergeProfileRecords(
   base: Record<string, PostAuthorProfile>,
   overlay: Record<string, PostAuthorProfile>

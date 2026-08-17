@@ -541,6 +541,39 @@ describe('ScarcesModule.collections — management helpers', () => {
     });
   });
 
+  it('addRedeemer', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.collections.addRedeemer('col1', 'door.near');
+    expect(prepareBodyFor(http.post, 'add-redeemer')).toEqual({
+      collectionId: 'col1',
+      accountId: 'door.near',
+    });
+  });
+
+  it('removeRedeemer', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.collections.removeRedeemer('col1', 'door.near');
+    expect(prepareBodyFor(http.post, 'remove-redeemer')).toEqual({
+      collectionId: 'col1',
+      accountId: 'door.near',
+    });
+  });
+
+  it('setRedeemers', async () => {
+    const http = makeHttp();
+    const { getter } = makeSessionGetter();
+    const mod = new ScarcesModule(asHttp(http), getter);
+    await mod.collections.setRedeemers('col1', ['door.near', 'staff.near']);
+    expect(prepareBodyFor(http.post, 'set-redeemers')).toEqual({
+      collectionId: 'col1',
+      accountIds: ['door.near', 'staff.near'],
+    });
+  });
+
   it('setMetadata', async () => {
     const http = makeHttp();
     const { getter } = makeSessionGetter();

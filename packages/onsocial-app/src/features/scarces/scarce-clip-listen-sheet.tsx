@@ -15,14 +15,16 @@ import { createPortal } from 'react-dom';
 import {
   HeartFillIcon,
   HeartIcon,
+  BookmarkFillIcon,
+  BookmarkIcon,
   NextFillIcon,
   PauseFillIcon,
   PlayFillIcon,
   PreviousFillIcon,
   ScaleDownIcon,
+  useScrollLock,
 } from '@onsocial/ui';
 import { ScarceClipShareButton } from '@/features/scarces/scarce-clip-share-button';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 
 const clientMountedSubscribe = () => () => {};
@@ -60,6 +62,9 @@ export function ScarceClipListenSheet({
   loveCount = 0,
   lovePending = false,
   onToggleLove = null,
+  saved = false,
+  savePending = false,
+  onToggleSave = null,
   onTogglePlay,
   onSkip,
   onLyricsOpenChange,
@@ -97,6 +102,10 @@ export function ScarceClipListenSheet({
   loveCount?: number;
   lovePending?: boolean;
   onToggleLove?: (() => void) | null;
+  /** Collection-level private bookmark (not track love). */
+  saved?: boolean;
+  savePending?: boolean;
+  onToggleSave?: (() => void) | null;
   onTogglePlay: () => void;
   onSkip: (delta: -1 | 1) => void;
   onLyricsOpenChange: (open: boolean) => void;
@@ -123,7 +132,8 @@ export function ScarceClipListenSheet({
 
   const showLove = Boolean(onToggleLove);
   const showShare = Boolean(shareTitle?.trim());
-  const showActions = showLove || showShare;
+  const showSave = Boolean(onToggleSave);
+  const showActions = showLove || showShare || showSave;
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -194,9 +204,7 @@ export function ScarceClipListenSheet({
       aria-labelledby={titleId}
       style={lightboxStyle}
     >
-      <div
-        className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}
-      >
+      <div className={`scarce-clip-listen${lyricsOpen ? ' is-lyrics' : ''}`}>
         <p id={titleId} className="sr-only">
           {trackTitle}
         </p>
@@ -253,6 +261,34 @@ export function ScarceClipListenSheet({
                 mediaUrl={shareMediaUrl}
                 mediumKind="audio"
               />
+            ) : null}
+            {showSave ? (
+              <button
+                type="button"
+                className={`scarce-clip-listen-save${
+                  saved ? ' is-saved' : ''
+                }${savePending ? ' is-pending' : ''}`}
+                aria-label={
+                  saved
+                    ? `Remove ${albumTitle} bookmark`
+                    : `Bookmark ${albumTitle}`
+                }
+                aria-pressed={saved}
+                disabled={savePending}
+                onClick={() => onToggleSave?.()}
+              >
+                {saved ? (
+                  <BookmarkFillIcon
+                    className="scarce-clip-listen-save-icon"
+                    aria-hidden
+                  />
+                ) : (
+                  <BookmarkIcon
+                    className="scarce-clip-listen-save-icon"
+                    aria-hidden
+                  />
+                )}
+              </button>
             ) : null}
           </div>
         ) : null}

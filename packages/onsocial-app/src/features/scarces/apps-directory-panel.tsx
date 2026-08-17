@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+  OsIconAction,
   PlusIcon,
   SearchField,
   StarMovingFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -223,13 +223,11 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
       leading={null}
       actions={
         isConnected ? (
-          <Link
-            href={APP_APP_CREATE_PATH}
-            className={osIconActionClassName}
-            aria-label="Open a hub"
-          >
-            <PlusIcon aria-hidden />
-          </Link>
+          <OsIconAction asChild ariaLabel="Open a hub">
+            <Link href={APP_APP_CREATE_PATH} scroll={false}>
+              <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+            </Link>
+          </OsIconAction>
         ) : undefined
       }
       heading={

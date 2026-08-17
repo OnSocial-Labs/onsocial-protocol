@@ -1,6 +1,6 @@
 //! Database changes writer for core-onsocial events.
 
-use crate::pb::core_onsocial::v1::Output;
+use crate::pb::core_onsocial::v1::{DataUpdate, Output};
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 
@@ -14,41 +14,50 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
 
     // Process DataUpdates
     for update in output.data_updates {
-        let row = tables.create_row("data_updates", &update.id);
+        {
+            let row = tables.create_row("data_updates", &update.id);
 
-        row.set("block_height", update.block_height);
-        row.set("block_timestamp", update.block_timestamp);
-        row.set("receipt_id", &update.receipt_id);
-        row.set("operation", &update.operation);
-        row.set("author", &update.author);
-        row.set("partition_id", update.partition_id);
-        row.set("path", &update.path);
-        row.set("value", &update.value);
-        row.set("account_id", &update.account_id);
-        row.set("data_type", &update.data_type);
-        row.set("data_id", &update.data_id);
-        row.set("group_id", &update.group_id);
-        row.set("group_path", &update.group_path);
-        row.set("is_group_content", update.is_group_content);
-        row.set("target_account", &update.target_account);
-        row.set("parent_path", &update.parent_path);
-        row.set("parent_author", &update.parent_author);
-        row.set("parent_type", &update.parent_type);
-        row.set("ref_path", &update.ref_path);
-        row.set("ref_author", &update.ref_author);
-        row.set("ref_type", &update.ref_type);
-        row.set("refs", update.refs.join(","));
-        row.set("ref_authors", update.ref_authors.join(","));
-        row.set("derived_id", &update.derived_id);
-        row.set("derived_type", &update.derived_type);
-        row.set("writes", &update.writes);
-        row.set("extra_data", &update.extra_data);
-        row.set("reaction_kind", &update.reaction_kind);
-        row.set("channel", &update.channel);
-        row.set("kind", &update.kind);
-        row.set("audiences", &update.audiences);
-        row.set("actor_id", &update.actor_id);
-        row.set("payer_id", &update.payer_id);
+            row.set("block_height", update.block_height);
+            row.set("block_timestamp", update.block_timestamp);
+            row.set("receipt_id", &update.receipt_id);
+            row.set("operation", &update.operation);
+            row.set("author", &update.author);
+            row.set("partition_id", update.partition_id);
+            row.set("path", &update.path);
+            row.set("value", &update.value);
+            row.set("account_id", &update.account_id);
+            row.set("data_type", &update.data_type);
+            row.set("data_id", &update.data_id);
+            row.set("group_id", &update.group_id);
+            row.set("group_path", &update.group_path);
+            row.set("is_group_content", update.is_group_content);
+            row.set("target_account", &update.target_account);
+            row.set("parent_path", &update.parent_path);
+            row.set("parent_author", &update.parent_author);
+            row.set("parent_type", &update.parent_type);
+            row.set("ref_path", &update.ref_path);
+            row.set("ref_author", &update.ref_author);
+            row.set("ref_type", &update.ref_type);
+            row.set("refs", update.refs.join(","));
+            row.set("ref_authors", update.ref_authors.join(","));
+            row.set("derived_id", &update.derived_id);
+            row.set("derived_type", &update.derived_type);
+            row.set("writes", &update.writes);
+            row.set("extra_data", &update.extra_data);
+            row.set("reaction_kind", &update.reaction_kind);
+            row.set("channel", &update.channel);
+            row.set("kind", &update.kind);
+            row.set("audiences", &update.audiences);
+            row.set("actor_id", &update.actor_id);
+            row.set("payer_id", &update.payer_id);
+        }
+
+        match update.data_type.as_str() {
+            "post" => apply_posts_current(&mut tables, &update),
+            "reaction" => apply_reactions_current(&mut tables, &update),
+            "saved" => apply_saves_current(&mut tables, &update),
+            _ => {}
+        }
     }
 
     // Process StorageUpdates
@@ -208,4 +217,87 @@ pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
     }
 
     tables.to_database_changes()
+}
+
+/// Strip `account/saved/` or leading `saved/` — matches saves_current SQL COALESCE.
+pub(crate) fn bare_save_content_path(path: &str) -> String {
+    // COALESCE(
+    //   SUBSTRING(path FROM '^[^/]+/saved/(.+)$'),
+    //   SUBSTRING(path FROM '^saved/(.+)$'),
+    //   path
+    // )
+    if let Some((prefix, rest)) = path.split_once("/saved/") {
+        if !prefix.is_empty() && !prefix.contains('/') && !rest.is_empty() {
+            return rest.to_string();
+        }
+    }
+    if let Some(rest) = path.strip_prefix("saved/") {
+        if !rest.is_empty() {
+            return rest.to_string();
+        }
+    }
+    path.to_string()
+}
+
+pub(crate) fn apply_posts_current(tables: &mut Tables, update: &DataUpdate) {
+    let pk = [
+        ("account_id", update.account_id.clone()),
+        ("post_id", update.data_id.clone()),
+    ];
+    if update.operation == "remove" {
+        tables.delete_row("posts_current", pk);
+        return;
+    }
+    if update.operation != "set" {
+        return;
+    }
+    let row = tables.upsert_row("posts_current", pk);
+    row.set("account_id", &update.account_id);
+    row.set("post_id", &update.data_id);
+    row.set("value", &update.value);
+    row.set("block_height", update.block_height);
+    row.set("block_timestamp", update.block_timestamp);
+    row.set("receipt_id", &update.receipt_id);
+    row.set("parent_path", &update.parent_path);
+    row.set("parent_author", &update.parent_author);
+    row.set("parent_type", &update.parent_type);
+    row.set("ref_path", &update.ref_path);
+    row.set("ref_author", &update.ref_author);
+    row.set("ref_type", &update.ref_type);
+    row.set("channel", &update.channel);
+    row.set("kind", &update.kind);
+    row.set("audiences", &update.audiences);
+    row.set("group_id", &update.group_id);
+    row.set("is_group_content", update.is_group_content);
+}
+
+pub(crate) fn apply_reactions_current(tables: &mut Tables, update: &DataUpdate) {
+    let pk = [
+        ("account_id", update.account_id.clone()),
+        ("path", update.path.clone()),
+    ];
+    let row = tables.upsert_row("reactions_current", pk);
+    row.set("account_id", &update.account_id);
+    row.set("path", &update.path);
+    row.set("post_owner", &update.target_account);
+    row.set("reaction_kind", &update.reaction_kind);
+    row.set("value", &update.value);
+    row.set("block_height", update.block_height);
+    row.set("block_timestamp", update.block_timestamp);
+    row.set("operation", &update.operation);
+}
+
+pub(crate) fn apply_saves_current(tables: &mut Tables, update: &DataUpdate) {
+    let content_path = bare_save_content_path(&update.path);
+    let pk = [
+        ("account_id", update.account_id.clone()),
+        ("content_path", content_path.clone()),
+    ];
+    let row = tables.upsert_row("saves_current", pk);
+    row.set("account_id", &update.account_id);
+    row.set("content_path", content_path);
+    row.set("value", &update.value);
+    row.set("block_height", update.block_height);
+    row.set("block_timestamp", update.block_timestamp);
+    row.set("operation", &update.operation);
 }

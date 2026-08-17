@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -16,7 +15,6 @@ import {
   type ScarceTokenOffer,
 } from '@/features/scarces/scarce-offers';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
@@ -61,8 +59,6 @@ export function ScarceOffersSheet({
   if (open !== wasOpen) {
     setWasOpen(open);
   }
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -124,33 +120,20 @@ export function ScarceOffersSheet({
   }
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      panelClassName="profile-support-sheet-panel"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={56}
-      ariaLabelledBy={titleId}
+      verb="Offers"
+      personName={name}
+      handle={handle}
+      signal="reputation"
+      whisper="Accept the best offer to sell this scarce."
+      closeAriaLabel="Close offers"
       backdropLabel="Close offers"
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Offers"
-            personName={name}
-            handle={handle}
-            signal="reputation"
-            closeAriaLabel="Close offers"
-            onClose={requestClose}
-            whisper="Accept the best offer to sell this scarce."
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
     >
       {sheetOpen && item ? (
         <div className="profile-support-form">
@@ -197,6 +180,6 @@ export function ScarceOffersSheet({
           )}
         </div>
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

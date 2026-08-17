@@ -1,8 +1,8 @@
-import {
-  type OnSocial,
-  type PostRow,
-} from '@onsocial/sdk';
-import type { ComposerDropDraft } from '@/features/guilds/guild-composer-sheet';
+import { type OnSocial, type PostRow } from '@onsocial/sdk';
+import type {
+  ComposerDropDraft,
+  ComposerSubmit,
+} from '@/features/guilds/guild-composer-sheet';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
   guildSpaceFeedChannel,
@@ -10,11 +10,17 @@ import {
 } from '@/features/guilds/guild-structure';
 import { postMetaFromText } from '@/features/home/post-mentions';
 import {
-  collectionEmbedFromDraft,
+  commerceEmbedFromDraft,
   dropPostKind,
   dropSnapshotExtra,
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
+import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
+import {
+  buildOptimisticMediaEntries,
+  mediaKindFromFile,
+} from '@/lib/post-media';
+import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
 import {
   txToastConfirming,
   txToastError,
@@ -28,32 +34,59 @@ type TrackTransaction = (input: {
   failureMessage: string;
 }) => Promise<boolean>;
 
-export interface GuildDropPostSubmitResult {
+export interface GuildRootPostSubmitResult {
   confirmed: boolean;
   optimisticPost: PostRow | null;
   groupId: string;
 }
 
+/** @deprecated Prefer GuildRootPostSubmitResult */
+export type GuildDropPostSubmitResult = GuildRootPostSubmitResult;
+
 /**
- * Root guild post that references a Drop via durable collection embed.
- * Same schema as personal “Post this Drop”.
+ * Root guild post from the shared composer (text / media / poll / Drop).
  */
-export async function submitGuildDropPost(args: {
+export async function submitGuildRootPost(args: {
   client: OnSocial;
   accountId: string;
   groupId: string;
   space: GuildSpace;
-  text: string;
-  drop: ComposerDropDraft;
+  payload: ComposerSubmit;
   trackTransaction: TrackTransaction;
-}): Promise<GuildDropPostSubmitResult> {
-  const { client, accountId, groupId, space, drop, trackTransaction } = args;
-  const bodyText = resolvedDropPostText(args.text, drop);
-  const collectionEmbed = collectionEmbedFromDraft(drop);
+}): Promise<GuildRootPostSubmitResult> {
+  const { client, accountId, groupId, space, payload, trackTransaction } =
+    args;
+  const text = payload.text.trim();
+  const files = payload.files ?? [];
+  const drop = isDropComposeDraftReady(payload.drop) ? payload.drop! : null;
+  if (!text && !files.length && !drop) {
+    return { confirmed: false, optimisticPost: null, groupId };
+  }
+
+  const pollEmbed =
+    payload.poll && !drop
+      ? {
+          kind: 'poll' as const,
+          question: text,
+          options: payload.poll.options,
+          ...(payload.poll.durationMs != null
+            ? { closesAt: Date.now() + payload.poll.durationMs }
+            : {}),
+        }
+      : null;
+
+  const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
   const dropKind = dropPostKind(drop);
+  const bodyText = resolvedDropPostText(text, drop);
+  const contentLabels = normalizeComposerContentLabels(payload);
   const newPostId = Date.now().toString();
   const tags = postMetaFromText(bodyText);
   const channel = guildSpaceFeedChannel(space);
+  const mediaKind =
+    !pollEmbed && !drop && files.length
+      ? mediaKindFromFile(files[0]!)
+      : undefined;
+  const filePayload = files.length ? { files } : {};
 
   const response = await client.groups.post(
     groupId,
@@ -65,9 +98,19 @@ export async function submitGuildDropPost(args: {
       audiences: [space.audience],
       timestamp: Date.now(),
       ...tags,
-      embeds: [collectionEmbed],
-      x: dropSnapshotExtra(drop),
-      kind: dropKind ?? space.kind,
+      ...(pollEmbed
+        ? { embeds: [pollEmbed] }
+        : commerceEmbed
+          ? {
+              embeds: [commerceEmbed],
+              x: dropSnapshotExtra(drop!),
+              kind: dropKind ?? space.kind,
+            }
+          : mediaKind
+            ? { kind: mediaKind }
+            : { kind: space.kind }),
+      ...contentLabels,
+      ...filePayload,
     },
     newPostId
   );
@@ -83,6 +126,7 @@ export async function submitGuildDropPost(args: {
     return { confirmed: false, optimisticPost: null, groupId };
   }
 
+  const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
   const optimisticPost: PostRow = {
     accountId,
     postId: newPostId,
@@ -90,18 +134,56 @@ export async function submitGuildDropPost(args: {
       v: 1,
       text: bodyText,
       ...tags,
-      embeds: [collectionEmbed],
-      x: dropSnapshotExtra(drop),
+      ...(pollEmbed
+        ? { embeds: [pollEmbed] }
+        : commerceEmbed
+          ? { embeds: [commerceEmbed] }
+          : {}),
+      ...(drop ? { x: dropSnapshotExtra(drop) } : {}),
+      ...(media ? { media } : {}),
+      ...contentLabels,
     }),
     blockHeight: 0,
     blockTimestamp: Date.now(),
     groupId,
     isGroupContent: true,
     channel,
-    kind: dropKind ?? space.kind,
+    kind: pollEmbed
+      ? 'poll'
+      : (dropKind ?? mediaKind ?? space.kind),
   };
 
   return { confirmed: true, optimisticPost, groupId };
+}
+
+/**
+ * Root guild post that references a Drop via durable collection embed.
+ * Same schema as personal “Post this Drop”.
+ */
+export async function submitGuildDropPost(args: {
+  client: OnSocial;
+  accountId: string;
+  groupId: string;
+  space: GuildSpace;
+  text: string;
+  drop: ComposerDropDraft;
+  contentWarning?: string;
+  nsfw?: boolean;
+  trackTransaction: TrackTransaction;
+}): Promise<GuildRootPostSubmitResult> {
+  return submitGuildRootPost({
+    client: args.client,
+    accountId: args.accountId,
+    groupId: args.groupId,
+    space: args.space,
+    payload: {
+      text: args.text,
+      drop: args.drop,
+      contentWarning: args.contentWarning ?? '',
+      nsfw: Boolean(args.nsfw),
+    },
+    trackTransaction: args.trackTransaction,
+  });
 }
 
 const GUILD_POST_CONFIRMED = 'onsocial:guild-post-confirmed';

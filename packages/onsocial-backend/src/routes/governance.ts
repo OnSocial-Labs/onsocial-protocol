@@ -10,6 +10,18 @@ import { getDaoGovernanceRecent } from '../services/governance-dao-recent.js';
 import { getDaoGovernancePolicy } from '../services/governance-dao-policy.js';
 import { syncDaoProposalById } from '../services/governance-dao-proposal-sync.js';
 import { loadPersistedPolicySnapshot } from '../services/governance-proposal-policy-store.js';
+import {
+  listIndexedDaoAccountIds,
+  listMyDaoMemberships,
+} from '../services/governance-dao-membership-store.js';
+import {
+  searchDaoCatalog,
+  getDaoCatalogRowsByIds,
+} from '../services/governance-dao-catalog-store.js';
+import {
+  getDaoCatalogSyncStatus,
+  resolveDaoCatalogAccount,
+} from '../services/governance-dao-catalog-sync.js';
 
 const router = Router();
 
@@ -52,14 +64,23 @@ function readDaoAccountId(value: unknown): string {
   return daoAccountId;
 }
 
+function readAccountId(value: unknown): string {
+  const accountId =
+    typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : '';
+
+  if (!/^[a-z0-9][a-z0-9._-]{1,63}$/.test(accountId)) {
+    throw new Error('Invalid accountId');
+  }
+
+  return accountId;
+}
+
 router.get('/feed', async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = parseGovernanceFeedScope(req.query.scope);
     const daoAccountId = readDaoAccountId(req.query.daoAccountId);
-    const { applications, daoPolicy } = await getGovernanceFeedApplications(
-      scope,
-      daoAccountId
-    );
+    const { applications, daoPolicy, syncing } =
+      await getGovernanceFeedApplications(scope, daoAccountId);
 
     res.json({
       success: true,
@@ -67,6 +88,7 @@ router.get('/feed', async (req: Request, res: Response): Promise<void> => {
       daoAccountId,
       applications,
       daoPolicy,
+      syncing,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -182,6 +204,111 @@ router.get('/proposal', async (req: Request, res: Response): Promise<void> => {
       proposalId,
       live,
       proposal,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ success: false, error: msg });
+  }
+});
+
+router.get('/daos', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    const limitRaw = Number.parseInt(String(req.query.limit ?? '20'), 10);
+    const offsetRaw = Number.parseInt(String(req.query.offset ?? '0'), 10);
+    const limit = Number.isFinite(limitRaw) ? limitRaw : 20;
+    const offset = Number.isFinite(offsetRaw) ? offsetRaw : 0;
+
+    let { rows, total } = await searchDaoCatalog({ query: q, limit, offset });
+
+    // Exact account search: resolve live get_config and upsert if missing.
+    if (
+      q &&
+      rows.length === 0 &&
+      /^[a-z0-9][a-z0-9._-]{1,63}$/.test(q.toLowerCase())
+    ) {
+      const resolved = await resolveDaoCatalogAccount(q);
+      if (resolved) {
+        ({ rows, total } = await searchDaoCatalog({ query: q, limit, offset }));
+      }
+    }
+
+    const sync = await getDaoCatalogSyncStatus();
+
+    res.json({
+      success: true,
+      q: q || null,
+      limit: Math.min(Math.max(limit, 1), 50),
+      offset: Math.max(offset, 0),
+      total,
+      daos: rows.map((row) => ({
+        daoAccountId: row.daoAccountId,
+        name: row.name,
+        purpose: row.purpose,
+        metadata: row.metadata,
+        source: row.source,
+        listedAt: row.listedAt,
+      })),
+      factoryAccountId: sync.factoryAccountId,
+      indexedCount: sync.indexedCount,
+      factoryCount: sync.factoryCount,
+      syncing: sync.syncing,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ success: false, error: msg });
+  }
+});
+
+/** Batch lookup by account ids — standing / directory enrichment. */
+router.get(
+  '/daos/lookup',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const raw = typeof req.query.ids === 'string' ? req.query.ids : '';
+      const ids = raw
+        .split(',')
+        .map((id) => id.trim().toLowerCase())
+        .filter(Boolean);
+      const rows = await getDaoCatalogRowsByIds(ids);
+      res.json({
+        success: true,
+        daos: rows.map((row) => ({
+          daoAccountId: row.daoAccountId,
+          name: row.name,
+          purpose: row.purpose,
+          metadata: row.metadata,
+          source: row.source,
+          listedAt: row.listedAt,
+        })),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+);
+
+router.get('/my-daos', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const accountId = readAccountId(req.query.accountId);
+    const [daos, indexedDaoAccountIds] = await Promise.all([
+      listMyDaoMemberships(accountId),
+      listIndexedDaoAccountIds(),
+    ]);
+
+    res.json({
+      success: true,
+      accountId,
+      daos: daos.map((row) => ({
+        daoAccountId: row.daoAccountId,
+        roleNames: row.roleNames,
+        updatedAt: row.updatedAt,
+        name: row.name,
+        purpose: row.purpose,
+        metadata: row.metadata,
+      })),
+      indexedDaoAccountIds,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

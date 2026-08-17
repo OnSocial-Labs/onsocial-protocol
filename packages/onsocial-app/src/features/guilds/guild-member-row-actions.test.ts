@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   canViewerManageGuildMembers,
+  guildBannedMemberRowActions,
   guildMemberActionConfirmCopy,
   guildMemberRowActions,
 } from '@/features/guilds/guild-member-row-actions';
@@ -49,10 +50,12 @@ describe('guild member row actions', () => {
       ownerViewer
     );
     expect(actions.map((action) => action.id)).toEqual([
+      'add-storage',
       'transfer-ownership',
       'make-mod',
       'make-admin',
       'remove-from-guild',
+      'ban-from-guild',
       'copy-handle',
     ]);
   });
@@ -63,10 +66,12 @@ describe('guild member row actions', () => {
       ownerViewer
     );
     expect(actions.map((action) => action.id)).toEqual([
+      'add-storage',
       'transfer-ownership',
       'demote-to-mod',
       'remove-admin',
       'remove-from-guild',
+      'ban-from-guild',
       'copy-handle',
     ]);
   });
@@ -88,6 +93,18 @@ describe('guild member row actions', () => {
     expect(actions.map((action) => action.id)).toContain('demote-to-mod');
   });
 
+  it('prefixes proposal labels in member-driven guilds', () => {
+    const actions = guildMemberRowActions(
+      member({ memberId: 'writer.testnet' }),
+      { ...ownerViewer, memberDriven: true }
+    );
+    expect(actions[0]?.id).toBe('add-storage');
+    expect(
+      actions.find((action) => action.id === 'transfer-ownership')?.label
+    ).toBe('Propose: Transfer ownership');
+    expect(canViewerManageGuildMembers(ownerViewer)).toBe(true);
+  });
+
   it('limits admin management to the owner', () => {
     const adminViewer = {
       viewerAccountId: 'admin.testnet',
@@ -106,16 +123,14 @@ describe('guild member row actions', () => {
         member({ memberId: 'mod.testnet', canModerate: true }),
         adminViewer
       ).map((action) => action.id)
-    ).toContain('remove-mod');
-  });
-
-  it('prefixes proposal labels in member-driven guilds', () => {
-    const actions = guildMemberRowActions(
-      member({ memberId: 'writer.testnet' }),
-      { ...ownerViewer, memberDriven: true }
-    );
-    expect(actions[0]?.label).toBe('Propose: Transfer ownership');
-    expect(canViewerManageGuildMembers(ownerViewer)).toBe(true);
+    ).toEqual([
+      'add-storage',
+      'remove-mod',
+      'make-member',
+      'remove-from-guild',
+      'ban-from-guild',
+      'copy-handle',
+    ]);
   });
 
   it('builds confirm copy for direct and proposal actions', () => {
@@ -153,8 +168,31 @@ describe('guild member row actions', () => {
     ).toEqual({
       title: 'Remove from guild',
       subtitle:
-        'Members must vote before this role takes effect. They will lose access to this guild.',
+        'Members must vote before this takes effect. They will lose access to this guild.',
       confirmLabel: 'Submit proposal',
     });
+
+    expect(
+      guildMemberActionConfirmCopy({
+        id: 'ban-from-guild',
+        label: 'Ban from guild',
+        destructive: true,
+      })
+    ).toEqual({
+      title: 'Ban from guild',
+      subtitle: 'They are removed and cannot rejoin until unbanned.',
+      confirmLabel: 'Ban member',
+    });
+  });
+
+  it('offers unban on banned rows for managers', () => {
+    expect(
+      guildBannedMemberRowActions('mallory.testnet', ownerViewer).map(
+        (action) => action.id
+      )
+    ).toEqual(['unban-from-guild', 'copy-handle']);
+    expect(
+      guildBannedMemberRowActions('owner.testnet', ownerViewer)
+    ).toEqual([]);
   });
 });

@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import { Divider, GlassSheet } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
   CommerceSheetFooter,
+  commerceFooterStatesEqual,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
@@ -13,7 +13,6 @@ import {
   ScarceSellForm,
   type ScarceSellSuccessDetail,
 } from '@/features/scarces/scarce-sell-form';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 
 interface ScarceSellSheetProps {
   open: boolean;
@@ -23,10 +22,21 @@ interface ScarceSellSheetProps {
   onListed?: (detail: ScarceSellSuccessDetail) => void;
 }
 
+/** Stable first-paint footer so hug height doesn’t jump when the form syncs. */
+const SELL_FOOTER_SEED: CommerceSheetFooterState = {
+  visible: true,
+  primaryLabel: 'List for sale',
+  primaryPendingLabel: 'Listing…',
+  canSubmit: false,
+  pending: false,
+  disabled: true,
+};
+
 /** Owner sheet: list an owned scarce for secondary sale. */
 export function ScarceSellSheet({
   open,
   item,
+  sellerAccountId = null,
   onOpenChange,
   onListed,
 }: ScarceSellSheetProps) {
@@ -36,16 +46,17 @@ export function ScarceSellSheet({
   const [formKey, setFormKey] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
   const [footerState, setFooterState] =
-    useState<CommerceSheetFooterState | null>(null);
+    useState<CommerceSheetFooterState>(SELL_FOOTER_SEED);
   const sheetOpen = open && !closing && item != null;
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
 
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setFormKey((key) => key + 1);
+    if (open) {
+      setFormKey((key) => key + 1);
+      setFooterState(SELL_FOOTER_SEED);
+    }
   }
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -58,48 +69,37 @@ export function ScarceSellSheet({
 
   const handleFooterStateChange = useCallback(
     (state: CommerceSheetFooterState | null) => {
-      setFooterState(state);
+      if (!state?.visible) {
+        setFooterState(SELL_FOOTER_SEED);
+        return;
+      }
+      setFooterState((prev) =>
+        commerceFooterStatesEqual(prev, state) ? prev : state
+      );
     },
     []
   );
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-      panelStyle={panelStyle}
-      zIndex={56}
-      ariaLabelledBy={titleId}
+      verb="Sell"
+      signal="reputation"
+      closeAriaLabel="Close sell scarce"
       backdropLabel="Close sell scarce"
+      keyboardOpen={keyboardOpen}
+      panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Sell"
-            signal="reputation"
-            closeAriaLabel="Close sell scarce"
-            onClose={requestClose}
-            whisper="List fixed-price or start an auction."
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
       footer={
-        footerState?.visible ? (
-          <CommerceSheetFooter
-            formId={formId}
-            keyboardOpen={keyboardOpen}
-            state={footerState}
-          />
-        ) : undefined
+        <CommerceSheetFooter
+          formId={formId}
+          keyboardOpen={keyboardOpen}
+          state={footerState}
+        />
       }
     >
       {item ? (
@@ -107,6 +107,7 @@ export function ScarceSellSheet({
           key={`${formKey}:${item.tokenId}`}
           formId={formId}
           item={item}
+          sellerAccountId={sellerAccountId}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onListed?.(detail);
@@ -114,6 +115,6 @@ export function ScarceSellSheet({
           }}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

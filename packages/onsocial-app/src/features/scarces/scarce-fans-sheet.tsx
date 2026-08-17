@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { Divider, GlassSheet, SheetHeader } from '@onsocial/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Divider, OsHugSheet } from '@onsocial/ui';
 import {
   ProfileSocialListRow,
   ProfileSocialListSkeleton,
@@ -31,7 +31,6 @@ export function ScarceFansSheet({
   fanCount: number;
   dropTitle?: string | null;
 }) {
-  const titleId = useId();
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
   const { updateStanding, isStandingPendingForTarget } =
@@ -123,29 +122,16 @@ export function ScarceFansSheet({
   const skeletonCount = Math.min(8, Math.max(fanIds.length || fanCount, 1));
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={handleClose}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={58}
-      ariaLabelledBy={titleId}
+      label="Fans"
+      copy={dropTitle?.trim() || countLabel}
+      closeAriaLabel="Close fans"
       backdropLabel="Close fans"
+      zIndex={58}
       panelClassName="scarce-fans-sheet-panel"
       bodyClassName="scarce-fans-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Fans"
-            subtitle={dropTitle?.trim() || countLabel}
-            onClose={handleClose}
-            closeAriaLabel="Close fans"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       {showSkeleton ? (
         <ProfileSocialListSkeleton count={skeletonCount} />
@@ -177,6 +163,6 @@ export function ScarceFansSheet({
           {loadError ? 'Couldn’t load fans.' : 'No fans yet.'}
         </p>
       )}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

@@ -2,10 +2,10 @@
 
 import { useCallback, useId, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider, GlassSheet } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
+  commerceFooterStatesEqual,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import { useCommerceSheetKeyboard } from '@/features/scarces/commerce-sheet-keyboard';
@@ -13,7 +13,7 @@ import {
   ScarceListForm,
   type ScarceListSuccessDetail,
 } from '@/features/scarces/scarce-list-form';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { scarceNestZIndex } from '@/features/scarces/scarce-overlay-z';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 interface ScarceListSheetProps {
@@ -22,6 +22,8 @@ interface ScarceListSheetProps {
   authorName?: string | null;
   onOpenChange: (open: boolean) => void;
   onListed?: (post: PostRow, detail: ScarceListSuccessDetail) => void;
+  /** Stack above feed enlarge lightbox (z-index 80) when opened from player shell. */
+  zIndex?: number;
 }
 
 /** Author sheet: lazy-list a post as a scarce (mint-on-purchase). */
@@ -31,6 +33,7 @@ export function ScarceListSheet({
   authorName = null,
   onOpenChange,
   onListed,
+  zIndex = 56,
 }: ScarceListSheetProps) {
   const titleId = useId();
   const formId = useId();
@@ -49,8 +52,6 @@ export function ScarceListSheet({
     if (open) setFormKey((key) => key + 1);
   }
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -62,42 +63,29 @@ export function ScarceListSheet({
 
   const handleFooterStateChange = useCallback(
     (state: CommerceSheetFooterState | null) => {
-      setFooterState(state);
+      setFooterState((prev) =>
+        commerceFooterStatesEqual(prev, state) ? prev : state
+      );
     },
     []
   );
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      // Tall commerce form — open full, no mid peek. peekRatio 1 ⇒ drag ~96px dismisses.
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-      panelStyle={panelStyle}
-      zIndex={56}
-      ariaLabelledBy={titleId}
+      verb="List"
+      personName={name}
+      handle={handle}
+      signal="reputation"
+      closeAriaLabel="Close list scarce"
       backdropLabel="Close list scarce"
+      keyboardOpen={keyboardOpen}
+      panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="List"
-            personName={name}
-            handle={handle}
-            signal="reputation"
-            closeAriaLabel="Close list scarce"
-            onClose={requestClose}
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={zIndex}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -114,6 +102,7 @@ export function ScarceListSheet({
           formId={formId}
           post={post}
           authorName={authorName}
+          nestZIndex={scarceNestZIndex(zIndex)}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
             onListed?.(post, detail);
@@ -121,6 +110,6 @@ export function ScarceListSheet({
           }}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

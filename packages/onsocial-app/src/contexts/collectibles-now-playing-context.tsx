@@ -166,12 +166,13 @@ export function CollectiblesNowPlayingProvider({
     (next: CollectiblesNowPlayingSession) => {
       const audio = getAudio();
       const prev = sessionRef.current;
-      const sameAlbum =
-        prev != null &&
-        prev.collectionId === next.collectionId &&
-        tracksSignature(prev.tracks) === tracksSignature(next.tracks);
+      const sameCollection =
+        prev != null && prev.collectionId === next.collectionId;
+      const sameTracks =
+        sameCollection &&
+        tracksSignature(prev!.tracks) === tracksSignature(next.tracks);
       const sameMeta =
-        sameAlbum &&
+        sameTracks &&
         prev!.title === next.title &&
         (prev!.poster ?? null) === (next.poster ?? null);
 
@@ -190,24 +191,37 @@ export function CollectiblesNowPlayingProvider({
         return;
       }
 
+      // Same drop, different track-list shape (e.g. Buy sheet hydrates fewer
+      // playables than the album page) — keep playback; prefer the richer list.
+      if (sameCollection) {
+        const tracks =
+          next.tracks.length >= prev!.tracks.length ? next.tracks : prev!.tracks;
+        const live = { ...next, tracks, localOnly: false };
+        sessionRef.current = live;
+        setSession(live);
+        persistNowPlayingSession({
+          ...live,
+          activeIndex: activeIndexRef.current,
+        });
+        return;
+      }
+
       const live = { ...next, localOnly: false };
       sessionRef.current = live;
       setSession(live);
       persistNowPlayingSession({
         ...live,
-        activeIndex: sameAlbum ? activeIndexRef.current : 0,
+        activeIndex: 0,
       });
-      if (!sameAlbum) {
-        activeIndexRef.current = 0;
-        setActiveIndex(0);
-        const first = next.tracks[0];
-        if (first && isRenderablePostAudioMime(first.mime)) {
-          void resolveSrc(first).then((src) => {
-            if (sessionRef.current !== live) return;
-            audio.src = src;
-            audio.load();
-          });
-        }
+      activeIndexRef.current = 0;
+      setActiveIndex(0);
+      const first = next.tracks[0];
+      if (first && isRenderablePostAudioMime(first.mime)) {
+        void resolveSrc(first).then((src) => {
+          if (sessionRef.current !== live) return;
+          audio.src = src;
+          audio.load();
+        });
       }
     },
     [getAudio, resolveSrc]

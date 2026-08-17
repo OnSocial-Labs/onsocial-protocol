@@ -182,8 +182,11 @@ export function PortfolioShellRoot({
   pageAccountId,
   ...props
 }: PortfolioShellRootProps) {
-  const [liveConfig, setLiveConfig] = useState(config);
-  const [liveMood, setLiveMood] = useState(mood);
+  // Soft-fill only when SSR config was empty (indexer lag). Once props have
+  // data, always prefer them — including after router.refresh() post-save.
+  const [softFillConfig, setSoftFillConfig] = useState<PublicPageConfig | null>(
+    null
+  );
 
   useEffect(() => {
     document.body.dataset.portfolioClientReady = 'true';
@@ -192,16 +195,13 @@ export function PortfolioShellRoot({
     };
   }, []);
 
-  // Indexer page/main lag — soft-fill theme/mood from chain once when SSR was empty.
   useEffect(() => {
     if (Object.keys(config).length > 0) return;
     let cancelled = false;
     void fetchPageConfigFromBrowserProxy(pageAccountId)
       .then((next) => {
         if (cancelled || Object.keys(next).length === 0) return;
-        const filled = next as PublicPageConfig;
-        setLiveConfig(filled);
-        setLiveMood(resolvePortfolioMood(filled));
+        setSoftFillConfig(next as PublicPageConfig);
       })
       .catch(() => {
         // Keep SSR default mood/theme.
@@ -210,6 +210,15 @@ export function PortfolioShellRoot({
       cancelled = true;
     };
   }, [config, pageAccountId]);
+
+  const liveConfig =
+    Object.keys(config).length > 0 ? config : (softFillConfig ?? config);
+  const liveMood =
+    Object.keys(config).length > 0
+      ? mood
+      : softFillConfig
+        ? resolvePortfolioMood(softFillConfig)
+        : mood;
 
   return (
     <PageContentDrawerProvider>

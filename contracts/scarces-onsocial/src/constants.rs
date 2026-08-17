@@ -35,6 +35,8 @@ pub const MAX_BATCH_TRANSFER: u32 = 20;
 /// Max accounts per `AddApprovedCreators` call (roster cap remains 200).
 pub const MAX_APPROVED_CREATORS_BATCH: usize = 20;
 pub const MAX_APPROVED_ACCOUNT_IDS_PER_TOKEN: usize = 10;
+/// Max door-staff redeemers per collection (same scale as app moderators).
+pub const MAX_COLLECTION_REDEEMERS: usize = 20;
 pub const MAX_APPROVAL_ID_JSON_SAFE: u64 = 9_007_199_254_740_991;
 
 pub const DEFAULT_CALLBACK_GAS: u64 = 50;

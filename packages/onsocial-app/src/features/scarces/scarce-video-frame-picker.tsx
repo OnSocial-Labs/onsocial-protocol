@@ -12,8 +12,7 @@ import {
   type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { SheetCloseButton } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { SheetCloseButton, useScrollLock } from '@onsocial/ui';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   captureVideoElementFrame,
@@ -104,10 +103,7 @@ function FrameScrubber({
   );
 }
 
-function seekMedia(
-  video: HTMLVideoElement,
-  nextSeek: number
-): Promise<void> {
+function seekMedia(video: HTMLVideoElement, nextSeek: number): Promise<void> {
   const maxSeek = Math.max(
     0,
     (Number.isFinite(video.duration) ? video.duration : 0) - 0.05
@@ -246,9 +242,7 @@ export function ScarceVideoFramePicker({
       setReady(true);
     };
     const onFail = () => {
-      onErrorRef.current(
-        'Could not read that video — upload a photo instead.'
-      );
+      onErrorRef.current('Could not read that video — upload a photo instead.');
     };
 
     node.addEventListener('loadedmetadata', onMeta);

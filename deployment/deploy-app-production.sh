@@ -376,6 +376,11 @@ ENVEOF
     "onsocial" "$POSTGRES_PASSWORD" "$POSTGRES_HOST" "$POSTGRES_PORT" "$BACKEND_DB_NAME" \
     >> .env.production
 
+  # Gateway mailbox / notifications (indexer DB) — required in production.
+  printf 'DATABASE_URL=postgres://%s:%s@%s:%s/%s\n' \
+    "onsocial" "$POSTGRES_PASSWORD" "$POSTGRES_HOST" "$POSTGRES_PORT" "onsocial_indexer" \
+    >> .env.production
+
   if grep -q 'CHANGE_ME' .env.production; then
     echo "❌ .env.production has CHANGE_ME placeholders"
     exit 1
@@ -410,6 +415,12 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
 
   echo "IMAGE_TAG=$IMAGE_TAG" > .env.image
   set -a && source .env.production && source .env.image && set +a
+
+  # Safety net for older .env.production files missing DATABASE_URL.
+  if [[ -z "${DATABASE_URL:-}" ]]; then
+    export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    echo "DATABASE_URL was missing; derived from Postgres settings for gateway."
+  fi
 
   check_health() {
     local name="$1"

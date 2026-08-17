@@ -1,0 +1,125 @@
+/**
+ * @onsocial/ui — standing-row identity chrome (avatar + name/@handle cluster).
+ *
+ * Used by {@link StandingIdentity}. Hosts own list data / hit links / asides.
+ * Relationship signals + toggles stay in the app.
+ */
+
+.standing-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0 -0.35rem;
+  padding: 0.62rem 0.35rem;
+  border-radius: 0.85rem;
+  transition: background 160ms ease;
+}
+
+.standing-row:hover,
+.standing-row:focus-within {
+  background: var(--os-surface-row-hover);
+}
+
+.standing-row-main {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-start;
+  gap: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Row → portfolio; islands below re-enable # @ $ / links in bio. */
+.standing-row-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+
+.standing-row-main:has(.standing-row-hit) > :not(.standing-row-hit) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.standing-row-aside {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  min-width: 5.75rem;
+}
+
+.standing-row-aside.is-empty {
+  display: none;
+}
+
+.standing-row-avatar-slot {
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+.standing-row:hover .standing-row-avatar-slot,
+.standing-row:focus-within .standing-row-avatar-slot {
+  box-shadow: 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+}
+
+.standing-row-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.standing-row-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.standing-row-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.standing-row-name {
+  display: block;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  color: rgb(var(--fg-rgb) / 0.96);
+}
+
+.standing-row-handle {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, hsl(var(--muted-foreground)) 55%, transparent);
+}

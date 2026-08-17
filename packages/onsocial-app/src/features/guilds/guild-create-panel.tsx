@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
+  OsIconAction,
   QuestionMarkCircleFillIcon,
-  osIconActionClassName,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
-import { InfoDrawer } from '@/components/ui/info-drawer';
+import { InfoDrawer } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -163,16 +163,17 @@ export function GuildCreatePanel() {
       backFallbackHref="/groups"
       glassChrome
       actions={
-        <button
-          type="button"
-          className={osIconActionClassName}
-          aria-label={GUILD_CREATE_HELP_TITLE}
+        <OsIconAction
+          ariaLabel={GUILD_CREATE_HELP_TITLE}
           aria-expanded={helpOpen}
           aria-haspopup="dialog"
           onClick={() => setHelpOpen(true)}
         >
-          <QuestionMarkCircleFillIcon aria-hidden />
-        </button>
+          <QuestionMarkCircleFillIcon
+            aria-hidden
+            className="glass-sheet-close-icon"
+          />
+        </OsIconAction>
       }
     >
       <form className="guild-create-form" onSubmit={handleSubmit}>
@@ -189,6 +190,7 @@ export function GuildCreatePanel() {
             placeholder="Builder Room"
             maxLength={GUILD_MAX_NAME_LENGTH}
             disabled={pending}
+            className={osFieldBorderedClassName}
           />
         </label>
 
@@ -208,7 +210,7 @@ export function GuildCreatePanel() {
             autoCapitalize="none"
             autoCorrect="off"
             aria-invalid={idAvailability === 'taken'}
-            className={idAvailabilityClass}
+            className={`${osFieldBorderedClassName} ${idAvailabilityClass}`}
           />
           <small className={idAvailabilityClass}>
             {entityIdAvailabilityLead(idAvailability)} · /groups/
@@ -226,6 +228,7 @@ export function GuildCreatePanel() {
             maxLength={GUILD_MAX_DESCRIPTION_LENGTH}
             disabled={pending}
             aria-describedby={fieldId('description-count')}
+            className={osFieldBorderedClassName}
           />
           <small id={fieldId('description-count')}>
             {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
@@ -314,7 +317,7 @@ export function GuildCreatePanel() {
               Connect wallet
             </OsSheetAction>
           ) : null}
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="submit"
             ready={canSubmit}
             pending={pending}
@@ -322,7 +325,7 @@ export function GuildCreatePanel() {
             disabled={!canSubmit}
           >
             Create guild
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       </form>
       <InfoDrawer

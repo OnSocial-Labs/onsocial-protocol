@@ -12,6 +12,8 @@ export function ScarceClipShareButton({
   collectionId,
   mediaUrl,
   mediumKind = 'audio',
+  /** Drop page uses dock Post — hide the on-page Post control. */
+  showFeedPost = true,
 }: {
   title: string;
   className?: string;
@@ -19,6 +21,7 @@ export function ScarceClipShareButton({
   collectionId?: string | null;
   mediaUrl?: string | null;
   mediumKind?: string | null;
+  showFeedPost?: boolean;
 }) {
   const { setTxResult } = useAppTransactionFeedback();
   const [copied, setCopied] = useState(false);
@@ -29,7 +32,7 @@ export function ScarceClipShareButton({
     <div
       className={`scarce-clip-share-cluster${className ? ` ${className}` : ''}`}
     >
-      {dropId ? (
+      {dropId && showFeedPost ? (
         <button
           type="button"
           className="media-download-control scarce-clip-post-feed"

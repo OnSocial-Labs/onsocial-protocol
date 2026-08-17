@@ -2,19 +2,17 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
+  CollectionQtyStepper,
   Divider,
-  GlassSheet,
   MultiplyIcon,
+  OsFieldRemove,
+  OsHugSheet,
   ProfileAvatar,
   SearchField,
-  SheetHeader,
   UserPlusIcon,
 } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
-import { CollectionQtyStepper } from '@/components/ui/collection-qty-stepper';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
+import { StandingIdentity } from '@onsocial/ui';
 import {
   equalizeRoyaltyShares,
   formatRoyaltyPercent,
@@ -24,7 +22,6 @@ import {
   type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   fetchDiscoverProfiles,
@@ -44,45 +41,6 @@ interface FaceCache {
   avatarUrl: string | null;
 }
 
-function standingAccountLabel(
-  accountId: string,
-  profileName?: string | null
-): { name: string | null; label: string; handle: string } {
-  const handle = fallbackLabel(accountId);
-  const name = profileName?.trim() || null;
-  return { name, label: name || `@${handle}`, handle };
-}
-
-function SplitStandingIdentity({
-  accountId,
-  profileName,
-  avatarUrl,
-}: {
-  accountId: string;
-  profileName?: string | null;
-  avatarUrl?: string | null;
-}) {
-  const { name, label, handle } = standingAccountLabel(accountId, profileName);
-  return (
-    <>
-      <ProfileAvatar
-        src={avatarUrl ?? null}
-        fallbackInitial={name || accountId}
-        size="lg"
-        className="standing-row-avatar-slot"
-      />
-      <span className="standing-row-copy">
-        <span className="standing-row-head">
-          <span className="standing-row-name-row">
-            <span className="standing-row-name">{label}</span>
-          </span>
-          {name ? <span className="standing-row-handle">@{handle}</span> : null}
-        </span>
-      </span>
-    </>
-  );
-}
-
 interface ScarceRoyaltySplitSheetProps {
   open: boolean;
   onClose: () => void;
@@ -96,7 +54,7 @@ interface ScarceRoyaltySplitSheetProps {
 }
 
 /**
- * GlassSheet to split the resale royalty cut across up to 10 accounts.
+ * Hug sheet to split the resale royalty cut across up to 10 accounts.
  * Shares are percents of the cut (must sum to 100%), not of the sale.
  */
 export function ScarceRoyaltySplitSheet({
@@ -110,7 +68,6 @@ export function ScarceRoyaltySplitSheet({
   pending = false,
   zIndex = 60,
 }: ScarceRoyaltySplitSheetProps) {
-  const titleId = useId();
   const editTitleId = useId();
   const [draft, setDraft] = useState<RoyaltySplitShare[]>(shares);
   const [query, setQuery] = useState('');
@@ -122,8 +79,6 @@ export function ScarceRoyaltySplitSheet({
   const [faceCache, setFaceCache] = useState<Record<string, FaceCache>>({});
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
-
-  useScrollLock(open || editingAccountId != null);
 
   const accountIds = useMemo(
     () => draft.map((share) => share.accountId),
@@ -278,30 +233,17 @@ export function ScarceRoyaltySplitSheet({
 
   return (
     <>
-      <GlassSheet
+      <OsHugSheet
         open={open}
         onClose={onClose}
         onClosed={onClosed}
-        tone="os"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={zIndex}
-        ariaLabelledBy={titleId}
+        label="Royalty split"
+        copy={`Share of the ${totalLabel}% resale cut`}
+        closeAriaLabel="Close royalty split"
         backdropLabel="Close royalty split"
+        zIndex={zIndex}
         panelClassName="collection-allowlist-sheet-panel"
         bodyClassName="collection-allowlist-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={titleId}
-              title="Royalty split"
-              subtitle={`Share of the ${totalLabel}% resale cut`}
-              onClose={onClose}
-              closeAriaLabel="Close royalty split"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
         footer={
           <div className="guild-add-member-footer">
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -455,7 +397,7 @@ export function ScarceRoyaltySplitSheet({
                           })
                         }
                       >
-                        <SplitStandingIdentity
+                        <StandingIdentity
                           accountId={profile.accountId}
                           profileName={profile.name}
                           avatarUrl={profile.avatarUrl}
@@ -486,31 +428,19 @@ export function ScarceRoyaltySplitSheet({
             </p>
           ) : null}
         </div>
-      </GlassSheet>
+      </OsHugSheet>
 
-      <GlassSheet
+      <OsHugSheet
         open={editingShare != null && editingFace != null}
         onClose={closeEdit}
-        tone="os"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={zIndex + 2}
-        ariaLabelledBy={editTitleId}
+        label="Share"
+        {...(confirmingRemove ? { copy: 'Confirm removal' } : {})}
+        closeAriaLabel="Close share"
         backdropLabel="Close share edit"
+        zIndex={zIndex + 2}
+        titleId={editTitleId}
         panelClassName="collection-allowlist-edit-sheet-panel"
         bodyClassName="collection-allowlist-edit-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={editTitleId}
-              title="Share"
-              subtitle={confirmingRemove ? 'Confirm removal' : undefined}
-              onClose={closeEdit}
-              closeAriaLabel="Close share"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
         footer={
           editingFace ? (
             <div className="guild-add-member-footer">
@@ -545,7 +475,7 @@ export function ScarceRoyaltySplitSheet({
               }`}
             >
               <div className="standing-row-main collection-allowlist-edit-main">
-                <SplitStandingIdentity
+                <StandingIdentity
                   accountId={editingFace.accountId}
                   profileName={editingFace.name}
                   avatarUrl={editingFace.avatarUrl}
@@ -567,31 +497,17 @@ export function ScarceRoyaltySplitSheet({
                   }
                 />
                 {draft.length > 1 ? (
-                  <OsSheetActions
-                    layout="row-compact"
-                    tone="frosted-primary"
-                    borderless
-                    className="hub-publish-request-actions drop-track-list-remove-actions"
-                  >
-                    <OsSheetAction
-                      type="button"
-                      variant="danger"
-                      ready
-                      aria-pressed={confirmingRemove}
-                      aria-label={
-                        confirmingRemove
-                          ? `Cancel remove @${fallbackLabel(editingFace.accountId)}`
-                          : `Remove @${fallbackLabel(editingFace.accountId)}`
-                      }
-                      className="hub-publish-request-dismiss"
-                      onClick={() => setConfirmingRemove((value) => !value)}
-                    >
-                      <MultiplyIcon
-                        className="hub-publish-request-dismiss-icon"
-                        aria-hidden
-                      />
-                    </OsSheetAction>
-                  </OsSheetActions>
+                  <OsFieldRemove
+                    variant="danger"
+                    ready
+                    aria-pressed={confirmingRemove}
+                    aria-label={
+                      confirmingRemove
+                        ? `Cancel remove @${fallbackLabel(editingFace.accountId)}`
+                        : `Remove @${fallbackLabel(editingFace.accountId)}`
+                    }
+                    onClick={() => setConfirmingRemove((value) => !value)}
+                  />
                 ) : null}
               </div>
             </div>
@@ -600,7 +516,7 @@ export function ScarceRoyaltySplitSheet({
             </p>
           </div>
         ) : null}
-      </GlassSheet>
+      </OsHugSheet>
     </>
   );
 }

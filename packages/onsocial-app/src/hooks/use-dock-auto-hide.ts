@@ -7,6 +7,11 @@ export const DOCK_SHOW_DELTA_PX = 8;
 export const DOCK_TOP_REVEAL_PX = 48;
 /** Ignore scroll deltas briefly after a hide/show flip (layout/animation settle). */
 export const DOCK_TOGGLE_COOLDOWN_MS = 280;
+/**
+ * Don’t tuck the dock unless the scroller has enough travel to bring it back.
+ * Short pages / overscroll used to hide it with no way to reveal.
+ */
+export const DOCK_MIN_SCROLL_ROOM_PX = DOCK_TOP_REVEAL_PX + DOCK_HIDE_DELTA_PX;
 
 type ScrollRootInput = Element | RefObject<Element | null> | null;
 
@@ -16,6 +21,25 @@ function scrollTopOf(target: EventTarget | null): number | null {
     return target.scrollingElement?.scrollTop ?? null;
   }
   return null;
+}
+
+function scrollElementOf(target: EventTarget | null): Element | null {
+  if (target instanceof Element) return target;
+  if (target instanceof Document) {
+    return target.scrollingElement ?? null;
+  }
+  return null;
+}
+
+/** How far this scroller can move (0 = no overflow / short page). */
+export function scrollRoomOf(el: Element | null): number {
+  if (!el) return 0;
+  return Math.max(0, el.scrollHeight - el.clientHeight);
+}
+
+/** True when hiding would strand the dock (can’t scroll up enough to reveal). */
+export function canDockAutoHide(scrollRoomPx: number): boolean {
+  return scrollRoomPx >= DOCK_MIN_SCROLL_ROOM_PX;
 }
 
 function isScrollRootRef(
@@ -46,6 +70,7 @@ function resolveScrollRoot(input: ScrollRootInput): Element | null {
  * - Pass `pinned` while commit chrome is up so save/refresh scroll cannot tuck
  *   the dock away.
  * - Bump `hideRequest` to force a hide (e.g. after a section jump).
+ * - Short / non-scrollable surfaces never stay hidden (no scroll room to reveal).
  */
 export function useDockAutoHide(
   pinned = false,
@@ -65,10 +90,20 @@ export function useDockAutoHide(
   useEffect(() => {
     if (hideRequest > 0 && !pinned) {
       queueMicrotask(() => {
+        // Section jumps only tuck when the surface can scroll it back.
+        const root =
+          boundElement ??
+          (typeof document !== 'undefined'
+            ? document.querySelector('.os-app-screen-body')
+            : null);
+        if (root && !canDockAutoHide(scrollRoomOf(root))) {
+          setHidden(false);
+          return;
+        }
         setHidden(true);
       });
     }
-  }, [hideRequest, pinned]);
+  }, [hideRequest, pinned, boundElement]);
 
   useEffect(() => {
     if (pinned || !boundElement) {
@@ -87,13 +122,24 @@ export function useDockAutoHide(
       });
     };
 
+    const revealIfShort = () => {
+      if (!canDockAutoHide(scrollRoomOf(boundElement))) {
+        applyHidden(false);
+      }
+    };
+
     const onScroll = (event: Event) => {
       if (event.target !== boundElement) return;
       const top = boundElement.scrollTop;
       const last = lastTop;
       lastTop = top;
       const delta = top - last;
-      if (top <= DOCK_TOP_REVEAL_PX || delta < -DOCK_SHOW_DELTA_PX) {
+      const room = scrollRoomOf(boundElement);
+      if (
+        !canDockAutoHide(room) ||
+        top <= DOCK_TOP_REVEAL_PX ||
+        delta < -DOCK_SHOW_DELTA_PX
+      ) {
         applyHidden(false);
       } else if (delta > DOCK_HIDE_DELTA_PX) {
         applyHidden(true);
@@ -104,8 +150,17 @@ export function useDockAutoHide(
       passive: true,
       capture: true,
     });
+    const ro =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            revealIfShort();
+          })
+        : null;
+    ro?.observe(boundElement);
+    revealIfShort();
     return () => {
       boundElement.removeEventListener('scroll', onScroll, { capture: true });
+      ro?.disconnect();
     };
   }, [pinned, boundElement]);
 
@@ -134,15 +189,21 @@ export function useDockAutoHide(
       const scopedRoot = rootRef ? resolveScrollRoot(rootRef) : null;
       if (scopedRoot && target !== scopedRoot) return;
 
+      const el = scrollElementOf(target);
       const top = scrollTopOf(target);
-      if (top == null) return;
+      if (top == null || !el) return;
 
       const last = lastTops.get(target);
       lastTops.set(target, top);
       if (last === undefined) return;
 
       const delta = top - last;
-      if (top <= DOCK_TOP_REVEAL_PX || delta < -DOCK_SHOW_DELTA_PX) {
+      const room = scrollRoomOf(el);
+      if (
+        !canDockAutoHide(room) ||
+        top <= DOCK_TOP_REVEAL_PX ||
+        delta < -DOCK_SHOW_DELTA_PX
+      ) {
         applyHidden(false);
       } else if (delta > DOCK_HIDE_DELTA_PX) {
         applyHidden(true);
@@ -153,8 +214,24 @@ export function useDockAutoHide(
       capture: true,
       passive: true,
     });
+
+    const screenBody =
+      typeof document !== 'undefined'
+        ? document.querySelector('.os-app-screen-body')
+        : null;
+    const ro =
+      typeof ResizeObserver !== 'undefined' && screenBody
+        ? new ResizeObserver(() => {
+            if (!canDockAutoHide(scrollRoomOf(screenBody))) {
+              applyHidden(false);
+            }
+          })
+        : null;
+    if (screenBody) ro?.observe(screenBody);
+
     return () => {
       window.removeEventListener('scroll', onScroll, { capture: true });
+      ro?.disconnect();
     };
   }, [pinned, boundElement, usesRef, scrollRoot]);
 

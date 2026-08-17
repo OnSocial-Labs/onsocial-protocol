@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -11,18 +10,18 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
-  Divider,
-  GlassSheet,
   ProfileEditorMediaToolbar,
-  SheetCloseButton,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
-  OsSheetAction,
-  OsSheetActions,
-  OsSheetPrimaryAction,
-} from '@/components/ui/os-sheet-primary-action';
+  DiscardConfirmFooter,
+  discardConfirmFooterA11y,
+  useDiscardConfirm,
+} from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { NearAccountField } from '@/components/ui/near-account-field';
-import { OsNoticeCard } from '@/components/ui/os-notice-card';
+import { SuffixField } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -44,7 +43,6 @@ import {
   useNearAccountStatus,
 } from '@/hooks/use-near-account-status';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   nearAccountPlaceholder,
@@ -59,6 +57,8 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+const HUB_MANAGE_Z = 58;
 
 export type HubManageSheetId =
   | 'look'
@@ -102,8 +102,6 @@ function HubManageSheetChrome({
   footer,
   pending = false,
   dirty = false,
-  /** Short sheets (Transfer) hug content — tall forms stay full-height. */
-  contentHug = false,
 }: {
   open: boolean;
   title: string;
@@ -113,141 +111,51 @@ function HubManageSheetChrome({
   footer?: ReactNode;
   pending?: boolean;
   dirty?: boolean;
-  contentHug?: boolean;
 }) {
-  const titleId = useId();
-  const discardTitleId = useId();
-  const discardBodyId = useId();
-  const [closing, setClosing] = useState(false);
-  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
-  const [wasOpen, setWasOpen] = useState(open);
-  const keepEditingRef = useRef<HTMLButtonElement>(null);
-  const dirtyRef = useRef(dirty);
-  const sheetOpen = open && !closing;
-
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (!open) {
-      setClosing(false);
-      setDiscardConfirmOpen(false);
-    }
-  }
-
-  useScrollLock(open || closing);
-
-  useEffect(() => {
-    dirtyRef.current = dirty;
-  }, [dirty]);
-
-  const requestClose = useCallback(() => {
-    if (pending) return;
-    if (dirtyRef.current) {
-      setDiscardConfirmOpen(true);
-      return;
-    }
-    setClosing(true);
-  }, [pending]);
-
-  const handleClosed = useCallback(() => {
-    setClosing(false);
-    setDiscardConfirmOpen(false);
-    onClose();
-  }, [onClose]);
-
-  const handleKeepEditing = useCallback(() => {
-    setDiscardConfirmOpen(false);
-    queueMicrotask(() => keepEditingRef.current?.focus());
-  }, []);
-
-  const handleDiscard = useCallback(() => {
-    setDiscardConfirmOpen(false);
-    setClosing(true);
-  }, []);
+  const {
+    discardConfirmOpen,
+    discardTitleId,
+    discardBodyId,
+    keepEditingRef,
+    requestCloseOrConfirm,
+    clearDiscardConfirm,
+    keepEditing,
+    discard,
+  } = useDiscardConfirm({ open, dirty, pending, onClose });
 
   return (
-    <GlassSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={contentHug ? 1 : undefined}
-      zIndex={58}
-      presentation="swap"
-      ariaLabelledBy={titleId}
-      backdropLabel={`Close ${title}`}
-      panelClassName={`hub-manage-sheet-panel${
-        contentHug ? ' hub-manage-sheet-panel--hug' : ''
-      }`}
-      bodyClassName="hub-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    {title}
-                  </h2>
-                  {subtitle ? (
-                    <p className="discover-sheet-subtitle">{subtitle}</p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+    <OsSlideOverScreen
+      open={open}
+      onClose={onClose}
+      onClosed={clearDiscardConfirm}
+      onBeforeClose={requestCloseOrConfirm}
+      title={title}
+      subtitle={subtitle}
+      closeAriaLabel="Back"
+      closeDisabled={pending}
+      zIndex={HUB_MANAGE_Z}
+      className="hub-manage-slide"
+      contentClassName="hub-manage-slide-body"
       footer={
         footer || discardConfirmOpen ? (
           <div
             className={`hub-manage-sheet-footer${
               discardConfirmOpen ? ' is-discard-confirm' : ''
             }`}
-            role={discardConfirmOpen ? 'alertdialog' : undefined}
-            aria-modal={discardConfirmOpen || undefined}
-            aria-labelledby={discardConfirmOpen ? discardTitleId : undefined}
-            aria-describedby={discardConfirmOpen ? discardBodyId : undefined}
+            {...discardConfirmFooterA11y(
+              discardConfirmOpen,
+              discardTitleId,
+              discardBodyId
+            )}
           >
             {discardConfirmOpen ? (
-              <OsNoticeCard
+              <DiscardConfirmFooter
                 className="hub-manage-discard-card"
-                align="center"
-                shell
-                title="Discard changes?"
                 titleId={discardTitleId}
-                body="Edits won’t be saved."
                 bodyId={discardBodyId}
-                footer={
-                  <div className="os-commit-actions">
-                    <button
-                      type="button"
-                      className="os-commit-cancel is-danger"
-                      onClick={handleDiscard}
-                    >
-                      Discard
-                    </button>
-                    <OsSheetActions
-                      layout="row-compact"
-                      tone="frosted-primary"
-                      borderless
-                    >
-                      <OsSheetAction
-                        ref={keepEditingRef}
-                        type="button"
-                        variant="primary"
-                        ready
-                        onClick={handleKeepEditing}
-                      >
-                        Keep editing
-                      </OsSheetAction>
-                    </OsSheetActions>
-                  </div>
-                }
+                onDiscard={discard}
+                onKeepEditing={keepEditing}
+                keepEditingRef={keepEditingRef}
               />
             ) : (
               footer
@@ -263,7 +171,7 @@ function HubManageSheetChrome({
       >
         {children}
       </div>
-    </GlassSheet>
+    </OsSlideOverScreen>
   );
 }
 
@@ -406,7 +314,7 @@ export function HubLookSheet({
       dirty={dirty}
       footer={
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="button"
             ready={dirty}
             pending={pending}
@@ -415,7 +323,7 @@ export function HubLookSheet({
             onClick={() => void save()}
           >
             Save look
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       }
     >
@@ -548,6 +456,7 @@ export function HubLookSheet({
               const trimmed = name.trim().replace(/\s+/g, ' ');
               if (trimmed !== name) setName(trimmed);
             }}
+            className={osFieldBorderedClassName}
           />
         </label>
         <label className="guild-field" htmlFor="hub-look-about">
@@ -564,6 +473,7 @@ export function HubLookSheet({
               const trimmed = description.trim();
               if (trimmed !== description) setDescription(trimmed);
             }}
+            className={osFieldBorderedClassName}
           />
           <small id="hub-look-about-count">
             {description.length}/{MAX_DESCRIPTION}
@@ -665,7 +575,7 @@ export function HubAccessSheet({
       dirty={dirty}
       footer={
         <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-          <OsSheetPrimaryAction
+          <OsSheetAction
             type="button"
             ready={dirty && commissionValid}
             pending={pending}
@@ -674,7 +584,7 @@ export function HubAccessSheet({
             onClick={() => void save()}
           >
             Save settings
-          </OsSheetPrimaryAction>
+          </OsSheetAction>
         </OsSheetActions>
       }
     >
@@ -709,23 +619,19 @@ export function HubAccessSheet({
               </button>
             ))}
           </div>
-          <div className="drop-create-suffix-field">
-            <input
-              id="hub-access-commission"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={commissionInput}
-              onChange={(event) => {
-                setCommissionInput(event.target.value.replace(/[^\d.]/g, ''));
-                setError(null);
-              }}
-              placeholder="2.5"
-              aria-label="Commission percentage"
-              disabled={pending}
-            />
-            <span>% per sale</span>
-          </div>
+          <SuffixField
+            id="hub-access-commission"
+            value={commissionInput}
+            inputMode="decimal"
+            onValueChange={(value) => {
+              setCommissionInput(value.replace(/[^\d.]/g, ''));
+              setError(null);
+            }}
+            placeholder="2.5"
+            aria-label="Commission percentage"
+            suffix="% per sale"
+            disabled={pending}
+          />
           <small>
             Only affects drops created after you save · max {MAX_COMMISSION_PCT}
             %.
@@ -988,11 +894,7 @@ export function HubTransferSheet({
     ? 'is-taken'
     : nearAccountStatusClass(accountStatus);
   const dirty = transferTo.trim().length > 0;
-  const canTransfer =
-    dirty &&
-    !pending &&
-    !isSelf &&
-    accountStatus === 'found';
+  const canTransfer = dirty && !pending && !isSelf && accountStatus === 'found';
 
   const transfer = async () => {
     const nextOwner = normalizedTo;
@@ -1035,7 +937,6 @@ export function HubTransferSheet({
       subtitle="Hand ownership to another account"
       onClose={onClose}
       pending={pending}
-      contentHug
       footer={
         <OsSheetActions layout="stack" borderless>
           <OsSheetAction
@@ -1120,6 +1021,7 @@ function RosterEditor({
             disabled={disabled}
             aria-label="Accounts to add"
             rows={3}
+            className={osFieldBorderedClassName}
           />
         ) : (
           <input
@@ -1130,6 +1032,7 @@ function RosterEditor({
             placeholder={placeholder}
             disabled={disabled}
             aria-label="Account to add"
+            className={osFieldBorderedClassName}
           />
         )}
         <button

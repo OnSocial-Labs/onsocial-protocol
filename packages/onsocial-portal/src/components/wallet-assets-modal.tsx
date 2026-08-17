@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { TokenIcon } from '@/components/ui/token-icon';
+import { TokenIcon } from '@onsocial/ui';
 import {
   compactModalBodyClass,
   compactModalBodyDenseClass,

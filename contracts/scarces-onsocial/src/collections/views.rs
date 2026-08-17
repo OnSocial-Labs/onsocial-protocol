@@ -191,6 +191,15 @@ impl Contract {
         self.get_allowlist_allocation(collection_id, account_id) > 0
     }
 
+    /// True when `account_id` is the creator or an explicit door-staff redeemer.
+    pub fn is_collection_redeemer(&self, collection_id: String, account_id: AccountId) -> bool {
+        let Some(collection) = self.collections.get(&collection_id) else {
+            return false;
+        };
+        collection.creator_id == account_id
+            || collection.redeemers.iter().any(|id| id == &account_id)
+    }
+
     /// Counts all mints, including those during the public phase.
     pub fn get_allowlist_remaining(&self, collection_id: String, account_id: AccountId) -> u32 {
         let al_key = format!("{}:al:{}", collection_id, account_id);

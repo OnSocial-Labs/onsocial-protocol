@@ -6,11 +6,15 @@ import {
   PAGE_MOOD_CATALOG,
   type PageMoodId,
 } from '@onsocial/sdk';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import {
+  Divider,
+  GlassSheet,
+  SheetCloseButton,
+  useScrollLock,
+} from '@onsocial/ui';
 import { useApplyMood } from '@/hooks/use-apply-mood';
 import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
   moodSheetPanelStyle,
@@ -28,16 +32,6 @@ import {
 import type { MoodPreset, ResolvedMood } from '@/lib/moods/types';
 import type { PublicPageConfig } from '@/lib/page-data';
 import type { PageConfig } from '@onsocial/sdk';
-
-const MOOD_SHEET_GRADIENT_LABELS = new Set<PageMoodId>([
-  'gold',
-  'glass',
-  'carbon',
-  'holographic',
-  'signature',
-  'broadsheet',
-  'terminal',
-]);
 
 export interface MoodSheetProps {
   open: boolean;
@@ -98,11 +92,6 @@ export function MoodSheet({
       preset.theme.accent,
       preset.theme.accentLight ?? preset.theme.accent
     );
-    const rowAccent = rowStyle['--mood-row-accent'];
-    const labelStyle =
-      rowAccent && !MOOD_SHEET_GRADIENT_LABELS.has(preset.id)
-        ? ({ color: rowAccent } as CSSProperties)
-        : undefined;
 
     return (
       <li key={preset.id}>
@@ -120,17 +109,12 @@ export function MoodSheet({
           }}
           style={rowStyle as CSSProperties}
         >
-          <span className="mood-sheet-item-label" style={labelStyle}>
-            {preset.label}
-          </span>
+          <span className="mood-sheet-item-label">{preset.label}</span>
           <span className="mood-sheet-item-tagline">{preset.tagline}</span>
           {isActive ? (
             <span className="mood-sheet-item-badge">Active</span>
           ) : !unlocked && priceSocial ? (
-            <span
-              className="mood-sheet-item-badge mood-sheet-item-badge-premium"
-              style={labelStyle}
-            >
+            <span className="mood-sheet-item-badge mood-sheet-item-badge-premium">
               {priceSocial} SOCIAL
             </span>
           ) : null}
@@ -144,6 +128,7 @@ export function MoodSheet({
       open={open}
       onClose={onClose}
       tone="mood-thread"
+      sizing="hug"
       moodId={activeMood.id}
       panelStyle={moodSheetPanelStyle(activeMood.cssVars) as CSSProperties}
       initialDetent="full"

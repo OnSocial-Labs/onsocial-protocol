@@ -1,18 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { GroupMemberRow } from '@onsocial/sdk';
-import {
-  CheckIcon,
-  Divider,
-  GlassSheet,
-  ProfileAvatar,
-  SheetHeader,
-} from '@onsocial/ui';
+import { CheckIcon, Divider, OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@onsocial/ui';
+import {
+  StandingIdentity,
+  standingIdentityLabel,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { GuildMemberRoleBadge } from '@/features/guilds/guild-member-role-badge';
 import { guildMemberRoleBucket } from '@/features/guilds/guild-member-filter';
@@ -30,9 +28,7 @@ import {
 } from '@/features/guilds/guild-space-write';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 import {
   txToastConfirming,
   txToastError,
@@ -62,7 +58,6 @@ export function GuildSpaceWritersSheet({
   onClose,
   onSaved,
 }: GuildSpaceWritersSheetProps) {
-  const titleId = useId();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
   const [closing, setClosing] = useState(false);
@@ -91,8 +86,6 @@ export function GuildSpaceWritersSheet({
       setError(null);
     }
   }
-
-  useScrollLock(open || closing);
 
   const profiles = usePostAuthorProfiles([
     ...leaders.map((member) => member.memberId),
@@ -256,33 +249,31 @@ export function GuildSpaceWritersSheet({
 
   const renderLeaderRow = (member: GroupMemberRow, index: number) => {
     const profile = profiles[member.memberId];
-    const name = profile?.displayName ?? displayName(member.memberId);
-    const handle = fallbackLabel(member.memberId);
+    const { label } = standingIdentityLabel(
+      member.memberId,
+      profile?.displayName
+    );
 
     return (
       <div key={`leader-${member.memberId}`}>
         {index > 0 ? <Divider variant="item" /> : null}
         <div
           className="standing-row guild-space-writer-row is-selected is-leader"
-          aria-label={`${name}, leader, always can share`}
+          aria-label={`${label}, leader, always can share`}
         >
           <span className="standing-row-main">
-            <ProfileAvatar
-              src={profile?.avatarUrl ?? null}
-              fallbackInitial={name}
-              size="lg"
-              className="standing-row-avatar-slot"
-            />
-            <span className="standing-row-copy">
-              <span className="standing-row-head">
-                <span className="standing-row-name-row guild-member-row-name-row">
-                  <span className="standing-row-name">{name}</span>
+            <StandingIdentity
+              accountId={member.memberId}
+              profileName={profile?.displayName}
+              avatarUrl={profile?.avatarUrl}
+              nameRowClassName="guild-member-row-name-row"
+              nameTrailing={
+                <>
                   <GuildMemberRoleBadge member={member} />
                   <span className="guild-space-writer-status">Always</span>
-                </span>
-                <span className="standing-row-handle">@{handle}</span>
-              </span>
-            </span>
+                </>
+              }
+            />
           </span>
         </div>
       </div>
@@ -290,31 +281,17 @@ export function GuildSpaceWritersSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={58}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Who can share"
+      copy={spaceTitle}
+      closeAriaLabel="Close who can share"
       backdropLabel="Close who can share"
+      zIndex={58}
       panelClassName="guild-facts-sheet-panel"
       bodyClassName="guild-facts-sheet-body"
-      header={
-        <>
-          <SheetHeader
-            titleId={titleId}
-            title="Who can share"
-            subtitle={spaceTitle}
-            onClose={requestClose}
-            closeAriaLabel="Close who can share"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-space-writers-body">
         {loadState === 'loading' || loadState === 'idle' ? (
@@ -352,9 +329,10 @@ export function GuildSpaceWritersSheet({
               {leaders.map((member, index) => renderLeaderRow(member, index))}
               {candidateRows.map((member, index) => {
                 const profile = profiles[member.memberId];
-                const name =
-                  profile?.displayName ?? displayName(member.memberId);
-                const handle = fallbackLabel(member.memberId);
+                const { label } = standingIdentityLabel(
+                  member.memberId,
+                  profile?.displayName
+                );
                 const checked = selectedIds.has(member.memberId);
                 const already = grantedIds.has(member.memberId);
                 const removing = canEdit && already && !checked;
@@ -378,28 +356,23 @@ export function GuildSpaceWritersSheet({
                         aria-pressed={checked}
                         aria-label={
                           removing
-                            ? `${name}, will remove sharing`
+                            ? `${label}, will remove sharing`
                             : already && checked
-                              ? `${name}, sharing`
+                              ? `${label}, sharing`
                               : checked
-                                ? `${name}, selected`
-                                : `${name}, not selected`
+                                ? `${label}, selected`
+                                : `${label}, not selected`
                         }
                         onClick={() => toggleMember(member.memberId)}
                       >
                         <span className="standing-row-main">
-                          <ProfileAvatar
-                            src={profile?.avatarUrl ?? null}
-                            fallbackInitial={name}
-                            size="lg"
-                            className="standing-row-avatar-slot"
-                          />
-                          <span className="standing-row-copy">
-                            <span className="standing-row-head">
-                              <span className="standing-row-name-row guild-member-row-name-row">
-                                <span className="standing-row-name">
-                                  {name}
-                                </span>
+                          <StandingIdentity
+                            accountId={member.memberId}
+                            profileName={profile?.displayName}
+                            avatarUrl={profile?.avatarUrl}
+                            nameRowClassName="guild-member-row-name-row"
+                            nameTrailing={
+                              <>
                                 {showRoleBadge ? (
                                   <GuildMemberRoleBadge member={member} />
                                 ) : null}
@@ -413,12 +386,9 @@ export function GuildSpaceWritersSheet({
                                     Remove
                                   </span>
                                 ) : null}
-                              </span>
-                              <span className="standing-row-handle">
-                                @{handle}
-                              </span>
-                            </span>
-                          </span>
+                              </>
+                            }
+                          />
                         </span>
                         <span
                           className={
@@ -434,33 +404,25 @@ export function GuildSpaceWritersSheet({
                     ) : (
                       <div
                         className="standing-row guild-space-writer-row is-selected"
-                        aria-label={`${name}, can share`}
+                        aria-label={`${label}, can share`}
                       >
                         <span className="standing-row-main">
-                          <ProfileAvatar
-                            src={profile?.avatarUrl ?? null}
-                            fallbackInitial={name}
-                            size="lg"
-                            className="standing-row-avatar-slot"
-                          />
-                          <span className="standing-row-copy">
-                            <span className="standing-row-head">
-                              <span className="standing-row-name-row guild-member-row-name-row">
-                                <span className="standing-row-name">
-                                  {name}
-                                </span>
+                          <StandingIdentity
+                            accountId={member.memberId}
+                            profileName={profile?.displayName}
+                            avatarUrl={profile?.avatarUrl}
+                            nameRowClassName="guild-member-row-name-row"
+                            nameTrailing={
+                              <>
                                 {showRoleBadge ? (
                                   <GuildMemberRoleBadge member={member} />
                                 ) : null}
                                 <span className="guild-space-writer-status">
                                   Sharing
                                 </span>
-                              </span>
-                              <span className="standing-row-handle">
-                                @{handle}
-                              </span>
-                            </span>
-                          </span>
+                              </>
+                            }
+                          />
                         </span>
                       </div>
                     )}
@@ -526,6 +488,6 @@ export function GuildSpaceWritersSheet({
           </>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

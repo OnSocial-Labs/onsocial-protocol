@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  OsIconAction,
   PlusIcon,
   SearchField,
   UsersFillIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -221,13 +221,11 @@ export function LiveGuildsIndexPanel({
   }, [guilds, searchQuery, searchResults, topicFilter]);
 
   const createAction = (
-    <Link
-      href="/groups/create"
-      className={osIconActionClassName}
-      aria-label="Create guild"
-    >
-      <PlusIcon aria-hidden className="glass-sheet-icon-action-glyph" />
-    </Link>
+    <OsIconAction asChild ariaLabel="Create guild">
+      <Link href="/groups/create" scroll={false}>
+        <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+      </Link>
+    </OsIconAction>
   );
 
   const filtering = Boolean(searchQuery) || topicFilter !== 'all';

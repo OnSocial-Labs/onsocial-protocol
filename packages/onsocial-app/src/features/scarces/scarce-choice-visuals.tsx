@@ -23,7 +23,7 @@ export function ScarceColourSwatch({
   color: MarkColor;
   size?: 'option' | 'chip';
 }) {
-  const className = `scarce-choice-swatch scarce-choice-swatch--colour scarce-choice-swatch--${size}${
+  const className = `os-choice-swatch os-choice-swatch--colour os-choice-swatch--${size}${
     color === 'auto' ? ' is-auto' : ''
   }`;
   if (color === 'auto') {
@@ -52,7 +52,7 @@ export function ScarceFinishSwatch({
 }) {
   return (
     <span
-      className={`scarce-choice-swatch scarce-choice-swatch--finish scarce-choice-swatch--${size}`}
+      className={`os-choice-swatch os-choice-swatch--finish os-choice-swatch--${size}`}
       style={
         {
           '--scarce-finish-from': bgFrom,
@@ -62,7 +62,7 @@ export function ScarceFinishSwatch({
       }
       aria-hidden
     >
-      {size === 'option' ? <span className="scarce-choice-swatch-aa">Aa</span> : null}
+      {size === 'option' ? <span className="os-choice-swatch-aa">Aa</span> : null}
     </span>
   );
 }
@@ -97,7 +97,7 @@ export function ScarceMarkSwatch({
 
   return (
     <span
-      className={`scarce-choice-swatch scarce-choice-swatch--mark scarce-choice-swatch--${size}`}
+      className={`os-choice-swatch os-choice-swatch--mark os-choice-swatch--${size}`}
       aria-hidden
     >
       <svg viewBox="0 0 24 24" width="100%" height="100%" focusable="false">
@@ -123,7 +123,7 @@ export function ScarceCoverIcon({
   mode: ScarceCoverMode;
   size?: 'option' | 'chip';
 }) {
-  const className = 'scarce-choice-swatch-mage';
+  const className = 'os-choice-swatch-mage';
   const glyph =
     mode === 'frame' ? (
       <VideoPlayerIcon className={className} aria-hidden />
@@ -135,7 +135,7 @@ export function ScarceCoverIcon({
 
   return (
     <span
-      className={`scarce-choice-swatch scarce-choice-swatch--icon scarce-choice-swatch--${size}`}
+      className={`os-choice-swatch os-choice-swatch--icon os-choice-swatch--${size}`}
       aria-hidden
     >
       {glyph}
@@ -157,11 +157,11 @@ export function ScarceFormatSwatch({
   if (format === 'receipt' || format === 'proof') {
     return (
       <span
-        className={`scarce-choice-swatch scarce-choice-swatch--format scarce-choice-swatch--format-${format} scarce-choice-swatch--${size}`}
+        className={`os-choice-swatch os-choice-swatch--format os-choice-swatch--format-${format} os-choice-swatch--${size}`}
         aria-hidden
       >
-        <span className="scarce-choice-format-photo" />
-        <span className="scarce-choice-format-caption">Aa</span>
+        <span className="os-choice-format-photo" />
+        <span className="os-choice-format-caption">Aa</span>
       </span>
     );
   }
@@ -170,10 +170,10 @@ export function ScarceFormatSwatch({
 
   return (
     <span
-      className={`scarce-choice-swatch scarce-choice-swatch--format scarce-choice-swatch--format-${format} scarce-choice-swatch--${size}`}
+      className={`os-choice-swatch os-choice-swatch--format os-choice-swatch--format-${format} os-choice-swatch--${size}`}
       aria-hidden
     >
-      <span className="scarce-choice-format-aa">{sample}</span>
+      <span className="os-choice-format-aa">{sample}</span>
     </span>
   );
 }

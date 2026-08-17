@@ -3,9 +3,16 @@
 import Link from 'next/link';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
+  OsProposalCard,
+  OsProposalCardBody,
+  OsProposalCardFooter,
+  OsProposalCardSep,
+  OsProposalCardStrip,
+  OsProposalCardStripMain,
   OsSheetAction,
   OsSheetActions,
   ProfileAvatar,
+  osProposalCardActionsClassName,
   osSheetActionExpandedClassName,
   osSheetFloatingPanelCopyClassName,
   osSheetFloatingPanelMetaClassName,
@@ -108,29 +115,26 @@ export function GuildProposalCard({
     (isOwnRequest && onCancel);
 
   return (
-    <article
+    <OsProposalCard
+      surface="bordered"
       className={`guild-proposal-card guild-proposal-card--${presentation.kindTone}${
         outcome.isTerminal ? ` guild-proposal-card--${outcome.tone}` : ''
       }`}
     >
-      <header className="guild-proposal-card-strip">
-        <div className="guild-proposal-card-strip-main">
+      <OsProposalCardStrip className="guild-proposal-card-strip">
+        <OsProposalCardStripMain>
           {showSequence && proposal.sequence_number > 0 ? (
             <>
               <span className="guild-proposal-card-seq">
                 #{proposal.sequence_number}
               </span>
-              <span className="guild-proposal-card-sep" aria-hidden="true">
-                ·
-              </span>
+              <OsProposalCardSep />
             </>
           ) : null}
           <span className="guild-proposal-card-kind">{presentation.kind}</span>
           {submittedRelative ? (
             <>
-              <span className="guild-proposal-card-sep" aria-hidden="true">
-                ·
-              </span>
+              <OsProposalCardSep />
               <time
                 className="guild-proposal-card-time"
                 dateTime={submittedDate?.toISOString()}
@@ -142,9 +146,7 @@ export function GuildProposalCard({
           ) : null}
           {!outcome.isTerminal && voteProgress.closesLabel ? (
             <>
-              <span className="guild-proposal-card-sep" aria-hidden="true">
-                ·
-              </span>
+              <OsProposalCardSep />
               <span
                 className="guild-proposal-card-closes"
                 title={voteProgress.closesTitle ?? undefined}
@@ -153,7 +155,7 @@ export function GuildProposalCard({
               </span>
             </>
           ) : null}
-        </div>
+        </OsProposalCardStripMain>
         {stripStatusLabel ? (
           <span
             className={`guild-proposal-card-tally${
@@ -165,9 +167,9 @@ export function GuildProposalCard({
             {stripStatusLabel}
           </span>
         ) : null}
-      </header>
+      </OsProposalCardStrip>
 
-      <div className="guild-proposal-card-body">
+      <OsProposalCardBody className="guild-proposal-card-body">
         <div className="guild-proposal-card-main">
           {showIdentity ? (
             <Link
@@ -242,10 +244,10 @@ export function GuildProposalCard({
             </span>
           </Link>
         ) : null}
-      </div>
+      </OsProposalCardBody>
 
       {showFooter ? (
-        <footer className="guild-proposal-card-footer">
+        <OsProposalCardFooter className="guild-proposal-card-footer">
           {voteProgress.showProgress ? (
             <div className="guild-proposal-card-progress">
               <div
@@ -299,7 +301,7 @@ export function GuildProposalCard({
                 layout="row-compact"
                 tone="frosted-primary"
                 borderless
-                className="guild-proposal-card-actions"
+                className={osProposalCardActionsClassName}
               >
                 <OsSheetAction
                   type="button"
@@ -330,7 +332,7 @@ export function GuildProposalCard({
                   layout="row-compact"
                   tone="frosted-primary"
                   borderless
-                  className="guild-proposal-card-actions"
+                  className={osProposalCardActionsClassName}
                 >
                   {!pendingAction ? (
                     <>
@@ -380,8 +382,8 @@ export function GuildProposalCard({
               ) : null}
             </div>
           )}
-        </footer>
+        </OsProposalCardFooter>
       ) : null}
-    </article>
+    </OsProposalCard>
   );
 }

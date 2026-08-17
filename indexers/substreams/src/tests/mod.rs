@@ -1,5 +1,6 @@
 mod boost_db_out_tests;
 mod boost_decoder_tests;
+mod core_db_out_tests;
 mod core_decoder_tests;
 mod rewards_db_out_tests;
 mod rewards_decoder_tests;

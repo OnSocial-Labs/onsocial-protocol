@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import {
   Caveat,
   DM_Sans,
+  IBM_Plex_Sans,
   JetBrains_Mono,
   Newsreader,
   Space_Grotesk,
@@ -23,6 +24,12 @@ const dmSans = DM_Sans({
   // Variable wght axis — discrete weights were deduped to the same woff2, so
   // font-weight: 300 painted as 400 glyphs.
   weight: 'variable',
+});
+
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ['latin'],
+  variable: '--font-ibm-plex-sans',
+  weight: ['400', '500', '600', '700'],
 });
 
 const spaceGrotesk = Space_Grotesk({
@@ -90,7 +97,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${caveat.variable} ${ericaType.variable}`}
+      className={`${dmSans.variable} ${ibmPlexSans.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} ${newsreader.variable} ${caveat.variable} ${ericaType.variable}`}
       data-theme="dark"
       suppressHydrationWarning
     >

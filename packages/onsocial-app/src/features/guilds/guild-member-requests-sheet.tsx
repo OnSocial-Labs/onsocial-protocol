@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Proposal, ProposalTally } from '@onsocial/sdk';
 import {
-  Divider,
-  GlassSheet,
+  GLASS_SHEET_PEEK_RATIO,
+  OsHugSheet,
+  OsProposalCardList,
   PulsingDots,
-  SheetCloseButton,
 } from '@onsocial/ui';
 import {
   isOwnJoinRequestProposal,
@@ -223,10 +223,7 @@ export function GuildMemberRequestsSheet({
   const runVote = async (entry: MemberRequestEntry, approve: boolean) => {
     setActionError(null);
     setPendingActions((current) =>
-      new Map(current).set(
-        entry.proposal.id,
-        approve ? 'support' : 'oppose'
-      )
+      new Map(current).set(entry.proposal.id, approve ? 'support' : 'oppose')
     );
     try {
       const { client } = await getClient();
@@ -234,10 +231,7 @@ export function GuildMemberRequestsSheet({
         entry.kind === 'proposal'
           ? await client.groups.vote(groupId, entry.proposal.id, approve)
           : approve
-            ? await client.groups.approveJoin(
-                groupId,
-                entry.row.requesterId
-              )
+            ? await client.groups.approveJoin(groupId, entry.row.requesterId)
             : await client.groups.rejectJoin(groupId, entry.row.requesterId);
 
       const txHashes = collectRelayTxHashes(response);
@@ -336,40 +330,21 @@ export function GuildMemberRequestsSheet({
     : { supportLabel: 'Approve', opposeLabel: 'Deny' };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={open}
       onClose={onClose}
-      tone="os"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy="guild-member-requests-title"
+      label="Member requests"
+      copy={subtitle}
+      closeAriaLabel="Close"
       backdropLabel="Close member requests"
+      zIndex={57}
+      sizing="full"
+      initialDetent="peek"
+      peekRatio={GLASS_SHEET_PEEK_RATIO}
+      titleId="guild-member-requests-title"
+      headerClassName="guild-manage-sheet-header"
       panelClassName="guild-manage-sheet-panel"
       bodyClassName="guild-manage-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header guild-manage-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2
-                    id="guild-member-requests-title"
-                    className="standing-sheet-subject-name"
-                  >
-                    Member requests
-                  </h2>
-                  <p className="discover-sheet-subtitle">{subtitle}</p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={onClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
       <div className="guild-member-requests-sheet">
         {loadState === 'loading' ? (
@@ -413,7 +388,7 @@ export function GuildMemberRequestsSheet({
         ) : null}
 
         {loadState === 'ready' && visibleEntries.length > 0 ? (
-          <div className="guild-proposal-list">
+          <OsProposalCardList className="guild-proposal-list">
             {visibleEntries.map((entry) => {
               const ownRequest = isOwnJoinRequestProposal(
                 entry.proposal,
@@ -446,9 +421,9 @@ export function GuildMemberRequestsSheet({
                 />
               );
             })}
-          </div>
+          </OsProposalCardList>
         ) : null}
       </div>
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

@@ -46,6 +46,22 @@ export function displayName(accountId: string, profileName?: string): string {
   return name || fallbackLabel(accountId);
 }
 
+/**
+ * Custom profile name only — empty when it would just repeat the account id.
+ * Use for gesture titles (Mint/Buy) when @handle is shown elsewhere.
+ */
+export function customDisplayName(
+  accountId: string,
+  profileName?: string | null
+): string {
+  const name = profileName?.trim();
+  if (!name) return '';
+  const handle = fallbackLabel(accountId);
+  if (name.toLowerCase() === handle.toLowerCase()) return '';
+  if (name.toLowerCase() === accountId.trim().toLowerCase()) return '';
+  return name;
+}
+
 /** Account drawer — primary line when viewing your own sheet. */
 export function accountDrawerPrimaryLabel(
   accountId: string,

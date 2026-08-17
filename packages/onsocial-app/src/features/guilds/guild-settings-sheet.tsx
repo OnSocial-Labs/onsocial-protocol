@@ -1,13 +1,7 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
-import {
-  Divider,
-  GlassSheet,
-  ProtocolMotionArrow,
-  SheetCloseButton,
-} from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { useCallback, useState } from 'react';
+import { OsHugSheet, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
 
 interface GuildSettingsSheetProps {
   open: boolean;
@@ -15,6 +9,7 @@ interface GuildSettingsSheetProps {
   onClose: () => void;
   onEditGuild: () => void;
   onOpenRooms: () => void;
+  onOpenGroupStorage: () => void;
 }
 
 /**
@@ -27,12 +22,10 @@ export function GuildSettingsSheet({
   onClose,
   onEditGuild,
   onOpenRooms,
+  onOpenGroupStorage,
 }: GuildSettingsSheetProps) {
-  const titleId = useId();
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -45,109 +38,54 @@ export function GuildSettingsSheet({
   }, [onClose]);
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="peek"
-      zIndex={57}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Settings"
+      copy={guildName?.trim() || 'Guild tools and configuration'}
+      closeAriaLabel="Close"
       backdropLabel="Close guild settings"
+      zIndex={57}
+      initialDetent="peek"
+      headerClassName="guild-settings-sheet-header"
       panelClassName="guild-settings-sheet-panel"
-      bodyClassName="guild-settings-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header guild-settings-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Settings
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    {guildName?.trim() || 'Guild tools and configuration'}
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
     >
-      <nav
-        className="os-surface-row-list guild-settings-sheet-list"
+      <OsSurfaceRowList
+        className="guild-settings-sheet-list"
         aria-label="Guild settings"
       >
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
+        <OsSurfaceRow
+          label="Edit guild"
+          description="Banner, name, topics, access"
           onClick={() => {
             onEditGuild();
             requestClose();
           }}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Edit guild</span>
-            <span className="os-surface-row-description">
-              Banner, name, topics, access
-            </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
-
-        <button
-          type="button"
-          className="os-surface-row os-surface-row--navigate"
+        />
+        <OsSurfaceRow
+          label="Rooms"
+          description="Rooms and feed tabs"
           onClick={() => {
             onOpenRooms();
             requestClose();
           }}
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Rooms</span>
-            <span className="os-surface-row-description">
-              Rooms and feed tabs
-            </span>
-          </span>
-          <ProtocolMotionArrow className="account-card-action-arrow" />
-        </button>
-
-        <button
-          type="button"
-          className="os-surface-row"
+        />
+        <OsSurfaceRow
+          label="Group storage"
+          description="Fund the pool and add storage for members"
+          onClick={() => {
+            onOpenGroupStorage();
+            requestClose();
+          }}
+        />
+        <OsSurfaceRow
+          label="Analytics"
+          description="Reach, posts, and member activity"
+          badge="Soon"
           disabled
-          aria-disabled="true"
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Group storage</span>
-            <span className="os-surface-row-description">
-              Shared files and media quota
-            </span>
-          </span>
-          <span className="os-surface-row-badge">Soon</span>
-        </button>
-
-        <button
-          type="button"
-          className="os-surface-row"
-          disabled
-          aria-disabled="true"
-        >
-          <span className="os-surface-row-copy">
-            <span className="os-surface-row-label">Analytics</span>
-            <span className="os-surface-row-description">
-              Reach, posts, and member activity
-            </span>
-          </span>
-          <span className="os-surface-row-badge">Soon</span>
-        </button>
-      </nav>
-    </GlassSheet>
+        />
+      </OsSurfaceRowList>
+    </OsHugSheet>
   );
 }

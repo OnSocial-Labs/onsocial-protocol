@@ -1,20 +1,38 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProtocolMotionArrow } from '@onsocial/ui';
+import {
+  ActionDrawer,
+  type ActionDrawerItem,
+} from '@/components/ui/action-drawer';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PortfolioOwnerPayoutMarks } from '@/components/portfolio/portfolio-owner-payout-marks';
+import { EndorseComposeSheet } from '@/components/panels/endorse-compose-sheet';
 import { ProfileSupportSheet } from '@/components/portfolio/profile-support-sheet';
+import { BlockConfirmPanel } from '@/components/wallet/block-confirm-panel';
+import { DmComposeSheet } from '@/features/messages/dm-compose-sheet';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useViewerBlock } from '@/hooks/use-viewer-block';
+import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
+import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
+import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { accountIdsEqual } from '@/lib/account-match';
-import { overlayPath } from '@/lib/overlay-routes';
+import {
+  BLOCK_ACTION_DESCRIPTION,
+  MUTE_ACTION_DESCRIPTION,
+  blockConfirmCopy,
+} from '@/lib/block-confirm-copy';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
+import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
+import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { messagesPath, notificationsPath } from '@/lib/app-routes';
 
 interface PortfolioIdentityGesturesProps {
   pageAccountId: string;
@@ -26,7 +44,7 @@ interface PortfolioIdentityGesturesProps {
 
 /**
  * Face gesture slot under bio.
- * Connected visitor: Stand · Endorse · Support.
+ * Connected visitor: Stand · Endorse · Support · More (mute/block).
  * Owner: gift + shop payout marks (open drawers). Pre-connect: hidden.
  */
 export function PortfolioIdentityGestures({
@@ -41,26 +59,174 @@ export function PortfolioIdentityGestures({
   const { viewerStanding, isLoading } = useViewerRelationship(pageAccountId);
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding(pageAccountId);
+  const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
+  const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
+  const dmUnread = useDmUnreadCount();
+  const activityUnread = useNotificationsUnreadCount();
   const [supportOpen, setSupportOpen] = useState(false);
+  const [endorseOpen, setEndorseOpen] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const router = useRouter();
 
   const isSelf =
     Boolean(viewerAccountId) &&
     accountIdsEqual(viewerAccountId!, pageAccountId);
+  const pending = isStandingPendingForTarget(pageAccountId);
+  const label = displayName(pageAccountId, profileName ?? undefined);
+  const muted = isMuting(pageAccountId);
+  const blocked = isBlocking(pageAccountId);
+  const mutePending = isMutePendingForTarget(pageAccountId);
+  const blockPending = isBlockPendingForTarget(pageAccountId);
+  const blockEitherWay = isBlockEitherWay(pageAccountId);
+  const viewerMuted = muted || isViewerMuting(pageAccountId);
+  const messagingBlocked = blockEitherWay || viewerMuted;
+
+  const runBlock = async (shouldBlock: boolean) => {
+    try {
+      await updateBlock(pageAccountId, shouldBlock);
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : shouldBlock
+              ? txToastError.blockAccountFailed
+              : txToastError.unblockAccountFailed,
+      });
+    } finally {
+      setConfirmBlock(false);
+      setMoreOpen(false);
+    }
+  };
+
+  const moreItems = useMemo<ActionDrawerItem[]>(
+    () => [
+      {
+        id: 'mute',
+        label: mutePending
+          ? muted
+            ? 'Unmuting…'
+            : 'Muting…'
+          : muted
+            ? 'Unmute'
+            : 'Mute',
+        description: muted ? undefined : MUTE_ACTION_DESCRIPTION,
+        disabled: mutePending,
+        onSelect: () => {
+          void (async () => {
+            const next = !muted;
+            try {
+              await updateMute(pageAccountId, next);
+              setTxResult({
+                type: 'success',
+                msg: next
+                  ? txToastSuccess.accountMuted
+                  : txToastSuccess.accountUnmuted,
+              });
+            } catch (error) {
+              if (isWalletUserCancellation(error)) return;
+              setTxResult({
+                type: 'error',
+                msg:
+                  error instanceof Error
+                    ? error.message
+                    : next
+                      ? txToastError.muteAccountFailed
+                      : txToastError.unmuteAccountFailed,
+              });
+            } finally {
+              setMoreOpen(false);
+            }
+          })();
+        },
+      },
+      {
+        id: 'block',
+        label: blockPending
+          ? blocked
+            ? 'Unblocking…'
+            : 'Blocking…'
+          : blocked
+            ? 'Unblock'
+            : 'Block',
+        description: blocked ? undefined : BLOCK_ACTION_DESCRIPTION,
+        destructive: !blocked,
+        disabled: blockPending,
+        onSelect: () => {
+          if (blocked) {
+            void runBlock(false);
+            return;
+          }
+          setConfirmBlock(true);
+        },
+      },
+    ],
+    // runBlock closes over latest updateBlock/pageAccountId; list itself
+    // only needs pending/muted/blocked state for labels.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      blockPending,
+      blocked,
+      mutePending,
+      muted,
+      pageAccountId,
+      setTxResult,
+      updateMute,
+    ]
+  );
 
   if (!isConnected || !viewerAccountId) {
     return null;
   }
 
   if (isSelf) {
-    return <PortfolioOwnerPayoutMarks accountId={pageAccountId} />;
+    return (
+      <div className="portfolio-identity-gestures">
+        <PortfolioOwnerPayoutMarks accountId={pageAccountId} />
+        <button
+          type="button"
+          className="portfolio-identity-gesture portfolio-identity-gesture--message"
+          onClick={() => router.push(notificationsPath())}
+        >
+          Activity
+          {activityUnread > 0 ? (
+            <span
+              className="messages-nav-badge"
+              aria-label={`${activityUnread} unread`}
+            >
+              {activityUnread > 9 ? '9+' : activityUnread}
+            </span>
+          ) : null}
+        </button>
+        <button
+          type="button"
+          className="portfolio-identity-gesture portfolio-identity-gesture--message"
+          onClick={() => router.push(messagesPath())}
+        >
+          Messages
+          {dmUnread > 0 ? (
+            <span className="messages-nav-badge" aria-label={`${dmUnread} unread`}>
+              {dmUnread > 9 ? '9+' : dmUnread}
+            </span>
+          ) : null}
+        </button>
+      </div>
+    );
   }
-
-  const pending = isStandingPendingForTarget(pageAccountId);
-  const label = displayName(pageAccountId, profileName ?? undefined);
-  const endorsementsHref = overlayPath(pageAccountId, 'endorsements');
 
   async function handleStandToggle() {
     if (pending) return;
+    if (blockEitherWay) {
+      setTxResult({
+        type: 'error',
+        msg: 'Standing is unavailable while a block is in place.',
+      });
+      return;
+    }
     try {
       await updateStanding(
         {
@@ -76,9 +242,7 @@ export function PortfolioIdentityGestures({
       setTxResult({
         type: 'error',
         msg:
-          error instanceof Error
-            ? error.message
-            : 'Could not update standing.',
+          error instanceof Error ? error.message : 'Could not update standing.',
       });
     }
   }
@@ -86,15 +250,8 @@ export function PortfolioIdentityGestures({
   return (
     <div className="portfolio-identity-gestures">
       {isLoading ? (
-        <div
-          className="portfolio-identity-gesture-row portfolio-identity-gesture-row--loading"
-          aria-hidden
-        >
-          <span className="portfolio-identity-gesture-shimmer" />
-          <span className="portfolio-identity-gesture-sep" />
-          <span className="portfolio-identity-gesture-shimmer" />
-          <span className="portfolio-identity-gesture-sep" />
-          <span className="portfolio-identity-gesture-shimmer" />
+        <div className="portfolio-identity-gesture-row" aria-hidden>
+          <span className="portfolio-identity-gesture is-skeleton" />
         </div>
       ) : (
         <div
@@ -107,7 +264,7 @@ export function PortfolioIdentityGestures({
             className={`portfolio-identity-gesture portfolio-identity-gesture--stand group${
               viewerStanding ? ' is-standing' : ''
             }`}
-            disabled={pending}
+            disabled={pending || blockEitherWay}
             onClick={() => void handleStandToggle()}
             aria-label={
               viewerStanding ? `Step back from ${label}` : `Stand with ${label}`
@@ -120,17 +277,17 @@ export function PortfolioIdentityGestures({
             ·
           </span>
 
-          <Link
-            href={endorsementsHref}
-            scroll={false}
+          <button
+            type="button"
             className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
+            onClick={() => setEndorseOpen(true)}
             aria-label={`Endorse ${label}`}
           >
             <span className="signal-group signal-group-endorse" aria-hidden>
               <ProtocolMotionArrow className="signal-metric-arrow" />
             </span>
             Endorse
-          </Link>
+          </button>
 
           <span className="portfolio-identity-gesture-sep" aria-hidden>
             ·
@@ -147,8 +304,59 @@ export function PortfolioIdentityGestures({
             </span>
             Support
           </button>
+
+          <span className="portfolio-identity-gesture-sep" aria-hidden>
+            ·
+          </span>
+
+          <button
+            type="button"
+            className="portfolio-identity-gesture portfolio-identity-gesture--message group"
+            disabled={messagingBlocked}
+            onClick={() => {
+              if (messagingBlocked) return;
+              setMessageOpen(true);
+            }}
+            aria-label={
+              viewerMuted
+                ? `Unmute to message ${label}`
+                : blockEitherWay
+                  ? `Messaging unavailable for ${label}`
+                  : `Message ${label}`
+            }
+          >
+            Message
+          </button>
+
+          <span className="portfolio-identity-gesture-sep" aria-hidden>
+            ·
+          </span>
+
+          <button
+            type="button"
+            className="portfolio-identity-gesture portfolio-identity-gesture--more group"
+            onClick={() => setMoreOpen(true)}
+            aria-label={`More actions for ${label}`}
+          >
+            More
+          </button>
         </div>
       )}
+      <DmComposeSheet
+        open={messageOpen}
+        peerAccountId={pageAccountId}
+        peerName={profileName}
+        mood={mood}
+        onClose={() => setMessageOpen(false)}
+      />
+      <EndorseComposeSheet
+        open={endorseOpen}
+        pageAccountId={pageAccountId}
+        profileName={profileName}
+        avatarUrl={avatarUrl}
+        mood={mood}
+        onOpenChange={setEndorseOpen}
+      />
       <ProfileSupportSheet
         open={supportOpen}
         pageAccountId={pageAccountId}
@@ -157,6 +365,41 @@ export function PortfolioIdentityGestures({
         mood={mood}
         onOpenChange={setSupportOpen}
       />
+      <ActionDrawer
+        open={moreOpen}
+        onClose={
+          confirmBlock
+            ? () => setConfirmBlock(false)
+            : () => {
+                setConfirmBlock(false);
+                setMoreOpen(false);
+              }
+        }
+        onClosed={() => setConfirmBlock(false)}
+        label={
+          confirmBlock
+            ? blockConfirmCopy({
+                accountId: pageAccountId,
+                profileName,
+              }).title
+            : 'Account options'
+        }
+        copy={confirmBlock ? label : undefined}
+        closeAriaLabel={
+          confirmBlock ? 'Back to account options' : 'Close account options'
+        }
+        items={confirmBlock ? undefined : moreItems}
+      >
+        {confirmBlock ? (
+          <BlockConfirmPanel
+            accountId={pageAccountId}
+            profileName={profileName}
+            pending={blockPending}
+            onConfirm={() => void runBlock(true)}
+            onCancel={() => setConfirmBlock(false)}
+          />
+        ) : null}
+      </ActionDrawer>
     </div>
   );
 }

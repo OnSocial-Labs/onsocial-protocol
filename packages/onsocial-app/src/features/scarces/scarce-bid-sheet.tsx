@@ -2,10 +2,10 @@
 
 import { useCallback, useId, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { Divider, GlassSheet } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
+  commerceFooterStatesEqual,
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
@@ -14,8 +14,6 @@ import {
   ScarceBidForm,
   type ScarceBidSuccessDetail,
 } from '@/features/scarces/scarce-bid-form';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
 
 export interface ScarceBidListing {
   tokenId: string;
@@ -66,18 +64,15 @@ export function ScarceBidSheet({
   const [wasOpen, setWasOpen] = useState(open);
   const [footerState, setFooterState] =
     useState<CommerceSheetFooterState | null>(null);
-  const sellerId = listing?.sellerId ?? post?.accountId ?? '';
+  const sellerId =
+    listing?.sellerId ?? embed?.creatorId ?? post?.accountId ?? '';
   const sheetOpen =
     open &&
     !closing &&
-    (post != null || listing != null) &&
+    (post != null || listing != null || embed != null) &&
     Boolean(sellerId) &&
     Boolean(listing?.tokenId ?? embed?.tokenId);
   const { panelStyle, keyboardOpen } = useCommerceSheetKeyboard(sheetOpen);
-  const name = sellerId
-    ? displayName(sellerId, listing?.sellerName ?? authorName ?? undefined)
-    : '';
-  const handle = sellerId ? fallbackLabel(sellerId) : '';
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -86,8 +81,6 @@ export function ScarceBidSheet({
       setFormKey((key) => key + 1);
     }
   }
-
-  useScrollLock(open || closing);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -100,42 +93,27 @@ export function ScarceBidSheet({
 
   const handleFooterStateChange = useCallback(
     (state: CommerceSheetFooterState | null) => {
-      setFooterState(state);
+      setFooterState((prev) =>
+        commerceFooterStatesEqual(prev, state) ? prev : state
+      );
     },
     []
   );
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      panelClassName={`profile-support-sheet-panel${
-        keyboardOpen ? ' is-keyboard-open' : ''
-      }`}
-      panelStyle={panelStyle}
-      zIndex={zIndex}
-      ariaLabelledBy={titleId}
+      verb="Bid"
+      signal="reputation"
+      closeAriaLabel="Close bid scarce"
       backdropLabel="Close bid scarce"
+      keyboardOpen={keyboardOpen}
+      panelStyle={panelStyle}
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Bid"
-            personName={name}
-            handle={handle}
-            signal="reputation"
-            closeAriaLabel="Close bid scarce"
-            onClose={requestClose}
-            whisper="Bid, buy now if listed, or settle when time’s up."
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={zIndex}
       footer={
         footerState?.visible ? (
           <CommerceSheetFooter
@@ -152,17 +130,7 @@ export function ScarceBidSheet({
           formId={formId}
           post={post}
           authorName={listing?.sellerName ?? authorName}
-          listing={
-            listing
-              ? {
-                  tokenId: listing.tokenId,
-                  title: listing.title,
-                  mediaUrl: listing.mediaUrl,
-                  sellerId: listing.sellerId,
-                  priceNear: listing.priceNear,
-                }
-              : null
-          }
+          listing={listing}
           embed={embed}
           onFooterStateChange={handleFooterStateChange}
           onSuccess={(detail) => {
@@ -171,6 +139,6 @@ export function ScarceBidSheet({
           }}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

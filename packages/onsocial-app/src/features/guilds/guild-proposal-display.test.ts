@@ -87,6 +87,45 @@ describe('guild-proposal-display', () => {
     expect(presentation.targetAccountId).toBeNull();
   });
 
+  it('formats ban and unban proposals', () => {
+    const ban = guildProposalPresentation({
+      ...baseProposal,
+      title: 'Update Group: Ban',
+      type: 'group_update_ban',
+      target: 'mallory.near',
+      description: '',
+      data: {
+        GroupUpdate: {
+          update_type: 'ban',
+          target_user: 'mallory.near',
+          reason: 'Harassment',
+        },
+      },
+    });
+    expect(ban.kind).toBe('Ban');
+    expect(ban.kindTone).toBe('access');
+    expect(ban.headline).toBe('Ban mallory.near');
+    expect(ban.targetAccountId).toBe('mallory.near');
+    expect(ban.detail).toBe('Harassment');
+
+    const unban = guildProposalPresentation({
+      ...baseProposal,
+      title: 'Update Group: Unban',
+      type: 'group_update_unban',
+      target: 'mallory.near',
+      description: '',
+      data: {
+        GroupUpdate: {
+          update_type: 'unban',
+          target_user: 'mallory.near',
+        },
+      },
+    });
+    expect(unban.kind).toBe('Unban');
+    expect(unban.headline).toBe('Unban mallory.near');
+    expect(unban.targetAccountId).toBe('mallory.near');
+  });
+
   it('formats proposal titles by type when chain copy is missing', () => {
     expect(
       guildProposalTitle({

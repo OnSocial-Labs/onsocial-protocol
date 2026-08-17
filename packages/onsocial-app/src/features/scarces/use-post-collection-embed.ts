@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
+import { collectionCurrentRowToView, hydrateWritingManifest } from '@/features/scarces/collections-data';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import type {
   ScarceReadableMedia,
@@ -175,11 +175,22 @@ export function usePostCollectionEmbed(
           };
 
           if (!cancelled) {
-            setPlayables(view?.playables ?? []);
-            setReadables(view?.readables ?? []);
-            setWritingFormat(view?.writingFormat ?? null);
-            setBookPdf(view?.bookPdf ?? null);
-            setDropTitle(view?.title?.trim() || paint?.title || null);
+            const hydrated = view
+              ? await hydrateWritingManifest(view)
+              : null;
+            if (cancelled) return;
+            setPlayables(hydrated?.playables ?? view?.playables ?? []);
+            setReadables(hydrated?.readables ?? view?.readables ?? []);
+            setWritingFormat(
+              hydrated?.writingFormat ?? view?.writingFormat ?? null
+            );
+            setBookPdf(hydrated?.bookPdf ?? view?.bookPdf ?? null);
+            setDropTitle(
+              hydrated?.title?.trim() ||
+                view?.title?.trim() ||
+                paint?.title ||
+                null
+            );
           }
         } else if (!cancelled) {
           setPlayables([]);

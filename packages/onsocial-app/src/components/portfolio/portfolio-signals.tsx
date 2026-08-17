@@ -15,6 +15,8 @@ interface PortfolioSignalsProps {
   theyStandWithViewer?: boolean;
   /** Viewer relationship is still resolving; avoid false relationship highlights. */
   relationshipLoading?: boolean;
+  /** Opens reputation facts hug drawer. */
+  onReputationOpen?: () => void;
 }
 
 const metricInnerClass = 'signal-metric-inner';
@@ -72,6 +74,7 @@ export function PortfolioSignals({
   viewerStanding = false,
   theyStandWithViewer = false,
   relationshipLoading = false,
+  onReputationOpen,
 }: PortfolioSignalsProps) {
   const relationshipKnown = !relationshipLoading;
   const sharedSolidarity =
@@ -181,25 +184,49 @@ export function PortfolioSignals({
               ·
             </span>
             <div className="signal-group signal-group-reputation">
-            <SignalMetric
-              className={metricClassName({ readonly: true })}
-              ariaLabel={`Reputation ${formatReputation(signals.reputation.reputation)}${
-                signals.reputation.rank > 0
-                  ? `, rank ${signals.reputation.rank}`
-                  : ''
-              }`}
-            >
-              <span className={metricInnerClass}>
-                <ProtocolMotionArrow className={arrowClass} />
-                <span
-                  className={signalValueClass(
-                    Math.round(signals.reputation.reputation)
-                  )}
+              {onReputationOpen ? (
+                <button
+                  type="button"
+                  className={metricClassName()}
+                  aria-label={`Reputation ${formatReputation(signals.reputation.reputation)}${
+                    signals.reputation.rank > 0
+                      ? `, rank ${signals.reputation.rank}`
+                      : ''
+                  }`}
+                  onClick={onReputationOpen}
                 >
-                  {formatReputation(signals.reputation.reputation)}
-                </span>
-              </span>
-            </SignalMetric>
+                  <span className={metricInnerClass}>
+                    <ProtocolMotionArrow className={arrowClass} />
+                    <span
+                      className={signalValueClass(
+                        Math.round(signals.reputation.reputation)
+                      )}
+                    >
+                      {formatReputation(signals.reputation.reputation)}
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                <SignalMetric
+                  className={metricClassName({ readonly: true })}
+                  ariaLabel={`Reputation ${formatReputation(signals.reputation.reputation)}${
+                    signals.reputation.rank > 0
+                      ? `, rank ${signals.reputation.rank}`
+                      : ''
+                  }`}
+                >
+                  <span className={metricInnerClass}>
+                    <ProtocolMotionArrow className={arrowClass} />
+                    <span
+                      className={signalValueClass(
+                        Math.round(signals.reputation.reputation)
+                      )}
+                    >
+                      {formatReputation(signals.reputation.reputation)}
+                    </span>
+                  </span>
+                </SignalMetric>
+              )}
             </div>
           </div>
         ) : null}

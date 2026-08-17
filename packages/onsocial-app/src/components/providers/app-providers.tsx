@@ -10,10 +10,14 @@ import { CollectiblesNowPlayingProvider } from '@/contexts/collectibles-now-play
 import { AppTransactionFeedbackProvider } from '@/contexts/app-transaction-feedback-context';
 import { AppWalletProvider } from '@/contexts/app-wallet-context';
 import { ComposeLauncherProvider } from '@/contexts/compose-launcher-context';
+import { OsPortalHostProvider } from '@/contexts/os-portal-host-context';
 import { PortfolioCustomizeProvider } from '@/contexts/portfolio-customize-context';
 import { ViewerProfileShellProvider } from '@/contexts/viewer-profile-shell-context';
 import { ViewerWalletMoodProvider } from '@/contexts/viewer-wallet-mood-context';
 import { DropComposeHost } from '@/features/scarces/drop-compose-host';
+import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-host';
+import { DmUnreadHost } from '@/components/providers/dm-unread-host';
+import { NotificationsHost } from '@/components/providers/notifications-host';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -26,11 +30,18 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                 <AppRewardsProvider>
                   <PortfolioCustomizeProvider>
                     <ComposeLauncherProvider>
-                      <CollectiblesNowPlayingProvider>
-                        {children}
-                        <DropComposeHost />
-                        <AppAccountSheetHost />
-                      </CollectiblesNowPlayingProvider>
+                      <OsPortalHostProvider>
+                        <CollectiblesNowPlayingProvider>
+                          <DmUnreadHost>
+                            <NotificationsHost>
+                              {children}
+                              <ViewerMuteBlockHost />
+                              <DropComposeHost />
+                              <AppAccountSheetHost />
+                            </NotificationsHost>
+                          </DmUnreadHost>
+                        </CollectiblesNowPlayingProvider>
+                      </OsPortalHostProvider>
                     </ComposeLauncherProvider>
                   </PortfolioCustomizeProvider>
                 </AppRewardsProvider>

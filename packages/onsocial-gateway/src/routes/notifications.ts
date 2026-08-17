@@ -25,7 +25,10 @@ export const notificationRouter = Router();
 /** All notification routes require auth. */
 notificationRouter.use('/notifications', requireAuth);
 
-/** Write operations (events, rules, webhooks) require a paid tier. */
+/**
+ * Developer write surface only. List / count / mark-read stay open to free
+ * so first-party Activity works for every account; tier still caps page size.
+ */
 const requirePaidTier = requireTier('pro', 'scale', 'service');
 
 function parseRead(value: unknown): boolean | undefined {
@@ -109,6 +112,10 @@ notificationRouter.get(
             : undefined,
         cursor:
           typeof req.query.cursor === 'string' ? req.query.cursor : undefined,
+        excludeType:
+          typeof req.query.excludeType === 'string'
+            ? req.query.excludeType
+            : undefined,
       });
 
       res.json(result);
@@ -136,6 +143,10 @@ notificationRouter.get(
         eventType:
           typeof req.query.eventType === 'string'
             ? req.query.eventType
+            : undefined,
+        excludeType:
+          typeof req.query.excludeType === 'string'
+            ? req.query.excludeType
             : undefined,
       });
       res.json({ recipient, unread });
@@ -249,6 +260,10 @@ notificationRouter.post(
         recipient,
         ids,
         all,
+        excludeType:
+          typeof req.body?.excludeType === 'string'
+            ? req.body.excludeType
+            : undefined,
       });
       res.json({ updated });
     } catch (error) {

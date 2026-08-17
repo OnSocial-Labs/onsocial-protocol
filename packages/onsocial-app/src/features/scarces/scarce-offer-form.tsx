@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { AmountField, AmountFieldMetaRow } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
@@ -266,50 +267,24 @@ export function ScarceOfferForm({
 
       {!isOwn ? (
         <>
-          <div className="app-storage-amount-field profile-support-amount-field">
-            <input
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={amountInput}
-              onChange={(event) => applyAmountInput(event.target.value)}
-              onFocus={onAmountFocus}
-              onBlur={() =>
-                applyAmountInput(
-                  finalizeAmountInput(amountInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="0.1"
-              aria-label="Offer in NEAR"
-              aria-invalid={Boolean(fieldError)}
-              className="app-storage-amount-input"
-              disabled={Boolean(pending) || loadingOffer}
-            />
-            <span className="account-card-balance-unit profile-support-token-unit">
-              NEAR
-            </span>
-          </div>
-          <div className="profile-support-quick-row">
-            <div
-              className="app-storage-presets"
-              role="group"
-              aria-label="Quick offers"
-            >
-              {PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`os-surface-chip${
-                    normalizedAmount === preset ? ' is-selected' : ''
-                  }`}
-                  disabled={Boolean(pending) || loadingOffer}
-                  onClick={() => applyAmountInput(preset)}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-          </div>
+          <AmountField
+            value={amountInput}
+            onValueChange={applyAmountInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            onFocus={onAmountFocus}
+            placeholder="0.1"
+            aria-label="Offer in NEAR"
+            invalid={Boolean(fieldError)}
+            unit="NEAR"
+            disabled={Boolean(pending) || loadingOffer}
+          />
+          <AmountFieldMetaRow
+            presets={PRESETS}
+            selectedValue={normalizedAmount}
+            onSelectPreset={applyAmountInput}
+            presetsAriaLabel="Quick offers"
+            disabled={Boolean(pending) || loadingOffer}
+          />
         </>
       ) : null}
 

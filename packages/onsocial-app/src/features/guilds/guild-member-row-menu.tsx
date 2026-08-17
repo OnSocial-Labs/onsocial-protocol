@@ -5,13 +5,13 @@ import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   CopyIcon,
   DotsVerticalIcon,
-  OsSheetAction,
-  OsSheetActions,
+  OsActionDrawerConfirm,
+  OsIconAction,
+  ShareIcon,
   TrashIcon,
   UserCircleFillIcon,
   UserIcon,
   UsersFillIcon,
-  osIconActionClassName,
   osIconActionGlyphClassName,
 } from '@onsocial/ui';
 import {
@@ -21,6 +21,7 @@ import {
 import { executeGuildMemberAction } from '@/features/guilds/execute-guild-member-action';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import {
+  guildBannedMemberRowActions,
   guildMemberActionConfirmCopy,
   guildMemberRowActions,
   type GuildMembersManageContext,
@@ -42,26 +43,34 @@ interface GuildMemberRowMenuProps {
   member: GroupMemberRow;
   manageContext: GuildMembersManageContext;
   memberLabel: string;
+  listMode?: 'members' | 'banned';
   onActionComplete?: (input: {
     memberId: string;
     actionId: GuildMemberRowActionId;
     propose: boolean;
   }) => void;
+  onAddStorage?: (memberId: string) => void;
 }
 
 function actionIcon(id: GuildMemberRowActionId): ReactNode {
   switch (id) {
     case 'copy-handle':
-      return <CopyIcon className="action-drawer-icon" aria-hidden />;
+      return <CopyIcon className="os-action-drawer-icon" aria-hidden />;
+    case 'add-storage':
+      return <ShareIcon className="os-action-drawer-icon" aria-hidden />;
     case 'remove-from-guild':
-      return <TrashIcon className="action-drawer-icon" aria-hidden />;
+      return <TrashIcon className="os-action-drawer-icon" aria-hidden />;
+    case 'ban-from-guild':
+      return <TrashIcon className="os-action-drawer-icon" aria-hidden />;
+    case 'unban-from-guild':
+      return <UserIcon className="os-action-drawer-icon" aria-hidden />;
     case 'transfer-ownership':
-      return <UserCircleFillIcon className="action-drawer-icon" aria-hidden />;
+      return <UserCircleFillIcon className="os-action-drawer-icon" aria-hidden />;
     case 'make-mod':
     case 'make-admin':
-      return <UsersFillIcon className="action-drawer-icon" aria-hidden />;
+      return <UsersFillIcon className="os-action-drawer-icon" aria-hidden />;
     default:
-      return <UserIcon className="action-drawer-icon" aria-hidden />;
+      return <UserIcon className="os-action-drawer-icon" aria-hidden />;
   }
 }
 
@@ -98,6 +107,34 @@ function toastCopyForAction(action: GuildMemberRowAction): {
         };
   }
 
+  if (action.id === 'ban-from-guild') {
+    return action.propose
+      ? {
+          confirming: txToastConfirming.proposingGuildUpdate,
+          success: txToastSuccess.guildUpdateProposed,
+          failure: txToastError.guildSettingsFailed,
+        }
+      : {
+          confirming: txToastConfirming.banningGuildMember,
+          success: txToastSuccess.guildMemberBanned,
+          failure: txToastError.guildBanMemberFailed,
+        };
+  }
+
+  if (action.id === 'unban-from-guild') {
+    return action.propose
+      ? {
+          confirming: txToastConfirming.proposingGuildUpdate,
+          success: txToastSuccess.guildUpdateProposed,
+          failure: txToastError.guildSettingsFailed,
+        }
+      : {
+          confirming: txToastConfirming.unbanningGuildMember,
+          success: txToastSuccess.guildMemberUnbanned,
+          failure: txToastError.guildUnbanMemberFailed,
+        };
+  }
+
   if (action.propose) {
     return {
       confirming: txToastConfirming.proposingGuildUpdate,
@@ -118,7 +155,9 @@ export function GuildMemberRowMenu({
   member,
   manageContext,
   memberLabel,
+  listMode = 'members',
   onActionComplete,
+  onAddStorage,
 }: GuildMemberRowMenuProps) {
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
@@ -133,7 +172,10 @@ export function GuildMemberRowMenu({
   const [actionError, setActionError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  const actions = guildMemberRowActions(member, manageContext);
+  const actions =
+    listMode === 'banned'
+      ? guildBannedMemberRowActions(member.memberId, manageContext)
+      : guildMemberRowActions(member, manageContext);
   const menuLabel = `Manage ${memberLabel}`;
   const handle = fallbackLabel(member.memberId);
   const whoLabel = memberLabel.trim()
@@ -175,13 +217,19 @@ export function GuildMemberRowMenu({
         return;
       }
 
+      if (action.id === 'add-storage') {
+        onAddStorage?.(member.memberId);
+        requestClose();
+        return;
+      }
+
       setCopyError(null);
       setActionError(null);
       setKeepOwnerAsMember(false);
       setSupportOnSubmit(true);
       setConfirmAction(action);
     },
-    [member.memberId, requestClose]
+    [member.memberId, onAddStorage, requestClose]
   );
 
   const handleConfirm = useCallback(async () => {
@@ -263,22 +311,21 @@ export function GuildMemberRowMenu({
 
   return (
     <div className="guild-member-row-menu">
-      <button
-        type="button"
-        className={`${osIconActionClassName} guild-member-row-menu-trigger${
+      <OsIconAction
+        className={`guild-member-row-menu-trigger${
           sheetOpen ? ' is-open' : ''
         }`}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}
-        aria-label={menuLabel}
+        ariaLabel={menuLabel}
         disabled={pending}
       >
         <DotsVerticalIcon
           className={`${osIconActionGlyphClassName} guild-member-row-menu-icon`}
           aria-hidden
         />
-      </button>
+      </OsIconAction>
 
       <ActionDrawer
         open={sheetOpen}
@@ -291,8 +338,20 @@ export function GuildMemberRowMenu({
         items={confirmAction ? undefined : menuItems}
       >
         {confirmAction && confirmCopy ? (
-          <div className="action-drawer-confirm">
-            <p className="action-drawer-confirm-body">{confirmCopy.subtitle}</p>
+          <OsActionDrawerConfirm
+            body={confirmCopy.subtitle}
+            confirmLabel={confirmCopy.confirmLabel}
+            pending={pending}
+            pendingLabel={
+              confirmAction.propose
+                ? 'Submitting…'
+                : confirmAction.id === 'transfer-ownership'
+                  ? 'Transferring…'
+                  : 'Updating…'
+            }
+            onConfirm={() => void handleConfirm()}
+            onCancel={resetConfirm}
+          >
             {confirmAction.id === 'transfer-ownership' ? (
               <label className="os-notice-card-toggle">
                 <input
@@ -322,35 +381,7 @@ export function GuildMemberRowMenu({
                 {actionError}
               </p>
             ) : null}
-            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-              <OsSheetAction
-                type="button"
-                variant="primary"
-                ready
-                pending={pending}
-                pendingLabel={
-                  confirmAction.propose
-                    ? 'Submitting…'
-                    : confirmAction.id === 'transfer-ownership'
-                      ? 'Transferring…'
-                      : 'Updating…'
-                }
-                disabled={pending}
-                onClick={() => void handleConfirm()}
-              >
-                {confirmCopy.confirmLabel}
-              </OsSheetAction>
-            </OsSheetActions>
-            {!pending ? (
-              <button
-                type="button"
-                className="action-drawer-confirm-cancel"
-                onClick={resetConfirm}
-              >
-                Cancel
-              </button>
-            ) : null}
-          </div>
+          </OsActionDrawerConfirm>
         ) : undefined}
       </ActionDrawer>
 

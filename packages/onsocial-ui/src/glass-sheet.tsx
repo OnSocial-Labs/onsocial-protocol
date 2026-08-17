@@ -23,6 +23,8 @@ export const sheetIconActionClassName = osIconActionClassName;
 export type GlassSheetTone = 'os' | 'mood-thread';
 export type GlassSheetDetent = 'peek' | 'full';
 export type GlassSheetPresentation = 'enter' | 'swap';
+/** `hug` = content-sized up to 90dvh; `full` = default near-viewport height. */
+export type GlassSheetSizing = 'hug' | 'full';
 
 export const GLASS_SHEET_PEEK_RATIO = 0.62;
 const DISMISS_GAP_PX = 96;
@@ -75,13 +77,14 @@ export function resolveSheetOffsetPx(
   isDesktop: boolean,
   viewportHeightPx = typeof window !== 'undefined' ? window.innerHeight : 0
 ): number {
-  if (isDesktop || panelHeightPx <= 0) {
+  if (panelHeightPx <= 0) {
     return 0;
   }
+  // Drag wins on mobile and desktop — desktop only skips peek rest offset.
   if (dragPx != null) {
     return dragPx;
   }
-  if (detent === 'full') {
+  if (isDesktop || detent === 'full') {
     return 0;
   }
   return resolveSheetPeekOffsetPx(panelHeightPx, peekRatio, viewportHeightPx);
@@ -197,6 +200,11 @@ export interface GlassSheetProps {
   bodyRef?: Ref<HTMLDivElement | null>;
   panelClassName?: string;
   rootClassName?: string;
+  /**
+   * Panel height mode. `hug` opens to content (max 90dvh) and grows as needed;
+   * `full` (default) uses the near-viewport sheet height.
+   */
+  sizing?: GlassSheetSizing;
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
@@ -373,9 +381,6 @@ function useSheetGesture(
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!isMobile()) {
-        return;
-      }
       const panel = panelRef.current;
       if (!panel) {
         return;
@@ -391,7 +396,7 @@ function useSheetGesture(
       };
       event.currentTarget.setPointerCapture?.(event.pointerId);
     },
-    [detent, dragPx, isMobile, panelRef, peekPxFor]
+    [detent, dragPx, panelRef, peekPxFor]
   );
 
   const handlePointerMove = useCallback(
@@ -428,7 +433,8 @@ function useSheetGesture(
       return;
     }
 
-    const peekPx = peekPxFor(state.panelH);
+    // Desktop rests at full — dismiss after a short pull; mobile keeps peek.
+    const peekPx = isMobile() ? peekPxFor(state.panelH) : 0;
     const current = state.currentY;
 
     if (current > peekPx + DISMISS_GAP_PX) {
@@ -443,7 +449,7 @@ function useSheetGesture(
     }
 
     setDetent(current < peekPx / 2 ? 'full' : 'peek');
-  }, [onClose, peekPxFor]);
+  }, [isMobile, onClose, peekPxFor]);
 
   const isDesktopSheet = useCallback(
     () =>
@@ -585,6 +591,7 @@ export function GlassSheet({
   bodyRef,
   panelClassName,
   rootClassName,
+  sizing = 'full',
 }: GlassSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const portalTarget = useDocumentBodyPortalTarget();
@@ -736,6 +743,7 @@ export function GlassSheet({
         )}
         data-tone={tone}
         data-mood={tone === 'mood-thread' ? moodId : undefined}
+        data-sizing={sizing}
         style={
           {
             '--sheet-y': sheetY,
@@ -815,6 +823,8 @@ export function SheetCloseButton({
 export interface SheetHeaderProps {
   titleId?: string;
   title: ReactNode;
+  /** Sibling of the title (e.g. Clear) — stays outside the heading. */
+  titleAccessory?: ReactNode;
   subtitle?: ReactNode;
   onClose?: () => void;
   closeAriaLabel?: string;
@@ -825,6 +835,7 @@ export interface SheetHeaderProps {
 export function SheetHeader({
   titleId,
   title,
+  titleAccessory,
   subtitle,
   onClose,
   closeAriaLabel,
@@ -840,14 +851,17 @@ export function SheetHeader({
   return (
     <header className={cn('glass-sheet-header', className)}>
       <div className="glass-sheet-header-copy">
-        <h2 id={titleId} className="glass-sheet-header-title">
-          {title}
-        </h2>
+        <div className="glass-sheet-header-title-row">
+          <h2 id={titleId} className="glass-sheet-header-title">
+            {title}
+          </h2>
+          {titleAccessory}
+          {closeControl}
+        </div>
         {subtitle ? (
           <p className="glass-sheet-header-subtitle">{subtitle}</p>
         ) : null}
       </div>
-      {closeControl}
     </header>
   );
 }

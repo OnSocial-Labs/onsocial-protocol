@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { MouseEvent, ReactNode } from 'react';
-import { UserPlusFillIcon, osIconActionClassName } from '@onsocial/ui';
+import { OsIconAction, UserPlusFillIcon } from '@onsocial/ui';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
 import { discoverPath } from '@/lib/overlay-routes';
 
@@ -78,17 +78,19 @@ export function StandingDiscoverLink({
 
   if (variant === 'chrome') {
     return (
-      <DiscoverNavLink
-        href={href}
-        fullPageNav={fullPageNav}
-        closeOverlay={closeOverlay}
-        className={osIconActionClassName}
-      >
-        <UserPlusFillIcon
-          className="glass-sheet-icon-action-glyph glass-sheet-icon-action-glyph--discover"
-          aria-hidden
-        />
-      </DiscoverNavLink>
+      <OsIconAction asChild ariaLabel={DISCOVER_LABEL}>
+        <DiscoverNavLink
+          href={href}
+          fullPageNav={fullPageNav}
+          closeOverlay={closeOverlay}
+          className=""
+        >
+          <UserPlusFillIcon
+            className="glass-sheet-icon-action-glyph glass-sheet-icon-action-glyph--discover"
+            aria-hidden
+          />
+        </DiscoverNavLink>
+      </OsIconAction>
     );
   }
 

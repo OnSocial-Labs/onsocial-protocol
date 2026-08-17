@@ -87,7 +87,7 @@ export function PersonalFeedList({
 
   const postAuthorProfiles = usePostAuthorProfiles(authorIds);
   const guildNameById = useGuildDisplayNames(guildIds);
-  const { engagement, toggleReaction, isReactionPending, confirmAmplify } =
+  const { engagement, toggleReaction, toggleSave, isReactionPending, isSavePending, confirmAmplify } =
     usePostEngagement(posts, {
       initial: initialEngagement,
       onError: onEngagementError,
@@ -116,7 +116,9 @@ export function PersonalFeedList({
             quotedPosts={quotedPosts}
             engagement={engagement}
             isReactionPending={isReactionPending}
+            isSavePending={isSavePending}
             onToggleReaction={toggleReaction}
+            onToggleSave={toggleSave}
             onAmplifyConfirmed={(post, detail: PostAmplifySuccessDetail) => {
               const previous = engagement[postKey(post)];
               confirmAmplify(post);

@@ -46,7 +46,7 @@ export function HomeFeedChipBar({
   );
   const showEphemeralFocus = Boolean(activeFocus && !activeSaved);
   const lenses: HomeFeedLens[] = standingAvailable
-    ? ['standing', 'global']
+    ? ['standing', 'global', 'saved']
     : ['global'];
 
   useEffect(() => {

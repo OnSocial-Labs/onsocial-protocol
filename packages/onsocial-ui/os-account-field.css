@@ -1,0 +1,89 @@
+/**
+ * @onsocial/ui — account type-in shell (leading avatar + divider + input).
+ *
+ * Canonical: `.os-account-field`
+ * Legacy alias: `.near-account-field`
+ * Status lip tint only — never wash the fill (mood/glass shows through).
+ * Pair with {@link OsAccountField}.
+ */
+
+.os-account-field,
+.near-account-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-block: 0;
+  padding-inline: 0;
+}
+
+.os-account-field.os-field-bordered,
+.os-account-field.os-field-soft,
+.near-account-field.os-field-bordered,
+.near-account-field.os-field-soft {
+  padding: 0;
+}
+
+.os-account-field > input,
+.near-account-field > input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--os-field-font-size, 0.9rem);
+  outline: none;
+  padding: var(--os-field-pad-y, 0.65rem) var(--os-field-pad-x, 0.75rem)
+    var(--os-field-pad-y, 0.65rem) 0;
+}
+
+.os-account-field.is-available,
+.near-account-field.is-available {
+  background: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-green);
+}
+
+.os-account-field.is-available:focus-within,
+.near-account-field.is-available:focus-within {
+  background: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-green);
+}
+
+.os-account-field.is-taken,
+.near-account-field.is-taken {
+  background: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-red);
+}
+
+.os-account-field.is-taken:focus-within,
+.near-account-field.is-taken:focus-within {
+  background: transparent;
+  box-shadow: inset 0 1px 0 var(--protocol-red);
+}
+
+.os-account-field-leading,
+.near-account-field-leading {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  margin-left: 0.65rem;
+}
+
+.os-account-field-avatar,
+.near-account-field-avatar {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.os-account-field-divider,
+.near-account-field-divider {
+  flex-shrink: 0;
+  align-self: stretch;
+  margin-block: 0.45rem;
+  margin-inline: 0.55rem;
+  opacity: 0.9;
+}

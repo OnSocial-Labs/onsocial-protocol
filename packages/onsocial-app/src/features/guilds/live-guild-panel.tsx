@@ -11,8 +11,8 @@ import {
 import {
   Divider,
   InformationCircleIcon,
+  OsIconAction,
   SettingsIcon,
-  osIconActionClassName,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
@@ -68,6 +68,7 @@ import { GuildEditSheet } from '@/features/guilds/guild-edit-sheet';
 import { GuildFactsSheet } from '@/features/guilds/guild-facts-sheet';
 import { GuildRoomsSheet } from '@/features/guilds/guild-rooms-sheet';
 import { GuildSettingsSheet } from '@/features/guilds/guild-settings-sheet';
+import { GuildGroupStorageSheet } from '@/features/guilds/guild-group-storage-sheet';
 import { GuildProposalsSheet } from '@/features/guilds/guild-proposals-sheet';
 import { GuildSpaceWritersSheet } from '@/features/guilds/guild-space-writers-sheet';
 import { resolveViewerAllowlistSpaceIds } from '@/features/guilds/guild-space-write';
@@ -87,6 +88,7 @@ import {
   mediaKindFromFile,
   revokeDroppedOptimisticMedia,
 } from '@/lib/post-media';
+import { normalizeComposerContentLabels } from '@/lib/post-content-labels';
 import { resolveGuildViewerAccess } from '@/features/guilds/guild-viewer-access';
 import { topicLabel } from '@/lib/topic-slug';
 import {
@@ -120,11 +122,12 @@ import {
 } from '@/lib/guild-membership-action-pending';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
-  collectionEmbedFromDraft,
+  commerceEmbedFromDraft,
   dropPostKind,
   dropSnapshotExtra,
   resolvedDropPostText,
 } from '@/features/scarces/drop-post-payload';
+import { isDropComposeDraftReady } from '@/features/scarces/drop-compose-draft';
 import { subscribeGuildPostConfirmed } from '@/features/scarces/submit-guild-drop-post';
 import { hydrateScarceEmbedsForPosts } from '@/lib/feed-paint-hydrate';
 import { INDEXER_SOFT_RETRY_MS } from '@/lib/indexer-soft-retry';
@@ -140,6 +143,7 @@ interface ViewerGuildState {
   isOwner: boolean;
   isAdmin: boolean;
   canModerate: boolean;
+  isBlacklisted: boolean;
   joinRequest: JoinRequest | null;
   pendingJoinProposalId: string | null;
 }
@@ -268,10 +272,14 @@ export function LiveGuildPanel({
     null
   );
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
+  const [groupStorageSheetOpen, setGroupStorageSheetOpen] = useState(false);
+  const [groupStorageRecipient, setGroupStorageRecipient] = useState<
+    string | null
+  >(null);
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [roomsSheetOpen, setRoomsSheetOpen] = useState(false);
   const [factsSheetOpen, setFactsSheetOpen] = useState(false);
-  const settingsNextRef = useRef<'edit' | 'rooms' | null>(null);
+  const settingsNextRef = useRef<'edit' | 'rooms' | 'storage' | null>(null);
   const factsNextRef = useRef<'members' | null>(null);
   const [addSpaceOpen, setAddSpaceOpen] = useState(false);
   const [writersTarget, setWritersTarget] = useState<{
@@ -433,7 +441,7 @@ export function LiveGuildPanel({
   );
   const postAuthorProfiles = usePostAuthorProfiles(postAuthorIds);
   seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
-  const { engagement, toggleReaction, isReactionPending, confirmAmplify } =
+  const { engagement, toggleReaction, toggleSave, isReactionPending, isSavePending, confirmAmplify } =
     usePostEngagement(feedPosts, {
       initial: initial?.engagement ?? null,
       onError: (message) => setTxResult({ type: 'error', msg: message }),
@@ -1081,15 +1089,20 @@ export function LiveGuildPanel({
   const effectiveIsOwner = viewerAccessResolved
     ? Boolean(viewer?.isOwner)
     : false;
+  const effectiveIsBlacklisted = viewerAccessResolved
+    ? Boolean(viewer?.isBlacklisted)
+    : false;
   // Mutations require ACL; hint is label-only until viewerAccessResolved.
   // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = !viewerAccessResolved
     ? !isConnected
     : effectiveIsMember
       ? true
-      : effectiveJoinPending
-        ? joinCancelReady
-        : Boolean(config) && !effectiveIsMember;
+      : effectiveIsBlacklisted
+        ? false
+        : effectiveJoinPending
+          ? joinCancelReady
+          : Boolean(config) && !effectiveIsMember;
   const actionLabel = useMemo(
     () =>
       guildMembershipJoinLabel({
@@ -1099,6 +1112,7 @@ export function LiveGuildPanel({
         joinCancelReady,
         isMember: effectiveIsMember,
         isOwner: effectiveIsOwner,
+        isBlacklisted: effectiveIsBlacklisted,
         confirmingLeave,
         needsStorage: needsCollaborativeStorage,
         loadGuild: !config,
@@ -1109,6 +1123,7 @@ export function LiveGuildPanel({
     [
       config,
       confirmingLeave,
+      effectiveIsBlacklisted,
       effectiveIsMember,
       effectiveIsOwner,
       effectiveJoinPending,
@@ -1139,6 +1154,7 @@ export function LiveGuildPanel({
     if (!config) return;
     // Never join/leave from a guessed label — wait for ACL (hint is display-only).
     if (!viewerAccessResolved) return;
+    if (effectiveIsBlacklisted) return;
 
     if (effectiveIsMember && effectiveIsOwner) {
       setManageSheet('members');
@@ -1224,6 +1240,9 @@ export function LiveGuildPanel({
       setStorageSheetOpen(true);
       return;
     }
+    if (effectiveIsBlacklisted) {
+      return;
+    }
     if (effectiveJoinPending && !joinCancelReady) {
       return;
     }
@@ -1277,8 +1296,8 @@ export function LiveGuildPanel({
     const text = payload.text.trim();
     const files = payload.files ?? [];
     const drop =
-      mode === 'post' && payload.drop?.collectionId?.trim()
-        ? payload.drop
+      mode === 'post' && isDropComposeDraftReady(payload.drop)
+        ? payload.drop!
         : null;
     if (!text && !files.length && !drop) return;
     if (mode !== 'post' && !target) return;
@@ -1307,9 +1326,10 @@ export function LiveGuildPanel({
               : {}),
           }
         : null;
-    const collectionEmbed = drop ? collectionEmbedFromDraft(drop) : null;
+    const commerceEmbed = drop ? commerceEmbedFromDraft(drop) : null;
     const dropKind = dropPostKind(drop);
     const bodyText = resolvedDropPostText(text, drop);
+    const contentLabels = normalizeComposerContentLabels(payload);
 
     setModalError(null);
     setModalPending(true);
@@ -1343,15 +1363,16 @@ export function LiveGuildPanel({
             ...tagPayload,
             ...(pollEmbed
               ? { embeds: [pollEmbed] }
-              : collectionEmbed
+              : commerceEmbed
                 ? {
-                    embeds: [collectionEmbed],
+                    embeds: [commerceEmbed],
                     x: dropSnapshotExtra(drop!),
                     kind: dropKind ?? composerSpace.kind,
                   }
                 : mediaKind
                   ? { kind: mediaKind }
                   : { kind: composerSpace.kind }),
+            ...contentLabels,
             ...filePayload,
           },
           newPostId
@@ -1381,6 +1402,7 @@ export function LiveGuildPanel({
           timestamp: Date.now(),
           ...tagPayload,
           ...feedMeta,
+          ...contentLabels,
           ...filePayload,
         };
         response =
@@ -1437,13 +1459,14 @@ export function LiveGuildPanel({
               ...tagPayload,
               ...(pollEmbed
                 ? { embeds: [pollEmbed] }
-                : collectionEmbed
+                : commerceEmbed
                   ? {
-                      embeds: [collectionEmbed],
+                      embeds: [commerceEmbed],
                       x: dropSnapshotExtra(drop!),
                     }
                   : {}),
               ...(media ? { media } : {}),
+              ...contentLabels,
             }),
             blockHeight: 0,
             blockTimestamp: Date.now(),
@@ -1562,14 +1585,12 @@ export function LiveGuildPanel({
               />
             ) : null}
             {canManageGuild ? (
-              <button
-                type="button"
-                className={osIconActionClassName}
-                aria-label="Guild settings"
+              <OsIconAction
+                ariaLabel="Guild settings"
                 onClick={() => setSettingsSheetOpen(true)}
               >
                 <SettingsIcon className="glass-sheet-close-icon" aria-hidden />
-              </button>
+              </OsIconAction>
             ) : null}
           </>
         ) : undefined
@@ -1754,6 +1775,7 @@ export function LiveGuildPanel({
                         leaving: effectiveIsMember,
                       })}
                       disabled={
+                        effectiveIsBlacklisted ||
                         (effectiveJoinPending && !joinCancelReady) ||
                         (isConnected &&
                           !viewerAccessResolved &&
@@ -1815,7 +1837,9 @@ export function LiveGuildPanel({
                         quotedPosts={quotedPosts}
                         engagement={engagement}
                         isReactionPending={isReactionPending}
+                        isSavePending={isSavePending}
                         onToggleReaction={toggleReaction}
+                        onToggleSave={toggleSave}
                         onAmplifyConfirmed={confirmAmplify}
                         pollTallyFor={pollTallyFor}
                         isPollVotePending={isPollVotePending}
@@ -1950,6 +1974,10 @@ export function LiveGuildPanel({
           }}
           onClose={() => setManageSheet(null)}
           onMembersChanged={() => void refresh()}
+          onAddStorage={(memberId) => {
+            setGroupStorageRecipient(memberId);
+            setGroupStorageSheetOpen(true);
+          }}
         />
       ) : null}
       {config && manageSheet === 'proposals' ? (
@@ -2015,12 +2043,28 @@ export function LiveGuildPanel({
             settingsNextRef.current = null;
             if (next === 'edit') setEditSheetOpen(true);
             if (next === 'rooms') setRoomsSheetOpen(true);
+            if (next === 'storage') setGroupStorageSheetOpen(true);
           }}
           onEditGuild={() => {
             settingsNextRef.current = 'edit';
           }}
           onOpenRooms={() => {
             settingsNextRef.current = 'rooms';
+          }}
+          onOpenGroupStorage={() => {
+            settingsNextRef.current = 'storage';
+          }}
+        />
+      ) : null}
+      {canManageGuild ? (
+        <GuildGroupStorageSheet
+          open={groupStorageSheetOpen}
+          groupId={groupId}
+          guildName={config?.name}
+          initialRecipient={groupStorageRecipient}
+          onClose={() => {
+            setGroupStorageSheetOpen(false);
+            setGroupStorageRecipient(null);
           }}
         />
       ) : null}

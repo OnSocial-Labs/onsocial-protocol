@@ -30,23 +30,65 @@ const HASURA_METADATA_URL = config.hasuraUrl.replace(
 );
 const HASURA_QUERY_URL = config.hasuraUrl.replace('/v1/graphql', '/v2/query');
 
-async function hasuraMetadata(body: object): Promise<unknown> {
-  const response = await fetch(HASURA_METADATA_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-hasura-admin-secret': config.hasuraAdminSecret || '',
-    },
-    body: JSON.stringify(body),
-  });
+const TRANSIENT_HASURA_RETRIES = 8;
+const TRANSIENT_HASURA_DELAY_MS = 3000;
 
-  const data = await response.json();
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  if (!response.ok) {
-    throw new Error(`Hasura error: ${JSON.stringify(data)}`);
+/** Postgres still recovering / Hasura pool blips during deploy rolling restarts. */
+function isTransientHasuraError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return /postgres-error|connection error|not yet accepting connections|Connection refused|ECONNRESET|ECONNREFUSED|socket hang up|timed out|timeout/i.test(
+    msg
+  );
+}
+
+async function withTransientRetry<T>(
+  label: string,
+  run: () => Promise<T>
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= TRANSIENT_HASURA_RETRIES; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+      if (
+        !isTransientHasuraError(error) ||
+        attempt === TRANSIENT_HASURA_RETRIES
+      ) {
+        throw error;
+      }
+      console.log(
+        `   ⏳ ${label}: transient Postgres/Hasura error (attempt ${attempt}/${TRANSIENT_HASURA_RETRIES}); retrying in ${TRANSIENT_HASURA_DELAY_MS / 1000}s...`
+      );
+      await sleep(TRANSIENT_HASURA_DELAY_MS);
+    }
   }
+  throw lastError;
+}
 
-  return data;
+async function hasuraMetadata(body: object): Promise<unknown> {
+  return withTransientRetry('hasura metadata', async () => {
+    const response = await fetch(HASURA_METADATA_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': config.hasuraAdminSecret || '',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(`Hasura error: ${JSON.stringify(data)}`);
+    }
+
+    return data;
+  });
 }
 
 interface BulkOp {
@@ -104,22 +146,25 @@ async function fetchPublicViewNames(): Promise<Set<string>> {
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')
     ORDER BY c.relname`;
-  const response = await fetch(HASURA_QUERY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-hasura-admin-secret': config.hasuraAdminSecret || '',
-    },
-    body: JSON.stringify({
-      type: 'run_sql',
-      args: { source: 'default', sql, read_only: true },
-    }),
-  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- run_sql response is untyped
-  const result: any = await response.json();
-  if (!response.ok) {
-    throw new Error(`Hasura /v2/query error: ${JSON.stringify(result)}`);
-  }
+  const result: any = await withTransientRetry('hasura run_sql', async () => {
+    const response = await fetch(HASURA_QUERY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': config.hasuraAdminSecret || '',
+      },
+      body: JSON.stringify({
+        type: 'run_sql',
+        args: { source: 'default', sql, read_only: true },
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(`Hasura /v2/query error: ${JSON.stringify(data)}`);
+    }
+    return data;
+  });
   const rows: Array<[string]> = (result?.result ?? []).slice(1);
   return new Set(rows.map(([name]) => name));
 }
@@ -473,22 +518,28 @@ async function fetchLiveColumns(): Promise<Map<string, Set<string>>> {
   // run_sql lives on /v2/query, not /v1/metadata. The metadata endpoint
   // rejects both run_sql and pg_run_sql with parse-failed for this Hasura
   // version, so we POST to /v2/query directly.
-  const response = await fetch(HASURA_QUERY_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-hasura-admin-secret': config.hasuraAdminSecret || '',
-    },
-    body: JSON.stringify({
-      type: 'run_sql',
-      args: { source: 'default', sql, read_only: true },
-    }),
-  });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- run_sql response is untyped
-  const result: any = await response.json();
-  if (!response.ok) {
-    throw new Error(`Hasura /v2/query error: ${JSON.stringify(result)}`);
-  }
+  const result: any = await withTransientRetry(
+    'hasura fetchLiveColumns',
+    async () => {
+      const response = await fetch(HASURA_QUERY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-hasura-admin-secret': config.hasuraAdminSecret || '',
+        },
+        body: JSON.stringify({
+          type: 'run_sql',
+          args: { source: 'default', sql, read_only: true },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`Hasura /v2/query error: ${JSON.stringify(data)}`);
+      }
+      return data;
+    }
+  );
   const rows: Array<[string, string]> = (result?.result ?? []).slice(1);
   const map = new Map<string, Set<string>>();
   for (const [tableName, columnName] of rows) {

@@ -51,6 +51,7 @@ import { ProfilesQuery } from './profiles.js';
 import { ReactionsQuery } from './reactions.js';
 import { GraphQuery } from './graph.js';
 import { StandingsQuery } from './standings.js';
+import { BlocksQuery } from './blocks.js';
 import { SavesQuery } from './saves.js';
 import { EndorsementsQuery } from './endorsements.js';
 import { AttestationsQuery } from './attestations.js';
@@ -113,7 +114,12 @@ export type {
   ProtocolTotals,
   TokenStats,
 } from './stats.js';
-export type { StorageEventRow } from './storage.js';
+export type {
+  GroupSponsorDefaultEventRow,
+  GroupSponsorQuotaEventRow,
+  GroupSponsorSpendEventRow,
+  StorageEventRow,
+} from './storage.js';
 export type { PermissionEventRow } from './permissions.js';
 export { PERMISSION_OPERATIONS } from './permissions.js';
 export type { GovernanceEventRow } from './governance.js';
@@ -162,6 +168,7 @@ export type {
   GroupCurrentRow,
   GroupMembershipCurrentRow,
   GroupMemberRow,
+  GroupBannedRow,
 } from './groups.js';
 export { groupTopicsFromRow } from './groups.js';
 
@@ -176,6 +183,7 @@ export class QueryModule {
   readonly reactions: ReactionsQuery;
   readonly graph: GraphQuery;
   readonly standings: StandingsQuery;
+  readonly blocks: BlocksQuery;
   readonly saves: SavesQuery;
   readonly endorsements: EndorsementsQuery;
   readonly attestations: AttestationsQuery;
@@ -202,6 +210,7 @@ export class QueryModule {
     this.reactions = new ReactionsQuery(this);
     this.graph = new GraphQuery(this);
     this.standings = new StandingsQuery(this);
+    this.blocks = new BlocksQuery(this);
     this.saves = new SavesQuery(this);
     this.endorsements = new EndorsementsQuery(this);
     this.attestations = new AttestationsQuery(this);

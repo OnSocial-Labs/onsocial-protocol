@@ -1,3 +1,4 @@
+import type { StandingEntityFilter } from '@/lib/dao-standing-account';
 import type { StanceDetailKind } from '@/lib/profile-social-standings';
 
 export interface StandingPanelEmptyState {
@@ -11,27 +12,35 @@ function quoteSearchQuery(query: string): string {
   return `"${query}"`;
 }
 
+function entityNoun(entityFilter: StandingEntityFilter): string {
+  return entityFilter === 'daos' ? 'DAOs' : 'people';
+}
+
 export function buildStandingSearchEmptyPrimary(
   kind: StanceDetailKind,
   isSelf: boolean,
   displayName: string,
-  query: string
+  query: string,
+  entityFilter: StandingEntityFilter = 'people'
 ): string {
   const quoted = quoteSearchQuery(query);
+  const noun = entityNoun(entityFilter);
 
   if (kind === 'mutual') {
-    return `No solidarity matches ${quoted}.`;
+    return entityFilter === 'daos'
+      ? `No DAO solidarity matches ${quoted}.`
+      : `No solidarity matches ${quoted}.`;
   }
 
   if (kind === 'incoming') {
     return isSelf
-      ? `No matches for ${quoted} among people standing with you.`
-      : `No matches for ${quoted} among people standing with ${displayName}.`;
+      ? `No matches for ${quoted} among ${noun} standing with you.`
+      : `No matches for ${quoted} among ${noun} standing with ${displayName}.`;
   }
 
   return isSelf
-    ? `No matches for ${quoted} among people you stand with.`
-    : `No matches for ${quoted} among people ${displayName} stands with.`;
+    ? `No matches for ${quoted} among ${noun} you stand with.`
+    : `No matches for ${quoted} among ${noun} ${displayName} stands with.`;
 }
 
 export function buildStandingEmptyState({
@@ -40,12 +49,14 @@ export function buildStandingEmptyState({
   displayName,
   query,
   showDiscoverLink,
+  entityFilter = 'people',
 }: {
   kind: StanceDetailKind;
   isSelf: boolean;
   displayName: string;
   query: string;
   showDiscoverLink: boolean;
+  entityFilter?: StandingEntityFilter;
 }): StandingPanelEmptyState {
   const trimmedQuery = query.trim();
 
@@ -55,11 +66,40 @@ export function buildStandingEmptyState({
         kind,
         isSelf,
         displayName,
-        trimmedQuery
+        trimmedQuery,
+        entityFilter
       ),
       secondary: 'Try another name or handle.',
       showClearSearch: true,
       showDiscover: showDiscoverLink,
+    };
+  }
+
+  if (entityFilter === 'daos') {
+    if (kind === 'mutual') {
+      return {
+        primary: 'No DAO solidarity yet.',
+        secondary: 'Solidarity is between people — DAOs appear under Outgoing.',
+        showClearSearch: false,
+        showDiscover: false,
+      };
+    }
+    if (kind === 'incoming') {
+      return {
+        primary: isSelf
+          ? 'No DAOs stand with you yet.'
+          : `No DAOs stand with ${displayName} yet.`,
+        secondary: 'DAOs do not stand — people stand with DAOs.',
+        showClearSearch: false,
+        showDiscover: false,
+      };
+    }
+    return {
+      primary: isSelf
+        ? 'You do not stand with any DAOs yet.'
+        : `${displayName} does not stand with any DAOs yet.`,
+      showClearSearch: false,
+      showDiscover: false,
     };
   }
 

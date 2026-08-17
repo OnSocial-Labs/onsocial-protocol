@@ -1,15 +1,13 @@
 'use client';
 
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  Divider,
-  GlassSheet,
-  SheetHeader,
   UserPlusFillIcon,
+  OsIconAction,
   osFloatingPanelCountClassName,
-  osIconActionClassName,
+  type ActionDrawerItem,
 } from '@onsocial/ui';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
+import { ActionDrawer } from '@/components/ui/action-drawer';
 import { formatProfileCount } from '@/lib/profile-social-standings';
 
 export type GuildManageSheetId =
@@ -48,17 +46,9 @@ function CountBadge({
   );
 }
 
-interface ManageAction {
-  id: GuildManageSheetId;
-  label: string;
-  count?: number;
-  /** Pending inbox counts use purple; roster counts stay standing blue. */
-  countTone?: 'standing' | 'solidarity';
-}
-
 /**
- * Banner manage control — icon opens the shared content-hugging action drawer
- * (same open/spacing as Standing / choice drawers), not an anchored dropdown.
+ * Banner manage control — opens the shared ActionDrawer (same hug chrome as
+ * every other overflow / pick menu).
  */
 export function GuildManageMenu({
   pendingRequestCount,
@@ -71,13 +61,10 @@ export function GuildManageMenu({
   onOpenSheet,
 }: GuildManageMenuProps) {
   void _memberDriven;
-  const titleId = useId();
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
   const showRequests = accessGated && canReviewRequests;
-
-  useScrollLock(sheetOpen);
 
   const requestClose = useCallback(() => {
     setClosing(true);
@@ -88,35 +75,64 @@ export function GuildManageMenu({
     setOpen(false);
   }, []);
 
-  const actions: ManageAction[] = [
+  const items: ActionDrawerItem[] = [
     ...(showRequests
       ? [
           {
-            id: 'requests' as const,
+            id: 'requests',
             label: 'Member requests',
-            count: pendingRequestCount,
-            countTone: 'solidarity' as const,
+            leading: (
+              <CountBadge count={pendingRequestCount} tone="solidarity" />
+            ),
+            onSelect: () => {
+              onOpenSheet('requests');
+              requestClose();
+            },
           },
         ]
       : []),
-    { id: 'members', label: 'Members', count: memberCount },
-    { id: 'proposals', label: 'Proposals', count: activeProposalCount },
+    {
+      id: 'members',
+      label: 'Members',
+      leading: <CountBadge count={memberCount} />,
+      onSelect: () => {
+        onOpenSheet('members');
+        requestClose();
+      },
+    },
+    {
+      id: 'proposals',
+      label: 'Proposals',
+      leading: <CountBadge count={activeProposalCount} />,
+      onSelect: () => {
+        onOpenSheet('proposals');
+        requestClose();
+      },
+    },
     ...(canAddMember
-      ? [{ id: 'add-member' as const, label: 'Add member' }]
+      ? [
+          {
+            id: 'add-member',
+            label: 'Add member',
+            onSelect: () => {
+              onOpenSheet('add-member');
+              requestClose();
+            },
+          },
+        ]
       : []),
   ];
 
   return (
     <div className="guild-manage-menu">
-      <button
-        type="button"
-        className={`${osIconActionClassName} guild-manage-menu-trigger${
+      <OsIconAction
+        className={`guild-manage-menu-trigger${
           showRequests && pendingRequestCount > 0 ? ' has-badge' : ''
         }${sheetOpen ? ' is-open' : ''}`}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={sheetOpen}
-        aria-label={
+        ariaLabel={
           showRequests && pendingRequestCount > 0
             ? `Guild menu, ${pendingRequestCount} pending requests`
             : 'Guild menu'
@@ -131,68 +147,18 @@ export function GuildManageMenu({
             {formatProfileCount(pendingRequestCount)}
           </span>
         ) : null}
-      </button>
+      </OsIconAction>
 
-      <GlassSheet
+      <ActionDrawer
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleClosed}
-        tone="os"
-        initialDetent="full"
-        peekRatio={1}
-        zIndex={60}
-        ariaLabelledBy={titleId}
-        backdropLabel="Close guild menu"
-        panelClassName="scarce-choice-sheet-panel"
-        bodyClassName="scarce-choice-sheet-body"
-        header={
-          <>
-            <SheetHeader
-              titleId={titleId}
-              title="Guild"
-              subtitle="Members & access"
-              onClose={requestClose}
-              closeAriaLabel="Close guild menu"
-            />
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
-      >
-        <div
-          className="scarce-choice-sheet-list"
-          role="menu"
-          aria-label="Guild"
-        >
-          <div className="scarce-choice-sheet-section">
-            {actions.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                role="menuitem"
-                className="scarce-choice-sheet-option"
-                onClick={() => {
-                  onOpenSheet(action.id);
-                  requestClose();
-                }}
-              >
-                {action.count != null ? (
-                  <span className="scarce-choice-sheet-leading">
-                    <CountBadge
-                      count={action.count}
-                      tone={action.countTone ?? 'standing'}
-                    />
-                  </span>
-                ) : null}
-                <span className="scarce-choice-sheet-option-copy">
-                  <span className="scarce-choice-sheet-option-label">
-                    {action.label}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </GlassSheet>
+        label="Guild"
+        copy="Members & access"
+        listAriaLabel="Guild"
+        items={items}
+        closeAriaLabel="Close guild menu"
+      />
     </div>
   );
 }

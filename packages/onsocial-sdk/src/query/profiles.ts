@@ -21,6 +21,10 @@ export interface ProfileSearchRow {
   lastProfileBlock: number;
   lastProfileTimestamp: number;
   lastActivityBlock: number;
+  /** Soft Discover rank = reputation × confidence (from profile_discover). */
+  discoverScore?: number;
+  reputation?: number;
+  confidenceScore?: number;
 }
 
 export interface ProfileSearchOptions {
@@ -93,6 +97,30 @@ const PROFILE_SEARCH_FIELDS = `
   firstProfileTimestamp
   lastProfileBlock lastProfileTimestamp lastActivityBlock
 `;
+
+const PROFILE_DISCOVER_FIELDS = `
+  ${PROFILE_SEARCH_FIELDS}
+  discoverScore reputation confidenceScore
+`;
+
+function mapDiscoverRows(
+  rows: Array<
+    ProfileSearchRow & {
+      discoverScore?: number | string | null;
+      reputation?: number | string | null;
+      confidenceScore?: number | string | null;
+    }
+  >
+): ProfileSearchRow[] {
+  return rows.map((row) => ({
+    ...row,
+    discoverScore:
+      row.discoverScore == null ? undefined : Number(row.discoverScore),
+    reputation: row.reputation == null ? undefined : Number(row.reputation),
+    confidenceScore:
+      row.confidenceScore == null ? undefined : Number(row.confidenceScore),
+  }));
+}
 
 function mapOutgoingStandingRows(
   rows: Array<{
@@ -191,7 +219,8 @@ export class ProfilesQuery {
 
   /**
    * Search discoverable profiles by account id, display name, or bio.
-   * Empty query returns recently active profiles, ordered by standing signal.
+   * Empty query returns soft-ranked Discover rows (reputation × confidence),
+   * with standing / activity as tie-breakers. Text matches keep the same order.
    *
    * ```ts
    * const profiles = await os.query.profiles.search({ query: 'alice' });
@@ -201,15 +230,27 @@ export class ProfilesQuery {
     const query = opts.query?.trim();
     const filter = query ? 'where: {searchText: {_ilike: $pattern}}, ' : '';
     const variableDecl = query ? ', $pattern: String!' : '';
-    const res = await this._q.graphql<{ profileSearch: ProfileSearchRow[] }>({
-      query: `query ProfileSearch($limit: Int!, $offset: Int!${variableDecl}) {
-        profileSearch(
+    const res = await this._q.graphql<{
+      profileDiscover: Array<
+        ProfileSearchRow & {
+          discoverScore?: number | string | null;
+          reputation?: number | string | null;
+          confidenceScore?: number | string | null;
+        }
+      >;
+    }>({
+      query: `query ProfileDiscover($limit: Int!, $offset: Int!${variableDecl}) {
+        profileDiscover(
           ${filter}
           limit: $limit,
           offset: $offset,
-          orderBy: [{standingCount: DESC}, {lastActivityBlock: DESC}]
+          orderBy: [
+            {discoverScore: DESC},
+            {standingCount: DESC},
+            {lastActivityBlock: DESC}
+          ]
         ) {
-          ${PROFILE_SEARCH_FIELDS}
+          ${PROFILE_DISCOVER_FIELDS}
         }
       }`,
       variables: {
@@ -218,7 +259,7 @@ export class ProfilesQuery {
         ...(query ? { pattern: `%${query}%` } : {}),
       },
     });
-    return res.data?.profileSearch ?? [];
+    return mapDiscoverRows(res.data?.profileDiscover ?? []);
   }
 
   /**

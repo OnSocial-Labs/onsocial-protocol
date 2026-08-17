@@ -349,7 +349,7 @@ describe('QueryModule', () => {
           lastActivityBlock: 120,
         },
       ];
-      const { os, fetch } = makeOs({ data: { profileSearch: rows } });
+      const { os, fetch } = makeOs({ data: { profileDiscover: rows } });
 
       await expect(
         os.query.profiles.search({ query: 'alice', limit: 10 })
@@ -362,7 +362,8 @@ describe('QueryModule', () => {
         limit: 10,
         offset: 0,
       });
-      expect(body.query).toContain('profileSearch');
+      expect(body.query).toContain('profileDiscover');
+      expect(body.query).toContain('discoverScore');
       expect(body.query).toContain('searchText');
     });
 
@@ -385,7 +386,7 @@ describe('QueryModule', () => {
           lastActivityBlock: 1,
         },
       ];
-      const { os, fetch } = makeOs({ data: { profileSearch: rows } });
+      const { os, fetch } = makeOs({ data: { profileDiscover: rows } });
 
       const page = await os.query.profiles.discoverPage({ limit: 10 });
       expect(page.profiles).toEqual(rows);
@@ -415,7 +416,7 @@ describe('QueryModule', () => {
         }
         return {
           data: {
-            profileSearch: [
+            profileDiscover: [
               {
                 accountId: 'carol.near',
                 name: 'Carol',
@@ -461,7 +462,7 @@ describe('QueryModule', () => {
     });
 
     it('discoverPage with viewer skips context query when search is empty', async () => {
-      const { os, fetch } = makeOs({ data: { profileSearch: [] } });
+      const { os, fetch } = makeOs({ data: { profileDiscover: [] } });
 
       const page = await os.query.profiles.discoverPage({
         viewerAccountId: 'bob.near',
@@ -2467,6 +2468,82 @@ describe('QueryModule', () => {
       expect(body.query).toMatch(/author: \{_eq: \$id\}/);
     });
 
+    it('groupSponsorQuotasGranted filters by group and operation', async () => {
+      const quotaEvent = {
+        memberId: 'bob.near',
+        quotaBytes: '4096',
+        dailyLimit: '0',
+        previouslyEnabled: false,
+        extraData: '{"enabled":"true"}',
+        blockHeight: 9,
+      };
+      const { os, fetch } = makeOs({
+        data: { groupUpdates: [quotaEvent] },
+      });
+      const rows = await os.query.storage.groupSponsorQuotasGranted(
+        'cool-cats',
+        {
+          limit: 40,
+        }
+      );
+      expect(rows).toEqual([quotaEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ groupId: 'cool-cats', limit: 40 });
+      expect(body.query).toMatch(
+        /operation: \{_eq: "group_sponsor_quota_set"\}/
+      );
+      expect(body.query).toMatch(/groupId: \{_eq: \$groupId\}/);
+    });
+
+    it('groupSponsorDefaults filters by group and operation', async () => {
+      const defaultEvent = {
+        quotaBytes: '2048',
+        dailyLimit: '0',
+        previouslyEnabled: false,
+        extraData: '{"enabled":"true"}',
+        blockHeight: 3,
+      };
+      const { os, fetch } = makeOs({
+        data: { groupUpdates: [defaultEvent] },
+      });
+      const rows = await os.query.storage.groupSponsorDefaults('cool-cats');
+      expect(rows).toEqual([defaultEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ groupId: 'cool-cats', limit: 20 });
+      expect(body.query).toMatch(
+        /operation: \{_eq: "group_sponsor_default_set"\}/
+      );
+    });
+
+    it('groupSponsorSpends filters by group and operation', async () => {
+      const spendEvent = {
+        payer: 'bob.near',
+        bytes: '128',
+        remainingAllowance: '3968',
+        blockHeight: 11,
+      };
+      const { os, fetch } = makeOs({
+        data: { storageUpdates: [spendEvent] },
+      });
+      const rows = await os.query.storage.groupSponsorSpends('cool-cats', {
+        limit: 50,
+      });
+      expect(rows).toEqual([spendEvent]);
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.variables).toEqual({ groupId: 'cool-cats', limit: 50 });
+      expect(body.query).toMatch(/operation: \{_eq: "group_sponsor_spend"\}/);
+      expect(body.query).toMatch(/groupId: \{_eq: \$groupId\}/);
+    });
+
     it('history queries actor OR target', async () => {
       const { os, fetch } = makeOs({
         data: { storageUpdates: [sampleEvent] },
@@ -2855,6 +2932,8 @@ describe('QueryModule', () => {
       creatorPayment: null,
       quantity: null,
       totalSupply: null,
+      redeemCount: null,
+      maxRedeems: null,
       reservePrice: null,
       buyNowPrice: null,
       expiresAt: null,
@@ -3160,6 +3239,50 @@ describe('QueryModule', () => {
         creatorId: 'a.near',
         appId: 'hub',
         kind: 'audio',
+      });
+    });
+
+    it('collectionsCurrent applies live lifecycle window filters', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
+      await os.query.scarces.collectionsCurrent({
+        lifecycle: 'live',
+        nowNs: 1_700_000_000_000_000_000n,
+        limit: 10,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/remaining: \{_gt: 0\}/);
+      expect(body.query).toMatch(/startTime: \{_isNull: true\}/);
+      expect(body.query).toMatch(/startTime: \{_lte: \$nowNs\}/);
+      expect(body.query).toMatch(/\$nowNs: bigint!/);
+      expect(body.variables).toEqual({
+        limit: 10,
+        offset: 0,
+        nowNs: '1700000000000000000',
+      });
+    });
+
+    it('collectionsCurrent applies closing lifecycle with closingNs', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
+      await os.query.scarces.collectionsCurrent({
+        lifecycle: 'closing',
+        nowNs: '1000',
+        closingNs: '2000',
+        limit: 5,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/endTime: \{_lte: \$closingNs\}/);
+      expect(body.query).toMatch(/\$closingNs: bigint!/);
+      expect(body.variables).toEqual({
+        limit: 5,
+        offset: 0,
+        nowNs: '1000',
+        closingNs: '2000',
       });
     });
 

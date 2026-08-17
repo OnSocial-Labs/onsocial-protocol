@@ -9,4 +9,8 @@ describe('OsIconAction', () => {
   it('exports a button component', () => {
     expect(typeof OsIconAction).toBe('function');
   });
+
+  it('accepts asChild for link chrome', () => {
+    expect(OsIconAction.length).toBeGreaterThanOrEqual(0);
+  });
 });

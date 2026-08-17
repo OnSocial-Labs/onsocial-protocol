@@ -8,14 +8,12 @@ import {
   type CSSProperties,
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { Divider, GlassSheet } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import { OsGestureSheet } from '@onsocial/ui';
 import {
   PostAmplifyForm,
   type PostAmplifySuccessDetail,
 } from '@/features/home/post-amplify-form';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 
@@ -59,8 +57,6 @@ export function PostAmplifySheet({
     if (open) setFormKey((key) => key + 1);
   }
 
-  useScrollLock(open || closing);
-
   const requestClose = useCallback(() => {
     setClosing(true);
   }, []);
@@ -71,35 +67,22 @@ export function PostAmplifySheet({
   }, [onOpenChange]);
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleSheetClosed}
-      tone="os"
+      verb="Amplify"
+      personName={name}
+      handle={handle}
+      signal="reputation"
+      whisper="DAO sets the SOCIAL split on-chain."
+      closeAriaLabel="Close amplify"
+      backdropLabel="Close amplify"
       moodId={authorMood?.id}
       panelStyle={panelStyle}
-      panelClassName="profile-support-sheet-panel"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={56}
-      ariaLabelledBy={titleId}
-      backdropLabel="Close amplify"
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Amplify"
-            personName={name}
-            handle={handle}
-            signal="reputation"
-            closeAriaLabel="Close amplify"
-            onClose={requestClose}
-            whisper="DAO sets the SOCIAL split on-chain."
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
     >
       {post ? (
         <PostAmplifyForm
@@ -112,6 +95,6 @@ export function PostAmplifySheet({
           }}
         />
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

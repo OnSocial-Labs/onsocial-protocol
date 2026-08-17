@@ -15,6 +15,9 @@ export type TransactionFeedback = {
   /** Optional override — default toast is one-line (no eyebrow). */
   eyebrow?: string;
   explorerHref?: string | null;
+  /** In-app navigation (e.g. Messages). Prefer over explorerHref for app routes. */
+  actionHref?: string | null;
+  actionLabel?: string | null;
 };
 
 const DISMISS_MS = { success: 3500, error: 7000 } as const;
@@ -50,7 +53,7 @@ export function TransactionFeedbackToast({
   }, [onClose]);
 
   const dismissMs = result ? DISMISS_MS[result.type] : 0;
-  const { paused, barRef, pauseProps } = useToastDismissTimer({
+  const { paused, barRef, hostRef, pauseProps } = useToastDismissTimer({
     active: Boolean(result),
     durationMs: dismissMs,
     onDone: () => onCloseRef.current(),
@@ -61,6 +64,7 @@ export function TransactionFeedbackToast({
   return createPortal(
     <div className="app-tx-toast-anchor" role="presentation">
       <div
+        ref={hostRef}
         className={`app-tx-toast is-${result.type}${paused ? ' is-paused' : ''}`}
         role="status"
         aria-live="polite"
@@ -80,7 +84,19 @@ export function TransactionFeedbackToast({
             ) : null}
             <span className="app-tx-toast-message">{result.msg}</span>
           </div>
-          {result.explorerHref ? (
+          {result.actionHref ? (
+            <a
+              className="app-tx-toast-explorer"
+              href={result.actionHref}
+              aria-label={result.actionLabel ?? 'Open'}
+              title={result.actionLabel ?? 'Open'}
+            >
+              <ExternalLinkIcon
+                className="app-tx-toast-explorer-icon"
+                aria-hidden
+              />
+            </a>
+          ) : result.explorerHref ? (
             <a
               className="app-tx-toast-explorer"
               href={result.explorerHref}

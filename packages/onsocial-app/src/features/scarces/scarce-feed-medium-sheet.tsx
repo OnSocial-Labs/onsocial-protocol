@@ -11,13 +11,17 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
-import { GestureSheetHeader } from '@/components/panels/gesture-sheet-header';
+import {
+  OsGestureSheet,
+  ScaleDownIcon,
+  useScrollLock,
+} from '@onsocial/ui';
 import type { ScarcePlayableMedia } from '@/features/market/market-listings';
 import { fetchScarceTokenMeta } from '@/features/market/market-listings';
 import {
   collectionCurrentRowToView,
   fetchOwnsCollectionEdition,
+  hydrateWritingManifest,
 } from '@/features/scarces/collections-data';
 import { CollectionWritingReader } from '@/features/scarces/collection-writing-reader';
 import type {
@@ -25,9 +29,9 @@ import type {
   WritingReleaseFormat,
 } from '@/features/scarces/drop-writing';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { WritingReadSheet } from '@/features/scarces/scarce-writing-read-sheet';
 import { accountIdsEqual } from '@/lib/account-match';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useVisualViewportSheetMetrics } from '@/hooks/use-visual-viewport-sheet';
 import {
   resolveScarceFeedMediumMode,
@@ -44,11 +48,11 @@ function inlineSvgMarkup(svg: string): string {
 }
 
 /**
- * Feed cover tap → post-origin medium shell.
+ * Feed cover tap → shared listen-player card shell.
  *
- * Audio opens the same full-screen listen enlarge (28rem cover, love/share,
- * transport) with Mint/Buy + post engagement under the track actions.
- * Viewer uses the same canvas size with cover + post chrome.
+ * Audio opens the real listen player with Mint/Buy + engagement under the
+ * cover. Thought/art uses the same card without transport. Writing keeps the
+ * immersive reader for now (same shell + Read stack is a follow-up).
  */
 export function ScarceFeedMediumSheet({
   open,
@@ -115,10 +119,13 @@ export function ScarceFeedMediumSheet({
   const clip = playables[0] ?? null;
   /** Audio with a playable uses the real listen enlarge (no custom lightbox). */
   const immersiveAudio = mode === 'audio' && clip != null && open;
+  /** Writing uses the dedicated read lightbox (cover + manuscript). */
+  const immersiveWriting = mode === 'writing' && open;
   const isOverlay = mode === 'viewer' || (mode === 'audio' && !clip);
   const requestClose = useCallback(() => setClosing(true), []);
   const viewport = useVisualViewportSheetMetrics(sheetOpen);
-  useScrollLock(open || closing);
+  // Overlay / listen paths need host lock; OsGestureSheet locks the reader sheet.
+  useScrollLock((isOverlay || immersiveAudio) && (open || closing));
 
   const isCreator =
     Boolean(viewerAccountId?.trim()) &&
@@ -168,13 +175,15 @@ export function ScarceFeedMediumSheet({
               setHydratedPlayables(view.playables);
             }
             if (needsWriting) {
-              if (view.readables.length > 0) {
-                setHydratedReadables(view.readables);
+              const hydrated = await hydrateWritingManifest(view);
+              if (cancelled) return;
+              if (hydrated.readables.length > 0) {
+                setHydratedReadables(hydrated.readables);
               }
-              if (view.writingFormat) {
-                setHydratedWritingFormat(view.writingFormat);
+              if (hydrated.writingFormat) {
+                setHydratedWritingFormat(hydrated.writingFormat);
               }
-              if (view.bookPdf) setHydratedBookPdf(view.bookPdf);
+              if (hydrated.bookPdf) setHydratedBookPdf(hydrated.bookPdf);
             }
           }
         } else if (needsAudio && tokenId) {
@@ -317,9 +326,31 @@ export function ScarceFeedMediumSheet({
         immersiveListen
         listenFooter={postChrome}
         onListenClose={() => onOpenChange(false)}
-        {...(collectionId
-          ? { persist: { collectionId, title: name } }
-          : {})}
+        {...(collectionId ? { persist: { collectionId, title: name } } : {})}
+      />
+    );
+  }
+
+  if (immersiveWriting && collectionId) {
+    return (
+      <WritingReadSheet
+        open={open}
+        onClose={() => onOpenChange(false)}
+        title={name}
+        cover={rasterCover}
+        coverSvg={coverSvg}
+        collectionId={collectionId}
+        accountId={viewerAccountId}
+        readables={readables}
+        bookPdf={bookPdf}
+        writingFormat={writingFormat}
+        canRead={canReadWriting}
+        lockedHint={
+          !hydrateSettled && !hasWriting
+            ? 'Loading writing…'
+            : writingLockedHint
+        }
+        footer={postChrome}
       />
     );
   }
@@ -341,14 +372,6 @@ export function ScarceFeedMediumSheet({
           <p id={titleId} className="sr-only">
             {name}
           </p>
-          <div className="scarce-post-medium-top">
-            <SheetCloseButton
-              ref={closeRef}
-              onClick={requestClose}
-              ariaLabel="Close preview"
-              className="scarce-post-medium-close"
-            />
-          </div>
           <div className="scarce-clip-listen-art">{coverArt}</div>
           {mode === 'audio' ? (
             <p className="scarce-feed-medium-empty">
@@ -360,11 +383,20 @@ export function ScarceFeedMediumSheet({
           {postChrome ? (
             <div className="scarce-clip-listen-footer">{postChrome}</div>
           ) : null}
-          {name ? (
-            <div className="scarce-clip-listen-copy">
-              <p className="scarce-clip-listen-track">{name}</p>
-            </div>
-          ) : null}
+          <div className="scarce-post-medium-dismiss">
+            <button
+              ref={closeRef}
+              type="button"
+              className="scarce-clip-cover-expand scarce-clip-listen-contract"
+              aria-label="Close preview"
+              onClick={requestClose}
+            >
+              <ScaleDownIcon
+                className="scarce-clip-cover-expand-icon"
+                aria-hidden
+              />
+            </button>
+          </div>
         </div>
       </div>,
       document.body
@@ -372,35 +404,24 @@ export function ScarceFeedMediumSheet({
   }
 
   return (
-    <GlassSheet
+    <OsGestureSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={() => {
         setClosing(false);
         onOpenChange(false);
       }}
-      tone="os"
-      initialDetent="full"
-      peekRatio={1}
-      zIndex={56}
-      ariaLabelledBy={titleId}
+      verb="Read"
+      personName=""
+      handle={name}
+      signal="reputation"
+      whisper="Drop writing"
+      closeAriaLabel="Close reader"
       backdropLabel="Close reader"
+      size="compact"
       bodyClassName="profile-support-sheet-body"
-      header={
-        <>
-          <GestureSheetHeader
-            titleId={titleId}
-            verb="Read"
-            personName=""
-            handle={name}
-            signal="reputation"
-            closeAriaLabel="Close reader"
-            onClose={requestClose}
-            whisper="Drop writing"
-          />
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
+      titleId={titleId}
+      zIndex={56}
     >
       {postChrome}
       {sheetOpen && collectionId && hasWriting ? (
@@ -423,6 +444,6 @@ export function ScarceFeedMediumSheet({
               : 'Loading writing…'}
         </p>
       ) : null}
-    </GlassSheet>
+    </OsGestureSheet>
   );
 }

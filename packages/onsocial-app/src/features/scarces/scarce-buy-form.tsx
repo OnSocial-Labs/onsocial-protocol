@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PostRow, PostScarceEmbed } from '@onsocial/sdk';
-import { ProfileAvatar } from '@onsocial/ui';
+import { CollectionQtyStepper } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import {
+  collectionIdFromTokenId,
   fetchScarceListingMeta,
-  fetchScarceMintedAt,
+  fetchScarceMintSummary,
   formatMarketRelativeTime,
   findLiveListingForPost,
   type ScarcePlayableMedia,
@@ -19,12 +19,27 @@ import {
   type CommerceSheetFooterState,
 } from '@/features/scarces/commerce-sheet-footer';
 import {
+  executeListingAction,
+  type ListingActionItem,
+} from '@/features/scarces/listing-actions';
+import { ScarceBuyFactsMeta } from '@/features/scarces/scarce-buy-facts-meta';
+import { supplyUnitForMediumKind } from '@/features/scarces/drop-templates';
+import {
+  ScarceListingFactsSheet,
+  type ScarceListingFacts,
+} from '@/features/scarces/scarce-listing-facts-sheet';
+import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
+import {
   postScarceKey,
   setScarceEmbedOverride,
 } from '@/features/scarces/scarce-embed-ledger';
+import { ScarceBuyCover } from '@/features/scarces/scarce-buy-cover';
 import { ScarceClipPlayer } from '@/features/scarces/scarce-clip-player';
+import { ScarcePartyLine } from '@/features/scarces/scarce-party-line';
 import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
-import { ScarceProvenanceCopy } from '@/features/scarces/scarce-provenance-copy';
+import { ScarceProvenanceCopy, isScarceOriginalSelf } from '@/features/scarces/scarce-provenance-copy';
+import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
+import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { ScarceTraits } from '@/features/scarces/scarce-traits';
 import {
   createAppScarcesWalletClient,
@@ -34,10 +49,7 @@ import {
 import { accountIdsEqual } from '@/lib/account-match';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { portfolioPath } from '@/lib/overlay-routes';
-import { parsePostText } from '@/lib/post-display';
-import { postThreadPath } from '@/lib/post-routes';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { parseDropPaintSnapshot, parsePostText } from '@/lib/post-display';
 import {
   txToastConfirming,
   txToastError,
@@ -64,14 +76,20 @@ interface ScarceBuyFormProps {
     description?: string;
     mediaUrl?: string | null;
     creatorId?: string;
+    /** Original mint creator when different from seller (resale). */
+    artistId?: string;
     cardBg?: string;
     copies?: number;
     remaining?: number;
+    /** Medium kind for supply nouns (tickets / copies / editions). */
+    mediumKind?: string | null;
     sourcePostPath?: string;
     postHref?: string | null;
     listedAtMs?: number;
     playable?: ScarcePlayableMedia;
     playables?: ScarcePlayableMedia[];
+    alreadyOwnsEdition?: boolean;
+    maxQuantity?: number;
   } | null;
   embed?: PostScarceEmbed | null;
   /** Profile display name for text-card preview byline. */
@@ -79,6 +97,8 @@ interface ScarceBuyFormProps {
   onSuccess?: (detail: ScarceBuySuccessDetail) => void;
   /** Secondary path for fixed-price resales — opens offer sheet. */
   onMakeOffer?: () => void;
+  /** Viewer already owns an edition — Mint/Buy another. */
+  alreadyOwnsEdition?: boolean;
   onFooterStateChange?: (state: CommerceSheetFooterState | null) => void;
 }
 
@@ -87,6 +107,40 @@ function formatPriceNear(priceNear: string | undefined): string {
   const n = Number.parseFloat(priceNear);
   if (!Number.isFinite(n)) return priceNear.trim();
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} NEAR`;
+}
+
+function scalePriceNear(
+  priceNear: string | undefined,
+  quantity: number
+): string | undefined {
+  if (!priceNear?.trim()) return undefined;
+  const n = Number.parseFloat(priceNear);
+  if (!Number.isFinite(n)) return priceNear.trim();
+  const total = n * Math.max(1, quantity);
+  return String(total);
+}
+
+function resolveMintMaxQuantity(opts: {
+  listingMax?: number | null;
+  remaining?: number | null;
+}): number {
+  const caps: number[] = [];
+  if (
+    typeof opts.listingMax === 'number' &&
+    Number.isFinite(opts.listingMax) &&
+    opts.listingMax > 0
+  ) {
+    caps.push(Math.floor(opts.listingMax));
+  }
+  if (
+    typeof opts.remaining === 'number' &&
+    Number.isFinite(opts.remaining) &&
+    opts.remaining > 0
+  ) {
+    caps.push(Math.floor(opts.remaining));
+  }
+  if (caps.length === 0) return 1;
+  return Math.max(1, Math.min(...caps, 10));
 }
 
 function titleFromPost(post: PostRow | null | undefined): string | null {
@@ -100,6 +154,14 @@ function titleFromPost(post: PostRow | null | undefined): string | null {
   return (lastSpace >= 40 ? window.slice(0, lastSpace) : window).trimEnd();
 }
 
+function authorFromSourcePostPath(
+  path: string | null | undefined
+): string | undefined {
+  if (!path?.trim()) return undefined;
+  const match = path.trim().match(/^(.+)\/post\/(.+)$/);
+  return match?.[1]?.trim() || undefined;
+}
+
 export function ScarceBuyForm({
   formId,
   post = null,
@@ -108,6 +170,7 @@ export function ScarceBuyForm({
   authorName = null,
   onSuccess,
   onMakeOffer,
+  alreadyOwnsEdition: alreadyOwnsEditionProp = false,
   onFooterStateChange,
 }: ScarceBuyFormProps) {
   const {
@@ -117,7 +180,10 @@ export function ScarceBuyForm({
   } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [pending, setPending] = useState(false);
+  const [confirmDelist, setConfirmDelist] = useState(false);
+  const confirmTimerRef = useRef<number | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const [hydratedDescription, setHydratedDescription] = useState<string | null>(
     null
   );
@@ -131,18 +197,33 @@ export function ScarceBuyForm({
     ScarcePlayableMedia[] | null
   >(null);
   const [mintedAtMs, setMintedAtMs] = useState<number | null>(null);
-  const [creatorAvatarUrl, setCreatorAvatarUrl] = useState<string | null>(null);
-  const [creatorProfileName, setCreatorProfileName] = useState<string | null>(
+  const [mintPriceNear, setMintPriceNear] = useState<string | null>(null);
+  const [royalty, setRoyalty] = useState<Record<string, number> | null>(null);
+  const [factsOpen, setFactsOpen] = useState(false);
+  const [artistAvatarUrl, setArtistAvatarUrl] = useState<string | null>(null);
+  const [artistProfileName, setArtistProfileName] = useState<string | null>(
     null
   );
+  const [sellerAvatarUrl, setSellerAvatarUrl] = useState<string | null>(null);
+  const [sellerProfileName, setSellerProfileName] = useState<string | null>(
+    null
+  );
+  const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
 
   const status = listing?.status ?? embed?.status ?? 'none';
   const listingId = listing?.listingId ?? embed?.listingId;
   const tokenId = listing?.tokenId ?? embed?.tokenId;
-  const collectionId = listing?.collectionId ?? embed?.collectionId;
+  const collectionId =
+    listing?.collectionId?.trim() ||
+    embed?.collectionId?.trim() ||
+    (tokenId ? collectionIdFromTokenId(tokenId) : null) ||
+    undefined;
   const priceNear = listing?.priceNear ?? embed?.priceNear;
   const copies = listing?.copies ?? embed?.copies;
   const remaining = listing?.remaining ?? embed?.remaining;
+  const mediumKind =
+    listing?.mediumKind?.trim() || embed?.mediumKind?.trim() || null;
+  const supplyUnit = supplyUnitForMediumKind(mediumKind).unit;
   const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const resolvedDescription =
     listing?.description?.trim() || hydratedDescription || null;
@@ -152,31 +233,61 @@ export function ScarceBuyForm({
     hydratedMediaUrl ||
     null;
   const resolvedSourcePostPath =
-    listing?.sourcePostPath?.trim() || hydratedSourcePostPath || null;
+    listing?.sourcePostPath?.trim() ||
+    hydratedSourcePostPath ||
+    parseDropPaintSnapshot(post?.value ?? '')?.sourcePostPath?.trim() ||
+    null;
   const resolvedPlayable = listing?.playable ?? hydratedPlayable;
   const resolvedPlayables =
     listing?.playables ?? hydratedPlayables ?? undefined;
   const sellerId =
-    listing?.creatorId ?? embed?.creatorId ?? post?.accountId;
-  const authorHandle = sellerId ? fallbackLabel(sellerId) : null;
-  const authorHref = post
-    ? postThreadPath(post)
-    : sellerId
-      ? portfolioPath(sellerId)
-      : null;
-  const authorDisplayName = sellerId
-    ? displayName(sellerId, creatorProfileName ?? authorName ?? undefined)
-    : null;
-  const authorNameIsCustom =
-    Boolean(authorDisplayName) &&
-    Boolean(authorHandle) &&
-    authorDisplayName!.toLowerCase() !== authorHandle!.toLowerCase();
+    listing?.creatorId ?? embed?.creatorId ?? post?.accountId ?? null;
+  const artistFromListing = listing?.artistId?.trim() || undefined;
+  // Provenance author — not post.accountId (often the listing poster / seller).
+  const artistFromPost =
+    authorFromSourcePostPath(resolvedSourcePostPath) || undefined;
+  // Prefer mint creator; fall back to seller so Author never blanks the sheet.
+  // Hydrate upgrades Author on resales → Seller line appears when distinct.
+  const artistId =
+    artistFromListing ||
+    artistFromPost ||
+    hydratedArtistId ||
+    sellerId;
+  const showDistinctSeller =
+    Boolean(sellerId) &&
+    Boolean(artistId) &&
+    !accountIdsEqual(sellerId!, artistId!);
 
   useEffect(() => {
-    const accountId = sellerId?.trim();
+    if (artistFromListing || artistFromPost) {
+      setHydratedArtistId(null);
+      return;
+    }
+    const id = collectionId?.trim();
+    if (!id) {
+      setHydratedArtistId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await fetchCollectionPreferIndexer(id);
+        if (cancelled) return;
+        setHydratedArtistId(view?.creatorId?.trim() || null);
+      } catch {
+        if (!cancelled) setHydratedArtistId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [artistFromListing, artistFromPost, collectionId]);
+
+  useEffect(() => {
+    const accountId = artistId?.trim();
     if (!accountId) {
-      setCreatorAvatarUrl(null);
-      setCreatorProfileName(null);
+      setArtistAvatarUrl(null);
+      setArtistProfileName(null);
       return;
     }
     let cancelled = false;
@@ -190,19 +301,51 @@ export function ScarceBuyForm({
           media?.kind === 'image'
             ? media.url
             : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
-        setCreatorAvatarUrl(faceUrl);
-        setCreatorProfileName(profile?.name?.trim() || null);
+        setArtistAvatarUrl(faceUrl);
+        setArtistProfileName(profile?.name?.trim() || null);
       } catch {
         if (!cancelled) {
-          setCreatorAvatarUrl(null);
-          setCreatorProfileName(null);
+          setArtistAvatarUrl(null);
+          setArtistProfileName(null);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sellerId]);
+  }, [artistId]);
+
+  useEffect(() => {
+    if (!showDistinctSeller || !sellerId?.trim()) {
+      setSellerAvatarUrl(null);
+      setSellerProfileName(null);
+      return;
+    }
+    const accountId = sellerId.trim();
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const profile = await client.profiles.get(accountId);
+        if (cancelled) return;
+        const media = profile ? client.profiles.avatarMedia(profile) : null;
+        const faceUrl =
+          media?.kind === 'image'
+            ? media.url
+            : (media?.poster ?? client.profiles.avatarUrl(profile) ?? null);
+        setSellerAvatarUrl(faceUrl);
+        setSellerProfileName(profile?.name?.trim() || null);
+      } catch {
+        if (!cancelled) {
+          setSellerAvatarUrl(null);
+          setSellerProfileName(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showDistinctSeller, sellerId]);
 
   useEffect(() => {
     const needsDescription = !listing?.description?.trim();
@@ -260,19 +403,39 @@ export function ScarceBuyForm({
 
   useEffect(() => {
     const id = tokenId?.trim();
-    if (!id || status === 'lazy_listing') {
+    if (!id || status === 'lazy_listing' || status === 'drop') {
       setMintedAtMs(null);
+      setMintPriceNear(null);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const minted = await fetchScarceMintedAt(id);
-      if (!cancelled) setMintedAtMs(minted);
+      const summary = await fetchScarceMintSummary(id);
+      if (cancelled) return;
+      setMintedAtMs(summary.mintedAtMs);
+      setMintPriceNear(summary.mintPriceNear);
     })();
     return () => {
       cancelled = true;
     };
   }, [tokenId, status]);
+
+  useEffect(() => {
+    setRoyalty(null);
+    let cancelled = false;
+    void (async () => {
+      const map = await fetchScarceRoyaltyMap({
+        collectionId,
+        listingId,
+        tokenId,
+      });
+      if (cancelled) return;
+      setRoyalty(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId, listingId, tokenId]);
 
   const isOwnListing =
     Boolean(viewerAccountId) &&
@@ -284,22 +447,182 @@ export function ScarceBuyForm({
   const isMarketBuy = status === 'listed' && Boolean(tokenId);
   const isPrimaryMint = isLazyBuy || isDropBuy;
   const isBuyable = !isOwnListing && (isLazyBuy || isDropBuy || isMarketBuy);
+  /** Own fixed / lazy listing — Delist or Cancel in the footer (not primary drops). */
+  const canManageOwnListing =
+    isOwnListing && (isMarketBuy || isLazyBuy);
+  const ownManageKind: ListingActionItem['kind'] | null = isMarketBuy
+    ? 'delist'
+    : isLazyBuy
+      ? 'cancel_lazy'
+      : null;
+  const alreadyOwnsEdition =
+    Boolean(listing?.alreadyOwnsEdition) || alreadyOwnsEditionProp;
+  const maxQuantity = resolveMintMaxQuantity({
+    listingMax: listing?.maxQuantity,
+    remaining: isDropBuy ? remaining : null,
+  });
+  const showMintQty = isDropBuy && maxQuantity > 1;
+  useEffect(() => {
+    setQuantity((q) => Math.min(Math.max(1, q), maxQuantity));
+  }, [maxQuantity]);
+  const mintQty = showMintQty ? quantity : 1;
+  const totalPriceNear = scalePriceNear(priceNear, mintQty);
+  const isPaidMint =
+    Boolean(totalPriceNear?.trim()) &&
+    Number.parseFloat(totalPriceNear!) > 0;
+  const primaryActionLabel = isPrimaryMint
+    ? alreadyOwnsEdition
+      ? 'Mint another'
+      : 'Mint'
+    : alreadyOwnsEdition
+      ? 'Buy another'
+      : 'Buy';
+  const primaryLabelWithPrice =
+    isConnected && isDropBuy && isPaidMint
+      ? `${primaryActionLabel} · ${formatPriceNear(totalPriceNear)}`
+      : isConnected
+        ? primaryActionLabel
+        : 'Connect wallet';
 
   const canSubmit = isConnected && !pending && isBuyable;
 
+  const clearDelistConfirm = useCallback(() => {
+    if (confirmTimerRef.current != null) {
+      window.clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+    }
+    setConfirmDelist(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current != null) {
+        window.clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    clearDelistConfirm();
+  }, [clearDelistConfirm, listingId, tokenId, status]);
+
+  const handleManageOwnListing = useCallback(async () => {
+    if (!canManageOwnListing || !ownManageKind || pending) return;
+    if (!confirmDelist) {
+      setConfirmDelist(true);
+      confirmTimerRef.current = window.setTimeout(() => {
+        confirmTimerRef.current = null;
+        setConfirmDelist(false);
+      }, 4_000);
+      return;
+    }
+    clearDelistConfirm();
+    setPending(true);
+    setFieldError(null);
+    try {
+      const { accountId: signer, wallet } = await getSigningWallet();
+      const item: ListingActionItem = {
+        id: `buy-sheet:${ownManageKind}:${tokenId ?? listingId ?? ''}`,
+        kind: ownManageKind,
+        title: title,
+        sellerId: sellerId ?? signer,
+        priceNear: priceNear ?? null,
+        bidCount: 0,
+        expiresAtNs: null,
+        ended: false,
+        ...(tokenId ? { tokenId } : {}),
+        ...(listingId ? { listingId } : {}),
+      };
+      const confirmed = await executeListingAction({
+        item,
+        accountId: signer,
+        wallet,
+        trackTransaction,
+      });
+      if (!confirmed) return;
+      onSuccess?.({
+        ...(listingId ? { listingId } : {}),
+        ...(tokenId ? { tokenId } : {}),
+      });
+    } catch (cause) {
+      if (isWalletUserCancellation(cause)) return;
+      setFieldError(
+        cause instanceof Error
+          ? cause.message
+          : txToastError.cancelScarceListingFailed
+      );
+      setTxResult({
+        type: 'error',
+        msg:
+          cause instanceof Error
+            ? cause.message
+            : txToastError.cancelScarceListingFailed,
+      });
+    } finally {
+      setPending(false);
+    }
+  }, [
+    canManageOwnListing,
+    clearDelistConfirm,
+    confirmDelist,
+    getSigningWallet,
+    listingId,
+    onSuccess,
+    ownManageKind,
+    pending,
+    priceNear,
+    sellerId,
+    setTxResult,
+    title,
+    tokenId,
+    trackTransaction,
+  ]);
+
   const footerState = useMemo((): CommerceSheetFooterState | null => {
+    if (canManageOwnListing) {
+      const isDelist = ownManageKind === 'delist';
+      return {
+        visible: true,
+        primaryLabel: confirmDelist
+          ? isDelist
+            ? 'Delist?'
+            : 'Cancel?'
+          : isDelist
+            ? 'Delist'
+            : 'Cancel listing',
+        primaryPendingLabel: isDelist ? 'Delisting…' : 'Canceling…',
+        canSubmit: !pending,
+        pending,
+        disabled: pending,
+        primaryType: 'button',
+        primaryVariant: confirmDelist ? 'danger' : 'primary',
+        onPrimaryClick: () => {
+          void handleManageOwnListing();
+        },
+        onPrimaryBlur: confirmDelist ? clearDelistConfirm : undefined,
+      };
+    }
     if (isOwnListing) return null;
     return {
       visible: true,
-      primaryLabel: isConnected
-        ? isPrimaryMint
-          ? 'Mint'
-          : 'Buy'
-        : 'Connect wallet',
+      primaryLabel: primaryLabelWithPrice,
       primaryPendingLabel: isPrimaryMint ? 'Minting…' : 'Buying…',
       canSubmit: isConnected ? canSubmit : true,
       pending,
       disabled: pending || (isConnected && !canSubmit),
+      leadingKey: showMintQty ? `qty:${mintQty}:${maxQuantity}` : undefined,
+      leading: showMintQty ? (
+        <CollectionQtyStepper
+          value={mintQty}
+          min={1}
+          max={maxQuantity}
+          disabled={pending}
+          aria-label="Quantity"
+          decreaseLabel="Decrease quantity"
+          increaseLabel="Increase quantity"
+          onChange={setQuantity}
+        />
+      ) : null,
       secondary:
         isMarketBuy && onMakeOffer && isConnected
           ? {
@@ -310,16 +633,67 @@ export function ScarceBuyForm({
           : null,
     };
   }, [
+    canManageOwnListing,
     canSubmit,
+    clearDelistConfirm,
+    confirmDelist,
+    handleManageOwnListing,
     isConnected,
+    isOwnListing,
     isPrimaryMint,
     isMarketBuy,
-    isOwnListing,
+    maxQuantity,
+    mintQty,
     onMakeOffer,
+    ownManageKind,
     pending,
+    primaryLabelWithPrice,
+    showMintQty,
   ]);
 
   useSyncCommerceSheetFooter(footerState, onFooterStateChange);
+
+  const listingFacts = useMemo((): ScarceListingFacts => {
+    return {
+      title,
+      kind: isPrimaryMint ? 'mint' : 'resale',
+      askNear: priceNear ?? null,
+      mintPriceNear: isPrimaryMint
+        ? (priceNear ?? null)
+        : mintPriceNear,
+      mintedAtMs,
+      listedAtMs: listing?.listedAtMs ?? null,
+      copies: copies ?? null,
+      remaining: remaining ?? null,
+      mediumKind: mediumKind,
+      authorId: artistId ?? null,
+      sellerId: sellerId ?? null,
+      sourcePostPath: resolvedSourcePostPath,
+      postHref: listing?.postHref ?? null,
+      collectionId: collectionId ?? null,
+      tokenId: tokenId ?? null,
+      listingId: listingId ?? null,
+      royalty,
+    };
+  }, [
+    title,
+    isPrimaryMint,
+    priceNear,
+    mintPriceNear,
+    mintedAtMs,
+    listing?.listedAtMs,
+    listing?.postHref,
+    copies,
+    remaining,
+    mediumKind,
+    artistId,
+    sellerId,
+    resolvedSourcePostPath,
+    collectionId,
+    tokenId,
+    listingId,
+    royalty,
+  ]);
 
   async function handleSubmit() {
     setFieldError(null);
@@ -355,14 +729,26 @@ export function ScarceBuyForm({
           depositYocto,
         });
       } else if (isDropBuy) {
-        if (!fallbackDeposit || fallbackDeposit === '0' || !priceNear) {
-          setFieldError('Could not load Drop price. Try again.');
-          return;
+        // Free drops (priceNear null/"0") omit deposit opts — same as the
+        // former collection-page mint path. Paid drops need a deposit × qty.
+        const isFree = !fallbackDeposit || fallbackDeposit === '0';
+        let depositYocto: string | undefined;
+        if (!isFree && fallbackDeposit) {
+          try {
+            depositYocto = (
+              BigInt(fallbackDeposit) * BigInt(mintQty)
+            ).toString();
+          } catch {
+            depositYocto = fallbackDeposit;
+          }
         }
         response = await client.scarces.collections.purchaseFrom(
           collectionId!,
-          priceNear,
-          { quantity: 1, depositYocto: fallbackDeposit }
+          priceNear ?? '0',
+          {
+            quantity: mintQty,
+            ...(depositYocto ? { depositYocto } : {}),
+          }
         );
       } else {
         if (!fallbackDeposit || fallbackDeposit === '0') {
@@ -376,9 +762,15 @@ export function ScarceBuyForm({
 
       const confirmed = await trackTransaction({
         txHashes: collectRelayTxHashes(response),
-        submittedMessage: txToastConfirming.buyingScarce,
-        successMessage: txToastSuccess.scarcePurchased,
-        failureMessage: txToastError.buyScarceFailed,
+        submittedMessage: isPrimaryMint
+          ? txToastConfirming.mintingCollection
+          : txToastConfirming.buyingScarce,
+        successMessage: isPrimaryMint
+          ? txToastSuccess.collectionMinted
+          : txToastSuccess.scarcePurchased,
+        failureMessage: isPrimaryMint
+          ? txToastError.mintCollectionFailed
+          : txToastError.buyScarceFailed,
       });
       if (!confirmed) return;
 
@@ -459,7 +851,11 @@ export function ScarceBuyForm({
       setTxResult({
         type: 'error',
         msg:
-          cause instanceof Error ? cause.message : txToastError.buyScarceFailed,
+          cause instanceof Error
+            ? cause.message
+            : isPrimaryMint
+              ? txToastError.mintCollectionFailed
+              : txToastError.buyScarceFailed,
       });
     } finally {
       setPending(false);
@@ -467,6 +863,7 @@ export function ScarceBuyForm({
   }
 
   return (
+    <>
     <form
       id={formId}
       className="profile-support-form"
@@ -475,66 +872,67 @@ export function ScarceBuyForm({
         void handleSubmit();
       }}
     >
-      {/* A video scarce mints a still as its cover — show that as the
-          poster and let the buyer play the clip they are actually paying
-          for, rather than sending them off to the source post. */}
+      {/* Same cover plane as Market — post preview is list/compose only. */}
       {resolvedPlayable ? (
         <ScarceClipPlayer
           key={resolvedPlayable.url}
           clip={resolvedPlayable}
           {...(resolvedPlayables?.length ? { tracks: resolvedPlayables } : {})}
           poster={resolvedMediaUrl}
+          commerce
+          {...(collectionId
+            ? {
+                persist: {
+                  collectionId,
+                  title,
+                },
+                creatorId: artistId ?? sellerId,
+              }
+            : {})}
         />
+      ) : resolvedMediaUrl ? (
+        <ScarceBuyCover src={resolvedMediaUrl} label={title} />
       ) : post ? (
         <ScarcePostPreview
           post={post}
-          creatorDisplayName={authorName}
-          creatorAvatarUrl={creatorAvatarUrl}
+          creatorDisplayName={artistProfileName ?? authorName}
+          creatorAvatarUrl={artistAvatarUrl}
           mediaUrl={resolvedMediaUrl}
+          disableLiveSvg
           cardBg={embed?.cardBg ?? listing?.cardBg}
         />
-      ) : resolvedMediaUrl ? (
-        <div className="scarce-buy-media" aria-hidden>
-          <img src={resolvedMediaUrl} alt="" />
-        </div>
       ) : null}
 
       <div className="scarce-buy-summary">
-        {!post ? <p className="scarce-buy-title">{title}</p> : null}
-        {authorHandle && authorHref ? (
-          <p className="scarce-buy-author-line">
-            <span className="scarce-buy-author-label">Author</span>
-            <Link
-              href={authorHref}
-              scroll={false}
-              className="scarce-sell-from-author"
-            >
-              <ProfileAvatar
-                src={creatorAvatarUrl}
-                size="sm"
-                className="scarce-sell-from-avatar"
-              />
-              {authorNameIsCustom ? (
-                <>
-                  <span className="scarce-sell-from-name">
-                    {authorDisplayName}
-                  </span>
-                  <span className="scarce-sell-from-handle">
-                    @{authorHandle}
-                  </span>
-                </>
-              ) : (
-                <span className="scarce-sell-from-name">@{authorHandle}</span>
-              )}
-            </Link>
-          </p>
+        <p className="scarce-buy-title">{title}</p>
+        {artistId ? (
+          <ScarcePartyLine
+            label="Author"
+            accountId={artistId}
+            displayNameValue={
+              artistId === post?.accountId
+                ? (authorName ?? artistProfileName)
+                : artistProfileName
+            }
+            avatarUrl={artistAvatarUrl}
+          />
         ) : null}
-        <p className="scarce-buy-price">{formatPriceNear(priceNear)}</p>
+        {showDistinctSeller && sellerId ? (
+          <ScarcePartyLine
+            label="Seller"
+            accountId={sellerId}
+            displayNameValue={sellerProfileName}
+            avatarUrl={sellerAvatarUrl}
+          />
+        ) : null}
+        <p className="scarce-buy-price">
+          {formatPriceNear(isDropBuy ? totalPriceNear : priceNear)}
+        </p>
         {copies != null && copies > 1 ? (
           <p className="profile-support-hint">
             {remaining != null && remaining < copies
               ? `${remaining} of ${copies} left`
-              : `${copies} editions`}
+              : `${copies} ${supplyUnit}`}
           </p>
         ) : null}
         {(() => {
@@ -544,23 +942,36 @@ export function ScarceBuyForm({
           const mintedLabel = mintedAtMs
             ? formatMarketRelativeTime(mintedAtMs)
             : '';
-          if (!listedLabel && !mintedLabel) return null;
+          const mintPriceLabel =
+            !isPrimaryMint && mintPriceNear
+              ? formatPriceNear(mintPriceNear)
+              : isPrimaryMint && priceNear
+                ? formatPriceNear(priceNear)
+                : '';
+          if (isPrimaryMint) {
+            return (
+              <ScarceBuyFactsMeta
+                parts={
+                  mintPriceLabel
+                    ? ['Mint', mintPriceLabel]
+                    : ['Primary mint']
+                }
+                onOpenFacts={() => setFactsOpen(true)}
+              />
+            );
+          }
+          const parts = [
+            listedLabel ? `Listed ${listedLabel}` : null,
+            mintedLabel ? `Minted ${mintedLabel}` : null,
+            mintPriceLabel || null,
+          ].filter((part): part is string => Boolean(part));
           return (
-            <p className="profile-support-hint">
-              {[
-                listedLabel ? `Listed ${listedLabel}` : null,
-                mintedLabel ? `Minted ${mintedLabel}` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
+            <ScarceBuyFactsMeta
+              parts={parts.length > 0 ? parts : ['Resale']}
+              onOpenFacts={() => setFactsOpen(true)}
+            />
           );
         })()}
-        <p className="profile-support-hint">
-          {isPrimaryMint
-            ? 'Mints to you. Creator is paid after a 2% marketplace fee.'
-            : 'Transfers to you. Seller is paid after a 2% marketplace fee.'}
-        </p>
       </div>
 
       <ScarceProvenanceCopy
@@ -569,7 +980,11 @@ export function ScarceBuyForm({
         post={post}
         postHref={listing?.postHref}
         sourcePostPath={resolvedSourcePostPath ?? listing?.sourcePostPath}
-        hideOriginalLink={Boolean(post)}
+        hideOriginalLink={isScarceOriginalSelf(
+          post,
+          resolvedSourcePostPath ?? listing?.sourcePostPath,
+          listing?.postHref
+        )}
       />
 
       {status !== 'lazy_listing' ? <ScarceTraits tokenId={tokenId} /> : null}
@@ -578,13 +993,12 @@ export function ScarceBuyForm({
         <p className="profile-support-error" role="alert">
           {fieldError}
         </p>
-      ) : isOwnListing ? (
+      ) : isOwnListing ? null : !isConnected ? (
         <p className="profile-support-hint">
-          This is your listing. Cancel it from the post menu if you want it off
-          sale.
+          {isPrimaryMint
+            ? 'Connect to mint this scarce.'
+            : 'Connect to buy this scarce.'}
         </p>
-      ) : !isConnected ? (
-        <p className="profile-support-hint">Connect to buy this scarce.</p>
       ) : !isBuyable ? (
         <p className="profile-support-hint">
           {status === 'lazy_listing' || status === 'listed'
@@ -593,5 +1007,12 @@ export function ScarceBuyForm({
         </p>
       ) : null}
     </form>
+      <ScarceListingFactsSheet
+        open={factsOpen}
+        onClose={() => setFactsOpen(false)}
+        zIndex={SCARCE_Z.nestedOverCommerce}
+        facts={listingFacts}
+      />
+    </>
   );
 }

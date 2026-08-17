@@ -4,7 +4,7 @@ import { displayName } from '@/lib/profile-display';
 
 export type GuildMemberRoleBucket = 'owner' | 'admin' | 'moderator' | 'member';
 
-export type GuildMemberRoleFilter = 'all' | GuildMemberRoleBucket;
+export type GuildMemberRoleFilter = 'all' | GuildMemberRoleBucket | 'banned';
 
 export const GUILD_MEMBER_ROLE_FILTERS: Array<{
   id: GuildMemberRoleFilter;
@@ -15,6 +15,7 @@ export const GUILD_MEMBER_ROLE_FILTERS: Array<{
   { id: 'admin', label: 'Admins' },
   { id: 'moderator', label: 'Mods' },
   { id: 'member', label: 'Members' },
+  { id: 'banned', label: 'Banned' },
 ];
 
 export function guildMemberRoleBucket(
@@ -31,6 +32,7 @@ export function guildMemberMatchesRoleFilter(
   filter: GuildMemberRoleFilter
 ): boolean {
   if (filter === 'all') return true;
+  if (filter === 'banned') return false;
   return guildMemberRoleBucket(member) === filter;
 }
 
@@ -49,9 +51,11 @@ export function guildMemberMatchesSearch(
 
 export function countGuildMembersByRoleFilter(
   members: GroupMemberRow[],
-  filter: GuildMemberRoleFilter
+  filter: GuildMemberRoleFilter,
+  bannedCount = 0
 ): number {
   if (filter === 'all') return members.length;
+  if (filter === 'banned') return bannedCount;
   return members.filter((member) => guildMemberMatchesRoleFilter(member, filter))
     .length;
 }

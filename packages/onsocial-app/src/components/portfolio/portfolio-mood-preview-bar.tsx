@@ -53,6 +53,7 @@ export function PortfolioMoodPreviewBar({
     effectiveMood,
     isPreviewingMood,
     discardMoodPreview,
+    commitMoodPreview,
     requestCloseMoodSheet,
     requestOpenMoodSheet,
   } = usePortfolioMoodPreview();
@@ -131,7 +132,9 @@ export function PortfolioMoodPreviewBar({
     });
     setFarewellSnapshot(snapshot);
     dismissTimerRef.current = setTimeout(() => {
-      discardMoodPreview();
+      // Keep the saved mood on screen — don’t snap back to stale SSR props
+      // while router.refresh() is still catching up.
+      commitMoodPreview(activePreviewId);
       setFarewellSnapshot(null);
       requestCloseMoodSheet();
     }, SAVED_DISMISS_MS);

@@ -1,0 +1,136 @@
+/**
+ * @onsocial/ui — gesture sheet header + panel (Support / Endorse / commerce).
+ *
+ * Relies on app/host `.standing-sheet-header` + `.standing-sheet-subject-name`
+ * for shared sheet title padding/type. Pair with glass-sheet.css.
+ *
+ * Panel classes from {@link OsGestureSheet}:
+ *   .os-gesture-sheet-panel         — signal fallbacks + body opacity
+ *   .os-gesture-sheet-panel--tall   — Support / scarce / protocol max-height
+ *   .os-gesture-sheet-body          — form inset + safe-area (overrides hug body)
+ * Legacy aliases: .profile-support-sheet-panel, .endorse-compose-sheet-panel
+ */
+
+/* Shared gesture panel — signal defaults when opened outside mood face. */
+.glass-sheet-panel.os-gesture-sheet-panel,
+.glass-sheet-panel.profile-support-sheet-panel,
+.glass-sheet-panel.endorse-compose-sheet-panel {
+  --glass-header-scrim-height: min(5rem, 24%);
+  --glass-sheet-body-opacity: 0.64;
+  --signal-reputation: var(--mood-signal-reputation, var(--protocol-green));
+  --signal-standing: var(--mood-signal-standing, #5ecf9a);
+  --signal-endorse: var(--mood-signal-endorse, #dab872);
+  --signal-solidarity: var(--mood-signal-solidarity, #38bdf8);
+  --signal-message: var(--mood-signal-message, #7eb8d4);
+}
+
+.glass-sheet-panel.os-gesture-sheet-panel--tall,
+.glass-sheet-panel.profile-support-sheet-panel {
+  max-height: min(94dvh, 46rem);
+}
+
+.glass-sheet-panel.os-gesture-sheet-panel.is-keyboard-open > .glass-sheet-body,
+.glass-sheet-panel.profile-support-sheet-panel.is-keyboard-open
+  > .glass-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/**
+ * Gesture form body inset — same column as hug (`1.15rem`) with safe-area
+ * bottom for Support / Endorse / commerce. Overrides `.os-hug-sheet-body`
+ * when both classes are on the GlassSheet body (OsGestureSheet).
+ */
+.os-gesture-sheet-body {
+  padding: 0.2rem 1.15rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.gesture-sheet-header {
+  gap: 0;
+  padding-bottom: 0.55rem;
+}
+
+.gesture-sheet-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.gesture-sheet-header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  flex: 1;
+  padding-right: 0.15rem;
+}
+
+/* Same class as standing subject name — keep overrides minimal. */
+.gesture-sheet-title {
+  margin: 0;
+}
+
+.gesture-sheet-verb {
+  font-weight: 600;
+}
+
+.gesture-sheet-verb--reputation {
+  color: color-mix(
+    in srgb,
+    var(
+        --signal-reputation,
+        var(--mood-signal-reputation, var(--protocol-green))
+      )
+      88%,
+    rgb(var(--fg-rgb) / 0.55)
+  );
+}
+
+.gesture-sheet-verb--endorse {
+  color: color-mix(
+    in srgb,
+    var(--signal-endorse, var(--mood-signal-endorse, #dab872)) 88%,
+    rgb(var(--fg-rgb) / 0.55)
+  );
+}
+
+.gesture-sheet-verb--standing {
+  color: color-mix(
+    in srgb,
+    var(--signal-standing, var(--mood-signal-standing, #5ecf9a)) 88%,
+    rgb(var(--fg-rgb) / 0.55)
+  );
+}
+
+.gesture-sheet-verb--message {
+  color: color-mix(
+    in srgb,
+    var(--signal-message, var(--mood-signal-message, #7eb8d4)) 88%,
+    rgb(var(--fg-rgb) / 0.55)
+  );
+}
+
+.gesture-sheet-person {
+  font-weight: 600;
+  color: rgb(var(--fg-rgb) / 0.88);
+}
+
+.gesture-sheet-handle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: rgb(var(--fg-rgb) / 0.42);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gesture-sheet-whisper {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.48);
+}

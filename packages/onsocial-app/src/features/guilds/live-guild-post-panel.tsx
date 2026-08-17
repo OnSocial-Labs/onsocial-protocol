@@ -11,6 +11,7 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
   GuildComposerSheet,
   type GuildComposerMode,
@@ -71,6 +72,10 @@ import {
   readPostMediaUnmuteIndex,
 } from '@/lib/post-media';
 import {
+  normalizeComposerContentLabels,
+  type PostContentLabels,
+} from '@/lib/post-content-labels';
+import {
   txToastConfirming,
   txToastError,
   txToastSuccess,
@@ -115,6 +120,7 @@ export function LiveGuildPostPanel({
   postId,
   initial = null,
 }: LiveGuildPostPanelProps) {
+  seedScarceEmbedsFromSsr(initial?.scarceEmbeds);
   const {
     accountId,
     isConnected,
@@ -157,6 +163,7 @@ export function LiveGuildPostPanel({
     canModerate: false,
   });
   const [isMember, setIsMember] = useState(false);
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
   const [accessGated, setAccessGated] = useState(
     () => initial?.accessGated ?? false
   );
@@ -271,9 +278,12 @@ export function LiveGuildPostPanel({
   const {
     engagement,
     toggleReaction,
+    toggleSave,
     isReactionPending,
+    isSavePending,
     confirmAmplify,
   } = usePostEngagement(engagementPosts, {
+    initial: initial?.engagement ?? null,
     onError: (message) => setTxResult({ type: 'error', msg: message }),
   });
   const { pollTallyFor, castVote, isPollVotePending } = usePollVotes(
@@ -395,6 +405,7 @@ export function LiveGuildPostPanel({
           setJoinCancelReady(pending);
           setViewerAccess({ ...viewer, canWriteSpaceIds });
           setIsMember(viewer.isMember);
+          setIsBlacklisted(viewer.isBlacklisted);
           setAccessGated(gated);
           setJoinPending(pending);
           writeGuildMembershipCache(accountId, groupId, {
@@ -410,6 +421,7 @@ export function LiveGuildPostPanel({
             canModerate: false,
           });
           setIsMember(false);
+          setIsBlacklisted(false);
           setPendingJoinProposalId(null);
           setJoinCancelReady(false);
           setAccessGated(
@@ -553,7 +565,8 @@ export function LiveGuildPostPanel({
     target: PostRow,
     mode: GuildComposerMode,
     text: string,
-    files: File[] = []
+    files: File[] = [],
+    contentLabels: PostContentLabels = {}
   ): Promise<{ confirmed: boolean; newPostId: string }> => {
     const newPostId = Date.now().toString();
     const { client } = await getClient();
@@ -580,6 +593,7 @@ export function LiveGuildPostPanel({
       timestamp: Date.now(),
       ...tagPayload,
       ...feedMeta,
+      ...contentLabels,
       ...(files.length ? { files } : {}),
     };
     const response =
@@ -608,7 +622,8 @@ export function LiveGuildPostPanel({
     mode: GuildComposerMode,
     text: string,
     newPostId: string,
-    files: File[] = []
+    files: File[] = [],
+    contentLabels: PostContentLabels = {}
   ) => {
     if (!accountId) return;
     const feedMeta = applyMediaKindOverride(
@@ -626,6 +641,7 @@ export function LiveGuildPostPanel({
         text,
         ...tagPayload,
         ...(media ? { media } : {}),
+        ...contentLabels,
       }),
       blockHeight: 0,
       blockTimestamp: Date.now(),
@@ -659,6 +675,7 @@ export function LiveGuildPostPanel({
     const target = modalTarget;
     const text = payload.text.trim();
     const files = payload.files ?? [];
+    const contentLabels = normalizeComposerContentLabels(payload);
     if (!target || modalPending || (!text && !files.length)) return;
 
     const channel = target.channel ?? threadChannel;
@@ -679,13 +696,20 @@ export function LiveGuildPostPanel({
         target,
         modalMode,
         text,
-        files
+        files,
+        contentLabels
       );
       if (confirmed) {
         const targetsRoot =
           conversation.root && postKey(target) === postKey(conversation.root);
         if (targetsRoot) {
-          insertConfirmedRootChild(modalMode, text, newPostId, files);
+          insertConfirmedRootChild(
+            modalMode,
+            text,
+            newPostId,
+            files,
+            contentLabels
+          );
         } else {
           scheduleReconcile();
         }
@@ -756,6 +780,7 @@ export function LiveGuildPostPanel({
     ? joinPending
     : Boolean(membershipHint?.joinPending);
   const effectiveIsOwner = viewerAccessResolved ? viewerAccess.isOwner : false;
+  const effectiveIsBlacklisted = viewerAccessResolved ? isBlacklisted : false;
   const membershipActionLabel = guildMembershipJoinLabel({
     isConnected,
     accessGated,
@@ -763,14 +788,17 @@ export function LiveGuildPostPanel({
     joinCancelReady,
     isMember: effectiveIsMember,
     isOwner: effectiveIsOwner,
+    isBlacklisted: effectiveIsBlacklisted,
     confirmingLeave,
   });
   // Keep ready through Leave?/Transfer? confirm — danger mutes when !ready.
   const membershipActionReady = effectiveIsMember
     ? true
-    : effectiveJoinPending
-      ? joinCancelReady
-      : !isConnected || (viewerAccessResolved && !effectiveIsMember);
+    : effectiveIsBlacklisted
+      ? false
+      : effectiveJoinPending
+        ? joinCancelReady
+        : !isConnected || (viewerAccessResolved && !effectiveIsMember);
 
   const clearConfirmLeave = () => {
     if (confirmLeaveTimerRef.current !== null) {
@@ -785,6 +813,7 @@ export function LiveGuildPostPanel({
       await connect();
       return;
     }
+    if (effectiveIsBlacklisted) return;
     if (effectiveIsMember && effectiveIsOwner) {
       router.push(guildSectionPath(groupId, 'members'));
       return;
@@ -878,6 +907,7 @@ export function LiveGuildPostPanel({
    * Owners cannot leave on-chain; confirm opens the members page to transfer.
    */
   const handleMembershipClick = () => {
+    if (effectiveIsBlacklisted) return;
     if (effectiveJoinPending && !joinCancelReady) return;
     if (effectiveIsMember && !confirmingLeave) {
       setConfirmingLeave(true);
@@ -925,6 +955,7 @@ export function LiveGuildPostPanel({
           })}
           variant={confirmingLeave ? 'danger' : 'primary'}
           disabled={
+            effectiveIsBlacklisted ||
             (effectiveJoinPending && !joinCancelReady) ||
             (!viewerAccessResolved && Boolean(membershipHint))
           }
@@ -1010,7 +1041,9 @@ export function LiveGuildPostPanel({
                       engagement[postKey(ancestor)] ?? EMPTY_POST_ENGAGEMENT
                     }
                     reactionPending={isReactionPending(ancestor)}
+                    savePending={isSavePending(ancestor)}
                     onToggleReaction={toggleReaction}
+                    onToggleSave={toggleSave}
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
@@ -1068,7 +1101,9 @@ export function LiveGuildPostPanel({
                     EMPTY_POST_ENGAGEMENT
                   }
                   reactionPending={isReactionPending(conversation.root)}
+                  savePending={isSavePending(conversation.root)}
                   onToggleReaction={toggleReaction}
+                  onToggleSave={toggleSave}
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
@@ -1215,7 +1250,9 @@ export function LiveGuildPostPanel({
                             }
                             engagement={engagement[postKey(row.post)]}
                             reactionPending={isReactionPending(row.post)}
+                            savePending={isSavePending(row.post)}
                             onToggleReaction={toggleReaction}
+                            onToggleSave={toggleSave}
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
@@ -1260,7 +1297,9 @@ export function LiveGuildPostPanel({
                       }
                       engagement={engagement[postKey(quote)]}
                       reactionPending={isReactionPending(quote)}
+                      savePending={isSavePending(quote)}
                       onToggleReaction={toggleReaction}
+                      onToggleSave={toggleSave}
                       onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}

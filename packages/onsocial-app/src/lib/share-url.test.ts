@@ -66,4 +66,15 @@ describe('shareUrl', () => {
       'failed'
     );
   });
+
+  it('skips clipboard when the document is not focused', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    vi.stubGlobal('document', { hasFocus: () => false });
+    vi.stubGlobal('window', { focus: vi.fn() });
+    await expect(shareUrl({ url: 'https://example.com/p' })).resolves.toBe(
+      'failed'
+    );
+    expect(writeText).not.toHaveBeenCalled();
+  });
 });

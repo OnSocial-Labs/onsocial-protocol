@@ -11,13 +11,17 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
+  AmountFieldMetaRow,
   ArrowLeftIcon,
   OsSheetAction,
   OsSheetActions,
+  OsIconAction,
   QuestionMarkCircleFillIcon,
-  osIconActionClassName,
+  osFieldBorderedClassName,
 } from '@onsocial/ui';
-import { InfoDrawer } from '@/components/ui/info-drawer';
+import { InfoDrawer } from '@onsocial/ui';
+import { AmountField } from '@onsocial/ui';
+import { SuffixField } from '@onsocial/ui';
 import {
   DropFieldInfoDrawer,
   DropFieldLabel,
@@ -34,14 +38,24 @@ import {
   CollectionAllowlistSheet,
   type AllowlistEntry,
 } from '@/features/scarces/collection-allowlist-manager';
+import { DropArtworkPreview } from '@/features/scarces/drop-artwork-preview';
+import { DropVariationSetManager } from '@/features/scarces/drop-variation-set-manager';
+import { reorderByInsert } from '@/features/scarces/drop-track-order';
 import {
-  DropArtworkPreview,
-  DropSeatTile,
-} from '@/features/scarces/drop-artwork-preview';
+  DropCoverCollagePicker,
+  emptyCollageSelection,
+  type DropCoverCollageSelection,
+} from '@/features/scarces/drop-cover-collage-picker';
 import {
   buildCollectionId,
   randomDropIdSuffix,
 } from '@/features/scarces/drop-collection-id';
+import { resolveScarceMediaUrl } from '@/features/market/market-listings';
+import {
+  collageFetchUrl,
+  sampleCollageSeats,
+  type CollageSeatImage,
+} from '@/lib/variation-cover-collage';
 import {
   DROP_AUDIO_MAX_BYTES,
   DROP_AUDIO_MAX_TRACKS,
@@ -119,7 +133,7 @@ import {
   type RoyaltySplitShare,
 } from '@/features/scarces/scarce-royalty';
 import { ScarceRoyaltyField } from '@/features/scarces/scarce-royalty-field';
-import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
+import { finalizeAmountInput } from '@/lib/amount-input';
 import { nearToYocto } from '@/lib/app-near-rpc';
 import {
   APP_MARKET_PATH,
@@ -239,6 +253,9 @@ export function CreateDropPanel() {
   const [variationsExt, setVariationsExt] = useState<VariationExt>('png');
   /** 1-based piece number shown as the drop's cover in the market. */
   const [coverSeatInput, setCoverSeatInput] = useState('1');
+  const [collage, setCollage] = useState<DropCoverCollageSelection>(() =>
+    emptyCollageSelection()
+  );
   const [traitsCid, setTraitsCid] = useState('');
   const [randomAssign, setRandomAssign] = useState(false);
   const [generatedNote, setGeneratedNote] = useState<string | null>(null);
@@ -514,6 +531,86 @@ export function CreateDropPanel() {
       coverSeat >= 1 &&
       (!supplyValid || coverSeat <= supply));
 
+  const [collageImages, setCollageImages] = useState<CollageSeatImage[]>([]);
+
+  useEffect(() => {
+    if (!isVariations) {
+      setCollageImages([]);
+      return;
+    }
+
+    const ephemeral: string[] = [];
+    const takeFileUrl = (seat: number, file: File): string => {
+      if (seat <= variationPreviews.length && variationPreviews[seat - 1]) {
+        return variationPreviews[seat - 1]!;
+      }
+      const url = URL.createObjectURL(file);
+      ephemeral.push(url);
+      return url;
+    };
+
+    if (variationFiles.length > 0) {
+      const seats = sampleCollageSeats(
+        Array.from({ length: variationFiles.length }, (_, i) => i + 1),
+        coverSeatValid ? coverSeat : 1,
+        16
+      );
+      setCollageImages(
+        seats.flatMap((seat) => {
+          const file = variationFiles[seat - 1];
+          return file ? [{ seat, src: takeFileUrl(seat, file) }] : [];
+        })
+      );
+    } else if (generatedPreviews.length > 0) {
+      const seats = sampleCollageSeats(
+        Array.from({ length: generatedPreviews.length }, (_, i) => i + 1),
+        coverSeatValid ? coverSeat : 1,
+        16
+      );
+      setCollageImages(
+        seats.flatMap((seat) => {
+          const src = generatedPreviews[seat - 1];
+          return src ? [{ seat, src }] : [];
+        })
+      );
+    } else if (pinnedCidValid && supplyValid) {
+      const cid = variationsCid.trim();
+      const ext = variationsExt;
+      const seats = sampleCollageSeats(
+        Array.from({ length: Math.min(supply, 64) }, (_, i) => i + 1),
+        coverSeatValid ? coverSeat : 1,
+        16
+      );
+      setCollageImages(
+        seats.map((seat) => ({
+          seat,
+          src: collageFetchUrl(`ipfs://${cid}/${seat}.${ext}`),
+        }))
+      );
+    } else {
+      setCollageImages([]);
+    }
+
+    return () => {
+      for (const url of ephemeral) URL.revokeObjectURL(url);
+    };
+  }, [
+    isVariations,
+    variationFiles,
+    variationPreviews,
+    generatedPreviews,
+    pinnedCidValid,
+    supplyValid,
+    variationsCid,
+    variationsExt,
+    supply,
+    coverSeat,
+    coverSeatValid,
+  ]);
+
+  const collageReady =
+    !isVariations || collageImages.length === 0 || collage.blob != null;
+
   const tracksReady =
     !isAudio ||
     musicTracksValid(musicFormat, trackFiles.length) ||
@@ -537,6 +634,7 @@ export function CreateDropPanel() {
     maxRedeemsValid &&
     traitsCidValid &&
     coverSeatValid &&
+    collageReady &&
     tracksReady &&
     chaptersReady &&
     resolvedRoyaltyBps != null &&
@@ -748,11 +846,20 @@ export function CreateDropPanel() {
       const next = mode === 'append' ? [...existing, ...picked] : picked;
 
       if (next.length < MIN_VARIATIONS || next.length > MAX_SET_PIECES) {
-        setError(
-          mode === 'append'
-            ? `Sets hold ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — this would be ${next.length.toLocaleString()}.`
-            : `Pick ${MIN_VARIATIONS}–${MAX_SET_PIECES.toLocaleString()} images — one per piece.`
-        );
+        setTxResult({
+          type: 'error',
+          msg:
+            mode === 'append'
+              ? txToastError.variationSetSize(
+                  MIN_VARIATIONS,
+                  MAX_SET_PIECES.toLocaleString(),
+                  next.length.toLocaleString()
+                )
+              : txToastError.variationSetPickRange(
+                  MIN_VARIATIONS,
+                  MAX_SET_PIECES.toLocaleString()
+                ),
+        });
         return;
       }
 
@@ -760,23 +867,32 @@ export function CreateDropPanel() {
       let totalBytes = 0;
       for (const file of next) {
         if (!isPostImageMime(file.type)) {
-          setError('Use JPG, PNG, or WebP images.');
+          setTxResult({ type: 'error', msg: txToastError.variationImageType });
           return;
         }
         if (file.type !== format) {
-          setError('All variation images must share one format.');
+          setTxResult({
+            type: 'error',
+            msg: txToastError.variationFormatMismatch,
+          });
           return;
         }
         if (file.size > POST_IMAGE_MAX_BYTES) {
-          setError('Each image must be 5 MB or smaller.');
+          setTxResult({
+            type: 'error',
+            msg: txToastError.variationImageTooLarge,
+          });
           return;
         }
         totalBytes += file.size;
       }
       if (totalBytes > MAX_SET_TOTAL_BYTES) {
-        setError(
-          `The whole set must stay under ${Math.floor(MAX_SET_TOTAL_BYTES / (1024 * 1024))} MB — try smaller files.`
-        );
+        setTxResult({
+          type: 'error',
+          msg: txToastError.variationSetTooLarge(
+            Math.floor(MAX_SET_TOTAL_BYTES / (1024 * 1024))
+          ),
+        });
         return;
       }
 
@@ -790,7 +906,7 @@ export function CreateDropPanel() {
           : '1';
       });
     },
-    [syncVariationPreviews]
+    [setTxResult, syncVariationPreviews]
   );
 
   const removeVariationAt = useCallback(
@@ -813,6 +929,32 @@ export function CreateDropPanel() {
       setError(null);
     },
     [syncVariationPreviews]
+  );
+
+  /** Drag reorder — Main follows the same file identity. */
+  const reorderVariations = useCallback(
+    (from: number, insertAt: number) => {
+      const existing = variationFilesRef.current;
+      const coverIdx = (() => {
+        const seat = Number.parseInt(coverSeatInput, 10);
+        return Number.isSafeInteger(seat) &&
+          seat >= 1 &&
+          seat <= existing.length
+          ? seat - 1
+          : 0;
+      })();
+      const coverFile = existing[coverIdx];
+      const next = reorderByInsert(existing, from, insertAt);
+      if (next === existing) return;
+      setVariationFiles(next);
+      syncVariationPreviews(next);
+      if (coverFile) {
+        const moved = next.indexOf(coverFile);
+        setCoverSeatInput(String((moved >= 0 ? moved : 0) + 1));
+      }
+      setError(null);
+    },
+    [coverSeatInput, syncVariationPreviews]
   );
 
   const uploadVariationArchives = useCallback(
@@ -873,9 +1015,7 @@ export function CreateDropPanel() {
   const needsWalletConfirm =
     (isAudio && pinnedMusic != null) ||
     (isWriting && pinnedWriting != null) ||
-    (isVariations &&
-      variationSource === 'upload' &&
-      pinnedLargeSet != null);
+    (isVariations && variationSource === 'upload' && pinnedLargeSet != null);
 
   const startSummaryRows = useMemo((): DropStartSummaryRow[] => {
     const kindParts = [template.label];
@@ -903,7 +1043,10 @@ export function CreateDropPanel() {
           `${chapterCount} ${chapterCount === 1 ? 'chapter' : 'chapters'}`
         );
       }
-      if (writingFormat === 'book' && (bookPdfFile != null || pinnedWriting?.hasBookPdf)) {
+      if (
+        writingFormat === 'book' &&
+        (bookPdfFile != null || pinnedWriting?.hasBookPdf)
+      ) {
         kindParts.push('PDF');
       }
     } else if (isVariations) {
@@ -1104,6 +1247,10 @@ export function CreateDropPanel() {
       setError(`Cover piece must be between 1 and ${supply}.`);
       return;
     }
+    if (isVariations && collageImages.length > 0 && !collage.blob) {
+      setError('Wait for the drop cover collage to finish, then try again.');
+      return;
+    }
     if (!canSubmit) {
       setError('Add a title, cover art, and supply to start the drop.');
       return;
@@ -1194,6 +1341,8 @@ export function CreateDropPanel() {
     coverSeatValid,
     supply,
     canSubmit,
+    collage,
+    collageImages.length,
     template,
     endTime,
     renewable,
@@ -1308,9 +1457,7 @@ export function CreateDropPanel() {
           const uploadClient = createAppOnSocialClient(uploaderAccountId);
           const uploaded = await uploadClient.storage.uploadMany(chapterFiles);
           const chapters = chaptersFromPinnedFiles(chapterFiles, uploaded);
-          let bookPdf:
-            | ReturnType<typeof bookPdfRefFromPinnedFile>
-            | undefined;
+          let bookPdf: ReturnType<typeof bookPdfRefFromPinnedFile> | undefined;
           if (bookPdfFile && writingFormat === 'book') {
             setUploadLabel('Uploading book PDF…');
             setPendingLabel('Uploading book PDF…');
@@ -1420,26 +1567,6 @@ export function CreateDropPanel() {
       const perWallet = Number.parseInt(maxPerWallet, 10);
 
       const trimmedSeries = seriesName.trim();
-      // Collection-level metadata blob: series grouping plus the chosen
-      // cover piece (seat 1 is the display default, so only store overrides).
-      const coverOverride =
-        isVariations && Number.isSafeInteger(coverSeat) && coverSeat > 1
-          ? { cover: { seat: coverSeat } }
-          : null;
-      const collectionMetadata =
-        trimmedSeries || coverOverride
-          ? {
-              ...(trimmedSeries
-                ? {
-                    series: {
-                      id: slugify(trimmedSeries),
-                      title: trimmedSeries,
-                    },
-                  }
-                : {}),
-              ...(coverOverride ?? {}),
-            }
-          : null;
 
       // Phase 2 — pins ready (or light path); open wallet + sign immediately.
       setConfirmPhase('listing');
@@ -1448,6 +1575,69 @@ export function CreateDropPanel() {
       try {
         const { accountId: signerId, wallet } = await getSigningWallet();
         const client = createAppScarcesWalletClient(signerId, wallet);
+
+        let collageCoverUrl: string | null = null;
+        if (isVariations && collage.blob) {
+          setPendingLabel('Uploading cover…');
+          try {
+            const coverFile = new File([collage.blob], 'drop-cover.png', {
+              type: 'image/png',
+            });
+            const pinnedCover = await client.storage.upload(coverFile);
+            collageCoverUrl =
+              resolveScarceMediaUrl(pinnedCover.cid) ??
+              (pinnedCover.cid ? `ipfs://${pinnedCover.cid}` : null);
+            if (!collageCoverUrl) {
+              throw new Error('Cover upload returned no CID.');
+            }
+          } catch (cause) {
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : 'Could not upload the drop cover. Try again.'
+            );
+            setPending(false);
+            setPendingLabel('Starting…');
+            setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
+            return;
+          }
+          setPendingLabel('Confirm in wallet…');
+        }
+
+        const coverMeta =
+          isVariations &&
+          (collageCoverUrl ||
+            (Number.isSafeInteger(coverSeat) && coverSeat >= 1))
+            ? {
+                cover: {
+                  seat: coverSeatValid ? coverSeat : 1,
+                  ...(collageCoverUrl ? { url: collageCoverUrl } : {}),
+                  ...(collage.blob
+                    ? {
+                        style: collage.style,
+                        label: collage.showLabel,
+                        showTitle: collage.showTitle,
+                        paper: collage.paper,
+                        font: collage.font,
+                      }
+                    : {}),
+                },
+              }
+            : null;
+        const collectionMetadata =
+          trimmedSeries || coverMeta
+            ? {
+                ...(trimmedSeries
+                  ? {
+                      series: {
+                        id: slugify(trimmedSeries),
+                        title: trimmedSeries,
+                      },
+                    }
+                  : {}),
+                ...(coverMeta ?? {}),
+              }
+            : null;
 
         const response = await client.scarces.collections.create(
           {
@@ -1521,7 +1711,10 @@ export function CreateDropPanel() {
               : {}),
             ...(appId ? { appId } : {}),
           },
-          { depositYocto: nearToYocto(CREATE_STORAGE_BUFFER_NEAR) }
+          {
+            depositYocto: nearToYocto(CREATE_STORAGE_BUFFER_NEAR),
+            ...(draftAllowlist.length > 0 ? { allowlist: draftAllowlist } : {}),
+          }
         );
         const confirmed = await trackTransaction({
           txHashes: collectRelayTxHashes(response),
@@ -1532,44 +1725,6 @@ export function CreateDropPanel() {
         if (!confirmed) {
           setConfirmPhase(hasMatchingPin ? 'ready' : 'review');
           return;
-        }
-
-        if (draftAllowlist.length > 0) {
-          setPendingLabel('Saving allowlist…');
-          try {
-            const allowlistResponse =
-              await client.scarces.collections.setAllowlist(
-                collectionId,
-                draftAllowlist
-              );
-            const allowlistConfirmed = await trackTransaction({
-              txHashes: collectRelayTxHashes(allowlistResponse),
-              submittedMessage: txToastConfirming.updatingAllowlist,
-              successMessage: txToastSuccess.allowlistUpdated,
-              failureMessage: txToastError.updateAllowlistFailed,
-            });
-            if (!allowlistConfirmed) {
-              setTxResult({
-                type: 'error',
-                msg: 'Drop created — finish the allowlist on the drop page.',
-              });
-            }
-          } catch (allowlistCause) {
-            if (!isWalletUserCancellation(allowlistCause)) {
-              setTxResult({
-                type: 'error',
-                msg:
-                  allowlistCause instanceof Error
-                    ? allowlistCause.message
-                    : 'Drop created — finish the allowlist on the drop page.',
-              });
-            } else {
-              setTxResult({
-                type: 'error',
-                msg: 'Drop created — finish the allowlist on the drop page.',
-              });
-            }
-          }
         }
 
         clearDropPinDraft();
@@ -1626,6 +1781,9 @@ export function CreateDropPanel() {
     seriesName,
     isVariations,
     coverSeat,
+    coverSeatValid,
+    collage,
+    collageImages.length,
     getSigningWallet,
     supply,
     isPinnedSet,
@@ -1643,7 +1801,6 @@ export function CreateDropPanel() {
     appId,
     trackTransaction,
     draftAllowlist,
-    setTxResult,
     router,
   ]);
 
@@ -1668,16 +1825,17 @@ export function CreateDropPanel() {
       actions={
         studioOpen ? (
           <>
-            <button
-              type="button"
-              className={osIconActionClassName}
-              aria-label="How the layer studio works"
+            <OsIconAction
+              ariaLabel="How the layer studio works"
               aria-expanded={studioHelpOpen}
               aria-haspopup="dialog"
               onClick={() => setStudioHelpOpen(true)}
             >
-              <QuestionMarkCircleFillIcon aria-hidden />
-            </button>
+              <QuestionMarkCircleFillIcon
+                aria-hidden
+                className="glass-sheet-close-icon"
+              />
+            </OsIconAction>
             <OsSheetActions
               layout="row-compact"
               tone="frosted-primary"
@@ -1698,16 +1856,17 @@ export function CreateDropPanel() {
           </>
         ) : (
           <>
-            <button
-              type="button"
-              className={osIconActionClassName}
-              aria-label={`About ${template.label} drops`}
+            <OsIconAction
+              ariaLabel={`About ${template.label} drops`}
               aria-expanded={helpOpen}
               aria-haspopup="dialog"
               onClick={() => setHelpOpen(true)}
             >
-              <QuestionMarkCircleFillIcon aria-hidden />
-            </button>
+              <QuestionMarkCircleFillIcon
+                aria-hidden
+                className="glass-sheet-close-icon"
+              />
+            </OsIconAction>
             <OsSheetActions
               layout="row-compact"
               tone="frosted-primary"
@@ -1772,14 +1931,12 @@ export function CreateDropPanel() {
       }
       leading={
         studioOpen ? (
-          <button
-            type="button"
-            className={osIconActionClassName}
-            aria-label="Back to drop details"
+          <OsIconAction
+            ariaLabel="Back to drop details"
             onClick={() => setStudioOpen(false)}
           >
             <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
-          </button>
+          </OsIconAction>
         ) : undefined
       }
     >
@@ -2022,98 +2179,20 @@ export function CreateDropPanel() {
                 </small>
               </span>
             </button>
-          ) : isLargeUpload ? (
-            <div className="guild-field">
-              <span>
-                Your set · {variationFiles.length.toLocaleString()} pieces
-              </span>
-              <div className="drop-cover-seat-grid" aria-label="Set preview">
-                {variationPreviews.map((src, index) => (
-                  <DropSeatTile
-                    key={src}
-                    src={src}
-                    label={`Piece ${index + 1}`}
-                    disabled={pending}
-                    onRemove={() => removeVariationAt(index)}
-                  />
-                ))}
-              </div>
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Set actions"
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending || variationFiles.length >= MAX_SET_PIECES}
-                  onClick={() => openVariationPicker('append')}
-                >
-                  Add more
-                </button>
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending}
-                  onClick={() => openVariationPicker('replace')}
-                >
-                  Replace set
-                </button>
-              </div>
-              <small>
-                Previewing the first {variationPreviews.length} pieces. The
-                whole set pins when you start the drop — order is selection
-                order.
-              </small>
-            </div>
           ) : (
-            <div className="guild-field">
-              <span>
-                Your set · {variationFiles.length} pieces — tap to zoom
-              </span>
-              <div className="drop-cover-seat-grid" aria-label="Cover piece">
-                {variationPreviews.map((src, index) => {
-                  const seat = index + 1;
-                  return (
-                    <DropSeatTile
-                      key={src}
-                      src={src}
-                      label={`Piece ${seat}`}
-                      disabled={pending}
-                      selected={coverSeat === seat}
-                      onRemove={() => removeVariationAt(index)}
-                      onSetCover={() => setCoverSeatInput(String(seat))}
-                    />
-                  );
-                })}
-              </div>
-              <div
-                className="app-storage-presets"
-                role="group"
-                aria-label="Set actions"
-              >
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending || variationFiles.length >= MAX_SET_PIECES}
-                  onClick={() => openVariationPicker('append')}
-                >
-                  Add more
-                </button>
-                <button
-                  type="button"
-                  className="os-surface-chip"
-                  disabled={pending}
-                  onClick={() => openVariationPicker('replace')}
-                >
-                  Replace set
-                </button>
-              </div>
-              <small>
-                Piece #{coverSeatValid ? coverSeat : 1} fronts the drop — set
-                cover from the zoom view. Every piece keeps its own artwork.
-              </small>
-            </div>
+            <DropVariationSetManager
+              previews={variationPreviews}
+              totalCount={variationFiles.length}
+              coverSeat={coverSeatValid ? coverSeat : 1}
+              disabled={pending}
+              sortable={!isLargeUpload}
+              canAddMore={variationFiles.length < MAX_SET_PIECES}
+              onRemove={removeVariationAt}
+              onReorder={isLargeUpload ? undefined : reorderVariations}
+              onSetCover={(seat) => setCoverSeatInput(String(seat))}
+              onAddMore={() => openVariationPicker('append')}
+              onReplace={() => openVariationPicker('replace')}
+            />
           )
         ) : null}
 
@@ -2140,26 +2219,34 @@ export function CreateDropPanel() {
         {isPinnedSet || isLargeUpload ? (
           <label className="guild-field" htmlFor={fieldId('cover-seat')}>
             <span>Cover piece</span>
-            <div className="drop-create-suffix-field">
-              <input
-                id={fieldId('cover-seat')}
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={coverSeatInput}
-                onChange={(event) =>
-                  setCoverSeatInput(event.target.value.replace(/[^\d]/g, ''))
-                }
-                placeholder="1"
-                aria-label="Cover piece number"
-                disabled={pending}
-              />
-              <span>{supplyValid ? `of ${supply}` : 'piece #'}</span>
-            </div>
+            <SuffixField
+              id={fieldId('cover-seat')}
+              value={coverSeatInput}
+              onValueChange={(value) =>
+                setCoverSeatInput(value.replace(/[^\d]/g, ''))
+              }
+              placeholder="1"
+              aria-label="Cover piece number"
+              suffix={supplyValid ? `of ${supply}` : 'piece #'}
+              disabled={pending}
+            />
             <small>
-              This piece fronts the drop in the market. Defaults to piece 1.
+              Hero piece in the packaging cover. Defaults to piece 1 — each mint
+              still keeps its own artwork.
             </small>
           </label>
+        ) : null}
+
+        {isVariations && collageImages.length > 0 ? (
+          <DropCoverCollagePicker
+            images={collageImages}
+            coverSeat={coverSeatValid ? coverSeat : 1}
+            uniqueCount={supplyValid ? supply : collageImages.length}
+            title={title}
+            disabled={pending}
+            value={collage}
+            onChange={setCollage}
+          />
         ) : null}
 
         {isVariations && !isGeneratedSet ? (
@@ -2490,6 +2577,7 @@ export function CreateDropPanel() {
                   : 'Genesis Prints'
             }
             maxLength={MAX_TITLE}
+            className={osFieldBorderedClassName}
           />
         </label>
 
@@ -2512,6 +2600,7 @@ export function CreateDropPanel() {
                   : 'genesis-prints')
             }
             maxLength={32}
+            className={osFieldBorderedClassName}
           />
           {collectionId ? (
             <small>Public link: {collectionPath(collectionId)}</small>
@@ -2534,6 +2623,7 @@ export function CreateDropPanel() {
                 : 'What the collection is, why it’s special, and what collectors get.'
             }
             maxLength={MAX_DESCRIPTION}
+            className={osFieldBorderedClassName}
           />
           <small>
             {description.length}/{MAX_DESCRIPTION}
@@ -2553,6 +2643,7 @@ export function CreateDropPanel() {
             placeholder="Ink Studies"
             maxLength={48}
             disabled={pending}
+            className={osFieldBorderedClassName}
           />
         </div>
 
@@ -2563,21 +2654,16 @@ export function CreateDropPanel() {
               infoKey="supplyPinned"
               onOpenInfo={openFieldInfo}
             />
-            <div className="drop-create-suffix-field">
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={supplyInput}
-                onChange={(event) =>
-                  setSupplyInput(event.target.value.replace(/[^\d]/g, ''))
-                }
-                placeholder="1000"
-                aria-label="Total pieces in the pinned set"
-                disabled={pending}
-              />
-              <span>pieces</span>
-            </div>
+            <SuffixField
+              value={supplyInput}
+              onValueChange={(value) =>
+                setSupplyInput(value.replace(/[^\d]/g, ''))
+              }
+              placeholder="1000"
+              aria-label="Total pieces in the pinned set"
+              suffix="pieces"
+              disabled={pending}
+            />
           </div>
         ) : isGeneratedSet ? (
           <div className="guild-field">
@@ -2599,21 +2685,16 @@ export function CreateDropPanel() {
         ) : (
           <div className="guild-field">
             <span>Supply</span>
-            <div className="drop-create-suffix-field">
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                value={supplyInput}
-                onChange={(event) =>
-                  setSupplyInput(event.target.value.replace(/[^\d]/g, ''))
-                }
-                placeholder="25"
-                aria-label="Total supply"
-                disabled={pending}
-              />
-              <span>{template.unit}</span>
-            </div>
+            <SuffixField
+              value={supplyInput}
+              onValueChange={(value) =>
+                setSupplyInput(value.replace(/[^\d]/g, ''))
+              }
+              placeholder="25"
+              aria-label="Total supply"
+              suffix={template.unit}
+              disabled={pending}
+            />
             <div
               className="app-storage-presets"
               role="group"
@@ -2638,48 +2719,22 @@ export function CreateDropPanel() {
 
         <div className="guild-field">
           <span>Price per {template.unitSingular}</span>
-          <div className="drop-create-suffix-field">
-            <input
-              id={fieldId('price')}
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={priceInput}
-              onChange={(event) =>
-                setPriceInput(
-                  normalizeAmountInput(event.target.value, NEAR_INPUT_DECIMALS)
-                )
-              }
-              onBlur={() =>
-                setPriceInput(
-                  finalizeAmountInput(priceInput, NEAR_INPUT_DECIMALS)
-                )
-              }
-              placeholder="1"
-              aria-label={`Price per ${template.unitSingular} in NEAR`}
-              disabled={pending}
-            />
-            <span>NEAR</span>
-          </div>
-          <div
-            className="app-storage-presets"
-            role="group"
-            aria-label="Quick prices"
-          >
-            {PRICE_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                className={`os-surface-chip${
-                  price === preset ? ' is-selected' : ''
-                }`}
-                disabled={pending}
-                onClick={() => setPriceInput(preset)}
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
+          <AmountField
+            value={priceInput}
+            onValueChange={setPriceInput}
+            maxDecimals={NEAR_INPUT_DECIMALS}
+            placeholder="1"
+            aria-label={`Price per ${template.unitSingular} in NEAR`}
+            unit="NEAR"
+            disabled={pending}
+          />
+          <AmountFieldMetaRow
+            presets={PRICE_PRESETS}
+            selectedValue={price}
+            onSelectPreset={setPriceInput}
+            presetsAriaLabel="Quick prices"
+            disabled={pending}
+          />
         </div>
 
         <ScarceRoyaltyField
@@ -2775,22 +2830,17 @@ export function CreateDropPanel() {
 
             <label className="guild-field" htmlFor={fieldId('per-wallet')}>
               <span>Max per wallet</span>
-              <div className="drop-create-suffix-field">
-                <input
-                  id={fieldId('per-wallet')}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={maxPerWallet}
-                  onChange={(event) =>
-                    setMaxPerWallet(event.target.value.replace(/[^\d]/g, ''))
-                  }
-                  placeholder="No limit"
-                  aria-label={`Max ${template.unit} per wallet`}
-                  disabled={pending}
-                />
-                <span>{template.unit}</span>
-              </div>
+              <SuffixField
+                id={fieldId('per-wallet')}
+                value={maxPerWallet}
+                onValueChange={(value) =>
+                  setMaxPerWallet(value.replace(/[^\d]/g, ''))
+                }
+                placeholder="No limit"
+                aria-label={`Max ${template.unit} per wallet`}
+                suffix={template.unit}
+                disabled={pending}
+              />
             </label>
 
             <div className="guild-field">
@@ -2918,22 +2968,17 @@ export function CreateDropPanel() {
                 infoKey="maxRedeems"
                 onOpenInfo={openFieldInfo}
               />
-              <div className="drop-create-suffix-field">
-                <input
-                  id={fieldId('max-redeems')}
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={maxRedeemsInput}
-                  onChange={(event) =>
-                    setMaxRedeemsInput(event.target.value.replace(/[^\d]/g, ''))
-                  }
-                  placeholder="No limit"
-                  aria-label="Max redeems per edition"
-                  disabled={pending}
-                />
-                <span>redeems</span>
-              </div>
+              <SuffixField
+                id={fieldId('max-redeems')}
+                value={maxRedeemsInput}
+                onValueChange={(value) =>
+                  setMaxRedeemsInput(value.replace(/[^\d]/g, ''))
+                }
+                placeholder="No limit"
+                aria-label="Max redeems per edition"
+                suffix="redeems"
+                disabled={pending}
+              />
             </div>
 
             <div className="guild-field">
@@ -2942,10 +2987,10 @@ export function CreateDropPanel() {
                 infoKey="allowlist"
                 onOpenInfo={openFieldInfo}
               />
-              <div className="app-storage-presets scarce-choice-chip-row">
+              <div className="app-storage-presets os-choice-chip-row">
                 <button
                   type="button"
-                  className={`os-surface-chip scarce-choice-chip${
+                  className={`os-surface-chip os-choice-chip${
                     allowlistSheetOpen || draftAllowlist.length > 0
                       ? ' is-selected'
                       : ''
@@ -2963,7 +3008,7 @@ export function CreateDropPanel() {
                     setAllowlistSheetOpen(true);
                   }}
                 >
-                  <span className="scarce-choice-chip-value">
+                  <span className="os-choice-chip-value">
                     {draftAllowlist.length === 0
                       ? 'None'
                       : draftAllowlist.length === 1
@@ -3037,7 +3082,8 @@ export function CreateDropPanel() {
         }
         uploadLabel={uploadLabel}
         onClose={() => {
-          if (confirmPhase === 'uploading' || confirmPhase === 'listing') return;
+          if (confirmPhase === 'uploading' || confirmPhase === 'listing')
+            return;
           setConfirmOpen(false);
         }}
         onConfirm={() => {
@@ -3049,14 +3095,12 @@ export function CreateDropPanel() {
         <CollectionAllowlistSheet
           open={allowlistSheetOpen}
           creatorId={accountId}
-          maxPerWallet={
-            (() => {
-              const perWallet = Number.parseInt(maxPerWallet, 10);
-              return Number.isSafeInteger(perWallet) && perWallet > 0
-                ? perWallet
-                : null;
-            })()
-          }
+          maxPerWallet={(() => {
+            const perWallet = Number.parseInt(maxPerWallet, 10);
+            return Number.isSafeInteger(perWallet) && perWallet > 0
+              ? perWallet
+              : null;
+          })()}
           initialEntries={draftAllowlist}
           onApply={setDraftAllowlist}
           onClose={() => setAllowlistSheetOpen(false)}

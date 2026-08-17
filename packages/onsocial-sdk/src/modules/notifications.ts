@@ -31,6 +31,8 @@ export interface ListNotificationsParams {
   read?: boolean;
   type?: string;
   eventType?: string;
+  /** Omit a kind from the list (e.g. `dm` when Messages owns that surface). */
+  excludeType?: string;
 }
 
 export interface ListNotificationsResult {
@@ -106,6 +108,7 @@ export class NotificationsModule {
     if (params.read !== undefined) qs.set('read', String(params.read));
     if (params.type) qs.set('type', params.type);
     if (params.eventType) qs.set('eventType', params.eventType);
+    if (params.excludeType) qs.set('excludeType', params.excludeType);
     return this.http.get<ListNotificationsResult>(
       `/developer/notifications?${qs.toString()}`
     );
@@ -114,13 +117,14 @@ export class NotificationsModule {
   /** Get unread notification count. */
   async unreadCount(
     recipient: string,
-    opts?: { appId?: string; eventType?: string }
+    opts?: { appId?: string; eventType?: string; excludeType?: string }
   ): Promise<number> {
     const qs = new URLSearchParams({
       appId: this.appId(opts?.appId),
       recipient,
     });
     if (opts?.eventType) qs.set('eventType', opts.eventType);
+    if (opts?.excludeType) qs.set('excludeType', opts.excludeType);
     const res = await this.http.get<{ recipient: string; unread: number }>(
       `/developer/notifications/count?${qs.toString()}`
     );
@@ -130,17 +134,29 @@ export class NotificationsModule {
   /** Mark notifications as read. Pass ids or `all: true`. */
   async markRead(
     recipient: string,
-    opts: { ids?: string[]; all?: boolean; appId?: string }
+    opts: {
+      ids?: string[];
+      all?: boolean;
+      appId?: string;
+      /** When set with `all`, leave this kind unread. */
+      excludeType?: string;
+    }
   ): Promise<number> {
     const res = await this.http.post<{ updated: number }>(
       '/developer/notifications/read',
-      { appId: this.appId(opts.appId), recipient, ids: opts.ids, all: opts.all }
+      {
+        appId: this.appId(opts.appId),
+        recipient,
+        ids: opts.ids,
+        all: opts.all,
+        ...(opts.excludeType ? { excludeType: opts.excludeType } : {}),
+      }
     );
     return res.updated;
   }
 
   /**
-   * Send custom notification events (app_event type).
+   * Send custom notification events (app_event type). Requires pro tier+.
    * These are picked up by the notification worker and delivered via
    * webhooks if configured.
    */
@@ -160,7 +176,7 @@ export class NotificationsModule {
     return res.rules;
   }
 
-  /** Create a notification rule. */
+  /** Create a notification rule. Requires pro tier+. */
   async createRule(params: CreateRuleParams): Promise<NotificationRule> {
     const res = await this.http.post<{ rule: NotificationRule }>(
       '/developer/notifications/rules',

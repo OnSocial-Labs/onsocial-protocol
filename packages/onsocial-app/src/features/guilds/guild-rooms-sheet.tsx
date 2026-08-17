@@ -1,12 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { Divider, GlassSheet, SheetCloseButton } from '@onsocial/ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { OsHugSheet } from '@onsocial/ui';
 import {
   OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
-} from '@/components/ui/os-sheet-primary-action';
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -26,7 +25,6 @@ import {
   type GuildStructureDocument,
 } from '@/features/guilds/guild-structure';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   txToastConfirming,
@@ -49,9 +47,12 @@ export function GuildRoomsSheet({
   onClose,
   onSaved,
 }: GuildRoomsSheetProps) {
-  const titleId = useId();
-  const { accountId, isConnected, isLoading: walletLoading, connect } =
-    useAppWallet();
+  const {
+    accountId,
+    isConnected,
+    isLoading: walletLoading,
+    connect,
+  } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction } = useAppTransactionFeedback();
 
@@ -71,8 +72,6 @@ export function GuildRoomsSheet({
   const [error, setError] = useState<string | null>(null);
 
   const sheetOpen = open && !closing;
-  useScrollLock(open || closing);
-
   const load = useCallback(async () => {
     setLoadState('loading');
     setError(null);
@@ -130,9 +129,7 @@ export function GuildRoomsSheet({
         });
         if (!cancelled) {
           setDiscoveredChannels(
-            aggregateChannelsFromPosts(
-              channels.map((channel) => ({ channel }))
-            )
+            aggregateChannelsFromPosts(channels.map((channel) => ({ channel })))
           );
         }
       } catch {
@@ -210,40 +207,18 @@ export function GuildRoomsSheet({
   };
 
   return (
-    <GlassSheet
+    <OsHugSheet
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
-      tone="os"
-      initialDetent="full"
-      zIndex={58}
-      presentation="swap"
-      ariaLabelledBy={titleId}
+      label="Rooms"
+      copy="Rooms and feed tabs for this guild"
+      closeAriaLabel="Close"
       backdropLabel="Close guild rooms"
+      zIndex={58}
+      sizing="full"
       panelClassName="guild-rooms-sheet-panel"
       bodyClassName="guild-rooms-sheet-body"
-      header={
-        <>
-          <div className="standing-sheet-header">
-            <div className="standing-sheet-subject-row">
-              <div className="standing-sheet-subject">
-                <div className="standing-sheet-subject-copy">
-                  <h2 id={titleId} className="standing-sheet-subject-name">
-                    Rooms
-                  </h2>
-                  <p className="discover-sheet-subtitle">
-                    Rooms and feed tabs for this guild
-                  </p>
-                </div>
-              </div>
-              <div className="standing-sheet-actions">
-                <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-              </div>
-            </div>
-          </div>
-          <Divider variant="section" className="glass-sheet-header-divider" />
-        </>
-      }
       footer={
         loadState === 'ready' && structure ? (
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
@@ -256,7 +231,7 @@ export function GuildRoomsSheet({
                 Connect wallet
               </OsSheetAction>
             ) : null}
-            <OsSheetPrimaryAction
+            <OsSheetAction
               type="button"
               ready={isDirty && isConnected}
               pending={pending}
@@ -265,7 +240,7 @@ export function GuildRoomsSheet({
               onClick={() => void handleSave()}
             >
               {memberDriven ? 'Propose rooms' : 'Save rooms'}
-            </OsSheetPrimaryAction>
+            </OsSheetAction>
           </OsSheetActions>
         ) : undefined
       }
@@ -301,6 +276,6 @@ export function GuildRoomsSheet({
           {error ? <p className="guild-form-error">{error}</p> : null}
         </>
       ) : null}
-    </GlassSheet>
+    </OsHugSheet>
   );
 }

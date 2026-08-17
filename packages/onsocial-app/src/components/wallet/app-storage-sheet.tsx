@@ -9,18 +9,18 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  AmountFieldMetaRow,
   Divider,
-  GlassSheet,
+  OsHugSheet,
+  OsSheetAction,
   OsSheetActions,
-  OsSheetPrimaryAction,
-  SheetCloseButton,
 } from '@onsocial/ui';
+import { AmountField } from '@onsocial/ui';
 import { AppStorageSharePanel } from '@/components/wallet/app-storage-share-panel';
 import { usePlatformStorageSummary } from '@/hooks/use-platform-storage-summary';
 import { useSharedStoragePool } from '@/hooks/use-shared-storage-pool';
 import { useUserStorageBalance } from '@/hooks/use-user-storage-balance';
 import { useWalletNearBalance } from '@/hooks/use-wallet-near-balance';
-import { useScrollLock } from '@/hooks/use-scroll-lock';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { finalizeAmountInput } from '@/lib/amount-input';
@@ -202,8 +202,6 @@ export function AppStorageSheet({
     combinedRefreshKey
   );
 
-  useScrollLock(open || closing);
-
   const summary = userStorage.summary;
   const canWithdraw = (summary?.withdrawableYocto ?? 0n) > 0n;
   const withdrawableYocto = summary?.withdrawableYocto ?? 0n;
@@ -342,42 +340,20 @@ export function AppStorageSheet({
 
   return (
     <>
-      <GlassSheet
+      <OsHugSheet
         open={sheetOpen}
         onClose={requestClose}
         onClosed={handleSheetClosed}
-        tone="os"
-        initialDetent="full"
-        zIndex={57}
-        presentation="swap"
-        ariaLabelledBy="app-storage-sheet-title"
+        label="Storage"
+        copy={`@${accountId}`}
+        closeAriaLabel="Close"
         backdropLabel="Close storage"
+        zIndex={57}
+        titleId="app-storage-sheet-title"
+        headerClassName="account-storage-header"
         panelClassName={`account-storage-panel${pageMoodId ? ' account-storage-panel--page-mood' : ''}`}
-        panelStyle={panelStyle}
         bodyClassName="account-storage-body"
-        header={
-          <>
-            <div className="standing-sheet-header account-storage-header">
-              <div className="standing-sheet-subject-row">
-                <div className="standing-sheet-subject">
-                  <div className="standing-sheet-subject-copy">
-                    <h2
-                      id="app-storage-sheet-title"
-                      className="standing-sheet-subject-name"
-                    >
-                      Storage
-                    </h2>
-                    <p className="account-drawer-handle">@{accountId}</p>
-                  </div>
-                </div>
-                <div className="standing-sheet-actions">
-                  <SheetCloseButton onClick={requestClose} ariaLabel="Close" />
-                </div>
-              </div>
-            </div>
-            <Divider variant="section" className="glass-sheet-header-divider" />
-          </>
-        }
+        {...(panelStyle ? { panelStyle } : {})}
       >
         <div className="app-storage-sheet">
           <section className="app-storage-section">
@@ -445,89 +421,65 @@ export function AppStorageSheet({
                   className="app-storage-form"
                   onSubmit={(event) => void handleSubmit(event)}
                 >
-                  <div className="app-storage-amount-field">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      value={amountInput}
-                      onChange={(event) => applyAmountInput(event.target.value)}
-                      onBlur={() =>
-                        applyAmountInput(
-                          finalizeAmountInput(
-                            amountInput,
-                            STORAGE_NEAR_INPUT_DECIMALS
-                          )
-                        )
-                      }
-                      placeholder={amountHint}
-                      aria-label="Amount in NEAR"
-                      aria-invalid={Boolean(amountInput) && !canSubmitAmount}
-                      className="app-storage-amount-input"
-                    />
-                    <span className="account-card-balance-unit">NEAR</span>
-                  </div>
+                  <AmountField
+                    value={amountInput}
+                    onValueChange={applyAmountInput}
+                    maxDecimals={STORAGE_NEAR_INPUT_DECIMALS}
+                    placeholder={amountHint}
+                    aria-label="Amount in NEAR"
+                    invalid={Boolean(amountInput) && !canSubmitAmount}
+                    unit="NEAR"
+                  />
 
-                  <div className="app-storage-quick-row">
-                    {mode === 'deposit' ? (
-                      <div
-                        className="app-storage-presets"
-                        role="group"
-                        aria-label="Quick amounts"
-                      >
-                        {STORAGE_DEPOSIT_PRESETS_NEAR.map((preset) => (
-                          <button
-                            key={preset}
-                            type="button"
-                            className={`os-surface-chip${normalizedAmount === preset ? ' is-selected' : ''}`}
-                            onClick={() => applyAmountInput(preset)}
-                          >
-                            {preset}
-                          </button>
-                        ))}
-                      </div>
-                    ) : canWithdraw ? (
-                      <button
-                        type="button"
-                        className="os-surface-chip app-storage-preset--action"
-                        onClick={() =>
-                          applyAmountInput(
-                            yoctoToNear(withdrawableYocto.toString())
-                          )
-                        }
-                      >
-                        Max
-                      </button>
-                    ) : (
-                      <span aria-hidden className="app-storage-max-placeholder">
-                        Max
-                      </span>
-                    )}
-
-                    <p className="app-storage-amount-meta">
-                      {mode === 'deposit' &&
-                      depositPreviewCapacityBytes != null &&
-                      depositPreviewCapacityBytes > 0 ? (
-                        <>
-                          ≈ {formatCompactBytes(depositPreviewCapacityBytes)}{' '}
-                          capacity ·{' '}
-                        </>
-                      ) : null}
-                      {mode === 'deposit' && walletNearYocto != null ? (
-                        <>
-                          Wallet {formatNearCompact(walletNearYocto.toString())}{' '}
-                          NEAR ·{' '}
-                        </>
-                      ) : mode === 'withdraw' && canWithdraw ? (
-                        <>
-                          Withdrawable{' '}
-                          {formatNearCompact(withdrawableYocto.toString())} NEAR
-                          ·{' '}
-                        </>
-                      ) : null}
-                      Min {amountHint} NEAR
-                    </p>
-                  </div>
+                  <AmountFieldMetaRow
+                    presets={
+                      mode === 'deposit'
+                        ? STORAGE_DEPOSIT_PRESETS_NEAR
+                        : undefined
+                    }
+                    selectedValue={normalizedAmount}
+                    onSelectPreset={
+                      mode === 'deposit' ? applyAmountInput : undefined
+                    }
+                    max={
+                      mode === 'withdraw'
+                        ? {
+                            onClick: () =>
+                              applyAmountInput(
+                                yoctoToNear(withdrawableYocto.toString())
+                              ),
+                            available: canWithdraw,
+                            variant: 'action',
+                          }
+                        : undefined
+                    }
+                    meta={
+                      <>
+                        {mode === 'deposit' &&
+                        depositPreviewCapacityBytes != null &&
+                        depositPreviewCapacityBytes > 0 ? (
+                          <>
+                            ≈ {formatCompactBytes(depositPreviewCapacityBytes)}{' '}
+                            capacity ·{' '}
+                          </>
+                        ) : null}
+                        {mode === 'deposit' && walletNearYocto != null ? (
+                          <>
+                            Wallet{' '}
+                            {formatNearCompact(walletNearYocto.toString())} NEAR
+                            ·{' '}
+                          </>
+                        ) : mode === 'withdraw' && canWithdraw ? (
+                          <>
+                            Withdrawable{' '}
+                            {formatNearCompact(withdrawableYocto.toString())}{' '}
+                            NEAR ·{' '}
+                          </>
+                        ) : null}
+                        Min {amountHint} NEAR
+                      </>
+                    }
+                  />
 
                   {error ? (
                     <p className="app-storage-error" role="alert">
@@ -540,7 +492,7 @@ export function AppStorageSheet({
                     tone="frosted-primary"
                     borderless
                   >
-                    <OsSheetPrimaryAction
+                    <OsSheetAction
                       type="submit"
                       ready={canSubmitAmount && !pending && !error}
                       pending={pending}
@@ -550,7 +502,7 @@ export function AppStorageSheet({
                       disabled={pending || !canSubmitAmount}
                     >
                       {mode === 'deposit' ? 'Add NEAR' : 'Withdraw NEAR'}
-                    </OsSheetPrimaryAction>
+                    </OsSheetAction>
                   </OsSheetActions>
 
                   <p className="app-storage-hint">{actionHint}</p>
@@ -564,7 +516,7 @@ export function AppStorageSheet({
             />
           </section>
         </div>
-      </GlassSheet>
+      </OsHugSheet>
     </>
   );
 }

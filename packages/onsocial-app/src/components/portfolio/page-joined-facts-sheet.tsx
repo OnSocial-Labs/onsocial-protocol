@@ -12,6 +12,12 @@ import {
   GlassSheet,
   ProtocolMotionArrow,
   SheetCloseButton,
+  osHugSheetBodyClassName,
+} from '@onsocial/ui';
+import {
+  SheetFactCount,
+  SheetFactRow,
+  SheetFactSection,
 } from '@onsocial/ui';
 import {
   fetchNearAccountCreation,
@@ -50,51 +56,6 @@ interface PageJoinedFactsSheetProps {
   pageAccountId: string;
   meta: PageDrawerMeta;
   mood: ResolvedMood;
-}
-
-function CountValue({
-  count,
-  unit,
-}: {
-  count: string;
-  unit: string;
-}) {
-  return (
-    <span className="page-joined-fact-count-value">
-      <span className="page-joined-fact-count">{count}</span>
-      <span className="page-joined-fact-unit"> {unit}</span>
-    </span>
-  );
-}
-
-function FactRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ReactNode;
-}) {
-  return (
-    <div className="page-joined-fact-row">
-      <span className="page-joined-fact-label">{label}</span>
-      <span className="page-joined-fact-value">{value}</span>
-    </div>
-  );
-}
-
-function FactSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="page-joined-fact-section">
-      <h3 className="page-joined-fact-section-title">{title}</h3>
-      <div className="page-joined-fact-section-rows">{children}</div>
-    </section>
-  );
 }
 
 function ExplorerLink({
@@ -230,7 +191,7 @@ export function PageJoinedFactsSheet({
   const createdHref = creation?.explorerUrl ?? explorerHref;
 
   const onSocialRows: ReactNode[] = [
-    <FactRow
+    <SheetFactRow
       key="joined"
       label="Joined"
       value={joinedFull ?? joinedShort ?? '—'}
@@ -238,36 +199,36 @@ export function PageJoinedFactsSheet({
   ];
   if (updatedValue) {
     onSocialRows.push(
-      <FactRow key="updated" label="Updated" value={updatedValue} />
+      <SheetFactRow key="updated" label="Updated" value={updatedValue} />
     );
   }
   if (posts)
     onSocialRows.push(
-      <FactRow
+      <SheetFactRow
         key="posts"
         label="Posts"
-        value={<CountValue count={posts.count} unit={posts.unit} />}
+        value={<SheetFactCount count={posts.count} unit={posts.unit} />}
       />
     );
   if (guilds)
     onSocialRows.push(
-      <FactRow
+      <SheetFactRow
         key="guilds"
         label="Guilds"
-        value={<CountValue count={guilds.count} unit={guilds.unit} />}
+        value={<SheetFactCount count={guilds.count} unit={guilds.unit} />}
       />
     );
   if (scarces)
     onSocialRows.push(
-      <FactRow
+      <SheetFactRow
         key="scarces"
         label="Scarces"
-        value={<CountValue count={scarces.count} unit={scarces.unit} />}
+        value={<SheetFactCount count={scarces.count} unit={scarces.unit} />}
       />
     );
   if (daoRoleLabels.length > 0) {
     onSocialRows.push(
-      <FactRow
+      <SheetFactRow
         key="roles"
         label="Roles"
         value={daoRoleLabels.join(' · ')}
@@ -281,13 +242,14 @@ export function PageJoinedFactsSheet({
       onClose={requestClose}
       onClosed={handleClosed}
       tone="mood-thread"
+      sizing="hug"
       moodId={mood.id}
       panelStyle={panelStyle}
       initialDetent="full"
       zIndex={52}
       ariaLabelledBy="page-joined-facts-title"
       backdropLabel="Close account facts"
-      bodyClassName="page-joined-facts-body"
+      bodyClassName={osHugSheetBodyClassName}
       panelClassName="page-joined-facts-panel"
       header={
         <>
@@ -304,30 +266,30 @@ export function PageJoinedFactsSheet({
         </>
       }
     >
-      <div className="page-joined-facts">
-        <FactSection title="OnSocial">{onSocialRows}</FactSection>
+      <div className="guild-facts page-joined-facts">
+        <SheetFactSection title="OnSocial">{onSocialRows}</SheetFactSection>
 
         <Divider variant="detail" />
 
-        <FactSection title="NEAR">
-          <FactRow label="Network" value={nearNetworkLabel()} />
-          <FactRow
+        <SheetFactSection title="NEAR">
+          <SheetFactRow label="Network" value={nearNetworkLabel()} />
+          <SheetFactRow
             label="Account"
             value={
               <ExplorerLink href={explorerHref}>{pageAccountId}</ExplorerLink>
             }
           />
           {creationLoading ? (
-            <FactRow label="Created" value="…" />
+            <SheetFactRow label="Created" value="…" />
           ) : createdLabel ? (
-            <FactRow
+            <SheetFactRow
               label="Created"
               value={
                 <ExplorerLink href={createdHref}>{createdLabel}</ExplorerLink>
               }
             />
           ) : null}
-        </FactSection>
+        </SheetFactSection>
       </div>
     </GlassSheet>
   );

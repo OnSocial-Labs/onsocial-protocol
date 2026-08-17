@@ -8,8 +8,14 @@ export interface ProfileReputation {
   commitmentScore: number;
   qualityScore: number;
   consistencyScore: number;
+  scarcesScore: number;
   confidenceScore: number;
   totalPosts: number;
+  paidSupportSpenders: number;
+  uniqueInboundPeers: number;
+  uniqueScarceFans: number;
+  amplifyEvents: number;
+  lockMonths: number;
 }
 
 export interface ProfileSignals {
@@ -37,8 +43,14 @@ interface ReputationRow {
   commitmentScore: string | number | null;
   qualityScore: string | number | null;
   consistencyScore: string | number | null;
+  scarcesScore: string | number | null;
   confidenceScore: string | number | null;
   totalPosts: number | null;
+  paidSupportSpenders: number | null;
+  uniqueInboundPeers: number | null;
+  uniqueScarceFans: number | null;
+  amplifyEvents: number | null;
+  lockMonths: number | null;
 }
 
 async function fetchReputationRow(
@@ -50,7 +62,9 @@ async function fetchReputationRow(
       query: `query ProfileReputation($id: String!) {
         reputationScores(where: {accountId: {_eq: $id}}, limit: 1) {
           reputation rank socialScore commitmentScore qualityScore
-          consistencyScore confidenceScore totalPosts
+          consistencyScore scarcesScore confidenceScore totalPosts
+          paidSupportSpenders uniqueInboundPeers uniqueScarceFans
+          amplifyEvents lockMonths
         }
       }`,
       variables: { id: accountId },
@@ -66,8 +80,14 @@ async function fetchReputationRow(
       commitmentScore: toNumber(row.commitmentScore),
       qualityScore: toNumber(row.qualityScore),
       consistencyScore: toNumber(row.consistencyScore),
+      scarcesScore: toNumber(row.scarcesScore),
       confidenceScore: toNumber(row.confidenceScore),
       totalPosts: toNumber(row.totalPosts),
+      paidSupportSpenders: toNumber(row.paidSupportSpenders),
+      uniqueInboundPeers: toNumber(row.uniqueInboundPeers),
+      uniqueScarceFans: toNumber(row.uniqueScarceFans),
+      amplifyEvents: toNumber(row.amplifyEvents),
+      lockMonths: toNumber(row.lockMonths),
     };
   } catch {
     return null;

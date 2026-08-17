@@ -23,10 +23,13 @@ export {
   glassSheetBackdropFilterStyle,
   resolveGlassScrimBackdropFilter,
   resolveOsGlassPanelFilter,
+  resolveBackdropPresentation,
+  resolvePanelPresentation,
   usePrefersReducedTransparency,
   sheetIconActionClassName,
   type GlassSheetDetent,
   type GlassSheetProps,
+  type GlassSheetSizing,
   type GlassSheetTone,
   type SheetCloseButtonProps,
   type SheetHeaderProps,
@@ -46,6 +49,8 @@ export {
   QuestionMarkCircleFillIcon,
   DotsCircleFillIcon,
   ChartFillIcon,
+  ChartVerticalFillIcon,
+  ImageFillIcon,
   FireFillIcon,
   FireBFillIcon,
   TimeFillIcon,
@@ -58,6 +63,7 @@ export {
   GlobeFillIcon,
   GiftFillIcon,
   HeartFillIcon,
+  BookmarkFillIcon,
   MessageFillIcon,
   PenFillIcon,
   UserCircleFillIcon,
@@ -77,7 +83,9 @@ export {
 export {
   ArrowLeftIcon,
   ArrowUpRightIcon,
+  BookmarkIcon,
   CameraIcon,
+  ChartVerticalIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -117,6 +125,7 @@ export {
   ShareIcon,
   ShopIcon,
   StarMovingIcon,
+  StarsCIcon,
   SlidersHorizontalIcon,
   TrashIcon,
   UserIcon,
@@ -144,12 +153,162 @@ export {
 } from './pulsing-dots.js';
 export {
   OsSheetAction,
-  OsSheetGhostAction,
-  OsSheetPrimaryAction,
   osSheetActionClassName,
   type OsSheetActionProps,
   type OsSheetActionVariant,
 } from './os-sheet-action.js';
+export {
+  OsField,
+  osFieldBorderedClassName,
+  osFieldClassName,
+  osFieldSoftClassName,
+  type OsFieldChrome,
+  type OsFieldProps,
+} from './os-field.js';
+export {
+  OsFieldRemove,
+  osFieldRemoveActionsClassName,
+  osFieldRemoveClassName,
+  osFieldRemoveIconClassName,
+  type OsFieldRemoveProps,
+  type OsFieldRemoveVariant,
+} from './os-field-remove.js';
+export {
+  OsCommitCancel,
+  OsNoticeCard,
+  osCommitActionsClassName,
+  osCommitCancelClassName,
+  osNoticeCardClassName,
+  type OsCommitCancelProps,
+  type OsNoticeCardAlign,
+  type OsNoticeCardProps,
+} from './os-notice-card.js';
+export {
+  ChoiceDrawer,
+  ChoiceDrawerField,
+  ChoiceDrawerMenu,
+  osChoiceChipClassName,
+  osChoiceSheetBodyClassName,
+  osChoiceSheetPanelClassName,
+  type ChoiceDrawerFieldProps,
+  type ChoiceDrawerMenuProps,
+  type ChoiceDrawerProps,
+  type ChoiceOption,
+} from './choice-drawer.js';
+export {
+  ActionDrawer,
+  osActionDrawerConfirmBodyClassName,
+  osActionDrawerConfirmCancelClassName,
+  osActionDrawerConfirmClassName,
+  osActionDrawerIconClassName,
+  type ActionDrawerItem,
+  type ActionDrawerLinkProps,
+  type ActionDrawerProps,
+} from './action-drawer.js';
+export {
+  OsActionDrawerConfirm,
+  OsActionDrawerConfirmCancel,
+  type OsActionDrawerConfirmCancelProps,
+  type OsActionDrawerConfirmProps,
+  type OsActionDrawerConfirmVariant,
+} from './os-action-drawer-confirm.js';
+export {
+  OsHugSheet,
+  osHugSheetBodyClassName,
+  type OsHugSheetChrome,
+  type OsHugSheetProps,
+} from './os-hug-sheet.js';
+export {
+  OsGestureSheet,
+  osGestureSheetBodyClassName,
+  osGestureSheetPanelClassName,
+  osGestureSheetPanelTallClassName,
+  type OsGestureSheetProps,
+  type OsGestureSheetSize,
+} from './os-gesture-sheet.js';
+export { InfoDrawer, type InfoDrawerProps } from './info-drawer.js';
+export {
+  GestureSheetHeader,
+  type GestureSheetHeaderProps,
+  type GestureSheetSignal,
+} from './gesture-sheet-header.js';
+export {
+  AmountField,
+  osAmountFieldClassName,
+  osAmountFieldDividerClassName,
+  osAmountFieldInputClassName,
+  osAmountFieldUnitClassName,
+  type AmountFieldChrome,
+} from './amount-field.js';
+export {
+  AmountFieldMetaRow,
+  type AmountFieldMetaRowTone,
+} from './amount-field-meta-row.js';
+export {
+  SuffixField,
+  osSuffixFieldClassName,
+  osSuffixFieldDividerClassName,
+  osSuffixFieldInputClassName,
+  osSuffixFieldUnitClassName,
+  type SuffixFieldChrome,
+} from './suffix-field.js';
+export { finalizeAmountInput, normalizeAmountInput } from './amount-input.js';
+export {
+  OsAccountField,
+  osAccountFieldClassName,
+  type OsAccountFieldChrome,
+} from './os-account-field.js';
+export {
+  CollectionQtyStepper,
+  collectionQtyClassName,
+  type CollectionQtyStepperProps,
+} from './collection-qty-stepper.js';
+export {
+  StandingIdentity,
+  standingIdentityLabel,
+  type StandingIdentityShowHandle,
+} from './standing-identity.js';
+export {
+  SheetFactCopy,
+  SheetFactCount,
+  SheetFactRow,
+  SheetFactSection,
+} from './sheet-facts.js';
+export {
+  OsProposalCard,
+  OsProposalCardBody,
+  OsProposalCardFooter,
+  OsProposalCardList,
+  OsProposalCardSep,
+  OsProposalCardStrip,
+  OsProposalCardStripEnd,
+  OsProposalCardStripMain,
+  OsProposalCardStripStart,
+  osProposalCardActionsClassName,
+  osProposalCardBodyClassName,
+  osProposalCardClassName,
+  osProposalCardFooterClassName,
+  osProposalCardListClassName,
+  osProposalCardSepClassName,
+  osProposalCardStripClassName,
+  osProposalCardStripEndClassName,
+  osProposalCardStripMainClassName,
+  osProposalCardStripStartClassName,
+  type OsProposalCardSurface,
+} from './os-proposal-card.js';
+export {
+  DiscardConfirmFooter,
+  discardConfirmFooterA11y,
+  useDiscardConfirm,
+  type DiscardConfirmFooterProps,
+  type UseDiscardConfirmOptions,
+  type UseDiscardConfirmResult,
+} from './discard-confirm.js';
+export {
+  configureScrollLockContainerFinder,
+  useScrollLock,
+  type ScrollLockContainerFinder,
+} from './use-scroll-lock.js';
 export {
   OsSheetActions,
   osSheetActionExpandedClassName,
@@ -228,6 +387,23 @@ export {
   type OsSurfaceHaloTone,
 } from './os-surface-halo.js';
 export {
+  OsSurfaceRow,
+  OsSurfaceRowList,
+  osSurfaceRowArrowClassName,
+  osSurfaceRowBadgeClassName,
+  osSurfaceRowClassName,
+  osSurfaceRowCopyClassName,
+  osSurfaceRowDescriptionClassName,
+  osSurfaceRowExternalClassName,
+  osSurfaceRowLabelClassName,
+  osSurfaceRowListClassName,
+  osSurfaceRowNavigateClassName,
+  type OsSurfaceRowLinkProps,
+  type OsSurfaceRowListProps,
+  type OsSurfaceRowProps,
+  type OsSurfaceRowTrailing,
+} from './os-surface-row.js';
+export {
   formatSocialCalendarTime,
   formatSocialRelativeTime,
   formatSocialStandingTimeMeta,
@@ -241,6 +417,12 @@ export {
   type ProfileAvatarProps,
   type ProfileAvatarSize,
 } from './profile-avatar.js';
+export {
+  TokenIcon,
+  osTokenIconClassName,
+  type TokenIconProps,
+  type TokenIconSize,
+} from './token-icon.js';
 export {
   SearchField,
   searchFieldClassName,

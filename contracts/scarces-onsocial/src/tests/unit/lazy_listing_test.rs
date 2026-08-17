@@ -361,6 +361,8 @@ fn lazy_listing_borsh_append_defaults_minted_and_max() {
 
 #[test]
 fn lazy_listing_borsh_minted_only_defaults_max_per_purchase() {
+    use near_sdk::borsh::BorshDeserialize;
+
     let mut buf = borsh_legacy_lazy_listing(&LazyListingRecord {
         creator_id: creator(),
         metadata: scarce::types::TokenMetadata {
@@ -389,7 +391,15 @@ fn lazy_listing_borsh_minted_only_defaults_max_per_purchase() {
         app_commission_bps: 0,
     });
     2u32.serialize(&mut buf).unwrap(); // minted_count only
-    let loaded = LazyListingRecord::try_from_slice(&buf).unwrap();
+    0u32.serialize(&mut buf).unwrap(); // IterableMap key_index
+
+    #[derive(near_sdk::borsh::BorshSerialize, BorshDeserialize)]
+    #[borsh(crate = "near_sdk::borsh")]
+    struct ValueAndIndex {
+        value: LazyListingRecord,
+        key_index: u32,
+    }
+    let loaded = ValueAndIndex::try_from_slice(&buf).unwrap().value;
     assert_eq!(loaded.minted_count, 2);
     assert_eq!(loaded.max_per_purchase, 1);
 }

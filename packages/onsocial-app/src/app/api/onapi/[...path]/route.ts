@@ -8,13 +8,18 @@ export const dynamic = 'force-dynamic';
 type ProxyBodyKind = 'none' | 'json' | 'form';
 
 interface AllowedProxyRoute {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'DELETE';
   /**
    * Exact path, or a single-segment wildcard with a trailing `/*`
    * (e.g. `compose/generate/variation-set/*` → `…/variation-set/<jobId>`).
    */
   path: string;
   body: ProxyBodyKind;
+  /**
+   * Forward the browser `Authorization` bearer (viewer JWT) and skip the
+   * server API key. Required for private prefs like mutes.
+   */
+  forwardAuthorization?: boolean;
 }
 
 const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
@@ -108,6 +113,16 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     body: 'json',
   },
   { method: 'POST', path: 'compose/prepare/set-allowlist', body: 'json' },
+  // Scarces — door / redeem staff (add / remove / replace roster).
+  { method: 'POST', path: 'compose/prepare/add-redeemer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/remove-redeemer', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/set-redeemers', body: 'json' },
+  // Scarces — door Admit / coupon Redeem (staff wallet signs).
+  { method: 'POST', path: 'compose/prepare/redeem-token', body: 'json' },
+  // Scarces — creator pause / resume / delete (empty only).
+  { method: 'POST', path: 'compose/prepare/pause-collection', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/resume-collection', body: 'json' },
+  { method: 'POST', path: 'compose/prepare/delete-collection', body: 'json' },
 
   // Hubs (apps) — register / config / creators / ownership.
   { method: 'POST', path: 'compose/prepare/register-app', body: 'json' },
@@ -131,6 +146,88 @@ const ALLOWED_PROXY_ROUTES: AllowedProxyRoute[] = [
     method: 'POST',
     path: 'compose/prepare/remove-approved-creator',
     body: 'json',
+  },
+
+  // Gateway wallet auth (NEP-413) — used to obtain a viewer JWT for mutes.
+  { method: 'POST', path: 'auth/challenge', body: 'json' },
+  { method: 'POST', path: 'auth/login', body: 'json' },
+
+  // Private mute prefs (viewer JWT — not the server API key).
+  {
+    method: 'GET',
+    path: 'developer/mutes',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/mutes',
+    body: 'json',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'DELETE',
+    path: 'developer/mutes/*',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+
+  // Private DM mailbox (ciphertext envelopes — viewer JWT).
+  {
+    method: 'GET',
+    path: 'developer/dm/threads',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/dm/unread-count',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/dm/threads/*',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/dm/send',
+    body: 'json',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/dm/read',
+    body: 'json',
+    forwardAuthorization: true,
+  },
+
+  // First-party notifications inbox (viewer JWT — default app namespace).
+  {
+    method: 'GET',
+    path: 'developer/notifications',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/notifications/count',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'GET',
+    path: 'developer/notifications/types',
+    body: 'none',
+    forwardAuthorization: true,
+  },
+  {
+    method: 'POST',
+    path: 'developer/notifications/read',
+    body: 'json',
+    forwardAuthorization: true,
   },
 ];
 
@@ -214,7 +311,20 @@ async function proxyOnApiRequest(
     );
   }
 
-  const headers = new Headers({ 'X-API-Key': apiKey });
+  const headers = new Headers();
+  if (route.forwardAuthorization) {
+    const authorization = request.headers.get('authorization');
+    if (!authorization?.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    headers.set('Authorization', authorization);
+  } else {
+    headers.set('X-API-Key', apiKey);
+  }
+
   if (route.body === 'json') {
     headers.set(
       'Content-Type',
@@ -273,11 +383,19 @@ export async function POST(
   return proxyOnApiRequest(request, path);
 }
 
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> }
+) {
+  const { path } = await context.params;
+  return proxyOnApiRequest(request, path);
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      Allow: 'GET, POST, OPTIONS',
+      Allow: 'GET, POST, DELETE, OPTIONS',
     },
   });
 }

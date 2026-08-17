@@ -81,10 +81,25 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
     referenceExt,
     randomAssignment,
     targetAccount,
+    skipAutoMedia,
+    creator,
+    cardBg,
+    cardFormat,
+    cardPalette,
+    cardFont,
+    cardMarkColor,
+    cardMarkShape,
+    cardTitleAlign,
+    cardPhotoCid,
   } = body as Record<string, string | undefined>;
 
   const parsedExtra = parseJsonField(extra);
   const parsedRoyalty = parseJsonField<Record<string, number>>(royalty);
+  const parsedCreator = parseJsonField<{
+    accountId: string;
+    displayName?: string;
+    avatar?: string;
+  }>(creator);
 
   return {
     req: {
@@ -120,6 +135,19 @@ function buildCreateCollectionReq(body: Record<string, unknown>) {
         randomAssignment: parseBool(randomAssignment),
       }),
       ...(targetAccount && { targetAccount }),
+      ...(parseBool(skipAutoMedia) === true && { skipAutoMedia: true }),
+      ...(parsedCreator && { creator: parsedCreator }),
+      ...(typeof cardBg === 'string' && cardBg && { cardBg }),
+      ...(typeof cardFormat === 'string' && cardFormat && { cardFormat }),
+      ...(typeof cardPalette === 'string' && cardPalette && { cardPalette }),
+      ...(typeof cardFont === 'string' && cardFont && { cardFont }),
+      ...(typeof cardMarkColor === 'string' &&
+        cardMarkColor && { cardMarkColor }),
+      ...(typeof cardMarkShape === 'string' &&
+        cardMarkShape && { cardMarkShape }),
+      ...(typeof cardTitleAlign === 'string' &&
+        cardTitleAlign && { cardTitleAlign }),
+      ...(typeof cardPhotoCid === 'string' && cardPhotoCid && { cardPhotoCid }),
     },
     parsedExtra,
     parsedRoyalty,

@@ -4,7 +4,7 @@ import { SearchField, osFloatingPanelCountClassName } from '@onsocial/ui';
 import {
   ChoiceDrawerMenu,
   type ChoiceOption,
-} from '@/components/ui/choice-drawer';
+} from '@onsocial/ui';
 import type { GroupMemberRow } from '@onsocial/sdk';
 import {
   countGuildMembersByRoleFilter,
@@ -43,28 +43,39 @@ function CountBadge({
 
 interface GuildMembersToolbarProps {
   members: GroupMemberRow[];
+  bannedCount?: number;
   roleFilter: GuildMemberRoleFilter;
   onRoleFilterChange: (filter: GuildMemberRoleFilter) => void;
   query: string;
   onQueryChange: (query: string) => void;
   countsLoading?: boolean;
+  /** When false, hide the Banned filter (non-managers). */
+  showBannedFilter?: boolean;
 }
 
 export function GuildMembersToolbar({
   members,
+  bannedCount = 0,
   roleFilter,
   onRoleFilterChange,
   query,
   onQueryChange,
   countsLoading = false,
+  showBannedFilter = false,
 }: GuildMembersToolbarProps) {
   const options: ChoiceOption<GuildMemberRoleFilter>[] =
-    GUILD_MEMBER_ROLE_FILTERS.map((option) => ({
+    GUILD_MEMBER_ROLE_FILTERS.filter(
+      (option) => option.id !== 'banned' || showBannedFilter
+    ).map((option) => ({
       value: option.id,
       label: option.label,
       leading: (
         <CountBadge
-          count={countGuildMembersByRoleFilter(members, option.id)}
+          count={countGuildMembersByRoleFilter(
+            members,
+            option.id,
+            bannedCount
+          )}
           loading={countsLoading}
         />
       ),
@@ -79,7 +90,11 @@ export function GuildMembersToolbar({
         onChange={onRoleFilterChange}
         triggerMeta={
           <CountBadge
-            count={countGuildMembersByRoleFilter(members, roleFilter)}
+            count={countGuildMembersByRoleFilter(
+              members,
+              roleFilter,
+              bannedCount
+            )}
             loading={countsLoading}
           />
         }

@@ -36,7 +36,8 @@ FROM node:22-alpine3.23 AS production
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 # Color emoji for text-card PNG mint parity with browser preview.
-RUN apk add --no-cache font-noto-emoji
+# ffmpeg: social feed video → H.264 MP4 (≤50MB / 120s) before Lighthouse pin.
+RUN apk add --no-cache font-noto-emoji ffmpeg
 WORKDIR /app
 
 # Copy workspace config
