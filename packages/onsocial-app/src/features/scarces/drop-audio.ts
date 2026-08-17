@@ -1,5 +1,6 @@
 /**
- * Audio limits for Music drops (Single / Album) on create-drop.
+ * Audio limits for Audio drops (Single / Album / Podcast) on create-drop.
+ * Discovery keeps the medium chip as "Audio"; format is chosen here.
  */
 
 export const DROP_AUDIO_MAX_BYTES = 20 * 1024 * 1024;
@@ -34,7 +35,19 @@ export function trackTitleFromFile(file: File): string {
   return base || 'Track';
 }
 
-export type MusicReleaseFormat = 'single' | 'album';
+/** Create-drop release format under the Audio medium (`extra.audioFormat`). */
+export type MusicReleaseFormat = 'single' | 'album' | 'podcast';
+
+export function audioReleaseFormatLabel(format: MusicReleaseFormat): string {
+  if (format === 'album') return 'Album';
+  if (format === 'podcast') return 'Podcast';
+  return 'Single';
+}
+
+/** Album + podcast accept multiple files; single is one track. */
+export function isMultiTrackAudioFormat(format: MusicReleaseFormat): boolean {
+  return format === 'album' || format === 'podcast';
+}
 
 /** Base64 SHA-256 for NEP-177 `media_hash` (SDK client-build path). */
 export async function sha256BlobBase64(blob: Blob): Promise<string> {
@@ -53,6 +66,10 @@ export function musicTracksValid(
   count: number
 ): boolean {
   if (format === 'single') return count === 1;
+  // Podcast: one episode or a multi-episode show.
+  if (format === 'podcast') {
+    return count >= 1 && count <= DROP_AUDIO_MAX_TRACKS;
+  }
   return count >= 2 && count <= DROP_AUDIO_MAX_TRACKS;
 }
 

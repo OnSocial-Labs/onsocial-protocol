@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   DROP_LYRICS_MAX_CHARS,
+  audioReleaseFormatLabel,
   isDropAudioMime,
+  isMultiTrackAudioFormat,
   musicTracksValid,
   normalizeTrackLyrics,
   sha256BlobBase64,
@@ -38,6 +40,30 @@ describe('musicTracksValid', () => {
     expect(musicTracksValid('album', 1)).toBe(false);
     expect(musicTracksValid('album', 2)).toBe(true);
     expect(musicTracksValid('album', 10)).toBe(true);
+  });
+
+  it('allows one or more episodes for a podcast', () => {
+    expect(musicTracksValid('podcast', 0)).toBe(false);
+    expect(musicTracksValid('podcast', 1)).toBe(true);
+    expect(musicTracksValid('podcast', 2)).toBe(true);
+    expect(musicTracksValid('podcast', 30)).toBe(true);
+    expect(musicTracksValid('podcast', 31)).toBe(false);
+  });
+});
+
+describe('audioReleaseFormatLabel', () => {
+  it('labels create-drop release formats', () => {
+    expect(audioReleaseFormatLabel('single')).toBe('Single');
+    expect(audioReleaseFormatLabel('album')).toBe('Album');
+    expect(audioReleaseFormatLabel('podcast')).toBe('Podcast');
+  });
+});
+
+describe('isMultiTrackAudioFormat', () => {
+  it('treats album and podcast as multi-file', () => {
+    expect(isMultiTrackAudioFormat('single')).toBe(false);
+    expect(isMultiTrackAudioFormat('album')).toBe(true);
+    expect(isMultiTrackAudioFormat('podcast')).toBe(true);
   });
 });
 

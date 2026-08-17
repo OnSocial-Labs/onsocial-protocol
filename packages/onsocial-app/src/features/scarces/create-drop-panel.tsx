@@ -59,7 +59,9 @@ import {
 import {
   DROP_AUDIO_MAX_BYTES,
   DROP_AUDIO_MAX_TRACKS,
+  audioReleaseFormatLabel,
   isDropAudioMime,
+  isMultiTrackAudioFormat,
   musicTracksValid,
   normalizeTrackLyrics,
   sha256BlobBase64,
@@ -681,14 +683,14 @@ export function CreateDropPanel() {
       }
       setError(null);
       setTrackFiles((prev) => {
-        if (musicFormat === 'single') {
+        if (!isMultiTrackAudioFormat(musicFormat)) {
           return picked.slice(0, 1);
         }
         const next = [...prev, ...picked].slice(0, DROP_AUDIO_MAX_TRACKS);
         return next;
       });
       setTrackLyrics((prev) => {
-        if (musicFormat === 'single') {
+        if (!isMultiTrackAudioFormat(musicFormat)) {
           return [''];
         }
         const added = picked.map(() => '');
@@ -1020,17 +1022,21 @@ export function CreateDropPanel() {
   const startSummaryRows = useMemo((): DropStartSummaryRow[] => {
     const kindParts = [template.label];
     if (isAudio) {
-      kindParts.push(musicFormat === 'album' ? 'Album' : 'Single');
-      if (trackFiles.length > 0) {
-        kindParts.push(
-          `${trackFiles.length} ${trackFiles.length === 1 ? 'track' : 'tracks'}`
-        );
-      } else if (pinnedMusic) {
-        kindParts.push(
-          `${pinnedMusic.playable.length} ${
-            pinnedMusic.playable.length === 1 ? 'track' : 'tracks'
-          }`
-        );
+      kindParts.push(audioReleaseFormatLabel(musicFormat));
+      const audioCount =
+        trackFiles.length > 0
+          ? trackFiles.length
+          : (pinnedMusic?.playable.length ?? 0);
+      if (audioCount > 0) {
+        const unit =
+          musicFormat === 'podcast'
+            ? audioCount === 1
+              ? 'episode'
+              : 'episodes'
+            : audioCount === 1
+              ? 'track'
+              : 'tracks';
+        kindParts.push(`${audioCount} ${unit}`);
       }
     } else if (isWriting) {
       kindParts.push(writingFormat === 'book' ? 'Book' : 'Article');
@@ -1209,7 +1215,9 @@ export function CreateDropPanel() {
       setError(
         musicFormat === 'single'
           ? 'Add one track for this single.'
-          : `Add 2–${DROP_AUDIO_MAX_TRACKS} tracks for an album.`
+          : musicFormat === 'podcast'
+            ? `Add 1–${DROP_AUDIO_MAX_TRACKS} episodes for this podcast.`
+            : `Add 2–${DROP_AUDIO_MAX_TRACKS} tracks for an album.`
       );
       return;
     }
@@ -2008,6 +2016,18 @@ export function CreateDropPanel() {
               >
                 Album
               </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={musicFormat === 'podcast'}
+                className={`app-access-option${
+                  musicFormat === 'podcast' ? ' is-selected' : ''
+                }`}
+                disabled={pending}
+                onClick={() => setMusicReleaseFormat('podcast')}
+              >
+                Podcast
+              </button>
             </div>
           </div>
         ) : isWriting ? (
@@ -2349,14 +2369,16 @@ export function CreateDropPanel() {
             <span>
               {musicFormat === 'single'
                 ? 'Track'
-                : `Tracks${trackFiles.length ? ` · ${trackFiles.length}` : ''}`}
+                : musicFormat === 'podcast'
+                  ? `Episodes${trackFiles.length ? ` · ${trackFiles.length}` : ''}`
+                  : `Tracks${trackFiles.length ? ` · ${trackFiles.length}` : ''}`}
             </span>
             {trackFiles.length > 0 ? (
               <DropTrackPreviewList
                 files={trackFiles}
                 lyrics={trackLyrics}
                 disabled={pending}
-                sortable={musicFormat === 'album'}
+                sortable={isMultiTrackAudioFormat(musicFormat)}
                 onRemove={removeTrackAt}
                 onReorder={reorderTracks}
                 onLyricsChange={setTrackLyricsAt}
@@ -2365,7 +2387,9 @@ export function CreateDropPanel() {
             <div
               className="app-storage-presets"
               role="group"
-              aria-label="Track actions"
+              aria-label={
+                musicFormat === 'podcast' ? 'Episode actions' : 'Track actions'
+              }
             >
               <button
                 type="button"
@@ -2373,7 +2397,7 @@ export function CreateDropPanel() {
                 disabled={
                   pending ||
                   (musicFormat === 'single' && trackFiles.length >= 1) ||
-                  (musicFormat === 'album' &&
+                  (isMultiTrackAudioFormat(musicFormat) &&
                     trackFiles.length >= DROP_AUDIO_MAX_TRACKS)
                 }
                 onClick={() => tracksInputRef.current?.click()}
@@ -2381,7 +2405,9 @@ export function CreateDropPanel() {
                 {trackFiles.length === 0
                   ? musicFormat === 'single'
                     ? 'Add track'
-                    : 'Add tracks'
+                    : musicFormat === 'podcast'
+                      ? 'Add episodes'
+                      : 'Add tracks'
                   : musicFormat === 'single'
                     ? 'Replace track'
                     : 'Add more'}
@@ -2404,13 +2430,15 @@ export function CreateDropPanel() {
             <small>
               {musicFormat === 'single'
                 ? 'Tap to preview · MP3, M4A, WAV, or similar · ≤20 MB'
-                : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
+                : musicFormat === 'podcast'
+                  ? `Drag to reorder · tap to preview · 1–${DROP_AUDIO_MAX_TRACKS} episodes · ≤20 MB each`
+                  : `Drag to reorder · tap to preview · 2–${DROP_AUDIO_MAX_TRACKS} tracks · ≤20 MB each`}
             </small>
             <input
               ref={tracksInputRef}
               type="file"
               accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.webm"
-              multiple={musicFormat === 'album'}
+              multiple={isMultiTrackAudioFormat(musicFormat)}
               className="scarce-cover-file-input"
               tabIndex={-1}
               aria-hidden

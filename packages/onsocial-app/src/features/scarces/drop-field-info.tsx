@@ -26,9 +26,10 @@ const DROP_FIELD_INFO: Record<
 > = {
   release: {
     title: 'Release',
-    summary: 'Single is one track; Album is a multi-track release under one cover.',
+    summary:
+      'Single is one track, Album is multi-track music, Podcast is one or more episodes — all under Audio.',
     detail:
-      'Every edition shares the same release. Add tracks below after you pick the format.',
+      'Every edition shares the same release. Add audio below after you pick the format. Audiobooks can land here later as another Audio format.',
   },
   format: {
     title: 'Format',

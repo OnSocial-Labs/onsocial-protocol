@@ -45,7 +45,7 @@ type DropPinDraftBase = {
 export type DropPinDraft =
   | (DropPinDraftBase & {
       kind: 'music';
-      musicFormat: 'single' | 'album';
+      musicFormat: 'single' | 'album' | 'podcast';
       pinned: PinnedMusicDraft;
     })
   | (DropPinDraftBase & {
