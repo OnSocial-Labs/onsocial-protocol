@@ -25250,7 +25250,6 @@ a.os-surface-row {
     text-decoration: none;
     color: inherit;
     gap: 0.9rem;
-    /* Beat Market’s shorthand so larger covers keep breathing room. */
     padding: 0.85rem 0.45rem;
   }
 
