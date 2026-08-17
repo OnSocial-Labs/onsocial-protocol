@@ -1330,7 +1330,16 @@ export function MarketPagePanel({
         {showEmptyFilter ? (
           <p className="market-page-status">
             {searching ? (
-              <>No listings match “{listingQuery.trim()}”.</>
+              <>
+                No listings match “{listingQuery.trim()}”.{' '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={() => setListingQuery('')}
+                >
+                  Clear search
+                </button>
+              </>
             ) : facetOrFormatActive ? (
               <>
                 No matches for these filters.{' '}

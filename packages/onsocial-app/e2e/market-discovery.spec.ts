@@ -22,7 +22,7 @@ test.describe('market discovery', () => {
 
     const mediumRail = page.getByRole('tablist', { name: 'Listing medium' });
     await expect(mediumRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
-    await expect(mediumRail.getByRole('tab', { name: 'Events' })).toBeVisible();
+    await expect(mediumRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
 
     await mediumRail.getByRole('tab', { name: 'Audio' }).click();
     await page.waitForURL(/kind=audio/);
@@ -55,7 +55,7 @@ test.describe('market discovery', () => {
     ).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('deep-links events medium without seeding unfiltered rows', async ({
+  test('deep-links tickets medium without seeding unfiltered rows', async ({
     page,
   }) => {
     await page.goto('/market?kind=ticket', {
@@ -64,7 +64,7 @@ test.describe('market discovery', () => {
 
     await expect(
       page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
-        name: 'Events',
+        name: 'Tickets',
       })
     ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
   });

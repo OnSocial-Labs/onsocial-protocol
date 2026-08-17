@@ -66,7 +66,7 @@ describe('drop-facets', () => {
     expect(dropFacetLabel('scifi')).toBe('Sci-fi');
     expect(dropFacetLabel('generative')).toBe('Generative');
     expect(dropFacetFieldLabel('art')).toBe('Style');
-    expect(dropFacetFieldLabel('ticket')).toBe('Event');
+    expect(dropFacetFieldLabel('ticket')).toBe('Occasion');
     expect(dropFacetFieldLabel('custom')).toBe('Theme');
   });
 

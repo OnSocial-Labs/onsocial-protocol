@@ -24,7 +24,7 @@ test.describe('drops discovery', () => {
 
     const mediumRail = page.getByRole('tablist', { name: 'Drop medium' });
     await expect(mediumRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
-    await expect(mediumRail.getByRole('tab', { name: 'Events' })).toBeVisible();
+    await expect(mediumRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
 
     await mediumRail.getByRole('tab', { name: 'Audio' }).click();
     await page.waitForURL(/kind=audio/);
@@ -53,7 +53,7 @@ test.describe('drops discovery', () => {
     ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
     await expect(
       page.getByRole('tablist', { name: 'Drop medium' }).getByRole('tab', {
-        name: 'Events',
+        name: 'Tickets',
       })
     ).toHaveAttribute('aria-selected', 'true');
   });

@@ -217,7 +217,7 @@ export function dropFacetFieldLabel(
     case 'art':
       return 'Style';
     case 'ticket':
-      return 'Event';
+      return 'Occasion';
     case 'coupon':
       return 'Offer';
     case 'membership':

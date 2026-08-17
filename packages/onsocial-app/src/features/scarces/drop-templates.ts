@@ -47,7 +47,7 @@ export interface DropTemplate {
 export const DROP_TEMPLATES: DropTemplate[] = [
   {
     id: 'art',
-    label: 'Artwork',
+    label: 'Art',
     tagline: 'Supply-capped editions fans mint until sold out.',
     hint: 'Tradable and permanent by default. Optional sale window in Advanced.',
     kind: 'art',

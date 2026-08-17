@@ -712,7 +712,7 @@ export function DropsPagePanel({
   initialNowMs,
 }: {
   initialSort?: DropsSort;
-  /** From SSR / `?kind=` — Events = `ticket`. */
+  /** From SSR / `?kind=` — Tickets = `ticket`. */
   initialMedium?: DropsMediumParam;
   /** From SSR / `?audioFormat=` when medium is audio. */
   initialAudioFormat?: DropAudioFormatFilter | null;

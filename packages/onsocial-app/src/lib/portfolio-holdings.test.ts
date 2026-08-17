@@ -37,7 +37,7 @@ describe('holdingsKindLabel', () => {
     expect(holdingsKindLabel('writing')).toBe('Writing');
     expect(holdingsKindLabel('thought')).toBe('Thoughts');
     expect(holdingsKindLabel('video')).toBe('Video');
-    expect(holdingsKindLabel('ticket')).toBe('Events');
+    expect(holdingsKindLabel('ticket')).toBe('Tickets');
     expect(holdingsKindLabel(null)).toBeNull();
   });
 });
