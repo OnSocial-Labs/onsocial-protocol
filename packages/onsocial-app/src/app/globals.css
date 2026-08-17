@@ -6505,6 +6505,26 @@ a.os-surface-row {
     align-items: center;
   }
 
+  .leaderboard-row.is-viewer {
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+  }
+
+  .leaderboard-viewer-footer {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .leaderboard-viewer-footer-label {
+    margin: 0 0 0.45rem;
+    padding-inline: 0.15rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
   .leaderboard-row-rank {
     flex-shrink: 0;
     width: 1.6rem;

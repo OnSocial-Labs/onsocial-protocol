@@ -205,6 +205,31 @@ export type {
 } from './query/index.js';
 export { SUPPORT_POT_ACTIONS } from './query/index.js';
 export {
+  LEADERBOARD_PAGE_SIZE,
+  LEADERBOARD_TRACKS,
+  REPUTATION_BOARD_GRAPHQL_FIELDS,
+  REPUTATION_SCORES_GRAPHQL_FIELDS,
+  canonicalLeaderboardAccountId,
+  commitmentAccent,
+  commitmentLabel,
+  findViewerEntry,
+  formatReputation,
+  formatReputationComponent,
+  formatReputationScore,
+  formatScore,
+  pctOfLeader,
+  reputationConfidenceLabel,
+  reputationTier,
+  reputationTierLabel,
+  truncateAccountId,
+} from './leaderboard.js';
+export type {
+  EarnerEntry,
+  InfluenceEntry,
+  LeaderboardTrack,
+  ReputationEntry,
+} from './leaderboard.js';
+export {
   PERMISSION_OPERATIONS,
   GOVERNANCE_OPERATIONS,
   REWARDS_EVENT_TYPES,

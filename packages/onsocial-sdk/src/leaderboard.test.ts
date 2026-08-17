@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   commitmentLabel,
-  entriesForTrack,
+  findViewerEntry,
   formatReputationComponent,
   formatReputationScore,
   pctOfLeader,
   reputationConfidenceLabel,
   reputationTierLabel,
-} from '@/lib/leaderboard';
+} from './leaderboard.js';
 
 describe('leaderboard helpers', () => {
   it('formats reputation scores', () => {
@@ -37,21 +37,12 @@ describe('leaderboard helpers', () => {
     expect(pctOfLeader(10, 0)).toBe(0);
   });
 
-  it('picks entries for each track', () => {
-    expect(
-      entriesForTrack('influence', {
-        leaderboardBoost: [
-          {
-            accountId: 'a',
-            lockedAmount: '0',
-            effectiveBoost: '1',
-            lockMonths: 1,
-            rank: 1,
-          },
-        ],
-      })
-    ).toHaveLength(1);
-    expect(entriesForTrack('reputation', { reputationScores: [] })).toEqual([]);
-    expect(entriesForTrack('earners', null)).toBeNull();
+  it('finds viewer entry case-insensitively', () => {
+    const rows = [
+      { accountId: 'Alice.near', rank: 1 },
+      { accountId: 'bob.near', rank: 2 },
+    ];
+    expect(findViewerEntry(rows, 'alice.near')?.index).toBe(0);
+    expect(findViewerEntry(rows, 'carol.near')).toBeNull();
   });
 });
