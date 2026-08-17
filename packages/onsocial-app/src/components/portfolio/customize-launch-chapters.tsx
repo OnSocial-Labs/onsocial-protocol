@@ -18,16 +18,29 @@ import {
   sanitizeLinkNotes,
   sanitizeSectionPins,
   sectionPinsFor,
+  storeShelfPinCandidates,
   toggleSectionPin,
 } from '@/lib/page-launch-config';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
+import {
+  EMPTY_PROFILE_STORE,
+  type ProfileStoreShelf,
+} from '@/lib/profile-store-types';
+import {
+  PAGE_DRAWER_HOLDINGS_PEEK,
+  toPortfolioHoldingPeek,
+  type PortfolioHoldingPeek,
+} from '@/lib/portfolio-holdings';
+import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
 
 interface CustomizeLaunchChaptersProps {
+  pageAccountId: string;
   config: PublicPageConfig;
   profileLinks?: unknown;
   guilds?: ProfileGuildSummary[];
   postPeeks?: ProfilePostPeek[];
   createdPeeks?: ProfileCreatedPeek[];
+  storeShelf?: ProfileStoreShelf;
   disabled?: boolean;
   onSave: (patch: {
     sections: PageSection[];
@@ -78,11 +91,13 @@ function PinRow({
 }
 
 export function CustomizeLaunchChapters({
+  pageAccountId,
   config,
   profileLinks = null,
   guilds = [],
   postPeeks = [],
   createdPeeks = [],
+  storeShelf = EMPTY_PROFILE_STORE,
   disabled = false,
   onSave,
 }: CustomizeLaunchChaptersProps) {
@@ -93,6 +108,7 @@ export function CustomizeLaunchChapters({
   const [notes, setNotes] = useState(() => sanitizeLinkNotes(config.linkNotes));
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [holdings, setHoldings] = useState<PortfolioHoldingPeek[]>([]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -103,9 +119,35 @@ export function CustomizeLaunchChapters({
     });
   }, [config]);
 
+  useEffect(() => {
+    const owner = pageAccountId.trim();
+    if (!owner) {
+      setHoldings([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchOwnedScarcesPage(owner, {
+      pageSize: Math.max(PAGE_DRAWER_HOLDINGS_PEEK, 8),
+    })
+      .then((page) => {
+        if (cancelled) return;
+        setHoldings(page.items.map(toPortfolioHoldingPeek));
+      })
+      .catch(() => {
+        if (!cancelled) setHoldings([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pageAccountId]);
+
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),
     [profileLinks]
+  );
+  const storeCandidates = useMemo(
+    () => storeShelfPinCandidates(storeShelf),
+    [storeShelf]
   );
   const hidden = resolveHiddenCustomizableSections(sections);
 
@@ -146,6 +188,8 @@ export function CustomizeLaunchChapters({
   const postPins = sectionPinsFor({ sectionPins: pins }, 'posts');
   const guildPins = sectionPinsFor({ sectionPins: pins }, 'groups');
   const createdPins = sectionPinsFor({ sectionPins: pins }, 'created');
+  const storePins = sectionPinsFor({ sectionPins: pins }, 'store');
+  const collectiblePins = sectionPinsFor({ sectionPins: pins }, 'collectibles');
 
   return (
     <div className="customize-launch">
@@ -272,6 +316,28 @@ export function CustomizeLaunchChapters({
         </div>
       ) : null}
 
+      {storeCandidates.length > 0 && sections.includes('store') ? (
+        <div className="customize-pin-block">
+          <p className="customize-sheet-copy">Featured in Store</p>
+          <div className="customize-pin-list">
+            {storeCandidates.slice(0, 8).map((item) => {
+              const pinned = storePins.includes(item.id);
+              return (
+                <PinRow
+                  key={item.id}
+                  label={item.label}
+                  pinned={pinned}
+                  disabled={disabled || saving}
+                  onToggle={() =>
+                    setPinList('store', toggleSectionPin(storePins, item.id))
+                  }
+                />
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {createdPeeks.length > 0 && sections.includes('created') ? (
         <div className="customize-pin-block">
           <p className="customize-sheet-copy">Featured created</p>
@@ -287,6 +353,32 @@ export function CustomizeLaunchChapters({
                   disabled={disabled || saving}
                   onToggle={() =>
                     setPinList('created', toggleSectionPin(createdPins, id))
+                  }
+                />
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {holdings.length > 0 && sections.includes('collectibles') ? (
+        <div className="customize-pin-block">
+          <p className="customize-sheet-copy">Featured collectibles</p>
+          <div className="customize-pin-list">
+            {holdings.slice(0, 8).map((item) => {
+              const id = item.tokenId;
+              const pinned = collectiblePins.includes(id);
+              return (
+                <PinRow
+                  key={id}
+                  label={item.title}
+                  pinned={pinned}
+                  disabled={disabled || saving}
+                  onToggle={() =>
+                    setPinList(
+                      'collectibles',
+                      toggleSectionPin(collectiblePins, id)
+                    )
                   }
                 />
               );

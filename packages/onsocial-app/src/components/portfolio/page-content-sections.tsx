@@ -39,6 +39,7 @@ import {
 import { overlayPath } from '@/lib/overlay-routes';
 import {
   preferPinnedOrder,
+  orderStoreShelfByPins,
   sectionPinsFor,
 } from '@/lib/page-launch-config';
 
@@ -116,6 +117,12 @@ export function PageContentSections({
   const holdingsCount = holdings.length;
   const createdCount = Math.max(createdPeeks.length, createdMintCount);
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
+
+  const orderedStoreShelf = useMemo(
+    () =>
+      orderStoreShelfByPins(storeShelf, sectionPinsFor(config, 'store')),
+    [storeShelf, config]
+  );
 
   const orderedPosts = useMemo(
     () =>
@@ -244,7 +251,7 @@ export function PageContentSections({
               {showStore ? (
                 <PortfolioStoreShelf
                   pageAccountId={pageAccountId}
-                  shelf={storeShelf}
+                  shelf={orderedStoreShelf}
                 />
               ) : null}
 

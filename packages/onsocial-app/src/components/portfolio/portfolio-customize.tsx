@@ -367,11 +367,13 @@ export function PortfolioCustomize({
           <>
             <div className="customize-sheet-section">
               <CustomizeLaunchChapters
+                pageAccountId={pageAccountId}
                 config={config}
                 profileLinks={profileLinks}
                 guilds={guilds}
                 postPeeks={postPeeks}
                 createdPeeks={shelf.createdPeeks}
+                storeShelf={shelf.storeShelf}
                 disabled={isApplying}
                 onSave={applyLaunchPatch}
               />

@@ -956,7 +956,8 @@ export interface PageConfig {
   /** Ordered list of visible Launch chapters (omit to hide). */
   sections?: PageSection[];
   /**
-   * Featured peek ids per chapter (max 3) — post ids, guild ids, token ids.
+   * Featured peek ids per chapter (max 3) — post ids, guild ids, token ids,
+   * store `drop:`/`listing:` keys, collectibles token ids.
    * Missing / unknown ids are ignored; remaining peeks fill after pins.
    */
   sectionPins?: Partial<Record<PageSection, string[]>>;

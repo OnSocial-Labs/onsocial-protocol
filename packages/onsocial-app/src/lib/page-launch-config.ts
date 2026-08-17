@@ -5,6 +5,7 @@ import {
   PAGE_SECTION_LABELS,
   isPageSection,
 } from '@/lib/page-sections';
+import type { ProfileStoreShelf } from '@/lib/profile-store-types';
 
 /** Chapters owners can reorder / hide in Customize. */
 export const CUSTOMIZABLE_PAGE_SECTIONS: PageSection[] = [
@@ -140,4 +141,51 @@ export function toggleSectionPin(
     return [...pins.slice(1), trimmed];
   }
   return [...pins, trimmed];
+}
+
+/** Stable pin id for a Store drop (collection). */
+export function storeDropPinId(collectionId: string): string {
+  return `drop:${collectionId.trim()}`;
+}
+
+/** Stable pin id for a Store listing. */
+export function storeListingPinId(listingKey: string): string {
+  return `listing:${listingKey.trim()}`;
+}
+
+export interface StorePinCandidate {
+  id: string;
+  label: string;
+}
+
+/** Pin pick list for Customize — drops first, then live listings. */
+export function storeShelfPinCandidates(
+  shelf: ProfileStoreShelf
+): StorePinCandidate[] {
+  const drops = shelf.drops.map((drop) => ({
+    id: storeDropPinId(drop.collectionId),
+    label: `Drop · ${drop.title}`,
+  }));
+  const listings = shelf.listings.map((listing) => ({
+    id: storeListingPinId(listing.key),
+    label: `For sale · ${listing.title}`,
+  }));
+  return [...drops, ...listings];
+}
+
+/** Reorder Store shelf peeks so pinned drops/listings lead their rails. */
+export function orderStoreShelfByPins(
+  shelf: ProfileStoreShelf,
+  pinnedIds: readonly string[]
+): ProfileStoreShelf {
+  if (pinnedIds.length === 0) return shelf;
+  return {
+    ...shelf,
+    drops: preferPinnedOrder(shelf.drops, pinnedIds, (drop) =>
+      storeDropPinId(drop.collectionId)
+    ),
+    listings: preferPinnedOrder(shelf.listings, pinnedIds, (listing) =>
+      storeListingPinId(listing.key)
+    ),
+  };
 }
