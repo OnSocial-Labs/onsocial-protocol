@@ -1182,4 +1182,7 @@ export const INTENTIONALLY_UNEXPOSED_RELATIONS = [
   'leaderboard_agent_features',
   'leaderboard_snapshots',
   'reward_weights',
+  // Reputation helpers (joined into reputation_scores; not public GraphQL).
+  'paid_support_inbound_events',
+  'author_amplify_received',
 ];

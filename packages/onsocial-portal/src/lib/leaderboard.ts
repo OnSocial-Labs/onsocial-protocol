@@ -28,7 +28,7 @@ export interface EarnerEntry {
   rank: number;
 }
 
-/** reputation_scores view (protocol reputation v2.1) */
+/** reputation_scores view (protocol reputation v1) */
 export interface ReputationEntry {
   accountId: string;
   standingWith: number;
