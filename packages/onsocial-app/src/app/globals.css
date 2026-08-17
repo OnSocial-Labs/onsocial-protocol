@@ -24450,14 +24450,21 @@ a.os-surface-row {
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 4.5rem;
-    height: 4.5rem;
-    border-radius: 1.15rem;
+    width: var(--os-catalog-cover);
+    height: var(--os-catalog-cover);
+    border-radius: var(--os-catalog-cover-radius);
     overflow: hidden;
     background: rgb(var(--fg-rgb) / 0.06);
     color: var(--os-surface-muted-strong);
     font-weight: 700;
     font-size: 1.45rem;
+  }
+
+  @media (min-width: 640px) {
+    .series-hero-logo {
+      width: var(--os-catalog-cover-sm);
+      height: var(--os-catalog-cover-sm);
+    }
   }
 
   .series-hero-logo img {
@@ -24538,6 +24545,22 @@ a.os-surface-row {
     gap: 1rem;
   }
 
+  .series-catalog-featured {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: 0;
+  }
+
+  .series-catalog-featured-eyebrow {
+    margin: 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
   .series-catalog-section {
     display: flex;
     flex-direction: column;
@@ -24547,6 +24570,38 @@ a.os-surface-row {
 
   .series-empty-create {
     margin-top: 0.55rem;
+  }
+
+  /* Catalog-scale cards on the series page — Market/Drops cover parity. */
+  .app-drop-card--catalog {
+    grid-template-columns: var(--os-catalog-cover) minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: flex-start;
+    margin: 0 -0.45rem;
+    padding: 0.7rem 0.45rem;
+    background: transparent;
+  }
+
+  .app-drop-card--catalog:hover,
+  .app-drop-card--catalog:focus-visible {
+    background: var(--os-surface-row-hover);
+  }
+
+  .app-drop-card--catalog .app-drop-card-media {
+    width: var(--os-catalog-cover);
+    height: var(--os-catalog-cover);
+    border-radius: var(--os-catalog-cover-radius);
+  }
+
+  @media (min-width: 640px) {
+    .app-drop-card--catalog {
+      grid-template-columns: var(--os-catalog-cover-sm) minmax(0, 1fr);
+    }
+
+    .app-drop-card--catalog .app-drop-card-media {
+      width: var(--os-catalog-cover-sm);
+      height: var(--os-catalog-cover-sm);
+    }
   }
 
   .series-logo-row {

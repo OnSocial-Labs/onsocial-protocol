@@ -12,15 +12,24 @@ import {
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import type { CollectionView } from '@/features/scarces/collections-data';
-import { groupSeriesDrops } from '@/features/scarces/series-catalog';
+import {
+  deriveCollectionStatus,
+  type CollectionView,
+} from '@/features/scarces/collections-data';
+import {
+  groupSeriesCatalogDrops,
+  pickSeriesFeaturedDrop,
+} from '@/features/scarces/series-catalog';
 import { SeriesEditSheet } from '@/features/scarces/series-edit-sheet';
 import {
   fetchSeriesBrandingCached,
   seedSeriesBrandingCache,
   type SeriesBranding,
 } from '@/features/scarces/series-data';
-import { StoreDropCard } from '@/features/scarces/store-catalog';
+import {
+  StoreDropCard,
+  StoreDropSpotlightCard,
+} from '@/features/scarces/store-catalog';
 import { accountIdsEqual } from '@/lib/account-match';
 import { APP_DROP_CREATE_PATH, marketCreatorPath } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -35,6 +44,15 @@ interface SeriesPagePanelProps {
   creatorDisplayName?: string | null;
   /** The creator's drops in this series, newest first (SSR). */
   drops: CollectionView[];
+}
+
+function seriesFeaturedEyebrow(
+  featured: CollectionView,
+  nowMs: number
+): string {
+  return deriveCollectionStatus(featured, nowMs) === 'upcoming'
+    ? 'Up next'
+    : 'Featured';
 }
 
 /** Public series page — brand-first catalog for a creator's drop line. */
@@ -74,7 +92,15 @@ export function SeriesPagePanel({
   const logoUrl = branding?.logoUrl ?? creatorAvatarUrl;
   const shopHref = marketCreatorPath(creatorId);
   const dropCountLabel = `${drops.length} ${drops.length === 1 ? 'drop' : 'drops'}`;
-  const groups = useMemo(() => groupSeriesDrops(drops, nowMs), [drops, nowMs]);
+  const featured = useMemo(
+    () => pickSeriesFeaturedDrop(drops, nowMs),
+    [drops, nowMs]
+  );
+  const groups = useMemo(
+    () => groupSeriesCatalogDrops(drops, featured?.collectionId ?? null, nowMs),
+    [drops, featured?.collectionId, nowMs]
+  );
+  // Label sections whenever more than one list remains under the spotlight.
   const showSectionLabels = groups.length > 1;
   const creatorLabel = standingIdentityLabel(
     creatorId,
@@ -87,6 +113,8 @@ export function SeriesPagePanel({
     <OsAppScreen
       title={title}
       subtitle={dropCountLabel}
+      // Brand lives in the hero — keep chrome to back + actions only.
+      heading={<></>}
       backFallbackHref={shopHref}
       glassChrome
       actions={
@@ -160,19 +188,35 @@ export function SeriesPagePanel({
           <>
             <Divider variant="item" className="series-hero-divider" />
             <div className="series-catalog">
+              {featured ? (
+                <section
+                  className="series-catalog-featured"
+                  aria-label="Featured drop"
+                >
+                  <p className="series-catalog-featured-eyebrow">
+                    {seriesFeaturedEyebrow(featured, nowMs)}
+                  </p>
+                  <StoreDropSpotlightCard view={featured} showCreator={false} />
+                </section>
+              ) : null}
               {groups.map((group) => (
                 <section
                   key={group.bucket}
                   className="series-catalog-section"
                   aria-label={group.label}
                 >
-                  {showSectionLabels ? (
+                  {showSectionLabels ||
+                  (featured != null && groups.length === 1) ? (
                     <p className="collection-section-label">{group.label}</p>
                   ) : null}
                   <ul className="app-drop-list">
                     {group.drops.map((drop) => (
                       <li key={drop.collectionId}>
-                        <StoreDropCard view={drop} />
+                        <StoreDropCard
+                          view={drop}
+                          showCreator={false}
+                          size="catalog"
+                        />
                       </li>
                     ))}
                   </ul>
@@ -199,7 +243,20 @@ export function SeriesPagePanel({
                     Create a drop
                   </Link>
                 </>
-              ) : null}
+              ) : (
+                <>
+                  <p className="standing-panel-empty-secondary">
+                    When the next drop lands, it will show up here.
+                  </p>
+                  <Link
+                    href={shopHref}
+                    className="page-drawer-section-action series-empty-create"
+                    scroll={false}
+                  >
+                    Shop this creator
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

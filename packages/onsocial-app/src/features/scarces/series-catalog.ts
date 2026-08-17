@@ -88,3 +88,35 @@ export function groupSeriesDrops(
     })
   );
 }
+
+/**
+ * Hero drop for the series catalog — ending-soon live first, else next upcoming.
+ */
+export function pickSeriesFeaturedDrop(
+  drops: CollectionView[],
+  nowMs: number = Date.now()
+): CollectionView | null {
+  const groups = groupSeriesDrops(drops, nowMs);
+  return (
+    groups.find((group) => group.bucket === 'live')?.drops[0] ??
+    groups.find((group) => group.bucket === 'upcoming')?.drops[0] ??
+    null
+  );
+}
+
+/** Bucketed catalog with the featured drop removed from its section. */
+export function groupSeriesCatalogDrops(
+  drops: CollectionView[],
+  featuredId: string | null,
+  nowMs: number = Date.now()
+): SeriesDropGroup[] {
+  const exclude = featuredId?.trim() || null;
+  return groupSeriesDrops(drops, nowMs)
+    .map((group) => ({
+      ...group,
+      drops: exclude
+        ? group.drops.filter((drop) => drop.collectionId !== exclude)
+        : group.drops,
+    }))
+    .filter((group) => group.drops.length > 0);
+}

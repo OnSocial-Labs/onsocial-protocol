@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionView } from '@/features/scarces/collections-data';
 import {
+  groupSeriesCatalogDrops,
   groupSeriesDrops,
+  pickSeriesFeaturedDrop,
   seriesDropBucket,
 } from '@/features/scarces/series-catalog';
 
@@ -138,5 +140,79 @@ describe('series-catalog', () => {
       'upcoming-soon',
       'upcoming-later',
     ]);
+  });
+
+  it('picks ending-soon live as featured, else next upcoming', () => {
+    const now = Date.UTC(2026, 7, 15, 12, 0, 0);
+    expect(
+      pickSeriesFeaturedDrop(
+        [
+          drop({
+            collectionId: 'live-later',
+            startTimeMs: now - 60_000,
+            endTimeMs: now + 120_000,
+          }),
+          drop({
+            collectionId: 'live-soon',
+            startTimeMs: now - 60_000,
+            endTimeMs: now + 30_000,
+          }),
+          drop({
+            collectionId: 'soon-drop',
+            startTimeMs: now + 60_000,
+          }),
+        ],
+        now
+      )?.collectionId
+    ).toBe('live-soon');
+    expect(
+      pickSeriesFeaturedDrop(
+        [
+          drop({
+            collectionId: 'ended-drop',
+            endTimeMs: now - 60_000,
+          }),
+          drop({
+            collectionId: 'soon-drop',
+            startTimeMs: now + 60_000,
+          }),
+        ],
+        now
+      )?.collectionId
+    ).toBe('soon-drop');
+    expect(
+      pickSeriesFeaturedDrop(
+        [drop({ collectionId: 'ended-drop', endTimeMs: now - 60_000 })],
+        now
+      )
+    ).toBeNull();
+  });
+
+  it('omits the featured drop from catalog sections', () => {
+    const now = Date.UTC(2026, 7, 15, 12, 0, 0);
+    const drops = [
+      drop({
+        collectionId: 'live-drop',
+        startTimeMs: now - 60_000,
+      }),
+      drop({
+        collectionId: 'live-two',
+        startTimeMs: now - 30_000,
+        endTimeMs: now + 90_000,
+      }),
+      drop({
+        collectionId: 'soon-drop',
+        startTimeMs: now + 60_000,
+      }),
+    ];
+    const featured = pickSeriesFeaturedDrop(drops, now);
+    expect(featured?.collectionId).toBe('live-two');
+    const groups = groupSeriesCatalogDrops(
+      drops,
+      featured?.collectionId ?? null,
+      now
+    );
+    expect(groups.map((group) => group.bucket)).toEqual(['live', 'upcoming']);
+    expect(groups[0]!.drops.map((d) => d.collectionId)).toEqual(['live-drop']);
   });
 });

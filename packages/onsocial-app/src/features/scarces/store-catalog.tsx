@@ -86,7 +86,17 @@ export function StoreCatalogTabs({
   );
 }
 
-export function StoreDropCard({ view }: { view: CollectionView }) {
+export function StoreDropCard({
+  view,
+  showCreator = true,
+  size = 'store',
+}: {
+  view: CollectionView;
+  /** Hide @creator when the surrounding surface already names them. */
+  showCreator?: boolean;
+  /** `catalog` matches Market/Drops cover scale. */
+  size?: 'store' | 'catalog';
+}) {
   const status = deriveCollectionStatus(view);
   const price = view.priceNear != null ? `${view.priceNear} NEAR` : 'Free';
   const progress = view.isVariations
@@ -98,7 +108,7 @@ export function StoreDropCard({ view }: { view: CollectionView }) {
   return (
     <Link
       href={collectionPath(view.collectionId)}
-      className="app-drop-card"
+      className={`app-drop-card${size === 'catalog' ? ' app-drop-card--catalog' : ''}`}
       scroll={false}
     >
       <span
@@ -120,15 +130,25 @@ export function StoreDropCard({ view }: { view: CollectionView }) {
         </span>
         <span className="app-drop-card-meta">
           {progress}
-          {' · '}@{fallbackLabel(view.creatorId)}
+          {showCreator ? (
+            <>
+              {' · '}@{fallbackLabel(view.creatorId)}
+            </>
+          ) : null}
         </span>
       </span>
     </Link>
   );
 }
 
-/** Latest drop rendered large — cover art, mint progress, price. */
-function StoreDropSpotlightCard({ view }: { view: CollectionView }) {
+/** Latest / featured drop — cover art, mint progress, price. */
+export function StoreDropSpotlightCard({
+  view,
+  showCreator = true,
+}: {
+  view: CollectionView;
+  showCreator?: boolean;
+}) {
   const status = deriveCollectionStatus(view);
   const price = view.priceNear != null ? `${view.priceNear} NEAR` : 'Free';
   const pct =
@@ -182,7 +202,11 @@ function StoreDropSpotlightCard({ view }: { view: CollectionView }) {
         ) : null}
         <span className="app-drop-card-meta">
           {progress}
-          {' · '}@{fallbackLabel(view.creatorId)}
+          {showCreator ? (
+            <>
+              {' · '}@{fallbackLabel(view.creatorId)}
+            </>
+          ) : null}
         </span>
       </span>
     </Link>
