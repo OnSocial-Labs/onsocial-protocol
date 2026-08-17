@@ -92,12 +92,14 @@ function dropsCatalogCacheKey(opts: {
   search: string;
   viewer: string;
 }): string {
+  // Public catalogs are shared; only Saved is viewer-private.
+  const viewerPart = opts.sort === 'saved' ? opts.viewer : '';
   return [
     opts.sort,
     opts.medium,
     opts.audioFormat ?? '',
     opts.search,
-    opts.viewer,
+    viewerPart,
   ].join('|');
 }
 
@@ -771,13 +773,46 @@ export function DropsPagePanel({
   const [hasMore, setHasMore] = useState(
     () => initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE
   );
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(
+    () => initialSort === 'saved' || initialFetchFailed
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [failed, setFailed] = useState(initialFetchFailed);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [activeCatalogKey, setActiveCatalogKey] = useState(() =>
+    dropsCatalogCacheKey({
+      sort: initialSort,
+      medium: toPanelMedium(initialMedium),
+      audioFormat: initialAudioFormat,
+      search: '',
+      viewer: '',
+    })
+  );
   const catalogCacheRef = useRef<Map<string, CatalogCacheEntry>>(new Map());
   const reloadGenRef = useRef(0);
+  const fanFillAttemptedRef = useRef<Set<string>>(new Set());
+  const catalogSeededRef = useRef(false);
+  if (!catalogSeededRef.current) {
+    catalogSeededRef.current = true;
+    if (!initialFetchFailed) {
+      catalogCacheRef.current.set(
+        dropsCatalogCacheKey({
+          sort: initialSort,
+          medium: toPanelMedium(initialMedium),
+          audioFormat: initialAudioFormat,
+          search: '',
+          viewer: '',
+        }),
+        {
+          items: initialItems,
+          hasMore: initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE,
+          creators: initialCreators,
+          at: Date.now(),
+        }
+      );
+    }
+  }
   const [allowlistById, setAllowlistById] = useState<
     Record<string, number | null>
   >({});
@@ -877,6 +912,20 @@ export function DropsPagePanel({
     );
   }, [urlAudioFormat]);
 
+  const patchCatalogCache = useCallback(
+    (
+      key: string,
+      patch: (entry: CatalogCacheEntry) => CatalogCacheEntry | null
+    ) => {
+      const current = catalogCacheRef.current.get(key);
+      if (!current) return;
+      const next = patch(current);
+      if (next) catalogCacheRef.current.set(key, next);
+      else catalogCacheRef.current.delete(key);
+    },
+    []
+  );
+
   const reload = useCallback(
     async (
       nextSort: DropsSort,
@@ -893,8 +942,10 @@ export function DropsPagePanel({
         viewer,
       });
       const gen = ++reloadGenRef.current;
+      setActiveCatalogKey(cacheKey);
       setFailed(false);
       setLoadMoreFailed(false);
+      fanFillAttemptedRef.current = new Set();
 
       const cached = catalogCacheRef.current.get(cacheKey);
       const cacheFresh =
@@ -908,9 +959,10 @@ export function DropsPagePanel({
         setLoading(false);
         setRefreshing(true);
       } else {
-        // Keep previous rows visible (stale-while-revalidate); skeleton only
-        // when we have nothing to show.
-        setRefreshing(true);
+        // Cache miss: skeleton — do not show the previous tab's rows.
+        setItems([]);
+        setCreators([]);
+        setRefreshing(false);
         setLoading(true);
         setOffset(0);
         setHasMore(false);
@@ -968,73 +1020,32 @@ export function DropsPagePanel({
   );
 
   useEffect(() => {
-    // Trust a successful SSR seed (including empty) for the matching catalog.
-    if (
-      reloadKey === 0 &&
-      !initialFetchFailed &&
-      sort === initialSort &&
-      sort !== 'saved' &&
-      medium === toPanelMedium(initialMedium) &&
-      audioFormat === initialAudioFormat &&
-      !debouncedQuery
-    ) {
-      return;
-    }
     void reload(sort, medium, debouncedQuery, audioFormat);
   }, [
     sort,
     medium,
     audioFormat,
     debouncedQuery,
-    initialSort,
-    initialMedium,
-    initialAudioFormat,
-    initialFetchFailed,
     reload,
     reloadKey,
     accountId,
   ]);
 
-  useEffect(() => {
-    // Seed SSR page into the flip cache so Live ↔ other ↔ Live is instant.
-    if (initialFetchFailed) return;
-    const key = dropsCatalogCacheKey({
-      sort: initialSort,
-      medium: toPanelMedium(initialMedium),
-      audioFormat: initialAudioFormat,
-      search: '',
-      viewer: '',
-    });
-    catalogCacheRef.current.set(key, {
-      items: initialItems,
-      hasMore: initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE,
-      creators: initialCreators,
-      at: Date.now(),
-    });
-    // One-shot seed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
-  }, []);
-
   // Soft-fill fan counts after paint (kept off the critical fetch path).
-  const fanFillAttemptedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    fanFillAttemptedRef.current = new Set();
-  }, [sort, medium, audioFormat, debouncedQuery]);
-
-  useEffect(() => {
-    if (sort === 'loved') return;
+    if (sort === 'loved' || refreshing || loading) return;
     const targets = items.filter(
       (item) =>
         (item.fanCount == null || item.fanCount <= 0) &&
         !fanFillAttemptedRef.current.has(item.collectionId)
     );
     if (targets.length === 0) return;
-    for (const item of targets) {
-      fanFillAttemptedRef.current.add(item.collectionId);
-    }
+    const targetIds = targets.map((item) => item.collectionId);
     let cancelled = false;
     void softFillDropFanRosters(targets).then((filled) => {
-      if (cancelled || filled.length === 0) return;
+      if (cancelled) return;
+      // Mark attempted whether or not fans were found — avoids retry storms.
+      for (const id of targetIds) fanFillAttemptedRef.current.add(id);
       const byId = new Map(
         filled
           .filter((row) => row.fanCount != null && row.fanCount > 0)
@@ -1053,13 +1064,34 @@ export function DropsPagePanel({
             ...(row.fanIds ? { fanIds: row.fanIds } : {}),
           };
         });
+        if (changed) {
+          patchCatalogCache(activeCatalogKey, (entry) => ({
+            ...entry,
+            items: entry.items.map((item) => {
+              const row = byId.get(item.collectionId.trim());
+              if (!row) return item;
+              return {
+                ...item,
+                fanCount: row.fanCount,
+                ...(row.fanIds ? { fanIds: row.fanIds } : {}),
+              };
+            }),
+          }));
+        }
         return changed ? next : current;
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [items, sort]);
+  }, [
+    items,
+    sort,
+    refreshing,
+    loading,
+    activeCatalogKey,
+    patchCatalogCache,
+  ]);
 
   // Soft-fill allowlist remaining for Upcoming rows (N× RPC, after paint).
   useEffect(() => {
@@ -1139,7 +1171,10 @@ export function DropsPagePanel({
   }, [items]);
 
   const loadMore = () => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loading || refreshing) return;
+    const gen = reloadGenRef.current;
+    const catalogKey = activeCatalogKey;
+    const pageOffset = offset;
     setLoading(true);
     setLoadMoreFailed(false);
     void fetchDropsPage({
@@ -1148,18 +1183,31 @@ export function DropsPagePanel({
       search: debouncedQuery || null,
       audioFormat,
       limit: DROPS_PAGE_SIZE,
-      offset,
+      offset: pageOffset,
       viewerAccountId: accountId,
     })
       .then((page) => {
-        setItems((current) => [...current, ...page.items]);
-        setOffset((value) => value + page.items.length);
+        if (gen !== reloadGenRef.current) return;
+        setItems((current) => {
+          const merged = [...current, ...page.items];
+          patchCatalogCache(catalogKey, (entry) => ({
+            ...entry,
+            items: merged,
+            hasMore: page.hasMore,
+            at: Date.now(),
+          }));
+          return merged;
+        });
+        setOffset(pageOffset + page.items.length);
         setHasMore(page.hasMore);
       })
       .catch(() => {
+        if (gen !== reloadGenRef.current) return;
         setLoadMoreFailed(true);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (gen === reloadGenRef.current) setLoading(false);
+      });
   };
 
   const needle = query.trim().toLowerCase();
@@ -1176,6 +1224,7 @@ export function DropsPagePanel({
     !audioFormat &&
     medium === 'all' &&
     !loading &&
+    !refreshing &&
     visibleItems.length >= 2
       ? pickFeaturedLiveDrop(visibleItems, nowMs)
       : null;
@@ -1218,32 +1267,53 @@ export function DropsPagePanel({
         void toggleSave(item.collectionId);
       }}
       onOwnerManaged={(change) => {
+        const id = item.collectionId;
         if (change === 'deleted' || change === 'paused') {
           // Live / closing tabs hide paused & deleted; remove immediately.
           if (sort === 'live' || sort === 'closing' || change === 'deleted') {
             setItems((current) =>
-              current.filter((row) => row.collectionId !== item.collectionId)
+              current.filter((row) => row.collectionId !== id)
             );
+            patchCatalogCache(activeCatalogKey, (entry) => ({
+              ...entry,
+              items: entry.items.filter((row) => row.collectionId !== id),
+            }));
             return;
           }
         }
         if (change === 'resumed') {
           setItems((current) =>
             current.map((row) =>
-              row.collectionId === item.collectionId
+              row.collectionId === id
                 ? { ...row, status: 'live' as const }
                 : row
             )
           );
+          patchCatalogCache(activeCatalogKey, (entry) => ({
+            ...entry,
+            items: entry.items.map((row) =>
+              row.collectionId === id
+                ? { ...row, status: 'live' as const }
+                : row
+            ),
+          }));
           return;
         }
         setItems((current) =>
           current.map((row) =>
-            row.collectionId === item.collectionId
+            row.collectionId === id
               ? { ...row, status: 'paused' as const }
               : row
           )
         );
+        patchCatalogCache(activeCatalogKey, (entry) => ({
+          ...entry,
+          items: entry.items.map((row) =>
+            row.collectionId === id
+              ? { ...row, status: 'paused' as const }
+              : row
+          ),
+        }));
       }}
       onPlay={
         item.hasPlayable
@@ -1444,7 +1514,8 @@ export function DropsPagePanel({
             {hasMore &&
             items.length > 0 &&
             (!searching || needle === debouncedQuery.toLowerCase()) &&
-            !failed ? (
+            !failed &&
+            !refreshing ? (
               <button
                 type="button"
                 className="market-sales-more"
