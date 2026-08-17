@@ -1,4 +1,13 @@
 import { expect, test } from '@playwright/test';
+import {
+  clickTab,
+  clickTabAndWaitUrl,
+  E2E_CHROME_TIMEOUT_MS,
+  expectTabSelected,
+  expectTabVisible,
+  gotoApp,
+  tablist,
+} from './helpers';
 
 /**
  * Smoke for Market discovery chrome — listing type, medium rail, deep-links.
@@ -8,98 +17,62 @@ test.describe('market discovery', () => {
   test('loads catalog chrome and switches medium + format', async ({
     page,
   }) => {
-    await page.goto('/market', { waitUntil: 'domcontentloaded' });
+    await gotoApp(page, '/market');
 
     await expect(
       page.getByRole('textbox', { name: 'Search Market listings' })
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
 
-    const listingType = page.getByRole('tablist', { name: 'Listing type' });
-    await expect(listingType.getByRole('tab', { name: 'All' })).toBeVisible();
-    await expect(
-      listingType.getByRole('tab', { name: 'Auctions' })
-    ).toBeVisible();
+    await expectTabVisible(page, 'Listing type', 'All');
+    await expectTabVisible(page, 'Listing type', 'Auctions');
 
-    const mediumRail = page.getByRole('tablist', { name: 'Listing medium' });
-    await expect(mediumRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
-    await expect(mediumRail.getByRole('tab', { name: 'Thoughts' })).toBeVisible();
-    await expect(mediumRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
+    await expectTabVisible(page, 'Listing medium', 'Audio');
+    await expectTabVisible(page, 'Listing medium', 'Thoughts');
+    await expectTabVisible(page, 'Listing medium', 'Tickets');
 
-    await mediumRail.getByRole('tab', { name: 'Audio' }).click();
-    await page.waitForURL(/kind=audio/);
-    const formatRail = page.getByRole('tablist', { name: 'Release format' });
-    await expect(formatRail.getByRole('tab', { name: 'Album' })).toBeVisible();
-    await expect(formatRail.getByRole('tab', { name: 'Podcast' })).toBeVisible();
+    await clickTabAndWaitUrl(page, 'Listing medium', 'Audio', /kind=audio/);
+    await expectTabVisible(page, 'Release format', 'Album');
+    await expectTabVisible(page, 'Release format', 'Podcast');
 
-    await formatRail.getByRole('tab', { name: 'Podcast' }).click();
-    await page.waitForURL(/audioFormat=podcast/);
-    await expect(formatRail.getByRole('tab', { name: 'Podcast' })).toHaveAttribute(
-      'aria-selected',
-      'true'
+    await clickTabAndWaitUrl(
+      page,
+      'Release format',
+      'Podcast',
+      /audioFormat=podcast/
     );
+    await expectTabSelected(page, 'Release format', 'Podcast');
   });
 
   test('deep-links medium and audio format from the URL', async ({ page }) => {
-    await page.goto('/market?kind=audio&audioFormat=podcast', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(
-      page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
-        name: 'Audio',
-      })
-    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
-    await expect(
-      page.getByRole('tablist', { name: 'Release format' }).getByRole('tab', {
-        name: 'Podcast',
-      })
-    ).toHaveAttribute('aria-selected', 'true');
+    await gotoApp(page, '/market?kind=audio&audioFormat=podcast');
+    await expectTabSelected(page, 'Listing medium', 'Audio');
+    await expectTabSelected(page, 'Release format', 'Podcast');
   });
 
   test('deep-links tickets medium without seeding unfiltered rows', async ({
     page,
   }) => {
-    await page.goto('/market?kind=ticket', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(
-      page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
-        name: 'Tickets',
-      })
-    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
+    await gotoApp(page, '/market?kind=ticket');
+    await expectTabSelected(page, 'Listing medium', 'Tickets');
   });
 
   test('deep-links thoughts medium for primary post-mints', async ({
     page,
   }) => {
-    await page.goto('/market?kind=thought', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(
-      page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
-        name: 'Thoughts',
-      })
-    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
+    await gotoApp(page, '/market?kind=thought');
+    await expectTabSelected(page, 'Listing medium', 'Thoughts');
   });
 
   test('listing-type tab stays selected after flip', async ({ page }) => {
-    await page.goto('/market', { waitUntil: 'domcontentloaded' });
-    const listingType = page.getByRole('tablist', { name: 'Listing type' });
-    await expect(listingType.getByRole('tab', { name: 'All' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await gotoApp(page, '/market');
+    await expectTabVisible(page, 'Listing type', 'All');
 
-    await listingType.getByRole('tab', { name: 'Auctions' }).click();
-    await expect(
-      listingType.getByRole('tab', { name: 'Auctions' })
-    ).toHaveAttribute('aria-selected', 'true');
+    await clickTab(page, 'Listing type', 'Auctions');
+    await expectTabSelected(page, 'Listing type', 'Auctions');
 
-    await listingType.getByRole('tab', { name: 'All' }).click();
-    await expect(listingType.getByRole('tab', { name: 'All' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    await clickTab(page, 'Listing type', 'All');
+    await expectTabSelected(page, 'Listing type', 'All');
+
+    await expect(tablist(page, 'Listing type')).toBeVisible();
   });
 });

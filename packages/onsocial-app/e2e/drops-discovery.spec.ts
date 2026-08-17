@@ -1,4 +1,12 @@
 import { expect, test } from '@playwright/test';
+import {
+  clickTab,
+  clickTabAndWaitUrl,
+  E2E_CHROME_TIMEOUT_MS,
+  expectTabSelected,
+  expectTabVisible,
+  gotoApp,
+} from './helpers';
 
 /**
  * Smoke for Drops discovery chrome — sort / medium rails, formats, deep-links.
@@ -6,95 +14,65 @@ import { expect, test } from '@playwright/test';
  */
 test.describe('drops discovery', () => {
   test('loads catalog chrome and switches sort + medium', async ({ page }) => {
-    await page.goto('/drops', { waitUntil: 'domcontentloaded' });
+    await gotoApp(page, '/drops');
 
     await expect(
       page.getByRole('textbox', { name: 'Search drops' })
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
 
-    const sortRail = page.getByRole('tablist', { name: 'Drop sort' });
-    await expect(sortRail.getByRole('tab', { name: 'Live' })).toBeVisible();
-    await expect(sortRail.getByRole('tab', { name: 'Upcoming' })).toBeVisible();
+    await expectTabVisible(page, 'Drop sort', 'Live');
+    await expectTabVisible(page, 'Drop sort', 'Upcoming');
 
-    await sortRail.getByRole('tab', { name: 'Upcoming' }).click();
-    await page.waitForURL(/sort=upcoming/);
-    await expect(
-      sortRail.getByRole('tab', { name: 'Upcoming' })
-    ).toHaveAttribute('aria-selected', 'true');
+    await clickTabAndWaitUrl(page, 'Drop sort', 'Upcoming', /sort=upcoming/);
+    await expectTabSelected(page, 'Drop sort', 'Upcoming');
 
-    const mediumRail = page.getByRole('tablist', { name: 'Drop medium' });
-    await expect(mediumRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
-    await expect(mediumRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
+    await expectTabVisible(page, 'Drop medium', 'Audio');
+    await expectTabVisible(page, 'Drop medium', 'Tickets');
 
-    await mediumRail.getByRole('tab', { name: 'Audio' }).click();
-    await page.waitForURL(/kind=audio/);
-    const formatRail = page.getByRole('tablist', { name: 'Release format' });
-    await expect(formatRail).toBeVisible();
-    await expect(formatRail.getByRole('tab', { name: 'Album' })).toBeVisible();
-    await expect(formatRail.getByRole('tab', { name: 'Podcast' })).toBeVisible();
+    await clickTabAndWaitUrl(page, 'Drop medium', 'Audio', /kind=audio/);
+    await expectTabVisible(page, 'Release format', 'Album');
+    await expectTabVisible(page, 'Release format', 'Podcast');
 
-    await formatRail.getByRole('tab', { name: 'Album' }).click();
-    await page.waitForURL(/audioFormat=album/);
-    await expect(formatRail.getByRole('tab', { name: 'Album' })).toHaveAttribute(
-      'aria-selected',
-      'true'
+    await clickTabAndWaitUrl(
+      page,
+      'Release format',
+      'Album',
+      /audioFormat=album/
     );
+    await expectTabSelected(page, 'Release format', 'Album');
   });
 
   test('deep-links sort and medium from the URL', async ({ page }) => {
-    await page.goto('/drops?sort=closing&kind=ticket', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(
-      page.getByRole('tablist', { name: 'Drop sort' }).getByRole('tab', {
-        name: 'Closing',
-      })
-    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
-    await expect(
-      page.getByRole('tablist', { name: 'Drop medium' }).getByRole('tab', {
-        name: 'Tickets',
-      })
-    ).toHaveAttribute('aria-selected', 'true');
+    await gotoApp(page, '/drops?sort=closing&kind=ticket');
+    await expectTabSelected(page, 'Drop sort', 'Closing');
+    await expectTabSelected(page, 'Drop medium', 'Tickets');
   });
 
   test('deep-links audio format under Audio medium', async ({ page }) => {
-    await page.goto('/drops?kind=audio&audioFormat=podcast', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(
-      page.getByRole('tablist', { name: 'Drop medium' }).getByRole('tab', {
-        name: 'Audio',
-      })
-    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
-    await expect(
-      page.getByRole('tablist', { name: 'Release format' }).getByRole('tab', {
-        name: 'Podcast',
-      })
-    ).toHaveAttribute('aria-selected', 'true');
+    await gotoApp(page, '/drops?kind=audio&audioFormat=podcast');
+    await expectTabSelected(page, 'Drop medium', 'Audio');
+    await expectTabSelected(page, 'Release format', 'Podcast');
   });
 
   test('flip-back keeps catalog chrome without blanking search', async ({
     page,
   }) => {
-    await page.goto('/drops', { waitUntil: 'domcontentloaded' });
-    const sortRail = page.getByRole('tablist', { name: 'Drop sort' });
-    await expect(sortRail.getByRole('tab', { name: 'Live' })).toBeVisible({
-      timeout: 30_000,
-    });
+    await gotoApp(page, '/drops');
+    await expectTabVisible(page, 'Drop sort', 'Live');
 
-    await sortRail.getByRole('tab', { name: 'New' }).click();
-    await page.waitForURL(/sort=new/);
-    await sortRail.getByRole('tab', { name: 'Live' }).click();
-    await page.waitForURL((url) => !url.searchParams.has('sort'));
+    await clickTab(page, 'Drop sort', 'New');
+    await expect
+      .poll(() => new URL(page.url()).searchParams.get('sort'))
+      .toBe('new');
+    await clickTab(page, 'Drop sort', 'Live');
+    // Default Live omits `sort` — poll URL (no nav if already clean).
+    await expect
+      .poll(() => new URL(page.url()).searchParams.has('sort'))
+      .toBe(false);
 
     await expect(
       page.getByRole('textbox', { name: 'Search drops' })
     ).toBeVisible();
-    await expect(sortRail.getByRole('tab', { name: 'Live' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    await expectTabSelected(page, 'Drop sort', 'Live');
   });
 });
