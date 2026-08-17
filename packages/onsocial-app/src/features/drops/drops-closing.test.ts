@@ -3,6 +3,7 @@ import {
   DROPS_CLOSING_MS,
   closingPageHasMore,
   isDropClosing,
+  lovedMediumPageHasMore,
   upcomingBucket,
 } from '@/features/drops/drops-data';
 
@@ -110,6 +111,62 @@ describe('closingPageHasMore', () => {
         liveExhausted: false,
       })
     ).toBe(true);
+  });
+});
+
+describe('lovedMediumPageHasMore', () => {
+  it('never claims more on an empty or short page', () => {
+    expect(
+      lovedMediumPageHasMore({
+        pageItemCount: 0,
+        limit: 24,
+        matchedCount: 0,
+        offset: 0,
+        exhausted: false,
+      })
+    ).toBe(false);
+    expect(
+      lovedMediumPageHasMore({
+        pageItemCount: 3,
+        limit: 24,
+        matchedCount: 3,
+        offset: 0,
+        exhausted: false,
+      })
+    ).toBe(false);
+  });
+
+  it('pages a full window when more matches or love rows remain', () => {
+    expect(
+      lovedMediumPageHasMore({
+        pageItemCount: 24,
+        limit: 24,
+        matchedCount: 24,
+        offset: 0,
+        exhausted: false,
+      })
+    ).toBe(true);
+    expect(
+      lovedMediumPageHasMore({
+        pageItemCount: 24,
+        limit: 24,
+        matchedCount: 40,
+        offset: 0,
+        exhausted: true,
+      })
+    ).toBe(true);
+  });
+
+  it('stops when the full page is the end of matches', () => {
+    expect(
+      lovedMediumPageHasMore({
+        pageItemCount: 24,
+        limit: 24,
+        matchedCount: 24,
+        offset: 0,
+        exhausted: true,
+      })
+    ).toBe(false);
   });
 });
 

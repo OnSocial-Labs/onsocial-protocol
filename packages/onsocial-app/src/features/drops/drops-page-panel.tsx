@@ -53,9 +53,12 @@ import {
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
   DROPS_SORT_PARAM,
+  MARKET_KIND_PARAM,
   collectionPath,
   dropsPath,
+  parseDropsMediumParam,
   parseDropsSortParam,
+  type DropsMediumParam,
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
@@ -571,17 +574,39 @@ function DropRow({
   );
 }
 
+function dropMediumLabel(medium: MarketMediumFilter): string | null {
+  if (medium === 'all') return null;
+  return DROP_MEDIUM_FILTERS.find((entry) => entry.id === medium)?.label ?? null;
+}
+
 function EmptyDropsStatus({
   sort,
   query,
+  medium,
 }: {
   sort: DropsSort;
   query: string;
+  medium: MarketMediumFilter;
 }) {
+  const mediumLabel = dropMediumLabel(medium);
   if (query.trim()) {
     return (
       <p className="market-page-status">
         No loaded drops match “{query.trim()}”. Try another tab or clear search.
+      </p>
+    );
+  }
+  if (mediumLabel) {
+    return (
+      <p className="market-page-status">
+        No {mediumLabel.toLowerCase()} drops here.{' '}
+        <Link href={dropsPath({ sort })}>Clear filter</Link>
+        {sort !== 'live' ? (
+          <>
+            {' · '}
+            <Link href={dropsPath({ kind: medium })}>See Live</Link>
+          </>
+        ) : null}
       </p>
     );
   }
@@ -631,8 +656,13 @@ function EmptyDropsStatus({
   return <p className="market-page-status">No drops yet.</p>;
 }
 
+function toPanelMedium(value: DropsMediumParam): MarketMediumFilter {
+  return value;
+}
+
 export function DropsPagePanel({
   initialSort = 'live',
+  initialMedium = 'all',
   initialItems = [],
   initialHasMore,
   initialFetchFailed = false,
@@ -640,6 +670,8 @@ export function DropsPagePanel({
   initialNowMs,
 }: {
   initialSort?: DropsSort;
+  /** From SSR / `?kind=` — Events = `ticket`. */
+  initialMedium?: DropsMediumParam;
   initialItems?: DropDiscoveryItem[];
   /** From SSR `fetchDropsPage`; defaults to a full-page guess. */
   initialHasMore?: boolean;
@@ -653,6 +685,7 @@ export function DropsPagePanel({
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlSort = parseDropsSortParam(searchParams.get(DROPS_SORT_PARAM));
+  const urlMedium = parseDropsMediumParam(searchParams.get(MARKET_KIND_PARAM));
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
   const [nowMs, setNowMs] = useState(
@@ -673,7 +706,11 @@ export function DropsPagePanel({
   const [sort, setSort] = useState<DropsSort>(() =>
     searchParams.get(DROPS_SORT_PARAM) ? urlSort : initialSort
   );
-  const [medium, setMedium] = useState<MarketMediumFilter>('all');
+  const [medium, setMedium] = useState<MarketMediumFilter>(() =>
+    searchParams.get(MARKET_KIND_PARAM)
+      ? toPanelMedium(urlMedium)
+      : toPanelMedium(initialMedium)
+  );
   const [query, setQuery] = useState('');
   const [items, setItems] = useState(initialItems);
   const [creators, setCreators] = useState(initialCreators);
@@ -710,21 +747,36 @@ export function DropsPagePanel({
         return;
       }
       setSort(next);
-      router.replace(dropsPath({ sort: next }), { scroll: false });
+      router.replace(dropsPath({ sort: next, kind: medium }), {
+        scroll: false,
+      });
     },
-    [connect, isConnected, router]
+    [connect, isConnected, medium, router]
+  );
+
+  const selectMedium = useCallback(
+    (next: MarketMediumFilter) => {
+      setMedium(next);
+      router.replace(dropsPath({ sort, kind: next }), { scroll: false });
+    },
+    [router, sort]
   );
 
   useEffect(() => {
     if (urlSort === 'saved' && !isConnected) {
       setSort((current) => (current === 'live' ? current : 'live'));
       if (searchParams.get(DROPS_SORT_PARAM)) {
-        router.replace(dropsPath(), { scroll: false });
+        router.replace(dropsPath({ kind: urlMedium }), { scroll: false });
       }
       return;
     }
     setSort((current) => (current === urlSort ? current : urlSort));
-  }, [urlSort, isConnected, router, searchParams]);
+  }, [urlSort, urlMedium, isConnected, router, searchParams]);
+
+  useEffect(() => {
+    const next = toPanelMedium(urlMedium);
+    setMedium((current) => (current === next ? current : next));
+  }, [urlMedium]);
 
   const reload = useCallback(
     async (nextSort: DropsSort, nextMedium: MarketMediumFilter) => {
@@ -768,13 +820,13 @@ export function DropsPagePanel({
   );
 
   useEffect(() => {
+    // Trust a successful SSR seed (including empty) for the matching sort/medium.
     if (
       reloadKey === 0 &&
       !initialFetchFailed &&
       sort === initialSort &&
       sort !== 'saved' &&
-      medium === 'all' &&
-      initialItems.length > 0
+      medium === toPanelMedium(initialMedium)
     ) {
       return;
     }
@@ -783,7 +835,7 @@ export function DropsPagePanel({
     sort,
     medium,
     initialSort,
-    initialItems.length,
+    initialMedium,
     initialFetchFailed,
     reload,
     reloadKey,
@@ -1041,7 +1093,7 @@ export function DropsPagePanel({
                     className={
                       medium === entry.id ? 'is-active' : undefined
                     }
-                    onClick={() => setMedium(entry.id)}
+                    onClick={() => selectMedium(entry.id)}
                   >
                     {entry.label}
                   </button>
@@ -1109,7 +1161,7 @@ export function DropsPagePanel({
             ) : showCatalogSkeleton ? (
               <MarketListSkeleton rows={5} />
             ) : visibleItems.length === 0 && !loading ? (
-              <EmptyDropsStatus sort={sort} query={query} />
+              <EmptyDropsStatus sort={sort} query={query} medium={medium} />
             ) : (
               <>
                 {featured ? (
@@ -1151,7 +1203,10 @@ export function DropsPagePanel({
                 </button>
               </p>
             ) : null}
-            {hasMore && needle.length === 0 && !failed ? (
+            {hasMore &&
+            items.length > 0 &&
+            needle.length === 0 &&
+            !failed ? (
               <button
                 type="button"
                 className="market-sales-more"

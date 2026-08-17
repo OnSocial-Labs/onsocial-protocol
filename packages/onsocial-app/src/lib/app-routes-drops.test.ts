@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   APP_DROPS_PATH,
   DROPS_SORT_PARAM,
+  MARKET_KIND_PARAM,
   dropsPath,
+  parseDropsMediumParam,
   parseDropsSortParam,
 } from '@/lib/app-routes';
 
@@ -29,6 +31,16 @@ describe('dropsPath', () => {
       `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=closing`
     );
   });
+
+  it('deep-links medium kind and combines with sort', () => {
+    expect(dropsPath({ kind: 'ticket' })).toBe(
+      `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=ticket`
+    );
+    expect(dropsPath({ sort: 'upcoming', kind: 'audio' })).toBe(
+      `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=upcoming&${MARKET_KIND_PARAM}=audio`
+    );
+    expect(dropsPath({ sort: 'live', kind: 'all' })).toBe(APP_DROPS_PATH);
+  });
 });
 
 describe('parseDropsSortParam', () => {
@@ -44,5 +56,15 @@ describe('parseDropsSortParam', () => {
   it('aliases minting and volume to live', () => {
     expect(parseDropsSortParam('Minting')).toBe('live');
     expect(parseDropsSortParam('volume')).toBe('live');
+  });
+});
+
+describe('parseDropsMediumParam', () => {
+  it('parses Drops rail mediums and defaults to all', () => {
+    expect(parseDropsMediumParam('ticket')).toBe('ticket');
+    expect(parseDropsMediumParam('audio')).toBe('audio');
+    expect(parseDropsMediumParam('music')).toBe('audio');
+    expect(parseDropsMediumParam('coupon')).toBe('all');
+    expect(parseDropsMediumParam(null)).toBe('all');
   });
 });
