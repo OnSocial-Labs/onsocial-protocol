@@ -14,6 +14,8 @@ export type MarketPageData = {
 /**
  * Default Market browse shell (newest, unfiltered) for SSR first paint.
  * Soft client refresh covers filter/sort/search and wallet “Yours”.
+ * Discovery URL params (`kind` / `facets` / `audioFormat` / creator / app)
+ * skip this seed in the panel and fetch the narrowed catalog instead.
  */
 export async function loadMarketPageData(): Promise<MarketPageData | null> {
   try {
