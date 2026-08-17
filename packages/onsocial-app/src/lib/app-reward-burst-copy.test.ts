@@ -118,20 +118,35 @@ describe('compressAppRewardBurstReasons', () => {
     ).toEqual(['Mutual stand · alice.near']);
   });
 
-  it('keeps daily check-in when stand is in the same burst', () => {
+  it('drops daily when stand already explains the social beat', () => {
     expect(
       compressAppRewardBurstReasons([
         { action: 'stand_given', targetAccountId: 'alice.near' },
         { action: 'daily_active' },
       ])
-    ).toEqual(['Stand · alice.near', 'Daily check-in']);
+    ).toEqual(['Stand · alice.near']);
+  });
+
+  it('keeps daily when it is the only credit reason', () => {
+    expect(compressAppRewardBurstReasons([{ action: 'daily_active' }])).toEqual(
+      ['Daily check-in']
+    );
   });
 });
 
 describe('formatShortBurstReason', () => {
-  it('joins stand and daily on one line', () => {
+  it('joins short reasons on one line', () => {
+    expect(formatShortBurstReason(['Stand · Maya', 'Profile saved'])).toBe(
+      'Stand · Maya · Profile saved'
+    );
+  });
+
+  it('drops trailing reasons instead of mid-string ellipsis', () => {
     expect(
-      formatShortBurstReason(['Stand · alice.near', 'Daily check-in'])
-    ).toBe('Stand · alice.near · Daily check-in');
+      formatShortBurstReason([
+        'Mutual stand · Maya Rodriguez',
+        'Profile saved',
+      ])
+    ).toBe('Mutual stand · Maya Rodriguez');
   });
 });

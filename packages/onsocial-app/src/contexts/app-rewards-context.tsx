@@ -27,6 +27,7 @@ import { onAppRewardCredited } from '@/lib/app-reward-events';
 import {
   APP_REWARD_TOAST_HOLD_MS,
   buildAppRewardCollectToast,
+  buildAppRewardCreditCaption,
   buildAppRewardCreditToast,
 } from '@/lib/app-rewards-toast';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
@@ -59,6 +60,11 @@ interface AppRewardsContextValue {
   loading: boolean;
   /** Bumps when passive credits land — drives activity bar pulse. */
   activityBarPulseKey: number;
+  /**
+   * Inline Activity caption while the account sheet is open
+   * (global toast is suppressed in that case).
+   */
+  sheetCreditHint: string | null;
   refreshRewards: (options?: RefreshRewardsOptions) => Promise<void>;
   claimRewards: () => Promise<void>;
 }
@@ -89,6 +95,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [collectPhase, setCollectPhase] = useState<AppCollectPhase>('idle');
   const [activityBarPulseKey, setActivityBarPulseKey] = useState(0);
+  const [sheetCreditHint, setSheetCreditHint] = useState<string | null>(null);
   const refreshGenerationRef = useRef(0);
   const chainClaimableRef = useRef(0n);
   const [pendingCreditYocto, setPendingCreditYocto] = useState(0n);
@@ -103,6 +110,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
   });
   const toastActiveRef = useRef(false);
   const toastHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sheetHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const accountSheetOpenRef = useRef(accountSheetOpen);
   const lastCelebratedSignatureRef = useRef<string | null>(null);
   const flushAggregatedCreditBurstRef = useRef<() => void>(() => {});
@@ -209,11 +217,16 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCollectPhase('idle');
     setPendingCreditYocto(0n);
+    setSheetCreditHint(null);
     chainClaimableRef.current = 0n;
     toastActiveRef.current = false;
     if (toastHoldTimerRef.current) {
       clearTimeout(toastHoldTimerRef.current);
       toastHoldTimerRef.current = null;
+    }
+    if (sheetHintTimerRef.current) {
+      clearTimeout(sheetHintTimerRef.current);
+      sheetHintTimerRef.current = null;
     }
     lastCelebratedSignatureRef.current = null;
     aggregateRef.current = { total: 0n, events: [], timer: null };
@@ -248,6 +261,19 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     }, APP_REWARD_TOAST_HOLD_MS);
   }, []);
 
+  const showSheetCreditHint = useCallback((events: PlatformRewardCreditEvent[]) => {
+    const caption = buildAppRewardCreditCaption(events);
+    if (!caption) return;
+    setSheetCreditHint(caption);
+    if (sheetHintTimerRef.current) {
+      clearTimeout(sheetHintTimerRef.current);
+    }
+    sheetHintTimerRef.current = setTimeout(() => {
+      sheetHintTimerRef.current = null;
+      setSheetCreditHint(null);
+    }, APP_REWARD_TOAST_HOLD_MS);
+  }, []);
+
   const showCreditToast = useCallback(
     (events: PlatformRewardCreditEvent[]) => {
       const toast = buildAppRewardCreditToast(events);
@@ -271,7 +297,9 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       setPendingCreditYocto((pending) => pending + total);
       setActivityBarPulseKey((key) => key + 1);
 
-      if (!accountSheetOpenRef.current) {
+      if (accountSheetOpenRef.current) {
+        showSheetCreditHint(events);
+      } else {
         showCreditToast(events);
       }
 
@@ -279,7 +307,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
         void refreshRewardsWithRetry({ silent: true, fresh: true });
       }
     },
-    [refreshRewardsWithRetry, showCreditToast]
+    [refreshRewardsWithRetry, showCreditToast, showSheetCreditHint]
   );
 
   const flushAggregatedCreditBurst = useCallback(() => {
@@ -352,6 +380,9 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       }
       if (toastHoldTimerRef.current) {
         clearTimeout(toastHoldTimerRef.current);
+      }
+      if (sheetHintTimerRef.current) {
+        clearTimeout(sheetHintTimerRef.current);
       }
     };
   }, []);
@@ -467,6 +498,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       remainingToClaimYocto,
       loading,
       activityBarPulseKey,
+      sheetCreditHint,
       refreshRewards,
       claimRewards,
     }),
@@ -480,6 +512,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       loading,
       refreshRewards,
       remainingToClaimYocto,
+      sheetCreditHint,
     ]
   );
 

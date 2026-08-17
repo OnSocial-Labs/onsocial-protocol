@@ -122,17 +122,26 @@ export function shouldShowBurstCelebration(
   return resolveBurstDisplayAmount(events) > 0n;
 }
 
-/** Drop stand_given when mutual_stand is in the same burst — one social line is enough. */
+/**
+ * Compress burst reasons for one toast/caption line.
+ * - Prefer mutual over stand in the same burst
+ * - Drop daily when stand/mutual already explains the social beat (amount still sums)
+ */
 export function compressAppRewardBurstReasons(
   events: AppRewardBurstContext[]
 ): string[] {
   const hasMutual = events.some(
     (event) => event.action === 'mutual_stand_created'
   );
+  const hasSocialStand = events.some(
+    (event) =>
+      event.action === 'stand_given' || event.action === 'mutual_stand_created'
+  );
   const reasons: string[] = [];
 
   for (const event of events) {
     if (event.action === 'stand_given' && hasMutual) continue;
+    if (event.action === 'daily_active' && hasSocialStand) continue;
 
     const reason = formatAppRewardBurstReason(event);
     if (!reasons.includes(reason)) {
@@ -145,17 +154,20 @@ export function compressAppRewardBurstReasons(
 
 const SHORT_BURST_REASON_MAX = 36;
 
-/** One line for the celebration pill — joined reasons, trimmed. */
+/** One line for toast/caption — prefer dropping secondary reasons over mid-string cut. */
 export function formatShortBurstReason(reasons: string[]): string | null {
   const trimmed = reasons.map((reason) => reason.trim()).filter(Boolean);
   if (trimmed.length === 0) {
     return null;
   }
 
-  const line = trimmed.join(' · ');
-  if (line.length <= SHORT_BURST_REASON_MAX) {
-    return line;
+  for (let keep = trimmed.length; keep >= 1; keep -= 1) {
+    const line = trimmed.slice(0, keep).join(' · ');
+    if (line.length <= SHORT_BURST_REASON_MAX) {
+      return line;
+    }
   }
 
-  return `${line.slice(0, SHORT_BURST_REASON_MAX - 1)}…`;
+  const first = trimmed[0]!;
+  return `${first.slice(0, SHORT_BURST_REASON_MAX - 1)}…`;
 }

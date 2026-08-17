@@ -4,6 +4,7 @@ import { formatSocialCompact } from '@/lib/format-social-balance';
 import {
   APP_REWARD_TOAST_HOLD_MS,
   buildAppRewardCollectToast,
+  buildAppRewardCreditCaption,
   buildAppRewardCreditToast,
 } from '@/lib/app-rewards-toast';
 import { txToastSuccess } from '@/lib/transaction-toast-copy';
@@ -41,7 +42,7 @@ describe('app rewards toast e2e contract', () => {
     expect(toast?.msg).toContain('Stand · Maya');
   });
 
-  it('aggregates stand + daily into one credit toast line', () => {
+  it('aggregates stand + daily amount but reasons stay on the social beat', () => {
     const toast = buildAppRewardCreditToast([
       {
         amountYocto: CREDIT_YOCTO,
@@ -60,10 +61,24 @@ describe('app rewards toast e2e contract', () => {
     expect(toast?.msg).toBe(
       txToastSuccess.rewardCredited(
         formatSocialCompact((BigInt(CREDIT_YOCTO) * 2n).toString()),
-        'Stand · Maya · Daily check-in'
+        'Stand · Maya'
       )
     );
+    expect(toast?.msg).not.toContain('Daily');
     expect(toast?.explorerHref).toBe(nearExplorerTxHref('daily-tx'));
+  });
+
+  it('builds a sheet caption without repeating SOCIAL', () => {
+    expect(
+      buildAppRewardCreditCaption([
+        {
+          amountYocto: CREDIT_YOCTO,
+          action: 'stand_given',
+          targetAccountId: 'maya.near',
+          targetDisplayName: 'Maya',
+        },
+      ])
+    ).toBe(`+${formatSocialCompact(CREDIT_YOCTO)} · Stand · Maya`);
   });
 
   it('prefers mutual stand over stand in the credit toast reason', () => {
