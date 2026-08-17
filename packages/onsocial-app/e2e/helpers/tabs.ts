@@ -54,3 +54,41 @@ export async function clickTabAndWaitUrl(
   await clickTab(page, tablistName, tabName);
   await page.waitForURL(url, { timeout: E2E_CHROME_TIMEOUT_MS });
 }
+
+/** SearchField textbox by accessible name (`ariaLabel ?? placeholder`). */
+export function searchField(page: Page, name: string | RegExp): Locator {
+  return page.getByRole('textbox', { name });
+}
+
+export async function expectSearchVisible(
+  page: Page,
+  name: string | RegExp,
+  opts?: { timeout?: number }
+): Promise<void> {
+  await expect(searchField(page, name)).toBeVisible({
+    timeout: opts?.timeout ?? E2E_CHROME_TIMEOUT_MS,
+  });
+}
+
+/**
+ * ChoiceDrawerMenu trigger — default aria is `Open ${label.toLowerCase()} menu`.
+ */
+export function choiceMenu(page: Page, label: string): Locator {
+  return page.getByRole('button', {
+    name: `Open ${label.toLowerCase()} menu`,
+  });
+}
+
+export async function expectChoiceMenuVisible(
+  page: Page,
+  label: string,
+  opts?: { timeout?: number; containsText?: string | RegExp }
+): Promise<void> {
+  const trigger = choiceMenu(page, label);
+  await expect(trigger).toBeVisible({
+    timeout: opts?.timeout ?? E2E_CHROME_TIMEOUT_MS,
+  });
+  if (opts?.containsText != null) {
+    await expect(trigger).toContainText(opts.containsText);
+  }
+}

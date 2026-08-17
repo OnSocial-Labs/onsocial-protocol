@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /** Default visibility timeout for app chrome smokes. */
 export const E2E_CHROME_TIMEOUT_MS = 30_000;
@@ -62,4 +62,69 @@ export async function expectStandingPageOrSkip(
     test.skip(true, `Portfolio account ${accountId} not found on this network`);
   }
   await expect(standing).toBeVisible({ timeout: 5_000 });
+}
+
+/** Visible glass sheet (soft intercept), via UI `GlassSheet` class contract. */
+export function glassSheetVisible(page: Page): Locator {
+  return page.locator('.glass-sheet-root.is-visible');
+}
+
+export async function expectGlassSheetVisible(
+  page: Page,
+  opts?: { timeout?: number }
+): Promise<void> {
+  await expect(glassSheetVisible(page)).toBeVisible({
+    timeout: opts?.timeout ?? 10_000,
+  });
+}
+
+export async function expectGlassSheetHidden(page: Page): Promise<void> {
+  await expect(glassSheetVisible(page)).toHaveCount(0);
+}
+
+/**
+ * Soft-open standing from the portfolio face.
+ * Waits for RSC soft-nav when present (not a hard navigation).
+ */
+export async function openStandingFromProfile(page: Page): Promise<void> {
+  await waitForPortfolioClientReady(page);
+
+  const standingLink = page.locator('a[href*="/standing/incoming"]').first();
+  await expect(standingLink).toBeVisible();
+
+  const softNav = page
+    .waitForResponse(
+      (resp) =>
+        resp.request().method() === 'GET' &&
+        (resp.url().includes('_rsc') ||
+          resp.headers()['content-type']?.includes('text/x-component') ===
+            true),
+      { timeout: 15_000 }
+    )
+    .catch(() => null);
+
+  await standingLink.click();
+  await softNav;
+  await page.waitForURL(new RegExp(`/standing/incoming`));
+}
+
+export async function closeStandingDrawer(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: 'Close Standing', exact: true })
+    .click();
+}
+
+export async function openDiscoverFromStandingDrawer(page: Page): Promise<void> {
+  await page
+    .getByRole('link', { name: 'Discover profiles to stand with' })
+    .click();
+  await page.waitForURL(new RegExp(`/discover`));
+}
+
+export async function switchStandingView(
+  page: Page,
+  label: string
+): Promise<void> {
+  await page.getByRole('button', { name: 'Open standing menu' }).click();
+  await page.getByRole('option', { name: label }).click();
 }

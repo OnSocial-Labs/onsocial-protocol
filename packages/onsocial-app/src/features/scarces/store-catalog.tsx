@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
   collectionStatusLabel,
   deriveCollectionStatus,
@@ -53,34 +54,25 @@ export function StoreCatalogTabs({
           pinned && scrollHidden ? ' is-scroll-hidden' : ''
         }`}
       >
-        <div
-          className="discover-tab-bar market-listing-filters app-hub-catalog-tabs"
-          role="tablist"
-          aria-label="Store catalog"
-        >
-          <div className="discover-tab-bar-scroller">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'drops'}
-              className={tab === 'drops' ? 'is-active' : undefined}
-              onClick={() => onTabChange('drops')}
-            >
-              {/* Count only once there is something to count — the empty
-                  state already says the shelf is empty. */}
-              Drops{dropCount ? ` · ${dropCount}` : ''}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === 'resale'}
-              className={tab === 'resale' ? 'is-active' : undefined}
-              onClick={() => onTabChange('resale')}
-            >
-              Resale
-            </button>
-          </div>
-        </div>
+        <OsChipRail
+          className="market-listing-filters app-hub-catalog-tabs"
+          ariaLabel="Store catalog"
+          value={tab}
+          onValueChange={onTabChange}
+          items={[
+            {
+              id: 'drops' as const,
+              label: (
+                <>
+                  {/* Count only once there is something to count — the empty
+                      state already says the shelf is empty. */}
+                  Drops{dropCount ? ` · ${dropCount}` : ''}
+                </>
+              ),
+            },
+            { id: 'resale' as const, label: 'Resale' },
+          ]}
+        />
       </div>
     </div>
   );

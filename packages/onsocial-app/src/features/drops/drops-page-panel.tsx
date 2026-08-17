@@ -33,6 +33,7 @@ import {
   type DropsSort,
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import {
   MarketFacetRail,
@@ -1335,52 +1336,26 @@ export function DropsPagePanel({
           }`}
         >
           <div className="market-listing-filter-stack">
-            <div
-              className="discover-tab-bar market-listing-filters"
-              role="tablist"
-              aria-label="Drop sort"
-            >
-              <div className="discover-tab-bar-scroller">
-                {sorts.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={sort === entry.id}
-                    className={
-                      sort === entry.id ? 'is-active' : undefined
-                    }
-                    onClick={() => {
-                      selectSort(entry.id);
-                    }}
-                  >
-                    {entry.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div
-              className="discover-tab-bar market-listing-filters"
-              role="tablist"
-              aria-label="Drop medium"
-            >
-              <div className="discover-tab-bar-scroller">
-                {DROP_MEDIUM_FILTERS.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={medium === entry.id}
-                    className={
-                      medium === entry.id ? 'is-active' : undefined
-                    }
-                    onClick={() => selectMedium(entry.id)}
-                  >
-                    {entry.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <OsChipRail
+              className="market-listing-filters"
+              ariaLabel="Drop sort"
+              value={sort}
+              onValueChange={selectSort}
+              items={sorts.map((entry) => ({
+                id: entry.id,
+                label: entry.label,
+              }))}
+            />
+            <OsChipRail
+              className="market-listing-filters"
+              ariaLabel="Drop medium"
+              value={medium}
+              onValueChange={selectMedium}
+              items={DROP_MEDIUM_FILTERS.map((entry) => ({
+                id: entry.id,
+                label: entry.label,
+              }))}
+            />
             {medium === 'audio' ? (
               <MarketFacetRail
                 medium="audio"

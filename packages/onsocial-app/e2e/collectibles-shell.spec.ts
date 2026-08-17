@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
+import { test } from '@playwright/test';
+import { expectSearchVisible, gotoApp } from './helpers';
 
 /**
  * Smoke for Collectibles shell — search chrome.
@@ -8,9 +8,6 @@ import { E2E_CHROME_TIMEOUT_MS, gotoApp } from './helpers';
 test.describe('collectibles shell', () => {
   test('loads search chrome', async ({ page }) => {
     await gotoApp(page, '/collectibles');
-
-    await expect(
-      page.getByRole('textbox', { name: 'Search collectibles' })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expectSearchVisible(page, 'Search collectibles');
   });
 });

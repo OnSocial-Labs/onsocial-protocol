@@ -1,54 +1,19 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
+  closeStandingDrawer,
+  expectGlassSheetHidden,
+  expectGlassSheetVisible,
   expectPortfolioIdentityOrSkip,
   expectStandingPageOrSkip,
   gotoApp,
-  waitForPortfolioClientReady,
+  openDiscoverFromStandingDrawer,
+  openStandingFromProfile,
+  switchStandingView,
 } from './helpers';
 
 const accountId = process.env.E2E_PORTFOLIO_ACCOUNT ?? 'greenghost.testnet';
 const portfolioPath = `/@${accountId}`;
 const standingIncomingPath = `${portfolioPath}/standing/incoming`;
-
-async function closeStandingDrawer(page: Page) {
-  await page
-    .getByRole('button', { name: 'Close Standing', exact: true })
-    .click();
-}
-
-async function openStandingFromProfile(page: Page) {
-  await waitForPortfolioClientReady(page);
-
-  const standingLink = page.locator('a[href*="/standing/incoming"]').first();
-  await expect(standingLink).toBeVisible();
-
-  const softNav = page
-    .waitForResponse(
-      (resp) =>
-        resp.request().method() === 'GET' &&
-        (resp.url().includes('_rsc') ||
-          resp.headers()['content-type']?.includes('text/x-component') ===
-            true),
-      { timeout: 15_000 }
-    )
-    .catch(() => null);
-
-  await standingLink.click();
-  await softNav;
-  await page.waitForURL(new RegExp(`/standing/incoming`));
-}
-
-async function openDiscoverFromStandingDrawer(page: Page) {
-  await page
-    .getByRole('link', { name: 'Discover profiles to stand with' })
-    .click();
-  await page.waitForURL(new RegExp(`/discover`));
-}
-
-async function switchStandingView(page: Page, label: string) {
-  await page.getByRole('button', { name: 'Open standing menu' }).click();
-  await page.getByRole('option', { name: label }).click();
-}
 
 test.describe('portfolio glass navigation', () => {
   // Soft-nav suite shares live profile state — run one at a time.
@@ -63,7 +28,7 @@ test.describe('portfolio glass navigation', () => {
     await expect(
       page.locator('[data-testid="overlay-intercept-slot"]')
     ).toHaveCount(0);
-    await expect(page.locator('.glass-sheet-root.is-visible')).toHaveCount(0);
+    await expectGlassSheetHidden(page);
   });
 
   test.describe('soft intercept from profile', () => {
@@ -76,9 +41,7 @@ test.describe('portfolio glass navigation', () => {
       await openStandingFromProfile(page);
 
       await expect(page.locator('.standing-page-screen')).toHaveCount(0);
-      await expect(page.locator('.glass-sheet-root.is-visible')).toBeVisible({
-        timeout: 10_000,
-      });
+      await expectGlassSheetVisible(page);
       await expect(page.locator('.standing-panel')).toBeVisible();
       await expect(page.locator('.portfolio-identity')).toBeVisible();
       await expect(page.locator('.standing-list-skeleton')).toHaveCount(0);
@@ -86,36 +49,30 @@ test.describe('portfolio glass navigation', () => {
 
     test('close standing drawer returns to portfolio', async ({ page }) => {
       await openStandingFromProfile(page);
-      await expect(page.locator('.glass-sheet-root.is-visible')).toBeVisible({
-        timeout: 10_000,
-      });
+      await expectGlassSheetVisible(page);
 
       await closeStandingDrawer(page);
 
       await expect(page).toHaveURL(
         new RegExp(`${portfolioPath.replace('.', '\\.')}$`)
       );
-      await expect(page.locator('.glass-sheet-root.is-visible')).toHaveCount(0);
+      await expectGlassSheetHidden(page);
     });
 
     test('reopen standing drawer after close', async ({ page }) => {
       await openStandingFromProfile(page);
-      await expect(page.locator('.glass-sheet-root.is-visible')).toBeVisible({
-        timeout: 10_000,
-      });
+      await expectGlassSheetVisible(page);
 
       await closeStandingDrawer(page);
       await expect(page).toHaveURL(
         new RegExp(`${portfolioPath.replace('.', '\\.')}$`)
       );
-      await expect(page.locator('.glass-sheet-root.is-visible')).toHaveCount(0);
+      await expectGlassSheetHidden(page);
 
       await openStandingFromProfile(page);
 
       await expect(page.locator('.standing-page-screen')).toHaveCount(0);
-      await expect(page.locator('.glass-sheet-root.is-visible')).toBeVisible({
-        timeout: 10_000,
-      });
+      await expectGlassSheetVisible(page);
       await expect(page.locator('.standing-panel')).toBeVisible();
     });
 
@@ -123,9 +80,7 @@ test.describe('portfolio glass navigation', () => {
       page,
     }) => {
       await openStandingFromProfile(page);
-      await expect(page.locator('.glass-sheet-root.is-visible')).toBeVisible({
-        timeout: 10_000,
-      });
+      await expectGlassSheetVisible(page);
 
       await openDiscoverFromStandingDrawer(page);
 
@@ -133,7 +88,7 @@ test.describe('portfolio glass navigation', () => {
       await expect(
         page.getByRole('button', { name: 'Open standing menu' })
       ).toHaveCount(0);
-      await expect(page.locator('.glass-sheet-root.is-visible')).toBeVisible();
+      await expectGlassSheetVisible(page);
       await expect(page.locator('.portfolio-identity')).toBeVisible();
     });
 
@@ -141,9 +96,7 @@ test.describe('portfolio glass navigation', () => {
       page,
     }) => {
       await openStandingFromProfile(page);
-      await expect(page.locator('.glass-sheet-root.is-visible')).toBeVisible({
-        timeout: 10_000,
-      });
+      await expectGlassSheetVisible(page);
 
       await switchStandingView(page, 'They stand with');
       await page.waitForURL(new RegExp(`/standing/outgoing`));
@@ -153,7 +106,7 @@ test.describe('portfolio glass navigation', () => {
       await expect(page).toHaveURL(
         new RegExp(`${portfolioPath.replace('.', '\\.')}$`)
       );
-      await expect(page.locator('.glass-sheet-root.is-visible')).toHaveCount(0);
+      await expectGlassSheetHidden(page);
     });
   });
 });

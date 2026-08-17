@@ -9,6 +9,7 @@ import {
   StarMovingFillIcon,
 } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -1358,52 +1359,28 @@ export function MarketPagePanel({
             }`}
           >
             <div className="market-listing-filter-stack">
-              <div
-                className="discover-tab-bar market-listing-filters"
-                role="tablist"
-                aria-label="Listing type"
-              >
-                <div className="discover-tab-bar-scroller">
-                  {LISTING_FILTERS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      id={`market-listing-tab-${tab.id}`}
-                      aria-controls="market-listing-results"
-                      aria-selected={listingFilter === tab.id}
-                      className={
-                        listingFilter === tab.id ? 'is-active' : undefined
-                      }
-                      onClick={() => setFilter(tab.id)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div
-                className="discover-tab-bar market-listing-filters"
-                role="tablist"
-                aria-label="Listing medium"
-              >
-                <div className="discover-tab-bar-scroller">
-                  {MARKET_DISCOVERY_MEDIUM_FILTERS.map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={mediumFilter === tab.id}
-                      className={
-                        mediumFilter === tab.id ? 'is-active' : undefined
-                      }
-                      onClick={() => setMediumFilter(tab.id)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <OsChipRail
+                className="market-listing-filters"
+                ariaLabel="Listing type"
+                value={listingFilter}
+                onValueChange={setFilter}
+                tabIdFor={(id) => `market-listing-tab-${id}`}
+                ariaControls="market-listing-results"
+                items={LISTING_FILTERS.map((tab) => ({
+                  id: tab.id,
+                  label: tab.label,
+                }))}
+              />
+              <OsChipRail
+                className="market-listing-filters"
+                ariaLabel="Listing medium"
+                value={mediumFilter}
+                onValueChange={setMediumFilter}
+                items={MARKET_DISCOVERY_MEDIUM_FILTERS.map((tab) => ({
+                  id: tab.id,
+                  label: tab.label,
+                }))}
+              />
               {facetMedium ? (
                 <MarketFacetRail
                   medium={facetMedium}

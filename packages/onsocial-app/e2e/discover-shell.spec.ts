@@ -1,5 +1,10 @@
-import { expect, test } from '@playwright/test';
-import { E2E_CHROME_TIMEOUT_MS, expectTabVisible, gotoApp } from './helpers';
+import { test } from '@playwright/test';
+import {
+  expectSearchVisible,
+  expectTabSelected,
+  expectTabVisible,
+  gotoApp,
+} from './helpers';
 
 /**
  * Smoke for Discover shell — omni search + primary tabs.
@@ -9,11 +14,25 @@ test.describe('discover shell', () => {
   test('loads search and Discover tabs', async ({ page }) => {
     await gotoApp(page, '/discover');
 
-    await expect(
-      page.getByRole('textbox', { name: 'Search people, topics, and tickers' })
-    ).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expectSearchVisible(
+      page,
+      'Search people, topics, and tickers'
+    );
 
     await expectTabVisible(page, 'Discover', 'Trending');
     await expectTabVisible(page, 'Discover', 'Profiles');
+    await expectTabVisible(page, 'Discover', 'Topics');
+    await expectTabVisible(page, 'Discover', 'Tickers');
+    await expectTabSelected(page, 'Discover', 'Trending');
+  });
+
+  test('deep-links Profiles from ?tab=profiles', async ({ page }) => {
+    await gotoApp(page, '/discover?tab=profiles');
+    await expectTabSelected(page, 'Discover', 'Profiles');
+  });
+
+  test('deep-links Topics from ?tab=topics', async ({ page }) => {
+    await gotoApp(page, '/discover?tab=topics');
+    await expectTabSelected(page, 'Discover', 'Topics');
   });
 });
