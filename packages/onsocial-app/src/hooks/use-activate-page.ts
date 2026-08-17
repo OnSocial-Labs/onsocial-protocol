@@ -44,7 +44,6 @@ export function useActivatePage(pageAccountId: string) {
             'groups',
             'collectibles',
             'links',
-            'badges',
           ],
           tagline: 'Welcome to my OnSocial page.',
         },

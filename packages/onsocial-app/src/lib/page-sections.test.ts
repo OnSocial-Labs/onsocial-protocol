@@ -34,6 +34,14 @@ describe('resolvePageSections', () => {
       })
     ).toEqual(['collectibles', 'posts']);
   });
+
+  it('strips badges and events stubs from configured lists', () => {
+    expect(
+      resolvePageSections({
+        sections: ['posts', 'badges', 'events', 'links'],
+      })
+    ).toEqual(['posts', 'links']);
+  });
 });
 
 describe('resolveVisiblePageSections', () => {

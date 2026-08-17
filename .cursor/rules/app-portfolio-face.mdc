@@ -29,7 +29,8 @@ Owner-customizable scroll surface — **extension of the face**, not a second po
 - Default order: posts → store → created → guilds → links → collectibles
 - Media peeks (Store / Created / Collectibles) share one square-cover rail; Guilds use discovery-row peeks (avatar square + name + meta) in the same rail width — expand stays on-page, never jumps to global `/groups`
 - Collectibles is a **public flex** chapter (on-chain holdings); peeks load for visitors. **See all collectibles** → `/@account/collectibles` (same surface for owner and visitor). OS `/collectibles` soft-redirects to `/@you/collectibles` when connected
-- Customize → **Launch chapters**: reorder / hide; pin up to 3 peeks per chapter (posts / guilds / store / created / collectibles); optional **link notes** on `page/main` (face icons stay clean)
+- Customize → **Launch chapters**: drag (or ↑↓) to reorder / hide; pin up to 3 peeks per chapter (posts / guilds / store / created / collectibles); optional **link notes** on `page/main` (face icons stay clean)
+- **Badges / Events** stay typed stubs — hard-hidden in Launch and out of Customize until a real peek product exists
 - One sheet-body scroller; overlay footer pill (**Stand · Endorse · Support**) absolutely on the panel (`height: auto`, not in flex flow); content scrolls under it; launcher hide on scroll down / reveal on scroll up or top; jump briefly tucks the pill; connect whisper when disconnected; hidden for self
 - Support is **not** a drawer section — gestures only
 - Dock arrows match Stand size (`0.55rem`), not the larger face signal clamp
