@@ -22,6 +22,7 @@ test.describe('market discovery', () => {
 
     const mediumRail = page.getByRole('tablist', { name: 'Listing medium' });
     await expect(mediumRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
+    await expect(mediumRail.getByRole('tab', { name: 'Thoughts' })).toBeVisible();
     await expect(mediumRail.getByRole('tab', { name: 'Tickets' })).toBeVisible();
 
     await mediumRail.getByRole('tab', { name: 'Audio' }).click();
@@ -65,6 +66,20 @@ test.describe('market discovery', () => {
     await expect(
       page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
         name: 'Tickets',
+      })
+    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
+  });
+
+  test('deep-links thoughts medium for primary post-mints', async ({
+    page,
+  }) => {
+    await page.goto('/market?kind=thought', {
+      waitUntil: 'domcontentloaded',
+    });
+
+    await expect(
+      page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
+        name: 'Thoughts',
       })
     ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
   });

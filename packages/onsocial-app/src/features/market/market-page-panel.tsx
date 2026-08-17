@@ -39,6 +39,7 @@ import {
   excludeOwnedNativeListings,
   formatMarketRelativeTime,
   invalidateLiveListingsCache,
+  isPrimaryThoughtListing,
   listingCreatorAccountId,
   marketListingRowKey,
   viewerOwnsRelatedEdition,
@@ -292,7 +293,10 @@ export function MarketPagePanel({
     canSeedDefaultBrowse
       ? {
           paramsKey: DEFAULT_LISTINGS_PARAMS_KEY,
-          items: initialListings.items,
+          // All browse hides primary thought post-mints (Thoughts chip shows them).
+          items: initialListings.items.filter(
+            (item) => !isPrimaryThoughtListing(item)
+          ),
           nextOffset: initialListings.nextOffset,
           hasMore: initialListings.hasMore,
           failed: false,
@@ -693,7 +697,13 @@ export function MarketPagePanel({
   const owned = ownedState.items;
   const salesRows = sales ?? [];
   const ownedTokenIdSet = new Set(owned.map((item) => item.tokenId));
-  const browseListings = excludeOwnedNativeListings(listings, ownedTokenIdSet);
+  // Default All = drops + secondary. Primary thought post-mints live under Thoughts.
+  const browseListings = excludeOwnedNativeListings(
+    mediumFilter === 'all'
+      ? listings.filter((item) => !isPrimaryThoughtListing(item))
+      : listings,
+    ownedTokenIdSet
+  );
 
   useEffect(() => {
     if (status !== 'ready') return;
@@ -731,6 +741,7 @@ export function MarketPagePanel({
       )
     : typedListings;
   // Medium / facets / audioFormat are server-filtered via activeListings.
+  // Thought primaries are stripped client-side when medium is All (above).
   const discoveryFilteredListings = filteredListings;
 
   const clientDiscoveryFilterActive =
