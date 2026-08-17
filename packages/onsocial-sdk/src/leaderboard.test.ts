@@ -5,6 +5,7 @@ import {
   formatReputationComponent,
   formatReputationScore,
   LEADERBOARD_TRACKS,
+  leaderboardShareCopy,
   leaderboardTrackSubtitle,
   pctOfLeader,
   reputationBoardMeta,
@@ -68,6 +69,16 @@ describe('leaderboard helpers', () => {
     expect(leaderboardTrackSubtitle('reputation')).toBe('Protocol reputation');
     expect(leaderboardTrackSubtitle('influence')).toBe('Boost influence');
     expect(leaderboardTrackSubtitle('earners')).toBe('Rewards earned');
+  });
+
+  it('builds share copy for viewer ranks', () => {
+    expect(
+      leaderboardShareCopy({
+        track: 'reputation',
+        rank: 12,
+        accountId: 'alice.near',
+      }).text
+    ).toBe("I'm #12 on OnSocial reputation (@alice.near)");
   });
 
   it('computes percent of leader', () => {

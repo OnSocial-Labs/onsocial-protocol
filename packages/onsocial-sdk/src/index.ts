@@ -218,6 +218,7 @@ export {
   formatReputationScore,
   formatScore,
   leaderboardTrackSubtitle,
+  leaderboardShareCopy,
   pctOfLeader,
   reputationBoardMeta,
   reputationConfidenceLabel,

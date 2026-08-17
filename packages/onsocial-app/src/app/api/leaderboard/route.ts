@@ -11,6 +11,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_LIMIT = 50;
+const MAX_OFFSET = 200;
 const REVALIDATE_SECONDS = 30;
 
 const VALID_SCOPES: LeaderboardTrack[] = ['influence', 'reputation', 'earners'];
@@ -22,9 +23,11 @@ function escapeGraphQlString(value: string): string {
 function buildQuery(
   scope: LeaderboardTrack,
   limit: number,
+  offset: number,
   viewerAccountId: string | null
 ): string {
   const safeLimit = Math.min(Math.max(1, limit), MAX_LIMIT);
+  const safeOffset = Math.min(Math.max(0, offset), MAX_OFFSET);
   const viewer =
     viewerAccountId && viewerAccountId.length > 0
       ? escapeGraphQlString(viewerAccountId)
@@ -33,7 +36,7 @@ function buildQuery(
   switch (scope) {
     case 'influence':
       return `{
-        leaderboardBoost(orderBy: { rank: ASC }, limit: ${safeLimit}) {
+        leaderboardBoost(orderBy: { rank: ASC }, limit: ${safeLimit}, offset: ${safeOffset}) {
           accountId
           lockedAmount
           effectiveBoost
@@ -41,7 +44,7 @@ function buildQuery(
           rank
         }
         ${
-          viewer
+          viewer && safeOffset === 0
             ? `viewerEntry: leaderboardBoost(where: {accountId: {_eq: "${viewer}"}}, limit: 1) {
           accountId
           lockedAmount
@@ -54,11 +57,11 @@ function buildQuery(
       }`;
     case 'reputation':
       return `{
-        reputationScores(orderBy: { rank: ASC }, limit: ${safeLimit}) {
+        reputationScores(orderBy: { rank: ASC }, limit: ${safeLimit}, offset: ${safeOffset}) {
           ${REPUTATION_BOARD_GRAPHQL_FIELDS}
         }
         ${
-          viewer
+          viewer && safeOffset === 0
             ? `viewerEntry: reputationScores(where: {accountId: {_eq: "${viewer}"}}, limit: 1) {
           ${REPUTATION_BOARD_GRAPHQL_FIELDS}
         }`
@@ -67,14 +70,14 @@ function buildQuery(
       }`;
     case 'earners':
       return `{
-        leaderboardRewards(orderBy: { rank: ASC }, limit: ${safeLimit}) {
+        leaderboardRewards(orderBy: { rank: ASC }, limit: ${safeLimit}, offset: ${safeOffset}) {
           accountId
           totalEarned
           unclaimed
           rank
         }
         ${
-          viewer
+          viewer && safeOffset === 0
             ? `viewerEntry: leaderboardRewards(where: {accountId: {_eq: "${viewer}"}}, limit: 1) {
           accountId
           totalEarned
@@ -94,6 +97,10 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get('limit') ?? String(LEADERBOARD_PAGE_SIZE),
     10
   );
+  const offset = Number.parseInt(
+    request.nextUrl.searchParams.get('offset') ?? '0',
+    10
+  );
   const viewer = request.nextUrl.searchParams.get('viewer')?.trim() || null;
 
   if (!VALID_SCOPES.includes(scope)) {
@@ -103,7 +110,7 @@ export async function GET(request: NextRequest) {
   try {
     const os = createServerOnSocialClient();
     const res = await os.query.graphql<Record<string, unknown>>({
-      query: buildQuery(scope, limit, viewer),
+      query: buildQuery(scope, limit, offset, viewer),
     });
     const data = { ...(res.data ?? {}) } as Record<string, unknown>;
     const viewerRows = data.viewerEntry;
@@ -112,7 +119,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Prefer the in-list row when the viewer is already on the page.
-    if (viewer) {
+    if (viewer && offset === 0) {
       const listKey =
         scope === 'influence'
           ? 'leaderboardBoost'

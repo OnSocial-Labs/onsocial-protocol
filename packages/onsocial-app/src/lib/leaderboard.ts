@@ -7,6 +7,7 @@ import {
   findViewerEntry,
   formatReputationComponent,
   formatReputationScore,
+  leaderboardShareCopy,
   leaderboardTrackSubtitle,
   pctOfLeader,
   reputationBoardMeta,
@@ -17,6 +18,7 @@ import {
   type LeaderboardTrack,
   type ReputationEntry,
 } from '@onsocial/sdk';
+import type { ProfileReputation } from '@/lib/profile-signals';
 
 export type { EarnerEntry, InfluenceEntry, LeaderboardTrack, ReputationEntry };
 export {
@@ -27,6 +29,7 @@ export {
   findViewerEntry,
   formatReputationComponent,
   formatReputationScore,
+  leaderboardShareCopy,
   leaderboardTrackSubtitle,
   pctOfLeader,
   reputationBoardMeta,
@@ -37,6 +40,8 @@ export {
 
 /** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
 export const LEADERBOARD_Z = 74;
+/** Nested reputation peek opened from the leaderboard. */
+export const LEADERBOARD_FACTS_Z = LEADERBOARD_Z + 4;
 
 export interface LeaderboardBoardResponse {
   leaderboardBoost?: InfluenceEntry[];
@@ -45,6 +50,11 @@ export interface LeaderboardBoardResponse {
   /** Viewer row when not in the top page (or when mirrored from the list). */
   viewerEntry?: InfluenceEntry | ReputationEntry | EarnerEntry | null;
 }
+
+export type LeaderboardTrackCache = {
+  board: LeaderboardBoardResponse;
+  hasMore: boolean;
+};
 
 export function entriesForTrack(
   scope: LeaderboardTrack,
@@ -56,18 +66,93 @@ export function entriesForTrack(
   return data.leaderboardRewards ?? [];
 }
 
+function listKeyForTrack(
+  scope: LeaderboardTrack
+): 'leaderboardBoost' | 'reputationScores' | 'leaderboardRewards' {
+  if (scope === 'influence') return 'leaderboardBoost';
+  if (scope === 'reputation') return 'reputationScores';
+  return 'leaderboardRewards';
+}
+
+function mergeAccountRows<T extends { accountId: string }>(
+  existing: T[],
+  incoming: T[]
+): T[] {
+  const seen = new Set(existing.map((row) => row.accountId.toLowerCase()));
+  const next = [...existing];
+  for (const row of incoming) {
+    const key = row.accountId.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(row);
+  }
+  return next;
+}
+
+export function appendLeaderboardPage(
+  scope: LeaderboardTrack,
+  current: LeaderboardBoardResponse | null | undefined,
+  page: LeaderboardBoardResponse,
+  pageSize = LEADERBOARD_PAGE_SIZE
+): LeaderboardTrackCache {
+  const key = listKeyForTrack(scope);
+  const incoming = (page[key] ?? []) as Array<{ accountId: string }>;
+  const existing = (current?.[key] ?? []) as Array<{ accountId: string }>;
+  const merged = mergeAccountRows(existing, incoming);
+  const board: LeaderboardBoardResponse = {
+    ...(current ?? {}),
+    ...page,
+    [key]: merged,
+    viewerEntry:
+      current?.viewerEntry !== undefined
+        ? current.viewerEntry
+        : (page.viewerEntry ?? null),
+  };
+  return {
+    board,
+    hasMore: incoming.length >= pageSize,
+  };
+}
+
+export function reputationEntryToProfile(
+  entry: ReputationEntry
+): ProfileReputation {
+  return {
+    reputation: Number.parseFloat(String(entry.reputation)) || 0,
+    rank: entry.rank,
+    socialScore: Number.parseFloat(String(entry.socialScore)) || 0,
+    commitmentScore: Number.parseFloat(String(entry.commitmentScore)) || 0,
+    qualityScore: Number.parseFloat(String(entry.qualityScore)) || 0,
+    consistencyScore: Number.parseFloat(String(entry.consistencyScore)) || 0,
+    scarcesScore: Number.parseFloat(String(entry.scarcesScore)) || 0,
+    confidenceScore: Number.parseFloat(String(entry.confidenceScore)) || 0,
+    totalPosts: entry.totalPosts,
+    paidSupportSpenders: entry.paidSupportSpenders ?? 0,
+    uniqueInboundPeers: entry.uniqueInboundPeers ?? 0,
+    uniqueScarceFans: entry.uniqueScarceFans ?? 0,
+    amplifyEvents: entry.amplifyEvents ?? 0,
+    lockMonths: entry.lockMonths,
+  };
+}
+
 /** Client fetch for the in-app leaderboard slide-over. */
 export async function fetchLeaderboardBoard(
   scope: LeaderboardTrack,
-  limit = LEADERBOARD_PAGE_SIZE,
-  viewerAccountId?: string | null
+  options: {
+    limit?: number;
+    offset?: number;
+    viewerAccountId?: string | null;
+  } = {}
 ): Promise<LeaderboardBoardResponse | null> {
+  const limit = options.limit ?? LEADERBOARD_PAGE_SIZE;
+  const offset = options.offset ?? 0;
   const params = new URLSearchParams({
     scope,
     limit: String(limit),
+    offset: String(offset),
   });
-  if (viewerAccountId) {
-    params.set('viewer', viewerAccountId);
+  if (options.viewerAccountId) {
+    params.set('viewer', options.viewerAccountId);
   }
   try {
     const res = await fetch(`/api/leaderboard?${params.toString()}`, {

@@ -6663,6 +6663,33 @@ a.os-surface-row {
     line-height: 1.4;
   }
 
+  .leaderboard-row-main-button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    cursor: pointer;
+  }
+
+  .leaderboard-facts-profile-link {
+    margin: 0.85rem 0 0;
+    font-size: 0.78rem;
+  }
+
+  .leaderboard-facts-profile-link a {
+    color: color-mix(in srgb, var(--signal-reputation) 88%, transparent);
+    text-decoration: none;
+  }
+
+  .leaderboard-facts-profile-link a:hover,
+  .leaderboard-facts-profile-link a:focus-visible {
+    text-decoration: underline;
+  }
+
   button.signal-metric {
     appearance: none;
     border: 0;

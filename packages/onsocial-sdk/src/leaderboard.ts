@@ -27,6 +27,33 @@ export function leaderboardTrackSubtitle(track: LeaderboardTrack): string {
   }
 }
 
+/** Share sheet title/body for the viewer's rank on a track. */
+export function leaderboardShareCopy(input: {
+  track: LeaderboardTrack;
+  rank: number;
+  accountId: string;
+}): { title: string; text: string } {
+  const rank = Math.max(1, Math.floor(input.rank));
+  const handle = input.accountId.trim() || 'me';
+  switch (input.track) {
+    case 'reputation':
+      return {
+        title: 'OnSocial reputation',
+        text: `I'm #${rank} on OnSocial reputation (@${handle})`,
+      };
+    case 'influence':
+      return {
+        title: 'OnSocial influence',
+        text: `I'm #${rank} on OnSocial influence (@${handle})`,
+      };
+    case 'earners':
+      return {
+        title: 'OnSocial earners',
+        text: `I'm #${rank} on OnSocial earners (@${handle})`,
+      };
+  }
+}
+
 export const LEADERBOARD_PAGE_SIZE = 20;
 
 /** leaderboard_boost view (core columns). */
