@@ -713,7 +713,7 @@ export default function BoostLeaderboardPage() {
               <Flame className="mx-auto mb-1 h-4 w-4 portal-gold-text" />
               <p className="text-xs font-semibold">Commitment</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Locked SOCIAL, softened at scale
+                Locked SOCIAL and lock duration
               </p>
             </SurfacePanel>
             <SurfacePanel
@@ -749,12 +749,12 @@ export default function BoostLeaderboardPage() {
               <Zap className="mx-auto mb-1 h-4 w-4 portal-pink-text" />
               <p className="text-xs font-semibold">Scarces</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Marketplace collectibles
+                Creates, sales, and unique love fans
               </p>
             </SurfacePanel>
           </div>
           <p className="mt-3 text-center portal-eyebrow text-muted-foreground">
-            Reputation = Standing × Commitment × Quality × Consistency × Scarces
+            Reputation = Social × Commitment × Quality × Consistency × Scarces
           </p>
         </SurfacePanel>
       </motion.section>

@@ -7,6 +7,7 @@ import {
   SheetFactSection,
 } from '@onsocial/ui';
 import {
+  commitmentLabel,
   formatReputationComponent,
   formatReputationScore,
   reputationConfidenceLabel,
@@ -24,8 +25,8 @@ export function ReputationBreakdownFacts({
     return (
       <p className="portfolio-support-collect-info-empty">
         No protocol reputation indexed for @{accountId} yet. Weighted
-        stands, endorsements, paid support, posts, and consistency build
-        this score.
+        stands, endorsements, paid support, posts, scarces fans, and
+        consistency build this score.
       </p>
     );
   }
@@ -70,6 +71,10 @@ export function ReputationBreakdownFacts({
           value={`${confidence.label} · ${Math.round(reputation.confidenceScore * 100)}%`}
         />
         <SheetFactRow
+          label="Lock"
+          value={commitmentLabel(reputation.lockMonths)}
+        />
+        <SheetFactRow
           label="Posts"
           value={
             <SheetFactCount
@@ -99,6 +104,15 @@ export function ReputationBreakdownFacts({
               unit={
                 reputation.uniqueInboundPeers === 1 ? 'peer' : 'peers'
               }
+            />
+          }
+        />
+        <SheetFactRow
+          label="Scarce fans"
+          value={
+            <SheetFactCount
+              count={reputation.uniqueScarceFans}
+              unit={reputation.uniqueScarceFans === 1 ? 'fan' : 'fans'}
             />
           }
         />

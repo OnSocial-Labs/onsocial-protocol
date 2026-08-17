@@ -22,7 +22,7 @@
 --   5. reward_weights          — standing × boost multiplier
 --   6. content_activity        — posts, replies, reactions, active days
 --   7. scarces_activity         — scarce creation, sales, revenue
---   8. reputation_scores       — composite reputation per user (v2.1)
+--   8. reputation_scores       — composite reputation per user (v2.2)
 --   9. leaderboard_agent_features — deterministic rank-consumer signals
 --  10. leaderboard_by_app      — per-partner rankings
 --  11. leaderboard_by_group    — per-community rankings
@@ -311,16 +311,16 @@ WHERE account_id IS NOT NULL AND account_id != ''
 GROUP BY account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 8. reputation_scores — composite reputation score per user (v2.1)
+-- 8. reputation_scores — composite reputation score per user (v2.2)
 -- ────────────────────────────────────────────────────────────────────────────
 -- Combines: weighted social graph × token commitment × content quality ×
 --           consistency × scarces marketplace activity.
 -- Depends on: standings_current, endorsements_current, standing_counts,
 --             standing_out_counts, booster_state, leaderboard_rewards,
---             content_activity, scarces_activity, social_spend_events,
---             thread_replies, quotes
+--             content_activity, scarces_activity, paid_support_inbound_events,
+--             thread_replies, quotes, reactions_current (scarce loves)
 --
--- v2.1 formula:
+-- v2.2 formula:
 --   issuer_weight(S) =
 --     min(2.5, 1 + ln(1 + standing_with(S))/ln(21) + ln(1 + boost(S))/ln(11))
 --     (prior from graph + boost only — no circular dependency on reputation)
@@ -335,6 +335,7 @@ GROUP BY account_id;
 --   social_graph = weighted_stands + weighted_endorsements + paid_inbound
 --   social       = 1 + ln(1 + social_graph)
 --   commitment   = 1 + ln(1 + effective_boost / 1e18)
+--                    + 0.35 × ln(1 + lock_months) / ln(49)
 --   quality      = 1 + (avg_reactions / 12) × min(posts/8, 1)
 --                    + ln(1 + unique_inbound_peers)/ln(21)
 --                      × min(posts/8, 1) × 0.55
@@ -342,10 +343,12 @@ GROUP BY account_id;
 --   consistency  = 1 + 0.65×ln(1+recent_active_days)/ln(31)
 --                    + 0.35×ln(1+active_days)/ln(91)
 --   scarces      = 1 + ln(1 + items_created + items_sold) / 10
+--                    + 0.4 × ln(1 + unique_scarce_fans) / ln(31)
+--     unique_scarce_fans = distinct non-creator love fans across drops
 --   reputation   = social × commitment × quality × consistency × scarces
 --
--- Raw standing / mutual / endorsement / paid-support / inbound-conversation
--- counts stay as display columns.
+-- Raw standing / mutual / endorsement / paid-support / inbound-conversation /
+-- scarce-fan counts stay as display columns.
 -- rewards_earned is exposed for context but does not enter the product.
 -- confidence_score estimates how much indexed evidence backs the rank.
 -- ────────────────────────────────────────────────────────────────────────────
@@ -531,6 +534,34 @@ inbound_conversation AS (
   ) edges
   GROUP BY account_id
 ),
+scarce_creator_fans AS (
+  -- Distinct non-creator love fans across track + whole-drop loves.
+  SELECT
+    post_owner AS account_id,
+    COUNT(DISTINCT account_id)::BIGINT AS unique_scarce_fans
+  FROM (
+    SELECT
+      post_owner,
+      account_id
+    FROM reactions_current
+    WHERE operation = 'set'
+      AND reaction_kind = 'love'
+      AND path LIKE '%/scarce/%/track/%'
+      AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+    UNION
+    SELECT
+      post_owner,
+      account_id
+    FROM reactions_current
+    WHERE operation = 'set'
+      AND reaction_kind = 'love'
+      AND path ~ '/scarce/[^/]+$'
+      AND lower(account_id) IS DISTINCT FROM lower(post_owner)
+  ) loves
+  WHERE post_owner IS NOT NULL
+    AND post_owner != ''
+  GROUP BY post_owner
+),
 mutual_counts AS (
   SELECT
     account_id,
@@ -572,6 +603,8 @@ accounts AS (
   SELECT account_id FROM weighted_paid_support
   UNION
   SELECT account_id FROM inbound_conversation
+  UNION
+  SELECT account_id FROM scarce_creator_fans
 ),
 joined AS (
   SELECT
@@ -589,6 +622,7 @@ joined AS (
     COALESCE(ic.unique_inbound_peers, 0)                        AS unique_inbound_peers,
     COALESCE(ic.replies_received, 0)                            AS replies_received,
     COALESCE(ic.quotes_received, 0)                             AS quotes_received,
+    COALESCE(sf.unique_scarce_fans, 0)                          AS unique_scarce_fans,
     COALESCE(b.effective_boost, '0')::NUMERIC / 1e18            AS boost,
     COALESCE(b.lock_months, 0)                                  AS lock_months,
     COALESCE(r.total_earned, 0) / 1e18                         AS rewards_earned,
@@ -620,6 +654,7 @@ joined AS (
   LEFT JOIN weighted_endorsements we ON we.account_id = a.account_id
   LEFT JOIN weighted_paid_support ps ON ps.account_id = a.account_id
   LEFT JOIN inbound_conversation ic ON ic.account_id = a.account_id
+  LEFT JOIN scarce_creator_fans  sf ON sf.account_id = a.account_id
   LEFT JOIN booster_state        b  ON b.account_id  = a.account_id
   LEFT JOIN leaderboard_rewards  r  ON r.account_id  = a.account_id
   LEFT JOIN content_activity     c  ON c.account_id  = a.account_id
@@ -629,7 +664,11 @@ scored AS (
   SELECT
     joined.*,
     ROUND((1.0 + LN(1.0 + social_graph_points))::NUMERIC, 4)  AS social_score,
-    ROUND((1.0 + LN(1.0 + boost))::NUMERIC, 4)                  AS commitment_score,
+    ROUND((
+      1.0
+      + LN(1.0 + boost)
+      + 0.35 * LN(1.0 + lock_months::NUMERIC) / LN(49.0)
+    )::NUMERIC, 4)                                              AS commitment_score,
     ROUND((
       1.0
       + (avg_reactions::NUMERIC / 12.0) * quality_post_factor
@@ -642,8 +681,11 @@ scored AS (
       + 0.65 * LN(1.0 + recent_active_days::NUMERIC) / LN(31.0)
       + 0.35 * LN(1.0 + active_days::NUMERIC) / LN(91.0)
     )::NUMERIC, 4)                                              AS consistency_score,
-    ROUND((1.0 + LN(1.0 + scarces_created::NUMERIC
-                    + scarces_sold::NUMERIC) / 10.0), 4)        AS scarces_score
+    ROUND((
+      1.0
+      + LN(1.0 + scarces_created::NUMERIC + scarces_sold::NUMERIC) / 10.0
+      + 0.4 * LN(1.0 + unique_scarce_fans::NUMERIC) / LN(31.0)
+    )::NUMERIC, 4)                                              AS scarces_score
   FROM joined
 ),
 composite AS (
@@ -667,6 +709,7 @@ composite AS (
       + COALESCE(endorsements_received, 0)
       + COALESCE(paid_support_events, 0)
       + COALESCE(unique_inbound_peers, 0)
+      + COALESCE(unique_scarce_fans, 0)
     )::NUMERIC                                                  AS evidence_points,
     (
       CASE WHEN COALESCE(standing_with, 0) + COALESCE(standing_out, 0) > 0 THEN 1 ELSE 0 END
@@ -675,7 +718,8 @@ composite AS (
       + CASE WHEN COALESCE(total_posts, 0) + COALESCE(reply_count, 0)
                   + COALESCE(reactions_received, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(scarces_created, 0) + COALESCE(scarces_sold, 0)
-                  + COALESCE(scarces_revenue_near, 0) > 0 THEN 1 ELSE 0 END
+                  + COALESCE(scarces_revenue_near, 0)
+                  + COALESCE(unique_scarce_fans, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(endorsements_received, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(paid_support_events, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(unique_inbound_peers, 0) > 0 THEN 1 ELSE 0 END
@@ -694,6 +738,7 @@ SELECT
   unique_inbound_peers,
   replies_received,
   quotes_received,
+  unique_scarce_fans,
   boost,
   lock_months,
   rewards_earned,
@@ -748,6 +793,7 @@ WITH base AS (
     rs.unique_inbound_peers,
     rs.replies_received,
     rs.quotes_received,
+    rs.unique_scarce_fans,
     rs.boost,
     rs.lock_months,
     rs.rewards_earned,
@@ -777,6 +823,7 @@ WITH base AS (
       + COALESCE(rs.endorsements_received, 0)
       + COALESCE(rs.paid_support_events, 0)
       + COALESCE(rs.unique_inbound_peers, 0)
+      + COALESCE(rs.unique_scarce_fans, 0)
       + COALESCE(lr.credit_count, 0)
     )::NUMERIC                                                 AS evidence_points,
     (
@@ -786,7 +833,8 @@ WITH base AS (
       + CASE WHEN COALESCE(rs.total_posts, 0) + COALESCE(rs.reply_count, 0)
                   + COALESCE(rs.reactions_received, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(rs.scarces_created, 0) + COALESCE(rs.scarces_sold, 0)
-                  + COALESCE(rs.scarces_revenue_near, 0) > 0 THEN 1 ELSE 0 END
+                  + COALESCE(rs.scarces_revenue_near, 0)
+                  + COALESCE(rs.unique_scarce_fans, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(rs.endorsements_received, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(rs.paid_support_events, 0) > 0 THEN 1 ELSE 0 END
       + CASE WHEN COALESCE(rs.unique_inbound_peers, 0) > 0 THEN 1 ELSE 0 END

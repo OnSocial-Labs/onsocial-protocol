@@ -1096,6 +1096,7 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
       'unique_inbound_peers',
       'replies_received',
       'quotes_received',
+      'unique_scarce_fans',
       'boost',
       'lock_months',
       'rewards_earned',

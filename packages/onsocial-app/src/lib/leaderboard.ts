@@ -17,7 +17,7 @@ export interface EarnerEntry {
   rank: number;
 }
 
-/** `reputation_scores` view (protocol reputation v2.1). */
+/** `reputation_scores` view (protocol reputation v2.2). */
 export interface ReputationEntry {
   accountId: string;
   standingWith: number;
@@ -25,6 +25,7 @@ export interface ReputationEntry {
   endorsementsReceived: number;
   paidSupportSpenders?: number;
   uniqueInboundPeers?: number;
+  uniqueScarceFans?: number;
   boost: string;
   lockMonths: number;
   totalPosts: number;
@@ -67,6 +68,7 @@ export const REPUTATION_BOARD_GRAPHQL_FIELDS = `
   endorsementsReceived
   paidSupportSpenders
   uniqueInboundPeers
+  uniqueScarceFans
   boost
   lockMonths
   totalPosts
