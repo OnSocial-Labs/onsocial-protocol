@@ -21,6 +21,9 @@ export const APP_DROPS_PATH = '/drops';
 /** Query key for Drops catalog sort. */
 export const DROPS_SORT_PARAM = 'sort';
 
+/** Query key that pre-filters Market / Collectibles / Drops by medium. */
+export const MARKET_KIND_PARAM = 'kind';
+
 export type DropsSortParam =
   | 'live'
   | 'closing'
@@ -89,13 +92,56 @@ export function parseDropsSortParam(
   return 'live';
 }
 
-/** Drops catalog path, optionally deep-linked to a sort tab. */
-export function dropsPath(opts?: { sort?: DropsSortParam | null }): string {
-  const sort = opts?.sort?.trim().toLowerCase() ?? '';
-  if (!sort || sort === 'live' || !DROPS_SORT_VALUES.has(sort)) {
-    return APP_DROPS_PATH;
+/**
+ * Mediums exposed on the Drops discovery rail (subset of Market `?kind=`).
+ * Legacy `music` normalizes to `audio`.
+ */
+const DROPS_KIND_VALUES = new Set<string>([
+  'thought',
+  'art',
+  'writing',
+  'audio',
+  'video',
+  'ticket',
+]);
+
+export type DropsMediumParam =
+  | 'all'
+  | 'thought'
+  | 'art'
+  | 'writing'
+  | 'audio'
+  | 'video'
+  | 'ticket';
+
+/** Parse Market-shared `?kind=` for Drops; unknown → `all`. */
+export function parseDropsMediumParam(
+  raw: string | null | undefined
+): DropsMediumParam {
+  const value = raw?.trim().toLowerCase() ?? '';
+  const normalized = value === 'music' ? 'audio' : value;
+  if (normalized && DROPS_KIND_VALUES.has(normalized)) {
+    return normalized as DropsMediumParam;
   }
-  return `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=${encodeURIComponent(sort)}`;
+  return 'all';
+}
+
+/** Drops catalog path — deep-link sort and/or medium (`?sort=` / `?kind=`). */
+export function dropsPath(opts?: {
+  sort?: DropsSortParam | null;
+  kind?: DropsMediumParam | string | null;
+}): string {
+  const params = new URLSearchParams();
+  const sort = opts?.sort?.trim().toLowerCase() ?? '';
+  if (sort && sort !== 'live' && DROPS_SORT_VALUES.has(sort)) {
+    params.set(DROPS_SORT_PARAM, sort);
+  }
+  const medium = parseDropsMediumParam(opts?.kind);
+  if (medium !== 'all') {
+    params.set(MARKET_KIND_PARAM, medium);
+  }
+  const qs = params.toString();
+  return qs ? `${APP_DROPS_PATH}?${qs}` : APP_DROPS_PATH;
 }
 
 /** Owner vault — use holdings (Read / Play / Show pass). Create stays on Market. */
@@ -113,9 +159,6 @@ export const MARKET_CREATOR_PARAM = 'creator';
 
 /** Query key that pre-filters Market to one app / store. */
 export const MARKET_APP_PARAM = 'app';
-
-/** Query key that pre-filters Market / Collectibles by medium (`art` | `writing` | `audio`). */
-export const MARKET_KIND_PARAM = 'kind';
 
 /** Query key for secondary discovery facets (CSV of genre / subject slugs). */
 export const MARKET_FACETS_PARAM = 'facets';

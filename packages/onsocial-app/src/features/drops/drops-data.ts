@@ -28,7 +28,14 @@ export const DROPS_CLOSING_REMAINING_RATIO = 0.1;
 
 /** Extra rows pulled when medium is filtered client-side (Loved / Saved). */
 const MEDIUM_OVERFETCH = 3;
+/** Closing live overfetch — bounded rounds (closing merge is capped). */
 const MEDIUM_FETCH_ROUNDS = 5;
+/**
+ * Loved + medium: keep scanning love pages until the window fills or the
+ * ranking is exhausted. A low round cap left empty pages with hasMore=true and
+ * the UI re-fetched the same offset forever.
+ */
+const LOVED_MEDIUM_FETCH_ROUNDS = 40;
 
 export type DropDiscoveryItem = {
   collectionId: string;
@@ -328,6 +335,23 @@ export function closingPageHasMore(opts: {
 }
 
 /**
+ * Loved + medium paging — never advertise Show more on an empty/short page
+ * (that re-fetched the same love offset forever).
+ */
+export function lovedMediumPageHasMore(opts: {
+  pageItemCount: number;
+  limit: number;
+  matchedCount: number;
+  offset: number;
+  exhausted: boolean;
+}): boolean {
+  return (
+    opts.pageItemCount >= opts.limit &&
+    (opts.matchedCount > opts.offset + opts.limit || !opts.exhausted)
+  );
+}
+
+/**
  * Closing = time window (Hasura) ∪ scarce remaining ratio (client overfetch).
  * Paginate after merge so the tab matches `isDropClosing`.
  */
@@ -524,12 +548,16 @@ async function fetchLovedPage(
   let loveOffset = 0;
   let exhausted = false;
   const batch = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
-  for (let round = 0; round < MEDIUM_FETCH_ROUNDS; round += 1) {
-    if (matched.length >= opts.offset + opts.limit) break;
+  const need = opts.offset + opts.limit;
+  for (let round = 0; round < LOVED_MEDIUM_FETCH_ROUNDS; round += 1) {
+    if (matched.length >= need) break;
     const loves = await loveFans(batch, loveOffset);
     loveOffset += loves.length;
     if (loves.length < batch) exhausted = true;
-    if (loves.length === 0) break;
+    if (loves.length === 0) {
+      exhausted = true;
+      break;
+    }
     const ids = loves.map((row) => row.collectionId).filter(Boolean);
     const shells =
       ids.length > 0
@@ -542,13 +570,20 @@ async function fetchLovedPage(
       const shell = byId.get(love.collectionId.trim());
       if (!shell || !rowMatchesMedium(shell, opts.mediumKind)) continue;
       matched.push(rowToDiscoveryItem(shell, { fanCount: love.fanCount }));
-      if (matched.length >= opts.offset + opts.limit) break;
+      if (matched.length >= need) break;
     }
     if (exhausted) break;
   }
   const items = matched.slice(opts.offset, opts.offset + opts.limit);
-  const hasMore =
-    matched.length > opts.offset + opts.limit || !exhausted;
+  // Only claim more when this page filled — avoids empty catalog + Show more
+  // that re-hits the same offset.
+  const hasMore = lovedMediumPageHasMore({
+    pageItemCount: items.length,
+    limit: opts.limit,
+    matchedCount: matched.length,
+    offset: opts.offset,
+    exhausted,
+  });
   return { items, hasMore };
 }
 
