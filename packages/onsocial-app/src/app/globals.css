@@ -9724,9 +9724,10 @@ a.os-surface-row {
     gap: 0.7rem;
   }
 
-  .page-drawer-scarce-rail {
+  /* Shared Launch media peeks — Store / Created / Collectibles / Guilds rail. */
+  .page-drawer-media-rail {
     display: grid;
-    grid-auto-columns: minmax(8.5rem, 44%);
+    grid-auto-columns: minmax(9rem, 42%);
     grid-auto-flow: column;
     gap: 0.55rem;
     margin-inline: -0.1rem;
@@ -9738,11 +9739,11 @@ a.os-surface-row {
     scrollbar-width: none;
   }
 
-  .page-drawer-scarce-rail::-webkit-scrollbar {
+  .page-drawer-media-rail::-webkit-scrollbar {
     display: none;
   }
 
-  .page-drawer-scarce-card {
+  .page-drawer-media-card {
     display: flex;
     min-width: 0;
     flex-direction: column;
@@ -9752,120 +9753,12 @@ a.os-surface-row {
     text-decoration: none;
   }
 
-  .page-drawer-scarce-card:hover .page-drawer-scarce-action,
-  .page-drawer-scarce-card:focus-visible .page-drawer-scarce-action {
+  .page-drawer-media-card:hover .page-drawer-media-action,
+  .page-drawer-media-card:focus-visible .page-drawer-media-action {
     color: var(--os-surface-emphasis);
   }
 
-  .page-drawer-scarce-cover {
-    aspect-ratio: 1;
-    overflow: hidden;
-    border-radius: 0.85rem;
-    background: linear-gradient(
-      145deg,
-      rgb(var(--fg-rgb) / 0.1),
-      rgb(var(--fg-rgb) / 0.03)
-    );
-    transition: transform 180ms ease;
-  }
-
-  .page-drawer-scarce-cover.has-media {
-    background: rgb(var(--fg-rgb) / 0.06);
-  }
-
-  .page-drawer-scarce-card:hover .page-drawer-scarce-cover,
-  .page-drawer-scarce-card:focus-visible .page-drawer-scarce-cover {
-    transform: translateY(-2px);
-  }
-
-  .page-drawer-scarce-cover img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .page-drawer-scarce-body {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.1rem;
-    padding-inline: 0.1rem;
-  }
-
-  .page-drawer-scarce-title {
-    font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1.3;
-    color: rgb(var(--fg-rgb) / 0.9);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .page-drawer-scarce-meta {
-    display: flex;
-    min-width: 0;
-    align-items: baseline;
-    gap: 0.35rem;
-    font-size: 0.66rem;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
-
-  .page-drawer-scarce-kind {
-    flex-shrink: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .page-drawer-scarce-action {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-    color: rgb(var(--fg-rgb) / 0.62);
-  }
-
-  /* ── Creator Store shelf (portfolio drawer) ─── */
-
-  .portfolio-store {
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-  }
-
-  .portfolio-store-rail {
-    display: grid;
-    grid-auto-columns: minmax(8.5rem, 44%);
-    grid-auto-flow: column;
-    gap: 0.55rem;
-    margin-inline: -0.1rem;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    padding: 0.05rem 0.1rem 0.35rem;
-    scroll-padding-inline: 0.1rem;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-
-  .portfolio-store-rail::-webkit-scrollbar {
-    display: none;
-  }
-
-  .portfolio-store-card {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.4rem;
-    scroll-snap-align: start;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .portfolio-store-cover {
+  .page-drawer-media-cover {
     position: relative;
     aspect-ratio: 1;
     overflow: hidden;
@@ -9878,23 +9771,23 @@ a.os-surface-row {
     transition: transform 180ms ease;
   }
 
-  .portfolio-store-cover.has-media {
+  .page-drawer-media-cover.has-media {
     background: rgb(var(--fg-rgb) / 0.06);
   }
 
-  .portfolio-store-card:hover .portfolio-store-cover,
-  .portfolio-store-card:focus-visible .portfolio-store-cover {
+  .page-drawer-media-card:hover .page-drawer-media-cover,
+  .page-drawer-media-card:focus-visible .page-drawer-media-cover {
     transform: translateY(-2px);
   }
 
-  .portfolio-store-cover img {
+  .page-drawer-media-cover img {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  .portfolio-store-kind {
+  .page-drawer-media-badge {
     position: absolute;
     top: 0.4rem;
     left: 0.4rem;
@@ -9909,7 +9802,7 @@ a.os-surface-row {
     backdrop-filter: blur(6px);
   }
 
-  .portfolio-store-body {
+  .page-drawer-media-body {
     display: flex;
     min-width: 0;
     flex-direction: column;
@@ -9917,7 +9810,7 @@ a.os-surface-row {
     padding-inline: 0.1rem;
   }
 
-  .portfolio-store-title {
+  .page-drawer-media-title {
     font-size: 0.78rem;
     font-weight: 600;
     line-height: 1.3;
@@ -9927,18 +9820,43 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
-  .portfolio-store-price {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--protocol-green, rgb(var(--fg-rgb) / 0.75));
+  .page-drawer-media-meta {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-size: 0.66rem;
+    letter-spacing: 0.02em;
+    color: rgb(var(--fg-rgb) / 0.45);
+  }
+
+  .page-drawer-media-kind {
+    flex-shrink: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .portfolio-store-facts {
+  .page-drawer-media-action {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .page-drawer-media-facts {
     font-size: 0.64rem;
     color: rgb(var(--fg-rgb) / 0.5);
+  }
+
+  /* ── Creator Store shelf (portfolio drawer) ─── */
+
+  .portfolio-store {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
   }
 
   .portfolio-store-sales {
@@ -9985,22 +9903,11 @@ a.os-surface-row {
     margin-right: 0.4rem;
   }
 
-  .page-drawer-guild-rail {
-    display: grid;
-    grid-auto-columns: minmax(10.75rem, 62%);
-    grid-auto-flow: column;
-    gap: 0.5rem;
-    margin-inline: -0.1rem;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    padding: 0.05rem 0.1rem 0.4rem;
-    scroll-padding-inline: 0.1rem;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-
-  .page-drawer-guild-rail::-webkit-scrollbar {
-    display: none;
+  /* Expanded guild memberships — discovery rows, flush. */
+  .page-drawer-guild-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
   .feed-panel-list {
@@ -10085,20 +9992,24 @@ a.os-surface-row {
     transform: none;
   }
 
-  /* Drawer rail keeps a soft tile (index rows must stay flat). */
+  /* Drawer rail: discovery row, compressed — same language as guild index. */
   .guild-summary-card.guild-summary-card--rail {
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.55rem;
     margin: 0;
-    padding: 0;
+    padding: 0.35rem 0.15rem;
     border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.045);
+    background: transparent;
     box-shadow: none;
     transform: none;
+    scroll-snap-align: start;
     transition: background 160ms ease;
   }
 
   .guild-summary-card.guild-summary-card--rail:hover,
   .guild-summary-card.guild-summary-card--rail:focus-visible {
-    background: rgb(var(--fg-rgb) / 0.075);
+    background: var(--os-surface-row-hover);
     box-shadow: none;
     transform: none;
   }
@@ -10294,44 +10205,26 @@ a.os-surface-row {
     letter-spacing: -0.01em;
   }
 
-  /* Drawer rail: keep a compact stacked tile for horizontal scroll. */
-  .guild-summary-card.guild-summary-card--rail {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-    align-items: stretch;
-    gap: 0;
-    min-width: 10.25rem;
-    padding: 0;
-    border-radius: 0.85rem;
-    scroll-snap-align: start;
-  }
-
+  /* Drawer rail peeks — square thumb + one meta line (inside media rail). */
   .guild-summary-card--rail .guild-summary-card-media {
-    width: 100%;
+    width: 3.25rem;
+    min-height: 3.25rem;
+    align-self: center;
   }
 
   .guild-summary-card--rail .guild-summary-card-cover {
-    min-height: 0;
-    height: clamp(2.6rem, 12vw, 3.25rem);
-    border-radius: 0.85rem 0.85rem 0 0;
-  }
-
-  .guild-summary-card--rail .guild-summary-card-identity {
-    --guild-card-avatar-size: 1.85rem;
-    left: 0.5rem;
-    right: auto;
-    bottom: auto;
-    top: calc(100% - 0.55rem);
-    transform: translateY(-50%);
+    min-height: 3.25rem;
+    height: 3.25rem;
+    border-radius: 0.72rem;
   }
 
   .guild-summary-card--rail .guild-summary-card-body {
-    gap: 0.22rem;
-    padding: 0.7rem 0.5rem 0.42rem;
+    gap: 0.12rem;
+    padding: 0;
   }
 
   .guild-summary-card--rail .guild-summary-card-name {
-    font-size: 0.72rem;
+    font-size: 0.78rem;
   }
 
   .guild-summary-card--rail .guild-summary-card-copy {
@@ -10339,11 +10232,6 @@ a.os-surface-row {
   }
 
   .guild-summary-card--rail .guild-summary-card-meta {
-    flex-wrap: nowrap;
-    overflow: hidden;
-  }
-
-  .guild-summary-card--rail .guild-card-pills {
     flex-wrap: nowrap;
     overflow: hidden;
   }
@@ -10382,12 +10270,8 @@ a.os-surface-row {
   }
 
   @media (min-width: 640px) {
-    .page-drawer-guild-rail {
-      grid-auto-columns: minmax(11.5rem, 46%);
-    }
-
-    .page-drawer-scarce-rail {
-      grid-auto-columns: minmax(8.25rem, 28%);
+    .page-drawer-media-rail {
+      grid-auto-columns: minmax(9rem, 28%);
     }
   }
 

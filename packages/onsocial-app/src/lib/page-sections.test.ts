@@ -22,9 +22,8 @@ describe('resolvePageSections', () => {
       'store',
       'created',
       'groups',
-      'collectibles',
       'links',
-      'badges',
+      'collectibles',
     ]);
   });
 
@@ -173,7 +172,25 @@ describe('isPageSectionVisible', () => {
     ).toBe(false);
   });
 
-  it('shows collectibles from holdings count and hides badges and support', () => {
+  it('shows collectibles for owners with holdings and hides badges and support', () => {
+    expect(
+      isPageSectionVisible('collectibles', {
+        stats: emptyStats,
+        guilds: [],
+        links: [],
+        scarceCount: 3,
+        isOwner: true,
+      })
+    ).toBe(true);
+    expect(
+      isPageSectionVisible('collectibles', {
+        stats: emptyStats,
+        guilds: [],
+        links: [],
+        scarceCount: 3,
+        isOwner: false,
+      })
+    ).toBe(false);
     expect(
       isPageSectionVisible('collectibles', {
         stats: emptyStats,
@@ -181,7 +198,7 @@ describe('isPageSectionVisible', () => {
         links: [],
         scarceCount: 3,
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isPageSectionVisible('created', {
         stats: emptyStats,

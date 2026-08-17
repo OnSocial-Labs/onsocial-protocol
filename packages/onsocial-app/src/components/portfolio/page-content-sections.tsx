@@ -3,7 +3,6 @@
 import { Fragment, useMemo } from 'react';
 import Link from 'next/link';
 import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
-import { GuildSummaryCard } from '@/features/guilds/guild-summary-card';
 import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
 import {
   PageDrawerCreatedRail,
@@ -12,9 +11,9 @@ import {
   PageDrawerHoldingsSeeAll,
   PageDrawerPostPeekList,
 } from '@/components/portfolio/page-drawer-peeks';
+import { PageDrawerGuilds } from '@/components/portfolio/page-drawer-guilds';
 import { PortfolioStoreShelf } from '@/components/portfolio/portfolio-store-shelf';
 import {
-  PAGE_DRAWER_GUILD_PEEK,
   PAGE_SECTION_LABELS,
   pageDrawerSectionDomId,
   pageSectionCountHint,
@@ -36,7 +35,6 @@ import {
   resolvePortfolioSocialLinks,
   type PortfolioSocialLink,
 } from '@/lib/profile-social-links';
-import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import { overlayPath } from '@/lib/overlay-routes';
 
 interface PageContentSectionsProps {
@@ -53,6 +51,8 @@ interface PageContentSectionsProps {
   /** Owner wallet holdings for Collectibles (empty for visitors). */
   holdings?: PortfolioHoldingPeek[];
   storeShelf?: ProfileStoreShelf;
+  /** Collectibles chapter is owner Launch only. */
+  isOwner?: boolean;
 }
 
 function PageDrawerLinksList({ links }: { links: PortfolioSocialLink[] }) {
@@ -100,6 +100,7 @@ export function PageContentSections({
   createdMintCount = 0,
   holdings = [],
   storeShelf = EMPTY_PROFILE_STORE,
+  isOwner = false,
 }: PageContentSectionsProps) {
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),
@@ -120,6 +121,7 @@ export function PageContentSections({
         createdCount,
         storeListingCount,
         postPeekCount: postPeeks.length,
+        isOwner,
       }),
     [
       config,
@@ -130,11 +132,10 @@ export function PageContentSections({
       createdCount,
       storeListingCount,
       postPeeks.length,
+      isOwner,
     ]
   );
 
-  const peekGuilds = guilds.slice(0, PAGE_DRAWER_GUILD_PEEK);
-  const guildOverflow = Math.max(0, guilds.length - peekGuilds.length);
   const feedHref = overlayPath(pageAccountId, 'feed');
 
   if (sections.length === 0) {
@@ -155,12 +156,13 @@ export function PageContentSections({
           createdCountHint: createdCount,
           storeListingCount,
         });
-        const showGuildRail = section === 'groups' && peekGuilds.length > 0;
+        const showGuildRail = section === 'groups' && guilds.length > 0;
         const showLinks = section === 'links' && links.length > 0;
         const showPosts = section === 'posts';
         const showStore = section === 'store' && storeListingCount > 0;
         const showCreated = section === 'created' && createdCount > 0;
-        const showHoldings = section === 'collectibles' && holdingsCount > 0;
+        const showHoldings =
+          section === 'collectibles' && isOwner && holdingsCount > 0;
 
         return (
           <Fragment key={section}>
@@ -227,28 +229,7 @@ export function PageContentSections({
 
               {showLinks ? <PageDrawerLinksList links={links} /> : null}
 
-              {showGuildRail ? (
-                <div className="page-drawer-guild-rail" aria-label="Guilds">
-                  {peekGuilds.map((guild) => (
-                    <GuildSummaryCard
-                      key={guild.groupId}
-                      variant="rail"
-                      guild={guild}
-                    />
-                  ))}
-                </div>
-              ) : null}
-
-              {section === 'groups' && guilds.length > 0 ? (
-                <Link
-                  className="page-drawer-section-action"
-                  href={APP_GROUPS_PATH}
-                >
-                  {guildOverflow > 0
-                    ? `See all guilds · +${guildOverflow}`
-                    : 'Browse all guilds'}
-                </Link>
-              ) : null}
+              {showGuildRail ? <PageDrawerGuilds guilds={guilds} /> : null}
             </section>
           </Fragment>
         );

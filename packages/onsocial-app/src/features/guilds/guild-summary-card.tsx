@@ -84,6 +84,14 @@ export function GuildSummaryCard({
     ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
     : null;
   const description = guild.description?.trim() || null;
+  /** Rail peeks prefer avatar (square identity); discovery grid keeps banner cover. */
+  const coverUrl =
+    variant === 'rail'
+      ? (guild.avatarUrl ?? guild.bannerUrl)
+      : guild.bannerUrl;
+  const showDescription = variant === 'grid' && Boolean(description);
+  /** Rail: one quiet meta line — topic · members; role/gated pills stay on grid. */
+  const showPills = variant === 'grid';
 
   return (
     <Link
@@ -93,16 +101,16 @@ export function GuildSummaryCard({
     >
       <span className="guild-summary-card-media" aria-hidden>
         <span
-          className={guildCoverClassName(guild.bannerUrl)}
-          style={guildCoverStyle(guild.bannerUrl, guild.groupId)}
+          className={guildCoverClassName(coverUrl)}
+          style={guildCoverStyle(coverUrl, guild.groupId)}
         >
-          {guild.bannerUrl ? <img src={guild.bannerUrl} alt="" /> : null}
+          {coverUrl ? <img src={coverUrl} alt="" /> : null}
         </span>
       </span>
 
       <span className="guild-summary-card-body">
         <span className="guild-summary-card-name">{displayName}</span>
-        {description ? (
+        {showDescription ? (
           <span className="guild-summary-card-copy">{description}</span>
         ) : null}
         <span className="guild-summary-card-meta">
@@ -114,11 +122,13 @@ export function GuildSummaryCard({
           {guild.memberCount != null ? (
             <GuildMemberStat count={guild.memberCount} />
           ) : null}
-          <GuildCardPills
-            role={guild.role}
-            accessGated={guild.accessGated}
-            memberDriven={guild.memberDriven}
-          />
+          {showPills ? (
+            <GuildCardPills
+              role={guild.role}
+              accessGated={guild.accessGated}
+              memberDriven={guild.memberDriven}
+            />
+          ) : null}
         </span>
       </span>
     </Link>

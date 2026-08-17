@@ -25,7 +25,8 @@ export const PAGE_SECTION_DESCRIPTIONS: Record<PageSection, string> = {
   events: 'Events they host or attend.',
   store: 'Scarces they have for sale right now.',
   created: 'Editions they minted — public showcase.',
-  collectibles: 'Editions you hold — tickets, writing, music, and more.',
+  collectibles:
+    'Your held editions — tickets, writing, music, and more (owner Launch only).',
   badges: 'Earned badges and credentials.',
   groups: 'Guilds they belong to.',
 };
@@ -36,9 +37,8 @@ export const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'store',
   'created',
   'groups',
-  'collectibles',
   'links',
-  'badges',
+  'collectibles',
 ];
 
 /** Showcase chapters always available when they have content (older activate configs). */
@@ -126,6 +126,11 @@ export interface PageSectionVisibilityInput {
   storeListingCount?: number;
   /** Recent post peeks already loaded for the drawer. */
   postPeekCount?: number;
+  /**
+   * Collectibles is owner Launch only until public held-showcase ships.
+   * Visitors still see Store / Created.
+   */
+  isOwner?: boolean;
 }
 
 /** Hide empty showcase sections. Support is a post-content gesture, not a section. */
@@ -145,7 +150,7 @@ export function isPageSectionVisible(
     case 'created':
       return (input.createdCount ?? 0) > 0;
     case 'collectibles':
-      return (input.scarceCount ?? 0) > 0;
+      return Boolean(input.isOwner) && (input.scarceCount ?? 0) > 0;
     case 'badges':
     case 'events':
     case 'support':

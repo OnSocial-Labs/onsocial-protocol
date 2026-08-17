@@ -293,6 +293,7 @@ export function PageContentDrawer({
           createdCount,
           storeListingCount,
           postPeekCount: postPeeks.length,
+          isOwner,
         })
       ),
     [
@@ -304,6 +305,7 @@ export function PageContentDrawer({
       holdingsCount,
       createdCount,
       storeListingCount,
+      isOwner,
     ]
   );
 
@@ -530,6 +532,7 @@ export function PageContentDrawer({
           createdMintCount={drawerMeta.scarceMintCount}
           holdings={holdings}
           storeShelf={storeShelfResolved}
+          isOwner={isOwner}
         />
       </GlassSheet>
 
