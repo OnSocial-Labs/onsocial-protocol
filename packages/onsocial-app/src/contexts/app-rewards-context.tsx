@@ -20,20 +20,19 @@ import {
 } from '@/lib/app-reward-constants';
 import {
   APP_REWARD_BURST_AGGREGATE_MS,
-  compressAppRewardBurstReasons,
   buildBurstFlushSignature,
-  formatShortBurstReason,
   resolveBurstAggregateDelayMs,
-  resolveBurstDisplayAmount,
-  shouldShowBurstCelebration,
 } from '@/lib/app-reward-burst-copy';
 import { onAppRewardCredited } from '@/lib/app-reward-events';
+import {
+  APP_REWARD_TOAST_HOLD_MS,
+  buildAppRewardCollectToast,
+  buildAppRewardCreditToast,
+} from '@/lib/app-rewards-toast';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
-import { formatSocialCompact } from '@/lib/format-social-balance';
 import {
   txToastConfirming,
   txToastError,
-  txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 
 interface RewardsOverview {
@@ -103,6 +102,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     timer: null,
   });
   const toastActiveRef = useRef(false);
+  const toastHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const accountSheetOpenRef = useRef(accountSheetOpen);
   const lastCelebratedSignatureRef = useRef<string | null>(null);
   const flushAggregatedCreditBurstRef = useRef<() => void>(() => {});
@@ -211,6 +211,10 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     setPendingCreditYocto(0n);
     chainClaimableRef.current = 0n;
     toastActiveRef.current = false;
+    if (toastHoldTimerRef.current) {
+      clearTimeout(toastHoldTimerRef.current);
+      toastHoldTimerRef.current = null;
+    }
     lastCelebratedSignatureRef.current = null;
     aggregateRef.current = { total: 0n, events: [], timer: null };
   }, [accountId]);
@@ -227,26 +231,31 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     chainClaimableRef.current = chain;
   }, [overview?.claimable]);
 
+  const armRewardToastHold = useCallback(() => {
+    toastActiveRef.current = true;
+    if (toastHoldTimerRef.current) {
+      clearTimeout(toastHoldTimerRef.current);
+    }
+    toastHoldTimerRef.current = setTimeout(() => {
+      toastHoldTimerRef.current = null;
+      toastActiveRef.current = false;
+      if (
+        aggregateRef.current.total > 0n &&
+        aggregateRef.current.events.length > 0
+      ) {
+        scheduleAggregatedBurstFlushRef.current();
+      }
+    }, APP_REWARD_TOAST_HOLD_MS);
+  }, []);
+
   const showCreditToast = useCallback(
-    (amountYocto: bigint, reasons: string[]) => {
-      const amountLabel = formatSocialCompact(amountYocto.toString());
-      const reason = formatShortBurstReason(reasons);
-      toastActiveRef.current = true;
-      setTxResult({
-        type: 'success',
-        msg: txToastSuccess.rewardCredited(amountLabel, reason),
-      });
-      window.setTimeout(() => {
-        toastActiveRef.current = false;
-        if (
-          aggregateRef.current.total > 0n &&
-          aggregateRef.current.events.length > 0
-        ) {
-          scheduleAggregatedBurstFlushRef.current();
-        }
-      }, 3600);
+    (events: PlatformRewardCreditEvent[]) => {
+      const toast = buildAppRewardCreditToast(events);
+      if (!toast) return;
+      armRewardToastHold();
+      setTxResult(toast);
     },
-    [setTxResult]
+    [armRewardToastHold, setTxResult]
   );
 
   const applyCreditBurst = useCallback(
@@ -262,12 +271,8 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       setPendingCreditYocto((pending) => pending + total);
       setActivityBarPulseKey((key) => key + 1);
 
-      if (!accountSheetOpenRef.current && shouldShowBurstCelebration(events)) {
-        const displayTotal = resolveBurstDisplayAmount(events);
-        if (displayTotal > 0n) {
-          const reasons = compressAppRewardBurstReasons(events);
-          showCreditToast(displayTotal, reasons);
-        }
+      if (!accountSheetOpenRef.current) {
+        showCreditToast(events);
       }
 
       if (options.refreshOverview !== false) {
@@ -345,6 +350,9 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       if (aggregate.timer) {
         clearTimeout(aggregate.timer);
       }
+      if (toastHoldTimerRef.current) {
+        clearTimeout(toastHoldTimerRef.current);
+      }
     };
   }, []);
 
@@ -386,25 +394,30 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
       }
 
       const txHash = typeof data.tx_hash === 'string' ? data.tx_hash.trim() : '';
-      const amountLabel = formatSocialCompact(claimed.toString());
+      const collectToast = buildAppRewardCollectToast(claimed, txHash || null);
+      if (!collectToast) {
+        setCollectPhase('idle');
+        return;
+      }
 
       if (txHash) {
         const confirmed = await trackTransaction({
           txHashes: [txHash],
           submittedMessage: txToastConfirming.collectingSocial,
-          successMessage: txToastSuccess.rewardsCollected(amountLabel),
+          successMessage: collectToast.msg,
           failureMessage: txToastError.collectSocialFailed,
         });
         setCollectPhase('idle');
         if (!confirmed) {
           return;
         }
+        // trackTransaction already set success; hold the gate so a credit
+        // flush cannot replace "X SOCIAL collected." mid-display.
+        armRewardToastHold();
       } else {
         setCollectPhase('idle');
-        setTxResult({
-          type: 'success',
-          msg: txToastSuccess.rewardsCollected(amountLabel),
-        });
+        armRewardToastHold();
+        setTxResult(collectToast);
       }
 
       void refreshRewardsWithRetry({ silent: true, fresh: true });
@@ -418,6 +431,7 @@ export function AppRewardsProvider({ children }: { children: ReactNode }) {
     }
   }, [
     accountId,
+    armRewardToastHold,
     collectPhase,
     overview?.claimable,
     pendingCreditYocto,
