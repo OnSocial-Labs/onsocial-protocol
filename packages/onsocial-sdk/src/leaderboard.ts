@@ -195,6 +195,30 @@ export function reputationTierLabel(rank: number): string {
   return 'New';
 }
 
+/**
+ * One scannable meta line for reputation board rows.
+ * Prefer social proof → activity → quiet tier — never a ·-joined stack.
+ */
+export function reputationBoardMeta(entry: {
+  standingWith: number;
+  totalPosts: number;
+  activeDays: number;
+  rank: number;
+}): string {
+  if (entry.standingWith > 0) {
+    return entry.standingWith === 1
+      ? '1 standing'
+      : `${entry.standingWith} standing`;
+  }
+  if (entry.totalPosts > 0) {
+    return entry.totalPosts === 1 ? '1 post' : `${entry.totalPosts} posts`;
+  }
+  if (entry.activeDays > 0) {
+    return `${entry.activeDays}d active`;
+  }
+  return reputationTierLabel(entry.rank);
+}
+
 export function reputationTier(rank: number): {
   label: string;
   accent: 'gold' | 'purple' | 'blue' | 'green' | 'neutral';

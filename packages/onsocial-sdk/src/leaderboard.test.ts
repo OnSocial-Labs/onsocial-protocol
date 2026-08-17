@@ -7,6 +7,7 @@ import {
   LEADERBOARD_TRACKS,
   leaderboardTrackSubtitle,
   pctOfLeader,
+  reputationBoardMeta,
   reputationConfidenceLabel,
   reputationTierLabel,
 } from './leaderboard.js';
@@ -31,6 +32,33 @@ describe('leaderboard helpers', () => {
     expect(reputationTierLabel(12)).toBe('Active');
     expect(reputationConfidenceLabel(0.2).label).toBe('Limited data');
     expect(reputationConfidenceLabel(0.8).label).toBe('Established');
+  });
+
+  it('picks one scannable reputation meta line', () => {
+    expect(
+      reputationBoardMeta({
+        standingWith: 12,
+        totalPosts: 40,
+        activeDays: 30,
+        rank: 4,
+      })
+    ).toBe('12 standing');
+    expect(
+      reputationBoardMeta({
+        standingWith: 0,
+        totalPosts: 3,
+        activeDays: 10,
+        rank: 40,
+      })
+    ).toBe('3 posts');
+    expect(
+      reputationBoardMeta({
+        standingWith: 0,
+        totalPosts: 0,
+        activeDays: 0,
+        rank: 40,
+      })
+    ).toBe('New');
   });
 
   it('marks earners as tertiary emphasis', () => {

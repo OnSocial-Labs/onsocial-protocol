@@ -1,5 +1,12 @@
 'use client';
 
+/**
+ * In-app protocol leaderboard (slide-over).
+ *
+ * Reuses @onsocial/ui StandingIdentity + standing-row chrome and OsSlideOverScreen.
+ * Rank / pct bars / viewer pin stay host-local — no second UI consumer yet.
+ */
+
 import {
   useCallback,
   useEffect,
@@ -29,7 +36,7 @@ import {
   LEADERBOARD_Z,
   leaderboardTrackSubtitle,
   pctOfLeader,
-  reputationTierLabel,
+  reputationBoardMeta,
   type EarnerEntry,
   type InfluenceEntry,
   type LeaderboardBoardResponse,
@@ -78,7 +85,7 @@ function BoardRow({
 }: {
   accountId: string;
   rank: number;
-  meta: string;
+  meta?: string | null;
   primary: string;
   primaryLabel: string;
   pct: number;
@@ -114,7 +121,7 @@ function BoardRow({
           size="lg"
           showHandle="when-named"
         >
-          <span className="standing-row-bio leaderboard-row-meta">{meta}</span>
+          {meta ? <span className="standing-row-bio">{meta}</span> : null}
           <ProgressBar pct={pct} track={track} />
         </StandingIdentity>
       </Link>
@@ -192,11 +199,6 @@ function ReputationRows({
   return (
     <BoardList>
       {rows.map((entry, index) => {
-        const bits = [
-          entry.standingWith > 0 ? `${entry.standingWith} stand` : null,
-          entry.totalPosts > 0 ? `${entry.totalPosts} posts` : null,
-          entry.activeDays > 0 ? `${entry.activeDays}d` : null,
-        ].filter(Boolean);
         const isViewer = Boolean(findViewerEntry([entry], viewerAccountId));
         return (
           <div key={entry.accountId} role="listitem">
@@ -204,7 +206,7 @@ function ReputationRows({
             <BoardRow
               accountId={entry.accountId}
               rank={entry.rank}
-              meta={[reputationTierLabel(entry.rank), ...bits].join(' · ')}
+              meta={reputationBoardMeta(entry)}
               primary={formatReputationScore(entry.reputation)}
               primaryLabel="Rep"
               pct={pctOfLeader(entry.reputation, leader)}
@@ -249,7 +251,7 @@ function EarnerRows({
             <BoardRow
               accountId={entry.accountId}
               rank={entry.rank}
-              meta={unclaimed ?? 'Earned on protocol'}
+              meta={unclaimed}
               primary={formatSocialCompact(entry.totalEarned)}
               primaryLabel="Earned"
               pct={pctOfLeader(entry.totalEarned, leader)}
@@ -307,7 +309,7 @@ function ViewerFooter({
         <BoardRow
           accountId={row.accountId}
           rank={row.rank}
-          meta={reputationTierLabel(row.rank)}
+          meta={reputationBoardMeta(row)}
           primary={formatReputationScore(row.reputation)}
           primaryLabel="Rep"
           pct={pctOfLeader(row.reputation, leaderValue)}
@@ -320,13 +322,17 @@ function ViewerFooter({
     );
   }
   const row = entry as EarnerEntry;
+  const unclaimed =
+    row.unclaimed && row.unclaimed !== '0' && row.unclaimed !== ''
+      ? `${formatSocialCompact(row.unclaimed)} claimable`
+      : null;
   return (
     <div className="leaderboard-viewer-footer" role="complementary">
       <p className="leaderboard-viewer-footer-label">Your rank</p>
       <BoardRow
         accountId={row.accountId}
         rank={row.rank}
-        meta="Earned on protocol"
+        meta={unclaimed}
         primary={formatSocialCompact(row.totalEarned)}
         primaryLabel="Earned"
         pct={pctOfLeader(row.totalEarned, leaderValue)}
@@ -367,6 +373,7 @@ export function LeaderboardSheet({
   }
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewerPinned, setViewerPinned] = useState(false);
   const requestIdRef = useRef(0);
   const viewerRowRef = useRef<HTMLDivElement | null>(null);
   const scrolledForKeyRef = useRef('');
@@ -379,6 +386,7 @@ export function LeaderboardSheet({
     setCache({});
     setError(null);
     setPending(false);
+    setViewerPinned(false);
     scrolledForKeyRef.current = '';
     onClose();
   }, [onClose]);
@@ -418,10 +426,18 @@ export function LeaderboardSheet({
   const board = cache[track] ?? null;
   const rows = entriesForTrack(track, board);
   const viewerInList = findViewerEntry(rows ?? [], viewerAccountId);
+  const viewerInListRow =
+    viewerInList && rows
+      ? (rows[viewerInList.index] as
+          | InfluenceEntry
+          | ReputationEntry
+          | EarnerEntry)
+      : null;
   const viewerOutside =
-    !viewerInList && board?.viewerEntry
+    !viewerInListRow && board?.viewerEntry
       ? (board.viewerEntry as InfluenceEntry | ReputationEntry | EarnerEntry)
       : null;
+  const stickyViewer = viewerOutside ?? (viewerPinned ? viewerInListRow : null);
 
   const accountIds = useMemo(() => {
     const ids = (rows ?? []).map((row) => row.accountId);
@@ -442,14 +458,42 @@ export function LeaderboardSheet({
   }, [rows, track]);
 
   useEffect(() => {
-    if (!sheetOpen || !viewerInList) return;
+    if (!sheetOpen || !viewerInListRow) return;
     const key = `${track}:${viewerAccountId ?? ''}`;
     if (scrolledForKeyRef.current === key) return;
     const node = viewerRowRef.current;
     if (!node) return;
     scrolledForKeyRef.current = key;
     node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [sheetOpen, track, viewerAccountId, viewerInList, rows]);
+  }, [sheetOpen, track, viewerAccountId, viewerInListRow, rows]);
+
+  useEffect(() => {
+    if (!sheetOpen || !viewerInListRow) {
+      setViewerPinned(false);
+      return;
+    }
+
+    const node = viewerRowRef.current;
+    if (!node) return;
+
+    const root = node.closest('.os-app-screen-body');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        setViewerPinned(!entry.isIntersecting);
+      },
+      {
+        root: root instanceof Element ? root : null,
+        threshold: 0.4,
+        rootMargin: '0px 0px -6% 0px',
+      }
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [sheetOpen, track, viewerInListRow, rows]);
 
   const empty =
     rows != null && rows.length === 0
@@ -458,12 +502,12 @@ export function LeaderboardSheet({
   const showSkeleton = pending && rows == null;
 
   const stickyFooter =
-    viewerOutside && !showSkeleton && !error && !empty ? (
+    stickyViewer && !showSkeleton && !error && !empty ? (
       <ViewerFooter
         track={track}
-        entry={viewerOutside}
+        entry={stickyViewer}
         leaderValue={leaderValue}
-        profile={profiles[viewerOutside.accountId]}
+        profile={profiles[stickyViewer.accountId]}
         onNavigate={requestClose}
       />
     ) : null;
@@ -495,6 +539,7 @@ export function LeaderboardSheet({
               }${item.emphasis === 'tertiary' ? ' is-tertiary' : ''}`}
               onClick={() => {
                 setError(null);
+                setViewerPinned(false);
                 scrolledForKeyRef.current = '';
                 setCache((prev) => {
                   const next = { ...prev };

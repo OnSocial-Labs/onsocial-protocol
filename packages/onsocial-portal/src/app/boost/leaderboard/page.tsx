@@ -22,6 +22,7 @@ import {
   formatScore,
   commitmentLabel,
   commitmentAccent,
+  reputationBoardMeta,
   reputationTier,
   pctOfLeader,
   type InfluenceEntry,
@@ -152,18 +153,8 @@ function ReputationRow({
             }
           />
         </Link>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 portal-type-caption text-muted-foreground">
-          {entry.standingWith > 0 && (
-            <span>{entry.standingWith} stand with</span>
-          )}
-          {entry.totalPosts > 0 && <span>{entry.totalPosts} posts</span>}
-          {entry.activeDays > 0 && <span>{entry.activeDays}d active</span>}
-          {entry.reactionsReceived > 0 && (
-            <span>{entry.reactionsReceived} reactions</span>
-          )}
-          {entry.scarcesCreated > 0 && (
-            <span>{entry.scarcesCreated} scarces</span>
-          )}
+        <div className="mt-1 portal-type-caption text-muted-foreground">
+          {reputationBoardMeta(entry)}
         </div>
         <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border/30">
           <motion.div

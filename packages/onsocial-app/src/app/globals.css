@@ -6512,7 +6512,7 @@ a.os-surface-row {
 
   .leaderboard-row.is-viewer {
     border-radius: 0.85rem;
-    background: rgb(var(--fg-rgb) / 0.04);
+    background: var(--os-surface-fill);
   }
 
   .leaderboard-row.is-top-1 .leaderboard-row-rank {
@@ -6523,7 +6523,7 @@ a.os-surface-row {
 
   .leaderboard-row.is-top-2 .leaderboard-row-rank {
     font-size: 0.9rem;
-    font-weight: 650;
+    font-weight: 600;
     color: rgb(var(--fg-rgb) / 0.72);
   }
 
@@ -6598,11 +6598,6 @@ a.os-surface-row {
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.45);
     text-align: center;
-  }
-
-  .leaderboard-row-meta {
-    display: block;
-    margin-top: 0.15rem;
   }
 
   .leaderboard-row-bar {
