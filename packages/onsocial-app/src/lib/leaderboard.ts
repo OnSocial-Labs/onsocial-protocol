@@ -33,6 +33,7 @@ export interface ReputationEntry {
   commitmentScore: string;
   qualityScore: string;
   consistencyScore: string;
+  scarcesScore: string;
   reputation: string;
   confidenceScore: string;
   rank: number;
@@ -72,6 +73,7 @@ export const REPUTATION_BOARD_GRAPHQL_FIELDS = `
   commitmentScore
   qualityScore
   consistencyScore
+  scarcesScore
   reputation
   confidenceScore
   rank
@@ -134,7 +136,7 @@ export function reputationConfidenceLabel(
     return {
       label: 'Building',
       detail:
-        'Forming from indexed stands, posts, boost, and marketplace activity.',
+        'Forming from weighted stands/endorsements, posts, boost, and marketplace activity.',
     };
   }
   return {

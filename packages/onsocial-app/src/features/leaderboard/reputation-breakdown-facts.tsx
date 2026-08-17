@@ -23,8 +23,8 @@ export function ReputationBreakdownFacts({
   if (!reputation) {
     return (
       <p className="portfolio-support-collect-info-empty">
-        No protocol reputation indexed for @{accountId} yet. Standing,
-        endorsements, posting, and consistency build this score.
+        No protocol reputation indexed for @{accountId} yet. Weighted
+        stands, endorsements, posting, and consistency build this score.
       </p>
     );
   }
@@ -59,6 +59,10 @@ export function ReputationBreakdownFacts({
         <SheetFactRow
           label="Consistency"
           value={formatReputationComponent(reputation.consistencyScore)}
+        />
+        <SheetFactRow
+          label="Scarces"
+          value={formatReputationComponent(reputation.scarcesScore)}
         />
         <SheetFactRow
           label="Confidence"

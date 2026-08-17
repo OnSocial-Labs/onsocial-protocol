@@ -51,8 +51,8 @@ export function ReputationFactsSheet({
         copy={
           reputation
             ? reputation.rank > 0
-              ? `Rank #${reputation.rank} · protocol v1`
-              : 'Protocol reputation v1'
+              ? `Rank #${reputation.rank} · protocol v2`
+              : 'Protocol reputation v2'
             : 'Not indexed yet'
         }
         closeAriaLabel="Close reputation"
