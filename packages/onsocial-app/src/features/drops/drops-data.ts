@@ -89,6 +89,40 @@ function rowMatchesMedium(
   return rowMediumKind(row) === mediumKind;
 }
 
+export type DropAudioFormatFilter = 'single' | 'album' | 'podcast';
+
+function itemMatchesAudioFormat(
+  item: DropDiscoveryItem,
+  audioFormat: DropAudioFormatFilter | null
+): boolean {
+  if (!audioFormat) return true;
+  return item.view?.audioFormat === audioFormat;
+}
+
+export function dropsItemMatchesQuery(
+  item: Pick<DropDiscoveryItem, 'title' | 'creatorId'>,
+  needle: string
+): boolean {
+  const q = needle.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    item.title.toLowerCase().includes(q) ||
+    item.creatorId.toLowerCase().includes(q)
+  );
+}
+
+function rowMatchesSearch(
+  row: ScarcesCollectionCurrentRow,
+  search: string | null
+): boolean {
+  if (!search?.trim()) return true;
+  const q = search.trim().toLowerCase();
+  return (
+    (row.title ?? '').toLowerCase().includes(q) ||
+    (row.creatorId ?? '').toLowerCase().includes(q)
+  );
+}
+
 function rowToDiscoveryItem(
   row: ScarcesCollectionCurrentRow,
   extras?: { fanCount?: number }
@@ -359,6 +393,8 @@ async function fetchClosingPage(
   client: OnSocial,
   opts: {
     mediumKind: string | null;
+    search: string | null;
+    audioFormat: DropAudioFormatFilter | null;
     limit: number;
     offset: number;
   }
@@ -367,6 +403,7 @@ async function fetchClosingPage(
   const mediumFilter = opts.mediumKind
     ? { mediumKind: opts.mediumKind }
     : {};
+  const searchFilter = opts.search ? { search: opts.search } : {};
   const batch = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
   const byId = new Map<string, DropDiscoveryItem>();
 
@@ -377,9 +414,11 @@ async function fetchClosingPage(
     nowNs: ns,
     closingNs: closingNs(ns),
     ...mediumFilter,
+    ...searchFilter,
   });
   for (const row of timed) {
     const item = rowToDiscoveryItem(row);
+    if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
     byId.set(item.collectionId.trim(), item);
   }
 
@@ -392,12 +431,14 @@ async function fetchClosingPage(
       lifecycle: 'live',
       nowNs: ns,
       ...mediumFilter,
+      ...searchFilter,
     });
     liveOffset += rows.length;
     if (rows.length < batch) liveExhausted = true;
     for (const row of rows) {
       const item = rowToDiscoveryItem(row);
       if (!isDropClosing(item)) continue;
+      if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
       byId.set(item.collectionId.trim(), item);
     }
     if (liveExhausted) break;
@@ -453,6 +494,8 @@ async function fetchSavedPage(
   viewer: string,
   opts: {
     mediumKind: string | null;
+    search: string | null;
+    audioFormat: DropAudioFormatFilter | null;
     limit: number;
     offset: number;
   }
@@ -465,7 +508,12 @@ async function fetchSavedPage(
     .map((row) => parseScarceCollectionSavePath(row.contentPath))
     .filter((id): id is string => Boolean(id));
 
-  if (!opts.mediumKind) {
+  const needsWalk =
+    Boolean(opts.mediumKind) ||
+    Boolean(opts.search?.trim()) ||
+    Boolean(opts.audioFormat);
+
+  if (!needsWalk) {
     const pageIds = collectionIds.slice(opts.offset, opts.offset + opts.limit);
     if (pageIds.length === 0) return { items: [], hasMore: false };
     const shells = await client.query.scarces.collectionsCurrentByIds(pageIds);
@@ -483,11 +531,11 @@ async function fetchSavedPage(
     };
   }
 
-  // Medium filter: walk saves in chunks until we fill the page window.
   const matched: DropDiscoveryItem[] = [];
   let cursor = 0;
   const chunk = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
-  while (cursor < collectionIds.length && matched.length < opts.offset + opts.limit) {
+  const need = opts.offset + opts.limit;
+  while (cursor < collectionIds.length && matched.length < need) {
     const slice = collectionIds.slice(cursor, cursor + chunk);
     cursor += slice.length;
     if (slice.length === 0) break;
@@ -498,13 +546,21 @@ async function fetchSavedPage(
     for (const id of slice) {
       const shell = byId.get(id);
       if (!shell || !rowMatchesMedium(shell, opts.mediumKind)) continue;
-      matched.push(rowToDiscoveryItem(shell));
-      if (matched.length >= opts.offset + opts.limit) break;
+      if (!rowMatchesSearch(shell, opts.search)) continue;
+      const item = rowToDiscoveryItem(shell);
+      if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
+      matched.push(item);
+      if (matched.length >= need) break;
     }
   }
   const items = matched.slice(opts.offset, opts.offset + opts.limit);
-  const hasMore =
-    matched.length > opts.offset + opts.limit || cursor < collectionIds.length;
+  const hasMore = lovedMediumPageHasMore({
+    pageItemCount: items.length,
+    limit: opts.limit,
+    matchedCount: matched.length,
+    offset: opts.offset,
+    exhausted: cursor >= collectionIds.length,
+  });
   return { items, hasMore };
 }
 
@@ -512,6 +568,8 @@ async function fetchLovedPage(
   client: OnSocial,
   opts: {
     mediumKind: string | null;
+    search: string | null;
+    audioFormat: DropAudioFormatFilter | null;
     limit: number;
     offset: number;
   }
@@ -525,7 +583,12 @@ async function fetchLovedPage(
     }
   };
 
-  if (!opts.mediumKind) {
+  const needsWalk =
+    Boolean(opts.mediumKind) ||
+    Boolean(opts.search?.trim()) ||
+    Boolean(opts.audioFormat);
+
+  if (!needsWalk) {
     const loves = await loveFans(opts.limit, opts.offset);
     const ids = loves.map((row) => row.collectionId).filter(Boolean);
     const shells =
@@ -569,14 +632,15 @@ async function fetchLovedPage(
     for (const love of loves) {
       const shell = byId.get(love.collectionId.trim());
       if (!shell || !rowMatchesMedium(shell, opts.mediumKind)) continue;
-      matched.push(rowToDiscoveryItem(shell, { fanCount: love.fanCount }));
+      if (!rowMatchesSearch(shell, opts.search)) continue;
+      const item = rowToDiscoveryItem(shell, { fanCount: love.fanCount });
+      if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
+      matched.push(item);
       if (matched.length >= need) break;
     }
     if (exhausted) break;
   }
   const items = matched.slice(opts.offset, opts.offset + opts.limit);
-  // Only claim more when this page filled — avoids empty catalog + Show more
-  // that re-hits the same offset.
   const hasMore = lovedMediumPageHasMore({
     pageItemCount: items.length,
     limit: opts.limit,
@@ -587,10 +651,95 @@ async function fetchLovedPage(
   return { items, hasMore };
 }
 
+/**
+ * Lifecycle / New catalog with optional audio-format post-filter.
+ * Search runs in the indexer; format is metadata-only so we overfetch when set.
+ */
+async function fetchCatalogPage(
+  client: OnSocial,
+  opts: {
+    sort: 'live' | 'upcoming' | 'finished' | 'new';
+    mediumKind: string | null;
+    search: string | null;
+    audioFormat: DropAudioFormatFilter | null;
+    limit: number;
+    offset: number;
+  }
+): Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }> {
+  const ns = nowNs();
+  const mediumFilter = opts.mediumKind
+    ? { mediumKind: opts.mediumKind }
+    : {};
+  const searchFilter = opts.search ? { search: opts.search } : {};
+  const base =
+    opts.sort === 'new'
+      ? { orderBy: 'new' as const, ...mediumFilter, ...searchFilter }
+      : {
+          lifecycle: opts.sort,
+          nowNs: ns,
+          ...mediumFilter,
+          ...searchFilter,
+        };
+
+  if (!opts.audioFormat) {
+    const rows = await client.query.scarces.collectionsCurrent({
+      limit: opts.limit,
+      offset: opts.offset,
+      ...base,
+    });
+    return {
+      items: rows.map((row) => rowToDiscoveryItem(row)),
+      hasMore: rows.length === opts.limit,
+    };
+  }
+
+  const matched: DropDiscoveryItem[] = [];
+  let sourceOffset = 0;
+  let exhausted = false;
+  const batch = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
+  const need = opts.offset + opts.limit;
+  for (let round = 0; round < LOVED_MEDIUM_FETCH_ROUNDS; round += 1) {
+    if (matched.length >= need) break;
+    const rows = await client.query.scarces.collectionsCurrent({
+      limit: batch,
+      offset: sourceOffset,
+      ...base,
+    });
+    sourceOffset += rows.length;
+    if (rows.length < batch) exhausted = true;
+    if (rows.length === 0) {
+      exhausted = true;
+      break;
+    }
+    for (const row of rows) {
+      const item = rowToDiscoveryItem(row);
+      if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
+      matched.push(item);
+      if (matched.length >= need) break;
+    }
+    if (exhausted) break;
+  }
+  const items = matched.slice(opts.offset, opts.offset + opts.limit);
+  return {
+    items,
+    hasMore: lovedMediumPageHasMore({
+      pageItemCount: items.length,
+      limit: opts.limit,
+      matchedCount: matched.length,
+      offset: opts.offset,
+      exhausted,
+    }),
+  };
+}
+
 export async function fetchDropsPage(
   opts: {
     sort?: DropsSort;
     mediumKind?: string | null;
+    /** Indexer title/creator search (lifecycle / New); client filter on Loved/Saved. */
+    search?: string | null;
+    /** Release format when medium is audio (metadata post-filter). */
+    audioFormat?: DropAudioFormatFilter | null;
     limit?: number;
     offset?: number;
     client?: OnSocial;
@@ -600,6 +749,8 @@ export async function fetchDropsPage(
 ): Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }> {
   const sort = opts.sort ?? 'live';
   const mediumKind = opts.mediumKind?.trim().toLowerCase() || null;
+  const search = opts.search?.trim() || null;
+  const audioFormat = opts.audioFormat ?? null;
   const limit = opts.limit ?? DROPS_PAGE_SIZE;
   const offset = opts.offset ?? 0;
   const client = opts.client ?? createReadOnlyOnSocialClient();
@@ -608,12 +759,17 @@ export async function fetchDropsPage(
       ? { mediumKind: mediumKind === 'music' ? 'audio' : mediumKind }
       : {};
   const effectiveMedium = mediumFilter.mediumKind ?? null;
+  // Format chips only apply under Audio.
+  const effectiveFormat =
+    effectiveMedium === 'audio' ? audioFormat : null;
 
   if (sort === 'saved') {
     const viewer = opts.viewerAccountId?.trim() ?? '';
     if (!viewer) return { items: [], hasMore: false };
     const page = await fetchSavedPage(client, viewer, {
       mediumKind: effectiveMedium,
+      search,
+      audioFormat: effectiveFormat,
       limit,
       offset,
     });
@@ -626,6 +782,8 @@ export async function fetchDropsPage(
   if (sort === 'loved') {
     const page = await fetchLovedPage(client, {
       mediumKind: effectiveMedium,
+      search,
+      audioFormat: effectiveFormat,
       limit,
       offset,
     });
@@ -638,6 +796,8 @@ export async function fetchDropsPage(
   if (sort === 'closing') {
     const page = await fetchClosingPage(client, {
       mediumKind: effectiveMedium,
+      search,
+      audioFormat: effectiveFormat,
       limit,
       offset,
     });
@@ -648,36 +808,31 @@ export async function fetchDropsPage(
   }
 
   if (sort === 'live' || sort === 'upcoming' || sort === 'finished') {
-    const ns = nowNs();
-    const rows = await client.query.scarces.collectionsCurrent({
+    const page = await fetchCatalogPage(client, {
+      sort,
+      mediumKind: effectiveMedium,
+      search,
+      audioFormat: effectiveFormat,
       limit,
       offset,
-      lifecycle: sort,
-      nowNs: ns,
-      ...mediumFilter,
     });
-    const items = await decorateDropItems(
-      rows.map((row) => rowToDiscoveryItem(row)),
-      client
-    );
     return {
-      items,
-      hasMore: rows.length === limit,
+      items: await decorateDropItems(page.items, client),
+      hasMore: page.hasMore,
     };
   }
 
-  const rows = await client.query.scarces.collectionsCurrent({
+  const page = await fetchCatalogPage(client, {
+    sort: 'new',
+    mediumKind: effectiveMedium,
+    search,
+    audioFormat: effectiveFormat,
     limit,
     offset,
-    orderBy: 'new',
-    ...mediumFilter,
   });
   return {
-    items: await decorateDropItems(
-      rows.map((row) => rowToDiscoveryItem(row)),
-      client
-    ),
-    hasMore: rows.length === limit,
+    items: await decorateDropItems(page.items, client),
+    hasMore: page.hasMore,
   };
 }
 

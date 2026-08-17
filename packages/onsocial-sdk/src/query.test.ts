@@ -3286,6 +3286,27 @@ describe('QueryModule', () => {
       });
     });
 
+    it('collectionsCurrent applies title/creator search', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
+      await os.query.scarces.collectionsCurrent({
+        search: 'neon',
+        mediumKind: 'audio',
+        limit: 8,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/title: \{_ilike: \$search\}/);
+      expect(body.query).toMatch(/creatorId: \{_ilike: \$search\}/);
+      expect(body.variables).toEqual({
+        limit: 8,
+        offset: 0,
+        search: '%neon%',
+        mediumKind: 'audio',
+      });
+    });
+
     it('ownedBy queries scarcesTokenOwners for unburned tokens', async () => {
       const { os, fetch } = makeOs({
         data: {

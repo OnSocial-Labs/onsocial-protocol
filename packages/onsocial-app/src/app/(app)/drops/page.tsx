@@ -6,11 +6,14 @@ import {
   DROPS_PAGE_SIZE,
   fetchCreatorLeaders,
   fetchDropsPage,
+  type DropAudioFormatFilter,
   type DropsSort,
 } from '@/features/drops/drops-data';
+import { parseAudioFormat } from '@/features/scarces/drop-facets';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
 import {
   DROPS_SORT_PARAM,
+  MARKET_AUDIO_FORMAT_PARAM,
   MARKET_KIND_PARAM,
   parseDropsMediumParam,
   parseDropsSortParam,
@@ -26,6 +29,7 @@ type DropsPageProps = {
   searchParams?: Promise<{
     [DROPS_SORT_PARAM]?: string | string[];
     [MARKET_KIND_PARAM]?: string | string[];
+    [MARKET_AUDIO_FORMAT_PARAM]?: string | string[];
   }>;
 };
 
@@ -48,9 +52,12 @@ export default async function DropsPage({ searchParams }: DropsPageProps) {
   const resolved = (await searchParams) ?? {};
   const sortParam = firstParam(resolved[DROPS_SORT_PARAM]);
   const kindParam = firstParam(resolved[MARKET_KIND_PARAM]);
+  const formatParam = firstParam(resolved[MARKET_AUDIO_FORMAT_PARAM]);
   const urlSort = parseDropsSortParam(sortParam);
   const ssrSort = resolveSsrSort(sortParam);
   const medium: DropsMediumParam = parseDropsMediumParam(kindParam);
+  const audioFormat: DropAudioFormatFilter | null =
+    medium === 'audio' ? parseAudioFormat(formatParam) : null;
 
   const client = createServerOnSocialClient();
   // Server request clock for relative-time hydration (must match SSR markup).
@@ -64,6 +71,7 @@ export default async function DropsPage({ searchParams }: DropsPageProps) {
           sort: ssrSort,
           limit: DROPS_PAGE_SIZE,
           mediumKind: medium === 'all' ? null : medium,
+          audioFormat,
           client,
         }).catch(() => null);
 
@@ -77,6 +85,7 @@ export default async function DropsPage({ searchParams }: DropsPageProps) {
       <DropsPagePanel
         initialSort={urlSort === 'saved' ? 'saved' : ssrSort}
         initialMedium={medium}
+        initialAudioFormat={audioFormat}
         initialItems={page?.items ?? []}
         initialHasMore={page?.hasMore ?? false}
         initialFetchFailed={page === null}

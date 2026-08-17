@@ -823,6 +823,11 @@ export class ScarcesQuery {
       kind?: string;
       /** Normalized medium filter (`art` / `audio` / `video` / …). */
       mediumKind?: string;
+      /**
+       * Case-insensitive title / creator search (`%needle%` on `title` +
+       * `creatorId`). Same shape as `activeListings` search.
+       */
+      search?: string;
       /** Exact source post path (`author/post/{id}`). */
       sourcePostPath?: string;
       /** When false (default), hide paused/cancelled/banned shells. */
@@ -932,6 +937,13 @@ export class ScarcesQuery {
       params.push('$mediumKind: String!');
       variables.mediumKind = mediumKind === 'music' ? 'audio' : mediumKind;
       where.push('mediumKind: {_eq: $mediumKind}');
+    }
+    if (opts.search?.trim()) {
+      params.push('$search: String!');
+      variables.search = `%${opts.search.trim()}%`;
+      where.push(
+        '_or: [{title: {_ilike: $search}}, {creatorId: {_ilike: $search}}]'
+      );
     }
     if (opts.sourcePostPath?.trim()) {
       params.push('$sourcePostPath: String!');

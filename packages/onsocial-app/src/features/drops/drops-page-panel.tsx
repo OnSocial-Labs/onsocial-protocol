@@ -19,17 +19,23 @@ import {
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import {
   DROPS_PAGE_SIZE,
+  dropsItemMatchesQuery,
   fetchCreatorLeaders,
   fetchDropsPage,
   isDropClosing,
   pickFeaturedLiveDrop,
   upcomingBucket,
   type CreatorLeaderRow,
+  type DropAudioFormatFilter,
   type DropDiscoveryItem,
   type DropsSort,
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
+import {
+  MarketFacetRail,
+  type MarketAudioFormatFilter,
+} from '@/features/market/market-facet-rail';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -40,6 +46,7 @@ import {
   fetchAllowlistRemaining,
   isCollectionMintable,
 } from '@/features/scarces/collections-data';
+import { parseAudioFormat } from '@/features/scarces/drop-facets';
 import {
   ScarceBuySheet,
   type ScarceBuyListing,
@@ -53,6 +60,7 @@ import {
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
   DROPS_SORT_PARAM,
+  MARKET_AUDIO_FORMAT_PARAM,
   MARKET_KIND_PARAM,
   collectionPath,
   dropsPath,
@@ -62,6 +70,9 @@ import {
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+
+/** Debounce before search keystrokes hit the indexer (Market-aligned). */
+const SEARCH_DEBOUNCE_MS = 300;
 
 const BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
   { id: 'live', label: 'Live' },
@@ -442,7 +453,9 @@ function DropRow({
       )}
       <div className="market-listing-copy drops-discovery-copy">
         {featured ? (
-          <span className="drops-discovery-featured-eyebrow">Featured</span>
+          <span className="drops-discovery-featured-eyebrow">
+            {isDropClosing(item, nowMs) ? 'Featured · Closing' : 'Featured'}
+          </span>
         ) : null}
         <div className="market-listing-head drops-discovery-head">
           <Link
@@ -592,7 +605,7 @@ function EmptyDropsStatus({
   if (query.trim()) {
     return (
       <p className="market-page-status">
-        No loaded drops match “{query.trim()}”. Try another tab or clear search.
+        No drops match “{query.trim()}”. Try another tab or clear search.
       </p>
     );
   }
@@ -663,6 +676,7 @@ function toPanelMedium(value: DropsMediumParam): MarketMediumFilter {
 export function DropsPagePanel({
   initialSort = 'live',
   initialMedium = 'all',
+  initialAudioFormat = null,
   initialItems = [],
   initialHasMore,
   initialFetchFailed = false,
@@ -672,6 +686,8 @@ export function DropsPagePanel({
   initialSort?: DropsSort;
   /** From SSR / `?kind=` — Events = `ticket`. */
   initialMedium?: DropsMediumParam;
+  /** From SSR / `?audioFormat=` when medium is audio. */
+  initialAudioFormat?: DropAudioFormatFilter | null;
   initialItems?: DropDiscoveryItem[];
   /** From SSR `fetchDropsPage`; defaults to a full-page guess. */
   initialHasMore?: boolean;
@@ -686,6 +702,10 @@ export function DropsPagePanel({
   const searchParams = useSearchParams();
   const urlSort = parseDropsSortParam(searchParams.get(DROPS_SORT_PARAM));
   const urlMedium = parseDropsMediumParam(searchParams.get(MARKET_KIND_PARAM));
+  const urlAudioFormat =
+    urlMedium === 'audio'
+      ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
+      : null;
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
   const [nowMs, setNowMs] = useState(
@@ -711,7 +731,13 @@ export function DropsPagePanel({
       ? toPanelMedium(urlMedium)
       : toPanelMedium(initialMedium)
   );
+  const [audioFormat, setAudioFormat] = useState<MarketAudioFormatFilter>(() =>
+    searchParams.get(MARKET_AUDIO_FORMAT_PARAM)
+      ? urlAudioFormat
+      : initialAudioFormat
+  );
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [items, setItems] = useState(initialItems);
   const [creators, setCreators] = useState(initialCreators);
   const [offset, setOffset] = useState(initialItems.length);
@@ -740,6 +766,32 @@ export function DropsPagePanel({
     collectionIds,
   });
 
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  const discoveryPath = useCallback(
+    (next: {
+      sort?: DropsSort;
+      medium?: MarketMediumFilter;
+      audioFormat?: MarketAudioFormatFilter;
+    }) =>
+      dropsPath({
+        sort: next.sort ?? sort,
+        kind: next.medium ?? medium,
+        audioFormat:
+          (next.medium ?? medium) === 'audio'
+            ? (next.audioFormat !== undefined
+                ? next.audioFormat
+                : audioFormat)
+            : null,
+      }),
+    [audioFormat, medium, sort]
+  );
+
   const selectSort = useCallback(
     (next: DropsSort) => {
       if (next === 'saved' && !isConnected) {
@@ -747,39 +799,61 @@ export function DropsPagePanel({
         return;
       }
       setSort(next);
-      router.replace(dropsPath({ sort: next, kind: medium }), {
-        scroll: false,
-      });
+      router.replace(discoveryPath({ sort: next }), { scroll: false });
     },
-    [connect, isConnected, medium, router]
+    [connect, discoveryPath, isConnected, router]
   );
 
   const selectMedium = useCallback(
     (next: MarketMediumFilter) => {
+      const nextFormat = next === 'audio' ? audioFormat : null;
       setMedium(next);
-      router.replace(dropsPath({ sort, kind: next }), { scroll: false });
+      if (next !== 'audio') setAudioFormat(null);
+      router.replace(
+        discoveryPath({ medium: next, audioFormat: nextFormat }),
+        { scroll: false }
+      );
     },
-    [router, sort]
+    [audioFormat, discoveryPath, router]
+  );
+
+  const selectAudioFormat = useCallback(
+    (next: MarketAudioFormatFilter) => {
+      setAudioFormat(next);
+      router.replace(discoveryPath({ audioFormat: next }), { scroll: false });
+    },
+    [discoveryPath, router]
   );
 
   useEffect(() => {
     if (urlSort === 'saved' && !isConnected) {
       setSort((current) => (current === 'live' ? current : 'live'));
       if (searchParams.get(DROPS_SORT_PARAM)) {
-        router.replace(dropsPath({ kind: urlMedium }), { scroll: false });
+        router.replace(discoveryPath({ sort: 'live' }), { scroll: false });
       }
       return;
     }
     setSort((current) => (current === urlSort ? current : urlSort));
-  }, [urlSort, urlMedium, isConnected, router, searchParams]);
+  }, [urlSort, isConnected, router, searchParams, discoveryPath]);
 
   useEffect(() => {
     const next = toPanelMedium(urlMedium);
     setMedium((current) => (current === next ? current : next));
   }, [urlMedium]);
 
+  useEffect(() => {
+    setAudioFormat((current) =>
+      current === urlAudioFormat ? current : urlAudioFormat
+    );
+  }, [urlAudioFormat]);
+
   const reload = useCallback(
-    async (nextSort: DropsSort, nextMedium: MarketMediumFilter) => {
+    async (
+      nextSort: DropsSort,
+      nextMedium: MarketMediumFilter,
+      nextSearch: string,
+      nextFormat: MarketAudioFormatFilter
+    ) => {
       setLoading(true);
       setFailed(false);
       setLoadMoreFailed(false);
@@ -796,6 +870,8 @@ export function DropsPagePanel({
           fetchDropsPage({
             sort: nextSort,
             mediumKind: nextMedium === 'all' ? null : nextMedium,
+            search: nextSearch || null,
+            audioFormat: nextFormat,
             limit: DROPS_PAGE_SIZE,
             viewerAccountId: accountId,
           }),
@@ -820,22 +896,27 @@ export function DropsPagePanel({
   );
 
   useEffect(() => {
-    // Trust a successful SSR seed (including empty) for the matching sort/medium.
+    // Trust a successful SSR seed (including empty) for the matching catalog.
     if (
       reloadKey === 0 &&
       !initialFetchFailed &&
       sort === initialSort &&
       sort !== 'saved' &&
-      medium === toPanelMedium(initialMedium)
+      medium === toPanelMedium(initialMedium) &&
+      audioFormat === initialAudioFormat &&
+      !debouncedQuery
     ) {
       return;
     }
-    void reload(sort, medium);
+    void reload(sort, medium, debouncedQuery, audioFormat);
   }, [
     sort,
     medium,
+    audioFormat,
+    debouncedQuery,
     initialSort,
     initialMedium,
+    initialAudioFormat,
     initialFetchFailed,
     reload,
     reloadKey,
@@ -926,6 +1007,8 @@ export function DropsPagePanel({
     void fetchDropsPage({
       sort,
       mediumKind: medium === 'all' ? null : medium,
+      search: debouncedQuery || null,
+      audioFormat,
       limit: DROPS_PAGE_SIZE,
       offset,
       viewerAccountId: accountId,
@@ -942,18 +1025,18 @@ export function DropsPagePanel({
   };
 
   const needle = query.trim().toLowerCase();
+  const searching = needle.length > 0;
+  // Live keystrokes filter the current page; debounced query drives the indexer.
   const visibleItems =
-    needle.length === 0
+    !searching || needle === debouncedQuery.toLowerCase()
       ? items
-      : items.filter((item) => {
-          const title = item.title.toLowerCase();
-          const creator = item.creatorId.toLowerCase();
-          return title.includes(needle) || creator.includes(needle);
-        });
+      : items.filter((item) => dropsItemMatchesQuery(item, needle));
 
   const featured =
     sort === 'live' &&
-    needle.length === 0 &&
+    !searching &&
+    !audioFormat &&
+    medium === 'all' &&
     !loading &&
     visibleItems.length >= 2
       ? pickFeaturedLiveDrop(visibleItems, nowMs)
@@ -978,7 +1061,7 @@ export function DropsPagePanel({
   }, [sort, catalogItems, nowMs]);
 
   const showCreators =
-    sort === 'new' && creators.length > 0 && needle.length === 0;
+    sort === 'new' && creators.length > 0 && !searching && !audioFormat;
   const showCatalogSkeleton = loading && items.length === 0 && !failed;
 
   const renderRow = (item: DropDiscoveryItem, opts?: { featured?: boolean }) => (
@@ -1100,6 +1183,16 @@ export function DropsPagePanel({
                 ))}
               </div>
             </div>
+            {medium === 'audio' ? (
+              <MarketFacetRail
+                medium="audio"
+                audioFormat={audioFormat}
+                selectedFacets={[]}
+                showFacets={false}
+                onAudioFormatChange={selectAudioFormat}
+                onFacetsChange={() => undefined}
+              />
+            ) : null}
           </div>
         </div>
       }
@@ -1205,7 +1298,7 @@ export function DropsPagePanel({
             ) : null}
             {hasMore &&
             items.length > 0 &&
-            needle.length === 0 &&
+            (!searching || needle === debouncedQuery.toLowerCase()) &&
             !failed ? (
               <button
                 type="button"

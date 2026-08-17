@@ -15,7 +15,7 @@ const AUDIO_FORMAT_CHIPS: ReadonlyArray<{
   { id: null, label: 'All' },
   { id: 'single', label: 'Single' },
   { id: 'album', label: 'Album' },
-  // Podcast is parsed when stamped; hide until creators ship podcast drops.
+  { id: 'podcast', label: 'Podcast' },
 ];
 
 interface MarketFacetRailProps {
@@ -24,6 +24,8 @@ interface MarketFacetRailProps {
   selectedFacets: string[];
   onAudioFormatChange: (format: MarketAudioFormatFilter) => void;
   onFacetsChange: (facets: string[]) => void;
+  /** When false, hide genre/subject chips (format only). Default true. */
+  showFacets?: boolean;
 }
 
 /**
@@ -36,8 +38,11 @@ export function MarketFacetRail({
   selectedFacets,
   onAudioFormatChange,
   onFacetsChange,
+  showFacets = true,
 }: MarketFacetRailProps) {
-  const suggestions = dropFacetSuggestionsForMedium(medium);
+  const suggestions = showFacets
+    ? dropFacetSuggestionsForMedium(medium)
+    : [];
   const showFormat = medium === 'audio';
 
   const toggleFacet = (id: string) => {
