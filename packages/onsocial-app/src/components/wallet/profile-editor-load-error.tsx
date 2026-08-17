@@ -24,7 +24,7 @@ export function ProfileEditorLoadError({
       className="account-editor-loading-shell account-editor-load-error-shell"
       role="alert"
     >
-      <section className="account-editor-hero" aria-hidden>
+      <section className="account-editor-hero profile-edit-hero" aria-hidden>
         <div className="account-editor-cover-stage">
           <div className="account-editor-banner-wrap profile-editor-media-banner-dock">
             <div className="account-editor-banner-button account-editor-banner-empty-tone" />

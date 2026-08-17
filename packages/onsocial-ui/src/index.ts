@@ -297,10 +297,11 @@ export {
   type OsProposalCardSurface,
 } from './os-proposal-card.js';
 export {
-  DiscardConfirmFooter,
+  DISCARD_CONFIRM_Z,
+  DiscardConfirmSheet,
   discardConfirmFooterA11y,
   useDiscardConfirm,
-  type DiscardConfirmFooterProps,
+  type DiscardConfirmSheetProps,
   type UseDiscardConfirmOptions,
   type UseDiscardConfirmResult,
 } from './discard-confirm.js';

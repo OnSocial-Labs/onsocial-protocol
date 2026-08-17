@@ -11,6 +11,7 @@ import {
 } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import {
+  useLivePortfolioPageAccount,
   usePortfolioMoodVars,
   type PortfolioMoodVarsSnapshot,
 } from '@/hooks/use-portfolio-mood-vars';
@@ -124,14 +125,16 @@ export function useViewerWalletMoodVars(
   enabled: boolean
 ): PortfolioMoodVarsSnapshot {
   const { mood: contextMood } = useViewerWalletMoodContext();
+  const livePageAccountId = useLivePortfolioPageAccount(enabled);
+  const resolvedPageAccountId = pageAccountId || livePageAccountId;
   const isOnOwnPortfolioPage =
     enabled &&
     Boolean(walletAccountId) &&
-    Boolean(pageAccountId) &&
-    accountIdsEqual(pageAccountId!, walletAccountId);
+    Boolean(resolvedPageAccountId) &&
+    accountIdsEqual(resolvedPageAccountId!, walletAccountId);
 
   const liveShell = usePortfolioMoodVars(
-    pageAccountId,
+    resolvedPageAccountId,
     walletAccountId,
     isOnOwnPortfolioPage
   );

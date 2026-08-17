@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent, type FocusEvent } from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
@@ -12,13 +12,16 @@ import {
   type ProfileLinkKind,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { PAGE_LINK_NOTE_MAX } from '@/lib/page-launch-config';
 
 interface ProfileLinkInputRowProps {
   field: (typeof PROFILE_LINK_EDITOR_FIELDS)[number];
   value: string;
+  note?: string;
   error?: string;
   inputRef: (node: HTMLInputElement | null) => void;
   onChange: (value: string) => void;
+  onNoteChange?: (value: string) => void;
   onCommit: () => void;
   onCancel: () => void;
 }
@@ -26,14 +29,18 @@ interface ProfileLinkInputRowProps {
 function ProfileLinkInputRow({
   field,
   value,
+  note,
   error,
   inputRef,
   onChange,
+  onNoteChange,
   onCommit,
   onCancel,
 }: ProfileLinkInputRowProps) {
   const inlineError = error ? profileLinkEditorInlineError(field.kind) : null;
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const titlePlaceholder =
+    field.kind === 'website' ? 'My website' : 'Optional title';
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -48,6 +55,15 @@ function ProfileLinkInputRow({
       event.nativeEvent.stopPropagation();
       onCancel();
     }
+  };
+
+  const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
+    const fieldEl = event.currentTarget.closest('.account-editor-link-field');
+    const next = event.relatedTarget;
+    if (next instanceof Node && fieldEl?.contains(next)) {
+      return;
+    }
+    onCommit();
   };
 
   return (
@@ -71,7 +87,7 @@ function ProfileLinkInputRow({
           autoComplete={field.kind === 'website' ? 'url' : 'off'}
           onFocus={scrollFieldIntoView}
           onChange={(event) => onChange(event.target.value)}
-          onBlur={onCommit}
+          onBlur={handleBlur}
           onKeyDown={handleKeyDown}
         />
         {inlineError ? (
@@ -95,6 +111,22 @@ function ProfileLinkInputRow({
           <MultiplyIcon aria-hidden className="account-editor-link-cancel-icon" />
         </button>
       </span>
+      {onNoteChange ? (
+        <input
+          className="account-editor-link-title"
+          value={note ?? ''}
+          placeholder={titlePlaceholder}
+          aria-label={`${field.label} title`}
+          maxLength={PAGE_LINK_NOTE_MAX}
+          autoComplete="off"
+          onFocus={scrollFieldIntoView}
+          onChange={(event) =>
+            onNoteChange(event.target.value.slice(0, PAGE_LINK_NOTE_MAX))
+          }
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+        />
+      ) : null}
     </div>
   );
 }
@@ -106,7 +138,9 @@ function profileLinksHasInput(links: ProfileLinksInput) {
 interface ProfileLinksEditorProps {
   links: ProfileLinksInput;
   fieldErrors: Partial<Record<keyof ProfileLinksInput, string>>;
+  notes?: Record<string, string>;
   onUpdateLink: (key: keyof ProfileLinksInput, value: string) => void;
+  onUpdateNote?: (key: keyof ProfileLinksInput, value: string) => void;
   onClearFieldError: (key: keyof ProfileLinksInput) => void;
   onSetFieldError: (key: keyof ProfileLinksInput, error: string | null) => void;
 }
@@ -114,7 +148,9 @@ interface ProfileLinksEditorProps {
 export function ProfileLinksEditor({
   links,
   fieldErrors,
+  notes,
   onUpdateLink,
+  onUpdateNote,
   onClearFieldError,
   onSetFieldError,
 }: ProfileLinksEditorProps) {
@@ -128,6 +164,9 @@ export function ProfileLinksEditor({
     Partial<Record<keyof ProfileLinksInput, HTMLInputElement | null>>
   >({});
   const editBaselineRef = useRef<
+    Partial<Record<keyof ProfileLinksInput, string>>
+  >({});
+  const noteBaselineRef = useRef<
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
 
@@ -178,10 +217,12 @@ export function ProfileLinksEditor({
 
   const rememberBaseline = (key: keyof ProfileLinksInput) => {
     editBaselineRef.current[key] = links[key];
+    noteBaselineRef.current[key] = notes?.[key] ?? '';
   };
 
   const clearBaseline = (key: keyof ProfileLinksInput) => {
     delete editBaselineRef.current[key];
+    delete noteBaselineRef.current[key];
   };
 
   const startEdit = (key: keyof ProfileLinksInput) => {
@@ -201,6 +242,7 @@ export function ProfileLinksEditor({
   const handleCancel = (key: keyof ProfileLinksInput) => {
     const baseline = editBaselineRef.current[key] ?? '';
     onUpdateLink(key, baseline);
+    onUpdateNote?.(key, noteBaselineRef.current[key] ?? '');
     onClearFieldError(key);
     clearBaseline(key);
     setEditingKey(null);
@@ -217,6 +259,9 @@ export function ProfileLinksEditor({
     onClearFieldError(key);
     if (result.value !== links[key]) {
       onUpdateLink(key, result.value);
+    }
+    if (!result.value.trim()) {
+      onUpdateNote?.(key, '');
     }
 
     clearBaseline(key);
@@ -237,7 +282,7 @@ export function ProfileLinksEditor({
                 <button
                   type="button"
                   className="portfolio-link account-editor-link-chip"
-                  aria-label={`Edit ${field.label}`}
+                  aria-label={`Edit ${notes?.[field.key]?.trim() || field.label}`}
                   onClick={() => startEdit(field.key)}
                 >
                   <PortfolioLinkIcon
@@ -258,6 +303,7 @@ export function ProfileLinksEditor({
               key={field.key}
               field={field}
               value={links[field.key]}
+              note={notes?.[field.key] ?? ''}
               error={fieldErrors[field.key]}
               inputRef={(node) => {
                 inputRefs.current[field.key] = node;
@@ -268,6 +314,11 @@ export function ProfileLinksEditor({
                   onClearFieldError(field.key);
                 }
               }}
+              onNoteChange={
+                onUpdateNote
+                  ? (value) => onUpdateNote(field.key, value)
+                  : undefined
+              }
               onCommit={() => handleCommit(field.key, field.kind)}
               onCancel={() => handleCancel(field.key)}
             />

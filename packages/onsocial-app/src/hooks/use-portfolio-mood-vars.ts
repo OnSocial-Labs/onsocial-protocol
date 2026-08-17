@@ -6,6 +6,7 @@ import type { MoodId } from '@/lib/moods/types';
 
 const PORTFOLIO_FRAME_SELECTOR =
   '.portfolio-frame[data-mood], .portfolio-os-layer[data-mood]';
+const PORTFOLIO_PAGE_ACCOUNT_SELECTOR = '.portfolio-frame[data-page-account]';
 
 const MOOD_CSS_VARS = [
   '--mood-bg',
@@ -19,8 +20,11 @@ const MOOD_CSS_VARS = [
   '--mood-preset-accent-light',
   '--portfolio-avatar-ring',
   '--mood-font-display',
+  '--mood-font-body',
   '--mood-display-weight',
   '--mood-display-tracking',
+  '--mood-body-leading',
+  '--mood-body-tracking',
   '--glass-card-glint',
   /* Bio tokens (# / @ / $ / links) — same signal hues as the live portfolio. */
   '--mood-signal-standing',
@@ -55,6 +59,19 @@ function getPortfolioMoodId(): MoodId | null {
     (document
       .querySelector(PORTFOLIO_FRAME_SELECTOR)
       ?.getAttribute('data-mood') as MoodId | null) ?? null
+  );
+}
+
+function getLivePortfolioPageAccount(): string | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return (
+    document
+      .querySelector(PORTFOLIO_PAGE_ACCOUNT_SELECTOR)
+      ?.getAttribute('data-page-account')
+      ?.trim() || null
   );
 }
 
@@ -121,11 +138,27 @@ function subscribePortfolioMood(onStoreChange: () => void) {
   observer.observe(document.documentElement, {
     subtree: true,
     attributes: true,
-    attributeFilter: ['data-mood', 'style', 'class'],
+    attributeFilter: ['data-mood', 'data-page-account', 'style', 'class'],
     childList: true,
   });
 
   return () => observer.disconnect();
+}
+
+/** Live `data-page-account` from `.portfolio-frame` — own-page mood without a prop. */
+export function useLivePortfolioPageAccount(
+  enabled = true
+): string | undefined {
+  const getSnapshot = useCallback(() => {
+    if (!enabled) return undefined;
+    return getLivePortfolioPageAccount() ?? undefined;
+  }, [enabled]);
+
+  return useSyncExternalStore(
+    subscribePortfolioMood,
+    getSnapshot,
+    () => undefined
+  );
 }
 
 /** Mood tint from the live portfolio shell — for editor parity when editing on-page. */

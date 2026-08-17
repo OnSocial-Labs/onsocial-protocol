@@ -91,6 +91,33 @@ export function sanitizeLinkNotes(
   return next;
 }
 
+/** Drop titles for links that are no longer set. */
+export function pruneLinkNotes(
+  notes: PublicPageConfig['linkNotes'] | undefined,
+  links: Record<string, string>
+): Record<string, string> {
+  const sanitized = sanitizeLinkNotes(notes);
+  const next: Record<string, string> = {};
+  for (const [key, note] of Object.entries(sanitized)) {
+    if (!links[key]?.trim()) continue;
+    next[key] = note;
+  }
+  return next;
+}
+
+export function linkNotesEqual(
+  a: PublicPageConfig['linkNotes'] | undefined,
+  b: PublicPageConfig['linkNotes'] | undefined
+): boolean {
+  const left = sanitizeLinkNotes(a);
+  const right = sanitizeLinkNotes(b);
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (left[key] !== right[key]) return false;
+  }
+  return true;
+}
+
 export function sectionPinsFor(
   config: PublicPageConfig,
   section: PageSection

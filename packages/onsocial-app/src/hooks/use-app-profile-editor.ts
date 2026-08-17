@@ -2,11 +2,19 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import type { MaterialisedProfile, PageConfig } from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { creditAppPlatformReward } from '@/lib/app-platform-rewards';
-import type { ResolvedPageHero } from '@/lib/page-data';
+import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
+import type { PublicPageConfig, ResolvedPageHero } from '@/lib/page-data';
+import {
+  linkNotesEqual,
+  pruneLinkNotes,
+  sanitizeLinkNotes,
+} from '@/lib/page-launch-config';
+import { isProfileEditorContentDirty } from '@/lib/profile-editor-dirty';
+import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 import {
   normalizeProfileLinksInput,
   profileLinksInputFromRecord,
@@ -23,6 +31,7 @@ export interface ProfileEditorSnapshot {
   bannerUrl: string | null;
   bannerMedia: ResolvedPageHero | null;
   links: MaterialisedProfile['links'];
+  pageConfig: PublicPageConfig;
 }
 
 export interface ProfileEditorSaveInput {
@@ -36,6 +45,7 @@ export interface ProfileEditorSaveInput {
   currentLinks: MaterialisedProfile['links'];
   hasCurrentLinks: boolean;
   hasLinkInput: boolean;
+  linkNotes: Record<string, string>;
 }
 
 export interface ProfileEditorSaveResult {
@@ -102,7 +112,10 @@ export function useAppProfileEditor(
         );
       }
 
-      setSnapshot(body as ProfileEditorSnapshot);
+      setSnapshot({
+        ...(body as ProfileEditorSnapshot),
+        pageConfig: (body as ProfileEditorSnapshot).pageConfig ?? {},
+      });
     } catch (err) {
       setSnapshot(null);
       setLoadError(formatProfileEditorError(err, 'Could not load profile.'));
@@ -132,6 +145,39 @@ export function useAppProfileEditor(
         throw new Error('Profile name is required.');
       }
 
+      const snapshotNow = snapshot;
+      if (!snapshotNow || snapshotNow.accountId !== accountId) {
+        throw new Error('Could not load profile.');
+      }
+
+      const nextNotes = pruneLinkNotes(input.linkNotes, input.links);
+      const notesDirty = !linkNotesEqual(
+        nextNotes,
+        snapshotNow.pageConfig?.linkNotes
+      );
+      const contentDirty = isProfileEditorContentDirty({
+        snapshot: snapshotNow,
+        linksFromSnapshot: profileLinksInputFromRecord(snapshotNow.links),
+        name,
+        bio: input.bio,
+        links: input.links,
+        avatarFile: input.avatar,
+        bannerFile: input.banner,
+        avatarRemoved: input.removeAvatar,
+        bannerRemoved: input.removeBanner,
+      });
+
+      if (!contentDirty && !notesDirty) {
+        return {
+          name,
+          bio: input.bio.trim(),
+          avatarUrl: snapshotNow.avatarUrl,
+          bannerUrl: snapshotNow.bannerUrl,
+          bannerMedia: snapshotNow.bannerMedia,
+          txHash: null,
+        };
+      }
+
       setSaving(true);
 
       try {
@@ -149,46 +195,69 @@ export function useAppProfileEditor(
           input.hasLinkInput ||
           Object.keys(normalizedLinks).length > 0;
 
-        const payload: Parameters<typeof client.profiles.update>[0] = {
-          name,
-          bio: input.bio.trim(),
-        };
+        let txHash: string | null = null;
 
-        if (input.avatar) {
-          payload.avatar = input.avatar;
-        } else if (input.removeAvatar) {
-          payload.avatar = null;
-        }
-        if (input.banner) {
-          payload.banner = input.banner;
-        } else if (input.removeBanner) {
-          payload.banner = null;
-        }
-        if (shouldSaveLinks) {
-          payload.links = normalizedLinks;
+        if (contentDirty) {
+          const payload: Parameters<typeof client.profiles.update>[0] = {
+            name,
+            bio: input.bio.trim(),
+          };
+
+          if (input.avatar) {
+            payload.avatar = input.avatar;
+          } else if (input.removeAvatar) {
+            payload.avatar = null;
+          }
+          if (input.banner) {
+            payload.banner = input.banner;
+          } else if (input.removeBanner) {
+            payload.banner = null;
+          }
+          if (shouldSaveLinks) {
+            payload.links = normalizedLinks;
+          }
+
+          // Bio save also writes hashtags/tickers/mentions via SDK extract-on-save.
+          const response = await client.profiles.update(payload, { wait: true });
+          txHash = response.txHash ?? null;
+          if (session) {
+            creditAppPlatformReward({
+              accountId: signingAccountId,
+              action: 'profile_created',
+              proof: { txHash: txHash ?? '' },
+              session,
+            });
+          }
         }
 
-        // Bio save also writes hashtags/tickers/mentions via SDK extract-on-save.
-        const response = await client.profiles.update(payload, { wait: true });
-        if (session) {
-          creditAppPlatformReward({
-            accountId: signingAccountId,
-            action: 'profile_created',
-            proof: { txHash: response.txHash ?? '' },
-            session,
+        if (notesDirty) {
+          const current = await fetchPageConfigFromBrowserProxy(signingAccountId);
+          const notes = sanitizeLinkNotes(nextNotes);
+          const next: PageConfig = {
+            ...((snapshotNow.pageConfig ?? {}) as PageConfig),
+            ...current,
+            linkNotes: Object.keys(notes).length > 0 ? notes : undefined,
+          };
+          const pageResponse = await client.pages.setConfig(next, {
+            wait: true,
           });
+          if (!txHash) {
+            txHash = collectRelayTxHashes(pageResponse)[0] ?? null;
+          }
         }
 
-        const refreshed = await client.profiles.get(accountId);
+        const refreshed = contentDirty
+          ? await client.profiles.get(accountId)
+          : null;
         const avatarUrl = refreshed
           ? client.profiles.avatarUrl(refreshed)
-          : null;
+          : snapshotNow.avatarUrl;
         const bannerUrl = refreshed
           ? client.profiles.bannerUrl(refreshed)
-          : null;
+          : snapshotNow.bannerUrl;
         const bannerMedia = refreshed
           ? client.profiles.bannerMedia(refreshed)
-          : null;
+          : snapshotNow.bannerMedia;
 
         router.refresh();
 
@@ -198,7 +267,7 @@ export function useAppProfileEditor(
           avatarUrl,
           bannerUrl,
           bannerMedia,
-          txHash: response.txHash ?? null,
+          txHash,
         };
       } catch (err) {
         if (isWalletUserCancellation(err)) {
@@ -210,7 +279,7 @@ export function useAppProfileEditor(
         setSaving(false);
       }
     },
-    [accountId, getClient, router]
+    [accountId, getClient, router, snapshot]
   );
 
   return {

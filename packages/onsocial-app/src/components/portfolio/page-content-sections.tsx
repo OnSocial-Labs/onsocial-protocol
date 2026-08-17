@@ -31,7 +31,7 @@ import {
 import type { PublicPageConfig, PublicPageStats } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import {
-  portfolioLinkDetail,
+  portfolioLinkPresentation,
   resolvePortfolioSocialLinks,
   applyPortfolioLinkNotes,
   type PortfolioSocialLink,
@@ -63,7 +63,8 @@ function PageDrawerLinksList({ links }: { links: PortfolioSocialLink[] }) {
   return (
     <ul className="page-drawer-links">
       {links.map((link) => {
-        const detail = portfolioLinkDetail(link);
+        const { title, detail } = portfolioLinkPresentation(link);
+        const ariaLabel = detail ? `${title}, ${detail}` : title;
         return (
           <li key={link.key}>
             <a
@@ -71,6 +72,7 @@ function PageDrawerLinksList({ links }: { links: PortfolioSocialLink[] }) {
               href={link.href}
               rel="noopener noreferrer"
               target="_blank"
+              aria-label={ariaLabel}
             >
               <span className="page-drawer-link-icon" aria-hidden>
                 <PortfolioLinkIcon
@@ -79,8 +81,8 @@ function PageDrawerLinksList({ links }: { links: PortfolioSocialLink[] }) {
                 />
               </span>
               <span className="page-drawer-link-copy">
-                <span className="page-drawer-link-label">{link.label}</span>
-                {detail && detail !== link.label ? (
+                <span className="page-drawer-link-label">{title}</span>
+                {detail ? (
                   <span className="page-drawer-link-detail">{detail}</span>
                 ) : null}
               </span>

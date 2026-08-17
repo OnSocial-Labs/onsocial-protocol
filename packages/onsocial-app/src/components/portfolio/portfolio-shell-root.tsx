@@ -106,6 +106,7 @@ function PortfolioShellPreviewBridge({
       <PortfolioShelfProvider>
         <>
           <PortfolioShell
+            pageAccountId={pageAccountId}
             mood={effectiveMood}
             config={previewConfig}
             avatarMode={effectiveAvatarMode}

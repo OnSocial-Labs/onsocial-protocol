@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loadProfileShell } from '@/lib/profile-shell';
+import { fetchPageConfigFromChain } from '@/lib/read-page-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const shell = await loadProfileShell(accountId);
+    const [shell, pageConfig] = await Promise.all([
+      loadProfileShell(accountId),
+      fetchPageConfigFromChain(accountId),
+    ]);
     return NextResponse.json({
       accountId,
       hasProfile: Boolean(shell?.name?.trim()),
@@ -34,6 +38,7 @@ export async function GET(request: NextRequest) {
       bannerUrl: shell?.bannerUrl ?? null,
       bannerMedia: shell?.bannerMedia ?? null,
       links: shell?.links ?? null,
+      pageConfig,
     });
   } catch {
     return NextResponse.json(

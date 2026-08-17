@@ -1549,8 +1549,11 @@ a.os-surface-row {
   pointer-events: none;
 }
 
-/* OS dock pill — mood-tinted glass; depth shadow only (no accent halo). */
-.portfolio-os-layer .os-dock-pill {
+/* OS dock pill — mood-tinted glass; depth shadow only (no accent halo).
+ * Include mooded summon on OS screens so home isn’t a near-opaque --bg slab.
+ * Glass finish keeps its own `.portfolio-summon-dock[data-mood=glass]` tokens. */
+.portfolio-os-layer .os-dock-pill,
+.portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
   --os-dock-fill: color-mix(
     in srgb,
     var(--glass-surface, rgb(var(--bg-rgb) / 0.36)) 68%,
@@ -1596,7 +1599,8 @@ a.os-surface-row {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .portfolio-os-layer .os-dock-pill {
+  .portfolio-os-layer .os-dock-pill,
+  .portfolio-summon-dock[data-mood]:not([data-mood='glass']) .os-dock-pill {
     --os-dock-fill: var(--glass-surface-solid, rgb(var(--bg-rgb) / 0.96));
     --os-dock-shadow: var(--os-chrome-elev-shadow);
     --os-dock-shadow-hover: var(--os-chrome-elev-shadow-hover);
@@ -1917,7 +1921,8 @@ a.os-surface-row {
   }
 
   /* Mood-scoped signal hues — protocol base blended with mood accent (SDK presets). */
-  .portfolio-frame[data-mood] {
+  .portfolio-frame[data-mood],
+  .os-app-screen.os-app-screen--mood {
     --mood-accent-chrome: var(--mood-accent);
     --signal-standing: var(--mood-signal-standing);
     --signal-solidarity: var(--mood-signal-solidarity);
@@ -1935,7 +1940,8 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood],
-  :root[data-theme='light'] .portfolio-os-layer[data-mood] {
+  :root[data-theme='light'] .portfolio-os-layer[data-mood],
+  :root[data-theme='light'] .os-app-screen.os-app-screen--mood {
     --mood-accent-chrome: color-mix(
       in srgb,
       var(--mood-accent) var(--mood-light-tone),
@@ -1997,7 +2003,8 @@ a.os-surface-row {
     }
 
     :root:not([data-theme='dark']) .portfolio-frame[data-mood],
-    :root:not([data-theme='dark']) .portfolio-os-layer[data-mood] {
+    :root:not([data-theme='dark']) .portfolio-os-layer[data-mood],
+    :root:not([data-theme='dark']) .os-app-screen.os-app-screen--mood {
       --mood-accent-chrome: color-mix(
         in srgb,
         var(--mood-accent) var(--mood-light-tone),
@@ -3594,6 +3601,7 @@ a.os-surface-row {
    * Glass typography + chips — solid ink on frosted pane (no transparent mood mixes).
    */
   .portfolio-frame[data-mood='glass'] .portfolio-bio,
+  .profile-edit-slide[data-mood='glass'] .account-editor-bio,
   .portfolio-frame[data-mood='glass'] .mood-indicator-note {
     color: var(--mood-muted);
   }
@@ -3625,6 +3633,7 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='glass'] .portfolio-bio,
+  :root[data-theme='light'] .profile-edit-slide[data-mood='glass'] .account-editor-bio,
   :root[data-theme='light']
     .portfolio-frame[data-mood='glass']
     .mood-indicator-note {
@@ -3764,6 +3773,7 @@ a.os-surface-row {
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .portfolio-frame[data-mood='glass'] .portfolio-bio,
+    :root:not([data-theme]) .profile-edit-slide[data-mood='glass'] .account-editor-bio,
     :root:not([data-theme])
       .portfolio-frame[data-mood='glass']
       .mood-indicator-note {
@@ -3893,6 +3903,7 @@ a.os-surface-row {
    * stop set (shadow → highlight) so shimmer reads on charcoal and on cream.
    */
   .portfolio-frame[data-mood='gold'] .portfolio-name,
+  .profile-edit-slide[data-mood='gold'] .account-editor-name,
   .mood-sheet-item[data-mood='gold'] .mood-sheet-item-label {
     line-height: 1.05;
     /* Dark — warm champagne foil on charcoal */
@@ -3918,6 +3929,7 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='gold'] .portfolio-name,
+  :root[data-theme='light'] .profile-edit-slide[data-mood='gold'] .account-editor-name,
   :root[data-theme='light']
     .mood-sheet-item[data-mood='gold']
     .mood-sheet-item-label {
@@ -3932,6 +3944,9 @@ a.os-surface-row {
     :root:not([data-theme='dark'])
       .portfolio-frame[data-mood='gold']
       .portfolio-name,
+    :root:not([data-theme='dark'])
+      .profile-edit-slide[data-mood='gold']
+      .account-editor-name,
     :root:not([data-theme='dark'])
       .mood-sheet-item[data-mood='gold']
       .mood-sheet-item-label {
@@ -4066,12 +4081,14 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='carbon'] .portfolio-name,
+  .profile-edit-slide[data-mood='carbon'] .account-editor-name,
   .mood-sheet-item[data-mood='carbon'] .mood-sheet-item-label {
     color: var(--mood-text);
     text-shadow: none;
   }
 
   .portfolio-frame[data-mood='carbon'] .portfolio-bio,
+  .profile-edit-slide[data-mood='carbon'] .account-editor-bio,
   .portfolio-frame[data-mood='carbon'] .mood-indicator-note {
     color: var(--mood-muted);
   }
@@ -4099,6 +4116,7 @@ a.os-surface-row {
   }
 
   :root[data-theme='light'] .portfolio-frame[data-mood='carbon'] .portfolio-bio,
+  :root[data-theme='light'] .profile-edit-slide[data-mood='carbon'] .account-editor-bio,
   :root[data-theme='light']
     .portfolio-frame[data-mood='carbon']
     .mood-indicator-note {
@@ -4133,6 +4151,7 @@ a.os-surface-row {
 
   @media (prefers-color-scheme: light) {
     :root:not([data-theme]) .portfolio-frame[data-mood='carbon'] .portfolio-bio,
+    :root:not([data-theme]) .profile-edit-slide[data-mood='carbon'] .account-editor-bio,
     :root:not([data-theme])
       .portfolio-frame[data-mood='carbon']
       .mood-indicator-note {
@@ -4167,7 +4186,8 @@ a.os-surface-row {
   }
 
   /* Holographic — prismatic foil on display name; dot glow accents only. */
-  .portfolio-frame[data-mood='holographic'] .portfolio-name {
+  .portfolio-frame[data-mood='holographic'] .portfolio-name,
+  .profile-edit-slide[data-mood='holographic'] .account-editor-name {
     --holo-name-violet: color-mix(
       in srgb,
       var(--mood-accent) 82%,
@@ -4212,11 +4232,13 @@ a.os-surface-row {
    * Signature — signed moment: Caveat name + tapering ink rule + sans "typed"
    * context below (@handle, bio, signals). Accent stays on pill + line tail.
    */
-  .portfolio-frame[data-mood='signature'] .portfolio-identity-copy {
+  .portfolio-frame[data-mood='signature'] .portfolio-identity-copy,
+  .profile-edit-slide[data-mood='signature'] .account-editor-identity-copy {
     gap: var(--portfolio-identity-gap);
   }
 
   .portfolio-frame[data-mood='signature'] .portfolio-name,
+  .profile-edit-slide[data-mood='signature'] .account-editor-name,
   .mood-sheet-item[data-mood='signature'] .mood-sheet-item-label {
     display: inline-block;
     width: max-content;
@@ -4230,6 +4252,7 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='signature'] .portfolio-name::after,
+  .profile-edit-slide[data-mood='signature'] .account-editor-name-wrap::after,
   .mood-sheet-item[data-mood='signature'] .mood-sheet-item-label::after {
     content: '';
     position: absolute;
@@ -4252,12 +4275,14 @@ a.os-surface-row {
     opacity: 0.9;
   }
 
-  .portfolio-frame[data-mood='signature'] .portfolio-handle {
+  .portfolio-frame[data-mood='signature'] .portfolio-handle,
+  .profile-edit-slide[data-mood='signature'] .account-editor-handle {
     margin-top: 0.2rem;
     color: var(--portfolio-meta-color);
   }
 
   .portfolio-frame[data-mood='signature'] .portfolio-bio,
+  .profile-edit-slide[data-mood='signature'] .account-editor-bio,
   .portfolio-frame[data-mood='signature'] .mood-indicator-note {
     color: var(--mood-muted);
     line-height: 1.55;
@@ -4351,11 +4376,13 @@ a.os-surface-row {
    * Broadsheet — Erica Type typewriter: wire dispatch on newsprint zinc ink.
    * Journal keeps Newsreader editorial; Terminal stays phosphor mono.
    */
-  .portfolio-frame[data-mood='broadsheet'] .portfolio-identity-copy {
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-identity-copy,
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-identity-copy {
     gap: var(--portfolio-identity-gap);
   }
 
   .portfolio-frame[data-mood='broadsheet'] .portfolio-name,
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-name,
   .mood-sheet-item[data-mood='broadsheet'] .mood-sheet-item-label {
     font-size: clamp(1.45rem, 6vw, 1.95rem);
     line-height: 1.22;
@@ -4364,7 +4391,8 @@ a.os-surface-row {
     text-wrap: balance;
   }
 
-  .portfolio-frame[data-mood='broadsheet'] .portfolio-handle {
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-handle,
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-handle {
     margin-top: 0.15rem;
     font-size: 0.72rem;
     font-weight: 400;
@@ -4373,6 +4401,7 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='broadsheet'] .portfolio-bio,
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-bio,
   .portfolio-frame[data-mood='broadsheet'] .mood-indicator-note {
     color: var(--mood-muted);
   }
@@ -4465,11 +4494,13 @@ a.os-surface-row {
    * Terminal — phosphor CRT session: prompt line, ~/path handle, bracket pill.
    * Build keeps protocol green craft; Terminal is the premium SSH moment.
    */
-  .portfolio-frame[data-mood='terminal'] .portfolio-identity-copy {
+  .portfolio-frame[data-mood='terminal'] .portfolio-identity-copy,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-identity-copy {
     gap: var(--portfolio-identity-gap);
   }
 
   .portfolio-frame[data-mood='terminal'] .portfolio-name,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-name,
   .mood-sheet-item[data-mood='terminal'] .mood-sheet-item-label {
     font-size: clamp(1.4rem, 5.8vw, 1.85rem);
     line-height: 1.2;
@@ -4482,12 +4513,14 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='terminal'] .portfolio-name::before,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-name-wrap::before,
   .mood-sheet-item[data-mood='terminal'] .mood-sheet-item-label::before {
     content: '> ';
     opacity: 0.68;
   }
 
   .portfolio-frame[data-mood='terminal'] .portfolio-handle,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-handle,
   .portfolio-frame[data-mood='terminal'] .portfolio-handle--terminal {
     margin-top: 0.12rem;
     font-size: 0.72rem;
@@ -4498,6 +4531,7 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='terminal'] .portfolio-bio,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-bio,
   .portfolio-frame[data-mood='terminal'] .mood-indicator-note {
     color: var(--mood-muted);
   }
@@ -4703,13 +4737,16 @@ a.os-surface-row {
 
   @media (prefers-reduced-motion: reduce) {
     .portfolio-frame[data-mood='gold'] .portfolio-name,
+    .profile-edit-slide[data-mood='gold'] .account-editor-name,
     .mood-sheet-item[data-mood='gold'] .mood-sheet-item-label,
     .portfolio-frame[data-mood='holographic'] .portfolio-name,
+    .profile-edit-slide[data-mood='holographic'] .account-editor-name,
     .mood-sheet-item[data-mood='holographic']::after {
       animation: none;
     }
 
     .portfolio-frame[data-mood='gold'] .portfolio-name,
+    .profile-edit-slide[data-mood='gold'] .account-editor-name,
     .mood-sheet-item[data-mood='gold'] .mood-sheet-item-label {
       background: linear-gradient(
         112deg,
@@ -4725,7 +4762,8 @@ a.os-surface-row {
       background-position: 50% 50%;
     }
 
-    .portfolio-frame[data-mood='holographic'] .portfolio-name {
+    .portfolio-frame[data-mood='holographic'] .portfolio-name,
+    .profile-edit-slide[data-mood='holographic'] .account-editor-name {
       background: linear-gradient(
         125deg,
         color-mix(in srgb, var(--mood-accent) 82%, rgb(180 140 255)),
@@ -4750,8 +4788,11 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood] .portfolio-name,
+  .profile-edit-slide[data-mood] .account-editor-name,
   .portfolio-frame[data-mood] .portfolio-bio,
-  .portfolio-frame[data-mood] .portfolio-handle {
+  .profile-edit-slide[data-mood] .account-editor-bio,
+  .portfolio-frame[data-mood] .portfolio-handle,
+  .profile-edit-slide[data-mood] .account-editor-handle {
     transition:
       color var(--mood-transition-duration) var(--mood-transition-ease),
       font-family var(--mood-transition-duration) var(--mood-transition-ease);
@@ -5993,7 +6034,8 @@ a.os-surface-row {
     text-wrap: balance;
   }
 
-  .portfolio-frame[data-mood] .portfolio-name {
+  .portfolio-frame[data-mood] .portfolio-name,
+  .profile-edit-slide[data-mood] .account-editor-name {
     font-family: var(
       --mood-font-display,
       var(--font-space-grotesk),
@@ -6026,7 +6068,9 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood] .portfolio-bio,
-  .portfolio-frame[data-mood] .portfolio-handle {
+  .profile-edit-slide[data-mood] .account-editor-bio,
+  .portfolio-frame[data-mood] .portfolio-handle,
+  .profile-edit-slide[data-mood] .account-editor-handle {
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
   }
 
@@ -6035,11 +6079,17 @@ a.os-surface-row {
   }
 
   .portfolio-frame[data-mood='build'] .portfolio-bio,
+  .profile-edit-slide[data-mood='build'] .account-editor-bio,
   .portfolio-frame[data-mood='build'] .portfolio-handle,
+  .profile-edit-slide[data-mood='build'] .account-editor-handle,
   .portfolio-frame[data-mood='terminal'] .portfolio-bio,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-bio,
   .portfolio-frame[data-mood='terminal'] .portfolio-handle,
+  .profile-edit-slide[data-mood='terminal'] .account-editor-handle,
   .portfolio-frame[data-mood='broadsheet'] .portfolio-bio,
-  .portfolio-frame[data-mood='broadsheet'] .portfolio-handle {
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-bio,
+  .portfolio-frame[data-mood='broadsheet'] .portfolio-handle,
+  .profile-edit-slide[data-mood='broadsheet'] .account-editor-handle {
     font-family: var(
       --mood-font-body,
       var(--font-space-grotesk),
@@ -6059,18 +6109,21 @@ a.os-surface-row {
     );
   }
 
-  .portfolio-frame[data-mood] .portfolio-bio {
+  .portfolio-frame[data-mood] .portfolio-bio,
+  .profile-edit-slide[data-mood] .account-editor-bio {
     line-height: var(--mood-body-leading, 1.55);
     max-width: min(100%, var(--mood-bio-max-width, 20rem));
     letter-spacing: var(--mood-body-tracking, normal);
   }
 
-  .portfolio-frame[data-mood] .portfolio-handle {
+  .portfolio-frame[data-mood] .portfolio-handle,
+  .profile-edit-slide[data-mood] .account-editor-handle {
     letter-spacing: var(--mood-body-tracking, 0.02em);
   }
 
   /* Signature handle — Protocol size/face, lowercase @ only. */
-  .portfolio-frame[data-mood='signature'] .portfolio-handle {
+  .portfolio-frame[data-mood='signature'] .portfolio-handle,
+  .profile-edit-slide[data-mood='signature'] .account-editor-handle {
     font-size: 0.82rem;
     font-weight: inherit;
     letter-spacing: 0.02em;
@@ -8150,10 +8203,11 @@ a.os-surface-row {
   }
 
   /*
-   * Launcher dock = same family as Stand · Endorse · Support pill:
-   * dense frosted capsule, no full-width strip; content goes under.
+   * Launcher dock on non-mood OS screens — dense frosted capsule.
+   * Mooded pages share the portfolio summon fill (unlayered) so the pill
+   * isn’t a near-opaque --bg slab on the same wash.
    */
-  .os-app-screen .os-dock-pill {
+  .os-app-screen:not(.os-app-screen--mood) .os-dock-pill {
     --os-dock-fill: rgb(var(--bg-rgb) / 0.96);
     --os-dock-fill-hover: color-mix(
       in srgb,
@@ -12798,6 +12852,7 @@ a.os-surface-row {
   }
 
   .account-editor-shimmer {
+    display: block;
     border-radius: 0.35rem;
     background: linear-gradient(
       90deg,
@@ -12809,104 +12864,71 @@ a.os-surface-row {
     animation: standing-shimmer 1.2s ease-in-out infinite;
   }
 
-  .account-editor-cover-stage
-    .account-editor-banner-button.account-editor-shimmer {
+  .profile-edit-slide[data-mood] .account-editor-shimmer {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--mood-accent) 7%, rgb(var(--fg-rgb) / 0.04)) 0%,
+      color-mix(in srgb, var(--mood-accent) 16%, rgb(var(--fg-rgb) / 0.08)) 50%,
+      color-mix(in srgb, var(--mood-accent) 7%, rgb(var(--fg-rgb) / 0.04)) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  .account-editor-shimmer-banner {
+    position: absolute;
+    inset: 0;
     border-radius: 0;
-    height: 100%;
+    opacity: 0.55;
   }
 
   .account-editor-avatar.account-editor-shimmer {
     border: 0;
   }
 
-  .account-editor-skeleton-copy {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.35rem;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .account-editor-shimmer-name {
-    height: 1.35rem;
-    width: 58%;
-    max-width: 12rem;
+  .account-editor-name-wrap .account-editor-shimmer-name {
+    height: calc(clamp(1.38rem, 5.4vw, 1.9rem) * 1.12);
+    width: 9.25rem;
+    max-width: 70%;
     border-radius: 0.4rem;
   }
 
   .account-editor-shimmer-handle {
-    height: 0.72rem;
-    width: 32%;
-    max-width: 6.5rem;
+    height: 0.85rem;
+    width: 6.25rem;
+    max-width: 42%;
+    margin-top: 0.02rem;
   }
 
-  .account-editor-shimmer-bio {
-    height: 2.4rem;
-    width: 88%;
-    max-width: 18rem;
-    margin-top: 0.15rem;
-    border-radius: 0.45rem;
+  .account-editor-bio-shell .account-editor-shimmer-bio {
+    width: 100%;
+    height: calc(0.84rem * 1.45 * 2);
+    margin: 0;
+    border-radius: 0.4rem;
   }
 
-  .account-editor-shimmer-limits {
-    height: 0.62rem;
-    width: 4.5rem;
-    margin-top: 0.1rem;
+  .account-editor-shimmer-link-icon {
+    width: 1.25rem;
+    height: 1.25rem;
     border-radius: 0.3rem;
   }
 
-  .account-editor-skeleton-hint {
-    visibility: hidden;
+  .account-editor-shimmer-link-url {
+    height: 0.82rem;
+    border-radius: 0.3rem;
   }
 
-  .account-editor-skeleton-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding-bottom: 0.75rem;
+  .account-editor-shimmer-link-url.is-wide {
+    width: 72%;
   }
 
-  .account-editor-skeleton-links {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.45rem;
-    min-height: 2.35rem;
+  .account-editor-shimmer-link-url.is-mid {
+    width: 54%;
   }
 
-  .account-editor-shimmer-link-chip {
-    width: 2.35rem;
-    height: 2.35rem;
+  .account-editor-shimmer-add-link {
+    width: 5.4rem;
+    height: 1.62rem;
     border-radius: 9999px;
-  }
-
-  .account-editor-skeleton-tags {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.35rem;
-  }
-
-  .account-editor-shimmer-tag {
-    height: 1.65rem;
-    width: 4.25rem;
-    border-radius: 9999px;
-  }
-
-  .account-editor-shimmer-save {
-    height: 2.75rem;
-    width: 100%;
-    border-radius: 9999px;
-  }
-
-  .account-editor-footer--skeleton {
-    background: transparent;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .account-editor-footer--skeleton::before {
-    content: none;
   }
 
   .account-editor-load-error-shell {
@@ -13354,6 +13376,14 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
+  .account-editor-name-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    position: relative;
+  }
+
   .account-editor-name {
     width: 100%;
     margin: 0;
@@ -13372,20 +13402,16 @@ a.os-surface-row {
   }
 
   .profile-edit-slide[data-mood] .account-editor-name {
-    font-family: var(
-      --mood-font-display,
-      var(--font-space-grotesk),
-      system-ui,
-      sans-serif
-    );
-    font-weight: var(--mood-display-weight, 600);
-    letter-spacing: var(--mood-display-tracking, -0.04em);
-    color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
+    /* Face finish owns color (gold foil, holographic clip). Keep a caret. */
+    caret-color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
   }
 
-  .profile-edit-slide[data-mood='signature'] .account-editor-name {
-    font-size: clamp(1.62rem, 6.4vw, 2.2rem);
-    letter-spacing: 0.01em;
+  .profile-edit-slide[data-mood='gold'] .account-editor-name,
+  .profile-edit-slide[data-mood='holographic'] .account-editor-name {
+    caret-color: var(
+      --gold-name-mid,
+      var(--mood-accent, rgb(var(--fg-rgb) / 0.86))
+    );
   }
 
   .account-editor-name::placeholder {
@@ -13878,6 +13904,28 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.94);
   }
 
+  .account-editor-link-title {
+    width: 100%;
+    margin: 0;
+    padding: 0 1.7rem 0.4rem 2.05rem;
+    border: 0;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.52);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  .account-editor-link-title::placeholder {
+    color: rgb(var(--fg-rgb) / 0.3);
+  }
+
+  .account-editor-link-title:focus {
+    outline: none;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
   .account-editor-form-main {
     position: relative;
     flex: 1 1 auto;
@@ -13909,77 +13957,89 @@ a.os-surface-row {
     background: transparent;
   }
 
-  .profile-edit-slide[data-mood] .account-editor-handle {
-    font-size: 0.82rem;
-    color: color-mix(
-      in srgb,
-      var(--mood-muted, hsl(var(--muted-foreground))) 55%,
-      transparent
-    );
-  }
-
-  .profile-edit-slide[data-mood] .account-editor-bio {
-    margin-top: 0.35rem;
-    line-height: 1.5;
-    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.55));
-  }
-
   .profile-edit-slide[data-mood] .account-editor-bio.is-rich-overlay {
     color: transparent;
+    caret-color: var(--mood-text, rgb(var(--fg-rgb) / 0.72));
   }
 
   .profile-edit-slide[data-mood] .account-editor-bio-backdrop {
     color: var(--mood-muted, rgb(var(--fg-rgb) / 0.55));
+    font-family: var(
+      --mood-font-body,
+      var(--font-space-grotesk),
+      system-ui,
+      sans-serif
+    );
+    line-height: var(--mood-body-leading, 1.5);
+    letter-spacing: var(--mood-body-tracking, normal);
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-link-chip {
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.72));
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-link-chip:hover {
+    color: var(--mood-text, rgb(var(--fg-rgb) / 0.92));
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-link-icon-slot,
+  .profile-edit-slide[data-mood] .account-editor-links-picker-icon {
+    color: color-mix(
+      in srgb,
+      var(--mood-muted, rgb(var(--fg-rgb) / 0.48)) 88%,
+      var(--mood-accent, transparent)
+    );
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-link-value {
+    color: var(--mood-text, rgb(var(--fg-rgb) / 0.82));
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-link-value::placeholder,
+  .profile-edit-slide[data-mood] .account-editor-link-title::placeholder {
+    color: color-mix(
+      in srgb,
+      var(--mood-muted, rgb(var(--fg-rgb) / 0.32)) 70%,
+      transparent
+    );
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-link-title {
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.52));
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-links-add {
+    border-color: color-mix(
+      in srgb,
+      var(--mood-accent, rgb(var(--fg-rgb))) 22%,
+      rgb(var(--fg-rgb) / 0.14)
+    );
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.58));
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-links-add:hover,
+  .profile-edit-slide[data-mood] .account-editor-links-add.is-open {
+    border-color: color-mix(
+      in srgb,
+      var(--mood-accent, rgb(var(--fg-rgb))) 36%,
+      rgb(var(--fg-rgb) / 0.2)
+    );
+    color: var(--mood-text, rgb(var(--fg-rgb) / 0.82));
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-links-picker-option {
+    color: var(--mood-muted, rgb(var(--fg-rgb) / 0.72));
+  }
+
+  .profile-edit-slide[data-mood] .account-editor-links-picker-option:hover {
+    color: var(--mood-text, rgb(var(--fg-rgb) / 0.94));
   }
 
   .account-editor-panel--page-mood.account-editor-panel--glass.glass-sheet-panel[data-tone='os'] {
     background: var(--bg);
   }
 
-  .account-editor-form.is-discard-confirm .account-editor-form-main {
-    pointer-events: none;
-  }
-
-  .account-editor-form.is-discard-confirm .account-editor-form-main::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    background: linear-gradient(
-      to bottom,
-      rgb(var(--bg-rgb) / 0.38) 0%,
-      rgb(var(--bg-rgb) / 0.42) 55%,
-      rgb(var(--bg-rgb) / 0.28) 82%,
-      transparent 100%
-    );
-    backdrop-filter: blur(10px) saturate(0.95);
-    -webkit-backdrop-filter: blur(10px) saturate(0.95);
-    pointer-events: auto;
-    animation: account-editor-discard-dim-in 180ms ease both;
-  }
-
-  @keyframes account-editor-discard-dim-in {
-    from {
-      opacity: 0;
-    }
-
-    to {
-      opacity: 1;
-    }
-  }
-
   @media (prefers-reduced-transparency: reduce) {
-    .account-editor-form.is-discard-confirm .account-editor-form-main::after {
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-      background: linear-gradient(
-        to bottom,
-        rgb(var(--bg-rgb) / 0.78) 0%,
-        rgb(var(--bg-rgb) / 0.72) 70%,
-        transparent 100%
-      );
-    }
-
     .profile-editor-media-host:hover .account-editor-banner-overlay.has-media,
     .profile-editor-media-host:focus-within
       .account-editor-banner-overlay.has-media,
@@ -14032,17 +14092,6 @@ a.os-surface-row {
   .account-editor-footer > * {
     position: relative;
     z-index: 1;
-  }
-
-  .account-editor-footer.is-discard-confirm {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    background: transparent;
-  }
-
-  .account-editor-discard-card {
-    width: 100%;
   }
 
   .account-editor-footer::after {
@@ -14121,10 +14170,6 @@ a.os-surface-row {
     .account-wallet-progress-track.is-loading,
     .account-wallet-ratio.is-loading,
     .app-storage-readout.is-loading {
-      animation: none;
-    }
-
-    .account-editor-form.is-discard-confirm .account-editor-form-main::after {
       animation: none;
     }
   }
@@ -18852,6 +18897,16 @@ a.os-surface-row {
     width: 100%;
   }
 
+  .customize-link-note-dest {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.42);
+  }
+
   /* Host audio must stay in the document (not display:none) for audible play. */
   .collectibles-now-playing-host-audio {
     position: fixed;
@@ -22770,6 +22825,23 @@ a.os-surface-row {
     --os-screen-footer-band: 4.25rem;
   }
 
+  /*
+   * Carbon / Glass paint the host frame. Covering them with OS --mood-bg
+   * hides the finish — let the live face show through.
+   */
+  .portfolio-frame > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='carbon'],
+  .portfolio-frame > .os-app-screen.os-slide-over.profile-edit-slide[data-mood='glass'] {
+    background-color: transparent;
+  }
+
+  .profile-edit-slide[data-mood='signature'] .account-editor-name-wrap {
+    display: inline-flex;
+    width: max-content;
+    max-width: 100%;
+    overflow: visible;
+    padding-bottom: 0.38rem;
+  }
+
   .profile-edit-slide .os-slide-over-content.profile-edit-slide-body {
     padding: 0;
   }
@@ -22778,6 +22850,12 @@ a.os-surface-row {
     max-width: none;
     width: 100%;
     padding: 0;
+  }
+
+  /* Title pill + Save stay OS chrome — mood type only on identity fields. */
+  .profile-edit-slide .os-app-screen-title,
+  .profile-edit-slide .os-sheet-action {
+    font-family: var(--app-font-sans);
   }
 
   .profile-edit-slide .account-editor-hero {
@@ -22811,28 +22889,10 @@ a.os-surface-row {
     transform: none;
   }
 
-  .profile-edit-slide
-    .account-editor-form.is-discard-confirm
-    .account-editor-form-main {
-    opacity: 0.45;
-  }
-
-  .profile-edit-slide
-    .account-editor-form.is-discard-confirm
-    .account-editor-form-main::after {
-    content: none;
-    animation: none;
-  }
-
   .profile-edit-sheet-footer {
     padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
       max(1rem, env(safe-area-inset-left, 0px));
-  }
-
-  .profile-edit-sheet-footer.is-discard-confirm {
-    display: flex;
-    flex-direction: column;
   }
 
   .drop-variation-set-slide-grid {
@@ -24800,20 +24860,10 @@ a.os-surface-row {
     gap: 1.15rem;
   }
 
-  .hub-manage-sheet-main.is-discard-confirm {
-    pointer-events: none;
-    opacity: 0.45;
-  }
-
   .hub-manage-sheet-footer {
     padding: 0.5rem max(1rem, env(safe-area-inset-right, 0px))
       calc(0.35rem + env(safe-area-inset-bottom, 0px))
       max(1rem, env(safe-area-inset-left, 0px));
-  }
-
-  .hub-manage-sheet-footer.is-discard-confirm {
-    display: flex;
-    flex-direction: column;
   }
 
   .hub-look-media {
@@ -26547,21 +26597,8 @@ a.os-surface-row {
       max(1rem, env(safe-area-inset-left, 0px));
   }
 
-  .guild-edit-sheet-footer.is-discard-confirm {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .guild-edit-form.is-discard-confirm .guild-edit-form-main {
-    pointer-events: none;
-  }
-
   .guild-edit-form-main {
     background: transparent;
-  }
-
-  .guild-edit-hero.is-dimmed {
-    opacity: 0.45;
   }
 
   /* Banner matches profile editor; fields sit below with sheet pad. */
@@ -30167,11 +30204,6 @@ a.os-surface-row {
     gap: 0.85rem;
   }
 
-  .endorse-compose-form.is-discard-confirm {
-    pointer-events: none;
-    opacity: 0.45;
-  }
-
   .endorse-compose-field {
     display: flex;
     flex-direction: column;
@@ -32442,11 +32474,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.85rem;
 }
 
-.dao-create-form.is-discard-confirm {
-  pointer-events: none;
-  opacity: 0.42;
-}
-
 .dao-create-lede {
   margin: 0;
   font-size: 0.84rem;
@@ -33010,11 +33037,6 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .dm-recovery-sheet {
   display: grid;
   gap: 0.85rem;
-}
-
-.dm-compose-form.is-discard-confirm {
-  opacity: 0.45;
-  pointer-events: none;
 }
 
 .dm-compose-media {

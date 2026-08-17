@@ -15,7 +15,7 @@ import {
   type MediaRef,
 } from '@onsocial/sdk';
 import {
-  DiscardConfirmFooter,
+  DiscardConfirmSheet,
   OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
@@ -148,8 +148,7 @@ export function EndorseComposeSheet({
     : !mediaRemoved
       ? existingMediaUrl
       : null;
-  const previewMediaMime =
-    mediaFile?.type ?? existingMedia?.mime ?? null;
+  const previewMediaMime = mediaFile?.type ?? existingMedia?.mime ?? null;
   const currentMediaFp = mediaFile
     ? `file:${mediaFile.name}:${mediaFile.size}:${mediaFile.lastModified}`
     : mediaRemoved
@@ -171,9 +170,6 @@ export function EndorseComposeSheet({
 
   const {
     discardConfirmOpen,
-    discardTitleId,
-    discardBodyId,
-    keepEditingRef,
     requestCloseOrConfirm,
     clearDiscardConfirm,
     keepEditing,
@@ -353,19 +349,14 @@ export function EndorseComposeSheet({
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const resolveSubmitMedia = ():
-    | File
-    | MediaRef
-    | null
-    | undefined => {
+  const resolveSubmitMedia = (): File | MediaRef | null | undefined => {
     if (mediaFile) return mediaFile;
     if (mediaRemoved) return null;
     if (existingMedia) return existingMedia;
     return undefined;
   };
 
-  const canSubmit =
-    !isSelf && isConnected && !busy && (!isEditing || dirty);
+  const canSubmit = !isSelf && isConnected && !busy && (!isEditing || dirty);
 
   async function handleSubmit() {
     setFieldError(null);
@@ -412,8 +403,7 @@ export function EndorseComposeSheet({
         {
           ...(isEditing
             ? {
-                previousTopic:
-                  normalizeEndorsementTopic(baselineTopic) ?? '',
+                previousTopic: normalizeEndorsementTopic(baselineTopic) ?? '',
               }
             : {}),
           wait: true,
@@ -489,185 +479,168 @@ export function EndorseComposeSheet({
       : 'Endorse';
 
   return (
-    <OsGestureSheet
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleSheetClosed}
-      verb={verb}
-      personName={name}
-      handle={handle}
-      signal="endorse"
-      closeAriaLabel="Close endorse"
-      backdropLabel="Close endorse"
-      moodId={effectiveMood?.id}
-      panelStyle={panelStyle}
-      size="compact"
-      bodyClassName="profile-support-sheet-body"
-      titleId={titleId}
-      zIndex={56}
-      footer={
-        discardConfirmOpen ? (
-          <DiscardConfirmFooter
-            titleId={discardTitleId}
-            bodyId={discardBodyId}
-            onDiscard={discard}
-            onKeepEditing={keepEditing}
-            keepEditingRef={keepEditingRef}
-            title="Discard endorsement?"
-            body="Your topic, note, and media won’t be saved."
-          />
-        ) : undefined
-      }
-    >
-      <div
-        className={`endorse-compose-form${
-          discardConfirmOpen ? ' is-discard-confirm' : ''
-        }`}
+    <>
+      <OsGestureSheet
+        open={sheetOpen}
+        onClose={requestClose}
+        onClosed={handleSheetClosed}
+        verb={verb}
+        personName={name}
+        handle={handle}
+        signal="endorse"
+        closeAriaLabel="Close endorse"
+        backdropLabel="Close endorse"
+        moodId={effectiveMood?.id}
+        panelStyle={panelStyle}
+        size="compact"
+        bodyClassName="profile-support-sheet-body"
+        titleId={titleId}
+        zIndex={56}
       >
-        <label className="endorse-compose-field">
-          <span className="endorse-compose-label">Topic</span>
-          <input
-            type="text"
-            value={topic}
-            maxLength={TOPIC_MAX}
-            autoComplete="off"
-            placeholder="e.g. Design"
-            className={`${osFieldBorderedClassName} endorse-compose-input`}
-            disabled={busy || isSelf || discardConfirmOpen}
-            onChange={(event) => setTopic(event.target.value)}
-          />
-        </label>
-
-        <div
-          className="endorse-compose-suggestions"
-          role="group"
-          aria-label="Suggested topics"
-        >
-          {SUGGESTED_TOPICS.map((suggestion) => (
-            <button
-              key={suggestion}
-              type="button"
-              className={`endorse-compose-chip${
-                topic.trim().toLowerCase() === suggestion.toLowerCase()
-                  ? ' is-selected'
-                  : ''
-              }`}
+        <div className="endorse-compose-form">
+          <label className="endorse-compose-field">
+            <span className="endorse-compose-label">Topic</span>
+            <input
+              type="text"
+              value={topic}
+              maxLength={TOPIC_MAX}
+              autoComplete="off"
+              placeholder="e.g. Design"
+              className={`${osFieldBorderedClassName} endorse-compose-input`}
               disabled={busy || isSelf || discardConfirmOpen}
-              onClick={() => setTopic(suggestion)}
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-
-        <div className="endorse-compose-field">
-          <span className="endorse-compose-label">
-            Note
-            {noteFieldVisible || note.trim() || !hasMediaAttachment ? (
-              <span className="endorse-compose-counter">
-                {note.trim().length}/{NOTE_MAX}
-              </span>
-            ) : null}
-          </span>
-          {noteFieldVisible || note.trim() || !hasMediaAttachment ? (
-            <textarea
-              value={note}
-              maxLength={NOTE_MAX}
-              rows={3}
-              placeholder="Optional — what you’re vouching for"
-              className={`${osFieldBorderedClassName} endorse-compose-textarea`}
-              disabled={busy || isSelf || discardConfirmOpen}
-              onChange={(event) => setNote(event.target.value)}
+              onChange={(event) => setTopic(event.target.value)}
             />
-          ) : (
-            <button
-              type="button"
-              className="endorse-compose-add-note"
-              disabled={busy || isSelf || discardConfirmOpen}
-              onClick={() => setNoteFieldVisible(true)}
-            >
-              Add a note
-            </button>
-          )}
-        </div>
+          </label>
 
-        <div className="endorse-compose-media">
-          <input
-            ref={fileInputRef}
-            id={mediaInputId}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-            className="sr-only"
-            disabled={busy || isSelf || discardConfirmOpen}
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              void handleMediaPick(file);
-            }}
-          />
-          {previewMediaUrl ? (
-            <div className="endorse-compose-media-preview">
-              {previewMediaMime?.toLowerCase().startsWith('video/') ? (
-                <video
-                  src={previewMediaUrl}
-                  className="endorse-compose-media-el"
-                  controls
-                  playsInline
-                  preload="metadata"
-                />
-              ) : (
-                <img
-                  src={previewMediaUrl}
-                  alt=""
-                  className="endorse-compose-media-el"
-                />
-              )}
+          <div
+            className="endorse-compose-suggestions"
+            role="group"
+            aria-label="Suggested topics"
+          >
+            {SUGGESTED_TOPICS.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                className={`endorse-compose-chip${
+                  topic.trim().toLowerCase() === suggestion.toLowerCase()
+                    ? ' is-selected'
+                    : ''
+                }`}
+                disabled={busy || isSelf || discardConfirmOpen}
+                onClick={() => setTopic(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+
+          <div className="endorse-compose-field">
+            <span className="endorse-compose-label">
+              Note
+              {noteFieldVisible || note.trim() || !hasMediaAttachment ? (
+                <span className="endorse-compose-counter">
+                  {note.trim().length}/{NOTE_MAX}
+                </span>
+              ) : null}
+            </span>
+            {noteFieldVisible || note.trim() || !hasMediaAttachment ? (
+              <textarea
+                value={note}
+                maxLength={NOTE_MAX}
+                rows={3}
+                placeholder="Optional — what you’re vouching for"
+                className={`${osFieldBorderedClassName} endorse-compose-textarea`}
+                disabled={busy || isSelf || discardConfirmOpen}
+                onChange={(event) => setNote(event.target.value)}
+              />
+            ) : (
               <button
                 type="button"
-                className="endorse-compose-media-remove"
-                disabled={busy || discardConfirmOpen}
-                onClick={handleClearMedia}
+                className="endorse-compose-add-note"
+                disabled={busy || isSelf || discardConfirmOpen}
+                onClick={() => setNoteFieldVisible(true)}
               >
-                Remove media
+                Add a note
               </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="endorse-compose-media-attach"
+            )}
+          </div>
+
+          <div className="endorse-compose-media">
+            <input
+              ref={fileInputRef}
+              id={mediaInputId}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
+              className="sr-only"
               disabled={busy || isSelf || discardConfirmOpen}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {mediaProcessing ? 'Checking media…' : 'Attach photo or video'}
-            </button>
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                void handleMediaPick(file);
+              }}
+            />
+            {previewMediaUrl ? (
+              <div className="endorse-compose-media-preview">
+                {previewMediaMime?.toLowerCase().startsWith('video/') ? (
+                  <video
+                    src={previewMediaUrl}
+                    className="endorse-compose-media-el"
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={previewMediaUrl}
+                    alt=""
+                    className="endorse-compose-media-el"
+                  />
+                )}
+                <button
+                  type="button"
+                  className="endorse-compose-media-remove"
+                  disabled={busy || discardConfirmOpen}
+                  onClick={handleClearMedia}
+                >
+                  Remove media
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="endorse-compose-media-attach"
+                disabled={busy || isSelf || discardConfirmOpen}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {mediaProcessing ? 'Checking media…' : 'Attach photo or video'}
+              </button>
+            )}
+            {!hasMediaAttachment ? (
+              <p className="endorse-compose-media-hint">{mediaLimitsHint}</p>
+            ) : null}
+          </div>
+
+          {fieldError || mediaError ? (
+            <p className="endorse-compose-error" role="alert">
+              {fieldError ?? mediaError}
+            </p>
+          ) : isSelf ? (
+            <p className="endorse-compose-hint">You can’t endorse yourself.</p>
+          ) : !isConnected ? (
+            <p className="endorse-compose-hint">
+              Connect to put your name behind them.
+            </p>
+          ) : loadingExisting ? (
+            <p className="endorse-compose-hint">Loading your vouch…</p>
+          ) : isEditing ? (
+            <p className="endorse-compose-hint">
+              Editing your public vouch — change topic to move it.
+            </p>
+          ) : (
+            <p className="endorse-compose-hint">
+              Public vouch — topic, note, and media are optional.
+            </p>
           )}
-          {!hasMediaAttachment ? (
-            <p className="endorse-compose-media-hint">{mediaLimitsHint}</p>
-          ) : null}
-        </div>
 
-        {fieldError || mediaError ? (
-          <p className="endorse-compose-error" role="alert">
-            {fieldError ?? mediaError}
-          </p>
-        ) : isSelf ? (
-          <p className="endorse-compose-hint">You can’t endorse yourself.</p>
-        ) : !isConnected ? (
-          <p className="endorse-compose-hint">
-            Connect to put your name behind them.
-          </p>
-        ) : loadingExisting ? (
-          <p className="endorse-compose-hint">Loading your vouch…</p>
-        ) : isEditing ? (
-          <p className="endorse-compose-hint">
-            Editing your public vouch — change topic to move it.
-          </p>
-        ) : (
-          <p className="endorse-compose-hint">
-            Public vouch — topic, note, and media are optional.
-          </p>
-        )}
-
-        {!discardConfirmOpen ? (
           <OsSheetActions layout="stack" tone="frosted-primary" borderless>
             <OsSheetAction
               type="button"
@@ -675,7 +648,7 @@ export function EndorseComposeSheet({
               ready={canSubmit || !isConnected}
               pending={pending}
               pendingLabel={isEditing ? 'Saving…' : 'Endorsing…'}
-              disabled={busy || discardConfirmOpen}
+              disabled={busy}
               onClick={() => void handleSubmit()}
             >
               {primaryLabel}
@@ -694,8 +667,15 @@ export function EndorseComposeSheet({
               </OsSheetAction>
             ) : null}
           </OsSheetActions>
-        ) : null}
-      </div>
-    </OsGestureSheet>
+        </div>
+      </OsGestureSheet>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+        title="Discard endorsement?"
+        body="Your topic, note, and media won’t be saved."
+      />
+    </>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DiscardConfirmFooter,
+  DiscardConfirmSheet,
   discardConfirmFooterA11y,
   useDiscardConfirm,
 } from './discard-confirm.js';
@@ -23,7 +23,7 @@ describe('SheetFact*', () => {
 describe('discard-confirm', () => {
   it('exports hook, footer, and a11y helper', () => {
     expect(typeof useDiscardConfirm).toBe('function');
-    expect(typeof DiscardConfirmFooter).toBe('function');
+    expect(typeof DiscardConfirmSheet).toBe('function');
     expect(discardConfirmFooterA11y(false, 't', 'b')).toEqual({});
     expect(discardConfirmFooterA11y(true, 't', 'b')).toEqual({
       role: 'alertdialog',

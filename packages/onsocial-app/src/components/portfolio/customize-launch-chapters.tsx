@@ -13,6 +13,7 @@ import type { PublicPageConfig } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import type { ProfilePostPeek, ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
 import {
+  portfolioLinkDestination,
   resolvePortfolioSocialLinks,
   type PortfolioSocialLink,
 } from '@/lib/profile-social-links';
@@ -523,40 +524,57 @@ export function CustomizeLaunchChapters({
 
       {links.length > 0 && sections.includes('links') ? (
         <div className="customize-pin-block">
-          <p className="customize-sheet-copy">Link notes</p>
+          <p className="customize-sheet-copy">Link titles</p>
           <p className="customize-sheet-copy">
-            Optional one-liners under each Launch link (face icons stay clean).
+            Optional name on Launch — replaces Website or GitHub. Destination
+            stays underneath.
           </p>
           <ul className="customize-link-note-list">
-            {links.map((link: PortfolioSocialLink) => (
-              <li key={link.key} className="customize-link-note-row">
-                <label className="customize-link-note-label" htmlFor={`note-${link.key}`}>
-                  {link.label}
-                </label>
-                <input
-                  id={`note-${link.key}`}
-                  className="os-field-bordered customize-link-note-input"
-                  type="text"
-                  maxLength={PAGE_LINK_NOTE_MAX}
-                  disabled={disabled || saving}
-                  placeholder="Short note (optional)"
-                  value={notes[link.key] ?? ''}
-                  onChange={(event) => {
-                    const value = event.target.value.slice(0, PAGE_LINK_NOTE_MAX);
-                    setNotes((prev) => {
-                      const next = { ...prev };
-                      if (!value.trim()) {
-                        delete next[link.key];
-                      } else {
-                        next[link.key] = value;
-                      }
-                      return next;
-                    });
-                    markDirty();
-                  }}
-                />
-              </li>
-            ))}
+            {links.map((link: PortfolioSocialLink) => {
+              const destination = portfolioLinkDestination(link);
+              const placeholder =
+                link.kind === 'website' ? 'My website' : 'Optional title';
+              return (
+                <li key={link.key} className="customize-link-note-row">
+                  <label
+                    className="customize-link-note-label"
+                    htmlFor={`note-${link.key}`}
+                  >
+                    {link.label}
+                  </label>
+                  <input
+                    id={`note-${link.key}`}
+                    className="os-field-bordered customize-link-note-input"
+                    type="text"
+                    maxLength={PAGE_LINK_NOTE_MAX}
+                    disabled={disabled || saving}
+                    placeholder={placeholder}
+                    value={notes[link.key] ?? ''}
+                    onChange={(event) => {
+                      const value = event.target.value.slice(
+                        0,
+                        PAGE_LINK_NOTE_MAX
+                      );
+                      setNotes((prev) => {
+                        const next = { ...prev };
+                        if (!value.trim()) {
+                          delete next[link.key];
+                        } else {
+                          next[link.key] = value;
+                        }
+                        return next;
+                      });
+                      markDirty();
+                    }}
+                  />
+                  {destination ? (
+                    <span className="customize-link-note-dest">
+                      {destination}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}

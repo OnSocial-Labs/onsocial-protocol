@@ -2,7 +2,7 @@
 
 /**
  * Edit profile — full slide-over workspace (same chrome family as guild edit).
- * Hero media + inline identity/links; screen footer for save / discard.
+ * Hero media + inline identity/links; screen footer for save.
  */
 
 import {
@@ -16,8 +16,7 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  DiscardConfirmFooter,
-  discardConfirmFooterA11y,
+  DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
   ProfileEditorMediaToolbar,
@@ -36,6 +35,11 @@ import {
   type ProfileEditorSnapshot,
 } from '@/hooks/use-app-profile-editor';
 import { isProfileEditorDirty } from '@/lib/profile-editor-dirty';
+import {
+  PAGE_LINK_NOTE_MAX,
+  pruneLinkNotes,
+  sanitizeLinkNotes,
+} from '@/lib/page-launch-config';
 import { displayName, fallbackLabel, initials } from '@/lib/profile-display';
 import type { ResolvedPageHero } from '@/lib/page-data';
 import {
@@ -99,6 +103,8 @@ interface AppProfileEditorSheetProps {
   open: boolean;
   sessionKey: number;
   accountId: string;
+  /** Current page account — live shell mood when this is your portfolio. */
+  pageAccountId?: string;
   onBack: () => void;
   onClose: () => void;
   onSaved: (result: ProfileEditorSaveResult) => void;
@@ -109,6 +115,7 @@ export function AppProfileEditorSheet({
   open,
   sessionKey,
   accountId,
+  pageAccountId,
   onBack,
   onClose,
   onSaved,
@@ -133,13 +140,15 @@ export function AppProfileEditorSheet({
     connect,
     linksFromSnapshot,
   } = useAppProfileEditor(accountId, open);
-  const { moodId: viewerMoodId, style: viewerMoodStyle } = useViewerDockMood();
+  const { moodId: viewerMoodId, style: viewerMoodStyle } =
+    useViewerDockMood(pageAccountId);
 
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(null)
   );
+  const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
   const [linkFieldErrors, setLinkFieldErrors] = useState<
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
@@ -160,6 +169,7 @@ export function AppProfileEditorSheet({
     setName(snapshot.name);
     setBio(snapshot.bio);
     setLinks(linksFromSnapshot);
+    setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
     setLinkFieldErrors({});
     setAvatarFile(null);
     setBannerFile(null);
@@ -211,6 +221,7 @@ export function AppProfileEditorSheet({
       name,
       bio,
       links,
+      linkNotes,
       avatarFile,
       bannerFile,
       avatarRemoved,
@@ -223,6 +234,7 @@ export function AppProfileEditorSheet({
     bannerRemoved,
     bio,
     links,
+    linkNotes,
     linksFromSnapshot,
     name,
     readyKey,
@@ -236,9 +248,6 @@ export function AppProfileEditorSheet({
 
   const {
     discardConfirmOpen,
-    discardTitleId,
-    discardBodyId,
-    keepEditingRef,
     requestCloseOrConfirm,
     clearDiscardConfirm,
     keepEditing,
@@ -294,6 +303,19 @@ export function AppProfileEditorSheet({
     setLinks((current) => ({ ...current, [key]: value }));
   };
 
+  const updateNote = (key: keyof ProfileLinksInput, value: string) => {
+    setLinkNotes((current) => {
+      const next = { ...current };
+      const trimmed = value.trim();
+      if (!trimmed) {
+        delete next[key];
+      } else {
+        next[key] = value.slice(0, PAGE_LINK_NOTE_MAX);
+      }
+      return next;
+    });
+  };
+
   const clearLinkFieldError = (key: keyof ProfileLinksInput) => {
     setLinkFieldErrors((current) => {
       if (!current[key]) return current;
@@ -344,6 +366,7 @@ export function AppProfileEditorSheet({
         currentLinks: snapshot.links,
         hasCurrentLinks,
         hasLinkInput,
+        linkNotes: pruneLinkNotes(linkNotes, links),
       });
       onSaved(result);
       setTxResult({
@@ -379,28 +402,8 @@ export function AppProfileEditorSheet({
   const formReady = Boolean(snapshot && seedKey === readyKey);
 
   const footer = (
-    <div
-      className={`profile-edit-sheet-footer${
-        discardConfirmOpen ? ' is-discard-confirm' : ''
-      }`}
-      {...(formReady
-        ? discardConfirmFooterA11y(
-            discardConfirmOpen,
-            discardTitleId,
-            discardBodyId
-          )
-        : {})}
-    >
-      {discardConfirmOpen ? (
-        <DiscardConfirmFooter
-          className="account-editor-discard-card"
-          titleId={discardTitleId}
-          bodyId={discardBodyId}
-          onDiscard={discard}
-          onKeepEditing={keepEditing}
-          keepEditingRef={keepEditingRef}
-        />
-      ) : formReady && !hasSocialSession ? (
+    <div className="profile-edit-sheet-footer">
+      {formReady && !hasSocialSession ? (
         <div className="os-commit-actions account-editor-session-actions">
           <button
             type="button"
@@ -410,7 +413,11 @@ export function AppProfileEditorSheet({
           >
             {isBootstrappingSession ? 'Resuming…' : 'Resume'}
           </button>
-          <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+          <OsSheetActions
+            layout="row-compact"
+            tone="frosted-primary"
+            borderless
+          >
             <OsSheetAction type="submit" form={formId} disabled>
               {submitLabel}
             </OsSheetAction>
@@ -434,269 +441,280 @@ export function AppProfileEditorSheet({
   );
 
   return (
-    <OsSlideOverScreen
-      open={open}
-      onClose={handleLeave}
-      onClosed={handleClosed}
-      onBeforeClose={handleBeforeClose}
-      title="Edit profile"
-      closeAriaLabel="Back"
-      closeDisabled={saving}
-      zIndex={PROFILE_EDIT_Z}
-      moodId={viewerMoodId ?? undefined}
-      moodStyle={viewerMoodStyle}
-      className="profile-edit-slide"
-      contentClassName="profile-edit-slide-body"
-      immersiveHeader
-      footer={footer}
-    >
-      {formReady ? (
-        <form
-          id={formId}
-          className={`account-editor-form profile-edit-form${
-            discardConfirmOpen ? ' is-discard-confirm' : ''
-          }`}
-          onSubmit={(event) => void handleSubmit(event)}
-        >
-          <div
-            className={`account-editor-form-main profile-edit-form-main${
-              discardConfirmOpen ? ' is-discard-confirm' : ''
-            }`}
+    <>
+      <OsSlideOverScreen
+        open={open}
+        onClose={handleLeave}
+        onClosed={handleClosed}
+        onBeforeClose={handleBeforeClose}
+        title="Edit profile"
+        closeAriaLabel="Back"
+        closeDisabled={saving}
+        zIndex={PROFILE_EDIT_Z}
+        moodId={viewerMoodId ?? undefined}
+        moodStyle={viewerMoodStyle}
+        className="profile-edit-slide"
+        contentClassName="profile-edit-slide-body"
+        immersiveHeader
+        footer={footer}
+      >
+        {formReady ? (
+          <form
+            id={formId}
+            className="account-editor-form profile-edit-form"
+            onSubmit={(event) => void handleSubmit(event)}
           >
-            <section className="account-editor-hero profile-edit-hero" aria-label="Profile">
-              <div
-                className={`account-editor-cover-stage${
-                  displayBannerMedia ? ' has-media' : ''
-                }`}
+            <div className="account-editor-form-main profile-edit-form-main">
+              <section
+                className="account-editor-hero profile-edit-hero"
+                aria-label="Profile"
               >
-                <div className="account-editor-banner-wrap">
-                  <div
-                    className={`account-editor-banner-button profile-editor-media-host${
-                      displayBannerMedia ? ' has-media' : ''
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      className="profile-editor-media-backdrop account-editor-banner-backdrop"
-                      onClick={openBannerPicker}
-                      aria-label={
-                        displayBannerMedia ? 'Change banner' : 'Add banner'
-                      }
+                <div
+                  className={`account-editor-cover-stage${
+                    displayBannerMedia ? ' has-media' : ''
+                  }`}
+                >
+                  <div className="account-editor-banner-wrap">
+                    <div
+                      className={`account-editor-banner-button profile-editor-media-host${
+                        displayBannerMedia ? ' has-media' : ''
+                      }`}
                     >
-                      {displayBannerMedia?.kind === 'video' ? (
-                        <video
-                          src={displayBannerMedia.url}
-                          poster={displayBannerMedia.poster}
-                          className="account-editor-banner-video"
-                          muted
-                          loop
-                          playsInline
-                          autoPlay
-                          aria-hidden
-                        />
-                      ) : displayBannerMedia ? (
-                        <img
-                          src={displayBannerMedia.url}
-                          alt=""
-                          className="account-editor-banner-image"
-                        />
-                      ) : (
-                        <span
-                          className="account-editor-banner-empty"
-                          aria-hidden
-                        />
-                      )}
-                      <span
-                        className={`account-editor-banner-overlay${
-                          displayBannerMedia ? ' has-media' : ''
-                        }`}
-                        aria-hidden
-                      />
-                    </button>
-                    <ProfileEditorMediaToolbar
-                      layout="banner"
-                      removeLabel={
-                        displayBannerMedia ? 'Remove banner' : undefined
-                      }
-                      onRemove={
-                        displayBannerMedia ? handleRemoveBanner : undefined
-                      }
-                    />
-                    {displayBannerMedia ? null : (
-                      <p
-                        className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
-                        aria-hidden
+                      <button
+                        type="button"
+                        className="profile-editor-media-backdrop account-editor-banner-backdrop"
+                        onClick={openBannerPicker}
+                        aria-label={
+                          displayBannerMedia ? 'Change banner' : 'Add banner'
+                        }
                       >
-                        Photo or video
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="account-editor-hero-overlap">
-                  <div className="account-editor-identity">
-                    <div className="account-editor-avatar-wrap">
-                      <div
-                        className={`account-editor-avatar profile-editor-media-host profile-editor-media-host--avatar${
-                          displayAvatarUrl ? ' has-media' : ''
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          className="profile-editor-media-backdrop account-editor-avatar-backdrop"
-                          onClick={() => avatarInputRef.current?.click()}
-                          aria-label={
-                            displayAvatarUrl ? 'Change photo' : 'Add photo'
-                          }
-                        >
-                          {displayAvatarUrl ? (
-                            <img
-                              src={displayAvatarUrl}
-                              alt=""
-                              className="account-editor-avatar-image"
-                            />
-                          ) : (
-                            <span
-                              className="account-editor-avatar-fallback"
-                              aria-hidden
-                            >
-                              {avatarInitial}
-                            </span>
-                          )}
-                          <span
-                            className={`profile-editor-media-overlay account-editor-avatar-overlay${
-                              displayAvatarUrl ? ' has-media' : ''
-                            }`}
+                        {displayBannerMedia?.kind === 'video' ? (
+                          <video
+                            src={displayBannerMedia.url}
+                            poster={displayBannerMedia.poster}
+                            className="account-editor-banner-video"
+                            muted
+                            loop
+                            playsInline
+                            autoPlay
                             aria-hidden
                           />
-                        </button>
-                        <ProfileEditorMediaToolbar
-                          layout="avatar"
-                          removeLabel={
-                            displayAvatarUrl ? 'Remove photo' : undefined
-                          }
-                          onRemove={
-                            displayAvatarUrl ? handleRemoveAvatar : undefined
-                          }
+                        ) : displayBannerMedia ? (
+                          <img
+                            src={displayBannerMedia.url}
+                            alt=""
+                            className="account-editor-banner-image"
+                          />
+                        ) : (
+                          <span
+                            className="account-editor-banner-empty"
+                            aria-hidden
+                          />
+                        )}
+                        <span
+                          className={`account-editor-banner-overlay${
+                            displayBannerMedia ? ' has-media' : ''
+                          }`}
+                          aria-hidden
                         />
-                      </div>
-                    </div>
-
-                    <div className="account-editor-identity-copy">
-                      <label htmlFor="profile-editor-name" className="sr-only">
-                        Display name
-                      </label>
-                      <input
-                        ref={nameInputRef}
-                        id="profile-editor-name"
-                        className="account-editor-name"
-                        value={name}
-                        maxLength={PROFILE_NAME_MAX}
-                        autoComplete="name"
-                        placeholder={handleLabel}
-                        aria-required="true"
-                        disabled={saving}
-                        onFocus={scrollFieldIntoView}
-                        onChange={(event) => setName(event.target.value)}
-                        onBlur={() => {
-                          const trimmed = name.trim().replace(/\s+/g, ' ');
-                          if (trimmed !== name) setName(trimmed);
-                        }}
+                      </button>
+                      <ProfileEditorMediaToolbar
+                        layout="banner"
+                        removeLabel={
+                          displayBannerMedia ? 'Remove banner' : undefined
+                        }
+                        onRemove={
+                          displayBannerMedia ? handleRemoveBanner : undefined
+                        }
                       />
-                      <p className="profile-handle account-editor-handle">
-                        @{handleLabel}
-                      </p>
-                      <label htmlFor="profile-editor-bio" className="sr-only">
-                        Bio
-                      </label>
-                      <ProfileBioRichTextarea
-                        textareaRef={bioRef}
-                        id="profile-editor-bio"
-                        value={bio}
-                        maxLength={PROFILE_BIO_MAX}
-                        placeholder="Bio"
-                        onFocus={scrollFieldIntoView}
-                        onChange={setBio}
-                        onBlur={() => {
-                          const trimmed = bio.trim();
-                          if (trimmed !== bio) setBio(trimmed);
-                        }}
-                      />
-                      {nameNearLimit || bioNearLimit ? (
+                      {displayBannerMedia ? null : (
                         <p
-                          className="account-editor-limits is-near-limit"
-                          aria-live="polite"
+                          className="profile-editor-media-size-hint profile-editor-media-size-hint--dock"
+                          aria-hidden
                         >
-                          {nameNearLimit ? (
-                            <span>
-                              {name.length}/{PROFILE_NAME_MAX}
-                            </span>
-                          ) : null}
-                          {nameNearLimit && bioNearLimit ? (
-                            <span
-                              className="account-editor-limits-sep"
-                              aria-hidden
-                            >
-                              ·
-                            </span>
-                          ) : null}
-                          {bioNearLimit ? (
-                            <span>
-                              {bio.trim().length}/{PROFILE_BIO_MAX}
-                            </span>
-                          ) : null}
+                          Photo or video
                         </p>
-                      ) : null}
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="account-editor-hero-overlap">
+                    <div className="account-editor-identity">
+                      <div className="account-editor-avatar-wrap">
+                        <div
+                          className={`account-editor-avatar profile-editor-media-host profile-editor-media-host--avatar${
+                            displayAvatarUrl ? ' has-media' : ''
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            className="profile-editor-media-backdrop account-editor-avatar-backdrop"
+                            onClick={() => avatarInputRef.current?.click()}
+                            aria-label={
+                              displayAvatarUrl ? 'Change photo' : 'Add photo'
+                            }
+                          >
+                            {displayAvatarUrl ? (
+                              <img
+                                src={displayAvatarUrl}
+                                alt=""
+                                className="account-editor-avatar-image"
+                              />
+                            ) : (
+                              <span
+                                className="account-editor-avatar-fallback"
+                                aria-hidden
+                              >
+                                {avatarInitial}
+                              </span>
+                            )}
+                            <span
+                              className={`profile-editor-media-overlay account-editor-avatar-overlay${
+                                displayAvatarUrl ? ' has-media' : ''
+                              }`}
+                              aria-hidden
+                            />
+                          </button>
+                          <ProfileEditorMediaToolbar
+                            layout="avatar"
+                            removeLabel={
+                              displayAvatarUrl ? 'Remove photo' : undefined
+                            }
+                            onRemove={
+                              displayAvatarUrl ? handleRemoveAvatar : undefined
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="account-editor-identity-copy">
+                        <div className="account-editor-name-wrap">
+                          <label
+                            htmlFor="profile-editor-name"
+                            className="sr-only"
+                          >
+                            Display name
+                          </label>
+                          <input
+                            ref={nameInputRef}
+                            id="profile-editor-name"
+                            className="account-editor-name"
+                            value={name}
+                            maxLength={PROFILE_NAME_MAX}
+                            autoComplete="name"
+                            placeholder={handleLabel}
+                            aria-required="true"
+                            disabled={saving}
+                            onFocus={scrollFieldIntoView}
+                            onChange={(event) => setName(event.target.value)}
+                            onBlur={() => {
+                              const trimmed = name.trim().replace(/\s+/g, ' ');
+                              if (trimmed !== name) setName(trimmed);
+                            }}
+                          />
+                        </div>
+                        <p className="profile-handle account-editor-handle">
+                          @{handleLabel}
+                        </p>
+                        <label htmlFor="profile-editor-bio" className="sr-only">
+                          Bio
+                        </label>
+                        <ProfileBioRichTextarea
+                          textareaRef={bioRef}
+                          id="profile-editor-bio"
+                          value={bio}
+                          maxLength={PROFILE_BIO_MAX}
+                          placeholder="Bio"
+                          onFocus={scrollFieldIntoView}
+                          onChange={setBio}
+                          onBlur={() => {
+                            const trimmed = bio.trim();
+                            if (trimmed !== bio) setBio(trimmed);
+                          }}
+                        />
+                        {nameNearLimit || bioNearLimit ? (
+                          <p
+                            className="account-editor-limits is-near-limit"
+                            aria-live="polite"
+                          >
+                            {nameNearLimit ? (
+                              <span>
+                                {name.length}/{PROFILE_NAME_MAX}
+                              </span>
+                            ) : null}
+                            {nameNearLimit && bioNearLimit ? (
+                              <span
+                                className="account-editor-limits-sep"
+                                aria-hidden
+                              >
+                                ·
+                              </span>
+                            ) : null}
+                            {bioNearLimit ? (
+                              <span>
+                                {bio.trim().length}/{PROFILE_BIO_MAX}
+                              </span>
+                            ) : null}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
+              </section>
+
+              <div className="account-editor-form-body">
+                <ProfileLinksEditor
+                  links={links}
+                  notes={linkNotes}
+                  fieldErrors={linkFieldErrors}
+                  onUpdateLink={updateLink}
+                  onUpdateNote={updateNote}
+                  onClearFieldError={clearLinkFieldError}
+                  onSetFieldError={setLinkFieldError}
+                />
               </div>
-            </section>
-
-            <div className="account-editor-form-body">
-              <ProfileLinksEditor
-                links={links}
-                fieldErrors={linkFieldErrors}
-                onUpdateLink={updateLink}
-                onClearFieldError={clearLinkFieldError}
-                onSetFieldError={setLinkFieldError}
-              />
             </div>
-          </div>
 
-          <input
-            ref={avatarInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            className="account-editor-file-input"
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              setAvatarFile(file);
-              if (file) setAvatarRemoved(false);
-              event.target.value = '';
-            }}
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="account-editor-file-input"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                setAvatarFile(file);
+                if (file) setAvatarRemoved(false);
+                event.target.value = '';
+              }}
+            />
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept={PROFILE_BANNER_ACCEPT}
+              className="account-editor-file-input"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                setBannerFile(file);
+                if (file) setBannerRemoved(false);
+                event.target.value = '';
+              }}
+            />
+          </form>
+        ) : loading || !loadError ? (
+          <ProfileEditorLoadingSkeleton />
+        ) : (
+          <ProfileEditorLoadError
+            message={loadError}
+            onRetry={() => void loadProfile()}
           />
-          <input
-            ref={bannerInputRef}
-            type="file"
-            accept={PROFILE_BANNER_ACCEPT}
-            className="account-editor-file-input"
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              setBannerFile(file);
-              if (file) setBannerRemoved(false);
-              event.target.value = '';
-            }}
-          />
-        </form>
-      ) : loading || !loadError ? (
-        <ProfileEditorLoadingSkeleton />
-      ) : (
-        <ProfileEditorLoadError
-          message={loadError}
-          onRetry={() => void loadProfile()}
-        />
-      )}
-    </OsSlideOverScreen>
+        )}
+      </OsSlideOverScreen>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }

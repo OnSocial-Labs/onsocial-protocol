@@ -17,8 +17,7 @@ import {
   type FormEvent,
 } from 'react';
 import {
-  DiscardConfirmFooter,
-  discardConfirmFooterA11y,
+  DiscardConfirmSheet,
   OsField,
   OsFieldRemove,
   OsSheetAction,
@@ -174,9 +173,6 @@ export function DaoEditSheet({
 
   const {
     discardConfirmOpen,
-    discardTitleId,
-    discardBodyId,
-    keepEditingRef,
     requestCloseOrConfirm,
     clearDiscardConfirm,
     keepEditing,
@@ -308,8 +304,7 @@ export function DaoEditSheet({
         description: description.trim() || null,
         avatar,
         banner,
-        links:
-          Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
+        links: Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
       });
       const payload = buildProtocolPolicyConfigPayload({
         name: onChainName,
@@ -340,9 +335,7 @@ export function DaoEditSheet({
             avatar,
             banner,
             links:
-              Object.keys(normalizedLinks).length > 0
-                ? normalizedLinks
-                : null,
+              Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
           });
           const socialResponse = await submitProtocolProposal({
             daoAccountId,
@@ -411,39 +404,21 @@ export function DaoEditSheet({
   };
 
   return (
-    <OsSlideOverScreen
-      open={open}
-      onClose={onClose}
-      onBeforeClose={handleBeforeClose}
-      onClosed={clearDiscardConfirm}
-      title="Edit DAO profile"
-      subtitle="Cover + square crest — publishes as a config proposal."
-      closeAriaLabel="Back from edit DAO"
-      closeDisabled={pending}
-      zIndex={DAO_EDIT_Z}
-      className="hub-manage-slide"
-      contentClassName="hub-manage-slide-body"
-      footer={
-        <div
-          className={`hub-manage-sheet-footer${
-            discardConfirmOpen ? ' is-discard-confirm' : ''
-          }`}
-          {...discardConfirmFooterA11y(
-            discardConfirmOpen,
-            discardTitleId,
-            discardBodyId
-          )}
-        >
-          {discardConfirmOpen ? (
-            <DiscardConfirmFooter
-              className="dao-edit-discard-card"
-              titleId={discardTitleId}
-              bodyId={discardBodyId}
-              onDiscard={discard}
-              onKeepEditing={keepEditing}
-              keepEditingRef={keepEditingRef}
-            />
-          ) : (
+    <>
+      <OsSlideOverScreen
+        open={open}
+        onClose={onClose}
+        onBeforeClose={handleBeforeClose}
+        onClosed={clearDiscardConfirm}
+        title="Edit DAO profile"
+        subtitle="Cover + square crest — publishes as a config proposal."
+        closeAriaLabel="Back from edit DAO"
+        closeDisabled={pending}
+        zIndex={DAO_EDIT_Z}
+        className="hub-manage-slide"
+        contentClassName="hub-manage-slide-body"
+        footer={
+          <div className="hub-manage-sheet-footer">
             <OsSheetActions layout="stack" tone="frosted-primary" borderless>
               <OsSheetAction
                 type="submit"
@@ -456,182 +431,198 @@ export function DaoEditSheet({
                 Propose profile
               </OsSheetAction>
             </OsSheetActions>
-          )}
-        </div>
-      }
-    >
-      <form id={formId} className="hub-manage-form" onSubmit={(e) => void save(e)}>
-        <section className="dao-edit-hero" aria-label="DAO media">
-          <div
-            className={`account-editor-cover-stage dao-edit-cover${bannerSrc ? ' has-media' : ''}`}
-          >
-            <div className="account-editor-banner-wrap">
-              <div
-                className={`account-editor-banner-button profile-editor-media-host${bannerSrc ? ' has-media' : ''}`}
-              >
-                <button
-                  type="button"
-                  className="profile-editor-media-backdrop account-editor-banner-backdrop"
-                  disabled={pending}
-                  onClick={() => bannerInputRef.current?.click()}
-                  aria-label={bannerSrc ? 'Change cover' : 'Add cover'}
+          </div>
+        }
+      >
+        <form
+          id={formId}
+          className="hub-manage-form"
+          onSubmit={(e) => void save(e)}
+        >
+          <section className="dao-edit-hero" aria-label="DAO media">
+            <div
+              className={`account-editor-cover-stage dao-edit-cover${bannerSrc ? ' has-media' : ''}`}
+            >
+              <div className="account-editor-banner-wrap">
+                <div
+                  className={`account-editor-banner-button profile-editor-media-host${bannerSrc ? ' has-media' : ''}`}
                 >
-                  {bannerSrc ? (
-                    <img
-                      src={bannerSrc}
-                      alt=""
-                      className="account-editor-banner-image"
+                  <button
+                    type="button"
+                    className="profile-editor-media-backdrop account-editor-banner-backdrop"
+                    disabled={pending}
+                    onClick={() => bannerInputRef.current?.click()}
+                    aria-label={bannerSrc ? 'Change cover' : 'Add cover'}
+                  >
+                    {bannerSrc ? (
+                      <img
+                        src={bannerSrc}
+                        alt=""
+                        className="account-editor-banner-image"
+                      />
+                    ) : (
+                      <span
+                        className="account-editor-banner-empty"
+                        aria-hidden
+                      />
+                    )}
+                    <span
+                      className={`account-editor-banner-overlay${bannerSrc ? ' has-media' : ''}`}
+                      aria-hidden
                     />
-                  ) : (
-                    <span className="account-editor-banner-empty" aria-hidden />
-                  )}
-                  <span
-                    className={`account-editor-banner-overlay${bannerSrc ? ' has-media' : ''}`}
-                    aria-hidden
+                  </button>
+                  <ProfileEditorMediaToolbar
+                    layout="banner"
+                    removeLabel={bannerSrc ? 'Remove cover' : undefined}
+                    onRemove={bannerSrc ? clearBanner : undefined}
                   />
-                </button>
-                <ProfileEditorMediaToolbar
-                  layout="banner"
-                  removeLabel={bannerSrc ? 'Remove cover' : undefined}
-                  onRemove={bannerSrc ? clearBanner : undefined}
-                />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="dao-edit-crest-row">
-            <button
-              type="button"
-              className={`dao-edit-crest-picker profile-editor-media-host profile-editor-media-host--squircle${avatarSrc ? ' has-media' : ''}`}
-              disabled={pending}
-              onClick={() => avatarInputRef.current?.click()}
-              aria-label={avatarSrc ? 'Change crest' : 'Add crest'}
-            >
-              {avatarSrc ? (
-                <img src={avatarSrc} alt="" />
-              ) : (
-                <span aria-hidden>+</span>
-              )}
-            </button>
-            {avatarSrc ? (
-              <OsFieldRemove
-                aria-label="Remove crest"
+            <div className="dao-edit-crest-row">
+              <button
+                type="button"
+                className={`dao-edit-crest-picker profile-editor-media-host profile-editor-media-host--squircle${avatarSrc ? ' has-media' : ''}`}
                 disabled={pending}
-                onClick={clearAvatar}
-              />
-            ) : null}
-            <p className="dao-edit-crest-hint">
-              Square crest · rounded corners mark this as a DAO
-            </p>
-          </div>
-        </section>
+                onClick={() => avatarInputRef.current?.click()}
+                aria-label={avatarSrc ? 'Change crest' : 'Add crest'}
+              >
+                {avatarSrc ? (
+                  <img src={avatarSrc} alt="" />
+                ) : (
+                  <span aria-hidden>+</span>
+                )}
+              </button>
+              {avatarSrc ? (
+                <OsFieldRemove
+                  aria-label="Remove crest"
+                  disabled={pending}
+                  onClick={clearAvatar}
+                />
+              ) : null}
+              <p className="dao-edit-crest-hint">
+                Square crest · rounded corners mark this as a DAO
+              </p>
+            </div>
+          </section>
 
-        <OsField label="Name" htmlFor={`${formId}-name`} hint={`${name.length}/${MAX_NAME}`}>
-          <input
-            id={`${formId}-name`}
-            value={name}
-            maxLength={MAX_NAME}
-            disabled={pending}
-            onChange={(event) => setName(event.target.value)}
-            className={osFieldBorderedClassName}
-          />
-        </OsField>
+          <OsField
+            label="Name"
+            htmlFor={`${formId}-name`}
+            hint={`${name.length}/${MAX_NAME}`}
+          >
+            <input
+              id={`${formId}-name`}
+              value={name}
+              maxLength={MAX_NAME}
+              disabled={pending}
+              onChange={(event) => setName(event.target.value)}
+              className={osFieldBorderedClassName}
+            />
+          </OsField>
 
-        <OsField
-          label="About"
-          htmlFor={`${formId}-about`}
-          hint={`${description.length}/${MAX_DESCRIPTION}`}
-        >
-          <textarea
-            id={`${formId}-about`}
-            rows={3}
-            value={description}
-            maxLength={MAX_DESCRIPTION}
-            disabled={pending}
-            placeholder="What this DAO stewards…"
-            onChange={(event) => setDescription(event.target.value)}
-            className={osFieldBorderedClassName}
-          />
-        </OsField>
+          <OsField
+            label="About"
+            htmlFor={`${formId}-about`}
+            hint={`${description.length}/${MAX_DESCRIPTION}`}
+          >
+            <textarea
+              id={`${formId}-about`}
+              rows={3}
+              value={description}
+              maxLength={MAX_DESCRIPTION}
+              disabled={pending}
+              placeholder="What this DAO stewards…"
+              onChange={(event) => setDescription(event.target.value)}
+              className={osFieldBorderedClassName}
+            />
+          </OsField>
 
-        <div className="dao-edit-links">
-          <ProfileLinksEditor
-            links={links}
-            fieldErrors={linkErrors}
-            onUpdateLink={(key, value) => {
-              setLinks((prev) => ({ ...prev, [key]: value }));
-              setLinkErrors((prev) => {
-                if (!prev[key]) return prev;
-                const next = { ...prev };
-                delete next[key];
-                return next;
-              });
-            }}
-            onClearFieldError={(key) => {
-              setLinkErrors((prev) => {
-                if (!prev[key]) return prev;
-                const next = { ...prev };
-                delete next[key];
-                return next;
-              });
-            }}
-            onSetFieldError={(key, nextError) => {
-              setLinkErrors((prev) => {
-                if (!nextError) {
+          <div className="dao-edit-links">
+            <ProfileLinksEditor
+              links={links}
+              fieldErrors={linkErrors}
+              onUpdateLink={(key, value) => {
+                setLinks((prev) => ({ ...prev, [key]: value }));
+                setLinkErrors((prev) => {
                   if (!prev[key]) return prev;
                   const next = { ...prev };
                   delete next[key];
                   return next;
-                }
-                return { ...prev, [key]: nextError };
-              });
-            }}
-          />
-        </div>
+                });
+              }}
+              onClearFieldError={(key) => {
+                setLinkErrors((prev) => {
+                  if (!prev[key]) return prev;
+                  const next = { ...prev };
+                  delete next[key];
+                  return next;
+                });
+              }}
+              onSetFieldError={(key, nextError) => {
+                setLinkErrors((prev) => {
+                  if (!nextError) {
+                    if (!prev[key]) return prev;
+                    const next = { ...prev };
+                    delete next[key];
+                    return next;
+                  }
+                  return { ...prev, [key]: nextError };
+                });
+              }}
+            />
+          </div>
 
-        <label className="dao-create-toggle dao-edit-social-toggle">
+          <label className="dao-create-toggle dao-edit-social-toggle">
+            <input
+              type="checkbox"
+              checked={publishSocial}
+              disabled={pending}
+              onChange={(event) => setPublishSocial(event.target.checked)}
+            />
+            <span>
+              Also publish OnSocial profile
+              <small>
+                Submits a second proposal (Call) so feeds can use the same crest
+                and name. ~{SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR bond —
+                approve on the DAO after.
+              </small>
+            </span>
+          </label>
+
+          {error ? <p className="guild-form-error">{error}</p> : null}
+          <p className="dao-edit-footnote">
+            Saves as a DAO config proposal. Profile goes live after approval.
+          </p>
+
           <input
-            type="checkbox"
-            checked={publishSocial}
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="account-editor-file-input"
+            tabIndex={-1}
+            aria-hidden
             disabled={pending}
-            onChange={(event) => setPublishSocial(event.target.checked)}
+            onChange={(event) => void onAvatarChange(event)}
           />
-          <span>
-            Also publish OnSocial profile
-            <small>
-              Submits a second proposal (Call) so feeds can use the same crest
-              and name. ~{SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR} NEAR bond —
-              approve on the DAO after.
-            </small>
-          </span>
-        </label>
-
-        {error ? <p className="guild-form-error">{error}</p> : null}
-        <p className="dao-edit-footnote">
-          Saves as a DAO config proposal. Profile goes live after approval.
-        </p>
-
-        <input
-          ref={avatarInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="account-editor-file-input"
-          tabIndex={-1}
-          aria-hidden
-          disabled={pending}
-          onChange={(event) => void onAvatarChange(event)}
-        />
-        <input
-          ref={bannerInputRef}
-          type="file"
-          accept={BANNER_ACCEPT}
-          className="account-editor-file-input"
-          tabIndex={-1}
-          aria-hidden
-          disabled={pending}
-          onChange={onBannerChange}
-        />
-      </form>
-    </OsSlideOverScreen>
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept={BANNER_ACCEPT}
+            className="account-editor-file-input"
+            tabIndex={-1}
+            aria-hidden
+            disabled={pending}
+            onChange={onBannerChange}
+          />
+        </form>
+      </OsSlideOverScreen>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }

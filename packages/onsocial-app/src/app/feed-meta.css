@@ -86,6 +86,17 @@ button.post-card-show-more,
   color: var(--protocol-green);
 }
 
+/* Edit profile bio — same mood token color as the live face. */
+.profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-hashtag,
+.profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-mention,
+.profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-ticker,
+.profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-link {
+  color: var(
+    --signal-reputation,
+    var(--mood-signal-reputation, var(--protocol-green))
+  );
+}
+
 @media (hover: hover) and (pointer: fine) {
   .os-hashtag:hover,
   .os-mention:hover,
@@ -115,7 +126,26 @@ button.post-card-show-more,
   .portfolio-bio .os-hashtag:focus-visible,
   .portfolio-bio .os-mention:focus-visible,
   .portfolio-bio .os-ticker:focus-visible,
-  .portfolio-bio .os-link:focus-visible {
-    color: var(--signal-reputation);
+  .portfolio-bio .os-link:focus-visible,
+  .profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-hashtag:hover,
+  .profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-mention:hover,
+  .profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-ticker:hover,
+  .profile-edit-slide[data-mood] .account-editor-bio-backdrop .os-link:hover,
+  .profile-edit-slide[data-mood]
+    .account-editor-bio-backdrop
+    .os-hashtag:focus-visible,
+  .profile-edit-slide[data-mood]
+    .account-editor-bio-backdrop
+    .os-mention:focus-visible,
+  .profile-edit-slide[data-mood]
+    .account-editor-bio-backdrop
+    .os-ticker:focus-visible,
+  .profile-edit-slide[data-mood]
+    .account-editor-bio-backdrop
+    .os-link:focus-visible {
+    color: var(
+      --signal-reputation,
+      var(--mood-signal-reputation, var(--protocol-green))
+    );
   }
 }

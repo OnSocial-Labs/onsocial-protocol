@@ -258,6 +258,49 @@ function resolveArrayLinks(
   });
 }
 
+const LINKEDIN_PATH_PREFIXES = new Set([
+  'in',
+  'company',
+  'school',
+  'showcase',
+  'pub',
+]);
+
+const YOUTUBE_PATH_PREFIXES = new Set(['channel', 'c', 'user']);
+
+function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+function hrefPathSegments(href: string): string[] {
+  try {
+    return new URL(href).pathname
+      .replace(/^\/+|\/+$/g, '')
+      .split('/')
+      .filter(Boolean)
+      .map(decodePathSegment);
+  } catch {
+    return [];
+  }
+}
+
+function bareHandle(value: string): string {
+  return value.replace(/^@/, '').trim();
+}
+
+function withAtPrefix(value: string): string {
+  const bare = bareHandle(value);
+  return bare ? `@${bare}` : '';
+}
+
+function collapseLinkText(value: string): string {
+  return bareHandle(value).toLowerCase();
+}
+
 /** Hostname for showcase rows — strips www, falls back to label. */
 export function portfolioLinkHostname(href: string): string | null {
   try {
@@ -268,27 +311,71 @@ export function portfolioLinkHostname(href: string): string | null {
   }
 }
 
-/** Secondary line under the link label in the page drawer. */
-export function portfolioLinkDetail(link: PortfolioSocialLink): string {
-  const note = link.note?.trim();
-  if (note) {
-    return note;
-  }
-
+/**
+ * Quiet destination line — hostname or identity slug.
+ * Never uses the first URL folder as a fake @handle (`/company/…` → company).
+ */
+export function portfolioLinkDestination(link: PortfolioSocialLink): string {
   if (link.kind === 'website' || link.kind === 'custom') {
-    return portfolioLinkHostname(link.href) ?? link.label;
+    return portfolioLinkHostname(link.href) ?? '';
   }
 
-  try {
-    const path = new URL(link.href).pathname.replace(/^\/+|\/+$/g, '');
-    if (path) {
-      return path.startsWith('@') ? path : `@${path.split('/')[0] ?? path}`;
+  const segments = hrefPathSegments(link.href);
+  if (segments.length === 0) {
+    return '';
+  }
+
+  switch (link.kind) {
+    case 'linkedin': {
+      const prefix = segments[0]!.toLowerCase();
+      if (LINKEDIN_PATH_PREFIXES.has(prefix) && segments[1]) {
+        return bareHandle(segments[1]);
+      }
+      return bareHandle(segments[segments.length - 1]!);
     }
-  } catch {
-    // fall through
+    case 'github':
+      return bareHandle(segments[0]!);
+    case 'discord':
+      return bareHandle(segments[segments.length - 1]!);
+    case 'youtube': {
+      const first = segments[0]!;
+      if (first.startsWith('@')) {
+        return withAtPrefix(first);
+      }
+      const folder = first.toLowerCase();
+      if (YOUTUBE_PATH_PREFIXES.has(folder) && segments[1]) {
+        const name = segments[1];
+        return name.startsWith('@') ? withAtPrefix(name) : bareHandle(name);
+      }
+      return withAtPrefix(first);
+    }
+    case 'x':
+    case 'instagram':
+    case 'telegram':
+    case 'tiktok':
+      return withAtPrefix(segments[0]!);
+    default:
+      return withAtPrefix(segments[0]!);
   }
+}
 
-  return link.label;
+/** Owner note becomes the title; generic "Website" / "GitHub" is the fallback. */
+export function portfolioLinkTitle(link: PortfolioSocialLink): string {
+  const note = link.note?.trim();
+  return note || link.label;
+}
+
+/** Launch row: custom name on top, destination underneath when it is not the same text. */
+export function portfolioLinkPresentation(link: PortfolioSocialLink): {
+  title: string;
+  detail: string | null;
+} {
+  const title = portfolioLinkTitle(link);
+  const destination = portfolioLinkDestination(link);
+  if (!destination || collapseLinkText(destination) === collapseLinkText(title)) {
+    return { title, detail: null };
+  }
+  return { title, detail: destination };
 }
 
 /** Attach optional Launch notes from page config onto resolved links. */

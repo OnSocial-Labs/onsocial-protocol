@@ -3,11 +3,7 @@
 import { useMemo, type CSSProperties } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerWalletMoodVars } from '@/hooks/use-viewer-wallet-mood-vars';
-import {
-  pageContentDrawerPanelStyle,
-  portfolioMoodShellStyle,
-  resolvePortfolioMood,
-} from '@/lib/moods/resolve';
+import { resolvePortfolioMood } from '@/lib/moods/resolve';
 
 /**
  * Summon dock chrome for the connected viewer — same mood everywhere
@@ -32,12 +28,11 @@ export function useViewerDockMood(pageAccountId?: string): {
 
   const style = useMemo(() => {
     if (!accountId) return undefined;
+    // Live / fetched vars only. Protocol inline would stamp OS wash over
+    // inherited face vars when Edit profile portals into `.portfolio-frame`.
     if (fetchedMoodStyle) return fetchedMoodStyle;
-    return {
-      ...portfolioMoodShellStyle(fallbackMood.cssVars),
-      ...pageContentDrawerPanelStyle(fallbackMood.cssVars),
-    } as CSSProperties;
-  }, [accountId, fallbackMood.cssVars, fetchedMoodStyle]);
+    return undefined;
+  }, [accountId, fetchedMoodStyle]);
 
   return { moodId, style };
 }

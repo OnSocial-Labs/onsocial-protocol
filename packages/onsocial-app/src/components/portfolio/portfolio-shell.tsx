@@ -9,6 +9,7 @@ import { resolvePageFace } from '@/lib/page-face';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioShellProps {
+  pageAccountId: string;
   mood: ResolvedMood;
   config: PublicPageConfig;
   avatarMode?: PageAvatarMode;
@@ -20,6 +21,7 @@ interface PortfolioShellProps {
 }
 
 export function PortfolioShell({
+  pageAccountId,
   mood,
   config,
   avatarMode = 'standard',
@@ -47,6 +49,7 @@ export function PortfolioShell({
     <main
       ref={portalHostRef}
       className="frame app-surface portfolio-frame"
+      data-page-account={pageAccountId}
       data-mood={mood.id}
       data-mood-preview={isPreviewingMood ? 'true' : undefined}
       data-has-banner={hasBanner ? 'true' : undefined}

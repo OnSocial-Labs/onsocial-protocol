@@ -272,6 +272,19 @@
   outline: none;
 }
 
+.os-action-drawer-confirm-cancel.is-danger {
+  color: color-mix(
+    in srgb,
+    var(--signal-error, #ef4444) 78%,
+    rgb(var(--fg-rgb))
+  );
+}
+
+.os-action-drawer-confirm-cancel.is-danger:hover,
+.os-action-drawer-confirm-cancel.is-danger:focus-visible {
+  color: var(--signal-error, #ef4444);
+}
+
 .os-info-drawer-body {
   display: flex;
   flex-direction: column;

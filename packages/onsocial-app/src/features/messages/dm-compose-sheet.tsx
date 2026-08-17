@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  DiscardConfirmFooter,
+  DiscardConfirmSheet,
   OsField,
   OsGestureSheet,
   OsSheetAction,
@@ -24,15 +24,15 @@ import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
 import { sendEncryptedDm } from '@/lib/dm/send';
-import {
-  acknowledgeDmRecoveryCode,
-  hasUnlockedDmKey,
-} from '@/lib/dm/keys';
+import { acknowledgeDmRecoveryCode, hasUnlockedDmKey } from '@/lib/dm/keys';
 import { messagesPath } from '@/lib/app-routes';
 import { supportSheetPanelStyle } from '@/lib/moods/resolve';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
-import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
+import {
+  isBlockEitherWay,
+  isViewerMuting,
+} from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { DmRecoveryCodeSheet } from '@/features/messages/dm-recovery-code-sheet';
 import { DmUnlockPanel } from '@/features/messages/dm-unlock-panel';
@@ -99,9 +99,6 @@ export function DmComposeSheet({
 
   const {
     discardConfirmOpen,
-    discardTitleId,
-    discardBodyId,
-    keepEditingRef,
     requestCloseOrConfirm,
     clearDiscardConfirm,
     keepEditing,
@@ -237,19 +234,6 @@ export function DmComposeSheet({
         size="tall"
         bodyClassName="profile-support-sheet-body"
         titleId={titleId}
-        footer={
-          discardConfirmOpen ? (
-            <DiscardConfirmFooter
-              titleId={discardTitleId}
-              bodyId={discardBodyId}
-              onDiscard={discard}
-              onKeepEditing={keepEditing}
-              keepEditingRef={keepEditingRef}
-              title="Discard message?"
-              body="Your draft won’t be sent."
-            />
-          ) : undefined
-        }
       >
         {accountId && !isUnlocked ? (
           <DmUnlockPanel
@@ -268,9 +252,7 @@ export function DmComposeSheet({
           />
         ) : (
           <form
-            className={`dm-compose-form${
-              discardConfirmOpen ? ' is-discard-confirm' : ''
-            }`}
+            className="dm-compose-form"
             onSubmit={(e) => void handleSubmit(e)}
           >
             <OsField label="Message" htmlFor="dm-compose-text">
@@ -341,21 +323,26 @@ export function DmComposeSheet({
               </p>
             ) : null}
 
-            {!discardConfirmOpen ? (
-              <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-                <OsSheetAction
-                  type="submit"
-                  ready={canSend && !pending}
-                  pending={pending}
-                  pendingLabel="Sending…"
-                >
-                  {!isConnected ? 'Connect wallet' : 'Send'}
-                </OsSheetAction>
-              </OsSheetActions>
-            ) : null}
+            <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+              <OsSheetAction
+                type="submit"
+                ready={canSend && !pending}
+                pending={pending}
+                pendingLabel="Sending…"
+              >
+                {!isConnected ? 'Connect wallet' : 'Send'}
+              </OsSheetAction>
+            </OsSheetActions>
           </form>
         )}
       </OsGestureSheet>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+        title="Discard message?"
+        body="Your draft won’t be sent."
+      />
 
       <DmRecoveryCodeSheet
         open={Boolean(recoveryCode)}

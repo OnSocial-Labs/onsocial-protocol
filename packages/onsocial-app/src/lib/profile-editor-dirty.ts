@@ -1,10 +1,11 @@
 import type { ProfileEditorSnapshot } from '@/hooks/use-app-profile-editor';
+import { linkNotesEqual, pruneLinkNotes } from '@/lib/page-launch-config';
 import {
   PROFILE_LINK_EDITOR_FIELDS,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
 
-export function isProfileEditorDirty(input: {
+export function isProfileEditorContentDirty(input: {
   snapshot: ProfileEditorSnapshot;
   linksFromSnapshot: ProfileLinksInput;
   name: string;
@@ -44,4 +45,26 @@ export function isProfileEditorDirty(input: {
   }
 
   return false;
+}
+
+export function isProfileEditorDirty(input: {
+  snapshot: ProfileEditorSnapshot;
+  linksFromSnapshot: ProfileLinksInput;
+  name: string;
+  bio: string;
+  links: ProfileLinksInput;
+  linkNotes: Record<string, string>;
+  avatarFile: File | null;
+  bannerFile: File | null;
+  avatarRemoved: boolean;
+  bannerRemoved: boolean;
+}): boolean {
+  if (isProfileEditorContentDirty(input)) {
+    return true;
+  }
+
+  return !linkNotesEqual(
+    pruneLinkNotes(input.linkNotes, input.links),
+    input.snapshot.pageConfig?.linkNotes
+  );
 }

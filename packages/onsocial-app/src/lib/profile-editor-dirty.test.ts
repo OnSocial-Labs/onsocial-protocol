@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProfileEditorSnapshot } from '@/hooks/use-app-profile-editor';
 import { isProfileEditorDirty } from '@/lib/profile-editor-dirty';
+import { sanitizeLinkNotes } from '@/lib/page-launch-config';
 import { profileLinksInputFromRecord } from '@/lib/profile-links';
 
 function baseSnapshot(
@@ -15,6 +16,7 @@ function baseSnapshot(
     bannerUrl: 'https://cdn.example/banner.png',
     bannerMedia: { kind: 'image', url: 'https://cdn.example/banner.png' },
     links: {},
+    pageConfig: {},
     ...overrides,
   };
 }
@@ -30,6 +32,7 @@ function dirtyInput(
     name: snapshot.name,
     bio: snapshot.bio,
     links: linksFromSnapshot,
+    linkNotes: sanitizeLinkNotes(snapshot.pageConfig.linkNotes),
     avatarFile: null,
     bannerFile: null,
     avatarRemoved: false,
@@ -81,6 +84,19 @@ describe('isProfileEditorDirty', () => {
     const snapshot = baseSnapshot();
     expect(
       isProfileEditorDirty(dirtyInput(snapshot, { bio: 'Building #near' }))
+    ).toBe(true);
+  });
+
+  it('is dirty when a link title changes', () => {
+    const snapshot = baseSnapshot({
+      pageConfig: { linkNotes: { website: 'Home' } },
+    });
+    expect(
+      isProfileEditorDirty(
+        dirtyInput(snapshot, {
+          linkNotes: { website: 'My website' },
+        })
+      )
     ).toBe(true);
   });
 });

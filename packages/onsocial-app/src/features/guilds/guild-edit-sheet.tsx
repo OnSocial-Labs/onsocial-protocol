@@ -10,17 +10,13 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { ProfileEditorMediaToolbar } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
-  DiscardConfirmFooter,
-  discardConfirmFooterA11y,
+  DiscardConfirmSheet,
+  ProfileEditorMediaToolbar,
   useDiscardConfirm,
 } from '@onsocial/ui';
-import {
-  OsSheetAction,
-  OsSheetActions,
-} from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -199,9 +195,6 @@ export function GuildEditSheet({
 
   const {
     discardConfirmOpen,
-    discardTitleId,
-    discardBodyId,
-    keepEditingRef,
     requestCloseOrConfirm,
     clearDiscardConfirm,
     keepEditing,
@@ -344,311 +337,290 @@ export function GuildEditSheet({
 
   const footer =
     loadState === 'ready' && snapshot ? (
-      <div
-        className={`guild-edit-sheet-footer${
-          discardConfirmOpen ? ' is-discard-confirm' : ''
-        }`}
-        {...discardConfirmFooterA11y(
-          discardConfirmOpen,
-          discardTitleId,
-          discardBodyId
-        )}
-      >
-        {discardConfirmOpen ? (
-          <DiscardConfirmFooter
-            className="guild-edit-discard-card"
-            titleId={discardTitleId}
-            bodyId={discardBodyId}
-            onDiscard={discard}
-            onKeepEditing={keepEditing}
-            keepEditingRef={keepEditingRef}
-          />
-        ) : (
-          <OsSheetActions layout="stack" tone="frosted-primary" borderless>
-            {!isConnected && !walletLoading ? (
-              <OsSheetAction
-                type="button"
-                variant="ghost"
-                onClick={() => void connect()}
-              >
-                Connect wallet
-              </OsSheetAction>
-            ) : null}
+      <div className="guild-edit-sheet-footer">
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          {!isConnected && !walletLoading ? (
             <OsSheetAction
-              type="submit"
-              form={formId}
-              ready={isDirty && isConnected}
-              pending={pending}
-              pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
-              disabled={!isDirty || pending || !isConnected}
+              type="button"
+              variant="ghost"
+              onClick={() => void connect()}
             >
-              {memberDriven ? 'Propose changes' : 'Save changes'}
+              Connect wallet
             </OsSheetAction>
-          </OsSheetActions>
-        )}
+          ) : null}
+          <OsSheetAction
+            type="submit"
+            form={formId}
+            ready={isDirty && isConnected}
+            pending={pending}
+            pendingLabel={memberDriven ? 'Proposing…' : 'Saving…'}
+            disabled={!isDirty || pending || !isConnected}
+          >
+            {memberDriven ? 'Propose changes' : 'Save changes'}
+          </OsSheetAction>
+        </OsSheetActions>
       </div>
     ) : undefined;
 
   return (
-    <OsSlideOverScreen
-      open={open}
-      onClose={onClose}
-      onClosed={clearDiscardConfirm}
-      onBeforeClose={requestCloseOrConfirm}
-      title="Edit guild"
-      closeAriaLabel="Back"
-      closeDisabled={pending}
-      zIndex={GUILD_EDIT_Z}
-      className="guild-edit-slide"
-      contentClassName="guild-edit-slide-body"
-      immersiveHeader
-      footer={footer}
-    >
-      {loadState === 'loading' || loadState === 'idle' ? (
-        <div className="guild-state-card">Loading guild…</div>
-      ) : null}
+    <>
+      <OsSlideOverScreen
+        open={open}
+        onClose={onClose}
+        onClosed={clearDiscardConfirm}
+        onBeforeClose={requestCloseOrConfirm}
+        title="Edit guild"
+        closeAriaLabel="Back"
+        closeDisabled={pending}
+        zIndex={GUILD_EDIT_Z}
+        className="guild-edit-slide"
+        contentClassName="guild-edit-slide-body"
+        immersiveHeader
+        footer={footer}
+      >
+        {loadState === 'loading' || loadState === 'idle' ? (
+          <div className="guild-state-card">Loading guild…</div>
+        ) : null}
 
-      {loadState === 'missing' ? (
-        <div className="guild-state-card">
-          <p>We could not find this guild yet.</p>
-        </div>
-      ) : null}
+        {loadState === 'missing' ? (
+          <div className="guild-state-card">
+            <p>We could not find this guild yet.</p>
+          </div>
+        ) : null}
 
-      {loadState === 'error' ? (
-        <div className="guild-state-card is-error">
-          <p>{error ?? 'Could not load guild settings.'}</p>
-          <button
-            type="button"
-            className="guild-secondary-button"
-            onClick={() => void load()}
-          >
-            Retry
-          </button>
-        </div>
-      ) : null}
-
-      {loadState === 'forbidden' ? (
-        <div className="guild-state-card">
-          <p className="guild-eyebrow">View only</p>
-          <h2>Only owners and admins can edit this guild.</h2>
-        </div>
-      ) : null}
-
-      {loadState === 'ready' && snapshot ? (
-        <form
-          id={formId}
-          className={`guild-edit-form account-editor-form${
-            discardConfirmOpen ? ' is-discard-confirm' : ''
-          }`}
-          onSubmit={(event) => void handleSave(event)}
-        >
-          <div
-            className={`account-editor-form-main guild-edit-form-main${
-              discardConfirmOpen ? ' is-discard-confirm' : ''
-            }`}
-          >
-            <section
-              className={`account-editor-hero guild-edit-hero${
-                discardConfirmOpen ? ' is-dimmed' : ''
-              }`}
-              aria-label="Guild profile"
+        {loadState === 'error' ? (
+          <div className="guild-state-card is-error">
+            <p>{error ?? 'Could not load guild settings.'}</p>
+            <button
+              type="button"
+              className="guild-secondary-button"
+              onClick={() => void load()}
             >
-              <div
-                className={`account-editor-cover-stage${
-                  displayBannerUrl ? ' has-media' : ''
-                }`}
+              Retry
+            </button>
+          </div>
+        ) : null}
+
+        {loadState === 'forbidden' ? (
+          <div className="guild-state-card">
+            <p className="guild-eyebrow">View only</p>
+            <h2>Only owners and admins can edit this guild.</h2>
+          </div>
+        ) : null}
+
+        {loadState === 'ready' && snapshot ? (
+          <form
+            id={formId}
+            className="guild-edit-form account-editor-form"
+            onSubmit={(event) => void handleSave(event)}
+          >
+            <div className="account-editor-form-main guild-edit-form-main">
+              <section
+                className="account-editor-hero guild-edit-hero"
+                aria-label="Guild profile"
               >
-                <div className="account-editor-banner-wrap">
-                  <div
-                    className={`account-editor-banner-button profile-editor-media-host${
-                      displayBannerUrl ? ' has-media' : ''
-                    }${!displayBannerUrl ? ' guild-hero-cover--fallback' : ''}`}
-                    style={guildCoverStyle(displayBannerUrl, groupId)}
-                  >
-                    <button
-                      type="button"
-                      className="profile-editor-media-backdrop account-editor-banner-backdrop"
-                      onClick={openBannerPicker}
-                      aria-label={
-                        displayBannerUrl ? 'Change banner' : 'Add banner'
-                      }
+                <div
+                  className={`account-editor-cover-stage${
+                    displayBannerUrl ? ' has-media' : ''
+                  }`}
+                >
+                  <div className="account-editor-banner-wrap">
+                    <div
+                      className={`account-editor-banner-button profile-editor-media-host${
+                        displayBannerUrl ? ' has-media' : ''
+                      }${!displayBannerUrl ? ' guild-hero-cover--fallback' : ''}`}
+                      style={guildCoverStyle(displayBannerUrl, groupId)}
                     >
-                      {displayBannerUrl ? (
-                        <img
-                          src={displayBannerUrl}
-                          alt=""
-                          className="account-editor-banner-image"
-                        />
-                      ) : (
-                        <span
-                          className="account-editor-banner-empty"
-                          aria-hidden
-                        />
-                      )}
-                      <span
-                        className={`account-editor-banner-overlay${
-                          displayBannerUrl ? ' has-media' : ''
-                        }`}
-                        aria-hidden
-                      />
-                    </button>
-                    <ProfileEditorMediaToolbar
-                      layout="banner"
-                      removeLabel={
-                        displayBannerUrl ? 'Remove banner' : undefined
-                      }
-                      onRemove={
-                        displayBannerUrl
-                          ? () => {
-                              setBannerFile(null);
-                              setBannerRemoved(true);
-                            }
-                          : undefined
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="guild-edit-fields">
-                <label className="sr-only" htmlFor={fieldId(formId, 'name')}>
-                  Guild name
-                </label>
-                <input
-                  id={fieldId(formId, 'name')}
-                  className="guild-edit-name"
-                  value={name}
-                  maxLength={GUILD_MAX_NAME_LENGTH}
-                  placeholder="Guild name"
-                  disabled={pending}
-                  aria-required="true"
-                  onChange={(event) => setName(event.target.value)}
-                  onFocus={scrollFieldIntoView}
-                  onBlur={() => {
-                    const trimmed = name.trim().replace(/\s+/g, ' ');
-                    if (trimmed !== name) setName(trimmed);
-                  }}
-                />
-
-                <div className="guild-hero-meta guild-edit-meta">
-                  <span className="guild-edit-id" title={groupId}>
-                    {groupId}
-                  </span>
-                </div>
-
-                <label
-                  className="sr-only"
-                  htmlFor={fieldId(formId, 'description')}
-                >
-                  Description
-                </label>
-                <textarea
-                  ref={descriptionRef}
-                  id={fieldId(formId, 'description')}
-                  className="guild-edit-description"
-                  value={description}
-                  maxLength={GUILD_MAX_DESCRIPTION_LENGTH}
-                  disabled={pending}
-                  rows={2}
-                  placeholder="What is this guild about?"
-                  aria-describedby={fieldId(formId, 'description-count')}
-                  onChange={(event) => setDescription(event.target.value)}
-                  onFocus={scrollFieldIntoView}
-                  onBlur={() => {
-                    const trimmed = description.trim();
-                    if (trimmed !== description) setDescription(trimmed);
-                  }}
-                />
-                <p
-                  id={fieldId(formId, 'description-count')}
-                  className="guild-edit-limits"
-                  aria-live="polite"
-                >
-                  {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
-                </p>
-                <div className="guild-field guild-edit-tags">
-                  <span>Topic</span>
-                  <GuildTagsEditor
-                    tags={tags}
-                    onChange={setTags}
-                    id={fieldId(formId, 'tags')}
-                    disabled={pending}
-                  />
-                </div>
-
-                <div className="guild-field guild-edit-access">
-                  <span>Access</span>
-                  <div
-                    className="app-storage-presets"
-                    role="radiogroup"
-                    aria-label="Guild access"
-                  >
-                    {memberDriven ? (
                       <button
                         type="button"
-                        role="radio"
-                        aria-checked
-                        className="os-surface-chip is-selected"
-                        disabled
+                        className="profile-editor-media-backdrop account-editor-banner-backdrop"
+                        onClick={openBannerPicker}
+                        aria-label={
+                          displayBannerUrl ? 'Change banner' : 'Add banner'
+                        }
                       >
-                        Collaborative
+                        {displayBannerUrl ? (
+                          <img
+                            src={displayBannerUrl}
+                            alt=""
+                            className="account-editor-banner-image"
+                          />
+                        ) : (
+                          <span
+                            className="account-editor-banner-empty"
+                            aria-hidden
+                          />
+                        )}
+                        <span
+                          className={`account-editor-banner-overlay${
+                            displayBannerUrl ? ' has-media' : ''
+                          }`}
+                          aria-hidden
+                        />
                       </button>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={!accessGated}
-                          className={`os-surface-chip${
-                            !accessGated ? ' is-selected' : ''
-                          }`}
-                          disabled={pending}
-                          onClick={() => setAccessGated(false)}
-                        >
-                          Open
-                        </button>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={accessGated}
-                          className={`os-surface-chip${
-                            accessGated ? ' is-selected' : ''
-                          }`}
-                          disabled={pending}
-                          onClick={() => setAccessGated(true)}
-                        >
-                          Invite only
-                        </button>
-                      </>
-                    )}
+                      <ProfileEditorMediaToolbar
+                        layout="banner"
+                        removeLabel={
+                          displayBannerUrl ? 'Remove banner' : undefined
+                        }
+                        onRemove={
+                          displayBannerUrl
+                            ? () => {
+                                setBannerFile(null);
+                                setBannerRemoved(true);
+                              }
+                            : undefined
+                        }
+                      />
+                    </div>
                   </div>
-                  <small>
-                    {memberDriven
-                      ? 'Invite only · role changes go through proposals.'
-                      : accessGated
-                        ? 'Anyone can view · join and post need approval.'
-                        : 'Open · anyone can join and post.'}
-                  </small>
                 </div>
 
-                {error ? <p className="guild-form-error">{error}</p> : null}
-              </div>
-            </section>
-          </div>
+                <div className="guild-edit-fields">
+                  <label className="sr-only" htmlFor={fieldId(formId, 'name')}>
+                    Guild name
+                  </label>
+                  <input
+                    id={fieldId(formId, 'name')}
+                    className="guild-edit-name"
+                    value={name}
+                    maxLength={GUILD_MAX_NAME_LENGTH}
+                    placeholder="Guild name"
+                    disabled={pending}
+                    aria-required="true"
+                    onChange={(event) => setName(event.target.value)}
+                    onFocus={scrollFieldIntoView}
+                    onBlur={() => {
+                      const trimmed = name.trim().replace(/\s+/g, ' ');
+                      if (trimmed !== name) setName(trimmed);
+                    }}
+                  />
 
-          <input
-            ref={bannerInputRef}
-            type="file"
-            accept={GUILD_IMAGE_ACCEPT}
-            hidden
-            onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              setBannerFile(file);
-              if (file) setBannerRemoved(false);
-            }}
-          />
-        </form>
-      ) : null}
-    </OsSlideOverScreen>
+                  <div className="guild-hero-meta guild-edit-meta">
+                    <span className="guild-edit-id" title={groupId}>
+                      {groupId}
+                    </span>
+                  </div>
+
+                  <label
+                    className="sr-only"
+                    htmlFor={fieldId(formId, 'description')}
+                  >
+                    Description
+                  </label>
+                  <textarea
+                    ref={descriptionRef}
+                    id={fieldId(formId, 'description')}
+                    className="guild-edit-description"
+                    value={description}
+                    maxLength={GUILD_MAX_DESCRIPTION_LENGTH}
+                    disabled={pending}
+                    rows={2}
+                    placeholder="What is this guild about?"
+                    aria-describedby={fieldId(formId, 'description-count')}
+                    onChange={(event) => setDescription(event.target.value)}
+                    onFocus={scrollFieldIntoView}
+                    onBlur={() => {
+                      const trimmed = description.trim();
+                      if (trimmed !== description) setDescription(trimmed);
+                    }}
+                  />
+                  <p
+                    id={fieldId(formId, 'description-count')}
+                    className="guild-edit-limits"
+                    aria-live="polite"
+                  >
+                    {description.length}/{GUILD_MAX_DESCRIPTION_LENGTH}
+                  </p>
+                  <div className="guild-field guild-edit-tags">
+                    <span>Topic</span>
+                    <GuildTagsEditor
+                      tags={tags}
+                      onChange={setTags}
+                      id={fieldId(formId, 'tags')}
+                      disabled={pending}
+                    />
+                  </div>
+
+                  <div className="guild-field guild-edit-access">
+                    <span>Access</span>
+                    <div
+                      className="app-storage-presets"
+                      role="radiogroup"
+                      aria-label="Guild access"
+                    >
+                      {memberDriven ? (
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked
+                          className="os-surface-chip is-selected"
+                          disabled
+                        >
+                          Collaborative
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={!accessGated}
+                            className={`os-surface-chip${
+                              !accessGated ? ' is-selected' : ''
+                            }`}
+                            disabled={pending}
+                            onClick={() => setAccessGated(false)}
+                          >
+                            Open
+                          </button>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={accessGated}
+                            className={`os-surface-chip${
+                              accessGated ? ' is-selected' : ''
+                            }`}
+                            disabled={pending}
+                            onClick={() => setAccessGated(true)}
+                          >
+                            Invite only
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <small>
+                      {memberDriven
+                        ? 'Invite only · role changes go through proposals.'
+                        : accessGated
+                          ? 'Anyone can view · join and post need approval.'
+                          : 'Open · anyone can join and post.'}
+                    </small>
+                  </div>
+
+                  {error ? <p className="guild-form-error">{error}</p> : null}
+                </div>
+              </section>
+            </div>
+
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept={GUILD_IMAGE_ACCEPT}
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                setBannerFile(file);
+                if (file) setBannerRemoved(false);
+              }}
+            />
+          </form>
+        ) : null}
+      </OsSlideOverScreen>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }

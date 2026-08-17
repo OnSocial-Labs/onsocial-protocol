@@ -329,6 +329,7 @@ export function AppAccountSheet({
         open={editorSheetOpen}
         sessionKey={editorSession}
         accountId={accountId}
+        pageAccountId={pageAccountId}
         onBack={handleEditorBack}
         onClose={handleEditorClose}
         onSaved={handleProfileSaved}

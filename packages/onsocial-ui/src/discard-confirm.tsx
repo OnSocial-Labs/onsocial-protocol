@@ -8,13 +8,13 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import {
-  OsCommitCancel,
-  OsNoticeCard,
-  osCommitActionsClassName,
-} from './os-notice-card.js';
 import { OsSheetAction } from './os-sheet-action.js';
 import { OsSheetActions } from './os-sheet-actions.js';
+import {
+  osActionDrawerConfirmBodyClassName,
+  osActionDrawerConfirmClassName,
+} from './action-drawer.js';
+import { OsHugSheet } from './os-hug-sheet.js';
 
 export interface UseDiscardConfirmOptions {
   /** Parent surface open — clears confirm when the surface closes. */
@@ -103,64 +103,70 @@ export function useDiscardConfirm({
   };
 }
 
-export interface DiscardConfirmFooterProps {
-  titleId: string;
-  bodyId: string;
+/** Above edit-profile / DAO edit slide-overs (90) and other OS sheets. */
+export const DISCARD_CONFIRM_Z = 96;
+
+export interface DiscardConfirmSheetProps {
+  open: boolean;
   onDiscard: () => void;
   onKeepEditing: () => void;
-  keepEditingRef?: RefObject<HTMLButtonElement | null>;
-  className?: string;
   title?: string;
   body?: string;
   discardLabel?: string;
   keepEditingLabel?: string;
+  /** Override when stacking over a higher host. Default 96. */
+  zIndex?: number;
+  titleId?: string;
 }
 
-/** Standard discard alertdialog card for sheet / slide-over footers. */
-export function DiscardConfirmFooter({
-  titleId,
-  bodyId,
+/**
+ * Shared unsaved-changes confirm — hug sheet with Discard (danger pill)
+ * on top and Keep editing as the ready action pill (same chrome as Save).
+ */
+export function DiscardConfirmSheet({
+  open,
   onDiscard,
   onKeepEditing,
-  keepEditingRef,
-  className,
   title = 'Discard changes?',
   body = 'Edits won’t be saved.',
   discardLabel = 'Discard',
   keepEditingLabel = 'Keep editing',
-}: DiscardConfirmFooterProps) {
+  zIndex = DISCARD_CONFIRM_Z,
+  titleId,
+}: DiscardConfirmSheetProps) {
   return (
-    <OsNoticeCard
-      className={className}
-      align="center"
-      shell
-      title={title}
-      titleId={titleId}
-      body={body}
-      bodyId={bodyId}
-      footer={
-        <div className={osCommitActionsClassName}>
-          <OsCommitCancel danger onClick={onDiscard}>
-            {discardLabel}
-          </OsCommitCancel>
-          <OsSheetActions
-            layout="row-compact"
-            tone="frosted-primary"
-            borderless
+    <OsHugSheet
+      open={open}
+      onClose={onKeepEditing}
+      chrome="choice"
+      label={title}
+      {...(titleId ? { titleId } : {})}
+      closeAriaLabel={keepEditingLabel}
+      backdropLabel={keepEditingLabel}
+      zIndex={zIndex}
+    >
+      <div className={osActionDrawerConfirmClassName}>
+        <p className={osActionDrawerConfirmBodyClassName}>{body}</p>
+        <OsSheetActions layout="stack" tone="frosted-primary" borderless>
+          <OsSheetAction
+            type="button"
+            variant="danger"
+            ready
+            onClick={onDiscard}
           >
-            <OsSheetAction
-              ref={keepEditingRef}
-              type="button"
-              variant="primary"
-              ready
-              onClick={onKeepEditing}
-            >
-              {keepEditingLabel}
-            </OsSheetAction>
-          </OsSheetActions>
-        </div>
-      }
-    />
+            {discardLabel}
+          </OsSheetAction>
+          <OsSheetAction
+            type="button"
+            variant="primary"
+            ready
+            onClick={onKeepEditing}
+          >
+            {keepEditingLabel}
+          </OsSheetAction>
+        </OsSheetActions>
+      </div>
+    </OsHugSheet>
   );
 }
 

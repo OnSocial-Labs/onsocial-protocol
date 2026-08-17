@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   inferPortfolioLinkKind,
-  portfolioLinkDetail,
+  portfolioLinkDestination,
   portfolioLinkHostname,
+  portfolioLinkPresentation,
   resolvePortfolioSocialLinks,
 } from './profile-social-links';
 
@@ -78,10 +79,10 @@ describe('portfolioLinkHostname', () => {
   });
 });
 
-describe('portfolioLinkDetail', () => {
-  it('shows website hostname and social handle path', () => {
+describe('portfolioLinkDestination', () => {
+  it('shows website hostname and native social handles', () => {
     expect(
-      portfolioLinkDetail({
+      portfolioLinkDestination({
         key: 'website',
         kind: 'website',
         label: 'Website',
@@ -89,7 +90,7 @@ describe('portfolioLinkDetail', () => {
       })
     ).toBe('onsocial.id');
     expect(
-      portfolioLinkDetail({
+      portfolioLinkDestination({
         key: 'x',
         kind: 'x',
         label: 'X',
@@ -98,15 +99,62 @@ describe('portfolioLinkDetail', () => {
     ).toBe('@alice');
   });
 
-  it('prefers an owner note when present', () => {
+  it('uses LinkedIn and GitHub slugs instead of fake @folder handles', () => {
     expect(
-      portfolioLinkDetail({
+      portfolioLinkDestination({
+        key: 'linkedin',
+        kind: 'linkedin',
+        label: 'LinkedIn',
+        href: 'https://www.linkedin.com/company/onsocial',
+      })
+    ).toBe('onsocial');
+    expect(
+      portfolioLinkDestination({
+        key: 'linkedin',
+        kind: 'linkedin',
+        label: 'LinkedIn',
+        href: 'https://linkedin.com/in/jane-doe',
+      })
+    ).toBe('jane-doe');
+    expect(
+      portfolioLinkDestination({
+        key: 'github',
+        kind: 'github',
+        label: 'GitHub',
+        href: 'https://github.com/greenghostnear',
+      })
+    ).toBe('greenghostnear');
+  });
+});
+
+describe('portfolioLinkPresentation', () => {
+  it('uses the owner note as title and keeps the destination underneath', () => {
+    expect(
+      portfolioLinkPresentation({
         key: 'website',
         kind: 'website',
         label: 'Website',
         href: 'https://example.com',
-        note: 'Weekly essays',
+        note: 'My Website',
       })
-    ).toBe('Weekly essays');
+    ).toEqual({
+      title: 'My Website',
+      detail: 'example.com',
+    });
+  });
+
+  it('hides a destination that duplicates the title', () => {
+    expect(
+      portfolioLinkPresentation({
+        key: 'github',
+        kind: 'github',
+        label: 'GitHub',
+        href: 'https://github.com/greenghostnear',
+        note: 'greenghostnear',
+      })
+    ).toEqual({
+      title: 'greenghostnear',
+      detail: null,
+    });
   });
 });

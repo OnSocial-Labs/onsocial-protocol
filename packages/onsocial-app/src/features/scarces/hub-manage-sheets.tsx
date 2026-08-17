@@ -10,15 +10,12 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
-  ProfileEditorMediaToolbar,
+  DiscardConfirmSheet,
   osFieldBorderedClassName,
-} from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
-import {
-  DiscardConfirmFooter,
-  discardConfirmFooterA11y,
+  ProfileEditorMediaToolbar,
   useDiscardConfirm,
 } from '@onsocial/ui';
+import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { NearAccountField } from '@/components/ui/near-account-field';
 import { SuffixField } from '@onsocial/ui';
@@ -114,9 +111,6 @@ function HubManageSheetChrome({
 }) {
   const {
     discardConfirmOpen,
-    discardTitleId,
-    discardBodyId,
-    keepEditingRef,
     requestCloseOrConfirm,
     clearDiscardConfirm,
     keepEditing,
@@ -124,54 +118,33 @@ function HubManageSheetChrome({
   } = useDiscardConfirm({ open, dirty, pending, onClose });
 
   return (
-    <OsSlideOverScreen
-      open={open}
-      onClose={onClose}
-      onClosed={clearDiscardConfirm}
-      onBeforeClose={requestCloseOrConfirm}
-      title={title}
-      subtitle={subtitle}
-      closeAriaLabel="Back"
-      closeDisabled={pending}
-      zIndex={HUB_MANAGE_Z}
-      className="hub-manage-slide"
-      contentClassName="hub-manage-slide-body"
-      footer={
-        footer || discardConfirmOpen ? (
-          <div
-            className={`hub-manage-sheet-footer${
-              discardConfirmOpen ? ' is-discard-confirm' : ''
-            }`}
-            {...discardConfirmFooterA11y(
-              discardConfirmOpen,
-              discardTitleId,
-              discardBodyId
-            )}
-          >
-            {discardConfirmOpen ? (
-              <DiscardConfirmFooter
-                className="hub-manage-discard-card"
-                titleId={discardTitleId}
-                bodyId={discardBodyId}
-                onDiscard={discard}
-                onKeepEditing={keepEditing}
-                keepEditingRef={keepEditingRef}
-              />
-            ) : (
-              footer
-            )}
-          </div>
-        ) : null
-      }
-    >
-      <div
-        className={`hub-manage-sheet-main${
-          discardConfirmOpen ? ' is-discard-confirm' : ''
-        }`}
+    <>
+      <OsSlideOverScreen
+        open={open}
+        onClose={onClose}
+        onClosed={clearDiscardConfirm}
+        onBeforeClose={requestCloseOrConfirm}
+        title={title}
+        subtitle={subtitle}
+        closeAriaLabel="Back"
+        closeDisabled={pending}
+        zIndex={HUB_MANAGE_Z}
+        className="hub-manage-slide"
+        contentClassName="hub-manage-slide-body"
+        footer={
+          footer ? (
+            <div className="hub-manage-sheet-footer">{footer}</div>
+          ) : null
+        }
       >
-        {children}
-      </div>
-    </OsSlideOverScreen>
+        <div className="hub-manage-sheet-main">{children}</div>
+      </OsSlideOverScreen>
+      <DiscardConfirmSheet
+        open={discardConfirmOpen}
+        onDiscard={discard}
+        onKeepEditing={keepEditing}
+      />
+    </>
   );
 }
 
