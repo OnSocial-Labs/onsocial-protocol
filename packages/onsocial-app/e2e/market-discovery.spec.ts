@@ -63,6 +63,15 @@ test.describe('market discovery', () => {
     await expectTabSelected(page, 'Listing medium', 'Thoughts');
   });
 
+  test('deep-links ending soon sort onto Auctions', async ({ page }) => {
+    await gotoApp(page, '/market?sort=ending');
+    await expectTabSelected(page, 'Listing type', 'Auctions');
+    // ChoiceDrawerMenu a11y name is "Open sort menu"; visible label is Ending soon.
+    const sortTrigger = page.getByRole('button', { name: 'Open sort menu' });
+    await expect(sortTrigger).toBeVisible({ timeout: E2E_CHROME_TIMEOUT_MS });
+    await expect(sortTrigger).toContainText('Ending soon');
+  });
+
   test('listing-type tab stays selected after flip', async ({ page }) => {
     await gotoApp(page, '/market');
     await expectTabVisible(page, 'Listing type', 'All');

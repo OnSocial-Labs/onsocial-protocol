@@ -99,8 +99,10 @@ import {
   MARKET_KIND_PARAM,
   MARKET_FACETS_PARAM,
   MARKET_AUDIO_FORMAT_PARAM,
+  MARKET_SORT_PARAM,
   marketFacetsParamValue,
   parseMarketFacetsParam,
+  parseMarketSortParam,
   appPath,
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -164,10 +166,39 @@ function parseMediumFilter(raw: string | null): MarketMediumFilter {
 /** Initial Recent sales rows; expand shows the rest of the fetched window. */
 const RECENT_SALES_PREVIEW = 8;
 
-/** Catalog page size for infinite scroll. */
+/** Catalog page size for infinite scroll / Show more. */
 const LISTINGS_PAGE_SIZE = 40;
 /** Debounce before a search keystroke becomes an indexer query. */
 const SEARCH_DEBOUNCE_MS = 300;
+/** Keep recent catalog pages so flipping back is instant. */
+const CATALOG_CACHE_TTL_MS = 90_000;
+const CATALOG_CACHE_MAX_ENTRIES = 12;
+
+type MarketCatalogCacheEntry = {
+  items: MarketListingItem[];
+  nextOffset: number;
+  hasMore: boolean;
+  at: number;
+};
+
+/** Cache key omits retry — Retry always bypasses the map. */
+function marketCatalogCacheKey(opts: {
+  listingFilter: ListingFilter;
+  listingSort: MarketListingSort;
+  search: string;
+  creatorFilter: string;
+  appFilter: string;
+  discoveryParamsKey: string;
+}): string {
+  return [
+    opts.listingFilter,
+    opts.listingSort,
+    opts.search,
+    opts.creatorFilter,
+    opts.appFilter,
+    opts.discoveryParamsKey,
+  ].join('|');
+}
 
 /** Server catalog pages for the current filter / sort / search params. */
 interface ListingsState {
@@ -280,15 +311,17 @@ export function MarketPagePanel({
     facetMedium === 'audio'
       ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
       : null;
+  const urlSort = parseMarketSortParam(searchParams.get(MARKET_SORT_PARAM));
   const [retryKey, setRetryKey] = useState(0);
-  // Seed only the default unfiltered browse; URL discovery/seller narrows refetch.
+  // Seed only the default unfiltered browse; URL discovery/seller/sort narrows refetch.
   const canSeedDefaultBrowse =
     initialListings != null &&
     !creatorFilter &&
     !appFilter &&
     mediumFilter === 'all' &&
     selectedFacets.length === 0 &&
-    !audioFormatFilter;
+    !audioFormatFilter &&
+    urlSort === 'newest';
   const [listingsState, setListingsState] = useState<ListingsState>(() =>
     canSeedDefaultBrowse
       ? {
@@ -305,6 +338,7 @@ export function MarketPagePanel({
   );
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const [catalogRefreshing, setCatalogRefreshing] = useState(false);
   const [sales, setSales] = useState<MarketSaleItem[] | null>(
     () => initialSales
   );
@@ -320,8 +354,10 @@ export function MarketPagePanel({
   const [cancelRowKey, setCancelRowKey] = useState<string | null>(null);
   const [delistTokenId, setDelistTokenId] = useState<string | null>(null);
   const [settleTokenId, setSettleTokenId] = useState<string | null>(null);
-  const [listingFilter, setListingFilter] = useState<ListingFilter>('all');
-  const [listingSort, setListingSort] = useState<MarketListingSort>('newest');
+  const [listingFilter, setListingFilter] = useState<ListingFilter>(() =>
+    urlSort === 'ending' ? 'auctions' : 'all'
+  );
+  const [listingSort, setListingSort] = useState<MarketListingSort>(() => urlSort);
   const [listingQuery, setListingQuery] = useState('');
   const [salesExpanded, setSalesExpanded] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -339,6 +375,9 @@ export function MarketPagePanel({
   const ssrSalesSkipRef = useRef(initialSales != null);
   /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
   const listingsFetchGenRef = useRef(0);
+  const catalogCacheRef = useRef<Map<string, MarketCatalogCacheEntry>>(
+    new Map()
+  );
   const normalizedListingQuery = listingQuery.trim().toLowerCase();
   const searching = normalizedListingQuery.length > 0;
 
@@ -354,23 +393,78 @@ export function MarketPagePanel({
     };
   }, [listingQuery]);
 
-  const setFilter = useCallback((next: ListingFilter) => {
-    setListingFilter(next);
-    if (next === 'fixed') {
-      setListingSort((current) => (current === 'ending' ? 'newest' : current));
-    }
-  }, []);
+  const writeCatalogCache = useCallback(
+    (key: string, entry: Omit<MarketCatalogCacheEntry, 'at'>) => {
+      const cache = catalogCacheRef.current;
+      cache.delete(key);
+      cache.set(key, { ...entry, at: Date.now() });
+      while (cache.size > CATALOG_CACHE_MAX_ENTRIES) {
+        const oldest = cache.keys().next().value;
+        if (oldest == null) break;
+        cache.delete(oldest);
+      }
+    },
+    []
+  );
+
+  const replaceSortInUrl = useCallback(
+    (nextSort: MarketListingSort) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextSort === 'newest') params.delete(MARKET_SORT_PARAM);
+      else params.set(MARKET_SORT_PARAM, nextSort);
+      const qs = params.toString();
+      router.replace(qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH, {
+        scroll: false,
+      });
+    },
+    [router, searchParams]
+  );
+
+  const setFilter = useCallback(
+    (next: ListingFilter) => {
+      setListingFilter(next);
+      if (next === 'fixed') {
+        setListingSort((current) => {
+          if (current !== 'ending') return current;
+          replaceSortInUrl('newest');
+          return 'newest';
+        });
+      }
+    },
+    [replaceSortInUrl]
+  );
 
   // Ending soon is auction clocks only — keep the Auctions tab in sync.
-  const setSort = useCallback((next: MarketListingSort) => {
-    setListingSort(next);
+  const setSort = useCallback(
+    (next: MarketListingSort) => {
+      setListingSort(next);
+      if (next === 'ending') {
+        setListingFilter('auctions');
+      }
+      replaceSortInUrl(next);
+    },
+    [replaceSortInUrl]
+  );
+
+  // Keep local sort in sync when the URL changes (back/forward).
+  useEffect(() => {
+    const next = parseMarketSortParam(searchParams.get(MARKET_SORT_PARAM));
+    setListingSort((current) => (current === next ? current : next));
     if (next === 'ending') {
       setListingFilter('auctions');
     }
-  }, []);
+  }, [searchParams]);
 
   const discoveryParamsKey = `${mediumFilter}|${selectedFacets.join(',')}|${audioFormatFilter ?? ''}`;
   const listingsParamsKey = `${retryKey}|${listingFilter}|${listingSort}|${debouncedQuery.toLowerCase()}|${creatorFilter}|${appFilter}|${discoveryParamsKey}`;
+  const catalogCacheKey = marketCatalogCacheKey({
+    listingFilter,
+    listingSort,
+    search: debouncedQuery.toLowerCase(),
+    creatorFilter,
+    appFilter,
+    discoveryParamsKey,
+  });
 
   const clearNarrowFilter = useCallback(() => {
     router.replace(APP_MARKET_PATH, { scroll: false });
@@ -413,27 +507,55 @@ export function MarketPagePanel({
     [router, searchParams, selectedFacets, audioFormatFilter]
   );
 
-  // First catalog page. Soft-retain only for listing-type tab flips; otherwise
-  // clear to skeleton so discovery / search / sort do not flash the wrong rows.
+  // First catalog page. Soft-retain listing-type tab flips; cache hits paint
+  // instantly then soft-revalidate; misses clear to skeleton.
   useEffect(() => {
     if (
       ssrDefaultBrowseSkipRef.current &&
       listingsParamsKey === DEFAULT_LISTINGS_PARAMS_KEY
     ) {
       ssrDefaultBrowseSkipRef.current = false;
+      writeCatalogCache(catalogCacheKey, {
+        items: listingsState.items,
+        nextOffset: listingsState.nextOffset,
+        hasMore: listingsState.hasMore,
+      });
       return;
     }
     ssrDefaultBrowseSkipRef.current = false;
     const gen = ++listingsFetchGenRef.current;
     setLoadingMore(false);
     setLoadMoreFailed(false);
-    setListingsState((current) => {
-      if (current.paramsKey === listingsParamsKey) return current;
-      if (!shouldClearListingsForParams(current.paramsKey, listingsParamsKey)) {
-        return current;
-      }
-      return EMPTY_LISTINGS;
-    });
+
+    const bypassCache = retryKey > 0;
+    const cached = bypassCache
+      ? undefined
+      : catalogCacheRef.current.get(catalogCacheKey);
+    const cacheFresh =
+      cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS;
+
+    if (cacheFresh && cached) {
+      setListingsState({
+        paramsKey: listingsParamsKey,
+        items: cached.items,
+        nextOffset: cached.nextOffset,
+        hasMore: cached.hasMore,
+        failed: false,
+      });
+      setCatalogRefreshing(true);
+    } else {
+      setCatalogRefreshing(false);
+      setListingsState((current) => {
+        if (current.paramsKey === listingsParamsKey) return current;
+        if (
+          !shouldClearListingsForParams(current.paramsKey, listingsParamsKey)
+        ) {
+          return current;
+        }
+        return EMPTY_LISTINGS;
+      });
+    }
+
     let cancelled = false;
     // Ending sort always queries auctions, even mid-tab transition.
     const kinds =
@@ -449,10 +571,16 @@ export function MarketPagePanel({
       ...(mediumFilter !== 'all' ? { mediumKind: mediumFilter } : {}),
       ...(selectedFacets.length ? { facets: selectedFacets } : {}),
       ...(audioFormatFilter ? { audioFormat: audioFormatFilter } : {}),
+      ...(mediumFilter === 'all' ? { excludePrimaryThoughts: true } : {}),
       sort: listingSort,
     }).then(
       (page) => {
         if (cancelled || gen !== listingsFetchGenRef.current) return;
+        writeCatalogCache(catalogCacheKey, {
+          items: page.items,
+          nextOffset: page.nextOffset,
+          hasMore: page.hasMore,
+        });
         setListingsState({
           paramsKey: listingsParamsKey,
           items: page.items,
@@ -460,9 +588,16 @@ export function MarketPagePanel({
           hasMore: page.hasMore,
           failed: false,
         });
+        setCatalogRefreshing(false);
       },
       () => {
         if (cancelled || gen !== listingsFetchGenRef.current) return;
+        setCatalogRefreshing(false);
+        if (cacheFresh && cached) {
+          // Keep painted cache; soft-revalidate failed quietly.
+          setCatalogRefreshing(false);
+          return;
+        }
         setListingsState({
           ...EMPTY_LISTINGS,
           paramsKey: listingsParamsKey,
@@ -475,6 +610,7 @@ export function MarketPagePanel({
     };
   }, [
     listingsParamsKey,
+    catalogCacheKey,
     listingFilter,
     listingSort,
     debouncedQuery,
@@ -483,6 +619,8 @@ export function MarketPagePanel({
     mediumFilter,
     selectedFacets,
     audioFormatFilter,
+    retryKey,
+    writeCatalogCache,
   ]);
 
   const listingsReady = listingsState.paramsKey === listingsParamsKey;
@@ -508,21 +646,28 @@ export function MarketPagePanel({
       ...(mediumFilter !== 'all' ? { mediumKind: mediumFilter } : {}),
       ...(selectedFacets.length ? { facets: selectedFacets } : {}),
       ...(audioFormatFilter ? { audioFormat: audioFormatFilter } : {}),
+      ...(mediumFilter === 'all' ? { excludePrimaryThoughts: true } : {}),
       sort: listingSort,
     })
       .then((page) => {
         if (gen !== listingsFetchGenRef.current) return;
         setLoadMoreFailed(false);
-        setListingsState((current) =>
-          current.paramsKey === listingsParamsKey
-            ? {
-                ...current,
-                items: dedupeListings([...current.items, ...page.items]),
-                nextOffset: page.nextOffset,
-                hasMore: page.hasMore,
-              }
-            : current
-        );
+        setListingsState((current) => {
+          if (current.paramsKey !== listingsParamsKey) return current;
+          const items = dedupeListings([...current.items, ...page.items]);
+          const next = {
+            ...current,
+            items,
+            nextOffset: page.nextOffset,
+            hasMore: page.hasMore,
+          };
+          writeCatalogCache(catalogCacheKey, {
+            items: next.items,
+            nextOffset: next.nextOffset,
+            hasMore: next.hasMore,
+          });
+          return next;
+        });
       })
       .catch(() => {
         if (gen !== listingsFetchGenRef.current) return;
@@ -549,6 +694,8 @@ export function MarketPagePanel({
     selectedFacets,
     audioFormatFilter,
     listingsParamsKey,
+    catalogCacheKey,
+    writeCatalogCache,
   ]);
 
   useInfiniteScrollSentinel({
@@ -559,7 +706,8 @@ export function MarketPagePanel({
       !listingsState.failed &&
       listingsState.hasMore &&
       !loadingMore &&
-      !loadMoreFailed,
+      !loadMoreFailed &&
+      !catalogRefreshing,
     onIntersect: loadMoreListings,
     rootMargin: '240px 0px',
   });
@@ -1480,8 +1628,11 @@ export function MarketPagePanel({
           id="market-listing-results"
           role="tabpanel"
           aria-labelledby={`market-listing-tab-${listingFilter}`}
-          className="market-section"
+          className={`market-section${
+            catalogRefreshing ? ' drops-catalog--refreshing' : ''
+          }`}
           hidden={discoveryFilteredListings.length === 0}
+          aria-busy={catalogRefreshing || undefined}
         >
           <h2 id="market-new" className="sr-only">
             {listingFilter === 'auctions'
@@ -1551,7 +1702,8 @@ export function MarketPagePanel({
         {(discoveryFilteredListings.length > 0 ||
           (clientDiscoveryFilterActive && listingsState.hasMore)) &&
         listingsState.hasMore &&
-        !loadMoreFailed ? (
+        !loadMoreFailed &&
+        !catalogRefreshing ? (
           <>
             {loadingMore ? <MarketListSkeleton rows={2} /> : null}
             <div
@@ -1559,6 +1711,14 @@ export function MarketPagePanel({
               className="market-listing-sentinel"
               aria-hidden
             />
+            <button
+              type="button"
+              className="market-sales-more"
+              disabled={loadingMore}
+              onClick={loadMoreListings}
+            >
+              {loadingMore ? 'Loading…' : 'Show more'}
+            </button>
           </>
         ) : null}
 

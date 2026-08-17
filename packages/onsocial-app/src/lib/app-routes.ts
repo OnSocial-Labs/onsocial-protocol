@@ -23,6 +23,30 @@ export const DROPS_SORT_PARAM = 'sort';
 
 /** Query key that pre-filters Market / Collectibles / Drops by medium. */
 export const MARKET_KIND_PARAM = 'kind';
+/** Query key for Market browse sort (`newest` | `price-asc` | `price-desc` | `ending`). */
+export const MARKET_SORT_PARAM = 'sort';
+
+export type MarketSortParam =
+  | 'newest'
+  | 'price-asc'
+  | 'price-desc'
+  | 'ending';
+
+const MARKET_SORT_VALUES = new Set<string>([
+  'newest',
+  'price-asc',
+  'price-desc',
+  'ending',
+]);
+
+/** Parse `?sort=` for Market; defaults to newest. */
+export function parseMarketSortParam(
+  raw: string | null | undefined
+): MarketSortParam {
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (MARKET_SORT_VALUES.has(value)) return value as MarketSortParam;
+  return 'newest';
+}
 
 export type DropsSortParam =
   | 'live'
@@ -339,6 +363,24 @@ export function daoPortfolioPath(
   }
   const query = params.toString();
   return query ? `${base}?${query}` : base;
+}
+
+/** Market path with optional medium + sort deep-links. */
+export function marketPath(opts?: {
+  kind?: string | null;
+  sort?: MarketSortParam | null;
+}): string {
+  const params = new URLSearchParams();
+  const kind = opts?.kind?.trim().toLowerCase() ?? '';
+  if (kind && kind !== 'all') {
+    params.set(MARKET_KIND_PARAM, kind === 'music' ? 'audio' : kind);
+  }
+  const sort = opts?.sort?.trim().toLowerCase() ?? '';
+  if (sort && sort !== 'newest' && MARKET_SORT_VALUES.has(sort)) {
+    params.set(MARKET_SORT_PARAM, sort);
+  }
+  const qs = params.toString();
+  return qs ? `${APP_MARKET_PATH}?${qs}` : APP_MARKET_PATH;
 }
 
 /** Market pre-filtered to a single creator's live listings. */

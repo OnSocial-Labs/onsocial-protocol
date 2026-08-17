@@ -23,7 +23,12 @@ export async function loadMarketPageData(): Promise<MarketPageData | null> {
   try {
     const client = createServerOnSocialClient();
     const [listings, sales] = await Promise.all([
-      fetchMarketListings({ limit: 40, sort: 'newest', client }),
+      fetchMarketListings({
+        limit: 40,
+        sort: 'newest',
+        excludePrimaryThoughts: true,
+        client,
+      }),
       fetchMarketSales({ limit: 20, client }),
     ]);
     return { listings, sales };
