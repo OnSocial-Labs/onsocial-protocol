@@ -28,12 +28,17 @@ while revalidating in the background.
 
 ## Discover (logged-in)
 
+Empty Discover (no `query`) ranks via `profile_discover` —
+`discover_score = reputation × confidence`, then standing count, then activity.
+Text search uses the same view and order. The public leaderboard still ranks by
+raw reputation.
+
 One entry point batches profile search with viewer graph context for **the
 current page only**:
 
 ```ts
 const page = await os.query.profiles.discoverPage({
-  query: 'alice',       // optional; empty = trending by standing signal
+  query: 'alice',       // optional; empty = soft-rank (reputation × confidence)
   limit: 24,
   offset: 0,
   viewerAccountId: 'bob.near',

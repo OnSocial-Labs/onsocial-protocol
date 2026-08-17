@@ -25,6 +25,7 @@
 --  10. leaderboard_by_app      — per-partner rankings
 --  11. leaderboard_by_group    — per-community rankings
 --  12. app_reputation          — per-dApp aggregate health score
+--  13. profile_discover        — Discover soft-rank (reputation × confidence)
 --
 -- Ranking views are regular live views. Use snapshot_leaderboard() only when
 -- persisting daily historical rankings.
@@ -852,6 +853,43 @@ FROM app_user_stats aus
 JOIN app_totals at ON at.app_id = aus.app_id
 LEFT JOIN reputation_scores rs ON rs.account_id = aus.account_id
 GROUP BY aus.app_id, at.total_rewarded, at.total_actions, at.active_days;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 13. profile_discover — Discover soft-rank (reputation × confidence)
+-- ────────────────────────────────────────────────────────────────────────────
+-- Same discoverable rows as profile_search, ordered for empty-query Discover by
+-- soft score so thin/low-confidence graphs don't dominate raw reputation.
+-- Transparent leaderboard still ranks by reputation_scores.reputation alone.
+-- Depends on: profile_search (core), reputation_scores (this file)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW profile_discover AS
+SELECT
+  ps.account_id,
+  ps.name,
+  ps.bio,
+  ps.avatar,
+  ps.banner,
+  ps.standing_count,
+  ps.standing_with_count,
+  ps.last_profile_block,
+  ps.last_profile_timestamp,
+  ps.last_activity_block,
+  ps.search_text,
+  ps.mutual_standing_count,
+  ps.endorsements_received_count,
+  ps.endorsements_given_count,
+  ps.first_profile_timestamp,
+  COALESCE(rs.reputation, 0)::NUMERIC                         AS reputation,
+  COALESCE(rs.confidence_score, 0)::NUMERIC                    AS confidence_score,
+  ROUND(
+    (
+      COALESCE(rs.reputation, 0) * COALESCE(rs.confidence_score, 0)
+    )::NUMERIC,
+    4
+  )                                                           AS discover_score
+FROM profile_search ps
+LEFT JOIN reputation_scores rs ON rs.account_id = ps.account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- Snapshot function — call daily to persist historical rankings
