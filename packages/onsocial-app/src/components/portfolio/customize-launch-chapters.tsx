@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+} from 'react';
 import type { PageSection } from '@onsocial/sdk';
 import type { PublicPageConfig } from '@/lib/page-data';
 import type { ProfileGuildSummary } from '@/lib/profile-guilds';
@@ -32,6 +39,7 @@ import {
   type PortfolioHoldingPeek,
 } from '@/lib/portfolio-holdings';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
+import { reorderByInsert } from '@/features/scarces/drop-track-order';
 
 interface CustomizeLaunchChaptersProps {
   pageAccountId: string;
@@ -109,6 +117,10 @@ export function CustomizeLaunchChapters({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [holdings, setHoldings] = useState<PortfolioHoldingPeek[]>([]);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const dragFromRef = useRef<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [insertAt, setInsertAt] = useState<number | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -185,23 +197,140 @@ export function CustomizeLaunchChapters({
     }
   }, [notes, onSave, pins, sections]);
 
+  const canSort = !disabled && !saving && sections.length > 1;
+
+  function finishDragVisual() {
+    setDragFrom(null);
+    setInsertAt(null);
+  }
+
+  function clearDragFromRef() {
+    queueMicrotask(() => {
+      dragFromRef.current = null;
+    });
+  }
+
+  function allowListDrop(event: ReactDragEvent) {
+    if (!canSort || dragFromRef.current == null) return false;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    return true;
+  }
+
+  function gapFromPointer(clientY: number): number {
+    const list = listRef.current;
+    if (!list) return 0;
+    const rows = list.querySelectorAll<HTMLElement>('[data-chapter-row]');
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i]!.getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) return i;
+    }
+    return rows.length;
+  }
+
+  function onHandleDragStart(index: number, event: ReactDragEvent) {
+    if (!canSort) {
+      event.preventDefault();
+      return;
+    }
+    dragFromRef.current = index;
+    setDragFrom(index);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  function onHandleDragEnd() {
+    finishDragVisual();
+    clearDragFromRef();
+  }
+
+  function onListDragOver(event: ReactDragEvent) {
+    if (!allowListDrop(event)) return;
+    const from = dragFromRef.current;
+    if (from == null) return;
+    const gap = gapFromPointer(event.clientY);
+    const noop = gap === from || gap === from + 1;
+    setInsertAt(noop ? null : gap);
+  }
+
+  function onListDrop(event: ReactDragEvent) {
+    if (!canSort) return;
+    event.preventDefault();
+    const raw = event.dataTransfer.getData('text/plain');
+    const fromData = raw === '' ? Number.NaN : Number(raw);
+    const from =
+      dragFromRef.current ??
+      (Number.isSafeInteger(fromData) ? fromData : null);
+    const gap = insertAt ?? gapFromPointer(event.clientY);
+    finishDragVisual();
+    dragFromRef.current = null;
+    if (from == null || from < 0 || from >= sections.length) return;
+    const next = reorderByInsert(sections, from, gap);
+    if (next === sections) return;
+    setSections(next);
+    markDirty();
+  }
+
   const postPins = sectionPinsFor({ sectionPins: pins }, 'posts');
   const guildPins = sectionPinsFor({ sectionPins: pins }, 'groups');
   const createdPins = sectionPinsFor({ sectionPins: pins }, 'created');
   const storePins = sectionPinsFor({ sectionPins: pins }, 'store');
   const collectiblePins = sectionPinsFor({ sectionPins: pins }, 'collectibles');
+  const showLineAt = dragFrom != null ? insertAt : null;
 
   return (
     <div className="customize-launch">
       <p className="customize-sheet-label">Launch chapters</p>
       <p className="customize-sheet-copy">
-        Reorder what visitors see when they open your page. Hide empty noise.
-        Pin up to {PAGE_SECTION_PIN_MAX} featured items per chapter.
+        Drag to reorder what visitors see when they open your page. Hide empty
+        noise. Pin up to {PAGE_SECTION_PIN_MAX} featured items per chapter.
       </p>
 
-      <ul className="customize-chapter-list">
+      <ul
+        ref={listRef}
+        className={`customize-chapter-list${dragFrom != null ? ' is-reordering' : ''}`}
+        aria-label="Launch chapters"
+        onDragEnter={allowListDrop}
+        onDragOver={onListDragOver}
+        onDrop={onListDrop}
+        onDragLeave={(event) => {
+          const related = event.relatedTarget;
+          if (
+            related instanceof Node &&
+            listRef.current?.contains(related)
+          ) {
+            return;
+          }
+          setInsertAt(null);
+        }}
+      >
         {sections.map((section, index) => (
-          <li key={section} className="customize-chapter-row">
+          <li
+            key={section}
+            data-chapter-row
+            className={`customize-chapter-row${dragFrom === index ? ' is-dragging' : ''}`}
+          >
+            {showLineAt === index ? (
+              <span className="customize-chapter-insert" aria-hidden />
+            ) : null}
+            <span
+              className={`customize-chapter-handle${canSort ? ' is-sortable' : ''}`}
+              {...(canSort
+                ? {
+                    draggable: true,
+                    role: 'button',
+                    tabIndex: 0,
+                    title: 'Drag to reorder',
+                    'aria-label': `Drag to reorder ${pageSectionCustomizeLabel(section)}`,
+                    onDragStart: (event: ReactDragEvent) =>
+                      onHandleDragStart(index, event),
+                    onDragEnd: onHandleDragEnd,
+                  }
+                : {})}
+            >
+              ⋮⋮
+            </span>
             <span className="customize-chapter-name">
               {pageSectionCustomizeLabel(section)}
             </span>
@@ -209,7 +338,7 @@ export function CustomizeLaunchChapters({
               <button
                 type="button"
                 className="customize-chapter-move"
-                disabled={disabled || saving || index === 0}
+                disabled={!canSort || index === 0}
                 aria-label={`Move ${pageSectionCustomizeLabel(section)} up`}
                 onClick={() => {
                   setSections((prev) => moveSection(prev, index, -1));
@@ -221,7 +350,7 @@ export function CustomizeLaunchChapters({
               <button
                 type="button"
                 className="customize-chapter-move"
-                disabled={disabled || saving || index === sections.length - 1}
+                disabled={!canSort || index === sections.length - 1}
                 aria-label={`Move ${pageSectionCustomizeLabel(section)} down`}
                 onClick={() => {
                   setSections((prev) => moveSection(prev, index, 1));
@@ -244,6 +373,11 @@ export function CustomizeLaunchChapters({
             </span>
           </li>
         ))}
+        {showLineAt === sections.length ? (
+          <li className="customize-chapter-insert-end" aria-hidden>
+            <span className="customize-chapter-insert" />
+          </li>
+        ) : null}
       </ul>
 
       {hidden.length > 0 ? (

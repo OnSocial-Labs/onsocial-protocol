@@ -52,11 +52,18 @@ export function isPageSection(value: string): value is PageSection {
 /**
  * Owner-configured Launch chapters.
  * Empty → defaults. Explicit list is honored (omit a chapter to hide it).
+ * Strips badges/events stubs so legacy activate configs cannot surface them.
  */
 export function resolvePageSections(config: PublicPageConfig): PageSection[] {
   const configured = (config.sections ?? [])
     .filter(isPageSection)
-    .filter((section) => section !== 'profile' && section !== 'support');
+    .filter(
+      (section) =>
+        section !== 'profile' &&
+        section !== 'support' &&
+        section !== 'badges' &&
+        section !== 'events'
+    );
 
   if (configured.length === 0) {
     return [...DEFAULT_PAGE_SECTIONS];
@@ -137,6 +144,8 @@ export function isPageSectionVisible(
       return (input.scarceCount ?? 0) > 0;
     case 'badges':
     case 'events':
+      // Typed stubs — no peeks/API yet. Keep hard-hidden; out of Customize.
+      return false;
     case 'support':
     case 'profile':
       return false;
