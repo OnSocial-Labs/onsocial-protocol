@@ -46,8 +46,6 @@ import {
   resolveVisiblePageSections,
 } from '@/lib/page-sections';
 import { resolvePortfolioSocialLinks } from '@/lib/profile-social-links';
-import { accountIdsEqual } from '@/lib/account-match';
-import { useAppWallet } from '@/contexts/app-wallet-context';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
 import {
   PAGE_DRAWER_HOLDINGS_PEEK,
@@ -215,11 +213,6 @@ export function PageContentDrawer({
     shelf.storeShelf.sales.length > 0
       ? shelf.storeShelf
       : storeShelf;
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const isOwner =
-    isConnected &&
-    Boolean(viewerAccountId) &&
-    accountIdsEqual(viewerAccountId!, pageAccountId);
   const [ownedHoldings, setOwnedHoldings] = useState<PortfolioHoldingPeek[]>(
     []
   );
@@ -530,7 +523,6 @@ export function PageContentDrawer({
           createdMintCount={drawerMeta.scarceMintCount}
           holdings={holdings}
           storeShelf={storeShelfResolved}
-          isOwner={isOwner}
         />
       </GlassSheet>
 

@@ -8,7 +8,8 @@ import {
 import type { ProfilePostPeek, ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import { personalPostPath } from '@/lib/post-routes';
-import { APP_COLLECTIBLES_PATH, marketCreatorPath } from '@/lib/app-routes';
+import { marketCreatorPath } from '@/lib/app-routes';
+import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { safeModePeekText } from '@/lib/post-content-labels';
 
@@ -164,11 +165,15 @@ export function PageDrawerCreatedSeeAll({
   );
 }
 
-export function PageDrawerHoldingsSeeAll() {
+export function PageDrawerHoldingsSeeAll({
+  pageAccountId,
+}: {
+  pageAccountId: string;
+}) {
   return (
     <Link
       className="page-drawer-section-action"
-      href={APP_COLLECTIBLES_PATH}
+      href={portfolioCollectiblesPath(pageAccountId)}
       scroll={false}
     >
       See all collectibles

@@ -20,7 +20,10 @@ import {
   daoPath,
 } from '@/lib/app-routes';
 import { portalHref } from '@/lib/app-links';
-import type { OverlayPanel } from '@/lib/overlay-routes';
+import {
+  portfolioCollectiblesPath,
+  type OverlayPanel,
+} from '@/lib/overlay-routes';
 
 export type OsAppLinkKind = 'app' | 'overlay' | 'external' | 'open-page';
 
@@ -120,6 +123,7 @@ export function resolveActiveOsAppId(
 
   if (panel === 'discover') return 'discover';
   if (panel === 'feed') return 'home';
+  if (panel === 'collectibles') return 'collectibles';
 
   if (
     viewerAccountId &&
@@ -234,7 +238,7 @@ export function gateOsApps(): OsAppLink[] {
   ];
 }
 
-export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
+export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
   return [
     { id: 'home', label: 'Home', kind: 'app', href: APP_HOME_PATH },
     {
@@ -267,7 +271,12 @@ export function ownerPortfolioOsApps(_accountId: string): OsAppLink[] {
       kind: 'app',
       href: APP_DROPS_PATH,
     },
-    COLLECTIBLES_APP,
+    {
+      id: 'collectibles',
+      label: 'Collectibles',
+      kind: 'app',
+      href: portfolioCollectiblesPath(accountId),
+    },
     HUBS_APP,
     {
       id: 'groups',

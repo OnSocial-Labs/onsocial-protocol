@@ -57,6 +57,12 @@ describe('collectibles os apps', () => {
     expect(resolveActiveOsAppId('/collectibles/play?c=album')).toBe(
       'collectibles'
     );
+    expect(resolveActiveOsAppId('/@alice.near/collectibles')).toBe(
+      'collectibles'
+    );
+    expect(
+      resolveActiveOsAppId('/@alice.near/collectibles?kind=writing')
+    ).toBe('collectibles');
   });
 
   it('exposes Protocol as an in-app launcher destination', () => {
@@ -90,9 +96,11 @@ describe('collectibles os apps', () => {
 
   it('exposes Collectibles for gate and owner, not visitors', () => {
     expect(gateOsApps().some((app) => app.id === 'collectibles')).toBe(true);
+    const owner = ownerPortfolioOsApps('alice.near');
+    expect(owner.some((app) => app.id === 'collectibles')).toBe(true);
     expect(
-      ownerPortfolioOsApps('alice.near').some((app) => app.id === 'collectibles')
-    ).toBe(true);
+      owner.find((app) => app.id === 'collectibles')?.href
+    ).toBe('/@alice.near/collectibles');
     expect(
       visitorPortfolioOsApps('alice.near').some(
         (app) => app.id === 'collectibles'

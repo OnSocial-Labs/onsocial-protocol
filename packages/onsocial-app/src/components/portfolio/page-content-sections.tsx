@@ -51,8 +51,6 @@ interface PageContentSectionsProps {
   /** Public wallet holdings for Collectibles peeks (on-chain flex). */
   holdings?: PortfolioHoldingPeek[];
   storeShelf?: ProfileStoreShelf;
-  /** Owner sees Collectibles vault CTA; visitors only get peeks for now. */
-  isOwner?: boolean;
 }
 
 function PageDrawerLinksList({ links }: { links: PortfolioSocialLink[] }) {
@@ -100,7 +98,6 @@ export function PageContentSections({
   createdMintCount = 0,
   holdings = [],
   storeShelf = EMPTY_PROFILE_STORE,
-  isOwner = false,
 }: PageContentSectionsProps) {
   const links = useMemo(
     () => resolvePortfolioSocialLinks(profileLinks),
@@ -220,7 +217,7 @@ export function PageContentSections({
               {showHoldings ? (
                 <div className="page-drawer-peek-stack">
                   <PageDrawerHoldingsRail holdings={holdings} />
-                  {isOwner ? <PageDrawerHoldingsSeeAll /> : null}
+                  <PageDrawerHoldingsSeeAll pageAccountId={pageAccountId} />
                 </div>
               ) : null}
 

@@ -5,9 +5,24 @@ import {
   isOverlayInterceptActive,
   isPortfolioOverlayPath,
   parseOverlayPanelKey,
+  portfolioCollectiblesPath,
   resolveOverlayPanelChrome,
   shouldOpenPortfolioGlassOverlay,
 } from './overlay-routes';
+
+describe('portfolioCollectiblesPath', () => {
+  it('builds the held catalog route and optional kind filter', () => {
+    expect(portfolioCollectiblesPath('alice.testnet')).toBe(
+      '/@alice.testnet/collectibles'
+    );
+    expect(portfolioCollectiblesPath('alice.testnet', { kind: 'audio' })).toBe(
+      '/@alice.testnet/collectibles?kind=audio'
+    );
+    expect(portfolioCollectiblesPath('alice.testnet', { kind: 'all' })).toBe(
+      '/@alice.testnet/collectibles'
+    );
+  });
+});
 
 describe('discoverPath', () => {
   it('defaults to bare discover (Trending)', () => {
@@ -58,6 +73,9 @@ describe('parseOverlayPanelKey', () => {
     expect(parseOverlayPanelKey('/@alice.testnet/reputation')).toBe(
       'reputation'
     );
+    expect(parseOverlayPanelKey('/@alice.testnet/collectibles')).toBe(
+      'collectibles'
+    );
   });
 
   it('returns null for portfolio root and unrelated paths', () => {
@@ -96,6 +114,7 @@ describe('isFullPagePanelLayout', () => {
     expect(isFullPagePanelLayout(['standing', 'incoming'])).toBe(true);
     expect(isFullPagePanelLayout(['discover'])).toBe(true);
     expect(isFullPagePanelLayout(['feed'])).toBe(true);
+    expect(isFullPagePanelLayout(['collectibles'])).toBe(true);
     expect(isFullPagePanelLayout(['posts', 'abc'])).toBe(true);
   });
 });

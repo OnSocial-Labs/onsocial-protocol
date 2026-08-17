@@ -18645,6 +18645,17 @@ a.os-surface-row {
     gap: 0.55rem;
   }
 
+  .collectibles-embedded-chrome {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .collectibles-embedded-chrome .os-app-screen-search {
+    width: 100%;
+  }
+
   /* Host audio must stay in the document (not display:none) for audible play. */
   .collectibles-now-playing-host-audio {
     position: fixed;
