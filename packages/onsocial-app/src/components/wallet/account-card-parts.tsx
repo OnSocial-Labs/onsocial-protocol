@@ -86,6 +86,7 @@ export function AccountClaimMetricRow({
   const rewardsLoading = rewards?.loading ?? false;
   const remainingToClaimYocto = rewards?.remainingToClaimYocto ?? 0n;
   const activityBarPulseKey = rewards?.activityBarPulseKey ?? 0;
+  const sheetCreditHint = rewards?.sheetCreditHint ?? null;
 
   const ratioLabel = formatClaimRatioLabel(
     claimableYocto,
@@ -93,10 +94,12 @@ export function AccountClaimMetricRow({
   );
   const progress = claimProgressPercent(claimableYocto);
   const barFill = claimableYocto > 0n ? Math.max(progress, 3) : 0;
-  const hintLine =
-    !canClaim && remainingToClaimYocto > 0n
+  const hintLine = sheetCreditHint
+    ? sheetCreditHint
+    : !canClaim && remainingToClaimYocto > 0n
       ? `${formatSocialCompact(remainingToClaimYocto)} more to collect`
       : null;
+  const hintIsCredit = Boolean(sheetCreditHint);
 
   return (
     <>
@@ -180,7 +183,10 @@ export function AccountClaimMetricRow({
 
       {showCaption ? (
         <p
-          className={`account-wallet-caption${hintLine ? '' : ' is-empty'}`}
+          className={`account-wallet-caption${
+            hintLine ? (hintIsCredit ? ' is-credit' : '') : ' is-empty'
+          }`}
+          aria-live={hintIsCredit ? 'polite' : undefined}
           aria-hidden={hintLine ? undefined : true}
         >
           {hintLine ?? '\u00a0'}

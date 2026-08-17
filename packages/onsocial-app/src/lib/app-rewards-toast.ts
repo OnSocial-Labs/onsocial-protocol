@@ -68,3 +68,26 @@ export function buildAppRewardCollectToast(
     explorerHref: nearExplorerTxHref(txHash),
   };
 }
+
+/**
+ * Inline Activity caption while the account sheet is open (no global toast).
+ * Omits "SOCIAL" — the wallet zone already frames the unit.
+ */
+export function buildAppRewardCreditCaption(
+  events: PlatformRewardCreditEvent[]
+): string | null {
+  if (!shouldShowBurstCelebration(events)) {
+    return null;
+  }
+
+  const displayTotal = resolveBurstDisplayAmount(events);
+  if (displayTotal <= 0n) {
+    return null;
+  }
+
+  const amountLabel = formatSocialCompact(displayTotal.toString());
+  const reason = formatShortBurstReason(compressAppRewardBurstReasons(events));
+  return reason?.trim()
+    ? `+${amountLabel} · ${reason.trim()}`
+    : `+${amountLabel}`;
+}

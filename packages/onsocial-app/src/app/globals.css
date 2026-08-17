@@ -11857,6 +11857,10 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.45);
   }
 
+  .account-wallet-caption.is-credit {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
   .account-wallet-caption.is-empty {
     visibility: hidden;
   }
