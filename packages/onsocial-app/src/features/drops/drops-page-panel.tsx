@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { OsSheetAction, OsSheetActions, ProfileAvatar } from '@onsocial/ui';
+import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { DiscoveryPartyStack } from '@/components/discovery/discovery-party-stack';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import {
@@ -70,7 +71,7 @@ import {
   type DropsMediumParam,
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
-import { displayName, fallbackLabel } from '@/lib/profile-display';
+import { fallbackLabel } from '@/lib/profile-display';
 
 /** Debounce before search keystrokes hit the indexer (snappy, still typed). */
 const SEARCH_DEBOUNCE_MS = 200;
@@ -412,16 +413,6 @@ function DropRow({
         ? 'Drop'
         : null;
   const href = collectionPath(item.collectionId);
-  const creatorHref = portfolioPath(item.creatorId);
-  const creatorHandle = fallbackLabel(item.creatorId);
-  const creatorLabel = displayName(
-    item.creatorId,
-    item.creatorDisplayName ?? undefined
-  );
-  const creatorNameIsCustom =
-    Boolean(creatorLabel) &&
-    creatorLabel.toLowerCase() !== creatorHandle.toLowerCase() &&
-    creatorLabel.toLowerCase() !== item.creatorId.trim().toLowerCase();
   const droppedLabel =
     item.createdAtMs != null
       ? formatMarketRelativeTime(item.createdAtMs, nowMs)
@@ -494,48 +485,11 @@ function DropRow({
             {item.title}
           </Link>
         </div>
-        {/* by Name / @handle — deal spans full copy width from avatar. */}
-        <div className="drops-discovery-party">
-          <Link
-            href={creatorHref}
-            scroll={false}
-            className="drops-discovery-party-avatar-link"
-            tabIndex={creatorNameIsCustom ? -1 : undefined}
-            aria-hidden={creatorNameIsCustom ? true : undefined}
-            aria-label={
-              creatorNameIsCustom ? undefined : `Creator @${creatorHandle}`
-            }
-          >
-            <ProfileAvatar
-              src={item.creatorAvatarUrl}
-              size="sm"
-              fallbackInitial={creatorHandle.slice(0, 1)}
-              className="drops-discovery-party-avatar"
-            />
-          </Link>
-          <div className="drops-discovery-party-stack">
-            {creatorNameIsCustom ? (
-              <Link
-                href={creatorHref}
-                scroll={false}
-                className="drops-discovery-by"
-              >
-                by {creatorLabel}
-              </Link>
-            ) : (
-              <Link
-                href={creatorHref}
-                scroll={false}
-                className="drops-discovery-by"
-              >
-                @{creatorHandle}
-              </Link>
-            )}
-            {creatorNameIsCustom ? (
-              <span className="drops-discovery-sub">@{creatorHandle}</span>
-            ) : null}
-          </div>
-        </div>
+        <DiscoveryPartyStack
+          accountId={item.creatorId}
+          displayName={item.creatorDisplayName}
+          avatarUrl={item.creatorAvatarUrl}
+        />
         {dealBits.length > 0 || fanCount != null ? (
           <Link
             href={href}

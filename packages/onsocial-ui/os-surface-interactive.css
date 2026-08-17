@@ -16,6 +16,9 @@
  *   --os-surface-ring             quiet focus / open ring
  *   --os-surface-muted            normal muted text / placeholders
  *   --os-surface-muted-strong     tiny metadata that needs more contrast
+ *   --os-catalog-cover            Market / Drops / apps catalog cover (mobile)
+ *   --os-catalog-cover-sm         catalog cover on sm+ viewports
+ *   --os-catalog-cover-radius     catalog cover corner radius
  *
  * Component tiers:
  *   os-surface-panel  — static inset card (wallet block, grouped metrics)
@@ -43,6 +46,10 @@
     --os-surface-emphasis: rgb(var(--fg-rgb) / 0.88);
     --os-surface-radius-row: 0.85rem;
     --os-surface-radius-tile: 0.85rem;
+    /* Guild-search / Market / Drops catalog cover scale. */
+    --os-catalog-cover: 4.85rem;
+    --os-catalog-cover-sm: 5.5rem;
+    --os-catalog-cover-radius: 0.75rem;
   }
 }
 

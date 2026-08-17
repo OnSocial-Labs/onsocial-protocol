@@ -25250,16 +25250,13 @@ a.os-surface-row {
     text-decoration: none;
     color: inherit;
     gap: 0.9rem;
-    /* Beat Market’s shorthand so larger covers keep breathing room. */
     padding: 0.85rem 0.45rem;
   }
 
-  /* Guild-search card scale — larger than Market’s 3.1rem thumbs. */
+  /* Inherit Market cover scale; reset border/shadow for Drops chrome. */
   .drops-discovery-row .drops-discovery-thumb.market-listing-thumb {
-    width: 4.85rem;
-    height: 4.85rem;
     border: 0;
-    border-radius: 0.75rem;
+    border-radius: var(--os-catalog-cover-radius);
     outline: none;
     box-shadow: none;
   }
@@ -25531,18 +25528,6 @@ a.os-surface-row {
     box-shadow: inset 3px 0 0 rgb(var(--fg-rgb) / 0.35);
   }
 
-  .drops-discovery-row--featured .drops-discovery-thumb.market-listing-thumb {
-    width: 4.85rem;
-    height: 4.85rem;
-  }
-
-  @media (min-width: 640px) {
-    .drops-discovery-row--featured .drops-discovery-thumb.market-listing-thumb {
-      width: 5.5rem;
-      height: 5.5rem;
-    }
-  }
-
   .drops-discovery-featured-eyebrow {
     display: block;
     margin: 0 0 0.2rem;
@@ -25583,9 +25568,9 @@ a.os-surface-row {
   .market-sale-row {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
-    margin: 0 -0.35rem;
-    padding: 0.68rem 0.35rem;
+    gap: 0.9rem;
+    margin: 0 -0.45rem;
+    padding: 0.85rem 0.45rem;
     border-radius: 0.85rem;
     transition: background 160ms ease;
   }
@@ -25597,17 +25582,25 @@ a.os-surface-row {
     background: var(--os-surface-row-hover);
   }
 
+  /* Catalog cover scale — tokens from @onsocial/ui os-surface-interactive. */
   .market-listing-thumb {
     position: relative;
     flex-shrink: 0;
-    width: 3.1rem;
-    height: 3.1rem;
+    width: var(--os-catalog-cover);
+    height: var(--os-catalog-cover);
     border: 0;
-    border-radius: 0.55rem;
+    border-radius: var(--os-catalog-cover-radius);
     padding: 0;
     overflow: hidden;
     background: rgb(var(--fg-rgb) / 0.08);
     cursor: pointer;
+  }
+
+  @media (min-width: 640px) {
+    .market-listing-thumb {
+      width: var(--os-catalog-cover-sm);
+      height: var(--os-catalog-cover-sm);
+    }
   }
 
   .market-listing-thumb img {
@@ -25787,9 +25780,16 @@ a.os-surface-row {
 
   .market-listing-thumb-shimmer {
     flex-shrink: 0;
-    width: 3.1rem;
-    height: 3.1rem;
-    border-radius: 0.55rem;
+    width: var(--os-catalog-cover);
+    height: var(--os-catalog-cover);
+    border-radius: var(--os-catalog-cover-radius);
+  }
+
+  @media (min-width: 640px) {
+    .market-listing-thumb-shimmer {
+      width: var(--os-catalog-cover-sm);
+      height: var(--os-catalog-cover-sm);
+    }
   }
 
   .market-listing-shimmer-title {
