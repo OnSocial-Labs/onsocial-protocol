@@ -6,7 +6,12 @@ import {
   type DropFacetMedium,
 } from '@/features/scarces/drop-facets';
 
-export type MarketAudioFormatFilter = 'single' | 'album' | 'podcast' | null;
+export type MarketAudioFormatFilter =
+  | 'single'
+  | 'album'
+  | 'podcast'
+  | 'audiobook'
+  | null;
 
 const AUDIO_FORMAT_CHIPS: ReadonlyArray<{
   id: MarketAudioFormatFilter;
@@ -15,7 +20,8 @@ const AUDIO_FORMAT_CHIPS: ReadonlyArray<{
   { id: null, label: 'All' },
   { id: 'single', label: 'Single' },
   { id: 'album', label: 'Album' },
-  // Podcast is parsed when stamped; hide until creators ship podcast drops.
+  { id: 'podcast', label: 'Podcast' },
+  { id: 'audiobook', label: 'Audiobook' },
 ];
 
 interface MarketFacetRailProps {

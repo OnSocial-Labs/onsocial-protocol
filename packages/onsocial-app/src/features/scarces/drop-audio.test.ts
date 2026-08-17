@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   DROP_LYRICS_MAX_CHARS,
+  audioPartNoun,
+  audioPartsFieldLabel,
+  audioReleaseFormatLabel,
   isDropAudioMime,
+  isMultiTrackAudioFormat,
+  musicTracksInvalidMessage,
   musicTracksValid,
   normalizeTrackLyrics,
   sha256BlobBase64,
@@ -38,6 +43,61 @@ describe('musicTracksValid', () => {
     expect(musicTracksValid('album', 1)).toBe(false);
     expect(musicTracksValid('album', 2)).toBe(true);
     expect(musicTracksValid('album', 10)).toBe(true);
+  });
+
+  it('allows one or more episodes for a podcast', () => {
+    expect(musicTracksValid('podcast', 0)).toBe(false);
+    expect(musicTracksValid('podcast', 1)).toBe(true);
+    expect(musicTracksValid('podcast', 2)).toBe(true);
+    expect(musicTracksValid('podcast', 30)).toBe(true);
+    expect(musicTracksValid('podcast', 31)).toBe(false);
+  });
+
+  it('allows one or more chapters for an audiobook', () => {
+    expect(musicTracksValid('audiobook', 0)).toBe(false);
+    expect(musicTracksValid('audiobook', 1)).toBe(true);
+    expect(musicTracksValid('audiobook', 12)).toBe(true);
+  });
+});
+
+describe('audioReleaseFormatLabel', () => {
+  it('labels create-drop release formats', () => {
+    expect(audioReleaseFormatLabel('single')).toBe('Single');
+    expect(audioReleaseFormatLabel('album')).toBe('Album');
+    expect(audioReleaseFormatLabel('podcast')).toBe('Podcast');
+    expect(audioReleaseFormatLabel('audiobook')).toBe('Audiobook');
+  });
+});
+
+describe('audio part nouns', () => {
+  it('uses episodes for podcast and chapters for audiobook', () => {
+    expect(audioPartNoun('podcast', 1)).toBe('episode');
+    expect(audioPartNoun('podcast', 2)).toBe('episodes');
+    expect(audioPartNoun('audiobook', 1)).toBe('chapter');
+    expect(audioPartNoun('audiobook', 3)).toBe('chapters');
+    expect(audioPartNoun('album', 2)).toBe('tracks');
+  });
+
+  it('labels the upload field by format', () => {
+    expect(audioPartsFieldLabel('single', 0)).toBe('Track');
+    expect(audioPartsFieldLabel('podcast', 2)).toBe('Episodes · 2');
+    expect(audioPartsFieldLabel('audiobook', 0)).toBe('Chapters');
+  });
+});
+
+describe('isMultiTrackAudioFormat', () => {
+  it('treats album, podcast, and audiobook as multi-file', () => {
+    expect(isMultiTrackAudioFormat('single')).toBe(false);
+    expect(isMultiTrackAudioFormat('album')).toBe(true);
+    expect(isMultiTrackAudioFormat('podcast')).toBe(true);
+    expect(isMultiTrackAudioFormat('audiobook')).toBe(true);
+  });
+});
+
+describe('musicTracksInvalidMessage', () => {
+  it('mentions episodes vs chapters for long-form', () => {
+    expect(musicTracksInvalidMessage('podcast')).toMatch(/episodes/);
+    expect(musicTracksInvalidMessage('audiobook')).toMatch(/chapters/);
   });
 });
 
