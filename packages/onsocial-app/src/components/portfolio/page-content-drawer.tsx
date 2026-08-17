@@ -45,9 +45,10 @@ import {
   resolvePageDrawerActiveSection,
   resolveVisiblePageSections,
 } from '@/lib/page-sections';
-import { resolvePortfolioSocialLinks } from '@/lib/profile-social-links';
-import { accountIdsEqual } from '@/lib/account-match';
-import { useAppWallet } from '@/contexts/app-wallet-context';
+import {
+  applyPortfolioLinkNotes,
+  resolvePortfolioSocialLinks,
+} from '@/lib/profile-social-links';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
 import {
   PAGE_DRAWER_HOLDINGS_PEEK,
@@ -215,11 +216,6 @@ export function PageContentDrawer({
     shelf.storeShelf.sales.length > 0
       ? shelf.storeShelf
       : storeShelf;
-  const { accountId: viewerAccountId, isConnected } = useAppWallet();
-  const isOwner =
-    isConnected &&
-    Boolean(viewerAccountId) &&
-    accountIdsEqual(viewerAccountId!, pageAccountId);
   const [ownedHoldings, setOwnedHoldings] = useState<PortfolioHoldingPeek[]>(
     []
   );
@@ -251,7 +247,7 @@ export function PageContentDrawer({
   );
 
   useEffect(() => {
-    if (!isOwner || !isOpen) return;
+    if (!isOpen) return;
     let cancelled = false;
     void fetchOwnedScarcesPage(pageAccountId, {
       pageSize: PAGE_DRAWER_HOLDINGS_PEEK,
@@ -266,9 +262,9 @@ export function PageContentDrawer({
     return () => {
       cancelled = true;
     };
-  }, [isOwner, isOpen, pageAccountId]);
+  }, [isOpen, pageAccountId]);
 
-  const holdings = isOwner ? ownedHoldings : [];
+  const holdings = ownedHoldings;
   const holdingsCount = holdings.length;
   const createdCount = Math.max(
     createdPeeksResolved.length,
@@ -278,8 +274,12 @@ export function PageContentDrawer({
     storeShelfResolved.listingCount + storeShelfResolved.drops.length;
 
   const links = useMemo(
-    () => resolvePortfolioSocialLinks(profileLinks),
-    [profileLinks]
+    () =>
+      applyPortfolioLinkNotes(
+        resolvePortfolioSocialLinks(profileLinks),
+        config.linkNotes
+      ),
+    [profileLinks, config.linkNotes]
   );
 
   const jumpSections = useMemo(

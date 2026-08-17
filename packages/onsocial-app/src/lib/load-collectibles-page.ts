@@ -10,9 +10,9 @@ export type CollectiblesPageData = {
 };
 
 /**
- * Collectibles vault is wallet-scoped. Without a server session account we
- * return an empty shell; the client paints from `owned-vault-cache` when Market
- * / portfolio already warmed the first page.
+ * Held catalog for an account. Portfolio `/@id/collectibles` always passes the
+ * page account; OS `/collectibles` may pass null (disconnected shell) until the
+ * client soft-redirects to `/@you/collectibles`.
  */
 export async function loadCollectiblesPageData(
   accountId?: string | null

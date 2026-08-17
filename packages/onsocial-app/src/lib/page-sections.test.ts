@@ -22,24 +22,17 @@ describe('resolvePageSections', () => {
       'store',
       'created',
       'groups',
-      'collectibles',
       'links',
-      'badges',
+      'collectibles',
     ]);
   });
 
-  it('honours owner order and still ensures store / created / collectibles / groups', () => {
+  it('honours owner order and allows hiding showcase chapters', () => {
     expect(
       resolvePageSections({
         sections: ['profile', 'support', 'collectibles', 'posts'],
       })
-    ).toEqual([
-      'collectibles',
-      'posts',
-      'store',
-      'created',
-      'groups',
-    ]);
+    ).toEqual(['collectibles', 'posts']);
   });
 });
 
@@ -173,7 +166,7 @@ describe('isPageSectionVisible', () => {
     ).toBe(false);
   });
 
-  it('shows collectibles from holdings count and hides badges and support', () => {
+  it('shows collectibles from holdings for anyone and hides badges and support', () => {
     expect(
       isPageSectionVisible('collectibles', {
         stats: emptyStats,
@@ -182,6 +175,14 @@ describe('isPageSectionVisible', () => {
         scarceCount: 3,
       })
     ).toBe(true);
+    expect(
+      isPageSectionVisible('collectibles', {
+        stats: emptyStats,
+        guilds: [],
+        links: [],
+        scarceCount: 0,
+      })
+    ).toBe(false);
     expect(
       isPageSectionVisible('created', {
         stats: emptyStats,

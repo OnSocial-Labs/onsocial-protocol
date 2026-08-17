@@ -97,4 +97,16 @@ describe('portfolioLinkDetail', () => {
       })
     ).toBe('@alice');
   });
+
+  it('prefers an owner note when present', () => {
+    expect(
+      portfolioLinkDetail({
+        key: 'website',
+        kind: 'website',
+        label: 'Website',
+        href: 'https://example.com',
+        note: 'Weekly essays',
+      })
+    ).toBe('Weekly essays');
+  });
 });

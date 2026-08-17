@@ -953,8 +953,19 @@ export interface PageConfig {
   theme?: PageTheme;
   /** Visual layout options. */
   face?: PageFaceConfig;
-  /** Ordered list of visible sections. */
+  /** Ordered list of visible Launch chapters (omit to hide). */
   sections?: PageSection[];
+  /**
+   * Featured peek ids per chapter (max 3) — post ids, guild ids, token ids,
+   * store `drop:`/`listing:` keys, collectibles token ids.
+   * Missing / unknown ids are ignored; remaining peeks fill after pins.
+   */
+  sectionPins?: Partial<Record<PageSection, string[]>>;
+  /**
+   * Optional one-line notes for profile link keys (`website`, `x`, …)
+   * shown in the Launch Links chapter.
+   */
+  linkNotes?: Record<string, string>;
   /** Custom tagline (overrides bio on page). */
   tagline?: string;
   /** Custom CSS URL (premium feature). */

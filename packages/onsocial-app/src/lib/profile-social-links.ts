@@ -17,6 +17,8 @@ export interface PortfolioSocialLink {
   kind: PortfolioLinkKind;
   label: string;
   href: string;
+  /** Optional Launch drawer blurb from page config. */
+  note?: string;
 }
 
 const LINK_HOSTS: Record<Exclude<PortfolioLinkKind, 'custom'>, readonly string[]> =
@@ -268,6 +270,11 @@ export function portfolioLinkHostname(href: string): string | null {
 
 /** Secondary line under the link label in the page drawer. */
 export function portfolioLinkDetail(link: PortfolioSocialLink): string {
+  const note = link.note?.trim();
+  if (note) {
+    return note;
+  }
+
   if (link.kind === 'website' || link.kind === 'custom') {
     return portfolioLinkHostname(link.href) ?? link.label;
   }
@@ -282,6 +289,20 @@ export function portfolioLinkDetail(link: PortfolioSocialLink): string {
   }
 
   return link.label;
+}
+
+/** Attach optional Launch notes from page config onto resolved links. */
+export function applyPortfolioLinkNotes(
+  links: PortfolioSocialLink[],
+  notes: Record<string, string> | null | undefined
+): PortfolioSocialLink[] {
+  if (!notes || Object.keys(notes).length === 0) {
+    return links;
+  }
+  return links.map((link) => {
+    const note = notes[link.key]?.trim();
+    return note ? { ...link, note } : link;
+  });
 }
 
 /** Portal-parity social rows for keyed chain maps and schema v1 link arrays. */

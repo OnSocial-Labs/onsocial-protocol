@@ -13,6 +13,7 @@ export const OVERLAY_PANELS = [
   'feed',
   'standing',
   'reputation',
+  'collectibles',
 ] as const;
 
 export type OverlayPanel = (typeof OVERLAY_PANELS)[number];
@@ -26,6 +27,17 @@ export function portfolioPath(accountId: string): string {
 
 export function overlayPath(accountId: string, panel: OverlayPanel): string {
   return `${portfolioPath(accountId)}/${panel}`;
+}
+
+/** Held catalog for an account — Launch See all + OS vault when connected. */
+export function portfolioCollectiblesPath(
+  accountId: string,
+  options?: { kind?: string | null }
+): string {
+  const base = overlayPath(accountId, 'collectibles');
+  const kind = options?.kind?.trim().toLowerCase() ?? '';
+  if (!kind || kind === 'all') return base;
+  return `${base}?kind=${encodeURIComponent(kind)}`;
 }
 
 /** Discover hub href. Contextual entries can deep-link a tab (e.g. Profiles). */
@@ -52,6 +64,7 @@ export const OVERLAY_PANEL_LABELS: Record<OverlayPanel, string> = {
   feed: 'Feed',
   standing: 'Standing',
   reputation: 'Reputation',
+  collectibles: 'Collectibles',
 };
 
 export function panelLabel(panel: OverlayPanel): string {

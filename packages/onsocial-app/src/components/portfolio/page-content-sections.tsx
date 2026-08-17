@@ -3,7 +3,6 @@
 import { Fragment, useMemo } from 'react';
 import Link from 'next/link';
 import { Divider, ProtocolMotionArrow } from '@onsocial/ui';
-import { GuildSummaryCard } from '@/features/guilds/guild-summary-card';
 import { PortfolioLinkIcon } from '@/components/portfolio/portfolio-link-icon';
 import {
   PageDrawerCreatedRail,
@@ -12,9 +11,9 @@ import {
   PageDrawerHoldingsSeeAll,
   PageDrawerPostPeekList,
 } from '@/components/portfolio/page-drawer-peeks';
+import { PageDrawerGuilds } from '@/components/portfolio/page-drawer-guilds';
 import { PortfolioStoreShelf } from '@/components/portfolio/portfolio-store-shelf';
 import {
-  PAGE_DRAWER_GUILD_PEEK,
   PAGE_SECTION_LABELS,
   pageDrawerSectionDomId,
   pageSectionCountHint,
@@ -34,10 +33,15 @@ import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import {
   portfolioLinkDetail,
   resolvePortfolioSocialLinks,
+  applyPortfolioLinkNotes,
   type PortfolioSocialLink,
 } from '@/lib/profile-social-links';
-import { APP_GROUPS_PATH } from '@/lib/app-routes';
 import { overlayPath } from '@/lib/overlay-routes';
+import {
+  preferPinnedOrder,
+  orderStoreShelfByPins,
+  sectionPinsFor,
+} from '@/lib/page-launch-config';
 
 interface PageContentSectionsProps {
   pageAccountId: string;
@@ -50,7 +54,7 @@ interface PageContentSectionsProps {
   createdPeeks?: ProfileCreatedPeek[];
   /** Indexed mint total for Created count chip (may exceed peeks). */
   createdMintCount?: number;
-  /** Owner wallet holdings for Collectibles (empty for visitors). */
+  /** Public wallet holdings for Collectibles peeks (on-chain flex). */
   holdings?: PortfolioHoldingPeek[];
   storeShelf?: ProfileStoreShelf;
 }
@@ -102,13 +106,60 @@ export function PageContentSections({
   storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentSectionsProps) {
   const links = useMemo(
-    () => resolvePortfolioSocialLinks(profileLinks),
-    [profileLinks]
+    () =>
+      applyPortfolioLinkNotes(
+        resolvePortfolioSocialLinks(profileLinks),
+        config.linkNotes
+      ),
+    [profileLinks, config.linkNotes]
   );
 
   const holdingsCount = holdings.length;
   const createdCount = Math.max(createdPeeks.length, createdMintCount);
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
+
+  const orderedStoreShelf = useMemo(
+    () =>
+      orderStoreShelfByPins(storeShelf, sectionPinsFor(config, 'store')),
+    [storeShelf, config]
+  );
+
+  const orderedPosts = useMemo(
+    () =>
+      preferPinnedOrder(
+        postPeeks,
+        sectionPinsFor(config, 'posts'),
+        (post) => post.postId
+      ),
+    [postPeeks, config]
+  );
+  const orderedGuilds = useMemo(
+    () =>
+      preferPinnedOrder(
+        guilds,
+        sectionPinsFor(config, 'groups'),
+        (guild) => guild.groupId
+      ),
+    [guilds, config]
+  );
+  const orderedCreated = useMemo(
+    () =>
+      preferPinnedOrder(
+        createdPeeks,
+        sectionPinsFor(config, 'created'),
+        (item) => item.tokenId
+      ),
+    [createdPeeks, config]
+  );
+  const orderedHoldings = useMemo(
+    () =>
+      preferPinnedOrder(
+        holdings,
+        sectionPinsFor(config, 'collectibles'),
+        (item) => item.tokenId
+      ),
+    [holdings, config]
+  );
 
   const sections = useMemo(
     () =>
@@ -133,8 +184,6 @@ export function PageContentSections({
     ]
   );
 
-  const peekGuilds = guilds.slice(0, PAGE_DRAWER_GUILD_PEEK);
-  const guildOverflow = Math.max(0, guilds.length - peekGuilds.length);
   const feedHref = overlayPath(pageAccountId, 'feed');
 
   if (sections.length === 0) {
@@ -155,7 +204,7 @@ export function PageContentSections({
           createdCountHint: createdCount,
           storeListingCount,
         });
-        const showGuildRail = section === 'groups' && peekGuilds.length > 0;
+        const showGuildRail = section === 'groups' && guilds.length > 0;
         const showLinks = section === 'links' && links.length > 0;
         const showPosts = section === 'posts';
         const showStore = section === 'store' && storeListingCount > 0;
@@ -182,9 +231,9 @@ export function PageContentSections({
                 <>
                   <PageDrawerPostPeekList
                     pageAccountId={pageAccountId}
-                    posts={postPeeks}
+                    posts={orderedPosts}
                   />
-                  {postPeeks.length === 0 ? (
+                  {orderedPosts.length === 0 ? (
                     <p className="page-drawer-section-empty">
                       Latest posts open in their feed.
                     </p>
@@ -202,14 +251,14 @@ export function PageContentSections({
               {showStore ? (
                 <PortfolioStoreShelf
                   pageAccountId={pageAccountId}
-                  shelf={storeShelf}
+                  shelf={orderedStoreShelf}
                 />
               ) : null}
 
               {showCreated ? (
                 <div className="page-drawer-peek-stack">
-                  <PageDrawerCreatedRail created={createdPeeks} />
-                  {createdPeeks.length === 0 ? (
+                  <PageDrawerCreatedRail created={orderedCreated} />
+                  {orderedCreated.length === 0 ? (
                     <p className="page-drawer-section-empty">
                       Created editions open in Market.
                     </p>
@@ -220,34 +269,15 @@ export function PageContentSections({
 
               {showHoldings ? (
                 <div className="page-drawer-peek-stack">
-                  <PageDrawerHoldingsRail holdings={holdings} />
-                  <PageDrawerHoldingsSeeAll />
+                  <PageDrawerHoldingsRail holdings={orderedHoldings} />
+                  <PageDrawerHoldingsSeeAll pageAccountId={pageAccountId} />
                 </div>
               ) : null}
 
               {showLinks ? <PageDrawerLinksList links={links} /> : null}
 
               {showGuildRail ? (
-                <div className="page-drawer-guild-rail" aria-label="Guilds">
-                  {peekGuilds.map((guild) => (
-                    <GuildSummaryCard
-                      key={guild.groupId}
-                      variant="rail"
-                      guild={guild}
-                    />
-                  ))}
-                </div>
-              ) : null}
-
-              {section === 'groups' && guilds.length > 0 ? (
-                <Link
-                  className="page-drawer-section-action"
-                  href={APP_GROUPS_PATH}
-                >
-                  {guildOverflow > 0
-                    ? `See all guilds · +${guildOverflow}`
-                    : 'Browse all guilds'}
-                </Link>
+                <PageDrawerGuilds guilds={orderedGuilds} />
               ) : null}
             </section>
           </Fragment>

@@ -8,7 +8,8 @@ import {
 import type { ProfilePostPeek, ProfileCreatedPeek } from '@/lib/fetch-profile-peeks';
 import type { PortfolioHoldingPeek } from '@/lib/portfolio-holdings';
 import { personalPostPath } from '@/lib/post-routes';
-import { APP_COLLECTIBLES_PATH, marketCreatorPath } from '@/lib/app-routes';
+import { marketCreatorPath } from '@/lib/app-routes';
+import { portfolioCollectiblesPath } from '@/lib/overlay-routes';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
 import { safeModePeekText } from '@/lib/post-content-labels';
 
@@ -72,28 +73,28 @@ export function PageDrawerHoldingsRail({
   }
 
   return (
-    <div className="page-drawer-scarce-rail" aria-label="Your collectibles">
+    <div className="page-drawer-media-rail" aria-label="Collectibles">
       {holdings.map((item) => (
         <Link
           key={item.tokenId}
           href={item.href}
           scroll={false}
-          className="page-drawer-scarce-card group"
+          className="page-drawer-media-card group"
           title={`${item.title} · ${item.actionLabel}`}
         >
           <span
-            className={`page-drawer-scarce-cover${item.mediaUrl ? ' has-media' : ''}`}
+            className={`page-drawer-media-cover${item.mediaUrl ? ' has-media' : ''}`}
             aria-hidden
           >
             {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
           </span>
-          <span className="page-drawer-scarce-body">
-            <span className="page-drawer-scarce-title">{item.title}</span>
-            <span className="page-drawer-scarce-meta">
+          <span className="page-drawer-media-body">
+            <span className="page-drawer-media-title">{item.title}</span>
+            <span className="page-drawer-media-meta">
               {item.kindLabel ? (
-                <span className="page-drawer-scarce-kind">{item.kindLabel}</span>
+                <span className="page-drawer-media-kind">{item.kindLabel}</span>
               ) : null}
-              <span className="page-drawer-scarce-action">{item.actionLabel}</span>
+              <span className="page-drawer-media-action">{item.actionLabel}</span>
             </span>
           </span>
         </Link>
@@ -113,7 +114,7 @@ export function PageDrawerCreatedRail({
   }
 
   return (
-    <div className="page-drawer-scarce-rail" aria-label="Created scarces">
+    <div className="page-drawer-media-rail" aria-label="Created scarces">
       {created.map((item) => {
         const titleHint = item.kindLabel
           ? `${item.title} · ${item.kindLabel}`
@@ -123,22 +124,22 @@ export function PageDrawerCreatedRail({
             key={item.tokenId}
             href={item.href}
             scroll={false}
-            className="page-drawer-scarce-card group"
+            className="page-drawer-media-card group"
             title={titleHint}
           >
             <span
-              className={`page-drawer-scarce-cover${item.mediaUrl ? ' has-media' : ''}`}
+              className={`page-drawer-media-cover${item.mediaUrl ? ' has-media' : ''}`}
               aria-hidden
             >
               {item.mediaUrl ? <img src={item.mediaUrl} alt="" /> : null}
             </span>
-            <span className="page-drawer-scarce-body">
-              <span className="page-drawer-scarce-title">{item.title}</span>
-              <span className="page-drawer-scarce-meta">
+            <span className="page-drawer-media-body">
+              <span className="page-drawer-media-title">{item.title}</span>
+              <span className="page-drawer-media-meta">
                 {item.kindLabel ? (
-                  <span className="page-drawer-scarce-kind">{item.kindLabel}</span>
+                  <span className="page-drawer-media-kind">{item.kindLabel}</span>
                 ) : null}
-                <span className="page-drawer-scarce-action">Open</span>
+                <span className="page-drawer-media-action">Open</span>
               </span>
             </span>
           </Link>
@@ -159,19 +160,23 @@ export function PageDrawerCreatedSeeAll({
       href={marketCreatorPath(pageAccountId)}
       scroll={false}
     >
-      See in Market
+      See all in Market
     </Link>
   );
 }
 
-export function PageDrawerHoldingsSeeAll() {
+export function PageDrawerHoldingsSeeAll({
+  pageAccountId,
+}: {
+  pageAccountId: string;
+}) {
   return (
     <Link
       className="page-drawer-section-action"
-      href={APP_COLLECTIBLES_PATH}
+      href={portfolioCollectiblesPath(pageAccountId)}
       scroll={false}
     >
-      Open Collectibles
+      See all collectibles
     </Link>
   );
 }

@@ -60,35 +60,36 @@ export function PortfolioStoreShelf({
   shelf: ProfileStoreShelf;
 }) {
   const shopHref = marketCreatorPath(pageAccountId);
-  const shopLabel = shelf.hasMore ? 'Shop all in Market' : 'Open in Market';
 
   return (
     <div className="portfolio-store">
       {shelf.drops.length > 0 ? (
-        <div className="portfolio-store-rail" aria-label="Drops">
+        <div className="page-drawer-media-rail" aria-label="Drops">
           {shelf.drops.map((drop) => (
             <Link
               key={drop.key}
               href={collectionPath(drop.collectionId)}
               scroll={false}
-              className="portfolio-store-card group"
+              className="page-drawer-media-card group"
               title={drop.title}
             >
               <span
-                className={`portfolio-store-cover${drop.mediaUrl ? ' has-media' : ''}`}
+                className={`page-drawer-media-cover${drop.mediaUrl ? ' has-media' : ''}`}
                 aria-hidden
               >
                 {drop.mediaUrl ? <img src={drop.mediaUrl} alt="" /> : null}
-                <span className="portfolio-store-kind">
+                <span className="page-drawer-media-badge">
                   {DROP_STATUS_LABEL[drop.status]}
                 </span>
               </span>
-              <span className="portfolio-store-body">
-                <span className="portfolio-store-title">{drop.title}</span>
-                <span className="portfolio-store-price">
-                  {dropPriceLine(drop)}
+              <span className="page-drawer-media-body">
+                <span className="page-drawer-media-title">{drop.title}</span>
+                <span className="page-drawer-media-meta">
+                  <span className="page-drawer-media-action">
+                    {dropPriceLine(drop)}
+                  </span>
                 </span>
-                <span className="portfolio-store-facts">
+                <span className="page-drawer-media-facts">
                   Drop · {drop.totalSupply - drop.remaining}/{drop.totalSupply}
                 </span>
               </span>
@@ -98,7 +99,7 @@ export function PortfolioStoreShelf({
       ) : null}
 
       {shelf.listings.length > 0 ? (
-        <div className="portfolio-store-rail" aria-label="For sale now">
+        <div className="page-drawer-media-rail" aria-label="For sale now">
           {shelf.listings.map((listing) => {
             const facts = listingFacts(listing);
             return (
@@ -106,27 +107,29 @@ export function PortfolioStoreShelf({
                 key={listing.key}
                 href={shopHref}
                 scroll={false}
-                className="portfolio-store-card group"
+                className="page-drawer-media-card group"
                 title={listing.title}
               >
                 <span
-                  className={`portfolio-store-cover${listing.mediaUrl ? ' has-media' : ''}`}
+                  className={`page-drawer-media-cover${listing.mediaUrl ? ' has-media' : ''}`}
                   aria-hidden
                 >
                   {listing.mediaUrl ? (
                     <img src={listing.mediaUrl} alt="" />
                   ) : null}
-                  <span className="portfolio-store-kind">
+                  <span className="page-drawer-media-badge">
                     {KIND_TAG[listing.kind]}
                   </span>
                 </span>
-                <span className="portfolio-store-body">
-                  <span className="portfolio-store-title">{listing.title}</span>
-                  <span className="portfolio-store-price">
-                    {priceLine(listing)}
+                <span className="page-drawer-media-body">
+                  <span className="page-drawer-media-title">{listing.title}</span>
+                  <span className="page-drawer-media-meta">
+                    <span className="page-drawer-media-action">
+                      {priceLine(listing)}
+                    </span>
                   </span>
                   {facts ? (
-                    <span className="portfolio-store-facts">{facts}</span>
+                    <span className="page-drawer-media-facts">{facts}</span>
                   ) : null}
                 </span>
               </Link>
@@ -165,7 +168,7 @@ export function PortfolioStoreShelf({
 
       <Link className="page-drawer-section-action" href={shopHref} scroll={false}>
         <ShopFillIcon className="portfolio-store-cta-icon" aria-hidden />
-        {shopLabel}
+        See all in Market
       </Link>
     </div>
   );
