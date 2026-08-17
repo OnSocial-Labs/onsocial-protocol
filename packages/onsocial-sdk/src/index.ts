@@ -217,6 +217,7 @@ export {
   formatReputationComponent,
   formatReputationScore,
   formatScore,
+  leaderboardTrackSubtitle,
   pctOfLeader,
   reputationConfidenceLabel,
   reputationTier,

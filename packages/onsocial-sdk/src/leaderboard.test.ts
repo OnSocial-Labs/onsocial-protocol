@@ -4,6 +4,8 @@ import {
   findViewerEntry,
   formatReputationComponent,
   formatReputationScore,
+  LEADERBOARD_TRACKS,
+  leaderboardTrackSubtitle,
   pctOfLeader,
   reputationConfidenceLabel,
   reputationTierLabel,
@@ -29,6 +31,15 @@ describe('leaderboard helpers', () => {
     expect(reputationTierLabel(12)).toBe('Active');
     expect(reputationConfidenceLabel(0.2).label).toBe('Limited data');
     expect(reputationConfidenceLabel(0.8).label).toBe('Established');
+  });
+
+  it('marks earners as tertiary emphasis', () => {
+    expect(LEADERBOARD_TRACKS.find((t) => t.id === 'earners')?.emphasis).toBe(
+      'tertiary'
+    );
+    expect(leaderboardTrackSubtitle('reputation')).toBe('Protocol reputation');
+    expect(leaderboardTrackSubtitle('influence')).toBe('Boost influence');
+    expect(leaderboardTrackSubtitle('earners')).toBe('Rewards earned');
   });
 
   it('computes percent of leader', () => {

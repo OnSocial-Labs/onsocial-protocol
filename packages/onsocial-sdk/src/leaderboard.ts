@@ -8,11 +8,24 @@ export type LeaderboardTrack = 'influence' | 'reputation' | 'earners';
 export const LEADERBOARD_TRACKS: {
   id: LeaderboardTrack;
   label: string;
+  /** Visual weight in track tabs — earners stay available but quieter. */
+  emphasis?: 'primary' | 'tertiary';
 }[] = [
   { id: 'reputation', label: 'Reputation' },
   { id: 'influence', label: 'Influence' },
-  { id: 'earners', label: 'Earners' },
+  { id: 'earners', label: 'Earners', emphasis: 'tertiary' },
 ];
+
+export function leaderboardTrackSubtitle(track: LeaderboardTrack): string {
+  switch (track) {
+    case 'reputation':
+      return 'Protocol reputation';
+    case 'influence':
+      return 'Boost influence';
+    case 'earners':
+      return 'Rewards earned';
+  }
+}
 
 export const LEADERBOARD_PAGE_SIZE = 20;
 
