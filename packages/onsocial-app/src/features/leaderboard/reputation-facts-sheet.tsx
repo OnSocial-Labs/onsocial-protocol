@@ -1,10 +1,7 @@
 'use client';
 
 import { useCallback, useState, type CSSProperties } from 'react';
-import {
-  OsHugSheet,
-  SheetCloseButton,
-} from '@onsocial/ui';
+import { OsHugSheet, SheetCloseButton } from '@onsocial/ui';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { LeaderboardChartAction } from '@/features/leaderboard/leaderboard-chart-action';
 import { LeaderboardSheet } from '@/features/leaderboard/leaderboard-sheet';
@@ -51,8 +48,8 @@ export function ReputationFactsSheet({
         copy={
           reputation
             ? reputation.rank > 0
-              ? `Rank #${reputation.rank} · protocol v2`
-              : 'Protocol reputation v2'
+              ? `Rank #${reputation.rank} · protocol v1`
+              : 'Protocol reputation v1'
             : 'Not indexed yet'
         }
         closeAriaLabel="Close reputation"
@@ -64,9 +61,7 @@ export function ReputationFactsSheet({
         {...(panelStyle ? { panelStyle } : {})}
         headerActions={
           <div className="standing-sheet-actions standing-sheet-actions--payout">
-            <LeaderboardChartAction
-              onClick={() => setLeaderboardOpen(true)}
-            />
+            <LeaderboardChartAction onClick={() => setLeaderboardOpen(true)} />
             <SheetCloseButton
               onClick={requestClose}
               ariaLabel="Close reputation"

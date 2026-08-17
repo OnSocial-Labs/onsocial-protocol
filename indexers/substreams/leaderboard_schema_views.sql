@@ -22,7 +22,7 @@
 --   5. reward_weights          — standing × boost multiplier
 --   6. content_activity        — posts, replies, reactions, active days
 --   7. scarces_activity         — scarce creation, sales, revenue
---   8. reputation_scores       — composite reputation per user (v2.3)
+--   8. reputation_scores       — composite reputation per user (v1)
 --   9. leaderboard_agent_features — deterministic rank-consumer signals
 --  10. leaderboard_by_app      — per-partner rankings
 --  11. leaderboard_by_group    — per-community rankings
@@ -311,7 +311,7 @@ WHERE account_id IS NOT NULL AND account_id != ''
 GROUP BY account_id;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 8. reputation_scores — composite reputation score per user (v2.3)
+-- 8. reputation_scores — composite reputation score per user (v1)
 -- ────────────────────────────────────────────────────────────────────────────
 -- Combines: weighted social graph × token commitment × content quality ×
 --           consistency × scarces marketplace activity.
@@ -321,7 +321,7 @@ GROUP BY account_id;
 --             author_amplify_received, thread_replies, quotes,
 --             reactions_current (scarce loves)
 --
--- v2.3 formula:
+-- v1 formula:
 --   issuer_weight(S) =
 --     min(2.5, 1 + ln(1 + standing_with(S))/ln(21) + ln(1 + boost(S))/ln(11))
 --     (prior from graph + boost only — no circular dependency on reputation)
