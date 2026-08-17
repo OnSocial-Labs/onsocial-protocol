@@ -126,10 +126,14 @@ export function parseDropsMediumParam(
   return 'all';
 }
 
-/** Drops catalog path — deep-link sort and/or medium (`?sort=` / `?kind=`). */
+/** Query key for audio release format (`single` | `album` | `podcast`). */
+export const MARKET_AUDIO_FORMAT_PARAM = 'audioFormat';
+
+/** Drops catalog path — deep-link sort, medium, and/or audio format. */
 export function dropsPath(opts?: {
   sort?: DropsSortParam | null;
   kind?: DropsMediumParam | string | null;
+  audioFormat?: string | null;
 }): string {
   const params = new URLSearchParams();
   const sort = opts?.sort?.trim().toLowerCase() ?? '';
@@ -139,6 +143,13 @@ export function dropsPath(opts?: {
   const medium = parseDropsMediumParam(opts?.kind);
   if (medium !== 'all') {
     params.set(MARKET_KIND_PARAM, medium);
+  }
+  const format = opts?.audioFormat?.trim().toLowerCase() ?? '';
+  if (
+    medium === 'audio' &&
+    (format === 'single' || format === 'album' || format === 'podcast')
+  ) {
+    params.set(MARKET_AUDIO_FORMAT_PARAM, format);
   }
   const qs = params.toString();
   return qs ? `${APP_DROPS_PATH}?${qs}` : APP_DROPS_PATH;
@@ -162,9 +173,6 @@ export const MARKET_APP_PARAM = 'app';
 
 /** Query key for secondary discovery facets (CSV of genre / subject slugs). */
 export const MARKET_FACETS_PARAM = 'facets';
-
-/** Query key for audio release format (`single` | `album` | `podcast`). */
-export const MARKET_AUDIO_FORMAT_PARAM = 'audioFormat';
 
 /** Query key for Collectibles focused player (`?c=collectionId`). */
 export const COLLECTIBLES_PLAY_PARAM = 'c';

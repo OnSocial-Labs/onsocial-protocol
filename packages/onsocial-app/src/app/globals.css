@@ -25516,13 +25516,41 @@ a.os-surface-row {
     min-width: 3.5rem;
   }
 
+  .drops-catalog--refreshing .market-listing-list,
+  .drops-catalog--refreshing .drops-upcoming-group {
+    opacity: 0.72;
+    transition: opacity 120ms ease;
+  }
+
+  .drops-discovery-row.drops-discovery-row--featured {
+    position: relative;
+    margin-bottom: 0.65rem;
+    padding: 0.55rem 0.55rem 0.55rem 0.65rem;
+    border-radius: 0.85rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    box-shadow: inset 3px 0 0 rgb(var(--fg-rgb) / 0.35);
+  }
+
+  .drops-discovery-row--featured .drops-discovery-thumb.market-listing-thumb {
+    width: 4.85rem;
+    height: 4.85rem;
+  }
+
+  @media (min-width: 640px) {
+    .drops-discovery-row--featured .drops-discovery-thumb.market-listing-thumb {
+      width: 5.5rem;
+      height: 5.5rem;
+    }
+  }
+
   .drops-discovery-featured-eyebrow {
     display: block;
-    margin: 0 0 0.15rem;
-    font-size: 0.68rem;
-    letter-spacing: 0.04em;
+    margin: 0 0 0.2rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    opacity: 0.55;
+    color: rgb(var(--fg-rgb) / 0.72);
   }
 
   .drops-upcoming-group + .drops-upcoming-group {

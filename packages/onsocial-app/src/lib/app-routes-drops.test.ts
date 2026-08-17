@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   APP_DROPS_PATH,
   DROPS_SORT_PARAM,
+  MARKET_AUDIO_FORMAT_PARAM,
   MARKET_KIND_PARAM,
   dropsPath,
   parseDropsMediumParam,
@@ -40,6 +41,15 @@ describe('dropsPath', () => {
       `${APP_DROPS_PATH}?${DROPS_SORT_PARAM}=upcoming&${MARKET_KIND_PARAM}=audio`
     );
     expect(dropsPath({ sort: 'live', kind: 'all' })).toBe(APP_DROPS_PATH);
+  });
+
+  it('deep-links audio format only under Audio medium', () => {
+    expect(dropsPath({ kind: 'audio', audioFormat: 'album' })).toBe(
+      `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=audio&${MARKET_AUDIO_FORMAT_PARAM}=album`
+    );
+    expect(dropsPath({ kind: 'ticket', audioFormat: 'album' })).toBe(
+      `${APP_DROPS_PATH}?${MARKET_KIND_PARAM}=ticket`
+    );
   });
 });
 

@@ -19,17 +19,24 @@ import {
 import { DropsDiscoveryRowMenu } from '@/features/drops/drops-discovery-row-menu';
 import {
   DROPS_PAGE_SIZE,
+  dropsItemMatchesQuery,
   fetchCreatorLeaders,
   fetchDropsPage,
   isDropClosing,
   pickFeaturedLiveDrop,
+  softFillDropFanRosters,
   upcomingBucket,
   type CreatorLeaderRow,
+  type DropAudioFormatFilter,
   type DropDiscoveryItem,
   type DropsSort,
   type UpcomingBucket,
 } from '@/features/drops/drops-data';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
+import {
+  MarketFacetRail,
+  type MarketAudioFormatFilter,
+} from '@/features/market/market-facet-rail';
 import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -40,6 +47,7 @@ import {
   fetchAllowlistRemaining,
   isCollectionMintable,
 } from '@/features/scarces/collections-data';
+import { parseAudioFormat } from '@/features/scarces/drop-facets';
 import {
   ScarceBuySheet,
   type ScarceBuyListing,
@@ -53,6 +61,7 @@ import {
   APP_DROP_CREATE_PATH,
   APP_MARKET_PATH,
   DROPS_SORT_PARAM,
+  MARKET_AUDIO_FORMAT_PARAM,
   MARKET_KIND_PARAM,
   collectionPath,
   dropsPath,
@@ -62,6 +71,38 @@ import {
 } from '@/lib/app-routes';
 import { portfolioPath } from '@/lib/overlay-routes';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
+
+/** Debounce before search keystrokes hit the indexer (snappy, still typed). */
+const SEARCH_DEBOUNCE_MS = 200;
+
+/** Keep recent catalog pages so flipping back is instant. */
+const CATALOG_CACHE_TTL_MS = 90_000;
+const CATALOG_CACHE_MAX_ENTRIES = 12;
+
+type CatalogCacheEntry = {
+  items: DropDiscoveryItem[];
+  hasMore: boolean;
+  creators: CreatorLeaderRow[];
+  at: number;
+};
+
+function dropsCatalogCacheKey(opts: {
+  sort: DropsSort;
+  medium: MarketMediumFilter;
+  audioFormat: MarketAudioFormatFilter;
+  search: string;
+  viewer: string;
+}): string {
+  // Public catalogs are shared; only Saved is viewer-private.
+  const viewerPart = opts.sort === 'saved' ? opts.viewer : '';
+  return [
+    opts.sort,
+    opts.medium,
+    opts.audioFormat ?? '',
+    opts.search,
+    viewerPart,
+  ].join('|');
+}
 
 const BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
   { id: 'live', label: 'Live' },
@@ -442,7 +483,9 @@ function DropRow({
       )}
       <div className="market-listing-copy drops-discovery-copy">
         {featured ? (
-          <span className="drops-discovery-featured-eyebrow">Featured</span>
+          <span className="drops-discovery-featured-eyebrow">
+            {isDropClosing(item, nowMs) ? 'Featured · Closing' : 'Featured'}
+          </span>
         ) : null}
         <div className="market-listing-head drops-discovery-head">
           <Link
@@ -592,7 +635,7 @@ function EmptyDropsStatus({
   if (query.trim()) {
     return (
       <p className="market-page-status">
-        No loaded drops match “{query.trim()}”. Try another tab or clear search.
+        No drops match “{query.trim()}”. Try another tab or clear search.
       </p>
     );
   }
@@ -663,6 +706,7 @@ function toPanelMedium(value: DropsMediumParam): MarketMediumFilter {
 export function DropsPagePanel({
   initialSort = 'live',
   initialMedium = 'all',
+  initialAudioFormat = null,
   initialItems = [],
   initialHasMore,
   initialFetchFailed = false,
@@ -672,6 +716,8 @@ export function DropsPagePanel({
   initialSort?: DropsSort;
   /** From SSR / `?kind=` — Events = `ticket`. */
   initialMedium?: DropsMediumParam;
+  /** From SSR / `?audioFormat=` when medium is audio. */
+  initialAudioFormat?: DropAudioFormatFilter | null;
   initialItems?: DropDiscoveryItem[];
   /** From SSR `fetchDropsPage`; defaults to a full-page guess. */
   initialHasMore?: boolean;
@@ -686,6 +732,10 @@ export function DropsPagePanel({
   const searchParams = useSearchParams();
   const urlSort = parseDropsSortParam(searchParams.get(DROPS_SORT_PARAM));
   const urlMedium = parseDropsMediumParam(searchParams.get(MARKET_KIND_PARAM));
+  const urlAudioFormat =
+    urlMedium === 'audio'
+      ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
+      : null;
   const scrollRootRef = useRef<HTMLElement | null>(null);
   const toolbarHidden = useDockAutoHide(false, scrollRootRef);
   const [nowMs, setNowMs] = useState(
@@ -711,17 +761,59 @@ export function DropsPagePanel({
       ? toPanelMedium(urlMedium)
       : toPanelMedium(initialMedium)
   );
+  const [audioFormat, setAudioFormat] = useState<MarketAudioFormatFilter>(() =>
+    searchParams.get(MARKET_AUDIO_FORMAT_PARAM)
+      ? urlAudioFormat
+      : initialAudioFormat
+  );
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [items, setItems] = useState(initialItems);
   const [creators, setCreators] = useState(initialCreators);
   const [offset, setOffset] = useState(initialItems.length);
   const [hasMore, setHasMore] = useState(
     () => initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE
   );
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(
+    () => initialSort === 'saved' || initialFetchFailed
+  );
+  const [refreshing, setRefreshing] = useState(false);
   const [failed, setFailed] = useState(initialFetchFailed);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [activeCatalogKey, setActiveCatalogKey] = useState(() =>
+    dropsCatalogCacheKey({
+      sort: initialSort,
+      medium: initialMedium,
+      audioFormat: initialAudioFormat,
+      search: '',
+      viewer: '',
+    })
+  );
+  const catalogCacheRef = useRef<Map<string, CatalogCacheEntry>>(new Map());
+  const reloadGenRef = useRef(0);
+  const fanFillAttemptedRef = useRef<Set<string>>(new Set());
+  const catalogSeededRef = useRef(false);
+  if (!catalogSeededRef.current) {
+    catalogSeededRef.current = true;
+    if (!initialFetchFailed) {
+      catalogCacheRef.current.set(
+        dropsCatalogCacheKey({
+          sort: initialSort,
+          medium: initialMedium,
+          audioFormat: initialAudioFormat,
+          search: '',
+          viewer: '',
+        }),
+        {
+          items: initialItems,
+          hasMore: initialHasMore ?? initialItems.length >= DROPS_PAGE_SIZE,
+          creators: initialCreators,
+          at: Date.now(),
+        }
+      );
+    }
+  }
   const [allowlistById, setAllowlistById] = useState<
     Record<string, number | null>
   >({});
@@ -740,6 +832,32 @@ export function DropsPagePanel({
     collectionIds,
   });
 
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  const discoveryPath = useCallback(
+    (next: {
+      sort?: DropsSort;
+      medium?: MarketMediumFilter;
+      audioFormat?: MarketAudioFormatFilter;
+    }) =>
+      dropsPath({
+        sort: next.sort ?? sort,
+        kind: next.medium ?? medium,
+        audioFormat:
+          (next.medium ?? medium) === 'audio'
+            ? (next.audioFormat !== undefined
+                ? next.audioFormat
+                : audioFormat)
+            : null,
+      }),
+    [audioFormat, medium, sort]
+  );
+
   const selectSort = useCallback(
     (next: DropsSort) => {
       if (next === 'saved' && !isConnected) {
@@ -747,55 +865,144 @@ export function DropsPagePanel({
         return;
       }
       setSort(next);
-      router.replace(dropsPath({ sort: next, kind: medium }), {
-        scroll: false,
-      });
+      router.replace(discoveryPath({ sort: next }), { scroll: false });
     },
-    [connect, isConnected, medium, router]
+    [connect, discoveryPath, isConnected, router]
   );
 
   const selectMedium = useCallback(
     (next: MarketMediumFilter) => {
+      const nextFormat = next === 'audio' ? audioFormat : null;
       setMedium(next);
-      router.replace(dropsPath({ sort, kind: next }), { scroll: false });
+      if (next !== 'audio') setAudioFormat(null);
+      router.replace(
+        discoveryPath({ medium: next, audioFormat: nextFormat }),
+        { scroll: false }
+      );
     },
-    [router, sort]
+    [audioFormat, discoveryPath, router]
+  );
+
+  const selectAudioFormat = useCallback(
+    (next: MarketAudioFormatFilter) => {
+      setAudioFormat(next);
+      router.replace(discoveryPath({ audioFormat: next }), { scroll: false });
+    },
+    [discoveryPath, router]
   );
 
   useEffect(() => {
     if (urlSort === 'saved' && !isConnected) {
       setSort((current) => (current === 'live' ? current : 'live'));
       if (searchParams.get(DROPS_SORT_PARAM)) {
-        router.replace(dropsPath({ kind: urlMedium }), { scroll: false });
+        router.replace(discoveryPath({ sort: 'live' }), { scroll: false });
       }
       return;
     }
     setSort((current) => (current === urlSort ? current : urlSort));
-  }, [urlSort, urlMedium, isConnected, router, searchParams]);
+  }, [urlSort, isConnected, router, searchParams, discoveryPath]);
 
   useEffect(() => {
     const next = toPanelMedium(urlMedium);
     setMedium((current) => (current === next ? current : next));
   }, [urlMedium]);
 
+  useEffect(() => {
+    setAudioFormat((current) =>
+      current === urlAudioFormat ? current : urlAudioFormat
+    );
+  }, [urlAudioFormat]);
+
+  const patchCatalogCache = useCallback(
+    (
+      key: string,
+      patch: (entry: CatalogCacheEntry) => CatalogCacheEntry | null
+    ) => {
+      const current = catalogCacheRef.current.get(key);
+      if (!current) return;
+      const next = patch(current);
+      if (next) catalogCacheRef.current.set(key, next);
+      else catalogCacheRef.current.delete(key);
+    },
+    []
+  );
+
+  const writeCatalogCache = useCallback(
+    (key: string, entry: CatalogCacheEntry) => {
+      const cache = catalogCacheRef.current;
+      cache.set(key, entry);
+      if (cache.size <= CATALOG_CACHE_MAX_ENTRIES) return;
+      // Drop oldest by `at` (Map insertion order is not age after patches).
+      let oldestKey: string | null = null;
+      let oldestAt = Number.POSITIVE_INFINITY;
+      for (const [entryKey, value] of cache) {
+        if (value.at < oldestAt) {
+          oldestAt = value.at;
+          oldestKey = entryKey;
+        }
+      }
+      if (oldestKey) cache.delete(oldestKey);
+    },
+    []
+  );
+
   const reload = useCallback(
-    async (nextSort: DropsSort, nextMedium: MarketMediumFilter) => {
-      setLoading(true);
+    async (
+      nextSort: DropsSort,
+      nextMedium: MarketMediumFilter,
+      nextSearch: string,
+      nextFormat: MarketAudioFormatFilter
+    ) => {
+      const viewer = accountId?.trim() ?? '';
+      const cacheKey = dropsCatalogCacheKey({
+        sort: nextSort,
+        medium: nextMedium,
+        audioFormat: nextFormat,
+        search: nextSearch,
+        viewer,
+      });
+      const gen = ++reloadGenRef.current;
+      setActiveCatalogKey(cacheKey);
       setFailed(false);
       setLoadMoreFailed(false);
-      setItems([]);
-      setOffset(0);
-      setHasMore(false);
-      setAllowlistById({});
+      fanFillAttemptedRef.current = new Set();
+
+      const cached = catalogCacheRef.current.get(cacheKey);
+      const cacheFresh =
+        cached != null && Date.now() - cached.at < CATALOG_CACHE_TTL_MS;
+      if (cacheFresh && cached) {
+        // Instant flip-back — paint cache, then soft-revalidate.
+        setItems(cached.items);
+        setOffset(cached.items.length);
+        setHasMore(cached.hasMore);
+        setCreators(cached.creators);
+        setLoading(false);
+        setRefreshing(true);
+      } else {
+        // Cache miss: skeleton — do not show the previous tab's rows.
+        setItems([]);
+        setCreators([]);
+        setRefreshing(false);
+        setLoading(true);
+        setOffset(0);
+        setHasMore(false);
+        setAllowlistById({});
+      }
+
       try {
-        if (nextSort === 'saved' && !accountId) {
+        if (nextSort === 'saved' && !viewer) {
+          if (gen !== reloadGenRef.current) return;
+          setItems([]);
           setCreators([]);
+          setHasMore(false);
           return;
         }
         const [page, leaders] = await Promise.all([
           fetchDropsPage({
             sort: nextSort,
             mediumKind: nextMedium === 'all' ? null : nextMedium,
+            search: nextSearch || null,
+            audioFormat: nextFormat,
             limit: DROPS_PAGE_SIZE,
             viewerAccountId: accountId,
           }),
@@ -803,43 +1010,124 @@ export function DropsPagePanel({
             ? fetchCreatorLeaders({ limit: 8 })
             : Promise.resolve([] as CreatorLeaderRow[]),
         ]);
+        if (gen !== reloadGenRef.current) return;
+        writeCatalogCache(cacheKey, {
+          items: page.items,
+          hasMore: page.hasMore,
+          creators: leaders,
+          at: Date.now(),
+        });
         setItems(page.items);
         setOffset(page.items.length);
         setHasMore(page.hasMore);
         setCreators(leaders);
       } catch {
+        if (gen !== reloadGenRef.current) return;
         setFailed(true);
-        setItems([]);
-        setHasMore(false);
-        setCreators([]);
+        if (!cacheFresh) {
+          setItems([]);
+          setHasMore(false);
+          setCreators([]);
+        }
       } finally {
-        setLoading(false);
+        if (gen === reloadGenRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
-    [accountId]
+    [accountId, writeCatalogCache]
   );
 
   useEffect(() => {
-    // Trust a successful SSR seed (including empty) for the matching sort/medium.
+    // Trust a successful SSR seed (incl. empty) for the matching catalog —
+    // avoids cold-load double-fetch + refreshing flash / Featured blink.
     if (
       reloadKey === 0 &&
       !initialFetchFailed &&
       sort === initialSort &&
       sort !== 'saved' &&
-      medium === toPanelMedium(initialMedium)
+      medium === toPanelMedium(initialMedium) &&
+      audioFormat === initialAudioFormat &&
+      !debouncedQuery
     ) {
       return;
     }
-    void reload(sort, medium);
+    void reload(sort, medium, debouncedQuery, audioFormat);
   }, [
     sort,
     medium,
+    audioFormat,
+    debouncedQuery,
     initialSort,
     initialMedium,
+    initialAudioFormat,
     initialFetchFailed,
     reload,
     reloadKey,
     accountId,
+  ]);
+
+  // Soft-fill fan counts after paint (kept off the critical fetch path).
+  useEffect(() => {
+    if (sort === 'loved' || refreshing || loading) return;
+    const targets = items.filter(
+      (item) =>
+        (item.fanCount == null || item.fanCount <= 0) &&
+        !fanFillAttemptedRef.current.has(item.collectionId)
+    );
+    if (targets.length === 0) return;
+    const targetIds = targets.map((item) => item.collectionId);
+    let cancelled = false;
+    void softFillDropFanRosters(targets).then((filled) => {
+      if (cancelled) return;
+      // Mark attempted whether or not fans were found — avoids retry storms.
+      for (const id of targetIds) fanFillAttemptedRef.current.add(id);
+      const byId = new Map(
+        filled
+          .filter((row) => row.fanCount != null && row.fanCount > 0)
+          .map((row) => [row.collectionId.trim(), row] as const)
+      );
+      if (byId.size === 0) return;
+      setItems((current) => {
+        let changed = false;
+        const next = current.map((item) => {
+          const row = byId.get(item.collectionId.trim());
+          if (!row) return item;
+          changed = true;
+          return {
+            ...item,
+            fanCount: row.fanCount,
+            ...(row.fanIds ? { fanIds: row.fanIds } : {}),
+          };
+        });
+        if (changed) {
+          patchCatalogCache(activeCatalogKey, (entry) => ({
+            ...entry,
+            items: entry.items.map((item) => {
+              const row = byId.get(item.collectionId.trim());
+              if (!row) return item;
+              return {
+                ...item,
+                fanCount: row.fanCount,
+                ...(row.fanIds ? { fanIds: row.fanIds } : {}),
+              };
+            }),
+          }));
+        }
+        return changed ? next : current;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    items,
+    sort,
+    refreshing,
+    loading,
+    activeCatalogKey,
+    patchCatalogCache,
   ]);
 
   // Soft-fill allowlist remaining for Upcoming rows (N× RPC, after paint).
@@ -920,41 +1208,60 @@ export function DropsPagePanel({
   }, [items]);
 
   const loadMore = () => {
-    if (!hasMore || loading) return;
+    if (!hasMore || loading || refreshing) return;
+    const gen = reloadGenRef.current;
+    const catalogKey = activeCatalogKey;
+    const pageOffset = offset;
     setLoading(true);
     setLoadMoreFailed(false);
     void fetchDropsPage({
       sort,
       mediumKind: medium === 'all' ? null : medium,
+      search: debouncedQuery || null,
+      audioFormat,
       limit: DROPS_PAGE_SIZE,
-      offset,
+      offset: pageOffset,
       viewerAccountId: accountId,
     })
       .then((page) => {
-        setItems((current) => [...current, ...page.items]);
-        setOffset((value) => value + page.items.length);
+        if (gen !== reloadGenRef.current) return;
+        setItems((current) => {
+          const merged = [...current, ...page.items];
+          patchCatalogCache(catalogKey, (entry) => ({
+            ...entry,
+            items: merged,
+            hasMore: page.hasMore,
+            at: Date.now(),
+          }));
+          return merged;
+        });
+        setOffset(pageOffset + page.items.length);
         setHasMore(page.hasMore);
       })
       .catch(() => {
+        if (gen !== reloadGenRef.current) return;
         setLoadMoreFailed(true);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (gen === reloadGenRef.current) setLoading(false);
+      });
   };
 
   const needle = query.trim().toLowerCase();
+  const searching = needle.length > 0;
+  // Live keystrokes filter the current page; debounced query drives the indexer.
   const visibleItems =
-    needle.length === 0
+    !searching || needle === debouncedQuery.toLowerCase()
       ? items
-      : items.filter((item) => {
-          const title = item.title.toLowerCase();
-          const creator = item.creatorId.toLowerCase();
-          return title.includes(needle) || creator.includes(needle);
-        });
+      : items.filter((item) => dropsItemMatchesQuery(item, needle));
 
   const featured =
     sort === 'live' &&
-    needle.length === 0 &&
+    !searching &&
+    !audioFormat &&
+    medium === 'all' &&
     !loading &&
+    !refreshing &&
     visibleItems.length >= 2
       ? pickFeaturedLiveDrop(visibleItems, nowMs)
       : null;
@@ -978,8 +1285,9 @@ export function DropsPagePanel({
   }, [sort, catalogItems, nowMs]);
 
   const showCreators =
-    sort === 'new' && creators.length > 0 && needle.length === 0;
+    sort === 'new' && creators.length > 0 && !searching && !audioFormat;
   const showCatalogSkeleton = loading && items.length === 0 && !failed;
+  const catalogRefreshing = refreshing && items.length > 0;
 
   const renderRow = (item: DropDiscoveryItem, opts?: { featured?: boolean }) => (
     <DropRow
@@ -996,32 +1304,53 @@ export function DropsPagePanel({
         void toggleSave(item.collectionId);
       }}
       onOwnerManaged={(change) => {
+        const id = item.collectionId;
         if (change === 'deleted' || change === 'paused') {
           // Live / closing tabs hide paused & deleted; remove immediately.
           if (sort === 'live' || sort === 'closing' || change === 'deleted') {
             setItems((current) =>
-              current.filter((row) => row.collectionId !== item.collectionId)
+              current.filter((row) => row.collectionId !== id)
             );
+            patchCatalogCache(activeCatalogKey, (entry) => ({
+              ...entry,
+              items: entry.items.filter((row) => row.collectionId !== id),
+            }));
             return;
           }
         }
         if (change === 'resumed') {
           setItems((current) =>
             current.map((row) =>
-              row.collectionId === item.collectionId
+              row.collectionId === id
                 ? { ...row, status: 'live' as const }
                 : row
             )
           );
+          patchCatalogCache(activeCatalogKey, (entry) => ({
+            ...entry,
+            items: entry.items.map((row) =>
+              row.collectionId === id
+                ? { ...row, status: 'live' as const }
+                : row
+            ),
+          }));
           return;
         }
         setItems((current) =>
           current.map((row) =>
-            row.collectionId === item.collectionId
+            row.collectionId === id
               ? { ...row, status: 'paused' as const }
               : row
           )
         );
+        patchCatalogCache(activeCatalogKey, (entry) => ({
+          ...entry,
+          items: entry.items.map((row) =>
+            row.collectionId === id
+              ? { ...row, status: 'paused' as const }
+              : row
+          ),
+        }));
       }}
       onPlay={
         item.hasPlayable
@@ -1100,6 +1429,16 @@ export function DropsPagePanel({
                 ))}
               </div>
             </div>
+            {medium === 'audio' ? (
+              <MarketFacetRail
+                medium="audio"
+                audioFormat={audioFormat}
+                selectedFacets={[]}
+                showFacets={false}
+                onAudioFormatChange={selectAudioFormat}
+                onFacetsChange={() => undefined}
+              />
+            ) : null}
           </div>
         </div>
       }
@@ -1143,7 +1482,13 @@ export function DropsPagePanel({
             </section>
           ) : null}
 
-          <section className="market-section" aria-labelledby="drops-catalog">
+          <section
+            className={`market-section${
+              catalogRefreshing ? ' drops-catalog--refreshing' : ''
+            }`}
+            aria-labelledby="drops-catalog"
+            aria-busy={catalogRefreshing || undefined}
+          >
             <h2 id="drops-catalog" className="market-section-title">
               {sorts.find((entry) => entry.id === sort)?.label ?? 'Drops'}
             </h2>
@@ -1205,8 +1550,9 @@ export function DropsPagePanel({
             ) : null}
             {hasMore &&
             items.length > 0 &&
-            needle.length === 0 &&
-            !failed ? (
+            (!searching || needle === debouncedQuery.toLowerCase()) &&
+            !failed &&
+            !refreshing ? (
               <button
                 type="button"
                 className="market-sales-more"
