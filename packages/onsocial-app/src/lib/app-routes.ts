@@ -10,6 +10,10 @@ export const APP_DAOS_PATH = '/daos';
 export const APP_MESSAGES_PATH = '/messages';
 /** Activity / notifications inbox. */
 export const APP_NOTIFICATIONS_PATH = '/notifications';
+/** Protocol leaderboard slide-over destination. */
+export const APP_LEADERBOARD_PATH = '/leaderboard';
+/** Query key for leaderboard track (`reputation` | `influence` | `earners`). */
+export const LEADERBOARD_TRACK_PARAM = 'track';
 /** Single DAO portfolio page (`/dao/[accountId]`). */
 export const APP_DAO_PATH = '/dao';
 /** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
@@ -25,6 +29,39 @@ export type DropsSortParam =
   | 'new'
   | 'loved'
   | 'saved';
+
+export type LeaderboardTrackParam =
+  | 'reputation'
+  | 'influence'
+  | 'earners';
+
+const LEADERBOARD_TRACK_VALUES = new Set<string>([
+  'reputation',
+  'influence',
+  'earners',
+]);
+
+/** Parse `?track=` for leaderboard; defaults to reputation. */
+export function parseLeaderboardTrackParam(
+  raw: string | null | undefined
+): LeaderboardTrackParam {
+  const value = raw?.trim().toLowerCase() ?? '';
+  if (LEADERBOARD_TRACK_VALUES.has(value)) {
+    return value as LeaderboardTrackParam;
+  }
+  return 'reputation';
+}
+
+/** Leaderboard path, optionally deep-linked to a track tab. */
+export function leaderboardPath(opts?: {
+  track?: LeaderboardTrackParam | null;
+}): string {
+  const track = opts?.track?.trim().toLowerCase() ?? '';
+  if (!track || track === 'reputation' || !LEADERBOARD_TRACK_VALUES.has(track)) {
+    return APP_LEADERBOARD_PATH;
+  }
+  return `${APP_LEADERBOARD_PATH}?${LEADERBOARD_TRACK_PARAM}=${encodeURIComponent(track)}`;
+}
 
 const DROPS_SORT_VALUES = new Set<string>([
   'live',
@@ -393,6 +430,8 @@ export function isAppRoutePath(pathname: string): boolean {
   return (
     pathname === APP_HOME_PATH ||
     pathname.startsWith(`${APP_HOME_PATH}/`) ||
+    pathname === APP_LEADERBOARD_PATH ||
+    pathname.startsWith(`${APP_LEADERBOARD_PATH}/`) ||
     pathname === APP_NOTIFICATIONS_PATH ||
     pathname.startsWith(`${APP_NOTIFICATIONS_PATH}/`) ||
     pathname === APP_MESSAGES_PATH ||

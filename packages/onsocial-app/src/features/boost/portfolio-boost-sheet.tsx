@@ -67,7 +67,6 @@ import {
 } from '@/lib/app-config';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import { LeaderboardChartAction } from '@/features/leaderboard/leaderboard-chart-action';
-import { LeaderboardSheet } from '@/features/leaderboard/leaderboard-sheet';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import {
   formatSocialCompact,
@@ -368,7 +367,6 @@ export function PortfolioBoostSheet({
   );
   const [balanceYocto, setBalanceYocto] = useState<bigint | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
 
   if (open !== wasOpen) {
     setWasOpen(open);
@@ -792,7 +790,6 @@ export function PortfolioBoostSheet({
   })();
 
   return (
-    <>
     <GlassSheet
       open={sheetOpen}
       onClose={requestClose}
@@ -856,8 +853,8 @@ export function PortfolioBoostSheet({
               </div>
               <div className="standing-sheet-actions standing-sheet-actions--payout">
                 <LeaderboardChartAction
+                  track="influence"
                   ariaLabel="Open boost leaderboard"
-                  onClick={() => setLeaderboardOpen(true)}
                 />
                 <SheetCloseButton
                   onClick={requestClose}
@@ -1107,11 +1104,5 @@ export function PortfolioBoostSheet({
         </div>
       )}
     </GlassSheet>
-    <LeaderboardSheet
-      open={leaderboardOpen}
-      onClose={() => setLeaderboardOpen(false)}
-      initialTrack="influence"
-    />
-    </>
   );
 }

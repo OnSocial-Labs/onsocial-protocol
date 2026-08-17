@@ -1,167 +1,60 @@
 import { formatSocialCompact } from '@/lib/format-social-balance';
+import {
+  LEADERBOARD_PAGE_SIZE,
+  LEADERBOARD_TRACKS,
+  REPUTATION_BOARD_GRAPHQL_FIELDS,
+  commitmentLabel,
+  findViewerEntry,
+  formatReputationComponent,
+  formatReputationScore,
+  leaderboardShareCopy,
+  leaderboardTrackSubtitle,
+  pctOfLeader,
+  reputationBoardMeta,
+  reputationConfidenceLabel,
+  reputationTierLabel,
+  type EarnerEntry,
+  type InfluenceEntry,
+  type LeaderboardTrack,
+  type ReputationEntry,
+} from '@onsocial/sdk';
+import type { ProfileReputation } from '@/lib/profile-signals';
 
-export type LeaderboardTrack = 'influence' | 'reputation' | 'earners';
+export type { EarnerEntry, InfluenceEntry, LeaderboardTrack, ReputationEntry };
+export {
+  LEADERBOARD_PAGE_SIZE,
+  LEADERBOARD_TRACKS,
+  REPUTATION_BOARD_GRAPHQL_FIELDS,
+  commitmentLabel,
+  findViewerEntry,
+  formatReputationComponent,
+  formatReputationScore,
+  leaderboardShareCopy,
+  leaderboardTrackSubtitle,
+  pctOfLeader,
+  reputationBoardMeta,
+  reputationConfidenceLabel,
+  reputationTierLabel,
+  formatSocialCompact,
+};
 
-export interface InfluenceEntry {
-  accountId: string;
-  lockedAmount: string;
-  effectiveBoost: string;
-  lockMonths: number;
-  rank: number;
-}
-
-export interface EarnerEntry {
-  accountId: string;
-  totalEarned: string;
-  unclaimed?: string;
-  rank: number;
-}
-
-/** `reputation_scores` view (protocol reputation v1). */
-export interface ReputationEntry {
-  accountId: string;
-  standingWith: number;
-  mutualStanding: number;
-  endorsementsReceived: number;
-  paidSupportSpenders?: number;
-  uniqueInboundPeers?: number;
-  uniqueScarceFans?: number;
-  amplifyEvents?: number;
-  boost: string;
-  lockMonths: number;
-  totalPosts: number;
-  activeDays: number;
-  reactionsReceived: number;
-  scarcesCreated: number;
-  socialScore: string;
-  commitmentScore: string;
-  qualityScore: string;
-  consistencyScore: string;
-  scarcesScore: string;
-  reputation: string;
-  confidenceScore: string;
-  rank: number;
-}
+/** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
+export const LEADERBOARD_Z = 74;
+/** Nested reputation peek opened from the leaderboard. */
+export const LEADERBOARD_FACTS_Z = LEADERBOARD_Z + 4;
 
 export interface LeaderboardBoardResponse {
   leaderboardBoost?: InfluenceEntry[];
   reputationScores?: ReputationEntry[];
   leaderboardRewards?: EarnerEntry[];
+  /** Viewer row when not in the top page (or when mirrored from the list). */
+  viewerEntry?: InfluenceEntry | ReputationEntry | EarnerEntry | null;
 }
 
-export const LEADERBOARD_TRACKS: {
-  id: LeaderboardTrack;
-  label: string;
-}[] = [
-  { id: 'reputation', label: 'Reputation' },
-  { id: 'influence', label: 'Influence' },
-  { id: 'earners', label: 'Earners' },
-];
-
-export const LEADERBOARD_PAGE_SIZE = 20;
-/** Above hug sheets (boost / reputation facts ~56) and nested manage slides. */
-export const LEADERBOARD_Z = 74;
-
-export const REPUTATION_BOARD_GRAPHQL_FIELDS = `
-  accountId
-  standingWith
-  mutualStanding
-  endorsementsReceived
-  paidSupportSpenders
-  uniqueInboundPeers
-  uniqueScarceFans
-  amplifyEvents
-  boost
-  lockMonths
-  totalPosts
-  activeDays
-  reactionsReceived
-  scarcesCreated
-  socialScore
-  commitmentScore
-  qualityScore
-  consistencyScore
-  scarcesScore
-  reputation
-  confidenceScore
-  rank
-`.trim();
-
-export function formatReputationScore(value: string | number): string {
-  const num = Number.parseFloat(String(value));
-  if (!Number.isFinite(num) || num === 0) return '0';
-  if (num >= 10_000) return `${(num / 1_000).toFixed(1)}K`;
-  if (num >= 100) return num.toFixed(0);
-  return num.toFixed(1);
-}
-
-/** Component scores in the reputation breakdown (0–100 scale). */
-export function formatReputationComponent(value: string | number): string {
-  const num = Number.parseFloat(String(value));
-  if (!Number.isFinite(num) || num === 0) return '0';
-  if (num >= 100) return num.toFixed(0);
-  return num.toFixed(1);
-}
-
-export { formatSocialCompact };
-
-export function commitmentLabel(months: number): string {
-  if (months >= 48) return 'Citadel';
-  if (months >= 24) return 'Vanguard';
-  if (months >= 12) return 'Anchor';
-  if (months >= 6) return 'Steady';
-  if (months >= 1) return 'Scout';
-  return 'Observer';
-}
-
-/** Quiet rank band for list meta — not a verified badge. */
-export function reputationTierLabel(rank: number): string {
-  if (rank <= 1) return 'Legend';
-  if (rank <= 3) return 'Elite';
-  if (rank <= 10) return 'Rising';
-  if (rank <= 25) return 'Active';
-  return 'New';
-}
-
-export function reputationConfidenceLabel(
-  confidenceScore?: string | number | null
-): { label: string; detail: string } {
-  const score = Number.parseFloat(String(confidenceScore ?? ''));
-  if (!Number.isFinite(score)) {
-    return {
-      label: 'Building',
-      detail:
-        'Updates from weighted stands, endorsements, paid support, posts, boost, and marketplace activity.',
-    };
-  }
-  if (score < 0.35) {
-    return {
-      label: 'Limited data',
-      detail: 'Few signals indexed yet — rank may shift as activity grows.',
-    };
-  }
-  if (score < 0.6) {
-    return {
-      label: 'Building',
-      detail:
-        'Forming from social graph, conversations, boost, and marketplace activity.',
-    };
-  }
-  return {
-    label: 'Established',
-    detail: 'Backed by a broad set of indexed protocol signals.',
-  };
-}
-
-export function pctOfLeader(
-  value: string | number,
-  leader: string | number
-): number {
-  const n = Number.parseFloat(String(value));
-  const top = Number.parseFloat(String(leader));
-  if (!Number.isFinite(n) || !Number.isFinite(top) || top <= 0) return 0;
-  return Math.max(0, Math.min(100, (n / top) * 100));
-}
+export type LeaderboardTrackCache = {
+  board: LeaderboardBoardResponse;
+  hasMore: boolean;
+};
 
 export function entriesForTrack(
   scope: LeaderboardTrack,
@@ -173,15 +66,94 @@ export function entriesForTrack(
   return data.leaderboardRewards ?? [];
 }
 
+function listKeyForTrack(
+  scope: LeaderboardTrack
+): 'leaderboardBoost' | 'reputationScores' | 'leaderboardRewards' {
+  if (scope === 'influence') return 'leaderboardBoost';
+  if (scope === 'reputation') return 'reputationScores';
+  return 'leaderboardRewards';
+}
+
+function mergeAccountRows<T extends { accountId: string }>(
+  existing: T[],
+  incoming: T[]
+): T[] {
+  const seen = new Set(existing.map((row) => row.accountId.toLowerCase()));
+  const next = [...existing];
+  for (const row of incoming) {
+    const key = row.accountId.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(row);
+  }
+  return next;
+}
+
+export function appendLeaderboardPage(
+  scope: LeaderboardTrack,
+  current: LeaderboardBoardResponse | null | undefined,
+  page: LeaderboardBoardResponse,
+  pageSize = LEADERBOARD_PAGE_SIZE
+): LeaderboardTrackCache {
+  const key = listKeyForTrack(scope);
+  const incoming = (page[key] ?? []) as Array<{ accountId: string }>;
+  const existing = (current?.[key] ?? []) as Array<{ accountId: string }>;
+  const merged = mergeAccountRows(existing, incoming);
+  const board: LeaderboardBoardResponse = {
+    ...(current ?? {}),
+    ...page,
+    [key]: merged,
+    viewerEntry:
+      current?.viewerEntry !== undefined
+        ? current.viewerEntry
+        : (page.viewerEntry ?? null),
+  };
+  return {
+    board,
+    hasMore: incoming.length >= pageSize,
+  };
+}
+
+export function reputationEntryToProfile(
+  entry: ReputationEntry
+): ProfileReputation {
+  return {
+    reputation: Number.parseFloat(String(entry.reputation)) || 0,
+    rank: entry.rank,
+    socialScore: Number.parseFloat(String(entry.socialScore)) || 0,
+    commitmentScore: Number.parseFloat(String(entry.commitmentScore)) || 0,
+    qualityScore: Number.parseFloat(String(entry.qualityScore)) || 0,
+    consistencyScore: Number.parseFloat(String(entry.consistencyScore)) || 0,
+    scarcesScore: Number.parseFloat(String(entry.scarcesScore)) || 0,
+    confidenceScore: Number.parseFloat(String(entry.confidenceScore)) || 0,
+    totalPosts: entry.totalPosts,
+    paidSupportSpenders: entry.paidSupportSpenders ?? 0,
+    uniqueInboundPeers: entry.uniqueInboundPeers ?? 0,
+    uniqueScarceFans: entry.uniqueScarceFans ?? 0,
+    amplifyEvents: entry.amplifyEvents ?? 0,
+    lockMonths: entry.lockMonths,
+  };
+}
+
 /** Client fetch for the in-app leaderboard slide-over. */
 export async function fetchLeaderboardBoard(
   scope: LeaderboardTrack,
-  limit = LEADERBOARD_PAGE_SIZE
+  options: {
+    limit?: number;
+    offset?: number;
+    viewerAccountId?: string | null;
+  } = {}
 ): Promise<LeaderboardBoardResponse | null> {
+  const limit = options.limit ?? LEADERBOARD_PAGE_SIZE;
+  const offset = options.offset ?? 0;
   const params = new URLSearchParams({
     scope,
     limit: String(limit),
+    offset: String(offset),
   });
+  if (options.viewerAccountId) {
+    params.set('viewer', options.viewerAccountId);
+  }
   try {
     const res = await fetch(`/api/leaderboard?${params.toString()}`, {
       cache: 'no-store',

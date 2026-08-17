@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Crown, Flame, RefreshCw, Shield, TrendingUp, Zap } from 'lucide-react';
+import { StandingIdentity } from '@onsocial/ui';
 import { PageShell } from '@/components/layout/page-shell';
 import { Button } from '@/components/ui/button';
 import { PortalHoverTooltip } from '@/components/ui/portal-hover-tooltip';
@@ -11,6 +12,7 @@ import { PortalBadge } from '@/components/ui/portal-badge';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { createPortalOnSocialClient } from '@/lib/onsocial-client';
+import { getPortalProfileUrl } from '@/lib/portal-config';
 import {
   fetchInfluenceBoard,
   fetchReputationBoard,
@@ -18,9 +20,9 @@ import {
   formatSocialCompact,
   formatReputation,
   formatScore,
-  truncateAccountId,
   commitmentLabel,
   commitmentAccent,
+  reputationBoardMeta,
   reputationTier,
   pctOfLeader,
   type InfluenceEntry,
@@ -68,67 +70,7 @@ const TRACKS: {
   },
 ];
 
-// ─── Podium: Top 3 with visual hierarchy ─────────────────────────
-
-function PodiumCard({
-  rank,
-  name,
-  primary,
-  primaryLabel,
-  secondary,
-  secondaryLabel,
-  accent,
-}: {
-  rank: 1 | 2 | 3;
-  name: string;
-  primary: string;
-  primaryLabel: string;
-  secondary?: string;
-  secondaryLabel?: string;
-  accent: string;
-}) {
-  const medals = ['🥇', '🥈', '🥉'] as const;
-  const heights = ['h-28', 'h-20', 'h-16'] as const;
-  const sizes = [
-    'text-3xl md:text-4xl',
-    'text-2xl md:text-3xl',
-    'text-xl md:text-2xl',
-  ] as const;
-  const order = ['order-2', 'order-1', 'order-3'] as const;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: rank * 0.1 }}
-      className={cn('flex flex-col items-center', order[rank - 1])}
-    >
-      <span className={cn('mb-1', sizes[rank - 1])}>{medals[rank - 1]}</span>
-      <p className="mb-2 max-w-[140px] truncate font-mono text-xs text-foreground md:max-w-[180px] md:text-sm">
-        {truncateAccountId(name, 18)}
-      </p>
-      <div
-        className={cn(
-          'flex w-full flex-col items-center justify-end rounded-t-2xl border border-border/50 px-3 pb-3',
-          `portal-${accent}-surface`,
-          heights[rank - 1]
-        )}
-      >
-        <p className="font-mono text-base font-bold tabular-nums tracking-tight md:text-lg">
-          {primary}
-        </p>
-        <p className="portal-eyebrow text-muted-foreground">{primaryLabel}</p>
-        {secondary && (
-          <p className="mt-0.5 portal-type-caption text-muted-foreground">
-            {secondary} {secondaryLabel}
-          </p>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Progress bar row for rank 4+ ─────────────────────────────────
+// ─── Board rows ──────────────────────────────────────────────────
 
 function InfluenceRow({
   entry,
@@ -143,14 +85,24 @@ function InfluenceRow({
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/40 bg-background/30 font-mono text-xs tabular-nums text-muted-foreground">
         {entry.rank}
       </span>
-      <div className="min-w-0 flex-1">
+      <Link
+        href={getPortalProfileUrl(entry.accountId)}
+        className="min-w-0 flex-1"
+      >
         <div className="flex items-center gap-2">
-          <p className="truncate font-mono text-sm text-foreground">
-            {truncateAccountId(entry.accountId, 26)}
-          </p>
-          <PortalBadge accent={commitmentAccent(entry.lockMonths)} size="xs">
-            {commitmentLabel(entry.lockMonths)}
-          </PortalBadge>
+          <StandingIdentity
+            accountId={entry.accountId}
+            size="sm"
+            showHandle={false}
+            nameTrailing={
+              <PortalBadge
+                accent={commitmentAccent(entry.lockMonths)}
+                size="xs"
+              >
+                {commitmentLabel(entry.lockMonths)}
+              </PortalBadge>
+            }
+          />
         </div>
         <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border/30">
           <motion.div
@@ -160,7 +112,7 @@ function InfluenceRow({
             className="h-full rounded-full bg-[var(--portal-purple)]"
           />
         </div>
-      </div>
+      </Link>
       <div className="shrink-0 text-right">
         <p className="font-mono text-sm font-semibold tabular-nums tracking-tight">
           {formatSocialCompact(entry.effectiveBoost)}
@@ -186,26 +138,23 @@ function ReputationRow({
         {entry.rank}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-mono text-sm text-foreground">
-            {truncateAccountId(entry.accountId, 22)}
-          </p>
-          <PortalBadge accent={tier.accent} size="xs">
-            {tier.label}
-          </PortalBadge>
-        </div>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 portal-type-caption text-muted-foreground">
-          {entry.standingWith > 0 && (
-            <span>{entry.standingWith} stand with</span>
-          )}
-          {entry.totalPosts > 0 && <span>{entry.totalPosts} posts</span>}
-          {entry.activeDays > 0 && <span>{entry.activeDays}d active</span>}
-          {entry.reactionsReceived > 0 && (
-            <span>{entry.reactionsReceived} reactions</span>
-          )}
-          {entry.scarcesCreated > 0 && (
-            <span>{entry.scarcesCreated} scarces</span>
-          )}
+        <Link
+          href={getPortalProfileUrl(entry.accountId)}
+          className="flex items-center gap-2"
+        >
+          <StandingIdentity
+            accountId={entry.accountId}
+            size="sm"
+            showHandle={false}
+            nameTrailing={
+              <PortalBadge accent={tier.accent} size="xs">
+                {tier.label}
+              </PortalBadge>
+            }
+          />
+        </Link>
+        <div className="mt-1 portal-type-caption text-muted-foreground">
+          {reputationBoardMeta(entry)}
         </div>
         <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border/30">
           <motion.div
@@ -242,17 +191,26 @@ function EarnerRow({
         {entry.rank}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-mono text-sm text-foreground">
-            {truncateAccountId(entry.accountId, 26)}
-          </p>
-          {hasUnclaimed && (
-            <span className="inline-flex items-center gap-0.5 portal-type-caption text-[var(--portal-green)]">
-              <Zap className="h-2.5 w-2.5" />
-              {formatSocialCompact(entry.unclaimed!)} claimable
-            </span>
-          )}
-        </div>
+        <Link
+          href={getPortalProfileUrl(entry.accountId)}
+          className="flex min-w-0 flex-1 flex-col gap-1"
+        >
+          <div className="flex items-center gap-2">
+            <StandingIdentity
+              accountId={entry.accountId}
+              size="sm"
+              showHandle={false}
+              nameTrailing={
+                hasUnclaimed ? (
+                  <span className="inline-flex items-center gap-0.5 portal-type-caption text-[var(--portal-green)]">
+                    <Zap className="h-2.5 w-2.5" />
+                    {formatSocialCompact(entry.unclaimed!)} claimable
+                  </span>
+                ) : null
+              }
+            />
+          </div>
+        </Link>
         <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-border/30">
           <motion.div
             initial={{ width: 0 }}
@@ -397,90 +355,27 @@ export default function BoostLeaderboardPage() {
   }
 
   const trackData = getTrackData();
-  const top3 = trackData.slice(0, 3);
-  const rest = trackData.slice(3);
   const activeTrackDef = TRACKS.find((t) => t.id === activeTrack)!;
 
-  function renderPodium() {
-    if (top3.length === 0) return null;
-    const accent = activeTrackDef.accent;
-
-    const makePodiumProps = (
-      entry: (typeof top3)[number],
-      idx: number
-    ): {
-      rank: 1 | 2 | 3;
-      name: string;
-      primary: string;
-      primaryLabel: string;
-      secondary?: string;
-      secondaryLabel?: string;
-      accent: string;
-    } => {
-      const base = {
-        rank: (idx + 1) as 1 | 2 | 3,
-        name: entry.accountId,
-        accent,
-      };
-
-      if (activeTrack === 'influence') {
-        const e = entry as InfluenceEntry;
-        return {
-          ...base,
-          primary: formatSocialCompact(e.effectiveBoost),
-          primaryLabel: 'Boost',
-          secondary: `${e.lockMonths}mo`,
-          secondaryLabel: 'lock',
-        };
-      }
-      if (activeTrack === 'reputation') {
-        const e = entry as ReputationEntry;
-        return {
-          ...base,
-          primary: formatReputation(e.reputation),
-          primaryLabel: 'Reputation',
-          secondary: `${e.activeDays}d`,
-          secondaryLabel: 'active',
-        };
-      }
-      const e = entry as EarnerEntry;
-      return {
-        ...base,
-        primary: formatSocialCompact(e.totalEarned),
-        primaryLabel: 'Earned',
-        secondary: e.creditCount ? `${e.creditCount}` : undefined,
-        secondaryLabel: 'credits',
-      };
-    };
-
-    return (
-      <div className="mb-6 flex items-end justify-center gap-3 md:gap-6">
-        {top3.map((entry, i) => (
-          <PodiumCard key={entry.accountId} {...makePodiumProps(entry, i)} />
-        ))}
-      </div>
-    );
-  }
-
   function renderRows() {
-    if (rest.length === 0) return null;
+    if (trackData.length === 0) return null;
 
     switch (activeTrack) {
       case 'influence': {
         const leader = influenceData[0]?.effectiveBoost ?? '1';
-        return (rest as InfluenceEntry[]).map((e) => (
+        return (trackData as InfluenceEntry[]).map((e) => (
           <InfluenceRow key={e.accountId} entry={e} leaderBoost={leader} />
         ));
       }
       case 'reputation': {
         const leader = reputationData[0]?.reputation ?? '1';
-        return (rest as ReputationEntry[]).map((e) => (
+        return (trackData as ReputationEntry[]).map((e) => (
           <ReputationRow key={e.accountId} entry={e} leaderRep={leader} />
         ));
       }
       case 'earners': {
         const leader = earnerData[0]?.totalEarned ?? '1';
-        return (rest as EarnerEntry[]).map((e) => (
+        return (trackData as EarnerEntry[]).map((e) => (
           <EarnerRow key={e.accountId} entry={e} leaderEarned={leader} />
         ));
       }
@@ -507,13 +402,15 @@ export default function BoostLeaderboardPage() {
             <>
               <SurfacePanel radius="md" tone="inset" padding="snug">
                 <p className="portal-eyebrow-wide text-muted-foreground">
-                  Ranked users
+                  Top influence
                 </p>
                 <p className="mt-2 font-mono text-2xl font-bold tabular-nums tracking-[-0.03em]">
-                  {reputationData.length}
+                  {influenceData[0]
+                    ? formatSocialCompact(influenceData[0].effectiveBoost)
+                    : '—'}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Building reputation
+                  Boost to beat
                 </p>
               </SurfacePanel>
               <SurfacePanel radius="md" tone="inset" padding="snug">
@@ -641,10 +538,6 @@ export default function BoostLeaderboardPage() {
                 </SurfacePanel>
               ) : (
                 <>
-                  {/* Podium */}
-                  {renderPodium()}
-
-                  {/* Score breakdown for #1 in reputation track */}
                   {activeTrack === 'reputation' && reputationData[0] && (
                     <div className="mb-4">
                       <p className="mb-2 text-center portal-eyebrow-wide text-muted-foreground">
@@ -654,12 +547,9 @@ export default function BoostLeaderboardPage() {
                     </div>
                   )}
 
-                  {/* Remaining rows */}
-                  {rest.length > 0 && (
-                    <div className="divide-y divide-border/30 rounded-[1.25rem] border border-border/40 bg-background/30">
-                      {renderRows()}
-                    </div>
-                  )}
+                  <div className="divide-y divide-border/30 rounded-[1.25rem] border border-border/40 bg-background/30">
+                    {renderRows()}
+                  </div>
                 </>
               )}
             </motion.div>

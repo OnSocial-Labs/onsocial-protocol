@@ -6496,6 +6496,11 @@ a.os-surface-row {
     gap: 0.45rem;
   }
 
+  .leaderboard-track-chip.is-tertiary:not(.is-selected) {
+    opacity: 0.62;
+    font-weight: 500;
+  }
+
   .leaderboard-list {
     display: flex;
     flex-direction: column;
@@ -6505,6 +6510,87 @@ a.os-surface-row {
     align-items: center;
   }
 
+  .leaderboard-row.is-viewer {
+    border-radius: 0.85rem;
+    background: var(--os-surface-fill);
+  }
+
+  .leaderboard-row.is-top-1 .leaderboard-row-rank {
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgb(var(--fg-rgb) / 0.88);
+  }
+
+  .leaderboard-row.is-top-2 .leaderboard-row-rank {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .leaderboard-row.is-top-3 .leaderboard-row-rank {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .leaderboard-row.is-top-1 .leaderboard-row-primary {
+    font-size: 1.02rem;
+  }
+
+  .leaderboard-row.is-top-2 .leaderboard-row-primary,
+  .leaderboard-row.is-top-3 .leaderboard-row-primary {
+    font-size: 0.96rem;
+  }
+
+  .leaderboard-slide[data-screen-footer='true'] {
+    --os-screen-footer-band: 7.25rem;
+  }
+
+  .leaderboard-slide .os-slide-over-footer-inner {
+    position: relative;
+    padding-top: 0.35rem;
+    padding-bottom: calc(0.45rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .leaderboard-slide .os-slide-over-footer-inner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+    z-index: 0;
+    pointer-events: none;
+    border-top: 1px solid rgb(var(--fg-rgb) / 0.08);
+    background: rgb(var(--bg-rgb) / 0.78);
+    backdrop-filter: blur(18px) saturate(1.25);
+  }
+
+  .leaderboard-slide .os-slide-over-footer-inner > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .leaderboard-slide .os-slide-over-footer-inner::before {
+      background: rgb(var(--bg-rgb) / 0.96);
+      backdrop-filter: none;
+    }
+  }
+
+  .leaderboard-viewer-footer {
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .leaderboard-viewer-footer-label {
+    margin: 0 0 0.35rem;
+    padding-inline: 0.15rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.5);
+  }
+
   .leaderboard-row-rank {
     flex-shrink: 0;
     width: 1.6rem;
@@ -6512,11 +6598,6 @@ a.os-surface-row {
     font-variant-numeric: tabular-nums;
     color: rgb(var(--fg-rgb) / 0.45);
     text-align: center;
-  }
-
-  .leaderboard-row-meta {
-    display: block;
-    margin-top: 0.15rem;
   }
 
   .leaderboard-row-bar {
@@ -6532,6 +6613,18 @@ a.os-surface-row {
     height: 100%;
     border-radius: 9999px;
     background: color-mix(in srgb, var(--signal-reputation) 78%, transparent);
+  }
+
+  .leaderboard-row-bar-fill[data-track='reputation'] {
+    background: color-mix(in srgb, var(--signal-reputation) 78%, transparent);
+  }
+
+  .leaderboard-row-bar-fill[data-track='influence'] {
+    background: color-mix(in srgb, var(--signal-standing) 78%, transparent);
+  }
+
+  .leaderboard-row-bar-fill[data-track='earners'] {
+    background: color-mix(in srgb, var(--signal-endorse) 78%, transparent);
   }
 
   .leaderboard-row-aside {
@@ -6568,6 +6661,41 @@ a.os-surface-row {
     font-size: 0.72rem;
     color: rgb(var(--fg-rgb) / 0.42);
     line-height: 1.4;
+  }
+
+  .leaderboard-row-main-button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    cursor: pointer;
+  }
+
+  .leaderboard-facts-profile-link {
+    margin: 0.85rem 0 0;
+    font-size: 0.78rem;
+  }
+
+  .leaderboard-facts-profile-link a {
+    color: color-mix(in srgb, var(--signal-reputation) 88%, transparent);
+    text-decoration: none;
+  }
+
+  .leaderboard-facts-profile-link a:hover,
+  .leaderboard-facts-profile-link a:focus-visible {
+    text-decoration: underline;
+  }
+
+  .leaderboard-route-underlay {
+    margin: 1.25rem 0 0;
+    padding-inline: 0.15rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: rgb(var(--fg-rgb) / 0.55);
   }
 
   button.signal-metric {
