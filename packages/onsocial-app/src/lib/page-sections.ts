@@ -40,24 +40,19 @@ export const DEFAULT_PAGE_SECTIONS: PageSection[] = [
   'collectibles',
 ];
 
-/** Showcase chapters always available when they have content (older activate configs). */
-const ENSURED_PAGE_SECTIONS = [
-  'store',
-  'created',
-  'groups',
-  'collectibles',
-] as const satisfies ReadonlyArray<PageSection>;
-
 /** Max guild cards in the drawer rail before “See all”. */
 export const PAGE_DRAWER_GUILD_PEEK = 6;
 
 const PAGE_SECTION_SET = new Set<string>(Object.keys(PAGE_SECTION_LABELS));
 
-function isPageSection(value: string): value is PageSection {
+export function isPageSection(value: string): value is PageSection {
   return PAGE_SECTION_SET.has(value);
 }
 
-/** Owner-configured sections for the page drawer, with sensible defaults. */
+/**
+ * Owner-configured Launch chapters.
+ * Empty → defaults. Explicit list is honored (omit a chapter to hide it).
+ */
 export function resolvePageSections(config: PublicPageConfig): PageSection[] {
   const configured = (config.sections ?? [])
     .filter(isPageSection)
@@ -67,13 +62,7 @@ export function resolvePageSections(config: PublicPageConfig): PageSection[] {
     return [...DEFAULT_PAGE_SECTIONS];
   }
 
-  const merged: PageSection[] = [...configured];
-  for (const section of ENSURED_PAGE_SECTIONS) {
-    if (!merged.includes(section)) {
-      merged.push(section);
-    }
-  }
-  return merged;
+  return configured;
 }
 
 export function pageSectionCountHint(

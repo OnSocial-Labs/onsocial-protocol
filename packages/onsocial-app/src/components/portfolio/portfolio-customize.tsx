@@ -34,9 +34,14 @@ import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-conte
 import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
+import { useApplyPageLaunch } from '@/hooks/use-apply-page-launch';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
+import { usePortfolioPostPeeks } from '@/contexts/portfolio-post-peeks-context';
+import { usePortfolioShelf } from '@/contexts/portfolio-shelf-context';
+import { CustomizeLaunchChapters } from '@/components/portfolio/customize-launch-chapters';
+import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 
 interface PortfolioCustomizeProps {
   pageAccountId: string;
@@ -45,6 +50,8 @@ interface PortfolioCustomizeProps {
   avatarUrl?: string | null;
   bannerUrl?: string | null;
   bannerKind?: ResolvedPageHeroKind | null;
+  profileLinks?: unknown;
+  guilds?: ProfileGuildSummary[];
 }
 
 const AVATAR_OPTIONS: Array<{
@@ -93,11 +100,15 @@ export function PortfolioCustomize({
   avatarUrl = null,
   bannerUrl = null,
   bannerKind = null,
+  profileLinks = null,
+  guilds = [],
 }: PortfolioCustomizeProps) {
   const [open, setOpen] = useState(false);
   const [moodOpen, setMoodOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const { postPeeks } = usePortfolioPostPeeks();
+  const shelf = usePortfolioShelf();
   const {
     committedAvatarMode,
     committedHeroSource,
@@ -130,8 +141,15 @@ export function PortfolioCustomize({
     isOwner: isTintOwner,
   } = useApplyPageMoodTint(pageAccountId);
 
-  const isApplying = isApplyingFace || isApplyingMedia || isApplyingTint;
-  const error = faceError ?? mediaError ?? tintError;
+  const {
+    applyLaunchPatch,
+    error: launchError,
+    isApplying: isApplyingLaunch,
+  } = useApplyPageLaunch(pageAccountId, config);
+
+  const isApplying =
+    isApplyingFace || isApplyingMedia || isApplyingTint || isApplyingLaunch;
+  const error = faceError ?? mediaError ?? tintError ?? launchError;
   const isCoverLayout = effectiveAvatarMode === 'cover';
   const signaturePreset = APP_PREMIUM_MOOD_PRESETS.signature;
   const signatureUnlocked = isPageMoodUnlocked(
@@ -305,7 +323,7 @@ export function PortfolioCustomize({
                 Customize
               </h2>
               <p className="customize-sheet-copy">
-                Tune the mood, layout, and media for this page.
+                Tune mood, Launch chapters, layout, and media for this page.
               </p>
             </div>
             <SheetCloseButton
@@ -342,6 +360,25 @@ export function PortfolioCustomize({
         ) : null}
 
         {error ? <p className="customize-sheet-error">{error}</p> : null}
+
+        {!needsConnect &&
+        walletAccountId &&
+        accountIdsEqual(walletAccountId, pageAccountId) ? (
+          <>
+            <div className="customize-sheet-section">
+              <CustomizeLaunchChapters
+                config={config}
+                profileLinks={profileLinks}
+                guilds={guilds}
+                postPeeks={postPeeks}
+                createdPeeks={shelf.createdPeeks}
+                disabled={isApplying}
+                onSave={applyLaunchPatch}
+              />
+            </div>
+            <Divider variant="section" className="customize-sheet-divider" />
+          </>
+        ) : null}
 
         <div className="customize-sheet-section">
           <p className="customize-sheet-label">Mood</p>

@@ -18656,6 +18656,147 @@ a.os-surface-row {
     width: 100%;
   }
 
+  .customize-launch {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .customize-chapter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .customize-chapter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.15rem;
+    border-bottom: 1px solid rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .customize-chapter-row:last-child {
+    border-bottom: none;
+  }
+
+  .customize-chapter-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .customize-chapter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .customize-chapter-move,
+  .customize-chapter-hide {
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 9999px;
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: rgb(var(--fg-rgb) / 0.72);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.28rem 0.55rem;
+    cursor: pointer;
+  }
+
+  .customize-chapter-move:disabled,
+  .customize-chapter-hide:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .customize-chapter-hidden-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .customize-pin-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .customize-pin-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .customize-pin-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: 100%;
+    border: 0;
+    border-radius: 0.65rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    padding: 0.4rem 0.35rem;
+    cursor: pointer;
+  }
+
+  .customize-pin-row:hover,
+  .customize-pin-row:focus-visible {
+    background: var(--os-surface-row-hover);
+    outline: none;
+  }
+
+  .customize-pin-row.is-pinned .customize-pin-mark {
+    color: var(--mood-accent, rgb(var(--fg-rgb) / 0.85));
+  }
+
+  .customize-pin-mark {
+    flex-shrink: 0;
+    width: 1rem;
+    color: rgb(var(--fg-rgb) / 0.4);
+  }
+
+  .customize-pin-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8rem;
+  }
+
+  .customize-link-note-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .customize-link-note-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+  }
+
+  .customize-link-note-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.78);
+  }
+
+  .customize-link-note-input {
+    width: 100%;
+  }
+
   /* Host audio must stay in the document (not display:none) for audible play. */
   .collectibles-now-playing-host-audio {
     position: fixed;

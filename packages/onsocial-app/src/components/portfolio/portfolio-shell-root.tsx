@@ -139,6 +139,8 @@ function PortfolioShellPreviewBridge({
               avatarUrl={avatarMedia?.url ?? null}
               bannerUrl={bannerMedia?.url ?? null}
               bannerKind={bannerMedia?.kind ?? null}
+              profileLinks={profileLinks}
+              guilds={guilds}
             />
             <PortfolioPersonalComposer pageAccountId={pageAccountId} />
             <PortfolioPageDock pageAccountId={pageAccountId} />

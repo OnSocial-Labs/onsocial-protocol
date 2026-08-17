@@ -42,6 +42,10 @@ export interface PublicPageConfig {
   theme?: PublicPageTheme;
   face?: PublicPageFace;
   sections?: string[];
+  /** Featured peek ids per Launch chapter (max 3). */
+  sectionPins?: Partial<Record<string, string[]>>;
+  /** Optional Launch link blurbs keyed by profile link key. */
+  linkNotes?: Record<string, string>;
   tagline?: string;
   customCss?: string;
   /** Active mood broadcast — stored in `page/main.mood`. */

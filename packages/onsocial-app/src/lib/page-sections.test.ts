@@ -27,18 +27,12 @@ describe('resolvePageSections', () => {
     ]);
   });
 
-  it('honours owner order and still ensures store / created / collectibles / groups', () => {
+  it('honours owner order and allows hiding showcase chapters', () => {
     expect(
       resolvePageSections({
         sections: ['profile', 'support', 'collectibles', 'posts'],
       })
-    ).toEqual([
-      'collectibles',
-      'posts',
-      'store',
-      'created',
-      'groups',
-    ]);
+    ).toEqual(['collectibles', 'posts']);
   });
 });
 

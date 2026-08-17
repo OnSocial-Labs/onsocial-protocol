@@ -33,9 +33,14 @@ import type { ProfileGuildSummary } from '@/lib/profile-guilds';
 import {
   portfolioLinkDetail,
   resolvePortfolioSocialLinks,
+  applyPortfolioLinkNotes,
   type PortfolioSocialLink,
 } from '@/lib/profile-social-links';
 import { overlayPath } from '@/lib/overlay-routes';
+import {
+  preferPinnedOrder,
+  sectionPinsFor,
+} from '@/lib/page-launch-config';
 
 interface PageContentSectionsProps {
   pageAccountId: string;
@@ -100,13 +105,54 @@ export function PageContentSections({
   storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentSectionsProps) {
   const links = useMemo(
-    () => resolvePortfolioSocialLinks(profileLinks),
-    [profileLinks]
+    () =>
+      applyPortfolioLinkNotes(
+        resolvePortfolioSocialLinks(profileLinks),
+        config.linkNotes
+      ),
+    [profileLinks, config.linkNotes]
   );
 
   const holdingsCount = holdings.length;
   const createdCount = Math.max(createdPeeks.length, createdMintCount);
   const storeListingCount = storeShelf.listingCount + storeShelf.drops.length;
+
+  const orderedPosts = useMemo(
+    () =>
+      preferPinnedOrder(
+        postPeeks,
+        sectionPinsFor(config, 'posts'),
+        (post) => post.postId
+      ),
+    [postPeeks, config]
+  );
+  const orderedGuilds = useMemo(
+    () =>
+      preferPinnedOrder(
+        guilds,
+        sectionPinsFor(config, 'groups'),
+        (guild) => guild.groupId
+      ),
+    [guilds, config]
+  );
+  const orderedCreated = useMemo(
+    () =>
+      preferPinnedOrder(
+        createdPeeks,
+        sectionPinsFor(config, 'created'),
+        (item) => item.tokenId
+      ),
+    [createdPeeks, config]
+  );
+  const orderedHoldings = useMemo(
+    () =>
+      preferPinnedOrder(
+        holdings,
+        sectionPinsFor(config, 'collectibles'),
+        (item) => item.tokenId
+      ),
+    [holdings, config]
+  );
 
   const sections = useMemo(
     () =>
@@ -178,9 +224,9 @@ export function PageContentSections({
                 <>
                   <PageDrawerPostPeekList
                     pageAccountId={pageAccountId}
-                    posts={postPeeks}
+                    posts={orderedPosts}
                   />
-                  {postPeeks.length === 0 ? (
+                  {orderedPosts.length === 0 ? (
                     <p className="page-drawer-section-empty">
                       Latest posts open in their feed.
                     </p>
@@ -204,8 +250,8 @@ export function PageContentSections({
 
               {showCreated ? (
                 <div className="page-drawer-peek-stack">
-                  <PageDrawerCreatedRail created={createdPeeks} />
-                  {createdPeeks.length === 0 ? (
+                  <PageDrawerCreatedRail created={orderedCreated} />
+                  {orderedCreated.length === 0 ? (
                     <p className="page-drawer-section-empty">
                       Created editions open in Market.
                     </p>
@@ -216,14 +262,16 @@ export function PageContentSections({
 
               {showHoldings ? (
                 <div className="page-drawer-peek-stack">
-                  <PageDrawerHoldingsRail holdings={holdings} />
+                  <PageDrawerHoldingsRail holdings={orderedHoldings} />
                   <PageDrawerHoldingsSeeAll pageAccountId={pageAccountId} />
                 </div>
               ) : null}
 
               {showLinks ? <PageDrawerLinksList links={links} /> : null}
 
-              {showGuildRail ? <PageDrawerGuilds guilds={guilds} /> : null}
+              {showGuildRail ? (
+                <PageDrawerGuilds guilds={orderedGuilds} />
+              ) : null}
             </section>
           </Fragment>
         );

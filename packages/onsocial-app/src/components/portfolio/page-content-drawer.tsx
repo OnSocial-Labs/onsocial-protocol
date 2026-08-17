@@ -45,7 +45,10 @@ import {
   resolvePageDrawerActiveSection,
   resolveVisiblePageSections,
 } from '@/lib/page-sections';
-import { resolvePortfolioSocialLinks } from '@/lib/profile-social-links';
+import {
+  applyPortfolioLinkNotes,
+  resolvePortfolioSocialLinks,
+} from '@/lib/profile-social-links';
 import { fetchOwnedScarcesPage } from '@/features/market/market-listings';
 import {
   PAGE_DRAWER_HOLDINGS_PEEK,
@@ -271,8 +274,12 @@ export function PageContentDrawer({
     storeShelfResolved.listingCount + storeShelfResolved.drops.length;
 
   const links = useMemo(
-    () => resolvePortfolioSocialLinks(profileLinks),
-    [profileLinks]
+    () =>
+      applyPortfolioLinkNotes(
+        resolvePortfolioSocialLinks(profileLinks),
+        config.linkNotes
+      ),
+    [profileLinks, config.linkNotes]
   );
 
   const jumpSections = useMemo(
