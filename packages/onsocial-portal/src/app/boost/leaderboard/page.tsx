@@ -725,7 +725,7 @@ export default function BoostLeaderboardPage() {
               <Shield className="mx-auto mb-1 h-4 w-4 portal-blue-text" />
               <p className="text-xs font-semibold">Quality</p>
               <p className="mt-0.5 portal-type-caption text-muted-foreground">
-                Reactions plus replies and quotes received
+                Reactions, conversations, and amplifies received
               </p>
             </SurfacePanel>
             <SurfacePanel

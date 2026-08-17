@@ -9,8 +9,9 @@
 --   u    = 1.0 first amplify from an account on that post, else 0.25
 --   self = 0.25 when spender = recipient (author), else 1.0
 --   Only events in the last ~14 days (older heat ≈ 0 at 36h half-life).
--- Amplify heat stays out of reputation; paid profile/endorsement support is a
--- separate Social input via paid_support_inbound_events.
+-- Feed amplify heat stays out of reputation; author_amplify_received is the
+-- longer-window Quality input. Paid profile/endorsement support is a separate
+-- Social input via paid_support_inbound_events.
 
 CREATE OR REPLACE VIEW post_amplify_heat AS
 WITH events AS (
@@ -106,3 +107,68 @@ WHERE e.success = true
   AND e.spender_id != ''
   AND e.amount IS NOT NULL
   AND e.amount ~ '^[0-9]+$';
+
+-- Author amplify received for reputation Quality (replaces empty stub).
+-- Longer window than feed heat (180d half-life); self-amplify at 0.25×;
+-- per-spender cap so one wallet cannot dominate an author.
+CREATE OR REPLACE VIEW author_amplify_received AS
+WITH events AS (
+  SELECT
+    NULLIF(e.recipient_id, '') AS account_id,
+    e.spender_id,
+    e.block_timestamp,
+    (e.amount::NUMERIC / 1e18) AS amount_social,
+    CASE
+      WHEN e.recipient_id IS NOT NULL
+       AND lower(trim(e.spender_id)) = lower(trim(e.recipient_id))
+        THEN 0.25
+      ELSE 1.0
+    END::NUMERIC AS self_mult
+  FROM social_spend_events e
+  WHERE e.success = true
+    AND e.event_type = 'SOCIAL_SPENT'
+    AND e.action = 'boost_post'
+    AND e.target_type = 'post'
+    AND e.recipient_id IS NOT NULL
+    AND e.recipient_id != ''
+    AND e.spender_id IS NOT NULL
+    AND e.spender_id != ''
+    AND e.amount IS NOT NULL
+    AND e.amount ~ '^[0-9]+$'
+),
+spender AS (
+  SELECT
+    account_id,
+    spender_id,
+    SUM(
+      self_mult
+      * LEAST(2.5, LN(1.0 + GREATEST(amount_social, 0)) / LN(11.0))
+      * GREATEST(
+          0.2,
+          EXP(
+            -GREATEST(
+              0.0,
+              EXTRACT(
+                EPOCH FROM (
+                  (NOW() AT TIME ZONE 'utc')
+                  - TO_TIMESTAMP(block_timestamp / 1e9)
+                )
+              ) / 86400.0
+            ) / 180.0
+          )
+        )
+    )::NUMERIC AS spender_points,
+    SUM(amount_social)::NUMERIC AS spender_social,
+    COUNT(*)::BIGINT AS spender_events
+  FROM events
+  WHERE account_id IS NOT NULL
+    AND account_id != ''
+  GROUP BY account_id, spender_id
+)
+SELECT
+  account_id,
+  SUM(LEAST(3.0, spender_points))::NUMERIC AS amplify_points,
+  SUM(spender_social)::NUMERIC AS amplify_social,
+  SUM(spender_events)::BIGINT AS amplify_events
+FROM spender
+GROUP BY account_id;

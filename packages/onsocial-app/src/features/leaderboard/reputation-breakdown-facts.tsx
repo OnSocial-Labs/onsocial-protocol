@@ -116,6 +116,17 @@ export function ReputationBreakdownFacts({
             />
           }
         />
+        <SheetFactRow
+          label="Amplifies received"
+          value={
+            <SheetFactCount
+              count={reputation.amplifyEvents}
+              unit={
+                reputation.amplifyEvents === 1 ? 'amplify' : 'amplifies'
+              }
+            />
+          }
+        />
       </SheetFactSection>
 
       <SheetFactCopy>{confidence.detail}</SheetFactCopy>

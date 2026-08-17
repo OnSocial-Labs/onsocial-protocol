@@ -14,6 +14,7 @@ export interface ProfileReputation {
   paidSupportSpenders: number;
   uniqueInboundPeers: number;
   uniqueScarceFans: number;
+  amplifyEvents: number;
   lockMonths: number;
 }
 
@@ -48,6 +49,7 @@ interface ReputationRow {
   paidSupportSpenders: number | null;
   uniqueInboundPeers: number | null;
   uniqueScarceFans: number | null;
+  amplifyEvents: number | null;
   lockMonths: number | null;
 }
 
@@ -61,7 +63,8 @@ async function fetchReputationRow(
         reputationScores(where: {accountId: {_eq: $id}}, limit: 1) {
           reputation rank socialScore commitmentScore qualityScore
           consistencyScore scarcesScore confidenceScore totalPosts
-          paidSupportSpenders uniqueInboundPeers uniqueScarceFans lockMonths
+          paidSupportSpenders uniqueInboundPeers uniqueScarceFans
+          amplifyEvents lockMonths
         }
       }`,
       variables: { id: accountId },
@@ -83,6 +86,7 @@ async function fetchReputationRow(
       paidSupportSpenders: toNumber(row.paidSupportSpenders),
       uniqueInboundPeers: toNumber(row.uniqueInboundPeers),
       uniqueScarceFans: toNumber(row.uniqueScarceFans),
+      amplifyEvents: toNumber(row.amplifyEvents),
       lockMonths: toNumber(row.lockMonths),
     };
   } catch {

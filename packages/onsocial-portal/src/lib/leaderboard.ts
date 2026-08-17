@@ -38,6 +38,7 @@ export interface ReputationEntry {
   paidSupportSpenders?: number;
   uniqueInboundPeers?: number;
   uniqueScarceFans?: number;
+  amplifyEvents?: number;
   boost: string;
   lockMonths: number;
   rewardsEarned: string;
@@ -70,6 +71,7 @@ export const REPUTATION_SCORES_GRAPHQL_FIELDS = `
   paidSupportSpenders
   uniqueInboundPeers
   uniqueScarceFans
+  amplifyEvents
   boost
   lockMonths
   rewardsEarned
