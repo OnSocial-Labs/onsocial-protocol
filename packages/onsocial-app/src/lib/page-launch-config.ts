@@ -94,12 +94,14 @@ export function sanitizeLinkNotes(
 /** Drop titles for links that are no longer set. */
 export function pruneLinkNotes(
   notes: PublicPageConfig['linkNotes'] | undefined,
-  links: Record<string, string>
+  links: object
 ): Record<string, string> {
+  const values = links as Record<string, unknown>;
   const sanitized = sanitizeLinkNotes(notes);
   const next: Record<string, string> = {};
   for (const [key, note] of Object.entries(sanitized)) {
-    if (!links[key]?.trim()) continue;
+    const value = values[key];
+    if (typeof value !== 'string' || !value.trim()) continue;
     next[key] = note;
   }
   return next;
