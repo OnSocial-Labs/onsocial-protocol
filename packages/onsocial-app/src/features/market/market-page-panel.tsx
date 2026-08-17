@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -163,6 +163,27 @@ const EMPTY_LISTINGS: ListingsState = {
   failed: false,
 };
 
+/**
+ * Soft-retain rows only when solely the listing-type tab changes — the client
+ * can refilter Auctions/Fixed. Discovery / search / sort / seller changes must
+ * clear to skeleton so the previous catalog does not flash.
+ *
+ * Key shape: retry|filter|sort|query|creator|app|medium|facets|audioFormat
+ */
+function shouldClearListingsForParams(
+  prevKey: string | null,
+  nextKey: string
+): boolean {
+  if (prevKey == null || prevKey === nextKey) return false;
+  const prev = prevKey.split('|');
+  const next = nextKey.split('|');
+  for (let i = 0; i < Math.max(prev.length, next.length); i++) {
+    if (i === 1) continue;
+    if ((prev[i] ?? '') !== (next[i] ?? '')) return true;
+  }
+  return false;
+}
+
 /** Newest-first pages of wallet-owned scarces (RPC, capped). */
 interface OwnedState {
   items: OwnedScarceItem[];
@@ -220,20 +241,30 @@ export function MarketPagePanel({
   const appFilter = searchParams.get(MARKET_APP_PARAM)?.trim() ?? '';
   const mediumFilter = parseMediumFilter(searchParams.get(MARKET_KIND_PARAM));
   const facetMedium = normalizeDropFacetMedium(mediumFilter);
-  const selectedFacets = facetMedium
-    ? normalizeDropFacets(
-        parseMarketFacetsParam(searchParams.get(MARKET_FACETS_PARAM)),
-        facetMedium
-      )
-    : [];
+  const facetsParam = searchParams.get(MARKET_FACETS_PARAM);
+  const selectedFacets = useMemo(
+    () =>
+      facetMedium
+        ? normalizeDropFacets(
+            parseMarketFacetsParam(facetsParam),
+            facetMedium
+          )
+        : [],
+    [facetMedium, facetsParam]
+  );
   const audioFormatFilter: MarketAudioFormatFilter =
     facetMedium === 'audio'
       ? parseAudioFormat(searchParams.get(MARKET_AUDIO_FORMAT_PARAM))
       : null;
   const [retryKey, setRetryKey] = useState(0);
-  // Seed only the default unfiltered browse; URL creator/app narrows refetch.
+  // Seed only the default unfiltered browse; URL discovery/seller narrows refetch.
   const canSeedDefaultBrowse =
-    initialListings != null && !creatorFilter && !appFilter;
+    initialListings != null &&
+    !creatorFilter &&
+    !appFilter &&
+    mediumFilter === 'all' &&
+    selectedFacets.length === 0 &&
+    !audioFormatFilter;
   const [listingsState, setListingsState] = useState<ListingsState>(() =>
     canSeedDefaultBrowse
       ? {
@@ -278,6 +309,8 @@ export function MarketPagePanel({
   // Soft SSR already seeded default browse — skip one duplicate keyed query.
   const ssrDefaultBrowseSkipRef = useRef(canSeedDefaultBrowse);
   const ssrSalesSkipRef = useRef(initialSales != null);
+  /** Bumped on each first-page fetch so in-flight loadMore cannot append stale pages. */
+  const listingsFetchGenRef = useRef(0);
   const normalizedListingQuery = listingQuery.trim().toLowerCase();
   const searching = normalizedListingQuery.length > 0;
 
@@ -352,7 +385,8 @@ export function MarketPagePanel({
     [router, searchParams, selectedFacets, audioFormatFilter]
   );
 
-  // First catalog page; previous items stay rendered while params refine.
+  // First catalog page. Soft-retain only for listing-type tab flips; otherwise
+  // clear to skeleton so discovery / search / sort do not flash the wrong rows.
   useEffect(() => {
     if (
       ssrDefaultBrowseSkipRef.current &&
@@ -362,6 +396,15 @@ export function MarketPagePanel({
       return;
     }
     ssrDefaultBrowseSkipRef.current = false;
+    const gen = ++listingsFetchGenRef.current;
+    setLoadingMore(false);
+    setListingsState((current) => {
+      if (current.paramsKey === listingsParamsKey) return current;
+      if (!shouldClearListingsForParams(current.paramsKey, listingsParamsKey)) {
+        return current;
+      }
+      return EMPTY_LISTINGS;
+    });
     let cancelled = false;
     // Ending sort always queries auctions, even mid-tab transition.
     const kinds =
@@ -380,7 +423,7 @@ export function MarketPagePanel({
       sort: listingSort,
     }).then(
       (page) => {
-        if (cancelled) return;
+        if (cancelled || gen !== listingsFetchGenRef.current) return;
         setListingsState({
           paramsKey: listingsParamsKey,
           items: page.items,
@@ -390,7 +433,7 @@ export function MarketPagePanel({
         });
       },
       () => {
-        if (cancelled) return;
+        if (cancelled || gen !== listingsFetchGenRef.current) return;
         setListingsState({
           ...EMPTY_LISTINGS,
           paramsKey: listingsParamsKey,
@@ -419,6 +462,7 @@ export function MarketPagePanel({
   const loadMoreListings = useCallback(() => {
     if (!listingsReady || listingsState.failed) return;
     if (!listingsState.hasMore || loadingMore) return;
+    const gen = listingsFetchGenRef.current;
     setLoadingMore(true);
     const kinds =
       listingSort === 'ending'
@@ -437,6 +481,7 @@ export function MarketPagePanel({
       sort: listingSort,
     })
       .then((page) => {
+        if (gen !== listingsFetchGenRef.current) return;
         setListingsState((current) =>
           current.paramsKey === listingsParamsKey
             ? {
@@ -449,6 +494,7 @@ export function MarketPagePanel({
         );
       })
       .catch(() => {
+        if (gen !== listingsFetchGenRef.current) return;
         // Stop paging quietly; the loaded pages stay usable.
         setListingsState((current) =>
           current.paramsKey === listingsParamsKey
@@ -457,7 +503,9 @@ export function MarketPagePanel({
         );
       })
       .finally(() => {
-        setLoadingMore(false);
+        if (gen === listingsFetchGenRef.current) {
+          setLoadingMore(false);
+        }
       });
   }, [
     listingsReady,
