@@ -77,6 +77,7 @@ const SEARCH_DEBOUNCE_MS = 200;
 
 /** Keep recent catalog pages so flipping back is instant. */
 const CATALOG_CACHE_TTL_MS = 90_000;
+const CATALOG_CACHE_MAX_ENTRIES = 12;
 
 type CatalogCacheEntry = {
   items: DropDiscoveryItem[];
@@ -783,7 +784,7 @@ export function DropsPagePanel({
   const [activeCatalogKey, setActiveCatalogKey] = useState(() =>
     dropsCatalogCacheKey({
       sort: initialSort,
-      medium: toPanelMedium(initialMedium),
+      medium: initialMedium,
       audioFormat: initialAudioFormat,
       search: '',
       viewer: '',
@@ -799,7 +800,7 @@ export function DropsPagePanel({
       catalogCacheRef.current.set(
         dropsCatalogCacheKey({
           sort: initialSort,
-          medium: toPanelMedium(initialMedium),
+          medium: initialMedium,
           audioFormat: initialAudioFormat,
           search: '',
           viewer: '',
@@ -926,6 +927,25 @@ export function DropsPagePanel({
     []
   );
 
+  const writeCatalogCache = useCallback(
+    (key: string, entry: CatalogCacheEntry) => {
+      const cache = catalogCacheRef.current;
+      cache.set(key, entry);
+      if (cache.size <= CATALOG_CACHE_MAX_ENTRIES) return;
+      // Drop oldest by `at` (Map insertion order is not age after patches).
+      let oldestKey: string | null = null;
+      let oldestAt = Number.POSITIVE_INFINITY;
+      for (const [entryKey, value] of cache) {
+        if (value.at < oldestAt) {
+          oldestAt = value.at;
+          oldestKey = entryKey;
+        }
+      }
+      if (oldestKey) cache.delete(oldestKey);
+    },
+    []
+  );
+
   const reload = useCallback(
     async (
       nextSort: DropsSort,
@@ -991,7 +1011,7 @@ export function DropsPagePanel({
             : Promise.resolve([] as CreatorLeaderRow[]),
         ]);
         if (gen !== reloadGenRef.current) return;
-        catalogCacheRef.current.set(cacheKey, {
+        writeCatalogCache(cacheKey, {
           items: page.items,
           hasMore: page.hasMore,
           creators: leaders,
@@ -1016,16 +1036,33 @@ export function DropsPagePanel({
         }
       }
     },
-    [accountId]
+    [accountId, writeCatalogCache]
   );
 
   useEffect(() => {
+    // Trust a successful SSR seed (incl. empty) for the matching catalog —
+    // avoids cold-load double-fetch + refreshing flash / Featured blink.
+    if (
+      reloadKey === 0 &&
+      !initialFetchFailed &&
+      sort === initialSort &&
+      sort !== 'saved' &&
+      medium === toPanelMedium(initialMedium) &&
+      audioFormat === initialAudioFormat &&
+      !debouncedQuery
+    ) {
+      return;
+    }
     void reload(sort, medium, debouncedQuery, audioFormat);
   }, [
     sort,
     medium,
     audioFormat,
     debouncedQuery,
+    initialSort,
+    initialMedium,
+    initialAudioFormat,
+    initialFetchFailed,
     reload,
     reloadKey,
     accountId,
