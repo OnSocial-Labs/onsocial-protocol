@@ -698,6 +698,11 @@ export class ScarcesQuery {
       facets?: string[];
       /** Audio release format column (`single` | `album` | …). */
       audioFormat?: 'single' | 'album' | 'podcast' | string;
+      /**
+       * When true, omit primary post-mints (`kind=lazy` + `mediumKind=thought`).
+       * Use for default Market All browse; leave off when filtering `mediumKind=thought`.
+       */
+      excludePrimaryThoughts?: boolean;
       /** Server-side sort; defaults to newest listed first. */
       orderBy?: 'listed_desc' | 'price_asc' | 'price_desc' | 'ending_asc';
     } = {}
@@ -754,6 +759,12 @@ export class ScarcesQuery {
       params.push('$audioFormat: String!');
       variables.audioFormat = audioFormat;
       where.push('audioFormat: {_eq: $audioFormat}');
+    }
+    if (opts.excludePrimaryThoughts) {
+      // Keep thought *resales*; drop lazy thought post-mints from All browse.
+      where.push(
+        '_not: {_and: [{mediumKind: {_eq: "thought"}}, {kind: {_eq: "lazy"}}]}'
+      );
     }
 
     const whereClause = where.length ? `where: { ${where.join(', ')} },` : '';

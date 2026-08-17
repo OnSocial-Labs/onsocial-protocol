@@ -10,7 +10,7 @@ const SORT_OPTIONS: ChoiceOption<MarketListingSort>[] = [
   { value: 'newest', label: 'Newest' },
   { value: 'price-asc', label: 'Price ↑' },
   { value: 'price-desc', label: 'Price ↓' },
-  { value: 'ending', label: 'Ending' },
+  { value: 'ending', label: 'Ending soon' },
 ];
 
 export function MarketListingSortMenu({

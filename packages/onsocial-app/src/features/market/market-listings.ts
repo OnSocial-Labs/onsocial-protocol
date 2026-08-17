@@ -2066,6 +2066,11 @@ export async function fetchMarketListings(
     facets?: string[];
     /** Audio release format (`extra.audioFormat`). */
     audioFormat?: 'single' | 'album' | 'podcast' | string;
+    /**
+     * Omit lazy thought post-mints (default All browse). Off when
+     * `mediumKind=thought`. Defaults on when no medium filter is set.
+     */
+    excludePrimaryThoughts?: boolean;
     /** Server/browser client; defaults to the browser gateway proxy. */
     client?: OnSocial;
   } = {}
@@ -2079,6 +2084,12 @@ export async function fetchMarketListings(
   const audioFormat = opts.audioFormat?.trim().toLowerCase();
   const discoveryFiltered =
     Boolean(mediumKind) || facets.length > 0 || Boolean(audioFormat);
+  const excludePrimaryThoughts =
+    opts.excludePrimaryThoughts ??
+    (!mediumKind || mediumKind === 'all' || mediumKind === 'music');
+  // Thoughts medium must still return primary post-mints.
+  const excludeThoughts =
+    excludePrimaryThoughts && mediumKind !== 'thought';
   try {
     const client = opts.client ?? createReadOnlyOnSocialClient();
     const rows = await client.query.scarces.activeListings({
@@ -2088,14 +2099,17 @@ export async function fetchMarketListings(
       ...(opts.search?.trim() ? { search: opts.search.trim() } : {}),
       ...(opts.sellerId?.trim() ? { sellerId: opts.sellerId.trim() } : {}),
       ...(opts.appId?.trim() ? { appId: opts.appId.trim() } : {}),
-      ...(mediumKind ? { mediumKind } : {}),
+      ...(mediumKind && mediumKind !== 'all' ? { mediumKind } : {}),
       ...(facets.length ? { facets } : {}),
       ...(audioFormat ? { audioFormat } : {}),
+      ...(excludeThoughts ? { excludePrimaryThoughts: true } : {}),
       orderBy: sortToIndexerOrder(opts.sort),
     });
     const items = rows
       .map((row) => listingFromActiveRow(row))
-      .filter((item): item is MarketListingItem => item != null);
+      .filter((item): item is MarketListingItem => item != null)
+      // Safety net if older gateways ignore excludePrimaryThoughts.
+      .filter((item) => !(excludeThoughts && isPrimaryThoughtListing(item)));
     return {
       items: await decorateMarketListings(items, client),
       // Advance by raw row count so client-dropped rows don't re-fetch.
@@ -2118,12 +2132,15 @@ export async function fetchMarketListings(
           accountIdsEqualSafe(item.creatorId, seller)
         )
       : fallbackAll;
+    const fallbackItems = excludeThoughts
+      ? fallback.filter((item) => !isPrimaryThoughtListing(item))
+      : fallback;
     return {
       items: await decorateMarketListings(
-        fallback,
+        fallbackItems,
         createReadOnlyOnSocialClient()
       ),
-      nextOffset: fallback.length,
+      nextOffset: fallbackItems.length,
       hasMore: false,
     };
   }
