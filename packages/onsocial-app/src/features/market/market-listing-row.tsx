@@ -222,9 +222,6 @@ export function MarketListingRow({
           ) : (
             <span className="market-listing-thumb-fallback" aria-hidden />
           )}
-          {item.playable ? (
-            <span className="market-listing-thumb-play" aria-hidden />
-          ) : null}
         </Link>
       ) : (
         <button
@@ -243,9 +240,6 @@ export function MarketListingRow({
           ) : (
             <span className="market-listing-thumb-fallback" aria-hidden />
           )}
-          {item.playable ? (
-            <span className="market-listing-thumb-play" aria-hidden />
-          ) : null}
         </button>
       )}
       <div className="market-listing-copy">

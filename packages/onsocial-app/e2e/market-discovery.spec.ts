@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * Smoke for Market discovery chrome — listing type, filter drawer, deep-links.
+ * Smoke for Market discovery chrome — listing type, medium rail, deep-links.
  * Does not assert live indexer row content (network-dependent).
  */
 test.describe('market discovery', () => {
-  test('loads catalog chrome and opens medium filter', async ({ page }) => {
+  test('loads catalog chrome and switches medium + format', async ({
+    page,
+  }) => {
     await page.goto('/market', { waitUntil: 'domcontentloaded' });
 
     await expect(
@@ -18,21 +20,19 @@ test.describe('market discovery', () => {
       listingType.getByRole('tab', { name: 'Auctions' })
     ).toBeVisible();
 
-    await page.getByRole('button', { name: /Open filter menu/ }).click();
-    const medium = page.getByRole('listbox', { name: 'Medium' });
-    await expect(medium.getByRole('option', { name: 'Audio' })).toBeVisible();
-    await expect(medium.getByRole('option', { name: 'Tickets' })).toBeVisible();
+    const mediumRail = page.getByRole('tablist', { name: 'Listing medium' });
+    await expect(mediumRail.getByRole('tab', { name: 'Audio' })).toBeVisible();
+    await expect(mediumRail.getByRole('tab', { name: 'Events' })).toBeVisible();
 
-    await medium.getByRole('option', { name: 'Audio' }).click();
+    await mediumRail.getByRole('tab', { name: 'Audio' }).click();
     await page.waitForURL(/kind=audio/);
+    const formatRail = page.getByRole('tablist', { name: 'Release format' });
+    await expect(formatRail.getByRole('tab', { name: 'Album' })).toBeVisible();
+    await expect(formatRail.getByRole('tab', { name: 'Podcast' })).toBeVisible();
 
-    const format = page.getByRole('tablist', { name: 'Release format' });
-    await expect(format.getByRole('tab', { name: 'Album' })).toBeVisible();
-    await expect(format.getByRole('tab', { name: 'Podcast' })).toBeVisible();
-
-    await format.getByRole('tab', { name: 'Podcast' }).click();
+    await formatRail.getByRole('tab', { name: 'Podcast' }).click();
     await page.waitForURL(/audioFormat=podcast/);
-    await expect(format.getByRole('tab', { name: 'Podcast' })).toHaveAttribute(
+    await expect(formatRail.getByRole('tab', { name: 'Podcast' })).toHaveAttribute(
       'aria-selected',
       'true'
     );
@@ -44,15 +44,18 @@ test.describe('market discovery', () => {
     });
 
     await expect(
-      page.getByRole('textbox', { name: 'Search Market listings' })
-    ).toBeVisible({ timeout: 30_000 });
-
+      page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
+        name: 'Audio',
+      })
+    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
     await expect(
-      page.getByRole('button', { name: /Open filter menu, Audio · Podcast/ })
-    ).toBeVisible();
+      page.getByRole('tablist', { name: 'Release format' }).getByRole('tab', {
+        name: 'Podcast',
+      })
+    ).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('deep-links ticket medium without seeding unfiltered rows', async ({
+  test('deep-links events medium without seeding unfiltered rows', async ({
     page,
   }) => {
     await page.goto('/market?kind=ticket', {
@@ -60,8 +63,10 @@ test.describe('market discovery', () => {
     });
 
     await expect(
-      page.getByRole('button', { name: /Open filter menu, Tickets/ })
-    ).toBeVisible({ timeout: 30_000 });
+      page.getByRole('tablist', { name: 'Listing medium' }).getByRole('tab', {
+        name: 'Events',
+      })
+    ).toHaveAttribute('aria-selected', 'true', { timeout: 30_000 });
   });
 
   test('listing-type tab stays selected after flip', async ({ page }) => {

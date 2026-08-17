@@ -28,7 +28,7 @@ export const MARKET_MEDIUM_FILTERS: ReadonlyArray<{
   { id: 'writing', label: 'Writing' },
   { id: 'audio', label: 'Audio' },
   { id: 'video', label: 'Video' },
-  { id: 'ticket', label: 'Tickets' },
+  { id: 'ticket', label: 'Events' },
   { id: 'coupon', label: 'Coupons' },
   { id: 'membership', label: 'Memberships' },
   { id: 'custom', label: 'Custom' },
