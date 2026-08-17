@@ -147,7 +147,7 @@ function formatDropWindow(
 
 /**
  * Primary Drop mediums — Market taxonomy minus listing-only noise
- * (coupons / memberships / custom). Ticket medium shows as Events on Drops.
+ * (coupons / memberships / custom).
  */
 const DROP_MEDIUM_FILTERS: ReadonlyArray<{
   id: MarketMediumFilter;
@@ -164,8 +164,6 @@ const DROP_MEDIUM_FILTERS: ReadonlyArray<{
       'ticket',
     ] as MarketMediumFilter[]
   ).includes(entry.id)
-).map((entry) =>
-  entry.id === 'ticket' ? { ...entry, label: 'Events' } : entry
 );
 
 function dropsCountLabel(count: number): string {
@@ -714,7 +712,7 @@ export function DropsPagePanel({
   initialNowMs,
 }: {
   initialSort?: DropsSort;
-  /** From SSR / `?kind=` — Events = `ticket`. */
+  /** From SSR / `?kind=` — Tickets = `ticket`. */
   initialMedium?: DropsMediumParam;
   /** From SSR / `?audioFormat=` when medium is audio. */
   initialAudioFormat?: DropAudioFormatFilter | null;

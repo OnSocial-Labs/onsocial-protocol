@@ -24,6 +24,7 @@ import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import { MarketListingRow } from '@/features/market/market-listing-row';
 import { MarketListingSortMenu } from '@/features/market/market-listing-sort-menu';
 import type { MarketAudioFormatFilter } from '@/features/market/market-facet-rail';
+import { MarketFacetRail } from '@/features/market/market-facet-rail';
 import { MarketFilterMenu } from '@/features/market/market-filter-menu';
 import {
   MARKET_MEDIUM_FILTERS,
@@ -126,6 +127,27 @@ const LISTING_FILTERS: { id: ListingFilter; label: string }[] = [
   { id: 'fixed', label: 'Fixed' },
   { id: 'auctions', label: 'Auctions' },
 ];
+
+/**
+ * Primary discovery mediums on Market — full taxonomy minus listing-only noise
+ * (coupons / memberships / custom stay in the Filter drawer).
+ */
+const MARKET_DISCOVERY_MEDIUM_FILTERS: ReadonlyArray<{
+  id: MarketMediumFilter;
+  label: string;
+}> = MARKET_MEDIUM_FILTERS.filter((entry) =>
+  (
+    [
+      'all',
+      'thought',
+      'art',
+      'writing',
+      'audio',
+      'video',
+      'ticket',
+    ] as MarketMediumFilter[]
+  ).includes(entry.id)
+);
 
 function parseMediumFilter(raw: string | null): MarketMediumFilter {
   const value = raw?.trim().toLowerCase() ?? '';
@@ -277,6 +299,7 @@ export function MarketPagePanel({
       : EMPTY_LISTINGS
   );
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   const [sales, setSales] = useState<MarketSaleItem[] | null>(
     () => initialSales
   );
@@ -398,6 +421,7 @@ export function MarketPagePanel({
     ssrDefaultBrowseSkipRef.current = false;
     const gen = ++listingsFetchGenRef.current;
     setLoadingMore(false);
+    setLoadMoreFailed(false);
     setListingsState((current) => {
       if (current.paramsKey === listingsParamsKey) return current;
       if (!shouldClearListingsForParams(current.paramsKey, listingsParamsKey)) {
@@ -464,6 +488,7 @@ export function MarketPagePanel({
     if (!listingsState.hasMore || loadingMore) return;
     const gen = listingsFetchGenRef.current;
     setLoadingMore(true);
+    setLoadMoreFailed(false);
     const kinds =
       listingSort === 'ending'
         ? (['auction'] as const)
@@ -482,6 +507,7 @@ export function MarketPagePanel({
     })
       .then((page) => {
         if (gen !== listingsFetchGenRef.current) return;
+        setLoadMoreFailed(false);
         setListingsState((current) =>
           current.paramsKey === listingsParamsKey
             ? {
@@ -495,12 +521,8 @@ export function MarketPagePanel({
       })
       .catch(() => {
         if (gen !== listingsFetchGenRef.current) return;
-        // Stop paging quietly; the loaded pages stay usable.
-        setListingsState((current) =>
-          current.paramsKey === listingsParamsKey
-            ? { ...current, hasMore: false }
-            : current
-        );
+        // Keep hasMore so Retry can page again; loaded rows stay usable.
+        setLoadMoreFailed(true);
       })
       .finally(() => {
         if (gen === listingsFetchGenRef.current) {
@@ -531,7 +553,8 @@ export function MarketPagePanel({
       listingsReady &&
       !listingsState.failed &&
       listingsState.hasMore &&
-      !loadingMore,
+      !loadingMore &&
+      !loadMoreFailed,
     onIntersect: loadMoreListings,
     rootMargin: '240px 0px',
   });
@@ -1126,29 +1149,66 @@ export function MarketPagePanel({
               toolbarHidden ? ' is-scroll-hidden' : ''
             }`}
           >
-            <div
-              className="discover-tab-bar market-listing-filters"
-              role="tablist"
-              aria-label="Listing type"
-            >
-              <div className="discover-tab-bar-scroller">
-                {LISTING_FILTERS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    id={`market-listing-tab-${tab.id}`}
-                    aria-controls="market-listing-results"
-                    aria-selected={listingFilter === tab.id}
-                    className={
-                      listingFilter === tab.id ? 'is-active' : undefined
-                    }
-                    onClick={() => setFilter(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+            <div className="market-listing-filter-stack">
+              <div
+                className="discover-tab-bar market-listing-filters"
+                role="tablist"
+                aria-label="Listing type"
+              >
+                <div className="discover-tab-bar-scroller">
+                  {LISTING_FILTERS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      id={`market-listing-tab-${tab.id}`}
+                      aria-controls="market-listing-results"
+                      aria-selected={listingFilter === tab.id}
+                      className={
+                        listingFilter === tab.id ? 'is-active' : undefined
+                      }
+                      onClick={() => setFilter(tab.id)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <div
+                className="discover-tab-bar market-listing-filters"
+                role="tablist"
+                aria-label="Listing medium"
+              >
+                <div className="discover-tab-bar-scroller">
+                  {MARKET_DISCOVERY_MEDIUM_FILTERS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={mediumFilter === tab.id}
+                      className={
+                        mediumFilter === tab.id ? 'is-active' : undefined
+                      }
+                      onClick={() => setMediumFilter(tab.id)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {facetMedium ? (
+                <MarketFacetRail
+                  medium={facetMedium}
+                  audioFormat={audioFormatFilter}
+                  selectedFacets={selectedFacets}
+                  onAudioFormatChange={(format) =>
+                    replaceDiscoveryParams({ audioFormat: format })
+                  }
+                  onFacetsChange={(facets) =>
+                    replaceDiscoveryParams({ facets })
+                  }
+                />
+              ) : null}
             </div>
             <MarketFilterMenu
               medium={mediumFilter}
@@ -1222,27 +1282,15 @@ export function MarketPagePanel({
           </div>
         ) : null}
 
-        {creatorEmpty ? (
-          <p className="market-page-status">
-            No live listings from @{fallbackLabel(creatorFilter)} right now.
-          </p>
-        ) : null}
-
-        {appEmpty ? (
-          <p className="market-page-status">
-            No live listings in {appFilter} right now.
-          </p>
-        ) : null}
-
         {status === 'loading' ? (
           <div className="market-section" aria-busy="true" aria-live="polite">
             <p className="sr-only">Loading listings…</p>
             <MarketListSkeleton rows={5} />
           </div>
         ) : null}
-        {status === 'error' ? (
+        {listingsFailed ? (
           <p className="market-page-status" role="alert">
-            Couldn’t load Market.{' '}
+            Couldn’t load listings.{' '}
             <button
               type="button"
               className="market-page-retry"
@@ -1267,6 +1315,7 @@ export function MarketPagePanel({
 
         {status === 'ready' &&
         listingsReady &&
+        !listingsFailed &&
         !searching &&
         listingFilter === 'all' &&
         mediumFilter === 'all' &&
@@ -1280,36 +1329,108 @@ export function MarketPagePanel({
 
         {showEmptyFilter ? (
           <p className="market-page-status">
-            {searching
-              ? `No listings match “${listingQuery.trim()}”.`
-              : facetOrFormatActive
-                ? 'No matches for these filters.'
-                : mediumFilter !== 'all'
-                  ? `Nothing in ${
-                      MARKET_MEDIUM_FILTERS.find(
-                        (tab) => tab.id === mediumFilter
-                      )?.label ?? mediumFilter
-                    } right now.`
-                  : `Nothing in ${
-                      listingFilter === 'auctions' ? 'Auctions' : 'Fixed'
-                    } right now.`}
+            {searching ? (
+              <>
+                No listings match “{listingQuery.trim()}”.{' '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={() => setListingQuery('')}
+                >
+                  Clear search
+                </button>
+              </>
+            ) : facetOrFormatActive ? (
+              <>
+                No matches for these filters.{' '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={() => setMediumFilter('all')}
+                >
+                  Clear filter
+                </button>
+              </>
+            ) : mediumFilter !== 'all' ? (
+              <>
+                Nothing in{' '}
+                {MARKET_MEDIUM_FILTERS.find((tab) => tab.id === mediumFilter)
+                  ?.label ?? mediumFilter}{' '}
+                right now.{' '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={() => setMediumFilter('all')}
+                >
+                  Clear filter
+                </button>
+                {' · '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={() => setFilter('all')}
+                >
+                  See All
+                </button>
+              </>
+            ) : (
+              <>
+                Nothing in{' '}
+                {listingFilter === 'auctions' ? 'Auctions' : 'Fixed'} right
+                now.{' '}
+                <button
+                  type="button"
+                  className="market-page-retry"
+                  onClick={() => setFilter('all')}
+                >
+                  See All
+                </button>
+              </>
+            )}
           </p>
         ) : null}
 
-        {discoveryFilteredListings.length > 0 ? (
-          <section
-            id="market-listing-results"
-            role="tabpanel"
-            aria-labelledby={`market-listing-tab-${listingFilter}`}
-            className="market-section"
-          >
-            <h2 id="market-new" className="sr-only">
-              {listingFilter === 'auctions'
-                ? 'Auctions'
-                : listingFilter === 'fixed'
-                  ? 'Fixed price'
-                  : 'Listings'}
-            </h2>
+        {creatorEmpty ? (
+          <p className="market-page-status">
+            No live listings from @{fallbackLabel(creatorFilter)} right now.{' '}
+            <button
+              type="button"
+              className="market-page-retry"
+              onClick={clearNarrowFilter}
+            >
+              Clear filter
+            </button>
+          </p>
+        ) : null}
+
+        {appEmpty ? (
+          <p className="market-page-status">
+            No live listings in {appFilter} right now.{' '}
+            <button
+              type="button"
+              className="market-page-retry"
+              onClick={clearNarrowFilter}
+            >
+              Clear filter
+            </button>
+          </p>
+        ) : null}
+
+        <section
+          id="market-listing-results"
+          role="tabpanel"
+          aria-labelledby={`market-listing-tab-${listingFilter}`}
+          className="market-section"
+          hidden={discoveryFilteredListings.length === 0}
+        >
+          <h2 id="market-new" className="sr-only">
+            {listingFilter === 'auctions'
+              ? 'Auctions'
+              : listingFilter === 'fixed'
+                ? 'Fixed price'
+                : 'Listings'}
+          </h2>
+          {discoveryFilteredListings.length > 0 ? (
             <div className="market-listing-list" role="list">
               {discoveryFilteredListings.map((item) => {
                 const rowKey = marketListingRowKey(item);
@@ -1344,8 +1465,8 @@ export function MarketPagePanel({
                 );
               })}
             </div>
-          </section>
-        ) : null}
+          ) : null}
+        </section>
 
         {clientDiscoveryFilterActive &&
         listingsState.hasMore &&
@@ -1354,9 +1475,23 @@ export function MarketPagePanel({
           <p className="market-page-status">Looking for matches…</p>
         ) : null}
 
+        {loadMoreFailed ? (
+          <p className="market-page-status" role="alert">
+            Couldn’t load more.{' '}
+            <button
+              type="button"
+              className="market-page-retry"
+              onClick={loadMoreListings}
+            >
+              Retry
+            </button>
+          </p>
+        ) : null}
+
         {(discoveryFilteredListings.length > 0 ||
           (clientDiscoveryFilterActive && listingsState.hasMore)) &&
-        listingsState.hasMore ? (
+        listingsState.hasMore &&
+        !loadMoreFailed ? (
           <>
             {loadingMore ? <MarketListSkeleton rows={2} /> : null}
             <div
