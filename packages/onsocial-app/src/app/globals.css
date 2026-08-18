@@ -22959,6 +22959,17 @@ a.os-surface-row {
   }
 
   /*
+   * DAO Members / Treasury — social-list inset (same as `.standing-panel`).
+   * Must target `.os-slide-over-content.…` like hub-manage so the pad survives
+   * CSS minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
+   */
+  .dao-members-slide .os-slide-over-content.dao-members-sheet,
+  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet {
+    gap: 0.65rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
+  }
+
+  /*
    * Guild edit workspace — full-bleed banner; fields pad themselves.
    * Footer pad stays on .guild-edit-sheet-footer.
    */
@@ -32366,9 +32377,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .dao-treasury-sheet {
   display: flex;
   flex-direction: column;
-  /* Same denser rhythm + inset as `.standing-panel` / `.endorsements-panel`. */
-  gap: 0.65rem;
-  padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
+  /* Gap + pad live on `.dao-*-slide .os-slide-over-content.dao-*-sheet`. */
 }
 
 .dao-members-empty,
