@@ -66,7 +66,7 @@ export function TicketClaimRefundAction({
     !status.isRefunded &&
     !status.isFullyRedeemed &&
     Boolean(accountId) &&
-    accountIdsEqual(accountId, status.ownerId);
+    accountIdsEqual(accountId ?? '', status.ownerId);
 
   const claim = useCallback(async () => {
     if (!eligible || !isConnected || pending) return;
