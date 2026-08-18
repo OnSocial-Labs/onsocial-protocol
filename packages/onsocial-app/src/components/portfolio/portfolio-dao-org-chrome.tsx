@@ -6,7 +6,6 @@
  */
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import type { DaoBranding } from '@/features/protocol/dao-branding';
@@ -25,17 +24,12 @@ import {
 } from '@/features/protocol/protocol-eligibility';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import {
-  GOVERNANCE_DAO_ACCOUNT,
-  TREASURY_DAO_ACCOUNT,
-} from '@/lib/app-config';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
 import {
   PROTOCOL_PROPOSAL_PARAM,
   PROTOCOL_SEARCH_PARAM,
   PROTOCOL_STATUS_PARAM,
-  daoPath,
 } from '@/lib/app-routes';
 
 type PortfolioOverlay =
@@ -68,14 +62,6 @@ export type PortfolioDaoOrgChromeProps = {
 
 function eligibilityKey(accountId: string, daoAccountId: string): string {
   return `${accountId}:${daoAccountId}`;
-}
-
-function isProtocolFlipDao(daoAccountId: string): boolean {
-  const id = daoAccountId.trim().toLowerCase();
-  return (
-    id === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
-    id === TREASURY_DAO_ACCOUNT.trim().toLowerCase()
-  );
 }
 
 function hasProposalsDeepLink(searchParams: {
@@ -162,10 +148,6 @@ function PortfolioDaoOrgChromeInner({
       eligibility?.key === eligibilityKey(accountId, daoAccountId) &&
       eligibility.value.canPropose
   );
-  const showFlipper = isProtocolFlipDao(daoAccountId);
-  const isGovernance =
-    daoAccountId.trim().toLowerCase() ===
-    GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase();
 
   const handleSaved = useCallback((next: DaoBranding, nextMetadata: string) => {
     setOptimistic({
@@ -196,40 +178,6 @@ function PortfolioDaoOrgChromeInner({
 
   return (
     <>
-      {showFlipper ? (
-        <p
-          className="portfolio-stats-inline portfolio-dao-flipper"
-          role="tablist"
-          aria-label="Protocol DAO"
-        >
-          <span className="portfolio-stats-item">
-            <Link
-              href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
-              role="tab"
-              aria-selected={isGovernance}
-              className={`portfolio-stats-link${isGovernance ? ' is-active' : ''}`}
-              scroll={false}
-            >
-              Governance
-            </Link>
-          </span>
-          <span className="portfolio-stats-item">
-            <span className="portfolio-stats-sep" aria-hidden>
-              ·
-            </span>
-            <Link
-              href={daoPath(TREASURY_DAO_ACCOUNT)}
-              role="tab"
-              aria-selected={!isGovernance}
-              className={`portfolio-stats-link${!isGovernance ? ' is-active' : ''}`}
-              scroll={false}
-            >
-              Treasury
-            </Link>
-          </span>
-        </p>
-      ) : null}
-
       <p className="portfolio-stats-inline" aria-label="DAO tools">
         {tools.map((tool, index) => (
           <span key={tool.id} className="portfolio-stats-item">

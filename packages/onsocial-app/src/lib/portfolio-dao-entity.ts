@@ -28,6 +28,22 @@ function kindLabelForAccount(accountId: string): string {
   return 'DAO';
 }
 
+/** Protocol Governance ↔ Treasury pair — face kind line is a switch, not a static label. */
+export function isProtocolFacePairDao(accountId: string): boolean {
+  const id = accountId.trim().toLowerCase();
+  return (
+    id === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
+    id === TREASURY_DAO_ACCOUNT.trim().toLowerCase()
+  );
+}
+
+export function isProtocolGovernanceFace(accountId: string): boolean {
+  return (
+    accountId.trim().toLowerCase() ===
+    GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase()
+  );
+}
+
 /**
  * Server resolve: is this `/@account` a DAO org face?
  * Heuristic suffixes + catalog hit. Used to square the crest and light org chrome.

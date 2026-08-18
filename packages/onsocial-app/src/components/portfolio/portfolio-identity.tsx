@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
+import { PortfolioDaoKindSwitch } from '@/components/portfolio/portfolio-dao-kind-switch';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { PostRichText } from '@/features/home/post-rich-text';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
+import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
 import { displayName, initials } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -61,7 +63,9 @@ export function PortfolioIdentity({
       )}
 
       <div className="portfolio-identity-copy">
-        {isDao && kindLabel ? (
+        {isDao && isProtocolFacePairDao(accountId) ? (
+          <PortfolioDaoKindSwitch accountId={accountId} />
+        ) : isDao && kindLabel ? (
           <p className="portfolio-entity-kind">{kindLabel}</p>
         ) : null}
         <h1 className="portfolio-name">{titleLabel}</h1>

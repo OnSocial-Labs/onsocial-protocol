@@ -10,7 +10,21 @@ vi.mock('@/lib/dao-catalog-lookup', () => ({
 }));
 
 import { lookupDaoCatalogByIds } from '@/lib/dao-catalog-lookup';
-import { resolvePortfolioDaoEntity } from './portfolio-dao-entity';
+import {
+  isProtocolFacePairDao,
+  isProtocolGovernanceFace,
+  resolvePortfolioDaoEntity,
+} from './portfolio-dao-entity';
+
+describe('protocol face pair helpers', () => {
+  it('detects governance / treasury pair faces', () => {
+    expect(isProtocolFacePairDao('governance.onsocial.testnet')).toBe(true);
+    expect(isProtocolFacePairDao('treasury.onsocial.testnet')).toBe(true);
+    expect(isProtocolFacePairDao('demo.sputnik-dao.near')).toBe(false);
+    expect(isProtocolGovernanceFace('governance.onsocial.testnet')).toBe(true);
+    expect(isProtocolGovernanceFace('treasury.onsocial.testnet')).toBe(false);
+  });
+});
 
 describe('resolvePortfolioDaoEntity', () => {
   it('classifies sputnik / protocol accounts as DAO faces', async () => {
