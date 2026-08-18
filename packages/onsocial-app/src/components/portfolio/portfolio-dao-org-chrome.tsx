@@ -282,7 +282,7 @@ function PortfolioDaoOrgChromeInner({
       }
       // Propose / Stake / Settings / Info live on the proposals workspace.
       setOverlay('proposals');
-      setToolRequest(action);
+      setToolRequest(action as DaoWorkspaceTool);
     },
     [requestOpenMoodSheet]
   );
