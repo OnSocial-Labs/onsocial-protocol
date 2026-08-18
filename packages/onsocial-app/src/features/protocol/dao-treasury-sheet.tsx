@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Divider, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import { fetchProtocolDaoTransferAssets } from '@/features/protocol/protocol-dao-context-client';
+import { formatSocialCompact } from '@/lib/format-social-balance';
 import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
+import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
 
 const TREASURY_Z = 74;
 
@@ -22,7 +24,7 @@ function tokenSmallestToDisplay(value: string, decimals: number): string {
 }
 
 /**
- * DAO treasury balances — assets held by this org account.
+ * DAO treasury — wallet balances + Support pot (claim moves pot → wallet).
  */
 export function DaoTreasurySheet({
   open,
@@ -39,6 +41,7 @@ export function DaoTreasurySheet({
   if (open && !sheetOpen) setSheetOpen(true);
 
   const [assets, setAssets] = useState<ProtocolDaoTransferAsset[] | null>(null);
+  const [supportYocto, setSupportYocto] = useState<bigint | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +51,7 @@ export function DaoTreasurySheet({
 
   const handleClosed = useCallback(() => {
     setAssets(null);
+    setSupportYocto(null);
     setError(null);
     setPending(false);
     onClose();
@@ -62,10 +66,16 @@ export function DaoTreasurySheet({
         setError(null);
       }
     });
-    void fetchProtocolDaoTransferAssets(daoAccountId)
-      .then((next) => {
+    void Promise.all([
+      fetchProtocolDaoTransferAssets(daoAccountId),
+      fetchProfileSupportBalanceYocto(daoAccountId, { fresh: true }).catch(
+        () => 0n
+      ),
+    ])
+      .then(([nextAssets, nextSupport]) => {
         if (cancelled) return;
-        setAssets(next);
+        setAssets(nextAssets);
+        setSupportYocto(nextSupport);
         setPending(false);
       })
       .catch((cause) => {
@@ -80,6 +90,16 @@ export function DaoTreasurySheet({
     };
   }, [sheetOpen, daoAccountId]);
 
+  const hasAssets = Boolean(assets && assets.length > 0);
+  const hasSupport = supportYocto != null && supportYocto > 0n;
+  const empty =
+    !pending &&
+    !error &&
+    assets != null &&
+    supportYocto != null &&
+    !hasAssets &&
+    !hasSupport;
+
   return (
     <OsSlideOverScreen
       open={sheetOpen}
@@ -90,7 +110,7 @@ export function DaoTreasurySheet({
       closeAriaLabel="Back from treasury"
       zIndex={TREASURY_Z}
       className="dao-treasury-slide"
-      contentClassName="dao-treasury-sheet"
+      contentClassName="dao-treasury-sheet standing-panel"
     >
       {pending && assets == null ? (
         <p className="dao-treasury-empty">Loading balances…</p>
@@ -102,35 +122,58 @@ export function DaoTreasurySheet({
         </p>
       ) : null}
 
-      {!pending && !error && assets && assets.length === 0 ? (
+      {empty ? (
         <p className="dao-treasury-empty">No spendable balances found.</p>
       ) : null}
 
-      {assets && assets.length > 0 ? (
-        <OsSurfaceRowList
-          className="dao-treasury-list"
-          aria-label="DAO balances"
-        >
-          {assets.map((asset, index) => (
-            <div key={asset.tokenId || 'near'}>
-              {index > 0 ? <Divider variant="item" /> : null}
-              <OsSurfaceRow
-                label={asset.symbol}
-                description={
-                  asset.name !== asset.symbol ? asset.name : undefined
-                }
-                trailing={
-                  <span className="dao-treasury-balance">
-                    {tokenSmallestToDisplay(
-                      asset.balanceSmallest,
-                      asset.decimals
-                    )}
-                  </span>
-                }
-              />
-            </div>
-          ))}
-        </OsSurfaceRowList>
+      {hasSupport ? (
+        <section className="dao-treasury-section" aria-label="Support pot">
+          <h2 className="dao-treasury-section-title">Support pot</h2>
+          <OsSurfaceRowList
+            className="dao-treasury-list"
+            aria-label="Support pot balance"
+          >
+            <OsSurfaceRow
+              label="SOCIAL"
+              description="Visitor Support · claim via Manage"
+              trailing={
+                <span className="dao-treasury-balance">
+                  {formatSocialCompact(supportYocto!.toString())}
+                </span>
+              }
+            />
+          </OsSurfaceRowList>
+        </section>
+      ) : null}
+
+      {hasAssets ? (
+        <section className="dao-treasury-section" aria-label="Wallet">
+          <h2 className="dao-treasury-section-title">Wallet</h2>
+          <OsSurfaceRowList
+            className="dao-treasury-list"
+            aria-label="DAO wallet balances"
+          >
+            {assets!.map((asset, index) => (
+              <div key={asset.tokenId || 'near'}>
+                {index > 0 ? <Divider variant="item" /> : null}
+                <OsSurfaceRow
+                  label={asset.symbol}
+                  description={
+                    asset.name !== asset.symbol ? asset.name : undefined
+                  }
+                  trailing={
+                    <span className="dao-treasury-balance">
+                      {tokenSmallestToDisplay(
+                        asset.balanceSmallest,
+                        asset.decimals
+                      )}
+                    </span>
+                  }
+                />
+              </div>
+            ))}
+          </OsSurfaceRowList>
+        </section>
       ) : null}
     </OsSlideOverScreen>
   );

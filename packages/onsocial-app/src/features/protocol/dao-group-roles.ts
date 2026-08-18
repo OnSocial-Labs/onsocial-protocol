@@ -5,6 +5,16 @@ export interface DaoGroupRoleSection {
   accountIds: string[];
 }
 
+/** Stake-weighted Member role — threshold only (no on-chain people list). */
+export interface DaoMemberThresholdSection {
+  roleName: string;
+  thresholdYocto: string;
+}
+
+export type DaoMembershipSection =
+  | ({ kind: 'group' } & DaoGroupRoleSection)
+  | ({ kind: 'member' } & DaoMemberThresholdSection);
+
 function normalizeAccount(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -27,6 +37,43 @@ export function listDaoGroupRoleSections(
   return sections;
 }
 
+/** Member-kind roles with a positive stake threshold. */
+export function listDaoMemberThresholdSections(
+  policy: ProtocolDaoPolicy | null | undefined
+): DaoMemberThresholdSection[] {
+  const roles = policy?.roles ?? [];
+  const sections: DaoMemberThresholdSection[] = [];
+
+  for (const role of roles) {
+    const roleName = role.name?.trim();
+    if (!roleName) continue;
+    const threshold = memberThresholdYocto(role);
+    if (!threshold) continue;
+    sections.push({ roleName, thresholdYocto: threshold });
+  }
+
+  return sections;
+}
+
+/**
+ * Members overlay sections — Group people first, then stake-threshold roles.
+ * Matches the Group-or-stake propose model shown on the face.
+ */
+export function listDaoMembershipSections(
+  policy: ProtocolDaoPolicy | null | undefined
+): DaoMembershipSection[] {
+  return [
+    ...listDaoGroupRoleSections(policy).map((section) => ({
+      kind: 'group' as const,
+      ...section,
+    })),
+    ...listDaoMemberThresholdSections(policy).map((section) => ({
+      kind: 'member' as const,
+      ...section,
+    })),
+  ];
+}
+
 function uniqueGroupMembers(role: ProtocolDaoRole): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -37,6 +84,18 @@ function uniqueGroupMembers(role: ProtocolDaoRole): string[] {
     out.push(id);
   }
   return out;
+}
+
+function memberThresholdYocto(role: ProtocolDaoRole): string | null {
+  const raw = role.kind?.Member;
+  if (raw == null || raw === '') return null;
+  try {
+    const value = BigInt(raw);
+    if (value <= 0n) return null;
+    return value.toString();
+  } catch {
+    return null;
+  }
 }
 
 export function countDaoGroupMembers(
