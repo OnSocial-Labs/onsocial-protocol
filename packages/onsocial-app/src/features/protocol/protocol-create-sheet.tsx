@@ -33,10 +33,11 @@ import {
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import {
-  canProposeProtocolCreateKind,
   getProtocolCreateKindBlockReason,
   isProtocolDaoGroupMember,
+  viewerHasCreateKindPermission,
 } from '@/features/protocol/protocol-propose-gate';
+import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import type { ProtocolDaoBoostInfraContext } from '@/lib/protocol-dao-boost-infra';
@@ -51,6 +52,7 @@ import {
 } from '@/lib/format-social-balance';
 import { socialToYocto } from '@/lib/social-spend-profile';
 import {
+  PROTOCOL_CONFIRM_Z,
   PROTOCOL_NESTED_CHOICE_Z,
 } from '@/features/protocol/protocol-sheet-z';
 
@@ -155,12 +157,14 @@ export function ProtocolCreateSheet({
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
   const [formError, setFormError] = useState<string | null>(null);
+  const [proposeConfirmOpen, setProposeConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] =
+    useState<ProtocolProposalPayload | null>(null);
 
   const roles = useMemo(
     () => getCreatableProtocolRoleOptions(daoPolicy),
     [daoPolicy]
   );
-  const delegatedWeight = eligibility?.delegatedWeight ?? '0';
   const isGroupMember = useMemo(
     () => isProtocolDaoGroupMember(daoPolicy, accountId),
     [daoPolicy, accountId]
@@ -170,14 +174,14 @@ export function ProtocolCreateSheet({
       return PROTOCOL_CREATE_KIND_OPTIONS;
     }
     return PROTOCOL_CREATE_KIND_OPTIONS.filter((option) =>
-      canProposeProtocolCreateKind(
-        daoPolicy,
-        accountId,
-        delegatedWeight,
-        option.id
-      )
+      viewerHasCreateKindPermission(daoPolicy, accountId, option.id)
     );
-  }, [accountId, loadState, daoPolicy, delegatedWeight]);
+  }, [accountId, loadState, daoPolicy]);
+
+  const hasKindPermission = useMemo(
+    () => viewerHasCreateKindPermission(daoPolicy, accountId, kind),
+    [daoPolicy, accountId, kind]
+  );
 
   useEffect(() => {
     if (!open) {
@@ -213,6 +217,8 @@ export function ProtocolCreateSheet({
       setEligibility(null);
       setLoadState('idle');
       setFormError(null);
+      setProposeConfirmOpen(false);
+      setPendingPayload(null);
       return;
     }
 
@@ -457,12 +463,6 @@ export function ProtocolCreateSheet({
         ? 'This DAO cannot update boost infra authority from the current contract state.'
         : null;
 
-  const canProposeSelected =
-    Boolean(accountId) &&
-    loadState === 'ready' &&
-    !liveContextLoading &&
-    !liveContextBlock &&
-    canProposeProtocolCreateKind(daoPolicy, accountId, delegatedWeight, kind);
   const needsStake =
     loadState === 'ready' &&
     eligibility != null &&
@@ -476,32 +476,24 @@ export function ProtocolCreateSheet({
       ? formatSocialCompact(eligibility.remainingToThreshold)
       : null;
   const permissionBlock =
-    loadState === 'ready' && accountId && !needsStake && !canProposeSelected
+    loadState === 'ready' && accountId && !hasKindPermission
       ? getProtocolCreateKindBlockReason(kind)
       : null;
 
+  const formReady =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    hasKindPermission &&
+    !liveContextLoading &&
+    !liveContextBlock;
+
   const footerState = useMemo((): CommerceSheetFooterState | null => {
     if (!open) return null;
-    if (needsStake) {
-      return {
-        visible: true,
-        primaryLabel: 'Stake to propose',
-        primaryPendingLabel: 'Opening…',
-        canSubmit: !pending,
-        pending: false,
-        primaryType: 'button',
-        onPrimaryClick: onOpenStake,
-      };
-    }
     return {
       visible: true,
-      primaryLabel: 'Submit proposal',
+      primaryLabel: 'Propose',
       primaryPendingLabel: 'Submitting…',
-      canSubmit:
-        !pending &&
-        Boolean(accountId) &&
-        loadState === 'ready' &&
-        canProposeSelected,
+      canSubmit: !pending && formReady,
       pending,
       disabled:
         pending ||
@@ -510,28 +502,28 @@ export function ProtocolCreateSheet({
         loadState === 'error' ||
         liveContextLoading ||
         Boolean(liveContextBlock) ||
-        !canProposeSelected,
+        !hasKindPermission,
       primaryType: 'submit',
     };
   }, [
     open,
-    needsStake,
     pending,
-    onOpenStake,
+    formReady,
     accountId,
     loadState,
-    canProposeSelected,
     liveContextLoading,
     liveContextBlock,
+    hasKindPermission,
   ]);
 
   return (
+    <>
     <ProtocolTaskSheet
       open={open}
       onClose={onClose}
       verb={protocolCreateKindLabel(kind)}
       handle={daoAccountId ?? undefined}
-      whisper="Fill the fields, then submit on-chain."
+      whisper="Fill the fields, then confirm bond and submit."
       closeAriaLabel="Close propose"
       backdropLabel="Close propose"
       formId={formId}
@@ -542,8 +534,7 @@ export function ProtocolCreateSheet({
         className="protocol-compose protocol-task-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (needsStake || pending || !accountId || !canProposeSelected)
-            return;
+          if (pending || !accountId || !formReady) return;
           try {
             let transferAmountYocto = '';
             if (kind === 'transfer') {
@@ -618,7 +609,8 @@ export function ProtocolCreateSheet({
               burnBps: Number(burnBps),
             });
             setFormError(null);
-            onSubmit(payload);
+            setPendingPayload(payload);
+            setProposeConfirmOpen(true);
           } catch (error) {
             setFormError(
               error instanceof Error
@@ -644,7 +636,8 @@ export function ProtocolCreateSheet({
 
         {needsStake ? (
           <p className="protocol-compose-note is-warn">
-            Need {shortfall ?? 'more'} SOCIAL delegated to propose
+            Need {shortfall ?? 'more'} SOCIAL delegated — you can still fill
+            this form; confirm will offer Stake
             {bondLabel ? ` · bond ${bondLabel}` : ''}.
           </p>
         ) : null}
@@ -661,13 +654,12 @@ export function ProtocolCreateSheet({
           <p className="protocol-compose-note is-warn">{liveContextBlock}</p>
         ) : null}
 
-        {eligibility && canProposeSelected && bondLabel ? (
+        {eligibility && hasKindPermission && !needsStake && bondLabel ? (
           <p className="protocol-compose-note">Bond {bondLabel} on submit.</p>
         ) : null}
 
         {loadState === 'ready' &&
         accountId &&
-        !needsStake &&
         availableKinds.length === 0 ? (
           <p className="protocol-compose-note is-warn">
             No proposal kinds are available for your roles on this DAO.
@@ -1170,5 +1162,30 @@ export function ProtocolCreateSheet({
         ) : null}
       </form>
     </ProtocolTaskSheet>
+    <DaoProposeConfirmSheet
+      open={proposeConfirmOpen}
+      title={`Propose ${protocolCreateKindLabel(kind)}?`}
+      body="Submit this proposal to the DAO. It goes live after approval."
+      eligibility={eligibility}
+      eligibilityLoading={loadState === 'loading'}
+      isGroupMember={isGroupMember}
+      pending={pending}
+      proposeLabel="Propose"
+      zIndex={PROTOCOL_CONFIRM_Z}
+      onDiscard={() => {
+        setProposeConfirmOpen(false);
+        setPendingPayload(null);
+      }}
+      onPropose={() => {
+        if (!pendingPayload) return;
+        onSubmit(pendingPayload);
+      }}
+      onStake={() => {
+        setProposeConfirmOpen(false);
+        setPendingPayload(null);
+        onOpenStake();
+      }}
+    />
+    </>
   );
 }

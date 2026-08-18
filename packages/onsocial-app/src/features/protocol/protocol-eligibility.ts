@@ -8,6 +8,7 @@ import {
   viewAccount,
   viewNearContract,
 } from '@/lib/app-near-rpc';
+import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 
 const DEFAULT_PROPOSER_THRESHOLD = '100000000000000000000';
@@ -34,8 +35,27 @@ export interface ProtocolGovernanceEligibility {
   delegateNeeded: string;
   isInCooldown: boolean;
   availableToWithdraw: string;
+  /** Member-role stake threshold met (weight only). */
   canPropose: boolean;
+  /** Viewer is listed on a Group role (council path without stake). */
+  isGroupMember: boolean;
   proposalBond: string;
+}
+
+/**
+ * Effective propose right — Group council OR Member stake threshold.
+ * Use for Manage / mood / Boost / claim / As-DAO entry; keep `canPropose`
+ * for stake-sheet weight copy.
+ */
+export function viewerCanProposeOnDao(
+  eligibility:
+    | Pick<ProtocolGovernanceEligibility, 'canPropose' | 'isGroupMember'>
+    | null
+    | undefined
+): boolean {
+  return Boolean(
+    eligibility && (eligibility.isGroupMember || eligibility.canPropose)
+  );
 }
 
 interface StakingUser {
@@ -137,6 +157,9 @@ export async function getProtocolGovernanceEligibility(
   const remainingToThreshold = maxYocto(
     BigInt(requiredWeight) - BigInt(delegatedWeight)
   );
+  const isGroupMember = isProtocolDaoGroupMember(policy, accountId);
+  const canProposeByWeight =
+    BigInt(delegatedWeight) >= BigInt(requiredWeight);
 
   if (!stakingContractId) {
     return {
@@ -158,7 +181,8 @@ export async function getProtocolGovernanceEligibility(
       delegateNeeded: '0',
       isInCooldown: false,
       availableToWithdraw: '0',
-      canPropose: BigInt(delegatedWeight) >= BigInt(requiredWeight),
+      canPropose: canProposeByWeight,
+      isGroupMember,
       proposalBond,
     };
   }
@@ -242,7 +266,8 @@ export async function getProtocolGovernanceEligibility(
     delegateNeeded,
     isInCooldown,
     availableToWithdraw,
-    canPropose: BigInt(delegatedWeight) >= BigInt(requiredWeight),
+    canPropose: canProposeByWeight,
+    isGroupMember,
     proposalBond,
   };
 }

@@ -69,7 +69,9 @@ export function useProtocolPickerEligibility({
         );
         if (cancelled) return;
         setDelegatedWeight(eligibility.delegatedWeight);
-        setCanProposeAny(eligibility.canPropose || isGroupMember);
+        setCanProposeAny(
+          eligibility.canPropose || eligibility.isGroupMember || isGroupMember
+        );
         setRemainingLabel(
           BigInt(eligibility.remainingToThreshold) > 0n
             ? formatSocialCompact(eligibility.remainingToThreshold)

@@ -25,6 +25,7 @@ function eligibility(
     isInCooldown: false,
     availableToWithdraw: '0',
     canPropose: true,
+    isGroupMember: false,
     proposalBond: '100000000000000000000000', // 0.1 NEAR
     ...partial,
   };
@@ -45,6 +46,19 @@ describe('resolveDaoProposeBondGate', () => {
     );
     expect(gate.needsStake).toBe(true);
     expect(gate.canSubmit).toBe(false);
+  });
+
+  it('lets group council propose without Member stake weight', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        canPropose: false,
+        isGroupMember: true,
+        nearBalance: '200000000000000000000000',
+      })
+    );
+    expect(gate.needsStake).toBe(false);
+    expect(gate.canPropose).toBe(true);
+    expect(gate.canSubmit).toBe(true);
   });
 
   it('allows submit when propose-ready and bond covered', () => {

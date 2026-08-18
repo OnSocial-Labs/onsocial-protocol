@@ -20,6 +20,7 @@ export function DaoProposeConfirmSheet({
   body,
   eligibility,
   eligibilityLoading = false,
+  isGroupMember,
   pending = false,
   proposeLabel = 'Propose',
   discardLabel = 'Discard',
@@ -34,6 +35,8 @@ export function DaoProposeConfirmSheet({
   body: string;
   eligibility: ProtocolGovernanceEligibility | null;
   eligibilityLoading?: boolean;
+  /** Group council can propose without the Member stake threshold. */
+  isGroupMember?: boolean;
   pending?: boolean;
   proposeLabel?: string;
   discardLabel?: string;
@@ -43,7 +46,9 @@ export function DaoProposeConfirmSheet({
   onPropose: () => void;
   onStake?: () => void;
 }) {
-  const gate = resolveDaoProposeBondGate(eligibility, eligibilityLoading);
+  const gate = resolveDaoProposeBondGate(eligibility, eligibilityLoading, {
+    isGroupMember,
+  });
   const loading = eligibilityLoading && !eligibility;
 
   let detail: string;

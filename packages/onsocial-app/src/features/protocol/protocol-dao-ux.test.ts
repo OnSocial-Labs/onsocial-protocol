@@ -17,6 +17,8 @@ import {
 import {
   getProtocolCreateKindLockReason,
   getProtocolPolicyActionLockReason,
+  viewerHasCreateKindPermission,
+  viewerHasPolicyActionPermission,
 } from '@/features/protocol/protocol-propose-gate';
 import {
   parseProtocolProposalFamily,
@@ -413,6 +415,52 @@ describe('protocol propose kind UX helpers', () => {
     ).toBeNull();
   });
 
+  it('hides create kinds by permission, not by stake weight', () => {
+    const policy = {
+      roles: [
+        {
+          name: 'council',
+          kind: { Group: ['alice.near'] },
+          permissions: ['vote:AddProposal', 'transfer:AddProposal'],
+          vote_policy: {},
+        },
+        {
+          name: 'token_holders',
+          kind: { Member: '1000' },
+          permissions: ['call:AddProposal'],
+          vote_policy: {},
+        },
+      ],
+      default_vote_policy: {
+        weight_kind: 'RoleWeight' as const,
+        quorum: '0',
+        threshold: [1, 2] as [number, number],
+      },
+      proposal_bond: '0',
+      proposal_period: '0',
+      bounty_bond: '0',
+      bounty_forgiveness_period: '0',
+    };
+
+    expect(viewerHasCreateKindPermission(policy, 'alice.near', 'signal')).toBe(
+      true
+    );
+    expect(
+      viewerHasCreateKindPermission(policy, 'alice.near', 'transfer')
+    ).toBe(true);
+    // Member-threshold Call path is visible to everyone (stake can unlock)
+    expect(
+      viewerHasCreateKindPermission(policy, 'alice.near', 'contract_upgrade')
+    ).toBe(true);
+    expect(
+      viewerHasCreateKindPermission(policy, 'bob.near', 'contract_upgrade')
+    ).toBe(true);
+    // Group-only kinds stay hidden for outsiders
+    expect(viewerHasCreateKindPermission(policy, 'bob.near', 'signal')).toBe(
+      false
+    );
+  });
+
   it('validates remembered create kinds', () => {
     expect(isProtocolCreateKind('signal')).toBe(true);
     expect(isProtocolCreateKind('not-a-kind')).toBe(false);
@@ -456,5 +504,36 @@ describe('protocol settings action UX helpers', () => {
         canProposeAction: false,
       })
     ).toBe('Needs remove-role permission.');
+  });
+
+  it('hides settings actions by permission path', () => {
+    const policy = {
+      roles: [
+        {
+          name: 'council',
+          kind: { Group: ['alice.near'] },
+          permissions: ['policy_update_default_vote_policy:AddProposal'],
+          vote_policy: {},
+        },
+      ],
+      default_vote_policy: {
+        weight_kind: 'RoleWeight' as const,
+        quorum: '0',
+        threshold: [1, 2] as [number, number],
+      },
+      proposal_bond: '0',
+      proposal_period: '0',
+      bounty_bond: '0',
+      bounty_forgiveness_period: '0',
+    };
+    expect(
+      viewerHasPolicyActionPermission(policy, 'alice.near', 'update_vote_policy')
+    ).toBe(true);
+    expect(
+      viewerHasPolicyActionPermission(policy, 'alice.near', 'remove_role')
+    ).toBe(false);
+    expect(
+      viewerHasPolicyActionPermission(policy, 'bob.near', 'update_vote_policy')
+    ).toBe(false);
   });
 });
