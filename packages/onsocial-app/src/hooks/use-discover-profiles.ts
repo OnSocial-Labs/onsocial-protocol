@@ -63,7 +63,8 @@ function discoverUrlQueryValue(query: string, tab: DiscoverTab): string {
     tab === 'profiles' ||
     tab === 'trending' ||
     tab === 'daos' ||
-    tab === 'guilds'
+    tab === 'guilds' ||
+    tab === 'hubs'
   ) {
     return discoverPeopleSearchQuery(query);
   }

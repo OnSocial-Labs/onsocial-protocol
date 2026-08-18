@@ -15,6 +15,7 @@ import { MarketListSkeleton } from '@/features/market/market-list-skeleton';
 import {
   creatorAccessShort,
   fetchAppsDirectory,
+  fetchPublishableApps,
   fetchStoreLiveListingCounts,
   mergeLiveListingCounts,
   type AppView,
@@ -29,6 +30,7 @@ import {
   hubCategoryLabel,
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
+import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
 import {
   INDEXER_CATCH_UP_COPY,
@@ -64,8 +66,9 @@ function storeMeta(app: AppView): string {
 }
 
 export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
-  const { isConnected } = useAppWallet();
+  const { accountId, isConnected } = useAppWallet();
   const [apps, setApps] = useState<AppView[]>(initial);
+  const [myApps, setMyApps] = useState<AppView[] | null>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [category, setCategory] = useState<HubCategoryFilter>('all');
@@ -174,6 +177,24 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
     };
   }, [debouncedQuery, category, sort, hideTest, retryKey]);
 
+  useEffect(() => {
+    if (!accountId) {
+      queueMicrotask(() => setMyApps(null));
+      return;
+    }
+    let cancelled = false;
+    void fetchPublishableApps(accountId, { limit: 24 })
+      .then((rows) => {
+        if (!cancelled) setMyApps(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setMyApps([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, retryKey]);
+
   async function loadMore() {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
@@ -202,9 +223,46 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
   }
 
   const searching = Boolean(debouncedQuery);
-  const empty = status === 'ready' && apps.length === 0 && !error;
+  const homeMode = !searching && category === 'all' && sort === 'recent';
+  const discoverHubsHref = appDiscoverTabHref('hubs');
+  const trendingApps = homeMode ? apps.slice(0, 12) : apps;
+  const empty = status === 'ready' && apps.length === 0 && !error && !homeMode;
   const showSkeleton = status === 'loading' && apps.length === 0;
   const emptyCentered = searching || category === 'all';
+
+  function renderHubRow(app: AppView) {
+    return (
+      <li key={app.appId}>
+        <Link
+          href={appPath(app.appId)}
+          scroll={false}
+          className="market-listing-row apps-directory-row"
+        >
+          <span
+            className={`market-listing-thumb apps-directory-logo${
+              app.mediaUrl ? ' has-media' : ''
+            }`}
+            aria-hidden
+          >
+            {app.mediaUrl ? (
+              <img src={app.mediaUrl} alt="" />
+            ) : (
+              <span className="apps-directory-logo-fallback">
+                {monogram(app.title)}
+              </span>
+            )}
+          </span>
+          <span className="market-listing-copy">
+            <span className="market-listing-head">
+              <span className="market-listing-title">{app.title}</span>
+              <span className="market-listing-price">{app.commissionPct}%</span>
+            </span>
+            <span className="market-listing-meta">{storeMeta(app)}</span>
+          </span>
+        </Link>
+      </li>
+    );
+  }
 
   let emptyPrimary: string;
   if (searching) {
@@ -346,46 +404,65 @@ export function AppsDirectoryPanel({ initial }: { initial: AppView[] }) {
           </div>
         ) : null}
 
-        {!showSkeleton && apps.length > 0 ? (
+        {!showSkeleton && homeMode ? (
+          <>
+            {isConnected ? (
+              <section className="daos-index-section" aria-label="My hubs">
+                <h2 className="daos-index-heading">My Hubs</h2>
+                {myApps == null ? (
+                  <p className="daos-index-empty">Loading your hubs…</p>
+                ) : myApps.length === 0 ? (
+                  <div className="standing-panel-empty-block">
+                    <div className="standing-panel-empty-state">
+                      <p className="standing-panel-empty-primary">
+                        No hubs yet.
+                      </p>
+                      <p className="standing-panel-empty-secondary">
+                        Open a hub to publish drops, or pick one from Trending.
+                      </p>
+                    </div>
+                    <div className="standing-panel-empty-actions">
+                      <Link
+                        href={APP_APP_CREATE_PATH}
+                        className="standing-panel-empty-action"
+                      >
+                        Open a hub
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <ul className="market-listing-list apps-directory-list">
+                    {myApps.map(renderHubRow)}
+                  </ul>
+                )}
+              </section>
+            ) : null}
+
+            <section className="daos-index-section" aria-label="Trending hubs">
+              <div className="daos-index-section-head">
+                <h2 className="daos-index-heading">Trending</h2>
+                <Link
+                  href={discoverHubsHref}
+                  className="discover-trending-see-all"
+                >
+                  See all
+                </Link>
+              </div>
+              {trendingApps.length > 0 ? (
+                <ul className="market-listing-list apps-directory-list">
+                  {trendingApps.map(renderHubRow)}
+                </ul>
+              ) : status === 'ready' && !error ? (
+                <p className="daos-index-empty">No hubs to show yet.</p>
+              ) : null}
+            </section>
+          </>
+        ) : null}
+
+        {!showSkeleton && !homeMode && apps.length > 0 ? (
           <>
             <ul className="market-listing-list apps-directory-list">
-              {apps.map((app) => (
-                <li key={app.appId}>
-                  <Link
-                    href={appPath(app.appId)}
-                    scroll={false}
-                    className="market-listing-row apps-directory-row"
-                  >
-                    <span
-                      className={`market-listing-thumb apps-directory-logo${
-                        app.mediaUrl ? ' has-media' : ''
-                      }`}
-                      aria-hidden
-                    >
-                      {app.mediaUrl ? (
-                        <img src={app.mediaUrl} alt="" />
-                      ) : (
-                        <span className="apps-directory-logo-fallback">
-                          {monogram(app.title)}
-                        </span>
-                      )}
-                    </span>
-                    <span className="market-listing-copy">
-                      <span className="market-listing-head">
-                        <span className="market-listing-title">
-                          {app.title}
-                        </span>
-                        <span className="market-listing-price">
-                          {app.commissionPct}%
-                        </span>
-                      </span>
-                      <span className="market-listing-meta">
-                        {storeMeta(app)}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
+              {apps.map(renderHubRow)}
             </ul>
             {hasMore ? (
               <div className="apps-directory-more">

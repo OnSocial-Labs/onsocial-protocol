@@ -42,7 +42,8 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     tab === 'topics' ||
     tab === 'tickers' ||
     tab === 'daos' ||
-    tab === 'guilds';
+    tab === 'guilds' ||
+    tab === 'hubs';
   const needsGuilds = tab === 'guilds';
   const [initialPage, initialTrending, initialGuilds] = await Promise.all([
     needsProfiles

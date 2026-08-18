@@ -32894,6 +32894,18 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.45);
 }
 
+.daos-index-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.daos-index-section-head .daos-index-heading {
+  margin: 0;
+}
+
 .protocol-community-item--split {
   display: flex;
   flex-direction: row;

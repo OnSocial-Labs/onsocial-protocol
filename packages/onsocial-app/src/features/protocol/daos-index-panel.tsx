@@ -29,18 +29,12 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
-import { APP_DISCOVER_PATH, DAOS_CREATE_QUERY, daoPath } from '@/lib/app-routes';
-import { applyDiscoverTabParam } from '@/features/discover/discover-tabs';
+import { DAOS_CREATE_QUERY, daoPath } from '@/lib/app-routes';
+import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
-
-function discoverDaosHref(): string {
-  const params = new URLSearchParams();
-  applyDiscoverTabParam(params, 'daos');
-  const qs = params.toString();
-  return qs ? `${APP_DISCOVER_PATH}?${qs}` : APP_DISCOVER_PATH;
-}
+const TRENDING_RECENT_LIMIT = 6;
 
 function mergeMyDaosWithOptimistic(
   apiRows: MyDaoMembership[],
@@ -178,11 +172,13 @@ export function DaosIndexPanel() {
           !PROTOCOL_COMMUNITY_DAO_SEED.some((seed) => seed.accountId === id) &&
           !myIds.has(id)
       )
+      .slice(0, TRENDING_RECENT_LIMIT)
       .map(daoDirectoryEntryFromRecent);
   }, [myEntries, recent]);
 
   const showMyDaos = Boolean(accountId);
   const myDaosReady = myDaos !== null;
+  const discoverDaosHref = appDiscoverTabHref('daos');
 
   const createAction = (
     <OsIconAction
@@ -198,15 +194,15 @@ export function DaosIndexPanel() {
   return (
     <OsAppScreen
       title="DAOs"
-      subtitle="Org homes — cover, crest, proposals"
+      subtitle="My orgs — then what’s trending"
       backFallbackHref="/"
       glassChrome
       actions={createAction}
     >
       <div className="daos-index">
         <p className="daos-index-lede">
-          Each DAO has a portfolio — cover, square crest, and About. Tap + to
-          create on the factory; Discover browses every listed DAO.
+          Your memberships first. Trending is a short cut of featured and recent
+          orgs — browse the full factory catalog in Discover.
         </p>
 
         <div className="daos-index-shortcuts">
@@ -238,31 +234,18 @@ export function DaosIndexPanel() {
           </section>
         ) : null}
 
-        <section className="daos-index-section" aria-label="OnSocial DAOs">
-          <h2 className="daos-index-heading">OnSocial</h2>
+        <section className="daos-index-section" aria-label="Trending DAOs">
+          <div className="daos-index-section-head">
+            <h2 className="daos-index-heading">Trending</h2>
+            <Link href={discoverDaosHref} className="discover-trending-see-all">
+              See all
+            </Link>
+          </div>
           <DaoDirectoryList entries={featured} />
-        </section>
-
-        <section className="daos-index-section" aria-label="Discover DAOs">
-          <h2 className="daos-index-heading">Discover</h2>
-          <Link href={discoverDaosHref()} className="daos-discover-open">
-            <span className="daos-discover-open-title">Browse all DAOs</span>
-            <span className="daos-discover-open-copy">
-              Search the Sputnik factory catalog in Discover — square crests,
-              same list language as Standing.
-            </span>
-          </Link>
-        </section>
-
-        {recentEntries.length > 0 ? (
-          <section
-            className="daos-index-section"
-            aria-label="Recent community DAOs"
-          >
-            <h2 className="daos-index-heading">Recent</h2>
+          {recentEntries.length > 0 ? (
             <DaoDirectoryList entries={recentEntries} />
-          </section>
-        ) : null}
+          ) : null}
+        </section>
       </div>
 
       <DaoCreateSheet

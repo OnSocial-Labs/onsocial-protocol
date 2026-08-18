@@ -47,6 +47,12 @@ describe('discoverPath', () => {
     );
   });
 
+  it('deep-links Hubs directory tab', () => {
+    expect(discoverPath('alice.testnet', { tab: 'hubs' })).toBe(
+      '/@alice.testnet/discover?tab=hubs'
+    );
+  });
+
   it('combines tab and search query', () => {
     expect(
       discoverPath('alice.testnet', { tab: 'profiles', q: 'near' })

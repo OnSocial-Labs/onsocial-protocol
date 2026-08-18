@@ -272,7 +272,7 @@ export function DiscoverTrendingPanel({
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">Nothing trending yet.</p>
           <p className="standing-panel-empty-secondary">
-            Open Profiles, DAOs, Guilds, Topics, or Tickers to browse the graph.
+            Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse the graph.
           </p>
         </div>
       ) : null}

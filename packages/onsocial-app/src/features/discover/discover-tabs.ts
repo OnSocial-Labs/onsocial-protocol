@@ -6,6 +6,7 @@ export type DiscoverTab =
   | 'profiles'
   | 'daos'
   | 'guilds'
+  | 'hubs'
   | 'topics'
   | 'tickers';
 
@@ -14,6 +15,7 @@ export const DISCOVER_TABS: readonly DiscoverTab[] = [
   'profiles',
   'daos',
   'guilds',
+  'hubs',
   'topics',
   'tickers',
 ] as const;
@@ -33,7 +35,8 @@ export function parseDiscoverTab(
     value === 'tickers' ||
     value === 'trending' ||
     value === 'daos' ||
-    value === 'guilds'
+    value === 'guilds' ||
+    value === 'hubs'
   ) {
     return value;
   }
@@ -53,6 +56,8 @@ export function discoverTabLabel(tab: DiscoverTab): string {
       return 'DAOs';
     case 'guilds':
       return 'Guilds';
+    case 'hubs':
+      return 'Hubs';
     default:
       return 'Profiles';
   }
@@ -68,6 +73,14 @@ export function applyDiscoverTabParam(
   } else {
     params.set(DISCOVER_TAB_QUERY_KEY, tab);
   }
+}
+
+/** Root Discover app href for a tab (`/discover?tab=…`). */
+export function appDiscoverTabHref(tab: DiscoverTab): string {
+  const params = new URLSearchParams();
+  applyDiscoverTabParam(params, tab);
+  const qs = params.toString();
+  return qs ? `/discover?${qs}` : '/discover';
 }
 
 /**
@@ -112,4 +125,9 @@ export function isDiscoverDaosTab(tab: DiscoverTab): boolean {
 /** Public guild browse / search tab. */
 export function isDiscoverGuildsTab(tab: DiscoverTab): boolean {
   return tab === 'guilds';
+}
+
+/** Creator hubs directory tab. */
+export function isDiscoverHubsTab(tab: DiscoverTab): boolean {
+  return tab === 'hubs';
 }
