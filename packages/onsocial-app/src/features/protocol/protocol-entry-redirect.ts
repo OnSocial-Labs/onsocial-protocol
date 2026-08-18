@@ -6,6 +6,7 @@ import {
   APP_DAOS_PATH,
   PROTOCOL_DAO_ACCOUNT_PARAM,
   PROTOCOL_DAO_BOARD_PARAM,
+  PROTOCOL_FAMILY_PARAM,
   PROTOCOL_PROPOSAL_PARAM,
   PROTOCOL_SEARCH_PARAM,
   PROTOCOL_STATUS_PARAM,
@@ -15,6 +16,7 @@ import {
   parseProtocolProposalId,
   parseProtocolSearchQuery,
 } from '@/lib/app-routes';
+import { parseProtocolProposalFamily } from '@/features/protocol/protocol-proposal-family';
 import { normalizeProtocolDaoAccountId } from '@/features/protocol/dao-accounts';
 
 export type ProtocolEntrySearch = {
@@ -31,6 +33,7 @@ export function resolveProtocolEntryRedirect(
   const board = parseProtocolDaoBoard(search.get(PROTOCOL_DAO_BOARD_PARAM));
   const feedOpts = {
     status: parseProtocolFeedStatus(search.get(PROTOCOL_STATUS_PARAM)),
+    family: parseProtocolProposalFamily(search.get(PROTOCOL_FAMILY_PARAM)),
     proposal: parseProtocolProposalId(search.get(PROTOCOL_PROPOSAL_PARAM)),
     q: parseProtocolSearchQuery(search.get(PROTOCOL_SEARCH_PARAM)),
   };

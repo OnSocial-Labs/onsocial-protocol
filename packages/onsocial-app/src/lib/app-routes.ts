@@ -221,6 +221,9 @@ export const PROTOCOL_STATUS_PARAM = 'status';
 /** Query key for Protocol feed text search. */
 export const PROTOCOL_SEARCH_PARAM = 'q';
 
+/** Query key for Protocol feed family lens (`face` | `boost` | …). */
+export const PROTOCOL_FAMILY_PARAM = 'kind';
+
 export type ProtocolDaoBoard = 'governance' | 'treasury' | 'community';
 
 export type ProtocolFeedStatusFilter =
@@ -279,11 +282,12 @@ export function parseProtocolSearchQuery(
   return raw?.trim() ?? '';
 }
 
-/** Protocol home, optionally deep-linked to board, account, status, search, or proposal. */
+/** Protocol home, optionally deep-linked to board, account, status, family, search, or proposal. */
 export function protocolPath(opts?: {
   board?: ProtocolDaoBoard | null;
   account?: string | null;
   status?: ProtocolFeedStatusFilter | null;
+  family?: string | null;
   proposal?: number | null;
   q?: string | null;
 }): string {
@@ -301,6 +305,10 @@ export function protocolPath(opts?: {
   const status = opts?.status ?? null;
   if (status && status !== 'open') {
     params.set(PROTOCOL_STATUS_PARAM, status);
+  }
+  const family = opts?.family?.trim().toLowerCase() ?? '';
+  if (family && family !== 'all') {
+    params.set(PROTOCOL_FAMILY_PARAM, family);
   }
   const q = opts?.q?.trim() ?? '';
   if (q) {
@@ -347,6 +355,7 @@ export function daoPortfolioPath(
   daoAccountId: string,
   opts?: {
     status?: ProtocolFeedStatusFilter | null;
+    family?: string | null;
     proposal?: number | null;
     q?: string | null;
   }
@@ -356,6 +365,10 @@ export function daoPortfolioPath(
   const status = opts?.status ?? null;
   if (status && status !== 'open') {
     params.set(PROTOCOL_STATUS_PARAM, status);
+  }
+  const family = opts?.family?.trim().toLowerCase() ?? '';
+  if (family && family !== 'all') {
+    params.set(PROTOCOL_FAMILY_PARAM, family);
   }
   const q = opts?.q?.trim() ?? '';
   if (q) {

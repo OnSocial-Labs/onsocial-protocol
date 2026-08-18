@@ -5,6 +5,7 @@ import {
   isProtocolCreateKind,
 } from '@/features/protocol/protocol-create';
 import {
+  countProtocolApplicationsByFamily,
   countProtocolApplicationsByStatus,
   filterProtocolApplications,
   findProtocolApplicationByProposalId,
@@ -17,9 +18,17 @@ import {
   getProtocolCreateKindLockReason,
   getProtocolPolicyActionLockReason,
 } from '@/features/protocol/protocol-propose-gate';
-import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
+import {
+  parseProtocolProposalFamily,
+  protocolProposalFamilyFromBadge,
+} from '@/features/protocol/protocol-proposal-family';
+import {
+  classifyCoreExecuteSetKeys,
+  deriveProtocolProposalPresentation,
+} from '@/features/protocol/protocol-proposal-presentation';
 import type { ProtocolApplication } from '@/features/protocol/types';
 import {
+  daoPortfolioPath,
   parseProtocolFeedStatus,
   parseProtocolProposalId,
 } from '@/lib/app-routes';
@@ -28,6 +37,7 @@ function app(partial: {
   proposalId: number;
   status: string;
   label?: string;
+  kind?: Record<string, unknown>;
 }): ProtocolApplication {
   return {
     app_id: `protocol-proposal-${partial.proposalId}`,
@@ -50,7 +60,7 @@ function app(partial: {
         id: partial.proposalId,
         proposer: 'alice.near',
         description: 'desc',
-        kind: { Vote: {} },
+        kind: (partial.kind ?? { Vote: {} }) as never,
         status: partial.status as 'InProgress',
         vote_counts: {},
         votes: {},
@@ -58,6 +68,10 @@ function app(partial: {
       },
     },
   };
+}
+
+function encodeArgs(value: unknown): string {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64');
 }
 
 describe('protocol feed filters', () => {
@@ -96,6 +110,90 @@ describe('protocol feed filters', () => {
     );
     expect(findProtocolApplicationByProposalId(rows, 99)).toBeNull();
   });
+
+  it('filters and counts by family lens', () => {
+    const familyRows = [
+      app({
+        proposalId: 10,
+        status: 'InProgress',
+        kind: {
+          AddMemberToRole: { member_id: 'bob.near', role: 'council' },
+        },
+      }),
+      app({
+        proposalId: 11,
+        status: 'InProgress',
+        kind: {
+          Transfer: {
+            receiver_id: 'treasury.near',
+            amount: '1000000000000000000000000',
+            token_id: '',
+          },
+        },
+      }),
+      app({
+        proposalId: 12,
+        status: 'Approved',
+        kind: {
+          FunctionCall: {
+            receiver_id: 'core.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'execute',
+                args: encodeArgs({
+                  request: {
+                    action: {
+                      type: 'set',
+                      data: { 'page/main': '{}' },
+                    },
+                  },
+                }),
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    expect(
+      filterProtocolApplications(familyRows, 'all', { family: 'membership' })
+    ).toHaveLength(1);
+    expect(
+      filterProtocolApplications(familyRows, 'all', { family: 'treasury' })[0]
+        ?.app_id
+    ).toBe('protocol-proposal-11');
+    expect(
+      filterProtocolApplications(familyRows, 'all', { family: 'face' })[0]
+        ?.app_id
+    ).toBe('protocol-proposal-12');
+    expect(countProtocolApplicationsByFamily(familyRows)).toMatchObject({
+      membership: 1,
+      treasury: 1,
+      face: 1,
+      all: 3,
+    });
+  });
+});
+
+describe('protocol proposal family', () => {
+  it('maps badges and parses URL kind', () => {
+    expect(protocolProposalFamilyFromBadge('Mood')).toBe('face');
+    expect(protocolProposalFamilyFromBadge('Boost')).toBe('boost');
+    expect(protocolProposalFamilyFromBadge('Support')).toBe('support');
+    expect(parseProtocolProposalFamily('members')).toBe('membership');
+    expect(parseProtocolProposalFamily('face')).toBe('face');
+    expect(parseProtocolProposalFamily(null)).toBe('all');
+    expect(daoPortfolioPath('guild.sputnik-dao.near', { family: 'boost' })).toBe(
+      '/@guild.sputnik-dao.near?kind=boost'
+    );
+  });
+
+  it('classifies core execute set keys', () => {
+    expect(classifyCoreExecuteSetKeys(['page/main'])).toBe('mood');
+    expect(classifyCoreExecuteSetKeys(['post/99'])).toBe('post');
+    expect(classifyCoreExecuteSetKeys(['profile/name'])).toBe('profile');
+    expect(classifyCoreExecuteSetKeys(['other'])).toBeNull();
+  });
 });
 
 describe('protocol proposal presentation', () => {
@@ -119,6 +217,7 @@ describe('protocol proposal presentation', () => {
     });
     expect(selfJoin.showProposerAsSelf).toBe(true);
     expect(selfJoin.showProposerSeparately).toBe(false);
+    expect(selfJoin.family).toBe('membership');
 
     expect(
       deriveProtocolProposalPresentation({
@@ -131,8 +230,86 @@ describe('protocol proposal presentation', () => {
         },
         description: null,
         proposer: 'alice.near',
-      }).headline
-    ).toContain('Send');
+      })
+    ).toMatchObject({ family: 'treasury' });
+  });
+
+  it('labels face and support calls with honest badges', () => {
+    expect(
+      deriveProtocolProposalPresentation({
+        kind: {
+          FunctionCall: {
+            receiver_id: 'core.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'execute',
+                args: encodeArgs({
+                  request: {
+                    action: {
+                      type: 'set',
+                      data: { 'page/main': '{}' },
+                    },
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        description: null,
+        proposer: 'alice.near',
+      })
+    ).toMatchObject({
+      actionBadge: 'Mood',
+      family: 'face',
+      headline: 'Update mood',
+    });
+
+    expect(
+      deriveProtocolProposalPresentation({
+        kind: {
+          FunctionCall: {
+            receiver_id: 'core.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'execute',
+                args: encodeArgs({
+                  request: {
+                    action: {
+                      type: 'set',
+                      data: { 'post/7': { type: 'text' } },
+                    },
+                  },
+                }),
+              },
+            ],
+          },
+        },
+        description: null,
+        proposer: 'alice.near',
+      })
+    ).toMatchObject({ actionBadge: 'Post', family: 'face' });
+
+    expect(
+      deriveProtocolProposalPresentation({
+        kind: {
+          FunctionCall: {
+            receiver_id: 'social-spend.onsocial.testnet',
+            actions: [
+              {
+                method_name: 'claim_target_balance',
+                args: encodeArgs({}),
+              },
+            ],
+          },
+        },
+        description: null,
+        proposer: 'alice.near',
+      })
+    ).toMatchObject({
+      actionBadge: 'Support',
+      family: 'support',
+      headline: 'Claim support to treasury',
+    });
   });
 
   it('uses signal description for Vote proposals', () => {
@@ -141,6 +318,7 @@ describe('protocol proposal presentation', () => {
       description: 'Ship season two\nmore detail',
       proposer: 'alice.near',
     });
+    expect(presentation.actionBadge).toBe('Signal');
     expect(
       deriveProtocolProposalPresentation({
         kind: {
@@ -170,6 +348,7 @@ describe('protocol proposal presentation', () => {
     ).toMatchObject({
       actionBadge: 'Config',
       targetKind: 'routing',
+      family: 'config',
     });
   });
 });

@@ -1,6 +1,17 @@
 import { resolveLiveProposal } from '@/features/protocol/protocol-card-view';
+import {
+  protocolProposalFamilyFromBadge,
+  type ProtocolProposalFamily,
+} from '@/features/protocol/protocol-proposal-family';
+import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
 import type { ProtocolApplication } from '@/features/protocol/types';
 import type { ProtocolFeedStatusFilter } from '@/lib/app-routes';
+
+export {
+  PROTOCOL_FEED_FAMILY_OPTIONS,
+  parseProtocolProposalFamily,
+  type ProtocolProposalFamily,
+} from '@/features/protocol/protocol-proposal-family';
 
 export const PROTOCOL_FEED_STATUS_OPTIONS: Array<{
   id: ProtocolFeedStatusFilter;
@@ -44,8 +55,30 @@ export function buildProtocolSearchText(
     .toLowerCase();
 }
 
+/** Resolve coarse feed family from live / indexed proposal kind. */
+export function resolveProtocolApplicationFamily(
+  application: ProtocolApplication
+): ProtocolProposalFamily {
+  const proposal = resolveLiveProposal(application);
+  const presentation = deriveProtocolProposalPresentation({
+    kind: proposal?.kind ?? application.governance_proposal?.kind ?? null,
+    description:
+      proposal?.description ??
+      application.governance_proposal?.description ??
+      application.description,
+    proposer:
+      proposal?.proposer?.trim() ||
+      application.governance_proposal?.proposer ||
+      null,
+  });
+  return (
+    presentation.family ??
+    protocolProposalFamilyFromBadge(presentation.actionBadge)
+  );
+}
+
 /**
- * Filter feed rows by status chip and optional search query.
+ * Filter feed rows by status chip, optional family lens, and search query.
  * `open` = InProgress (not soft-expired).
  */
 export function filterProtocolApplications(
@@ -54,13 +87,21 @@ export function filterProtocolApplications(
   opts?: {
     isSoftExpired?: (application: ProtocolApplication) => boolean;
     searchQuery?: string | null;
+    family?: ProtocolProposalFamily | null;
   }
 ): ProtocolApplication[] {
   const query = opts?.searchQuery?.trim().toLowerCase() ?? '';
+  const family = opts?.family ?? 'all';
   return applications.filter((application) => {
     if (query) {
       const haystack = buildProtocolSearchText(application);
       if (!haystack.includes(query)) return false;
+    }
+
+    if (family !== 'all') {
+      if (resolveProtocolApplicationFamily(application) !== family) {
+        return false;
+      }
     }
 
     if (status === 'all') return true;
@@ -96,10 +137,12 @@ export function countProtocolApplicationsByStatus(
   opts?: {
     isSoftExpired?: (application: ProtocolApplication) => boolean;
     searchQuery?: string | null;
+    family?: ProtocolProposalFamily | null;
   }
 ): Record<ProtocolFeedStatusFilter, number> {
   const scoped = filterProtocolApplications(applications, 'all', {
     searchQuery: opts?.searchQuery,
+    family: opts?.family,
   });
   const counts: Record<ProtocolFeedStatusFilter, number> = {
     open: 0,
@@ -123,6 +166,40 @@ export function countProtocolApplicationsByStatus(
     else if (raw === 'Removed') counts.removed += 1;
     else if (raw === 'Failed') counts.failed += 1;
     else if (raw === 'Moved') counts.moved += 1;
+  }
+  return counts;
+}
+
+/** Counts for family chips within the current status + search scope. */
+export function countProtocolApplicationsByFamily(
+  applications: ProtocolApplication[],
+  opts?: {
+    isSoftExpired?: (application: ProtocolApplication) => boolean;
+    searchQuery?: string | null;
+    status?: ProtocolFeedStatusFilter | null;
+  }
+): Record<ProtocolProposalFamily, number> {
+  const scoped = filterProtocolApplications(
+    applications,
+    opts?.status ?? 'all',
+    {
+      isSoftExpired: opts?.isSoftExpired,
+      searchQuery: opts?.searchQuery,
+      family: 'all',
+    }
+  );
+  const counts: Record<ProtocolProposalFamily, number> = {
+    all: scoped.length,
+    face: 0,
+    boost: 0,
+    support: 0,
+    treasury: 0,
+    membership: 0,
+    config: 0,
+  };
+  for (const application of scoped) {
+    const family = resolveProtocolApplicationFamily(application);
+    if (family !== 'all') counts[family] += 1;
   }
   return counts;
 }

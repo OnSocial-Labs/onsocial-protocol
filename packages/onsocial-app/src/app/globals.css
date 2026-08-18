@@ -31129,6 +31129,7 @@ button.scarce-clip-cover-expand:focus-visible {
 .protocol-board-rail,
 .protocol-tools,
 .protocol-status-rail,
+.protocol-family-rail,
 .protocol-mode-rail {
   display: flex;
   flex-wrap: wrap;
@@ -31201,6 +31202,10 @@ a.protocol-board-chip {
 }
 
 .protocol-status-rail {
+  margin-top: 0.35rem;
+}
+
+.protocol-family-rail {
   margin-top: 0.35rem;
 }
 
