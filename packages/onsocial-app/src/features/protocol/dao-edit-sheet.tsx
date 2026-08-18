@@ -38,7 +38,9 @@ import {
 import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-social-profile';
 import { buildProtocolPolicyConfigPayload } from '@/features/protocol/protocol-policy';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
+import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
+import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
@@ -55,8 +57,10 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR } from '@/lib/app-config';
+import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 
 const DAO_EDIT_Z = 90;
+const DAO_EDIT_CONFIRM_Z = 110;
 const MAX_NAME = 64;
 const MAX_DESCRIPTION = 280;
 const BANNER_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
@@ -86,6 +90,11 @@ export function DaoEditSheet({
   const { getSigningWallet } = useAppWallet();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const { eligibility, isLoading: eligibilityLoading } = useDaoPageCapability(
+    daoAccountId,
+    true
+  );
+  const moodPreview = usePortfolioMoodPreviewOptional();
 
   const [name, setName] = useState(branding.name);
   const [description, setDescription] = useState(branding.description ?? '');
@@ -105,6 +114,7 @@ export function DaoEditSheet({
   const [bannerRemoved, setBannerRemoved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [proposeConfirmOpen, setProposeConfirmOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
@@ -122,6 +132,7 @@ export function DaoEditSheet({
     setAvatarRemoved(false);
     setBannerRemoved(false);
     setError(null);
+    setProposeConfirmOpen(false);
   }, [open, branding]);
 
   useEffect(
@@ -265,13 +276,26 @@ export function DaoEditSheet({
     bannerPreview ?? (bannerRemoved ? null : branding.bannerUrl);
   const canSave = name.trim().length >= 2 && isDirty && !pending;
 
-  const save = async (event: FormEvent) => {
+  const requestProposeConfirm = (event: FormEvent) => {
     event.preventDefault();
     if (!canSave) return;
     const nextLinkErrors = profileLinkEditorFieldErrors(links);
     if (Object.keys(nextLinkErrors).length > 0) {
       setLinkErrors(nextLinkErrors);
       setError('Fix the link fields before proposing.');
+      return;
+    }
+    setError(null);
+    setProposeConfirmOpen(true);
+  };
+
+  const save = async () => {
+    if (!canSave) return;
+    const nextLinkErrors = profileLinkEditorFieldErrors(links);
+    if (Object.keys(nextLinkErrors).length > 0) {
+      setLinkErrors(nextLinkErrors);
+      setError('Fix the link fields before proposing.');
+      setProposeConfirmOpen(false);
       return;
     }
     setPending(true);
@@ -371,6 +395,7 @@ export function DaoEditSheet({
       // Prefer just-uploaded media URLs for optimistic portfolio paint.
       const resolvedAvatar = resolveProfileMediaUrl(avatar);
       const resolvedBanner = resolveProfileMediaUrl(banner);
+      setProposeConfirmOpen(false);
       onSaved(
         {
           ...next,
@@ -437,7 +462,7 @@ export function DaoEditSheet({
         <form
           id={formId}
           className="hub-manage-form"
-          onSubmit={(e) => void save(e)}
+          onSubmit={(e) => requestProposeConfirm(e)}
         >
           <section className="dao-edit-hero" aria-label="DAO media">
             <div
@@ -622,6 +647,28 @@ export function DaoEditSheet({
         open={discardConfirmOpen}
         onDiscard={discard}
         onKeepEditing={keepEditing}
+      />
+      <DaoProposeConfirmSheet
+        open={proposeConfirmOpen}
+        title="Propose profile?"
+        body={
+          publishSocial
+            ? 'Submit a config proposal for cover, crest, name, and about — plus a second Call for the OnSocial profile.'
+            : 'Submit a config proposal for cover, crest, name, and about. Live after council approval.'
+        }
+        eligibility={eligibility}
+        eligibilityLoading={eligibilityLoading}
+        pending={pending}
+        proposeLabel="Propose"
+        zIndex={DAO_EDIT_CONFIRM_Z}
+        onDiscard={() => setProposeConfirmOpen(false)}
+        onPropose={() => {
+          void save();
+        }}
+        onStake={() => {
+          setProposeConfirmOpen(false);
+          moodPreview?.requestDaoStake();
+        }}
       />
     </>
   );

@@ -16,6 +16,7 @@ export function useDaoPageCapability(
 ): {
   canPropose: boolean;
   isLoading: boolean;
+  eligibility: ProtocolGovernanceEligibility | null;
 } {
   const { accountId, isConnected } = useAppWallet();
   const [eligibility, setEligibility] =
@@ -50,5 +51,6 @@ export function useDaoPageCapability(
   return {
     canPropose: Boolean(enabled && isConnected && eligibility?.canPropose),
     isLoading: Boolean(enabled && isConnected && loading),
+    eligibility: enabled && isConnected ? eligibility : null,
   };
 }
