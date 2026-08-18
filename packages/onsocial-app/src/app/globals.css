@@ -5968,7 +5968,7 @@ a.os-surface-row {
     object-fit: cover;
   }
 
-  /* DAO org crest — squareish, matches /dao workspace crest radius. */
+  /* DAO org crest — squareish (1rem). */
   .portfolio-frame[data-entity='dao'] .portfolio-avatar,
   .portfolio-frame[data-entity='dao'] .portfolio-avatar-fallback,
   .portfolio-identity[data-entity='dao'] .portfolio-avatar,
@@ -32301,175 +32301,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 /* Affix field shell pad: @onsocial/ui/os-account-field.css / os-amount-field.css */
 
-/* ── DAO portfolio + directory ───────────────────────────────── */
-
-.dao-portfolio-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-
-.dao-portfolio-cover {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 3 / 1;
-  overflow: hidden;
-  border-radius: 1rem;
-  background: rgb(var(--fg-rgb) / 0.06);
-}
-
-.dao-portfolio-cover-image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.dao-portfolio-cover-empty {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background:
-    radial-gradient(
-      circle at 20% 30%,
-      rgb(var(--fg-rgb) / 0.1),
-      transparent 55%
-    ),
-    linear-gradient(180deg, rgb(var(--fg-rgb) / 0.08), transparent);
-}
-
-.dao-portfolio-identity {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.85rem;
-  margin-top: -1.75rem;
-  padding: 0 0.15rem 0.35rem;
-}
-
-.dao-portfolio-crest {
-  flex-shrink: 0;
-  width: 4.75rem;
-  height: 4.75rem;
-  border-radius: 1rem;
-  overflow: hidden;
-  border: 3px solid var(--bg, #0a0a0a);
-  background: rgb(var(--fg-rgb) / 0.08);
-  box-shadow: 0 8px 20px -12px rgb(0 0 0 / 0.45);
-}
-
-.dao-portfolio-crest-image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.dao-portfolio-crest-fallback {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
-.dao-portfolio-identity-copy {
-  min-width: 0;
-  padding-top: 1.85rem;
-}
-
-.dao-portfolio-kind {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.48);
-}
-
-.dao-portfolio-name {
-  margin: 0.15rem 0 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
-  color: rgb(var(--fg-rgb) / 0.96);
-}
-
-.dao-portfolio-handle {
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  color: rgb(var(--fg-rgb) / 0.5);
-  word-break: break-all;
-}
-
-.dao-portfolio-bio {
-  margin: 0.55rem 0 0;
-  font-size: 0.9rem;
-  line-height: 1.45;
-  color: rgb(var(--fg-rgb) / 0.72);
-}
-
-.dao-portfolio-stand {
-  margin-top: 0.7rem;
-}
-
-.dao-portfolio-stand .portfolio-identity-gesture-row {
-  justify-content: flex-start;
-}
-
-/* Reuse Protocol rail/tool chrome; only space under identity. */
-.dao-portfolio-controls {
-  margin-top: 0.75rem;
-  padding: 0 0.1rem;
-}
-
-.dao-portfolio-divider {
-  margin: 1.1rem 0 0.75rem;
-}
+/* ── DAO sheets + directory ──────────────────────────────────── */
 
 .dao-proposals-sheet {
   display: flex;
   flex-direction: column;
   gap: 0;
   min-width: 0;
-}
-
-.dao-portfolio-facts-title {
-  margin: 0 0 0.45rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.dao-portfolio-facts-list {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.dao-portfolio-facts-list > div {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.dao-portfolio-facts-list dt {
-  font-size: 0.72rem;
-  color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.dao-portfolio-facts-list dd {
-  margin: 0;
-  font-size: 0.88rem;
-  line-height: 1.4;
-  color: rgb(var(--fg-rgb) / 0.86);
-  word-break: break-word;
 }
 
 .dao-manage-sheet-list {
