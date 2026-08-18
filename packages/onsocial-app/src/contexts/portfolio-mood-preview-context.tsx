@@ -33,6 +33,10 @@ interface PortfolioMoodPreviewContextValue {
   unregisterMoodSheetClose: () => void;
   requestCloseMoodSheet: () => void;
   requestOpenMoodSheet: () => void;
+  /** DAO face — open stake sheet (council propose gate). */
+  registerDaoStakeRequest: (open: () => void) => void;
+  unregisterDaoStakeRequest: () => void;
+  requestDaoStake: () => void;
 }
 
 const PortfolioMoodPreviewContext =
@@ -54,6 +58,7 @@ export function PortfolioMoodPreviewProvider({
     useState<ResolvedMood | null>(null);
   const closeMoodSheetRef = useRef<(() => void) | null>(null);
   const openMoodSheetRef = useRef<(() => void) | null>(null);
+  const daoStakeRequestRef = useRef<(() => void) | null>(null);
 
   // Prefer optimistic override until RSC props catch up to the same mood id.
   const resolvedCommitted =
@@ -116,6 +121,18 @@ export function PortfolioMoodPreviewProvider({
     openMoodSheetRef.current?.();
   }, []);
 
+  const registerDaoStakeRequest = useCallback((open: () => void) => {
+    daoStakeRequestRef.current = open;
+  }, []);
+
+  const unregisterDaoStakeRequest = useCallback(() => {
+    daoStakeRequestRef.current = null;
+  }, []);
+
+  const requestDaoStake = useCallback(() => {
+    daoStakeRequestRef.current?.();
+  }, []);
+
   const value = useMemo<PortfolioMoodPreviewContextValue>(() => {
     const isPreviewingMood = activePreview !== null;
     const effectiveMood = isPreviewingMood
@@ -136,18 +153,24 @@ export function PortfolioMoodPreviewProvider({
       unregisterMoodSheetClose,
       requestCloseMoodSheet,
       requestOpenMoodSheet,
+      registerDaoStakeRequest,
+      unregisterDaoStakeRequest,
+      requestDaoStake,
     };
   }, [
     activePreview,
     commitMoodPreview,
     config,
     discardMoodPreview,
+    registerDaoStakeRequest,
     registerMoodSheetOpen,
     registerMoodSheetClose,
     requestCloseMoodSheet,
+    requestDaoStake,
     requestOpenMoodSheet,
     resolvedCommitted,
     setPreviewMood,
+    unregisterDaoStakeRequest,
     unregisterMoodSheetOpen,
     unregisterMoodSheetClose,
   ]);

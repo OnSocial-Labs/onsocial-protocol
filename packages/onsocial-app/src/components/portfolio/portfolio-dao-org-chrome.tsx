@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import type { DaoBranding } from '@/features/protocol/dao-branding';
 import { DaoEditSheet } from '@/features/protocol/dao-edit-sheet';
+import { DaoBoostSheet } from '@/features/protocol/dao-boost-sheet';
 import {
   DaoManageSheet,
   type DaoManageAction,
@@ -24,9 +25,11 @@ import {
 } from '@/features/protocol/protocol-eligibility';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
 import { buildDaoClaimSupportProposalPayload } from '@/features/protocol/dao-claim-support';
+import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
 import { formatSocialCompact } from '@/lib/format-social-balance';
@@ -49,6 +52,7 @@ type PortfolioOverlay =
   | 'treasury'
   | 'proposals'
   | 'edit'
+  | 'boost'
   | null;
 
 type OptimisticDaoProfile = {
@@ -96,6 +100,11 @@ function PortfolioDaoOrgChromeInner({
   const searchParams = useSearchParams();
   const { accountId, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
+  const {
+    registerDaoStakeRequest,
+    unregisterDaoStakeRequest,
+    requestOpenMoodSheet,
+  } = usePortfolioMoodPreview();
   const [optimistic, setOptimistic] = useState<OptimisticDaoProfile | null>(
     null
   );
@@ -108,6 +117,7 @@ function PortfolioDaoOrgChromeInner({
   );
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
   const [claimPending, setClaimPending] = useState(false);
+  const [claimConfirmOpen, setClaimConfirmOpen] = useState(false);
 
   const branding: DaoBranding | null =
     optimistic?.daoAccountId === daoAccountId && optimistic
@@ -171,11 +181,25 @@ function PortfolioDaoOrgChromeInner({
     };
   }, [daoAccountId]);
 
+  const openStakeFromFace = useCallback(() => {
+    setOverlay('proposals');
+    setToolRequest('stake');
+  }, []);
+
+  useEffect(() => {
+    registerDaoStakeRequest(openStakeFromFace);
+    return () => unregisterDaoStakeRequest();
+  }, [openStakeFromFace, registerDaoStakeRequest, unregisterDaoStakeRequest]);
+
   const canEdit = Boolean(
     accountId &&
       eligibility?.key === eligibilityKey(accountId, daoAccountId) &&
       eligibility.value.canPropose
   );
+  const liveEligibility =
+    accountId && eligibility?.key === eligibilityKey(accountId, daoAccountId)
+      ? eligibility.value
+      : null;
   const claimSupportLabel =
     canEdit && claimableYocto != null && claimableYocto > 0n
       ? formatSocialCompact(claimableYocto.toString())
@@ -216,6 +240,7 @@ function PortfolioDaoOrgChromeInner({
         failureMessage: txToastGovError.actionFailed('Claim support proposal'),
       });
       if (confirmed) {
+        setClaimConfirmOpen(false);
         setOverlay(null);
       }
     } catch (cause) {
@@ -247,15 +272,25 @@ function PortfolioDaoOrgChromeInner({
         setOverlay('edit');
         return;
       }
+      if (action === 'propose-mood') {
+        setOverlay(null);
+        requestOpenMoodSheet();
+        return;
+      }
       if (action === 'claim-support') {
-        void handleClaimSupport();
+        setOverlay(null);
+        setClaimConfirmOpen(true);
+        return;
+      }
+      if (action === 'boost') {
+        setOverlay('boost');
         return;
       }
       // Propose / Stake / Settings / Info live on the proposals workspace.
       setOverlay('proposals');
-      setToolRequest(action);
+      setToolRequest(action as DaoWorkspaceTool);
     },
-    [handleClaimSupport]
+    [requestOpenMoodSheet]
   );
 
   const tools = [
@@ -296,6 +331,28 @@ function PortfolioDaoOrgChromeInner({
           setOverlay((current) => (current === 'manage' ? null : current))
         }
         onAction={handleManageAction}
+      />
+
+      <DaoProposeConfirmSheet
+        open={claimConfirmOpen}
+        title="Propose claim support?"
+        body={
+          claimSupportLabel
+            ? `Submit a proposal to collect ${claimSupportLabel} from the Support pot into the DAO wallet.`
+            : 'Submit a proposal to collect Support into the DAO wallet.'
+        }
+        eligibility={liveEligibility}
+        eligibilityLoading={Boolean(accountId) && !liveEligibility}
+        pending={claimPending}
+        proposeLabel="Propose"
+        onDiscard={() => setClaimConfirmOpen(false)}
+        onPropose={() => {
+          void handleClaimSupport();
+        }}
+        onStake={() => {
+          setClaimConfirmOpen(false);
+          openStakeFromFace();
+        }}
       />
 
       <DaoProposalsSheet
@@ -341,6 +398,18 @@ function PortfolioDaoOrgChromeInner({
           onSaved={handleSaved}
         />
       ) : null}
+
+      <DaoBoostSheet
+        open={overlay === 'boost'}
+        daoAccountId={daoAccountId}
+        daoName={title}
+        eligibility={liveEligibility}
+        eligibilityLoading={Boolean(accountId) && !liveEligibility}
+        onClose={() =>
+          setOverlay((current) => (current === 'boost' ? null : current))
+        }
+        onRequestStake={openStakeFromFace}
+      />
     </>
   );
 }

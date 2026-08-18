@@ -62,7 +62,8 @@ export function useApplyMood(
   const { getClient } = useAppOnSocialClient();
   const { setMood } = useViewerWalletMoodContext();
   const { trackTransaction } = useAppTransactionFeedback();
-  const { canPropose } = useDaoPageCapability(pageAccountId, isDao);
+  const { canPropose, eligibility, isLoading: eligibilityLoading } =
+    useDaoPageCapability(pageAccountId, isDao);
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,5 +169,7 @@ export function useApplyMood(
     isAccountOwner,
     needsConnect,
     walletAccountId: accountId,
+    eligibility,
+    eligibilityLoading,
   };
 }

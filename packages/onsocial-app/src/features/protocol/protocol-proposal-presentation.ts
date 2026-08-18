@@ -1,6 +1,15 @@
-import { SOCIAL_TOKEN_CONTRACT } from '@/lib/app-config';
+import {
+  BOOST_CONTRACT,
+  SOCIAL_SPEND_CONTRACT,
+  SOCIAL_TOKEN_CONTRACT,
+} from '@/lib/app-config';
+import { CORE_CONTRACT } from '@/lib/app-near-contract';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { yoctoToSocial } from '@/lib/format-social-balance';
+import {
+  protocolProposalFamilyFromBadge,
+  type ProtocolProposalFamily,
+} from '@/features/protocol/protocol-proposal-family';
 
 export type ProtocolProposalTargetKind =
   | 'role'
@@ -15,6 +24,8 @@ export type ProtocolProposalTargetKind =
 export interface ProtocolProposalPresentation {
   headline: string;
   actionBadge: string | null;
+  /** Coarse feed family for optional kind chips. */
+  family: ProtocolProposalFamily;
   targetKind: ProtocolProposalTargetKind;
   targetValue: string | null;
   targetAccountId: string | null;
@@ -179,6 +190,85 @@ function parseFundSeasonPoolTransferMsg(msg: string | null): {
   }
 }
 
+function parseBoostLockTransferMsg(msg: string | null): {
+  action: string | null;
+  months: number | null;
+} {
+  if (!msg?.trim()) return { action: null, months: null };
+  try {
+    const parsed = JSON.parse(msg) as Record<string, unknown>;
+    const months =
+      typeof parsed.months === 'number' && Number.isFinite(parsed.months)
+        ? parsed.months
+        : typeof parsed.months === 'string' && /^\d+$/.test(parsed.months.trim())
+          ? Number(parsed.months.trim())
+          : null;
+    return {
+      action:
+        typeof parsed.action === 'string' && parsed.action.trim()
+          ? parsed.action.trim()
+          : null,
+      months,
+    };
+  } catch {
+    return { action: null, months: null };
+  }
+}
+
+function isBoostContract(accountId: string | null): boolean {
+  if (!accountId) return false;
+  return accountId.trim().toLowerCase() === BOOST_CONTRACT.toLowerCase();
+}
+
+function isCoreContract(accountId: string | null): boolean {
+  if (!accountId) return false;
+  return accountId.trim().toLowerCase() === CORE_CONTRACT.toLowerCase();
+}
+
+function isSocialSpendContract(accountId: string | null): boolean {
+  if (!accountId) return false;
+  return (
+    accountId.trim().toLowerCase() === SOCIAL_SPEND_CONTRACT.toLowerCase()
+  );
+}
+
+/** Classify core `execute` set payloads written under the DAO account. */
+export function classifyCoreExecuteSetKeys(
+  keys: string[]
+): 'mood' | 'post' | 'profile' | null {
+  const normalized = keys.map((key) => key.trim().toLowerCase()).filter(Boolean);
+  if (normalized.some((key) => key === 'page/main' || key.startsWith('page/'))) {
+    return 'mood';
+  }
+  if (normalized.some((key) => key.startsWith('post/'))) {
+    return 'post';
+  }
+  if (normalized.some((key) => key === 'profile' || key.startsWith('profile/'))) {
+    return 'profile';
+  }
+  return null;
+}
+
+function readExecuteSetKeys(args: Record<string, unknown> | null): string[] {
+  if (!args) return [];
+  const request =
+    args.request && typeof args.request === 'object'
+      ? (args.request as Record<string, unknown>)
+      : args;
+  const action =
+    request.action && typeof request.action === 'object'
+      ? (request.action as Record<string, unknown>)
+      : null;
+  if (!action) return [];
+  const type = typeof action.type === 'string' ? action.type.trim() : '';
+  if (type && type !== 'set') return [];
+  const data =
+    action.data && typeof action.data === 'object' && !Array.isArray(action.data)
+      ? (action.data as Record<string, unknown>)
+      : null;
+  return data ? Object.keys(data) : [];
+}
+
 function formatRoutingSummary(config: unknown): string {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     return 'No routing';
@@ -204,6 +294,9 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   actionId: string | null;
   seasonId: string | null;
   transferCallMsg: string | null;
+  transferCallReceiverId: string | null;
+  months: number | null;
+  executeSetKeys: string[];
   config: Record<string, unknown> | null;
   seasonLabel: string | null;
 } {
@@ -216,6 +309,9 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     actionId: null,
     seasonId: null,
     transferCallMsg: null,
+    transferCallReceiverId: null,
+    months: null,
+    executeSetKeys: [] as string[],
     config: null,
     seasonLabel: null,
   };
@@ -240,6 +336,13 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       : null;
   const msg = readStringField(args, 'msg');
   const fundMsg = parseFundSeasonPoolTransferMsg(msg);
+  const monthsRaw = args?.months;
+  const months =
+    typeof monthsRaw === 'number' && Number.isFinite(monthsRaw)
+      ? monthsRaw
+      : typeof monthsRaw === 'string' && /^\d+$/.test(monthsRaw.trim())
+        ? Number(monthsRaw.trim())
+        : null;
   return {
     receiverId,
     methodName,
@@ -257,6 +360,9 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       fundMsg.seasonId ??
       readStringField(config, 'season_id'),
     transferCallMsg: msg,
+    transferCallReceiverId: readStringField(args, 'receiver_id'),
+    months,
+    executeSetKeys: readExecuteSetKeys(args),
     config,
     seasonLabel:
       readStringField(args, 'label') ?? readStringField(config, 'label'),
@@ -295,19 +401,24 @@ export function deriveProtocolProposalPresentation({
     partial: Partial<ProtocolProposalPresentation> & {
       headline: string;
     }
-  ): ProtocolProposalPresentation => ({
-    targetKind: null,
-    targetValue: null,
-    targetAccountId: null,
-    subjectAccount: null,
-    subjectText: null,
-    subjectEyebrow: null,
-    showProposerSeparately: false,
-    showProposerAsSelf: false,
-    ...partial,
-    actionBadge: partial.actionBadge ?? fallbackBadge ?? null,
-    ...onChainFields,
-  });
+  ): ProtocolProposalPresentation => {
+    const actionBadge = partial.actionBadge ?? fallbackBadge ?? null;
+    return {
+      targetKind: null,
+      targetValue: null,
+      targetAccountId: null,
+      subjectAccount: null,
+      subjectText: null,
+      subjectEyebrow: null,
+      showProposerSeparately: false,
+      showProposerAsSelf: false,
+      ...partial,
+      actionBadge,
+      family:
+        partial.family ?? protocolProposalFamilyFromBadge(actionBadge),
+      ...onChainFields,
+    };
+  };
 
   if (!kindKey) {
     return finish({
@@ -465,6 +576,65 @@ export function deriveProtocolProposalPresentation({
       });
     }
 
+    const boostMsg = parseBoostLockTransferMsg(shape.transferCallMsg);
+    if (
+      shape.methodName === 'ft_transfer_call' &&
+      isSocialTokenContract(shape.receiverId) &&
+      isBoostContract(shape.transferCallReceiverId) &&
+      boostMsg.action === 'lock'
+    ) {
+      const amountLabel = shape.amountYocto
+        ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
+        : null;
+      const monthsLabel =
+        boostMsg.months != null ? `${boostMsg.months} mo` : null;
+      return finish({
+        headline:
+          amountLabel && monthsLabel
+            ? `Boost lock ${amountLabel} for ${monthsLabel}`
+            : amountLabel
+              ? `Boost lock ${amountLabel}`
+              : 'Boost lock from treasury',
+        actionBadge: 'Boost',
+        targetKind: amountLabel ? 'amount' : 'contract',
+        targetValue: amountLabel ?? shortContractName(BOOST_CONTRACT),
+        targetAccountId: BOOST_CONTRACT,
+        subjectAccount: BOOST_CONTRACT,
+        subjectEyebrow: 'Boost',
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
+    if (
+      isBoostContract(shape.receiverId) &&
+      (shape.methodName === 'claim_rewards' ||
+        shape.methodName === 'unlock' ||
+        shape.methodName === 'renew_lock' ||
+        shape.methodName === 'extend_lock')
+    ) {
+      const method = shape.methodName;
+      const headline =
+        method === 'claim_rewards'
+          ? 'Collect Boost rewards'
+          : method === 'unlock'
+            ? 'Unlock Boost position'
+            : method === 'renew_lock'
+              ? 'Renew Boost lock'
+              : shape.months != null
+                ? `Extend Boost lock to ${shape.months} mo`
+                : 'Extend Boost lock';
+      return finish({
+        headline,
+        actionBadge: 'Boost',
+        targetKind: 'contract',
+        targetValue: shortContractName(BOOST_CONTRACT),
+        targetAccountId: BOOST_CONTRACT,
+        subjectAccount: BOOST_CONTRACT,
+        subjectEyebrow: 'Boost',
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
     if (shape.methodName === 'set_action_config' && shape.actionId) {
       const routingSummary = formatRoutingSummary(shape.config);
       const actionLabel = shape.actionId.replace(/_/g, ' ');
@@ -537,6 +707,62 @@ export function deriveProtocolProposalPresentation({
         subjectEyebrow: shape.ownershipTarget ? 'Authority' : null,
         showProposerSeparately: Boolean(normalizedProposer),
       });
+    }
+
+    if (
+      isSocialSpendContract(shape.receiverId) &&
+      shape.methodName === 'claim_target_balance'
+    ) {
+      return finish({
+        headline: 'Claim support to treasury',
+        actionBadge: 'Support',
+        targetKind: null,
+        targetValue: null,
+        targetAccountId: null,
+        subjectAccount: normalizedProposer,
+        subjectEyebrow: normalizedProposer ? 'Proposer' : null,
+        showProposerSeparately: false,
+      });
+    }
+
+    if (isCoreContract(shape.receiverId) && shape.methodName === 'execute') {
+      const faceKind = classifyCoreExecuteSetKeys(shape.executeSetKeys);
+      if (faceKind === 'mood') {
+        return finish({
+          headline: 'Update mood',
+          actionBadge: 'Mood',
+          targetKind: null,
+          targetValue: null,
+          targetAccountId: null,
+          subjectAccount: normalizedProposer,
+          subjectEyebrow: normalizedProposer ? 'Proposer' : null,
+          showProposerSeparately: false,
+        });
+      }
+      if (faceKind === 'post') {
+        return finish({
+          headline: 'Publish as DAO',
+          actionBadge: 'Post',
+          targetKind: null,
+          targetValue: null,
+          targetAccountId: null,
+          subjectAccount: normalizedProposer,
+          subjectEyebrow: normalizedProposer ? 'Proposer' : null,
+          showProposerSeparately: false,
+        });
+      }
+      if (faceKind === 'profile') {
+        return finish({
+          headline: 'Update profile',
+          actionBadge: 'Profile',
+          targetKind: null,
+          targetValue: null,
+          targetAccountId: null,
+          subjectAccount: normalizedProposer,
+          subjectEyebrow: normalizedProposer ? 'Proposer' : null,
+          showProposerSeparately: false,
+        });
+      }
     }
 
     return finish({

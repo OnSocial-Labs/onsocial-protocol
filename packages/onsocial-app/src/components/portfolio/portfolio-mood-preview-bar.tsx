@@ -18,6 +18,7 @@ import { useUnlockPremiumMood } from '@/hooks/use-unlock-premium-mood';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { usePortfolioFacePreview } from '@/contexts/portfolio-face-preview-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
+import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import {
   PAGE_MOOD_CATALOG as APP_MOOD_CATALOG,
   PREMIUM_MOOD_PRESETS,
@@ -36,6 +37,8 @@ interface PortfolioMoodPreviewBarProps {
   config: PublicPageConfig;
   /** DAO face — council can propose mood (not instant owner write). */
   isDao?: boolean;
+  /** Open stake sheet when confirm hug says stake to propose. */
+  onRequestStake?: () => void;
 }
 
 interface MoodPreviewBarSnapshot {
@@ -50,6 +53,7 @@ export function PortfolioMoodPreviewBar({
   pageAccountId,
   config,
   isDao = false,
+  onRequestStake,
 }: PortfolioMoodPreviewBarProps) {
   const {
     previewMoodId,
@@ -59,7 +63,9 @@ export function PortfolioMoodPreviewBar({
     commitMoodPreview,
     requestCloseMoodSheet,
     requestOpenMoodSheet,
+    requestDaoStake,
   } = usePortfolioMoodPreview();
+  const openStake = onRequestStake ?? requestDaoStake;
   const { isPreviewing: isPreviewingFace } = usePortfolioFacePreview();
   const {
     applyMood,
@@ -67,6 +73,8 @@ export function PortfolioMoodPreviewBar({
     isOwner,
     isAccountOwner,
     error: applyError,
+    eligibility,
+    eligibilityLoading,
   } = useApplyMood(pageAccountId, { isDao });
   const {
     unlockMood,
@@ -76,6 +84,7 @@ export function PortfolioMoodPreviewBar({
   const { setTxResult } = useAppTransactionFeedback();
   const [farewellSnapshot, setFarewellSnapshot] =
     useState<MoodPreviewBarSnapshot | null>(null);
+  const [proposeConfirmOpen, setProposeConfirmOpen] = useState(false);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -90,6 +99,7 @@ export function PortfolioMoodPreviewBar({
   const isOpen = isPreviewingMood || farewellSnapshot !== null;
   const error = applyError ?? unlockError;
   const isBusy = isApplying || isUnlocking;
+  const proposeOnly = isDao && isOwner && !isAccountOwner;
 
   useEffect(() => {
     if (!error) return;
@@ -112,7 +122,7 @@ export function PortfolioMoodPreviewBar({
   const priceSocial = APP_MOOD_CATALOG[activePreviewId]?.priceSocial;
   const needsUnlock = !unlocked && isPremiumMoodId(activePreviewId);
 
-  async function handleSave() {
+  async function commitMood() {
     let explorerHref: string | null = null;
 
     if (needsUnlock) {
@@ -137,7 +147,6 @@ export function PortfolioMoodPreviewBar({
     explorerHref = nearExplorerTxHref(applyTxHash) ?? explorerHref;
 
     if (!isAccountOwner) {
-      // Council proposal — gov toast already fired; wait for approve.
       discardMoodPreview();
       requestCloseMoodSheet();
       return;
@@ -150,15 +159,22 @@ export function PortfolioMoodPreviewBar({
     });
     setFarewellSnapshot(snapshot);
     dismissTimerRef.current = setTimeout(() => {
-      // Keep the saved mood on screen — don’t snap back to stale SSR props
-      // while router.refresh() is still catching up.
       commitMoodPreview(activePreviewId);
       setFarewellSnapshot(null);
       requestCloseMoodSheet();
     }, SAVED_DISMISS_MS);
   }
 
+  function handlePrimary() {
+    if (proposeOnly) {
+      setProposeConfirmOpen(true);
+      return;
+    }
+    void commitMood();
+  }
+
   function handleCancel() {
+    setProposeConfirmOpen(false);
     discardMoodPreview();
     window.setTimeout(() => {
       requestOpenMoodSheet();
@@ -166,47 +182,70 @@ export function PortfolioMoodPreviewBar({
   }
 
   return (
-    <div
-      className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} portfolio-face-preview-bar portfolio-mood-preview-bar portfolio-face-preview-bar--enter${isPreviewingFace ? ' is-stacked' : ''}`}
-      role="status"
-    >
-      <p className="portfolio-face-preview-bar-label">
-        <strong>{snapshot.previewLabel}</strong>
-      </p>
-      <div className="os-commit-actions">
-        {!isBusy ? (
-          <button
-            type="button"
-            className="os-commit-cancel"
-            onClick={handleCancel}
-          >
-            Cancel
-          </button>
-        ) : null}
-        <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
-          <OsSheetAction
-            type="button"
-            variant="primary"
-            ready={!isBusy}
-            pending={isApplying || isUnlocking}
-            pendingLabel={
-              needsUnlock
-                ? 'Unlocking…'
+    <>
+      <div
+        className={`${osFloatingPanelClassName} ${osSheetFloatingPanelClassName} portfolio-face-preview-bar portfolio-mood-preview-bar portfolio-face-preview-bar--enter${isPreviewingFace ? ' is-stacked' : ''}`}
+        role="status"
+      >
+        <p className="portfolio-face-preview-bar-label">
+          <strong>{snapshot.previewLabel}</strong>
+        </p>
+        <div className="os-commit-actions">
+          {!isBusy ? (
+            <button
+              type="button"
+              className="os-commit-cancel"
+              onClick={handleCancel}
+            >
+              Cancel
+            </button>
+          ) : null}
+          <OsSheetActions layout="row-compact" tone="frosted-primary" borderless>
+            <OsSheetAction
+              type="button"
+              variant="primary"
+              ready={!isBusy}
+              pending={isApplying || isUnlocking}
+              pendingLabel={
+                needsUnlock
+                  ? 'Unlocking…'
+                  : isAccountOwner
+                    ? 'Saving…'
+                    : 'Submitting…'
+              }
+              disabled={isBusy}
+              onClick={handlePrimary}
+            >
+              {needsUnlock && priceSocial && isAccountOwner
+                ? `Unlock · ${priceSocial}`
                 : isAccountOwner
-                  ? 'Saving…'
-                  : 'Submitting…'
-            }
-            disabled={isBusy}
-            onClick={() => void handleSave()}
-          >
-            {needsUnlock && priceSocial && isAccountOwner
-              ? `Unlock · ${priceSocial}`
-              : isAccountOwner
-                ? 'Save'
-                : 'Propose mood'}
-          </OsSheetAction>
-        </OsSheetActions>
+                  ? 'Save'
+                  : 'Propose mood'}
+            </OsSheetAction>
+          </OsSheetActions>
+        </div>
       </div>
-    </div>
+
+      {proposeOnly ? (
+        <DaoProposeConfirmSheet
+          open={proposeConfirmOpen}
+          title="Propose mood?"
+          body={`Submit a proposal to set this DAO’s mood to ${snapshot.previewLabel}.`}
+          eligibility={eligibility}
+          eligibilityLoading={eligibilityLoading}
+          pending={isApplying}
+          proposeLabel="Propose"
+          onDiscard={() => setProposeConfirmOpen(false)}
+          onPropose={() => {
+            setProposeConfirmOpen(false);
+            void commitMood();
+          }}
+          onStake={() => {
+            setProposeConfirmOpen(false);
+            openStake();
+          }}
+        />
+      ) : null}
+    </>
   );
 }

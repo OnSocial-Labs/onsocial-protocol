@@ -28,13 +28,17 @@ import { ProtocolCreateSheet } from '@/features/protocol/protocol-create-sheet';
 import { ProtocolDaoInfoSheet } from '@/features/protocol/protocol-dao-info-sheet';
 import { ProtocolProposeKindSheet } from '@/features/protocol/protocol-propose-kind-sheet';
 import {
+  countProtocolApplicationsByFamily,
   countProtocolApplicationsByStatus,
   filterProtocolApplications,
   findProtocolApplicationByProposalId,
   getVisibleProtocolBatch,
+  PROTOCOL_FEED_FAMILY_OPTIONS,
   PROTOCOL_FEED_PAGE_SIZE,
   PROTOCOL_FEED_STATUS_OPTIONS,
+  type ProtocolProposalFamily,
 } from '@/features/protocol/protocol-feed-filters';
+import { parseProtocolProposalFamily } from '@/features/protocol/protocol-proposal-family';
 import {
   fetchProtocolFeed,
   fetchProtocolProposal,
@@ -70,6 +74,7 @@ import type {
 } from '@/features/protocol/types';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
 import {
+  PROTOCOL_FAMILY_PARAM,
   PROTOCOL_PROPOSAL_PARAM,
   PROTOCOL_SEARCH_PARAM,
   PROTOCOL_STATUS_PARAM,
@@ -110,6 +115,9 @@ export function DaoWorkspacePanel({
   const searchParams = useSearchParams();
   const statusFilter = parseProtocolFeedStatus(
     searchParams.get(PROTOCOL_STATUS_PARAM)
+  );
+  const familyFilter = parseProtocolProposalFamily(
+    searchParams.get(PROTOCOL_FAMILY_PARAM)
   );
   const searchQuery = parseProtocolSearchQuery(
     searchParams.get(PROTOCOL_SEARCH_PARAM)
@@ -170,7 +178,7 @@ export function DaoWorkspacePanel({
     queueMicrotask(() => {
       setVisibleCount(PROTOCOL_FEED_PAGE_SIZE);
     });
-  }, [daoAccountId, statusFilter, searchQuery]);
+  }, [daoAccountId, statusFilter, familyFilter, searchQuery]);
 
   const actionApplication = useMemo(
     () => applications.find((row) => row.app_id === actionAppId) ?? null,
@@ -188,8 +196,19 @@ export function DaoWorkspacePanel({
       countProtocolApplicationsByStatus(applications, {
         isSoftExpired: softExpired,
         searchQuery,
+        family: familyFilter,
       }),
-    [applications, softExpired, searchQuery]
+    [applications, softExpired, searchQuery, familyFilter]
+  );
+
+  const familyCounts = useMemo(
+    () =>
+      countProtocolApplicationsByFamily(applications, {
+        isSoftExpired: softExpired,
+        searchQuery,
+        status: statusFilter,
+      }),
+    [applications, softExpired, searchQuery, statusFilter]
   );
 
   const filteredApplications = useMemo(
@@ -197,8 +216,9 @@ export function DaoWorkspacePanel({
       filterProtocolApplications(applications, statusFilter, {
         isSoftExpired: softExpired,
         searchQuery,
+        family: familyFilter,
       }),
-    [applications, statusFilter, softExpired, searchQuery]
+    [applications, statusFilter, softExpired, searchQuery, familyFilter]
   );
 
   const {
@@ -232,16 +252,18 @@ export function DaoWorkspacePanel({
   const buildDaoHref = useCallback(
     (opts?: {
       status?: ProtocolFeedStatusFilter | null;
+      family?: ProtocolProposalFamily | null;
       proposal?: number | null;
       q?: string | null;
     }) =>
       daoPortfolioPath(daoAccountId, {
         status: opts?.status === undefined ? statusFilter : opts.status,
+        family: opts?.family === undefined ? familyFilter : opts.family,
         proposal:
           opts?.proposal === undefined ? focusedProposalId : opts.proposal,
         q: opts?.q === undefined ? searchQuery : opts.q,
       }),
-    [daoAccountId, statusFilter, focusedProposalId, searchQuery]
+    [daoAccountId, statusFilter, familyFilter, focusedProposalId, searchQuery]
   );
 
   useEffect(() => {
@@ -336,12 +358,14 @@ export function DaoWorkspacePanel({
       focusedProposalId
     );
     if (!match) {
-      // Proposal may be filtered out of "open" — switch to all once.
-      if (statusFilter !== 'all') {
+      // Proposal may be filtered out of "open" / family — widen once.
+      if (statusFilter !== 'all' || familyFilter !== 'all') {
         router.replace(
           daoPortfolioPath(daoAccountId, {
             status: 'all',
+            family: 'all',
             proposal: focusedProposalId,
+            q: searchQuery,
           }),
           { scroll: false }
         );
@@ -365,6 +389,8 @@ export function DaoWorkspacePanel({
     applications,
     filteredApplications,
     statusFilter,
+    familyFilter,
+    searchQuery,
     router,
     daoAccountId,
   ]);
@@ -406,13 +432,29 @@ export function DaoWorkspacePanel({
       router.replace(
         daoPortfolioPath(daoAccountId, {
           status: nextStatus,
+          family: familyFilter,
           proposal: focusedProposalId,
           q: searchQuery,
         }),
         { scroll: false }
       );
     },
-    [router, daoAccountId, focusedProposalId, searchQuery]
+    [router, daoAccountId, familyFilter, focusedProposalId, searchQuery]
+  );
+
+  const navigateFamily = useCallback(
+    (nextFamily: ProtocolProposalFamily) => {
+      router.replace(
+        daoPortfolioPath(daoAccountId, {
+          status: statusFilter,
+          family: nextFamily,
+          proposal: focusedProposalId,
+          q: searchQuery,
+        }),
+        { scroll: false }
+      );
+    },
+    [router, daoAccountId, statusFilter, focusedProposalId, searchQuery]
   );
 
   const commitSearch = useCallback(
@@ -420,13 +462,14 @@ export function DaoWorkspacePanel({
       router.replace(
         daoPortfolioPath(daoAccountId, {
           status: statusFilter,
+          family: familyFilter,
           proposal: focusedProposalId,
           q: nextQuery.trim() || null,
         }),
         { scroll: false }
       );
     },
-    [router, daoAccountId, statusFilter, focusedProposalId]
+    [router, daoAccountId, statusFilter, familyFilter, focusedProposalId]
   );
 
   const mergeProposal = useCallback(
@@ -980,6 +1023,37 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
+      {loadState === 'ready' ? (
+        <div
+          className="protocol-family-rail"
+          role="tablist"
+          aria-label="Proposal kind"
+        >
+          {PROTOCOL_FEED_FAMILY_OPTIONS.map((option) => {
+            const count = familyCounts[option.id];
+            if (option.id !== 'all' && count === 0) {
+              return null;
+            }
+            const active = familyFilter === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`protocol-board-chip${active ? ' is-active' : ''}`}
+                onClick={() => navigateFamily(option.id)}
+              >
+                {option.label}
+                {option.id !== 'all' ? (
+                  <span className="protocol-status-count">{count}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {loadState === 'loading' ? (
         <p className="protocol-empty">Opening board…</p>
       ) : null}
@@ -1013,7 +1087,9 @@ export function DaoWorkspacePanel({
         <p className="protocol-empty">
           {searchQuery
             ? `No matches for “${searchQuery}”.`
-            : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
+            : familyFilter !== 'all'
+              ? `No ${statusFilter === 'open' ? 'open' : statusFilter} ${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
+              : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
         </p>
       ) : null}
       {loadState === 'ready' && paintedApplications.length > 0 ? (

@@ -5278,6 +5278,49 @@ a.os-surface-row {
     margin-inline: auto;
   }
 
+  .dao-boost-position {
+    display: grid;
+    gap: 0.2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .dao-boost-position-line {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .dao-boost-position-meta {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--muted, inherit);
+    opacity: 0.85;
+  }
+
+  .dao-boost-mode-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .dao-boost-mode-chip {
+    appearance: none;
+    border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    background: transparent;
+    color: inherit;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .dao-boost-mode-chip.is-selected {
+    border-color: color-mix(in srgb, currentColor 42%, transparent);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
   .portfolio-boost-periods .os-surface-chip {
     display: inline-flex;
     min-width: 0;
@@ -31086,6 +31129,7 @@ button.scarce-clip-cover-expand:focus-visible {
 .protocol-board-rail,
 .protocol-tools,
 .protocol-status-rail,
+.protocol-family-rail,
 .protocol-mode-rail {
   display: flex;
   flex-wrap: wrap;
@@ -31158,6 +31202,10 @@ a.protocol-board-chip {
 }
 
 .protocol-status-rail {
+  margin-top: 0.35rem;
+}
+
+.protocol-family-rail {
   margin-top: 0.35rem;
 }
 
