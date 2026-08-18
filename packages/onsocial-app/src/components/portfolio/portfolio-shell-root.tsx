@@ -44,6 +44,8 @@ import { fetchPageConfigFromBrowserProxy } from '@/lib/read-page-config';
 interface PortfolioShellRootProps {
   mood: ResolvedMood;
   pageAccountId: string;
+  /** DAO org public face — square crest via data-entity on frame. */
+  isDao?: boolean;
   avatarMedia?: ResolvedPageHero | null;
   bannerMedia?: ResolvedPageHero | null;
   committedAvatarMode: PageAvatarMode;
@@ -64,6 +66,7 @@ interface PortfolioShellRootProps {
 function PortfolioShellPreviewBridge({
   mood: committedMood,
   pageAccountId,
+  isDao = false,
   avatarMedia,
   bannerMedia,
   config,
@@ -107,6 +110,7 @@ function PortfolioShellPreviewBridge({
         <>
           <PortfolioShell
             pageAccountId={pageAccountId}
+            isDao={isDao}
             mood={effectiveMood}
             config={previewConfig}
             avatarMode={effectiveAvatarMode}
@@ -147,6 +151,7 @@ function PortfolioShellPreviewBridge({
             <PortfolioPageDock pageAccountId={pageAccountId} />
             <PageContentDrawer
               pageAccountId={pageAccountId}
+              isDao={isDao}
               mood={effectiveMood}
               profileName={profileName}
               bio={bio}

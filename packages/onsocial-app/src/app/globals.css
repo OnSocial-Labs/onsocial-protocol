@@ -5968,6 +5968,39 @@ a.os-surface-row {
     object-fit: cover;
   }
 
+  /* DAO org crest — squareish, matches /dao workspace crest radius. */
+  .portfolio-frame[data-entity='dao'] .portfolio-avatar,
+  .portfolio-frame[data-entity='dao'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-entity='dao'] .portfolio-avatar,
+  .portfolio-identity[data-entity='dao'] .portfolio-avatar-fallback {
+    border-radius: 1rem;
+  }
+
+  .portfolio-entity-kind {
+    margin: 0 0 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .portfolio-entity-workspace {
+    margin: 0.35rem 0 0;
+    font-size: 0.82rem;
+  }
+
+  .portfolio-entity-workspace a {
+    color: rgb(var(--fg-rgb) / 0.55);
+    text-decoration: none;
+  }
+
+  .portfolio-entity-workspace a:hover {
+    color: rgb(var(--fg-rgb) / 0.82);
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+  }
+
   /* Page-column cutout — tracks --mood-bg; Minimal uses accent glow instead. */
   .portfolio-frame:not([data-mood-only='true']) .portfolio-avatar,
   .portfolio-frame:not([data-mood-only='true']) .portfolio-avatar-fallback {

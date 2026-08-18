@@ -12,7 +12,9 @@ import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
 const SPUTNIK_DAO_SUFFIXES = [
   '.sputnik-dao.near',
+  '.sputnikv2.near',
   '.sputnik-dao.testnet',
+  '.sputnikv2.testnet',
 ] as const;
 
 export type StandingDaoEnrichmentInput = {

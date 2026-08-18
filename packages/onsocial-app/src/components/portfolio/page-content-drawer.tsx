@@ -70,6 +70,8 @@ const JUMP_LOCK_MS = 700;
 
 interface PageContentDrawerProps {
   pageAccountId: string;
+  /** DAO org face — drawer dock is Stand only. */
+  isDao?: boolean;
   mood: ResolvedMood;
   profileName?: string | null;
   bio?: string | null;
@@ -194,6 +196,7 @@ function PageDrawerHeader({
 
 export function PageContentDrawer({
   pageAccountId,
+  isDao = false,
   mood,
   profileName,
   bio = null,
@@ -511,6 +514,7 @@ export function PageContentDrawer({
         footer={
           <PageDrawerGestures
             pageAccountId={pageAccountId}
+            isDao={isDao}
             profileName={profileName}
             bio={bio}
             avatarUrl={avatarUrl}

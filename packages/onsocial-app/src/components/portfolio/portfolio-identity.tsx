@@ -1,8 +1,11 @@
 'use client';
 
+import { useEffect } from 'react';
+import Link from 'next/link';
 import { PortfolioIdentityGestures } from '@/components/portfolio/portfolio-identity-gestures';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
 import { PostRichText } from '@/features/home/post-rich-text';
+import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { displayName, initials } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 
@@ -13,6 +16,10 @@ interface PortfolioIdentityProps {
   tagline?: string;
   avatarUrl?: string | null;
   mood: ResolvedMood;
+  /** DAO org face — square crest + quiet kind chrome. */
+  isDao?: boolean;
+  kindLabel?: string | null;
+  workspaceHref?: string | null;
 }
 
 export function PortfolioIdentity({
@@ -22,6 +29,9 @@ export function PortfolioIdentity({
   tagline,
   avatarUrl,
   mood: savedMood,
+  isDao = false,
+  kindLabel = null,
+  workspaceHref = null,
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
@@ -35,8 +45,16 @@ export function PortfolioIdentity({
         ? `@${accountId.toLowerCase()}`
         : `@${accountId}`;
 
+  useEffect(() => {
+    if (!isDao) return;
+    rememberDaoStandingTarget(accountId);
+  }, [accountId, isDao]);
+
   return (
-    <section className="portfolio-identity animate-rise-in">
+    <section
+      className="portfolio-identity animate-rise-in"
+      data-entity={isDao ? 'dao' : undefined}
+    >
       {avatarUrl ? (
         <img alt={titleLabel} className="portfolio-avatar" src={avatarUrl} />
       ) : (
@@ -46,12 +64,20 @@ export function PortfolioIdentity({
       )}
 
       <div className="portfolio-identity-copy">
+        {isDao && kindLabel ? (
+          <p className="portfolio-entity-kind">{kindLabel}</p>
+        ) : null}
         <h1 className="portfolio-name">{titleLabel}</h1>
         <p
           className={`portfolio-handle${mood.id === 'terminal' ? ' portfolio-handle--terminal' : ''}`}
         >
           {handleLabel}
         </p>
+        {isDao && workspaceHref ? (
+          <p className="portfolio-entity-workspace">
+            <Link href={workspaceHref}>Open workspace</Link>
+          </p>
+        ) : null}
         {summary ? (
           <p className="portfolio-bio">
             <PostRichText text={summary} emptyFallback="" showLinkIcon />
@@ -63,6 +89,8 @@ export function PortfolioIdentity({
           bio={bio}
           avatarUrl={avatarUrl}
           mood={mood}
+          isDao={isDao}
+          workspaceHref={workspaceHref}
         />
       </div>
     </section>
