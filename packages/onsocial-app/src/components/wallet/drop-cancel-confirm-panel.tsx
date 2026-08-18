@@ -43,9 +43,10 @@ export function DropCancelConfirmPanel({
   onConfirm,
   onCancel,
 }: DropCancelConfirmPanelProps) {
-  const [refundNear, setRefundNear] = useState(
-    () => priceNear?.trim() || '0'
-  );
+  const [refundNear, setRefundNear] = useState(() => {
+    const seed = priceNear?.trim().replace(/,/g, '') || '0';
+    return /^\d+(\.\d*)?$/.test(seed) ? seed : '0';
+  });
   const [claimDays, setClaimDays] = useState(String(DEFAULT_REFUND_CLAIM_DAYS));
   const [fullyRedeemed, setFullyRedeemed] = useState(0);
   const [attendanceReady, setAttendanceReady] = useState(false);
@@ -102,6 +103,7 @@ export function DropCancelConfirmPanel({
       pending={pending}
       pendingLabel="Canceling…"
       variant="danger"
+      confirmDisabled={!canSubmit}
       onConfirm={() => {
         if (!canSubmit || !normalizedNear) return;
         onConfirm({

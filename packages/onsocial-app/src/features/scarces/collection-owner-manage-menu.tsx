@@ -89,7 +89,11 @@ export function CollectionOwnerManageMenu({
   });
 
   useEffect(() => {
-    if (status !== 'cancelled' || !open) return;
+    if (status !== 'cancelled') {
+      setRefundDeadlineMs(null);
+      setRefundPoolYocto(null);
+      return;
+    }
     let cancelledFetch = false;
     void viewNearContract<{
       refund_deadline?: number | null;
@@ -123,7 +127,7 @@ export function CollectionOwnerManageMenu({
     return () => {
       cancelledFetch = true;
     };
-  }, [collectionId, open, status]);
+  }, [collectionId, status]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -343,6 +347,15 @@ export function CollectionOwnerManageMenu({
           setPanel('withdraw');
         },
       });
+    } else if (status === 'cancelled') {
+      list.push({
+        id: 'refunds-open',
+        section: 'Refunds',
+        label: 'Refunds open',
+        description: 'Holders can claim until the window ends',
+        disabled: true,
+        onSelect: () => {},
+      });
     }
     if (showDelete) {
       list.push({
@@ -367,9 +380,17 @@ export function CollectionOwnerManageMenu({
     showPause,
     showResume,
     showWithdraw,
+    status,
   ]);
 
-  if (!showPause && !showResume && !showDelete && !showCancel && !showWithdraw) {
+  if (
+    !showPause &&
+    !showResume &&
+    !showDelete &&
+    !showCancel &&
+    !showWithdraw &&
+    status !== 'cancelled'
+  ) {
     return null;
   }
 

@@ -21,6 +21,8 @@ export interface OsActionDrawerConfirmProps {
   pendingLabel?: string;
   cancelLabel?: string;
   variant?: OsActionDrawerConfirmVariant;
+  /** When true, primary stays visible but cannot commit. */
+  confirmDisabled?: boolean;
   /** Extra controls between body and primary (toggles, errors). */
   children?: ReactNode;
   className?: string;
@@ -36,6 +38,7 @@ export function OsActionDrawerConfirm({
   pendingLabel,
   cancelLabel = 'Cancel',
   variant = 'primary',
+  confirmDisabled = false,
   children,
   className,
 }: OsActionDrawerConfirmProps) {
@@ -47,10 +50,10 @@ export function OsActionDrawerConfirm({
         <OsSheetAction
           type="button"
           variant={variant}
-          ready
+          ready={!confirmDisabled}
           pending={pending}
           pendingLabel={pendingLabel ?? confirmLabel}
-          disabled={pending}
+          disabled={pending || confirmDisabled}
           onClick={onConfirm}
         >
           {confirmLabel}

@@ -5,6 +5,7 @@ import { OsSheetAction, OsSheetActions } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { claimDropTokenRefund } from '@/features/scarces/drop-owner-actions';
+import { isRefundClaimWindowClosed } from '@/features/scarces/drop-refund';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { accountIdsEqual } from '@/lib/account-match';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
@@ -40,20 +41,35 @@ export function TicketClaimRefundAction({
   const { accountId, isConnected, getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [dropCancelled, setDropCancelled] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    void viewNearContract<{ cancelled?: boolean } | null>(
-      SCARCES_CONTRACT,
-      'get_collection',
-      { collection_id: collectionId }
-    )
+    void viewNearContract<{
+      cancelled?: boolean;
+      refund_deadline?: number | null;
+    } | null>(SCARCES_CONTRACT, 'get_collection', {
+      collection_id: collectionId,
+    })
       .then((record) => {
-        if (!cancelled) setDropCancelled(Boolean(record?.cancelled));
+        if (cancelled) return;
+        setDropCancelled(Boolean(record?.cancelled));
+        const deadlineNs = record?.refund_deadline;
+        const deadlineMs =
+          deadlineNs != null && Number.isFinite(deadlineNs) && deadlineNs > 0
+            ? Math.floor(deadlineNs / 1_000_000)
+            : null;
+        // No deadline on record → treat as still open (contract default path).
+        setClaimOpen(
+          deadlineMs == null ? true : !isRefundClaimWindowClosed(deadlineMs)
+        );
       })
       .catch(() => {
-        if (!cancelled) setDropCancelled(false);
+        if (!cancelled) {
+          setDropCancelled(false);
+          setClaimOpen(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -62,6 +78,7 @@ export function TicketClaimRefundAction({
 
   const eligible =
     dropCancelled &&
+    claimOpen &&
     status != null &&
     !status.isRefunded &&
     !status.isFullyRedeemed &&
