@@ -110,7 +110,7 @@ export function DaoTreasurySheet({
       closeAriaLabel="Back from treasury"
       zIndex={TREASURY_Z}
       className="dao-treasury-slide"
-      contentClassName="dao-treasury-sheet standing-panel"
+      contentClassName="dao-treasury-sheet"
     >
       {pending && assets == null ? (
         <p className="dao-treasury-empty">Loading balances…</p>

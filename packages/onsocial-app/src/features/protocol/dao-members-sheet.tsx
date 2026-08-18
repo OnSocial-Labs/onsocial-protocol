@@ -131,7 +131,7 @@ export function DaoMembersSheet({
       closeAriaLabel="Back from members"
       zIndex={MEMBERS_Z}
       className="dao-members-slide"
-      contentClassName="dao-members-sheet standing-panel"
+      contentClassName="dao-members-sheet"
     >
       {pending && !policy ? (
         <p className="dao-members-empty">Loading roles…</p>
