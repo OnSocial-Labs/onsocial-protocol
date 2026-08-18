@@ -41,6 +41,12 @@ describe('discoverPath', () => {
     );
   });
 
+  it('deep-links Guilds browse tab', () => {
+    expect(discoverPath('alice.testnet', { tab: 'guilds' })).toBe(
+      '/@alice.testnet/discover?tab=guilds'
+    );
+  });
+
   it('combines tab and search query', () => {
     expect(
       discoverPath('alice.testnet', { tab: 'profiles', q: 'near' })

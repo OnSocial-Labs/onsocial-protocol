@@ -44,6 +44,7 @@ export function DiscoverOmniSearchField({
   const wantsTopicSuggest =
     focused &&
     tab !== 'daos' &&
+    tab !== 'guilds' &&
     (isDiscoverTopicDraft(query) ||
       tab === 'topics' ||
       tab === 'tickers' ||
@@ -54,11 +55,15 @@ export function DiscoverOmniSearchField({
   const searchPlaceholder =
     tab === 'daos'
       ? 'DAO account or name'
-      : 'People, #topics, $tickers';
+      : tab === 'guilds'
+        ? 'Search guilds'
+        : 'People, #topics, $tickers';
   const searchAriaLabel =
     tab === 'daos'
       ? 'Search DAOs'
-      : 'Search people, topics, and tickers';
+      : tab === 'guilds'
+        ? 'Search guilds'
+        : 'Search people, topics, and tickers';
 
   useEffect(() => {
     if (!wantsTopicSuggest) return;

@@ -8,7 +8,6 @@ import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
 
 /**
  * Discover → DAOs — factory catalog with the same square-crest rows as Protocol.
- * Guilds can follow as a sibling tab later.
  */
 export function DiscoverDaosPanel() {
   const { query, clearSearch } = useDiscoverPanel();

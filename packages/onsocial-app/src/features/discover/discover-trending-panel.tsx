@@ -272,7 +272,7 @@ export function DiscoverTrendingPanel({
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">Nothing trending yet.</p>
           <p className="standing-panel-empty-secondary">
-            Open Profiles, DAOs, Topics, or Tickers to browse the graph.
+            Open Profiles, DAOs, Guilds, Topics, or Tickers to browse the graph.
           </p>
         </div>
       ) : null}
@@ -439,9 +439,13 @@ export function DiscoverTrendingPanel({
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Guilds</h2>
-            <Link href={APP_GROUPS_PATH} className="discover-trending-see-all">
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('guilds')}
+            >
               See all
-            </Link>
+            </button>
           </div>
           <ul className="discover-focus-rows">
             {guilds.map((guild) => (

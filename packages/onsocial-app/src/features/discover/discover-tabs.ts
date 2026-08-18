@@ -1,10 +1,11 @@
 /** Discover hub tabs — Trending is the default mixed landing.
- * Order: people/orgs first, then signals. Insert `guilds` after `daos` when ready.
+ * Order: people / orgs / communities, then signals.
  */
 export type DiscoverTab =
   | 'trending'
   | 'profiles'
   | 'daos'
+  | 'guilds'
   | 'topics'
   | 'tickers';
 
@@ -12,6 +13,7 @@ export const DISCOVER_TABS: readonly DiscoverTab[] = [
   'trending',
   'profiles',
   'daos',
+  'guilds',
   'topics',
   'tickers',
 ] as const;
@@ -30,7 +32,8 @@ export function parseDiscoverTab(
     value === 'topics' ||
     value === 'tickers' ||
     value === 'trending' ||
-    value === 'daos'
+    value === 'daos' ||
+    value === 'guilds'
   ) {
     return value;
   }
@@ -48,6 +51,8 @@ export function discoverTabLabel(tab: DiscoverTab): string {
       return 'Tickers';
     case 'daos':
       return 'DAOs';
+    case 'guilds':
+      return 'Guilds';
     default:
       return 'Profiles';
   }
@@ -102,4 +107,9 @@ export function isDiscoverProfilesTab(tab: DiscoverTab): boolean {
 /** Factory DAO catalog list tab. */
 export function isDiscoverDaosTab(tab: DiscoverTab): boolean {
   return tab === 'daos';
+}
+
+/** Public guild browse / search tab. */
+export function isDiscoverGuildsTab(tab: DiscoverTab): boolean {
+  return tab === 'guilds';
 }
