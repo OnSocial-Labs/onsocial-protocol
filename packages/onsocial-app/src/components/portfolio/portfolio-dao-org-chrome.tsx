@@ -23,9 +23,20 @@ import {
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
+import { buildDaoClaimSupportProposalPayload } from '@/features/protocol/dao-claim-support';
+import { submitProtocolProposal } from '@/features/protocol/protocol-create';
+import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { seedDaoBrandingCache } from '@/lib/dao-shell-cache';
+import { formatSocialCompact } from '@/lib/format-social-balance';
+import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
+import {
+  txToastGovError,
+  txToastGovPending,
+  txToastGovSuccess,
+} from '@/lib/transaction-toast-copy';
+import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import {
   PROTOCOL_PROPOSAL_PARAM,
   PROTOCOL_SEARCH_PARAM,
@@ -83,7 +94,8 @@ function PortfolioDaoOrgChromeInner({
   configMetadata,
 }: PortfolioDaoOrgChromeProps) {
   const searchParams = useSearchParams();
-  const { accountId } = useAppWallet();
+  const { accountId, getSigningWallet } = useAppWallet();
+  const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [optimistic, setOptimistic] = useState<OptimisticDaoProfile | null>(
     null
   );
@@ -94,6 +106,8 @@ function PortfolioDaoOrgChromeInner({
   const [eligibility, setEligibility] = useState<EligibilitySnapshot | null>(
     null
   );
+  const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
+  const [claimPending, setClaimPending] = useState(false);
 
   const branding: DaoBranding | null =
     optimistic?.daoAccountId === daoAccountId && optimistic
@@ -143,11 +157,29 @@ function PortfolioDaoOrgChromeInner({
     };
   }, [accountId, daoAccountId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetchProfileSupportBalanceYocto(daoAccountId, { fresh: true })
+      .then((next) => {
+        if (!cancelled) setClaimableYocto(next);
+      })
+      .catch(() => {
+        if (!cancelled) setClaimableYocto(0n);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [daoAccountId]);
+
   const canEdit = Boolean(
     accountId &&
       eligibility?.key === eligibilityKey(accountId, daoAccountId) &&
       eligibility.value.canPropose
   );
+  const claimSupportLabel =
+    canEdit && claimableYocto != null && claimableYocto > 0n
+      ? formatSocialCompact(claimableYocto.toString())
+      : null;
 
   const handleSaved = useCallback((next: DaoBranding, nextMetadata: string) => {
     setOptimistic({
@@ -159,15 +191,72 @@ function PortfolioDaoOrgChromeInner({
     setOverlay(null);
   }, []);
 
-  const handleManageAction = useCallback((action: DaoManageAction) => {
-    if (action === 'edit') {
-      setOverlay('edit');
-      return;
+  const handleClaimSupport = useCallback(async () => {
+    if (claimPending || !claimableYocto || claimableYocto <= 0n) return;
+    setClaimPending(true);
+    try {
+      const { accountId: signerId, wallet } = await getSigningWallet();
+      const amountLabel = formatSocialCompact(claimableYocto.toString());
+      const payload = buildDaoClaimSupportProposalPayload({
+        daoLabel: title,
+        amountLabel,
+      });
+      const response = await submitProtocolProposal({
+        daoAccountId,
+        accountId: signerId,
+        wallet,
+        payload,
+      });
+      const confirmed = await trackTransaction({
+        txHashes: response.txHashes,
+        submittedMessage: txToastGovPending.actionSubmitted('Claim support'),
+        successMessage:
+          txToastGovSuccess.actionConfirmed('Claim support proposal') +
+          ' Approve to collect.',
+        failureMessage: txToastGovError.actionFailed('Claim support proposal'),
+      });
+      if (confirmed) {
+        setOverlay(null);
+      }
+    } catch (cause) {
+      if (!isWalletUserCancellation(cause)) {
+        setTxResult({
+          type: 'error',
+          msg:
+            cause instanceof Error
+              ? cause.message
+              : txToastGovError.actionFailed('Claim support proposal'),
+        });
+      }
+    } finally {
+      setClaimPending(false);
     }
-    // Propose / Stake / Settings / Info live on the proposals workspace.
-    setOverlay('proposals');
-    setToolRequest(action);
-  }, []);
+  }, [
+    claimPending,
+    claimableYocto,
+    daoAccountId,
+    getSigningWallet,
+    setTxResult,
+    title,
+    trackTransaction,
+  ]);
+
+  const handleManageAction = useCallback(
+    (action: DaoManageAction) => {
+      if (action === 'edit') {
+        setOverlay('edit');
+        return;
+      }
+      if (action === 'claim-support') {
+        void handleClaimSupport();
+        return;
+      }
+      // Propose / Stake / Settings / Info live on the proposals workspace.
+      setOverlay('proposals');
+      setToolRequest(action);
+    },
+    [handleClaimSupport]
+  );
 
   const tools = [
     { id: 'proposals' as const, label: 'Proposals' },
@@ -201,6 +290,8 @@ function PortfolioDaoOrgChromeInner({
         open={overlay === 'manage'}
         daoName={title}
         canEdit={canEdit}
+        claimSupportLabel={claimSupportLabel}
+        claimSupportPending={claimPending}
         onClose={() =>
           setOverlay((current) => (current === 'manage' ? null : current))
         }

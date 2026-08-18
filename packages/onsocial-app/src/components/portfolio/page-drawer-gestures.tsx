@@ -21,7 +21,7 @@ interface PageDrawerGesturesProps {
   bio?: string | null;
   avatarUrl?: string | null;
   mood?: ResolvedMood | null;
-  /** DAO org face — Stand only (no Endorse / Support). */
+  /** DAO org face — Stand · Support (no Endorse). */
   isDao?: boolean;
   /** Hide while the drawer body is scrolling. */
   dockHidden?: boolean;
@@ -29,7 +29,7 @@ interface PageDrawerGesturesProps {
 
 /**
  * Floating drawer dock: visitor Stand · Endorse · Support (face language).
- * DAO: Stand only. Hidden for self; connect whisper when disconnected;
+ * DAO: Stand · Support. Hidden for self; connect whisper when disconnected;
  * fades while scrolling.
  */
 export function PageDrawerGestures({
@@ -68,7 +68,7 @@ export function PageDrawerGestures({
   }`;
 
   const connectLabel = isDao
-    ? 'Connect to Stand'
+    ? 'Connect to Stand · Support'
     : 'Connect to Stand · Endorse · Support';
 
   if (!isConnected || !viewerAccountId) {
@@ -134,7 +134,12 @@ export function PageDrawerGestures({
                 <span className="portfolio-identity-gesture-sep" />
                 <span className="portfolio-identity-gesture-shimmer" />
               </>
-            ) : null}
+            ) : (
+              <>
+                <span className="portfolio-identity-gesture-sep" />
+                <span className="portfolio-identity-gesture-shimmer" />
+              </>
+            )}
           </div>
         ) : (
           <div
@@ -180,50 +185,48 @@ export function PageDrawerGestures({
                   </span>
                   Endorse
                 </button>
-
-                <span className="portfolio-identity-gesture-sep" aria-hidden>
-                  ·
-                </span>
-
-                <button
-                  type="button"
-                  className="portfolio-identity-gesture portfolio-identity-gesture--support group"
-                  tabIndex={dockHidden ? -1 : undefined}
-                  onClick={() => setSupportOpen(true)}
-                  aria-label={`Support ${label}`}
-                >
-                  <span
-                    className="signal-group signal-group-reputation"
-                    aria-hidden
-                  >
-                    <ProtocolMotionArrow className="signal-metric-arrow" />
-                  </span>
-                  Support
-                </button>
               </>
             ) : null}
+
+            <span className="portfolio-identity-gesture-sep" aria-hidden>
+              ·
+            </span>
+
+            <button
+              type="button"
+              className="portfolio-identity-gesture portfolio-identity-gesture--support group"
+              tabIndex={dockHidden ? -1 : undefined}
+              onClick={() => setSupportOpen(true)}
+              aria-label={`Support ${label}`}
+            >
+              <span
+                className="signal-group signal-group-reputation"
+                aria-hidden
+              >
+                <ProtocolMotionArrow className="signal-metric-arrow" />
+              </span>
+              Support
+            </button>
           </div>
         )}
       </div>
+      <ProfileSupportSheet
+        open={supportOpen}
+        pageAccountId={pageAccountId}
+        profileName={profileName}
+        avatarUrl={avatarUrl}
+        mood={mood}
+        onOpenChange={setSupportOpen}
+      />
       {!isDao ? (
-        <>
-          <EndorseComposeSheet
-            open={endorseOpen}
-            pageAccountId={pageAccountId}
-            profileName={profileName}
-            avatarUrl={avatarUrl}
-            mood={mood}
-            onOpenChange={setEndorseOpen}
-          />
-          <ProfileSupportSheet
-            open={supportOpen}
-            pageAccountId={pageAccountId}
-            profileName={profileName}
-            avatarUrl={avatarUrl}
-            mood={mood}
-            onOpenChange={setSupportOpen}
-          />
-        </>
+        <EndorseComposeSheet
+          open={endorseOpen}
+          pageAccountId={pageAccountId}
+          profileName={profileName}
+          avatarUrl={avatarUrl}
+          mood={mood}
+          onOpenChange={setEndorseOpen}
+        />
       ) : null}
     </div>
   );

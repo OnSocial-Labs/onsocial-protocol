@@ -40,14 +40,14 @@ interface PortfolioIdentityGesturesProps {
   bio?: string | null;
   avatarUrl?: string | null;
   mood?: ResolvedMood | null;
-  /** DAO org face — Stand (+ Message · More); no Endorse / Support. */
+  /** DAO org face — Stand · Support · More (no Endorse / Message). */
   isDao?: boolean;
 }
 
 /**
  * Face gesture slot under bio.
  * Connected visitor: Stand · Endorse · Support · Message · More (mute/block).
- * DAO visitor: Stand · Message · More.
+ * DAO visitor: Stand · Support · More.
  * Owner: payout marks + Activity. DAO self: hidden (org tools row owns Manage).
  * Pre-connect: hidden.
  */
@@ -289,25 +289,6 @@ export function PortfolioIdentityGestures({
                 </span>
                 Endorse
               </button>
-
-              <span className="portfolio-identity-gesture-sep" aria-hidden>
-                ·
-              </span>
-
-              <button
-                type="button"
-                className="portfolio-identity-gesture portfolio-identity-gesture--support group"
-                onClick={() => setSupportOpen(true)}
-                aria-label={`Support ${label}`}
-              >
-                <span
-                  className="signal-group signal-group-reputation"
-                  aria-hidden
-                >
-                  <ProtocolMotionArrow className="signal-metric-arrow" />
-                </span>
-                Support
-              </button>
             </>
           ) : null}
 
@@ -317,22 +298,42 @@ export function PortfolioIdentityGestures({
 
           <button
             type="button"
-            className="portfolio-identity-gesture portfolio-identity-gesture--message group"
-            disabled={messagingBlocked}
-            onClick={() => {
-              if (messagingBlocked) return;
-              setMessageOpen(true);
-            }}
-            aria-label={
-              viewerMuted
-                ? `Unmute to message ${label}`
-                : blockEitherWay
-                  ? `Messaging unavailable for ${label}`
-                  : `Message ${label}`
-            }
+            className="portfolio-identity-gesture portfolio-identity-gesture--support group"
+            onClick={() => setSupportOpen(true)}
+            aria-label={`Support ${label}`}
           >
-            Message
+            <span className="signal-group signal-group-reputation" aria-hidden>
+              <ProtocolMotionArrow className="signal-metric-arrow" />
+            </span>
+            Support
           </button>
+
+          {!isDao ? (
+            <>
+              <span className="portfolio-identity-gesture-sep" aria-hidden>
+                ·
+              </span>
+
+              <button
+                type="button"
+                className="portfolio-identity-gesture portfolio-identity-gesture--message group"
+                disabled={messagingBlocked}
+                onClick={() => {
+                  if (messagingBlocked) return;
+                  setMessageOpen(true);
+                }}
+                aria-label={
+                  viewerMuted
+                    ? `Unmute to message ${label}`
+                    : blockEitherWay
+                      ? `Messaging unavailable for ${label}`
+                      : `Message ${label}`
+                }
+              >
+                Message
+              </button>
+            </>
+          ) : null}
 
           <span className="portfolio-identity-gesture-sep" aria-hidden>
             ·
@@ -348,32 +349,32 @@ export function PortfolioIdentityGestures({
           </button>
         </div>
       )}
-      <DmComposeSheet
-        open={messageOpen}
-        peerAccountId={pageAccountId}
-        peerName={profileName}
+      {!isDao ? (
+        <DmComposeSheet
+          open={messageOpen}
+          peerAccountId={pageAccountId}
+          peerName={profileName}
+          mood={mood}
+          onClose={() => setMessageOpen(false)}
+        />
+      ) : null}
+      <ProfileSupportSheet
+        open={supportOpen}
+        pageAccountId={pageAccountId}
+        profileName={profileName}
+        avatarUrl={avatarUrl}
         mood={mood}
-        onClose={() => setMessageOpen(false)}
+        onOpenChange={setSupportOpen}
       />
       {!isDao ? (
-        <>
-          <EndorseComposeSheet
-            open={endorseOpen}
-            pageAccountId={pageAccountId}
-            profileName={profileName}
-            avatarUrl={avatarUrl}
-            mood={mood}
-            onOpenChange={setEndorseOpen}
-          />
-          <ProfileSupportSheet
-            open={supportOpen}
-            pageAccountId={pageAccountId}
-            profileName={profileName}
-            avatarUrl={avatarUrl}
-            mood={mood}
-            onOpenChange={setSupportOpen}
-          />
-        </>
+        <EndorseComposeSheet
+          open={endorseOpen}
+          pageAccountId={pageAccountId}
+          profileName={profileName}
+          avatarUrl={avatarUrl}
+          mood={mood}
+          onOpenChange={setEndorseOpen}
+        />
       ) : null}
       <ActionDrawer
         open={moreOpen}
