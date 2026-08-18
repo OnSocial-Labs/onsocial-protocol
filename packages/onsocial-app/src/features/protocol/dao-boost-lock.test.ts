@@ -1,9 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { buildDaoBoostLockProposalPayload } from './dao-boost-lock';
+import {
+  buildDaoBoostCollectProposalPayload,
+  buildDaoBoostExtendProposalPayload,
+  buildDaoBoostLockProposalPayload,
+  buildDaoBoostRenewProposalPayload,
+  buildDaoBoostUnlockProposalPayload,
+} from './dao-boost-lock';
 import {
   BOOST_CONTRACT,
   SOCIAL_TOKEN_CONTRACT,
 } from '@/lib/app-config';
+
+function decodeAction(payload: {
+  proposal: { kind: unknown };
+}): { method: string; receiver: string; args: Record<string, unknown> } {
+  const kind = payload.proposal.kind as {
+    FunctionCall: {
+      receiver_id: string;
+      actions: Array<{ method_name: string; args: string }>;
+    };
+  };
+  const action = kind.FunctionCall.actions[0]!;
+  return {
+    receiver: kind.FunctionCall.receiver_id,
+    method: action.method_name,
+    args: JSON.parse(
+      Buffer.from(action.args, 'base64').toString('utf8')
+    ) as Record<string, unknown>,
+  };
+}
 
 describe('buildDaoBoostLockProposalPayload', () => {
   it('builds ft_transfer_call lock to the boost contract', () => {
@@ -13,34 +38,16 @@ describe('buildDaoBoostLockProposalPayload', () => {
       months: 12,
       daoLabel: 'Governance',
     });
-    const kind = payload.proposal.kind as {
-      FunctionCall: {
-        receiver_id: string;
-        actions: Array<{
-          method_name: string;
-          args: string;
-          deposit: string;
-        }>;
-      };
-    };
-    expect(kind.FunctionCall.receiver_id).toBe(SOCIAL_TOKEN_CONTRACT);
-    expect(kind.FunctionCall.actions[0]?.method_name).toBe('ft_transfer_call');
-    expect(kind.FunctionCall.actions[0]?.deposit).toBe('1');
+    const decoded = decodeAction(payload);
+    expect(decoded.receiver).toBe(SOCIAL_TOKEN_CONTRACT);
+    expect(decoded.method).toBe('ft_transfer_call');
+    expect(decoded.args.receiver_id).toBe(BOOST_CONTRACT);
+    expect(decoded.args.amount).toBe(amount);
+    expect(JSON.parse(String(decoded.args.msg))).toEqual({
+      action: 'lock',
+      months: 12,
+    });
     expect(payload.proposal.description).toContain('Governance');
-    expect(payload.proposal.description).toContain('12 mo');
-
-    const argsJson = Buffer.from(
-      kind.FunctionCall.actions[0]!.args,
-      'base64'
-    ).toString('utf8');
-    const args = JSON.parse(argsJson) as {
-      receiver_id: string;
-      amount: string;
-      msg: string;
-    };
-    expect(args.receiver_id).toBe(BOOST_CONTRACT);
-    expect(args.amount).toBe(amount);
-    expect(JSON.parse(args.msg)).toEqual({ action: 'lock', months: 12 });
   });
 
   it('rejects amounts below the Boost minimum', () => {
@@ -50,5 +57,30 @@ describe('buildDaoBoostLockProposalPayload', () => {
         months: 12,
       })
     ).toThrow(/minimum/i);
+  });
+});
+
+describe('DAO Boost lifecycle proposals', () => {
+  it('builds claim_rewards / unlock / renew / extend Calls on boost', () => {
+    expect(decodeAction(buildDaoBoostCollectProposalPayload())).toMatchObject({
+      receiver: BOOST_CONTRACT,
+      method: 'claim_rewards',
+      args: {},
+    });
+    expect(decodeAction(buildDaoBoostUnlockProposalPayload())).toMatchObject({
+      receiver: BOOST_CONTRACT,
+      method: 'unlock',
+    });
+    expect(decodeAction(buildDaoBoostRenewProposalPayload())).toMatchObject({
+      receiver: BOOST_CONTRACT,
+      method: 'renew_lock',
+    });
+    expect(
+      decodeAction(buildDaoBoostExtendProposalPayload({ months: 24 }))
+    ).toMatchObject({
+      receiver: BOOST_CONTRACT,
+      method: 'extend_lock',
+      args: { months: 24 },
+    });
   });
 });

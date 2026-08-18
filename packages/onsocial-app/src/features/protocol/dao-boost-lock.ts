@@ -4,7 +4,13 @@ import {
   type BoostLockPeriod,
 } from '@onsocial/sdk/advanced';
 import type { ProtocolProposalPayload } from '@/features/protocol/protocol-create';
-import { BOOST_LOCK_GAS, BOOST_MIN_LOCK_YOCTO } from '@/features/boost/boost-position';
+import {
+  BOOST_ADJUST_GAS,
+  BOOST_CLAIM_GAS,
+  BOOST_LOCK_GAS,
+  BOOST_MIN_LOCK_YOCTO,
+  BOOST_UNLOCK_GAS,
+} from '@/features/boost/boost-position';
 import {
   BOOST_CONTRACT,
   SOCIAL_TOKEN_CONTRACT,
@@ -25,6 +31,33 @@ function encodeJsonArgs(args: unknown): string {
 }
 
 const VALID_MONTHS = new Set([1, 6, 12, 24, 48]);
+
+function buildDaoBoostContractCallPayload(opts: {
+  methodName: string;
+  args: Record<string, unknown>;
+  gas: string;
+  deposit?: string;
+  description: string;
+}): ProtocolProposalPayload {
+  return {
+    proposal: {
+      description: opts.description,
+      kind: {
+        FunctionCall: {
+          receiver_id: BOOST_CONTRACT,
+          actions: [
+            {
+              method_name: opts.methodName,
+              args: encodeJsonArgs(opts.args),
+              deposit: opts.deposit ?? '0',
+              gas: opts.gas,
+            },
+          ],
+        },
+      },
+    },
+  };
+}
 
 /**
  * Build an `add_proposal` Call that locks DAO treasury SOCIAL into Boost
@@ -72,4 +105,64 @@ export function buildDaoBoostLockProposalPayload(opts: {
       },
     },
   };
+}
+
+/** Claim accrued Boost rewards into the DAO wallet (predecessor = DAO). */
+export function buildDaoBoostCollectProposalPayload(opts?: {
+  daoLabel?: string;
+  amountLabel?: string;
+}): ProtocolProposalPayload {
+  const label = opts?.daoLabel?.trim() || 'DAO';
+  const amount = opts?.amountLabel?.trim();
+  return buildDaoBoostContractCallPayload({
+    methodName: 'claim_rewards',
+    args: {},
+    gas: BOOST_CLAIM_GAS,
+    description: amount
+      ? `Collect ${amount} Boost rewards for ${label}.`
+      : `Collect Boost rewards for ${label}.`,
+  });
+}
+
+/** Unlock principal (+ collect) when the DAO lock has matured. */
+export function buildDaoBoostUnlockProposalPayload(opts?: {
+  daoLabel?: string;
+}): ProtocolProposalPayload {
+  const label = opts?.daoLabel?.trim() || 'DAO';
+  return buildDaoBoostContractCallPayload({
+    methodName: 'unlock',
+    args: {},
+    gas: BOOST_UNLOCK_GAS,
+    description: `Unlock Boost position for ${label}.`,
+  });
+}
+
+/** Renew the DAO lock for another period of the same length. */
+export function buildDaoBoostRenewProposalPayload(opts?: {
+  daoLabel?: string;
+}): ProtocolProposalPayload {
+  const label = opts?.daoLabel?.trim() || 'DAO';
+  return buildDaoBoostContractCallPayload({
+    methodName: 'renew_lock',
+    args: {},
+    gas: BOOST_ADJUST_GAS,
+    description: `Renew Boost lock for ${label}.`,
+  });
+}
+
+/** Extend the DAO lock to a longer period (no unlock gap). */
+export function buildDaoBoostExtendProposalPayload(opts: {
+  months: BoostLockPeriod;
+  daoLabel?: string;
+}): ProtocolProposalPayload {
+  if (!VALID_MONTHS.has(opts.months)) {
+    throw new Error('Choose a valid lock period.');
+  }
+  const label = opts.daoLabel?.trim() || 'DAO';
+  return buildDaoBoostContractCallPayload({
+    methodName: 'extend_lock',
+    args: { months: opts.months },
+    gas: BOOST_ADJUST_GAS,
+    description: `Extend Boost lock to ${opts.months} mo for ${label}.`,
+  });
 }

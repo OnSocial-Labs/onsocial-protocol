@@ -235,6 +235,7 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   seasonId: string | null;
   transferCallMsg: string | null;
   transferCallReceiverId: string | null;
+  months: number | null;
   config: Record<string, unknown> | null;
   seasonLabel: string | null;
 } {
@@ -248,6 +249,7 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     seasonId: null,
     transferCallMsg: null,
     transferCallReceiverId: null,
+    months: null,
     config: null,
     seasonLabel: null,
   };
@@ -272,6 +274,13 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       : null;
   const msg = readStringField(args, 'msg');
   const fundMsg = parseFundSeasonPoolTransferMsg(msg);
+  const monthsRaw = args?.months;
+  const months =
+    typeof monthsRaw === 'number' && Number.isFinite(monthsRaw)
+      ? monthsRaw
+      : typeof monthsRaw === 'string' && /^\d+$/.test(monthsRaw.trim())
+        ? Number(monthsRaw.trim())
+        : null;
   return {
     receiverId,
     methodName,
@@ -290,6 +299,7 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       readStringField(config, 'season_id'),
     transferCallMsg: msg,
     transferCallReceiverId: readStringField(args, 'receiver_id'),
+    months,
     config,
     seasonLabel:
       readStringField(args, 'label') ?? readStringField(config, 'label'),
@@ -520,6 +530,36 @@ export function deriveProtocolProposalPresentation({
         actionBadge: 'Boost',
         targetKind: amountLabel ? 'amount' : 'contract',
         targetValue: amountLabel ?? shortContractName(BOOST_CONTRACT),
+        targetAccountId: BOOST_CONTRACT,
+        subjectAccount: BOOST_CONTRACT,
+        subjectEyebrow: 'Boost',
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
+    if (
+      isBoostContract(shape.receiverId) &&
+      (shape.methodName === 'claim_rewards' ||
+        shape.methodName === 'unlock' ||
+        shape.methodName === 'renew_lock' ||
+        shape.methodName === 'extend_lock')
+    ) {
+      const method = shape.methodName;
+      const headline =
+        method === 'claim_rewards'
+          ? 'Collect Boost rewards'
+          : method === 'unlock'
+            ? 'Unlock Boost position'
+            : method === 'renew_lock'
+              ? 'Renew Boost lock'
+              : shape.months != null
+                ? `Extend Boost lock to ${shape.months} mo`
+                : 'Extend Boost lock';
+      return finish({
+        headline,
+        actionBadge: 'Boost',
+        targetKind: 'contract',
+        targetValue: shortContractName(BOOST_CONTRACT),
         targetAccountId: BOOST_CONTRACT,
         subjectAccount: BOOST_CONTRACT,
         subjectEyebrow: 'Boost',
