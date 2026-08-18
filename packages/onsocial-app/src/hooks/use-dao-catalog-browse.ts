@@ -35,16 +35,19 @@ export function useDaoCatalogBrowse(opts: {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const requestIdRef = useRef(0);
 
+  // Debounce search into activeQuery. Skip when unchanged — otherwise clearing
+  // rows after a fast first fetch leaves "5,309 DAOs" with an empty list.
   useEffect(() => {
     if (!enabled) return;
     const timer = window.setTimeout(() => {
+      if (query === activeQuery) return;
       setActiveQuery(query);
       setOffset(0);
       setRows(null);
       setError(null);
     }, debounceMs);
     return () => window.clearTimeout(timer);
-  }, [debounceMs, enabled, query]);
+  }, [activeQuery, debounceMs, enabled, query]);
 
   useEffect(() => {
     if (!enabled) return;
