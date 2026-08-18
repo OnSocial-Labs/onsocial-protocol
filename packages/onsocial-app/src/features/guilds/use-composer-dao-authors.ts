@@ -43,13 +43,15 @@ export function useComposerDaoAuthors(args: {
 
   useEffect(() => {
     if (!active || !accountId) {
-      setMemberships([]);
-      setEligibilityByDao({});
-      setLoading(false);
+      queueMicrotask(() => {
+        setMemberships([]);
+        setEligibilityByDao({});
+        setLoading(false);
+      });
       return;
     }
     let cancelled = false;
-    setLoading(true);
+    queueMicrotask(() => setLoading(true));
     void fetchMyDaos(accountId)
       .then(async (response) => {
         if (cancelled) return;
