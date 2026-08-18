@@ -186,7 +186,9 @@ function KindSection({
         const lockReason = protocolPickerItemLockReason({
           accountId,
           loadState,
-          readyReason: null,
+          // Permission already filtered. Soft-lock only when disconnected /
+          // loading — stake shortfalls stay selectable for the confirm hug.
+          readyReason: accountId ? null : 'Connect a wallet',
         });
 
         return (

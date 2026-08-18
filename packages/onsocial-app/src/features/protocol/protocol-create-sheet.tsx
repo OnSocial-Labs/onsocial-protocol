@@ -1168,6 +1168,7 @@ export function ProtocolCreateSheet({
       body="Submit this proposal to the DAO. It goes live after approval."
       eligibility={eligibility}
       eligibilityLoading={loadState === 'loading'}
+      isGroupMember={isGroupMember}
       pending={pending}
       proposeLabel="Propose"
       zIndex={PROTOCOL_CONFIRM_Z}

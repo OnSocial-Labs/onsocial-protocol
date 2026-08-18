@@ -47,6 +47,20 @@ describe('resolveDaoProposeBondGate', () => {
     expect(gate.canSubmit).toBe(false);
   });
 
+  it('lets group council propose without Member stake weight', () => {
+    const gate = resolveDaoProposeBondGate(
+      eligibility({
+        canPropose: false,
+        nearBalance: '200000000000000000000000',
+      }),
+      false,
+      { isGroupMember: true }
+    );
+    expect(gate.needsStake).toBe(false);
+    expect(gate.canPropose).toBe(true);
+    expect(gate.canSubmit).toBe(true);
+  });
+
   it('allows submit when propose-ready and bond covered', () => {
     const gate = resolveDaoProposeBondGate(
       eligibility({

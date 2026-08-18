@@ -184,7 +184,7 @@ function ActionSection({
         const lockReason = protocolPickerItemLockReason({
           accountId,
           loadState,
-          readyReason: null,
+          readyReason: accountId ? null : 'Connect a wallet',
         });
 
         return (
