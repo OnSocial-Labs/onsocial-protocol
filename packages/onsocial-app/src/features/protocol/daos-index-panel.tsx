@@ -5,16 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { OsIconAction, PlusIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import {
-  PROTOCOL_COMMUNITY_DAO_SEED,
-  readRecentCommunityDaos,
-} from '@/features/protocol/dao-accounts';
 import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
-import {
-  daoDirectoryEntryFromMembership,
-  daoDirectoryEntryFromRecent,
-  daoDirectoryEntryFromSeed,
-} from '@/features/protocol/dao-directory';
+import { daoDirectoryEntryFromMembership } from '@/features/protocol/dao-directory';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
 import {
   fetchMyDaos,
@@ -34,7 +26,6 @@ import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
-const TRENDING_RECENT_LIMIT = 6;
 
 function mergeMyDaosWithOptimistic(
   apiRows: MyDaoMembership[],
@@ -60,14 +51,15 @@ function mergeMyDaosWithOptimistic(
   );
 }
 
-/** Community DAO directory — Standing-style lists + Discover handoff. */
+/**
+ * Thin DAOs home — My DAOs + Create.
+ * Browse lives in Discover; Protocol opens Governance (switch Treasury on face).
+ * Trending / latest proposals can land here later.
+ */
 export function DaosIndexPanel() {
-  const { accountId } = useAppWallet();
+  const { accountId, connect, isConnected } = useAppWallet();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [recent] = useState(() =>
-    typeof window === 'undefined' ? [] : readRecentCommunityDaos()
-  );
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -156,27 +148,6 @@ export function DaosIndexPanel() {
     [myDaos]
   );
 
-  const featured = useMemo(
-    () =>
-      PROTOCOL_COMMUNITY_DAO_SEED.map((entry) =>
-        daoDirectoryEntryFromSeed(entry.accountId)
-      ),
-    []
-  );
-
-  const recentEntries = useMemo(() => {
-    const myIds = new Set(myEntries.map((entry) => entry.accountId));
-    return recent
-      .filter(
-        (id) =>
-          !PROTOCOL_COMMUNITY_DAO_SEED.some((seed) => seed.accountId === id) &&
-          !myIds.has(id)
-      )
-      .slice(0, TRENDING_RECENT_LIMIT)
-      .map(daoDirectoryEntryFromRecent);
-  }, [myEntries, recent]);
-
-  const showMyDaos = Boolean(accountId);
   const myDaosReady = myDaos !== null;
   const discoverDaosHref = appDiscoverTabHref('daos');
 
@@ -194,15 +165,15 @@ export function DaosIndexPanel() {
   return (
     <OsAppScreen
       title="DAOs"
-      subtitle="My orgs — then what’s trending"
+      subtitle="Your orgs — create or open"
       backFallbackHref="/"
       glassChrome
       actions={createAction}
     >
       <div className="daos-index">
         <p className="daos-index-lede">
-          Your memberships first. Trending is a short cut of featured and recent
-          orgs — browse the full factory catalog in Discover.
+          Memberships you hold. Browse every factory DAO in Discover; Protocol
+          opens OnSocial Governance (switch to Treasury on the face).
         </p>
 
         <div className="daos-index-shortcuts">
@@ -218,33 +189,49 @@ export function DaosIndexPanel() {
           >
             Treasury
           </Link>
+          <Link href={discoverDaosHref} className="daos-index-chip">
+            Discover
+          </Link>
         </div>
 
-        {showMyDaos ? (
-          <section className="daos-index-section" aria-label="My DAOs">
-            <h2 className="daos-index-heading">My DAOs</h2>
-            {!myDaosReady ? (
-              <p className="daos-index-empty">Loading memberships…</p>
-            ) : (
-              <DaoDirectoryList
-                entries={myEntries}
-                empty="No DAO roles yet. Tap + to create one, or open a portfolio — memberships appear here as roles sync."
-              />
-            )}
-          </section>
-        ) : null}
-
-        <section className="daos-index-section" aria-label="Trending DAOs">
-          <div className="daos-index-section-head">
-            <h2 className="daos-index-heading">Trending</h2>
-            <Link href={discoverDaosHref} className="discover-trending-see-all">
-              See all
-            </Link>
-          </div>
-          <DaoDirectoryList entries={featured} />
-          {recentEntries.length > 0 ? (
-            <DaoDirectoryList entries={recentEntries} />
-          ) : null}
+        <section className="daos-index-section" aria-label="My DAOs">
+          <h2 className="daos-index-heading">My DAOs</h2>
+          {!accountId ? (
+            <div className="standing-panel-empty-block">
+              <div className="standing-panel-empty-state">
+                <p className="standing-panel-empty-primary">
+                  Connect to see your DAO roles.
+                </p>
+                <p className="standing-panel-empty-secondary">
+                  Or browse the catalog in Discover.
+                </p>
+              </div>
+              <div className="standing-panel-empty-actions">
+                {!isConnected ? (
+                  <button
+                    type="button"
+                    className="standing-panel-empty-action"
+                    onClick={() => void connect()}
+                  >
+                    Connect wallet
+                  </button>
+                ) : null}
+                <Link
+                  className="standing-panel-empty-action"
+                  href={discoverDaosHref}
+                >
+                  Browse DAOs
+                </Link>
+              </div>
+            </div>
+          ) : !myDaosReady ? (
+            <p className="daos-index-empty">Loading memberships…</p>
+          ) : (
+            <DaoDirectoryList
+              entries={myEntries}
+              empty="No DAO roles yet. Tap + to create one — memberships appear here as roles sync."
+            />
+          )}
         </section>
       </div>
 
