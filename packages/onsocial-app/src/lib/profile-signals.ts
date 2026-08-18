@@ -31,6 +31,20 @@ export interface ProfileSignals {
   reputation: ProfileReputation | null;
 }
 
+/** True when the face signals row has something worth showing (hide all-zero dormant). */
+export function profileSignalsHaveFaceMetrics(
+  signals: ProfileSignals
+): boolean {
+  return (
+    signals.standingCount > 0 ||
+    signals.standingWithCount > 0 ||
+    signals.mutualStandingCount > 0 ||
+    signals.endorsementsReceivedCount > 0 ||
+    signals.endorsementsGivenCount > 0 ||
+    Boolean(signals.reputation && signals.reputation.reputation > 0)
+  );
+}
+
 function toNumber(value: unknown): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;

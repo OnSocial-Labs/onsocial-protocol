@@ -13,7 +13,7 @@ The portfolio is a **one-page public face**, not a Portal action dashboard.
 - Identity (avatar, name, **full** NEAR account id as handle, full bio)
 - Connected visitor gestures under bio: **Stand · Endorse · Support** (quiet text + colored arrows; no pills)
 - **DAO org face** (`/@daoAccount`, heuristic / catalog): same route as people — square crest (`border-radius: 1rem`), quiet kind label. Protocol Governance ↔ Treasury: kind line is a same-size highlight switch (**Governance · Treasury**), not a second flipper under tools. Org tools in a standing-style row: **Proposals · Members · Treasury · Manage** (overlays / slides). Visitors: **Stand · Message · More** (no Endorse / Support). No **Dormant page / Connect to activate** (activation is a person-page claim; DAOs use council wallets). Council (`canPropose`) can preview mood and **Propose mood** (Call → `{dao}/page/main`; live after approve). Legacy `/dao/[account]` permanently redirects here. Protocol launcher → `/@governance…`.
-- Signals (standing · solidarity · endorsements · reputation) — browse metrics
+- Signals (standing · solidarity · endorsements · reputation) — browse metrics; hide the row when all counts are zero (dormant / empty faces stay quiet). Compact stats fallback (`N standing · N posts`) also omits zeros.
 - Links
 - Dock (connect / account / summon)
 
