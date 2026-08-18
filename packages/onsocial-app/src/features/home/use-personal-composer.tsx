@@ -372,7 +372,7 @@ export function usePersonalComposer({
             : undefined
         }
         authorTargets={
-          composer.mode === 'post' && (hasEligibleDaos || daoAuthorsLoading)
+          composer.mode === 'post' && hasEligibleDaos
             ? {
                 mode: authorMode,
                 onModeChange: (mode) => {
