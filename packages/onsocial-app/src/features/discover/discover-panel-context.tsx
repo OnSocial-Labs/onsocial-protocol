@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from 'react';
 import { useDiscoverProfiles } from '@/hooks/use-discover-profiles';
+import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
 import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
@@ -16,6 +17,7 @@ type DiscoverPanelContextValue = ReturnType<typeof useDiscoverProfiles> & {
   shellVariant: DiscoverShellVariant;
   scrollRootRef?: RefObject<Element | null>;
   initialTrending: DiscoverTrendingSeed | null;
+  initialGuilds: GuildSummaryCardModel[] | null;
 };
 
 const DiscoverPanelContext = createContext<DiscoverPanelContextValue | null>(
@@ -27,12 +29,14 @@ export function DiscoverPanelProvider({
   scrollRootRef,
   initialPage = null,
   initialTrending = null,
+  initialGuilds = null,
   children,
 }: {
   shellVariant: DiscoverShellVariant;
   scrollRootRef?: RefObject<Element | null>;
   initialPage?: DiscoverProfilesResponse | null;
   initialTrending?: DiscoverTrendingSeed | null;
+  initialGuilds?: GuildSummaryCardModel[] | null;
   children: ReactNode;
 }) {
   const discover = useDiscoverProfiles(scrollRootRef, { initialPage });
@@ -44,6 +48,7 @@ export function DiscoverPanelProvider({
         shellVariant,
         scrollRootRef,
         initialTrending,
+        initialGuilds,
       }}
     >
       {children}

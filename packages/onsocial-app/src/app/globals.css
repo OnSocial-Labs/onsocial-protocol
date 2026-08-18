@@ -32748,6 +32748,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: inherit;
   font: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -32777,6 +32778,55 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .dao-discover-status {
   margin-top: -0.15rem;
+}
+
+.discover-community-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.discover-community-toolbar .dao-discover-status {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.discover-community-handoff {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.4rem;
+  row-gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.discover-community-handoff-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.discover-community-handoff-sep {
+  color: rgb(var(--fg-rgb) / 0.35);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.discover-community-handoff-link {
+  color: rgb(var(--fg-rgb) / 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.discover-community-handoff-link:hover,
+.discover-community-handoff-link:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.88);
+  outline: none;
 }
 
 .dao-discover-load-more {
@@ -32842,6 +32892,18 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.daos-index-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.daos-index-section-head .daos-index-heading {
+  margin: 0;
 }
 
 .protocol-community-item--split {

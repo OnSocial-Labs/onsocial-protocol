@@ -43,12 +43,32 @@ export function DiscoverOmniSearchField({
 
   const wantsTopicSuggest =
     focused &&
+    tab !== 'daos' &&
+    tab !== 'guilds' &&
+    tab !== 'hubs' &&
     (isDiscoverTopicDraft(query) ||
       tab === 'topics' ||
       tab === 'tickers' ||
       ((tab === 'profiles' || tab === 'trending') &&
         query.trim().length >= 2 &&
         !isDiscoverTopicDraft(query)));
+
+  const searchPlaceholder =
+    tab === 'daos'
+      ? 'DAO account or name'
+      : tab === 'guilds'
+        ? 'Search guilds'
+        : tab === 'hubs'
+          ? 'Search hubs'
+          : 'People, #topics, $tickers';
+  const searchAriaLabel =
+    tab === 'daos'
+      ? 'Search DAOs'
+      : tab === 'guilds'
+        ? 'Search guilds'
+        : tab === 'hubs'
+          ? 'Search hubs'
+          : 'Search people, topics, and tickers';
 
   useEffect(() => {
     if (!wantsTopicSuggest) return;
@@ -119,10 +139,10 @@ export function DiscoverOmniSearchField({
         <SearchField
           value={query}
           onValueChange={setQuery}
-          placeholder="People, #topics, $tickers"
+          placeholder={searchPlaceholder}
           maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
           clearAriaLabel="Clear search"
-          ariaLabel="Search people, topics, and tickers"
+          ariaLabel={searchAriaLabel}
           chrome={chrome}
           className={className}
           leadingIcon={<OnSocialMark className="search-field-icon" aria-hidden />}

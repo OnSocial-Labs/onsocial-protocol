@@ -23,8 +23,11 @@ import {
   type GuildSummaryCardModel,
 } from '@/features/guilds/guild-summary-card';
 import { HUB_CATEGORY_SUGGESTIONS } from '@/features/scarces/hub-categories';
+import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { topicLabel } from '@/lib/topic-slug';
+
+const TRENDING_GUILDS_LIMIT = 12;
 
 function mergeGuildCards(
   primary: GuildSummaryCardModel[],
@@ -76,6 +79,10 @@ export function LiveGuildsIndexPanel({
   const [guilds, setGuilds] = useState<GuildSummaryCardModel[]>(
     () => initialGuilds ?? []
   );
+  const [myGuilds, setMyGuilds] = useState<GuildSummaryCardModel[]>([]);
+  const [trendingGuilds, setTrendingGuilds] = useState<GuildSummaryCardModel[]>(
+    () => (initialGuilds ?? []).slice(0, TRENDING_GUILDS_LIMIT)
+  );
   const [searchResults, setSearchResults] = useState<
     GuildSummaryCardModel[] | null
   >(null);
@@ -111,15 +118,28 @@ export function LiveGuildsIndexPanel({
       const browseCards = browseItems.map((row) =>
         guildSummaryCardFromBrowse(row)
       );
+      const myIds = new Set(membershipCards.map((card) => card.groupId));
+      const trendingCards = browseCards
+        .filter((card) => !myIds.has(card.groupId))
+        .slice(0, TRENDING_GUILDS_LIMIT);
       const merged = mergeGuildCards(membershipCards, browseCards);
 
+      setMyGuilds(membershipCards);
+      setTrendingGuilds(trendingCards);
       setGuilds(merged);
       setLoadState('ready');
       hasPaintedRef.current = true;
 
       // Indexer counts only — never N× getConfig/getStats on the list.
       void enrichIndexedGuildSummaryCards(client, merged).then((withCounts) => {
+        const byId = new Map(withCounts.map((card) => [card.groupId, card]));
         setGuilds(withCounts);
+        setMyGuilds(
+          membershipCards.map((card) => byId.get(card.groupId) ?? card)
+        );
+        setTrendingGuilds(
+          trendingCards.map((card) => byId.get(card.groupId) ?? card)
+        );
       });
     } catch (cause) {
       if (!soft) {
@@ -230,6 +250,16 @@ export function LiveGuildsIndexPanel({
   );
 
   const filtering = Boolean(searchQuery) || topicFilter !== 'all';
+  const discoverGuildsHref = appDiscoverTabHref('guilds');
+  const idleMyGuilds = accountId ? myGuilds : [];
+  const idleTrending = useMemo(() => {
+    if (topicFilter !== 'all') {
+      return trendingGuilds.filter((card) =>
+        guildMatchesTopic(card, topicFilter)
+      );
+    }
+    return trendingGuilds;
+  }, [topicFilter, trendingGuilds]);
 
   return (
     <OsAppScreen
@@ -293,33 +323,18 @@ export function LiveGuildsIndexPanel({
 
         {loadState === 'ready' &&
         searchState !== 'loading' &&
+        filtering &&
         visibleGuilds.length === 0 ? (
           <div className="standing-panel-empty-block is-centered">
             <div className="standing-panel-empty-state">
               <p className="standing-panel-empty-primary">
-                {filtering
-                  ? 'No guilds match that search.'
-                  : isConnected
-                    ? 'No guilds yet.'
-                    : 'Connect a wallet to see your guilds.'}
+                No guilds match that search.
               </p>
               <p className="standing-panel-empty-secondary">
-                {filtering
-                  ? 'Try another name, topic, or guild ID.'
-                  : isConnected
-                    ? 'Create a guild or join one by URL.'
-                    : 'Or search public guilds above.'}
+                Try another name, topic, or guild ID.
               </p>
             </div>
             <div className="standing-panel-empty-actions">
-              {!filtering ? (
-                <Link
-                  className="standing-panel-empty-action"
-                  href="/groups/create"
-                >
-                  Create a guild
-                </Link>
-              ) : null}
               {topicFilter !== 'all' ? (
                 <button
                   type="button"
@@ -344,6 +359,7 @@ export function LiveGuildsIndexPanel({
 
         {loadState === 'ready' &&
         searchState !== 'loading' &&
+        filtering &&
         visibleGuilds.length > 0 ? (
           <div className="guild-summary-card-grid">
             {visibleGuilds.map((guild) => (
@@ -354,6 +370,75 @@ export function LiveGuildsIndexPanel({
               />
             ))}
           </div>
+        ) : null}
+
+        {loadState === 'ready' && searchState !== 'loading' && !filtering ? (
+          <>
+            {accountId ? (
+              <section className="daos-index-section" aria-label="My guilds">
+                <h2 className="daos-index-heading">My Guilds</h2>
+                {idleMyGuilds.length === 0 ? (
+                  <div className="standing-panel-empty-block">
+                    <div className="standing-panel-empty-state">
+                      <p className="standing-panel-empty-primary">
+                        No guilds yet.
+                      </p>
+                      <p className="standing-panel-empty-secondary">
+                        Create a guild or join one from Trending.
+                      </p>
+                    </div>
+                    <div className="standing-panel-empty-actions">
+                      <Link
+                        className="standing-panel-empty-action"
+                        href="/groups/create"
+                      >
+                        Create a guild
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="guild-summary-card-grid">
+                    {idleMyGuilds.map((guild) => (
+                      <GuildSummaryCard
+                        key={guild.groupId}
+                        guild={guild}
+                        variant="grid"
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            ) : null}
+
+            <section className="daos-index-section" aria-label="Trending guilds">
+              <div className="daos-index-section-head">
+                <h2 className="daos-index-heading">Trending</h2>
+                <Link
+                  href={discoverGuildsHref}
+                  className="discover-trending-see-all"
+                >
+                  See all
+                </Link>
+              </div>
+              {idleTrending.length === 0 ? (
+                <p className="daos-index-empty">
+                  {isConnected
+                    ? 'No public guilds to show yet.'
+                    : 'Connect to see your guilds — or browse Discover.'}
+                </p>
+              ) : (
+                <div className="guild-summary-card-grid">
+                  {idleTrending.map((guild) => (
+                    <GuildSummaryCard
+                      key={guild.groupId}
+                      guild={guild}
+                      variant="grid"
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         ) : null}
       </div>
     </OsAppScreen>

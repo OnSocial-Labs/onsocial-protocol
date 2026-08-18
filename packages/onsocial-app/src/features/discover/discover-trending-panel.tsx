@@ -28,9 +28,13 @@ import {
   type ProfileListAccount,
 } from '@/lib/profile-list-account';
 import type {
+  DiscoverTrendingDao,
   DiscoverTrendingGuild,
   DiscoverTrendingSeed,
 } from '@/lib/discover-trending-server';
+import { fetchDaoCatalog } from '@/features/protocol/dao-catalog-client';
+import { daoPath } from '@/lib/app-routes';
+import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
 
 const SECTION_LIMIT = 6;
 
@@ -66,6 +70,9 @@ export function DiscoverTrendingPanel({
   const [guilds, setGuilds] = useState<DiscoverTrendingGuild[] | null>(
     () => initial?.guilds ?? null
   );
+  const [daos, setDaos] = useState<DiscoverTrendingDao[] | null>(
+    () => initial?.daos ?? null
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
     () => new Set()
@@ -78,7 +85,8 @@ export function DiscoverTrendingPanel({
       (initial.tickers.length > 0 ||
         initial.topics.length > 0 ||
         initial.profiles.length > 0 ||
-        initial.guilds.length > 0)
+        initial.guilds.length > 0 ||
+        initial.daos.length > 0)
   );
 
   useEffect(() => {
@@ -92,6 +100,7 @@ export function DiscoverTrendingPanel({
       setTopics(null);
       setProfiles(null);
       setGuilds(null);
+      setDaos(null);
     }
 
     void client.query.tickers
@@ -144,6 +153,21 @@ export function DiscoverTrendingPanel({
       })
       .catch(() => {
         if (!cancelled && !soft) setGuilds([]);
+      });
+
+    void fetchDaoCatalog({ limit: SECTION_LIMIT, offset: 0 })
+      .then((page) => {
+        if (cancelled) return;
+        setDaos(
+          page.daos.map((row) => ({
+            daoAccountId: row.daoAccountId,
+            name: row.name,
+          }))
+        );
+        hasPaintedRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled && !soft) setDaos([]);
       });
 
     return () => {
@@ -216,18 +240,21 @@ export function DiscoverTrendingPanel({
     tickers !== null &&
     topics !== null &&
     profiles !== null &&
-    guilds !== null;
+    guilds !== null &&
+    daos !== null;
   const empty =
     allSettled &&
     tickers.length === 0 &&
     topics.length === 0 &&
     profiles.length === 0 &&
-    guilds.length === 0;
+    guilds.length === 0 &&
+    daos.length === 0;
   const anyLoading =
     tickers === null ||
     topics === null ||
     profiles === null ||
-    guilds === null;
+    guilds === null ||
+    daos === null;
 
   return (
     <div
@@ -245,7 +272,7 @@ export function DiscoverTrendingPanel({
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">Nothing trending yet.</p>
           <p className="standing-panel-empty-secondary">
-            Open Profiles, Topics, or Tickers to browse the graph.
+            Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse the graph.
           </p>
         </div>
       ) : null}
@@ -372,15 +399,53 @@ export function DiscoverTrendingPanel({
         </section>
       ) : null}
 
+      {daos === null ? (
+        <DiscoverTrendingGuildsSectionSkeleton />
+      ) : daos.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">DAOs</h2>
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('daos')}
+            >
+              See all
+            </button>
+          </div>
+          <ul className="discover-focus-rows">
+            {daos.map((dao) => {
+              const label = resolveDaoDirectoryName(dao.daoAccountId, {
+                name: dao.name,
+              });
+              return (
+                <li key={dao.daoAccountId}>
+                  <Link
+                    href={daoPath(dao.daoAccountId)}
+                    className="discover-focus-row"
+                  >
+                    <span className="discover-focus-row-label">{label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       {guilds === null ? (
         <DiscoverTrendingGuildsSectionSkeleton />
       ) : guilds.length > 0 ? (
         <section className="discover-trending-section">
           <div className="discover-trending-section-head">
             <h2 className="discover-trending-heading">Guilds</h2>
-            <Link href={APP_GROUPS_PATH} className="discover-trending-see-all">
+            <button
+              type="button"
+              className="discover-trending-see-all"
+              onClick={() => onOpenTab('guilds')}
+            >
               See all
-            </Link>
+            </button>
           </div>
           <ul className="discover-focus-rows">
             {guilds.map((guild) => (

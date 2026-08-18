@@ -35,6 +35,24 @@ describe('discoverPath', () => {
     );
   });
 
+  it('deep-links DAOs catalog tab', () => {
+    expect(discoverPath('alice.testnet', { tab: 'daos' })).toBe(
+      '/@alice.testnet/discover?tab=daos'
+    );
+  });
+
+  it('deep-links Guilds browse tab', () => {
+    expect(discoverPath('alice.testnet', { tab: 'guilds' })).toBe(
+      '/@alice.testnet/discover?tab=guilds'
+    );
+  });
+
+  it('deep-links Hubs directory tab', () => {
+    expect(discoverPath('alice.testnet', { tab: 'hubs' })).toBe(
+      '/@alice.testnet/discover?tab=hubs'
+    );
+  });
+
   it('combines tab and search query', () => {
     expect(
       discoverPath('alice.testnet', { tab: 'profiles', q: 'near' })

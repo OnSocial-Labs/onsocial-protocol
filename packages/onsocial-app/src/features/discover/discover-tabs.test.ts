@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  appDiscoverTabHref,
   applyDiscoverTabParam,
   discoverTabForQueryDraft,
   discoverTabLabel,
   discoverTopicFilterPrefix,
+  isDiscoverDaosTab,
+  isDiscoverGuildsTab,
+  isDiscoverHubsTab,
   isDiscoverProfilesTab,
   parseDiscoverTab,
 } from '@/features/discover/discover-tabs';
@@ -15,6 +19,9 @@ describe('discover-tabs', () => {
     expect(parseDiscoverTab('topics')).toBe('topics');
     expect(parseDiscoverTab('tickers')).toBe('tickers');
     expect(parseDiscoverTab('profiles')).toBe('profiles');
+    expect(parseDiscoverTab('daos')).toBe('daos');
+    expect(parseDiscoverTab('guilds')).toBe('guilds');
+    expect(parseDiscoverTab('hubs')).toBe('hubs');
     expect(parseDiscoverTab('people')).toBe('profiles');
     expect(parseDiscoverTab('nope')).toBe('trending');
   });
@@ -22,8 +29,17 @@ describe('discover-tabs', () => {
   it('labels tabs', () => {
     expect(discoverTabLabel('trending')).toBe('Trending');
     expect(discoverTabLabel('profiles')).toBe('Profiles');
+    expect(discoverTabLabel('daos')).toBe('DAOs');
+    expect(discoverTabLabel('guilds')).toBe('Guilds');
+    expect(discoverTabLabel('hubs')).toBe('Hubs');
     expect(discoverTabLabel('topics')).toBe('Topics');
     expect(discoverTabLabel('tickers')).toBe('Tickers');
+  });
+
+  it('builds root Discover tab hrefs', () => {
+    expect(appDiscoverTabHref('trending')).toBe('/discover');
+    expect(appDiscoverTabHref('hubs')).toBe('/discover?tab=hubs');
+    expect(appDiscoverTabHref('daos')).toBe('/discover?tab=daos');
   });
 
   it('omits default trending from URL params', () => {
@@ -52,5 +68,20 @@ describe('discover-tabs', () => {
   it('identifies the profiles list tab', () => {
     expect(isDiscoverProfilesTab('profiles')).toBe(true);
     expect(isDiscoverProfilesTab('trending')).toBe(false);
+  });
+
+  it('identifies the DAOs catalog tab', () => {
+    expect(isDiscoverDaosTab('daos')).toBe(true);
+    expect(isDiscoverDaosTab('profiles')).toBe(false);
+  });
+
+  it('identifies the Guilds browse tab', () => {
+    expect(isDiscoverGuildsTab('guilds')).toBe(true);
+    expect(isDiscoverGuildsTab('daos')).toBe(false);
+  });
+
+  it('identifies the Hubs directory tab', () => {
+    expect(isDiscoverHubsTab('hubs')).toBe(true);
+    expect(isDiscoverHubsTab('guilds')).toBe(false);
   });
 });
