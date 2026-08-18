@@ -133,7 +133,6 @@ export function PortfolioCustomize({
   const { canPropose } = useDaoPageCapability(pageAccountId, isDao);
   const canEditMood = isAccountOwner || canPropose;
   const canCustomizeFace = isAccountOwner;
-  const isOwner = canEditMood;
   const {
     applyProfileAvatar,
     applyProfileBanner,
