@@ -35,6 +35,12 @@ describe('discoverPath', () => {
     );
   });
 
+  it('deep-links DAOs catalog tab', () => {
+    expect(discoverPath('alice.testnet', { tab: 'daos' })).toBe(
+      '/@alice.testnet/discover?tab=daos'
+    );
+  });
+
   it('combines tab and search query', () => {
     expect(
       discoverPath('alice.testnet', { tab: 'profiles', q: 'near' })

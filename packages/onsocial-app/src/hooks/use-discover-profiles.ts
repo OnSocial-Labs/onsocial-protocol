@@ -59,7 +59,7 @@ import {
 import { replaceBrowserQueryUrl } from '@/lib/sync-browser-url-query';
 
 function discoverUrlQueryValue(query: string, tab: DiscoverTab): string {
-  if (tab === 'profiles' || tab === 'trending') {
+  if (tab === 'profiles' || tab === 'trending' || tab === 'daos') {
     return discoverPeopleSearchQuery(query);
   }
   return discoverTopicFilterPrefix(query, tab);

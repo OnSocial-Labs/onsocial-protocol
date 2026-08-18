@@ -1,9 +1,17 @@
-/** Discover hub tabs — Trending is the default mixed landing. */
-export type DiscoverTab = 'trending' | 'profiles' | 'topics' | 'tickers';
+/** Discover hub tabs — Trending is the default mixed landing.
+ * Order: people/orgs first, then signals. Insert `guilds` after `daos` when ready.
+ */
+export type DiscoverTab =
+  | 'trending'
+  | 'profiles'
+  | 'daos'
+  | 'topics'
+  | 'tickers';
 
 export const DISCOVER_TABS: readonly DiscoverTab[] = [
   'trending',
   'profiles',
+  'daos',
   'topics',
   'tickers',
 ] as const;
@@ -18,7 +26,12 @@ export function parseDiscoverTab(
   raw: string | null | undefined
 ): DiscoverTab {
   const value = (raw ?? '').trim().toLowerCase();
-  if (value === 'topics' || value === 'tickers' || value === 'trending') {
+  if (
+    value === 'topics' ||
+    value === 'tickers' ||
+    value === 'trending' ||
+    value === 'daos'
+  ) {
     return value;
   }
   if (value === 'profiles' || value === 'people') return 'profiles';
@@ -33,6 +46,8 @@ export function discoverTabLabel(tab: DiscoverTab): string {
       return 'Topics';
     case 'tickers':
       return 'Tickers';
+    case 'daos':
+      return 'DAOs';
     default:
       return 'Profiles';
   }
@@ -82,4 +97,9 @@ export function discoverTopicFilterPrefix(
 /** People-list fetch only runs on Profiles. */
 export function isDiscoverProfilesTab(tab: DiscoverTab): boolean {
   return tab === 'profiles';
+}
+
+/** Factory DAO catalog list tab. */
+export function isDiscoverDaosTab(tab: DiscoverTab): boolean {
+  return tab === 'daos';
 }

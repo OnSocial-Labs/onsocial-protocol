@@ -3,6 +3,7 @@
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import { ProfileSocialListSkeleton } from '@/components/panels/profile-social-list-row';
+import { DiscoverDaosPanel } from '@/features/discover/discover-daos-panel';
 import { DiscoverFocusListPanel } from '@/features/discover/discover-focus-list-panel';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DiscoverTrendingPanel } from '@/features/discover/discover-trending-panel';
@@ -145,6 +146,8 @@ export function DiscoverPanelContent() {
           </div>
         </>
       ) : null}
+
+      {tab === 'daos' ? <DiscoverDaosPanel /> : null}
 
       {tab === 'topics' ? (
         <DiscoverFocusListPanel

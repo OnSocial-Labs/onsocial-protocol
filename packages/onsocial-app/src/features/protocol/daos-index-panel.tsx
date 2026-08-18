@@ -16,7 +16,6 @@ import {
   daoDirectoryEntryFromSeed,
 } from '@/features/protocol/dao-directory';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
-import { DaoDiscoverSheet } from '@/features/protocol/dao-discover-sheet';
 import {
   fetchMyDaos,
   type MyDaoMembership,
@@ -30,9 +29,17 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
-import { daoPath } from '@/lib/app-routes';
+import { APP_DISCOVER_PATH, daoPath } from '@/lib/app-routes';
+import { applyDiscoverTabParam } from '@/features/discover/discover-tabs';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
+
+function discoverDaosHref(): string {
+  const params = new URLSearchParams();
+  applyDiscoverTabParam(params, 'daos');
+  const qs = params.toString();
+  return qs ? `${APP_DISCOVER_PATH}?${qs}` : APP_DISCOVER_PATH;
+}
 
 function mergeMyDaosWithOptimistic(
   apiRows: MyDaoMembership[],
@@ -65,7 +72,6 @@ export function DaosIndexPanel() {
     typeof window === 'undefined' ? [] : readRecentCommunityDaos()
   );
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
-  const [discoverOpen, setDiscoverOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -224,17 +230,13 @@ export function DaosIndexPanel() {
 
         <section className="daos-index-section" aria-label="Discover DAOs">
           <h2 className="daos-index-heading">Discover</h2>
-          <button
-            type="button"
-            className="daos-discover-open"
-            onClick={() => setDiscoverOpen(true)}
-          >
+          <Link href={discoverDaosHref()} className="daos-discover-open">
             <span className="daos-discover-open-title">Browse all DAOs</span>
             <span className="daos-discover-open-copy">
-              Search the Sputnik factory catalog — square crests, same list
-              language as Standing.
+              Search the Sputnik factory catalog in Discover — square crests,
+              same list language as Standing.
             </span>
-          </button>
+          </Link>
         </section>
 
         {recentEntries.length > 0 ? (
@@ -248,10 +250,6 @@ export function DaosIndexPanel() {
         ) : null}
       </div>
 
-      <DaoDiscoverSheet
-        open={discoverOpen}
-        onClose={() => setDiscoverOpen(false)}
-      />
       <DaoCreateSheet
         open={createOpen}
         onClose={() => setCreateOpen(false)}

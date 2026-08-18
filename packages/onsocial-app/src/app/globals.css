@@ -32748,6 +32748,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: inherit;
   font: inherit;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 

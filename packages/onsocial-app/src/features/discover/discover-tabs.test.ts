@@ -4,6 +4,7 @@ import {
   discoverTabForQueryDraft,
   discoverTabLabel,
   discoverTopicFilterPrefix,
+  isDiscoverDaosTab,
   isDiscoverProfilesTab,
   parseDiscoverTab,
 } from '@/features/discover/discover-tabs';
@@ -15,6 +16,7 @@ describe('discover-tabs', () => {
     expect(parseDiscoverTab('topics')).toBe('topics');
     expect(parseDiscoverTab('tickers')).toBe('tickers');
     expect(parseDiscoverTab('profiles')).toBe('profiles');
+    expect(parseDiscoverTab('daos')).toBe('daos');
     expect(parseDiscoverTab('people')).toBe('profiles');
     expect(parseDiscoverTab('nope')).toBe('trending');
   });
@@ -22,6 +24,7 @@ describe('discover-tabs', () => {
   it('labels tabs', () => {
     expect(discoverTabLabel('trending')).toBe('Trending');
     expect(discoverTabLabel('profiles')).toBe('Profiles');
+    expect(discoverTabLabel('daos')).toBe('DAOs');
     expect(discoverTabLabel('topics')).toBe('Topics');
     expect(discoverTabLabel('tickers')).toBe('Tickers');
   });
@@ -52,5 +55,10 @@ describe('discover-tabs', () => {
   it('identifies the profiles list tab', () => {
     expect(isDiscoverProfilesTab('profiles')).toBe(true);
     expect(isDiscoverProfilesTab('trending')).toBe(false);
+  });
+
+  it('identifies the DAOs catalog tab', () => {
+    expect(isDiscoverDaosTab('daos')).toBe(true);
+    expect(isDiscoverDaosTab('profiles')).toBe(false);
   });
 });
