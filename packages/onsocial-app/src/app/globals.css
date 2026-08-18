@@ -14390,7 +14390,8 @@ a.os-surface-row {
   .drop-create-form,
   .drop-studio,
   .guild-create-form,
-  .protocol-page {
+  .protocol-page,
+  .notifications-panel {
     padding: var(--os-screen-body-inset, 0.15rem 1rem 1.5rem);
   }
 
@@ -33257,44 +33258,22 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 /* ── Activity / notifications ─────────────────────────────────────────────── */
 
 .notifications-panel {
-  width: min(720px, 100%);
-  margin: 0 auto;
-  padding: 1.25rem 1rem 4rem;
-}
-
-.notifications-panel-heading h1 {
-  margin: 0;
-  font-size: 1.6rem;
-  font-weight: 700;
-}
-
-.notifications-panel-heading p {
-  margin: 0.25rem 0 0;
-  color: rgb(var(--fg-rgb) / 0.62);
-  font-size: 0.9rem;
-}
-
-.notifications-panel-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
 }
 
 .notifications-panel-empty,
 .notifications-panel-error,
 .notifications-panel-footnote {
+  margin: 0;
   color: rgb(var(--fg-rgb) / 0.7);
   font-size: 0.9rem;
 }
 
 .notifications-panel-error {
   color: var(--signal-error, rgb(185 28 28));
-}
-
-.notifications-panel-footnote {
-  margin-top: 1.25rem;
 }
 
 .notifications-panel-footnote a {
@@ -33306,7 +33285,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .notifications-load-more {
   display: flex;
   justify-content: center;
-  margin-top: 1rem;
+  margin-top: 0.35rem;
 }
 
 .notifications-panel .os-surface-row-list {
@@ -33316,6 +33295,30 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .notifications-panel .os-surface-row {
   min-width: 0;
+}
+
+.notifications-mark-all {
+  margin: 0;
+  padding: 0.35rem 0.15rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.72);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notifications-mark-all:hover,
+.notifications-mark-all:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.96);
+  outline: none;
+}
+
+.notifications-mark-all:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .os-launcher-item-badge {

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Notification } from '@onsocial/sdk';
@@ -11,6 +12,7 @@ import {
   OsSurfaceRowList,
   ProfileAvatar,
 } from '@onsocial/ui';
+import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
@@ -22,6 +24,7 @@ import {
   ensureAppGatewayAuth,
   getCachedAppGatewayAuth,
 } from '@/lib/app-gateway-auth';
+import { APP_HOME_PATH, messagesPath } from '@/lib/app-routes';
 import {
   ACTIVITY_EXCLUDE_TYPE,
   formatNotificationTime,
@@ -32,6 +35,9 @@ import { displayName } from '@/lib/profile-display';
 
 const PAGE_SIZE = 40;
 
+/**
+ * Activity inbox — standard `OsAppScreen` + connected viewer mood.
+ */
 export function NotificationsPanel() {
   const router = useRouter();
   const { accountId, isConnected, connect, hasSocialSession } = useAppWallet();
@@ -205,15 +211,27 @@ export function NotificationsPanel() {
     [accountId, router, withAuth]
   );
 
+  const unreadCount = useMemo(
+    () => (items ?? []).filter((item) => !item.read).length,
+    [items]
+  );
+
+  const markAllAction =
+    isConnected && hasSocialSession && unreadCount > 0 ? (
+      <button
+        type="button"
+        className="notifications-mark-all"
+        disabled={markingAll}
+        onClick={() => void markAllRead()}
+      >
+        {markingAll ? 'Marking…' : 'Mark all read'}
+      </button>
+    ) : null;
+
+  let body: ReactNode;
   if (!isConnected || !accountId) {
-    return (
-      <div className="notifications-panel">
-        <header className="notifications-panel-header">
-          <div className="notifications-panel-heading">
-            <h1>Activity</h1>
-            <p>Stands, mentions, sales, and more</p>
-          </div>
-        </header>
+    body = (
+      <>
         <p className="notifications-panel-empty">
           Connect your wallet to see activity.
         </p>
@@ -222,112 +240,94 @@ export function NotificationsPanel() {
             Connect
           </OsSheetAction>
         </OsSheetActions>
-      </div>
+      </>
     );
-  }
+  } else if (!hasSocialSession) {
+    body = (
+      <p className="notifications-panel-empty">
+        Connect your session to load activity.
+      </p>
+    );
+  } else {
+    body = (
+      <>
+        {error ? (
+          <p className="notifications-panel-error" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-  if (!hasSocialSession) {
-    return (
-      <div className="notifications-panel">
-        <header className="notifications-panel-header">
-          <div className="notifications-panel-heading">
-            <h1>Activity</h1>
-            <p>Stands, mentions, sales, and more</p>
-          </div>
-        </header>
-        <p className="notifications-panel-empty">
-          Connect your session to load activity.
+        {items == null ? (
+          <p className="notifications-panel-empty">Loading…</p>
+        ) : items.length === 0 ? (
+          <p className="notifications-panel-empty">No activity yet.</p>
+        ) : (
+          <>
+            <OsSurfaceRowList as="div" aria-label="Activity">
+              {items.map((item) => {
+                const actor = item.actor?.trim() || '';
+                const profile = actor ? profiles[actor] : undefined;
+                const name = actor
+                  ? displayName(actor, profile?.displayName)
+                  : 'OnSocial';
+                const when = formatNotificationTime(item.createdAt);
+                const unread = !item.read;
+                return (
+                  <OsSurfaceRow
+                    key={item.id}
+                    label={name}
+                    description={
+                      <span title={when.title || undefined}>
+                        {notificationDescription(item)}
+                      </span>
+                    }
+                    leading={
+                      <ProfileAvatar
+                        src={profile?.avatarUrl ?? undefined}
+                        fallbackInitial={name.slice(0, 1)}
+                        size="sm"
+                      />
+                    }
+                    badge={unread ? 'New' : undefined}
+                    trailing={unread ? undefined : 'navigate'}
+                    onClick={() => openItem(item)}
+                  />
+                );
+              })}
+            </OsSurfaceRowList>
+            {nextCursor ? (
+              <div className="notifications-load-more">
+                <OsSheetAction
+                  type="button"
+                  ready={!loadingMore}
+                  pending={loadingMore}
+                  pendingLabel="Loading…"
+                  onClick={() => void loadMore()}
+                >
+                  Load earlier
+                </OsSheetAction>
+              </div>
+            ) : null}
+          </>
+        )}
+
+        <p className="notifications-panel-footnote">
+          Private messages live in{' '}
+          <Link href={messagesPath()}>Messages</Link>.
         </p>
-      </div>
+      </>
     );
   }
-
-  const unreadCount = (items ?? []).filter((item) => !item.read).length;
 
   return (
-    <div className="notifications-panel">
-      <header className="notifications-panel-header">
-        <div className="notifications-panel-heading">
-          <h1>Activity</h1>
-          <p>Stands, mentions, sales, and more</p>
-        </div>
-        {unreadCount > 0 ? (
-          <OsSheetAction
-            type="button"
-            variant="ghost"
-            ready={!markingAll}
-            pending={markingAll}
-            pendingLabel="Marking…"
-            onClick={() => void markAllRead()}
-          >
-            Mark all read
-          </OsSheetAction>
-        ) : null}
-      </header>
-
-      {error ? (
-        <p className="notifications-panel-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      {items == null ? (
-        <p className="notifications-panel-empty">Loading…</p>
-      ) : items.length === 0 ? (
-        <p className="notifications-panel-empty">No activity yet.</p>
-      ) : (
-        <>
-          <OsSurfaceRowList as="div" aria-label="Activity">
-            {items.map((item) => {
-              const actor = item.actor?.trim() || '';
-              const profile = actor ? profiles[actor] : undefined;
-              const name = actor
-                ? displayName(actor, profile?.displayName)
-                : 'OnSocial';
-              const when = formatNotificationTime(item.createdAt);
-              const unread = !item.read;
-              return (
-                <OsSurfaceRow
-                  key={item.id}
-                  label={name}
-                  description={
-                    <span title={when.title || undefined}>
-                      {notificationDescription(item)}
-                    </span>
-                  }
-                  leading={
-                    <ProfileAvatar
-                      src={profile?.avatarUrl ?? undefined}
-                      fallbackInitial={name.slice(0, 1)}
-                      size="sm"
-                    />
-                  }
-                  badge={unread ? 'New' : undefined}
-                  trailing={unread ? undefined : 'navigate'}
-                  onClick={() => openItem(item)}
-                />
-              );
-            })}
-          </OsSurfaceRowList>
-          {nextCursor ? (
-            <div className="notifications-load-more">
-              <OsSheetAction
-                type="button"
-                ready={!loadingMore}
-                pending={loadingMore}
-                pendingLabel="Loading…"
-                onClick={() => void loadMore()}
-              >
-                Load earlier
-              </OsSheetAction>
-            </div>
-          ) : null}
-        </>
-      )}
-
-      <p className="notifications-panel-footnote">
-        Private messages live in <Link href="/messages">Messages</Link>.
-      </p>
-    </div>
+    <OsAppScreen
+      title="Activity"
+      subtitle="Stands, mentions, sales, and more"
+      backFallbackHref={APP_HOME_PATH}
+      glassChrome
+      actions={markAllAction}
+    >
+      <div className="notifications-panel">{body}</div>
+    </OsAppScreen>
   );
 }
