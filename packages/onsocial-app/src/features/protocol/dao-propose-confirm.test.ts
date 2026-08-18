@@ -22,7 +22,7 @@ function eligibility(
     delegateActionNearStorageNeeded: '0',
     depositNeeded: '0',
     delegateNeeded: '0',
-    isInQueue: false,
+    isInCooldown: false,
     availableToWithdraw: '0',
     canPropose: true,
     proposalBond: '100000000000000000000000', // 0.1 NEAR
