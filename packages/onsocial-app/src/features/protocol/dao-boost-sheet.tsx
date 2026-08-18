@@ -112,7 +112,9 @@ export function DaoBoostSheet({
   );
   let amountYocto = 0n;
   try {
-    amountYocto = normalizedAmount ? socialToYocto(normalizedAmount) : 0n;
+    amountYocto = normalizedAmount
+      ? BigInt(socialToYocto(normalizedAmount))
+      : 0n;
   } catch {
     amountYocto = 0n;
   }
