@@ -48,30 +48,34 @@ function mergeGuildCards(
  * Discover → Guilds — public browse + search with the same summary cards as `/groups`.
  */
 export function DiscoverGuildsPanel() {
-  const { query, clearSearch } = useDiscoverPanel();
+  const { query, clearSearch, initialGuilds } = useDiscoverPanel();
   const { accountId } = useAppWallet();
   const searchQuery = discoverPeopleSearchQuery(query);
 
   const [browseGuilds, setBrowseGuilds] = useState<GuildSummaryCardModel[] | null>(
-    null
+    () => initialGuilds
   );
   const [searchResults, setSearchResults] = useState<
     GuildSummaryCardModel[] | null
   >(null);
-  const [pending, setPending] = useState(true);
+  const [pending, setPending] = useState(() => initialGuilds == null);
   const [searchPending, setSearchPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const searchRequestRef = useRef(0);
+  const hasPaintedRef = useRef(initialGuilds != null);
 
   useEffect(() => {
     let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setPending(true);
-        setError(null);
-      }
-    });
+    const soft = hasPaintedRef.current;
+    if (!soft) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setPending(true);
+          setError(null);
+        }
+      });
+    }
 
     void (async () => {
       try {
@@ -84,15 +88,19 @@ export function DiscoverGuildsPanel() {
         const cards = items.map((row) => guildSummaryCardFromBrowse(row));
         setBrowseGuilds(cards);
         setPending(false);
+        setError(null);
+        hasPaintedRef.current = true;
         const withCounts = await enrichIndexedGuildSummaryCards(client, cards);
         if (!cancelled) setBrowseGuilds(withCounts);
       } catch (cause) {
         if (cancelled) return;
         setPending(false);
-        setBrowseGuilds([]);
-        setError(
-          cause instanceof Error ? cause.message : 'Could not load guilds.'
-        );
+        if (!soft) {
+          setBrowseGuilds([]);
+          setError(
+            cause instanceof Error ? cause.message : 'Could not load guilds.'
+          );
+        }
       }
     })();
 

@@ -8,6 +8,7 @@ import {
   DiscoverNavSearch,
 } from '@/features/discover/discover-screen-chrome';
 import { DiscoverPanelRoot } from '@/features/discover/discover-panel';
+import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import type { DiscoverProfilesResponse } from '@/lib/discover-profiles';
 import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
@@ -36,11 +37,13 @@ export function DiscoverPagePanel({
   backFallbackHref: _backFallbackHref,
   initialPage = null,
   initialTrending = null,
+  initialGuilds = null,
 }: {
   /** Ignored — Discover root uses section mark + launcher. */
   backFallbackHref?: string;
   initialPage?: DiscoverProfilesResponse | null;
   initialTrending?: DiscoverTrendingSeed | null;
+  initialGuilds?: GuildSummaryCardModel[] | null;
 }) {
   const scrollRootRef = useRef<HTMLElement>(null);
 
@@ -50,6 +53,7 @@ export function DiscoverPagePanel({
       scrollRootRef={scrollRootRef}
       initialPage={initialPage}
       initialTrending={initialTrending}
+      initialGuilds={initialGuilds}
     >
       <DiscoverPageScreen scrollRootRef={scrollRootRef} />
     </DiscoverPanelRoot>
