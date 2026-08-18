@@ -5993,7 +5993,8 @@ a.os-surface-row {
     gap: 0;
     padding: 0.1rem;
     border-radius: 999px;
-    background: rgb(var(--fg-rgb) / 0.06);
+    background: rgb(var(--fg-rgb) / 0.08);
+    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
   }
 
   .portfolio-entity-kind-sep {
