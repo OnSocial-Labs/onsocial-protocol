@@ -81,15 +81,18 @@ export function TicketDoorEventSheet({
   /** Bump after admit so Door log refetches. */
   logRevision?: number;
 }) {
-  const [sheetOpen, setSheetOpen] = useState(open);
-  if (open && !sheetOpen) setSheetOpen(true);
+  const [closing, setClosing] = useState(false);
+  const sheetOpen = open && !closing;
   const [doorLogOpen, setDoorLogOpen] = useState(false);
 
   const requestClose = useCallback(() => {
-    setSheetOpen(false);
-  }, []);
+    if (closing) return;
+    setClosing(true);
+  }, [closing]);
 
   const handleClosed = useCallback(() => {
+    setClosing(false);
+    setDoorLogOpen(false);
     onClose();
   }, [onClose]);
 
