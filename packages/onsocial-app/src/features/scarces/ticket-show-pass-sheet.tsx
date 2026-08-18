@@ -32,6 +32,7 @@ import {
   ticketPassStatusLabel,
 } from '@/features/scarces/ticket-pass-payload';
 import { TicketPassQr } from '@/features/scarces/ticket-pass-qr';
+import { TicketClaimRefundAction } from '@/features/scarces/ticket-claim-refund-action';
 import {
   fetchTicketTokenStatus,
   type TicketTokenStatus,
@@ -454,6 +455,22 @@ export function TicketShowPassSheet({
                       {codeCopied ? 'Copied' : 'Copy live code'}
                     </button>
                   ) : null}
+                  <TicketClaimRefundAction
+                    collectionId={collectionId}
+                    tokenId={tokenId}
+                    status={status}
+                    onClaimed={() => {
+                      setStatusReady(false);
+                      void fetchTicketTokenStatus(tokenId)
+                        .then((next) => {
+                          setStatus(next);
+                          setStatusReady(true);
+                        })
+                        .catch(() => {
+                          setStatusReady(true);
+                        });
+                    }}
+                  />
                 </div>
               </div>
             </div>

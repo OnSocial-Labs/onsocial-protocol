@@ -644,12 +644,20 @@ export class ScarcesCollectionsApi {
     );
   }
 
-  /** Cancel a collection and offer per-token refunds until `refundDeadlineNs`. */
+  /** Cancel a collection and fund per-token refunds until the claim window ends.
+   *
+   * Attach `depositYocto` = `refundPerToken × (minted − fullyRedeemed)` so the
+   * refund pool is funded (wallet broadcast). Excess stays in the pool.
+   */
   async cancel(
     collectionId: string,
     refundPerTokenNear: string,
-    refundDeadlineNs?: number
+    opts?: {
+      refundDeadlineNs?: number;
+      depositYocto?: string;
+    }
   ): Promise<RelayResponse> {
+    const depositYocto = opts?.depositYocto;
     return composeAndSign(
       this._http,
       this._getSession(),
@@ -657,10 +665,12 @@ export class ScarcesCollectionsApi {
       {
         collectionId,
         refundPerTokenNear,
-        refundDeadlineNs,
+        refundDeadlineNs: opts?.refundDeadlineNs,
       },
       'scarces.cancelCollection',
-      this._relayOpts()
+      this._relayOpts(
+        depositYocto !== undefined ? { depositYocto } : { confirmation: true }
+      )
     );
   }
 

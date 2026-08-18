@@ -19989,6 +19989,31 @@ a.os-surface-row {
     height: 1.35rem;
   }
 
+  .drop-cancel-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    margin: 0.55rem 0 0;
+  }
+
+  .drop-cancel-field-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgb(var(--fg-rgb) / 0.62);
+  }
+
+  .drop-cancel-meta {
+    margin: 0.45rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: rgb(var(--fg-rgb) / 0.55);
+  }
+
+  .ticket-claim-refund-actions {
+    margin-top: 0.55rem;
+    width: 100%;
+  }
+
   .collection-commerce-post-feed {
     border: 0;
     background: transparent;
