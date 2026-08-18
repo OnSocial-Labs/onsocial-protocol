@@ -17,14 +17,12 @@ import {
   protocolPickerItemLockReason,
   useProtocolPickerEligibility,
 } from '@/features/protocol/protocol-picker-sheet';
-import {
-  canProposeProtocolCreateKind,
-  getProtocolCreateKindLockReason,
-} from '@/features/protocol/protocol-propose-gate';
+import { viewerHasCreateKindPermission } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 
 /**
- * Propose kind picker — choose a proposal type, then the create form opens.
+ * Propose kind picker — permission-dead kinds hidden; stake-short stays visible
+ * (bond / stake gate lands on the confirm hug after compose).
  */
 export function ProtocolProposeKindSheet({
   open,
@@ -58,15 +56,28 @@ export function ProtocolProposeKindSheet({
     return lastKind ?? readLastProtocolCreateKind();
   }, [open, lastKind]);
 
+  const filterByPermission = (
+    options: typeof PROTOCOL_CREATE_KIND_OPTIONS
+  ) => {
+    if (!accountId || eligibility.loadState !== 'ready') return options;
+    return options.filter((option) =>
+      viewerHasCreateKindPermission(daoPolicy, accountId, option.id)
+    );
+  };
+
   const commonOptions = useMemo(
     () =>
-      PROTOCOL_CREATE_KIND_COMMON.map((id) =>
-        PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === id)
-      ).filter(
-        (option): option is (typeof PROTOCOL_CREATE_KIND_OPTIONS)[number] =>
-          Boolean(option)
+      filterByPermission(
+        PROTOCOL_CREATE_KIND_COMMON.map((id) =>
+          PROTOCOL_CREATE_KIND_OPTIONS.find((option) => option.id === id)
+        ).filter(
+          (option): option is (typeof PROTOCOL_CREATE_KIND_OPTIONS)[number] =>
+            Boolean(option)
+        )
       ),
-    []
+    // eligibility.loadState + daoPolicy + accountId drive filter
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filter reads those
+    [accountId, daoPolicy, eligibility.loadState]
   );
 
   const commonIds = useMemo(
@@ -78,13 +89,19 @@ export function ProtocolProposeKindSheet({
     () =>
       PROTOCOL_CREATE_KIND_GROUPS.map((group) => ({
         ...group,
-        options: PROTOCOL_CREATE_KIND_OPTIONS.filter(
-          (option) =>
-            option.group === group.id && !commonIds.has(option.id)
+        options: filterByPermission(
+          PROTOCOL_CREATE_KIND_OPTIONS.filter(
+            (option) =>
+              option.group === group.id && !commonIds.has(option.id)
+          )
         ),
       })).filter((group) => group.options.length > 0),
-    [commonIds]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, daoPolicy, eligibility.loadState, commonIds]
   );
+
+  const hasVisibleKinds =
+    commonOptions.length > 0 || grouped.some((group) => group.options.length > 0);
 
   const selectKind = (kind: ProtocolCreateKind) => {
     rememberProtocolCreateKind(kind);
@@ -107,17 +124,24 @@ export function ProtocolProposeKindSheet({
         loadingEmpty="Checking what you can propose…"
         errorNote="Could not verify proposal eligibility. Close and try again."
         stakeBlocked={eligibility.stakeBlocked}
-        stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose.`}
+        stakeMessage={`Need ${eligibility.remainingLabel ?? 'more'} SOCIAL delegated to propose — stake now, or pick a kind and confirm later.`}
         onOpenStake={onOpenStake}
         onClose={onClose}
       />
+
+      {accountId &&
+      eligibility.loadState === 'ready' &&
+      !hasVisibleKinds ? (
+        <p className="protocol-compose-note is-warn">
+          No proposal types match your roles on this DAO.
+        </p>
+      ) : null}
 
       <KindSection
         label="Common"
         options={commonOptions}
         accountId={accountId}
-        eligibility={eligibility}
-        daoPolicy={daoPolicy}
+        loadState={eligibility.loadState}
         highlightedKind={highlightedKind}
         onSelectKind={selectKind}
       />
@@ -128,8 +152,7 @@ export function ProtocolProposeKindSheet({
           label={group.label}
           options={group.options}
           accountId={accountId}
-          eligibility={eligibility}
-          daoPolicy={daoPolicy}
+          loadState={eligibility.loadState}
           highlightedKind={highlightedKind}
           onSelectKind={selectKind}
         />
@@ -142,16 +165,14 @@ function KindSection({
   label,
   options,
   accountId,
-  eligibility,
-  daoPolicy,
+  loadState,
   highlightedKind,
   onSelectKind,
 }: {
   label: string;
   options: typeof PROTOCOL_CREATE_KIND_OPTIONS;
   accountId: string | null;
-  eligibility: ReturnType<typeof useProtocolPickerEligibility>;
-  daoPolicy: ProtocolDaoPolicy | null;
+  loadState: ReturnType<typeof useProtocolPickerEligibility>['loadState'];
   highlightedKind: ProtocolCreateKind | null;
   onSelectKind: (kind: ProtocolCreateKind) => void;
 }) {
@@ -160,26 +181,12 @@ function KindSection({
   return (
     <ProtocolPickerSection label={label}>
       {options.map((option) => {
-        const canProposeKind =
-          Boolean(accountId) &&
-          eligibility.loadState === 'ready' &&
-          canProposeProtocolCreateKind(
-            daoPolicy,
-            accountId,
-            eligibility.delegatedWeight,
-            option.id
-          );
+        // Permission already filtered. Only soft-lock while checking / disconnected —
+        // stake shortfalls stay selectable; confirm hug gates bond + stake.
         const lockReason = protocolPickerItemLockReason({
           accountId,
-          loadState: eligibility.loadState,
-          readyReason: getProtocolCreateKindLockReason({
-            kind: option.id,
-            accountId,
-            canProposeAny: eligibility.canProposeAny,
-            isGroupMember: eligibility.isGroupMember,
-            remainingLabel: eligibility.remainingLabel,
-            canProposeKind,
-          }),
+          loadState,
+          readyReason: null,
         });
 
         return (

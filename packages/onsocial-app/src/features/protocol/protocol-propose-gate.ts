@@ -112,6 +112,33 @@ export function canProposeProtocolCreateKind(
   );
 }
 
+/**
+ * Permission path without weight — Group membership, or any Member-threshold
+ * role that grants this kind (staking can unlock Member roles).
+ * Use to hide dead kinds; keep stake-short kinds visible.
+ */
+export function viewerHasCreateKindPermission(
+  policy: ProtocolDaoPolicy | null | undefined,
+  accountId: string | null | undefined,
+  kind: ProtocolCreateKind
+): boolean {
+  const proposer = normalizeAccountId(accountId);
+  if (!proposer) return false;
+  const label = CREATE_KIND_POLICY_LABEL[kind];
+  return (policy?.roles ?? []).some((role) => {
+    if (!roleCanAddProposal(role, label)) return false;
+    if (role.kind?.Group?.length) {
+      return role.kind.Group.some(
+        (member) => normalizeAccountId(member) === proposer
+      );
+    }
+    if (role.kind?.Member != null && role.kind.Member !== '') {
+      return true;
+    }
+    return false;
+  });
+}
+
 export function canProposeProtocolPolicyAction(
   policy: ProtocolDaoPolicy | null | undefined,
   accountId: string | null | undefined,
@@ -126,6 +153,29 @@ export function canProposeProtocolPolicyAction(
       roleMatchesDelegatedUser(role, proposer, delegatedWeight) &&
       roleCanAddProposal(role, label)
   );
+}
+
+/** Same as create-kind permission, for Settings action pickers. */
+export function viewerHasPolicyActionPermission(
+  policy: ProtocolDaoPolicy | null | undefined,
+  accountId: string | null | undefined,
+  actionId: ProtocolPolicyActionId
+): boolean {
+  const proposer = normalizeAccountId(accountId);
+  if (!proposer) return false;
+  const label = POLICY_ACTION_PERMISSION_LABEL[actionId];
+  return (policy?.roles ?? []).some((role) => {
+    if (!roleCanAddProposal(role, label)) return false;
+    if (role.kind?.Group?.length) {
+      return role.kind.Group.some(
+        (member) => normalizeAccountId(member) === proposer
+      );
+    }
+    if (role.kind?.Member != null && role.kind.Member !== '') {
+      return true;
+    }
+    return false;
+  });
 }
 
 export function getProtocolCreateKindBlockReason(

@@ -51,15 +51,17 @@ import {
   type ProtocolVoteThresholdPresetId,
 } from '@/features/protocol/protocol-policy-presets';
 import {
-  canProposeProtocolPolicyAction,
   getProtocolPolicyActionBlockReason,
   isProtocolDaoGroupMember,
+  viewerHasPolicyActionPermission,
 } from '@/features/protocol/protocol-propose-gate';
+import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { ProtocolTaskSheet } from '@/features/protocol/protocol-task-sheet';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import { nearToYocto, yoctoToNear } from '@/lib/app-near-rpc';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import {
+  PROTOCOL_CONFIRM_Z,
   PROTOCOL_NESTED_CHOICE_Z,
 } from '@/features/protocol/protocol-sheet-z';
 
@@ -137,6 +139,9 @@ export function ProtocolSettingsSheet({
     'idle' | 'loading' | 'ready' | 'error'
   >('idle');
   const [formError, setFormError] = useState<string | null>(null);
+  const [proposeConfirmOpen, setProposeConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] =
+    useState<ProtocolProposalPayload | null>(null);
 
   const editableRoles = useMemo(
     () => getEditableProtocolPolicyRoleOptions(daoPolicy),
@@ -146,7 +151,6 @@ export function ProtocolSettingsSheet({
     () => getRemovableProtocolPolicyRoleOptions(daoPolicy),
     [daoPolicy]
   );
-  const delegatedWeight = eligibility?.delegatedWeight ?? '0';
   const isGroupMember = useMemo(
     () => isProtocolDaoGroupMember(daoPolicy, accountId),
     [daoPolicy, accountId]
@@ -156,14 +160,14 @@ export function ProtocolSettingsSheet({
       return PROTOCOL_POLICY_ACTION_OPTIONS;
     }
     return PROTOCOL_POLICY_ACTION_OPTIONS.filter((option) =>
-      canProposeProtocolPolicyAction(
-        daoPolicy,
-        accountId,
-        delegatedWeight,
-        option.id
-      )
+      viewerHasPolicyActionPermission(daoPolicy, accountId, option.id)
     );
-  }, [accountId, loadState, daoPolicy, delegatedWeight]);
+  }, [accountId, loadState, daoPolicy]);
+
+  const hasActionPermission = useMemo(
+    () => viewerHasPolicyActionPermission(daoPolicy, accountId, actionId),
+    [daoPolicy, accountId, actionId]
+  );
 
   const councilVotePoolSize = useMemo(
     () => resolveCouncilVotePoolSize(daoPolicy),
@@ -314,6 +318,8 @@ export function ProtocolSettingsSheet({
       setEligibility(null);
       setLoadState('idle');
       setFormError(null);
+      setProposeConfirmOpen(false);
+      setPendingPayload(null);
       return;
     }
 
@@ -437,15 +443,6 @@ export function ProtocolSettingsSheet({
     currentVoteThreshold,
   ]);
 
-  const canProposeSelected =
-    Boolean(accountId) &&
-    loadState === 'ready' &&
-    canProposeProtocolPolicyAction(
-      daoPolicy,
-      accountId,
-      delegatedWeight,
-      actionId
-    );
   const needsStake =
     loadState === 'ready' &&
     eligibility != null &&
@@ -456,7 +453,7 @@ export function ProtocolSettingsSheet({
       ? formatSocialCompact(eligibility.remainingToThreshold)
       : null;
   const permissionBlock =
-    loadState === 'ready' && accountId && !needsStake && !canProposeSelected
+    loadState === 'ready' && accountId && !hasActionPermission
       ? getProtocolPolicyActionBlockReason(actionId)
       : null;
   const addRoleBlock =
@@ -464,60 +461,50 @@ export function ProtocolSettingsSheet({
       ? getAddRoleAccessBlockReason(daoPolicy, addRoleAccessMode)
       : '';
 
+  const formReady =
+    Boolean(accountId) &&
+    loadState === 'ready' &&
+    hasActionPermission &&
+    !addRoleBlock &&
+    !noChangesYet;
+
   const footerState = useMemo((): CommerceSheetFooterState | null => {
     if (!open) return null;
-    if (needsStake) {
-      return {
-        visible: true,
-        primaryLabel: 'Stake to propose',
-        primaryPendingLabel: 'Opening…',
-        canSubmit: !pending,
-        pending: false,
-        primaryType: 'button',
-        onPrimaryClick: onOpenStake,
-      };
-    }
     return {
       visible: true,
-      primaryLabel: 'Submit settings proposal',
+      primaryLabel: 'Propose',
       primaryPendingLabel: 'Submitting…',
-      canSubmit:
-        !pending &&
-        Boolean(accountId) &&
-        loadState === 'ready' &&
-        canProposeSelected &&
-        !addRoleBlock &&
-        !noChangesYet,
+      canSubmit: !pending && formReady,
       pending,
       disabled:
         pending ||
         !accountId ||
         loadState === 'loading' ||
         loadState === 'error' ||
-        !canProposeSelected ||
+        !hasActionPermission ||
         Boolean(addRoleBlock) ||
         noChangesYet,
       primaryType: 'submit',
     };
   }, [
     open,
-    needsStake,
     pending,
-    onOpenStake,
+    formReady,
     accountId,
     loadState,
-    canProposeSelected,
+    hasActionPermission,
     addRoleBlock,
     noChangesYet,
   ]);
 
   return (
+    <>
     <ProtocolTaskSheet
       open={open}
       onClose={onClose}
       verb={protocolPolicyActionLabel(actionId)}
       handle={daoAccountId ?? undefined}
-      whisper="Fill the fields, then submit on-chain."
+      whisper="Fill the fields, then confirm bond and submit."
       closeAriaLabel="Close settings"
       backdropLabel="Close settings"
       formId={formId}
@@ -528,14 +515,7 @@ export function ProtocolSettingsSheet({
         className="protocol-compose protocol-task-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (
-            needsStake ||
-            pending ||
-            !accountId ||
-            !canProposeSelected ||
-            addRoleBlock ||
-            noChangesYet
-          ) {
+          if (pending || !accountId || !formReady) {
             return;
           }
           try {
@@ -564,7 +544,8 @@ export function ProtocolSettingsSheet({
               permissions,
             });
             setFormError(null);
-            onSubmit(payload);
+            setPendingPayload(payload);
+            setProposeConfirmOpen(true);
           } catch (error) {
             setFormError(
               error instanceof Error
@@ -592,7 +573,8 @@ export function ProtocolSettingsSheet({
 
         {needsStake ? (
           <p className="protocol-compose-note is-warn">
-            Need {shortfall ?? 'more'} SOCIAL delegated to propose settings.
+            Need {shortfall ?? 'more'} SOCIAL delegated — you can still fill
+            this form; confirm will offer Stake.
           </p>
         ) : null}
 
@@ -602,7 +584,6 @@ export function ProtocolSettingsSheet({
 
         {loadState === 'ready' &&
         accountId &&
-        !needsStake &&
         availableActions.length === 0 ? (
           <p className="protocol-compose-note is-warn">
             No settings actions are available for your roles on this DAO.
@@ -972,8 +953,7 @@ export function ProtocolSettingsSheet({
         {noChangesYet &&
         loadState === 'ready' &&
         accountId &&
-        !needsStake &&
-        canProposeSelected ? (
+        hasActionPermission ? (
           <p className="protocol-compose-note">No changes yet.</p>
         ) : null}
 
@@ -982,5 +962,29 @@ export function ProtocolSettingsSheet({
         ) : null}
       </form>
     </ProtocolTaskSheet>
+    <DaoProposeConfirmSheet
+      open={proposeConfirmOpen}
+      title={`Propose ${protocolPolicyActionLabel(actionId)}?`}
+      body="Submit this settings proposal to the DAO. It goes live after approval."
+      eligibility={eligibility}
+      eligibilityLoading={loadState === 'loading'}
+      pending={pending}
+      proposeLabel="Propose"
+      zIndex={PROTOCOL_CONFIRM_Z}
+      onDiscard={() => {
+        setProposeConfirmOpen(false);
+        setPendingPayload(null);
+      }}
+      onPropose={() => {
+        if (!pendingPayload) return;
+        onSubmit(pendingPayload);
+      }}
+      onStake={() => {
+        setProposeConfirmOpen(false);
+        setPendingPayload(null);
+        onOpenStake();
+      }}
+    />
+    </>
   );
 }
