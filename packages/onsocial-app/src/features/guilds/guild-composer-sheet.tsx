@@ -170,6 +170,18 @@ interface ComposerSheetProps {
     selectedId: string;
     onChange: (id: string) => void;
   };
+  /**
+   * Optional author switcher — Me vs DAO (eligible proposers only).
+   * When mode is DAO, `daoOptions` lists which DAO to post as.
+   */
+  authorTargets?: {
+    mode: 'me' | 'dao';
+    onModeChange: (mode: 'me' | 'dao') => void;
+    daoOptions: { id: string; label: string }[];
+    selectedDaoId: string | null;
+    onDaoChange: (daoAccountId: string) => void;
+    daoLoading?: boolean;
+  };
   /** Prefill a Drop reference chip (“Post this Drop”). */
   initialDrop?: ComposerDropDraft | null;
   /** Prefill caption when opening with a Drop. */
@@ -253,6 +265,7 @@ export function ComposerSheet({
   onModeChange,
   destination,
   feedTargets,
+  authorTargets,
   initialDrop = null,
   initialText = '',
   pending,
@@ -574,9 +587,12 @@ export function ComposerSheet({
     !textOverLimit;
 
   const showDestinationMenus =
-    mode === 'post' && Boolean(feedTargets && feedTargets.options.length > 0);
+    mode === 'post' &&
+    (Boolean(feedTargets && feedTargets.options.length > 0) ||
+      Boolean(authorTargets));
+  const postingAsDao = authorTargets?.mode === 'dao';
   const roomOptions: ChoiceOption<string>[] | null =
-    mode === 'post' && destination?.kind === 'guild'
+    mode === 'post' && destination?.kind === 'guild' && !postingAsDao
       ? destination.loading && destination.channels.length === 0
         ? [{ value: '__loading__', label: 'Loading…', disabled: true }]
         : destination.channels.length > 0
@@ -599,34 +615,114 @@ export function ComposerSheet({
     (destination?.kind === 'guild' &&
       (Boolean(destination.loading) || destination.channels.length === 0));
 
+  const authorMenus =
+    mode === 'post' && authorTargets ? (
+      <>
+        <ChoiceDrawerMenu
+          label="As"
+          value={authorTargets.mode}
+          options={[
+            { value: 'me', label: 'Me' },
+            {
+              value: 'dao',
+              label: 'DAO',
+              disabled:
+                Boolean(authorTargets.daoLoading) ||
+                authorTargets.daoOptions.length === 0,
+            },
+          ]}
+          onChange={(value) =>
+            authorTargets.onModeChange(value === 'dao' ? 'dao' : 'me')
+          }
+          disabled={pending}
+          copy="Who publishes this post"
+          ariaLabel={`As ${authorTargets.mode === 'dao' ? 'DAO' : 'Me'}`}
+          className="standing-view-menu guild-composer-dest-menu"
+          zIndex={COMPOSER_NEST_Z}
+        />
+        {authorTargets.mode === 'dao' ? (
+          <ChoiceDrawerMenu
+            label="DAO"
+            value={authorTargets.selectedDaoId ?? ''}
+            options={
+              authorTargets.daoLoading && authorTargets.daoOptions.length === 0
+                ? [
+                    {
+                      value: '__loading__',
+                      label: 'Checking…',
+                      disabled: true,
+                    },
+                  ]
+                : authorTargets.daoOptions.map(
+                    (option): ChoiceOption<string> => ({
+                      value: option.id,
+                      label: option.label,
+                    })
+                  )
+            }
+            onChange={authorTargets.onDaoChange}
+            disabled={
+              pending ||
+              Boolean(authorTargets.daoLoading) ||
+              authorTargets.daoOptions.length === 0
+            }
+            copy="DAO that publishes after approval"
+            ariaLabel={`DAO ${
+              authorTargets.daoOptions.find(
+                (option) => option.id === authorTargets.selectedDaoId
+              )?.label ?? ''
+            }`}
+            className="standing-view-menu guild-composer-dest-menu"
+            zIndex={COMPOSER_NEST_Z}
+          />
+        ) : null}
+      </>
+    ) : null;
+
   const destinationMenus =
-    showDestinationMenus && feedTargets ? (
+    showDestinationMenus && (feedTargets || authorTargets) ? (
       <div
         className="guild-composer-destination-menus"
         role="group"
         aria-label="Post destination"
       >
-        <ChoiceDrawerMenu
-          label="Post to"
-          value={feedTargets.selectedId}
-          options={feedTargets.options.map(
-            (option): ChoiceOption<string> => ({
-              value: option.id,
-              label: option.label,
-            })
-          )}
-          onChange={feedTargets.onChange}
-          disabled={pending}
-          copy="Where this post appears"
-          ariaLabel={`Post to ${
-            feedTargets.options.find(
-              (option) => option.id === feedTargets.selectedId
-            )?.label ?? 'feed'
-          }`}
-          className="standing-view-menu guild-composer-dest-menu"
-          zIndex={COMPOSER_NEST_Z}
-        />
-        {destination?.kind === 'guild' && roomOptions ? (
+        {authorMenus}
+        {feedTargets && !postingAsDao ? (
+          <ChoiceDrawerMenu
+            label="Post to"
+            value={feedTargets.selectedId}
+            options={feedTargets.options.map(
+              (option): ChoiceOption<string> => ({
+                value: option.id,
+                label: option.label,
+              })
+            )}
+            onChange={feedTargets.onChange}
+            disabled={pending}
+            copy="Where this post appears"
+            ariaLabel={`Post to ${
+              feedTargets.options.find(
+                (option) => option.id === feedTargets.selectedId
+              )?.label ?? 'feed'
+            }`}
+            className="standing-view-menu guild-composer-dest-menu"
+            zIndex={COMPOSER_NEST_Z}
+          />
+        ) : null}
+        {postingAsDao ? (
+          <ChoiceDrawerMenu
+            label="Post to"
+            value="public"
+            options={[{ value: 'public', label: 'Public' }]}
+            onChange={() => undefined}
+            disabled
+            copy="DAO posts publish on the DAO public feed after approval"
+            ariaLabel="Post to Public"
+            className="standing-view-menu guild-composer-dest-menu"
+            zIndex={COMPOSER_NEST_Z}
+          />
+        ) : null}
+        {destination?.kind === 'guild' && roomOptions && !postingAsDao ? (
           <ChoiceDrawerMenu
             label="Room"
             value={roomValue}
@@ -1021,10 +1117,10 @@ export function ComposerSheet({
                   variant="primary"
                   ready={canPost}
                   pending={pending}
-                  pendingLabel="Posting…"
+                  pendingLabel={postingAsDao ? 'Proposing…' : 'Posting…'}
                   disabled={!canPost}
                 >
-                  Post
+                  {postingAsDao ? 'Propose' : 'Post'}
                 </OsSheetAction>
               </OsSheetActions>
             </div>
