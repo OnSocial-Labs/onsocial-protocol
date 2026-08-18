@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
@@ -16,6 +17,7 @@ import {
 } from '@/features/guilds/guild-summary-card';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { APP_GROUPS_PATH } from '@/lib/app-routes';
 
 const BROWSE_LIMIT = 24;
 
@@ -45,7 +47,7 @@ function mergeGuildCards(
 }
 
 /**
- * Discover → Guilds — public browse + search with the same summary cards as `/groups`.
+ * Discover → Guilds — public browse/search. Create / manage live in the Guilds app.
  */
 export function DiscoverGuildsPanel() {
   const { query, clearSearch, initialGuilds } = useDiscoverPanel();
@@ -177,6 +179,20 @@ export function DiscoverGuildsPanel() {
       aria-labelledby="discover-tab-guilds"
       className="standing-panel-body discover-guilds-panel"
     >
+      <div className="discover-community-toolbar">
+        <p className="daos-index-empty dao-discover-status">
+          {searchQuery
+            ? `Searching “${searchQuery}”`
+            : 'Public guilds on this network'}
+        </p>
+        <DiscoverCommunityHandoff
+          links={[
+            { href: APP_GROUPS_PATH, label: 'Open Guilds' },
+            { href: `${APP_GROUPS_PATH}/create`, label: 'Create' },
+          ]}
+        />
+      </div>
+
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
       {showSkeleton || showSearchBusy ? (
@@ -209,13 +225,22 @@ export function DiscoverGuildsPanel() {
                 Clear search
               </button>
             ) : (
-              <Link
-                className="standing-panel-empty-action"
-                href="/groups/create"
-                scroll={false}
-              >
-                Create a guild
-              </Link>
+              <>
+                <Link
+                  className="standing-panel-empty-action"
+                  href={`${APP_GROUPS_PATH}/create`}
+                  scroll={false}
+                >
+                  Create a guild
+                </Link>
+                <Link
+                  className="standing-panel-empty-action"
+                  href={APP_GROUPS_PATH}
+                  scroll={false}
+                >
+                  Open Guilds
+                </Link>
+              </>
             )}
           </div>
         </div>

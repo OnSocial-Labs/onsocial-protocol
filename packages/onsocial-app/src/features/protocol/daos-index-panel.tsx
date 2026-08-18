@@ -29,8 +29,9 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
-import { APP_DISCOVER_PATH, daoPath } from '@/lib/app-routes';
+import { APP_DISCOVER_PATH, DAOS_CREATE_QUERY, daoPath } from '@/lib/app-routes';
 import { applyDiscoverTabParam } from '@/features/discover/discover-tabs';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
 
@@ -65,14 +66,28 @@ function mergeMyDaosWithOptimistic(
   );
 }
 
-/** Community DAO directory — Standing-style lists + Discover slide-over. */
+/** Community DAO directory — Standing-style lists + Discover handoff. */
 export function DaosIndexPanel() {
   const { accountId } = useAppWallet();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [recent] = useState(() =>
     typeof window === 'undefined' ? [] : readRecentCommunityDaos()
   );
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    const wantsCreate =
+      searchParams.get(DAOS_CREATE_QUERY) === '1' ||
+      searchParams.get(DAOS_CREATE_QUERY) === 'true';
+    if (!wantsCreate) return;
+    queueMicrotask(() => setCreateOpen(true));
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(DAOS_CREATE_QUERY);
+    const qs = params.toString();
+    router.replace(qs ? `/daos?${qs}` : '/daos', { scroll: false });
+  }, [router, searchParams]);
 
   useEffect(() => {
     let cancelled = false;

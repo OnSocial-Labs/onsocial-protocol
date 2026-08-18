@@ -1,13 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { useDaoCatalogBrowse } from '@/hooks/use-dao-catalog-browse';
+import { APP_DAOS_PATH, daosCreateHref } from '@/lib/app-routes';
 
 /**
- * Discover → DAOs — factory catalog with the same square-crest rows as Protocol.
+ * Discover → DAOs — factory catalog find. Create / My DAOs live in the DAOs app.
  */
 export function DiscoverDaosPanel() {
   const { query, clearSearch } = useDiscoverPanel();
@@ -38,10 +41,18 @@ export function DiscoverDaosPanel() {
       aria-labelledby="discover-tab-daos"
       className="standing-panel-body discover-daos-panel"
     >
-      <p className="daos-index-empty dao-discover-status">
-        {statusLine}
-        {catalogQuery ? ` · “${catalogQuery}”` : ''}
-      </p>
+      <div className="discover-community-toolbar">
+        <p className="daos-index-empty dao-discover-status">
+          {statusLine}
+          {catalogQuery ? ` · “${catalogQuery}”` : ''}
+        </p>
+        <DiscoverCommunityHandoff
+          links={[
+            { href: APP_DAOS_PATH, label: 'My DAOs' },
+            { href: daosCreateHref(), label: 'Create' },
+          ]}
+        />
+      </div>
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
@@ -69,6 +80,13 @@ export function DiscoverDaosPanel() {
           >
             Clear search
           </button>
+          <Link
+            className="standing-panel-empty-action"
+            href={APP_DAOS_PATH}
+            scroll={false}
+          >
+            My DAOs
+          </Link>
         </div>
       ) : null}
 

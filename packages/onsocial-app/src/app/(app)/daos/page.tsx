@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { DaosIndexPanel } from '@/features/protocol/daos-index-panel';
 
 export const metadata: Metadata = {
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function DaosIndexPage() {
-  return <DaosIndexPanel />;
+  return (
+    <Suspense fallback={null}>
+      <DaosIndexPanel />
+    </Suspense>
+  );
 }
