@@ -147,10 +147,12 @@ export default async function AccountPage({
           kindLabel={daoEntity.kindLabel}
         />
 
-        <PortfolioActivateStrip
-          pageAccountId={accountId}
-          activated={Boolean(data.activated)}
-        />
+        {daoEntity.isDao ? null : (
+          <PortfolioActivateStrip
+            pageAccountId={accountId}
+            activated={Boolean(data.activated)}
+          />
+        )}
 
         {daoEntity.isDao ? (
           <PortfolioDaoOrgChrome
