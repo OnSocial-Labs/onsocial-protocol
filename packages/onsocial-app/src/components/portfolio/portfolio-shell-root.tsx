@@ -139,6 +139,7 @@ function PortfolioShellPreviewBridge({
           >
             <PortfolioCustomize
               pageAccountId={pageAccountId}
+              isDao={isDao}
               config={config}
               mood={committedMood}
               avatarUrl={avatarMedia?.url ?? null}
@@ -169,6 +170,7 @@ function PortfolioShellPreviewBridge({
             <PortfolioMoodPreviewBar
               pageAccountId={pageAccountId}
               config={config}
+              isDao={isDao}
             />
           </div>
           {/* Suspense owned here — keys on prop-passed elements are ignored. */}

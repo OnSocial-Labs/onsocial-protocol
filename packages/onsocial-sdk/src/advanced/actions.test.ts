@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildPageConfigAction,
   buildPostAction,
   buildProfileAction,
   buildReactionAction,
@@ -17,6 +18,23 @@ import {
 } from './actions.js';
 
 describe('advanced action helpers', () => {
+  it('builds page/main config as a JSON string set action', () => {
+    expect(
+      buildPageConfigAction({
+        template: 'minimal',
+        mood: { id: 'protocol', since: 1 },
+      })
+    ).toEqual({
+      type: 'set',
+      data: {
+        'page/main': JSON.stringify({
+          template: 'minimal',
+          mood: { id: 'protocol', since: 1 },
+        }),
+      },
+    });
+  });
+
   it('builds canonical core set actions for profile, post, standing, and reaction flows', () => {
     expect(buildProfileAction({ name: 'Alice', bio: 'Builder' })).toEqual({
       type: 'set',

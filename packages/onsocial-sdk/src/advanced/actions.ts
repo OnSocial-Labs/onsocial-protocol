@@ -453,6 +453,15 @@ export function buildProfileAction(profile: ProfileData): CoreAction {
   return buildCoreSetAction(buildProfileSetData(profile));
 }
 
+/** Full page config at `page/main` (JSON string — matches `pages.setConfig`). */
+export function buildPageConfigAction(
+  config: Record<string, unknown>
+): CoreAction {
+  return buildCoreSetAction({
+    'page/main': JSON.stringify(config),
+  });
+}
+
 export function buildPostAction(
   post: PostData,
   postId: string,

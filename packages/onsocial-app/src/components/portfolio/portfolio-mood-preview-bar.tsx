@@ -34,6 +34,8 @@ const SAVED_DISMISS_MS = 280;
 interface PortfolioMoodPreviewBarProps {
   pageAccountId: string;
   config: PublicPageConfig;
+  /** DAO face — council can propose mood (not instant owner write). */
+  isDao?: boolean;
 }
 
 interface MoodPreviewBarSnapshot {
@@ -47,6 +49,7 @@ function isPremiumMoodId(moodId: PageMoodId): moodId is PremiumPageMoodId {
 export function PortfolioMoodPreviewBar({
   pageAccountId,
   config,
+  isDao = false,
 }: PortfolioMoodPreviewBarProps) {
   const {
     previewMoodId,
@@ -62,8 +65,9 @@ export function PortfolioMoodPreviewBar({
     applyMood,
     isApplying,
     isOwner,
+    isAccountOwner,
     error: applyError,
-  } = useApplyMood(pageAccountId);
+  } = useApplyMood(pageAccountId, { isDao });
   const {
     unlockMood,
     isUnlocking,
@@ -112,6 +116,13 @@ export function PortfolioMoodPreviewBar({
     let explorerHref: string | null = null;
 
     if (needsUnlock) {
+      if (!isAccountOwner) {
+        setTxResult({
+          type: 'error',
+          msg: 'Premium mood unlocks for DAOs are not available yet.',
+        });
+        return;
+      }
       const unlockTxHash = await unlockMood(activePreviewId);
       if (unlockTxHash === null) {
         return;
@@ -124,6 +135,13 @@ export function PortfolioMoodPreviewBar({
       return;
     }
     explorerHref = nearExplorerTxHref(applyTxHash) ?? explorerHref;
+
+    if (!isAccountOwner) {
+      // Council proposal — gov toast already fired; wait for approve.
+      discardMoodPreview();
+      requestCloseMoodSheet();
+      return;
+    }
 
     setTxResult({
       type: 'success',
@@ -171,13 +189,21 @@ export function PortfolioMoodPreviewBar({
             variant="primary"
             ready={!isBusy}
             pending={isApplying || isUnlocking}
-            pendingLabel={needsUnlock ? 'Unlocking…' : 'Saving…'}
+            pendingLabel={
+              needsUnlock
+                ? 'Unlocking…'
+                : isAccountOwner
+                  ? 'Saving…'
+                  : 'Submitting…'
+            }
             disabled={isBusy}
             onClick={() => void handleSave()}
           >
-            {needsUnlock && priceSocial
+            {needsUnlock && priceSocial && isAccountOwner
               ? `Unlock · ${priceSocial}`
-              : 'Save'}
+              : isAccountOwner
+                ? 'Save'
+                : 'Propose mood'}
           </OsSheetAction>
         </OsSheetActions>
       </div>

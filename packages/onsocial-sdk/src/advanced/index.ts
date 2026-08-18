@@ -24,6 +24,7 @@ export {
   resolveContractId,
   buildCoreSetAction,
   buildProfileAction,
+  buildPageConfigAction,
   buildPostAction,
   buildReplyAction,
   buildQuoteAction,
