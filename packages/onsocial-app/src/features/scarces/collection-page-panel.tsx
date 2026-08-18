@@ -62,6 +62,7 @@ import {
 } from '@/features/scarces/collections-data';
 import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
+  canCancelDrop,
   canDeleteDrop,
   canPauseDrop,
   canResumeDrop,
@@ -564,10 +565,12 @@ export function CollectionPagePanel({
     isOwner &&
     (canPauseDrop(status) ||
       canResumeDrop(status) ||
-      (view != null && canDeleteDrop(view.minted, status)));
+      canCancelDrop(status) ||
+      (view != null && canDeleteDrop(view.minted, status)) ||
+      status === 'cancelled');
 
   const handleOwnerManaged = useCallback(
-    (change: 'paused' | 'resumed' | 'deleted') => {
+    (change: 'paused' | 'resumed' | 'deleted' | 'cancelled' | 'refunds_withdrawn') => {
       if (change === 'deleted') {
         router.replace(APP_DROPS_PATH);
         return;
@@ -1013,6 +1016,7 @@ export function CollectionPagePanel({
                     title={view.title}
                     status={status}
                     minted={view.minted}
+                    priceNear={view.priceNear}
                     onManaged={handleOwnerManaged}
                   />
                 ) : null}

@@ -1,27 +1,47 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canCancelDrop,
   canDeleteDrop,
-  canPauseDrop,
-  canResumeDrop,
-} from '@/features/scarces/drop-owner-actions';
+  canWithdrawUnclaimedRefunds,
+} from './drop-owner-actions';
 
-describe('drop owner action gates', () => {
-  it('pause only while live or upcoming', () => {
-    expect(canPauseDrop('live')).toBe(true);
-    expect(canPauseDrop('upcoming')).toBe(true);
-    expect(canPauseDrop('paused')).toBe(false);
-    expect(canPauseDrop('sold_out')).toBe(false);
+describe('drop refund owner gates', () => {
+  it('allows cancel on any non-cancelled status', () => {
+    expect(canCancelDrop('live')).toBe(true);
+    expect(canCancelDrop('sold_out')).toBe(true);
+    expect(canCancelDrop('cancelled')).toBe(false);
   });
 
-  it('resume only while paused', () => {
-    expect(canResumeDrop('paused')).toBe(true);
-    expect(canResumeDrop('live')).toBe(false);
-  });
-
-  it('delete only when nothing minted', () => {
+  it('blocks delete once cancelled even with zero minted', () => {
     expect(canDeleteDrop(0, 'live')).toBe(true);
-    expect(canDeleteDrop(0, 'paused')).toBe(true);
-    expect(canDeleteDrop(1, 'live')).toBe(false);
     expect(canDeleteDrop(0, 'cancelled')).toBe(false);
+    expect(canDeleteDrop(2, 'live')).toBe(false);
+  });
+
+  it('allows withdraw only after the claim window with leftover pool', () => {
+    expect(
+      canWithdrawUnclaimedRefunds({
+        cancelled: true,
+        refundDeadlineMs: 1_000,
+        refundPoolYocto: '100',
+        nowMs: 2_000,
+      })
+    ).toBe(true);
+    expect(
+      canWithdrawUnclaimedRefunds({
+        cancelled: true,
+        refundDeadlineMs: 3_000,
+        refundPoolYocto: '100',
+        nowMs: 2_000,
+      })
+    ).toBe(false);
+    expect(
+      canWithdrawUnclaimedRefunds({
+        cancelled: true,
+        refundDeadlineMs: 1_000,
+        refundPoolYocto: '0',
+        nowMs: 2_000,
+      })
+    ).toBe(false);
   });
 });

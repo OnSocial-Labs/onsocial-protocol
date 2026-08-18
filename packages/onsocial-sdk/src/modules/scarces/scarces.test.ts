@@ -599,9 +599,14 @@ describe('ScarcesModule.collections — management helpers', () => {
 
   it('cancel', async () => {
     const http = makeHttp();
-    const { getter } = makeSessionGetter();
+    const { getter, signed } = makeSessionGetter();
     const mod = new ScarcesModule(asHttp(http), getter);
-    await mod.collections.cancel('col1', '0.5', 99);
+    // Zero-pool cancel uses 1-yocto confirmation (gateway-safe). Funded
+    // refunds attach depositYocto via wallet broadcast in the app.
+    await mod.collections.cancel('col1', '0.5', {
+      refundDeadlineNs: 99,
+    });
+    expect(signed[0].depositYocto).toBe('1');
     expect(prepareBodyFor(http.post, 'cancel-collection')).toEqual({
       collectionId: 'col1',
       refundPerTokenNear: '0.5',

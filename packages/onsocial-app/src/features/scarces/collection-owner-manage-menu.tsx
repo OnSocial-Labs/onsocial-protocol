@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -12,17 +12,23 @@ import {
   ActionDrawer,
   type ActionDrawerItem,
 } from '@/components/ui/action-drawer';
+import { DropCancelConfirmPanel } from '@/components/wallet/drop-cancel-confirm-panel';
 import { DropDeleteConfirmPanel } from '@/components/wallet/drop-delete-confirm-panel';
+import { DropWithdrawRefundsConfirmPanel } from '@/components/wallet/drop-withdraw-refunds-confirm-panel';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import type { CollectionStatus } from '@/features/scarces/collections-data';
 import {
+  canCancelDrop,
   canDeleteDrop,
   canPauseDrop,
   canResumeDrop,
+  canWithdrawUnclaimedRefunds,
+  cancelDropCollection,
   deleteDropCollection,
   pauseDropCollection,
   resumeDropCollection,
+  withdrawUnclaimedDropRefunds,
 } from '@/features/scarces/drop-owner-actions';
 import { collectRelayTxHashes } from '@/features/guilds/guilds-data';
 import { dropDeleteConfirmCopy } from '@/lib/drop-delete-confirm-copy';
@@ -32,41 +38,99 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { viewNearContract } from '@/lib/app-near-rpc';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+
+const SCARCES_CONTRACT =
+  ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'scarces.onsocial.near'
+    : 'scarces.onsocial.testnet';
+
+type ManagePanel = 'menu' | 'cancel' | 'delete' | 'withdraw';
 
 /**
  * Owner Drop page control — compact Sell-style pill beside bookmark / share,
- * Pause / Resume / Delete in a drawer (same confirm pattern as Drops list ⋮).
+ * Pause / Resume / Cancel / Delete / Withdraw in a drawer.
  */
 export function CollectionOwnerManageMenu({
   collectionId,
   title,
   status,
   minted,
+  priceNear = null,
   onManaged,
 }: {
   collectionId: string;
   title: string;
   status: CollectionStatus;
   minted: number;
-  onManaged: (change: 'paused' | 'resumed' | 'deleted') => void;
+  priceNear?: string | null;
+  onManaged: (
+    change: 'paused' | 'resumed' | 'deleted' | 'cancelled' | 'refunds_withdrawn'
+  ) => void;
 }) {
   const { isConnected, getSigningWallet } = useAppWallet();
   const { setTxResult, trackTransaction } = useAppTransactionFeedback();
   const [open, setOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [panel, setPanel] = useState<ManagePanel>('menu');
   const [ownerPending, setOwnerPending] = useState(false);
+  const [refundDeadlineMs, setRefundDeadlineMs] = useState<number | null>(null);
+  const [refundPoolYocto, setRefundPoolYocto] = useState<string | null>(null);
 
   const dropTitle = title.trim() || 'Drop';
   const showPause = canPauseDrop(status);
   const showResume = canResumeDrop(status);
   const showDelete = canDeleteDrop(minted, status);
+  const showCancel = canCancelDrop(status);
+  const showWithdraw = canWithdrawUnclaimedRefunds({
+    cancelled: status === 'cancelled',
+    refundDeadlineMs,
+    refundPoolYocto,
+  });
+
+  useEffect(() => {
+    if (status !== 'cancelled' || !open) return;
+    let cancelledFetch = false;
+    void viewNearContract<{
+      refund_deadline?: number | null;
+      refund_pool?: string | { '0'?: string } | null;
+    } | null>(SCARCES_CONTRACT, 'get_collection', {
+      collection_id: collectionId,
+    })
+      .then((record) => {
+        if (cancelledFetch || !record) return;
+        const deadlineNs = record.refund_deadline;
+        setRefundDeadlineMs(
+          deadlineNs != null && Number.isFinite(deadlineNs) && deadlineNs > 0
+            ? Math.floor(deadlineNs / 1_000_000)
+            : null
+        );
+        const pool = record.refund_pool;
+        const poolStr =
+          typeof pool === 'string'
+            ? pool
+            : pool && typeof pool === 'object' && typeof pool['0'] === 'string'
+              ? pool['0']
+              : null;
+        setRefundPoolYocto(poolStr);
+      })
+      .catch(() => {
+        if (!cancelledFetch) {
+          setRefundDeadlineMs(null);
+          setRefundPoolYocto(null);
+        }
+      });
+    return () => {
+      cancelledFetch = true;
+    };
+  }, [collectionId, open, status]);
 
   const close = useCallback(() => {
     setOpen(false);
-    setConfirmDelete(false);
+    setPanel('menu');
   }, []);
 
-  const runOwnerAction = useCallback(
+  const runLifecycle = useCallback(
     async (kind: 'paused' | 'resumed' | 'deleted') => {
       if (!isConnected || ownerPending) return;
       if (kind !== 'deleted') close();
@@ -133,6 +197,100 @@ export function CollectionOwnerManageMenu({
     ]
   );
 
+  const runCancel = useCallback(
+    async (input: {
+      refundPerTokenNear: string;
+      claimDays: number;
+      refundableCount: number;
+    }) => {
+      if (!isConnected || ownerPending) return;
+      setOwnerPending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const response = await cancelDropCollection(signerId, wallet, {
+          collectionId,
+          refundPerTokenNear: input.refundPerTokenNear,
+          refundableCount: input.refundableCount,
+          claimDays: input.claimDays,
+        });
+        const confirmed = await trackTransaction({
+          txHashes: collectRelayTxHashes(response),
+          submittedMessage: txToastConfirming.cancelingCollection,
+          successMessage: txToastSuccess.collectionCancelled,
+          failureMessage: txToastError.cancelCollectionFailed,
+        });
+        if (confirmed) {
+          close();
+          onManaged('cancelled');
+        }
+      } catch (error) {
+        if (isWalletUserCancellation(error)) return;
+        setTxResult({
+          type: 'error',
+          msg:
+            error instanceof Error
+              ? error.message
+              : txToastError.cancelCollectionFailed,
+        });
+      } finally {
+        setOwnerPending(false);
+      }
+    },
+    [
+      close,
+      collectionId,
+      getSigningWallet,
+      isConnected,
+      onManaged,
+      ownerPending,
+      setTxResult,
+      trackTransaction,
+    ]
+  );
+
+  const runWithdraw = useCallback(async () => {
+    if (!isConnected || ownerPending) return;
+    setOwnerPending(true);
+    try {
+      const { accountId: signerId, wallet } = await getSigningWallet();
+      const response = await withdrawUnclaimedDropRefunds(
+        signerId,
+        wallet,
+        collectionId
+      );
+      const confirmed = await trackTransaction({
+        txHashes: collectRelayTxHashes(response),
+        submittedMessage: txToastConfirming.withdrawingUnclaimedRefunds,
+        successMessage: txToastSuccess.unclaimedRefundsWithdrawn,
+        failureMessage: txToastError.withdrawUnclaimedRefundsFailed,
+      });
+      if (confirmed) {
+        close();
+        onManaged('refunds_withdrawn');
+      }
+    } catch (error) {
+      if (isWalletUserCancellation(error)) return;
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : txToastError.withdrawUnclaimedRefundsFailed,
+      });
+    } finally {
+      setOwnerPending(false);
+    }
+  }, [
+    close,
+    collectionId,
+    getSigningWallet,
+    isConnected,
+    onManaged,
+    ownerPending,
+    setTxResult,
+    trackTransaction,
+  ]);
+
   const items = useMemo<ActionDrawerItem[]>(() => {
     const list: ActionDrawerItem[] = [];
     if (showPause) {
@@ -144,7 +302,7 @@ export function CollectionOwnerManageMenu({
         disabled: ownerPending,
         leading: <PauseFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
-          void runOwnerAction('paused');
+          void runLifecycle('paused');
         },
       });
     }
@@ -157,7 +315,32 @@ export function CollectionOwnerManageMenu({
         disabled: ownerPending,
         leading: <PlayFillIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
-          void runOwnerAction('resumed');
+          void runLifecycle('resumed');
+        },
+      });
+    }
+    if (showCancel) {
+      list.push({
+        id: 'cancel',
+        section: 'Refunds',
+        label: 'Cancel drop',
+        description: 'Stop the drop and fund ticket refunds',
+        destructive: true,
+        disabled: ownerPending,
+        onSelect: () => {
+          setPanel('cancel');
+        },
+      });
+    }
+    if (showWithdraw) {
+      list.push({
+        id: 'withdraw',
+        section: 'Refunds',
+        label: 'Withdraw unclaimed',
+        description: 'Reclaim leftover refund pool NEAR',
+        disabled: ownerPending,
+        onSelect: () => {
+          setPanel('withdraw');
         },
       });
     }
@@ -171,16 +354,35 @@ export function CollectionOwnerManageMenu({
         disabled: ownerPending,
         leading: <TrashIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => {
-          setConfirmDelete(true);
+          setPanel('delete');
         },
       });
     }
     return list;
-  }, [ownerPending, runOwnerAction, showDelete, showPause, showResume]);
+  }, [
+    ownerPending,
+    runLifecycle,
+    showCancel,
+    showDelete,
+    showPause,
+    showResume,
+    showWithdraw,
+  ]);
 
-  if (!showPause && !showResume && !showDelete) return null;
+  if (!showPause && !showResume && !showDelete && !showCancel && !showWithdraw) {
+    return null;
+  }
 
   const deleteConfirm = dropDeleteConfirmCopy({ title: dropTitle });
+
+  const drawerLabel =
+    panel === 'delete'
+      ? deleteConfirm.title
+      : panel === 'cancel'
+        ? `Cancel ${dropTitle}?`
+        : panel === 'withdraw'
+          ? `Withdraw unclaimed from ${dropTitle}?`
+          : dropTitle;
 
   return (
     <div className="collection-product-manage">
@@ -203,23 +405,52 @@ export function CollectionOwnerManageMenu({
       </OsSheetActions>
       <ActionDrawer
         open={open}
-        onClose={confirmDelete ? () => setConfirmDelete(false) : close}
-        label={confirmDelete ? deleteConfirm.title : dropTitle}
-        copy={confirmDelete ? undefined : 'Owner controls'}
-        listAriaLabel={
-          confirmDelete ? deleteConfirm.title : `Manage ${dropTitle}`
+        onClose={
+          panel === 'menu'
+            ? close
+            : () => {
+                setPanel('menu');
+              }
         }
-        closeAriaLabel={confirmDelete ? 'Back to manage' : 'Close'}
-        items={confirmDelete ? undefined : items}
+        label={drawerLabel}
+        copy={panel === 'menu' ? 'Owner controls' : undefined}
+        listAriaLabel={
+          panel === 'menu' ? `Manage ${dropTitle}` : drawerLabel
+        }
+        closeAriaLabel={panel === 'menu' ? 'Close' : 'Back to manage'}
+        items={panel === 'menu' ? items : undefined}
       >
-        {confirmDelete ? (
+        {panel === 'delete' ? (
           <DropDeleteConfirmPanel
             title={dropTitle}
             pending={ownerPending}
             onConfirm={() => {
-              void runOwnerAction('deleted');
+              void runLifecycle('deleted');
             }}
-            onCancel={() => setConfirmDelete(false)}
+            onCancel={() => setPanel('menu')}
+          />
+        ) : null}
+        {panel === 'cancel' ? (
+          <DropCancelConfirmPanel
+            collectionId={collectionId}
+            title={dropTitle}
+            minted={minted}
+            priceNear={priceNear}
+            pending={ownerPending}
+            onConfirm={(input) => {
+              void runCancel(input);
+            }}
+            onCancel={() => setPanel('menu')}
+          />
+        ) : null}
+        {panel === 'withdraw' ? (
+          <DropWithdrawRefundsConfirmPanel
+            title={dropTitle}
+            pending={ownerPending}
+            onConfirm={() => {
+              void runWithdraw();
+            }}
+            onCancel={() => setPanel('menu')}
           />
         ) : null}
       </ActionDrawer>
