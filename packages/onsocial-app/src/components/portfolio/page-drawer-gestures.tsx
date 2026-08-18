@@ -10,6 +10,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
+import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
@@ -20,13 +21,16 @@ interface PageDrawerGesturesProps {
   bio?: string | null;
   avatarUrl?: string | null;
   mood?: ResolvedMood | null;
+  /** DAO org face — Stand only (no Endorse / Support). */
+  isDao?: boolean;
   /** Hide while the drawer body is scrolling. */
   dockHidden?: boolean;
 }
 
 /**
  * Floating drawer dock: visitor Stand · Endorse · Support (face language).
- * Hidden for self; connect whisper when disconnected; fades while scrolling.
+ * DAO: Stand only. Hidden for self; connect whisper when disconnected;
+ * fades while scrolling.
  */
 export function PageDrawerGestures({
   pageAccountId,
@@ -34,6 +38,7 @@ export function PageDrawerGestures({
   bio,
   avatarUrl,
   mood = null,
+  isDao = false,
   dockHidden = false,
 }: PageDrawerGesturesProps) {
   const {
@@ -62,6 +67,10 @@ export function PageDrawerGestures({
     dockHidden ? ' is-hidden' : ''
   }`;
 
+  const connectLabel = isDao
+    ? 'Connect to Stand'
+    : 'Connect to Stand · Endorse · Support';
+
   if (!isConnected || !viewerAccountId) {
     return (
       <div className={dockClassName} aria-hidden={dockHidden || undefined}>
@@ -72,7 +81,7 @@ export function PageDrawerGestures({
             onClick={() => void connect()}
             tabIndex={dockHidden ? -1 : undefined}
           >
-            Connect to Stand · Endorse · Support
+            {connectLabel}
           </button>
         </div>
       </div>
@@ -83,6 +92,9 @@ export function PageDrawerGestures({
 
   async function handleStandToggle() {
     if (pending) return;
+    if (isDao) {
+      rememberDaoStandingTarget(pageAccountId);
+    }
     try {
       await updateStanding(
         {
@@ -90,6 +102,7 @@ export function PageDrawerGestures({
           name: profileName?.trim() || null,
           bio: bio ?? null,
           avatarUrl: avatarUrl ?? null,
+          isDao: isDao || undefined,
         },
         !viewerStanding
       );
@@ -114,10 +127,14 @@ export function PageDrawerGestures({
             aria-hidden
           >
             <span className="portfolio-identity-gesture-shimmer" />
-            <span className="portfolio-identity-gesture-sep" />
-            <span className="portfolio-identity-gesture-shimmer" />
-            <span className="portfolio-identity-gesture-sep" />
-            <span className="portfolio-identity-gesture-shimmer" />
+            {!isDao ? (
+              <>
+                <span className="portfolio-identity-gesture-sep" />
+                <span className="portfolio-identity-gesture-shimmer" />
+                <span className="portfolio-identity-gesture-sep" />
+                <span className="portfolio-identity-gesture-shimmer" />
+              </>
+            ) : null}
           </div>
         ) : (
           <div
@@ -142,61 +159,72 @@ export function PageDrawerGestures({
               <StandingToggle active={viewerStanding} pending={pending} />
             </button>
 
-            <span className="portfolio-identity-gesture-sep" aria-hidden>
-              ·
-            </span>
+            {!isDao ? (
+              <>
+                <span className="portfolio-identity-gesture-sep" aria-hidden>
+                  ·
+                </span>
 
-            <button
-              type="button"
-              className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
-              aria-label={`Endorse ${label}`}
-              tabIndex={dockHidden ? -1 : undefined}
-              onClick={() => setEndorseOpen(true)}
-            >
-              <span className="signal-group signal-group-endorse" aria-hidden>
-                <ProtocolMotionArrow className="signal-metric-arrow" />
-              </span>
-              Endorse
-            </button>
+                <button
+                  type="button"
+                  className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
+                  aria-label={`Endorse ${label}`}
+                  tabIndex={dockHidden ? -1 : undefined}
+                  onClick={() => setEndorseOpen(true)}
+                >
+                  <span
+                    className="signal-group signal-group-endorse"
+                    aria-hidden
+                  >
+                    <ProtocolMotionArrow className="signal-metric-arrow" />
+                  </span>
+                  Endorse
+                </button>
 
-            <span className="portfolio-identity-gesture-sep" aria-hidden>
-              ·
-            </span>
+                <span className="portfolio-identity-gesture-sep" aria-hidden>
+                  ·
+                </span>
 
-            <button
-              type="button"
-              className="portfolio-identity-gesture portfolio-identity-gesture--support group"
-              tabIndex={dockHidden ? -1 : undefined}
-              onClick={() => setSupportOpen(true)}
-              aria-label={`Support ${label}`}
-            >
-              <span
-                className="signal-group signal-group-reputation"
-                aria-hidden
-              >
-                <ProtocolMotionArrow className="signal-metric-arrow" />
-              </span>
-              Support
-            </button>
+                <button
+                  type="button"
+                  className="portfolio-identity-gesture portfolio-identity-gesture--support group"
+                  tabIndex={dockHidden ? -1 : undefined}
+                  onClick={() => setSupportOpen(true)}
+                  aria-label={`Support ${label}`}
+                >
+                  <span
+                    className="signal-group signal-group-reputation"
+                    aria-hidden
+                  >
+                    <ProtocolMotionArrow className="signal-metric-arrow" />
+                  </span>
+                  Support
+                </button>
+              </>
+            ) : null}
           </div>
         )}
       </div>
-      <EndorseComposeSheet
-        open={endorseOpen}
-        pageAccountId={pageAccountId}
-        profileName={profileName}
-        avatarUrl={avatarUrl}
-        mood={mood}
-        onOpenChange={setEndorseOpen}
-      />
-      <ProfileSupportSheet
-        open={supportOpen}
-        pageAccountId={pageAccountId}
-        profileName={profileName}
-        avatarUrl={avatarUrl}
-        mood={mood}
-        onOpenChange={setSupportOpen}
-      />
+      {!isDao ? (
+        <>
+          <EndorseComposeSheet
+            open={endorseOpen}
+            pageAccountId={pageAccountId}
+            profileName={profileName}
+            avatarUrl={avatarUrl}
+            mood={mood}
+            onOpenChange={setEndorseOpen}
+          />
+          <ProfileSupportSheet
+            open={supportOpen}
+            pageAccountId={pageAccountId}
+            profileName={profileName}
+            avatarUrl={avatarUrl}
+            mood={mood}
+            onOpenChange={setSupportOpen}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

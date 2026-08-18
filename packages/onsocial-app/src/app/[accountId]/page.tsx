@@ -16,6 +16,7 @@ import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root'
 import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
 import { PortfolioSignalsShell } from '@/components/portfolio/portfolio-signals-shell';
 import { PortfolioStatsRow } from '@/components/portfolio/portfolio-stats-row';
+import { resolvePortfolioDaoEntity } from '@/lib/portfolio-dao-entity';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +71,7 @@ export default async function AccountPage({
     search?.avatarMode ?? search?.avatar ?? null
   );
   // Hero-critical path only — drawer peeks stream via Suspense.
-  const [shell, signals, guilds, drawerMetaBase] = await Promise.all([
+  const [shell, signals, guilds, drawerMetaBase, daoEntity] = await Promise.all([
     loadProfileShell(accountId),
     fetchProfileSignals(accountId),
     fetchProfileGuilds(accountId),
@@ -80,6 +81,7 @@ export default async function AccountPage({
       guildCount: data.stats.groupCount ?? 0,
       postCount: data.stats.postCount ?? 0,
     }),
+    resolvePortfolioDaoEntity(accountId),
   ]);
   const name = displayName(accountId, shell?.name ?? undefined);
   const postCount = Math.max(
@@ -109,6 +111,7 @@ export default async function AccountPage({
       <PortfolioShellRoot
         mood={mood}
         pageAccountId={accountId}
+        isDao={daoEntity.isDao}
         avatarMedia={shell?.avatarMedia ?? null}
         bannerMedia={shell?.bannerMedia ?? null}
         committedAvatarMode={committedAvatarMode}
@@ -132,6 +135,9 @@ export default async function AccountPage({
           tagline={tagline}
           avatarUrl={shell?.avatarUrl}
           mood={mood}
+          isDao={daoEntity.isDao}
+          kindLabel={daoEntity.kindLabel}
+          workspaceHref={daoEntity.workspaceHref}
         />
 
         <PortfolioActivateStrip

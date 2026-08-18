@@ -15,6 +15,8 @@ describe('enrich-standing-with-dao', () => {
   it('classifies protocol and sputnik accounts as DAOs', () => {
     expect(isHeuristicDaoAccountId('governance.onsocial.testnet')).toBe(true);
     expect(isHeuristicDaoAccountId('demo.sputnik-dao.near')).toBe(true);
+    expect(isHeuristicDaoAccountId('foo.sputnikv2.near')).toBe(true);
+    expect(isHeuristicDaoAccountId('guild.sputnikv2.testnet')).toBe(true);
     expect(isHeuristicDaoAccountId('alice.near')).toBe(false);
   });
 
