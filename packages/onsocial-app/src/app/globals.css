@@ -32366,7 +32366,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .dao-treasury-sheet {
   display: flex;
   flex-direction: column;
+  /* Same denser rhythm + inset as `.standing-panel` / `.endorsements-panel`. */
   gap: 0.65rem;
+  padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
 }
 
 .dao-members-empty,
