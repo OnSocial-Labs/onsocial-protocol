@@ -61,45 +61,59 @@ export function DiscoverGuildsPanel() {
   const [pending, setPending] = useState(true);
   const [searchPending, setSearchPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const searchRequestRef = useRef(0);
 
-  const loadBrowse = useCallback(async () => {
-    setPending(true);
-    setError(null);
-    try {
-      const client = createReadOnlyOnSocialClient();
-      const { items } = await client.query.groups.browse({
-        publicOnly: !accountId,
-        limit: BROWSE_LIMIT,
-      });
-      const cards = items.map((row) => guildSummaryCardFromBrowse(row));
-      setBrowseGuilds(cards);
-      setPending(false);
-      void enrichIndexedGuildSummaryCards(client, cards).then((withCounts) => {
-        setBrowseGuilds(withCounts);
-      });
-    } catch (cause) {
-      setPending(false);
-      setBrowseGuilds([]);
-      setError(
-        cause instanceof Error ? cause.message : 'Could not load guilds.'
-      );
-    }
-  }, [accountId]);
-
   useEffect(() => {
-    void loadBrowse();
-  }, [loadBrowse]);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setPending(true);
+        setError(null);
+      }
+    });
+
+    void (async () => {
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const { items } = await client.query.groups.browse({
+          publicOnly: !accountId,
+          limit: BROWSE_LIMIT,
+        });
+        if (cancelled) return;
+        const cards = items.map((row) => guildSummaryCardFromBrowse(row));
+        setBrowseGuilds(cards);
+        setPending(false);
+        const withCounts = await enrichIndexedGuildSummaryCards(client, cards);
+        if (!cancelled) setBrowseGuilds(withCounts);
+      } catch (cause) {
+        if (cancelled) return;
+        setPending(false);
+        setBrowseGuilds([]);
+        setError(
+          cause instanceof Error ? cause.message : 'Could not load guilds.'
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, reloadNonce]);
+
+  const retry = useCallback(() => {
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!searchQuery) {
-      setSearchResults(null);
-      setSearchPending(false);
       return;
     }
 
     const requestId = ++searchRequestRef.current;
-    setSearchPending(true);
+    queueMicrotask(() => {
+      setSearchPending(true);
+    });
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
@@ -126,6 +140,8 @@ export function DiscoverGuildsPanel() {
     return () => window.clearTimeout(timer);
   }, [accountId, searchQuery]);
 
+  const activeSearchResults = searchQuery ? searchResults : null;
+
   const visibleGuilds = useMemo(() => {
     const base = browseGuilds ?? [];
     if (!searchQuery) return base;
@@ -133,10 +149,10 @@ export function DiscoverGuildsPanel() {
     const localMatches = base.filter((card) =>
       guildCardMatchesQuery(card, needle)
     );
-    return searchResults
-      ? mergeGuildCards(searchResults, localMatches)
+    return activeSearchResults
+      ? mergeGuildCards(activeSearchResults, localMatches)
       : localMatches;
-  }, [browseGuilds, searchQuery, searchResults]);
+  }, [activeSearchResults, browseGuilds, searchQuery]);
 
   const showSkeleton = browseGuilds == null && pending;
   const showSearchBusy = Boolean(searchQuery) && searchPending;
@@ -153,7 +169,7 @@ export function DiscoverGuildsPanel() {
       aria-labelledby="discover-tab-guilds"
       className="standing-panel-body discover-guilds-panel"
     >
-      {error ? <ListLoadError message={error} onRetry={() => void loadBrowse()} /> : null}
+      {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
       {showSkeleton || showSearchBusy ? (
         <p className="daos-index-empty">
