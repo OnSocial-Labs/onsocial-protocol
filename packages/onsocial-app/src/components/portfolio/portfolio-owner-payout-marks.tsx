@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { FireFillIcon, GiftIcon, ShopFillIcon } from '@onsocial/ui';
+import { useRouter } from 'next/navigation';
+import {
+  FireFillIcon,
+  GiftFillIcon,
+  MessageFillIcon,
+  ShopFillIcon,
+} from '@onsocial/ui';
+import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import {
   PortfolioListingActionsMark,
   PortfolioListingActionsSheet,
@@ -18,6 +25,7 @@ import {
   type ListingActionItem,
 } from '@/features/scarces/listing-actions';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { messagesPath } from '@/lib/app-routes';
 import { extractNearTransactionHashes } from '@/lib/app-near-rpc';
 import { refreshAppSocialBalanceAfterClaim } from '@/lib/app-social-balance-sync';
 import { formatSocialCompact } from '@/lib/format-social-balance';
@@ -37,11 +45,14 @@ interface PortfolioOwnerPayoutMarksProps {
 /**
  * Owner face — same gesture chrome as Stand / Endorse / Support:
  * animated mark (reputation gift / endorse shop / listing actions) + quiet
- * amount or count; soft wash. Tap opens drawers.
+ * amount or count; soft wash. Tap opens drawers. Messages uses the
+ * launcher bubble + unread count on the same row.
  */
 export function PortfolioOwnerPayoutMarks({
   accountId,
 }: PortfolioOwnerPayoutMarksProps) {
+  const router = useRouter();
+  const dmUnread = useDmUnreadCount();
   const { getClient } = useAppOnSocialClient();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
   const [claimableYocto, setClaimableYocto] = useState<bigint | null>(null);
@@ -196,7 +207,7 @@ export function PortfolioOwnerPayoutMarks({
           <div
             className="portfolio-identity-gesture-row"
             role="group"
-            aria-label="Payouts and listings"
+            aria-label="Payouts, listings, and messages"
           >
             {showListings ? (
               <PortfolioListingActionsMark
@@ -223,7 +234,7 @@ export function PortfolioOwnerPayoutMarks({
                   aria-hidden
                 >
                   <span className="portfolio-payout-mark-icon portfolio-payout-mark-icon--nudge">
-                    <GiftIcon className="portfolio-payout-mark-svg" />
+                    <GiftFillIcon className="portfolio-payout-mark-svg" />
                   </span>
                 </span>
                 <span className="portfolio-payout-mark-amount">
@@ -284,6 +295,38 @@ export function PortfolioOwnerPayoutMarks({
               {boostLabel ? (
                 <span className="portfolio-payout-mark-amount">
                   {boostLabel}
+                </span>
+              ) : null}
+            </button>
+
+            <span className="portfolio-identity-gesture-sep" aria-hidden>
+              ·
+            </span>
+
+            <button
+              type="button"
+              className="portfolio-identity-gesture portfolio-identity-gesture--payout group"
+              onClick={() => router.push(messagesPath())}
+              aria-label={
+                dmUnread > 0
+                  ? dmUnread === 1
+                    ? '1 unread message'
+                    : `${dmUnread} unread messages`
+                  : 'Messages'
+              }
+            >
+              <span className="signal-group signal-group-standing" aria-hidden>
+                <span
+                  className={`portfolio-payout-mark-icon portfolio-payout-mark-icon--messages${
+                    dmUnread > 0 ? ' portfolio-payout-mark-icon--nudge' : ''
+                  }`}
+                >
+                  <MessageFillIcon className="portfolio-payout-mark-svg" />
+                </span>
+              </span>
+              {dmUnread > 0 ? (
+                <span className="portfolio-payout-mark-amount">
+                  {dmUnread > 9 ? '9+' : dmUnread}
                 </span>
               ) : null}
             </button>

@@ -19,7 +19,6 @@ import { useViewerBlock } from '@/hooks/use-viewer-block';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import {
@@ -32,7 +31,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
-import { messagesPath, notificationsPath } from '@/lib/app-routes';
+import { notificationsPath } from '@/lib/app-routes';
 
 interface PortfolioIdentityGesturesProps {
   pageAccountId: string;
@@ -44,8 +43,8 @@ interface PortfolioIdentityGesturesProps {
 
 /**
  * Face gesture slot under bio.
- * Connected visitor: Stand · Endorse · Support · More (mute/block).
- * Owner: gift + shop payout marks (open drawers). Pre-connect: hidden.
+ * Connected visitor: Stand · Endorse · Support · Message · More (mute/block).
+ * Owner: payout marks + Messages on one row; Activity below. Pre-connect: hidden.
  */
 export function PortfolioIdentityGestures({
   pageAccountId,
@@ -61,7 +60,6 @@ export function PortfolioIdentityGestures({
     useViewerStanding(pageAccountId);
   const { updateMute, isMuting, isMutePendingForTarget } = useViewerMute();
   const { updateBlock, isBlocking, isBlockPendingForTarget } = useViewerBlock();
-  const dmUnread = useDmUnreadCount();
   const activityUnread = useNotificationsUnreadCount();
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
@@ -199,18 +197,6 @@ export function PortfolioIdentityGestures({
               aria-label={`${activityUnread} unread`}
             >
               {activityUnread > 9 ? '9+' : activityUnread}
-            </span>
-          ) : null}
-        </button>
-        <button
-          type="button"
-          className="portfolio-identity-gesture portfolio-identity-gesture--message"
-          onClick={() => router.push(messagesPath())}
-        >
-          Messages
-          {dmUnread > 0 ? (
-            <span className="messages-nav-badge" aria-label={`${dmUnread} unread`}>
-              {dmUnread > 9 ? '9+' : dmUnread}
             </span>
           ) : null}
         </button>
