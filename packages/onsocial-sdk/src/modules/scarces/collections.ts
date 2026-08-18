@@ -669,9 +669,7 @@ export class ScarcesCollectionsApi {
       },
       'scarces.cancelCollection',
       this._relayOpts(
-        depositYocto !== undefined
-          ? { depositYocto }
-          : { confirmation: true }
+        depositYocto !== undefined ? { depositYocto } : { confirmation: true }
       )
     );
   }
