@@ -8,7 +8,9 @@ import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { fetchProfileGuilds } from '@/lib/profile-guilds';
 import { fetchPageDrawerMeta } from '@/lib/fetch-page-drawer-meta';
+import { loadDaoPageData } from '@/lib/load-dao-page';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
+import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
@@ -16,6 +18,7 @@ import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root'
 import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
 import { PortfolioSignalsShell } from '@/components/portfolio/portfolio-signals-shell';
 import { PortfolioStatsRow } from '@/components/portfolio/portfolio-stats-row';
+import { resolvePortfolioDaoEntity } from '@/lib/portfolio-dao-entity';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +73,7 @@ export default async function AccountPage({
     search?.avatarMode ?? search?.avatar ?? null
   );
   // Hero-critical path only — drawer peeks stream via Suspense.
-  const [shell, signals, guilds, drawerMetaBase] = await Promise.all([
+  const [shell, signals, guilds, drawerMetaBase, daoEntity] = await Promise.all([
     loadProfileShell(accountId),
     fetchProfileSignals(accountId),
     fetchProfileGuilds(accountId),
@@ -80,8 +83,15 @@ export default async function AccountPage({
       guildCount: data.stats.groupCount ?? 0,
       postCount: data.stats.postCount ?? 0,
     }),
+    resolvePortfolioDaoEntity(accountId),
   ]);
-  const name = displayName(accountId, shell?.name ?? undefined);
+  const daoPage = daoEntity.isDao
+    ? await loadDaoPageData(accountId)
+    : null;
+  const name = displayName(
+    accountId,
+    shell?.name ?? daoPage?.branding.name ?? undefined
+  );
   const postCount = Math.max(
     signals?.postCount ?? 0,
     data.stats.postCount ?? 0
@@ -99,7 +109,7 @@ export default async function AccountPage({
       <PortfolioProfileSeed
         accountId={accountId}
         displayName={name}
-        avatarUrl={shell?.avatarUrl ?? null}
+        avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl ?? null}
         counts={{
           incoming: signals?.standingCount ?? 0,
           outgoing: signals?.standingWithCount ?? 0,
@@ -109,6 +119,7 @@ export default async function AccountPage({
       <PortfolioShellRoot
         mood={mood}
         pageAccountId={accountId}
+        isDao={daoEntity.isDao}
         avatarMedia={shell?.avatarMedia ?? null}
         bannerMedia={shell?.bannerMedia ?? null}
         committedAvatarMode={committedAvatarMode}
@@ -117,8 +128,8 @@ export default async function AccountPage({
         config={data.config}
         stats={data.stats}
         guilds={guilds}
-        profileName={shell?.name}
-        bio={shell?.bio}
+        profileName={shell?.name ?? daoPage?.branding.name}
+        bio={shell?.bio ?? daoPage?.branding.description}
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
         deferredShelf={
@@ -127,17 +138,32 @@ export default async function AccountPage({
       >
         <PortfolioIdentity
           accountId={accountId}
-          profileName={shell?.name}
-          bio={shell?.bio}
+          profileName={shell?.name ?? daoPage?.branding.name}
+          bio={shell?.bio ?? daoPage?.branding.description}
           tagline={tagline}
-          avatarUrl={shell?.avatarUrl}
+          avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}
+          isDao={daoEntity.isDao}
+          kindLabel={daoEntity.kindLabel}
         />
 
-        <PortfolioActivateStrip
-          pageAccountId={accountId}
-          activated={Boolean(data.activated)}
-        />
+        {daoEntity.isDao ? null : (
+          <PortfolioActivateStrip
+            pageAccountId={accountId}
+            activated={Boolean(data.activated)}
+          />
+        )}
+
+        {daoEntity.isDao ? (
+          <PortfolioDaoOrgChrome
+            daoAccountId={accountId}
+            daoName={name}
+            initialBranding={daoPage?.branding ?? null}
+            configName={daoPage?.configName ?? null}
+            configPurpose={daoPage?.configPurpose ?? null}
+            configMetadata={daoPage?.configMetadata ?? ''}
+          />
+        ) : null}
 
         {signals ? (
           <PortfolioSignalsShell accountId={accountId} signals={signals} />

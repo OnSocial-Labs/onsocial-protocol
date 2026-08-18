@@ -35,6 +35,7 @@ import { useApplyPageFace } from '@/hooks/use-apply-page-face';
 import { useApplyPageMoodTint } from '@/hooks/use-apply-page-mood-tint';
 import { useApplyProfileMedia } from '@/hooks/use-apply-profile-media';
 import { useApplyPageLaunch } from '@/hooks/use-apply-page-launch';
+import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
 import { usePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import { usePortfolioCustomize } from '@/contexts/portfolio-customize-context';
 import { usePortfolioMoodPreview } from '@/contexts/portfolio-mood-preview-context';
@@ -47,6 +48,7 @@ interface PortfolioCustomizeProps {
   pageAccountId: string;
   config: PublicPageConfig;
   mood: ResolvedMood;
+  isDao?: boolean;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
   bannerKind?: ResolvedPageHeroKind | null;
@@ -97,6 +99,7 @@ export function PortfolioCustomize({
   pageAccountId,
   config,
   mood,
+  isDao = false,
   avatarUrl = null,
   bannerUrl = null,
   bannerKind = null,
@@ -123,10 +126,13 @@ export function PortfolioCustomize({
     connect,
     error: faceError,
     isApplying: isApplyingFace,
-    isOwner,
+    isOwner: isAccountOwner,
     needsConnect,
     walletAccountId,
   } = useApplyPageFace(pageAccountId, config);
+  const { canPropose } = useDaoPageCapability(pageAccountId, isDao);
+  const canEditMood = isAccountOwner || canPropose;
+  const canCustomizeFace = isAccountOwner;
   const {
     applyProfileAvatar,
     applyProfileBanner,
@@ -199,25 +205,38 @@ export function PortfolioCustomize({
   }, []);
 
   useEffect(() => {
-    if (!customizeApi || !isOwner) {
+    if (!customizeApi || !canCustomizeFace) {
       return;
     }
 
     customizeApi.registerOpen(openCustomizeSheet);
     return () => customizeApi.unregisterOpen();
-  }, [customizeApi, isOwner, openCustomizeSheet]);
+  }, [customizeApi, canCustomizeFace, openCustomizeSheet]);
 
   useEffect(() => {
-    if (!isOwner) {
+    if (!canEditMood) {
       return;
     }
 
     registerMoodSheetOpen(openMoodSheet);
     return () => unregisterMoodSheetOpen();
-  }, [isOwner, openMoodSheet, registerMoodSheetOpen, unregisterMoodSheetOpen]);
+  }, [canEditMood, openMoodSheet, registerMoodSheetOpen, unregisterMoodSheetOpen]);
 
-  if (!isOwner) {
+  if (!canEditMood) {
     return null;
+  }
+
+  if (!canCustomizeFace) {
+    return (
+      <MoodSheet
+        open={moodOpen}
+        pageAccountId={pageAccountId}
+        pageConfig={config}
+        activeMood={mood}
+        isDao={isDao}
+        onClose={() => setMoodOpen(false)}
+      />
+    );
   }
 
   function handlePreview(avatarMode: PageAvatarMode) {
@@ -655,6 +674,7 @@ export function PortfolioCustomize({
         pageAccountId={pageAccountId}
         pageConfig={config}
         activeMood={mood}
+        isDao={isDao}
         onClose={() => setMoodOpen(false)}
       />
     </>

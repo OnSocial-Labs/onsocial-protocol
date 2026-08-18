@@ -8,27 +8,34 @@ export type DaoManageAction =
   | 'stake'
   | 'settings'
   | 'info'
-  | 'edit';
+  | 'edit'
+  | 'claim-support';
 
 /**
- * Portfolio Manage hub — Propose / Stake / Settings / Info / edit.
+ * Portfolio Manage hub — Propose / Stake / Settings / Info / edit / claim.
  * Members and Treasury stay on the face chips (not duplicated here).
  */
 export function DaoManageSheet({
   open,
   daoName,
   canEdit,
+  claimSupportLabel,
+  claimSupportPending = false,
   onClose,
   onAction,
 }: {
   open: boolean;
   daoName?: string;
   canEdit: boolean;
+  /** When set, council can propose claiming the Support pot. */
+  claimSupportLabel?: string | null;
+  claimSupportPending?: boolean;
   onClose: () => void;
   onAction: (action: DaoManageAction) => void;
 }) {
   const [closing, setClosing] = useState(false);
   const sheetOpen = open && !closing;
+  const showClaimSupport = Boolean(canEdit && claimSupportLabel);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -42,7 +49,9 @@ export function DaoManageSheet({
 
   const run = (action: DaoManageAction) => {
     onAction(action);
-    requestClose();
+    if (action !== 'claim-support') {
+      requestClose();
+    }
   };
 
   return (
@@ -86,6 +95,14 @@ export function DaoManageSheet({
             label="Edit profile"
             description="Cover, crest, name, and about"
             onClick={() => run('edit')}
+          />
+        ) : null}
+        {showClaimSupport ? (
+          <OsSurfaceRow
+            label={claimSupportPending ? 'Claiming…' : 'Claim support'}
+            description={`Propose collecting ${claimSupportLabel} to the DAO wallet`}
+            disabled={claimSupportPending}
+            onClick={() => run('claim-support')}
           />
         ) : null}
       </OsSurfaceRowList>

@@ -4,7 +4,10 @@ import { useState } from 'react';
 import { PortfolioSignals } from '@/components/portfolio/portfolio-signals';
 import { ReputationFactsSheet } from '@/features/leaderboard/reputation-facts-sheet';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
-import type { ProfileSignals } from '@/lib/profile-signals';
+import {
+  profileSignalsHaveFaceMetrics,
+  type ProfileSignals,
+} from '@/lib/profile-signals';
 
 interface PortfolioSignalsShellProps {
   accountId: string;
@@ -18,6 +21,10 @@ export function PortfolioSignalsShell({
   const { viewerStanding, theyStandWithViewer, isLoading } =
     useViewerRelationship(accountId);
   const [reputationOpen, setReputationOpen] = useState(false);
+
+  if (!profileSignalsHaveFaceMetrics(signals)) {
+    return null;
+  }
 
   return (
     <>

@@ -25,7 +25,7 @@ describe('dao directory entries', () => {
     expect(entry.name).toBe('Crested DAO');
     expect(entry.subtitle).toBe('Purpose line');
     expect(entry.avatarUrl).toContain('bafyCrest');
-    expect(entry.href).toContain('/dao/demo.sputnikv2.testnet');
+    expect(entry.href).toContain('/@demo.sputnikv2.testnet');
   });
 
   it('uses role labels for My DAOs subtitle', () => {

@@ -38,6 +38,7 @@ export interface MoodSheetProps {
   pageAccountId: string;
   pageConfig: PublicPageConfig;
   activeMood: ResolvedMood;
+  isDao?: boolean;
   onClose: () => void;
 }
 
@@ -46,13 +47,21 @@ export function MoodSheet({
   pageAccountId,
   pageConfig,
   activeMood,
+  isDao = false,
   onClose,
 }: MoodSheetProps) {
   const { setPreviewMood, registerMoodSheetClose, unregisterMoodSheetClose } =
     usePortfolioMoodPreview();
-  const { connect, isApplying, isOwner, needsConnect, walletAccountId } =
-    useApplyMood(pageAccountId);
+  const {
+    connect,
+    isApplying,
+    isOwner,
+    isAccountOwner,
+    needsConnect,
+    walletAccountId,
+  } = useApplyMood(pageAccountId, { isDao });
   const { isUnlocking } = useUnlockPremiumMood(pageAccountId);
+  const proposeOnly = isDao && isOwner && !isAccountOwner;
 
   useScrollLock(open);
 
@@ -99,7 +108,13 @@ export function MoodSheet({
           type="button"
           data-mood={preset.id}
           className={`mood-sheet-item${isActive ? ' is-active' : ''}${isOwner ? ' is-selectable' : ''}${!unlocked ? ' is-locked' : ''}`}
-          disabled={!isOwner || isApplying || isUnlocking || isActive}
+          disabled={
+            !isOwner ||
+            isApplying ||
+            isUnlocking ||
+            isActive ||
+            (!unlocked && !isAccountOwner)
+          }
           aria-current={isActive ? 'true' : undefined}
           onClick={() => {
             if (!isOwner || isActive) {
@@ -142,10 +157,12 @@ export function MoodSheet({
           <header className="mood-sheet-header">
             <div>
               <h2 id="mood-sheet-title" className="mood-sheet-title">
-                Moods
+                {proposeOnly ? 'Propose mood' : 'Moods'}
               </h2>
               <p className="mood-sheet-copy">
-                Choose a page mood. We preview it first, then you save it.
+                {proposeOnly
+                  ? 'Preview a mood, then propose it for council approval.'
+                  : 'Choose a page mood. We preview it first, then you save it.'}
               </p>
             </div>
             <SheetCloseButton onClick={onClose} ariaLabel="Close moods" />
@@ -157,7 +174,9 @@ export function MoodSheet({
       {needsConnect ? (
         <div className="mood-sheet-actions">
           <p className="mood-sheet-copy">
-            Connect the wallet for @{pageAccountId} to apply a mood.
+            {isDao
+              ? 'Connect a council wallet with propose rights to set this DAO mood.'
+              : `Connect the wallet for @${pageAccountId} to apply a mood.`}
           </p>
           <button
             type="button"
@@ -171,11 +190,13 @@ export function MoodSheet({
 
       {!needsConnect &&
       walletAccountId &&
+      !isOwner &&
       !accountIdsEqual(walletAccountId, pageAccountId) ? (
         <div className="mood-sheet-actions">
           <p className="mood-sheet-copy">
-            Connected as @{walletAccountId}. Switch to @{pageAccountId} to apply
-            moods here.
+            {isDao
+              ? `Connected as @${walletAccountId}. You need council propose rights on this DAO.`
+              : `Connected as @${walletAccountId}. Switch to @${pageAccountId} to apply moods here.`}
           </p>
         </div>
       ) : null}

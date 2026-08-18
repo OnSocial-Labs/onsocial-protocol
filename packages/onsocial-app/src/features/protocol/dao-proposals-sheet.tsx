@@ -11,7 +11,7 @@ const PROPOSALS_Z = 74;
 
 /**
  * DAO proposals overlay — Standing-style slide-over with the workspace feed.
- * Share via `/dao/[id]?proposal=&status=&q=` (portfolio opens this sheet).
+ * Share via `/@id?proposal=&status=&q=` (portfolio opens this sheet).
  */
 export function DaoProposalsSheet({
   open,

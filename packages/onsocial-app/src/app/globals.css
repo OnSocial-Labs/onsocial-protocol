@@ -5968,6 +5968,94 @@ a.os-surface-row {
     object-fit: cover;
   }
 
+  /* DAO org crest — squareish, matches /dao workspace crest radius. */
+  .portfolio-frame[data-entity='dao'] .portfolio-avatar,
+  .portfolio-frame[data-entity='dao'] .portfolio-avatar-fallback,
+  .portfolio-identity[data-entity='dao'] .portfolio-avatar,
+  .portfolio-identity[data-entity='dao'] .portfolio-avatar-fallback {
+    border-radius: 1rem;
+  }
+
+  .portfolio-entity-kind {
+    margin: 0 0 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  .portfolio-entity-kind-switch {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 0.1rem;
+    border-radius: 999px;
+    background: rgb(var(--fg-rgb) / 0.08);
+    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .portfolio-entity-kind-sep {
+    display: none;
+  }
+
+  .portfolio-entity-kind-option {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    color: rgb(var(--fg-rgb) / 0.38);
+    font: inherit;
+    font-weight: 600;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    text-decoration: none;
+    transition:
+      color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .portfolio-entity-kind-option:hover {
+    color: rgb(var(--fg-rgb) / 0.72);
+  }
+
+  .portfolio-entity-kind-option.is-active {
+    color: rgb(var(--fg-rgb) / 0.92);
+    background: rgb(var(--fg-rgb) / 0.14);
+  }
+
+  .portfolio-frame[data-mood] .portfolio-entity-kind {
+    color: color-mix(in srgb, var(--mood-muted) 72%, var(--mood-text));
+  }
+
+  .portfolio-frame[data-mood] .portfolio-entity-kind-switch {
+    background: color-mix(in srgb, var(--mood-text) 8%, transparent);
+  }
+
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option {
+    color: color-mix(in srgb, var(--mood-muted) 58%, transparent);
+  }
+
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option:hover {
+    color: color-mix(in srgb, var(--mood-muted) 28%, var(--mood-text));
+  }
+
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active {
+    color: var(--mood-text);
+    background: color-mix(in srgb, var(--mood-text) 16%, transparent);
+  }
+
+  button.portfolio-stats-link {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+
   /* Page-column cutout — tracks --mood-bg; Minimal uses accent glow instead. */
   .portfolio-frame:not([data-mood-only='true']) .portfolio-avatar,
   .portfolio-frame:not([data-mood-only='true']) .portfolio-avatar-fallback {

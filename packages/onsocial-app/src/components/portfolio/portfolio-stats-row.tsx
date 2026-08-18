@@ -16,6 +16,7 @@ interface StatItem {
   href?: string;
 }
 
+/** Face stats — omit zeros (dormant / empty faces stay quiet). */
 export function PortfolioStatsRow({ accountId, stats }: PortfolioStatsRowProps) {
   const items: StatItem[] = [
     {
@@ -27,13 +28,17 @@ export function PortfolioStatsRow({ accountId, stats }: PortfolioStatsRowProps) 
       count: stats.postCount,
       label: 'posts',
     },
-  ];
+  ].filter((item) => item.count > 0);
 
   if (stats.badgeCount > 0) {
     items.push({
       count: stats.badgeCount,
       label: 'badges',
     });
+  }
+
+  if (items.length === 0) {
+    return null;
   }
 
   return (

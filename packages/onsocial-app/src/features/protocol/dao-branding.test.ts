@@ -137,7 +137,7 @@ describe('dao branding', () => {
 
   it('builds dao portfolio paths', () => {
     expect(daoPath('Demo.Sputnik-Dao.Near')).toBe(
-      '/dao/demo.sputnik-dao.near'
+      '/@demo.sputnik-dao.near'
     );
     expect(resolveDaoEntityKind('orphan.sputnik-dao.near')).toBe('community');
   });

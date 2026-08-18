@@ -32,6 +32,7 @@ import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter
 import { txToastError, txToastSuccess } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { notificationsPath } from '@/lib/app-routes';
+import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 
 interface PortfolioIdentityGesturesProps {
   pageAccountId: string;
@@ -39,12 +40,16 @@ interface PortfolioIdentityGesturesProps {
   bio?: string | null;
   avatarUrl?: string | null;
   mood?: ResolvedMood | null;
+  /** DAO org face — Stand · Support · More (no Endorse / Message). */
+  isDao?: boolean;
 }
 
 /**
  * Face gesture slot under bio.
  * Connected visitor: Stand · Endorse · Support · Message · More (mute/block).
- * Owner: payout marks + Messages on one row; Activity below. Pre-connect: hidden.
+ * DAO visitor: Stand · Support · More.
+ * Owner: payout marks + Activity. DAO self: hidden (org tools row owns Manage).
+ * Pre-connect: hidden.
  */
 export function PortfolioIdentityGestures({
   pageAccountId,
@@ -52,6 +57,7 @@ export function PortfolioIdentityGestures({
   bio,
   avatarUrl,
   mood = null,
+  isDao = false,
 }: PortfolioIdentityGesturesProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
@@ -182,6 +188,9 @@ export function PortfolioIdentityGestures({
   }
 
   if (isSelf) {
+    if (isDao) {
+      return null;
+    }
     return (
       <div className="portfolio-identity-gestures">
         <PortfolioOwnerPayoutMarks accountId={pageAccountId} />
@@ -213,6 +222,9 @@ export function PortfolioIdentityGestures({
       });
       return;
     }
+    if (isDao) {
+      rememberDaoStandingTarget(pageAccountId);
+    }
     try {
       await updateStanding(
         {
@@ -220,6 +232,7 @@ export function PortfolioIdentityGestures({
           name: profileName?.trim() || null,
           bio: bio ?? null,
           avatarUrl: avatarUrl ?? null,
+          isDao: isDao || undefined,
         },
         !viewerStanding
       );
@@ -259,21 +272,25 @@ export function PortfolioIdentityGestures({
             <StandingToggle active={viewerStanding} pending={pending} />
           </button>
 
-          <span className="portfolio-identity-gesture-sep" aria-hidden>
-            ·
-          </span>
+          {!isDao ? (
+            <>
+              <span className="portfolio-identity-gesture-sep" aria-hidden>
+                ·
+              </span>
 
-          <button
-            type="button"
-            className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
-            onClick={() => setEndorseOpen(true)}
-            aria-label={`Endorse ${label}`}
-          >
-            <span className="signal-group signal-group-endorse" aria-hidden>
-              <ProtocolMotionArrow className="signal-metric-arrow" />
-            </span>
-            Endorse
-          </button>
+              <button
+                type="button"
+                className="portfolio-identity-gesture portfolio-identity-gesture--endorse group"
+                onClick={() => setEndorseOpen(true)}
+                aria-label={`Endorse ${label}`}
+              >
+                <span className="signal-group signal-group-endorse" aria-hidden>
+                  <ProtocolMotionArrow className="signal-metric-arrow" />
+                </span>
+                Endorse
+              </button>
+            </>
+          ) : null}
 
           <span className="portfolio-identity-gesture-sep" aria-hidden>
             ·
@@ -291,28 +308,32 @@ export function PortfolioIdentityGestures({
             Support
           </button>
 
-          <span className="portfolio-identity-gesture-sep" aria-hidden>
-            ·
-          </span>
+          {!isDao ? (
+            <>
+              <span className="portfolio-identity-gesture-sep" aria-hidden>
+                ·
+              </span>
 
-          <button
-            type="button"
-            className="portfolio-identity-gesture portfolio-identity-gesture--message group"
-            disabled={messagingBlocked}
-            onClick={() => {
-              if (messagingBlocked) return;
-              setMessageOpen(true);
-            }}
-            aria-label={
-              viewerMuted
-                ? `Unmute to message ${label}`
-                : blockEitherWay
-                  ? `Messaging unavailable for ${label}`
-                  : `Message ${label}`
-            }
-          >
-            Message
-          </button>
+              <button
+                type="button"
+                className="portfolio-identity-gesture portfolio-identity-gesture--message group"
+                disabled={messagingBlocked}
+                onClick={() => {
+                  if (messagingBlocked) return;
+                  setMessageOpen(true);
+                }}
+                aria-label={
+                  viewerMuted
+                    ? `Unmute to message ${label}`
+                    : blockEitherWay
+                      ? `Messaging unavailable for ${label}`
+                      : `Message ${label}`
+                }
+              >
+                Message
+              </button>
+            </>
+          ) : null}
 
           <span className="portfolio-identity-gesture-sep" aria-hidden>
             ·
@@ -328,21 +349,15 @@ export function PortfolioIdentityGestures({
           </button>
         </div>
       )}
-      <DmComposeSheet
-        open={messageOpen}
-        peerAccountId={pageAccountId}
-        peerName={profileName}
-        mood={mood}
-        onClose={() => setMessageOpen(false)}
-      />
-      <EndorseComposeSheet
-        open={endorseOpen}
-        pageAccountId={pageAccountId}
-        profileName={profileName}
-        avatarUrl={avatarUrl}
-        mood={mood}
-        onOpenChange={setEndorseOpen}
-      />
+      {!isDao ? (
+        <DmComposeSheet
+          open={messageOpen}
+          peerAccountId={pageAccountId}
+          peerName={profileName}
+          mood={mood}
+          onClose={() => setMessageOpen(false)}
+        />
+      ) : null}
       <ProfileSupportSheet
         open={supportOpen}
         pageAccountId={pageAccountId}
@@ -351,6 +366,16 @@ export function PortfolioIdentityGestures({
         mood={mood}
         onOpenChange={setSupportOpen}
       />
+      {!isDao ? (
+        <EndorseComposeSheet
+          open={endorseOpen}
+          pageAccountId={pageAccountId}
+          profileName={profileName}
+          avatarUrl={avatarUrl}
+          mood={mood}
+          onOpenChange={setEndorseOpen}
+        />
+      ) : null}
       <ActionDrawer
         open={moreOpen}
         onClose={

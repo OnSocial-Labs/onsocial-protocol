@@ -10,6 +10,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioShellProps {
   pageAccountId: string;
+  isDao?: boolean;
   mood: ResolvedMood;
   config: PublicPageConfig;
   avatarMode?: PageAvatarMode;
@@ -22,6 +23,7 @@ interface PortfolioShellProps {
 
 export function PortfolioShell({
   pageAccountId,
+  isDao = false,
   mood,
   config,
   avatarMode = 'standard',
@@ -50,6 +52,7 @@ export function PortfolioShell({
       ref={portalHostRef}
       className="frame app-surface portfolio-frame"
       data-page-account={pageAccountId}
+      data-entity={isDao ? 'dao' : undefined}
       data-mood={mood.id}
       data-mood-preview={isPreviewingMood ? 'true' : undefined}
       data-has-banner={hasBanner ? 'true' : undefined}
