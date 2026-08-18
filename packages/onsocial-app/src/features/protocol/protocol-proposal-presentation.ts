@@ -1,4 +1,4 @@
-import { SOCIAL_TOKEN_CONTRACT } from '@/lib/app-config';
+import { BOOST_CONTRACT, SOCIAL_TOKEN_CONTRACT } from '@/lib/app-config';
 import { yoctoToNear } from '@/lib/app-near-rpc';
 import { yoctoToSocial } from '@/lib/format-social-balance';
 
@@ -179,6 +179,36 @@ function parseFundSeasonPoolTransferMsg(msg: string | null): {
   }
 }
 
+function parseBoostLockTransferMsg(msg: string | null): {
+  action: string | null;
+  months: number | null;
+} {
+  if (!msg?.trim()) return { action: null, months: null };
+  try {
+    const parsed = JSON.parse(msg) as Record<string, unknown>;
+    const months =
+      typeof parsed.months === 'number' && Number.isFinite(parsed.months)
+        ? parsed.months
+        : typeof parsed.months === 'string' && /^\d+$/.test(parsed.months.trim())
+          ? Number(parsed.months.trim())
+          : null;
+    return {
+      action:
+        typeof parsed.action === 'string' && parsed.action.trim()
+          ? parsed.action.trim()
+          : null,
+      months,
+    };
+  } catch {
+    return { action: null, months: null };
+  }
+}
+
+function isBoostContract(accountId: string | null): boolean {
+  if (!accountId) return false;
+  return accountId.trim().toLowerCase() === BOOST_CONTRACT.toLowerCase();
+}
+
 function formatRoutingSummary(config: unknown): string {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     return 'No routing';
@@ -204,6 +234,7 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
   actionId: string | null;
   seasonId: string | null;
   transferCallMsg: string | null;
+  transferCallReceiverId: string | null;
   config: Record<string, unknown> | null;
   seasonLabel: string | null;
 } {
@@ -216,6 +247,7 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
     actionId: null,
     seasonId: null,
     transferCallMsg: null,
+    transferCallReceiverId: null,
     config: null,
     seasonLabel: null,
   };
@@ -257,6 +289,7 @@ function getFunctionCallShape(kind: Record<string, unknown> | undefined): {
       fundMsg.seasonId ??
       readStringField(config, 'season_id'),
     transferCallMsg: msg,
+    transferCallReceiverId: readStringField(args, 'receiver_id'),
     config,
     seasonLabel:
       readStringField(args, 'label') ?? readStringField(config, 'label'),
@@ -461,6 +494,35 @@ export function deriveProtocolProposalPresentation({
         targetValue: amountLabel ?? seasonId,
         subjectText: seasonId,
         subjectEyebrow: seasonId ? 'Season' : null,
+        showProposerSeparately: Boolean(normalizedProposer),
+      });
+    }
+
+    const boostMsg = parseBoostLockTransferMsg(shape.transferCallMsg);
+    if (
+      shape.methodName === 'ft_transfer_call' &&
+      isSocialTokenContract(shape.receiverId) &&
+      isBoostContract(shape.transferCallReceiverId) &&
+      boostMsg.action === 'lock'
+    ) {
+      const amountLabel = shape.amountYocto
+        ? `${yoctoToSocial(shape.amountYocto)} SOCIAL`
+        : null;
+      const monthsLabel =
+        boostMsg.months != null ? `${boostMsg.months} mo` : null;
+      return finish({
+        headline:
+          amountLabel && monthsLabel
+            ? `Boost lock ${amountLabel} for ${monthsLabel}`
+            : amountLabel
+              ? `Boost lock ${amountLabel}`
+              : 'Boost lock from treasury',
+        actionBadge: 'Boost',
+        targetKind: amountLabel ? 'amount' : 'contract',
+        targetValue: amountLabel ?? shortContractName(BOOST_CONTRACT),
+        targetAccountId: BOOST_CONTRACT,
+        subjectAccount: BOOST_CONTRACT,
+        subjectEyebrow: 'Boost',
         showProposerSeparately: Boolean(normalizedProposer),
       });
     }

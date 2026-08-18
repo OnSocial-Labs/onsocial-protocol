@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { rememberCommunityDao } from '@/features/protocol/dao-accounts';
 import type { DaoBranding } from '@/features/protocol/dao-branding';
 import { DaoEditSheet } from '@/features/protocol/dao-edit-sheet';
+import { DaoBoostSheet } from '@/features/protocol/dao-boost-sheet';
 import {
   DaoManageSheet,
   type DaoManageAction,
@@ -51,6 +52,7 @@ type PortfolioOverlay =
   | 'treasury'
   | 'proposals'
   | 'edit'
+  | 'boost'
   | null;
 
 type OptimisticDaoProfile = {
@@ -280,6 +282,10 @@ function PortfolioDaoOrgChromeInner({
         setClaimConfirmOpen(true);
         return;
       }
+      if (action === 'boost') {
+        setOverlay('boost');
+        return;
+      }
       // Propose / Stake / Settings / Info live on the proposals workspace.
       setOverlay('proposals');
       setToolRequest(action as DaoWorkspaceTool);
@@ -392,6 +398,18 @@ function PortfolioDaoOrgChromeInner({
           onSaved={handleSaved}
         />
       ) : null}
+
+      <DaoBoostSheet
+        open={overlay === 'boost'}
+        daoAccountId={daoAccountId}
+        daoName={title}
+        eligibility={liveEligibility}
+        eligibilityLoading={Boolean(accountId) && !liveEligibility}
+        onClose={() =>
+          setOverlay((current) => (current === 'boost' ? null : current))
+        }
+        onRequestStake={openStakeFromFace}
+      />
     </>
   );
 }

@@ -10,10 +10,11 @@ export type DaoManageAction =
   | 'info'
   | 'edit'
   | 'claim-support'
-  | 'propose-mood';
+  | 'propose-mood'
+  | 'boost';
 
 /**
- * Portfolio Manage hub — Propose / Stake / Settings / Info / edit / claim / mood.
+ * Portfolio Manage hub — Propose / Stake / Settings / Info / edit / claim / mood / boost.
  * Members and Treasury stay on the face chips (not duplicated here).
  */
 export function DaoManageSheet({
@@ -101,6 +102,13 @@ export function DaoManageSheet({
             label="Propose mood"
             description="Council Call to set the page look"
             onClick={() => run('propose-mood')}
+          />
+        ) : null}
+        {canEdit ? (
+          <OsSurfaceRow
+            label="Boost"
+            description="Lock treasury SOCIAL into Boost"
+            onClick={() => run('boost')}
           />
         ) : null}
         {showClaimSupport ? (
