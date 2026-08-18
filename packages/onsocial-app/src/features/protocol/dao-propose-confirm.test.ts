@@ -25,6 +25,7 @@ function eligibility(
     isInCooldown: false,
     availableToWithdraw: '0',
     canPropose: true,
+    isGroupMember: false,
     proposalBond: '100000000000000000000000', // 0.1 NEAR
     ...partial,
   };
@@ -51,10 +52,9 @@ describe('resolveDaoProposeBondGate', () => {
     const gate = resolveDaoProposeBondGate(
       eligibility({
         canPropose: false,
+        isGroupMember: true,
         nearBalance: '200000000000000000000000',
-      }),
-      false,
-      { isGroupMember: true }
+      })
     );
     expect(gate.needsStake).toBe(false);
     expect(gate.canPropose).toBe(true);

@@ -8,6 +8,7 @@ import {
 } from '@/features/protocol/my-daos-client';
 import {
   getProtocolGovernanceEligibility,
+  viewerCanProposeOnDao,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 
@@ -23,7 +24,7 @@ export type ComposerAuthorMode = typeof COMPOSER_AUTHOR_ME | typeof COMPOSER_AUT
 
 /**
  * DAOs the viewer can propose on — for composer “As DAO” author picker.
- * Membership from my-daos, then per-DAO `canPropose` eligibility.
+ * Membership from my-daos (Group roles), then weight OR group propose rights.
  */
 export function useComposerDaoAuthors(args: {
   active: boolean;
@@ -96,7 +97,13 @@ export function useComposerDaoAuthors(args: {
     const options: ComposerDaoAuthorOption[] = [];
     for (const row of memberships) {
       const eligibility = eligibilityByDao[row.daoAccountId];
-      if (!eligibility?.canPropose) continue;
+      // my-daos rows are Group memberships; treat indexed roles as group path
+      // even before eligibility returns, once eligibility loads use the helper.
+      const groupHint = row.roleNames.length > 0;
+      const canPropose = eligibility
+        ? viewerCanProposeOnDao(eligibility)
+        : groupHint;
+      if (!canPropose) continue;
       options.push({
         daoAccountId: row.daoAccountId,
         label: resolveDaoDirectoryName(row.daoAccountId, {

@@ -21,6 +21,7 @@ import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
 import type { DaoWorkspaceTool } from '@/features/protocol/dao-workspace-panel';
 import {
   getProtocolGovernanceEligibility,
+  viewerCanProposeOnDao,
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
@@ -194,7 +195,7 @@ function PortfolioDaoOrgChromeInner({
   const canEdit = Boolean(
     accountId &&
       eligibility?.key === eligibilityKey(accountId, daoAccountId) &&
-      eligibility.value.canPropose
+      viewerCanProposeOnDao(eligibility.value)
   );
   const liveEligibility =
     accountId && eligibility?.key === eligibilityKey(accountId, daoAccountId)

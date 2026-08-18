@@ -36,8 +36,11 @@ export function resolveDaoProposeBondGate(
   const near = BigInt(eligibility.nearBalance || '0');
   const bondOk = near >= bond;
   const shortfall = bond > near ? bond - near : 0n;
-  const canPropose =
-    Boolean(opts?.isGroupMember) || eligibility.canPropose;
+  const isGroupMember =
+    opts?.isGroupMember !== undefined
+      ? opts.isGroupMember
+      : Boolean(eligibility.isGroupMember);
+  const canPropose = isGroupMember || eligibility.canPropose;
 
   return {
     canPropose,

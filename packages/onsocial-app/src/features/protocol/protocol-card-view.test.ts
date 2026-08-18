@@ -365,6 +365,7 @@ describe('protocol create + stake helpers', () => {
       isInCooldown: false,
       availableToWithdraw: '20',
       canPropose: false,
+      isGroupMember: false,
       proposalBond: '0',
     };
     const plan = buildProtocolDelegationPlan(eligibility, 100n);

@@ -20,7 +20,7 @@ export function DaoProposeConfirmSheet({
   body,
   eligibility,
   eligibilityLoading = false,
-  isGroupMember = false,
+  isGroupMember,
   pending = false,
   proposeLabel = 'Propose',
   discardLabel = 'Discard',
