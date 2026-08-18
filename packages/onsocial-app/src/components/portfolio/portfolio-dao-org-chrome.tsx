@@ -371,6 +371,7 @@ function PortfolioDaoOrgChromeInner({
         open={overlay === 'members'}
         daoAccountId={daoAccountId}
         daoName={title}
+        onRequestStake={openStakeFromFace}
         onClose={() =>
           setOverlay((current) => (current === 'members' ? null : current))
         }

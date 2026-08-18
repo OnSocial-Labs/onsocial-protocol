@@ -22959,6 +22959,17 @@ a.os-surface-row {
   }
 
   /*
+   * DAO Members / Treasury — social-list inset (same as `.standing-panel`).
+   * Must target `.os-slide-over-content.…` like hub-manage so the pad survives
+   * CSS minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
+   */
+  .dao-members-slide .os-slide-over-content.dao-members-sheet,
+  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet {
+    gap: 0.65rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
+  }
+
+  /*
    * Guild edit workspace — full-bleed banner; fields pad themselves.
    * Footer pad stays on .guild-edit-sheet-footer.
    */
@@ -32366,7 +32377,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 .dao-treasury-sheet {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  /* Gap + pad live on `.dao-*-slide .os-slide-over-content.dao-*-sheet`. */
 }
 
 .dao-members-empty,
@@ -32385,11 +32396,12 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(180 60 60 / 0.95);
 }
 
-.dao-members-role-title {
+.dao-members-role-title,
+.dao-treasury-section-title {
   display: flex;
   align-items: baseline;
   gap: 0.45rem;
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.35rem;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -32397,11 +32409,53 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.45);
 }
 
-.dao-members-role-count {
+.dao-members-role-count,
+.dao-members-role-meta {
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
   color: rgb(var(--fg-rgb) / 0.35);
+}
+
+.dao-members-threshold,
+.dao-members-viewer-line {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgb(var(--fg-rgb) / 0.62);
+}
+
+.dao-members-viewer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.dao-members-stake {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.88);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.dao-members-stake:hover,
+.dao-members-stake:focus-visible {
+  color: rgb(var(--fg-rgb) / 1);
+}
+
+.dao-treasury-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .dao-treasury-balance {

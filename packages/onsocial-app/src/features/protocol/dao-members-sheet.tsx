@@ -4,32 +4,44 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Divider, StandingIdentity } from '@onsocial/ui';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
-import { listDaoGroupRoleSections } from '@/features/protocol/dao-group-roles';
+import { useAppWallet } from '@/contexts/app-wallet-context';
+import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
+import {
+  getProtocolGovernanceEligibility,
+  type ProtocolGovernanceEligibility,
+} from '@/features/protocol/protocol-eligibility';
 import { fetchProtocolFeed } from '@/features/protocol/protocol-feed-client';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
+import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
 
 const MEMBERS_Z = 74;
 
 /**
- * DAO group roles — people as circles (StandingIdentity).
+ * DAO membership — Group people as circles; Member roles show stake threshold
+ * + viewer weight when connected (Group-or-stake model).
  */
 export function DaoMembersSheet({
   open,
   daoAccountId,
   daoName,
   onClose,
+  onRequestStake,
 }: {
   open: boolean;
   daoAccountId: string;
   daoName?: string;
   onClose: () => void;
+  onRequestStake?: () => void;
 }) {
+  const { accountId } = useAppWallet();
   const [sheetOpen, setSheetOpen] = useState(open);
   if (open && !sheetOpen) setSheetOpen(true);
 
   const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(null);
+  const [eligibility, setEligibility] =
+    useState<ProtocolGovernanceEligibility | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +51,7 @@ export function DaoMembersSheet({
 
   const handleClosed = useCallback(() => {
     setPolicy(null);
+    setEligibility(null);
     setError(null);
     setPending(false);
     onClose();
@@ -71,12 +84,42 @@ export function DaoMembersSheet({
     };
   }, [sheetOpen, daoAccountId]);
 
-  const sections = useMemo(() => listDaoGroupRoleSections(policy), [policy]);
+  useEffect(() => {
+    if (!sheetOpen || !accountId) {
+      queueMicrotask(() => setEligibility(null));
+      return;
+    }
+    let cancelled = false;
+    void getProtocolGovernanceEligibility(accountId, daoAccountId).then(
+      (next) => {
+        if (!cancelled) setEligibility(next);
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [sheetOpen, accountId, daoAccountId]);
+
+  const sections = useMemo(() => listDaoMembershipSections(policy), [policy]);
   const accountIds = useMemo(
-    () => [...new Set(sections.flatMap((section) => section.accountIds))],
+    () => [
+      ...new Set(
+        sections.flatMap((section) =>
+          section.kind === 'group' ? section.accountIds : []
+        )
+      ),
+    ],
     [sections]
   );
   const profiles = usePostAuthorProfiles(accountIds);
+
+  const viewerDelegatedLabel = eligibility
+    ? formatSocialCompact(eligibility.delegatedWeight)
+    : null;
+  const viewerRemainingLabel = eligibility
+    ? formatSocialCompact(eligibility.remainingToThreshold)
+    : null;
+  const viewerMeetsStake = Boolean(eligibility?.canPropose);
 
   return (
     <OsSlideOverScreen
@@ -101,48 +144,84 @@ export function DaoMembersSheet({
       ) : null}
 
       {!pending && !error && sections.length === 0 ? (
-        <p className="dao-members-empty">
-          No group roles on this DAO yet.
-        </p>
+        <p className="dao-members-empty">No roles on this DAO yet.</p>
       ) : null}
 
-      {sections.map((section) => (
-        <section
-          key={section.roleName}
-          className="dao-members-role"
-          aria-label={section.roleName}
-        >
-          <h2 className="dao-members-role-title">
-            {section.roleName}
-            <span className="dao-members-role-count">
-              {section.accountIds.length}
-            </span>
-          </h2>
-          <div className="standing-list dao-members-list">
-            {section.accountIds.map((accountId, index) => {
-              const profile = profiles[accountId];
-              return (
-                <div key={accountId}>
-                  {index > 0 ? <Divider variant="item" /> : null}
-                  <div className="standing-row">
-                    <Link
-                      href={portfolioPath(accountId)}
-                      className="standing-row-main"
-                      scroll={false}
-                    >
-                      <StandingIdentity
-                        accountId={accountId}
-                        profileName={profile?.displayName}
-                        avatarUrl={profile?.avatarUrl}
-                      />
-                    </Link>
+      {sections.map((section) =>
+        section.kind === 'group' ? (
+          <section
+            key={`group:${section.roleName}`}
+            className="dao-members-role"
+            aria-label={section.roleName}
+          >
+            <h2 className="dao-members-role-title">
+              {section.roleName}
+              <span className="dao-members-role-count">
+                {section.accountIds.length}
+              </span>
+            </h2>
+            <div className="standing-list dao-members-list">
+              {section.accountIds.map((memberId, index) => {
+                const profile = profiles[memberId];
+                return (
+                  <div key={memberId}>
+                    {index > 0 ? <Divider variant="item" /> : null}
+                    <div className="standing-row">
+                      <Link
+                        href={portfolioPath(memberId)}
+                        className="standing-row-main"
+                        scroll={false}
+                      >
+                        <StandingIdentity
+                          accountId={memberId}
+                          profileName={profile?.displayName}
+                          avatarUrl={profile?.avatarUrl}
+                        />
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+                );
+              })}
+            </div>
+          </section>
+        ) : (
+          <section
+            key={`member:${section.roleName}`}
+            className="dao-members-role"
+            aria-label={section.roleName}
+          >
+            <h2 className="dao-members-role-title">
+              {section.roleName}
+              <span className="dao-members-role-meta">Stake</span>
+            </h2>
+            <p className="dao-members-threshold">
+              Need {formatSocialCompact(section.thresholdYocto)} SOCIAL
+              delegated to hold this role.
+            </p>
+            {accountId && eligibility ? (
+              <div className="dao-members-viewer">
+                <p className="dao-members-viewer-line">
+                  {viewerMeetsStake
+                    ? `You meet it · ${viewerDelegatedLabel} SOCIAL`
+                    : `You have ${viewerDelegatedLabel} SOCIAL · need ${viewerRemainingLabel} more`}
+                </p>
+                {!viewerMeetsStake && onRequestStake ? (
+                  <button
+                    type="button"
+                    className="dao-members-stake"
+                    onClick={() => {
+                      requestClose();
+                      onRequestStake();
+                    }}
+                  >
+                    Stake to join
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        )
+      )}
     </OsSlideOverScreen>
   );
 }
