@@ -13,7 +13,7 @@ export type PortfolioDaoEntity = {
   isDao: boolean;
   /** Quiet face eyebrow — e.g. Community DAO. */
   kindLabel: string | null;
-  /** Org workspace (proposals / members / treasury). */
+  /** Same as {@link daoPath} — `/@account` home (legacy name kept for callers). */
   workspaceHref: string | null;
 };
 

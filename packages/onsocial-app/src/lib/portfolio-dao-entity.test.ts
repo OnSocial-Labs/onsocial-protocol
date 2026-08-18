@@ -19,13 +19,13 @@ describe('resolvePortfolioDaoEntity', () => {
     ).resolves.toMatchObject({
       isDao: true,
       kindLabel: 'DAO',
-      workspaceHref: '/dao/demo.sputnik-dao.near',
+      workspaceHref: '/@demo.sputnik-dao.near',
     });
     await expect(
       resolvePortfolioDaoEntity('guild.sputnikv2.testnet')
     ).resolves.toMatchObject({
       isDao: true,
-      workspaceHref: '/dao/guild.sputnikv2.testnet',
+      workspaceHref: '/@guild.sputnikv2.testnet',
     });
     await expect(
       resolvePortfolioDaoEntity('governance.onsocial.testnet')
@@ -63,7 +63,7 @@ describe('resolvePortfolioDaoEntity', () => {
     await expect(resolvePortfolioDaoEntity('custom.near')).resolves.toMatchObject(
       {
         isDao: true,
-        workspaceHref: '/dao/custom.near',
+        workspaceHref: '/@custom.near',
       }
     );
   });

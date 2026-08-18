@@ -8,7 +8,9 @@ import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { fetchProfileGuilds } from '@/lib/profile-guilds';
 import { fetchPageDrawerMeta } from '@/lib/fetch-page-drawer-meta';
+import { loadDaoPageData } from '@/lib/load-dao-page';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
+import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
 import { PortfolioIdentity } from '@/components/portfolio/portfolio-identity';
 import { PortfolioLinks } from '@/components/portfolio/portfolio-links';
@@ -83,7 +85,13 @@ export default async function AccountPage({
     }),
     resolvePortfolioDaoEntity(accountId),
   ]);
-  const name = displayName(accountId, shell?.name ?? undefined);
+  const daoPage = daoEntity.isDao
+    ? await loadDaoPageData(accountId)
+    : null;
+  const name = displayName(
+    accountId,
+    shell?.name ?? daoPage?.branding.name ?? undefined
+  );
   const postCount = Math.max(
     signals?.postCount ?? 0,
     data.stats.postCount ?? 0
@@ -101,7 +109,7 @@ export default async function AccountPage({
       <PortfolioProfileSeed
         accountId={accountId}
         displayName={name}
-        avatarUrl={shell?.avatarUrl ?? null}
+        avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl ?? null}
         counts={{
           incoming: signals?.standingCount ?? 0,
           outgoing: signals?.standingWithCount ?? 0,
@@ -120,8 +128,8 @@ export default async function AccountPage({
         config={data.config}
         stats={data.stats}
         guilds={guilds}
-        profileName={shell?.name}
-        bio={shell?.bio}
+        profileName={shell?.name ?? daoPage?.branding.name}
+        bio={shell?.bio ?? daoPage?.branding.description}
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
         deferredShelf={
@@ -130,20 +138,30 @@ export default async function AccountPage({
       >
         <PortfolioIdentity
           accountId={accountId}
-          profileName={shell?.name}
-          bio={shell?.bio}
+          profileName={shell?.name ?? daoPage?.branding.name}
+          bio={shell?.bio ?? daoPage?.branding.description}
           tagline={tagline}
-          avatarUrl={shell?.avatarUrl}
+          avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}
           isDao={daoEntity.isDao}
           kindLabel={daoEntity.kindLabel}
-          workspaceHref={daoEntity.workspaceHref}
         />
 
         <PortfolioActivateStrip
           pageAccountId={accountId}
           activated={Boolean(data.activated)}
         />
+
+        {daoEntity.isDao ? (
+          <PortfolioDaoOrgChrome
+            daoAccountId={accountId}
+            daoName={name}
+            initialBranding={daoPage?.branding ?? null}
+            configName={daoPage?.configName ?? null}
+            configPurpose={daoPage?.configPurpose ?? null}
+            configMetadata={daoPage?.configMetadata ?? ''}
+          />
+        ) : null}
 
         {signals ? (
           <PortfolioSignalsShell accountId={accountId} signals={signals} />

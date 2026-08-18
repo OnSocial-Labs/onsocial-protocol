@@ -85,7 +85,7 @@ describe('notification display', () => {
           status: 'InProgress',
         },
       })
-    ).toBe('/dao/gov.sputnik-dao.testnet?proposal=12');
+    ).toBe('/@gov.sputnik-dao.testnet?proposal=12');
 
     expect(
       notificationHref({
@@ -97,7 +97,7 @@ describe('notification display', () => {
           status: 'Approved',
         },
       })
-    ).toBe('/dao/gov.sputnik-dao.testnet?status=approved&proposal=12');
+    ).toBe('/@gov.sputnik-dao.testnet?status=approved&proposal=12');
   });
 
   it('builds relative description lines', () => {

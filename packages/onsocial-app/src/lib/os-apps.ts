@@ -3,6 +3,7 @@ import {
   GOVERNANCE_DAO_ACCOUNT,
   TREASURY_DAO_ACCOUNT,
 } from '@/lib/app-config';
+import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 import {
   APP_APPS_PATH,
   APP_COLLECTION_PATH,
@@ -124,6 +125,18 @@ export function resolveActiveOsAppId(
   if (panel === 'discover') return 'discover';
   if (panel === 'feed') return 'home';
   if (panel === 'collectibles') return 'collectibles';
+
+  const accountLower = accountId.trim().toLowerCase();
+  if (
+    !panel &&
+    (accountLower === GOVERNANCE_DAO_ACCOUNT.trim().toLowerCase() ||
+      accountLower === TREASURY_DAO_ACCOUNT.trim().toLowerCase())
+  ) {
+    return 'protocol';
+  }
+  if (!panel && isHeuristicDaoAccountId(accountLower)) {
+    return 'daos';
+  }
 
   if (
     viewerAccountId &&

@@ -42,14 +42,13 @@ interface PortfolioIdentityGesturesProps {
   mood?: ResolvedMood | null;
   /** DAO org face — Stand (+ Message · More); no Endorse / Support. */
   isDao?: boolean;
-  workspaceHref?: string | null;
 }
 
 /**
  * Face gesture slot under bio.
  * Connected visitor: Stand · Endorse · Support · Message · More (mute/block).
  * DAO visitor: Stand · Message · More.
- * Owner: payout marks + Activity. DAO self: Open workspace (not person payouts).
+ * Owner: payout marks + Activity. DAO self: hidden (org tools row owns Manage).
  * Pre-connect: hidden.
  */
 export function PortfolioIdentityGestures({
@@ -59,7 +58,6 @@ export function PortfolioIdentityGestures({
   avatarUrl,
   mood = null,
   isDao = false,
-  workspaceHref = null,
 }: PortfolioIdentityGesturesProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
@@ -190,18 +188,8 @@ export function PortfolioIdentityGestures({
   }
 
   if (isSelf) {
-    if (isDao && workspaceHref) {
-      return (
-        <div className="portfolio-identity-gestures">
-          <button
-            type="button"
-            className="portfolio-identity-gesture portfolio-identity-gesture--workspace"
-            onClick={() => router.push(workspaceHref)}
-          >
-            Open workspace
-          </button>
-        </div>
-      );
+    if (isDao) {
+      return null;
     }
     return (
       <div className="portfolio-identity-gestures">

@@ -1,51 +1,38 @@
-import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { notFound } from 'next/navigation';
-import { DaoPortfolioPanel } from '@/features/protocol/dao-portfolio-panel';
+import { permanentRedirect } from 'next/navigation';
 import { isValidProtocolDaoAccountId } from '@/features/protocol/dao-accounts';
-import { loadDaoPageData } from '@/lib/load-dao-page';
+import { daoPath } from '@/lib/app-routes';
 
 export const dynamic = 'force-dynamic';
 
 type DaoPageProps = {
   params: Promise<{ accountId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export async function generateMetadata({
-  params,
-}: DaoPageProps): Promise<Metadata> {
+/**
+ * Legacy `/dao/[accountId]` — permanently redirects to `/@accountId`.
+ * Preserves proposal / status / search query for overlay deep-links.
+ */
+export default async function DaoPage({ params, searchParams }: DaoPageProps) {
   const { accountId: raw } = await params;
   const accountId = decodeURIComponent(raw).trim().toLowerCase();
   if (!isValidProtocolDaoAccountId(accountId)) {
-    return { title: 'DAO • OnSocial' };
+    permanentRedirect('/daos');
   }
-  const data = await loadDaoPageData(accountId);
-  const title = data?.branding.name ?? accountId;
-  const description =
-    data?.branding.description?.trim() ||
-    `OnSocial DAO page for ${accountId}.`;
-  return {
-    title: `${title} • OnSocial`,
-    description,
-  };
-}
 
-export default async function DaoPage({ params }: DaoPageProps) {
-  const { accountId: raw } = await params;
-  const accountId = decodeURIComponent(raw).trim().toLowerCase();
-  if (!isValidProtocolDaoAccountId(accountId)) notFound();
-
-  const data = await loadDaoPageData(accountId);
-  if (!data) notFound();
-
-  return (
-    <Suspense fallback={null}>
-      <DaoPortfolioPanel
-        initialBranding={data.branding}
-        configName={data.configName}
-        configPurpose={data.configPurpose}
-        configMetadata={data.configMetadata}
-      />
-    </Suspense>
-  );
+  const search = (await searchParams) ?? {};
+  const paramsOut = new URLSearchParams();
+  for (const [key, value] of Object.entries(search)) {
+    if (value == null) continue;
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (entry) paramsOut.append(key, entry);
+      }
+    } else if (value) {
+      paramsOut.set(key, value);
+    }
+  }
+  const query = paramsOut.toString();
+  const dest = daoPath(accountId);
+  permanentRedirect(query ? `${dest}?${query}` : dest);
 }

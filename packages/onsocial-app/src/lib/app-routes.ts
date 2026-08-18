@@ -14,7 +14,10 @@ export const APP_NOTIFICATIONS_PATH = '/notifications';
 export const APP_LEADERBOARD_PATH = '/leaderboard';
 /** Query key for leaderboard track (`reputation` | `influence` | `earners`). */
 export const LEADERBOARD_TRACK_PARAM = 'track';
-/** Single DAO portfolio page (`/dao/[accountId]`). */
+/**
+ * Legacy DAO workspace path (`/dao/[accountId]`).
+ * Canonical home is `/@accountId` via {@link daoPath}; `/dao` permanently redirects.
+ */
 export const APP_DAO_PATH = '/dao';
 /** Social drop discovery — Live / Closing / Upcoming / Finished / New / Loved / Saved. */
 export const APP_DROPS_PATH = '/drops';
@@ -310,11 +313,11 @@ export function protocolPath(opts?: {
   return query ? `${APP_PROTOCOL_PATH}?${query}` : APP_PROTOCOL_PATH;
 }
 
-/** Public DAO portfolio page — cover + square crest. */
+/** Public DAO home — same portfolio face as people (`/@accountId`). */
 export function daoPath(daoAccountId: string): string {
   const id = daoAccountId.trim().toLowerCase();
   if (!id) return APP_DAOS_PATH;
-  return `${APP_DAO_PATH}/${encodeURIComponent(id)}`;
+  return `/@${encodeURIComponent(id)}`;
 }
 
 /** Private messages inbox, optionally deep-linked to a peer or thread. */
@@ -337,8 +340,8 @@ export function notificationsPath(): string {
 }
 
 /**
- * DAO portfolio page deep-linked to a proposal feed state.
- * Opens `/dao/[accountId]` and the Proposals overlay (shareable).
+ * DAO portfolio deep-linked to a proposal feed state.
+ * Opens `/@accountId` and the Proposals overlay (shareable).
  */
 export function daoPortfolioPath(
   daoAccountId: string,

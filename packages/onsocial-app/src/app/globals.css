@@ -5985,20 +5985,17 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.48);
   }
 
-  .portfolio-entity-workspace {
-    margin: 0.35rem 0 0;
-    font-size: 0.82rem;
+  .portfolio-dao-flipper .portfolio-stats-link.is-active {
+    color: rgb(var(--fg-rgb) / 0.96);
+    font-weight: 600;
   }
 
-  .portfolio-entity-workspace a {
-    color: rgb(var(--fg-rgb) / 0.55);
-    text-decoration: none;
-  }
-
-  .portfolio-entity-workspace a:hover {
-    color: rgb(var(--fg-rgb) / 0.82);
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
+  button.portfolio-stats-link {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
   }
 
   /* Page-column cutout — tracks --mood-bg; Minimal uses accent glow instead. */

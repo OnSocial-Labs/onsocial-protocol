@@ -12,7 +12,7 @@ The portfolio is a **one-page public face**, not a Portal action dashboard.
 
 - Identity (avatar, name, **full** NEAR account id as handle, full bio)
 - Connected visitor gestures under bio: **Stand · Endorse · Support** (quiet text + colored arrows; no pills)
-- **DAO org face** (`/@daoAccount`, heuristic / catalog): same route as people — square crest (`border-radius: 1rem`), quiet kind label, **Open workspace** → `/dao/[account]` (proposals / members / treasury). Visitors: **Stand · Message · More** (no Endorse / Support). Self: Open workspace (not person payout marks). `/dao/[account]` stays the org workspace, not a second public profile.
+- **DAO org face** (`/@daoAccount`, heuristic / catalog): same route as people — square crest (`border-radius: 1rem`), quiet kind label. Org tools in a standing-style row: **Proposals · Members · Treasury · Manage** (overlays / slides). Protocol faces add **Governance · Treasury** switch. Visitors: **Stand · Message · More** (no Endorse / Support). Legacy `/dao/[account]` permanently redirects here. Protocol launcher → `/@governance…`.
 - Signals (standing · solidarity · endorsements · reputation) — browse metrics
 - Links
 - Dock (connect / account / summon)
@@ -128,7 +128,7 @@ Even trio with · separators. Same control height as standing modal; **no border
 | Connected visitor | Same face + Stand · Endorse · Support under bio |
 | Connected visitor (DAO) | Stand · Message · More — no Endorse / Support |
 | Owner / self | No visitor gestures; when unclaimed target balance > 0: **gift · amount · Collect** in the same slot |
-| Owner / self (DAO) | Quiet **Open workspace** (not person payout marks) |
+| Owner / self (DAO) | No person payout marks — org tools row owns Manage |
 
 ## Off-face depth
 
