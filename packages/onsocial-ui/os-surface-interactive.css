@@ -88,6 +88,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  /* Buttons default to min-width:auto — long NEAR ids would expand the fill
+   * past the OS column (reads as a stuck hover slab over the page bg). */
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
   border-radius: var(--os-surface-radius-row);
   background: var(--os-surface-fill);
@@ -116,24 +121,52 @@
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  min-width: 0;
+}
+
+.os-surface-row-leading {
+  flex-shrink: 0;
 }
 
 .os-surface-row-copy {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
   gap: 0.2rem;
 }
 
 .os-surface-row-label {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.85rem;
   font-weight: 600;
 }
 
 .os-surface-row-description {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.75rem;
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.45);
+}
+
+/* Nested nodes (e.g. Activity time `title` wrap) still ellipsize. */
+.os-surface-row-description > * {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .os-surface-row-badge {

@@ -33311,6 +33311,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
 
 .notifications-panel .os-surface-row-list {
   gap: 0.15rem;
+  min-width: 0;
+}
+
+.notifications-panel .os-surface-row {
+  min-width: 0;
 }
 
 .os-launcher-item-badge {
