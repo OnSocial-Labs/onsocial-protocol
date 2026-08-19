@@ -29,6 +29,8 @@ export function guildConfigFromIndexedRow(
     name: row.groupName?.trim() || groupId,
     description: row.groupDescription?.trim() || '',
     bannerUrl: guildMediaUrlFromCid(row.groupBannerCid),
+    // Badge lives in x.onsocial only until indexer grows a badge column.
+    badgeUrl: null,
     ownerId: row.ownerId?.trim() || null,
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
     memberDriven: Boolean(row.isMemberDriven),

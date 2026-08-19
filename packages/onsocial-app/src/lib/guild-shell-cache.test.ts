@@ -9,6 +9,7 @@ import {
 const shell = {
   name: 'Social Rebels',
   bannerUrl: null as string | null,
+  badgeUrl: null as string | null,
   accessGated: false,
   memberDriven: true,
   description: '',

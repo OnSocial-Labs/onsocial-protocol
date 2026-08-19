@@ -633,6 +633,9 @@ export function LiveGuildPanel({
               bannerUrl:
                 fromRpc.bannerUrl ??
                 (current.config ?? currentConfig).bannerUrl,
+              badgeUrl:
+                fromRpc.badgeUrl ??
+                (current.config ?? currentConfig).badgeUrl,
             },
           }));
           await applyViewerAccess(client, fromRpc);
@@ -681,6 +684,7 @@ export function LiveGuildPanel({
       const shellEntry: GuildShellCacheEntry = {
         name: fromIndexer.name,
         bannerUrl: fromIndexer.bannerUrl,
+        badgeUrl: fromIndexer.badgeUrl,
         accessGated: fromIndexer.accessGated,
         memberDriven: fromIndexer.memberDriven,
         description: fromIndexer.description,
@@ -724,6 +728,7 @@ export function LiveGuildPanel({
         const shellEntry: GuildShellCacheEntry = {
           name: normalizedConfig.name,
           bannerUrl: normalizedConfig.bannerUrl,
+          badgeUrl: normalizedConfig.badgeUrl,
           accessGated: normalizedConfig.accessGated,
           memberDriven: normalizedConfig.memberDriven,
           description: normalizedConfig.description,
@@ -1620,9 +1625,16 @@ export function LiveGuildPanel({
                   ) : null}
                 </div>
 
-                <h2 ref={heroTitleRef}>
-                  {guildDisplayName(shellPreview.name, groupId)}
-                </h2>
+                <div className="guild-hero-title-row">
+                  {shellPreview.badgeUrl ? (
+                    <span className="guild-hero-badge has-media" aria-hidden>
+                      <img src={shellPreview.badgeUrl} alt="" />
+                    </span>
+                  ) : null}
+                  <h2 ref={heroTitleRef}>
+                    {guildDisplayName(shellPreview.name, groupId)}
+                  </h2>
+                </div>
 
                 <div className="guild-hero-meta">
                   <div className="guild-hero-meta-main">
@@ -1712,7 +1724,14 @@ export function LiveGuildPanel({
                 ) : null}
               </div>
 
-              <h2 ref={heroTitleRef}>{config.name}</h2>
+              <div className="guild-hero-title-row">
+                {config.badgeUrl ? (
+                  <span className="guild-hero-badge has-media" aria-hidden>
+                    <img src={config.badgeUrl} alt="" />
+                  </span>
+                ) : null}
+                <h2 ref={heroTitleRef}>{config.name}</h2>
+              </div>
 
               <div className="guild-hero-meta">
                 <div className="guild-hero-meta-main">

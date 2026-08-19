@@ -196,6 +196,8 @@ export interface GuildConfigSnapshot {
   name: string;
   description: string;
   bannerUrl: string | null;
+  /** Small identity mark beside the name — not a crest/face. */
+  badgeUrl: string | null;
   ownerId: string | null;
   accessGated: boolean;
   memberDriven: boolean;
@@ -241,6 +243,7 @@ export function normalizeGuildConfig(
     ? raw.topics.filter((topic): topic is string => typeof topic === 'string')
     : [];
   const bannerCid = readNestedString(raw, ['x', 'onsocial', 'banner', 'cid']);
+  const badgeCid = readNestedString(raw, ['x', 'onsocial', 'badge', 'cid']);
 
   const owner = readString(raw.owner)?.trim() ?? '';
 
@@ -248,6 +251,7 @@ export function normalizeGuildConfig(
     name: readString(raw.name) ?? groupId,
     description: readString(raw.description) ?? '',
     bannerUrl: guildMediaUrlFromCid(bannerCid),
+    badgeUrl: guildMediaUrlFromCid(badgeCid),
     ownerId: owner || null,
     accessGated: deriveGuildAccessGated(raw),
     memberDriven:

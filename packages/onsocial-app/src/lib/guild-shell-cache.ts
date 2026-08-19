@@ -1,11 +1,12 @@
 /**
  * In-memory guild shell cache (Standing/Discover style).
- * Per-tab only — name / banner for instant revisit chrome.
+ * Per-tab only — name / banner / badge for instant revisit chrome.
  */
 
 export interface GuildShellCacheEntry {
   name: string;
   bannerUrl: string | null;
+  badgeUrl: string | null;
   accessGated: boolean;
   memberDriven: boolean;
   description: string;

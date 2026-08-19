@@ -36,6 +36,7 @@ import { guildCoverStyle } from '@/features/guilds/guild-visual';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
+import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
 import {
   txToastConfirming,
   txToastError,
@@ -45,6 +46,7 @@ import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const GUILD_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 const GUILD_EDIT_Z = 58;
+const GUILD_BADGE_MAX_BYTES = 5 * 1024 * 1024;
 
 function fieldId(prefix: string, name: string) {
   return `${prefix}-${name}`;
@@ -99,13 +101,17 @@ export function GuildEditSheet({
   const [accessGated, setAccessGated] = useState(false);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerRemoved, setBannerRemoved] = useState(false);
+  const [badgeFile, setBadgeFile] = useState<File | null>(null);
+  const [badgeRemoved, setBadgeRemoved] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const badgeInputRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   const bannerPreview = useObjectUrl(bannerFile);
+  const badgePreview = useObjectUrl(badgeFile);
 
   const load = useCallback(async () => {
     setLoadState('loading');
@@ -127,6 +133,8 @@ export function GuildEditSheet({
       setMemberDriven(normalized.memberDriven);
       setBannerFile(null);
       setBannerRemoved(false);
+      setBadgeFile(null);
+      setBadgeRemoved(false);
 
       if (!accountId) {
         setLoadState('forbidden');
@@ -170,6 +178,9 @@ export function GuildEditSheet({
   const displayBannerUrl = bannerRemoved
     ? null
     : (bannerPreview ?? snapshot?.bannerUrl ?? null);
+  const displayBadgeUrl = badgeRemoved
+    ? null
+    : (badgePreview ?? snapshot?.badgeUrl ?? null);
 
   const normalizedTags = useMemo(() => normalizeGuildEditorTags(tags), [tags]);
 
@@ -181,10 +192,14 @@ export function GuildEditSheet({
       accessGated !== snapshot.accessGated ||
       !guildEditorTagsEqual(normalizedTags, snapshot.topics) ||
       bannerFile !== null ||
-      bannerRemoved
+      bannerRemoved ||
+      badgeFile !== null ||
+      badgeRemoved
     );
   }, [
     accessGated,
+    badgeFile,
+    badgeRemoved,
     bannerFile,
     bannerRemoved,
     description,
@@ -231,6 +246,16 @@ export function GuildEditSheet({
       };
     } else if (bannerRemoved && snapshot.bannerUrl) {
       onsocialPatch.banner = null;
+    }
+    if (badgeFile) {
+      const uploaded = await client.storage.upload(badgeFile);
+      onsocialPatch.badge = {
+        cid: uploaded.cid,
+        mime: uploaded.mime,
+        size: uploaded.size,
+      };
+    } else if (badgeRemoved && snapshot.badgeUrl) {
+      onsocialPatch.badge = null;
     }
     if (Object.keys(onsocialPatch).length > 0) {
       const existing = await client.groups.getConfig(groupId);
@@ -334,6 +359,25 @@ export function GuildEditSheet({
   };
 
   const openBannerPicker = () => bannerInputRef.current?.click();
+  const openBadgePicker = () => badgeInputRef.current?.click();
+
+  const handleBadgeFile = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > GUILD_BADGE_MAX_BYTES) {
+      setError('Badge must be 5 MB or smaller.');
+      return;
+    }
+    try {
+      const prepared = await prepareGuildAvatarFile(file);
+      setBadgeFile(prepared);
+      setBadgeRemoved(false);
+      setError(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Could not prepare badge.'
+      );
+    }
+  };
 
   const footer =
     loadState === 'ready' && snapshot ? (
@@ -477,24 +521,62 @@ export function GuildEditSheet({
                 </div>
 
                 <div className="guild-edit-fields">
-                  <label className="sr-only" htmlFor={fieldId(formId, 'name')}>
-                    Guild name
-                  </label>
-                  <input
-                    id={fieldId(formId, 'name')}
-                    className="guild-edit-name"
-                    value={name}
-                    maxLength={GUILD_MAX_NAME_LENGTH}
-                    placeholder="Guild name"
-                    disabled={pending}
-                    aria-required="true"
-                    onChange={(event) => setName(event.target.value)}
-                    onFocus={scrollFieldIntoView}
-                    onBlur={() => {
-                      const trimmed = name.trim().replace(/\s+/g, ' ');
-                      if (trimmed !== name) setName(trimmed);
-                    }}
-                  />
+                  <div className="guild-edit-title-row">
+                    <div
+                      className={`guild-edit-badge-picker profile-editor-media-host profile-editor-media-host--squircle${
+                        displayBadgeUrl ? ' has-media' : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className="profile-editor-media-backdrop"
+                        onClick={openBadgePicker}
+                        aria-label={
+                          displayBadgeUrl ? 'Change badge' : 'Add badge'
+                        }
+                        disabled={pending}
+                      >
+                        {displayBadgeUrl ? (
+                          <img src={displayBadgeUrl} alt="" />
+                        ) : (
+                          <span className="guild-edit-badge-empty" aria-hidden>
+                            +
+                          </span>
+                        )}
+                      </button>
+                      <ProfileEditorMediaToolbar
+                        removeLabel={
+                          displayBadgeUrl ? 'Remove badge' : undefined
+                        }
+                        onRemove={
+                          displayBadgeUrl
+                            ? () => {
+                                setBadgeFile(null);
+                                setBadgeRemoved(true);
+                              }
+                            : undefined
+                        }
+                      />
+                    </div>
+                    <label className="sr-only" htmlFor={fieldId(formId, 'name')}>
+                      Guild name
+                    </label>
+                    <input
+                      id={fieldId(formId, 'name')}
+                      className="guild-edit-name"
+                      value={name}
+                      maxLength={GUILD_MAX_NAME_LENGTH}
+                      placeholder="Guild name"
+                      disabled={pending}
+                      aria-required="true"
+                      onChange={(event) => setName(event.target.value)}
+                      onFocus={scrollFieldIntoView}
+                      onBlur={() => {
+                        const trimmed = name.trim().replace(/\s+/g, ' ');
+                        if (trimmed !== name) setName(trimmed);
+                      }}
+                    />
+                  </div>
 
                   <div className="guild-hero-meta guild-edit-meta">
                     <span className="guild-edit-id" title={groupId}>
@@ -611,6 +693,18 @@ export function GuildEditSheet({
                 const file = event.target.files?.[0] ?? null;
                 setBannerFile(file);
                 if (file) setBannerRemoved(false);
+                event.target.value = '';
+              }}
+            />
+            <input
+              ref={badgeInputRef}
+              type="file"
+              accept={GUILD_IMAGE_ACCEPT}
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                void handleBadgeFile(file);
+                event.target.value = '';
               }}
             />
           </form>

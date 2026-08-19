@@ -8191,7 +8191,7 @@ a.os-surface-row {
     pointer-events: auto;
   }
 
-  .os-app-screen[data-immersive-header='true'] .guild-hero h2,
+  .os-app-screen[data-immersive-header='true'] .guild-hero-title-row,
   .os-app-screen[data-immersive-header='true'] .app-page-hero .app-page-title,
   .os-app-screen[data-immersive-header='true']
     .collection-hero
@@ -26348,6 +26348,38 @@ a.os-surface-row {
     object-position: center center;
   }
 
+  .guild-hero-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    margin: 0.55rem 0 0;
+  }
+
+  .guild-hero-badge {
+    flex-shrink: 0;
+    width: 1.85rem;
+    height: 1.85rem;
+    overflow: hidden;
+    border-radius: 0.48rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .guild-hero-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .guild-hero-title-row h2 {
+    margin: 0;
+    min-width: 0;
+    font-size: clamp(1.05rem, 3.2vw, 1.2rem);
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+
   .guild-hero h2 {
     margin: 0.55rem 0 0;
     font-size: clamp(1.05rem, 3.2vw, 1.2rem);
@@ -26620,8 +26652,51 @@ a.os-surface-row {
     padding: 0.15rem 0.85rem 1rem;
   }
 
-  .guild-edit-fields > .guild-edit-name {
+  .guild-edit-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
     margin-top: 0.55rem;
+  }
+
+  .guild-edit-badge-picker {
+    position: relative;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .guild-edit-badge-picker .profile-editor-media-backdrop {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: inherit;
+    padding: 0;
+    overflow: hidden;
+    background: rgb(var(--fg-rgb) / 0.06);
+    cursor: pointer;
+  }
+
+  .guild-edit-badge-picker img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .guild-edit-badge-empty {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: rgb(var(--fg-rgb) / 0.45);
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .guild-edit-title-row .guild-edit-name {
+    margin-top: 0;
   }
 
   .guild-edit-fields > .guild-edit-meta {
