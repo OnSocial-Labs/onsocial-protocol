@@ -237,6 +237,80 @@ export async function loadRecentDaoProposalSnapshots(
     .filter((row): row is StoredDaoProposalRow => row !== null);
 }
 
+const DAO_PEEK_ACCOUNT_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
+
+/** Cap membership fan-in for Home proposal peeks. */
+export const DAO_PROPOSAL_PEEK_DAO_LIMIT = 12;
+/** Cap rows returned for Home proposal peeks. */
+export const DAO_PROPOSAL_PEEK_ROW_LIMIT = 24;
+
+/**
+ * Multi-DAO snapshot read for Home peeks — open first, then newest submission.
+ * Does not sync chain state; callers may kick sync in the background.
+ */
+export async function loadDaoProposalSnapshotsForDaos(
+  daoAccountIds: string[],
+  limit: number = DAO_PROPOSAL_PEEK_ROW_LIMIT
+): Promise<StoredDaoProposalRow[]> {
+  const ids = Array.from(
+    new Set(
+      daoAccountIds
+        .map((id) => id.trim().toLowerCase())
+        .filter((id) => DAO_PEEK_ACCOUNT_PATTERN.test(id))
+    )
+  ).slice(0, DAO_PROPOSAL_PEEK_DAO_LIMIT);
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const safeLimit =
+    Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.trunc(limit), DAO_PROPOSAL_PEEK_ROW_LIMIT)
+      : DAO_PROPOSAL_PEEK_ROW_LIMIT;
+
+  const result = await query<{
+    dao_account_id: string;
+    proposal_id: string | number;
+    status: string;
+    submission_time: string;
+    submission_block_height: string | number | null;
+    resolved_block_height: string | number | null;
+    resolved_at: string | null;
+    proposal_snapshot: PersistedDaoProposalSnapshot;
+    policy_snapshot: GovernanceDaoPolicySnapshot | null;
+    synced_at: string | Date;
+    updated_at: string | Date;
+  }>(
+    `SELECT dao_account_id,
+            proposal_id,
+            status,
+            submission_time,
+            submission_block_height,
+            resolved_block_height,
+            resolved_at,
+            proposal_snapshot,
+            policy_snapshot,
+            synced_at,
+            updated_at
+       FROM governance_dao_proposal_snapshots
+      WHERE dao_account_id = ANY($1::text[])
+      ORDER BY
+        CASE
+          WHEN lower(status) IN ('inprogress', 'open') THEN 0
+          ELSE 1
+        END ASC,
+        submission_time DESC,
+        proposal_id DESC
+      LIMIT $2`,
+    [ids, safeLimit]
+  );
+
+  return result.rows
+    .map((row) => mapStoredRow(row))
+    .filter((row): row is StoredDaoProposalRow => row !== null);
+}
+
 export async function persistDaoProposalSnapshot({
   daoAccountId,
   proposal,

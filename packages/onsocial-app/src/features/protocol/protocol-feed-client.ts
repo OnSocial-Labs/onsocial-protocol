@@ -82,3 +82,49 @@ export async function fetchProtocolProposal(opts: {
     daoPolicy: body.daoPolicy ?? null,
   };
 }
+
+export type ProtocolProposalPeek = {
+  daoAccountId: string;
+  daoName: string;
+  proposalId: number;
+  label: string;
+  status: string;
+  createdAt: string;
+  open: boolean;
+};
+
+/** Multi-DAO Home peeks — one backend snapshot query (not N× full feeds). */
+export async function fetchProtocolProposalPeeks(
+  daoAccountIds: string[],
+  limit = 24
+): Promise<ProtocolProposalPeek[]> {
+  const ids = Array.from(
+    new Set(
+      daoAccountIds
+        .map((id) => id.trim().toLowerCase())
+        .filter((id) => ACCOUNT_ID_PATTERN.test(id))
+    )
+  ).slice(0, 12);
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const search = new URLSearchParams({
+    daoAccountIds: ids.join(','),
+    limit: String(Math.min(Math.max(limit, 1), 24)),
+  });
+  const body = await readJson<{
+    success?: boolean;
+    peeks?: ProtocolProposalPeek[];
+    error?: string;
+  }>(
+    await fetch(`/api/governance/proposal-peeks?${search.toString()}`, {
+      cache: 'no-store',
+    })
+  );
+  if (body.success === false) {
+    throw new Error(body.error || 'Proposal peeks unavailable.');
+  }
+  return Array.isArray(body.peeks) ? body.peeks : [];
+}
