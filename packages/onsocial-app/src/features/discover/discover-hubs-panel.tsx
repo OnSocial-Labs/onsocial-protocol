@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
+import {
+  fetchMostLovedScarcePeeks,
+  fetchMostTradedScarcePeeks,
+  type DiscoverScarcePeek,
+} from '@/features/discover/discover-scarce-peeks';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import {
@@ -17,8 +22,13 @@ import {
   APP_APP_CREATE_PATH,
   APP_APPS_PATH,
   appPath,
+  collectionPath,
+  dropsPath,
 } from '@/lib/app-routes';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { fallbackLabel } from '@/lib/profile-display';
+
+const SCARCE_PEEK_LIMIT = 6;
 
 function monogram(title: string): string {
   const parts = title.trim().split(/\s+/).filter(Boolean);
@@ -40,17 +50,62 @@ function storeMeta(app: AppView): string {
   return parts.join(' · ');
 }
 
+function ScarcePeekSection({
+  heading,
+  seeAllHref,
+  rows,
+}: {
+  heading: string;
+  seeAllHref: string;
+  rows: DiscoverScarcePeek[];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="discover-trending-section" aria-label={heading}>
+      <div className="discover-trending-section-head">
+        <h2 className="discover-trending-heading">{heading}</h2>
+        <Link href={seeAllHref} className="discover-trending-see-all">
+          See all
+        </Link>
+      </div>
+      <ul className="discover-focus-rows">
+        {rows.map((scarce) => (
+          <li key={`${heading}-${scarce.collectionId}`}>
+            <Link
+              href={collectionPath(scarce.collectionId)}
+              className="discover-focus-row"
+            >
+              <span className="discover-focus-row-label">
+                {scarce.title?.trim() || scarce.collectionId}
+              </span>
+              {scarce.appId ? (
+                <span className="discover-focus-row-meta">{scarce.appId}</span>
+              ) : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /**
  * Discover → Hubs — network find. My hubs / create live in the Hubs app.
+ * Idle: Most traded · Most loved peeks, then hub catalog.
  */
 export function DiscoverHubsPanel() {
   const { query, clearSearch } = useDiscoverPanel();
   const searchQuery = discoverPeopleSearchQuery(query);
   const [apps, setApps] = useState<AppView[] | null>(null);
+  const [mostTraded, setMostTraded] = useState<DiscoverScarcePeek[] | null>(
+    null
+  );
+  const [mostLoved, setMostLoved] = useState<DiscoverScarcePeek[] | null>(null);
   const [pending, setPending] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const requestIdRef = useRef(0);
+  const showScarcePeeks = !searchQuery;
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +146,21 @@ export function DiscoverHubsPanel() {
     };
   }, [reloadNonce, searchQuery]);
 
+  useEffect(() => {
+    if (!showScarcePeeks) return;
+    let cancelled = false;
+    const client = createReadOnlyOnSocialClient();
+    void fetchMostTradedScarcePeeks(client, SCARCE_PEEK_LIMIT).then((rows) => {
+      if (!cancelled) setMostTraded(rows);
+    });
+    void fetchMostLovedScarcePeeks(client, SCARCE_PEEK_LIMIT).then((rows) => {
+      if (!cancelled) setMostLoved(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadNonce, showScarcePeeks]);
+
   const retry = useCallback(() => {
     setReloadNonce((n) => n + 1);
   }, []);
@@ -121,6 +191,29 @@ export function DiscoverHubsPanel() {
       </div>
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
+
+      {showScarcePeeks ? (
+        <>
+          {mostTraded === null ? (
+            <p className="daos-index-empty">Loading most traded…</p>
+          ) : (
+            <ScarcePeekSection
+              heading="Most traded"
+              seeAllHref={dropsPath({ sort: 'traded' })}
+              rows={mostTraded}
+            />
+          )}
+          {mostLoved === null ? (
+            <p className="daos-index-empty">Loading most loved…</p>
+          ) : (
+            <ScarcePeekSection
+              heading="Most loved"
+              seeAllHref={dropsPath({ sort: 'loved' })}
+              rows={mostLoved}
+            />
+          )}
+        </>
+      ) : null}
 
       {showSkeleton ? (
         <p className="daos-index-empty">Loading hubs…</p>
@@ -163,41 +256,48 @@ export function DiscoverHubsPanel() {
       ) : null}
 
       {!showSkeleton && apps != null && apps.length > 0 ? (
-        <ul className="market-listing-list apps-directory-list">
-          {apps.map((app) => (
-            <li key={app.appId}>
-              <Link
-                href={appPath(app.appId)}
-                scroll={false}
-                className="market-listing-row apps-directory-row"
-              >
-                <span
-                  className={`market-listing-thumb apps-directory-logo${
-                    app.mediaUrl ? ' has-media' : ''
-                  }`}
-                  aria-hidden
+        <>
+          {showScarcePeeks ? (
+            <h2 className="discover-trending-heading daos-index-heading">
+              Hubs
+            </h2>
+          ) : null}
+          <ul className="market-listing-list apps-directory-list">
+            {apps.map((app) => (
+              <li key={app.appId}>
+                <Link
+                  href={appPath(app.appId)}
+                  scroll={false}
+                  className="market-listing-row apps-directory-row"
                 >
-                  {app.mediaUrl ? (
-                    <img src={app.mediaUrl} alt="" />
-                  ) : (
-                    <span className="apps-directory-logo-fallback">
-                      {monogram(app.title)}
-                    </span>
-                  )}
-                </span>
-                <span className="market-listing-copy">
-                  <span className="market-listing-head">
-                    <span className="market-listing-title">{app.title}</span>
-                    <span className="market-listing-price">
-                      {app.commissionPct}%
-                    </span>
+                  <span
+                    className={`market-listing-thumb apps-directory-logo${
+                      app.mediaUrl ? ' has-media' : ''
+                    }`}
+                    aria-hidden
+                  >
+                    {app.mediaUrl ? (
+                      <img src={app.mediaUrl} alt="" />
+                    ) : (
+                      <span className="apps-directory-logo-fallback">
+                        {monogram(app.title)}
+                      </span>
+                    )}
                   </span>
-                  <span className="market-listing-meta">{storeMeta(app)}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  <span className="market-listing-copy">
+                    <span className="market-listing-head">
+                      <span className="market-listing-title">{app.title}</span>
+                      <span className="market-listing-price">
+                        {app.commissionPct}%
+                      </span>
+                    </span>
+                    <span className="market-listing-meta">{storeMeta(app)}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
     </div>
   );
