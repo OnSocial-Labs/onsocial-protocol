@@ -290,7 +290,7 @@ export function DaoCreateSheet({
       return;
     }
     try {
-      const prepared = await prepareGuildAvatarFile(file);
+      const prepared = await prepareSquareOpaqueJpeg(file);
       setError(null);
       setAvatarFile(prepared);
       setAvatarPreview((prev) => {
