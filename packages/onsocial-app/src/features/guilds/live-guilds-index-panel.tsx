@@ -28,7 +28,6 @@ function GuildMineCard({ guild }: { guild: GuildSummaryCardModel }) {
     >
       <span className="daos-mine-crest" aria-hidden>
         {guild.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- crest thumbnail
           <img src={guild.avatarUrl} alt="" />
         ) : (
           <span className="daos-mine-crest-fallback">
