@@ -1,13 +1,10 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
   DaoWorkspacePanel,
   type DaoWorkspaceTool,
 } from '@/features/protocol/dao-workspace-panel';
-
-const PROPOSALS_Z = 74;
 
 /**
  * DAO proposals overlay — Standing-style slide-over with the workspace feed.
@@ -39,26 +36,20 @@ export function DaoProposalsSheet({
     onClose();
   }, [onClose]);
 
-  return (
-    <OsSlideOverScreen
-      open={sheetOpen}
-      onClose={requestClose}
-      onClosed={handleClosed}
-      title="Proposals"
-      subtitle={daoName?.trim() || daoAccountId}
-      closeAriaLabel="Back from proposals"
-      zIndex={PROPOSALS_Z}
-      className="dao-proposals-slide"
-      contentClassName="dao-proposals-sheet"
-    >
-      {sheetOpen ? (
-        <DaoWorkspacePanel
-          daoAccountId={daoAccountId}
-          hideTools
-          toolRequest={toolRequest}
-          onToolRequestHandled={onToolRequestHandled}
-        />
-      ) : null}
-    </OsSlideOverScreen>
-  );
+  return sheetOpen ? (
+    <DaoWorkspacePanel
+      daoAccountId={daoAccountId}
+      hideTools
+      toolRequest={toolRequest}
+      onToolRequestHandled={onToolRequestHandled}
+      sheet={{
+        open: sheetOpen,
+        onRequestClose: requestClose,
+        onClosed: handleClosed,
+        title: 'Proposals',
+        subtitle: daoName?.trim() || daoAccountId,
+        closeAriaLabel: 'Back from proposals',
+      }}
+    />
+  ) : null;
 }

@@ -12,25 +12,53 @@ import {
 } from '@/lib/overlay-routes';
 
 function OverlayHeaderFallback({
+  panelKey,
   hint,
   onClose,
 }: {
+  panelKey: string;
   hint: OverlayPanelChromeHint;
   onClose: () => void;
 }) {
+  const closeLabel = `Close ${hint.title ?? hint.ariaTitle}`;
+  const closeControl = (
+    <SheetCloseButton onClick={onClose} ariaLabel={closeLabel} />
+  );
+
   if (hint.expectsToolbar) {
+    const toolbarFallback =
+      panelKey.startsWith('standing:') ? (
+        <div className="standing-sheet-header overlay-header-fallback">
+          <div className="standing-sheet-subject-row" aria-hidden>
+            <div className="standing-sheet-subject" />
+            <div className="standing-sheet-actions">
+              <span className="standing-sheet-discover-slot" />
+              {closeControl}
+            </div>
+          </div>
+        </div>
+      ) : panelKey === 'discover' ? (
+        <div className="standing-sheet-header discover-sheet-header overlay-header-fallback">
+          <div className="discover-sheet-nav-row" aria-hidden>
+            <div className="discover-omni-search" />
+            {closeControl}
+          </div>
+        </div>
+      ) : (
+        <div className="standing-sheet-header overlay-header-fallback">
+          <div className="standing-sheet-subject-row" aria-hidden>
+            <div className="standing-sheet-subject" />
+            <div className="standing-sheet-actions">{closeControl}</div>
+          </div>
+        </div>
+      );
+
     return (
       <>
         <h2 id="overlay-title" className="sr-only">
           {hint.ariaTitle}
         </h2>
-        <div className="glass-sheet-header overlay-header-fallback">
-          <div className="glass-sheet-header-copy" aria-hidden />
-          <SheetCloseButton
-            onClick={onClose}
-            ariaLabel={`Close ${hint.ariaTitle}`}
-          />
-        </div>
+        {toolbarFallback}
         <Divider variant="section" className="glass-sheet-header-divider" />
       </>
     );
@@ -40,14 +68,16 @@ function OverlayHeaderFallback({
 
   return (
     <>
-      <div className="glass-sheet-header overlay-header-fallback">
+      <header className="glass-sheet-header overlay-header-fallback">
         <div className="glass-sheet-header-copy">
-          <h2 id="overlay-title" className="glass-sheet-header-title">
-            {title}
-          </h2>
+          <div className="glass-sheet-header-title-row">
+            <h2 id="overlay-title" className="glass-sheet-header-title">
+              {title}
+            </h2>
+            {closeControl}
+          </div>
         </div>
-        <SheetCloseButton onClick={onClose} ariaLabel={`Close ${title}`} />
-      </div>
+      </header>
       <Divider variant="section" className="glass-sheet-header-divider" />
     </>
   );
@@ -63,8 +93,12 @@ export function OverlayGlassHeader({ panelKey }: { panelKey: string | null }) {
 
   return (
     <div ref={setHeaderPortal} className="overlay-header-portal">
-      {showFallback ? (
-        <OverlayHeaderFallback hint={hint} onClose={close} />
+      {showFallback && panelKey != null ? (
+        <OverlayHeaderFallback
+          panelKey={panelKey}
+          hint={hint}
+          onClose={close}
+        />
       ) : null}
     </div>
   );

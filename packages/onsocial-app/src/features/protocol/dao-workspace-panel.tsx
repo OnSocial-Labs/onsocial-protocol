@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { OsProposalCardList } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -9,6 +9,12 @@ import {
   rememberCommunityDao,
   resolveKnownBoardForDaoAccount,
 } from '@/features/protocol/dao-accounts';
+import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import {
+  DaoWorkspaceChromeProvider,
+  DaoWorkspaceHeaderSearch,
+  DaoWorkspaceHeaderToolbar,
+} from '@/features/protocol/dao-workspace-chrome';
 import { actOnProtocolProposal } from '@/features/protocol/protocol-act';
 import {
   actionLabel,
@@ -51,6 +57,7 @@ import {
   subscribeProtocolProposalUpdates,
 } from '@/features/protocol/protocol-proposal-events-client';
 import { ProtocolProposalCard } from '@/features/protocol/protocol-proposal-card';
+import { ProtocolProposalListSkeleton } from '@/features/protocol/protocol-proposal-list-skeleton';
 import {
   readLastProtocolPolicyAction,
   rememberProtocolPolicyAction,
@@ -89,7 +96,10 @@ import {
   txToastGovPending,
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
+import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+
+const PROPOSALS_SHEET_Z = 74;
 
 /** Tool the Manage sheet can ask `DaoWorkspacePanel` to open. */
 export type DaoWorkspaceTool = 'propose' | 'stake' | 'settings' | 'info' | null;
@@ -103,6 +113,7 @@ export function DaoWorkspacePanel({
   hideTools = false,
   toolRequest = null,
   onToolRequestHandled,
+  sheet = null,
 }: {
   daoAccountId: string;
   /** When true, hide Propose/Stake/Settings/Info tool chips (Manage sheet owns them). */
@@ -110,20 +121,31 @@ export function DaoWorkspacePanel({
   /** Parent Manage sheet requests opening a tool. */
   toolRequest?: DaoWorkspaceTool;
   onToolRequestHandled?: () => void;
+  /** Portfolio proposals slide-over — search + filter rails live in the header. */
+  sheet?: {
+    open: boolean;
+    onRequestClose: () => void;
+    onClosed?: () => void;
+    title?: string;
+    subtitle?: string;
+    closeAriaLabel?: string;
+    zIndex?: number;
+    className?: string;
+    contentClassName?: string;
+  } | null;
 }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const statusFilter = parseProtocolFeedStatus(
-    searchParams.get(PROTOCOL_STATUS_PARAM)
+  const [statusFilter, setStatusFilter] = useState<ProtocolFeedStatusFilter>(
+    () => parseProtocolFeedStatus(searchParams.get(PROTOCOL_STATUS_PARAM))
   );
-  const familyFilter = parseProtocolProposalFamily(
-    searchParams.get(PROTOCOL_FAMILY_PARAM)
+  const [familyFilter, setFamilyFilter] = useState<ProtocolProposalFamily>(
+    () => parseProtocolProposalFamily(searchParams.get(PROTOCOL_FAMILY_PARAM))
   );
-  const searchQuery = parseProtocolSearchQuery(
-    searchParams.get(PROTOCOL_SEARCH_PARAM)
+  const [searchQuery, setSearchQuery] = useState(() =>
+    parseProtocolSearchQuery(searchParams.get(PROTOCOL_SEARCH_PARAM))
   );
-  const focusedProposalId = parseProtocolProposalId(
-    searchParams.get(PROTOCOL_PROPOSAL_PARAM)
+  const [focusedProposalId, setFocusedProposalId] = useState<number | null>(
+    () => parseProtocolProposalId(searchParams.get(PROTOCOL_PROPOSAL_PARAM))
   );
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
@@ -160,6 +182,8 @@ export function DaoWorkspacePanel({
   const [searchDraft, setSearchDraft] = useState(searchQuery);
   const [visibleCount, setVisibleCount] = useState(PROTOCOL_FEED_PAGE_SIZE);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
+  const useHeaderChrome = sheet != null;
 
   const closeAllSheets = useCallback(() => {
     setProposeKindOpen(false);
@@ -173,6 +197,32 @@ export function DaoWorkspacePanel({
   useEffect(() => {
     setSearchDraft(searchQuery);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setStatusFilter(parseProtocolFeedStatus(params.get(PROTOCOL_STATUS_PARAM)));
+    setFamilyFilter(parseProtocolProposalFamily(params.get(PROTOCOL_FAMILY_PARAM)));
+    setSearchQuery(parseProtocolSearchQuery(params.get(PROTOCOL_SEARCH_PARAM)));
+    setFocusedProposalId(
+      parseProtocolProposalId(params.get(PROTOCOL_PROPOSAL_PARAM))
+    );
+  }, [daoAccountId]);
+
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      setStatusFilter(parseProtocolFeedStatus(params.get(PROTOCOL_STATUS_PARAM)));
+      setFamilyFilter(parseProtocolProposalFamily(params.get(PROTOCOL_FAMILY_PARAM)));
+      setSearchQuery(parseProtocolSearchQuery(params.get(PROTOCOL_SEARCH_PARAM)));
+      setFocusedProposalId(
+        parseProtocolProposalId(params.get(PROTOCOL_PROPOSAL_PARAM))
+      );
+    };
+
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -249,6 +299,10 @@ export function DaoWorkspacePanel({
         : `All ${filteredApplications.length} proposals`
       : null;
 
+  const showColdSkeleton =
+    loadState === 'loading' ||
+    (loadState === 'ready' && feedSyncing && applications.length === 0);
+
   const buildDaoHref = useCallback(
     (opts?: {
       status?: ProtocolFeedStatusFilter | null;
@@ -289,7 +343,7 @@ export function DaoWorkspacePanel({
     try {
       const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
       setApplications(feed.applications);
-      setDaoPolicy(feed.daoPolicy);
+      setDaoPolicy((prev) => feed.daoPolicy ?? prev);
       setFeedSyncing(Boolean(feed.syncing));
       setLoadState('ready');
 
@@ -360,14 +414,15 @@ export function DaoWorkspacePanel({
     if (!match) {
       // Proposal may be filtered out of "open" / family — widen once.
       if (statusFilter !== 'all' || familyFilter !== 'all') {
-        router.replace(
+        setStatusFilter('all');
+        setFamilyFilter('all');
+        replaceBrowserUrl(
           daoPortfolioPath(daoAccountId, {
             status: 'all',
             family: 'all',
             proposal: focusedProposalId,
             q: searchQuery,
-          }),
-          { scroll: false }
+          })
         );
         return;
       }
@@ -391,7 +446,6 @@ export function DaoWorkspacePanel({
     statusFilter,
     familyFilter,
     searchQuery,
-    router,
     daoAccountId,
   ]);
 
@@ -429,47 +483,48 @@ export function DaoWorkspacePanel({
 
   const navigateStatus = useCallback(
     (nextStatus: ProtocolFeedStatusFilter) => {
-      router.replace(
+      setStatusFilter(nextStatus);
+      replaceBrowserUrl(
         daoPortfolioPath(daoAccountId, {
           status: nextStatus,
           family: familyFilter,
           proposal: focusedProposalId,
           q: searchQuery,
-        }),
-        { scroll: false }
+        })
       );
     },
-    [router, daoAccountId, familyFilter, focusedProposalId, searchQuery]
+    [daoAccountId, familyFilter, focusedProposalId, searchQuery]
   );
 
   const navigateFamily = useCallback(
     (nextFamily: ProtocolProposalFamily) => {
-      router.replace(
+      setFamilyFilter(nextFamily);
+      replaceBrowserUrl(
         daoPortfolioPath(daoAccountId, {
           status: statusFilter,
           family: nextFamily,
           proposal: focusedProposalId,
           q: searchQuery,
-        }),
-        { scroll: false }
+        })
       );
     },
-    [router, daoAccountId, statusFilter, focusedProposalId, searchQuery]
+    [daoAccountId, statusFilter, focusedProposalId, searchQuery]
   );
 
   const commitSearch = useCallback(
     (nextQuery: string) => {
-      router.replace(
+      const trimmed = nextQuery.trim();
+      setSearchQuery(trimmed);
+      replaceBrowserUrl(
         daoPortfolioPath(daoAccountId, {
           status: statusFilter,
           family: familyFilter,
           proposal: focusedProposalId,
-          q: nextQuery.trim() || null,
-        }),
-        { scroll: false }
+          q: trimmed || null,
+        })
       );
     },
-    [router, daoAccountId, statusFilter, familyFilter, focusedProposalId]
+    [daoAccountId, statusFilter, familyFilter, focusedProposalId]
   );
 
   const mergeProposal = useCallback(
@@ -481,15 +536,23 @@ export function DaoWorkspacePanel({
         current.map((row) => {
           if (row.app_id !== appId) return row;
           const gp = row.governance_proposal;
+          const previousSnapshot = gp?.snapshot;
+          const mergedSnapshot = {
+            ...nextProposal,
+            policy_snapshot:
+              nextProposal.policy_snapshot ??
+              previousSnapshot?.policy_snapshot ??
+              null,
+          };
           return {
             ...row,
             governance_proposal: gp
               ? {
                   ...gp,
-                  status: nextProposal.status,
-                  snapshot: nextProposal,
-                  kind: nextProposal.kind,
-                  description: nextProposal.description,
+                  status: mergedSnapshot.status,
+                  snapshot: mergedSnapshot,
+                  kind: mergedSnapshot.kind,
+                  description: mergedSnapshot.description,
                 }
               : gp,
           };
@@ -518,15 +581,23 @@ export function DaoWorkspacePanel({
             return current.map((row) => {
               if (row.app_id !== match.app_id) return row;
               const gp = row.governance_proposal;
+              const previousSnapshot = gp?.snapshot;
+              const mergedSnapshot = {
+                ...refreshed.proposal!,
+                policy_snapshot:
+                  refreshed.proposal!.policy_snapshot ??
+                  previousSnapshot?.policy_snapshot ??
+                  null,
+              };
               return {
                 ...row,
                 governance_proposal: gp
                   ? {
                       ...gp,
-                      status: refreshed.proposal!.status,
-                      snapshot: refreshed.proposal!,
-                      kind: refreshed.proposal!.kind,
-                      description: refreshed.proposal!.description,
+                      status: mergedSnapshot.status,
+                      snapshot: mergedSnapshot,
+                      kind: mergedSnapshot.kind,
+                      description: mergedSnapshot.description,
                     }
                   : gp,
               };
@@ -919,7 +990,36 @@ export function DaoWorkspacePanel({
     onToolRequestHandled?.();
   }, [toolRequest, onToolRequestHandled, closeAllSheets]);
 
-  return (
+  const chromeValue = useMemo(
+    () => ({
+      scrollRootRef,
+      loadState,
+      searchDraft,
+      setSearchDraft,
+      searchQuery,
+      commitSearch,
+      statusFilter,
+      navigateStatus,
+      statusCounts,
+      familyFilter,
+      navigateFamily,
+      familyCounts,
+    }),
+    [
+      loadState,
+      searchDraft,
+      searchQuery,
+      commitSearch,
+      statusFilter,
+      navigateStatus,
+      statusCounts,
+      familyFilter,
+      navigateFamily,
+      familyCounts,
+    ]
+  );
+
+  const workspace = (
     <div className="dao-workspace">
       {!hideTools ? (
         <div className="protocol-tools">
@@ -966,7 +1066,7 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
-      {loadState === 'ready' ? (
+      {loadState === 'ready' && !useHeaderChrome ? (
         <label className="protocol-search-field">
           <span className="sr-only">Search proposals</span>
           <input
@@ -992,7 +1092,7 @@ export function DaoWorkspacePanel({
         </label>
       ) : null}
 
-      {loadState === 'ready' ? (
+      {loadState === 'ready' && !useHeaderChrome ? (
         <div
           className="protocol-status-rail"
           role="tablist"
@@ -1023,7 +1123,7 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
-      {loadState === 'ready' ? (
+      {loadState === 'ready' && !useHeaderChrome ? (
         <div
           className="protocol-family-rail"
           role="tablist"
@@ -1054,13 +1154,13 @@ export function DaoWorkspacePanel({
         </div>
       ) : null}
 
-      {loadState === 'loading' ? (
-        <p className="protocol-empty">Opening board…</p>
-      ) : null}
-      {loadState === 'ready' && feedSyncing ? (
-        <p className="protocol-sync-banner" role="status">
-          Indexing proposals… new ones appear as they sync.
-        </p>
+      {showColdSkeleton ? (
+        <>
+          <span className="sr-only" role="status">
+            Loading proposals
+          </span>
+          <ProtocolProposalListSkeleton />
+        </>
       ) : null}
       {loadState === 'error' ? (
         <div className="protocol-empty">
@@ -1074,11 +1174,9 @@ export function DaoWorkspacePanel({
           </button>
         </div>
       ) : null}
-      {loadState === 'ready' && applications.length === 0 ? (
+      {loadState === 'ready' && !showColdSkeleton && applications.length === 0 ? (
         <p className="protocol-empty">
-          {feedSyncing
-            ? 'No proposals indexed yet — syncing this DAO…'
-            : 'No protocol proposals yet.'}
+          {hideTools ? 'No proposals yet.' : 'No protocol proposals yet.'}
         </p>
       ) : null}
       {loadState === 'ready' &&
@@ -1088,8 +1186,10 @@ export function DaoWorkspacePanel({
           {searchQuery
             ? `No matches for “${searchQuery}”.`
             : familyFilter !== 'all'
-              ? `No ${statusFilter === 'open' ? 'open' : statusFilter} ${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
-              : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
+              ? `No ${statusFilter === 'all' ? '' : statusFilter === 'open' ? 'open ' : `${statusFilter} `}${PROTOCOL_FEED_FAMILY_OPTIONS.find((o) => o.id === familyFilter)?.label.toLowerCase() ?? familyFilter} proposals.`
+              : statusFilter === 'all'
+                ? 'No proposals.'
+                : `No ${statusFilter === 'open' ? 'open' : statusFilter} proposals.`}
         </p>
       ) : null}
       {loadState === 'ready' && paintedApplications.length > 0 ? (
@@ -1119,9 +1219,14 @@ export function DaoWorkspacePanel({
                   onOpenActions={() => {
                     setActionAppId(application.app_id);
                     if (proposalId != null) {
-                      router.replace(
-                        buildDaoHref({ proposal: proposalId }),
-                        { scroll: false }
+                      setFocusedProposalId(proposalId);
+                      replaceBrowserUrl(
+                        daoPortfolioPath(daoAccountId, {
+                          status: statusFilter,
+                          family: familyFilter,
+                          proposal: proposalId,
+                          q: searchQuery,
+                        })
                       );
                     }
                   }}
@@ -1299,5 +1404,31 @@ export function DaoWorkspacePanel({
         }}
       />
     </div>
+  );
+
+  return (
+    <DaoWorkspaceChromeProvider value={chromeValue}>
+      {sheet ? (
+        <DaoPageSlideOverScreen
+          pageAccountId={daoAccountId}
+          open={sheet.open}
+          onClose={sheet.onRequestClose}
+          onClosed={sheet.onClosed}
+          title={sheet.title ?? 'Proposals'}
+          subtitle={sheet.subtitle}
+          closeAriaLabel={sheet.closeAriaLabel ?? 'Back from proposals'}
+          zIndex={sheet.zIndex ?? PROPOSALS_SHEET_Z}
+          className={sheet.className ?? 'dao-proposals-slide'}
+          contentClassName={sheet.contentClassName ?? 'dao-proposals-sheet'}
+          heading={<DaoWorkspaceHeaderSearch />}
+          toolbar={<DaoWorkspaceHeaderToolbar />}
+          scrollRootRef={scrollRootRef}
+        >
+          {workspace}
+        </DaoPageSlideOverScreen>
+      ) : (
+        workspace
+      )}
+    </DaoWorkspaceChromeProvider>
   );
 }

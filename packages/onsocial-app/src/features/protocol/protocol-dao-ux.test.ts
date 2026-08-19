@@ -28,6 +28,7 @@ import {
   classifyCoreExecuteSetKeys,
   deriveProtocolProposalPresentation,
 } from '@/features/protocol/protocol-proposal-presentation';
+import { isProtocolApplicationSoftExpired } from '@/features/protocol/protocol-card-view';
 import type { ProtocolApplication } from '@/features/protocol/types';
 import {
   daoPortfolioPath,
@@ -87,7 +88,7 @@ describe('protocol feed filters', () => {
   it('parses status and proposal query params', () => {
     expect(parseProtocolFeedStatus('approved')).toBe('approved');
     expect(parseProtocolFeedStatus('InProgress')).toBe('open');
-    expect(parseProtocolFeedStatus(null)).toBe('open');
+    expect(parseProtocolFeedStatus(null)).toBe('all');
     expect(parseProtocolProposalId('12')).toBe(12);
     expect(parseProtocolProposalId('nope')).toBeNull();
   });
@@ -104,6 +105,27 @@ describe('protocol feed filters', () => {
       expired: 1,
       all: 4,
     });
+  });
+
+  it('routes stale InProgress proposals to expired when past proposal period', () => {
+    const periodNs = String(7n * 24n * 60n * 60n * 1_000_000_000n);
+    const stale = app({ proposalId: 96, status: 'InProgress' });
+    stale.governance_proposal!.snapshot!.submission_time = String(
+      BigInt(Date.now() - 500 * 86_400_000) * 1_000_000n
+    );
+    const policy = { proposal_period: periodNs };
+    const isSoftExpired = (application: ProtocolApplication) =>
+      isProtocolApplicationSoftExpired(application, policy, Date.now());
+
+    expect(
+      filterProtocolApplications([stale], 'open', { isSoftExpired })
+    ).toHaveLength(0);
+    expect(
+      filterProtocolApplications([stale], 'expired', { isSoftExpired })
+    ).toHaveLength(1);
+    expect(
+      countProtocolApplicationsByStatus([stale], { isSoftExpired }).expired
+    ).toBe(1);
   });
 
   it('finds applications by proposal id', () => {

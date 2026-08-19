@@ -7,6 +7,13 @@ import {
   viewNearContract,
 } from '@/lib/app-near-rpc';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import {
+  NEAR_TOKEN_DISPLAY,
+  fetchFallbackTokenIcon,
+  readFtTokenMetadata,
+  resolveFtTokenIcon,
+  type FtTokenMetadata,
+} from '@/lib/token-metadata';
 
 export interface ProtocolDaoTransferAsset {
   /** Empty string = native NEAR in Sputnik Transfer proposals. */
@@ -21,23 +28,10 @@ export interface ProtocolDaoTransferAsset {
 interface IndexedFtRow {
   contractId: string;
   balanceSmallest: string;
-  metadata?: Partial<OnChainFtMetadata> | null;
-}
-
-interface OnChainFtMetadata {
-  symbol?: string;
-  name?: string;
-  icon?: string | null;
-  decimals?: number;
+  metadata?: Partial<FtTokenMetadata> | null;
 }
 
 const ACCOUNT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
-const NEAR_TOKEN_DISPLAY = {
-  symbol: 'NEAR',
-  name: 'NEAR',
-  icon: null,
-  decimals: 24,
-} as const;
 
 function nearBlocksApiBase(): string {
   return ACTIVE_NEAR_NETWORK === 'mainnet'
@@ -109,7 +103,7 @@ async function fetchNearBlocksInventory(
               name: row.ft_meta.name,
               symbol: row.ft_meta.symbol,
               decimals: row.ft_meta.decimals,
-              icon: null,
+              icon: row.ft_meta.icon ?? null,
             }
           : null,
       },
@@ -171,27 +165,6 @@ async function readOnChainFtBalance(
   return normalizeFtBalanceYocto(balance);
 }
 
-async function readOnChainFtMetadata(
-  contractId: string
-): Promise<Required<Pick<OnChainFtMetadata, 'symbol' | 'name' | 'decimals'>>> {
-  const metadata = await viewNearContract<OnChainFtMetadata>(
-    contractId,
-    'ft_metadata',
-    {}
-  ).catch(() => null);
-
-  const contractSuffix = contractId.split('.')[0] || contractId;
-
-  return {
-    symbol: metadata?.symbol?.trim() || contractSuffix.toUpperCase(),
-    name: metadata?.name?.trim() || contractId,
-    decimals:
-      typeof metadata?.decimals === 'number' && metadata.decimals >= 0
-        ? metadata.decimals
-        : 18,
-  };
-}
-
 async function resolveIndexedFtAsset(
   row: IndexedFtRow,
   accountId: string
@@ -201,24 +174,32 @@ async function resolveIndexedFtAsset(
     return null;
   }
 
-  const metadata =
-    row.metadata?.symbol && row.metadata?.decimals != null
-      ? {
-          symbol: row.metadata.symbol,
-          name: row.metadata.name ?? row.contractId,
-          decimals: row.metadata.decimals,
-        }
-      : await readOnChainFtMetadata(row.contractId).catch(() => ({
-          symbol: row.contractId.split('.')[0]?.toUpperCase() || 'FT',
-          name: row.contractId,
-          decimals: 18,
-        }));
+  let metadata: FtTokenMetadata;
+  if (row.metadata?.symbol && row.metadata?.decimals != null) {
+    let icon = resolveFtTokenIcon(row.contractId, row.metadata.icon ?? null);
+    if (!icon) {
+      icon = await fetchFallbackTokenIcon(row.contractId);
+    }
+    metadata = {
+      symbol: row.metadata.symbol,
+      name: row.metadata.name ?? row.contractId,
+      icon,
+      decimals: row.metadata.decimals,
+    };
+  } else {
+    metadata = await readFtTokenMetadata(row.contractId).catch(() => ({
+      symbol: row.contractId.split('.')[0]?.toUpperCase() || 'FT',
+      name: row.contractId,
+      icon: null,
+      decimals: 18,
+    }));
+  }
 
   return {
     tokenId: row.contractId,
     symbol: metadata.symbol,
     name: metadata.name,
-    icon: null,
+    icon: metadata.icon,
     decimals: metadata.decimals,
     balanceSmallest: onChainBalance.toString(),
   };

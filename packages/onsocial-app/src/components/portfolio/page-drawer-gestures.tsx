@@ -11,6 +11,7 @@ import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import { accountIdsEqual } from '@/lib/account-match';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
+import { PortfolioDaoGestureStandingCount } from '@/components/portfolio/portfolio-dao-gesture-standing-count';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
@@ -24,6 +25,7 @@ interface PageDrawerGesturesProps {
   mood?: ResolvedMood | null;
   /** DAO org face — Stand · Support (no Endorse). */
   isDao?: boolean;
+  incomingStandingCount?: number;
   /** Hide while the drawer body is scrolling. */
   dockHidden?: boolean;
 }
@@ -39,6 +41,7 @@ export function PageDrawerGestures({
   avatarUrl,
   mood = null,
   isDao = false,
+  incomingStandingCount = 0,
   dockHidden = false,
 }: PageDrawerGesturesProps) {
   const {
@@ -164,6 +167,13 @@ export function PageDrawerGestures({
             >
               <StandingToggle active={viewerStanding} pending={pending} />
             </button>
+
+            {isDao ? (
+              <PortfolioDaoGestureStandingCount
+                accountId={pageAccountId}
+                baseCount={incomingStandingCount}
+              />
+            ) : null}
 
             {!isDao ? (
               <>

@@ -1,4 +1,7 @@
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
+import { isImplicitNearAccountId } from '@/lib/account-match';
+
+export { isImplicitNearAccountId };
 
 export type AllowlistPasteEntry = {
   account_id: string;
@@ -48,11 +51,6 @@ export function allowlistCapStepperMax(maxPerWallet?: number | null): number {
 export function isPlausibleNearAccountId(id: string): boolean {
   if (id.length < 2 || id.length > 64) return false;
   return /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(id);
-}
-
-/** 64-char hex implicit account — may not show on RPC until used. */
-export function isImplicitNearAccountId(id: string): boolean {
-  return /^[0-9a-f]{64}$/.test(id);
 }
 
 /** Soft network mismatch — e.g. `.near` while the app is on testnet. */

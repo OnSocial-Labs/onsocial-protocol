@@ -82,6 +82,10 @@ export function nearAccountExplorerHref(accountId: string): string {
   return `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`;
 }
 
+export function nearFtExplorerHref(contractId: string): string {
+  return `${ACTIVE_NEAR_EXPLORER_URL}/token/${contractId.trim().toLowerCase()}`;
+}
+
 export function nearNetworkLabel(
   network: AppNearNetwork = ACTIVE_NEAR_NETWORK
 ): string {

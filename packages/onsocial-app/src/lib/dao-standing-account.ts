@@ -6,8 +6,6 @@
 import { readRecentCommunityDaos } from '@/features/protocol/dao-accounts';
 import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 
-export type StandingEntityFilter = 'people' | 'daos';
-
 const DAO_STANDING_TARGETS_KEY = 'onsocial.standing.dao-targets';
 const DAO_STANDING_TARGETS_LIMIT = 200;
 
@@ -68,12 +66,4 @@ export function isDaoStandingTarget(
   if (readDaoStandingTargets().includes(id)) return true;
   if (readRecentCommunityDaos().includes(id)) return true;
   return false;
-}
-
-export function matchesStandingEntityFilter(
-  account: { accountId: string; isDao?: boolean },
-  filter: StandingEntityFilter
-): boolean {
-  const isDao = isDaoStandingTarget(account.accountId, account.isDao);
-  return filter === 'daos' ? isDao : !isDao;
 }

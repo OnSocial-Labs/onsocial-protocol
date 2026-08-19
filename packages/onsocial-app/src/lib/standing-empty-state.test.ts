@@ -15,26 +15,20 @@ describe('buildStandingSearchEmptyPrimary', () => {
     ).toBe('No matches for "alice" among people standing with Bob.');
   });
 
-  it('scopes outgoing search to people the subject stands with', () => {
+  it('scopes outgoing search to standing targets', () => {
     expect(
       buildStandingSearchEmptyPrimary('outgoing', true, 'You', 'alice')
-    ).toBe('No matches for "alice" among people you stand with.');
+    ).toBe('No matches for "alice" in who you stand with.');
 
     expect(
       buildStandingSearchEmptyPrimary('outgoing', false, 'Bob', 'alice')
-    ).toBe('No matches for "alice" among people Bob stands with.');
+    ).toBe('No matches for "alice" in who Bob stands with.');
   });
 
   it('uses solidarity copy for mutual search', () => {
     expect(
       buildStandingSearchEmptyPrimary('mutual', true, 'You', 'alice')
     ).toBe('No solidarity matches "alice".');
-  });
-
-  it('scopes DAO entity search copy', () => {
-    expect(
-      buildStandingSearchEmptyPrimary('outgoing', true, 'You', 'gov', 'daos')
-    ).toBe('No matches for "gov" among DAOs you stand with.');
   });
 });
 
@@ -49,7 +43,7 @@ describe('buildStandingEmptyState', () => {
         showDiscoverLink: true,
       })
     ).toEqual({
-      primary: 'No matches for "alice" among people you stand with.',
+      primary: 'No matches for "alice" in who you stand with.',
       secondary: 'Try another name or handle.',
       showClearSearch: true,
       showDiscover: true,
@@ -69,23 +63,6 @@ describe('buildStandingEmptyState', () => {
       primary: 'You do not stand with anyone yet.',
       showClearSearch: false,
       showDiscover: true,
-    });
-  });
-
-  it('uses DAO-specific empty copy', () => {
-    expect(
-      buildStandingEmptyState({
-        kind: 'outgoing',
-        isSelf: true,
-        displayName: 'You',
-        query: '',
-        showDiscoverLink: true,
-        entityFilter: 'daos',
-      })
-    ).toEqual({
-      primary: 'You do not stand with any DAOs yet.',
-      showClearSearch: false,
-      showDiscover: false,
     });
   });
 });

@@ -1,4 +1,5 @@
 import { deriveProtocolProposalPresentation } from '@/features/protocol/protocol-proposal-presentation';
+import { proposalPeriodNsToDays } from '@/features/protocol/protocol-policy';
 import type {
   ProtocolApplication,
   ProtocolDaoAction,
@@ -89,6 +90,22 @@ export function sumVoteCounts(
     if (Number.isFinite(n) && n > 0) total += n;
   }
   return total;
+}
+
+/** DAO policy period, falling back to the proposal's submission-time snapshot. */
+export function resolveProposalPeriodMs(
+  proposal: ProtocolDaoProposal | null,
+  daoPolicy: ProtocolDaoPolicy | null
+): number | null {
+  const periodNs =
+    daoPolicy?.proposal_period?.trim() ||
+    proposal?.policy_snapshot?.proposal_period?.trim() ||
+    null;
+  const days = proposalPeriodNsToDays(periodNs);
+  if (!days) return null;
+  const dayCount = Number(days);
+  if (!Number.isFinite(dayCount) || dayCount <= 0) return null;
+  return dayCount * 86_400_000;
 }
 
 export function resolveLiveProposal(
@@ -355,7 +372,7 @@ export function deriveProtocolProposalView(opts: {
   const submissionMs = proposal
     ? parseNanosecondsToMilliseconds(proposal.submission_time)
     : null;
-  const periodMs = parseNanosecondsToMilliseconds(daoPolicy?.proposal_period);
+  const periodMs = resolveProposalPeriodMs(proposal, daoPolicy);
   const expiresAtMs =
     submissionMs != null && periodMs != null ? submissionMs + periodMs : null;
   const expired =
@@ -499,7 +516,7 @@ export function isProtocolApplicationSoftExpired(
   const proposal = resolveLiveProposal(application);
   if (!proposal || proposal.status !== 'InProgress') return false;
   const submissionMs = parseNanosecondsToMilliseconds(proposal.submission_time);
-  const periodMs = parseNanosecondsToMilliseconds(daoPolicy?.proposal_period);
+  const periodMs = resolveProposalPeriodMs(proposal, daoPolicy);
   if (submissionMs == null || periodMs == null) return false;
   return submissionMs + periodMs <= nowMs;
 }

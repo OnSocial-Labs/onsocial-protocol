@@ -1,11 +1,16 @@
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { StandingPageShell } from '@/components/panels/standing-panel';
 import { loadStandingListPage } from '@/lib/load-standing-list-page';
-import { parseStandingKind } from '@/lib/profile-social-standings';
+import {
+  parseStandingKind,
+  standingPath,
+} from '@/lib/profile-social-standings';
 import { displayName } from '@/lib/profile-display';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { loadProfileShell } from '@/lib/profile-shell';
+import { resolvePortfolioDaoEntity } from '@/lib/portfolio-dao-entity';
 import { resolveAccountId } from '@/lib/resolve-account';
+import { redirect } from 'next/navigation';
 
 type StandingKindPageProps = {
   params: Promise<{
@@ -30,6 +35,11 @@ export default async function StandingKindPage({
       ? resolvedSearchParams.q[0]
       : resolvedSearchParams?.q
   );
+  const daoEntity = await resolvePortfolioDaoEntity(accountId);
+  const isDaoSubject = daoEntity.isDao;
+  if (isDaoSubject && kind !== 'incoming') {
+    redirect(standingPath(accountId, 'incoming', initialQuery));
+  }
   const [shell, signals, initialList] = await Promise.all([
     loadProfileShell(accountId),
     fetchProfileSignals(accountId),
@@ -51,6 +61,7 @@ export default async function StandingKindPage({
       initialQuery={initialQuery}
       initialList={initialList}
       profileMetaFromServer
+      isDaoSubject={isDaoSubject}
     />
   );
 }

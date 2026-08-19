@@ -2,11 +2,16 @@ import { OverlayInterceptRoot } from '@/components/overlay/overlay-intercept-roo
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { StandingOverlayRoute } from '@/components/panels/standing-overlay-route';
 import { loadStandingListPage } from '@/lib/load-standing-list-page';
-import { parseStandingKind } from '@/lib/profile-social-standings';
+import {
+  parseStandingKind,
+  standingPath,
+} from '@/lib/profile-social-standings';
 import { displayName } from '@/lib/profile-display';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { loadProfileShell } from '@/lib/profile-shell';
+import { resolvePortfolioDaoEntity } from '@/lib/portfolio-dao-entity';
 import { resolveAccountId } from '@/lib/resolve-account';
+import { redirect } from 'next/navigation';
 
 type StandingKindOverlayProps = {
   params: Promise<{
@@ -31,6 +36,11 @@ export default async function StandingKindOverlay({
       ? resolvedSearchParams.q[0]
       : resolvedSearchParams?.q
   );
+  const daoEntity = await resolvePortfolioDaoEntity(accountId);
+  const isDaoSubject = daoEntity.isDao;
+  if (isDaoSubject && kind !== 'incoming') {
+    redirect(standingPath(accountId, 'incoming', initialQuery));
+  }
   const [shell, signals, initialList] = await Promise.all([
     loadProfileShell(accountId),
     fetchProfileSignals(accountId),
@@ -52,6 +62,7 @@ export default async function StandingKindOverlay({
           mutual: signals?.mutualStandingCount ?? 0,
         }}
         initialList={initialList}
+        isDaoSubject={isDaoSubject}
       />
     </OverlayInterceptRoot>
   );

@@ -81,6 +81,7 @@ interface PageContentDrawerProps {
   config: PublicPageConfig;
   stats: PublicPageStats;
   guilds?: ProfileGuildSummary[];
+  incomingStandingCount?: number;
   createdPeeks?: ProfileCreatedPeek[];
   storeShelf?: ProfileStoreShelf;
 }
@@ -206,6 +207,7 @@ export function PageContentDrawer({
   config,
   stats,
   guilds = [],
+  incomingStandingCount = 0,
   createdPeeks = [],
   storeShelf = EMPTY_PROFILE_STORE,
 }: PageContentDrawerProps) {
@@ -520,6 +522,7 @@ export function PageContentDrawer({
             avatarUrl={avatarUrl}
             mood={mood}
             dockHidden={dockHidden}
+            incomingStandingCount={incomingStandingCount}
           />
         }
       >

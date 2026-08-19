@@ -119,6 +119,9 @@ export default async function AccountPage({
     guildCount: Math.max(guilds.length, drawerMetaBase.guildCount ?? 0),
     postCount: Math.max(postCount, drawerMetaBase.postCount ?? 0),
   };
+  const daoIncomingStanding = daoEntity.isDao
+    ? (signals?.standingCount ?? data.stats.standingCount ?? 0)
+    : 0;
 
   return (
     <>
@@ -148,6 +151,7 @@ export default async function AccountPage({
         bio={portfolioBio}
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
+        incomingStandingCount={daoIncomingStanding}
         deferredShelf={
           <PortfolioDeferredShelf accountId={accountId} />
         }
@@ -161,6 +165,7 @@ export default async function AccountPage({
           mood={mood}
           isDao={daoEntity.isDao}
           kindLabel={daoEntity.kindLabel}
+          incomingStandingCount={daoIncomingStanding}
         />
 
         {daoEntity.isDao ? null : (
@@ -181,11 +186,11 @@ export default async function AccountPage({
           />
         ) : null}
 
-        {signals ? (
+        {signals && !daoEntity.isDao ? (
           <PortfolioSignalsShell accountId={accountId} signals={signals} />
-        ) : (
+        ) : !daoEntity.isDao ? (
           <PortfolioStatsRow accountId={accountId} stats={data.stats} />
-        )}
+        ) : null}
         <PortfolioLinks links={shell?.links} />
       </PortfolioShellRoot>
     </>

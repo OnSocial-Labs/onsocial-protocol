@@ -258,6 +258,11 @@ export function parseProtocolFeedStatus(
 ): ProtocolFeedStatusFilter {
   const value = raw?.trim().toLowerCase() ?? '';
   switch (value) {
+    case 'open':
+    case 'inprogress':
+    case 'in_progress':
+    case 'review':
+      return 'open';
     case 'approved':
     case 'rejected':
     case 'removed':
@@ -266,13 +271,8 @@ export function parseProtocolFeedStatus(
     case 'moved':
     case 'all':
       return value;
-    case 'open':
-    case 'inprogress':
-    case 'in_progress':
-    case 'review':
-      return 'open';
     default:
-      return 'open';
+      return 'all';
   }
 }
 
@@ -311,7 +311,7 @@ export function protocolPath(opts?: {
     }
   }
   const status = opts?.status ?? null;
-  if (status && status !== 'open') {
+  if (status && status !== 'all') {
     params.set(PROTOCOL_STATUS_PARAM, status);
   }
   const family = opts?.family?.trim().toLowerCase() ?? '';
@@ -371,7 +371,7 @@ export function daoPortfolioPath(
   const base = daoPath(daoAccountId);
   const params = new URLSearchParams();
   const status = opts?.status ?? null;
-  if (status && status !== 'open') {
+  if (status && status !== 'all') {
     params.set(PROTOCOL_STATUS_PARAM, status);
   }
   const family = opts?.family?.trim().toLowerCase() ?? '';

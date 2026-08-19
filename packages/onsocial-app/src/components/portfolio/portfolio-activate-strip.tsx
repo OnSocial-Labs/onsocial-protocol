@@ -2,6 +2,7 @@
 
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
+import { fallbackLabel } from '@/lib/profile-display';
 import { useActivatePage } from '@/hooks/use-activate-page';
 
 interface PortfolioActivateStripProps {
@@ -41,7 +42,7 @@ export function PortfolioActivateStrip({
   if (!isLoading && isConnected && !isOwner) {
     return (
       <p className="portfolio-activate-strip-hint">
-        Connect as @{pageAccountId} to activate.
+        Connect as @{fallbackLabel(pageAccountId)} to activate.
       </p>
     );
   }

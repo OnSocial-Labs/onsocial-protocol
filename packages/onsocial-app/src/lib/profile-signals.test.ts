@@ -48,4 +48,35 @@ describe('profileSignalsHaveFaceMetrics', () => {
       })
     ).toBe(true);
   });
+
+  it('ignores endorsements and reputation on DAO faces', () => {
+    expect(
+      profileSignalsHaveFaceMetrics(
+        {
+          ...empty,
+          endorsementsGivenCount: 2,
+          reputation: {
+            reputation: 12,
+            rank: 0,
+            socialScore: 0,
+            commitmentScore: 0,
+            qualityScore: 0,
+            consistencyScore: 0,
+            scarcesScore: 0,
+            confidenceScore: 0,
+            totalPosts: 0,
+            paidSupportSpenders: 0,
+            uniqueInboundPeers: 0,
+            uniqueScarceFans: 0,
+            amplifyEvents: 0,
+            lockMonths: 0,
+          },
+        },
+        { isDao: true }
+      )
+    ).toBe(false);
+    expect(
+      profileSignalsHaveFaceMetrics({ ...empty, standingCount: 2 }, { isDao: true })
+    ).toBe(true);
+  });
 });

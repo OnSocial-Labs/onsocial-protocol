@@ -24,3 +24,8 @@ export function accountIdsEqual(
 ): boolean {
   return canonicalAccountId(left, network) === canonicalAccountId(right, network);
 }
+
+/** 64-char hex NEAR implicit account — may not show on RPC until used. */
+export function isImplicitNearAccountId(id: string): boolean {
+  return /^[0-9a-f]{64}$/i.test(id.trim());
+}

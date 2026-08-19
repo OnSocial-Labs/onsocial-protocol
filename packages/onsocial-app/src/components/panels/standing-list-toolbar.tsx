@@ -6,7 +6,6 @@ import {
   type ChoiceOption,
 } from '@onsocial/ui';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
-import type { StandingEntityFilter } from '@/lib/dao-standing-account';
 import {
   formatProfileCount,
   standViewLabel,
@@ -57,10 +56,9 @@ export function StandingListToolbar({ trailing }: { trailing?: ReactNode }) {
     counts,
     countsLoading,
     isSelf,
+    isDaoSubject,
     query,
     setQuery,
-    entityFilter,
-    setEntityFilter,
   } = useStandingPanel();
 
   const kinds: StanceDetailKind[] = ['incoming', 'outgoing', 'mutual'];
@@ -82,51 +80,32 @@ export function StandingListToolbar({ trailing }: { trailing?: ReactNode }) {
     ),
   }));
 
-  const entityOptions: ChoiceOption<StandingEntityFilter>[] = [
-    { value: 'people', label: 'People' },
-    { value: 'daos', label: 'DAOs' },
-  ];
-
   return (
     <div className="standing-list-toolbar">
-      <ChoiceDrawerMenu
-        label="Standing"
-        value={kind}
-        options={options}
-        onChange={navigateKind}
-        triggerMeta={
-          <CountBadge
-            kind={kind}
-            count={countFor(kind)}
-            loading={countsLoading}
-          />
-        }
-        className="standing-view-menu"
-      />
-
-      <ChoiceDrawerMenu
-        label="Show"
-        value={entityFilter}
-        options={entityOptions}
-        onChange={setEntityFilter}
-        className="standing-entity-menu"
-      />
+      {isDaoSubject ? null : (
+        <ChoiceDrawerMenu
+          label="Standing"
+          value={kind}
+          options={options}
+          onChange={navigateKind}
+          triggerMeta={
+            <CountBadge
+              kind={kind}
+              count={countFor(kind)}
+              loading={countsLoading}
+            />
+          }
+          className="standing-view-menu"
+        />
+      )}
 
       <SearchField
         value={query}
         onValueChange={setQuery}
-        placeholder={
-          entityFilter === 'daos' ? 'Search DAOs' : 'Search profiles'
-        }
+        placeholder="Search standing"
         maxLength={PROFILE_SEARCH_MAX_QUERY_LENGTH}
-        clearAriaLabel={
-          entityFilter === 'daos' ? 'Clear DAO search' : 'Clear profile search'
-        }
-        ariaLabel={
-          entityFilter === 'daos'
-            ? 'Search standing DAOs'
-            : 'Search standing profiles'
-        }
+        clearAriaLabel="Clear standing search"
+        ariaLabel="Search standing"
         chrome="floating-panel"
         className="standing-list-toolbar-search"
       />

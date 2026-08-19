@@ -20,7 +20,7 @@ import {
   OsSheetActions,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
@@ -394,7 +394,8 @@ export function DaoBoostSheet({
 
   return (
     <>
-      <OsSlideOverScreen
+      <DaoPageSlideOverScreen
+        pageAccountId={daoAccountId}
         open={open}
         onClose={onClose}
         title="Boost as DAO"
@@ -620,7 +621,7 @@ export function DaoBoostSheet({
             </p>
           ) : null}
         </form>
-      </OsSlideOverScreen>
+      </DaoPageSlideOverScreen>
 
       <DaoProposeConfirmSheet
         open={confirm != null}

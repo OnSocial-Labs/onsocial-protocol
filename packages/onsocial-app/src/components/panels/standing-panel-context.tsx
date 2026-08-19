@@ -36,10 +36,6 @@ import {
   type StandingPanelEmptyState,
 } from '@/lib/standing-empty-state';
 import {
-  matchesStandingEntityFilter,
-  type StandingEntityFilter,
-} from '@/lib/dao-standing-account';
-import {
   fetchProfileSocialStandings,
   formatProfileCount,
   mergeStandingAccounts,
@@ -75,6 +71,8 @@ export interface StandingPanelProviderProps {
   syncUrl?: boolean;
   shellVariant?: StandingShellVariant;
   scrollRootRef?: RefObject<Element | null>;
+  /** DAO org faces only list people standing with them (incoming). */
+  isDaoSubject?: boolean;
   children: ReactNode;
 }
 
@@ -87,8 +85,7 @@ interface StandingPanelContextValue {
   kind: StanceDetailKind;
   counts: PortfolioStandingCounts;
   isSelf: boolean;
-  entityFilter: StandingEntityFilter;
-  setEntityFilter: Dispatch<SetStateAction<StandingEntityFilter>>;
+  isDaoSubject: boolean;
   query: string;
   setQuery: Dispatch<SetStateAction<string>>;
   viewerAccountId: string | null;
@@ -182,6 +179,7 @@ export function StandingPanelProvider({
   syncUrl = true,
   shellVariant = 'overlay',
   scrollRootRef,
+  isDaoSubject = false,
   children,
 }: StandingPanelProviderProps) {
   const portfolioSeed = usePortfolioProfileSeed(accountId);
@@ -226,9 +224,9 @@ export function StandingPanelProvider({
       hasStandingCounts(initialCounts)
   );
   const [query, setQuery] = useState(initialQuery);
-  const [entityFilter, setEntityFilter] =
-    useState<StandingEntityFilter>('people');
-  const [activeKind, setActiveKind] = useState(kind);
+  const [activeKind, setActiveKind] = useState(
+    isDaoSubject ? 'incoming' : kind
+  );
   const standingSyncPath = useMemo(
     () => standingPath(accountId, activeKind),
     [accountId, activeKind]
@@ -257,8 +255,12 @@ export function StandingPanelProvider({
   }, [initialQuery]);
 
   useEffect(() => {
+    if (isDaoSubject) {
+      setActiveKind('incoming');
+      return;
+    }
     setActiveKind(kind);
-  }, [kind]);
+  }, [isDaoSubject, kind]);
 
   useEffect(() => {
     if (!portfolioSeed) {
@@ -333,18 +335,20 @@ export function StandingPanelProvider({
       const kindFromUrl = parseStandingKindFromPathname(
         window.location.pathname
       );
-      if (kindFromUrl) {
+      if (kindFromUrl && !(isDaoSubject && kindFromUrl !== 'incoming')) {
         setActiveKind(kindFromUrl);
+      } else if (isDaoSubject) {
+        setActiveKind('incoming');
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [syncUrl]);
+  }, [isDaoSubject, syncUrl]);
 
   const navigateKind = useCallback(
     (nextKind: StanceDetailKind) => {
-      if (!syncUrl || nextKind === activeKind) {
+      if (isDaoSubject || !syncUrl || nextKind === activeKind) {
         return;
       }
 
@@ -356,7 +360,7 @@ export function StandingPanelProvider({
         scrollRoot.scrollTop = 0;
       }
     },
-    [accountId, activeKind, query, scrollRootRef, syncUrl]
+    [accountId, activeKind, isDaoSubject, query, scrollRootRef, syncUrl]
   );
 
   const isSelf = Boolean(viewerAccountId && viewerAccountId === accountId);
@@ -410,16 +414,12 @@ export function StandingPanelProvider({
       );
 
   const filteredAccounts = useMemo(() => {
-    const byEntity = displayAccounts.filter((account) =>
-      matchesStandingEntityFilter(account, entityFilter)
-    );
-
-    if (serverSearchActive) return byEntity;
+    if (serverSearchActive) return displayAccounts;
 
     const localQuery = query.trim().toLowerCase();
-    if (!localQuery) return byEntity;
+    if (!localQuery) return displayAccounts;
 
-    return byEntity.filter((account) => {
+    return displayAccounts.filter((account) => {
       const label = accountLabel(account).toLowerCase();
       const accountIdLabel = account.accountId.toLowerCase();
       const bio = account.bio?.toLowerCase() ?? '';
@@ -429,7 +429,7 @@ export function StandingPanelProvider({
         bio.includes(localQuery)
       );
     });
-  }, [displayAccounts, entityFilter, query, serverSearchActive]);
+  }, [displayAccounts, query, serverSearchActive]);
 
   const mergedPendingIds = useMemo(() => {
     void standingSyncVersion;
@@ -703,25 +703,6 @@ export function StandingPanelProvider({
     viewerKey,
   ]);
 
-  // DAOs may sit past the first People page — keep fetching until one appears
-  // or pages are exhausted (empty state has no load-more sentinel).
-  useEffect(() => {
-    if (entityFilter !== 'daos') return;
-    if (query.trim()) return;
-    if (filteredAccounts.length > 0) return;
-    if (!hasMore || isLoading || isLoadingMore || loadError) return;
-    void loadMore();
-  }, [
-    entityFilter,
-    query,
-    filteredAccounts.length,
-    hasMore,
-    isLoading,
-    isLoadingMore,
-    loadError,
-    loadMore,
-  ]);
-
   const handleUpdateStanding = useCallback(
     async (account: StandingAccountSummary, shouldStand: boolean) => {
       if (mergedPendingIds.has(account.accountId)) {
@@ -755,48 +736,21 @@ export function StandingPanelProvider({
     [mergedPendingIds, updateStanding]
   );
 
-  const emptyState = useMemo(() => {
-    const scanningDaos =
-      entityFilter === 'daos' &&
-      !query.trim() &&
-      filteredAccounts.length === 0 &&
-      (hasMore || isLoading || isLoadingMore);
-
-    if (scanningDaos) {
-      return {
-        primary: 'Looking for DAOs…',
-        showClearSearch: false,
-        showDiscover: false,
-      };
-    }
-
-    return buildStandingEmptyState({
-      kind: activeKind,
-      isSelf,
-      displayName: profileDisplayName,
-      query,
-      showDiscoverLink,
-      entityFilter,
-    });
-  }, [
-    isSelf,
-    activeKind,
-    profileDisplayName,
-    query,
-    showDiscoverLink,
-    entityFilter,
-    filteredAccounts.length,
-    hasMore,
-    isLoading,
-    isLoadingMore,
-  ]);
+  const emptyState = useMemo(
+    () =>
+      buildStandingEmptyState({
+        kind: activeKind,
+        isSelf,
+        displayName: profileDisplayName,
+        query,
+        showDiscoverLink,
+      }),
+    [isSelf, activeKind, profileDisplayName, query, showDiscoverLink]
+  );
 
   const clearSearch = useCallback(() => {
     setQuery('');
   }, []);
-
-  const entityNoun = entityFilter === 'daos' ? 'DAO' : 'profile';
-  const entityNounPlural = entityFilter === 'daos' ? 'DAOs' : 'profiles';
 
   const summary = useMemo(() => {
     if (filteredAccounts.length === 0 && isLoading) return null;
@@ -810,24 +764,20 @@ export function StandingPanelProvider({
     if (serverSearchActive) {
       if (totalCount > 0) {
         return hasMore
-          ? `Showing ${shown} of ${formatProfileCount(totalCount)} matching ${entityNounPlural}`
-          : `${formatProfileCount(totalCount)} matching ${
-              totalCount === 1 ? entityNoun : entityNounPlural
+          ? `Showing ${shown} of ${formatProfileCount(totalCount)} matches`
+          : `${formatProfileCount(totalCount)} ${
+              totalCount === 1 ? 'match' : 'matches'
             }`;
       }
       return hasMore
-        ? `Showing ${shown} matching ${entityNounPlural}`
-        : `${shown} matching ${
-            filteredAccounts.length === 1 ? entityNoun : entityNounPlural
-          }`;
+        ? `Showing ${shown} matches`
+        : `${shown} ${filteredAccounts.length === 1 ? 'match' : 'matches'}`;
     }
 
     if (query.trim()) {
       return hasMore
-        ? `Showing ${shown} matching ${entityNounPlural}`
-        : `${shown} matching ${
-            filteredAccounts.length === 1 ? entityNoun : entityNounPlural
-          }`;
+        ? `Showing ${shown} matches`
+        : `${shown} ${filteredAccounts.length === 1 ? 'match' : 'matches'}`;
     }
 
     if (totalCount > 0) {
@@ -837,8 +787,6 @@ export function StandingPanelProvider({
     return null;
   }, [
     displayAccounts.length,
-    entityNoun,
-    entityNounPlural,
     filteredAccounts.length,
     hasMore,
     isLoading,
@@ -878,7 +826,7 @@ export function StandingPanelProvider({
 
   const footerSummary =
     filteredAccounts.length > 0 && !showListSkeleton ? summary : null;
-  const listKey = `${activeKind}:${entityFilter}:${query.trim() || '__all__'}`;
+  const listKey = `${activeKind}:${query.trim() || '__all__'}`;
 
   const retryLoad = useCallback(() => {
     setReloadNonce((current) => current + 1);
@@ -894,8 +842,7 @@ export function StandingPanelProvider({
       kind: activeKind,
       counts: liveCounts,
       isSelf,
-      entityFilter,
-      setEntityFilter,
+      isDaoSubject,
       query,
       setQuery,
       viewerAccountId: viewerAccountId ?? null,
@@ -928,11 +875,11 @@ export function StandingPanelProvider({
       countsLoading,
       clearSearch,
       emptyState,
-      entityFilter,
       filteredAccounts,
       footerSummary,
       handleUpdateStanding,
       isConnected,
+      isDaoSubject,
       isListRefreshing,
       isLoadingMore,
       isSelf,

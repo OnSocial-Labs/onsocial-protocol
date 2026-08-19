@@ -14,6 +14,7 @@ export function StandingOverlayRoute({
   avatarUrl: serverAvatarUrl,
   initialCounts: serverCounts,
   initialList = null,
+  isDaoSubject = false,
 }: {
   accountId: string;
   kind: StanceDetailKind;
@@ -26,6 +27,7 @@ export function StandingOverlayRoute({
     mutual: number;
   };
   initialList?: StandingInitialList | null;
+  isDaoSubject?: boolean;
 }) {
   const seed = usePortfolioProfileSeed(accountId);
   const fallbackName = resolveDisplayName(accountId);
@@ -43,6 +45,7 @@ export function StandingOverlayRoute({
       }
       initialList={initialList}
       profileMetaFromServer
+      isDaoSubject={isDaoSubject}
     />
   );
 }

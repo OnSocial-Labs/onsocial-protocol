@@ -19,6 +19,7 @@ import {
   useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -48,6 +49,8 @@ export interface OsSlideOverScreenProps {
   subtitle?: string;
   /** Icon actions opposite the back control. */
   actions?: ReactNode;
+  /** Replaces the default title/subtitle block (keep `title` for screen readers). */
+  heading?: ReactNode;
   toolbar?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -73,6 +76,8 @@ export interface OsSlideOverScreenProps {
   className?: string;
   /** Extra class on the padded content wrapper inside the body. */
   contentClassName?: string;
+  /** Scroll container for nested lists (`.os-app-screen-body`). */
+  scrollRootRef?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -86,6 +91,7 @@ export function OsSlideOverScreen({
   title,
   subtitle,
   actions,
+  heading,
   toolbar,
   footer,
   children,
@@ -98,6 +104,7 @@ export function OsSlideOverScreen({
   style,
   className,
   contentClassName,
+  scrollRootRef,
 }: OsSlideOverScreenProps) {
   const titleId = useId();
   const headerRef = useRef<HTMLElement | null>(null);
@@ -201,7 +208,17 @@ export function OsSlideOverScreen({
       body.removeEventListener('scroll', syncElevated);
       screen?.style.removeProperty('--os-screen-chrome-height');
     };
-  }, [renderOpen, toolbar, subtitle]);
+  }, [renderOpen, toolbar, subtitle, heading]);
+
+  const setBodyRef = useCallback(
+    (node: HTMLElement | null) => {
+      bodyRef.current = node;
+      if (scrollRootRef) {
+        scrollRootRef.current = node;
+      }
+    },
+    [scrollRootRef]
+  );
 
   if (!mounted || !renderOpen) return null;
 
@@ -249,12 +266,26 @@ export function OsSlideOverScreen({
               <ArrowLeftIcon className="glass-sheet-close-icon" aria-hidden />
             </OsIconAction>
             <div className="os-app-screen-heading">
-              <h1 id={titleId} className="os-app-screen-title">
-                {title}
-              </h1>
-              {subtitle ? (
-                <p className="os-app-screen-subtitle">{subtitle}</p>
-              ) : null}
+              {heading ? (
+                <>
+                  <h1 id={titleId} className="sr-only">
+                    {title}
+                  </h1>
+                  {subtitle ? (
+                    <p className="sr-only">{subtitle}</p>
+                  ) : null}
+                  {heading}
+                </>
+              ) : (
+                <>
+                  <h1 id={titleId} className="os-app-screen-title">
+                    {title}
+                  </h1>
+                  {subtitle ? (
+                    <p className="os-app-screen-subtitle">{subtitle}</p>
+                  ) : null}
+                </>
+              )}
             </div>
             {actions ? (
               <div className="os-app-screen-actions">{actions}</div>
@@ -264,7 +295,7 @@ export function OsSlideOverScreen({
             <div className="os-app-screen-toolbar">{toolbar}</div>
           ) : null}
         </header>
-        <main ref={bodyRef} className="os-app-screen-body">
+        <main ref={setBodyRef} className="os-app-screen-body">
           <div
             className={`os-slide-over-content${
               contentClassName ? ` ${contentClassName}` : ''

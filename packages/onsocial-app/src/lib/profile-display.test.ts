@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   accountDrawerPrimaryLabel,
+  displayName,
   fallbackLabel,
   normalizeProfileLinks,
   normalizeProfileTags,
@@ -96,6 +97,12 @@ describe('portfolioHandleForMood', () => {
       '@alice.testnet'
     );
   });
+
+  it('shortens implicit handles', () => {
+    const implicit =
+      'a6e6fa47cfc1ac9d1b2adac3c66015503b9344f87148e3d88d5ec32d7d4eb513';
+    expect(portfolioHandleForMood(implicit)).toBe('@a6e6fa47cfc1ac…b513');
+  });
 });
 
 describe('portfolioHandleHint', () => {
@@ -108,9 +115,24 @@ describe('portfolioHandleHint', () => {
 });
 
 describe('fallbackLabel', () => {
-  it('keeps the full NEAR account id', () => {
+  it('keeps the full NEAR account id for named accounts', () => {
     expect(fallbackLabel('alice.testnet')).toBe('alice.testnet');
     expect(fallbackLabel('bob.near')).toBe('bob.near');
     expect(fallbackLabel('voter2.onsocial')).toBe('voter2.onsocial');
+  });
+
+  it('shortens implicit 64-char hex ids', () => {
+    const implicit =
+      'a6e6fa47cfc1ac9d1b2adac3c66015503b9344f87148e3d88d5ec32d7d4eb513';
+    expect(fallbackLabel(implicit)).toBe('a6e6fa47cfc1ac…b513');
+  });
+});
+
+describe('displayName', () => {
+  it('uses a human title for implicit accounts without a profile name', () => {
+    const implicit =
+      'a6e6fa47cfc1ac9d1b2adac3c66015503b9344f87148e3d88d5ec32d7d4eb513';
+    expect(displayName(implicit)).toBe('Implicit account');
+    expect(displayName(implicit, 'Custom')).toBe('Custom');
   });
 });

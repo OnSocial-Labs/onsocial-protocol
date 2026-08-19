@@ -80,3 +80,25 @@ export function useLiveProfileSignals(
     relationshipLoading: isLoading,
   };
 }
+
+const EMPTY_DAO_SIGNALS = (standingCount: number) => ({
+  standingCount,
+  standingWithCount: 0,
+  mutualStandingCount: 0,
+  endorsementsReceivedCount: 0,
+  endorsementsGivenCount: 0,
+  postCount: 0,
+  reputation: null as ProfileSignals['reputation'],
+});
+
+/** Live incoming stand count for DAO gesture chrome. */
+export function useLiveIncomingStandingCount(
+  accountId: string,
+  baseCount: number
+): number {
+  const { signals } = useLiveProfileSignals(
+    accountId,
+    EMPTY_DAO_SIGNALS(baseCount)
+  );
+  return signals.standingCount;
+}

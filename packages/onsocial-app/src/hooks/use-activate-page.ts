@@ -4,7 +4,12 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { accountIdsEqual } from '@/lib/account-match';
-import { fallbackLabel } from '@/lib/profile-display';
+import {
+  displayName,
+  fallbackLabel,
+  implicitAccountTitle,
+} from '@/lib/profile-display';
+import { isImplicitNearAccountId } from '@/lib/account-match';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export function useActivatePage(pageAccountId: string) {
@@ -21,15 +26,20 @@ export function useActivatePage(pageAccountId: string) {
       const { client, accountId: signingAccountId } = await getClient();
 
       if (!accountIdsEqual(signingAccountId, pageAccountId)) {
-        throw new Error(`Connect as @${pageAccountId} to activate this page.`);
+        throw new Error(
+          `Connect as @${fallbackLabel(pageAccountId)} to activate this page.`
+        );
       }
 
-      const label = fallbackLabel(signingAccountId);
+      const label = isImplicitNearAccountId(signingAccountId)
+        ? implicitAccountTitle()
+        : fallbackLabel(signingAccountId);
+      const handle = fallbackLabel(signingAccountId);
 
       await client.profiles.update(
         {
           name: label,
-          bio: `OnSocial page for @${signingAccountId}`,
+          bio: `OnSocial page for @${handle}`,
         },
         { wait: true }
       );

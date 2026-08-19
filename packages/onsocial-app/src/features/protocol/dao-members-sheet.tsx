@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Divider, StandingIdentity } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { listDaoMembershipSections } from '@/features/protocol/dao-group-roles';
 import {
@@ -122,7 +122,8 @@ export function DaoMembersSheet({
   const viewerMeetsStake = Boolean(eligibility?.canPropose);
 
   return (
-    <OsSlideOverScreen
+    <DaoPageSlideOverScreen
+      pageAccountId={daoAccountId}
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
@@ -222,6 +223,6 @@ export function DaoMembersSheet({
           </section>
         )
       )}
-    </OsSlideOverScreen>
+    </DaoPageSlideOverScreen>
   );
 }

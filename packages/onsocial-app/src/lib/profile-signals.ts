@@ -33,8 +33,17 @@ export interface ProfileSignals {
 
 /** True when the face signals row has something worth showing (hide all-zero dormant). */
 export function profileSignalsHaveFaceMetrics(
-  signals: ProfileSignals
+  signals: ProfileSignals,
+  options?: { isDao?: boolean }
 ): boolean {
+  if (options?.isDao) {
+    return (
+      signals.standingCount > 0 ||
+      signals.standingWithCount > 0 ||
+      signals.mutualStandingCount > 0
+    );
+  }
+
   return (
     signals.standingCount > 0 ||
     signals.standingWithCount > 0 ||

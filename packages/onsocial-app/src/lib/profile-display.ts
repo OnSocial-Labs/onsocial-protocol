@@ -1,9 +1,23 @@
+import { truncateAccountId } from '@onsocial/sdk';
+import { isImplicitNearAccountId } from '@/lib/account-match';
+
+const IMPLICIT_ACCOUNT_TITLE = 'Implicit account';
+
 /**
- * Identity label for an account — always the full NEAR account id.
- * Do not strip `.near` / `.testnet`; the suffix is part of who they are.
+ * Identity label for an account — full NEAR account id for named accounts.
+ * Implicit (64-char hex) ids shorten so handles stay readable in UI.
  */
 export function fallbackLabel(accountId: string): string {
-  return accountId.trim();
+  const id = accountId.trim();
+  if (isImplicitNearAccountId(id)) {
+    return truncateAccountId(id, 18);
+  }
+  return id;
+}
+
+/** Title line for dormant implicit pages before a profile name is set. */
+export function implicitAccountTitle(): string {
+  return IMPLICIT_ACCOUNT_TITLE;
 }
 
 /** Handle line as rendered on the portfolio page for a given mood. */
@@ -11,15 +25,17 @@ export function portfolioHandleForMood(
   accountId: string,
   moodId?: string | null
 ): string {
+  const handle = fallbackLabel(accountId);
+
   if (moodId === 'terminal') {
-    return `~/${accountId}`;
+    return `~/${handle}`;
   }
 
   if (moodId === 'signature') {
-    return `@${accountId.toLowerCase()}`;
+    return `@${handle.toLowerCase()}`;
   }
 
-  return `@${accountId}`;
+  return `@${handle}`;
 }
 
 /** Quiet hint when the live page formats the handle differently. */
@@ -43,7 +59,13 @@ export function portfolioHandleHint(
 
 export function displayName(accountId: string, profileName?: string): string {
   const name = profileName?.trim();
-  return name || fallbackLabel(accountId);
+  if (name) {
+    return name;
+  }
+  if (isImplicitNearAccountId(accountId)) {
+    return IMPLICIT_ACCOUNT_TITLE;
+  }
+  return fallbackLabel(accountId);
 }
 
 /**
@@ -59,6 +81,12 @@ export function customDisplayName(
   const handle = fallbackLabel(accountId);
   if (name.toLowerCase() === handle.toLowerCase()) return '';
   if (name.toLowerCase() === accountId.trim().toLowerCase()) return '';
+  if (
+    isImplicitNearAccountId(accountId) &&
+    name.toLowerCase() === IMPLICIT_ACCOUNT_TITLE.toLowerCase()
+  ) {
+    return '';
+  }
   return name;
 }
 

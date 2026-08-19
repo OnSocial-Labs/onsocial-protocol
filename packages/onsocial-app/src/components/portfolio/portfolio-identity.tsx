@@ -7,7 +7,11 @@ import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-previ
 import { PostRichText } from '@/features/home/post-rich-text';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { isProtocolFacePairDao } from '@/lib/portfolio-dao-entity';
-import { displayName, initials } from '@/lib/profile-display';
+import {
+  displayName,
+  initials,
+  portfolioHandleForMood,
+} from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 
 interface PortfolioIdentityProps {
@@ -20,6 +24,7 @@ interface PortfolioIdentityProps {
   /** DAO org face — square crest + quiet kind chrome. */
   isDao?: boolean;
   kindLabel?: string | null;
+  incomingStandingCount?: number;
 }
 
 export function PortfolioIdentity({
@@ -31,18 +36,14 @@ export function PortfolioIdentity({
   mood: savedMood,
   isDao = false,
   kindLabel = null,
+  incomingStandingCount = 0,
 }: PortfolioIdentityProps) {
   const moodPreview = usePortfolioMoodPreviewOptional();
   const mood = moodPreview?.effectiveMood ?? savedMood;
 
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
-  const handleLabel =
-    mood.id === 'terminal'
-      ? `~/${accountId}`
-      : mood.id === 'signature'
-        ? `@${accountId.toLowerCase()}`
-        : `@${accountId}`;
+  const handleLabel = portfolioHandleForMood(accountId, mood.id);
 
   useEffect(() => {
     if (!isDao) return;
@@ -86,6 +87,7 @@ export function PortfolioIdentity({
           avatarUrl={avatarUrl}
           mood={mood}
           isDao={isDao}
+          incomingStandingCount={incomingStandingCount}
         />
       </div>
     </section>

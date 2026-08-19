@@ -11,7 +11,6 @@ vi.mock('@/features/protocol/dao-accounts', () => ({
 
 import {
   isDaoStandingTarget,
-  matchesStandingEntityFilter,
   rememberDaoStandingTarget,
 } from '@/lib/dao-standing-account';
 
@@ -41,12 +40,6 @@ describe('dao-standing-account', () => {
   it('trusts server isDao true', () => {
     stubLocalStorage();
     expect(isDaoStandingTarget('custom.near', true)).toBe(true);
-    expect(
-      matchesStandingEntityFilter(
-        { accountId: 'custom.near', isDao: true },
-        'daos'
-      )
-    ).toBe(true);
   });
 
   it('treats protocol and sputnik DAOs as DAO targets', () => {
@@ -55,12 +48,9 @@ describe('dao-standing-account', () => {
     expect(isDaoStandingTarget('demo.sputnik-dao.near')).toBe(true);
   });
 
-  it('keeps unknown people accounts in People', () => {
+  it('keeps unknown people accounts as non-DAO targets', () => {
     stubLocalStorage();
     expect(isDaoStandingTarget('alice.near')).toBe(false);
-    expect(
-      matchesStandingEntityFilter({ accountId: 'alice.near' }, 'people')
-    ).toBe(true);
   });
 
   it('remembers visited / stood-with DAO targets', () => {

@@ -5923,6 +5923,49 @@ a.os-surface-row {
     color: inherit;
   }
 
+  .portfolio-identity-gesture-standing-count {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.65rem;
+    padding: 0 0.06rem;
+    border: 0;
+    background: transparent;
+    color: var(--signal-standing);
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .portfolio-identity-gesture-standing-count:hover,
+  .portfolio-identity-gesture-standing-count:focus-visible {
+    color: var(--signal-standing);
+    background: transparent;
+  }
+
+  .portfolio-identity-gesture-standing-count:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 1px var(--protocol-blue-focus-border);
+    border-radius: 0.3rem;
+  }
+
+  .portfolio-identity-gesture-standing-count .signal-group-standing {
+    gap: 0.08rem;
+    color: inherit;
+  }
+
+  .portfolio-identity-gesture-standing-count .signal-metric-arrow {
+    width: var(--signals-arrow-size);
+    height: var(--signals-arrow-size);
+    color: inherit;
+  }
+
+  .portfolio-identity-gesture-standing-count .signal-value {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: inherit;
+  }
+
   .portfolio-identity-gesture-mid {
     color: rgb(var(--fg-rgb) / 0.22);
     font-size: 0.62rem;
@@ -11051,12 +11094,6 @@ a.os-surface-row {
     z-index: 2;
   }
 
-  .standing-entity-menu {
-    position: relative;
-    flex-shrink: 0;
-    z-index: 2;
-  }
-
   .standing-view-menu:has(.standing-view-menu-panel) {
     z-index: 4;
   }
@@ -11074,10 +11111,6 @@ a.os-surface-row {
   @media (max-width: 639px) {
     .standing-view-menu .os-floating-panel-trigger {
       max-width: 9rem;
-    }
-
-    .standing-entity-menu .os-floating-panel-trigger {
-      max-width: 6.5rem;
     }
   }
 
@@ -23108,7 +23141,8 @@ a.os-surface-row {
    * CSS minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
    */
   .dao-members-slide .os-slide-over-content.dao-members-sheet,
-  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet {
+  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet,
+  .dao-proposals-slide .os-slide-over-content.dao-proposals-sheet {
     gap: 0.65rem;
     padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
   }
@@ -31942,15 +31976,42 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   line-height: 1.45;
 }
 
-.protocol-sync-banner {
-  margin: 0.85rem 0 0;
-  padding: 0.55rem 0.75rem;
-  border-radius: 0.55rem;
-  border: 1px solid var(--protocol-blue-border, rgb(96 165 250 / 0.35));
-  background: var(--protocol-blue-bg, rgb(96 165 250 / 0.08));
-  color: rgb(var(--fg-rgb) / 0.78);
-  font-size: 0.82rem;
-  line-height: 1.4;
+.protocol-card-list--skeleton {
+  margin-top: 0.15rem;
+}
+
+.protocol-proposal-skeleton-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.7rem var(--os-proposal-inset-x, 0.62rem) 0.75rem;
+  border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);
+}
+
+.protocol-proposal-skeleton-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.protocol-proposal-skeleton-pill {
+  display: block;
+  width: 3.5rem;
+  height: 1.15rem;
+  border-radius: 999px;
+}
+
+.protocol-proposal-skeleton-pill-wide {
+  width: 4.75rem;
+}
+
+.protocol-proposal-skeleton-title {
+  width: min(100%, 16rem);
+}
+
+.protocol-proposal-skeleton-meta {
+  width: min(100%, 9rem);
 }
 
 .protocol-feed-load-more {
@@ -32440,6 +32501,51 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   min-width: 0;
 }
 
+.dao-proposals-header-search-wrap,
+.dao-proposals-header-search {
+  width: 100%;
+  min-width: 0;
+}
+
+.os-app-screen-heading .dao-proposals-header-search {
+  min-height: 2.25rem;
+  height: 2.25rem;
+}
+
+.dao-proposals-header-toolbar {
+  min-width: 0;
+  margin: 0;
+  /* Two chip rows — default chrome rail is one row (3rem). */
+  max-height: none;
+}
+
+.dao-proposals-filter-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.dao-proposals-status-rail,
+.dao-proposals-family-rail {
+  margin: 0;
+}
+
+.discover-tab-bar .protocol-status-count {
+  margin-left: 0.28rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: rgb(var(--fg-rgb) / 0.42);
+}
+
+.discover-tab-bar button.is-active .protocol-status-count {
+  color: rgb(var(--fg-rgb) / 0.58);
+}
+
+.dao-proposals-slide .dao-workspace {
+  gap: 0.65rem;
+}
+
 .dao-manage-sheet-list {
   margin: 0;
 }
@@ -32534,6 +32640,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-size: 0.88rem;
   font-weight: 650;
   color: rgb(var(--fg-rgb) / 0.86);
+}
+
+.dao-treasury-token-row {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  align-items: center;
 }
 
 .dao-edit-cover {

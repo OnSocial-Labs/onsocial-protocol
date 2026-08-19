@@ -9,6 +9,8 @@ import type { ProfileSignals } from '@/lib/profile-signals';
 interface PortfolioSignalsProps {
   accountId: string;
   signals: ProfileSignals;
+  /** DAO org face — standing only, no endorsements / reputation. */
+  isDao?: boolean;
   /** Viewer stands with this page owner. */
   viewerStanding?: boolean;
   /** Page owner stands with viewer. */
@@ -71,6 +73,7 @@ function SignalMetric({
 export function PortfolioSignals({
   accountId,
   signals,
+  isDao = false,
   viewerStanding = false,
   theyStandWithViewer = false,
   relationshipLoading = false,
@@ -80,13 +83,25 @@ export function PortfolioSignals({
   const sharedSolidarity =
     relationshipKnown && viewerStanding && theyStandWithViewer;
 
+  const showIncoming = !isDao || signals.standingCount > 0;
+  const showOutgoing = !isDao || signals.standingWithCount > 0;
+  const showMutual = !isDao || signals.mutualStandingCount > 0;
+
+  const standingCaptionParts = [
+    showIncoming || showOutgoing ? 'STANDING' : null,
+    showMutual ? 'SOLIDARITY' : null,
+  ].filter(Boolean);
+
   return (
     <div
-      className={`portfolio-signals${relationshipLoading ? ' is-relationship-loading' : ''}`}
+      className={`portfolio-signals${isDao ? ' portfolio-signals--dao' : ''}${
+        relationshipLoading ? ' is-relationship-loading' : ''
+      }`}
       aria-label="Profile signals"
     >
       <div className="portfolio-signals-metrics">
         <div className="signal-group signal-group-standing">
+        {showIncoming ? (
         <Link
           className={metricClassName({
             highlight:
@@ -103,9 +118,13 @@ export function PortfolioSignals({
             </span>
           </span>
         </Link>
+        ) : null}
+        {showIncoming && showOutgoing ? (
         <span className="signal-dot" aria-hidden>
           ·
         </span>
+        ) : null}
+        {showOutgoing ? (
         <Link
           className={metricClassName()}
           href={standingPath(accountId, 'outgoing')}
@@ -119,9 +138,13 @@ export function PortfolioSignals({
             <ProtocolMotionArrow className={arrowClass} />
           </span>
         </Link>
+        ) : null}
+        {(showIncoming || showOutgoing) && showMutual ? (
         <span className="signal-dot" aria-hidden>
           ·
         </span>
+        ) : null}
+        {showMutual ? (
         <Link
           className={metricClassName({
             solidarity: true,
@@ -139,8 +162,10 @@ export function PortfolioSignals({
             <ProtocolMotionArrow className={`${arrowClass} signal-metric-arrow--out`} />
           </span>
         </Link>
+        ) : null}
         </div>
 
+        {!isDao ? (
         <div className="signal-metrics-chunk">
           <span className="signal-sep" aria-hidden>
             ·
@@ -177,8 +202,9 @@ export function PortfolioSignals({
         </Link>
           </div>
         </div>
+        ) : null}
 
-        {signals.reputation ? (
+        {!isDao && signals.reputation ? (
           <div className="signal-metrics-chunk">
             <span className="signal-sep" aria-hidden>
               ·
@@ -234,24 +260,31 @@ export function PortfolioSignals({
 
       <p
         className="portfolio-signals-caption"
-        aria-label={[
-          'standing',
-          'solidarity',
-          'endorsements',
-          signals.reputation
-            ? `reputation${
-                signals.reputation.rank > 0
-                  ? ` rank ${signals.reputation.rank}`
-                  : ''
-              }`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(', ')}
+        aria-label={
+          isDao
+            ? standingCaptionParts.join(', ').toLowerCase()
+            : [
+                'standing',
+                'solidarity',
+                'endorsements',
+                signals.reputation
+                  ? `reputation${
+                      signals.reputation.rank > 0
+                        ? ` rank ${signals.reputation.rank}`
+                        : ''
+                    }`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(', ')
+        }
       >
-        STANDING·SOLIDARITY·ENDORSEMENTS
-        {signals.reputation ? '·REPUTATION' : ''}
-        {signals.reputation && signals.reputation.rank > 0 ? (
+        {isDao
+          ? standingCaptionParts.join('·')
+          : `STANDING·SOLIDARITY·ENDORSEMENTS${
+              signals.reputation ? '·REPUTATION' : ''
+            }`}
+        {!isDao && signals.reputation && signals.reputation.rank > 0 ? (
           <span className="portfolio-signals-rank"> #{signals.reputation.rank}</span>
         ) : null}
       </p>

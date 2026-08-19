@@ -58,6 +58,8 @@ interface PortfolioShellRootProps {
   bio?: string | null;
   profileLinks?: unknown;
   drawerMeta: PageDrawerMeta;
+  /** DAO incoming stand count for drawer gesture row. */
+  incomingStandingCount?: number;
   /** Streamed below-fold peeks (Suspense). */
   deferredShelf?: ReactNode;
   children: ReactNode;
@@ -76,6 +78,7 @@ function PortfolioShellPreviewBridge({
   bio = null,
   profileLinks = null,
   drawerMeta,
+  incomingStandingCount = 0,
   deferredShelf = null,
   children,
 }: Omit<
@@ -162,6 +165,7 @@ function PortfolioShellPreviewBridge({
               config={config}
               stats={stats}
               guilds={guilds}
+              incomingStandingCount={incomingStandingCount}
             />
             <PortfolioFacePreviewBar
               pageAccountId={pageAccountId}

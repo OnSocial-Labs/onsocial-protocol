@@ -26,7 +26,7 @@ import {
   osFieldBorderedClassName,
   useDiscardConfirm,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import { ProfileLinksEditor } from '@/components/wallet/profile-links-editor';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -400,7 +400,8 @@ export function DaoEditSheet({
 
   return (
     <>
-      <OsSlideOverScreen
+      <DaoPageSlideOverScreen
+        pageAccountId={daoAccountId}
         open={open}
         onClose={onClose}
         onBeforeClose={handleBeforeClose}
@@ -612,7 +613,7 @@ export function DaoEditSheet({
             onChange={onBannerChange}
           />
         </form>
-      </OsSlideOverScreen>
+      </DaoPageSlideOverScreen>
       <DiscardConfirmSheet
         open={discardConfirmOpen}
         onDiscard={discard}

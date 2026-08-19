@@ -21,6 +21,7 @@ import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter
 import { isWalletUserCancellation, formatStandingActionError } from '@/lib/wallet-errors';
 import { notificationsPath } from '@/lib/app-routes';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
+import { PortfolioDaoGestureStandingCount } from '@/components/portfolio/portfolio-dao-gesture-standing-count';
 
 interface PortfolioIdentityGesturesProps {
   pageAccountId: string;
@@ -30,6 +31,8 @@ interface PortfolioIdentityGesturesProps {
   mood?: ResolvedMood | null;
   /** DAO org face — Stand · Support (no Endorse / Message). */
   isDao?: boolean;
+  /** SSR incoming stand count — live-adjusted in gesture row for DAO faces. */
+  incomingStandingCount?: number;
 }
 
 /**
@@ -46,6 +49,7 @@ export function PortfolioIdentityGestures({
   avatarUrl,
   mood = null,
   isDao = false,
+  incomingStandingCount = 0,
 }: PortfolioIdentityGesturesProps) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
@@ -69,6 +73,16 @@ export function PortfolioIdentityGestures({
   const messagingBlocked = blockEitherWay || viewerMuted;
 
   if (!isConnected || !viewerAccountId) {
+    if (isDao && incomingStandingCount > 0) {
+      return (
+        <div className="portfolio-identity-gestures">
+          <PortfolioDaoGestureStandingCount
+            accountId={pageAccountId}
+            baseCount={incomingStandingCount}
+          />
+        </div>
+      );
+    }
     return null;
   }
 
@@ -166,6 +180,13 @@ export function PortfolioIdentityGestures({
           >
             <StandingToggle active={viewerStanding} pending={pending} />
           </button>
+
+          {isDao ? (
+            <PortfolioDaoGestureStandingCount
+              accountId={pageAccountId}
+              baseCount={incomingStandingCount}
+            />
+          ) : null}
 
           {!isDao ? (
             <>

@@ -1,26 +1,32 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Divider, OsSurfaceRow, OsSurfaceRowList } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
+import { Divider } from '@onsocial/ui';
+import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
+import {
+  formatTreasuryAssetCompact,
+  formatTreasuryAssetExact,
+  isNearTreasuryAsset,
+} from '@/features/protocol/dao-treasury-format';
 import { fetchProtocolDaoTransferAssets } from '@/features/protocol/protocol-dao-context-client';
+import {
+  nearAccountExplorerHref,
+  nearFtExplorerHref,
+} from '@/lib/app-near-account-facts';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import type { ProtocolDaoTransferAsset } from '@/lib/protocol-dao-transfer-assets';
 import { fetchProfileSupportBalanceYocto } from '@/lib/social-spend-profile';
 
 const TREASURY_Z = 74;
 
-function tokenSmallestToDisplay(value: string, decimals: number): string {
-  if (!value || value === '0') return '0';
-  const safeDecimals = Math.max(0, Math.floor(decimals));
-  if (safeDecimals === 0) return value.replace(/^0+/, '') || '0';
-  const padded = value.padStart(safeDecimals + 1, '0');
-  const whole = padded.slice(0, padded.length - safeDecimals) || '0';
-  const fraction = padded
-    .slice(padded.length - safeDecimals)
-    .replace(/0+$/, '')
-    .slice(0, 6);
-  return fraction ? `${whole}.${fraction}` : whole;
+function treasuryAssetExplorerHref(
+  asset: ProtocolDaoTransferAsset,
+  accountId: string
+): string {
+  if (isNearTreasuryAsset(asset)) {
+    return nearAccountExplorerHref(accountId);
+  }
+  return nearFtExplorerHref(asset.tokenId);
 }
 
 /**
@@ -101,7 +107,8 @@ export function DaoTreasurySheet({
     !hasSupport;
 
   return (
-    <OsSlideOverScreen
+    <DaoPageSlideOverScreen
+      pageAccountId={daoAccountId}
       open={sheetOpen}
       onClose={requestClose}
       onClosed={handleClosed}
@@ -129,52 +136,67 @@ export function DaoTreasurySheet({
       {hasSupport ? (
         <section className="dao-treasury-section" aria-label="Support pot">
           <h2 className="dao-treasury-section-title">Support pot</h2>
-          <OsSurfaceRowList
-            className="dao-treasury-list"
-            aria-label="Support pot balance"
-          >
-            <OsSurfaceRow
-              label="SOCIAL"
-              description="Visitor Support · claim via Manage"
-              trailing={
+          <div className="standing-list dao-treasury-list">
+            <div className="standing-row">
+              <div className="standing-row-main">
+                <div className="standing-row-copy">
+                  <div className="standing-row-head">
+                    <span className="standing-row-name">SOCIAL</span>
+                    <span className="standing-row-handle">
+                      Visitor Support · claim via Manage
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="standing-row-aside">
                 <span className="dao-treasury-balance">
                   {formatSocialCompact(supportYocto!.toString())}
                 </span>
-              }
-            />
-          </OsSurfaceRowList>
+              </div>
+            </div>
+          </div>
         </section>
       ) : null}
 
       {hasAssets ? (
         <section className="dao-treasury-section" aria-label="Wallet">
           <h2 className="dao-treasury-section-title">Wallet</h2>
-          <OsSurfaceRowList
-            className="dao-treasury-list"
-            aria-label="DAO wallet balances"
-          >
-            {assets!.map((asset, index) => (
-              <div key={asset.tokenId || 'near'}>
-                {index > 0 ? <Divider variant="item" /> : null}
-                <OsSurfaceRow
-                  label={asset.symbol}
-                  description={
-                    asset.name !== asset.symbol ? asset.name : undefined
-                  }
-                  trailing={
-                    <span className="dao-treasury-balance">
-                      {tokenSmallestToDisplay(
-                        asset.balanceSmallest,
-                        asset.decimals
-                      )}
+          <div className="standing-list dao-treasury-list">
+            {assets!.map((asset, index) => {
+              const exact = formatTreasuryAssetExact(asset);
+              const name = asset.name.trim();
+              const symbol = asset.symbol.trim();
+              return (
+                <div key={asset.tokenId || 'near'}>
+                  {index > 0 ? <Divider variant="item" /> : null}
+                  <a
+                    className="standing-row dao-treasury-token-row"
+                    href={treasuryAssetExplorerHref(asset, daoAccountId)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={exact}
+                    aria-label={`${exact} on Nearblocks`}
+                  >
+                    <span className="standing-row-main">
+                      <span className="standing-row-copy">
+                        <span className="standing-row-head">
+                          <span className="standing-row-name">{symbol}</span>
+                          {name && name !== symbol ? (
+                            <span className="standing-row-handle">{name}</span>
+                          ) : null}
+                        </span>
+                      </span>
                     </span>
-                  }
-                />
-              </div>
-            ))}
-          </OsSurfaceRowList>
+                    <span className="standing-row-aside">
+                      <span className="dao-treasury-balance">{formatTreasuryAssetCompact(asset)}</span>
+                    </span>
+                  </a>
+                </div>
+              );
+            })}
+          </div>
         </section>
       ) : null}
-    </OsSlideOverScreen>
+    </DaoPageSlideOverScreen>
   );
 }

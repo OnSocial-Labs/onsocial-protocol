@@ -17,6 +17,7 @@ export const PROTOCOL_FEED_STATUS_OPTIONS: Array<{
   id: ProtocolFeedStatusFilter;
   label: string;
 }> = [
+  { id: 'all', label: 'All' },
   { id: 'open', label: 'Open' },
   { id: 'approved', label: 'Approved' },
   { id: 'rejected', label: 'Rejected' },
@@ -24,7 +25,6 @@ export const PROTOCOL_FEED_STATUS_OPTIONS: Array<{
   { id: 'expired', label: 'Expired' },
   { id: 'failed', label: 'Failed' },
   { id: 'moved', label: 'Moved' },
-  { id: 'all', label: 'All' },
 ];
 
 export function buildProtocolSearchText(

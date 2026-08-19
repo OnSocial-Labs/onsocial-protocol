@@ -12,17 +12,19 @@ import {
 interface PortfolioSignalsShellProps {
   accountId: string;
   signals: ProfileSignals;
+  isDao?: boolean;
 }
 
 export function PortfolioSignalsShell({
   accountId,
   signals,
+  isDao = false,
 }: PortfolioSignalsShellProps) {
   const { signals: liveSignals, viewerStanding, theyStandWithViewer, relationshipLoading } =
     useLiveProfileSignals(accountId, signals);
   const [reputationOpen, setReputationOpen] = useState(false);
 
-  if (!profileSignalsHaveFaceMetrics(liveSignals)) {
+  if (!profileSignalsHaveFaceMetrics(liveSignals, { isDao })) {
     return null;
   }
 
@@ -31,6 +33,7 @@ export function PortfolioSignalsShell({
       <PortfolioSignals
         accountId={accountId}
         signals={liveSignals}
+        isDao={isDao}
         viewerStanding={viewerStanding}
         theyStandWithViewer={theyStandWithViewer}
         relationshipLoading={relationshipLoading}
