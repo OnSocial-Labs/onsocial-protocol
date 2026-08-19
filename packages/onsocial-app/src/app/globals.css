@@ -9190,6 +9190,25 @@ a.os-surface-row {
     animation: portfolio-summon-hint-in 420ms ease;
   }
 
+  button.portfolio-summon-hint--connect {
+    pointer-events: auto;
+    border: none;
+    padding: 0;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  button.portfolio-summon-hint--connect:hover,
+  button.portfolio-summon-hint--connect:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
+    outline: none;
+  }
+
   @keyframes portfolio-summon-hint-in {
     from {
       opacity: 0;
@@ -32832,6 +32851,19 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-size: 0.84rem;
   line-height: 1.4;
   color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.daos-index-inline-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+.daos-index-inline-link:hover,
+.daos-index-inline-link:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.82);
+  outline: none;
 }
 
 .daos-index-section {

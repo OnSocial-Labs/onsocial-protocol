@@ -35,13 +35,9 @@ function isOpenStatus(status: string): boolean {
 export function DaosExplorePanel({
   accountId,
   myDaos,
-  connect,
-  isConnected,
 }: {
   accountId: string | null;
   myDaos: MyDaoMembership[] | null;
-  connect: () => void | Promise<void>;
-  isConnected: boolean;
 }) {
   const discoverDaosHref = appDiscoverTabHref('daos');
   const [peeks, setPeeks] = useState<DaosExplorePeek[] | null>(null);
@@ -143,30 +139,9 @@ export function DaosExplorePanel({
 
   if (!accountId) {
     return (
-      <div className="standing-panel-empty-block">
-        <div className="standing-panel-empty-state">
-          <p className="standing-panel-empty-primary">
-            Connect to see proposals from your DAOs.
-          </p>
-          <p className="standing-panel-empty-secondary">
-            Proposals from your memberships show here — not the factory catalog.
-          </p>
-        </div>
-        <div className="standing-panel-empty-actions">
-          {!isConnected ? (
-            <button
-              type="button"
-              className="standing-panel-empty-action"
-              onClick={() => void connect()}
-            >
-              Connect wallet
-            </button>
-          ) : null}
-          <Link className="standing-panel-empty-action" href={discoverDaosHref}>
-            Browse DAOs
-          </Link>
-        </div>
-      </div>
+      <p className="daos-index-empty">
+        Proposals from your DAOs appear here after you connect.
+      </p>
     );
   }
 
@@ -176,21 +151,12 @@ export function DaosExplorePanel({
 
   if (daoIds.length === 0) {
     return (
-      <div className="standing-panel-empty-block">
-        <div className="standing-panel-empty-state">
-          <p className="standing-panel-empty-primary">
-            Join or create a DAO to see proposals here.
-          </p>
-          <p className="standing-panel-empty-secondary">
-            Proposals from your orgs show up here.
-          </p>
-        </div>
-        <div className="standing-panel-empty-actions">
-          <Link className="standing-panel-empty-action" href={discoverDaosHref}>
-            Browse DAOs
-          </Link>
-        </div>
-      </div>
+      <p className="daos-index-empty">
+        Join or create a DAO to see proposals here.{' '}
+        <Link href={discoverDaosHref} className="daos-index-inline-link">
+          Browse DAOs
+        </Link>
+      </p>
     );
   }
 

@@ -85,7 +85,7 @@ function DaoMineCard({ entry }: { entry: DaoDirectoryEntry }) {
  * Network catalog find: header search → Discover → DAOs.
  */
 export function DaosIndexPanel() {
-  const { accountId, connect, isConnected } = useAppWallet();
+  const { accountId } = useAppWallet();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
@@ -226,33 +226,9 @@ export function DaosIndexPanel() {
         <section className="daos-index-section" aria-label="My DAOs">
           <h2 className="daos-index-heading">My DAOs</h2>
           {!accountId ? (
-            <div className="standing-panel-empty-block">
-              <div className="standing-panel-empty-state">
-                <p className="standing-panel-empty-primary">
-                  Connect to see your DAO roles.
-                </p>
-                <p className="standing-panel-empty-secondary">
-                  Browse every factory DAO with search.
-                </p>
-              </div>
-              <div className="standing-panel-empty-actions">
-                {!isConnected ? (
-                  <button
-                    type="button"
-                    className="standing-panel-empty-action"
-                    onClick={() => void connect()}
-                  >
-                    Connect wallet
-                  </button>
-                ) : null}
-                <Link
-                  className="standing-panel-empty-action"
-                  href={discoverDaosHref}
-                >
-                  Browse DAOs
-                </Link>
-              </div>
-            </div>
+            <p className="daos-index-empty">
+              Connect to see your DAO roles. Search finds every factory DAO.
+            </p>
           ) : !myDaosReady ? (
             <p className="daos-index-empty">Loading memberships…</p>
           ) : myEntries.length === 0 ? (
@@ -278,12 +254,7 @@ export function DaosIndexPanel() {
           <p className="daos-index-lede daos-index-lede--tight">
             From DAOs you belong to.
           </p>
-          <DaosExplorePanel
-            accountId={accountId}
-            myDaos={myDaos}
-            connect={connect}
-            isConnected={isConnected}
-          />
+          <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
         </section>
       </div>
 

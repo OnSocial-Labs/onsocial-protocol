@@ -172,7 +172,7 @@ export function SummonLauncher({
 }: SummonLauncherProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { accountId } = useAppWallet();
+  const { accountId, isConnected, connect } = useAppWallet();
   const activityUnread = useNotificationsUnreadCount();
   const dmUnread = useDmUnreadCount();
   const { moodId: dockMoodId, style: dockMoodStyle } =
@@ -387,6 +387,15 @@ export function SummonLauncher({
           data-mood={dockMoodId ?? undefined}
           style={dockMoodStyle}
         >
+          {!isConnected ? (
+            <button
+              type="button"
+              className="portfolio-summon-hint portfolio-summon-hint--connect"
+              onClick={() => void connect()}
+            >
+              Connect
+            </button>
+          ) : null}
           <OsDockPill
             pageAccountId={pageAccountId}
             grip={
