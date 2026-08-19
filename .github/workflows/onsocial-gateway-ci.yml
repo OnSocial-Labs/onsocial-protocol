@@ -7,6 +7,11 @@ on:
       - 'packages/onsocial-gateway/**'
       - 'packages/onsocial-text-card/**'
       - 'packages/onsocial-rpc/**'
+      - 'indexers/substreams/combined_schema.sql'
+      - 'indexers/substreams/*_schema*.sql'
+      - 'indexers/substreams/migrations/**'
+      - 'scripts/ci-apply-indexer-schema.sh'
+      - 'scripts/repair-gateway-auth.sh'
       - '.github/workflows/onsocial-gateway-ci.yml'
       - 'pnpm-lock.yaml'
   pull_request:
@@ -15,6 +20,11 @@ on:
       - 'packages/onsocial-gateway/**'
       - 'packages/onsocial-text-card/**'
       - 'packages/onsocial-rpc/**'
+      - 'indexers/substreams/combined_schema.sql'
+      - 'indexers/substreams/*_schema*.sql'
+      - 'indexers/substreams/migrations/**'
+      - 'scripts/ci-apply-indexer-schema.sh'
+      - 'scripts/repair-gateway-auth.sh'
       - '.github/workflows/onsocial-gateway-ci.yml'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
@@ -160,3 +170,99 @@ jobs:
           if [ -f /tmp/gateway.pid ]; then
             kill $(cat /tmp/gateway.pid) 2>/dev/null || true
           fi
+
+  # Deploy parity: full indexer schema + view retrack + bulk permission recreate.
+  hasura-permission-sync:
+    name: Hasura permission sync (deploy parity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: onsocial
+          POSTGRES_PASSWORD: onsocial
+          POSTGRES_DB: onsocial
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      hasura:
+        image: hasura/graphql-engine:v2.40.0
+        env:
+          HASURA_GRAPHQL_DATABASE_URL: postgres://onsocial:onsocial@postgres:5432/onsocial
+          HASURA_GRAPHQL_ADMIN_SECRET: ci-test-secret
+          HASURA_GRAPHQL_ENABLE_CONSOLE: "false"
+          HASURA_GRAPHQL_DEV_MODE: "false"
+          HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+        options: >-
+          --health-cmd "curl -f http://localhost:8080/healthz"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 8080:8080
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build gateway permission tooling
+        run: pnpm --filter @onsocial/rpc build && pnpm --filter @onsocial/text-card build && pnpm --filter onsocial-gateway build
+
+      - name: Apply indexer + gateway schema
+        run: bash scripts/ci-apply-indexer-schema.sh
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: onsocial
+          PGPASSWORD: onsocial
+          PGDATABASE: onsocial
+
+      - name: Wait for Hasura
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/healthz >/dev/null; then
+              echo "Hasura ready (attempt $i)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Hasura not ready"
+          exit 1
+
+      - name: Reload Hasura metadata
+        run: |
+          curl -fsS http://localhost:8080/v1/metadata \
+            -H 'Content-Type: application/json' \
+            -H 'x-hasura-admin-secret: ci-test-secret' \
+            -d '{"type":"reload_metadata","args":{"reload_remote_schemas":true,"reload_sources":true}}'
+
+      - name: Run apply-hasura-permissions sync
+        run: |
+          echo "Starting deploy-parity permission sync..."
+          time node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync
+        env:
+          HASURA_URL: http://localhost:8080/v1/graphql
+          HASURA_ADMIN_SECRET: ci-test-secret
+          HASURA_METADATA_TIMEOUT_MS: 900000
+          NODE_ENV: test
+        timeout-minutes: 20
