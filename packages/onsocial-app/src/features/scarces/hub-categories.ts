@@ -19,7 +19,7 @@ export type HubCategoryFilter = 'all' | string;
 export const HUB_MAX_CATEGORIES = 2;
 
 /** Directory sample for Discover category chips (omit empty / rare customs). */
-export const HUB_CATEGORY_CENSUS_LIMIT = 120;
+export const HUB_CATEGORY_CENSUS_LIMIT = 24;
 
 export function parseHubCategory(raw: unknown): string | null {
   return normalizeTopicSlug(raw);

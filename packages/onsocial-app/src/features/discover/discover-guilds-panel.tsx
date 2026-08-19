@@ -28,8 +28,8 @@ import {
 } from '@/lib/topic-slug';
 
 const BROWSE_LIMIT = 24;
-/** Separate sample for topic chips so the list page stays lean. */
-const GUILD_TOPIC_CENSUS_LIMIT = 120;
+/** Same window as the guild list — enough for early chip census. */
+const GUILD_TOPIC_CENSUS_LIMIT = 24;
 
 function guildCardMatchesQuery(
   card: GuildSummaryCardModel,
