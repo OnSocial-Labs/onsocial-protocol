@@ -29864,9 +29864,26 @@ a.os-surface-row {
     width: 100%;
   }
 
-  .hub-categories-editor .app-storage-presets {
-    justify-content: center;
+  .hub-categories-editor .app-storage-presets,
+  .guild-tags-editor .topic-chip-slider {
+    justify-content: flex-start;
     width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.4rem;
+    padding-bottom: 0.1rem;
+  }
+
+  .hub-categories-editor .app-storage-presets::-webkit-scrollbar,
+  .guild-tags-editor .topic-chip-slider::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topic-chip-slider-chip {
+    flex: 0 0 auto;
   }
 
   .guild-tags-editor-list.portfolio-tags {
