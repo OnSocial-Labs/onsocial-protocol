@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { resolveProfileMediaUrl } from '@/lib/profile-display';
 
-/** Resolve guild avatar/banner IPFS CIDs the same way as guild detail + settings. */
+/** Resolve guild banner IPFS CIDs the same way as guild detail + settings. */
 export function guildMediaUrlFromCid(
   cid: string | null | undefined
 ): string | null {
@@ -78,17 +78,4 @@ export function guildCoverStyle(
   groupId: string
 ): CSSProperties | undefined {
   return bannerUrl ? undefined : guildFallbackCoverStyle(groupId);
-}
-
-/**
- * Paint avatar as a background on the rounded frame itself.
- * Avoids the 1px antialias gutters you get from overflow-clipped `<img>`.
- */
-export function guildAvatarFillStyle(
-  avatarUrl: string | null | undefined
-): CSSProperties | undefined {
-  if (!avatarUrl) return undefined;
-  return {
-    backgroundImage: `url(${JSON.stringify(avatarUrl)})`,
-  };
 }

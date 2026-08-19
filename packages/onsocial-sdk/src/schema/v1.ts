@@ -181,6 +181,10 @@ export interface GroupConfigV1 {
   v: 1;
   name: string;
   description?: string;
+  /**
+   * @deprecated Guilds are banner-only (places, not people). Kept for
+   * validating legacy on-chain configs; new writes should omit this.
+   */
   avatar?: MediaRef;
   isPrivate: boolean;
   memberDriven?: boolean;

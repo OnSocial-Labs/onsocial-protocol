@@ -630,9 +630,6 @@ export function LiveGuildPanel({
               memberDriven: fromRpc.memberDriven,
               ownerId:
                 fromRpc.ownerId ?? (current.config ?? currentConfig).ownerId,
-              avatarUrl:
-                fromRpc.avatarUrl ??
-                (current.config ?? currentConfig).avatarUrl,
               bannerUrl:
                 fromRpc.bannerUrl ??
                 (current.config ?? currentConfig).bannerUrl,
@@ -683,7 +680,6 @@ export function LiveGuildPanel({
       const fromIndexer = guildConfigFromIndexedRow(groupId, indexed);
       const shellEntry: GuildShellCacheEntry = {
         name: fromIndexer.name,
-        avatarUrl: fromIndexer.avatarUrl,
         bannerUrl: fromIndexer.bannerUrl,
         accessGated: fromIndexer.accessGated,
         memberDriven: fromIndexer.memberDriven,
@@ -727,7 +723,6 @@ export function LiveGuildPanel({
         clearStructureRetryTimers();
         const shellEntry: GuildShellCacheEntry = {
           name: normalizedConfig.name,
-          avatarUrl: normalizedConfig.avatarUrl,
           bannerUrl: normalizedConfig.bannerUrl,
           accessGated: normalizedConfig.accessGated,
           memberDriven: normalizedConfig.memberDriven,
@@ -1657,7 +1652,7 @@ export function LiveGuildPanel({
             ) : (
               <div className="guild-loading-hero" aria-hidden>
                 <div className="guild-loading-cover standing-row-shimmer" />
-                <div className="guild-loading-identity guild-loading-identity--no-avatar">
+                <div className="guild-loading-identity">
                   <div className="guild-loading-lines">
                     <div className="standing-row-shimmer guild-loading-line" />
                     <div className="standing-row-shimmer guild-loading-line-sm" />

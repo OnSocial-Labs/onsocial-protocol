@@ -195,7 +195,6 @@ export function findActiveJoinProposalForAccount<
 export interface GuildConfigSnapshot {
   name: string;
   description: string;
-  avatarUrl: string | null;
   bannerUrl: string | null;
   ownerId: string | null;
   accessGated: boolean;
@@ -241,7 +240,6 @@ export function normalizeGuildConfig(
   const rawTopics = Array.isArray(raw.topics)
     ? raw.topics.filter((topic): topic is string => typeof topic === 'string')
     : [];
-  const avatarCid = readNestedString(raw, ['avatar', 'cid']);
   const bannerCid = readNestedString(raw, ['x', 'onsocial', 'banner', 'cid']);
 
   const owner = readString(raw.owner)?.trim() ?? '';
@@ -249,7 +247,6 @@ export function normalizeGuildConfig(
   return {
     name: readString(raw.name) ?? groupId,
     description: readString(raw.description) ?? '',
-    avatarUrl: guildMediaUrlFromCid(avatarCid),
     bannerUrl: guildMediaUrlFromCid(bannerCid),
     ownerId: owner || null,
     accessGated: deriveGuildAccessGated(raw),

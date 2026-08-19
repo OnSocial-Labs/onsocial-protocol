@@ -24,7 +24,6 @@ const GROUP_CURRENT_SHELL_FIELDS = `
   ownerId
   groupName
   groupDescription
-  groupAvatarCid
   groupBannerCid
   isPublic
   isMemberDriven
@@ -57,7 +56,6 @@ const GROUP_MEMBERSHIP_SHELL_FIELDS = `
   canModerate
   groupName
   groupDescription
-  groupAvatarCid
   groupBannerCid
   isPublic
   isMemberDriven
@@ -92,7 +90,6 @@ export interface GroupMembershipCurrentRow {
   canModerate: boolean;
   groupName: string | null;
   groupDescription: string | null;
-  groupAvatarCid: string | null;
   groupBannerCid: string | null;
   isPublic: boolean | null;
   isMemberDriven: boolean;
@@ -128,7 +125,6 @@ export interface GroupCurrentRow {
   ownerId: string;
   groupName: string | null;
   groupDescription: string | null;
-  groupAvatarCid: string | null;
   groupBannerCid: string | null;
   isPublic: boolean | null;
   isMemberDriven: boolean;
