@@ -80,7 +80,7 @@ function profileShellFromBundle(
     bannerUrl,
     avatarMedia: avatarUrl ? { kind: 'image', url: avatarUrl } : null,
     bannerMedia: bannerUrl ? { kind: 'image', url: bannerUrl } : null,
-    links: null,
+    links: {},
     tags: [],
     hashtags: [],
     tickers: [],
