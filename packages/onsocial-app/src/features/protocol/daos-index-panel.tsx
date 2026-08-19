@@ -249,7 +249,6 @@ export function DaosIndexPanel() {
                     bannerUrl={entry.bannerUrl}
                     markUrl={entry.avatarUrl}
                     markVariant="crest"
-                    reserveMark
                     ariaLabel={named ? entry.name : `@${entry.accountId}`}
                   />
                 );

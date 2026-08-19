@@ -31,17 +31,12 @@ import { fallbackLabel } from '@/lib/profile-display';
 
 const SCARCE_PEEK_LIMIT = 6;
 
-function storeMeta(app: AppView): string {
-  const parts = [`@${fallbackLabel(app.ownerId)}`];
-  const topicsLabel =
-    app.categories.length > 0
-      ? app.categories
-          .map((category) => hubCategoryLabel(category) ?? category)
-          .join(' · ')
-      : hubCategoryLabel(app.category);
-  if (topicsLabel) parts.push(topicsLabel);
-  parts.push(creatorAccessShort(app.creatorAccess));
-  return parts.join(' · ');
+function hubPrimaryCategory(app: AppView): string | null {
+  if (app.categories.length > 0) {
+    const raw = app.categories[0]!;
+    return hubCategoryLabel(raw) ?? raw;
+  }
+  return hubCategoryLabel(app.category);
 }
 
 function ScarcePeekSection({
@@ -256,9 +251,10 @@ export function DiscoverHubsPanel() {
               Hubs
             </h2>
           ) : null}
-          <div className="guild-summary-card-grid apps-directory-list">
+          <div className="community-summary-card-grid apps-directory-list">
             {apps.map((app) => {
               const description = app.description?.trim() || null;
+              const category = hubPrimaryCategory(app);
               return (
                 <CommunityDiscoverRow
                   key={app.appId}
@@ -267,23 +263,30 @@ export function DiscoverHubsPanel() {
                   bannerUrl={app.bannerUrl}
                   markUrl={app.mediaUrl}
                   markVariant="logo"
-                  reserveMark
                   title={app.title}
                   description={description}
                   meta={
                     <>
-                      <span className="guild-summary-card-stat">
-                        <span className="guild-summary-card-stat-count">
+                      <span className="community-summary-stat">
+                        <span className="community-summary-stat-count">
                           {app.commissionPct}%
                         </span>
-                        <span className="guild-summary-card-stat-label">
-                          commission
+                        <span className="community-summary-stat-label">
+                          fee
                         </span>
                       </span>
-                      <span className="guild-summary-card-stat">
-                        <span className="guild-summary-card-stat-label">
-                          {storeMeta(app)}
+                      <span className="community-summary-stat">
+                        <span className="community-summary-stat-label">
+                          @{fallbackLabel(app.ownerId)}
                         </span>
+                      </span>
+                      {category ? (
+                        <span className="guild-card-pill guild-card-pill--topic">
+                          {category}
+                        </span>
+                      ) : null}
+                      <span className="guild-card-pill">
+                        {creatorAccessShort(app.creatorAccess)}
                       </span>
                     </>
                   }

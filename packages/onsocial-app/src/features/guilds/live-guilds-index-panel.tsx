@@ -123,7 +123,6 @@ export function LiveGuildsIndexPanel() {
                     bannerUrl={guild.bannerUrl}
                     markUrl={guild.badgeUrl}
                     markVariant="badge"
-                    reserveMark
                   />
                 );
               })}

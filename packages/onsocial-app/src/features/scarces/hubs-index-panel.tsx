@@ -113,7 +113,6 @@ export function HubsIndexPanel() {
                   bannerUrl={app.bannerUrl}
                   markUrl={app.mediaUrl}
                   markVariant="logo"
-                  reserveMark
                 />
               ))}
             </LauncherMineRail>

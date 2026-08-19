@@ -7,6 +7,7 @@ import {
   communityMineCoverStyle,
 } from '@/components/community-cards/community-cover';
 import type { CommunityMarkVariant } from '@/components/community-cards/community-discover-row';
+import { communityMonogram } from '@/components/community-cards/community-monogram';
 
 export function LauncherMineRail({ children }: { children: ReactNode }) {
   return <ul className="launcher-mine-rail">{children}</ul>;
@@ -15,6 +16,7 @@ export function LauncherMineRail({ children }: { children: ReactNode }) {
 /**
  * Mine home place card — banner plane, hairline, footer mark + title.
  * No members / description (those live on Discover).
+ * Unset banner / mark use letter monograms so the rail stays consistent.
  */
 export function LauncherMineCard({
   href,
@@ -24,7 +26,6 @@ export function LauncherMineCard({
   bannerUrl,
   markUrl,
   markVariant = 'crest',
-  reserveMark = false,
   ariaLabel,
 }: {
   href: string;
@@ -36,12 +37,10 @@ export function LauncherMineCard({
   bannerUrl?: string | null;
   markUrl?: string | null;
   markVariant?: CommunityMarkVariant;
-  /** Always reserve the mark slot (guild badge). */
-  reserveMark?: boolean;
   ariaLabel?: string;
 }) {
-  const showMark = reserveMark || Boolean(markUrl);
   const cover = bannerUrl ?? null;
+  const mono = communityMonogram(title);
 
   return (
     <li>
@@ -56,21 +55,27 @@ export function LauncherMineCard({
             className={communityCoverClassName(cover, 'mine')}
             style={communityMineCoverStyle(cover, seedId)}
           >
-            {cover ? <img src={cover} alt="" /> : null}
+            {cover ? (
+              <img src={cover} alt="" />
+            ) : (
+              <span className="community-cover-mono">{mono}</span>
+            )}
           </span>
         </span>
         <span className="launcher-mine-rule" aria-hidden />
         <span className="launcher-mine-foot">
-          {showMark ? (
-            <span
-              className={`launcher-mine-mark launcher-mine-mark--${markVariant}${
-                markUrl ? ' has-media' : ''
-              }`}
-              aria-hidden
-            >
-              {markUrl ? <img src={markUrl} alt="" /> : null}
-            </span>
-          ) : null}
+          <span
+            className={`launcher-mine-mark launcher-mine-mark--${markVariant}${
+              markUrl ? ' has-media' : ''
+            }`}
+            aria-hidden
+          >
+            {markUrl ? (
+              <img src={markUrl} alt="" />
+            ) : (
+              <span className="community-mark-mono">{mono}</span>
+            )}
+          </span>
           <span className="launcher-mine-foot-copy">
             <span className="launcher-mine-card-title">{title}</span>
             {subtitle ? (

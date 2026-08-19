@@ -70,7 +70,7 @@ export function guildHeroCoverClassName(
 export function guildCoverClassName(
   bannerUrl: string | null | undefined
 ): string {
-  return `${guildHeroCoverClassName(bannerUrl)} guild-summary-card-cover`;
+  return `${guildHeroCoverClassName(bannerUrl)} community-summary-cover guild-summary-card-cover`;
 }
 
 export function guildCoverStyle(

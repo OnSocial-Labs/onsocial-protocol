@@ -248,7 +248,7 @@ export function DiscoverGuildsPanel() {
       ) : null}
 
       {!showSkeleton && !showSearchBusy && visibleGuilds.length > 0 ? (
-        <div className="guild-summary-card-grid">
+        <div className="community-summary-card-grid">
           {visibleGuilds.map((guild) => (
             <GuildSummaryCard
               key={guild.groupId}

@@ -96,7 +96,6 @@ export function GuildSummaryCard({
         bannerUrl={guild.bannerUrl}
         markUrl={guild.badgeUrl}
         markVariant="badge"
-        reserveMark
         title={displayName}
         description={description}
         meta={

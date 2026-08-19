@@ -8,8 +8,6 @@ export function DaoDirectoryRow({
   entry,
 }: {
   entry: DaoDirectoryEntry;
-  /** @deprecated Dividers unused — standing list gap matches guild cards. */
-  showDivider?: boolean;
 }) {
   const named = entry.name.trim().toLowerCase() !== entry.accountId;
   const title = named ? entry.name : entry.accountId;
@@ -22,15 +20,14 @@ export function DaoDirectoryRow({
       bannerUrl={entry.bannerUrl}
       markUrl={entry.avatarUrl}
       markVariant="crest"
-      reserveMark
       title={title}
       description={description}
       ariaLabel={named ? entry.name : `@${entry.accountId}`}
       meta={
         <>
           {named ? (
-            <span className="guild-summary-card-stat">
-              <span className="guild-summary-card-stat-label">
+            <span className="community-summary-stat">
+              <span className="community-summary-stat-label">
                 @{entry.accountId}
               </span>
             </span>
@@ -56,7 +53,7 @@ export function DaoDirectoryList({
   }
 
   return (
-    <div className="guild-summary-card-grid dao-directory-list" role="list">
+    <div className="community-summary-card-grid dao-directory-list" role="list">
       {entries.map((entry) => (
         <div key={entry.accountId} role="listitem">
           <DaoDirectoryRow entry={entry} />

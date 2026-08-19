@@ -1,7 +1,5 @@
 import type { CSSProperties } from 'react';
 import {
-  guildCoverClassName,
-  guildCoverStyle,
   guildFallbackCoverStyle,
   guildHeroCoverClassName,
 } from '@/features/guilds/guild-visual';
@@ -16,20 +14,26 @@ export function communityCoverClassName(
 ): string {
   const base = guildHeroCoverClassName(bannerUrl);
   if (sizing === 'hero') return base;
-  if (sizing === 'mine') return `${base} launcher-mine-banner-cover`;
-  return guildCoverClassName(bannerUrl);
+  if (sizing === 'mine') {
+    return bannerUrl
+      ? `${base} launcher-mine-banner-cover`
+      : `${base} launcher-mine-banner-cover community-cover--monogram`;
+  }
+  return bannerUrl
+    ? `${base} community-summary-cover`
+    : `${base} community-summary-cover community-cover--monogram`;
 }
 
 export function communityCoverStyle(
   bannerUrl: string | null | undefined,
   seedId: string
 ): CSSProperties | undefined {
-  return guildCoverStyle(bannerUrl, seedId);
+  return bannerUrl ? undefined : guildFallbackCoverStyle(seedId);
 }
 
 export function communityMineCoverStyle(
   bannerUrl: string | null | undefined,
   seedId: string
 ): CSSProperties | undefined {
-  return bannerUrl ? undefined : guildFallbackCoverStyle(seedId);
+  return communityCoverStyle(bannerUrl, seedId);
 }
