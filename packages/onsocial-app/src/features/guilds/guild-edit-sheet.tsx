@@ -37,7 +37,7 @@ import { guildCoverStyle } from '@/features/guilds/guild-visual';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
+import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import {
   txToastConfirming,
   txToastError,
@@ -369,7 +369,7 @@ export function GuildEditSheet({
       return;
     }
     try {
-      const prepared = await prepareGuildAvatarFile(file);
+      const prepared = await prepareSquareOpaqueJpeg(file);
       setBadgeFile(prepared);
       setBadgeRemoved(false);
       setError(null);

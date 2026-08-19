@@ -21,7 +21,7 @@ export interface GuildSummaryCardModel {
   /** Banner (or seeded fallback) — guilds are places, not people; no crest. */
   bannerUrl: string | null;
   /** Small identity mark beside the name when set. */
-  badgeUrl?: string | null;
+  badgeUrl: string | null;
   accessGated: boolean;
   memberDriven: boolean;
   memberCount?: number | null;
