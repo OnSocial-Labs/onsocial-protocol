@@ -72,7 +72,7 @@ export function DaosIndexPanel() {
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [toolbarHideRequest, setToolbarHideRequest] = useState(0);
-  const toolbarHidden = useDockAutoHide(true, true, toolbarHideRequest);
+  const toolbarHidden = useDockAutoHide(false, null, toolbarHideRequest);
 
   const tab = parseDaosAppTab(searchParams.get(DAOS_APP_TAB_PARAM));
 
