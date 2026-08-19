@@ -41,7 +41,7 @@ import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { useDaoPageCapability } from '@/hooks/use-dao-page-capability';
-import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
+import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
   normalizeProfileLinksInput,
@@ -216,7 +216,7 @@ export function DaoEditSheet({
       return;
     }
     try {
-      const prepared = await prepareGuildAvatarFile(file);
+      const prepared = await prepareSquareOpaqueJpeg(file);
       setError(null);
       setAvatarRemoved(false);
       setAvatarFile(prepared);

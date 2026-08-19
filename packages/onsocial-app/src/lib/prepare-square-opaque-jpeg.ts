@@ -1,5 +1,5 @@
-/** Square export size for guild avatars (sharp enough for hero + cards). */
-const GUILD_AVATAR_SIZE = 512;
+/** Square export size (DAO crests, guild badges — sharp enough for hero + cards). */
+const SQUARE_EXPORT_SIZE = 512;
 /** Bleed past the square so soft PNG edges can't leave corner gutters. */
 const COVER_OVERSCALE = 1.06;
 const ALPHA_TRIM_THRESHOLD = 12;
@@ -35,7 +35,7 @@ function canvasToJpegBlob(canvas: HTMLCanvasElement): Promise<Blob> {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error('Could not prepare guild avatar.'));
+          reject(new Error('Could not prepare square image.'));
           return;
         }
         resolve(blob);
@@ -99,12 +99,12 @@ function averageOpaqueColor(
 }
 
 /**
- * Bake guild avatar to a fully opaque square JPEG.
- * Trims transparent padding, covers the square with a slight overscale,
- * and pads remaining alpha with a blended fill so rounded frames never
- * show empty corner gutters.
+ * Bake an image to a fully opaque square JPEG.
+ * Used for DAO crests and guild badges — trims transparent padding, covers
+ * the square with a slight overscale, and pads remaining alpha so rounded
+ * frames never show empty corner gutters.
  */
-export async function prepareGuildAvatarFile(file: File): Promise<File> {
+export async function prepareSquareOpaqueJpeg(file: File): Promise<File> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Choose an image file.');
   }
@@ -118,7 +118,7 @@ export async function prepareGuildAvatarFile(file: File): Promise<File> {
   }
   const sourceCtx = source.getContext('2d', { willReadFrequently: true });
   if (!sourceCtx) {
-    throw new Error('Could not prepare guild avatar.');
+    throw new Error('Could not prepare square image.');
   }
   sourceCtx.drawImage(img, 0, 0);
 
@@ -133,20 +133,19 @@ export async function prepareGuildAvatarFile(file: File): Promise<File> {
     averageOpaqueColor(sourceCtx, source.width, source.height) ??
     resolvePadColor();
 
-  const size = GUILD_AVATAR_SIZE;
+  const size = SQUARE_EXPORT_SIZE;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d');
   if (!ctx) {
-    throw new Error('Could not prepare guild avatar.');
+    throw new Error('Could not prepare square image.');
   }
 
   ctx.fillStyle = pad;
   ctx.fillRect(0, 0, size, size);
 
-  const scale =
-    Math.max(size / crop.sw, size / crop.sh) * COVER_OVERSCALE;
+  const scale = Math.max(size / crop.sw, size / crop.sh) * COVER_OVERSCALE;
   const drawW = crop.sw * scale;
   const drawH = crop.sh * scale;
   const dx = (size - drawW) / 2;
@@ -170,8 +169,8 @@ export async function prepareGuildAvatarFile(file: File): Promise<File> {
   ctx.globalCompositeOperation = 'source-over';
 
   const blob = await canvasToJpegBlob(canvas);
-  const base = file.name.replace(/\.[^.]+$/, '') || 'guild-avatar';
-  return new File([blob], `${base}-avatar.jpg`, {
+  const base = file.name.replace(/\.[^.]+$/, '') || 'square';
+  return new File([blob], `${base}-square.jpg`, {
     type: 'image/jpeg',
     lastModified: Date.now(),
   });

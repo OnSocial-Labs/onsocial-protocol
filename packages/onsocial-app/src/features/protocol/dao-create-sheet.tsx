@@ -55,7 +55,7 @@ import {
   SPUTNIK_DAO_FACTORY_PROPOSAL_BOND_NEAR,
 } from '@/lib/app-config';
 import { daoPath } from '@/lib/app-routes';
-import { prepareGuildAvatarFile } from '@/lib/prepare-guild-avatar';
+import { prepareSquareOpaqueJpeg } from '@/lib/prepare-square-opaque-jpeg';
 import { isPostImageMime, POST_IMAGE_MAX_BYTES } from '@/lib/post-media';
 import {
   normalizeProfileLinksInput,
