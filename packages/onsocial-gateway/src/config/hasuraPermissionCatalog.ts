@@ -369,6 +369,30 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'group_member_counts',
+    columns: ['group_id', 'member_count'],
+  },
+  {
+    name: 'groups_by_member_count',
+    columns: [
+      'group_id',
+      'owner_id',
+      'group_name',
+      'is_public',
+      'creator_role',
+      'storage_allocation',
+      'block_height',
+      'block_timestamp',
+      'operation',
+      'group_description',
+      'group_avatar_cid',
+      'group_banner_cid',
+      'is_member_driven',
+      'group_topics',
+      'member_count',
+    ],
+  },
+  {
     name: 'group_blacklist_current',
     columns: [
       'group_id',
@@ -951,6 +975,19 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
   },
   {
     name: 'scarces_app_stats',
+    columns: [
+      'app_id',
+      'drops_total',
+      'minted_total',
+      'unique_holders',
+      'sales_count',
+      'sales_volume',
+      'live_listings',
+      'last_activity_timestamp',
+    ],
+  },
+  {
+    name: 'scarces_app_stats_hot',
     columns: [
       'app_id',
       'drops_total',

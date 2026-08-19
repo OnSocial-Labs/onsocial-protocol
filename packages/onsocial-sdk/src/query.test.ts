@@ -871,6 +871,43 @@ describe('QueryModule', () => {
       });
     });
 
+    it('browses by member count via groups_by_member_count', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          groupsByMemberCount: [
+            {
+              groupId: 'rebels',
+              ownerId: 'alice.near',
+              groupName: 'Rebels',
+              groupDescription: null,
+              groupAvatarCid: null,
+              groupBannerCid: null,
+              isPublic: true,
+              isMemberDriven: false,
+              groupTopics: null,
+              blockHeight: 1,
+              blockTimestamp: 2,
+              memberCount: 42,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.groups.browse({
+        sort: 'members',
+        publicOnly: true,
+        limit: 8,
+      });
+      expect(page.items).toHaveLength(1);
+      expect(page.items[0].groupId).toBe('rebels');
+      expect(page.items[0].memberCount).toBe(42);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('groupsByMemberCount');
+      expect(body.query).toContain('memberCount: DESC');
+      expect(body.query).toContain('isPublic: {_eq: true}');
+    });
+
     it('queries current members of a group, owner first', async () => {
       const { os, fetch } = makeOs({
         data: {

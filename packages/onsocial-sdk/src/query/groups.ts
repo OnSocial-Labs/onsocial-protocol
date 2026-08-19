@@ -37,6 +37,16 @@ const GROUP_CURRENT_SHELL_FIELDS_WITH_TOPICS = `
   groupTopics
 `;
 
+const GROUP_BY_MEMBERS_SHELL_FIELDS = `
+  ${GROUP_CURRENT_SHELL_FIELDS}
+  memberCount
+`;
+
+const GROUP_BY_MEMBERS_SHELL_FIELDS_WITH_TOPICS = `
+  ${GROUP_BY_MEMBERS_SHELL_FIELDS}
+  groupTopics
+`;
+
 const GROUP_MEMBERSHIP_SHELL_FIELDS = `
   groupId
   memberId
@@ -126,6 +136,8 @@ export interface GroupCurrentRow {
   groupTopics: string[] | null;
   blockHeight: number;
   blockTimestamp: number;
+  /** Present when browsing `groups_by_member_count`. */
+  memberCount?: number | null;
 }
 
 /** Normalize Hasura `groupTopics` (text[] / null) for card shells. */
@@ -450,15 +462,19 @@ export class GroupsQuery {
 
   /**
    * Browse indexed guilds from `groups_current` (discover / search).
+   * Pass `sort: 'members'` to use `groups_by_member_count` (largest first).
    *
    * ```ts
    * const { items } = await os.query.groups.browse({ query: 'rebels', limit: 12 });
+   * const popular = await os.query.groups.browse({ sort: 'members', publicOnly: true });
    * ```
    */
   async browse(
     opts: {
       query?: string;
       publicOnly?: boolean;
+      /** `recent` = block height (default); `members` = roster size. */
+      sort?: 'recent' | 'members';
       limit?: number;
       offset?: number;
     } = {}
@@ -467,6 +483,11 @@ export class GroupsQuery {
     const offset = opts.offset ?? 0;
     const query = opts.query?.trim();
     const queryLike = query ? `%${query}%` : undefined;
+    const byMembers = opts.sort === 'members';
+    const table = byMembers ? 'groupsByMemberCount' : 'groupsCurrent';
+    const orderBy = byMembers
+      ? '[{memberCount: DESC}, {blockHeight: DESC}]'
+      : '[{blockHeight: DESC}]';
     const filters: string[] = [];
     if (opts.publicOnly) {
       filters.push('{isPublic: {_eq: true}}');
@@ -479,13 +500,16 @@ export class GroupsQuery {
     const whereClause =
       filters.length > 0 ? `where: {_and: [${filters.join(', ')}]},` : '';
     const run = (fields: string) =>
-      this._q.graphql<{ groupsCurrent: GroupCurrentRow[] }>({
+      this._q.graphql<{
+        groupsCurrent?: GroupCurrentRow[];
+        groupsByMemberCount?: GroupCurrentRow[];
+      }>({
         query: `query BrowseGroups($limit: Int!, $offset: Int!${queryLike !== undefined ? ', $queryLike: String!' : ''}) {
-          groupsCurrent(
+          ${table}(
             ${whereClause}
             limit: $limit,
             offset: $offset,
-            orderBy: [{blockHeight: DESC}]
+            orderBy: ${orderBy}
           ) {
             ${fields}
           }
@@ -497,14 +521,23 @@ export class GroupsQuery {
         },
       });
 
+    const fieldsWithTopics = byMembers
+      ? GROUP_BY_MEMBERS_SHELL_FIELDS_WITH_TOPICS
+      : GROUP_CURRENT_SHELL_FIELDS_WITH_TOPICS;
+    const fieldsWithoutTopics = byMembers
+      ? GROUP_BY_MEMBERS_SHELL_FIELDS
+      : GROUP_CURRENT_SHELL_FIELDS;
+
     let res;
     try {
-      res = await run(GROUP_CURRENT_SHELL_FIELDS_WITH_TOPICS);
+      res = await run(fieldsWithTopics);
     } catch (error) {
       if (!isGroupTopicsUnavailableError(error)) throw error;
-      res = await run(GROUP_CURRENT_SHELL_FIELDS);
+      res = await run(fieldsWithoutTopics);
     }
-    const rows = res.data?.groupsCurrent ?? [];
+    const rows =
+      (byMembers ? res.data?.groupsByMemberCount : res.data?.groupsCurrent) ??
+      [];
     return {
       items: rows,
       nextOffset: rows.length >= limit ? offset + limit : undefined,
