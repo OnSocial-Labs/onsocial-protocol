@@ -249,6 +249,7 @@ SELECT
   operation,
   NULLIF(config_json ->> 'description', '') AS group_description,
   NULLIF(config_json #>> '{x,onsocial,banner,cid}', '') AS group_banner_cid,
+  NULLIF(config_json #>> '{x,onsocial,badge,cid}', '') AS group_badge_cid,
   COALESCE(
     (config_json ->> 'member_driven') = 'true',
     (config_json ->> 'memberDriven') = 'true',
@@ -346,6 +347,7 @@ SELECT
   latest.block_timestamp,
   groups_current.group_description,
   groups_current.group_banner_cid,
+  groups_current.group_badge_cid,
   groups_current.is_member_driven,
   groups_current.group_topics
 FROM latest
@@ -381,6 +383,7 @@ SELECT
   g.operation,
   g.group_description,
   g.group_banner_cid,
+  g.group_badge_cid,
   g.is_member_driven,
   g.group_topics,
   COALESCE(c.member_count, 0)::BIGINT AS member_count

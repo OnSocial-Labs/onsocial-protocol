@@ -778,6 +778,7 @@ describe('QueryModule', () => {
               groupName: 'DAO',
               groupDescription: 'A guild for builders.',
               groupBannerCid: 'bafyGuildBanner',
+              groupBadgeCid: 'bafyGuildBadge',
               isPublic: true,
               isMemberDriven: false,
               blockHeight: 9,
@@ -795,6 +796,7 @@ describe('QueryModule', () => {
       expect(page.items[0].isOwner).toBe(true);
       expect(page.items[0].groupDescription).toBe('A guild for builders.');
       expect(page.items[0].groupBannerCid).toBe('bafyGuildBanner');
+      expect(page.items[0].groupBadgeCid).toBe('bafyGuildBadge');
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('groupMembersCurrent');
@@ -802,6 +804,7 @@ describe('QueryModule', () => {
       expect(body.query).toContain('groupDescription');
       expect(body.query).not.toContain('groupAvatarCid');
       expect(body.query).toContain('groupBannerCid');
+      expect(body.query).toContain('groupBadgeCid');
       expect(body.query).toContain('groupTopics');
       expect(body.variables).toMatchObject({
         accountId: 'alice.near',
@@ -820,6 +823,7 @@ describe('QueryModule', () => {
               groupName: 'Social Rebels',
               groupDescription: 'Builders guild',
               groupBannerCid: 'bafyBanner',
+              groupBadgeCid: null,
               isPublic: true,
               isMemberDriven: false,
               groupTopics: ['builders', 'near'],
@@ -878,6 +882,7 @@ describe('QueryModule', () => {
               groupName: 'Rebels',
               groupDescription: null,
               groupBannerCid: null,
+              groupBadgeCid: null,
               isPublic: true,
               isMemberDriven: false,
               groupTopics: null,

@@ -10257,6 +10257,28 @@ a.os-surface-row {
     padding: 0.05rem 0.1rem 0.05rem 0;
   }
 
+  .guild-summary-card-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .guild-summary-card-badge {
+    flex-shrink: 0;
+    width: 1.05rem;
+    height: 1.05rem;
+    overflow: hidden;
+    border-radius: 0.28rem;
+    background: rgb(var(--fg-rgb) / 0.08);
+  }
+
+  .guild-summary-card-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
   .guild-summary-card-name {
     overflow: hidden;
     text-overflow: ellipsis;
