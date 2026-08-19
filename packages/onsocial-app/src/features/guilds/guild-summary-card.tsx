@@ -18,7 +18,7 @@ export interface GuildSummaryCardModel {
   groupId: string;
   name: string | null;
   description: string | null;
-  avatarUrl: string | null;
+  /** Banner (or seeded fallback) — guilds are places, not people; no crest. */
   bannerUrl: string | null;
   accessGated: boolean;
   memberDriven: boolean;
@@ -84,11 +84,7 @@ export function GuildSummaryCard({
     ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
     : null;
   const description = guild.description?.trim() || null;
-  /** Rail peeks prefer avatar (square identity); discovery grid keeps banner cover. */
-  const coverUrl =
-    variant === 'rail'
-      ? (guild.avatarUrl ?? guild.bannerUrl)
-      : guild.bannerUrl;
+  const coverUrl = guild.bannerUrl;
   const showDescription = variant === 'grid' && Boolean(description);
   /** Rail: one quiet meta line — topic · members; role/gated pills stay on grid. */
   const showPills = variant === 'grid';

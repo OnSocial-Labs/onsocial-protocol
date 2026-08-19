@@ -568,7 +568,7 @@ export class GroupsModule {
   }
 
   /**
-   * Propose updating group metadata (name, avatar, banner, description, ...).
+   * Propose updating group metadata (name, banner, description, ...).
    * Resolves to a `group_update` proposal with `update_type: "metadata"`.
    */
   async proposeMetadataUpdate(

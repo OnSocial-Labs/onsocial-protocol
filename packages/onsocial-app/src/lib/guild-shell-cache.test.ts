@@ -8,7 +8,6 @@ import {
 
 const shell = {
   name: 'Social Rebels',
-  avatarUrl: 'https://example.com/a.png',
   bannerUrl: null as string | null,
   accessGated: false,
   memberDriven: true,

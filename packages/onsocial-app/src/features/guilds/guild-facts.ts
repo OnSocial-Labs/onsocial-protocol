@@ -19,7 +19,6 @@ export function guildConfigFromIndexedRow(
     ownerId?: string | null;
     groupName?: string | null;
     groupDescription?: string | null;
-    groupAvatarCid?: string | null;
     groupBannerCid?: string | null;
     isPublic?: boolean | null;
     isMemberDriven?: boolean;
@@ -29,7 +28,6 @@ export function guildConfigFromIndexedRow(
   return {
     name: row.groupName?.trim() || groupId,
     description: row.groupDescription?.trim() || '',
-    avatarUrl: guildMediaUrlFromCid(row.groupAvatarCid),
     bannerUrl: guildMediaUrlFromCid(row.groupBannerCid),
     ownerId: row.ownerId?.trim() || null,
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
@@ -110,7 +108,6 @@ function membershipRowToCardBase(row: {
   groupId: string;
   groupName?: string | null;
   groupDescription?: string | null;
-  groupAvatarCid?: string | null;
   groupBannerCid?: string | null;
   isPublic?: boolean | null;
   isMemberDriven?: boolean;
@@ -124,7 +121,6 @@ function membershipRowToCardBase(row: {
     groupId: row.groupId,
     name: row.groupName ?? null,
     description: row.groupDescription ?? null,
-    avatarUrl: guildMediaUrlFromCid(row.groupAvatarCid),
     bannerUrl: guildMediaUrlFromCid(row.groupBannerCid),
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
     memberDriven: Boolean(row.isMemberDriven),
@@ -147,7 +143,6 @@ export function guildSummaryCardFromBrowse(row: {
   groupId: string;
   groupName?: string | null;
   groupDescription?: string | null;
-  groupAvatarCid?: string | null;
   groupBannerCid?: string | null;
   isPublic?: boolean | null;
   isMemberDriven?: boolean;

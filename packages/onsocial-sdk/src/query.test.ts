@@ -777,7 +777,6 @@ describe('QueryModule', () => {
               canModerate: true,
               groupName: 'DAO',
               groupDescription: 'A guild for builders.',
-              groupAvatarCid: 'bafyGuildAvatar',
               groupBannerCid: 'bafyGuildBanner',
               isPublic: true,
               isMemberDriven: false,
@@ -795,14 +794,13 @@ describe('QueryModule', () => {
       expect(page.items[0].groupId).toBe('dao');
       expect(page.items[0].isOwner).toBe(true);
       expect(page.items[0].groupDescription).toBe('A guild for builders.');
-      expect(page.items[0].groupAvatarCid).toBe('bafyGuildAvatar');
       expect(page.items[0].groupBannerCid).toBe('bafyGuildBanner');
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('groupMembersCurrent');
       expect(body.query).toContain('memberId: {_eq: $accountId}');
       expect(body.query).toContain('groupDescription');
-      expect(body.query).toContain('groupAvatarCid');
+      expect(body.query).not.toContain('groupAvatarCid');
       expect(body.query).toContain('groupBannerCid');
       expect(body.query).toContain('groupTopics');
       expect(body.variables).toMatchObject({
@@ -821,7 +819,6 @@ describe('QueryModule', () => {
               ownerId: 'alice.near',
               groupName: 'Social Rebels',
               groupDescription: 'Builders guild',
-              groupAvatarCid: null,
               groupBannerCid: 'bafyBanner',
               isPublic: true,
               isMemberDriven: false,
@@ -880,7 +877,6 @@ describe('QueryModule', () => {
               ownerId: 'alice.near',
               groupName: 'Rebels',
               groupDescription: null,
-              groupAvatarCid: null,
               groupBannerCid: null,
               isPublic: true,
               isMemberDriven: false,

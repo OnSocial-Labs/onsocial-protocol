@@ -10249,77 +10249,6 @@ a.os-surface-row {
     object-position: center center;
   }
 
-  .guild-summary-card-identity {
-    --guild-card-avatar-size: 1.65rem;
-    --guild-card-avatar-ring: 2px;
-    position: absolute;
-    z-index: 1;
-    right: 0.28rem;
-    bottom: 0.28rem;
-    display: flex;
-    margin: 0;
-  }
-
-  .guild-summary-card-avatar-shell {
-    --guild-card-avatar-ring: 2px;
-    box-sizing: border-box;
-    flex-shrink: 0;
-    width: calc(
-      var(--guild-card-avatar-size) + 2 * var(--guild-card-avatar-ring)
-    );
-    height: calc(
-      var(--guild-card-avatar-size) + 2 * var(--guild-card-avatar-ring)
-    );
-    padding: var(--guild-card-avatar-ring);
-    border-radius: calc(0.55rem + var(--guild-card-avatar-ring));
-    background: rgb(var(--bg-rgb));
-  }
-
-  .guild-summary-card-avatar {
-    position: relative;
-    display: block;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    border: 0;
-    border-radius: 0.55rem;
-    background-color: rgb(var(--bg-rgb));
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    box-shadow: none;
-    color: rgb(var(--fg-rgb) / 0.7);
-    font-size: calc(var(--guild-card-avatar-size) * 0.32);
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1;
-    text-transform: uppercase;
-  }
-
-  .guild-summary-card-avatar.has-media {
-    background-color: rgb(var(--bg-rgb));
-  }
-
-  .guild-summary-card-avatar > span {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-  }
-
-  .guild-summary-card-avatar--fallback {
-    background:
-      radial-gradient(
-        circle at 35% 30%,
-        color-mix(
-          in srgb,
-          var(--guild-fallback-accent, var(--protocol-blue)) 34%,
-          transparent
-        ),
-        transparent 62%
-      ),
-      rgb(var(--fg-rgb) / 0.1);
-  }
 
   .guild-summary-card-body {
     display: grid;
@@ -26328,20 +26257,10 @@ a.os-surface-row {
     display: flex;
     align-items: flex-end;
     gap: 0.75rem;
-    margin-top: -2.35rem;
+    margin-top: 0.55rem;
     padding: 0 0.15rem;
   }
 
-  .guild-loading-identity--no-avatar {
-    margin-top: 0.55rem;
-  }
-
-  .guild-loading-avatar {
-    flex: 0 0 auto;
-    width: 4.5rem;
-    height: 4.5rem;
-    border-radius: 1.05rem;
-  }
 
   .guild-loading-lines {
     display: flex;
@@ -26362,9 +26281,8 @@ a.os-surface-row {
     height: 0.68rem;
   }
 
-  /* Guild detail hero — portal-style solid banner + overlapping avatar. */
+  /* Guild detail hero — full-bleed banner (no crest). */
   .guild-hero {
-    --guild-avatar-size: 4.5rem;
     /* Page pad-x + hero 0.1rem — cover bleeds both so content stays put. */
     --guild-hero-bleed: calc(var(--os-screen-body-pad-x, 1rem) + 0.1rem);
     display: flex;
@@ -26373,11 +26291,6 @@ a.os-surface-row {
     padding: 0 0.1rem 0.2rem;
   }
 
-  @media (min-width: 640px) {
-    .guild-hero {
-      --guild-avatar-size: 5rem;
-    }
-  }
 
   /* Full-bleed solid banner — fills the top under the immersive nav. */
   .guild-hero > .guild-hero-cover {
@@ -26433,99 +26346,6 @@ a.os-surface-row {
     height: 100%;
     object-fit: cover;
     object-position: center center;
-  }
-
-  .guild-hero-identity {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-top: calc(
-      (var(--guild-avatar-size) + 2 * var(--guild-avatar-ring, 3px)) / -2
-    );
-    padding-inline: 0.05rem;
-  }
-
-  /* Facepile-first: no crest — membership action floats on banner alone. */
-  .guild-hero-identity--actions-only {
-    margin-top: -1.35rem;
-    justify-content: flex-end;
-  }
-
-  /*
-   * Opaque ring shell — solid pad around the media so rounded-corner AA
-   * composites against bg (not the banner “see-through” fringe).
-   */
-  .guild-hero-avatar-shell {
-    --guild-avatar-radius: 1.15rem;
-    --guild-avatar-ring: 3px;
-    box-sizing: border-box;
-    flex-shrink: 0;
-    width: calc(var(--guild-avatar-size) + 2 * var(--guild-avatar-ring));
-    height: calc(var(--guild-avatar-size) + 2 * var(--guild-avatar-ring));
-    padding: var(--guild-avatar-ring);
-    border-radius: calc(var(--guild-avatar-radius) + var(--guild-avatar-ring));
-    background: rgb(var(--bg-rgb));
-  }
-
-  .guild-hero-avatar {
-    position: relative;
-    z-index: 1;
-    display: block;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    border: 0;
-    border-radius: var(--guild-avatar-radius, 1.15rem);
-    background-color: rgb(var(--bg-rgb));
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    box-shadow: none;
-    color: rgb(var(--fg-rgb) / 0.72);
-    font-size: calc(var(--guild-avatar-size) * 0.28);
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1;
-    text-transform: uppercase;
-  }
-
-  /* Keep opaque pad under the photo — never transparent (AA would leak banner). */
-  .guild-hero-avatar.has-media {
-    background-color: rgb(var(--bg-rgb));
-    background-size: cover;
-  }
-
-  .guild-hero-avatar > span {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-  }
-
-  .guild-hero-avatar--fallback {
-    background:
-      radial-gradient(
-        circle at 35% 30%,
-        color-mix(
-          in srgb,
-          var(--guild-fallback-accent, var(--protocol-blue)) 34%,
-          transparent
-        ),
-        transparent 62%
-      ),
-      rgb(var(--fg-rgb) / 0.1);
-  }
-
-  .guild-hero-identity-actions {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    align-items: flex-start;
-    justify-content: flex-end;
-    padding-top: calc(var(--guild-avatar-size) / 2 + 0.35rem);
   }
 
   .guild-hero h2 {
@@ -27939,73 +27759,6 @@ a.os-surface-row {
     left: 0.75rem;
   }
 
-  .guild-settings-avatar-row {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    margin-top: -2.4rem;
-    padding-inline: 0.85rem;
-  }
-
-  .guild-settings-avatar {
-    position: relative;
-    display: block;
-    width: 4.5rem;
-    height: 4.5rem;
-    overflow: hidden;
-    border: 0;
-    border-radius: 1.15rem;
-    background-color: rgb(var(--bg-rgb));
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    box-shadow: 0 0 0 3px rgb(var(--bg-rgb));
-    color: rgb(var(--fg-rgb) / 0.72);
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    line-height: 1;
-    text-transform: uppercase;
-  }
-
-  .guild-settings-avatar.has-media {
-    background-color: rgb(var(--bg-rgb));
-  }
-
-  .guild-settings-avatar-actions {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.45rem 0.55rem;
-    padding-top: 2.1rem;
-  }
-
-  .guild-settings-avatar-button {
-    border: 1px solid rgb(var(--fg-rgb) / 0.1);
-    border-radius: 9999px;
-    padding: 0.4rem 0.7rem;
-    background: rgb(var(--fg-rgb) / 0.05);
-    color: inherit;
-    font: inherit;
-    font-size: 0.74rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .guild-settings-avatar-button--ghost {
-    background: transparent;
-    color: rgb(var(--fg-rgb) / 0.55);
-  }
-
-  .guild-settings-avatar-actions small {
-    width: 100%;
-    margin: 0;
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: rgb(var(--fg-rgb) / 0.45);
-  }
 
   .guild-field input[readonly] {
     opacity: 0.72;

@@ -41,7 +41,6 @@ export const loadGuildPageData = cache(
       const config = guildConfigFromIndexedRow(id, indexed);
       const shell: GuildShellCacheEntry = {
         name: config.name,
-        avatarUrl: config.avatarUrl,
         bannerUrl: config.bannerUrl,
         accessGated: config.accessGated,
         memberDriven: config.memberDriven,
