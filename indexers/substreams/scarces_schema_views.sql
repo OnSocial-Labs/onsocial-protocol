@@ -8,11 +8,12 @@
 --   scarces_schema.sql → scarces_events, scarces_apps, scarces_active_listings
 --
 -- Views:
---   1. scarces_token_owners — current owner per token (latest ownership event)
---   2. scarces_app_stats    — per-app drops / minted / holders / sales volume
+--   1. scarces_token_owners             — current owner per token
+--   2. scarces_app_stats                — per-app drops / minted / holders / sales
+--   3. scarces_collections_trade_stats  — per-collection sales count / volume
 --
--- Both are regular live views. If event volume makes them slow, materialize
--- with a refresh in the sink deploy — the read shape stays the same.
+-- Regular live views. If event volume makes them slow, materialize with a
+-- refresh in the sink deploy — the read shape stays the same.
 -- ============================================================================
 
 -- ────────────────────────────────────────────────────────────────────────────
@@ -291,3 +292,67 @@ LEFT JOIN mint_stats m    USING (app_id)
 LEFT JOIN sale_stats s    USING (app_id)
 LEFT JOIN holder_stats h  USING (app_id)
 LEFT JOIN listing_stats l USING (app_id);
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 3. scarces_collections_trade_stats — per-collection sales rollup
+-- ────────────────────────────────────────────────────────────────────────────
+-- Same sale event set as scarces_app_stats. Resolves collection_id from the
+-- event when present, else from scarces_token_owners via token_id (secondary
+-- sales / offers). One row per collection that has ≥1 sale. Rank by
+-- sales_volume DESC for Discover "Most traded".
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW scarces_collections_trade_stats AS
+WITH collection_apps AS (
+  SELECT DISTINCT ON (collection_id)
+    collection_id,
+    NULLIF(app_id, '') AS app_id
+  FROM scarces_events
+  WHERE event_type = 'COLLECTION_UPDATE'
+    AND operation = 'create'
+    AND NULLIF(collection_id, '') IS NOT NULL
+  ORDER BY collection_id, block_height DESC, id DESC
+),
+sales AS (
+  SELECT
+    COALESCE(
+      NULLIF(e.collection_id, ''),
+      tok.collection_id
+    )                                                           AS collection_id,
+    COALESCE(
+      NULLIF(e.app_id, ''),
+      tok.app_id,
+      ca.app_id
+    )                                                           AS app_id,
+    COALESCE(
+      CASE WHEN e.price ~ '^[0-9]+$' THEN e.price::NUMERIC END,
+      CASE WHEN e.amount ~ '^[0-9]+$' THEN e.amount::NUMERIC END,
+      CASE WHEN e.winning_bid ~ '^[0-9]+$' THEN e.winning_bid::NUMERIC END,
+      0
+    )                                                           AS volume,
+    e.block_timestamp
+  FROM scarces_events e
+  LEFT JOIN scarces_token_owners tok
+    ON tok.token_id = NULLIF(e.token_id, '')
+  LEFT JOIN collection_apps ca
+    ON ca.collection_id = COALESCE(
+      NULLIF(e.collection_id, ''),
+      tok.collection_id
+    )
+  WHERE
+    (e.event_type = 'COLLECTION_UPDATE' AND e.operation = 'purchase')
+    OR (e.event_type = 'LAZY_LISTING_UPDATE' AND e.operation = 'purchased')
+    OR (e.event_type = 'SCARCE_UPDATE'
+      AND e.operation IN ('purchase', 'auction_settled'))
+    OR (e.event_type = 'OFFER_UPDATE'
+      AND e.operation IN ('offer_accepted', 'collection_offer_accepted'))
+)
+SELECT
+  collection_id,
+  MAX(app_id)                                                   AS app_id,
+  COUNT(*)::BIGINT                                              AS sales_count,
+  SUM(volume)                                                   AS sales_volume,
+  MAX(block_timestamp)                                          AS last_sale_timestamp
+FROM sales
+WHERE collection_id IS NOT NULL
+GROUP BY collection_id;

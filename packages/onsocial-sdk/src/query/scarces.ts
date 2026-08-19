@@ -11,6 +11,8 @@
 // Live Market catalog: `activeListings()` → `scarces_active_listings`
 // Live drop catalog: `collectionCurrent()` / `collectionsCurrent()` /
 //   `collectionsCurrentByIds()` → `scarces_collections_current`
+// Rankings: `collectionLoveFans()` → `scarce_collection_love_fans`;
+//   `collectionTradeStats()` → `scarces_collections_trade_stats`
 // Owned inventory: `ownedBy()` → `scarces_token_owners`
 // Open offers: `activeOffers()` → `scarces_active_offers`
 // (sink-maintained). Buy/bid still verify against the scarces contract.
@@ -1176,6 +1178,105 @@ export class ScarcesQuery {
       variables: { ids },
     });
     return res.data?.scarceCollectionLoveFans ?? [];
+  }
+
+  /**
+   * Most-traded drops from `scarces_collections_trade_stats`
+   * (sales_volume desc, then last_sale_timestamp).
+   * Same sale event set as hub `scarces_app_stats`.
+   */
+  async collectionTradeStats(
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<
+    Array<{
+      collectionId: string;
+      appId: string | null;
+      salesCount: number;
+      salesVolume: string;
+      lastSaleTimestamp: number | null;
+    }>
+  > {
+    const limit = opts.limit ?? 40;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      scarcesCollectionsTradeStats: Array<{
+        collectionId: string;
+        appId: string | null;
+        salesCount: number;
+        salesVolume: string | number;
+        lastSaleTimestamp: number | null;
+      }>;
+    }>({
+      query: `query ScarcesCollectionsTradeStats($limit: Int!, $offset: Int!) {
+        scarcesCollectionsTradeStats(
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{salesVolume: DESC}, {lastSaleTimestamp: DESC_NULLS_LAST}]
+        ) {
+          collectionId
+          appId
+          salesCount
+          salesVolume
+          lastSaleTimestamp
+        }
+      }`,
+      variables: { limit, offset },
+    });
+    return (res.data?.scarcesCollectionsTradeStats ?? []).map((row) => ({
+      collectionId: row.collectionId,
+      appId: row.appId,
+      salesCount: Number(row.salesCount) || 0,
+      salesVolume: String(row.salesVolume ?? '0'),
+      lastSaleTimestamp: row.lastSaleTimestamp,
+    }));
+  }
+
+  /**
+   * Trade stats for specific drop ids (`scarces_collections_trade_stats`).
+   * Missing ids omit a row — callers treat absence as 0 volume.
+   */
+  async collectionTradeStatsByCollectionIds(collectionIds: string[]): Promise<
+    Array<{
+      collectionId: string;
+      appId: string | null;
+      salesCount: number;
+      salesVolume: string;
+      lastSaleTimestamp: number | null;
+    }>
+  > {
+    const ids = [
+      ...new Set(
+        collectionIds.map((id) => id.trim()).filter((id) => id.length > 0)
+      ),
+    ];
+    if (ids.length === 0) return [];
+    const res = await this._q.graphql<{
+      scarcesCollectionsTradeStats: Array<{
+        collectionId: string;
+        appId: string | null;
+        salesCount: number;
+        salesVolume: string | number;
+        lastSaleTimestamp: number | null;
+      }>;
+    }>({
+      query: `query ScarcesCollectionsTradeStatsByIds($ids: [String!]!) {
+        scarcesCollectionsTradeStats(where: { collectionId: { _in: $ids } }) {
+          collectionId
+          appId
+          salesCount
+          salesVolume
+          lastSaleTimestamp
+        }
+      }`,
+      variables: { ids },
+    });
+    return (res.data?.scarcesCollectionsTradeStats ?? []).map((row) => ({
+      collectionId: row.collectionId,
+      appId: row.appId,
+      salesCount: Number(row.salesCount) || 0,
+      salesVolume: String(row.salesVolume ?? '0'),
+      lastSaleTimestamp: row.lastSaleTimestamp,
+    }));
   }
 
   /**

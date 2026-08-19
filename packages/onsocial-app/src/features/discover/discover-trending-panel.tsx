@@ -17,7 +17,12 @@ import {
 } from '@/features/home/home-ticker-search';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { APP_GROUPS_PATH } from '@/lib/app-routes';
+import {
+  APP_GROUPS_PATH,
+  collectionPath,
+  daoPath,
+  dropsPath,
+} from '@/lib/app-routes';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import {
   discoverProfileToProfileListAccount,
@@ -30,13 +35,85 @@ import {
 import type {
   DiscoverTrendingDao,
   DiscoverTrendingGuild,
+  DiscoverTrendingScarce,
   DiscoverTrendingSeed,
 } from '@/lib/discover-trending-server';
 import { fetchDaoCatalog } from '@/features/protocol/dao-catalog-client';
-import { daoPath } from '@/lib/app-routes';
 import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
 
 const SECTION_LIMIT = 6;
+const SCARCE_PEEK_LIMIT = 6;
+
+async function fetchMostTradedPeeks(
+  client: ReturnType<typeof createReadOnlyOnSocialClient>
+): Promise<DiscoverTrendingScarce[]> {
+  try {
+    const ranks = await client.query.scarces.collectionTradeStats({
+      limit: SCARCE_PEEK_LIMIT,
+      offset: 0,
+    });
+    const ids = ranks.map((row) => row.collectionId.trim()).filter(Boolean);
+    if (ids.length === 0) return [];
+    const shells = await client.query.scarces.collectionsCurrentByIds(ids);
+    const byId = new Map(
+      shells.map((row) => [row.collectionId.trim(), row] as const)
+    );
+    const appById = new Map(
+      ranks.map((row) => [row.collectionId.trim(), row.appId] as const)
+    );
+    const out: DiscoverTrendingScarce[] = [];
+    for (const id of ids) {
+      const shell = byId.get(id);
+      if (!shell) continue;
+      out.push({
+        collectionId: shell.collectionId,
+        title: shell.title?.trim() || null,
+        appId: shell.appId?.trim() || appById.get(id) || null,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+async function fetchMostLovedPeeks(
+  client: ReturnType<typeof createReadOnlyOnSocialClient>
+): Promise<DiscoverTrendingScarce[]> {
+  try {
+    let ranks: Array<{ collectionId: string }> = [];
+    try {
+      ranks = await client.query.scarces.collectionLoveFans({
+        limit: SCARCE_PEEK_LIMIT,
+        offset: 0,
+      });
+    } catch {
+      ranks = await client.query.scarces.albumLoveFans({
+        limit: SCARCE_PEEK_LIMIT,
+        offset: 0,
+      });
+    }
+    const ids = ranks.map((row) => row.collectionId.trim()).filter(Boolean);
+    if (ids.length === 0) return [];
+    const shells = await client.query.scarces.collectionsCurrentByIds(ids);
+    const byId = new Map(
+      shells.map((row) => [row.collectionId.trim(), row] as const)
+    );
+    const out: DiscoverTrendingScarce[] = [];
+    for (const id of ids) {
+      const shell = byId.get(id);
+      if (!shell) continue;
+      out.push({
+        collectionId: shell.collectionId,
+        title: shell.title?.trim() || null,
+        appId: shell.appId?.trim() || null,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Default Discover landing: mixed trending sections. Profiles use the same
@@ -73,6 +150,12 @@ export function DiscoverTrendingPanel({
   const [daos, setDaos] = useState<DiscoverTrendingDao[] | null>(
     () => initial?.daos ?? null
   );
+  const [mostTraded, setMostTraded] = useState<DiscoverTrendingScarce[] | null>(
+    () => initial?.mostTraded ?? null
+  );
+  const [mostLoved, setMostLoved] = useState<DiscoverTrendingScarce[] | null>(
+    () => initial?.mostLoved ?? null
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingStandingIds, setPendingStandingIds] = useState<Set<string>>(
     () => new Set()
@@ -86,7 +169,9 @@ export function DiscoverTrendingPanel({
         initial.topics.length > 0 ||
         initial.profiles.length > 0 ||
         initial.guilds.length > 0 ||
-        initial.daos.length > 0)
+        initial.daos.length > 0 ||
+        initial.mostTraded.length > 0 ||
+        initial.mostLoved.length > 0)
   );
 
   useEffect(() => {
@@ -101,6 +186,8 @@ export function DiscoverTrendingPanel({
       setProfiles(null);
       setGuilds(null);
       setDaos(null);
+      setMostTraded(null);
+      setMostLoved(null);
     }
 
     void client.query.tickers
@@ -168,6 +255,26 @@ export function DiscoverTrendingPanel({
       })
       .catch(() => {
         if (!cancelled && !soft) setDaos([]);
+      });
+
+    void fetchMostTradedPeeks(client)
+      .then((rows) => {
+        if (cancelled) return;
+        setMostTraded(rows);
+        hasPaintedRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled && !soft) setMostTraded([]);
+      });
+
+    void fetchMostLovedPeeks(client)
+      .then((rows) => {
+        if (cancelled) return;
+        setMostLoved(rows);
+        hasPaintedRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled && !soft) setMostLoved([]);
       });
 
     return () => {
@@ -241,20 +348,26 @@ export function DiscoverTrendingPanel({
     topics !== null &&
     profiles !== null &&
     guilds !== null &&
-    daos !== null;
+    daos !== null &&
+    mostTraded !== null &&
+    mostLoved !== null;
   const empty =
     allSettled &&
     tickers.length === 0 &&
     topics.length === 0 &&
     profiles.length === 0 &&
     guilds.length === 0 &&
-    daos.length === 0;
+    daos.length === 0 &&
+    mostTraded.length === 0 &&
+    mostLoved.length === 0;
   const anyLoading =
     tickers === null ||
     topics === null ||
     profiles === null ||
     guilds === null ||
-    daos === null;
+    daos === null ||
+    mostTraded === null ||
+    mostLoved === null;
 
   return (
     <div
@@ -272,7 +385,8 @@ export function DiscoverTrendingPanel({
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">Nothing trending yet.</p>
           <p className="standing-panel-empty-secondary">
-            Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse the graph.
+            Open Profiles, DAOs, Guilds, Hubs, Topics, or Tickers to browse the
+            graph.
           </p>
         </div>
       ) : null}
@@ -457,6 +571,72 @@ export function DiscoverTrendingPanel({
                   <span className="discover-focus-row-label">
                     {guild.groupName?.trim() || guild.groupId}
                   </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {mostTraded === null ? (
+        <DiscoverTrendingGuildsSectionSkeleton />
+      ) : mostTraded.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Most traded</h2>
+            <Link
+              href={dropsPath({ sort: 'traded' })}
+              className="discover-trending-see-all"
+            >
+              See all
+            </Link>
+          </div>
+          <ul className="discover-focus-rows">
+            {mostTraded.map((scarce) => (
+              <li key={`traded-${scarce.collectionId}`}>
+                <Link
+                  href={collectionPath(scarce.collectionId)}
+                  className="discover-focus-row"
+                >
+                  <span className="discover-focus-row-label">
+                    {scarce.title?.trim() || scarce.collectionId}
+                  </span>
+                  {scarce.appId ? (
+                    <span className="discover-focus-row-meta">{scarce.appId}</span>
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {mostLoved === null ? (
+        <DiscoverTrendingGuildsSectionSkeleton />
+      ) : mostLoved.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Most loved</h2>
+            <Link
+              href={dropsPath({ sort: 'loved' })}
+              className="discover-trending-see-all"
+            >
+              See all
+            </Link>
+          </div>
+          <ul className="discover-focus-rows">
+            {mostLoved.map((scarce) => (
+              <li key={`loved-${scarce.collectionId}`}>
+                <Link
+                  href={collectionPath(scarce.collectionId)}
+                  className="discover-focus-row"
+                >
+                  <span className="discover-focus-row-label">
+                    {scarce.title?.trim() || scarce.collectionId}
+                  </span>
+                  {scarce.appId ? (
+                    <span className="discover-focus-row-meta">{scarce.appId}</span>
+                  ) : null}
                 </Link>
               </li>
             ))}
