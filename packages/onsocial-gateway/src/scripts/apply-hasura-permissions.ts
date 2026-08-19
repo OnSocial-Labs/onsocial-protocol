@@ -32,6 +32,10 @@ const HASURA_QUERY_URL = config.hasuraUrl.replace('/v1/graphql', '/v2/query');
 
 const TRANSIENT_HASURA_RETRIES = 8;
 const TRANSIENT_HASURA_DELAY_MS = 3000;
+/** Bulk permission batches can run several minutes on large catalogs. */
+const HASURA_FETCH_TIMEOUT_MS = Number(
+  process.env.HASURA_METADATA_TIMEOUT_MS ?? 600_000
+);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -40,7 +44,7 @@ function sleep(ms: number): Promise<void> {
 /** Postgres still recovering / Hasura pool blips during deploy rolling restarts. */
 function isTransientHasuraError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message : String(error);
-  return /postgres-error|connection error|not yet accepting connections|Connection refused|ECONNRESET|ECONNREFUSED|socket hang up|timed out|timeout/i.test(
+  return /postgres-error|connection error|not yet accepting connections|Connection refused|ECONNRESET|ECONNREFUSED|socket hang up|timed out|timeout|fetch failed|ETIMEDOUT|UND_ERR/i.test(
     msg
   );
 }
@@ -79,6 +83,7 @@ async function hasuraMetadata(body: object): Promise<unknown> {
         'x-hasura-admin-secret': config.hasuraAdminSecret || '',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(HASURA_FETCH_TIMEOUT_MS),
     });
 
     const data = await response.json();
@@ -123,8 +128,8 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 const BULK_CHUNK_SIZE = 100;
-/** Permission creates are slow per bulk batch (schema reload); prefer fewer, larger batches. */
-const PERMISSION_BULK_CHUNK_SIZE = 250;
+/** Smaller batches avoid Hasura ~5m metadata timeouts on large bulk_keep_going. */
+const PERMISSION_BULK_CHUNK_SIZE = 40;
 const SKIP_VIEW_REFRESH =
   process.env.HASURA_SKIP_VIEW_REFRESH === '1' ||
   process.env.HASURA_SKIP_VIEW_REFRESH === 'true';

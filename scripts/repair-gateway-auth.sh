@@ -111,6 +111,9 @@ else
 fi
 
 if [ -d /opt/onsocial ] && [ -f /opt/onsocial/docker-compose.yml ]; then
+  if [ "${REPAIR_SKIP_PERMISSION_SYNC:-}" = "1" ]; then
+    echo "ℹ️  REPAIR_SKIP_PERMISSION_SYNC=1 — skip Hasura permission sync (caller runs it)"
+  else
   echo "🔐 Syncing gateway permissions + restarting gateway..."
   (
     cd /opt/onsocial
@@ -128,12 +131,14 @@ if [ -d /opt/onsocial ] && [ -f /opt/onsocial/docker-compose.yml ]; then
         -e HASURA_BACKUP_DIR=/tmp \
         -e HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET}" \
         -e HASURA_SKIP_VIEW_REFRESH="${HASURA_SKIP_VIEW_REFRESH:-}" \
+        -e HASURA_METADATA_TIMEOUT_MS="${HASURA_METADATA_TIMEOUT_MS:-900000}" \
         gateway \
         node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync </dev/null
       docker compose restart gateway
       echo "✓ Gateway restarted"
     fi
   )
+  fi
 fi
 
 echo "✅ Gateway auth repair complete"
