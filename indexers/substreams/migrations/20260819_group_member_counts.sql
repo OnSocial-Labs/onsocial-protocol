@@ -36,7 +36,6 @@ BEGIN
       g.block_timestamp,
       g.operation,
       g.group_description,
-      g.group_avatar_cid,
       g.group_banner_cid,
       g.is_member_driven,
       g.group_topics,
