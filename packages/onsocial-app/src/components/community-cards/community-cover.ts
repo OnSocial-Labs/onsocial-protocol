@@ -15,13 +15,9 @@ export function communityCoverClassName(
   const base = guildHeroCoverClassName(bannerUrl);
   if (sizing === 'hero') return base;
   if (sizing === 'mine') {
-    return bannerUrl
-      ? `${base} launcher-mine-banner-cover`
-      : `${base} launcher-mine-banner-cover community-cover--monogram`;
+    return `${base} launcher-mine-banner-cover`;
   }
-  return bannerUrl
-    ? `${base} community-summary-cover`
-    : `${base} community-summary-cover community-cover--monogram`;
+  return `${base} community-summary-cover`;
 }
 
 export function communityCoverStyle(

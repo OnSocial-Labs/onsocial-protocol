@@ -16,7 +16,7 @@ export function LauncherMineRail({ children }: { children: ReactNode }) {
 /**
  * Mine home place card — banner plane, hairline, footer mark + title.
  * No members / description (those live on Discover).
- * Unset banner / mark use letter monograms so the rail stays consistent.
+ * Unset mark uses a letter monogram; unset banner keeps a seeded wash only.
  */
 export function LauncherMineCard({
   href,
@@ -55,11 +55,7 @@ export function LauncherMineCard({
             className={communityCoverClassName(cover, 'mine')}
             style={communityMineCoverStyle(cover, seedId)}
           >
-            {cover ? (
-              <img src={cover} alt="" />
-            ) : (
-              <span className="community-cover-mono">{mono}</span>
-            )}
+            {cover ? <img src={cover} alt="" /> : null}
           </span>
         </span>
         <span className="launcher-mine-rule" aria-hidden />

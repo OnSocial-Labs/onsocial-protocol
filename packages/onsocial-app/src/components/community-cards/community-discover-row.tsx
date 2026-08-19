@@ -13,7 +13,7 @@ export type CommunityMarkVariant = 'badge' | 'crest' | 'logo';
 /**
  * Discover / search place row — banner left, mark before name, one-line copy + meta.
  * Shared by guilds, DAOs, and hubs.
- * Unset banner / mark use letter monograms so layout stays consistent.
+ * Unset mark uses a letter monogram; unset banner keeps a seeded wash only.
  */
 export function CommunityDiscoverRow({
   href,
@@ -51,11 +51,7 @@ export function CommunityDiscoverRow({
           className={communityCoverClassName(bannerUrl, 'discover')}
           style={communityCoverStyle(bannerUrl, seedId)}
         >
-          {bannerUrl ? (
-            <img src={bannerUrl} alt="" />
-          ) : (
-            <span className="community-cover-mono">{mono}</span>
-          )}
+          {bannerUrl ? <img src={bannerUrl} alt="" /> : null}
         </span>
       </span>
 

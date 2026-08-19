@@ -10259,26 +10259,6 @@ a.os-surface-row {
     object-position: center center;
   }
 
-  .community-cover--monogram {
-    display: grid;
-    place-items: center;
-  }
-
-  .community-cover-mono {
-    position: relative;
-    z-index: 1;
-    font-size: 0.95rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: rgb(var(--fg-rgb) / 0.48);
-    line-height: 1;
-    user-select: none;
-  }
-
-  .launcher-mine-banner .community-cover-mono {
-    font-size: 1.35rem;
-  }
-
   .community-summary-body,
   .guild-summary-card-body {
     display: grid;
