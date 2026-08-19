@@ -7,6 +7,7 @@ import {
 import { guildMediaUrlFromCid } from '@/features/guilds/guild-visual';
 import {
   normalizeTopicList,
+  topicLabel,
   TOPIC_MAX_PER_ENTITY,
 } from '@/lib/topic-slug';
 import { COMMUNITY_TOPIC_SUGGESTIONS } from '@/lib/community-topic-suggestions';
