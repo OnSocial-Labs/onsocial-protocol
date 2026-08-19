@@ -123,6 +123,11 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 const BULK_CHUNK_SIZE = 100;
+/** Permission creates are slow per bulk batch (schema reload); prefer fewer, larger batches. */
+const PERMISSION_BULK_CHUNK_SIZE = 250;
+const SKIP_VIEW_REFRESH =
+  process.env.HASURA_SKIP_VIEW_REFRESH === '1' ||
+  process.env.HASURA_SKIP_VIEW_REFRESH === 'true';
 
 async function fetchTrackedTables(): Promise<Set<string>> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- export_metadata response is deeply nested
@@ -748,7 +753,12 @@ async function syncPermissions(): Promise<void> {
         role,
       },
     }));
-    for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+    const dropBatches = chunk(ops, PERMISSION_BULK_CHUNK_SIZE);
+    for (let i = 0; i < dropBatches.length; i++) {
+      const batch = dropBatches[i];
+      console.log(
+        `   … dropping permissions batch ${i + 1}/${dropBatches.length} (${batch.length} ops)`
+      );
       const results = await hasuraBulk(batch);
       for (let i = 0; i < batch.length; i++) {
         const r = results[i] as { error?: string } | undefined;
@@ -780,7 +790,12 @@ async function syncPermissions(): Promise<void> {
         },
       },
     }));
-    for (const batch of chunk(ops, BULK_CHUNK_SIZE)) {
+    const createBatches = chunk(ops, PERMISSION_BULK_CHUNK_SIZE);
+    for (let i = 0; i < createBatches.length; i++) {
+      const batch = createBatches[i];
+      console.log(
+        `   … creating permissions batch ${i + 1}/${createBatches.length} (${batch.length} ops)`
+      );
       const results = await hasuraBulk(batch);
       for (let i = 0; i < batch.length; i++) {
         const r = results[i] as { error?: string } | undefined;
@@ -829,7 +844,13 @@ async function main(): Promise<void> {
       case 'sync':
         await snapshotMetadata();
         await trackTables();
-        await refreshTrackedSqlViews();
+        if (SKIP_VIEW_REFRESH) {
+          console.log(
+            '   ⏭ Skipping view refresh (HASURA_SKIP_VIEW_REFRESH set — substreams deploy already retracked views)\n'
+          );
+        } else {
+          await refreshTrackedSqlViews();
+        }
         await reloadHasuraSources();
         await syncPermissions();
         await reloadHasuraSources();

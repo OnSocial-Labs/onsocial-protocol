@@ -127,6 +127,7 @@ if [ -d /opt/onsocial ] && [ -f /opt/onsocial/docker-compose.yml ]; then
       docker compose exec -T \
         -e HASURA_BACKUP_DIR=/tmp \
         -e HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET}" \
+        -e HASURA_SKIP_VIEW_REFRESH="${HASURA_SKIP_VIEW_REFRESH:-}" \
         gateway \
         node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js sync </dev/null
       docker compose restart gateway
