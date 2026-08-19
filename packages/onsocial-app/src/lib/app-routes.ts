@@ -64,6 +64,7 @@ export type DropsSortParam =
   | 'finished'
   | 'new'
   | 'loved'
+  | 'traded'
   | 'saved';
 
 export type LeaderboardTrackParam =
@@ -106,6 +107,7 @@ const DROPS_SORT_VALUES = new Set<string>([
   'finished',
   'new',
   'loved',
+  'traded',
   'saved',
 ]);
 

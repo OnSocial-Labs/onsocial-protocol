@@ -17,6 +17,7 @@ export type DropsSort =
   | 'finished'
   | 'new'
   | 'loved'
+  | 'traded'
   | 'saved';
 
 export const DROPS_PAGE_SIZE = 24;
@@ -680,6 +681,87 @@ async function fetchLovedPage(
   return { items, hasMore };
 }
 
+async function fetchTradedPage(
+  client: OnSocial,
+  opts: {
+    mediumKind: string | null;
+    search: string | null;
+    audioFormat: DropAudioFormatFilter | null;
+    limit: number;
+    offset: number;
+  }
+): Promise<{ items: DropDiscoveryItem[]; hasMore: boolean }> {
+  const tradeRanks = async (limit: number, offset: number) =>
+    client.query.scarces.collectionTradeStats({ limit, offset });
+
+  const needsWalk =
+    Boolean(opts.mediumKind) ||
+    Boolean(opts.search?.trim()) ||
+    Boolean(opts.audioFormat);
+
+  if (!needsWalk) {
+    const ranks = await tradeRanks(opts.limit, opts.offset);
+    const ids = ranks.map((row) => row.collectionId).filter(Boolean);
+    const shells =
+      ids.length > 0
+        ? await client.query.scarces.collectionsCurrentByIds(ids)
+        : [];
+    const byId = new Map(
+      shells.map((row) => [row.collectionId.trim(), row] as const)
+    );
+    const items: DropDiscoveryItem[] = [];
+    for (const rank of ranks) {
+      const shell = byId.get(rank.collectionId.trim());
+      if (!shell) continue;
+      items.push(rowToDiscoveryItem(shell));
+    }
+    return { items, hasMore: ranks.length === opts.limit };
+  }
+
+  const matched: DropDiscoveryItem[] = [];
+  let rankOffset = 0;
+  let exhausted = false;
+  const batch = Math.max(opts.limit * MEDIUM_OVERFETCH, 40);
+  const need = opts.offset + opts.limit;
+  for (let round = 0; round < LOVED_MEDIUM_FETCH_ROUNDS; round += 1) {
+    if (matched.length >= need) break;
+    const ranks = await tradeRanks(batch, rankOffset);
+    rankOffset += ranks.length;
+    if (ranks.length < batch) exhausted = true;
+    if (ranks.length === 0) {
+      exhausted = true;
+      break;
+    }
+    const ids = ranks.map((row) => row.collectionId).filter(Boolean);
+    const shells =
+      ids.length > 0
+        ? await client.query.scarces.collectionsCurrentByIds(ids)
+        : [];
+    const byId = new Map(
+      shells.map((row) => [row.collectionId.trim(), row] as const)
+    );
+    for (const rank of ranks) {
+      const shell = byId.get(rank.collectionId.trim());
+      if (!shell || !rowMatchesMedium(shell, opts.mediumKind)) continue;
+      if (!rowMatchesSearch(shell, opts.search)) continue;
+      const item = rowToDiscoveryItem(shell);
+      if (!itemMatchesAudioFormat(item, opts.audioFormat)) continue;
+      matched.push(item);
+      if (matched.length >= need) break;
+    }
+    if (exhausted) break;
+  }
+  const items = matched.slice(opts.offset, opts.offset + opts.limit);
+  const hasMore = lovedMediumPageHasMore({
+    pageItemCount: items.length,
+    limit: opts.limit,
+    matchedCount: matched.length,
+    offset: opts.offset,
+    exhausted,
+  });
+  return { items, hasMore };
+}
+
 /**
  * Lifecycle / New catalog with optional audio-format post-filter.
  * Search runs in the indexer; format is metadata-only so we overfetch when set.
@@ -810,6 +892,20 @@ export async function fetchDropsPage(
 
   if (sort === 'loved') {
     const page = await fetchLovedPage(client, {
+      mediumKind: effectiveMedium,
+      search,
+      audioFormat: effectiveFormat,
+      limit,
+      offset,
+    });
+    return {
+      items: await withDropCreatorFaces(page.items, client),
+      hasMore: page.hasMore,
+    };
+  }
+
+  if (sort === 'traded') {
+    const page = await fetchTradedPage(client, {
       mediumKind: effectiveMedium,
       search,
       audioFormat: effectiveFormat,

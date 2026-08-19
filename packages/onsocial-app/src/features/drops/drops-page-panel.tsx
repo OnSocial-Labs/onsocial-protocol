@@ -113,6 +113,7 @@ const BASE_SORTS: ReadonlyArray<{ id: DropsSort; label: string }> = [
   { id: 'finished', label: 'Finished' },
   { id: 'new', label: 'New' },
   { id: 'loved', label: 'Loved' },
+  { id: 'traded', label: 'Traded' },
 ];
 
 const UPCOMING_SECTIONS: ReadonlyArray<{
@@ -199,7 +200,7 @@ function dropRowMetaBits(
       ? `${item.mintedCount} of ${item.totalSupply}`
       : `${item.mintedCount} minted`;
 
-  if (sort === 'loved') {
+  if (sort === 'loved' || sort === 'traded') {
     return { scarcity: null, format: formatLabel };
   }
 
@@ -1023,7 +1024,7 @@ export function DropsPagePanel({
 
   // Soft-fill fan counts after paint (kept off the critical fetch path).
   useEffect(() => {
-    if (sort === 'loved' || refreshing || loading) return;
+    if (sort === 'loved' || sort === 'traded' || refreshing || loading) return;
     const targets = items.filter(
       (item) =>
         (item.fanCount == null || item.fanCount <= 0) &&
