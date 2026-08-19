@@ -200,6 +200,13 @@ export async function searchDaoCatalog(opts: {
            FROM governance_dao_catalog
           ORDER BY
             CASE source WHEN 'seed' THEN 0 ELSE 1 END,
+            CASE
+              WHEN lower(dao_account_id) LIKE '%.onsocial.near'
+                OR lower(dao_account_id) LIKE '%.onsocial.testnet'
+                OR lower(dao_account_id) IN ('onsocial.near', 'onsocial.testnet')
+              THEN 0
+              ELSE 1
+            END,
             listed_at DESC,
             dao_account_id ASC
           LIMIT $1 OFFSET $2`,

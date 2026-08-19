@@ -44,7 +44,7 @@ export function DiscoverDaosPanel() {
       <div className="discover-community-toolbar">
         <p className="daos-index-empty dao-discover-status">
           {statusLine}
-          {catalogQuery ? ` · “${catalogQuery}”` : ''}
+          {catalogQuery ? ` · “${catalogQuery}”` : ' · OnSocial first, then Near'}
         </p>
         <DiscoverCommunityHandoff
           links={[
