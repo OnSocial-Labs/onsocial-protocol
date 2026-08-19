@@ -78,6 +78,21 @@ describe('guild topics', () => {
       }).topics
     ).toEqual(['builders', 'social']);
   });
+
+  it('reads badge from x.onsocial.badge', () => {
+    const snapshot = normalizeGuildConfig('rebels', {
+      name: 'Rebels',
+      is_private: false,
+      x: {
+        onsocial: {
+          badge: { cid: 'bafyBadge', mime: 'image/jpeg', size: 8 },
+          banner: { cid: 'bafyBanner', mime: 'image/png', size: 12 },
+        },
+      },
+    });
+    expect(snapshot.badgeUrl).toContain('bafyBadge');
+    expect(snapshot.bannerUrl).toContain('bafyBanner');
+  });
 });
 
 describe('guild onsocial metadata merge', () => {
@@ -119,6 +134,29 @@ describe('guild onsocial metadata merge', () => {
       v: 1,
       defaultSpaceId: 'club',
       spaces: [],
+    });
+    expect(patch.x.onsocial.banner).toEqual({
+      cid: 'bafyNew',
+      mime: 'image/jpeg',
+      size: 9,
+    });
+  });
+
+  it('keeps badge when banner is patched', () => {
+    const existing = {
+      x: {
+        onsocial: {
+          badge: { cid: 'bafyBadge', mime: 'image/jpeg', size: 8 },
+        },
+      },
+    };
+    const patch = mergeGuildOnsocialMetadataPatch(existing, {
+      banner: { cid: 'bafyNew', mime: 'image/jpeg', size: 9 },
+    });
+    expect(patch.x.onsocial.badge).toEqual({
+      cid: 'bafyBadge',
+      mime: 'image/jpeg',
+      size: 8,
     });
     expect(patch.x.onsocial.banner).toEqual({
       cid: 'bafyNew',
