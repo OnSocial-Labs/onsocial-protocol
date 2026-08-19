@@ -138,11 +138,7 @@ export function DaosExplorePanel({
   }, [accountId, daoIds, myDaos]);
 
   if (!accountId) {
-    return (
-      <p className="daos-index-empty">
-        Proposals from your DAOs appear here after you connect.
-      </p>
-    );
+    return null;
   }
 
   if (myDaos == null || pending) {
@@ -150,21 +146,12 @@ export function DaosExplorePanel({
   }
 
   if (daoIds.length === 0) {
-    return (
-      <p className="daos-index-empty">
-        Join or create a DAO to see proposals here.{' '}
-        <Link href={discoverDaosHref} className="daos-index-inline-link">
-          Browse DAOs
-        </Link>
-      </p>
-    );
+    return null;
   }
 
   if (!peeks || peeks.length === 0) {
     return (
-      <p className="daos-index-empty">
-        No proposals across your DAOs yet. Open an org to propose.
-      </p>
+      <p className="daos-index-empty">Nothing open right now.</p>
     );
   }
 
