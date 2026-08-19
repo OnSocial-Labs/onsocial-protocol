@@ -373,13 +373,15 @@ export async function getDaoPortfolioPageBundle(
         { err, daoAccountId },
         'dao portfolio page bundle profile lookup failed'
       );
-      return { rows: [] as Array<{
-        account_id: string;
-        name: string | null;
-        bio: string | null;
-        avatar: string | null;
-        banner: string | null;
-      }> };
+      return {
+        rows: [] as Array<{
+          account_id: string;
+          name: string | null;
+          bio: string | null;
+          avatar: string | null;
+          banner: string | null;
+        }>,
+      };
     }),
   ]);
 
