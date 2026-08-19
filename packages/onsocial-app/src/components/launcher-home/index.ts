@@ -10,3 +10,7 @@ export {
   LauncherHomeEmpty,
   LauncherHomeError,
 } from '@/components/launcher-home/launcher-home-empty';
+export {
+  LauncherHomeMineStatus,
+  LauncherHomeSection,
+} from '@/components/launcher-home/launcher-home-section';

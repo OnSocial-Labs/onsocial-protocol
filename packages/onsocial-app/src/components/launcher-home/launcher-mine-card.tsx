@@ -11,11 +11,7 @@ function crestMonogram(label: string): string {
 }
 
 export function LauncherMineRail({ children }: { children: ReactNode }) {
-  return (
-    <div className="launcher-mine-rail" role="list">
-      {children}
-    </div>
-  );
+  return <ul className="launcher-mine-rail">{children}</ul>;
 }
 
 export function LauncherMineCard({
@@ -32,7 +28,7 @@ export function LauncherMineCard({
   ariaLabel?: string;
 }) {
   return (
-    <div role="listitem">
+    <li>
       <Link
         href={href}
         className="launcher-mine-card"
@@ -53,6 +49,6 @@ export function LauncherMineCard({
           <span className="launcher-mine-card-meta">{meta}</span>
         </span>
       </Link>
-    </div>
+    </li>
   );
 }

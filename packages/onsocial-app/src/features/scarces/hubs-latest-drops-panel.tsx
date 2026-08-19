@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   LauncherHomeEmpty,
+  LauncherHomeError,
   LauncherPeekList,
   LauncherPeekRow,
 } from '@/components/launcher-home';
@@ -38,6 +39,7 @@ export function HubsLatestDropsPanel({
   const [peeks, setPeeks] = useState<HubDropPeek[] | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const hubIds = useMemo(() => {
     if (!myHubs) return [];
@@ -128,14 +130,19 @@ export function HubsLatestDropsPanel({
     return () => {
       cancelled = true;
     };
-  }, [accountId, hubIds, hubNameById, myHubs]);
+  }, [accountId, hubIds, hubNameById, myHubs, retryKey]);
 
   if (!accountId) {
     return null;
   }
 
   if (error) {
-    return <LauncherHomeEmpty>{error}</LauncherHomeEmpty>;
+    return (
+      <LauncherHomeError
+        message={error}
+        onRetry={() => setRetryKey((value) => value + 1)}
+      />
+    );
   }
 
   if (myHubs == null || pending) {

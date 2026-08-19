@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import {
-  LauncherHomeEmpty,
-  LauncherHomeError,
+  LauncherHomeMineStatus,
+  LauncherHomeSection,
   LauncherMineCard,
   LauncherMineRail,
 } from '@/components/launcher-home';
@@ -103,27 +103,19 @@ export function HubsIndexPanel() {
       actions={headerActions}
     >
       <div className="launcher-home">
-        <section className="launcher-home-section" aria-label="My Hubs">
-          <h2 className="launcher-home-heading">My Hubs</h2>
-          {!accountId ? (
-            <LauncherHomeEmpty>
-              Connect to see hubs you’ve joined — or tap search to explore.
-            </LauncherHomeEmpty>
-          ) : loadError ? (
-            <LauncherHomeError
-              message={loadError}
-              onRetry={() => setRetryKey((value) => value + 1)}
-            />
-          ) : !myHubsReady ? (
-            <LauncherHomeEmpty>Loading your hubs…</LauncherHomeEmpty>
-          ) : myHubs.length === 0 ? (
-            <LauncherHomeEmpty>
-              You haven’t joined a hub yet. Tap Search to explore, or + to start
-              one.
-            </LauncherHomeEmpty>
-          ) : (
+        <LauncherHomeSection title="My Hubs">
+          <LauncherHomeMineStatus
+            connected={Boolean(accountId)}
+            loading={!myHubsReady}
+            error={loadError}
+            onRetry={() => setRetryKey((value) => value + 1)}
+            emptyLoggedOut="Connect to see hubs you’ve joined — or tap search to explore."
+            emptyNone="You haven’t joined a hub yet. Tap Search to explore, or + to start one."
+            loadingLabel="Loading your hubs…"
+            hasItems={(myHubs?.length ?? 0) > 0}
+          >
             <LauncherMineRail>
-              {myHubs.map((app) => (
+              {(myHubs ?? []).map((app) => (
                 <LauncherMineCard
                   key={app.appId}
                   href={appPath(app.appId)}
@@ -133,16 +125,15 @@ export function HubsIndexPanel() {
                 />
               ))}
             </LauncherMineRail>
-          )}
-        </section>
+          </LauncherHomeMineStatus>
+        </LauncherHomeSection>
 
         {showDrops ? (
           <>
             <Divider className="launcher-home-divider" />
-            <section className="launcher-home-section" aria-label="Drops">
-              <h2 className="launcher-home-heading">Drops</h2>
+            <LauncherHomeSection title="Drops">
               <HubsLatestDropsPanel accountId={accountId} myHubs={myHubs} />
-            </section>
+            </LauncherHomeSection>
           </>
         ) : null}
       </div>

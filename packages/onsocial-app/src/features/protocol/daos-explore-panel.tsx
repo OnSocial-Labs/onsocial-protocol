@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   LauncherHomeEmpty,
+  LauncherHomeError,
   LauncherPeekList,
   LauncherPeekRow,
 } from '@/components/launcher-home';
@@ -44,6 +45,8 @@ export function DaosExplorePanel({
 }) {
   const [peeks, setPeeks] = useState<DaosExplorePeek[] | null>(null);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const daoIds = useMemo(() => {
     if (!myDaos) return [];
@@ -58,6 +61,7 @@ export function DaosExplorePanel({
       queueMicrotask(() => {
         setPeeks(null);
         setPending(false);
+        setError(null);
       });
       return;
     }
@@ -65,6 +69,7 @@ export function DaosExplorePanel({
       queueMicrotask(() => {
         setPeeks(null);
         setPending(true);
+        setError(null);
       });
       return;
     }
@@ -72,13 +77,17 @@ export function DaosExplorePanel({
       queueMicrotask(() => {
         setPeeks([]);
         setPending(false);
+        setError(null);
       });
       return;
     }
 
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) setPending(true);
+      if (!cancelled) {
+        setPending(true);
+        setError(null);
+      }
     });
 
     void (async () => {
@@ -121,9 +130,19 @@ export function DaosExplorePanel({
       if (cancelled) return;
 
       const merged: DaosExplorePeek[] = [];
+      let rejected = 0;
       for (const result of settled) {
         if (result.status === 'fulfilled') merged.push(...result.value);
+        else rejected += 1;
       }
+
+      if (merged.length === 0 && rejected === daoIds.length) {
+        setPeeks(null);
+        setError('Couldn’t load proposals.');
+        setPending(false);
+        return;
+      }
+
       merged.sort((a, b) => {
         if (a.open !== b.open) return a.open ? -1 : 1;
         return (
@@ -131,16 +150,26 @@ export function DaosExplorePanel({
         );
       });
       setPeeks(merged.slice(0, EXPLORE_PEEK_LIMIT));
+      setError(null);
       setPending(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [accountId, daoIds, myDaos]);
+  }, [accountId, daoIds, myDaos, retryKey]);
 
   if (!accountId) {
     return null;
+  }
+
+  if (error) {
+    return (
+      <LauncherHomeError
+        message={error}
+        onRetry={() => setRetryKey((value) => value + 1)}
+      />
+    );
   }
 
   if (myDaos == null || pending) {

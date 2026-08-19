@@ -4,6 +4,12 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  LauncherHomeMineStatus,
+  LauncherHomeSection,
+  LauncherMineCard,
+  LauncherMineRail,
+} from '@/components/launcher-home';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
 import { DaosExplorePanel } from '@/features/protocol/daos-explore-panel';
@@ -24,11 +30,6 @@ import {
 import { DAOS_CREATE_QUERY, daoPath } from '@/lib/app-routes';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  LauncherHomeEmpty,
-  LauncherMineCard,
-  LauncherMineRail,
-} from '@/components/launcher-home';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
 
@@ -65,6 +66,8 @@ export function DaosIndexPanel() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
 
   const discoverDaosHref = appDiscoverTabHref('daos');
@@ -88,7 +91,10 @@ export function DaosIndexPanel() {
 
     if (!accountId) {
       queueMicrotask(() => {
-        if (!cancelled) setMyDaos(null);
+        if (!cancelled) {
+          setMyDaos(null);
+          setLoadError(null);
+        }
       });
       return () => {
         cancelled = true;
@@ -97,9 +103,12 @@ export function DaosIndexPanel() {
 
     queueMicrotask(() => {
       if (cancelled) return;
+      setLoadError(null);
       const optimistic = readOptimisticMyDaos();
       if (optimistic.length > 0) {
         setMyDaos(mergeMyDaosWithOptimistic([], optimistic));
+      } else if (retryKey > 0) {
+        setMyDaos(null);
       }
     });
 
@@ -112,6 +121,7 @@ export function DaosIndexPanel() {
             readOptimisticMyDaos()
           );
           setMyDaos(merged);
+          setLoadError(null);
           const stillMissing = readOptimisticMyDaos().some(
             (hint) =>
               !response.daos.some(
@@ -127,10 +137,21 @@ export function DaosIndexPanel() {
             }, MY_DAOS_SOFT_RETRY_MS);
           }
         })
-        .catch(() => {
-          if (!cancelled) {
-            setMyDaos(mergeMyDaosWithOptimistic([], readOptimisticMyDaos()));
+        .catch((cause) => {
+          if (cancelled) return;
+          const optimistic = mergeMyDaosWithOptimistic(
+            [],
+            readOptimisticMyDaos()
+          );
+          if (optimistic.length > 0) {
+            setMyDaos(optimistic);
+            setLoadError(null);
+            return;
           }
+          setMyDaos(null);
+          setLoadError(
+            cause instanceof Error ? cause.message : 'Couldn’t load your DAOs.'
+          );
         });
     };
 
@@ -148,7 +169,7 @@ export function DaosIndexPanel() {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [accountId]);
+  }, [accountId, retryKey]);
 
   const myEntries = useMemo(
     () => (myDaos ? myDaos.map(daoDirectoryEntryFromMembership) : []),
@@ -202,20 +223,17 @@ export function DaosIndexPanel() {
           </Link>
         </div>
 
-        <section className="launcher-home-section" aria-label="My DAOs">
-          <h2 className="launcher-home-heading">My DAOs</h2>
-          {!accountId ? (
-            <LauncherHomeEmpty>
-              Connect to see DAOs you’ve joined — or tap search to explore.
-            </LauncherHomeEmpty>
-          ) : !myDaosReady ? (
-            <LauncherHomeEmpty>Loading your DAOs…</LauncherHomeEmpty>
-          ) : myEntries.length === 0 ? (
-            <LauncherHomeEmpty>
-              You haven’t joined a DAO yet. Tap Search to explore, or + to start
-              one.
-            </LauncherHomeEmpty>
-          ) : (
+        <LauncherHomeSection title="My DAOs">
+          <LauncherHomeMineStatus
+            connected={Boolean(accountId)}
+            loading={!myDaosReady}
+            error={loadError}
+            onRetry={() => setRetryKey((value) => value + 1)}
+            emptyLoggedOut="Connect to see DAOs you’ve joined — or tap search to explore."
+            emptyNone="You haven’t joined a DAO yet. Tap Search to explore, or + to start one."
+            loadingLabel="Loading your DAOs…"
+            hasItems={myEntries.length > 0}
+          >
             <LauncherMineRail>
               {myEntries.map((entry) => {
                 const named =
@@ -233,17 +251,15 @@ export function DaosIndexPanel() {
                 );
               })}
             </LauncherMineRail>
-          )}
-        </section>
+          </LauncherHomeMineStatus>
+        </LauncherHomeSection>
 
         {showProposals ? (
           <>
             <Divider className="launcher-home-divider" />
-
-            <section className="launcher-home-section" aria-label="Proposals">
-              <h2 className="launcher-home-heading">Proposals</h2>
+            <LauncherHomeSection title="Proposals">
               <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
-            </section>
+            </LauncherHomeSection>
           </>
         ) : null}
       </div>

@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import {
-  LauncherHomeEmpty,
-  LauncherHomeError,
+  LauncherHomeMineStatus,
+  LauncherHomeSection,
   LauncherMineCard,
   LauncherMineRail,
 } from '@/components/launcher-home';
@@ -101,27 +101,19 @@ export function LiveGuildsIndexPanel() {
       actions={headerActions}
     >
       <div className="launcher-home">
-        <section className="launcher-home-section" aria-label="My Guilds">
-          <h2 className="launcher-home-heading">My Guilds</h2>
-          {!accountId ? (
-            <LauncherHomeEmpty>
-              Connect to see guilds you’ve joined — or tap search to explore.
-            </LauncherHomeEmpty>
-          ) : loadError ? (
-            <LauncherHomeError
-              message={loadError}
-              onRetry={() => setRetryKey((value) => value + 1)}
-            />
-          ) : !myGuildsReady ? (
-            <LauncherHomeEmpty>Loading your guilds…</LauncherHomeEmpty>
-          ) : myGuilds.length === 0 ? (
-            <LauncherHomeEmpty>
-              You haven’t joined a guild yet. Tap Search to explore, or + to
-              start one.
-            </LauncherHomeEmpty>
-          ) : (
+        <LauncherHomeSection title="My Guilds">
+          <LauncherHomeMineStatus
+            connected={Boolean(accountId)}
+            loading={!myGuildsReady}
+            error={loadError}
+            onRetry={() => setRetryKey((value) => value + 1)}
+            emptyLoggedOut="Connect to see guilds you’ve joined — or tap search to explore."
+            emptyNone="You haven’t joined a guild yet. Tap Search to explore, or + to start one."
+            loadingLabel="Loading your guilds…"
+            hasItems={(myGuilds?.length ?? 0) > 0}
+          >
             <LauncherMineRail>
-              {myGuilds.map((guild) => {
+              {(myGuilds ?? []).map((guild) => {
                 const title = guildDisplayName(guild.name, guild.groupId);
                 const meta = guild.topics?.[0]
                   ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
@@ -137,19 +129,18 @@ export function LiveGuildsIndexPanel() {
                 );
               })}
             </LauncherMineRail>
-          )}
-        </section>
+          </LauncherHomeMineStatus>
+        </LauncherHomeSection>
 
         {showPosts ? (
           <>
             <Divider className="launcher-home-divider" />
-            <section className="launcher-home-section" aria-label="Posts">
-              <h2 className="launcher-home-heading">Posts</h2>
+            <LauncherHomeSection title="Posts">
               <GuildsLatestPostsPanel
                 accountId={accountId}
                 myGuilds={myGuilds}
               />
-            </section>
+            </LauncherHomeSection>
           </>
         ) : null}
       </div>
