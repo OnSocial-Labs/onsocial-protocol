@@ -29,7 +29,7 @@ function isOpenStatus(status: string): boolean {
 }
 
 /**
- * Membership-scoped proposal peeks for DAOs → Explore.
+ * Membership-scoped proposal peeks under DAOs Home.
  * Network catalog stays in Discover; this is activity across *your* DAOs.
  */
 export function DaosExplorePanel({
