@@ -248,7 +248,6 @@ SELECT
   block_timestamp,
   operation,
   NULLIF(config_json ->> 'description', '') AS group_description,
-  NULLIF(config_json #>> '{avatar,cid}', '') AS group_avatar_cid,
   NULLIF(config_json #>> '{x,onsocial,banner,cid}', '') AS group_banner_cid,
   COALESCE(
     (config_json ->> 'member_driven') = 'true',
@@ -346,7 +345,6 @@ SELECT
   latest.block_height,
   latest.block_timestamp,
   groups_current.group_description,
-  groups_current.group_avatar_cid,
   groups_current.group_banner_cid,
   groups_current.is_member_driven,
   groups_current.group_topics
@@ -382,7 +380,6 @@ SELECT
   g.block_timestamp,
   g.operation,
   g.group_description,
-  g.group_avatar_cid,
   g.group_banner_cid,
   g.is_member_driven,
   g.group_topics,

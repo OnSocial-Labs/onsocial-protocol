@@ -26,7 +26,7 @@ interface TrackGuildStructureInput {
  * `groups/{id}/content/`; restricted spaces add role or
  * `groups/{id}/spaces/{spaceId}/write` checks.
  *
- * Merges into existing `x.onsocial` so banner/avatar extras survive room edits.
+ * Merges into existing `x.onsocial` so banner / structure extras survive room edits.
  */
 export async function persistGuildStructure(
   client: OnSocial,

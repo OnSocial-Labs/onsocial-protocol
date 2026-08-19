@@ -181,11 +181,6 @@ export interface GroupConfigV1 {
   v: 1;
   name: string;
   description?: string;
-  /**
-   * @deprecated Guilds are banner-only (places, not people). Kept for
-   * validating legacy on-chain configs; new writes should omit this.
-   */
-  avatar?: MediaRef;
   isPrivate: boolean;
   memberDriven?: boolean;
   /** Guild topics — primary first; max 2 in app. */
@@ -574,10 +569,6 @@ export function validateGroupConfigV1(g: unknown): string | null {
   if (!isStr(g.name) || g.name.length === 0) return 'group.name required';
   if (g.description !== undefined && !isStr(g.description))
     return 'group.description must be string';
-  if (g.avatar !== undefined) {
-    const e = validateMedia(g.avatar);
-    if (e) return `group.avatar: ${e}`;
-  }
   if (typeof g.isPrivate !== 'boolean')
     return 'group.isPrivate required (boolean)';
   if (g.memberDriven !== undefined && typeof g.memberDriven !== 'boolean') {
