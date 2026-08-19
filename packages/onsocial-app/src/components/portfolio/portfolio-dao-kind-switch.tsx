@@ -9,8 +9,8 @@ import { daoPath } from '@/lib/app-routes';
 import { isProtocolGovernanceFace } from '@/lib/portfolio-dao-entity';
 
 /**
- * Kind-line Governance ↔ Treasury switch — same type size as `.portfolio-entity-kind`,
- * one side highlighted. Replaces the separate flipper under org tools.
+ * Kind-line Governance ↔ Treasury switch — compact eyebrow (0.72rem), chip tokens,
+ * sentence case. Replaces the separate flipper under org tools.
  */
 export function PortfolioDaoKindSwitch({ accountId }: { accountId: string }) {
   const isGovernance = isProtocolGovernanceFace(accountId);
@@ -30,9 +30,6 @@ export function PortfolioDaoKindSwitch({ accountId }: { accountId: string }) {
       >
         Governance
       </Link>
-      <span className="portfolio-entity-kind-sep" aria-hidden>
-        ·
-      </span>
       <Link
         href={daoPath(TREASURY_DAO_ACCOUNT)}
         role="tab"

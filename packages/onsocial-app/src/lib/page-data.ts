@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from 'next/cache';
 import type { OnSocial } from '@onsocial/sdk';
 import { ACTIVE_API_URL } from '@/lib/app-config';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { isHeuristicDaoAccountId } from '@/lib/enrich-standing-with-dao';
 export interface PublicPageProfile {
   name?: string;
   bio?: string;
@@ -210,6 +211,38 @@ async function fetchPublicPageDataFromIndexer(
   os: OnSocial,
   accountId: string
 ): Promise<PublicPageData | null> {
+  // DAO org faces always exist on-chain — skip gateway exists probe on the hot path.
+  if (isHeuristicDaoAccountId(accountId)) {
+    const [materialisedProfile, indexedConfig] = await Promise.all([
+      os.profiles.get(accountId),
+      os.query.pages.getConfig(accountId).catch(() => null),
+    ]);
+
+    const config = (indexedConfig ?? {}) as PublicPageConfig;
+    const activated = hasPageActivationData(
+      materialisedProfile
+        ? {
+            name: materialisedProfile.name ?? null,
+            bio: materialisedProfile.bio ?? null,
+            avatarUrl: os.profiles.avatarUrl(materialisedProfile),
+            links: materialisedProfile.links ?? null,
+            tags: materialisedProfile.tags ?? [],
+          }
+        : null,
+      config
+    );
+
+    return {
+      accountId,
+      activated,
+      profile: {},
+      config,
+      stats: EMPTY_STATS,
+      recentPosts: [],
+      badges: [],
+    };
+  }
+
   // Indexer page/main only — empty/lag soft-fills client-side; never SSR chain.
   const [exists, materialisedProfile, indexedConfig] = await Promise.all([
     fetchAccountExists(accountId),

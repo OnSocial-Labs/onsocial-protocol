@@ -6029,45 +6029,66 @@ a.os-surface-row {
   }
 
   .portfolio-entity-kind-switch {
-    display: inline-flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-    padding: 0.1rem;
+    display: inline-grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    align-self: center;
+    justify-items: stretch;
+    gap: 0.06rem;
+    margin: 0;
+    padding: 0.06rem;
     border-radius: 999px;
-    background: rgb(var(--fg-rgb) / 0.08);
-    box-shadow: inset 0 0 0 1px rgb(var(--fg-rgb) / 0.08);
-  }
-
-  .portfolio-entity-kind-sep {
-    display: none;
+    background: var(--os-surface-fill-quiet);
+    box-shadow: inset 0 0 0 1px var(--os-surface-ring);
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    text-transform: none;
+    color: var(--os-surface-muted);
+    min-width: 9.25rem;
   }
 
   .portfolio-entity-kind-option {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     margin: 0;
-    padding: 0.14rem 0.5rem;
+    padding: 0.12rem 0.34rem;
     border-radius: 999px;
-    color: rgb(var(--fg-rgb) / 0.38);
+    text-align: center;
+    color: var(--os-surface-muted);
     font: inherit;
-    font-weight: 600;
+    font-weight: inherit;
     letter-spacing: inherit;
+    line-height: inherit;
     text-transform: inherit;
     text-decoration: none;
+    white-space: nowrap;
     transition:
       color 160ms ease,
       background-color 160ms ease;
   }
 
   .portfolio-entity-kind-option:hover {
-    color: rgb(var(--fg-rgb) / 0.72);
+    background: var(--os-surface-row-hover);
+    color: var(--os-surface-emphasis);
+  }
+
+  .portfolio-entity-kind-option:focus-visible {
+    background: var(--os-surface-row-hover);
+    color: var(--os-surface-emphasis);
+    outline: none;
   }
 
   .portfolio-entity-kind-option.is-active {
-    color: rgb(var(--fg-rgb) / 0.92);
-    background: rgb(var(--fg-rgb) / 0.14);
+    color: rgb(var(--fg-rgb) / 0.94);
+    background: var(--os-surface-fill);
+  }
+
+  .portfolio-entity-kind-option.is-active:hover,
+  .portfolio-entity-kind-option.is-active:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.94);
+    background: var(--os-surface-fill);
   }
 
   .portfolio-frame[data-mood] .portfolio-entity-kind {
@@ -6076,17 +6097,27 @@ a.os-surface-row {
 
   .portfolio-frame[data-mood] .portfolio-entity-kind-switch {
     background: color-mix(in srgb, var(--mood-text) 8%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mood-text) 10%, transparent);
+    color: color-mix(in srgb, var(--mood-muted) 72%, var(--mood-text));
   }
 
   .portfolio-frame[data-mood] .portfolio-entity-kind-option {
     color: color-mix(in srgb, var(--mood-muted) 58%, transparent);
   }
 
-  .portfolio-frame[data-mood] .portfolio-entity-kind-option:hover {
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option:hover,
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option:focus-visible {
     color: color-mix(in srgb, var(--mood-muted) 28%, var(--mood-text));
+    background: color-mix(in srgb, var(--mood-text) 8%, transparent);
   }
 
   .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active {
+    color: var(--mood-text);
+    background: color-mix(in srgb, var(--mood-text) 16%, transparent);
+  }
+
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active:hover,
+  .portfolio-frame[data-mood] .portfolio-entity-kind-option.is-active:focus-visible {
     color: var(--mood-text);
     background: color-mix(in srgb, var(--mood-text) 16%, transparent);
   }

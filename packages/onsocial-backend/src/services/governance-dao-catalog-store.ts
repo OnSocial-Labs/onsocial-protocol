@@ -334,6 +334,69 @@ export async function getDaoCatalogRow(
   return row ? mapCatalogRow(row) : null;
 }
 
+export type DaoPortfolioProfileShell = {
+  accountId: string;
+  name: string | null;
+  bio: string | null;
+  avatar: string | null;
+  banner: string | null;
+};
+
+/** Catalog row + indexed profile shell for DAO portfolio SSR (one round trip). */
+export async function getDaoPortfolioPageBundle(
+  daoAccountIdInput: string
+): Promise<{
+  catalog: DaoCatalogRow | null;
+  profile: DaoPortfolioProfileShell | null;
+}> {
+  const daoAccountId = daoAccountIdInput.trim().toLowerCase();
+  if (!daoAccountId) {
+    return { catalog: null, profile: null };
+  }
+
+  const [catalog, profileResult] = await Promise.all([
+    getDaoCatalogRow(daoAccountId),
+    indexerQuery<{
+      account_id: string;
+      name: string | null;
+      bio: string | null;
+      avatar: string | null;
+      banner: string | null;
+    }>(
+      `SELECT account_id, name, bio, avatar, banner
+         FROM profile_search
+        WHERE account_id = $1
+        LIMIT 1`,
+      [daoAccountId]
+    ).catch((err) => {
+      logger.warn(
+        { err, daoAccountId },
+        'dao portfolio page bundle profile lookup failed'
+      );
+      return { rows: [] as Array<{
+        account_id: string;
+        name: string | null;
+        bio: string | null;
+        avatar: string | null;
+        banner: string | null;
+      }> };
+    }),
+  ]);
+
+  const profileRow = profileResult.rows[0];
+  const profile = profileRow
+    ? {
+        accountId: profileRow.account_id,
+        name: profileRow.name ?? null,
+        bio: profileRow.bio ?? null,
+        avatar: profileRow.avatar ?? null,
+        banner: profileRow.banner ?? null,
+      }
+    : null;
+
+  return { catalog, profile };
+}
+
 /** Batch catalog lookup for standing / directory enrichment (capped). */
 export async function getDaoCatalogRowsByIds(
   daoAccountIds: string[],

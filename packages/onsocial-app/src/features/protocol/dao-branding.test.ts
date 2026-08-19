@@ -135,6 +135,32 @@ describe('dao branding', () => {
     expect(daoEntityKindLabel(branding.kind)).toBe('Community DAO');
   });
 
+  it('falls back to sputnik purpose when profile bio is blank whitespace', () => {
+    const branding = composeDaoBranding({
+      daoAccountId: 'demo.sputnik-dao.near',
+      profile: {
+        accountId: 'demo.sputnik-dao.near',
+        name: null,
+        bio: '   ',
+        avatarUrl: 'https://cdn.example/a.png',
+        bannerUrl: null,
+        avatarMedia: { kind: 'image', url: 'https://cdn.example/a.png' },
+        bannerMedia: null,
+        links: {},
+        tags: [],
+        hashtags: [],
+        tickers: [],
+        mentions: [],
+      },
+      config: {
+        name: 'Config Name',
+        purpose: 'Purpose line',
+        metadata: '',
+      },
+    });
+    expect(branding.description).toBe('Purpose line');
+  });
+
   it('builds dao portfolio paths', () => {
     expect(daoPath('Demo.Sputnik-Dao.Near')).toBe(
       '/@demo.sputnik-dao.near'

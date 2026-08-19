@@ -32,6 +32,17 @@ NEXT_PUBLIC_API_URL=http://localhost:4000
 NEXT_PUBLIC_BACKEND_URL=http://localhost:4001
 ```
 
+Sync secrets from GSM (requires `gcloud` auth) — same pattern as portal; pulls
+`ONSOCIAL_API_KEY`, `LAVA_API_KEY` (OnSocial NEAR RPC via server BFF), and
+rewards keys into `packages/onsocial-app/.env.local`:
+
+```bash
+NEAR_NETWORK=testnet ./scripts/sync-app-env-from-gsm.sh
+```
+
+Server-side chain reads go through `/api/near/rpc` → `@onsocial/rpc` with
+`LAVA_API_KEY`. Do not point the browser at public RPC nodes directly.
+
 ## Scripts
 
 ```bash

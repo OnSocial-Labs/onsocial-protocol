@@ -8,7 +8,10 @@ import { loadProfileShell } from '@/lib/profile-shell';
 import { fetchProfileSignals } from '@/lib/profile-signals';
 import { fetchProfileGuilds } from '@/lib/profile-guilds';
 import { fetchPageDrawerMeta } from '@/lib/fetch-page-drawer-meta';
-import { loadDaoPageData } from '@/lib/load-dao-page';
+import {
+  loadPortfolioDaoContextWithProfile,
+  resolveDaoPortfolioSummary,
+} from '@/lib/load-dao-page';
 import { PortfolioActivateStrip } from '@/components/portfolio/portfolio-activate-strip';
 import { PortfolioDaoOrgChrome } from '@/components/portfolio/portfolio-dao-org-chrome';
 import { PortfolioDeferredShelf } from '@/components/portfolio/portfolio-deferred-shelf';
@@ -18,7 +21,6 @@ import { PortfolioShellRoot } from '@/components/portfolio/portfolio-shell-root'
 import { PortfolioProfileSeed } from '@/components/portfolio/portfolio-profile-seed';
 import { PortfolioSignalsShell } from '@/components/portfolio/portfolio-signals-shell';
 import { PortfolioStatsRow } from '@/components/portfolio/portfolio-stats-row';
-import { resolvePortfolioDaoEntity } from '@/lib/portfolio-dao-entity';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,15 +38,24 @@ export async function generateMetadata({
   params,
 }: AccountPageProps): Promise<Metadata> {
   const accountId = await resolveAccountId(params);
-  const [shell, data] = await Promise.all([
-    loadProfileShell(accountId),
+  const shellPromise = loadProfileShell(accountId);
+  const [shell, data, daoContext] = await Promise.all([
+    shellPromise,
     fetchPublicPageData(accountId),
+    shellPromise.then((profileShell) =>
+      loadPortfolioDaoContextWithProfile(accountId, profileShell)
+    ),
   ]);
-  const titleLabel = displayName(accountId, shell?.name ?? undefined);
+  const titleLabel = displayName(
+    accountId,
+    shell?.name ?? daoContext.page?.branding.name ?? undefined
+  );
   const description =
-    data?.config.tagline?.trim() ||
-    shell?.bio?.trim() ||
-    `Public page for ${accountId}.`;
+    resolveDaoPortfolioSummary({
+      tagline: data?.config.tagline,
+      shellBio: shell?.bio,
+      daoPage: daoContext.page,
+    }) ?? `Public page for ${accountId}.`;
 
   return {
     title: `${titleLabel} • OnSocial`,
@@ -73,8 +84,9 @@ export default async function AccountPage({
     search?.avatarMode ?? search?.avatar ?? null
   );
   // Hero-critical path only — drawer peeks stream via Suspense.
-  const [shell, signals, guilds, drawerMetaBase, daoEntity] = await Promise.all([
-    loadProfileShell(accountId),
+  const shellPromise = loadProfileShell(accountId);
+  const [shell, signals, guilds, drawerMetaBase, daoContext] = await Promise.all([
+    shellPromise,
     fetchProfileSignals(accountId),
     fetchProfileGuilds(accountId),
     fetchPageDrawerMeta(accountId, {
@@ -83,11 +95,16 @@ export default async function AccountPage({
       guildCount: data.stats.groupCount ?? 0,
       postCount: data.stats.postCount ?? 0,
     }),
-    resolvePortfolioDaoEntity(accountId),
+    shellPromise.then((profileShell) =>
+      loadPortfolioDaoContextWithProfile(accountId, profileShell)
+    ),
   ]);
-  const daoPage = daoEntity.isDao
-    ? await loadDaoPageData(accountId)
-    : null;
+  const { entity: daoEntity, page: daoPage } = daoContext;
+  const portfolioBio =
+    shell?.bio?.trim() ||
+    daoPage?.branding.description?.trim() ||
+    daoPage?.configPurpose?.trim() ||
+    null;
   const name = displayName(
     accountId,
     shell?.name ?? daoPage?.branding.name ?? undefined
@@ -129,7 +146,7 @@ export default async function AccountPage({
         stats={data.stats}
         guilds={guilds}
         profileName={shell?.name ?? daoPage?.branding.name}
-        bio={shell?.bio ?? daoPage?.branding.description}
+        bio={portfolioBio}
         profileLinks={shell?.links ?? null}
         drawerMeta={drawerMeta}
         deferredShelf={
@@ -139,7 +156,7 @@ export default async function AccountPage({
         <PortfolioIdentity
           accountId={accountId}
           profileName={shell?.name ?? daoPage?.branding.name}
-          bio={shell?.bio ?? daoPage?.branding.description}
+          bio={portfolioBio}
           tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}
           mood={mood}

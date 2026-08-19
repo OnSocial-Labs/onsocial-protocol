@@ -242,6 +242,8 @@ export function composeDaoBranding(opts: {
   const kind = resolveDaoEntityKind(daoAccountId);
   const meta = parseDaoBrandingMetadata(opts.config?.metadata);
   const profile = opts.profile;
+  const profileName = profile?.name?.trim() || null;
+  const profileBio = profile?.bio?.trim() || null;
 
   const metaAvatar = meta?.avatar ?? null;
   const metaBanner = meta?.banner ?? null;
@@ -250,7 +252,7 @@ export function composeDaoBranding(opts: {
 
   const hasProfileMedia = Boolean(profile?.avatarUrl || profile?.bannerUrl);
   const hasMetaMedia = Boolean(metaAvatarUrl || metaBannerUrl);
-  const hasProfileCopy = Boolean(profile?.name || profile?.bio);
+  const hasProfileCopy = Boolean(profileName || profileBio);
   const hasMetaCopy = Boolean(meta?.name || meta?.description);
 
   let source: DaoBranding['source'] = 'config';
@@ -261,16 +263,16 @@ export function composeDaoBranding(opts: {
   }
 
   const name =
-    (source === 'profile' ? profile?.name : null) ||
+    (source === 'profile' ? profileName : null) ||
     meta?.name ||
-    profile?.name ||
+    profileName ||
     opts.config?.name?.trim() ||
     daoAccountId;
 
   const description =
-    (source === 'profile' ? profile?.bio : null) ||
-    meta?.description ||
-    profile?.bio ||
+    (source === 'profile' ? profileBio : null) ||
+    meta?.description?.trim() ||
+    profileBio ||
     opts.config?.purpose?.trim() ||
     null;
 

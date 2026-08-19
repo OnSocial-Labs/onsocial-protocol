@@ -42,6 +42,12 @@ export const FALLBACK_RPC_URLS: Record<Network, string> = {
   mainnet: 'https://free.rpc.fastnear.com',
 };
 
+/** Official NEAR RPC — used as failover when primary is already FastNear. */
+export const NEAR_ORG_RPC_URLS: Record<Network, string> = {
+  testnet: 'https://rpc.testnet.near.org',
+  mainnet: 'https://rpc.mainnet.near.org',
+};
+
 /** Public archival nodes for historical `block_id` / `block_hash` queries. */
 export const ARCHIVAL_RPC_URLS: Record<Network, string> = {
   testnet: 'https://archival-rpc.testnet.near.org',
@@ -422,6 +428,16 @@ export function createNearRpc(config: NearRpcConfig): NearRpc {
   };
 }
 
+function resolveConfiguredNearRpcFallbackUrl(
+  network: Network,
+  primaryUrl: string,
+  explicitFallback?: string
+): string {
+  if (explicitFallback) return explicitFallback;
+  const fastNear = FALLBACK_RPC_URLS[network];
+  return primaryUrl === fastNear ? NEAR_ORG_RPC_URLS[network] : fastNear;
+}
+
 /**
  * Create a NEAR RPC client with OnSocial defaults:
  * Lava (or NEAR_RPC_URL) primary on server, FastNear fallback.
@@ -430,15 +446,21 @@ export function createConfiguredNearRpc(options: ConfiguredNearRpcOptions): Near
   const { network, publicOnly, lavaApiKey, primaryUrl, fallbackUrl, ...rest } =
     options;
 
+  const resolvedPrimary = resolveConfiguredNearRpcUrl(network, {
+    publicOnly,
+    lavaApiKey,
+    primaryUrl,
+  });
+
   return createNearRpc({
     ...rest,
     network,
-    primaryUrl: resolveConfiguredNearRpcUrl(network, {
-      publicOnly,
-      lavaApiKey,
-      primaryUrl,
-    }),
-    fallbackUrl: fallbackUrl ?? FALLBACK_RPC_URLS[network],
+    primaryUrl: resolvedPrimary,
+    fallbackUrl: resolveConfiguredNearRpcFallbackUrl(
+      network,
+      resolvedPrimary,
+      fallbackUrl
+    ),
   });
 }
 

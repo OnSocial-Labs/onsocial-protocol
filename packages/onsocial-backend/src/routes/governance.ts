@@ -17,6 +17,7 @@ import {
 import {
   searchDaoCatalog,
   getDaoCatalogRowsByIds,
+  getDaoPortfolioPageBundle,
 } from '../services/governance-dao-catalog-store.js';
 import {
   getDaoCatalogSyncStatus,
@@ -316,6 +317,35 @@ router.get('/daos', async (req: Request, res: Response): Promise<void> => {
 });
 
 /** Batch lookup by account ids — standing / directory enrichment. */
+router.get(
+  '/daos/page',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const accountId =
+        typeof req.query.accountId === 'string' ? req.query.accountId : '';
+      const bundle = await getDaoPortfolioPageBundle(accountId);
+      res.json({
+        success: true,
+        dao: bundle.catalog
+          ? {
+              daoAccountId: bundle.catalog.daoAccountId,
+              name: bundle.catalog.name,
+              purpose: bundle.catalog.purpose,
+              metadata: bundle.catalog.metadata,
+              source: bundle.catalog.source,
+              listedAt: bundle.catalog.listedAt,
+              hasOnSocialProfile: bundle.catalog.hasOnSocialProfile,
+            }
+          : null,
+        profile: bundle.profile,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+);
+
 router.get(
   '/daos/lookup',
   async (req: Request, res: Response): Promise<void> => {

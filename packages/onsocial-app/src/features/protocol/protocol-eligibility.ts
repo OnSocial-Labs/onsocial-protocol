@@ -7,6 +7,7 @@ import {
   normalizeFtBalanceYocto,
   viewAccount,
   viewNearContract,
+  type NearAccountView,
 } from '@/lib/app-near-rpc';
 import { isProtocolDaoGroupMember } from '@/features/protocol/protocol-propose-gate';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
@@ -88,6 +89,16 @@ async function tryViewNearContract<T>(
   }
 }
 
+async function tryViewAccount(
+  accountId: string
+): Promise<NearAccountView | null> {
+  try {
+    return await viewAccount(accountId);
+  } catch {
+    return null;
+  }
+}
+
 function getDelegationStorageCost(accountId: string): string {
   const bytes = BigInt(accountId.length) + DELEGATION_STORAGE_BYTES_OVERHEAD;
   return (bytes * NEAR_STORAGE_BYTE_COST).toString();
@@ -145,7 +156,7 @@ export async function getProtocolGovernanceEligibility(
     tryViewNearContract<unknown>(SOCIAL_TOKEN_CONTRACT, 'ft_balance_of', {
       account_id: accountId,
     }),
-    viewAccount(accountId),
+    tryViewAccount(accountId),
   ]);
 
   const requiredWeight = getProposerThreshold(policy);
