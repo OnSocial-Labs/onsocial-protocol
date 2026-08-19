@@ -536,9 +536,8 @@ export class GroupsQuery {
       res = await run(fieldsWithoutTopics);
     }
     const rows =
-      (byMembers
-        ? res.data?.groupsByMemberCount
-        : res.data?.groupsCurrent) ?? [];
+      (byMembers ? res.data?.groupsByMemberCount : res.data?.groupsCurrent) ??
+      [];
     return {
       items: rows,
       nextOffset: rows.length >= limit ? offset + limit : undefined,
