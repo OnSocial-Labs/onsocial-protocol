@@ -1,7 +1,11 @@
 export {
   communityCoverClassName,
   communityCoverStyle,
-  communityMineCoverStyle,
+  hashPlaceSeed,
+  placeFallbackCoverStyle,
+  placeFallbackPalette,
+  placeHeroCoverClassName,
+  type PlaceFallbackPalette,
 } from '@/components/community-cards/community-cover';
 export {
   CommunityDiscoverRow,

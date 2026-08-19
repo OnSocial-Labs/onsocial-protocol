@@ -10246,7 +10246,8 @@ a.os-surface-row {
     height: 100%;
     min-height: 3.85rem;
     overflow: hidden;
-    border-radius: 0.72rem;
+    /* Match market / hubs catalog thumbs — soft OS list language. */
+    border-radius: var(--os-catalog-cover-radius, 0.75rem);
   }
 
   .community-summary-cover img,
@@ -10414,7 +10415,7 @@ a.os-surface-row {
   .guild-summary-card--rail .community-summary-cover {
     min-height: 3.25rem;
     height: 3.25rem;
-    border-radius: 0.72rem;
+    border-radius: var(--os-catalog-cover-radius, 0.75rem);
   }
 
   .guild-summary-card--rail .guild-summary-card-body {

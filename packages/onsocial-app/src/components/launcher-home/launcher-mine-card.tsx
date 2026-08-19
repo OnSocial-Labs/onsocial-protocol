@@ -4,7 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   communityCoverClassName,
-  communityMineCoverStyle,
+  communityCoverStyle,
 } from '@/components/community-cards/community-cover';
 import type { CommunityMarkVariant } from '@/components/community-cards/community-discover-row';
 import { communityMonogram } from '@/components/community-cards/community-monogram';
@@ -53,7 +53,7 @@ export function LauncherMineCard({
         <span className="launcher-mine-banner" aria-hidden>
           <span
             className={communityCoverClassName(cover, 'mine')}
-            style={communityMineCoverStyle(cover, seedId)}
+            style={communityCoverStyle(cover, seedId)}
           >
             {cover ? <img src={cover} alt="" /> : null}
           </span>
