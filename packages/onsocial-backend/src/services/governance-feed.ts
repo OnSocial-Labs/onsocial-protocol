@@ -503,8 +503,8 @@ function readKindStringField(value: unknown, field: string): string | null {
   return typeof raw === 'string' && raw.trim() ? raw.trim() : null;
 }
 
-function deriveProtocolProposalHeadline(
-  proposal: GovernanceDaoProposalRecord
+export function deriveProtocolProposalHeadline(
+  proposal: Pick<GovernanceDaoProposalRecord, 'description' | 'kind'>
 ): string {
   const kindName = getProposalKindName(proposal.kind);
   const kindPayload = proposal.kind?.[kindName];

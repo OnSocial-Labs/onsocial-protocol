@@ -22,6 +22,11 @@ import {
   getDaoCatalogSyncStatus,
   resolveDaoCatalogAccount,
 } from '../services/governance-dao-catalog-sync.js';
+import { getDaoProposalPeeks } from '../services/governance-dao-proposal-peeks.js';
+import {
+  DAO_PROPOSAL_PEEK_DAO_LIMIT,
+  DAO_PROPOSAL_PEEK_ROW_LIMIT,
+} from '../services/governance-dao-ids.js';
 
 const router = Router();
 
@@ -160,6 +165,55 @@ router.get('/recent', async (req: Request, res: Response): Promise<void> => {
     res.status(400).json({ success: false, error: msg });
   }
 });
+
+/**
+ * Multi-DAO proposal peeks for DAOs Home (snapshot read + background sync kick).
+ * Query: daoAccountIds=a.near,b.near&limit=24
+ */
+router.get(
+  '/proposal-peeks',
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const raw = req.query.daoAccountIds;
+      const joined =
+        typeof raw === 'string'
+          ? raw
+          : Array.isArray(raw)
+            ? raw.map(String).join(',')
+            : '';
+      const daoAccountIds = joined
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .slice(0, DAO_PROPOSAL_PEEK_DAO_LIMIT);
+
+      if (daoAccountIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'daoAccountIds query parameter is required',
+        });
+        return;
+      }
+
+      const limitRaw = Number.parseInt(String(req.query.limit ?? ''), 10);
+      const limit = Number.isFinite(limitRaw)
+        ? Math.min(Math.max(limitRaw, 1), DAO_PROPOSAL_PEEK_ROW_LIMIT)
+        : DAO_PROPOSAL_PEEK_ROW_LIMIT;
+
+      const result = await getDaoProposalPeeks(daoAccountIds, limit);
+
+      res.json({
+        success: true,
+        daoAccountIds: result.daoAccountIds,
+        limit: result.limit,
+        peeks: result.peeks,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ success: false, error: msg });
+    }
+  }
+);
 
 router.get('/policy', async (req: Request, res: Response): Promise<void> => {
   try {

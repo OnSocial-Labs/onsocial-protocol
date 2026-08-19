@@ -7,15 +7,21 @@ import {
   LauncherPeekList,
   LauncherPeekRow,
 } from '@/components/launcher-home';
-import { fetchProtocolFeed } from '@/features/protocol/protocol-feed-client';
+import {
+  fetchProtocolProposalPeeks,
+  type ProtocolProposalPeek,
+} from '@/features/protocol/protocol-feed-client';
 import { statusLabel } from '@/features/protocol/protocol-card-view';
 import type { ProtocolDaoProposalStatus } from '@/features/protocol/types';
 import type { MyDaoMembership } from '@/features/protocol/my-daos-client';
-import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
+import {
+  PROTOCOL_PROPOSAL_PEEK_DAO_LIMIT,
+  PROTOCOL_PROPOSAL_PEEK_LIMIT,
+} from '@/features/protocol/protocol-proposal-peek-limits';
 import { daoPortfolioPath } from '@/lib/app-routes';
 
-const EXPLORE_DAO_LIMIT = 12;
-const EXPLORE_PEEK_LIMIT = 24;
+const EXPLORE_DAO_LIMIT = PROTOCOL_PROPOSAL_PEEK_DAO_LIMIT;
+const EXPLORE_PEEK_LIMIT = PROTOCOL_PROPOSAL_PEEK_LIMIT;
 
 export type DaosExplorePeek = {
   key: string;
@@ -28,13 +34,23 @@ export type DaosExplorePeek = {
   open: boolean;
 };
 
-function isOpenStatus(status: string): boolean {
-  return status === 'InProgress' || status.toLowerCase() === 'open';
+function mapPeek(row: ProtocolProposalPeek): DaosExplorePeek {
+  const status = String(row.status || 'InProgress');
+  return {
+    key: `${row.daoAccountId}:${row.proposalId}`,
+    daoAccountId: row.daoAccountId,
+    daoName: row.daoName || row.daoAccountId,
+    proposalId: row.proposalId,
+    label: (row.label || `Proposal #${row.proposalId}`).trim().slice(0, 120),
+    statusLabel: statusLabel(status as ProtocolDaoProposalStatus),
+    createdAt: row.createdAt || '',
+    open: Boolean(row.open),
+  };
 }
 
 /**
  * Membership-scoped proposal peeks under DAOs Home.
- * Network catalog stays in Discover; this is activity across *your* DAOs.
+ * One multi-DAO snapshot query (not N× full governance feeds).
  */
 export function DaosExplorePanel({
   accountId,
@@ -91,67 +107,23 @@ export function DaosExplorePanel({
     });
 
     void (async () => {
-      const settled = await Promise.allSettled(
-        daoIds.map(async (daoAccountId) => {
-          const feed = await fetchProtocolFeed(daoAccountId, 'all');
-          const daoName = resolveDaoDirectoryName(daoAccountId, {
-            name: null,
-          });
-          return feed.applications
-            .map((app) => {
-              const proposalId = app.governance_proposal?.proposal_id;
-              if (proposalId == null || !Number.isInteger(proposalId)) {
-                return null;
-              }
-              const rawStatus =
-                app.governance_proposal?.snapshot?.status ??
-                app.governance_proposal?.status ??
-                app.status;
-              const status = String(rawStatus || 'InProgress');
-              return {
-                key: `${daoAccountId}:${proposalId}`,
-                daoAccountId,
-                daoName,
-                proposalId,
-                label: (app.label || app.description || `Proposal #${proposalId}`)
-                  .trim()
-                  .slice(0, 120),
-                statusLabel: statusLabel(
-                  status as ProtocolDaoProposalStatus
-                ),
-                createdAt: app.created_at || '',
-                open: isOpenStatus(status),
-              } satisfies DaosExplorePeek;
-            })
-            .filter((row): row is DaosExplorePeek => row != null);
-        })
-      );
-
-      if (cancelled) return;
-
-      const merged: DaosExplorePeek[] = [];
-      let rejected = 0;
-      for (const result of settled) {
-        if (result.status === 'fulfilled') merged.push(...result.value);
-        else rejected += 1;
-      }
-
-      if (merged.length === 0 && rejected === daoIds.length) {
-        setPeeks(null);
-        setError('Couldn’t load proposals.');
-        setPending(false);
-        return;
-      }
-
-      merged.sort((a, b) => {
-        if (a.open !== b.open) return a.open ? -1 : 1;
-        return (
-          Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '') || 0
+      try {
+        const rows = await fetchProtocolProposalPeeks(
+          daoIds,
+          EXPLORE_PEEK_LIMIT
         );
-      });
-      setPeeks(merged.slice(0, EXPLORE_PEEK_LIMIT));
-      setError(null);
-      setPending(false);
+        if (cancelled) return;
+        setPeeks(rows.map(mapPeek));
+        setError(null);
+        setPending(false);
+      } catch (cause) {
+        if (cancelled) return;
+        setPeeks(null);
+        setPending(false);
+        setError(
+          cause instanceof Error ? cause.message : 'Couldn’t load proposals.'
+        );
+      }
     })();
 
     return () => {
@@ -186,22 +158,33 @@ export function DaosExplorePanel({
 
   return (
     <LauncherPeekList aria-label="Proposals from your DAOs">
-      {peeks.map((peek) => (
-        <LauncherPeekRow
-          key={peek.key}
-          href={daoPortfolioPath(peek.daoAccountId, {
-            proposal: peek.proposalId,
-          })}
-          title={peek.label}
-          meta={
-            <>
-              {peek.daoName}
-              <span aria-hidden> · </span>
-              {peek.statusLabel}
-            </>
-          }
-        />
-      ))}
+      {peeks.map((peek) => {
+        const named =
+          peek.daoName.trim().toLowerCase() !==
+          peek.daoAccountId.trim().toLowerCase();
+        return (
+          <LauncherPeekRow
+            key={peek.key}
+            href={daoPortfolioPath(peek.daoAccountId, {
+              proposal: peek.proposalId,
+            })}
+            title={peek.label}
+            meta={
+              <>
+                {named ? (
+                  <>
+                    {peek.daoName}
+                    <span aria-hidden> · </span>
+                  </>
+                ) : null}
+                {peek.daoAccountId}
+                <span aria-hidden> · </span>
+                {peek.statusLabel}
+              </>
+            }
+          />
+        );
+      })}
     </LauncherPeekList>
   );
 }

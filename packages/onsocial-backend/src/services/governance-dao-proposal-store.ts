@@ -1,5 +1,15 @@
 import { query } from '../db/index.js';
 import type { GovernanceDaoPolicySnapshot } from './governance-proposal-policy-snapshot.js';
+import {
+  DAO_PROPOSAL_PEEK_DAO_LIMIT,
+  DAO_PROPOSAL_PEEK_ROW_LIMIT,
+  normalizeDaoAccountIds,
+} from './governance-dao-ids.js';
+
+export {
+  DAO_PROPOSAL_PEEK_DAO_LIMIT,
+  DAO_PROPOSAL_PEEK_ROW_LIMIT,
+} from './governance-dao-ids.js';
 
 export type PersistedDaoProposalSnapshot = {
   id: number;
@@ -234,6 +244,73 @@ export async function loadRecentDaoProposalSnapshots(
 
   return result.rows
     .map((row) => mapStoredRow(row))
+    .filter((row): row is StoredDaoProposalRow => row !== null);
+}
+
+/**
+ * Multi-DAO snapshot read for Home peeks — open first, then newest submission.
+ * Slim columns (no policy_snapshot). Does not sync; callers may kick sync.
+ */
+export async function loadDaoProposalSnapshotsForDaos(
+  daoAccountIds: string[],
+  limit: number = DAO_PROPOSAL_PEEK_ROW_LIMIT
+): Promise<StoredDaoProposalRow[]> {
+  const ids = normalizeDaoAccountIds(
+    daoAccountIds,
+    DAO_PROPOSAL_PEEK_DAO_LIMIT
+  );
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const safeLimit =
+    Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.trunc(limit), DAO_PROPOSAL_PEEK_ROW_LIMIT)
+      : DAO_PROPOSAL_PEEK_ROW_LIMIT;
+
+  const result = await query<{
+    dao_account_id: string;
+    proposal_id: string | number;
+    status: string;
+    submission_time: string;
+    submission_block_height: string | number | null;
+    resolved_block_height: string | number | null;
+    resolved_at: string | null;
+    proposal_snapshot: PersistedDaoProposalSnapshot;
+    synced_at: string | Date;
+    updated_at: string | Date;
+  }>(
+    `SELECT dao_account_id,
+            proposal_id,
+            status,
+            submission_time,
+            submission_block_height,
+            resolved_block_height,
+            resolved_at,
+            proposal_snapshot,
+            synced_at,
+            updated_at
+       FROM governance_dao_proposal_snapshots
+      WHERE dao_account_id = ANY($1::text[])
+      ORDER BY
+        CASE
+          WHEN lower(status) IN ('inprogress', 'open') THEN 0
+          ELSE 1
+        END ASC,
+        submission_time DESC,
+        proposal_id DESC
+      LIMIT $2`,
+    [ids, safeLimit]
+  );
+
+  return result.rows
+    .map((row) =>
+      mapStoredRow({
+        ...row,
+        policy_snapshot: null,
+      })
+    )
     .filter((row): row is StoredDaoProposalRow => row !== null);
 }
 
