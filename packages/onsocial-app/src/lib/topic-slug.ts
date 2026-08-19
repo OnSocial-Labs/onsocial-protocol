@@ -138,15 +138,3 @@ export function countPrimaryTopics(
   }
   return counts;
 }
-
-/** Merge two count maps (sum). */
-export function mergeTopicCounts(
-  a: ReadonlyMap<string, number>,
-  b: ReadonlyMap<string, number>
-): Map<string, number> {
-  const out = new Map(a);
-  for (const [id, count] of b) {
-    out.set(id, (out.get(id) ?? 0) + count);
-  }
-  return out;
-}
