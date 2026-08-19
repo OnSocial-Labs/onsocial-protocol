@@ -1,15 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
-import {
-  enrichIndexedGuildSummaryCards,
-  guildSummaryCardFromMembership,
-} from '@/features/guilds/guild-facts';
+import { guildSummaryCardFromMembership } from '@/features/guilds/guild-facts';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { GuildsLatestPostsPanel } from '@/features/guilds/guilds-latest-posts-panel';
 import { guildPath } from '@/features/guilds/guilds-data';
@@ -31,6 +28,7 @@ function GuildMineCard({ guild }: { guild: GuildSummaryCardModel }) {
     >
       <span className="daos-mine-crest" aria-hidden>
         {guild.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- crest thumbnail
           <img src={guild.avatarUrl} alt="" />
         ) : (
           <span className="daos-mine-crest-fallback">
@@ -51,70 +49,40 @@ function GuildMineCard({ guild }: { guild: GuildSummaryCardModel }) {
  * Network catalog find: header search → Discover → Guilds.
  */
 export function LiveGuildsIndexPanel() {
-  const { accountId, isLoading: walletLoading } = useAppWallet();
+  const { accountId } = useAppWallet();
   const [myGuilds, setMyGuilds] = useState<GuildSummaryCardModel[] | null>(
     null
   );
-  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
-    'loading'
-  );
-  const [error, setError] = useState<string | null>(null);
-  const hasPaintedRef = useRef(false);
 
   const discoverGuildsHref = appDiscoverTabHref('guilds');
 
-  const load = useCallback(
-    async (opts?: { soft?: boolean }) => {
-      const soft = Boolean(opts?.soft) || hasPaintedRef.current;
-      if (!soft) {
-        setLoadState('loading');
-      }
-      setError(null);
-
-      if (!accountId) {
-        setMyGuilds([]);
-        setLoadState('ready');
-        hasPaintedRef.current = true;
-        return;
-      }
-
+  useEffect(() => {
+    if (!accountId) {
+      queueMicrotask(() => setMyGuilds(null));
+      return;
+    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setMyGuilds(null);
+    });
+    void (async () => {
       try {
         const client = createReadOnlyOnSocialClient();
         const { items } = await client.query.groups.membershipsBy(accountId, {
           limit: 50,
         });
-        const membershipCards = items.map((row) =>
-          guildSummaryCardFromMembership(row)
-        );
-        setMyGuilds(membershipCards);
-        setLoadState('ready');
-        hasPaintedRef.current = true;
-
-        void enrichIndexedGuildSummaryCards(client, membershipCards).then(
-          (withCounts) => {
-            setMyGuilds(withCounts);
-          }
-        );
-      } catch (cause) {
-        if (!soft) {
-          setLoadState('error');
-          setError(
-            cause instanceof Error ? cause.message : 'Could not load guilds.'
-          );
-        }
+        if (cancelled) return;
+        setMyGuilds(items.map((row) => guildSummaryCardFromMembership(row)));
+      } catch {
+        if (!cancelled) setMyGuilds([]);
       }
-    },
-    [accountId]
-  );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
 
-  useEffect(() => {
-    if (walletLoading) return;
-    queueMicrotask(() => {
-      void load({ soft: hasPaintedRef.current });
-    });
-  }, [load, walletLoading]);
-
-  const myGuildsReady = myGuilds !== null && loadState === 'ready';
+  const myGuildsReady = myGuilds !== null;
   const showMineRail = Boolean(
     accountId && myGuildsReady && myGuilds.length > 0
   );
@@ -145,19 +113,6 @@ export function LiveGuildsIndexPanel() {
       actions={headerActions}
     >
       <div className="daos-index">
-        {loadState === 'error' ? (
-          <section className="daos-index-section" aria-label="Error">
-            <p className="daos-index-empty">{error ?? 'Could not load guilds.'}</p>
-            <button
-              className="guild-secondary-button"
-              type="button"
-              onClick={() => void load()}
-            >
-              Retry
-            </button>
-          </section>
-        ) : null}
-
         <section className="daos-index-section" aria-label="My Guilds">
           <h2 className="daos-index-heading">My Guilds</h2>
           {!accountId ? (

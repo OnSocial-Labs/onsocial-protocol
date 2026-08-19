@@ -10,6 +10,7 @@ import {
   type AppView,
 } from '@/features/scarces/apps-data';
 import { HubsLatestDropsPanel } from '@/features/scarces/hubs-latest-drops-panel';
+import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
 
@@ -21,6 +22,12 @@ function monogram(title: string): string {
 }
 
 function HubMineCard({ app }: { app: AppView }) {
+  const meta =
+    hubCategoryLabel(app.category) ??
+    (app.categories[0]
+      ? (hubCategoryLabel(app.categories[0]) ?? app.categories[0])
+      : null) ??
+    'Hub';
   return (
     <Link
       href={appPath(app.appId)}
@@ -30,6 +37,7 @@ function HubMineCard({ app }: { app: AppView }) {
     >
       <span className="daos-mine-crest" aria-hidden>
         {app.mediaUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- crest thumbnail
           <img src={app.mediaUrl} alt="" />
         ) : (
           <span className="daos-mine-crest-fallback">
@@ -39,7 +47,7 @@ function HubMineCard({ app }: { app: AppView }) {
       </span>
       <span className="daos-mine-card-copy">
         <span className="daos-mine-card-title">{app.title}</span>
-        <span className="daos-mine-card-meta">Hub</span>
+        <span className="daos-mine-card-meta">{meta}</span>
       </span>
     </Link>
   );
@@ -57,7 +65,7 @@ export function HubsIndexPanel() {
 
   useEffect(() => {
     if (!accountId) {
-      queueMicrotask(() => setMyHubs([]));
+      queueMicrotask(() => setMyHubs(null));
       return;
     }
     let cancelled = false;
@@ -109,13 +117,13 @@ export function HubsIndexPanel() {
           <h2 className="daos-index-heading">My Hubs</h2>
           {!accountId ? (
             <p className="daos-index-empty">
-              Connect to see hubs you’re in — or tap search to explore.
+              Connect to see hubs you’ve joined — or tap search to explore.
             </p>
           ) : !myHubsReady ? (
             <p className="daos-index-empty">Loading your hubs…</p>
           ) : myHubs.length === 0 ? (
             <p className="daos-index-empty">
-              You haven’t opened a hub yet. Tap Search to explore, or + to start
+              You haven’t joined a hub yet. Tap Search to explore, or + to start
               one.
             </p>
           ) : (
