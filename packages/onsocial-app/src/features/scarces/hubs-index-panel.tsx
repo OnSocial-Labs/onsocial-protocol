@@ -3,6 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
+import {
+  LauncherHomeMineStatus,
+  LauncherHomeSection,
+  LauncherMineCard,
+  LauncherMineRail,
+} from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
@@ -14,41 +20,13 @@ import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
 
-function monogram(title: string): string {
-  const parts = title.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '??';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-function HubMineCard({ app }: { app: AppView }) {
-  const meta =
+function hubMeta(app: AppView): string {
+  return (
     hubCategoryLabel(app.category) ??
     (app.categories[0]
       ? (hubCategoryLabel(app.categories[0]) ?? app.categories[0])
       : null) ??
-    'Hub';
-  return (
-    <Link
-      href={appPath(app.appId)}
-      className="launcher-mine-card"
-      scroll={false}
-      aria-label={app.title}
-    >
-      <span className="launcher-mine-crest" aria-hidden>
-        {app.mediaUrl ? (
-          <img src={app.mediaUrl} alt="" />
-        ) : (
-          <span className="launcher-mine-crest-fallback">
-            {monogram(app.title)}
-          </span>
-        )}
-      </span>
-      <span className="launcher-mine-card-copy">
-        <span className="launcher-mine-card-title">{app.title}</span>
-        <span className="launcher-mine-card-meta">{meta}</span>
-      </span>
-    </Link>
+    'Hub'
   );
 }
 
@@ -125,48 +103,37 @@ export function HubsIndexPanel() {
       actions={headerActions}
     >
       <div className="launcher-home">
-        <section className="launcher-home-section" aria-label="My Hubs">
-          <h2 className="launcher-home-heading">My Hubs</h2>
-          {!accountId ? (
-            <p className="launcher-home-empty">
-              Connect to see hubs you’ve joined — or tap search to explore.
-            </p>
-          ) : loadError ? (
-            <div className="launcher-home-empty-block">
-              <p className="launcher-home-empty">{loadError}</p>
-              <button
-                type="button"
-                className="launcher-home-retry"
-                onClick={() => setRetryKey((value) => value + 1)}
-              >
-                Retry
-              </button>
-            </div>
-          ) : !myHubsReady ? (
-            <p className="launcher-home-empty">Loading your hubs…</p>
-          ) : myHubs.length === 0 ? (
-            <p className="launcher-home-empty">
-              You haven’t joined a hub yet. Tap Search to explore, or + to start
-              one.
-            </p>
-          ) : (
-            <div className="launcher-mine-rail" role="list">
-              {myHubs.map((app) => (
-                <div key={app.appId} role="listitem">
-                  <HubMineCard app={app} />
-                </div>
+        <LauncherHomeSection title="My Hubs">
+          <LauncherHomeMineStatus
+            connected={Boolean(accountId)}
+            loading={!myHubsReady}
+            error={loadError}
+            onRetry={() => setRetryKey((value) => value + 1)}
+            emptyLoggedOut="Connect to see hubs you’ve joined — or tap search to explore."
+            emptyNone="You haven’t joined a hub yet. Tap Search to explore, or + to start one."
+            loadingLabel="Loading your hubs…"
+            hasItems={(myHubs?.length ?? 0) > 0}
+          >
+            <LauncherMineRail>
+              {(myHubs ?? []).map((app) => (
+                <LauncherMineCard
+                  key={app.appId}
+                  href={appPath(app.appId)}
+                  title={app.title}
+                  meta={hubMeta(app)}
+                  imageUrl={app.mediaUrl}
+                />
               ))}
-            </div>
-          )}
-        </section>
+            </LauncherMineRail>
+          </LauncherHomeMineStatus>
+        </LauncherHomeSection>
 
         {showDrops ? (
           <>
             <Divider className="launcher-home-divider" />
-            <section className="launcher-home-section" aria-label="Drops">
-              <h2 className="launcher-home-heading">Drops</h2>
+            <LauncherHomeSection title="Drops">
               <HubsLatestDropsPanel accountId={accountId} myHubs={myHubs} />
-            </section>
+            </LauncherHomeSection>
           </>
         ) : null}
       </div>

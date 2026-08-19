@@ -4,11 +4,16 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import {
+  LauncherHomeMineStatus,
+  LauncherHomeSection,
+  LauncherMineCard,
+  LauncherMineRail,
+} from '@/components/launcher-home';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
 import { DaosExplorePanel } from '@/features/protocol/daos-explore-panel';
 import { daoDirectoryEntryFromMembership } from '@/features/protocol/dao-directory';
-import type { DaoDirectoryEntry } from '@/features/protocol/dao-directory';
 import {
   fetchMyDaos,
   type MyDaoMembership,
@@ -52,34 +57,6 @@ function mergeMyDaosWithOptimistic(
   );
 }
 
-function DaoMineCard({ entry }: { entry: DaoDirectoryEntry }) {
-  const named = entry.name.trim().toLowerCase() !== entry.accountId;
-  const title = named ? entry.name : entry.accountId;
-  return (
-    <Link
-      href={entry.href}
-      className="launcher-mine-card"
-      scroll={false}
-      aria-label={named ? entry.name : `@${entry.accountId}`}
-    >
-      <span className="launcher-mine-crest" aria-hidden>
-        {entry.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={entry.avatarUrl} alt="" />
-        ) : (
-          <span className="launcher-mine-crest-fallback">
-            {title.slice(0, 2).toUpperCase()}
-          </span>
-        )}
-      </span>
-      <span className="launcher-mine-card-copy">
-        <span className="launcher-mine-card-title">{title}</span>
-        <span className="launcher-mine-card-meta">{entry.kindLabel}</span>
-      </span>
-    </Link>
-  );
-}
-
 /**
  * DAOs launcher — one Home: mine (horizontal) + proposals under a divider.
  * Network catalog find: header search → Discover → DAOs.
@@ -89,6 +66,8 @@ export function DaosIndexPanel() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
 
   const discoverDaosHref = appDiscoverTabHref('daos');
@@ -112,7 +91,10 @@ export function DaosIndexPanel() {
 
     if (!accountId) {
       queueMicrotask(() => {
-        if (!cancelled) setMyDaos(null);
+        if (!cancelled) {
+          setMyDaos(null);
+          setLoadError(null);
+        }
       });
       return () => {
         cancelled = true;
@@ -121,9 +103,12 @@ export function DaosIndexPanel() {
 
     queueMicrotask(() => {
       if (cancelled) return;
+      setLoadError(null);
       const optimistic = readOptimisticMyDaos();
       if (optimistic.length > 0) {
         setMyDaos(mergeMyDaosWithOptimistic([], optimistic));
+      } else if (retryKey > 0) {
+        setMyDaos(null);
       }
     });
 
@@ -136,6 +121,7 @@ export function DaosIndexPanel() {
             readOptimisticMyDaos()
           );
           setMyDaos(merged);
+          setLoadError(null);
           const stillMissing = readOptimisticMyDaos().some(
             (hint) =>
               !response.daos.some(
@@ -151,10 +137,21 @@ export function DaosIndexPanel() {
             }, MY_DAOS_SOFT_RETRY_MS);
           }
         })
-        .catch(() => {
-          if (!cancelled) {
-            setMyDaos(mergeMyDaosWithOptimistic([], readOptimisticMyDaos()));
+        .catch((cause) => {
+          if (cancelled) return;
+          const optimistic = mergeMyDaosWithOptimistic(
+            [],
+            readOptimisticMyDaos()
+          );
+          if (optimistic.length > 0) {
+            setMyDaos(optimistic);
+            setLoadError(null);
+            return;
           }
+          setMyDaos(null);
+          setLoadError(
+            cause instanceof Error ? cause.message : 'Couldn’t load your DAOs.'
+          );
         });
     };
 
@@ -172,7 +169,7 @@ export function DaosIndexPanel() {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [accountId]);
+  }, [accountId, retryKey]);
 
   const myEntries = useMemo(
     () => (myDaos ? myDaos.map(daoDirectoryEntryFromMembership) : []),
@@ -226,38 +223,43 @@ export function DaosIndexPanel() {
           </Link>
         </div>
 
-        <section className="launcher-home-section" aria-label="My DAOs">
-          <h2 className="launcher-home-heading">My DAOs</h2>
-          {!accountId ? (
-            <p className="launcher-home-empty">
-              Connect to see DAOs you’ve joined — or tap search to explore.
-            </p>
-          ) : !myDaosReady ? (
-            <p className="launcher-home-empty">Loading your DAOs…</p>
-          ) : myEntries.length === 0 ? (
-            <p className="launcher-home-empty">
-              You haven’t joined a DAO yet. Tap Search to explore, or + to start
-              one.
-            </p>
-          ) : (
-            <div className="launcher-mine-rail" role="list">
-              {myEntries.map((entry) => (
-                <div key={entry.accountId} role="listitem">
-                  <DaoMineCard entry={entry} />
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+        <LauncherHomeSection title="My DAOs">
+          <LauncherHomeMineStatus
+            connected={Boolean(accountId)}
+            loading={!myDaosReady}
+            error={loadError}
+            onRetry={() => setRetryKey((value) => value + 1)}
+            emptyLoggedOut="Connect to see DAOs you’ve joined — or tap search to explore."
+            emptyNone="You haven’t joined a DAO yet. Tap Search to explore, or + to start one."
+            loadingLabel="Loading your DAOs…"
+            hasItems={myEntries.length > 0}
+          >
+            <LauncherMineRail>
+              {myEntries.map((entry) => {
+                const named =
+                  entry.name.trim().toLowerCase() !== entry.accountId;
+                const title = named ? entry.name : entry.accountId;
+                return (
+                  <LauncherMineCard
+                    key={entry.accountId}
+                    href={entry.href}
+                    title={title}
+                    meta={entry.kindLabel}
+                    imageUrl={entry.avatarUrl}
+                    ariaLabel={named ? entry.name : `@${entry.accountId}`}
+                  />
+                );
+              })}
+            </LauncherMineRail>
+          </LauncherHomeMineStatus>
+        </LauncherHomeSection>
 
         {showProposals ? (
           <>
             <Divider className="launcher-home-divider" />
-
-            <section className="launcher-home-section" aria-label="Proposals">
-              <h2 className="launcher-home-heading">Proposals</h2>
+            <LauncherHomeSection title="Proposals">
               <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
-            </section>
+            </LauncherHomeSection>
           </>
         ) : null}
       </div>

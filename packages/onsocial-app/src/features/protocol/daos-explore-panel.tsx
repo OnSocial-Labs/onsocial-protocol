@@ -1,7 +1,12 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  LauncherHomeEmpty,
+  LauncherHomeError,
+  LauncherPeekList,
+  LauncherPeekRow,
+} from '@/components/launcher-home';
 import { fetchProtocolFeed } from '@/features/protocol/protocol-feed-client';
 import { statusLabel } from '@/features/protocol/protocol-card-view';
 import type { ProtocolDaoProposalStatus } from '@/features/protocol/types';
@@ -40,6 +45,8 @@ export function DaosExplorePanel({
 }) {
   const [peeks, setPeeks] = useState<DaosExplorePeek[] | null>(null);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const daoIds = useMemo(() => {
     if (!myDaos) return [];
@@ -54,6 +61,7 @@ export function DaosExplorePanel({
       queueMicrotask(() => {
         setPeeks(null);
         setPending(false);
+        setError(null);
       });
       return;
     }
@@ -61,6 +69,7 @@ export function DaosExplorePanel({
       queueMicrotask(() => {
         setPeeks(null);
         setPending(true);
+        setError(null);
       });
       return;
     }
@@ -68,13 +77,17 @@ export function DaosExplorePanel({
       queueMicrotask(() => {
         setPeeks([]);
         setPending(false);
+        setError(null);
       });
       return;
     }
 
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) setPending(true);
+      if (!cancelled) {
+        setPending(true);
+        setError(null);
+      }
     });
 
     void (async () => {
@@ -117,9 +130,19 @@ export function DaosExplorePanel({
       if (cancelled) return;
 
       const merged: DaosExplorePeek[] = [];
+      let rejected = 0;
       for (const result of settled) {
         if (result.status === 'fulfilled') merged.push(...result.value);
+        else rejected += 1;
       }
+
+      if (merged.length === 0 && rejected === daoIds.length) {
+        setPeeks(null);
+        setError('Couldn’t load proposals.');
+        setPending(false);
+        return;
+      }
+
       merged.sort((a, b) => {
         if (a.open !== b.open) return a.open ? -1 : 1;
         return (
@@ -127,20 +150,30 @@ export function DaosExplorePanel({
         );
       });
       setPeeks(merged.slice(0, EXPLORE_PEEK_LIMIT));
+      setError(null);
       setPending(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [accountId, daoIds, myDaos]);
+  }, [accountId, daoIds, myDaos, retryKey]);
 
   if (!accountId) {
     return null;
   }
 
+  if (error) {
+    return (
+      <LauncherHomeError
+        message={error}
+        onRetry={() => setRetryKey((value) => value + 1)}
+      />
+    );
+  }
+
   if (myDaos == null || pending) {
-    return <p className="launcher-home-empty">Loading proposals…</p>;
+    return <LauncherHomeEmpty>Loading proposals…</LauncherHomeEmpty>;
   }
 
   if (daoIds.length === 0) {
@@ -148,33 +181,27 @@ export function DaosExplorePanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return (
-      <p className="launcher-home-empty">Nothing open right now.</p>
-    );
+    return <LauncherHomeEmpty>Nothing open right now.</LauncherHomeEmpty>;
   }
 
   return (
-    <ul className="launcher-peek-list" aria-label="Proposals from your DAOs">
+    <LauncherPeekList aria-label="Proposals from your DAOs">
       {peeks.map((peek) => (
-        <li key={peek.key}>
-          <Link
-            href={daoPortfolioPath(peek.daoAccountId, {
-              proposal: peek.proposalId,
-            })}
-            className="launcher-peek-row"
-            scroll={false}
-          >
-            <span className="launcher-peek-row-copy">
-              <span className="launcher-peek-row-title">{peek.label}</span>
-              <span className="launcher-peek-row-meta">
-                {peek.daoName}
-                <span aria-hidden> · </span>
-                {peek.statusLabel}
-              </span>
-            </span>
-          </Link>
-        </li>
+        <LauncherPeekRow
+          key={peek.key}
+          href={daoPortfolioPath(peek.daoAccountId, {
+            proposal: peek.proposalId,
+          })}
+          title={peek.label}
+          meta={
+            <>
+              {peek.daoName}
+              <span aria-hidden> · </span>
+              {peek.statusLabel}
+            </>
+          }
+        />
       ))}
-    </ul>
+    </LauncherPeekList>
   );
 }
