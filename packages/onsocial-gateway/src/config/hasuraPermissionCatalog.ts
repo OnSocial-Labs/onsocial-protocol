@@ -963,6 +963,16 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'scarces_collections_trade_stats',
+    columns: [
+      'collection_id',
+      'app_id',
+      'sales_count',
+      'sales_volume',
+      'last_sale_timestamp',
+    ],
+  },
+  {
     name: 'scarces_active_offers',
     columns: [
       'offer_key',
