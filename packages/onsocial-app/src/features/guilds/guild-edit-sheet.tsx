@@ -12,6 +12,7 @@ import {
 } from 'react';
 import {
   DiscardConfirmSheet,
+  OsFieldRemove,
   ProfileEditorMediaToolbar,
   useDiscardConfirm,
 } from '@onsocial/ui';
@@ -522,14 +523,12 @@ export function GuildEditSheet({
 
                 <div className="guild-edit-fields">
                   <div className="guild-edit-title-row">
-                    <div
-                      className={`guild-edit-badge-picker profile-editor-media-host profile-editor-media-host--squircle${
-                        displayBadgeUrl ? ' has-media' : ''
-                      }`}
-                    >
+                    <div className="guild-edit-badge-slot">
                       <button
                         type="button"
-                        className="profile-editor-media-backdrop"
+                        className={`guild-edit-badge-picker profile-editor-media-host profile-editor-media-host--squircle${
+                          displayBadgeUrl ? ' has-media' : ''
+                        }`}
                         onClick={openBadgePicker}
                         aria-label={
                           displayBadgeUrl ? 'Change badge' : 'Add badge'
@@ -544,19 +543,16 @@ export function GuildEditSheet({
                           </span>
                         )}
                       </button>
-                      <ProfileEditorMediaToolbar
-                        removeLabel={
-                          displayBadgeUrl ? 'Remove badge' : undefined
-                        }
-                        onRemove={
-                          displayBadgeUrl
-                            ? () => {
-                                setBadgeFile(null);
-                                setBadgeRemoved(true);
-                              }
-                            : undefined
-                        }
-                      />
+                      {displayBadgeUrl ? (
+                        <OsFieldRemove
+                          aria-label="Remove badge"
+                          disabled={pending}
+                          onClick={() => {
+                            setBadgeFile(null);
+                            setBadgeRemoved(true);
+                          }}
+                        />
+                      ) : null}
                     </div>
                     <label className="sr-only" htmlFor={fieldId(formId, 'name')}>
                       Guild name
