@@ -52,12 +52,12 @@ describe('governance-dao-proposal-peeks', () => {
     expect(isOpenDaoProposalPeekStatus('Approved')).toBe(false);
   });
 
-  it('builds labels from description first line', () => {
+  it('builds kind-aware labels from the feed headline helper', () => {
     expect(
       peekLabelFromSnapshot(
         row({ daoAccountId: 'a.near', proposalId: 3, status: 'InProgress' })
       )
-    ).toBe('Fund runway');
+    ).toBe('Treasury transfer');
     expect(
       peekLabelFromSnapshot(
         row({
@@ -76,7 +76,7 @@ describe('governance-dao-proposal-peeks', () => {
           },
         })
       )
-    ).toBe('Proposal #9');
+    ).toBe('Governance proposal');
   });
 
   it('maps stored rows with catalog names', () => {
@@ -88,7 +88,7 @@ describe('governance-dao-proposal-peeks', () => {
       daoAccountId: 'dao.near',
       daoName: 'Cool DAO',
       proposalId: 7,
-      label: 'Fund runway',
+      label: 'Treasury transfer',
       status: 'InProgress',
       open: true,
     });

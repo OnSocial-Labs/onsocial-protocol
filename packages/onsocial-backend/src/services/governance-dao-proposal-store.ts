@@ -1,5 +1,15 @@
 import { query } from '../db/index.js';
 import type { GovernanceDaoPolicySnapshot } from './governance-proposal-policy-snapshot.js';
+import {
+  DAO_PROPOSAL_PEEK_DAO_LIMIT,
+  DAO_PROPOSAL_PEEK_ROW_LIMIT,
+  normalizeDaoAccountIds,
+} from './governance-dao-ids.js';
+
+export {
+  DAO_PROPOSAL_PEEK_DAO_LIMIT,
+  DAO_PROPOSAL_PEEK_ROW_LIMIT,
+} from './governance-dao-ids.js';
 
 export type PersistedDaoProposalSnapshot = {
   id: number;
@@ -237,28 +247,18 @@ export async function loadRecentDaoProposalSnapshots(
     .filter((row): row is StoredDaoProposalRow => row !== null);
 }
 
-const DAO_PEEK_ACCOUNT_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
-
-/** Cap membership fan-in for Home proposal peeks. */
-export const DAO_PROPOSAL_PEEK_DAO_LIMIT = 12;
-/** Cap rows returned for Home proposal peeks. */
-export const DAO_PROPOSAL_PEEK_ROW_LIMIT = 24;
-
 /**
  * Multi-DAO snapshot read for Home peeks — open first, then newest submission.
- * Does not sync chain state; callers may kick sync in the background.
+ * Slim columns (no policy_snapshot). Does not sync; callers may kick sync.
  */
 export async function loadDaoProposalSnapshotsForDaos(
   daoAccountIds: string[],
   limit: number = DAO_PROPOSAL_PEEK_ROW_LIMIT
 ): Promise<StoredDaoProposalRow[]> {
-  const ids = Array.from(
-    new Set(
-      daoAccountIds
-        .map((id) => id.trim().toLowerCase())
-        .filter((id) => DAO_PEEK_ACCOUNT_PATTERN.test(id))
-    )
-  ).slice(0, DAO_PROPOSAL_PEEK_DAO_LIMIT);
+  const ids = normalizeDaoAccountIds(
+    daoAccountIds,
+    DAO_PROPOSAL_PEEK_DAO_LIMIT
+  );
 
   if (ids.length === 0) {
     return [];
@@ -278,7 +278,6 @@ export async function loadDaoProposalSnapshotsForDaos(
     resolved_block_height: string | number | null;
     resolved_at: string | null;
     proposal_snapshot: PersistedDaoProposalSnapshot;
-    policy_snapshot: GovernanceDaoPolicySnapshot | null;
     synced_at: string | Date;
     updated_at: string | Date;
   }>(
@@ -290,7 +289,6 @@ export async function loadDaoProposalSnapshotsForDaos(
             resolved_block_height,
             resolved_at,
             proposal_snapshot,
-            policy_snapshot,
             synced_at,
             updated_at
        FROM governance_dao_proposal_snapshots
@@ -307,7 +305,12 @@ export async function loadDaoProposalSnapshotsForDaos(
   );
 
   return result.rows
-    .map((row) => mapStoredRow(row))
+    .map((row) =>
+      mapStoredRow({
+        ...row,
+        policy_snapshot: null,
+      })
+    )
     .filter((row): row is StoredDaoProposalRow => row !== null);
 }
 

@@ -1,13 +1,15 @@
 import { getDaoCatalogRowsByIds } from './governance-dao-catalog-store.js';
-import { kickDaoProposalsSync } from './governance-dao-proposal-sync.js';
 import {
   DAO_PROPOSAL_PEEK_DAO_LIMIT,
   DAO_PROPOSAL_PEEK_ROW_LIMIT,
+  normalizeDaoAccountIds,
+} from './governance-dao-ids.js';
+import { kickDaoProposalsSync } from './governance-dao-proposal-sync.js';
+import {
   loadDaoProposalSnapshotsForDaos,
   type StoredDaoProposalRow,
 } from './governance-dao-proposal-store.js';
-
-const DAO_ACCOUNT_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/;
+import { deriveProtocolProposalHeadline } from './governance-feed.js';
 
 export type DaoProposalPeek = {
   daoAccountId: string;
@@ -22,13 +24,7 @@ export type DaoProposalPeek = {
 export function normalizeDaoProposalPeekDaoIds(
   daoAccountIds: string[]
 ): string[] {
-  return Array.from(
-    new Set(
-      daoAccountIds
-        .map((id) => id.trim().toLowerCase())
-        .filter((id) => DAO_ACCOUNT_PATTERN.test(id))
-    )
-  ).slice(0, DAO_PROPOSAL_PEEK_DAO_LIMIT);
+  return normalizeDaoAccountIds(daoAccountIds, DAO_PROPOSAL_PEEK_DAO_LIMIT);
 }
 
 export function isOpenDaoProposalPeekStatus(status: string): boolean {
@@ -52,12 +48,12 @@ function parseSubmissionTimeToIso(value: string | undefined): string {
 }
 
 export function peekLabelFromSnapshot(row: StoredDaoProposalRow): string {
-  const fromDesc = row.proposalSnapshot.description
-    ?.trim()
-    .split('\n')[0]
-    ?.trim();
-  if (fromDesc) {
-    return fromDesc.slice(0, 120);
+  const headline = deriveProtocolProposalHeadline({
+    description: row.proposalSnapshot.description,
+    kind: row.proposalSnapshot.kind,
+  }).trim();
+  if (headline) {
+    return headline.slice(0, 120);
   }
   return `Proposal #${row.proposalId}`;
 }

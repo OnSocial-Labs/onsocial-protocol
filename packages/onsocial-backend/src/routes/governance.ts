@@ -26,7 +26,7 @@ import { getDaoProposalPeeks } from '../services/governance-dao-proposal-peeks.j
 import {
   DAO_PROPOSAL_PEEK_DAO_LIMIT,
   DAO_PROPOSAL_PEEK_ROW_LIMIT,
-} from '../services/governance-dao-proposal-store.js';
+} from '../services/governance-dao-ids.js';
 
 const router = Router();
 

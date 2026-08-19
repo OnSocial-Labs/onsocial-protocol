@@ -14,10 +14,14 @@ import {
 import { statusLabel } from '@/features/protocol/protocol-card-view';
 import type { ProtocolDaoProposalStatus } from '@/features/protocol/types';
 import type { MyDaoMembership } from '@/features/protocol/my-daos-client';
+import {
+  PROTOCOL_PROPOSAL_PEEK_DAO_LIMIT,
+  PROTOCOL_PROPOSAL_PEEK_LIMIT,
+} from '@/features/protocol/protocol-proposal-peek-limits';
 import { daoPortfolioPath } from '@/lib/app-routes';
 
-const EXPLORE_DAO_LIMIT = 12;
-const EXPLORE_PEEK_LIMIT = 24;
+const EXPLORE_DAO_LIMIT = PROTOCOL_PROPOSAL_PEEK_DAO_LIMIT;
+const EXPLORE_PEEK_LIMIT = PROTOCOL_PROPOSAL_PEEK_LIMIT;
 
 export type DaosExplorePeek = {
   key: string;
