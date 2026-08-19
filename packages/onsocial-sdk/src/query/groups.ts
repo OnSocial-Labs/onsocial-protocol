@@ -598,9 +598,7 @@ export class GroupsQuery {
     offset?: number;
   }): Promise<Paginated<PostRow>> {
     const groupIds = [
-      ...new Set(
-        opts.groupIds.map((id) => id.trim()).filter(Boolean)
-      ),
+      ...new Set(opts.groupIds.map((id) => id.trim()).filter(Boolean)),
     ];
     const limit = opts.limit ?? 20;
     const offset = opts.offset ?? 0;

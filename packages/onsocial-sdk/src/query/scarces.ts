@@ -938,11 +938,7 @@ export class ScarcesQuery {
       where.push('creatorId: {_eq: $creatorId}');
     }
     const appIds = [
-      ...new Set(
-        (opts.appIds ?? [])
-          .map((id) => id.trim())
-          .filter(Boolean)
-      ),
+      ...new Set((opts.appIds ?? []).map((id) => id.trim()).filter(Boolean)),
     ];
     if (appIds.length > 0) {
       params.push('$appIds: [String!]!');
