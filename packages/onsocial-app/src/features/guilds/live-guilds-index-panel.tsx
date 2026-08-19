@@ -31,7 +31,6 @@ function GuildMineCard({ guild }: { guild: GuildSummaryCardModel }) {
     >
       <span className="daos-mine-crest" aria-hidden>
         {guild.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={guild.avatarUrl} alt="" />
         ) : (
           <span className="daos-mine-crest-fallback">
@@ -51,11 +50,7 @@ function GuildMineCard({ guild }: { guild: GuildSummaryCardModel }) {
  * Guilds launcher — one Home: mine (horizontal) + latest posts under a divider.
  * Network catalog find: header search → Discover → Guilds.
  */
-export function LiveGuildsIndexPanel({
-  initialGuilds: _initialGuilds = null,
-}: {
-  initialGuilds?: GuildSummaryCardModel[] | null;
-} = {}) {
+export function LiveGuildsIndexPanel() {
   const { accountId, isLoading: walletLoading } = useAppWallet();
   const [myGuilds, setMyGuilds] = useState<GuildSummaryCardModel[] | null>(
     null

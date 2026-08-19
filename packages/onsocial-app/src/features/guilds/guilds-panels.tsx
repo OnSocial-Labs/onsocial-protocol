@@ -145,12 +145,8 @@ function GuildPermissionPresetList({ groupId }: { groupId: string }) {
   );
 }
 
-export function GuildsIndexPanel({
-  initialGuilds = null,
-}: {
-  initialGuilds?: import('@/features/guilds/guild-summary-card').GuildSummaryCardModel[] | null;
-} = {}) {
-  return <LiveGuildsIndexPanel initialGuilds={initialGuilds} />;
+export function GuildsIndexPanel() {
+  return <LiveGuildsIndexPanel />;
 }
 
 export function GuildDetailPanel({ groupId }: { groupId: string }) {

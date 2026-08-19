@@ -30,7 +30,6 @@ function HubMineCard({ app }: { app: AppView }) {
     >
       <span className="daos-mine-crest" aria-hidden>
         {app.mediaUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={app.mediaUrl} alt="" />
         ) : (
           <span className="daos-mine-crest-fallback">
