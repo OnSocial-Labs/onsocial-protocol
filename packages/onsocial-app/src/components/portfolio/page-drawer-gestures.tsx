@@ -13,7 +13,8 @@ import { accountIdsEqual } from '@/lib/account-match';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
-import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import { isBlockEitherWay } from '@/lib/viewer-mute-block-filter';
+import { isWalletUserCancellation, formatStandingActionError } from '@/lib/wallet-errors';
 
 interface PageDrawerGesturesProps {
   pageAccountId: string;
@@ -28,9 +29,8 @@ interface PageDrawerGesturesProps {
 }
 
 /**
- * Floating drawer dock: visitor Stand · Endorse · Support (face language).
- * DAO: Stand · Support. Hidden for self; connect whisper when disconnected;
- * fades while scrolling.
+ * Floating drawer dock — same visitor language as the portfolio face.
+ * People: Stand · Endorse · Support. DAO: Stand · Support.
  */
 export function PageDrawerGestures({
   pageAccountId,
@@ -47,7 +47,7 @@ export function PageDrawerGestures({
     connect,
   } = useAppWallet();
   const { setTxResult } = useAppTransactionFeedback();
-  const { viewerStanding, isLoading } = useViewerRelationship(pageAccountId);
+  const { viewerStanding, theyStandWithViewer, isLoading } = useViewerRelationship(pageAccountId);
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding(pageAccountId);
   const [supportOpen, setSupportOpen] = useState(false);
@@ -62,6 +62,7 @@ export function PageDrawerGestures({
   }
 
   const label = displayName(pageAccountId, profileName ?? undefined);
+  const blockEitherWay = isBlockEitherWay(pageAccountId);
 
   const dockClassName = `page-drawer-gestures${
     dockHidden ? ' is-hidden' : ''
@@ -89,9 +90,17 @@ export function PageDrawerGestures({
   }
 
   const pending = isStandingPendingForTarget(pageAccountId);
+  const shimmerSlots = isDao ? 2 : 3;
 
   async function handleStandToggle() {
     if (pending) return;
+    if (blockEitherWay) {
+      setTxResult({
+        type: 'error',
+        msg: 'Standing is unavailable while a block is in place.',
+      });
+      return;
+    }
     if (isDao) {
       rememberDaoStandingTarget(pageAccountId);
     }
@@ -103,6 +112,7 @@ export function PageDrawerGestures({
           bio: bio ?? null,
           avatarUrl: avatarUrl ?? null,
           isDao: isDao || undefined,
+          theyStandWithViewer,
         },
         !viewerStanding
       );
@@ -110,10 +120,7 @@ export function PageDrawerGestures({
       if (isWalletUserCancellation(error)) return;
       setTxResult({
         type: 'error',
-        msg:
-          error instanceof Error
-            ? error.message
-            : 'Could not update standing.',
+        msg: formatStandingActionError(error),
       });
     }
   }
@@ -126,20 +133,14 @@ export function PageDrawerGestures({
             className="portfolio-identity-gesture-row portfolio-identity-gesture-row--loading"
             aria-hidden
           >
-            <span className="portfolio-identity-gesture-shimmer" />
-            {!isDao ? (
-              <>
-                <span className="portfolio-identity-gesture-sep" />
+            {Array.from({ length: shimmerSlots }, (_, index) => (
+              <span key={index}>
+                {index > 0 ? (
+                  <span className="portfolio-identity-gesture-sep" />
+                ) : null}
                 <span className="portfolio-identity-gesture-shimmer" />
-                <span className="portfolio-identity-gesture-sep" />
-                <span className="portfolio-identity-gesture-shimmer" />
-              </>
-            ) : (
-              <>
-                <span className="portfolio-identity-gesture-sep" />
-                <span className="portfolio-identity-gesture-shimmer" />
-              </>
-            )}
+              </span>
+            ))}
           </div>
         ) : (
           <div
@@ -152,7 +153,7 @@ export function PageDrawerGestures({
               className={`portfolio-identity-gesture portfolio-identity-gesture--stand group${
                 viewerStanding ? ' is-standing' : ''
               }`}
-              disabled={pending}
+              disabled={pending || blockEitherWay}
               tabIndex={dockHidden ? -1 : undefined}
               onClick={() => void handleStandToggle()}
               aria-label={

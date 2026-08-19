@@ -206,7 +206,7 @@ jobs:
             fi
 
             ./sync-production-env.sh --network testnet --gsm-bundle deploy_gsm.env
-            rm -f deploy_gsm.env
+            # Keep deploy_gsm.env for step 2 (Hasura sync / backend roll).
 
             load_compose_env() {
               set -a
@@ -327,6 +327,10 @@ jobs:
             PREV_TAG="unknown"
             [ -f .env.image ] && PREV_TAG=$(grep IMAGE_TAG .env.image | cut -d= -f2)
             echo "Previous tag: $PREV_TAG"
+            [ -f .env.image ] && cp -f .env.image .env.image.prev || true
+            if [ "$PREV_TAG" != "unknown" ]; then
+              echo "IMAGE_TAG=$PREV_TAG" > .env.image.prev
+            fi
 
             # ── Set new image tag ────────────────────────────────────
             echo "IMAGE_TAG=${{ steps.sha.outputs.short }}" > .env.image
@@ -425,6 +429,8 @@ jobs:
 
       - name: Sync Hasura permissions and finish deploy
         run: |
+          scp -i ~/.ssh/deploy_key /tmp/deploy_gsm.env \
+            "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/deploy_gsm.env"
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
@@ -433,6 +439,15 @@ jobs:
             root@${{ env.DEPLOY_HOST }} 'bash -seu' <<'REMOTE_SCRIPT'
             set -euo pipefail
             cd /opt/onsocial
+
+            if [ ! -f .env.production ]; then
+              echo "❌ Missing /opt/onsocial/.env.production"
+              exit 1
+            fi
+
+            if [ -f deploy_gsm.env ]; then
+              ./sync-production-env.sh --network testnet --gsm-bundle deploy_gsm.env
+            fi
 
             load_compose_env() {
               set -a
@@ -450,6 +465,11 @@ jobs:
             }
 
             load_compose_env
+
+            if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+              echo "❌ TELEGRAM_BOT_TOKEN missing — re-run sync-production-env or check GSM"
+              exit 1
+            fi
 
             check_health() {
               local name="$1" url="$2" retries="${3:-20}" delay="${4:-3}"
@@ -500,11 +520,14 @@ jobs:
             }
 
             rollback() {
-              local services=("$@")
-              echo "Rolling back: ${services[*]}"
-              for svc in "${services[@]}"; do
-                dc up -d --no-deps "$svc" </dev/null || true
-              done
+              local services="$*"
+              echo "Rolling back: $services"
+              if [ -f .env.image.prev ]; then
+                cp -f .env.image.prev .env.image
+                load_compose_env
+                dc pull $services </dev/null || true
+              fi
+              dc up -d --no-deps $services </dev/null
             }
 
             # ── Sync Hasura permissions (reset → reconciles column drift) ─
@@ -558,7 +581,7 @@ jobs:
               fi
               if [ "$i" -eq 20 ]; then
                 echo "❌ notification-worker health check failed — rolling back"
-                rollback "notification-worker gateway relayer-0 relayer-1"
+                rollback notification-worker gateway relayer-0 relayer-1
                 exit 1
               fi
               echo "  ⏳ notification-worker not ready ($i/20)..."
@@ -569,7 +592,7 @@ jobs:
             dc up -d --no-deps caddy </dev/null
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
               echo "❌ Public health check failed — rolling back"
-              rollback "caddy gateway relayer-0 relayer-1"
+              rollback caddy gateway relayer-0 relayer-1
               exit 1
             fi
 
@@ -581,7 +604,7 @@ jobs:
             if ! check_container_health "backend" "backend" "http://localhost:4001/health" 24 5; then
               print_service_logs "backend"
               echo "❌ Backend health check failed — rolling back"
-              rollback "backend gateway relayer-0 relayer-1"
+              rollback backend gateway relayer-0 relayer-1
               exit 1
             fi
 
@@ -600,5 +623,6 @@ jobs:
             echo ""
             dc ps --format "table {{.Name}}\t{{.Status}}" </dev/null
             echo ""
+            rm -f deploy_gsm.env
           REMOTE_SCRIPT
             echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"

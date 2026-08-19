@@ -56,12 +56,6 @@ type PortfolioOverlay =
   | 'boost'
   | null;
 
-type OptimisticDaoProfile = {
-  daoAccountId: string;
-  branding: DaoBranding;
-  metadata: string;
-};
-
 type EligibilitySnapshot = {
   key: string;
   value: ProtocolGovernanceEligibility;
@@ -106,9 +100,6 @@ function PortfolioDaoOrgChromeInner({
     unregisterDaoStakeRequest,
     requestOpenMoodSheet,
   } = usePortfolioMoodPreview();
-  const [optimistic, setOptimistic] = useState<OptimisticDaoProfile | null>(
-    null
-  );
   const [overlay, setOverlay] = useState<PortfolioOverlay>(() =>
     hasProposalsDeepLink(searchParams) ? 'proposals' : null
   );
@@ -120,28 +111,20 @@ function PortfolioDaoOrgChromeInner({
   const [claimPending, setClaimPending] = useState(false);
   const [claimConfirmOpen, setClaimConfirmOpen] = useState(false);
 
-  const branding: DaoBranding | null =
-    optimistic?.daoAccountId === daoAccountId && optimistic
-      ? optimistic.branding
-      : initialBranding;
-  const metadata =
-    optimistic?.daoAccountId === daoAccountId
-      ? optimistic.metadata
-      : configMetadata;
-  const title = branding?.name?.trim() || daoName;
+  const title = initialBranding?.name?.trim() || daoName;
 
   useEffect(() => {
-    if (branding) {
-      seedDaoBrandingCache(daoAccountId, branding);
+    if (initialBranding) {
+      seedDaoBrandingCache(daoAccountId, initialBranding);
     }
-  }, [branding, daoAccountId]);
+  }, [initialBranding, daoAccountId]);
 
   useEffect(() => {
     rememberDaoStandingTarget(daoAccountId);
-    if (branding?.kind === 'community') {
+    if (initialBranding?.kind === 'community') {
       rememberCommunityDao(daoAccountId);
     }
-  }, [branding?.kind, daoAccountId]);
+  }, [initialBranding?.kind, daoAccountId]);
 
   useEffect(() => {
     softIndexDaoMemberships(daoAccountId);
@@ -206,13 +189,7 @@ function PortfolioDaoOrgChromeInner({
       ? formatSocialCompact(claimableYocto.toString())
       : null;
 
-  const handleSaved = useCallback((next: DaoBranding, nextMetadata: string) => {
-    setOptimistic({
-      daoAccountId: next.daoAccountId,
-      branding: next,
-      metadata: nextMetadata,
-    });
-    seedDaoBrandingCache(next.daoAccountId, next);
+  const handleProposed = useCallback(() => {
     setOverlay(null);
   }, []);
 
@@ -303,24 +280,18 @@ function PortfolioDaoOrgChromeInner({
 
   return (
     <>
-      <p className="portfolio-stats-inline" aria-label="DAO tools">
-        {tools.map((tool, index) => (
-          <span key={tool.id} className="portfolio-stats-item">
-            {index > 0 ? (
-              <span className="portfolio-stats-sep" aria-hidden>
-                ·
-              </span>
-            ) : null}
-            <button
-              type="button"
-              className="portfolio-stats-link"
-              onClick={() => setOverlay(tool.id)}
-            >
-              {tool.label}
-            </button>
-          </span>
+      <nav className="portfolio-dao-tools-inline" aria-label="DAO tools">
+        {tools.map((tool) => (
+          <button
+            key={tool.id}
+            type="button"
+            className="portfolio-dao-tools-link"
+            onClick={() => setOverlay(tool.id)}
+          >
+            {tool.label}
+          </button>
         ))}
-      </p>
+      </nav>
 
       <DaoManageSheet
         open={overlay === 'manage'}
@@ -386,18 +357,18 @@ function PortfolioDaoOrgChromeInner({
         }
       />
 
-      {branding ? (
+      {initialBranding ? (
         <DaoEditSheet
           open={overlay === 'edit'}
           daoAccountId={daoAccountId}
-          branding={branding}
-          configName={configName ?? branding.name}
-          configPurpose={configPurpose ?? branding.description ?? ''}
-          configMetadata={metadata}
+          branding={initialBranding}
+          configName={configName ?? initialBranding.name}
+          configPurpose={configPurpose ?? initialBranding.description ?? ''}
+          configMetadata={configMetadata}
           onClose={() =>
             setOverlay((current) => (current === 'edit' ? null : current))
           }
-          onSaved={handleSaved}
+          onProposed={handleProposed}
         />
       ) : null}
 
@@ -421,9 +392,9 @@ export function PortfolioDaoOrgChrome(props: PortfolioDaoOrgChromeProps) {
   return (
     <Suspense
       fallback={
-        <p className="portfolio-stats-inline" aria-hidden>
-          <span className="portfolio-stats-text">Proposals</span>
-        </p>
+        <nav className="portfolio-dao-tools-inline" aria-hidden>
+          <span className="portfolio-dao-tools-link">Proposals</span>
+        </nav>
       }
     >
       <PortfolioDaoOrgChromeInner {...props} />

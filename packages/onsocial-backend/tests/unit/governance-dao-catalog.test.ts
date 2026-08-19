@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { shouldRefreshProtocolCatalogAfterProposal } from '../../src/services/governance-dao-catalog-sync.js';
 
 function rankDaoCatalogMatch(
   query: string,
@@ -94,6 +95,56 @@ describe('dao catalog empty browse tiers', () => {
       'cool.sputnikv2.testnet',
       'zzz.sputnikv2.testnet',
     ]);
+  });
+});
+
+describe('protocol catalog refresh after ChangeConfig', () => {
+  const gov = 'governance.onsocial.testnet';
+
+  it('refreshes when ChangeConfig newly reaches Approved on protocol DAO', () => {
+    expect(
+      shouldRefreshProtocolCatalogAfterProposal({
+        daoAccountId: gov,
+        status: 'Approved',
+        previousStatus: 'InProgress',
+        kind: { ChangeConfig: { config: {} } },
+      })
+    ).toBe(true);
+  });
+
+  it('skips non-protocol DAOs, non-ChangeConfig, and repeat Approved syncs', () => {
+    expect(
+      shouldRefreshProtocolCatalogAfterProposal({
+        daoAccountId: 'demo.sputnikv2.testnet',
+        status: 'Approved',
+        previousStatus: 'InProgress',
+        kind: { ChangeConfig: { config: {} } },
+      })
+    ).toBe(false);
+    expect(
+      shouldRefreshProtocolCatalogAfterProposal({
+        daoAccountId: gov,
+        status: 'Approved',
+        previousStatus: 'InProgress',
+        kind: { Transfer: {} },
+      })
+    ).toBe(false);
+    expect(
+      shouldRefreshProtocolCatalogAfterProposal({
+        daoAccountId: gov,
+        status: 'Approved',
+        previousStatus: 'Approved',
+        kind: { ChangeConfig: { config: {} } },
+      })
+    ).toBe(false);
+    expect(
+      shouldRefreshProtocolCatalogAfterProposal({
+        daoAccountId: gov,
+        status: 'InProgress',
+        previousStatus: null,
+        kind: { ChangeConfig: { config: {} } },
+      })
+    ).toBe(false);
   });
 });
 

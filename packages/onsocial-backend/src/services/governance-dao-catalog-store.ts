@@ -2,6 +2,7 @@ import { query } from '../db/index.js';
 import { indexerQuery } from '../db/indexer.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+import { viewContractAt } from './near.js';
 
 export type DaoCatalogSource = 'factory' | 'seed' | 'manual';
 
@@ -169,8 +170,16 @@ export async function upsertDaoCatalogAccount(opts: {
          WHEN excluded.source = 'seed' THEN 'seed'
          ELSE excluded.source
        END,
-       name = COALESCE(excluded.name, governance_dao_catalog.name),
-       purpose = COALESCE(excluded.purpose, governance_dao_catalog.purpose),
+       name = CASE
+         WHEN governance_dao_catalog.source = 'seed' AND excluded.name IS NULL
+           THEN governance_dao_catalog.name
+         ELSE COALESCE(excluded.name, governance_dao_catalog.name)
+       END,
+       purpose = CASE
+         WHEN governance_dao_catalog.source = 'seed' AND excluded.purpose IS NULL
+           THEN governance_dao_catalog.purpose
+         ELSE COALESCE(excluded.purpose, governance_dao_catalog.purpose)
+       END,
        metadata = COALESCE(excluded.metadata, governance_dao_catalog.metadata),
        factory_index = COALESCE(
          excluded.factory_index,
@@ -215,24 +224,63 @@ export async function upsertDaoCatalogAccountsBatch(
 export async function ensureSeedDaoCatalogRows(): Promise<void> {
   const network = config.nearNetwork === 'mainnet' ? 'mainnet' : 'testnet';
   const factoryAccountId = config.sputnikDaoFactory;
+  for (const daoAccountId of [config.governanceDao, config.treasuryDao]) {
+    await upsertDaoCatalogAccount({
+      daoAccountId,
+      factoryAccountId,
+      network,
+      source: 'seed',
+    });
+  }
+}
+
+type DaoConfigView = {
+  name?: string;
+  purpose?: string;
+  metadata?: string;
+};
+
+/** Upsert one catalog row from live Sputnik get_config. */
+export async function syncDaoCatalogConfigFromChain(
+  daoAccountIdInput: string,
+  source: DaoCatalogSource
+): Promise<{ name: string | null; purpose: string | null } | null> {
+  const daoAccountId = daoAccountIdInput.trim().toLowerCase();
+  if (!daoAccountId) return null;
+
+  const cfg = await viewContractAt<DaoConfigView>(
+    daoAccountId,
+    'get_config',
+    {}
+  ).catch((err) => {
+    logger.warn({ err, daoAccountId }, 'DAO catalog chain config sync failed');
+    return null;
+  });
+  if (!cfg) return null;
+
+  const network = config.nearNetwork === 'mainnet' ? 'mainnet' : 'testnet';
+  const name = cfg.name?.trim() || null;
+  const purpose = cfg.purpose?.trim() || null;
+
   await upsertDaoCatalogAccount({
-    daoAccountId: config.governanceDao,
-    factoryAccountId,
+    daoAccountId,
+    factoryAccountId: config.sputnikDaoFactory,
     network,
-    source: 'seed',
-    name: 'OnSocial Governance',
-    purpose: 'Protocol policy and upgrades',
+    source,
+    name,
+    purpose,
+    metadata: cfg.metadata ?? null,
     configSynced: true,
   });
-  await upsertDaoCatalogAccount({
-    daoAccountId: config.treasuryDao,
-    factoryAccountId,
-    network,
-    source: 'seed',
-    name: 'OnSocial Treasury',
-    purpose: 'Protocol treasury decisions',
-    configSynced: true,
-  });
+
+  return { name, purpose };
+}
+
+/** Refresh protocol governance / treasury from chain (startup + enrich cycle). */
+export async function refreshProtocolDaoCatalogFromChain(): Promise<void> {
+  for (const daoAccountId of [config.governanceDao, config.treasuryDao]) {
+    await syncDaoCatalogConfigFromChain(daoAccountId, 'seed');
+  }
 }
 
 export async function searchDaoCatalog(opts: {

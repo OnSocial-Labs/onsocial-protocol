@@ -331,6 +331,8 @@ export const txToastGovPending = {
 export const txToastGovSuccess = {
   actionConfirmed: (actionLabel: string) => `${actionLabel} confirmed.`,
   daoCreated: 'DAO created.',
+  daoChangeConfigProposed:
+    'Change proposal submitted. Profile updates after approval.',
   daoProfileProposed: 'OnSocial profile proposal submitted.',
 } as const;
 

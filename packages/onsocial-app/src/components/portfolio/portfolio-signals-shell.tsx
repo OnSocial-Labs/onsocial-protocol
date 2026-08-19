@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { PortfolioSignals } from '@/components/portfolio/portfolio-signals';
 import { ReputationFactsSheet } from '@/features/leaderboard/reputation-facts-sheet';
-import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
+import { useLiveProfileSignals } from '@/hooks/use-live-profile-signals';
 import {
   profileSignalsHaveFaceMetrics,
   type ProfileSignals,
@@ -18,11 +18,11 @@ export function PortfolioSignalsShell({
   accountId,
   signals,
 }: PortfolioSignalsShellProps) {
-  const { viewerStanding, theyStandWithViewer, isLoading } =
-    useViewerRelationship(accountId);
+  const { signals: liveSignals, viewerStanding, theyStandWithViewer, relationshipLoading } =
+    useLiveProfileSignals(accountId, signals);
   const [reputationOpen, setReputationOpen] = useState(false);
 
-  if (!profileSignalsHaveFaceMetrics(signals)) {
+  if (!profileSignalsHaveFaceMetrics(liveSignals)) {
     return null;
   }
 
@@ -30,10 +30,10 @@ export function PortfolioSignalsShell({
     <>
       <PortfolioSignals
         accountId={accountId}
-        signals={signals}
+        signals={liveSignals}
         viewerStanding={viewerStanding}
         theyStandWithViewer={theyStandWithViewer}
-        relationshipLoading={isLoading}
+        relationshipLoading={relationshipLoading}
         onReputationOpen={() => setReputationOpen(true)}
       />
       <ReputationFactsSheet

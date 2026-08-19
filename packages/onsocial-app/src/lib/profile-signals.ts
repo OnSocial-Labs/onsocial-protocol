@@ -112,19 +112,31 @@ export const fetchProfileSignals = cache(
   async (accountId: string): Promise<ProfileSignals | null> => {
     try {
       const os = createServerOnSocialClient();
-      const [row, reputation] = await Promise.all([
+      const [row, reputation, standingCounts] = await Promise.all([
         os.query.profiles.lookup(accountId),
         fetchReputationRow(os, accountId),
+        os.query.standings.counts(accountId),
       ]);
 
-      if (!row && !reputation) {
+      const hasStandingActivity =
+        standingCounts.incoming > 0 || standingCounts.outgoing > 0;
+
+      if (!row && !reputation && !hasStandingActivity) {
         return null;
       }
 
+      const mutualStandingCount = row
+        ? toNumber(row.mutualStandingCount)
+        : await os.query.standings.mutualCount(accountId);
+
       return {
-        standingCount: toNumber(row?.standingCount),
-        standingWithCount: toNumber(row?.standingWithCount),
-        mutualStandingCount: toNumber(row?.mutualStandingCount),
+        standingCount: row
+          ? toNumber(row.standingCount)
+          : standingCounts.incoming,
+        standingWithCount: row
+          ? toNumber(row.standingWithCount)
+          : standingCounts.outgoing,
+        mutualStandingCount,
         endorsementsReceivedCount: toNumber(row?.endorsementsReceivedCount),
         endorsementsGivenCount: toNumber(row?.endorsementsGivenCount),
         postCount: reputation?.totalPosts ?? 0,

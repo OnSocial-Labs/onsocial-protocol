@@ -17,6 +17,7 @@ import {
 } from './governance-dao-proposal-store.js';
 import { publishDaoProposalUpdated } from './governance-proposal-events.js';
 import { scheduleDaoMembershipSyncAfterProposal } from './governance-dao-membership-sync.js';
+import { scheduleProtocolDaoCatalogSyncAfterProposal } from './governance-dao-catalog-sync.js';
 import { emitDaoProposalNotifications } from './governance-dao-notification-emit.js';
 
 const SYNC_BATCH_SIZE = 50;
@@ -259,6 +260,11 @@ async function enrichAndPersistProposal(
   });
 
   scheduleDaoMembershipSyncAfterProposal(daoAccountId, persisted);
+  scheduleProtocolDaoCatalogSyncAfterProposal(
+    daoAccountId,
+    persisted,
+    previous
+  );
 
   if (opts.emitNotifications) {
     await emitDaoProposalNotifications({

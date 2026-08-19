@@ -166,7 +166,8 @@ export function useViewerStanding(listAccountId: string) {
           ledgerRef.current,
           targetAccount.accountId,
           shouldStand,
-          shouldStand ? snapshot : undefined
+          shouldStand ? snapshot : undefined,
+          Boolean(targetAccount.theyStandWithViewer)
         );
         bumpStandingSync();
       } catch (error) {

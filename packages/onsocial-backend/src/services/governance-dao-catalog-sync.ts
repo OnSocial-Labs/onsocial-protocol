@@ -6,7 +6,9 @@ import {
   ensureSeedDaoCatalogRows,
   listDaoCatalogMissingConfig,
   loadFactorySyncState,
+  refreshProtocolDaoCatalogFromChain,
   saveFactorySyncState,
+  syncDaoCatalogConfigFromChain,
   syncDaoCatalogProfileFlags,
   upsertDaoCatalogAccount,
   upsertDaoCatalogAccountsBatch,
@@ -17,6 +19,68 @@ const FACTORY_PAGE_PAUSE_MS = 150;
 const ENRICH_BATCH_SIZE = 15;
 const ENRICH_PAUSE_MS = 120;
 const INCREMENTAL_INTERVAL_MS = 10 * 60_000;
+
+function normalizeDaoAccountId(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isProtocolDaoAccountId(daoAccountId: string): boolean {
+  const id = normalizeDaoAccountId(daoAccountId);
+  return (
+    id === config.governanceDao.trim().toLowerCase() ||
+    id === config.treasuryDao.trim().toLowerCase()
+  );
+}
+
+function isChangeConfigKind(
+  kind: Record<string, unknown> | null | undefined
+): boolean {
+  return Boolean(kind && typeof kind === 'object' && 'ChangeConfig' in kind);
+}
+
+/** Whether an approved ChangeConfig should trigger immediate catalog refresh. */
+export function shouldRefreshProtocolCatalogAfterProposal(opts: {
+  daoAccountId: string;
+  status: string | null | undefined;
+  previousStatus: string | null | undefined;
+  kind: Record<string, unknown> | null | undefined;
+}): boolean {
+  if (!isProtocolDaoAccountId(opts.daoAccountId)) return false;
+  if (opts.status?.trim() !== 'Approved') return false;
+  if (opts.previousStatus?.trim() === 'Approved') return false;
+  return isChangeConfigKind(opts.kind);
+}
+
+/** Refresh protocol DAO catalog when ChangeConfig executes (purpose / metadata). */
+export function scheduleProtocolDaoCatalogSyncAfterProposal(
+  daoAccountId: string,
+  proposal: {
+    status?: string | null;
+    kind?: Record<string, unknown> | null;
+  },
+  previous: { status?: string | null } | null
+): void {
+  if (
+    !shouldRefreshProtocolCatalogAfterProposal({
+      daoAccountId,
+      status: proposal.status,
+      previousStatus: previous?.status,
+      kind: proposal.kind,
+    })
+  ) {
+    return;
+  }
+
+  void syncDaoCatalogConfigFromChain(
+    normalizeDaoAccountId(daoAccountId),
+    'seed'
+  ).catch((error) => {
+    logger.warn(
+      { err: error, daoAccountId },
+      'Protocol DAO catalog refresh after ChangeConfig failed'
+    );
+  });
+}
 
 let catalogSyncInFlight: Promise<void> | null = null;
 let enrichInFlight: Promise<void> | null = null;
@@ -59,26 +123,15 @@ async function readFactoryDaoPage(
     .filter(Boolean);
 }
 
-type DaoConfigView = {
-  name?: string;
-  purpose?: string;
-  metadata?: string;
-};
-
 async function enrichDaoConfig(daoAccountId: string): Promise<void> {
-  const cfg = await viewContractAt<DaoConfigView>(
-    daoAccountId,
-    'get_config',
-    {}
-  ).catch(() => null);
+  const synced = await syncDaoCatalogConfigFromChain(daoAccountId, 'factory');
+  if (synced) return;
+
   await upsertDaoCatalogAccount({
     daoAccountId,
     factoryAccountId: config.sputnikDaoFactory,
     network: networkLabel(),
     source: 'factory',
-    name: cfg?.name?.trim() || null,
-    purpose: cfg?.purpose?.trim() || null,
-    metadata: cfg?.metadata ?? null,
     configSynced: true,
   });
 }
@@ -196,26 +249,14 @@ export async function resolveDaoCatalogAccount(
     return null;
   }
 
-  const cfg = await viewContractAt<DaoConfigView>(
-    daoAccountId,
-    'get_config',
-    {}
-  ).catch(() => null);
-  if (!cfg) return null;
+  const synced = await syncDaoCatalogConfigFromChain(daoAccountId, 'manual');
+  if (!synced) return null;
 
-  const name = cfg.name?.trim() || null;
-  const purpose = cfg.purpose?.trim() || null;
-  await upsertDaoCatalogAccount({
+  return {
     daoAccountId,
-    factoryAccountId: config.sputnikDaoFactory,
-    network: networkLabel(),
-    source: 'manual',
-    name,
-    purpose,
-    metadata: cfg.metadata ?? null,
-    configSynced: true,
-  });
-  return { daoAccountId, name, purpose };
+    name: synced.name,
+    purpose: synced.purpose,
+  };
 }
 
 export async function runDaoCatalogSyncCycle(
@@ -256,18 +297,19 @@ export async function runDaoCatalogSyncCycle(
   await catalogSyncInFlight;
 
   if (!enrichInFlight) {
-    enrichInFlight = enrichDaoCatalogConfigs()
-      .then((enriched) => {
+    enrichInFlight = (async () => {
+      try {
+        await refreshProtocolDaoCatalogFromChain();
+        const enriched = await enrichDaoCatalogConfigs();
         if (enriched > 0) {
           logger.info({ enriched }, 'Enriched DAO catalog configs');
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         logger.warn({ err: error }, 'DAO catalog enrich cycle failed');
-      })
-      .finally(() => {
+      } finally {
         enrichInFlight = null;
-      });
+      }
+    })();
   }
 
   if (!profileFlagsInFlight) {
@@ -290,9 +332,6 @@ export async function runDaoCatalogSyncCycle(
 }
 
 export function startDaoCatalogSyncInBackground(): void {
-  void ensureSeedDaoCatalogRows().catch((error) => {
-    logger.warn({ err: error }, 'Failed to seed DAO catalog rows');
-  });
   void runDaoCatalogSyncCycle({ full: false });
 
   if (incrementalTimer) return;

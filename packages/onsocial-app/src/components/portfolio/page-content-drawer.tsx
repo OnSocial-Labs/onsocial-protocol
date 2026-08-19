@@ -70,7 +70,7 @@ const JUMP_LOCK_MS = 700;
 
 interface PageContentDrawerProps {
   pageAccountId: string;
-  /** DAO org face — drawer dock is Stand only. */
+  /** DAO org face — drawer dock is Stand · Support (no Endorse). */
   isDao?: boolean;
   mood: ResolvedMood;
   profileName?: string | null;

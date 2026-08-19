@@ -100,11 +100,10 @@ export default async function AccountPage({
     ),
   ]);
   const { entity: daoEntity, page: daoPage } = daoContext;
-  const portfolioBio =
-    shell?.bio?.trim() ||
-    daoPage?.branding.description?.trim() ||
-    daoPage?.configPurpose?.trim() ||
-    null;
+  const portfolioBio = resolveDaoPortfolioSummary({
+    shellBio: shell?.bio,
+    daoPage,
+  });
   const name = displayName(
     accountId,
     shell?.name ?? daoPage?.branding.name ?? undefined

@@ -5,10 +5,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { fetchViewerStandingRelationship } from '@/lib/profile-social-standings';
 import { resolveViewerStanding } from '@/lib/viewer-standing-ledger';
-import {
-  getGlobalViewerStandingLedger,
-  subscribeGlobalViewerStandingLedger,
-} from '@/lib/viewer-standing-global';
+import { getGlobalViewerStandingLedger } from '@/lib/viewer-standing-global';
 
 type ApiRelationshipState = {
   pageAccountId: string;
@@ -21,18 +18,11 @@ export function useViewerRelationship(pageAccountId: string) {
   const { accountId: viewerAccountId, isConnected } = useAppWallet();
   const [apiRelationship, setApiRelationship] =
     useState<ApiRelationshipState | null>(null);
-  const [ledgerVersion, setLedgerVersion] = useState(0);
   const targetAccountId = pageAccountId.trim();
   const isSelf =
     Boolean(viewerAccountId) &&
     Boolean(targetAccountId) &&
     accountIdsEqual(viewerAccountId!, targetAccountId);
-
-  useEffect(() => {
-    return subscribeGlobalViewerStandingLedger(() => {
-      setLedgerVersion((version) => version + 1);
-    });
-  }, []);
 
   useEffect(() => {
     if (!isConnected || !viewerAccountId || isSelf || !targetAccountId) {
@@ -70,11 +60,12 @@ export function useViewerRelationship(pageAccountId: string) {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, isSelf, targetAccountId, viewerAccountId, ledgerVersion]);
+  }, [isConnected, isSelf, targetAccountId, viewerAccountId]);
 
   if (!isConnected || !viewerAccountId || isSelf || !targetAccountId) {
     return {
       viewerStanding: false,
+      apiViewerStanding: false,
       theyStandWithViewer: false,
       isLoading: false,
     };
@@ -94,6 +85,7 @@ export function useViewerRelationship(pageAccountId: string) {
       targetAccountId,
       apiStanding
     ),
+    apiViewerStanding: apiStanding,
     theyStandWithViewer: matchedRelationship?.theyStandWithViewer ?? false,
     isLoading: matchedRelationship == null,
   };

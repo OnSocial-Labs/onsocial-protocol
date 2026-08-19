@@ -21,6 +21,10 @@ import {
 } from './services/governance-dao-proposal-sync.js';
 import { startDaoMembershipSyncInBackground } from './services/governance-dao-membership-sync.js';
 import {
+  ensureSeedDaoCatalogRows,
+  refreshProtocolDaoCatalogFromChain,
+} from './services/governance-dao-catalog-store.js';
+import {
   startDaoCatalogSyncInBackground,
   stopDaoCatalogSyncInBackground,
 } from './services/governance-dao-catalog-sync.js';
@@ -159,6 +163,12 @@ const server = app.listen(config.port, async () => {
   startOpenDaoProposalRefreshInBackground(config.treasuryDao);
   startDaoMembershipSyncInBackground(config.governanceDao);
   startDaoMembershipSyncInBackground(config.treasuryDao);
+  try {
+    await ensureSeedDaoCatalogRows();
+    await refreshProtocolDaoCatalogFromChain();
+  } catch (err) {
+    logger.warn({ err }, 'Failed to seed/sync protocol DAO catalog rows');
+  }
   startDaoCatalogSyncInBackground();
 
   startSeasonAutoFinalizeInBackground();

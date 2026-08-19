@@ -12,6 +12,14 @@ export type StandingListSnapshot = Pick<
 export type ViewerStandingLedgerEntry = {
   standing: boolean;
   snapshot?: StandingListSnapshot;
+  /** Captured at toggle — drives solidarity count until indexer catches up. */
+  theyStandWithViewer?: boolean;
+};
+
+export type PortfolioStandingCounts = {
+  incoming: number;
+  outgoing: number;
+  mutual: number;
 };
 
 /** Confirmed standing overrides until read APIs catch up. */
@@ -21,19 +29,99 @@ export function recordViewerStanding(
   ledger: ViewerStandingLedger,
   targetAccountId: string,
   standing: boolean,
-  snapshot?: StandingListSnapshot
+  snapshot?: StandingListSnapshot,
+  theyStandWithViewer?: boolean
 ): void {
-  if (standing) {
-    ledger.set(targetAccountId, {
-      standing: true,
-      snapshot: snapshot ?? ledger.get(targetAccountId)?.snapshot,
-    });
-    return;
-  }
+  const previous = ledger.get(targetAccountId);
   ledger.set(targetAccountId, {
-    standing: false,
-    snapshot: ledger.get(targetAccountId)?.snapshot,
+    standing,
+    snapshot: snapshot ?? previous?.snapshot,
+    theyStandWithViewer:
+      theyStandWithViewer ?? previous?.theyStandWithViewer ?? false,
   });
+}
+
+function findLedgerEntry(
+  ledger: ViewerStandingLedger,
+  accountId: string
+): ViewerStandingLedgerEntry | undefined {
+  const normalized = accountId.trim().toLowerCase();
+  for (const [key, entry] of ledger) {
+    if (key.trim().toLowerCase() === normalized) {
+      return entry;
+    }
+  }
+  return undefined;
+}
+
+function clampStandingCount(value: number): number {
+  return Math.max(0, value);
+}
+
+/** Live portfolio / standing-toolbar counts until read APIs reconcile the ledger. */
+export function derivePortfolioStandingCounts({
+  pageAccountId,
+  viewerAccountId,
+  counts,
+  apiViewerStanding,
+  theyStandWithViewer,
+  ledger,
+  relationshipKnown = true,
+}: {
+  pageAccountId: string;
+  viewerAccountId: string | null;
+  counts: PortfolioStandingCounts;
+  apiViewerStanding: boolean;
+  theyStandWithViewer: boolean;
+  ledger: ViewerStandingLedger;
+  relationshipKnown?: boolean;
+}): PortfolioStandingCounts {
+  if (!viewerAccountId) {
+    return counts;
+  }
+
+  const pageId = pageAccountId.trim().toLowerCase();
+  const viewerId = viewerAccountId.trim().toLowerCase();
+  if (!pageId || !viewerId) {
+    return counts;
+  }
+
+  let { incoming, outgoing, mutual } = counts;
+
+  if (pageId === viewerId) {
+    for (const [, entry] of ledger) {
+      outgoing += entry.standing ? 1 : -1;
+      if (entry.theyStandWithViewer) {
+        mutual += entry.standing ? 1 : -1;
+      }
+    }
+    return {
+      incoming: clampStandingCount(incoming),
+      outgoing: clampStandingCount(outgoing),
+      mutual: clampStandingCount(mutual),
+    };
+  }
+
+  if (!relationshipKnown) {
+    return counts;
+  }
+
+  const entry = findLedgerEntry(ledger, pageAccountId);
+  const effectiveStanding = entry ? entry.standing : apiViewerStanding;
+  if (effectiveStanding === apiViewerStanding) {
+    return counts;
+  }
+
+  incoming += effectiveStanding ? 1 : -1;
+  if (theyStandWithViewer) {
+    mutual += effectiveStanding ? 1 : -1;
+  }
+
+  return {
+    incoming: clampStandingCount(incoming),
+    outgoing: clampStandingCount(outgoing),
+    mutual: clampStandingCount(mutual),
+  };
 }
 
 export function resolveViewerStanding(

@@ -466,7 +466,8 @@ export class StandingsQuery {
   }
 
   /**
-   * Mutual standing count from indexed `profile_search` (scales to large graphs).
+   * Mutual standing count — prefers `profile_search`, falls back to
+   * `mutual_standings_current` aggregate for org faces without profile rows.
    */
   async mutualCount(accountId: string): Promise<number> {
     const res = await this._q.graphql<{
@@ -480,7 +481,25 @@ export class StandingsQuery {
       variables: { id: accountId },
     });
     const row = res.data?.profileSearch?.[0];
-    return row ? Number(row.mutualStandingCount) || 0 : 0;
+    if (row) {
+      return Number(row.mutualStandingCount) || 0;
+    }
+
+    const aggregate = await this._q.graphql<{
+      mutualStandingsCurrentAggregate: { aggregate?: { count?: number } };
+    }>({
+      query: `query MutualStandingCountAggregate($id: String!) {
+        mutualStandingsCurrentAggregate(where: {accountId: {_eq: $id}}) {
+          aggregate {
+            count
+          }
+        }
+      }`,
+      variables: { id: accountId },
+    });
+    return Number(
+      aggregate.data?.mutualStandingsCurrentAggregate?.aggregate?.count ?? 0
+    );
   }
 
   /**

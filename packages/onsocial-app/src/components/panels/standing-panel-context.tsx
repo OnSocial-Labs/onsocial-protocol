@@ -14,8 +14,11 @@ import {
   type SetStateAction,
 } from 'react';
 import { useAppWallet } from '@/contexts/app-wallet-context';
-import { usePortfolioProfileSeed } from '@/contexts/portfolio-profile-seed-context';
+import {
+  usePortfolioProfileSeed,
+} from '@/contexts/portfolio-profile-seed-context';
 import { useInfiniteScrollSentinel } from '@/hooks/use-infinite-scroll-sentinel';
+import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
 import {
   normalizeProfileSearchQuery,
@@ -47,6 +50,11 @@ import {
 } from '@/lib/profile-social-standings';
 import type { StandingInitialList } from '@/lib/load-standing-list-page';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  derivePortfolioStandingCounts,
+  type PortfolioStandingCounts,
+} from '@/lib/viewer-standing-ledger';
+import { getGlobalViewerStandingLedger } from '@/lib/viewer-standing-global';
 
 export type StandingShellVariant = 'overlay' | 'page';
 
@@ -77,7 +85,7 @@ interface StandingPanelContextValue {
   shellVariant: StandingShellVariant;
   showDiscoverLink: boolean;
   kind: StanceDetailKind;
-  counts: { incoming: number; outgoing: number; mutual: number };
+  counts: PortfolioStandingCounts;
   isSelf: boolean;
   entityFilter: StandingEntityFilter;
   setEntityFilter: Dispatch<SetStateAction<StandingEntityFilter>>;
@@ -177,6 +185,11 @@ export function StandingPanelProvider({
   children,
 }: StandingPanelProviderProps) {
   const portfolioSeed = usePortfolioProfileSeed(accountId);
+  const {
+    apiViewerStanding,
+    theyStandWithViewer,
+    isLoading: relationshipLoading,
+  } = useViewerRelationship(accountId);
   const { accountId: viewerAccountId, isLoading: walletLoading } = useAppWallet();
   const {
     isConnected,
@@ -347,6 +360,29 @@ export function StandingPanelProvider({
   );
 
   const isSelf = Boolean(viewerAccountId && viewerAccountId === accountId);
+  const liveCounts = useMemo(
+    () =>
+      derivePortfolioStandingCounts({
+        pageAccountId: accountId,
+        viewerAccountId: viewerAccountId ?? null,
+        counts,
+        apiViewerStanding,
+        theyStandWithViewer,
+        ledger: getGlobalViewerStandingLedger(),
+        relationshipKnown: isSelf || !relationshipLoading,
+      }),
+    [
+      accountId,
+      apiViewerStanding,
+      counts,
+      isSelf,
+      relationshipLoading,
+      standingSyncVersion,
+      theyStandWithViewer,
+      viewerAccountId,
+    ]
+  );
+
   const showDiscoverLink = isSelf && activeKind === 'outgoing';
 
   const { accounts: displayAccounts, totalAdjustment: listTotalAdjustment } =
@@ -856,7 +892,7 @@ export function StandingPanelProvider({
       shellVariant,
       showDiscoverLink,
       kind: activeKind,
-      counts,
+      counts: liveCounts,
       isSelf,
       entityFilter,
       setEntityFilter,
@@ -888,7 +924,7 @@ export function StandingPanelProvider({
     [
       accountId,
       actionError,
-      counts,
+      liveCounts,
       countsLoading,
       clearSearch,
       emptyState,

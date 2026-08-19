@@ -20,3 +20,11 @@ export function isWalletUserCancellation(error: unknown): boolean {
     message.includes('wallet closed')
   );
 }
+
+export function formatStandingActionError(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : '';
+  if (!message || message === 'Failed to fetch') {
+    return 'Network error — try again in a moment.';
+  }
+  return message;
+}

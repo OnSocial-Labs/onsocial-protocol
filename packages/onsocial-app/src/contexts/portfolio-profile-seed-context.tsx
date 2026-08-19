@@ -173,3 +173,36 @@ export function usePortfolioProfileSeedPatch() {
     [context]
   );
 }
+
+export function usePortfolioProfileSeedCountsPatch() {
+  const context = useContext(PortfolioProfileSeedContext);
+
+  return useCallback(
+    (
+      accountId: string,
+      counts: PortfolioProfileSeedData['counts']
+    ) => {
+      if (!context) {
+        return;
+      }
+
+      const existing =
+        context.readSeed(accountId) ??
+        (context.seed?.accountId === accountId ? context.seed : null);
+      if (!existing) {
+        return;
+      }
+
+      if (
+        existing.counts.incoming === counts.incoming &&
+        existing.counts.outgoing === counts.outgoing &&
+        existing.counts.mutual === counts.mutual
+      ) {
+        return;
+      }
+
+      context.commitSeed({ ...existing, counts });
+    },
+    [context]
+  );
+}

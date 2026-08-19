@@ -32,7 +32,6 @@ import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-c
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import {
   buildDaoBrandingMetadata,
-  composeDaoBranding,
   type DaoBranding,
 } from '@/features/protocol/dao-branding';
 import { buildDaoSocialProfileProposalPayload } from '@/features/protocol/dao-social-profile';
@@ -49,7 +48,6 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import { resolveProfileMediaUrl } from '@/lib/profile-display';
 import {
   txToastGovError,
   txToastGovPending,
@@ -73,7 +71,8 @@ interface DaoEditSheetProps {
   configPurpose: string;
   configMetadata: string;
   onClose: () => void;
-  onSaved: (next: DaoBranding, nextMetadata: string) => void;
+  /** After ChangeConfig proposal tx confirms — face stays as-is until approval. */
+  onProposed?: () => void;
 }
 
 export function DaoEditSheet({
@@ -84,7 +83,7 @@ export function DaoEditSheet({
   configPurpose,
   configMetadata,
   onClose,
-  onSaved,
+  onProposed,
 }: DaoEditSheetProps) {
   const formId = useId();
   const { getSigningWallet } = useAppWallet();
@@ -345,9 +344,9 @@ export function DaoEditSheet({
       });
       const confirmed = await trackTransaction({
         txHashes: response.txHashes,
-        submittedMessage: txToastGovPending.actionSubmitted('DAO profile'),
-        successMessage: txToastGovSuccess.actionConfirmed('DAO profile'),
-        failureMessage: txToastGovError.actionFailed('DAO profile'),
+        submittedMessage: txToastGovPending.actionSubmitted('Change proposal'),
+        successMessage: txToastGovSuccess.daoChangeConfigProposed,
+        failureMessage: txToastGovError.actionFailed('Change proposal'),
       });
       if (!confirmed) return;
 
@@ -383,37 +382,8 @@ export function DaoEditSheet({
         }
       }
 
-      const next = composeDaoBranding({
-        daoAccountId,
-        profile: null,
-        config: {
-          name: onChainName,
-          purpose: onChainPurpose,
-          metadata,
-        },
-      });
-      // Prefer just-uploaded media URLs for optimistic portfolio paint.
-      const resolvedAvatar = resolveProfileMediaUrl(avatar);
-      const resolvedBanner = resolveProfileMediaUrl(banner);
       setProposeConfirmOpen(false);
-      onSaved(
-        {
-          ...next,
-          name: name.trim(),
-          description: description.trim() || null,
-          avatar,
-          banner,
-          links:
-            Object.keys(normalizedLinks).length > 0 ? normalizedLinks : null,
-          avatarUrl: resolvedAvatar ?? next.avatarUrl,
-          bannerUrl: resolvedBanner ?? next.bannerUrl,
-          bannerMedia: resolvedBanner
-            ? { kind: 'image', url: resolvedBanner }
-            : next.bannerMedia,
-          source: 'metadata',
-        },
-        metadata
-      );
+      onProposed?.();
     } catch (cause) {
       if (isWalletUserCancellation(cause)) return;
       setTxResult({
