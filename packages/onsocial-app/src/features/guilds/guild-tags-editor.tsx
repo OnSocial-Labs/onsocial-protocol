@@ -2,7 +2,11 @@
 
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
-import { GUILD_MAX_TOPICS } from '@/features/guilds/guild-config';
+import { TopicSuggestionSlider } from '@/components/topic-suggestion-slider';
+import {
+  GUILD_MAX_TOPICS,
+  GUILD_TOPIC_SUGGESTIONS,
+} from '@/features/guilds/guild-config';
 import {
   GUILD_EDITOR_MAX_TAG_LENGTH,
   parseGuildEditorTagDraft,
@@ -10,6 +14,7 @@ import {
   tryAddGuildEditorTag,
   type GuildEditorTagCommitHint,
 } from '@/features/guilds/guild-tag-editor';
+import { formatTopicDraftInput, topicLabel } from '@/lib/topic-slug';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 
 interface GuildTagsEditorProps {
@@ -80,8 +85,29 @@ export function GuildTagsEditor({
     }
   };
 
+  const toggleSuggestion = (idSlug: string) => {
+    if (disabled) return;
+    if (tags.includes(idSlug)) {
+      onChange(removeGuildEditorTag(tags, idSlug));
+      setHint(null);
+      return;
+    }
+    const result = tryAddGuildEditorTag(tags, idSlug);
+    onChange(result.tags);
+    setHint(result.hint);
+  };
+
   return (
     <div className="guild-tags-editor">
+      <TopicSuggestionSlider
+        ariaLabel="Suggested topics"
+        suggestions={GUILD_TOPIC_SUGGESTIONS}
+        selected={tags}
+        atMax={atMax}
+        disabled={disabled}
+        onToggle={toggleSuggestion}
+      />
+
       <ul
         id={id}
         className={`portfolio-tags account-editor-tags guild-tags-editor-list${
@@ -102,7 +128,7 @@ export function GuildTagsEditor({
               index === 0 ? ' guild-tags-editor-tag--primary' : ''
             }`}
           >
-            {tag}
+            {topicLabel(tag, GUILD_TOPIC_SUGGESTIONS) ?? tag}
             {index === 0 ? (
               <span className="guild-tags-editor-primary-label">Primary</span>
             ) : null}
@@ -132,7 +158,7 @@ export function GuildTagsEditor({
               className="account-editor-tags-input"
               value={draft}
               disabled={disabled}
-              placeholder="Add topic…"
+              placeholder="Or type your own…"
               aria-label="Add guild topic"
               maxLength={GUILD_EDITOR_MAX_TAG_LENGTH}
               onFocus={scrollFieldIntoView}
@@ -143,7 +169,7 @@ export function GuildTagsEditor({
                   commitDraft(value);
                   return;
                 }
-                setDraft(value);
+                setDraft(formatTopicDraftInput(value));
               }}
               onKeyDown={handleKeyDown}
               onBlur={() => {
@@ -161,7 +187,8 @@ export function GuildTagsEditor({
           </span>
         ) : (
           <span>
-            {tags.length}/{GUILD_MAX_TOPICS}
+            {tags.length}/{GUILD_MAX_TOPICS} · up to {GUILD_EDITOR_MAX_TAG_LENGTH}{' '}
+            characters
           </span>
         )}
       </small>

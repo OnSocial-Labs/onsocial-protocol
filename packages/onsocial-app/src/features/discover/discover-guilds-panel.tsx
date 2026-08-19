@@ -8,10 +8,7 @@ import { DiscoverCommunityHandoff } from '@/features/discover/discover-community
 import { useDiscoverPanel } from '@/features/discover/discover-panel-context';
 import { discoverPeopleSearchQuery } from '@/features/discover/discover-omni-search';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
-import {
-  GUILD_TOPIC_FILTERS,
-  type GuildTopicFilter,
-} from '@/features/guilds/guild-config';
+import { GUILD_TOPIC_SUGGESTIONS } from '@/features/guilds/guild-config';
 import {
   enrichIndexedGuildSummaryCards,
   guildSummaryCardFromBrowse,
@@ -23,9 +20,16 @@ import {
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { APP_GROUPS_PATH } from '@/lib/app-routes';
-import { normalizeTopicSlug } from '@/lib/topic-slug';
+import {
+  countPrimaryTopics,
+  discoverTopicFiltersFromCounts,
+  topicLabel,
+  type DiscoverTopicFilter,
+} from '@/lib/topic-slug';
 
 const BROWSE_LIMIT = 24;
+/** Same window as the guild list — enough for early chip census. */
+const GUILD_TOPIC_CENSUS_LIMIT = 24;
 
 function guildCardMatchesQuery(
   card: GuildSummaryCardModel,
@@ -38,14 +42,13 @@ function guildCardMatchesQuery(
   return (card.topics ?? []).some((tag) => tag.toLowerCase().includes(needle));
 }
 
-function guildCardMatchesTopic(
+function guildMatchesTopic(
   card: GuildSummaryCardModel,
-  topic: GuildTopicFilter
+  topic: DiscoverTopicFilter
 ): boolean {
   if (topic === 'all') return true;
-  const needle = normalizeTopicSlug(topic);
-  if (!needle) return true;
-  return (card.topics ?? []).some((tag) => tag === needle);
+  const primary = card.topics?.[0];
+  return primary === topic;
 }
 
 function mergeGuildCards(
@@ -64,6 +67,7 @@ function mergeGuildCards(
 
 /**
  * Discover → Guilds — public browse/search. Create / manage live in the Guilds app.
+ * Browse chips: used primary topics (curated + custom), omit empty.
  */
 export function DiscoverGuildsPanel() {
   const { query, clearSearch, initialGuilds } = useDiscoverPanel();
@@ -76,13 +80,31 @@ export function DiscoverGuildsPanel() {
   const [searchResults, setSearchResults] = useState<
     GuildSummaryCardModel[] | null
   >(null);
-  const [topicFilter, setTopicFilter] = useState<GuildTopicFilter>('all');
+  const [topicFilter, setTopicFilter] = useState<DiscoverTopicFilter>('all');
+  const [topicCounts, setTopicCounts] = useState<Map<string, number>>(
+    () => new Map()
+  );
   const [pending, setPending] = useState(() => initialGuilds == null);
   const [searchPending, setSearchPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const searchRequestRef = useRef(0);
   const hasPaintedRef = useRef(initialGuilds != null);
+
+  const browseOptions = useMemo(
+    () =>
+      discoverTopicFiltersFromCounts(topicCounts, GUILD_TOPIC_SUGGESTIONS),
+    [topicCounts]
+  );
+  const activeTopicFilter = useMemo((): DiscoverTopicFilter => {
+    if (
+      topicFilter !== 'all' &&
+      !browseOptions.some((entry) => entry.id === topicFilter)
+    ) {
+      return 'all';
+    }
+    return topicFilter;
+  }, [browseOptions, topicFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,15 +124,21 @@ export function DiscoverGuildsPanel() {
         const { items } = await client.query.groups.browse({
           publicOnly: !accountId,
           sort: 'members',
-          limit: BROWSE_LIMIT,
+          limit: GUILD_TOPIC_CENSUS_LIMIT,
         });
         if (cancelled) return;
         const cards = items.map((row) => guildSummaryCardFromBrowse(row));
-        setBrowseGuilds(cards);
+        setTopicCounts(
+          countPrimaryTopics(
+            cards.map((card) => ({ topic: card.topics?.[0] ?? null }))
+          )
+        );
+        const page = cards.slice(0, BROWSE_LIMIT);
+        setBrowseGuilds(page);
         setPending(false);
         setError(null);
         hasPaintedRef.current = true;
-        const withCounts = await enrichIndexedGuildSummaryCards(client, cards);
+        const withCounts = await enrichIndexedGuildSummaryCards(client, page);
         if (!cancelled) setBrowseGuilds(withCounts);
       } catch (cause) {
         if (cancelled) return;
@@ -172,18 +200,22 @@ export function DiscoverGuildsPanel() {
 
   const visibleGuilds = useMemo(() => {
     const base = browseGuilds ?? [];
-    let rows = base;
-    if (searchQuery) {
-      const needle = searchQuery.toLowerCase();
-      const localMatches = base.filter((card) =>
-        guildCardMatchesQuery(card, needle)
-      );
-      rows = activeSearchResults
-        ? mergeGuildCards(activeSearchResults, localMatches)
-        : localMatches;
+    if (!searchQuery) {
+      return base.filter((card) => guildMatchesTopic(card, activeTopicFilter));
     }
-    return rows.filter((card) => guildCardMatchesTopic(card, topicFilter));
-  }, [activeSearchResults, browseGuilds, searchQuery, topicFilter]);
+    const needle = searchQuery.toLowerCase();
+    const localMatches = base.filter(
+      (card) =>
+        guildMatchesTopic(card, activeTopicFilter) &&
+        guildCardMatchesQuery(card, needle)
+    );
+    const remote = (activeSearchResults ?? []).filter((card) =>
+      guildMatchesTopic(card, activeTopicFilter)
+    );
+    return activeSearchResults
+      ? mergeGuildCards(remote, localMatches)
+      : localMatches;
+  }, [activeSearchResults, activeTopicFilter, browseGuilds, searchQuery]);
 
   const showSkeleton = browseGuilds == null && pending;
   const showSearchBusy = Boolean(searchQuery) && searchPending;
@@ -193,14 +225,15 @@ export function DiscoverGuildsPanel() {
     visibleGuilds.length === 0 &&
     browseGuilds != null;
   const isTopicEmpty =
-    topicFilter !== 'all' &&
+    activeTopicFilter !== 'all' &&
     !searchQuery &&
-    !pending &&
+    !searchPending &&
     visibleGuilds.length === 0 &&
     browseGuilds != null;
-  const topicLabel =
-    GUILD_TOPIC_FILTERS.find((entry) => entry.id === topicFilter)?.label ??
-    topicFilter;
+  const topicFilterLabel =
+    browseOptions.find((entry) => entry.id === activeTopicFilter)?.label ??
+    topicLabel(activeTopicFilter, GUILD_TOPIC_SUGGESTIONS) ??
+    activeTopicFilter;
 
   return (
     <div
@@ -213,8 +246,8 @@ export function DiscoverGuildsPanel() {
         <p className="launcher-home-empty dao-discover-status">
           {searchQuery
             ? `Searching “${searchQuery}”`
-            : topicFilter !== 'all'
-              ? `Guilds · ${topicLabel}`
+            : activeTopicFilter !== 'all'
+              ? `Guilds · ${topicFilterLabel}`
               : 'Public guilds on this network'}
         </p>
         <DiscoverCommunityHandoff
@@ -227,9 +260,9 @@ export function DiscoverGuildsPanel() {
 
       <DiscoverBrowseChipRail
         ariaLabel="Browse guilds by topic"
-        options={GUILD_TOPIC_FILTERS}
-        value={topicFilter}
-        onChange={setTopicFilter}
+        options={browseOptions}
+        value={activeTopicFilter}
+        onChange={(next) => setTopicFilter(next as DiscoverTopicFilter)}
       />
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
@@ -254,7 +287,7 @@ export function DiscoverGuildsPanel() {
               {isSearchEmpty
                 ? 'Try another name, topic, or guild ID.'
                 : isTopicEmpty
-                  ? 'Pick All, or another topic.'
+                  ? 'Pick All or another topic.'
                   : 'Create one in Guilds, or join by URL.'}
             </p>
           </div>
@@ -273,7 +306,7 @@ export function DiscoverGuildsPanel() {
                 className="standing-panel-empty-action"
                 onClick={() => setTopicFilter('all')}
               >
-                Show all
+                Show all guilds
               </button>
             ) : (
               <>

@@ -2,25 +2,24 @@ import {
   normalizeTopicList,
   normalizeTopicSlug,
   topicLabel,
+  discoverTopicFiltersFromCounts,
+  countPrimaryTopics,
 } from '@/lib/topic-slug';
+import { COMMUNITY_TOPIC_SUGGESTIONS } from '@/lib/community-topic-suggestions';
 
 /**
  * Suggested hub categories (chips). Users can type any category slug —
  * primary (= categories[0]) powers directory browse/filter.
  */
-export const HUB_CATEGORY_SUGGESTIONS = [
-  { id: 'music', label: 'Music' },
-  { id: 'art', label: 'Art' },
-  { id: 'books', label: 'Books' },
-  { id: 'fashion', label: 'Fashion' },
-  { id: 'games', label: 'Games' },
-  { id: 'film', label: 'Film' },
-] as const;
+export const HUB_CATEGORY_SUGGESTIONS = COMMUNITY_TOPIC_SUGGESTIONS;
 
 export type HubCategory = string;
 export type HubCategoryFilter = 'all' | string;
 
 export const HUB_MAX_CATEGORIES = 2;
+
+/** Directory sample for Discover category chips (omit empty / rare customs). */
+export const HUB_CATEGORY_CENSUS_LIMIT = 24;
 
 export function parseHubCategory(raw: unknown): string | null {
   return normalizeTopicSlug(raw);
@@ -58,13 +57,20 @@ export function hubCategoriesMetadataFields(categories: string[]): {
   };
 }
 
-export const HUB_CATEGORY_FILTERS: ReadonlyArray<{
-  id: HubCategoryFilter;
-  label: string;
-}> = [
-  { id: 'all', label: 'All' },
-  ...HUB_CATEGORY_SUGGESTIONS.map((entry) => ({
-    id: entry.id as HubCategoryFilter,
-    label: entry.label,
-  })),
-];
+/** Discover chips from used hub primaries (curated + customs past min count). */
+export function hubDiscoverCategoryFilters(
+  categoryCounts: ReadonlyMap<string, number> | Record<string, number>
+): ReadonlyArray<{ id: HubCategoryFilter; label: string }> {
+  return discoverTopicFiltersFromCounts(
+    categoryCounts,
+    HUB_CATEGORY_SUGGESTIONS
+  );
+}
+
+export function countHubPrimaryCategories(
+  apps: ReadonlyArray<{ category: string | null }>
+): Map<string, number> {
+  return countPrimaryTopics(
+    apps.map((app) => ({ topic: app.category }))
+  );
+}

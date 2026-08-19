@@ -4,9 +4,16 @@ import {
   parseHubCategory,
   parseHubCategories,
   hubCategoriesMetadataFields,
+  hubDiscoverCategoryFilters,
+  countHubPrimaryCategories,
+  HUB_MAX_CATEGORIES,
 } from '@/features/scarces/hub-categories';
 
 describe('hub categories', () => {
+  it('keeps two categories max', () => {
+    expect(HUB_MAX_CATEGORIES).toBe(2);
+  });
+
   it('parses freeform categories', () => {
     expect(parseHubCategory('music')).toBe('music');
     expect(parseHubCategory('Books')).toBe('books');
@@ -37,7 +44,27 @@ describe('hub categories', () => {
 
   it('labels known and custom categories', () => {
     expect(hubCategoryLabel('art')).toBe('Art');
-    expect(hubCategoryLabel('live_music')).toBe('Live Music');
+    expect(hubCategoryLabel('events')).toBe('Events');
+    expect(hubCategoryLabel('crypto')).toBe('Crypto');
+    expect(hubCategoryLabel('live_music')).toBe('Live music');
     expect(hubCategoryLabel(null)).toBeNull();
+  });
+
+  it('builds Discover chips from used categories; customs need 2+', () => {
+    expect(
+      hubDiscoverCategoryFilters(
+        countHubPrimaryCategories([
+          { category: 'music' },
+          { category: 'podcasts' },
+          { category: 'podcasts' },
+          { category: 'once' },
+          { category: null },
+        ])
+      )
+    ).toEqual([
+      { id: 'all', label: 'All' },
+      { id: 'podcasts', label: 'Podcasts' },
+      { id: 'music', label: 'Music' },
+    ]);
   });
 });

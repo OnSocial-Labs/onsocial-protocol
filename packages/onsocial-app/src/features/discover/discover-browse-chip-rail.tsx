@@ -15,7 +15,7 @@ export function DiscoverBrowseChipRail({
   value: string;
   onChange: (next: string) => void;
 }) {
-  if (options.length === 0) return null;
+  if (options.length <= 1) return null;
 
   return (
     <div

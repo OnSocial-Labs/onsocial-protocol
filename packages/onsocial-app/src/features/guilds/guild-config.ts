@@ -10,6 +10,7 @@ import {
   topicLabel,
   TOPIC_MAX_PER_ENTITY,
 } from '@/lib/topic-slug';
+import { COMMUNITY_TOPIC_SUGGESTIONS } from '@/lib/community-topic-suggestions';
 export const GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_NEAR = '0.1';
 
 export const GUILD_COLLABORATIVE_JOIN_STORAGE_MIN_YOCTO = 100_000_000_000_000_000_000_000n;
@@ -287,35 +288,22 @@ export function mergeGuildOnsocialMetadataPatch(
 /** Guild topics — first is primary; hard cap keeps cards scannable. */
 export const GUILD_MAX_TOPICS = TOPIC_MAX_PER_ENTITY;
 
-/**
- * Suggested guild topics for Discover browse chips.
- * Users can still set any topic slug on the guild.
- */
-export const GUILD_TOPIC_SUGGESTIONS = [
-  { id: 'builders', label: 'Builders' },
-  { id: 'social', label: 'Social' },
-  { id: 'near', label: 'NEAR' },
-  { id: 'dao', label: 'DAO' },
-  { id: 'art', label: 'Art' },
-  { id: 'music', label: 'Music' },
-] as const;
+/** Suggested topics for create/edit (same catalog as hubs). */
+export const GUILD_TOPIC_SUGGESTIONS = COMMUNITY_TOPIC_SUGGESTIONS;
 
-export type GuildTopicFilter = 'all' | string;
-
+/** Static All + suggestions (create/editor). Discover uses live used counts. */
 export const GUILD_TOPIC_FILTERS: ReadonlyArray<{
-  id: GuildTopicFilter;
+  id: 'all' | string;
   label: string;
 }> = [
   { id: 'all', label: 'All' },
   ...GUILD_TOPIC_SUGGESTIONS.map((entry) => ({
-    id: entry.id as GuildTopicFilter,
+    id: entry.id,
     label: entry.label,
   })),
 ];
 
-export function guildTopicLabel(
-  topic: string | null | undefined
-): string | null {
+export function guildTopicLabel(topic: string | null | undefined): string | null {
   return topicLabel(topic, GUILD_TOPIC_SUGGESTIONS);
 }
 

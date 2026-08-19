@@ -2,12 +2,14 @@
 
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { MultiplyIcon } from '@onsocial/ui';
+import { TopicSuggestionSlider } from '@/components/topic-suggestion-slider';
 import {
   HUB_CATEGORY_SUGGESTIONS,
   HUB_MAX_CATEGORIES,
   hubCategoryLabel,
 } from '@/features/scarces/hub-categories';
 import {
+  formatTopicDraftInput,
   normalizeTopicList,
   normalizeTopicSlug,
   TOPIC_MAX_LENGTH,
@@ -50,7 +52,10 @@ interface HubCategoriesEditorProps {
   disabled?: boolean;
 }
 
-/** Primary + optional secondary hub categories (first = directory browse). */
+/**
+ * Hub categories — horizontal suggestion slider + type your own.
+ * First entry is primary for Discover browse. Max 2.
+ */
 export function HubCategoriesEditor({
   categories,
   onChange,
@@ -122,27 +127,14 @@ export function HubCategoriesEditor({
 
   return (
     <div className="guild-tags-editor hub-categories-editor">
-      <div
-        className="app-storage-presets"
-        role="group"
-        aria-label="Suggested categories"
-      >
-        {HUB_CATEGORY_SUGGESTIONS.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            className={`os-surface-chip${
-              categories.includes(option.id) ? ' is-selected' : ''
-            }`}
-            disabled={
-              disabled || (!categories.includes(option.id) && atMax)
-            }
-            onClick={() => toggleSuggestion(option.id)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <TopicSuggestionSlider
+        ariaLabel="Suggested categories"
+        suggestions={HUB_CATEGORY_SUGGESTIONS}
+        selected={categories}
+        atMax={atMax}
+        disabled={disabled}
+        onToggle={toggleSuggestion}
+      />
 
       <ul
         id={id}
@@ -194,7 +186,7 @@ export function HubCategoriesEditor({
               className="account-editor-tags-input"
               value={draft}
               disabled={disabled}
-              placeholder="Add category…"
+              placeholder="Or type your own…"
               aria-label={
                 categories.length === 0
                   ? 'Primary hub category'
@@ -209,7 +201,7 @@ export function HubCategoriesEditor({
                   commitDraft(value);
                   return;
                 }
-                setDraft(value);
+                setDraft(formatTopicDraftInput(value));
               }}
               onKeyDown={handleKeyDown}
               onBlur={() => {
@@ -228,7 +220,8 @@ export function HubCategoriesEditor({
           </span>
         ) : (
           <span>
-            {categories.length}/{HUB_MAX_CATEGORIES}
+            {categories.length}/{HUB_MAX_CATEGORIES} · up to {TOPIC_MAX_LENGTH}{' '}
+            characters
           </span>
         )}
       </small>
