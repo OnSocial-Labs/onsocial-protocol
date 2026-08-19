@@ -158,22 +158,33 @@ export function DaosExplorePanel({
 
   return (
     <LauncherPeekList aria-label="Proposals from your DAOs">
-      {peeks.map((peek) => (
-        <LauncherPeekRow
-          key={peek.key}
-          href={daoPortfolioPath(peek.daoAccountId, {
-            proposal: peek.proposalId,
-          })}
-          title={peek.label}
-          meta={
-            <>
-              {peek.daoName}
-              <span aria-hidden> · </span>
-              {peek.statusLabel}
-            </>
-          }
-        />
-      ))}
+      {peeks.map((peek) => {
+        const named =
+          peek.daoName.trim().toLowerCase() !==
+          peek.daoAccountId.trim().toLowerCase();
+        return (
+          <LauncherPeekRow
+            key={peek.key}
+            href={daoPortfolioPath(peek.daoAccountId, {
+              proposal: peek.proposalId,
+            })}
+            title={peek.label}
+            meta={
+              <>
+                {named ? (
+                  <>
+                    {peek.daoName}
+                    <span aria-hidden> · </span>
+                  </>
+                ) : null}
+                {peek.daoAccountId}
+                <span aria-hidden> · </span>
+                {peek.statusLabel}
+              </>
+            }
+          />
+        );
+      })}
     </LauncherPeekList>
   );
 }
