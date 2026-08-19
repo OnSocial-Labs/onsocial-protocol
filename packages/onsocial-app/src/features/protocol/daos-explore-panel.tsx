@@ -140,7 +140,7 @@ export function DaosExplorePanel({
   }
 
   if (myDaos == null || pending) {
-    return <p className="daos-index-empty">Loading proposals…</p>;
+    return <p className="launcher-home-empty">Loading proposals…</p>;
   }
 
   if (daoIds.length === 0) {
@@ -149,24 +149,24 @@ export function DaosExplorePanel({
 
   if (!peeks || peeks.length === 0) {
     return (
-      <p className="daos-index-empty">Nothing open right now.</p>
+      <p className="launcher-home-empty">Nothing open right now.</p>
     );
   }
 
   return (
-    <ul className="daos-explore-list" aria-label="Proposals from your DAOs">
+    <ul className="launcher-peek-list" aria-label="Proposals from your DAOs">
       {peeks.map((peek) => (
         <li key={peek.key}>
           <Link
             href={daoPortfolioPath(peek.daoAccountId, {
               proposal: peek.proposalId,
             })}
-            className="daos-explore-row"
+            className="launcher-peek-row"
             scroll={false}
           >
-            <span className="daos-explore-row-copy">
-              <span className="daos-explore-row-title">{peek.label}</span>
-              <span className="daos-explore-row-meta">
+            <span className="launcher-peek-row-copy">
+              <span className="launcher-peek-row-title">{peek.label}</span>
+              <span className="launcher-peek-row-meta">
                 {peek.daoName}
                 <span aria-hidden> · </span>
                 {peek.statusLabel}

@@ -32531,30 +32531,30 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   margin-top: 0.35rem;
 }
 
-.daos-index {
+.launcher-home {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
   padding-bottom: 1.5rem;
 }
 
-.daos-index-lede {
+.launcher-home-lede {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.45;
   color: rgb(var(--fg-rgb) / 0.68);
 }
 
-.daos-index-lede--tight {
+.launcher-home-lede--tight {
   margin-bottom: 0.35rem;
   font-size: 0.84rem;
 }
 
-.daos-index-divider {
+.launcher-home-divider {
   margin-block: 0.15rem;
 }
 
-.daos-mine-rail {
+.launcher-mine-rail {
   display: grid;
   grid-auto-columns: minmax(8.5rem, 38%);
   grid-auto-flow: column;
@@ -32568,11 +32568,11 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   scrollbar-width: none;
 }
 
-.daos-mine-rail::-webkit-scrollbar {
+.launcher-mine-rail::-webkit-scrollbar {
   display: none;
 }
 
-.daos-mine-card {
+.launcher-mine-card {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -32582,7 +32582,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   text-decoration: none;
 }
 
-.daos-mine-crest {
+.launcher-mine-crest {
   display: block;
   width: 100%;
   aspect-ratio: 1;
@@ -32591,14 +32591,14 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   background: rgb(var(--fg-rgb) / 0.06);
 }
 
-.daos-mine-crest img {
+.launcher-mine-crest img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.daos-mine-crest-fallback {
+.launcher-mine-crest-fallback {
   display: grid;
   place-items: center;
   width: 100%;
@@ -32609,7 +32609,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.45);
 }
 
-.daos-mine-card-copy {
+.launcher-mine-card-copy {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -32617,7 +32617,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   padding-inline: 0.1rem;
 }
 
-.daos-mine-card-title {
+.launcher-mine-card-title {
   font-size: 0.88rem;
   font-weight: 650;
   line-height: 1.25;
@@ -32626,7 +32626,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   white-space: nowrap;
 }
 
-.daos-mine-card-meta {
+.launcher-mine-card-meta {
   font-size: 0.72rem;
   line-height: 1.3;
   color: rgb(var(--fg-rgb) / 0.52);
@@ -32635,7 +32635,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   white-space: nowrap;
 }
 
-.daos-explore-list {
+.launcher-peek-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -32644,7 +32644,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.15rem;
 }
 
-.daos-explore-row {
+.launcher-peek-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -32654,20 +32654,20 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: inherit;
 }
 
-.daos-explore-row:hover,
-.daos-explore-row:focus-visible {
+.launcher-peek-row:hover,
+.launcher-peek-row:focus-visible {
   background: rgb(var(--fg-rgb) / 0.04);
   outline: none;
 }
 
-.daos-explore-row-copy {
+.launcher-peek-row-copy {
   display: flex;
   flex-direction: column;
   gap: 0.18rem;
   min-width: 0;
 }
 
-.daos-explore-row-title {
+.launcher-peek-row-title {
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.3;
@@ -32676,7 +32676,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   white-space: nowrap;
 }
 
-.daos-explore-row-meta {
+.launcher-peek-row-meta {
   font-size: 0.78rem;
   line-height: 1.35;
   color: rgb(var(--fg-rgb) / 0.55);
@@ -32846,27 +32846,54 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   gap: 0.55rem;
 }
 
-.daos-index-empty {
+
+.launcher-home-empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.launcher-home-retry {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: rgb(var(--fg-rgb) / 0.72);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  cursor: pointer;
+}
+
+.launcher-home-retry:hover,
+.launcher-home-retry:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.92);
+  outline: none;
+}
+
+.launcher-home-empty {
   margin: 0;
   font-size: 0.84rem;
   line-height: 1.4;
   color: rgb(var(--fg-rgb) / 0.55);
 }
 
-.daos-index-inline-link {
+.launcher-home-inline-link {
   color: inherit;
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 0.14em;
 }
 
-.daos-index-inline-link:hover,
-.daos-index-inline-link:focus-visible {
+.launcher-home-inline-link:hover,
+.launcher-home-inline-link:focus-visible {
   color: rgb(var(--fg-rgb) / 0.82);
   outline: none;
 }
 
-.daos-index-section {
+.launcher-home-section {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -33033,13 +33060,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   cursor: default;
 }
 
-.daos-index-shortcuts {
+.launcher-home-shortcuts {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 
-.daos-index-chip {
+.launcher-home-chip {
   display: inline-flex;
   align-items: center;
   padding: 0.4rem 0.7rem;
@@ -33051,13 +33078,13 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   text-decoration: none;
 }
 
-.daos-index-chip:hover,
-.daos-index-chip:focus-visible {
+.launcher-home-chip:hover,
+.launcher-home-chip:focus-visible {
   background: rgb(var(--fg-rgb) / 0.1);
   outline: none;
 }
 
-.daos-index-heading {
+.launcher-home-heading {
   margin: 0 0 0.45rem;
   font-size: 0.78rem;
   font-weight: 700;
@@ -33066,7 +33093,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.45);
 }
 
-.daos-index-section-head {
+.launcher-home-section-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -33074,7 +33101,7 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   margin-bottom: 0.35rem;
 }
 
-.daos-index-section-head .daos-index-heading {
+.launcher-home-section-head .launcher-home-heading {
   margin: 0;
 }
 

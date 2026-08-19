@@ -177,7 +177,7 @@ export function DiscoverHubsPanel() {
       className="standing-panel-body discover-hubs-panel"
     >
       <div className="discover-community-toolbar">
-        <p className="daos-index-empty dao-discover-status">
+        <p className="launcher-home-empty dao-discover-status">
           {searchQuery
             ? `Searching “${searchQuery}”`
             : 'Creator hubs on this network'}
@@ -195,7 +195,7 @@ export function DiscoverHubsPanel() {
       {showScarcePeeks ? (
         <>
           {mostTraded === null ? (
-            <p className="daos-index-empty">Loading most traded…</p>
+            <p className="launcher-home-empty">Loading most traded…</p>
           ) : (
             <ScarcePeekSection
               heading="Most traded"
@@ -204,7 +204,7 @@ export function DiscoverHubsPanel() {
             />
           )}
           {mostLoved === null ? (
-            <p className="daos-index-empty">Loading most loved…</p>
+            <p className="launcher-home-empty">Loading most loved…</p>
           ) : (
             <ScarcePeekSection
               heading="Most loved"
@@ -216,7 +216,7 @@ export function DiscoverHubsPanel() {
       ) : null}
 
       {showSkeleton ? (
-        <p className="daos-index-empty">Loading hubs…</p>
+        <p className="launcher-home-empty">Loading hubs…</p>
       ) : null}
 
       {!showSkeleton && apps != null && apps.length === 0 ? (
@@ -258,7 +258,7 @@ export function DiscoverHubsPanel() {
       {!showSkeleton && apps != null && apps.length > 0 ? (
         <>
           {showScarcePeeks ? (
-            <h2 className="discover-trending-heading daos-index-heading">
+            <h2 className="discover-trending-heading launcher-home-heading">
               Hubs
             </h2>
           ) : null}

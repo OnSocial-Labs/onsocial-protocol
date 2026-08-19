@@ -22,22 +22,22 @@ function GuildMineCard({ guild }: { guild: GuildSummaryCardModel }) {
   return (
     <Link
       href={guildPath(guild.groupId)}
-      className="daos-mine-card"
+      className="launcher-mine-card"
       scroll={false}
       aria-label={title}
     >
-      <span className="daos-mine-crest" aria-hidden>
+      <span className="launcher-mine-crest" aria-hidden>
         {guild.avatarUrl ? (
           <img src={guild.avatarUrl} alt="" />
         ) : (
-          <span className="daos-mine-crest-fallback">
+          <span className="launcher-mine-crest-fallback">
             {title.slice(0, 2).toUpperCase()}
           </span>
         )}
       </span>
-      <span className="daos-mine-card-copy">
-        <span className="daos-mine-card-title">{title}</span>
-        <span className="daos-mine-card-meta">{topic}</span>
+      <span className="launcher-mine-card-copy">
+        <span className="launcher-mine-card-title">{title}</span>
+        <span className="launcher-mine-card-meta">{topic}</span>
       </span>
     </Link>
   );
@@ -52,17 +52,25 @@ export function LiveGuildsIndexPanel() {
   const [myGuilds, setMyGuilds] = useState<GuildSummaryCardModel[] | null>(
     null
   );
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const discoverGuildsHref = appDiscoverTabHref('guilds');
 
   useEffect(() => {
     if (!accountId) {
-      queueMicrotask(() => setMyGuilds(null));
+      queueMicrotask(() => {
+        setMyGuilds(null);
+        setLoadError(null);
+      });
       return;
     }
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) setMyGuilds(null);
+      if (!cancelled) {
+        setMyGuilds(null);
+        setLoadError(null);
+      }
     });
     void (async () => {
       try {
@@ -72,20 +80,24 @@ export function LiveGuildsIndexPanel() {
         });
         if (cancelled) return;
         setMyGuilds(items.map((row) => guildSummaryCardFromMembership(row)));
-      } catch {
-        if (!cancelled) setMyGuilds([]);
+        setLoadError(null);
+      } catch (cause) {
+        if (cancelled) return;
+        setMyGuilds(null);
+        setLoadError(
+          cause instanceof Error ? cause.message : 'Could not load guilds.'
+        );
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [accountId]);
+  }, [accountId, retryKey]);
 
   const myGuildsReady = myGuilds !== null;
   const showMineRail = Boolean(
     accountId && myGuildsReady && myGuilds.length > 0
   );
-  /** Posts only once you're in — no tutorial empty under the divider. */
   const showPosts = showMineRail;
 
   const headerActions = (
@@ -111,22 +123,33 @@ export function LiveGuildsIndexPanel() {
       glassChrome
       actions={headerActions}
     >
-      <div className="daos-index">
-        <section className="daos-index-section" aria-label="My Guilds">
-          <h2 className="daos-index-heading">My Guilds</h2>
+      <div className="launcher-home">
+        <section className="launcher-home-section" aria-label="My Guilds">
+          <h2 className="launcher-home-heading">My Guilds</h2>
           {!accountId ? (
-            <p className="daos-index-empty">
+            <p className="launcher-home-empty">
               Connect to see guilds you’ve joined — or tap search to explore.
             </p>
+          ) : loadError ? (
+            <div className="launcher-home-empty-block">
+              <p className="launcher-home-empty">{loadError}</p>
+              <button
+                type="button"
+                className="launcher-home-retry"
+                onClick={() => setRetryKey((value) => value + 1)}
+              >
+                Retry
+              </button>
+            </div>
           ) : !myGuildsReady ? (
-            <p className="daos-index-empty">Loading your guilds…</p>
+            <p className="launcher-home-empty">Loading your guilds…</p>
           ) : myGuilds.length === 0 ? (
-            <p className="daos-index-empty">
+            <p className="launcher-home-empty">
               You haven’t joined a guild yet. Tap Search to explore, or + to
               start one.
             </p>
           ) : (
-            <div className="daos-mine-rail" role="list">
+            <div className="launcher-mine-rail" role="list">
               {myGuilds.map((guild) => (
                 <div key={guild.groupId} role="listitem">
                   <GuildMineCard guild={guild} />
@@ -138,9 +161,9 @@ export function LiveGuildsIndexPanel() {
 
         {showPosts ? (
           <>
-            <Divider className="daos-index-divider" />
-            <section className="daos-index-section" aria-label="Posts">
-              <h2 className="daos-index-heading">Posts</h2>
+            <Divider className="launcher-home-divider" />
+            <section className="launcher-home-section" aria-label="Posts">
+              <h2 className="launcher-home-heading">Posts</h2>
               <GuildsLatestPostsPanel
                 accountId={accountId}
                 myGuilds={myGuilds}

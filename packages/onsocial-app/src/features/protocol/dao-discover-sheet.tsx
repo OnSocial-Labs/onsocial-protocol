@@ -79,15 +79,15 @@ export function DaoDiscoverSheet({
         chrome="sheet"
       />
 
-      <p className="daos-index-empty dao-discover-status">
+      <p className="launcher-home-empty dao-discover-status">
         {statusLine}
         {query ? ` · “${query}”` : ''}
       </p>
 
-      {error ? <p className="daos-index-empty">{error}</p> : null}
+      {error ? <p className="launcher-home-empty">{error}</p> : null}
 
       {rows == null && pending ? (
-        <p className="daos-index-empty">Loading catalog…</p>
+        <p className="launcher-home-empty">Loading catalog…</p>
       ) : (
         <DaoDirectoryList
           entries={entries}

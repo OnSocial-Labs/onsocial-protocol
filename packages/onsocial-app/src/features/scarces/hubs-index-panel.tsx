@@ -31,22 +31,22 @@ function HubMineCard({ app }: { app: AppView }) {
   return (
     <Link
       href={appPath(app.appId)}
-      className="daos-mine-card"
+      className="launcher-mine-card"
       scroll={false}
       aria-label={app.title}
     >
-      <span className="daos-mine-crest" aria-hidden>
+      <span className="launcher-mine-crest" aria-hidden>
         {app.mediaUrl ? (
           <img src={app.mediaUrl} alt="" />
         ) : (
-          <span className="daos-mine-crest-fallback">
+          <span className="launcher-mine-crest-fallback">
             {monogram(app.title)}
           </span>
         )}
       </span>
-      <span className="daos-mine-card-copy">
-        <span className="daos-mine-card-title">{app.title}</span>
-        <span className="daos-mine-card-meta">{meta}</span>
+      <span className="launcher-mine-card-copy">
+        <span className="launcher-mine-card-title">{app.title}</span>
+        <span className="launcher-mine-card-meta">{meta}</span>
       </span>
     </Link>
   );
@@ -59,33 +59,46 @@ function HubMineCard({ app }: { app: AppView }) {
 export function HubsIndexPanel() {
   const { accountId } = useAppWallet();
   const [myHubs, setMyHubs] = useState<AppView[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const discoverHubsHref = appDiscoverTabHref('hubs');
 
   useEffect(() => {
     if (!accountId) {
-      queueMicrotask(() => setMyHubs(null));
+      queueMicrotask(() => {
+        setMyHubs(null);
+        setLoadError(null);
+      });
       return;
     }
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) setMyHubs(null);
+      if (!cancelled) {
+        setMyHubs(null);
+        setLoadError(null);
+      }
     });
     void fetchPublishableApps(accountId, { limit: 24 })
       .then((rows) => {
-        if (!cancelled) setMyHubs(rows);
+        if (cancelled) return;
+        setMyHubs(rows);
+        setLoadError(null);
       })
-      .catch(() => {
-        if (!cancelled) setMyHubs([]);
+      .catch((cause) => {
+        if (cancelled) return;
+        setMyHubs(null);
+        setLoadError(
+          cause instanceof Error ? cause.message : 'Could not load hubs.'
+        );
       });
     return () => {
       cancelled = true;
     };
-  }, [accountId]);
+  }, [accountId, retryKey]);
 
   const myHubsReady = myHubs !== null;
   const showMineRail = Boolean(accountId && myHubsReady && myHubs.length > 0);
-  /** Drops only once you're in — no tutorial empty under the divider. */
   const showDrops = showMineRail;
 
   const headerActions = (
@@ -111,22 +124,33 @@ export function HubsIndexPanel() {
       glassChrome
       actions={headerActions}
     >
-      <div className="daos-index">
-        <section className="daos-index-section" aria-label="My Hubs">
-          <h2 className="daos-index-heading">My Hubs</h2>
+      <div className="launcher-home">
+        <section className="launcher-home-section" aria-label="My Hubs">
+          <h2 className="launcher-home-heading">My Hubs</h2>
           {!accountId ? (
-            <p className="daos-index-empty">
+            <p className="launcher-home-empty">
               Connect to see hubs you’ve joined — or tap search to explore.
             </p>
+          ) : loadError ? (
+            <div className="launcher-home-empty-block">
+              <p className="launcher-home-empty">{loadError}</p>
+              <button
+                type="button"
+                className="launcher-home-retry"
+                onClick={() => setRetryKey((value) => value + 1)}
+              >
+                Retry
+              </button>
+            </div>
           ) : !myHubsReady ? (
-            <p className="daos-index-empty">Loading your hubs…</p>
+            <p className="launcher-home-empty">Loading your hubs…</p>
           ) : myHubs.length === 0 ? (
-            <p className="daos-index-empty">
+            <p className="launcher-home-empty">
               You haven’t joined a hub yet. Tap Search to explore, or + to start
               one.
             </p>
           ) : (
-            <div className="daos-mine-rail" role="list">
+            <div className="launcher-mine-rail" role="list">
               {myHubs.map((app) => (
                 <div key={app.appId} role="listitem">
                   <HubMineCard app={app} />
@@ -138,9 +162,9 @@ export function HubsIndexPanel() {
 
         {showDrops ? (
           <>
-            <Divider className="daos-index-divider" />
-            <section className="daos-index-section" aria-label="Drops">
-              <h2 className="daos-index-heading">Drops</h2>
+            <Divider className="launcher-home-divider" />
+            <section className="launcher-home-section" aria-label="Drops">
+              <h2 className="launcher-home-heading">Drops</h2>
               <HubsLatestDropsPanel accountId={accountId} myHubs={myHubs} />
             </section>
           </>

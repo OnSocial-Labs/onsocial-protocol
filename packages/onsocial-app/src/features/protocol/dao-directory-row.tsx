@@ -52,7 +52,7 @@ export function DaoDirectoryList({
   empty?: string | null;
 }) {
   if (entries.length === 0) {
-    return empty ? <p className="daos-index-empty">{empty}</p> : null;
+    return empty ? <p className="launcher-home-empty">{empty}</p> : null;
   }
 
   return (

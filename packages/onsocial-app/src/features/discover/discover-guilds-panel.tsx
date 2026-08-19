@@ -181,7 +181,7 @@ export function DiscoverGuildsPanel() {
       className="standing-panel-body discover-guilds-panel"
     >
       <div className="discover-community-toolbar">
-        <p className="daos-index-empty dao-discover-status">
+        <p className="launcher-home-empty dao-discover-status">
           {searchQuery
             ? `Searching “${searchQuery}”`
             : 'Public guilds on this network'}
@@ -197,7 +197,7 @@ export function DiscoverGuildsPanel() {
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
       {showSkeleton || showSearchBusy ? (
-        <p className="daos-index-empty">
+        <p className="launcher-home-empty">
           {showSearchBusy ? 'Searching guilds…' : 'Loading guilds…'}
         </p>
       ) : null}

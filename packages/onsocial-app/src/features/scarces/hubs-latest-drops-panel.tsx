@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { AppView } from '@/features/scarces/apps-data';
-import { fetchCollectionsByApp } from '@/features/scarces/collections-data';
+import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { collectionPath } from '@/lib/app-routes';
+import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 
-const HUB_DROP_LIMIT = 12;
-const PEEK_PER_HUB = 3;
+const HUB_DROP_LIMIT = 24;
 const PEEK_LIMIT = 24;
 
 export type HubDropPeek = {
@@ -22,8 +22,7 @@ export type HubDropPeek = {
 };
 
 /**
- * Membership-scoped drop peeks under Hubs Home.
- * Network catalog stays in Discover; this is activity across *your* hubs.
+ * Membership-scoped drop peeks under Hubs Home (one batched catalog query).
  */
 export function HubsLatestDropsPanel({
   accountId,
@@ -34,6 +33,7 @@ export function HubsLatestDropsPanel({
 }) {
   const [peeks, setPeeks] = useState<HubDropPeek[] | null>(null);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const hubIds = useMemo(() => {
     if (!myHubs) return [];
@@ -56,6 +56,7 @@ export function HubsLatestDropsPanel({
       queueMicrotask(() => {
         setPeeks(null);
         setPending(false);
+        setError(null);
       });
       return;
     }
@@ -63,6 +64,7 @@ export function HubsLatestDropsPanel({
       queueMicrotask(() => {
         setPeeks(null);
         setPending(true);
+        setError(null);
       });
       return;
     }
@@ -70,43 +72,53 @@ export function HubsLatestDropsPanel({
       queueMicrotask(() => {
         setPeeks([]);
         setPending(false);
+        setError(null);
       });
       return;
     }
 
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) setPending(true);
+      if (!cancelled) {
+        setPending(true);
+        setError(null);
+      }
     });
 
     void (async () => {
-      const settled = await Promise.allSettled(
-        hubIds.map(async (appId) => {
-          const drops = await fetchCollectionsByApp(appId, {
-            limit: PEEK_PER_HUB,
-          });
-          const hubName = hubNameById.get(appId) ?? appId;
-          return drops.map((drop) => ({
-            key: `${appId}:${drop.collectionId}`,
-            appId,
-            hubName,
-            collectionId: drop.collectionId,
-            title: (drop.title || drop.collectionId).trim().slice(0, 120),
-            createdAtMs: drop.createdAtMs || 0,
-            href: collectionPath(drop.collectionId),
-          })) satisfies HubDropPeek[];
-        })
-      );
-
-      if (cancelled) return;
-
-      const merged: HubDropPeek[] = [];
-      for (const result of settled) {
-        if (result.status === 'fulfilled') merged.push(...result.value);
+      try {
+        const client = createReadOnlyOnSocialClient();
+        const rows = await client.query.scarces.collectionsCurrent({
+          appIds: hubIds,
+          limit: PEEK_LIMIT,
+        });
+        if (cancelled) return;
+        const mapped = rows
+          .map((row) => {
+            const view = collectionCurrentRowToView(row);
+            if (!view) return null;
+            const appId = view.appId?.trim() || '';
+            return {
+              key: `${appId}:${view.collectionId}`,
+              appId,
+              hubName: hubNameById.get(appId) ?? (appId || 'Hub'),
+              collectionId: view.collectionId,
+              title: (view.title || view.collectionId).trim().slice(0, 120),
+              createdAtMs: view.createdAtMs || 0,
+              href: collectionPath(view.collectionId),
+            } satisfies HubDropPeek;
+          })
+          .filter((row): row is HubDropPeek => row != null);
+        setPeeks(mapped);
+        setPending(false);
+      } catch (cause) {
+        if (cancelled) return;
+        setPeeks(null);
+        setPending(false);
+        setError(
+          cause instanceof Error ? cause.message : 'Could not load drops.'
+        );
       }
-      merged.sort((a, b) => b.createdAtMs - a.createdAtMs);
-      setPeeks(merged.slice(0, PEEK_LIMIT));
-      setPending(false);
     })();
 
     return () => {
@@ -118,8 +130,12 @@ export function HubsLatestDropsPanel({
     return null;
   }
 
+  if (error) {
+    return <p className="launcher-home-empty">{error}</p>;
+  }
+
   if (myHubs == null || pending) {
-    return <p className="daos-index-empty">Loading drops…</p>;
+    return <p className="launcher-home-empty">Loading drops…</p>;
   }
 
   if (hubIds.length === 0) {
@@ -127,21 +143,17 @@ export function HubsLatestDropsPanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return <p className="daos-index-empty">Nothing new right now.</p>;
+    return <p className="launcher-home-empty">Nothing new right now.</p>;
   }
 
   return (
-    <ul className="daos-explore-list" aria-label="Drops from your hubs">
+    <ul className="launcher-peek-list" aria-label="Drops from your hubs">
       {peeks.map((peek) => (
         <li key={peek.key}>
-          <Link
-            href={peek.href}
-            className="daos-explore-row"
-            scroll={false}
-          >
-            <span className="daos-explore-row-copy">
-              <span className="daos-explore-row-title">{peek.title}</span>
-              <span className="daos-explore-row-meta">
+          <Link href={peek.href} className="launcher-peek-row" scroll={false}>
+            <span className="launcher-peek-row-copy">
+              <span className="launcher-peek-row-title">{peek.title}</span>
+              <span className="launcher-peek-row-meta">
                 {peek.hubName}
                 {peek.createdAtMs > 0 ? (
                   <>
