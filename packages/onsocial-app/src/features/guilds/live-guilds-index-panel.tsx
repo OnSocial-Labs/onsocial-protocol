@@ -124,7 +124,7 @@ export function LiveGuildsIndexPanel() {
                     href={guildPath(guild.groupId)}
                     title={title}
                     meta={meta}
-                    imageUrl={guild.bannerUrl}
+                    imageUrl={guild.badgeUrl ?? guild.bannerUrl}
                   />
                 );
               })}

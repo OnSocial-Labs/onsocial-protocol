@@ -37,6 +37,7 @@ BEGIN
       g.operation,
       g.group_description,
       g.group_banner_cid,
+      g.group_badge_cid,
       g.is_member_driven,
       g.group_topics,
       COALESCE(c.member_count, 0)::BIGINT AS member_count

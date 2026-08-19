@@ -25,6 +25,7 @@ const GROUP_CURRENT_SHELL_FIELDS = `
   groupName
   groupDescription
   groupBannerCid
+  groupBadgeCid
   isPublic
   isMemberDriven
   blockHeight
@@ -57,6 +58,7 @@ const GROUP_MEMBERSHIP_SHELL_FIELDS = `
   groupName
   groupDescription
   groupBannerCid
+  groupBadgeCid
   isPublic
   isMemberDriven
   blockHeight
@@ -91,6 +93,7 @@ export interface GroupMembershipCurrentRow {
   groupName: string | null;
   groupDescription: string | null;
   groupBannerCid: string | null;
+  groupBadgeCid: string | null;
   isPublic: boolean | null;
   isMemberDriven: boolean;
   /** Indexed topics from `groups_current.group_topics`. */
@@ -126,6 +129,7 @@ export interface GroupCurrentRow {
   groupName: string | null;
   groupDescription: string | null;
   groupBannerCid: string | null;
+  groupBadgeCid: string | null;
   isPublic: boolean | null;
   isMemberDriven: boolean;
   /** Indexed topics from latest group config JSON. */

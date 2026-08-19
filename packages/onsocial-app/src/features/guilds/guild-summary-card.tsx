@@ -20,6 +20,8 @@ export interface GuildSummaryCardModel {
   description: string | null;
   /** Banner (or seeded fallback) — guilds are places, not people; no crest. */
   bannerUrl: string | null;
+  /** Small identity mark beside the name when set. */
+  badgeUrl?: string | null;
   accessGated: boolean;
   memberDriven: boolean;
   memberCount?: number | null;
@@ -84,7 +86,11 @@ export function GuildSummaryCard({
     ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
     : null;
   const description = guild.description?.trim() || null;
-  const coverUrl = guild.bannerUrl;
+  /** Rail thumbs prefer badge (square mark); discovery grid keeps banner cover. */
+  const coverUrl =
+    variant === 'rail'
+      ? (guild.badgeUrl ?? guild.bannerUrl)
+      : guild.bannerUrl;
   const showDescription = variant === 'grid' && Boolean(description);
   /** Rail: one quiet meta line — topic · members; role/gated pills stay on grid. */
   const showPills = variant === 'grid';
@@ -105,7 +111,14 @@ export function GuildSummaryCard({
       </span>
 
       <span className="guild-summary-card-body">
-        <span className="guild-summary-card-name">{displayName}</span>
+        <span className="guild-summary-card-name-row">
+          {variant === 'grid' && guild.badgeUrl ? (
+            <span className="guild-summary-card-badge" aria-hidden>
+              <img src={guild.badgeUrl} alt="" />
+            </span>
+          ) : null}
+          <span className="guild-summary-card-name">{displayName}</span>
+        </span>
         {showDescription ? (
           <span className="guild-summary-card-copy">{description}</span>
         ) : null}

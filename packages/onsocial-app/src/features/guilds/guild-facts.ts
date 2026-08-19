@@ -20,6 +20,7 @@ export function guildConfigFromIndexedRow(
     groupName?: string | null;
     groupDescription?: string | null;
     groupBannerCid?: string | null;
+    groupBadgeCid?: string | null;
     isPublic?: boolean | null;
     isMemberDriven?: boolean;
     groupTopics?: string[] | null;
@@ -29,8 +30,7 @@ export function guildConfigFromIndexedRow(
     name: row.groupName?.trim() || groupId,
     description: row.groupDescription?.trim() || '',
     bannerUrl: guildMediaUrlFromCid(row.groupBannerCid),
-    // Badge lives in x.onsocial only until indexer grows a badge column.
-    badgeUrl: null,
+    badgeUrl: guildMediaUrlFromCid(row.groupBadgeCid),
     ownerId: row.ownerId?.trim() || null,
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
     memberDriven: Boolean(row.isMemberDriven),
@@ -111,6 +111,7 @@ function membershipRowToCardBase(row: {
   groupName?: string | null;
   groupDescription?: string | null;
   groupBannerCid?: string | null;
+  groupBadgeCid?: string | null;
   isPublic?: boolean | null;
   isMemberDriven?: boolean;
   groupTopics?: string[] | null;
@@ -124,6 +125,7 @@ function membershipRowToCardBase(row: {
     name: row.groupName ?? null,
     description: row.groupDescription ?? null,
     bannerUrl: guildMediaUrlFromCid(row.groupBannerCid),
+    badgeUrl: guildMediaUrlFromCid(row.groupBadgeCid),
     accessGated: deriveGuildAccessGated({ isPublic: row.isPublic }),
     memberDriven: Boolean(row.isMemberDriven),
     memberCount:
@@ -146,6 +148,7 @@ export function guildSummaryCardFromBrowse(row: {
   groupName?: string | null;
   groupDescription?: string | null;
   groupBannerCid?: string | null;
+  groupBadgeCid?: string | null;
   isPublic?: boolean | null;
   isMemberDriven?: boolean;
   groupTopics?: string[] | null;

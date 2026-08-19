@@ -630,12 +630,9 @@ export function LiveGuildPanel({
               memberDriven: fromRpc.memberDriven,
               ownerId:
                 fromRpc.ownerId ?? (current.config ?? currentConfig).ownerId,
-              bannerUrl:
-                fromRpc.bannerUrl ??
-                (current.config ?? currentConfig).bannerUrl,
-              badgeUrl:
-                fromRpc.badgeUrl ??
-                (current.config ?? currentConfig).badgeUrl,
+              // Prefer RPC media even when null (removal must clear painted shell).
+              bannerUrl: fromRpc.bannerUrl,
+              badgeUrl: fromRpc.badgeUrl,
             },
           }));
           await applyViewerAccess(client, fromRpc);
