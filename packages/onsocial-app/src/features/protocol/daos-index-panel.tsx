@@ -243,9 +243,12 @@ export function DaosIndexPanel() {
                   <LauncherMineCard
                     key={entry.accountId}
                     href={entry.href}
+                    seedId={entry.accountId}
                     title={title}
-                    meta={entry.kindLabel}
-                    imageUrl={entry.avatarUrl}
+                    subtitle={named ? `@${entry.accountId}` : null}
+                    bannerUrl={entry.bannerUrl}
+                    markUrl={entry.avatarUrl}
+                    markVariant="crest"
                     ariaLabel={named ? entry.name : `@${entry.accountId}`}
                   />
                 );

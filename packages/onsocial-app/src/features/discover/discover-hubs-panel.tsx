@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CommunityDiscoverRow } from '@/components/community-cards';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
 import {
@@ -30,24 +31,12 @@ import { fallbackLabel } from '@/lib/profile-display';
 
 const SCARCE_PEEK_LIMIT = 6;
 
-function monogram(title: string): string {
-  const parts = title.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '??';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-function storeMeta(app: AppView): string {
-  const parts = [`@${fallbackLabel(app.ownerId)}`];
-  const topicsLabel =
-    app.categories.length > 0
-      ? app.categories
-          .map((category) => hubCategoryLabel(category) ?? category)
-          .join(' · ')
-      : hubCategoryLabel(app.category);
-  if (topicsLabel) parts.push(topicsLabel);
-  parts.push(creatorAccessShort(app.creatorAccess));
-  return parts.join(' · ');
+function hubPrimaryCategory(app: AppView): string | null {
+  if (app.categories.length > 0) {
+    const raw = app.categories[0]!;
+    return hubCategoryLabel(raw) ?? raw;
+  }
+  return hubCategoryLabel(app.category);
 }
 
 function ScarcePeekSection({
@@ -262,41 +251,49 @@ export function DiscoverHubsPanel() {
               Hubs
             </h2>
           ) : null}
-          <ul className="market-listing-list apps-directory-list">
-            {apps.map((app) => (
-              <li key={app.appId}>
-                <Link
+          <div className="community-summary-card-grid apps-directory-list">
+            {apps.map((app) => {
+              const description = app.description?.trim() || null;
+              const category = hubPrimaryCategory(app);
+              return (
+                <CommunityDiscoverRow
+                  key={app.appId}
                   href={appPath(app.appId)}
-                  scroll={false}
-                  className="market-listing-row apps-directory-row"
-                >
-                  <span
-                    className={`market-listing-thumb apps-directory-logo${
-                      app.mediaUrl ? ' has-media' : ''
-                    }`}
-                    aria-hidden
-                  >
-                    {app.mediaUrl ? (
-                      <img src={app.mediaUrl} alt="" />
-                    ) : (
-                      <span className="apps-directory-logo-fallback">
-                        {monogram(app.title)}
+                  seedId={app.appId}
+                  bannerUrl={app.bannerUrl}
+                  markUrl={app.mediaUrl}
+                  markVariant="logo"
+                  title={app.title}
+                  description={description}
+                  meta={
+                    <>
+                      <span className="community-summary-stat">
+                        <span className="community-summary-stat-count">
+                          {app.commissionPct}%
+                        </span>
+                        <span className="community-summary-stat-label">
+                          fee
+                        </span>
                       </span>
-                    )}
-                  </span>
-                  <span className="market-listing-copy">
-                    <span className="market-listing-head">
-                      <span className="market-listing-title">{app.title}</span>
-                      <span className="market-listing-price">
-                        {app.commissionPct}%
+                      <span className="community-summary-stat">
+                        <span className="community-summary-stat-label">
+                          @{fallbackLabel(app.ownerId)}
+                        </span>
                       </span>
-                    </span>
-                    <span className="market-listing-meta">{storeMeta(app)}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                      {category ? (
+                        <span className="guild-card-pill guild-card-pill--topic">
+                          {category}
+                        </span>
+                      ) : null}
+                      <span className="guild-card-pill">
+                        {creatorAccessShort(app.creatorAccess)}
+                      </span>
+                    </>
+                  }
+                />
+              );
+            })}
+          </div>
         </>
       ) : null}
     </div>

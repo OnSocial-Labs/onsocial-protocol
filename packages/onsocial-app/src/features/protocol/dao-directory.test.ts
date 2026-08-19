@@ -16,6 +16,7 @@ describe('dao directory entries', () => {
           v: 1,
           name: 'Crested DAO',
           avatar: 'ipfs://bafyCrest',
+          banner: 'ipfs://bafyBanner',
         },
       }),
       source: 'factory',
@@ -25,6 +26,7 @@ describe('dao directory entries', () => {
     expect(entry.name).toBe('Crested DAO');
     expect(entry.subtitle).toBe('Purpose line');
     expect(entry.avatarUrl).toContain('bafyCrest');
+    expect(entry.bannerUrl).toContain('bafyBanner');
     expect(entry.href).toContain('/@demo.sputnikv2.testnet');
   });
 

@@ -16,19 +16,8 @@ import {
   type AppView,
 } from '@/features/scarces/apps-data';
 import { HubsLatestDropsPanel } from '@/features/scarces/hubs-latest-drops-panel';
-import { hubCategoryLabel } from '@/features/scarces/hub-categories';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { APP_APP_CREATE_PATH, appPath } from '@/lib/app-routes';
-
-function hubMeta(app: AppView): string {
-  return (
-    hubCategoryLabel(app.category) ??
-    (app.categories[0]
-      ? (hubCategoryLabel(app.categories[0]) ?? app.categories[0])
-      : null) ??
-    'Hub'
-  );
-}
 
 /**
  * Hubs launcher — one Home: mine (horizontal) + latest drops under a divider.
@@ -119,9 +108,11 @@ export function HubsIndexPanel() {
                 <LauncherMineCard
                   key={app.appId}
                   href={appPath(app.appId)}
+                  seedId={app.appId}
                   title={app.title}
-                  meta={hubMeta(app)}
-                  imageUrl={app.mediaUrl}
+                  bannerUrl={app.bannerUrl}
+                  markUrl={app.mediaUrl}
+                  markVariant="logo"
                 />
               ))}
             </LauncherMineRail>

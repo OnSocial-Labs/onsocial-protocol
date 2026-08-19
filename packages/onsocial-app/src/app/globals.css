@@ -10163,6 +10163,7 @@ a.os-surface-row {
   }
 
   /* Same flush stack as .standing-list — gap reads as floating cards. */
+  .community-summary-card-grid,
   .guild-summary-card-grid {
     display: flex;
     flex-direction: column;
@@ -10170,6 +10171,8 @@ a.os-surface-row {
   }
 
   /* Standing-like row: media left, facts right — no plate, no lift. */
+  .community-summary-card,
+  .community-summary-card--grid,
   .guild-summary-card,
   .guild-summary-card--grid {
     display: grid;
@@ -10190,6 +10193,10 @@ a.os-surface-row {
     transition: background 160ms ease;
   }
 
+  .community-summary-card:hover,
+  .community-summary-card:focus-visible,
+  .community-summary-card--grid:hover,
+  .community-summary-card--grid:focus-visible,
   .guild-summary-card:hover,
   .guild-summary-card:focus-visible,
   .guild-summary-card--grid:hover,
@@ -10222,6 +10229,7 @@ a.os-surface-row {
     transform: none;
   }
 
+  .community-summary-media,
   .guild-summary-card-media {
     position: relative;
     flex-shrink: 0;
@@ -10230,6 +10238,7 @@ a.os-surface-row {
     min-height: 3.85rem;
   }
 
+  .community-summary-cover,
   .guild-summary-card-cover {
     position: relative;
     display: block;
@@ -10237,9 +10246,11 @@ a.os-surface-row {
     height: 100%;
     min-height: 3.85rem;
     overflow: hidden;
-    border-radius: 0.72rem;
+    /* Match market / hubs catalog thumbs — soft OS list language. */
+    border-radius: var(--os-catalog-cover-radius, 0.75rem);
   }
 
+  .community-summary-cover img,
   .guild-summary-card-cover img {
     position: absolute;
     inset: 0;
@@ -10249,7 +10260,7 @@ a.os-surface-row {
     object-position: center center;
   }
 
-
+  .community-summary-body,
   .guild-summary-card-body {
     display: grid;
     min-width: 0;
@@ -10257,6 +10268,7 @@ a.os-surface-row {
     padding: 0.05rem 0.1rem 0.05rem 0;
   }
 
+  .community-summary-name-row,
   .guild-summary-card-name-row {
     display: flex;
     align-items: center;
@@ -10264,8 +10276,11 @@ a.os-surface-row {
     min-width: 0;
   }
 
+  .community-summary-mark,
   .guild-summary-card-badge {
     flex-shrink: 0;
+    display: grid;
+    place-items: center;
     width: 1.05rem;
     height: 1.05rem;
     overflow: hidden;
@@ -10273,12 +10288,32 @@ a.os-surface-row {
     background: rgb(var(--fg-rgb) / 0.08);
   }
 
+  .community-summary-mark--crest,
+  .community-summary-mark--logo {
+    border-radius: 0.32rem;
+  }
+
+  .community-summary-mark img,
   .guild-summary-card-badge img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
+  .community-mark-mono {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.62);
+    line-height: 1;
+    user-select: none;
+  }
+
+  .launcher-mine-mark .community-mark-mono {
+    font-size: 0.62rem;
+  }
+
+  .community-summary-name,
   .guild-summary-card-name {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -10289,6 +10324,7 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.92);
   }
 
+  .community-summary-copy,
   .guild-summary-card-copy {
     display: -webkit-box;
     overflow: hidden;
@@ -10299,6 +10335,7 @@ a.os-surface-row {
     -webkit-line-clamp: 1;
   }
 
+  .community-summary-meta,
   .guild-summary-card-meta {
     display: flex;
     flex-wrap: wrap;
@@ -10308,6 +10345,7 @@ a.os-surface-row {
     margin-top: 0.06rem;
   }
 
+  .community-summary-stat,
   .guild-summary-card-stat {
     display: inline-flex;
     align-items: baseline;
@@ -10319,6 +10357,7 @@ a.os-surface-row {
     white-space: nowrap;
   }
 
+  .community-summary-stat-count,
   .guild-summary-card-stat-count {
     color: rgb(var(--fg-rgb) / 0.78);
     font-size: 0.72rem;
@@ -10326,6 +10365,7 @@ a.os-surface-row {
     letter-spacing: -0.02em;
   }
 
+  .community-summary-stat-label,
   .guild-summary-card-stat-label {
     color: rgb(var(--fg-rgb) / 0.42);
     font-size: 0.6rem;
@@ -10371,10 +10411,11 @@ a.os-surface-row {
     align-self: center;
   }
 
-  .guild-summary-card--rail .guild-summary-card-cover {
+  .guild-summary-card--rail .guild-summary-card-cover,
+  .guild-summary-card--rail .community-summary-cover {
     min-height: 3.25rem;
     height: 3.25rem;
-    border-radius: 0.72rem;
+    border-radius: var(--os-catalog-cover-radius, 0.75rem);
   }
 
   .guild-summary-card--rail .guild-summary-card-body {
@@ -32413,9 +32454,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   list-style: none;
   margin: 0;
   display: grid;
-  grid-auto-columns: minmax(8.5rem, 38%);
+  grid-auto-columns: minmax(9.25rem, 42%);
   grid-auto-flow: column;
-  gap: 0.55rem;
+  gap: 0.6rem;
   margin-inline: -0.1rem;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -32433,60 +32474,110 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 0.45rem;
   scroll-snap-align: start;
   color: inherit;
   text-decoration: none;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: rgb(var(--fg-rgb) / 0.035);
 }
 
-.launcher-mine-crest {
+.launcher-mine-banner {
   display: block;
   width: 100%;
-  aspect-ratio: 1;
-  border-radius: 0.85rem;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
   background: rgb(var(--fg-rgb) / 0.06);
 }
 
-.launcher-mine-crest img {
+.launcher-mine-banner-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.launcher-mine-banner .guild-hero-cover {
+  width: 100%;
+  height: 100%;
+}
+
+.launcher-mine-banner-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+
+.launcher-mine-rule {
+  display: block;
+  height: 1px;
+  width: 100%;
+  background: rgb(var(--fg-rgb) / 0.1);
+}
+
+.launcher-mine-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.42rem 0.48rem 0.48rem;
+}
+
+.launcher-mine-mark {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  overflow: hidden;
+  background: rgb(var(--fg-rgb) / 0.08);
+}
+
+.launcher-mine-mark--badge {
+  border-radius: 0.3rem;
+}
+
+.launcher-mine-mark--crest,
+.launcher-mine-mark--logo {
+  border-radius: 0.38rem;
+}
+
+.launcher-mine-mark img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.launcher-mine-crest-fallback {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.launcher-mine-card-copy {
+.launcher-mine-foot-copy {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
-  gap: 0.12rem;
-  padding-inline: 0.1rem;
+  gap: 0.06rem;
 }
 
 .launcher-mine-card-title {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 650;
-  line-height: 1.25;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .launcher-mine-card-meta {
-  font-size: 0.72rem;
-  line-height: 1.3;
-  color: rgb(var(--fg-rgb) / 0.52);
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: rgb(var(--fg-rgb) / 0.5);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

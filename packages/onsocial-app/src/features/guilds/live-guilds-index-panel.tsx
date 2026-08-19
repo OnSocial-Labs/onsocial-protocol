@@ -18,7 +18,6 @@ import { GuildsLatestPostsPanel } from '@/features/guilds/guilds-latest-posts-pa
 import { guildPath } from '@/features/guilds/guilds-data';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
-import { topicLabel } from '@/lib/topic-slug';
 
 /**
  * Guilds launcher — one Home: mine (horizontal) + latest posts under a divider.
@@ -115,16 +114,15 @@ export function LiveGuildsIndexPanel() {
             <LauncherMineRail>
               {(myGuilds ?? []).map((guild) => {
                 const title = guildDisplayName(guild.name, guild.groupId);
-                const meta = guild.topics?.[0]
-                  ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
-                  : 'Guild';
                 return (
                   <LauncherMineCard
                     key={guild.groupId}
                     href={guildPath(guild.groupId)}
+                    seedId={guild.groupId}
                     title={title}
-                    meta={meta}
-                    imageUrl={guild.badgeUrl ?? guild.bannerUrl}
+                    bannerUrl={guild.bannerUrl}
+                    markUrl={guild.badgeUrl}
+                    markVariant="badge"
                   />
                 );
               })}
