@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { OsIconAction, PlusIcon } from '@onsocial/ui';
+import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
+import { DaosExplorePanel } from '@/features/protocol/daos-explore-panel';
 import { daoDirectoryEntryFromMembership } from '@/features/protocol/dao-directory';
-import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
+import type { DaoDirectoryEntry } from '@/features/protocol/dao-directory';
 import {
   fetchMyDaos,
   type MyDaoMembership,
@@ -51,17 +52,46 @@ function mergeMyDaosWithOptimistic(
   );
 }
 
+function DaoMineCard({ entry }: { entry: DaoDirectoryEntry }) {
+  const named = entry.name.trim().toLowerCase() !== entry.accountId;
+  const title = named ? entry.name : entry.accountId;
+  return (
+    <Link
+      href={entry.href}
+      className="daos-mine-card"
+      scroll={false}
+      aria-label={named ? entry.name : `@${entry.accountId}`}
+    >
+      <span className="daos-mine-crest" aria-hidden>
+        {entry.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={entry.avatarUrl} alt="" />
+        ) : (
+          <span className="daos-mine-crest-fallback">
+            {title.slice(0, 2).toUpperCase()}
+          </span>
+        )}
+      </span>
+      <span className="daos-mine-card-copy">
+        <span className="daos-mine-card-title">{title}</span>
+        <span className="daos-mine-card-meta">{entry.kindLabel}</span>
+      </span>
+    </Link>
+  );
+}
+
 /**
- * Thin DAOs home — My DAOs + Create.
- * Browse lives in Discover; Protocol opens Governance (switch Treasury on face).
- * Trending / latest proposals can land here later.
+ * DAOs launcher — one Home: mine (horizontal) + proposals under a divider.
+ * Network catalog find: header search → Discover → DAOs.
  */
 export function DaosIndexPanel() {
-  const { accountId, connect, isConnected } = useAppWallet();
+  const { accountId } = useAppWallet();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+
+  const discoverDaosHref = appDiscoverTabHref('daos');
 
   useEffect(() => {
     const wantsCreate =
@@ -71,6 +101,7 @@ export function DaosIndexPanel() {
     queueMicrotask(() => setCreateOpen(true));
     const params = new URLSearchParams(searchParams.toString());
     params.delete(DAOS_CREATE_QUERY);
+    params.delete('tab');
     const qs = params.toString();
     router.replace(qs ? `/daos?${qs}` : '/daos', { scroll: false });
   }, [router, searchParams]);
@@ -149,33 +180,34 @@ export function DaosIndexPanel() {
   );
 
   const myDaosReady = myDaos !== null;
-  const discoverDaosHref = appDiscoverTabHref('daos');
 
-  const createAction = (
-    <OsIconAction
-      ariaLabel="Create DAO"
-      aria-expanded={createOpen}
-      aria-haspopup="dialog"
-      onClick={() => setCreateOpen(true)}
-    >
-      <PlusIcon aria-hidden className="glass-sheet-close-icon" />
-    </OsIconAction>
+  const headerActions = (
+    <>
+      <OsIconAction asChild ariaLabel="Discover DAOs">
+        <Link href={discoverDaosHref} scroll={false}>
+          <SearchIcon aria-hidden className="glass-sheet-close-icon" />
+        </Link>
+      </OsIconAction>
+      <OsIconAction
+        ariaLabel="Create DAO"
+        aria-expanded={createOpen}
+        aria-haspopup="dialog"
+        onClick={() => setCreateOpen(true)}
+      >
+        <PlusIcon aria-hidden className="glass-sheet-close-icon" />
+      </OsIconAction>
+    </>
   );
 
   return (
     <OsAppScreen
       title="DAOs"
-      subtitle="Your orgs — create or open"
+      subtitle="Yours — create or open"
       backFallbackHref="/"
       glassChrome
-      actions={createAction}
+      actions={headerActions}
     >
       <div className="daos-index">
-        <p className="daos-index-lede">
-          Memberships you hold. Browse every factory DAO in Discover; Protocol
-          opens OnSocial Governance (switch to Treasury on the face).
-        </p>
-
         <div className="daos-index-shortcuts">
           <Link
             href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
@@ -189,49 +221,40 @@ export function DaosIndexPanel() {
           >
             Treasury
           </Link>
-          <Link href={discoverDaosHref} className="daos-index-chip">
-            Discover
-          </Link>
         </div>
 
         <section className="daos-index-section" aria-label="My DAOs">
           <h2 className="daos-index-heading">My DAOs</h2>
           {!accountId ? (
-            <div className="standing-panel-empty-block">
-              <div className="standing-panel-empty-state">
-                <p className="standing-panel-empty-primary">
-                  Connect to see your DAO roles.
-                </p>
-                <p className="standing-panel-empty-secondary">
-                  Or browse the catalog in Discover.
-                </p>
-              </div>
-              <div className="standing-panel-empty-actions">
-                {!isConnected ? (
-                  <button
-                    type="button"
-                    className="standing-panel-empty-action"
-                    onClick={() => void connect()}
-                  >
-                    Connect wallet
-                  </button>
-                ) : null}
-                <Link
-                  className="standing-panel-empty-action"
-                  href={discoverDaosHref}
-                >
-                  Browse DAOs
-                </Link>
-              </div>
-            </div>
+            <p className="daos-index-empty">
+              Connect to see your DAO roles. Search finds every factory DAO.
+            </p>
           ) : !myDaosReady ? (
             <p className="daos-index-empty">Loading memberships…</p>
+          ) : myEntries.length === 0 ? (
+            <p className="daos-index-empty">
+              No DAO roles yet. Tap + to create one — memberships appear here as
+              roles sync.
+            </p>
           ) : (
-            <DaoDirectoryList
-              entries={myEntries}
-              empty="No DAO roles yet. Tap + to create one — memberships appear here as roles sync."
-            />
+            <div className="daos-mine-rail" role="list">
+              {myEntries.map((entry) => (
+                <div key={entry.accountId} role="listitem">
+                  <DaoMineCard entry={entry} />
+                </div>
+              ))}
+            </div>
           )}
+        </section>
+
+        <Divider className="daos-index-divider" />
+
+        <section className="daos-index-section" aria-label="Proposals">
+          <h2 className="daos-index-heading">Proposals</h2>
+          <p className="daos-index-lede daos-index-lede--tight">
+            From DAOs you belong to.
+          </p>
+          <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
         </section>
       </div>
 

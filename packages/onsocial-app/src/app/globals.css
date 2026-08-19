@@ -9190,6 +9190,25 @@ a.os-surface-row {
     animation: portfolio-summon-hint-in 420ms ease;
   }
 
+  button.portfolio-summon-hint--connect {
+    pointer-events: auto;
+    border: none;
+    padding: 0;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(var(--fg-rgb) / 0.48);
+  }
+
+  button.portfolio-summon-hint--connect:hover,
+  button.portfolio-summon-hint--connect:focus-visible {
+    color: rgb(var(--fg-rgb) / 0.72);
+    outline: none;
+  }
+
   @keyframes portfolio-summon-hint-in {
     from {
       opacity: 0;
@@ -32526,6 +32545,146 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   color: rgb(var(--fg-rgb) / 0.68);
 }
 
+.daos-index-lede--tight {
+  margin-bottom: 0.35rem;
+  font-size: 0.84rem;
+}
+
+.daos-index-divider {
+  margin-block: 0.15rem;
+}
+
+.daos-mine-rail {
+  display: grid;
+  grid-auto-columns: minmax(8.5rem, 38%);
+  grid-auto-flow: column;
+  gap: 0.55rem;
+  margin-inline: -0.1rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0.05rem 0.1rem 0.35rem;
+  scroll-padding-inline: 0.1rem;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.daos-mine-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.daos-mine-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.45rem;
+  scroll-snap-align: start;
+  color: inherit;
+  text-decoration: none;
+}
+
+.daos-mine-crest {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: rgb(var(--fg-rgb) / 0.06);
+}
+
+.daos-mine-crest img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.daos-mine-crest-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgb(var(--fg-rgb) / 0.45);
+}
+
+.daos-mine-card-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.12rem;
+  padding-inline: 0.1rem;
+}
+
+.daos-mine-card-title {
+  font-size: 0.88rem;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daos-mine-card-meta {
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: rgb(var(--fg-rgb) / 0.52);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daos-explore-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.daos-explore-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.72rem 0.15rem;
+  border-radius: 0.55rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.daos-explore-row:hover,
+.daos-explore-row:focus-visible {
+  background: rgb(var(--fg-rgb) / 0.04);
+  outline: none;
+}
+
+.daos-explore-row-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.daos-explore-row-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daos-explore-row-meta {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgb(var(--fg-rgb) / 0.55);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dao-create-form {
   display: flex;
   flex-direction: column;
@@ -32692,6 +32851,19 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   font-size: 0.84rem;
   line-height: 1.4;
   color: rgb(var(--fg-rgb) / 0.55);
+}
+
+.daos-index-inline-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+.daos-index-inline-link:hover,
+.daos-index-inline-link:focus-visible {
+  color: rgb(var(--fg-rgb) / 0.82);
+  outline: none;
 }
 
 .daos-index-section {
