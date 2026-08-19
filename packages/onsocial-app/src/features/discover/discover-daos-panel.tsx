@@ -42,7 +42,7 @@ export function DiscoverDaosPanel() {
       className="standing-panel-body discover-daos-panel"
     >
       <div className="discover-community-toolbar">
-        <p className="daos-index-empty dao-discover-status">
+        <p className="launcher-home-empty dao-discover-status">
           {statusLine}
           {catalogQuery ? ` · “${catalogQuery}”` : ' · OnSocial first, then Near'}
         </p>
@@ -57,7 +57,7 @@ export function DiscoverDaosPanel() {
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
       {showSkeleton ? (
-        <p className="daos-index-empty">Loading catalog…</p>
+        <p className="launcher-home-empty">Loading catalog…</p>
       ) : (
         <DaoDirectoryList
           entries={entries}

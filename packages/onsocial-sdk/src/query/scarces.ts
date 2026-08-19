@@ -833,6 +833,8 @@ export class ScarcesQuery {
       offset?: number;
       creatorId?: string;
       appId?: string;
+      /** Batch filter — preferred over repeated single-app calls. */
+      appIds?: string[];
       kind?: string;
       /** Normalized medium filter (`art` / `audio` / `video` / …). */
       mediumKind?: string;
@@ -935,7 +937,14 @@ export class ScarcesQuery {
       variables.creatorId = opts.creatorId.trim();
       where.push('creatorId: {_eq: $creatorId}');
     }
-    if (opts.appId?.trim()) {
+    const appIds = [
+      ...new Set((opts.appIds ?? []).map((id) => id.trim()).filter(Boolean)),
+    ];
+    if (appIds.length > 0) {
+      params.push('$appIds: [String!]!');
+      variables.appIds = appIds;
+      where.push('appId: {_in: $appIds}');
+    } else if (opts.appId?.trim()) {
       params.push('$appId: String!');
       variables.appId = opts.appId.trim();
       where.push('appId: {_eq: $appId}');

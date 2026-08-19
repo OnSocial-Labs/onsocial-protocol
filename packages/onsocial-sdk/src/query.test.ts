@@ -1035,6 +1035,35 @@ describe('QueryModule', () => {
       expect(body.query).toContain('channel kind');
       expect(body.variables.groupId).toBe('dao');
     });
+
+    it('feedFromGroups batches groupId _in', async () => {
+      const { os, fetch } = makeOs({
+        data: {
+          postsCurrent: [
+            {
+              accountId: 'alice.near',
+              postId: '1',
+              value: '{"text":"hi"}',
+              blockHeight: 9,
+              blockTimestamp: 0,
+              groupId: 'guild-a',
+              isGroupContent: true,
+            },
+          ],
+        },
+      });
+
+      const page = await os.query.groups.feedFromGroups({
+        groupIds: ['guild-a', 'guild-b', ''],
+        limit: 24,
+      });
+      expect(page.items).toHaveLength(1);
+
+      const body = JSON.parse(fetch.mock.calls[0][1].body);
+      expect(body.query).toContain('groupId: {_in: $groupIds}');
+      expect(body.variables.groupIds).toEqual(['guild-a', 'guild-b']);
+      expect(body.variables.limit).toBe(24);
+    });
   });
 
   describe('getFilteredGroupFeed()', () => {
@@ -3277,6 +3306,21 @@ describe('QueryModule', () => {
         appId: 'hub',
         kind: 'audio',
       });
+    });
+
+    it('collectionsCurrent batches appId _in via appIds', async () => {
+      const { os, fetch } = makeOs({ data: { scarcesCollectionsCurrent: [] } });
+      await os.query.scarces.collectionsCurrent({
+        appIds: ['hub-a', 'hub-b', 'hub-a'],
+        limit: 24,
+      });
+
+      const body = JSON.parse(
+        (fetch.mock.calls[0][1] as RequestInit).body as string
+      );
+      expect(body.query).toMatch(/appId: \{_in: \$appIds\}/);
+      expect(body.variables.appIds).toEqual(['hub-a', 'hub-b']);
+      expect(body.variables.limit).toBe(24);
     });
 
     it('collectionsCurrent applies live lifecycle window filters', async () => {

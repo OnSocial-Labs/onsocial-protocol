@@ -582,6 +582,53 @@ export class GroupsQuery {
   }
 
   /**
+   * Latest group posts across many guilds (one query).
+   * Newest first — used by Guilds Home peeks.
+   *
+   * ```ts
+   * const { items } = await os.query.groups.feedFromGroups({
+   *   groupIds: ['guild-a', 'guild-b'],
+   *   limit: 24,
+   * });
+   * ```
+   */
+  async feedFromGroups(opts: {
+    groupIds: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<Paginated<PostRow>> {
+    const groupIds = [
+      ...new Set(opts.groupIds.map((id) => id.trim()).filter(Boolean)),
+    ];
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    if (groupIds.length === 0) {
+      return { items: [], nextOffset: undefined };
+    }
+    const res = await this._q.graphql<{ postsCurrent: PostRow[] }>({
+      query: `query GroupsFeed($groupIds: [String!]!, $limit: Int!, $offset: Int!) {
+        postsCurrent(
+          where: {
+            groupId: {_in: $groupIds},
+            isGroupContent: {_eq: true}
+          },
+          limit: $limit,
+          offset: $offset,
+          orderBy: [{blockHeight: DESC}]
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+      variables: { groupIds, limit, offset },
+    });
+    const rows = res.data?.postsCurrent ?? [];
+    return {
+      items: rows,
+      nextOffset: rows.length >= limit ? offset + limit : undefined,
+    };
+  }
+
+  /**
    * Group feed filtered by canonical post metadata (channel, kind, audience).
    *
    * ```ts

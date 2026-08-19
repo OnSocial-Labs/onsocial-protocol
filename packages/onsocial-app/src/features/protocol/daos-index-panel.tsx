@@ -58,23 +58,23 @@ function DaoMineCard({ entry }: { entry: DaoDirectoryEntry }) {
   return (
     <Link
       href={entry.href}
-      className="daos-mine-card"
+      className="launcher-mine-card"
       scroll={false}
       aria-label={named ? entry.name : `@${entry.accountId}`}
     >
-      <span className="daos-mine-crest" aria-hidden>
+      <span className="launcher-mine-crest" aria-hidden>
         {entry.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={entry.avatarUrl} alt="" />
         ) : (
-          <span className="daos-mine-crest-fallback">
+          <span className="launcher-mine-crest-fallback">
             {title.slice(0, 2).toUpperCase()}
           </span>
         )}
       </span>
-      <span className="daos-mine-card-copy">
-        <span className="daos-mine-card-title">{title}</span>
-        <span className="daos-mine-card-meta">{entry.kindLabel}</span>
+      <span className="launcher-mine-card-copy">
+        <span className="launcher-mine-card-title">{title}</span>
+        <span className="launcher-mine-card-meta">{entry.kindLabel}</span>
       </span>
     </Link>
   );
@@ -210,37 +210,37 @@ export function DaosIndexPanel() {
       glassChrome
       actions={headerActions}
     >
-      <div className="daos-index">
-        <div className="daos-index-shortcuts">
+      <div className="launcher-home">
+        <div className="launcher-home-shortcuts">
           <Link
             href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
-            className="daos-index-chip"
+            className="launcher-home-chip"
           >
             Governance
           </Link>
           <Link
             href={daoPath(TREASURY_DAO_ACCOUNT)}
-            className="daos-index-chip"
+            className="launcher-home-chip"
           >
             Treasury
           </Link>
         </div>
 
-        <section className="daos-index-section" aria-label="My DAOs">
-          <h2 className="daos-index-heading">My DAOs</h2>
+        <section className="launcher-home-section" aria-label="My DAOs">
+          <h2 className="launcher-home-heading">My DAOs</h2>
           {!accountId ? (
-            <p className="daos-index-empty">
+            <p className="launcher-home-empty">
               Connect to see DAOs you’ve joined — or tap search to explore.
             </p>
           ) : !myDaosReady ? (
-            <p className="daos-index-empty">Loading your DAOs…</p>
+            <p className="launcher-home-empty">Loading your DAOs…</p>
           ) : myEntries.length === 0 ? (
-            <p className="daos-index-empty">
+            <p className="launcher-home-empty">
               You haven’t joined a DAO yet. Tap Search to explore, or + to start
               one.
             </p>
           ) : (
-            <div className="daos-mine-rail" role="list">
+            <div className="launcher-mine-rail" role="list">
               {myEntries.map((entry) => (
                 <div key={entry.accountId} role="listitem">
                   <DaoMineCard entry={entry} />
@@ -252,10 +252,10 @@ export function DaosIndexPanel() {
 
         {showProposals ? (
           <>
-            <Divider className="daos-index-divider" />
+            <Divider className="launcher-home-divider" />
 
-            <section className="daos-index-section" aria-label="Proposals">
-              <h2 className="daos-index-heading">Proposals</h2>
+            <section className="launcher-home-section" aria-label="Proposals">
+              <h2 className="launcher-home-heading">Proposals</h2>
               <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
             </section>
           </>
