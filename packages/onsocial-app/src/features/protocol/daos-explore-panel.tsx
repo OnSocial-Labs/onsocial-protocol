@@ -8,7 +8,6 @@ import type { ProtocolDaoProposalStatus } from '@/features/protocol/types';
 import type { MyDaoMembership } from '@/features/protocol/my-daos-client';
 import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
 import { daoPortfolioPath } from '@/lib/app-routes';
-import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 
 const EXPLORE_DAO_LIMIT = 12;
 const EXPLORE_PEEK_LIMIT = 24;
@@ -39,7 +38,6 @@ export function DaosExplorePanel({
   accountId: string | null;
   myDaos: MyDaoMembership[] | null;
 }) {
-  const discoverDaosHref = appDiscoverTabHref('daos');
   const [peeks, setPeeks] = useState<DaosExplorePeek[] | null>(null);
   const [pending, setPending] = useState(false);
 
