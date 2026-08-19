@@ -212,7 +212,7 @@ export function HubLookSheet({
       return;
     }
     if (categories.length < 1) {
-      setError('Pick or type a category for this hub.');
+      setError('Pick a category for this hub.');
       return;
     }
     setPending(true);
@@ -281,7 +281,7 @@ export function HubLookSheet({
     <HubManageSheetChrome
       open={open}
       title="Edit look"
-      subtitle="Logo, banner, name, categories"
+      subtitle="Logo, banner, name, category"
       onClose={onClose}
       pending={pending}
       dirty={dirty}

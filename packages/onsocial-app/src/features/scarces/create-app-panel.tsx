@@ -124,7 +124,7 @@ export function CreateAppPanel() {
       }
       const normalizedCategories = normalizeTopicList(categories);
       if (normalizedCategories.length < 1) {
-        setError('Pick or type a category for this hub.');
+        setError('Pick a category for this hub.');
         return;
       }
 

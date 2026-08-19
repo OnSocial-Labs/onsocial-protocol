@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommunityDiscoverRow } from '@/components/community-cards';
 import { ListLoadError } from '@/components/panels/list-load-error';
+import { DiscoverBrowseChipRail } from '@/features/discover/discover-browse-chip-rail';
 import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
 import {
   fetchMostLovedScarcePeeks,
@@ -18,7 +19,12 @@ import {
   type AppView,
 } from '@/features/scarces/apps-data';
 import { APPS_PAGE_SIZE } from '@/features/scarces/apps-directory';
-import { hubCategoryLabel } from '@/features/scarces/hub-categories';
+import {
+  countHubPrimaryCategories,
+  hubCategoryLabel,
+  hubDiscoverCategoryFilters,
+  type HubCategoryFilter,
+} from '@/features/scarces/hub-categories';
 import {
   APP_APP_CREATE_PATH,
   APP_APPS_PATH,
@@ -30,6 +36,8 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { fallbackLabel } from '@/lib/profile-display';
 
 const SCARCE_PEEK_LIMIT = 6;
+/** Sample size for Discover category chip census (omit empty curated cats). */
+const HUB_CATEGORY_CENSUS_LIMIT = 96;
 
 function hubPrimaryCategory(app: AppView): string | null {
   if (app.categories.length > 0) {
@@ -81,11 +89,17 @@ function ScarcePeekSection({
 /**
  * Discover → Hubs — network find. My hubs / create live in the Hubs app.
  * Idle: Most traded · Most loved peeks, then hub catalog.
+ * Browse chips: curated mint categories that actually have hubs.
  */
 export function DiscoverHubsPanel() {
   const { query, clearSearch } = useDiscoverPanel();
   const searchQuery = discoverPeopleSearchQuery(query);
   const [apps, setApps] = useState<AppView[] | null>(null);
+  const [categoryFilter, setCategoryFilter] =
+    useState<HubCategoryFilter>('all');
+  const [categoryCounts, setCategoryCounts] = useState<Map<string, number>>(
+    () => new Map()
+  );
   const [mostTraded, setMostTraded] = useState<DiscoverScarcePeek[] | null>(
     null
   );
@@ -94,7 +108,37 @@ export function DiscoverHubsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const requestIdRef = useRef(0);
-  const showScarcePeeks = !searchQuery;
+  const showScarcePeeks = !searchQuery && categoryFilter === 'all';
+
+  const browseOptions = useMemo(
+    () => hubDiscoverCategoryFilters(categoryCounts),
+    [categoryCounts]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAppsDirectory({
+      limit: HUB_CATEGORY_CENSUS_LIMIT,
+      hideTest: true,
+      sort: 'recent',
+      category: 'all',
+    }).then((page) => {
+      if (cancelled) return;
+      setCategoryCounts(countHubPrimaryCategories(page.apps));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadNonce]);
+
+  useEffect(() => {
+    if (
+      categoryFilter !== 'all' &&
+      !browseOptions.some((entry) => entry.id === categoryFilter)
+    ) {
+      setCategoryFilter('all');
+    }
+  }, [browseOptions, categoryFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +154,7 @@ export function DiscoverHubsPanel() {
       void fetchAppsDirectory({
         limit: APPS_PAGE_SIZE,
         query: searchQuery || undefined,
+        category: categoryFilter,
         hideTest: true,
         sort: 'recent',
       })
@@ -133,7 +178,7 @@ export function DiscoverHubsPanel() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [reloadNonce, searchQuery]);
+  }, [categoryFilter, reloadNonce, searchQuery]);
 
   useEffect(() => {
     if (!showScarcePeeks) return;
@@ -157,6 +202,16 @@ export function DiscoverHubsPanel() {
   const showSkeleton = apps == null && pending;
   const isSearchEmpty =
     Boolean(searchQuery) && !pending && apps != null && apps.length === 0;
+  const isCategoryEmpty =
+    categoryFilter !== 'all' &&
+    !searchQuery &&
+    !pending &&
+    apps != null &&
+    apps.length === 0;
+  const categoryLabel =
+    browseOptions.find((entry) => entry.id === categoryFilter)?.label ??
+    hubCategoryLabel(categoryFilter) ??
+    categoryFilter;
 
   return (
     <div
@@ -169,7 +224,9 @@ export function DiscoverHubsPanel() {
         <p className="launcher-home-empty dao-discover-status">
           {searchQuery
             ? `Searching “${searchQuery}”`
-            : 'Creator hubs on this network'}
+            : categoryFilter !== 'all'
+              ? `Hubs · ${categoryLabel}`
+              : 'Creator hubs on this network'}
         </p>
         <DiscoverCommunityHandoff
           links={[
@@ -178,6 +235,13 @@ export function DiscoverHubsPanel() {
           ]}
         />
       </div>
+
+      <DiscoverBrowseChipRail
+        ariaLabel="Browse hubs by category"
+        options={browseOptions}
+        value={categoryFilter}
+        onChange={(next) => setCategoryFilter(next as HubCategoryFilter)}
+      />
 
       {error ? <ListLoadError message={error} onRetry={retry} /> : null}
 
@@ -214,12 +278,16 @@ export function DiscoverHubsPanel() {
             <p className="standing-panel-empty-primary">
               {isSearchEmpty
                 ? 'No hubs match that search.'
-                : 'No hubs listed yet.'}
+                : isCategoryEmpty
+                  ? 'No hubs in this category yet.'
+                  : 'No hubs listed yet.'}
             </p>
             <p className="standing-panel-empty-secondary">
               {isSearchEmpty
                 ? 'Try another name or hub id.'
-                : 'Open a hub in the Hubs app.'}
+                : isCategoryEmpty
+                  ? 'Pick All or another category.'
+                  : 'Open a hub in the Hubs app.'}
             </p>
           </div>
           <div className="standing-panel-empty-actions">
@@ -230,6 +298,14 @@ export function DiscoverHubsPanel() {
                 onClick={clearSearch}
               >
                 Clear search
+              </button>
+            ) : isCategoryEmpty ? (
+              <button
+                type="button"
+                className="standing-panel-empty-action"
+                onClick={() => setCategoryFilter('all')}
+              >
+                Show all hubs
               </button>
             ) : (
               <Link

@@ -55,7 +55,7 @@ interface AppMetadata {
   media?: string;
   base_uri?: string;
   banner?: string;
-  /** Hub categories — primary first; max 2. */
+  /** Hub categories — sole entry is the browse category. */
   categories?: string[];
 }
 

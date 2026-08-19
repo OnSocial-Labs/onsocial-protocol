@@ -8,7 +8,7 @@ const HUB_CREATE_HELP_SUMMARY =
   'Brand home for drops — you publish, or let creators in.';
 
 const HUB_CREATE_HELP_DETAIL =
-  'Primary category powers browse. Hub ID sticks. Commission hits every sale.';
+  'Pick one category for Discover browse. Hub ID sticks. Commission hits every sale.';
 
 interface HubCreateHelpDrawerProps {
   open: boolean;

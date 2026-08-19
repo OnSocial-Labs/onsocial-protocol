@@ -14,33 +14,17 @@ import {
 } from '@/lib/topic-slug';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 
-type CommitHint = 'Already added' | 'Max 2 categories';
+type CommitHint = 'Already set';
 
-function tryAddCategory(
-  categories: string[],
+function setSoleCategory(
   draft: string
 ): { categories: string[]; hint: CommitHint | null } {
   const slug = normalizeTopicSlug(draft);
-  if (!slug) return { categories, hint: null };
-  const current = normalizeTopicList(categories, HUB_MAX_CATEGORIES);
-  if (current.length >= HUB_MAX_CATEGORIES) {
-    return { categories: current, hint: 'Max 2 categories' };
-  }
-  if (current.includes(slug)) {
-    return { categories: current, hint: 'Already added' };
-  }
+  if (!slug) return { categories: [], hint: null };
   return {
-    categories: normalizeTopicList([...current, slug], HUB_MAX_CATEGORIES),
+    categories: normalizeTopicList([slug], HUB_MAX_CATEGORIES),
     hint: null,
   };
-}
-
-function removeCategory(categories: string[], category: string): string[] {
-  const slug = normalizeTopicSlug(category);
-  return normalizeTopicList(
-    categories.filter((item) => item !== slug),
-    HUB_MAX_CATEGORIES
-  );
 }
 
 interface HubCategoriesEditorProps {
@@ -50,7 +34,10 @@ interface HubCategoriesEditorProps {
   disabled?: boolean;
 }
 
-/** Primary + optional secondary hub categories (first = directory browse). */
+/**
+ * Single hub category — curated chips + optional custom slug.
+ * First (only) entry powers Discover browse.
+ */
 export function HubCategoriesEditor({
   categories,
   onChange,
@@ -61,29 +48,25 @@ export function HubCategoriesEditor({
   const [hint, setHint] = useState<CommitHint | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollFieldIntoView = useMobileFieldFocusScroll();
+  const selected = categories[0] ?? null;
   const atMax = categories.length >= HUB_MAX_CATEGORIES;
 
   const commitDraft = (value: string) => {
-    const parts = value
-      .split(/[,\s]+/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (parts.length === 0) {
+    const slug = normalizeTopicSlug(value.trim());
+    if (!slug) {
       setDraft('');
       setHint(null);
       return;
     }
-
-    let next = categories;
-    let nextHint: CommitHint | null = null;
-    for (const part of parts) {
-      const result = tryAddCategory(next, part);
-      next = result.categories;
-      if (result.hint && !nextHint) nextHint = result.hint;
+    if (selected === slug) {
+      setDraft('');
+      setHint('Already set');
+      return;
     }
-    onChange(next);
+    const result = setSoleCategory(slug);
+    onChange(result.categories);
     setDraft('');
-    setHint(nextHint);
+    setHint(null);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -97,7 +80,7 @@ export function HubCategoriesEditor({
       draft.length === 0 &&
       categories.length > 0
     ) {
-      onChange(categories.slice(0, -1));
+      onChange([]);
       setHint(null);
     }
   };
@@ -110,33 +93,32 @@ export function HubCategoriesEditor({
 
   const toggleSuggestion = (idSlug: string) => {
     if (disabled) return;
-    if (categories.includes(idSlug)) {
-      onChange(removeCategory(categories, idSlug));
+    if (selected === idSlug) {
+      onChange([]);
       setHint(null);
       return;
     }
-    const result = tryAddCategory(categories, idSlug);
-    onChange(result.categories);
-    setHint(result.hint);
+    onChange(normalizeTopicList([idSlug], HUB_MAX_CATEGORIES));
+    setHint(null);
   };
 
   return (
     <div className="guild-tags-editor hub-categories-editor">
       <div
         className="app-storage-presets"
-        role="group"
+        role="radiogroup"
         aria-label="Suggested categories"
       >
         {HUB_CATEGORY_SUGGESTIONS.map((option) => (
           <button
             key={option.id}
             type="button"
+            role="radio"
+            aria-checked={selected === option.id}
             className={`os-surface-chip${
-              categories.includes(option.id) ? ' is-selected' : ''
+              selected === option.id ? ' is-selected' : ''
             }`}
-            disabled={
-              disabled || (!categories.includes(option.id) && atMax)
-            }
+            disabled={disabled}
             onClick={() => toggleSuggestion(option.id)}
           >
             {option.label}
@@ -157,25 +139,17 @@ export function HubCategoriesEditor({
         }}
         role="presentation"
       >
-        {categories.map((category, index) => (
-          <li
-            key={category}
-            className={`portfolio-tag account-editor-tag${
-              index === 0 ? ' guild-tags-editor-tag--primary' : ''
-            }`}
-          >
-            {hubCategoryLabel(category) ?? category}
-            {index === 0 ? (
-              <span className="guild-tags-editor-primary-label">Primary</span>
-            ) : null}
+        {selected ? (
+          <li className="portfolio-tag account-editor-tag">
+            {hubCategoryLabel(selected) ?? selected}
             <button
               type="button"
               className="account-editor-tag-remove"
-              aria-label={`Remove ${category}`}
+              aria-label={`Remove ${selected}`}
               disabled={disabled}
               onClick={(event) => {
                 event.stopPropagation();
-                onChange(removeCategory(categories, category));
+                onChange([]);
                 setHint(null);
               }}
             >
@@ -185,7 +159,7 @@ export function HubCategoriesEditor({
               />
             </button>
           </li>
-        ))}
+        ) : null}
 
         {!atMax ? (
           <li className="guild-tags-editor-draft">
@@ -194,12 +168,8 @@ export function HubCategoriesEditor({
               className="account-editor-tags-input"
               value={draft}
               disabled={disabled}
-              placeholder="Add category…"
-              aria-label={
-                categories.length === 0
-                  ? 'Primary hub category'
-                  : 'Secondary hub category'
-              }
+              placeholder="Or type a category…"
+              aria-label="Hub category"
               maxLength={TOPIC_MAX_LENGTH}
               onFocus={scrollFieldIntoView}
               onChange={(event) => {
@@ -227,9 +197,7 @@ export function HubCategoriesEditor({
             {hint}
           </span>
         ) : (
-          <span>
-            {categories.length}/{HUB_MAX_CATEGORIES}
-          </span>
+          <span>Pick one — powers Discover browse</span>
         )}
       </small>
     </div>
