@@ -46,23 +46,25 @@ describe('hub categories', () => {
     expect(hubCategoryLabel('art')).toBe('Art');
     expect(hubCategoryLabel('events')).toBe('Events');
     expect(hubCategoryLabel('crypto')).toBe('Crypto');
-    expect(hubCategoryLabel('live_music')).toBe('Live Music');
+    expect(hubCategoryLabel('live_music')).toBe('Live music');
     expect(hubCategoryLabel(null)).toBeNull();
   });
 
-  it('builds Discover chips from used categories including custom', () => {
+  it('builds Discover chips from used categories; customs need 2+', () => {
     expect(
       hubDiscoverCategoryFilters(
         countHubPrimaryCategories([
           { category: 'music' },
           { category: 'podcasts' },
+          { category: 'podcasts' },
+          { category: 'once' },
           { category: null },
         ])
       )
     ).toEqual([
       { id: 'all', label: 'All' },
-      { id: 'music', label: 'Music' },
       { id: 'podcasts', label: 'Podcasts' },
+      { id: 'music', label: 'Music' },
     ]);
   });
 });

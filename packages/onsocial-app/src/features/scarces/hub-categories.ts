@@ -4,8 +4,6 @@ import {
   topicLabel,
   discoverTopicFiltersFromCounts,
   countPrimaryTopics,
-  formatTopicDraftInput,
-  TOPIC_MAX_LENGTH,
 } from '@/lib/topic-slug';
 import { COMMUNITY_TOPIC_SUGGESTIONS } from '@/lib/community-topic-suggestions';
 
@@ -19,6 +17,9 @@ export type HubCategory = string;
 export type HubCategoryFilter = 'all' | string;
 
 export const HUB_MAX_CATEGORIES = 2;
+
+/** Directory sample for Discover category chips (omit empty / rare customs). */
+export const HUB_CATEGORY_CENSUS_LIMIT = 120;
 
 export function parseHubCategory(raw: unknown): string | null {
   return normalizeTopicSlug(raw);
@@ -56,7 +57,7 @@ export function hubCategoriesMetadataFields(categories: string[]): {
   };
 }
 
-/** Discover chips from used hub primaries (curated + custom). */
+/** Discover chips from used hub primaries (curated + customs past min count). */
 export function hubDiscoverCategoryFilters(
   categoryCounts: ReadonlyMap<string, number> | Record<string, number>
 ): ReadonlyArray<{ id: HubCategoryFilter; label: string }> {
@@ -73,5 +74,3 @@ export function countHubPrimaryCategories(
     apps.map((app) => ({ topic: app.category }))
   );
 }
-
-export { formatTopicDraftInput, TOPIC_MAX_LENGTH };

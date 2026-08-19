@@ -23,6 +23,7 @@ import {
   countHubPrimaryCategories,
   hubCategoryLabel,
   hubDiscoverCategoryFilters,
+  HUB_CATEGORY_CENSUS_LIMIT,
   type HubCategoryFilter,
 } from '@/features/scarces/hub-categories';
 import {
@@ -36,7 +37,6 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { fallbackLabel } from '@/lib/profile-display';
 
 const SCARCE_PEEK_LIMIT = 6;
-const HUB_CATEGORY_CENSUS_LIMIT = 96;
 
 function hubPrimaryCategory(app: AppView): string | null {
   if (app.categories.length > 0) {

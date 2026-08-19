@@ -8,6 +8,7 @@ import {
   discoverTopicFiltersFromCounts,
   countPrimaryTopics,
   TOPIC_MAX_LENGTH,
+  DISCOVER_CUSTOM_TOPIC_MIN_COUNT,
 } from '@/lib/topic-slug';
 
 describe('topic-slug', () => {
@@ -24,6 +25,11 @@ describe('topic-slug', () => {
     expect(formatTopicDraftInput('a'.repeat(40)).length).toBe(TOPIC_MAX_LENGTH);
   });
 
+  it('labels customs with the same Sentence case as draft', () => {
+    expect(topicLabel('live_music')).toBe('Live music');
+    expect(topicLabel('podcasts')).toBe('Podcasts');
+  });
+
   it('caps and dedupes lists with primary first', () => {
     expect(
       normalizeTopicList(['Music', '#music', 'art', 'games', 'film'])
@@ -34,17 +40,17 @@ describe('topic-slug', () => {
     expect(topicLabel('music', [{ id: 'music', label: 'Music' }])).toBe(
       'Music'
     );
-    expect(topicLabel('live_music')).toBe('Live Music');
     expect(topicsEqual(['a', 'b'], ['a', 'b'])).toBe(true);
     expect(topicsEqual(['a'], ['b'])).toBe(false);
   });
 
-  it('builds Discover chips from used topics including custom', () => {
+  it('omits one-off customs from Discover until min count', () => {
+    expect(DISCOVER_CUSTOM_TOPIC_MIN_COUNT).toBe(2);
     const counts = countPrimaryTopics([
       { topic: 'music' },
-      { topic: 'music' },
       { topic: 'podcasts' },
-      { topic: null },
+      { topic: 'podcasts' },
+      { topic: 'once' },
     ]);
     expect(
       discoverTopicFiltersFromCounts(counts, [
@@ -52,8 +58,8 @@ describe('topic-slug', () => {
       ])
     ).toEqual([
       { id: 'all', label: 'All' },
-      { id: 'music', label: 'Music' },
       { id: 'podcasts', label: 'Podcasts' },
+      { id: 'music', label: 'Music' },
     ]);
   });
 });

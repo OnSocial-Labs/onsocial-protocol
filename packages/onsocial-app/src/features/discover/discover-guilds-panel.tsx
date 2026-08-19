@@ -28,6 +28,8 @@ import {
 } from '@/lib/topic-slug';
 
 const BROWSE_LIMIT = 24;
+/** Separate sample for topic chips so the list page stays lean. */
+const GUILD_TOPIC_CENSUS_LIMIT = 120;
 
 function guildCardMatchesQuery(
   card: GuildSummaryCardModel,
@@ -79,6 +81,9 @@ export function DiscoverGuildsPanel() {
     GuildSummaryCardModel[] | null
   >(null);
   const [topicFilter, setTopicFilter] = useState<DiscoverTopicFilter>('all');
+  const [topicCounts, setTopicCounts] = useState<Map<string, number>>(
+    () => new Map()
+  );
   const [pending, setPending] = useState(() => initialGuilds == null);
   const [searchPending, setSearchPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,15 +91,6 @@ export function DiscoverGuildsPanel() {
   const searchRequestRef = useRef(0);
   const hasPaintedRef = useRef(initialGuilds != null);
 
-  const topicCounts = useMemo(
-    () =>
-      countPrimaryTopics(
-        (browseGuilds ?? []).map((card) => ({
-          topic: card.topics?.[0] ?? null,
-        }))
-      ),
-    [browseGuilds]
-  );
   const browseOptions = useMemo(
     () =>
       discoverTopicFiltersFromCounts(topicCounts, GUILD_TOPIC_SUGGESTIONS),
@@ -128,15 +124,21 @@ export function DiscoverGuildsPanel() {
         const { items } = await client.query.groups.browse({
           publicOnly: !accountId,
           sort: 'members',
-          limit: BROWSE_LIMIT,
+          limit: GUILD_TOPIC_CENSUS_LIMIT,
         });
         if (cancelled) return;
         const cards = items.map((row) => guildSummaryCardFromBrowse(row));
-        setBrowseGuilds(cards);
+        setTopicCounts(
+          countPrimaryTopics(
+            cards.map((card) => ({ topic: card.topics?.[0] ?? null }))
+          )
+        );
+        const page = cards.slice(0, BROWSE_LIMIT);
+        setBrowseGuilds(page);
         setPending(false);
         setError(null);
         hasPaintedRef.current = true;
-        const withCounts = await enrichIndexedGuildSummaryCards(client, cards);
+        const withCounts = await enrichIndexedGuildSummaryCards(client, page);
         if (!cancelled) setBrowseGuilds(withCounts);
       } catch (cause) {
         if (cancelled) return;
