@@ -1,11 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { OsIconAction, PlusIcon } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
+import { OsChipRail } from '@/components/os/os-chip-rail';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
+import { DaosExplorePanel } from '@/features/protocol/daos-explore-panel';
+import {
+  DAOS_APP_TAB_PARAM,
+  DAOS_APP_TABS,
+  daosAppTabLabel,
+  parseDaosAppTab,
+  type DaosAppTab,
+} from '@/features/protocol/daos-app-tabs';
 import { daoDirectoryEntryFromMembership } from '@/features/protocol/dao-directory';
 import { DaoDirectoryList } from '@/features/protocol/dao-directory-row';
 import {
@@ -52,9 +62,8 @@ function mergeMyDaosWithOptimistic(
 }
 
 /**
- * Thin DAOs home — My DAOs + Create.
- * Browse lives in Discover; Protocol opens Governance (switch Treasury on face).
- * Trending / latest proposals can land here later.
+ * DAOs launcher — Home (mine + create) · Explore (proposals across mine).
+ * Network catalog find stays in Discover → DAOs.
  */
 export function DaosIndexPanel() {
   const { accountId, connect, isConnected } = useAppWallet();
@@ -62,6 +71,22 @@ export function DaosIndexPanel() {
   const router = useRouter();
   const [myDaos, setMyDaos] = useState<MyDaoMembership[] | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [toolbarHideRequest, setToolbarHideRequest] = useState(0);
+  const toolbarHidden = useDockAutoHide(true, true, toolbarHideRequest);
+
+  const tab = parseDaosAppTab(searchParams.get(DAOS_APP_TAB_PARAM));
+
+  const setTab = useCallback(
+    (next: DaosAppTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === 'home') params.delete(DAOS_APP_TAB_PARAM);
+      else params.set(DAOS_APP_TAB_PARAM, next);
+      const qs = params.toString();
+      router.replace(qs ? `/daos?${qs}` : '/daos', { scroll: false });
+      setToolbarHideRequest((n) => n + 1);
+    },
+    [router, searchParams]
+  );
 
   useEffect(() => {
     const wantsCreate =
@@ -71,6 +96,7 @@ export function DaosIndexPanel() {
     queueMicrotask(() => setCreateOpen(true));
     const params = new URLSearchParams(searchParams.toString());
     params.delete(DAOS_CREATE_QUERY);
+    params.delete(DAOS_APP_TAB_PARAM);
     const qs = params.toString();
     router.replace(qs ? `/daos?${qs}` : '/daos', { scroll: false });
   }, [router, searchParams]);
@@ -156,7 +182,10 @@ export function DaosIndexPanel() {
       ariaLabel="Create DAO"
       aria-expanded={createOpen}
       aria-haspopup="dialog"
-      onClick={() => setCreateOpen(true)}
+      onClick={() => {
+        setTab('home');
+        setCreateOpen(true);
+      }}
     >
       <PlusIcon aria-hidden className="glass-sheet-close-icon" />
     </OsIconAction>
@@ -165,17 +194,32 @@ export function DaosIndexPanel() {
   return (
     <OsAppScreen
       title="DAOs"
-      subtitle="Your orgs — create or open"
+      subtitle="Yours — create or open"
       backFallbackHref="/"
       glassChrome
       actions={createAction}
+      toolbar={
+        <div
+          className={`os-app-chrome-rail market-listing-toolbar${
+            toolbarHidden ? ' is-scroll-hidden' : ''
+          }`}
+        >
+          <OsChipRail
+            ariaLabel="DAOs"
+            className="market-listing-filters"
+            value={tab}
+            onValueChange={setTab}
+            tabIdFor={(option) => `daos-tab-${option}`}
+            ariaControls={(option) => `daos-panel-${option}`}
+            items={DAOS_APP_TABS.map((option) => ({
+              id: option,
+              label: daosAppTabLabel(option),
+            }))}
+          />
+        </div>
+      }
     >
       <div className="daos-index">
-        <p className="daos-index-lede">
-          Memberships you hold. Browse every factory DAO in Discover; Protocol
-          opens OnSocial Governance (switch to Treasury on the face).
-        </p>
-
         <div className="daos-index-shortcuts">
           <Link
             href={daoPath(GOVERNANCE_DAO_ACCOUNT)}
@@ -194,45 +238,72 @@ export function DaosIndexPanel() {
           </Link>
         </div>
 
-        <section className="daos-index-section" aria-label="My DAOs">
-          <h2 className="daos-index-heading">My DAOs</h2>
-          {!accountId ? (
-            <div className="standing-panel-empty-block">
-              <div className="standing-panel-empty-state">
-                <p className="standing-panel-empty-primary">
-                  Connect to see your DAO roles.
-                </p>
-                <p className="standing-panel-empty-secondary">
-                  Or browse the catalog in Discover.
-                </p>
-              </div>
-              <div className="standing-panel-empty-actions">
-                {!isConnected ? (
-                  <button
-                    type="button"
+        {tab === 'home' ? (
+          <section
+            id="daos-panel-home"
+            role="tabpanel"
+            aria-labelledby="daos-tab-home"
+            className="daos-index-section"
+            aria-label="My DAOs"
+          >
+            <h2 className="daos-index-heading">My DAOs</h2>
+            {!accountId ? (
+              <div className="standing-panel-empty-block">
+                <div className="standing-panel-empty-state">
+                  <p className="standing-panel-empty-primary">
+                    Connect to see your DAO roles.
+                  </p>
+                  <p className="standing-panel-empty-secondary">
+                    Browse every factory DAO in Discover.
+                  </p>
+                </div>
+                <div className="standing-panel-empty-actions">
+                  {!isConnected ? (
+                    <button
+                      type="button"
+                      className="standing-panel-empty-action"
+                      onClick={() => void connect()}
+                    >
+                      Connect wallet
+                    </button>
+                  ) : null}
+                  <Link
                     className="standing-panel-empty-action"
-                    onClick={() => void connect()}
+                    href={discoverDaosHref}
                   >
-                    Connect wallet
-                  </button>
-                ) : null}
-                <Link
-                  className="standing-panel-empty-action"
-                  href={discoverDaosHref}
-                >
-                  Browse DAOs
-                </Link>
+                    Browse DAOs
+                  </Link>
+                </div>
               </div>
-            </div>
-          ) : !myDaosReady ? (
-            <p className="daos-index-empty">Loading memberships…</p>
-          ) : (
-            <DaoDirectoryList
-              entries={myEntries}
-              empty="No DAO roles yet. Tap + to create one — memberships appear here as roles sync."
+            ) : !myDaosReady ? (
+              <p className="daos-index-empty">Loading memberships…</p>
+            ) : (
+              <DaoDirectoryList
+                entries={myEntries}
+                empty="No DAO roles yet. Tap + to create one — memberships appear here as roles sync."
+              />
+            )}
+          </section>
+        ) : (
+          <section
+            id="daos-panel-explore"
+            role="tabpanel"
+            aria-labelledby="daos-tab-explore"
+            className="daos-index-section"
+            aria-label="Explore"
+          >
+            <h2 className="daos-index-heading">Proposals</h2>
+            <p className="daos-index-lede daos-index-lede--tight">
+              From DAOs you belong to. Network find stays in Discover.
+            </p>
+            <DaosExplorePanel
+              accountId={accountId}
+              myDaos={myDaos}
+              connect={connect}
+              isConnected={isConnected}
             />
-          )}
-        </section>
+          </section>
+        )}
       </div>
 
       <DaoCreateSheet
