@@ -542,7 +542,11 @@ jobs:
 
             echo "Restarting gateway after permission sync..."
             dc restart gateway </dev/null
-            check_container_health "gateway" "gateway" "http://localhost:4000/health" 20 3
+            if ! check_container_health "gateway" "gateway" "http://localhost:8080/health" 24 3; then
+              print_service_logs "gateway"
+              echo "❌ Gateway health check failed after permission sync — aborting"
+              exit 1
+            fi
 
             echo "Restarting notification worker..."
             dc up -d --no-deps notification-worker </dev/null
