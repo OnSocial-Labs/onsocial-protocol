@@ -7,6 +7,8 @@ export type DaoCatalogEntry = {
   metadata: string | null;
   source: string;
   listedAt: string;
+  /** Cached: DAO account has an OnSocial profile_search row. */
+  hasOnSocialProfile?: boolean;
 };
 
 export type DaoCatalogResponse = {
@@ -76,6 +78,7 @@ export async function fetchDaoCatalog(opts: {
           metadata: row.metadata ?? null,
           source: row.source,
           listedAt: row.listedAt,
+          hasOnSocialProfile: Boolean(row.hasOnSocialProfile),
         }))
       : [],
     factoryAccountId: body.factoryAccountId ?? '',

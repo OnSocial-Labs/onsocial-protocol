@@ -7,6 +7,7 @@ import {
   listDaoCatalogMissingConfig,
   loadFactorySyncState,
   saveFactorySyncState,
+  syncDaoCatalogProfileFlags,
   upsertDaoCatalogAccount,
   upsertDaoCatalogAccountsBatch,
 } from './governance-dao-catalog-store.js';
@@ -19,6 +20,7 @@ const INCREMENTAL_INTERVAL_MS = 10 * 60_000;
 
 let catalogSyncInFlight: Promise<void> | null = null;
 let enrichInFlight: Promise<void> | null = null;
+let profileFlagsInFlight: Promise<void> | null = null;
 let incrementalTimer: ReturnType<typeof setInterval> | null = null;
 
 function sleep(ms: number): Promise<void> {
@@ -265,6 +267,24 @@ export async function runDaoCatalogSyncCycle(
       })
       .finally(() => {
         enrichInFlight = null;
+      });
+  }
+
+  if (!profileFlagsInFlight) {
+    profileFlagsInFlight = syncDaoCatalogProfileFlags()
+      .then((result) => {
+        if (result.checked > 0) {
+          logger.info(
+            { checked: result.checked, profiled: result.profiled },
+            'Synced DAO catalog OnSocial profile flags'
+          );
+        }
+      })
+      .catch((error) => {
+        logger.warn({ err: error }, 'DAO catalog profile flag sync failed');
+      })
+      .finally(() => {
+        profileFlagsInFlight = null;
       });
   }
 }
