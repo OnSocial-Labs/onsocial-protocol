@@ -84,6 +84,7 @@ export function DiscoverGuildsPanel() {
         const client = createReadOnlyOnSocialClient();
         const { items } = await client.query.groups.browse({
           publicOnly: !accountId,
+          sort: 'members',
           limit: BROWSE_LIMIT,
         });
         if (cancelled) return;

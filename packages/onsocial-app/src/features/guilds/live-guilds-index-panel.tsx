@@ -113,6 +113,7 @@ export function LiveGuildsIndexPanel({
 
       const { items: browseItems } = await client.query.groups.browse({
         publicOnly: !accountId,
+        sort: 'members',
         limit: 24,
       });
       const browseCards = browseItems.map((row) =>

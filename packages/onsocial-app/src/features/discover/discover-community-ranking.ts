@@ -42,7 +42,11 @@ export function daoCatalogRankTier(
   return 4;
 }
 
-/** Stable OnSocial-first ordering for catalog rows (peek or page). */
+/**
+ * Stable OnSocial-first ordering for catalog rows.
+ * Empty-browse pagination is owned by the governance catalog API (profile
+ * promotion included); keep this for peeks / tests / defensive client use.
+ */
 export function rankDaoCatalogEntries<
   T extends Pick<DaoCatalogEntry, 'daoAccountId' | 'source' | 'listedAt'>,
 >(entries: T[], profiledIds?: Set<string>): T[] {
@@ -62,13 +66,37 @@ export type RankedGuildPeek = {
   memberCount: number;
 };
 
-/** Public guilds ranked by member count, then recency. */
+/**
+ * Public guilds ranked by index-backed member count (`groups_by_member_count`).
+ * Falls back to recent browse + aggregate counts when the view is unavailable.
+ */
 export async function rankGuildPeeks(
   client: OnSocial,
   opts: { browseLimit?: number; peekLimit?: number } = {}
 ): Promise<RankedGuildPeek[]> {
   const browseLimit = opts.browseLimit ?? 24;
   const peekLimit = opts.peekLimit ?? 6;
+
+  try {
+    const { items } = await client.query.groups.browse({
+      publicOnly: true,
+      sort: 'members',
+      limit: Math.max(browseLimit, peekLimit),
+    });
+    if (items.length > 0) {
+      return items.slice(0, peekLimit).map((row) => ({
+        groupId: row.groupId,
+        groupName: row.groupName,
+        memberCount:
+          typeof row.memberCount === 'number' && Number.isFinite(row.memberCount)
+            ? Math.max(0, Math.floor(row.memberCount))
+            : 0,
+      }));
+    }
+  } catch {
+    // fall through to recency + aggregate path
+  }
+
   const { items } = await client.query.groups.browse({
     publicOnly: true,
     limit: browseLimit,
@@ -101,9 +129,49 @@ export type RankedHubPeek = {
   title: string | null;
 };
 
+type HubStatsRow = {
+  appId: string;
+  salesVolume: string | number | null;
+  lastActivityTimestamp: number | string | null;
+  dropsTotal: number | string | null;
+};
+
+async function queryHubStatsTable(
+  client: OnSocial,
+  table: 'scarcesAppStatsHot' | 'scarcesAppStats',
+  limit: number
+): Promise<HubStatsRow[]> {
+  const res = await client.query.graphql<{
+    scarcesAppStatsHot?: HubStatsRow[];
+    scarcesAppStats?: HubStatsRow[];
+  }>({
+    query: `query RankedHubStats($limit: Int!) {
+      ${table}(
+        limit: $limit
+        orderBy: [
+          {salesVolume: DESC}
+          {lastActivityTimestamp: DESC_NULLS_LAST}
+          {dropsTotal: DESC}
+        ]
+      ) {
+        appId
+        salesVolume
+        lastActivityTimestamp
+        dropsTotal
+      }
+    }`,
+    variables: { limit },
+  });
+  return (
+    (table === 'scarcesAppStatsHot'
+      ? res.data?.scarcesAppStatsHot
+      : res.data?.scarcesAppStats) ?? []
+  );
+}
+
 /**
- * Hubs ranked by trade volume, then last activity, then drops.
- * Falls back to recent directory when stats are unavailable.
+ * Hubs ranked by 30d trade volume (`scarces_app_stats_hot`), then lifetime
+ * stats, then recent directory when views are unavailable.
  */
 export async function rankHubPeeks(
   client: OnSocial,
@@ -115,33 +183,23 @@ export async function rankHubPeeks(
   }
 ): Promise<RankedHubPeek[]> {
   const peekLimit = opts.peekLimit ?? 6;
+  const fetchLimit = Math.max(peekLimit * 2, 12);
+
+  let ranks: HubStatsRow[] = [];
   try {
-    const res = await client.query.graphql<{
-      scarcesAppStats: Array<{
-        appId: string;
-        salesVolume: string | number | null;
-        lastActivityTimestamp: number | string | null;
-        dropsTotal: number | string | null;
-      }>;
-    }>({
-      query: `query RankedHubStats($limit: Int!) {
-        scarcesAppStats(
-          limit: $limit
-          orderBy: [
-            {salesVolume: DESC}
-            {lastActivityTimestamp: DESC_NULLS_LAST}
-            {dropsTotal: DESC}
-          ]
-        ) {
-          appId
-          salesVolume
-          lastActivityTimestamp
-          dropsTotal
-        }
-      }`,
-      variables: { limit: Math.max(peekLimit * 2, 12) },
-    });
-    const ranks = res.data?.scarcesAppStats ?? [];
+    ranks = await queryHubStatsTable(client, 'scarcesAppStatsHot', fetchLimit);
+  } catch {
+    ranks = [];
+  }
+  if (ranks.length === 0) {
+    try {
+      ranks = await queryHubStatsTable(client, 'scarcesAppStats', fetchLimit);
+    } catch {
+      ranks = [];
+    }
+  }
+
+  try {
     const ids = ranks
       .map((row) => row.appId?.trim())
       .filter((id): id is string => Boolean(id));

@@ -1,7 +1,5 @@
 import type { HashtagCount, TickerCount } from '@onsocial/sdk';
 import {
-  loadProfiledDaoIds,
-  rankDaoCatalogEntries,
   rankGuildPeeks,
   rankHubPeeks,
 } from '@/features/discover/discover-community-ranking';
@@ -18,7 +16,7 @@ import { ACTIVE_BACKEND_URL } from '@/lib/app-config';
 /** Enough for Topics/Tickers tabs; community peeks slice after ranking. */
 const SECTION_LIMIT = 24;
 const COMMUNITY_PEEK_LIMIT = 6;
-/** Wider pool so OnSocial / member / activity rank can beat raw recency. */
+/** Wider pool when falling back to client-side member / activity ranking. */
 const COMMUNITY_RANK_POOL = 32;
 
 export type DiscoverTrendingGuild = {
@@ -45,39 +43,24 @@ export type DiscoverTrendingSeed = {
   hubs: DiscoverTrendingHub[];
 };
 
-async function loadTrendingDaos(
-  os: ReturnType<typeof createServerOnSocialClient>
-): Promise<DiscoverTrendingDao[]> {
+async function loadTrendingDaos(): Promise<DiscoverTrendingDao[]> {
   try {
-    const target = `${ACTIVE_BACKEND_URL.replace(/\/$/, '')}/v1/governance/daos?limit=${COMMUNITY_RANK_POOL}&offset=0`;
+    // Catalog empty-browse already ranks seed → OnSocial → profiled → listed.
+    const target = `${ACTIVE_BACKEND_URL.replace(/\/$/, '')}/v1/governance/daos?limit=${COMMUNITY_PEEK_LIMIT}&offset=0`;
     const res = await fetch(target, { cache: 'no-store' });
     if (!res.ok) return [];
     const body = (await res.json()) as {
       daos?: Array<{
         daoAccountId?: string;
         name?: string | null;
-        source?: string | null;
-        listedAt?: string | null;
       }>;
     };
     if (!Array.isArray(body.daos)) return [];
-    const entries = body.daos
+    return body.daos
       .filter((row) => typeof row.daoAccountId === 'string' && row.daoAccountId)
       .map((row) => ({
         daoAccountId: row.daoAccountId as string,
         name: row.name ?? null,
-        source: row.source ?? 'factory',
-        listedAt: row.listedAt ?? '',
-      }));
-    const profiled = await loadProfiledDaoIds(
-      os,
-      entries.map((row) => row.daoAccountId)
-    );
-    return rankDaoCatalogEntries(entries, profiled)
-      .slice(0, COMMUNITY_PEEK_LIMIT)
-      .map((row) => ({
-        daoAccountId: row.daoAccountId,
-        name: row.name,
       }));
   } catch {
     return [];
@@ -138,7 +121,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
             mapDiscoverPageToResponse(os, page, '', SECTION_LIMIT, 0)
           )
           .catch(() => null),
-        loadTrendingDaos(os),
+        loadTrendingDaos(),
         loadTrendingGuilds(os),
         loadTrendingHubs(os),
       ]);

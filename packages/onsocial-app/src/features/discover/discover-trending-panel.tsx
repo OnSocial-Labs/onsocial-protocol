@@ -41,8 +41,6 @@ import { fetchDaoCatalog } from '@/features/protocol/dao-catalog-client';
 import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
 import { fetchAppsDirectory } from '@/features/scarces/apps-data';
 import {
-  loadProfiledDaoIds,
-  rankDaoCatalogEntries,
   rankGuildPeeks,
   rankHubPeeks,
 } from '@/features/discover/discover-community-ranking';
@@ -175,21 +173,14 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setGuilds([]);
       });
 
-    void fetchDaoCatalog({ limit: COMMUNITY_RANK_POOL, offset: 0 })
-      .then(async (page) => {
-        if (cancelled) return;
-        const profiled = await loadProfiledDaoIds(
-          client,
-          page.daos.map((row) => row.daoAccountId)
-        );
+    void fetchDaoCatalog({ limit: SECTION_LIMIT, offset: 0 })
+      .then((page) => {
         if (cancelled) return;
         setDaos(
-          rankDaoCatalogEntries(page.daos, profiled)
-            .slice(0, SECTION_LIMIT)
-            .map((row) => ({
-              daoAccountId: row.daoAccountId,
-              name: row.name,
-            }))
+          page.daos.map((row) => ({
+            daoAccountId: row.daoAccountId,
+            name: row.name,
+          }))
         );
         hasPaintedRef.current = true;
       })
