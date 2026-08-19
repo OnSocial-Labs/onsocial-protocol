@@ -230,14 +230,13 @@ export function DaosIndexPanel() {
           <h2 className="daos-index-heading">My DAOs</h2>
           {!accountId ? (
             <p className="daos-index-empty">
-              Connect to see DAOs you’ve joined — or search to explore.
+              Connect to see DAOs you’ve joined.
             </p>
           ) : !myDaosReady ? (
             <p className="daos-index-empty">Loading your DAOs…</p>
           ) : myEntries.length === 0 ? (
             <p className="daos-index-empty">
-              You haven’t joined a DAO yet. Search to explore, or tap + to start
-              one.
+              You haven’t joined a DAO yet. Tap + to start one.
             </p>
           ) : (
             <div className="daos-mine-rail" role="list">
