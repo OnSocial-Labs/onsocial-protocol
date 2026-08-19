@@ -10320,16 +10320,16 @@ a.os-surface-row {
   }
 
   .community-mark-mono {
-    font-size: 0.48rem;
+    font-size: 0.55rem;
     font-weight: 700;
-    letter-spacing: 0.02em;
-    color: rgb(var(--fg-rgb) / 0.55);
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.62);
     line-height: 1;
     user-select: none;
   }
 
   .launcher-mine-mark .community-mark-mono {
-    font-size: 0.55rem;
+    font-size: 0.62rem;
   }
 
   .community-summary-name,
