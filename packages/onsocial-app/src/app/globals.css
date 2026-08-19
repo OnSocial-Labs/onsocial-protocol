@@ -8563,6 +8563,23 @@ a.os-surface-row {
     outline: none;
   }
 
+  button.discover-trending-chip {
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .discover-browse-chips {
+    margin: 0.15rem 0 0.55rem;
+  }
+
+  .discover-browse-chip.is-selected,
+  .discover-browse-chip.is-selected:hover,
+  .discover-browse-chip.is-selected:focus-visible {
+    background: rgb(var(--fg-rgb) / 0.12);
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
   .discover-trending-chip--ticker {
     letter-spacing: 0.02em;
   }
