@@ -180,6 +180,9 @@ export function DaosIndexPanel() {
   );
 
   const myDaosReady = myDaos !== null;
+  const showMineRail = Boolean(accountId && myDaosReady && myEntries.length > 0);
+  /** Proposals only once you're in — no tutorial empty under the divider. */
+  const showProposals = showMineRail;
 
   const headerActions = (
     <>
@@ -202,7 +205,7 @@ export function DaosIndexPanel() {
   return (
     <OsAppScreen
       title="DAOs"
-      subtitle="Yours — create or open"
+      subtitle="Your orgs"
       backFallbackHref="/"
       glassChrome
       actions={headerActions}
@@ -227,14 +230,14 @@ export function DaosIndexPanel() {
           <h2 className="daos-index-heading">My DAOs</h2>
           {!accountId ? (
             <p className="daos-index-empty">
-              Connect to see your DAO roles. Search finds every factory DAO.
+              Connect to see DAOs you’ve joined — or tap search to explore.
             </p>
           ) : !myDaosReady ? (
-            <p className="daos-index-empty">Loading memberships…</p>
+            <p className="daos-index-empty">Loading your DAOs…</p>
           ) : myEntries.length === 0 ? (
             <p className="daos-index-empty">
-              No DAO roles yet. Tap + to create one — memberships appear here as
-              roles sync.
+              You haven’t joined a DAO yet. Tap Search to explore, or + to start
+              one.
             </p>
           ) : (
             <div className="daos-mine-rail" role="list">
@@ -247,15 +250,16 @@ export function DaosIndexPanel() {
           )}
         </section>
 
-        <Divider className="daos-index-divider" />
+        {showProposals ? (
+          <>
+            <Divider className="daos-index-divider" />
 
-        <section className="daos-index-section" aria-label="Proposals">
-          <h2 className="daos-index-heading">Proposals</h2>
-          <p className="daos-index-lede daos-index-lede--tight">
-            From DAOs you belong to.
-          </p>
-          <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
-        </section>
+            <section className="daos-index-section" aria-label="Proposals">
+              <h2 className="daos-index-heading">Proposals</h2>
+              <DaosExplorePanel accountId={accountId} myDaos={myDaos} />
+            </section>
+          </>
+        ) : null}
       </div>
 
       <DaoCreateSheet
