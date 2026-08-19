@@ -67,6 +67,8 @@ jobs:
           HASURA_GRAPHQL_ENABLE_CONSOLE: "false"
           HASURA_GRAPHQL_DEV_MODE: "false"
           HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+          HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
+          HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
         options: >-
           --health-cmd "curl -f http://localhost:8080/healthz"
           --health-interval 10s
@@ -200,6 +202,8 @@ jobs:
           HASURA_GRAPHQL_ENABLE_CONSOLE: "false"
           HASURA_GRAPHQL_DEV_MODE: "false"
           HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+          HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
+          HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
         options: >-
           --health-cmd "curl -f http://localhost:8080/healthz"
           --health-interval 10s
