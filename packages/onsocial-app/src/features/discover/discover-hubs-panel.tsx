@@ -108,12 +108,21 @@ export function DiscoverHubsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const requestIdRef = useRef(0);
-  const showScarcePeeks = !searchQuery && categoryFilter === 'all';
 
   const browseOptions = useMemo(
     () => hubDiscoverCategoryFilters(categoryCounts),
     [categoryCounts]
   );
+  const activeCategoryFilter = useMemo((): HubCategoryFilter => {
+    if (
+      categoryFilter !== 'all' &&
+      !browseOptions.some((entry) => entry.id === categoryFilter)
+    ) {
+      return 'all';
+    }
+    return categoryFilter;
+  }, [browseOptions, categoryFilter]);
+  const showScarcePeeks = !searchQuery && activeCategoryFilter === 'all';
 
   useEffect(() => {
     let cancelled = false;
@@ -132,15 +141,6 @@ export function DiscoverHubsPanel() {
   }, [reloadNonce]);
 
   useEffect(() => {
-    if (
-      categoryFilter !== 'all' &&
-      !browseOptions.some((entry) => entry.id === categoryFilter)
-    ) {
-      setCategoryFilter('all');
-    }
-  }, [browseOptions, categoryFilter]);
-
-  useEffect(() => {
     let cancelled = false;
     const requestId = ++requestIdRef.current;
     queueMicrotask(() => {
@@ -154,7 +154,7 @@ export function DiscoverHubsPanel() {
       void fetchAppsDirectory({
         limit: APPS_PAGE_SIZE,
         query: searchQuery || undefined,
-        category: categoryFilter,
+        category: activeCategoryFilter,
         hideTest: true,
         sort: 'recent',
       })
@@ -178,7 +178,7 @@ export function DiscoverHubsPanel() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [categoryFilter, reloadNonce, searchQuery]);
+  }, [activeCategoryFilter, reloadNonce, searchQuery]);
 
   useEffect(() => {
     if (!showScarcePeeks) return;
@@ -203,15 +203,15 @@ export function DiscoverHubsPanel() {
   const isSearchEmpty =
     Boolean(searchQuery) && !pending && apps != null && apps.length === 0;
   const isCategoryEmpty =
-    categoryFilter !== 'all' &&
+    activeCategoryFilter !== 'all' &&
     !searchQuery &&
     !pending &&
     apps != null &&
     apps.length === 0;
   const categoryLabel =
-    browseOptions.find((entry) => entry.id === categoryFilter)?.label ??
-    hubCategoryLabel(categoryFilter) ??
-    categoryFilter;
+    browseOptions.find((entry) => entry.id === activeCategoryFilter)?.label ??
+    hubCategoryLabel(activeCategoryFilter) ??
+    activeCategoryFilter;
 
   return (
     <div
@@ -224,7 +224,7 @@ export function DiscoverHubsPanel() {
         <p className="launcher-home-empty dao-discover-status">
           {searchQuery
             ? `Searching “${searchQuery}”`
-            : categoryFilter !== 'all'
+            : activeCategoryFilter !== 'all'
               ? `Hubs · ${categoryLabel}`
               : 'Creator hubs on this network'}
         </p>
@@ -239,7 +239,7 @@ export function DiscoverHubsPanel() {
       <DiscoverBrowseChipRail
         ariaLabel="Browse hubs by category"
         options={browseOptions}
-        value={categoryFilter}
+        value={activeCategoryFilter}
         onChange={(next) => setCategoryFilter(next as HubCategoryFilter)}
       />
 
