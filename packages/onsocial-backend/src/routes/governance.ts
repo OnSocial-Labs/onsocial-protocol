@@ -248,6 +248,7 @@ router.get('/daos', async (req: Request, res: Response): Promise<void> => {
         metadata: row.metadata,
         source: row.source,
         listedAt: row.listedAt,
+        hasOnSocialProfile: row.hasOnSocialProfile,
       })),
       factoryAccountId: sync.factoryAccountId,
       indexedCount: sync.indexedCount,
@@ -280,6 +281,7 @@ router.get(
           metadata: row.metadata,
           source: row.source,
           listedAt: row.listedAt,
+          hasOnSocialProfile: row.hasOnSocialProfile,
         })),
       });
     } catch (err) {

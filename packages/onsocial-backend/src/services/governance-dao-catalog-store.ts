@@ -15,6 +15,8 @@ export type DaoCatalogRow = {
   metadata: string | null;
   factoryIndex: number | null;
   configSyncedAt: string | null;
+  hasOnSocialProfile: boolean;
+  profileSyncedAt: string | null;
   listedAt: string;
   updatedAt: string;
 };
@@ -44,6 +46,8 @@ type CatalogDbRow = {
   metadata: string | null;
   factory_index: string | number | null;
   config_synced_at: string | Date | null;
+  has_onsocial_profile?: boolean | null;
+  profile_synced_at?: string | Date | null;
   listed_at: string | Date;
   updated_at: string | Date;
 };
@@ -61,81 +65,64 @@ function mapCatalogRow(row: CatalogDbRow): DaoCatalogRow {
     factoryIndex:
       Number.isFinite(factoryIndex) && factoryIndex >= 0 ? factoryIndex : null,
     configSyncedAt: toIso(row.config_synced_at),
+    hasOnSocialProfile: Boolean(row.has_onsocial_profile),
+    profileSyncedAt: toIso(row.profile_synced_at),
     listedAt: toIso(row.listed_at) ?? new Date().toISOString(),
     updatedAt: toIso(row.updated_at) ?? new Date().toISOString(),
   };
 }
 
-function isOnSocialDaoAccountId(accountId: string): boolean {
-  const id = accountId.trim().toLowerCase();
-  return (
-    id.endsWith('.onsocial.near') ||
-    id.endsWith('.onsocial.testnet') ||
-    id === 'onsocial.near' ||
-    id === 'onsocial.testnet'
-  );
-}
-
-/** Empty-browse tiers: seed → OnSocial host → has profile → listed_at. */
-function emptyBrowseRankKey(
-  row: Pick<CatalogDbRow, 'dao_account_id' | 'source' | 'listed_at'>,
-  profiledIds: Set<string>
-): [number, number, number, number, string] {
-  const id = row.dao_account_id.trim().toLowerCase();
-  const sourceTier = (row.source ?? '').trim().toLowerCase() === 'seed' ? 0 : 1;
-  const onsocialTier = isOnSocialDaoAccountId(id) ? 0 : 1;
-  const profileTier = profiledIds.has(id) ? 0 : 1;
-  const listedMs = Date.parse(toIso(row.listed_at) ?? '') || 0;
-  return [sourceTier, onsocialTier, profileTier, -listedMs, id];
-}
-
-function compareEmptyBrowseRank(
-  a: [number, number, number, number, string],
-  b: [number, number, number, number, string]
-): number {
-  if (a[0] !== b[0]) return a[0] - b[0];
-  if (a[1] !== b[1]) return a[1] - b[1];
-  if (a[2] !== b[2]) return a[2] - b[2];
-  if (a[3] !== b[3]) return a[3] - b[3];
-  return a[4].localeCompare(b[4]);
-}
-
 /**
- * Which catalog accounts already have an OnSocial `profile_search` row.
- * Soft-fails to empty set when the indexer is unreachable.
+ * Refresh `has_onsocial_profile` from indexer `profile_search`.
+ * Soft-fails (returns 0) when the indexer is unreachable.
  */
-async function loadProfiledCatalogAccountIds(
-  accountIds: string[]
-): Promise<Set<string>> {
-  const ids = Array.from(
-    new Set(accountIds.map((id) => id.trim().toLowerCase()).filter(Boolean))
+export async function syncDaoCatalogProfileFlags(
+  opts: { chunkSize?: number } = {}
+): Promise<{ checked: number; profiled: number }> {
+  const chunkSize = Math.min(Math.max(opts.chunkSize ?? 500, 50), 1000);
+  const idsResult = await query<{ dao_account_id: string }>(
+    `SELECT dao_account_id FROM governance_dao_catalog`
   );
-  if (ids.length === 0) return new Set();
+  const ids = idsResult.rows
+    .map((row) => row.dao_account_id.trim().toLowerCase())
+    .filter(Boolean);
+  if (ids.length === 0) return { checked: 0, profiled: 0 };
 
-  const profiled = new Set<string>();
-  const chunkSize = 500;
+  let profiled = 0;
   try {
     for (let offset = 0; offset < ids.length; offset += chunkSize) {
       const chunk = ids.slice(offset, offset + chunkSize);
-      const result = await indexerQuery<{ account_id: string }>(
+      const indexed = await indexerQuery<{ account_id: string }>(
         `SELECT account_id
            FROM profile_search
           WHERE account_id = ANY($1::text[])`,
         [chunk]
       );
-      for (const row of result.rows) {
-        const id = row.account_id?.trim().toLowerCase();
-        if (id) profiled.add(id);
-      }
+      const profiledInChunk = new Set(
+        indexed.rows
+          .map((row) => row.account_id?.trim().toLowerCase())
+          .filter((id): id is string => Boolean(id))
+      );
+      profiled += profiledInChunk.size;
+      const profiledList = [...profiledInChunk];
+      await query(
+        `UPDATE governance_dao_catalog
+            SET has_onsocial_profile = (dao_account_id = ANY($1::text[])),
+                profile_synced_at = now(),
+                updated_at = now()
+          WHERE dao_account_id = ANY($2::text[])`,
+        [profiledList, chunk]
+      );
     }
   } catch (err) {
     logger.warn(
       { err, sampleSize: ids.length },
-      'DAO catalog profile promotion skipped (indexer unavailable)'
+      'DAO catalog profile flag sync failed (indexer unavailable)'
     );
-    return new Set();
+    return { checked: 0, profiled: 0 };
   }
-  return profiled;
+
+  return { checked: ids.length, profiled };
 }
 
 export async function upsertDaoCatalogAccount(opts: {
@@ -258,52 +245,32 @@ export async function searchDaoCatalog(opts: {
   const q = opts.query?.trim().toLowerCase() ?? '';
 
   if (!q) {
-    const lightResult = await query<{
-      dao_account_id: string;
-      source: string;
-      listed_at: string | Date;
-    }>(
-      `SELECT dao_account_id, source, listed_at
-         FROM governance_dao_catalog`
-    );
-    const total = lightResult.rows.length;
-    if (total === 0) {
-      return { rows: [], total: 0 };
-    }
-
-    const profiledIds = await loadProfiledCatalogAccountIds(
-      lightResult.rows.map((row) => row.dao_account_id)
-    );
-    const rankedIds = [...lightResult.rows]
-      .sort((a, b) =>
-        compareEmptyBrowseRank(
-          emptyBrowseRankKey(a, profiledIds),
-          emptyBrowseRankKey(b, profiledIds)
-        )
-      )
-      .slice(offset, offset + limit)
-      .map((row) => row.dao_account_id);
-
-    if (rankedIds.length === 0) {
-      return { rows: [], total };
-    }
-
-    const pageResult = await query<CatalogDbRow>(
-      `SELECT *
-         FROM governance_dao_catalog
-        WHERE dao_account_id = ANY($1::text[])`,
-      [rankedIds]
-    );
-    const byId = new Map(
-      pageResult.rows.map((row) => [row.dao_account_id.toLowerCase(), row])
-    );
-    const page = rankedIds
-      .map((id) => byId.get(id.toLowerCase()))
-      .filter((row): row is CatalogDbRow => Boolean(row));
-
+    const [rowsResult, countResult] = await Promise.all([
+      query<CatalogDbRow>(
+        `SELECT *
+           FROM governance_dao_catalog
+          ORDER BY
+            CASE source WHEN 'seed' THEN 0 ELSE 1 END,
+            CASE
+              WHEN lower(dao_account_id) LIKE '%.onsocial.near'
+                OR lower(dao_account_id) LIKE '%.onsocial.testnet'
+                OR lower(dao_account_id) IN ('onsocial.near', 'onsocial.testnet')
+              THEN 0
+              ELSE 1
+            END,
+            CASE WHEN has_onsocial_profile THEN 0 ELSE 1 END,
+            listed_at DESC,
+            dao_account_id ASC
+          LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      ),
+      query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM governance_dao_catalog`
+      ),
+    ]);
     return {
-      rows: page.map(mapCatalogRow),
-      total,
+      rows: rowsResult.rows.map(mapCatalogRow),
+      total: Number(countResult.rows[0]?.count ?? 0),
     };
   }
 
