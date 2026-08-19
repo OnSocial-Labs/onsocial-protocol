@@ -149,7 +149,7 @@ export function DaosExplorePanel({
             Connect to see proposals from your DAOs.
           </p>
           <p className="standing-panel-empty-secondary">
-            Explore is activity across memberships — not the factory catalog.
+            Proposals from your memberships show here — not the factory catalog.
           </p>
         </div>
         <div className="standing-panel-empty-actions">
@@ -179,7 +179,7 @@ export function DaosExplorePanel({
       <div className="standing-panel-empty-block">
         <div className="standing-panel-empty-state">
           <p className="standing-panel-empty-primary">
-            Join or create a DAO to fill Explore.
+            Join or create a DAO to see proposals here.
           </p>
           <p className="standing-panel-empty-secondary">
             Proposals from your orgs show up here.
