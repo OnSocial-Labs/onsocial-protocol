@@ -40,8 +40,15 @@ import type {
 import { fetchDaoCatalog } from '@/features/protocol/dao-catalog-client';
 import { resolveDaoDirectoryName } from '@/features/protocol/dao-directory';
 import { fetchAppsDirectory } from '@/features/scarces/apps-data';
+import {
+  loadProfiledDaoIds,
+  rankDaoCatalogEntries,
+  rankGuildPeeks,
+  rankHubPeeks,
+} from '@/features/discover/discover-community-ranking';
 
 const SECTION_LIMIT = 6;
+const COMMUNITY_RANK_POOL = 32;
 
 /**
  * Default Discover landing: mixed trending sections. Profiles use the same
@@ -150,12 +157,14 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setProfiles([]);
       });
 
-    void client.query.groups
-      .browse({ publicOnly: true, limit: SECTION_LIMIT })
-      .then((page) => {
+    void rankGuildPeeks(client, {
+      browseLimit: COMMUNITY_RANK_POOL,
+      peekLimit: SECTION_LIMIT,
+    })
+      .then((rows) => {
         if (cancelled) return;
         setGuilds(
-          page.items.map((g) => ({
+          rows.map((g) => ({
             groupId: g.groupId,
             groupName: g.groupName,
           }))
@@ -166,14 +175,21 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setGuilds([]);
       });
 
-    void fetchDaoCatalog({ limit: SECTION_LIMIT, offset: 0 })
-      .then((page) => {
+    void fetchDaoCatalog({ limit: COMMUNITY_RANK_POOL, offset: 0 })
+      .then(async (page) => {
+        if (cancelled) return;
+        const profiled = await loadProfiledDaoIds(
+          client,
+          page.daos.map((row) => row.daoAccountId)
+        );
         if (cancelled) return;
         setDaos(
-          page.daos.map((row) => ({
-            daoAccountId: row.daoAccountId,
-            name: row.name,
-          }))
+          rankDaoCatalogEntries(page.daos, profiled)
+            .slice(0, SECTION_LIMIT)
+            .map((row) => ({
+              daoAccountId: row.daoAccountId,
+              name: row.name,
+            }))
         );
         hasPaintedRef.current = true;
       })
@@ -181,19 +197,23 @@ export function DiscoverTrendingPanel({
         if (!cancelled && !soft) setDaos([]);
       });
 
-    void fetchAppsDirectory({
-      limit: SECTION_LIMIT,
-      hideTest: true,
-      sort: 'recent',
+    void rankHubPeeks(client, {
+      peekLimit: SECTION_LIMIT,
+      fetchRecentFallback: async () => {
+        const page = await fetchAppsDirectory({
+          limit: COMMUNITY_RANK_POOL,
+          hideTest: true,
+          sort: 'recent',
+        });
+        return page.apps.map((app) => ({
+          appId: app.appId,
+          title: app.title?.trim() || null,
+        }));
+      },
     })
-      .then((page) => {
+      .then((rows) => {
         if (cancelled) return;
-        setHubs(
-          page.apps.map((app) => ({
-            appId: app.appId,
-            title: app.title?.trim() || null,
-          }))
-        );
+        setHubs(rows);
         hasPaintedRef.current = true;
       })
       .catch(() => {
