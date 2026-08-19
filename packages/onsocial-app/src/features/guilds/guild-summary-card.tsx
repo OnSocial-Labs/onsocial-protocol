@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { CommunityDiscoverRow } from '@/components/community-cards';
 import {
   formatGuildMemberCountParts,
   guildCardMetaTags,
@@ -86,18 +87,45 @@ export function GuildSummaryCard({
     ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
     : null;
   const description = guild.description?.trim() || null;
-  /** Rail thumbs prefer badge (square mark); discovery grid keeps banner cover. */
-  const coverUrl =
-    variant === 'rail'
-      ? (guild.badgeUrl ?? guild.bannerUrl)
-      : guild.bannerUrl;
-  const showDescription = variant === 'grid' && Boolean(description);
-  /** Rail: one quiet meta line — topic · members; role/gated pills stay on grid. */
-  const showPills = variant === 'grid';
+
+  if (variant === 'grid') {
+    return (
+      <CommunityDiscoverRow
+        href={guildPath(guild.groupId)}
+        seedId={guild.groupId}
+        bannerUrl={guild.bannerUrl}
+        markUrl={guild.badgeUrl}
+        markVariant="badge"
+        reserveMark
+        title={displayName}
+        description={description}
+        meta={
+          <>
+            {primaryTopic ? (
+              <span className="guild-card-pill guild-card-pill--topic">
+                {primaryTopic}
+              </span>
+            ) : null}
+            {guild.memberCount != null ? (
+              <GuildMemberStat count={guild.memberCount} />
+            ) : null}
+            <GuildCardPills
+              role={guild.role}
+              accessGated={guild.accessGated}
+              memberDriven={guild.memberDriven}
+            />
+          </>
+        }
+      />
+    );
+  }
+
+  /** Rail thumbs prefer badge (square mark); portfolio peeks stay compact. */
+  const coverUrl = guild.badgeUrl ?? guild.bannerUrl;
 
   return (
     <Link
-      className={`guild-summary-card guild-summary-card--${variant}`}
+      className="guild-summary-card guild-summary-card--rail"
       href={guildPath(guild.groupId)}
       scroll={false}
     >
@@ -112,16 +140,8 @@ export function GuildSummaryCard({
 
       <span className="guild-summary-card-body">
         <span className="guild-summary-card-name-row">
-          {variant === 'grid' && guild.badgeUrl ? (
-            <span className="guild-summary-card-badge" aria-hidden>
-              <img src={guild.badgeUrl} alt="" />
-            </span>
-          ) : null}
           <span className="guild-summary-card-name">{displayName}</span>
         </span>
-        {showDescription ? (
-          <span className="guild-summary-card-copy">{description}</span>
-        ) : null}
         <span className="guild-summary-card-meta">
           {primaryTopic ? (
             <span className="guild-card-pill guild-card-pill--topic">
@@ -130,13 +150,6 @@ export function GuildSummaryCard({
           ) : null}
           {guild.memberCount != null ? (
             <GuildMemberStat count={guild.memberCount} />
-          ) : null}
-          {showPills ? (
-            <GuildCardPills
-              role={guild.role}
-              accessGated={guild.accessGated}
-              memberDriven={guild.memberDriven}
-            />
           ) : null}
         </span>
       </span>

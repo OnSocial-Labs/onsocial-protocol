@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CommunityDiscoverRow } from '@/components/community-cards';
 import { ListLoadError } from '@/components/panels/list-load-error';
 import { DiscoverCommunityHandoff } from '@/features/discover/discover-community-handoff';
 import {
@@ -29,13 +30,6 @@ import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-cli
 import { fallbackLabel } from '@/lib/profile-display';
 
 const SCARCE_PEEK_LIMIT = 6;
-
-function monogram(title: string): string {
-  const parts = title.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '??';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
 
 function storeMeta(app: AppView): string {
   const parts = [`@${fallbackLabel(app.ownerId)}`];
@@ -262,41 +256,41 @@ export function DiscoverHubsPanel() {
               Hubs
             </h2>
           ) : null}
-          <ul className="market-listing-list apps-directory-list">
-            {apps.map((app) => (
-              <li key={app.appId}>
-                <Link
+          <div className="guild-summary-card-grid apps-directory-list">
+            {apps.map((app) => {
+              const description = app.description?.trim() || null;
+              return (
+                <CommunityDiscoverRow
+                  key={app.appId}
                   href={appPath(app.appId)}
-                  scroll={false}
-                  className="market-listing-row apps-directory-row"
-                >
-                  <span
-                    className={`market-listing-thumb apps-directory-logo${
-                      app.mediaUrl ? ' has-media' : ''
-                    }`}
-                    aria-hidden
-                  >
-                    {app.mediaUrl ? (
-                      <img src={app.mediaUrl} alt="" />
-                    ) : (
-                      <span className="apps-directory-logo-fallback">
-                        {monogram(app.title)}
+                  seedId={app.appId}
+                  bannerUrl={app.bannerUrl}
+                  markUrl={app.mediaUrl}
+                  markVariant="logo"
+                  reserveMark
+                  title={app.title}
+                  description={description}
+                  meta={
+                    <>
+                      <span className="guild-summary-card-stat">
+                        <span className="guild-summary-card-stat-count">
+                          {app.commissionPct}%
+                        </span>
+                        <span className="guild-summary-card-stat-label">
+                          commission
+                        </span>
                       </span>
-                    )}
-                  </span>
-                  <span className="market-listing-copy">
-                    <span className="market-listing-head">
-                      <span className="market-listing-title">{app.title}</span>
-                      <span className="market-listing-price">
-                        {app.commissionPct}%
+                      <span className="guild-summary-card-stat">
+                        <span className="guild-summary-card-stat-label">
+                          {storeMeta(app)}
+                        </span>
                       </span>
-                    </span>
-                    <span className="market-listing-meta">{storeMeta(app)}</span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    </>
+                  }
+                />
+              );
+            })}
+          </div>
         </>
       ) : null}
     </div>

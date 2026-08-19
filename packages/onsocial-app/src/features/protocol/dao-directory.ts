@@ -1,5 +1,5 @@
 /**
- * Shared DAO directory list model — Standing-row language with square crests.
+ * Shared DAO directory list model — place banner + square crest identity.
  */
 
 import {
@@ -24,6 +24,8 @@ export type DaoDirectoryEntry = {
   subtitle: string;
   kindLabel: string;
   avatarUrl: string | null;
+  /** Place banner for Mine / Discover place cards. */
+  bannerUrl: string | null;
   href: string;
 };
 
@@ -49,6 +51,16 @@ export function resolveDaoDirectoryCrest(
   if (cached?.avatarUrl) return cached.avatarUrl;
   const parsed = parseDaoBrandingMetadata(metadata);
   return resolveProfileMediaUrl(parsed?.avatar ?? null);
+}
+
+export function resolveDaoDirectoryBanner(
+  accountId: string,
+  metadata?: string | null
+): string | null {
+  const cached = readDaoBrandingCache(accountId);
+  if (cached?.bannerUrl) return cached.bannerUrl;
+  const parsed = parseDaoBrandingMetadata(metadata);
+  return resolveProfileMediaUrl(parsed?.banner ?? null);
 }
 
 export function resolveDaoDirectoryName(
@@ -92,6 +104,7 @@ export function daoDirectoryEntryFromMembership(
     subtitle,
     kindLabel: kindLabelFor(row.daoAccountId),
     avatarUrl: resolveDaoDirectoryCrest(row.daoAccountId, row.metadata),
+    bannerUrl: resolveDaoDirectoryBanner(row.daoAccountId, row.metadata),
     href: daoPath(row.daoAccountId),
   };
 }
@@ -108,6 +121,7 @@ export function daoDirectoryEntryFromCatalog(
     subtitle: row.purpose?.trim() || 'Sputnik DAO',
     kindLabel: kindLabelFor(row.daoAccountId),
     avatarUrl: resolveDaoDirectoryCrest(row.daoAccountId, row.metadata),
+    bannerUrl: resolveDaoDirectoryBanner(row.daoAccountId, row.metadata),
     href: daoPath(row.daoAccountId),
   };
 }
@@ -122,6 +136,7 @@ export function daoDirectoryEntryFromSeed(accountId: string): DaoDirectoryEntry 
     subtitle: seed?.description ?? kindLabelFor(accountId),
     kindLabel: kindLabelFor(accountId),
     avatarUrl: resolveDaoDirectoryCrest(accountId, null),
+    bannerUrl: resolveDaoDirectoryBanner(accountId, null),
     href: daoPath(accountId),
   };
 }
@@ -135,6 +150,7 @@ export function daoDirectoryEntryFromRecent(
     subtitle: 'Recently opened',
     kindLabel: kindLabelFor(accountId),
     avatarUrl: resolveDaoDirectoryCrest(accountId, null),
+    bannerUrl: resolveDaoDirectoryBanner(accountId, null),
     href: daoPath(accountId),
   };
 }

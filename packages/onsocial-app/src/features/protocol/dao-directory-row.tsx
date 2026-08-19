@@ -1,46 +1,46 @@
 'use client';
 
-import Link from 'next/link';
-import { Divider, StandingIdentity } from '@onsocial/ui';
+import { CommunityDiscoverRow } from '@/components/community-cards';
 import type { DaoDirectoryEntry } from '@/features/protocol/dao-directory';
 
-/** Standing-style DAO row with square/squircle crest. */
+/** Discover / search DAO row — banner + square crest before name. */
 export function DaoDirectoryRow({
   entry,
-  showDivider = true,
 }: {
   entry: DaoDirectoryEntry;
+  /** @deprecated Dividers unused — standing list gap matches guild cards. */
   showDivider?: boolean;
 }) {
   const named = entry.name.trim().toLowerCase() !== entry.accountId;
+  const title = named ? entry.name : entry.accountId;
+  const description = entry.subtitle.trim() || null;
+
   return (
-    <>
-      <div className="standing-row dao-directory-row">
-        <div className="standing-row-main">
-          <Link
-            href={entry.href}
-            className="standing-row-hit"
-            aria-label={named ? entry.name : `@${entry.accountId}`}
-          />
-          <StandingIdentity
-            accountId={entry.accountId}
-            profileName={named ? entry.name : null}
-            avatarUrl={entry.avatarUrl}
-            size="lg"
-            showHandle="when-named"
-            avatarClassName="standing-row-avatar-slot dao-directory-crest"
-          >
-            <span className="standing-row-bio dao-directory-meta">
-              {entry.subtitle}
+    <CommunityDiscoverRow
+      href={entry.href}
+      seedId={entry.accountId}
+      bannerUrl={entry.bannerUrl}
+      markUrl={entry.avatarUrl}
+      markVariant="crest"
+      reserveMark
+      title={title}
+      description={description}
+      ariaLabel={named ? entry.name : `@${entry.accountId}`}
+      meta={
+        <>
+          {named ? (
+            <span className="guild-summary-card-stat">
+              <span className="guild-summary-card-stat-label">
+                @{entry.accountId}
+              </span>
             </span>
-          </StandingIdentity>
-        </div>
-        <div className="standing-row-aside dao-directory-aside">
-          <span className="dao-directory-kind">{entry.kindLabel}</span>
-        </div>
-      </div>
-      {showDivider ? <Divider /> : null}
-    </>
+          ) : null}
+          <span className="guild-card-pill guild-card-pill--topic">
+            {entry.kindLabel}
+          </span>
+        </>
+      }
+    />
   );
 }
 
@@ -56,13 +56,10 @@ export function DaoDirectoryList({
   }
 
   return (
-    <div className="dao-directory-list" role="list">
-      {entries.map((entry, index) => (
+    <div className="guild-summary-card-grid dao-directory-list" role="list">
+      {entries.map((entry) => (
         <div key={entry.accountId} role="listitem">
-          <DaoDirectoryRow
-            entry={entry}
-            showDivider={index < entries.length - 1}
-          />
+          <DaoDirectoryRow entry={entry} />
         </div>
       ))}
     </div>

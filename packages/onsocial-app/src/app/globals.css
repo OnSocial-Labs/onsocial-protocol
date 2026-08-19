@@ -32413,9 +32413,9 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   list-style: none;
   margin: 0;
   display: grid;
-  grid-auto-columns: minmax(8.5rem, 38%);
+  grid-auto-columns: minmax(9.25rem, 42%);
   grid-auto-flow: column;
-  gap: 0.55rem;
+  gap: 0.6rem;
   margin-inline: -0.1rem;
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -32433,63 +32433,116 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 0.45rem;
   scroll-snap-align: start;
   color: inherit;
   text-decoration: none;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: rgb(var(--fg-rgb) / 0.035);
 }
 
-.launcher-mine-crest {
+.launcher-mine-banner {
   display: block;
   width: 100%;
-  aspect-ratio: 1;
-  border-radius: 0.85rem;
+  aspect-ratio: 16 / 10;
   overflow: hidden;
   background: rgb(var(--fg-rgb) / 0.06);
 }
 
-.launcher-mine-crest img {
+.launcher-mine-banner-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.launcher-mine-banner .guild-hero-cover {
+  width: 100%;
+  height: 100%;
+}
+
+.launcher-mine-banner-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+}
+
+.launcher-mine-rule {
+  display: block;
+  height: 1px;
+  width: 100%;
+  background: rgb(var(--fg-rgb) / 0.1);
+}
+
+.launcher-mine-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.42rem 0.48rem 0.48rem;
+}
+
+.launcher-mine-mark {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  overflow: hidden;
+  background: rgb(var(--fg-rgb) / 0.08);
+}
+
+.launcher-mine-mark--badge {
+  border-radius: 0.3rem;
+}
+
+.launcher-mine-mark--crest,
+.launcher-mine-mark--logo {
+  border-radius: 0.38rem;
+}
+
+.launcher-mine-mark img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.launcher-mine-crest-fallback {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: rgb(var(--fg-rgb) / 0.45);
-}
-
-.launcher-mine-card-copy {
+.launcher-mine-foot-copy {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
-  gap: 0.12rem;
-  padding-inline: 0.1rem;
+  gap: 0.06rem;
 }
 
 .launcher-mine-card-title {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   font-weight: 650;
-  line-height: 1.25;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .launcher-mine-card-meta {
-  font-size: 0.72rem;
-  line-height: 1.3;
-  color: rgb(var(--fg-rgb) / 0.52);
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: rgb(var(--fg-rgb) / 0.5);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.community-summary-mark--crest,
+.community-summary-mark--logo {
+  border-radius: 0.32rem;
 }
 
 .launcher-peek-list {
