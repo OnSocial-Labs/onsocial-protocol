@@ -1,7 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  LauncherHomeEmpty,
+  LauncherPeekList,
+  LauncherPeekRow,
+} from '@/components/launcher-home';
 import type { GuildSummaryCardModel } from '@/features/guilds/guild-summary-card';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
@@ -143,11 +147,11 @@ export function GuildsLatestPostsPanel({
   }
 
   if (error) {
-    return <p className="launcher-home-empty">{error}</p>;
+    return <LauncherHomeEmpty>{error}</LauncherHomeEmpty>;
   }
 
   if (myGuilds == null || pending) {
-    return <p className="launcher-home-empty">Loading posts…</p>;
+    return <LauncherHomeEmpty>Loading posts…</LauncherHomeEmpty>;
   }
 
   if (guildIds.length === 0) {
@@ -155,29 +159,29 @@ export function GuildsLatestPostsPanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return <p className="launcher-home-empty">Nothing new right now.</p>;
+    return <LauncherHomeEmpty>Nothing new right now.</LauncherHomeEmpty>;
   }
 
   return (
-    <ul className="launcher-peek-list" aria-label="Posts from your guilds">
+    <LauncherPeekList aria-label="Posts from your guilds">
       {peeks.map((peek) => (
-        <li key={peek.key}>
-          <Link href={peek.href} className="launcher-peek-row" scroll={false}>
-            <span className="launcher-peek-row-copy">
-              <span className="launcher-peek-row-title">{peek.label}</span>
-              <span className="launcher-peek-row-meta">
-                {peek.guildName}
-                {peek.blockTimestamp > 0 ? (
-                  <>
-                    <span aria-hidden> · </span>
-                    {formatRelativePostTimestamp(peek.blockTimestamp)}
-                  </>
-                ) : null}
-              </span>
-            </span>
-          </Link>
-        </li>
+        <LauncherPeekRow
+          key={peek.key}
+          href={peek.href}
+          title={peek.label}
+          meta={
+            <>
+              {peek.guildName}
+              {peek.blockTimestamp > 0 ? (
+                <>
+                  <span aria-hidden> · </span>
+                  {formatRelativePostTimestamp(peek.blockTimestamp)}
+                </>
+              ) : null}
+            </>
+          }
+        />
       ))}
-    </ul>
+    </LauncherPeekList>
   );
 }

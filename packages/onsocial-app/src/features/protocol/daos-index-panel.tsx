@@ -8,7 +8,6 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { DaoCreateSheet } from '@/features/protocol/dao-create-sheet';
 import { DaosExplorePanel } from '@/features/protocol/daos-explore-panel';
 import { daoDirectoryEntryFromMembership } from '@/features/protocol/dao-directory';
-import type { DaoDirectoryEntry } from '@/features/protocol/dao-directory';
 import {
   fetchMyDaos,
   type MyDaoMembership,
@@ -25,6 +24,11 @@ import {
 import { DAOS_CREATE_QUERY, daoPath } from '@/lib/app-routes';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  LauncherHomeEmpty,
+  LauncherMineCard,
+  LauncherMineRail,
+} from '@/components/launcher-home';
 
 const MY_DAOS_SOFT_RETRY_MS = 2500;
 
@@ -49,34 +53,6 @@ function mergeMyDaosWithOptimistic(
   }
   return [...byId.values()].sort((a, b) =>
     a.daoAccountId.localeCompare(b.daoAccountId)
-  );
-}
-
-function DaoMineCard({ entry }: { entry: DaoDirectoryEntry }) {
-  const named = entry.name.trim().toLowerCase() !== entry.accountId;
-  const title = named ? entry.name : entry.accountId;
-  return (
-    <Link
-      href={entry.href}
-      className="launcher-mine-card"
-      scroll={false}
-      aria-label={named ? entry.name : `@${entry.accountId}`}
-    >
-      <span className="launcher-mine-crest" aria-hidden>
-        {entry.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={entry.avatarUrl} alt="" />
-        ) : (
-          <span className="launcher-mine-crest-fallback">
-            {title.slice(0, 2).toUpperCase()}
-          </span>
-        )}
-      </span>
-      <span className="launcher-mine-card-copy">
-        <span className="launcher-mine-card-title">{title}</span>
-        <span className="launcher-mine-card-meta">{entry.kindLabel}</span>
-      </span>
-    </Link>
   );
 }
 
@@ -229,24 +205,34 @@ export function DaosIndexPanel() {
         <section className="launcher-home-section" aria-label="My DAOs">
           <h2 className="launcher-home-heading">My DAOs</h2>
           {!accountId ? (
-            <p className="launcher-home-empty">
+            <LauncherHomeEmpty>
               Connect to see DAOs you’ve joined — or tap search to explore.
-            </p>
+            </LauncherHomeEmpty>
           ) : !myDaosReady ? (
-            <p className="launcher-home-empty">Loading your DAOs…</p>
+            <LauncherHomeEmpty>Loading your DAOs…</LauncherHomeEmpty>
           ) : myEntries.length === 0 ? (
-            <p className="launcher-home-empty">
+            <LauncherHomeEmpty>
               You haven’t joined a DAO yet. Tap Search to explore, or + to start
               one.
-            </p>
+            </LauncherHomeEmpty>
           ) : (
-            <div className="launcher-mine-rail" role="list">
-              {myEntries.map((entry) => (
-                <div key={entry.accountId} role="listitem">
-                  <DaoMineCard entry={entry} />
-                </div>
-              ))}
-            </div>
+            <LauncherMineRail>
+              {myEntries.map((entry) => {
+                const named =
+                  entry.name.trim().toLowerCase() !== entry.accountId;
+                const title = named ? entry.name : entry.accountId;
+                return (
+                  <LauncherMineCard
+                    key={entry.accountId}
+                    href={entry.href}
+                    title={title}
+                    meta={entry.kindLabel}
+                    imageUrl={entry.avatarUrl}
+                    ariaLabel={named ? entry.name : `@${entry.accountId}`}
+                  />
+                );
+              })}
+            </LauncherMineRail>
           )}
         </section>
 

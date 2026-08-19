@@ -1,7 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  LauncherHomeEmpty,
+  LauncherPeekList,
+  LauncherPeekRow,
+} from '@/components/launcher-home';
 import type { AppView } from '@/features/scarces/apps-data';
 import { collectionCurrentRowToView } from '@/features/scarces/collections-data';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
@@ -131,11 +135,11 @@ export function HubsLatestDropsPanel({
   }
 
   if (error) {
-    return <p className="launcher-home-empty">{error}</p>;
+    return <LauncherHomeEmpty>{error}</LauncherHomeEmpty>;
   }
 
   if (myHubs == null || pending) {
-    return <p className="launcher-home-empty">Loading drops…</p>;
+    return <LauncherHomeEmpty>Loading drops…</LauncherHomeEmpty>;
   }
 
   if (hubIds.length === 0) {
@@ -143,29 +147,29 @@ export function HubsLatestDropsPanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return <p className="launcher-home-empty">Nothing new right now.</p>;
+    return <LauncherHomeEmpty>Nothing new right now.</LauncherHomeEmpty>;
   }
 
   return (
-    <ul className="launcher-peek-list" aria-label="Drops from your hubs">
+    <LauncherPeekList aria-label="Drops from your hubs">
       {peeks.map((peek) => (
-        <li key={peek.key}>
-          <Link href={peek.href} className="launcher-peek-row" scroll={false}>
-            <span className="launcher-peek-row-copy">
-              <span className="launcher-peek-row-title">{peek.title}</span>
-              <span className="launcher-peek-row-meta">
-                {peek.hubName}
-                {peek.createdAtMs > 0 ? (
-                  <>
-                    <span aria-hidden> · </span>
-                    {formatMarketRelativeTime(peek.createdAtMs)}
-                  </>
-                ) : null}
-              </span>
-            </span>
-          </Link>
-        </li>
+        <LauncherPeekRow
+          key={peek.key}
+          href={peek.href}
+          title={peek.title}
+          meta={
+            <>
+              {peek.hubName}
+              {peek.createdAtMs > 0 ? (
+                <>
+                  <span aria-hidden> · </span>
+                  {formatMarketRelativeTime(peek.createdAtMs)}
+                </>
+              ) : null}
+            </>
+          }
+        />
       ))}
-    </ul>
+    </LauncherPeekList>
   );
 }

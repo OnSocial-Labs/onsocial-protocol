@@ -3,6 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Divider, OsIconAction, PlusIcon, SearchIcon } from '@onsocial/ui';
+import {
+  LauncherHomeEmpty,
+  LauncherHomeError,
+  LauncherMineCard,
+  LauncherMineRail,
+} from '@/components/launcher-home';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { guildDisplayName } from '@/features/guilds/guild-card-display';
@@ -13,35 +19,6 @@ import { guildPath } from '@/features/guilds/guilds-data';
 import { appDiscoverTabHref } from '@/features/discover/discover-tabs';
 import { createReadOnlyOnSocialClient } from '@/lib/create-readonly-onsocial-client';
 import { topicLabel } from '@/lib/topic-slug';
-
-function GuildMineCard({ guild }: { guild: GuildSummaryCardModel }) {
-  const title = guildDisplayName(guild.name, guild.groupId);
-  const topic = guild.topics?.[0]
-    ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
-    : 'Guild';
-  return (
-    <Link
-      href={guildPath(guild.groupId)}
-      className="launcher-mine-card"
-      scroll={false}
-      aria-label={title}
-    >
-      <span className="launcher-mine-crest" aria-hidden>
-        {guild.avatarUrl ? (
-          <img src={guild.avatarUrl} alt="" />
-        ) : (
-          <span className="launcher-mine-crest-fallback">
-            {title.slice(0, 2).toUpperCase()}
-          </span>
-        )}
-      </span>
-      <span className="launcher-mine-card-copy">
-        <span className="launcher-mine-card-title">{title}</span>
-        <span className="launcher-mine-card-meta">{topic}</span>
-      </span>
-    </Link>
-  );
-}
 
 /**
  * Guilds launcher — one Home: mine (horizontal) + latest posts under a divider.
@@ -127,35 +104,39 @@ export function LiveGuildsIndexPanel() {
         <section className="launcher-home-section" aria-label="My Guilds">
           <h2 className="launcher-home-heading">My Guilds</h2>
           {!accountId ? (
-            <p className="launcher-home-empty">
+            <LauncherHomeEmpty>
               Connect to see guilds you’ve joined — or tap search to explore.
-            </p>
+            </LauncherHomeEmpty>
           ) : loadError ? (
-            <div className="launcher-home-empty-block">
-              <p className="launcher-home-empty">{loadError}</p>
-              <button
-                type="button"
-                className="launcher-home-retry"
-                onClick={() => setRetryKey((value) => value + 1)}
-              >
-                Retry
-              </button>
-            </div>
+            <LauncherHomeError
+              message={loadError}
+              onRetry={() => setRetryKey((value) => value + 1)}
+            />
           ) : !myGuildsReady ? (
-            <p className="launcher-home-empty">Loading your guilds…</p>
+            <LauncherHomeEmpty>Loading your guilds…</LauncherHomeEmpty>
           ) : myGuilds.length === 0 ? (
-            <p className="launcher-home-empty">
+            <LauncherHomeEmpty>
               You haven’t joined a guild yet. Tap Search to explore, or + to
               start one.
-            </p>
+            </LauncherHomeEmpty>
           ) : (
-            <div className="launcher-mine-rail" role="list">
-              {myGuilds.map((guild) => (
-                <div key={guild.groupId} role="listitem">
-                  <GuildMineCard guild={guild} />
-                </div>
-              ))}
-            </div>
+            <LauncherMineRail>
+              {myGuilds.map((guild) => {
+                const title = guildDisplayName(guild.name, guild.groupId);
+                const meta = guild.topics?.[0]
+                  ? (topicLabel(guild.topics[0]) ?? guild.topics[0])
+                  : 'Guild';
+                return (
+                  <LauncherMineCard
+                    key={guild.groupId}
+                    href={guildPath(guild.groupId)}
+                    title={title}
+                    meta={meta}
+                    imageUrl={guild.avatarUrl}
+                  />
+                );
+              })}
+            </LauncherMineRail>
           )}
         </section>
 

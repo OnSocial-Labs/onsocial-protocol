@@ -1,7 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  LauncherHomeEmpty,
+  LauncherPeekList,
+  LauncherPeekRow,
+} from '@/components/launcher-home';
 import { fetchProtocolFeed } from '@/features/protocol/protocol-feed-client';
 import { statusLabel } from '@/features/protocol/protocol-card-view';
 import type { ProtocolDaoProposalStatus } from '@/features/protocol/types';
@@ -140,7 +144,7 @@ export function DaosExplorePanel({
   }
 
   if (myDaos == null || pending) {
-    return <p className="launcher-home-empty">Loading proposals…</p>;
+    return <LauncherHomeEmpty>Loading proposals…</LauncherHomeEmpty>;
   }
 
   if (daoIds.length === 0) {
@@ -148,33 +152,27 @@ export function DaosExplorePanel({
   }
 
   if (!peeks || peeks.length === 0) {
-    return (
-      <p className="launcher-home-empty">Nothing open right now.</p>
-    );
+    return <LauncherHomeEmpty>Nothing open right now.</LauncherHomeEmpty>;
   }
 
   return (
-    <ul className="launcher-peek-list" aria-label="Proposals from your DAOs">
+    <LauncherPeekList aria-label="Proposals from your DAOs">
       {peeks.map((peek) => (
-        <li key={peek.key}>
-          <Link
-            href={daoPortfolioPath(peek.daoAccountId, {
-              proposal: peek.proposalId,
-            })}
-            className="launcher-peek-row"
-            scroll={false}
-          >
-            <span className="launcher-peek-row-copy">
-              <span className="launcher-peek-row-title">{peek.label}</span>
-              <span className="launcher-peek-row-meta">
-                {peek.daoName}
-                <span aria-hidden> · </span>
-                {peek.statusLabel}
-              </span>
-            </span>
-          </Link>
-        </li>
+        <LauncherPeekRow
+          key={peek.key}
+          href={daoPortfolioPath(peek.daoAccountId, {
+            proposal: peek.proposalId,
+          })}
+          title={peek.label}
+          meta={
+            <>
+              {peek.daoName}
+              <span aria-hidden> · </span>
+              {peek.statusLabel}
+            </>
+          }
+        />
       ))}
-    </ul>
+    </LauncherPeekList>
   );
 }
