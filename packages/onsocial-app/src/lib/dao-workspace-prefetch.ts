@@ -166,18 +166,19 @@ export function scheduleDaoWorkspacePrefetch(daoAccountId: string): () => void {
     };
   }
 
+  const win = window;
   let idleId: number | null = null;
-  let timeoutId: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  if ('requestIdleCallback' in window) {
-    idleId = window.requestIdleCallback(kick, { timeout: 1200 });
+  if (typeof win.requestIdleCallback === 'function') {
+    idleId = win.requestIdleCallback(kick, { timeout: 1200 });
   } else {
-    timeoutId = window.setTimeout(kick, 0);
+    timeoutId = setTimeout(kick, 0);
   }
 
   return () => {
     cancelled = true;
-    if (idleId != null) window.cancelIdleCallback?.(idleId);
-    if (timeoutId != null) window.clearTimeout(timeoutId);
+    if (idleId != null) win.cancelIdleCallback?.(idleId);
+    if (timeoutId != null) clearTimeout(timeoutId);
   };
 }
