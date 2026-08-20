@@ -97,6 +97,10 @@ import {
   txToastGovSuccess,
 } from '@/lib/transaction-toast-copy';
 import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
+import {
+  readDaoFeedCache,
+  writeDaoFeedCache,
+} from '@/lib/dao-workspace-prefetch';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 const PROPOSALS_SHEET_Z = 74;
@@ -150,12 +154,19 @@ export function DaoWorkspacePanel({
   const { accountId, isConnected, connect, getSigningWallet } = useAppWallet();
   const { trackTransaction, setTxResult } = useAppTransactionFeedback();
 
-  const [applications, setApplications] = useState<ProtocolApplication[]>([]);
-  const [daoPolicy, setDaoPolicy] = useState<ProtocolDaoPolicy | null>(null);
-  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
-    'loading'
+  const cachedFeed = readDaoFeedCache(daoAccountId);
+  const [applications, setApplications] = useState<ProtocolApplication[]>(
+    () => cachedFeed?.applications ?? []
   );
-  const [feedSyncing, setFeedSyncing] = useState(false);
+  const [daoPolicy, setDaoPolicy] = useState<ProtocolDaoPolicy | null>(
+    () => cachedFeed?.daoPolicy ?? null
+  );
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(
+    () => (cachedFeed ? 'ready' : 'loading')
+  );
+  const [feedSyncing, setFeedSyncing] = useState(
+    () => Boolean(cachedFeed?.syncing)
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionAppId, setActionAppId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ProtocolDaoAction | null>(
@@ -336,12 +347,22 @@ export function DaoWorkspacePanel({
   }, [daoAccountId]);
 
   const loadFeed = useCallback(async (opts?: { soft?: boolean }) => {
-    if (!opts?.soft) {
+    let soft = Boolean(opts?.soft);
+    const cached = readDaoFeedCache(daoAccountId);
+    if (!soft && cached) {
+      setApplications(cached.applications);
+      setDaoPolicy((prev) => cached.daoPolicy ?? prev);
+      setFeedSyncing(Boolean(cached.syncing));
+      setLoadState('ready');
+      setLoadError(null);
+      soft = true;
+    } else if (!soft) {
       setLoadState((prev) => (prev === 'ready' ? prev : 'loading'));
     }
-    setLoadError(null);
+    if (!soft) setLoadError(null);
     try {
       const feed = await fetchProtocolFeed(daoAccountId, 'protocol');
+      writeDaoFeedCache(daoAccountId, feed);
       setApplications(feed.applications);
       setDaoPolicy((prev) => feed.daoPolicy ?? prev);
       setFeedSyncing(Boolean(feed.syncing));
@@ -369,7 +390,7 @@ export function DaoWorkspacePanel({
         }
       }
     } catch (error) {
-      if (!opts?.soft) {
+      if (!soft) {
         setLoadState('error');
         setLoadError(
           error instanceof Error ? error.message : 'Could not load proposals.'

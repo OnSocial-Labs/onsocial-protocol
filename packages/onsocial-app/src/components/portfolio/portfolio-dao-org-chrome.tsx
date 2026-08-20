@@ -25,6 +25,7 @@ import {
   type ProtocolGovernanceEligibility,
 } from '@/features/protocol/protocol-eligibility';
 import { softIndexDaoMemberships } from '@/features/protocol/my-daos-client';
+import { scheduleDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
 import { buildDaoClaimSupportProposalPayload } from '@/features/protocol/dao-claim-support';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
@@ -128,6 +129,7 @@ function PortfolioDaoOrgChromeInner({
 
   useEffect(() => {
     softIndexDaoMemberships(daoAccountId);
+    return scheduleDaoWorkspacePrefetch(daoAccountId);
   }, [daoAccountId]);
 
   useEffect(() => {

@@ -12,6 +12,10 @@ import {
 } from '@/features/protocol/protocol-eligibility';
 import { fetchProtocolFeed } from '@/features/protocol/protocol-feed-client';
 import type { ProtocolDaoPolicy } from '@/features/protocol/types';
+import {
+  readDaoFeedCache,
+  writeDaoFeedCache,
+} from '@/lib/dao-workspace-prefetch';
 import { usePostAuthorProfiles } from '@/hooks/use-post-author-profiles';
 import { formatSocialCompact } from '@/lib/format-social-balance';
 import { portfolioPath } from '@/lib/overlay-routes';
@@ -39,10 +43,14 @@ export function DaoMembersSheet({
   const [sheetOpen, setSheetOpen] = useState(open);
   if (open && !sheetOpen) setSheetOpen(true);
 
-  const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(null);
+  const [policy, setPolicy] = useState<ProtocolDaoPolicy | null>(
+    () => readDaoFeedCache(daoAccountId)?.daoPolicy ?? null
+  );
   const [eligibility, setEligibility] =
     useState<ProtocolGovernanceEligibility | null>(null);
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState(
+    () => readDaoFeedCache(daoAccountId)?.daoPolicy == null
+  );
   const [error, setError] = useState<string | null>(null);
 
   const requestClose = useCallback(() => {
@@ -60,20 +68,35 @@ export function DaoMembersSheet({
   useEffect(() => {
     if (!sheetOpen) return;
     let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setPending(true);
+    const cached = readDaoFeedCache(daoAccountId);
+    if (cached?.daoPolicy) {
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setPolicy(cached.daoPolicy);
+        setPending(false);
         setError(null);
-      }
-    });
+      });
+    } else {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setPending(true);
+          setError(null);
+        }
+      });
+    }
     void fetchProtocolFeed(daoAccountId)
       .then((feed) => {
         if (cancelled) return;
+        writeDaoFeedCache(daoAccountId, feed);
         setPolicy(feed.daoPolicy);
         setPending(false);
       })
       .catch((cause) => {
         if (cancelled) return;
+        if (readDaoFeedCache(daoAccountId)?.daoPolicy) {
+          setPending(false);
+          return;
+        }
         setPending(false);
         setError(
           cause instanceof Error ? cause.message : 'Could not load members.'
