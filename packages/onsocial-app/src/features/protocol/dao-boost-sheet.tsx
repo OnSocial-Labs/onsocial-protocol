@@ -51,6 +51,7 @@ import type { ProtocolProposalPayload } from '@/features/protocol/protocol-creat
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import type { ProtocolGovernanceEligibility } from '@/features/protocol/protocol-eligibility';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
+import { bumpDaoWorkspacePrefetch } from '@/lib/dao-workspace-prefetch';
 import { formatSocialCompact, yoctoToSocial } from '@/lib/format-social-balance';
 import {
   SOCIAL_SPEND_AMOUNT_INPUT_DECIMALS,
@@ -352,6 +353,7 @@ export function DaoBoostSheet({
         ),
       });
       if (confirmed) {
+        bumpDaoWorkspacePrefetch(daoAccountId);
         setConfirm(null);
         if (mode === 'collect' || mode === 'unlock') {
           resetLiveCounterAfterClaim();

@@ -10,6 +10,10 @@ import {
 } from '@/features/protocol/dao-treasury-format';
 import { fetchProtocolDaoTransferAssets } from '@/features/protocol/protocol-dao-context-client';
 import {
+  readDaoTreasuryCache,
+  writeDaoTreasuryCache,
+} from '@/lib/dao-workspace-prefetch';
+import {
   nearAccountExplorerHref,
   nearFtExplorerHref,
 } from '@/lib/app-near-account-facts';
@@ -43,12 +47,17 @@ export function DaoTreasurySheet({
   daoName?: string;
   onClose: () => void;
 }) {
+  const cachedTreasury = readDaoTreasuryCache(daoAccountId);
   const [sheetOpen, setSheetOpen] = useState(open);
   if (open && !sheetOpen) setSheetOpen(true);
 
-  const [assets, setAssets] = useState<ProtocolDaoTransferAsset[] | null>(null);
-  const [supportYocto, setSupportYocto] = useState<bigint | null>(null);
-  const [pending, setPending] = useState(false);
+  const [assets, setAssets] = useState<ProtocolDaoTransferAsset[] | null>(
+    () => cachedTreasury?.assets ?? null
+  );
+  const [supportYocto, setSupportYocto] = useState<bigint | null>(() =>
+    cachedTreasury ? BigInt(cachedTreasury.supportYocto) : null
+  );
+  const [pending, setPending] = useState(() => cachedTreasury == null);
   const [error, setError] = useState<string | null>(null);
 
   const requestClose = useCallback(() => {
@@ -66,12 +75,23 @@ export function DaoTreasurySheet({
   useEffect(() => {
     if (!sheetOpen) return;
     let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setPending(true);
+    const cached = readDaoTreasuryCache(daoAccountId);
+    if (cached) {
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setAssets(cached.assets);
+        setSupportYocto(BigInt(cached.supportYocto));
+        setPending(false);
         setError(null);
-      }
-    });
+      });
+    } else {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setPending(true);
+          setError(null);
+        }
+      });
+    }
     void Promise.all([
       fetchProtocolDaoTransferAssets(daoAccountId),
       fetchProfileSupportBalanceYocto(daoAccountId, { fresh: true }).catch(
@@ -80,12 +100,20 @@ export function DaoTreasurySheet({
     ])
       .then(([nextAssets, nextSupport]) => {
         if (cancelled) return;
+        writeDaoTreasuryCache(daoAccountId, {
+          assets: nextAssets,
+          supportYocto: nextSupport.toString(),
+        });
         setAssets(nextAssets);
         setSupportYocto(nextSupport);
         setPending(false);
       })
       .catch((cause) => {
         if (cancelled) return;
+        if (readDaoTreasuryCache(daoAccountId)) {
+          setPending(false);
+          return;
+        }
         setPending(false);
         setError(
           cause instanceof Error ? cause.message : 'Could not load treasury.'
