@@ -195,6 +195,7 @@ const GENERIC_KIND_BADGES: Record<string, string> = {
   BountyDone: 'Bounty',
   Vote: DAO_SIGNAL_PROPOSAL_LABEL,
   FactoryInfoUpdate: 'Factory',
+  Removed: 'Removed',
 };
 
 const CONTRACT_SHORT_NAMES: Record<string, string> = {
@@ -628,6 +629,24 @@ export function deriveProposalPresentation({
       onChainDescription,
       proposer: normalizedProposer,
       showProposerSeparately: false,
+    });
+  }
+
+  // Placeholder for Sputnik last_proposal_id gaps — id existed, body gone.
+  if (kindKey === 'Removed') {
+    return finish({
+      headline: 'Removed from chain',
+      actionBadge: 'Removed',
+      targetKind: null,
+      targetValue: null,
+      targetAccountId: null,
+      subjectAccount: null,
+      subjectEyebrow: null,
+      subjectText: null,
+      onChainDescription,
+      proposer: null,
+      showProposerSeparately: false,
+      showProposerAsSelf: false,
     });
   }
 

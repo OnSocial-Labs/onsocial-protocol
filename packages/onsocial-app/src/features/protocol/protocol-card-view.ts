@@ -24,6 +24,7 @@ const KIND_BADGES: Record<string, string> = {
   ChangeConfig: 'Config',
   SetStakingContract: 'Staking',
   Vote: 'Signal',
+  Removed: 'Removed',
 };
 
 function normalizeAccount(accountId: string | null | undefined): string {
@@ -407,6 +408,9 @@ export function deriveProtocolProposalView(opts: {
   const status = proposal?.status ?? null;
   const effectiveStatus =
     expired && status === 'InProgress' ? 'Expired' : status;
+  const removedFromChain =
+    proposalKindKey(proposal) === 'Removed' ||
+    application.protocol_target_method?.trim().toLowerCase() === 'removed';
   const inProgress = status === 'InProgress' && !expired;
   const canApprove =
     !!viewerRole &&
@@ -466,11 +470,14 @@ export function deriveProtocolProposalView(opts: {
     status,
     statusLabel: statusLabel(effectiveStatus),
     statusTone: statusTone(status, expired),
-    targetAccount:
-      presentation.targetAccountId ??
-      application.protocol_target_account?.trim() ??
-      null,
-    targetMethod: application.protocol_target_method?.trim() || null,
+    targetAccount: removedFromChain
+      ? null
+      : (presentation.targetAccountId ??
+        application.protocol_target_account?.trim() ??
+        null),
+    targetMethod: removedFromChain
+      ? null
+      : application.protocol_target_method?.trim() || null,
     targetKind: presentation.targetKind,
     targetValue: presentation.targetValue,
     subjectAccount: presentation.subjectAccount,

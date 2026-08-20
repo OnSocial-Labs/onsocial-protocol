@@ -1,6 +1,6 @@
 /**
  * Shared proposal-card chrome — strip → body → footer.
- * Surfaces: `bordered` (guild tiles) vs `row` (protocol / treasury feed).
+ * Surfaces: `bordered` (field lip + transparent fill) vs `row` (feed divider).
  * Domain tones, washes, and vote UI stay in the app.
  */
 
@@ -28,16 +28,20 @@
   min-width: 0;
 }
 
-/* Guild / community tile */
+/* Guild / protocol tile — same chrome as os-field-bordered (lip, no fill). */
 .os-proposal-card--bordered {
   overflow: hidden;
   gap: 0;
-  border: 1px solid rgb(var(--fg-rgb) / 0.08);
+  border: 1px solid var(--os-field-bordered-border, rgb(var(--fg-rgb) / 0.12));
   border-radius: var(--os-proposal-radius);
-  background: rgb(var(--fg-rgb) / 0.035);
+  background: transparent;
+  box-shadow: var(
+    --os-field-bordered-lip,
+    inset 0 1px 0 rgb(var(--fg-rgb) / 0.12)
+  );
 }
 
-/* Protocol / treasury feed row */
+/* Feed divider — kept for non-tile lists */
 .os-proposal-card--row {
   padding: 0.7rem var(--os-proposal-inset-x) 0.75rem;
   border-bottom: 1px solid rgb(var(--fg-rgb) / 0.1);

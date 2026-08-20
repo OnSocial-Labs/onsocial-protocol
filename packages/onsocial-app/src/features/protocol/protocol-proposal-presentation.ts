@@ -436,6 +436,22 @@ export function deriveProtocolProposalPresentation({
     });
   }
 
+  // Placeholder for Sputnik last_proposal_id gaps — id existed, body gone.
+  if (kindKey === 'Removed') {
+    return finish({
+      headline: 'Removed from chain',
+      actionBadge: 'Removed',
+      targetKind: null,
+      targetValue: null,
+      targetAccountId: null,
+      subjectAccount: null,
+      subjectText: null,
+      subjectEyebrow: null,
+      showProposerSeparately: false,
+      showProposerAsSelf: false,
+    });
+  }
+
   if (kindKey === 'AddMemberToRole' || kindKey === 'RemoveMemberFromRole') {
     const memberId = readStringField(kindPayload, 'member_id');
     const roleId = readStringField(kindPayload, 'role');

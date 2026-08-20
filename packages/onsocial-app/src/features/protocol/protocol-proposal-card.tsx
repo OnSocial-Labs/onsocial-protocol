@@ -21,6 +21,7 @@ import { ProtocolAccountChip } from '@/features/protocol/protocol-account-chip';
 import { deriveProtocolProposalView } from '@/features/protocol/protocol-card-view';
 import { ProtocolOnChainSheet } from '@/features/protocol/protocol-on-chain-sheet';
 import { splitRoutingTargetDisplay } from '@/features/protocol/protocol-proposal-routing-display';
+import { ProtocolVotersSheet } from '@/features/protocol/protocol-voters-sheet';
 import type {
   ProtocolApplication,
   ProtocolDaoPolicy,
@@ -51,8 +52,8 @@ function targetEyebrow(kind: string | null): string | null {
 }
 
 /**
- * Protocol / treasury proposal card — shared OsProposalCard row chrome with
- * domain status wash, identity, votes; vote/finalize via drawer.
+ * Protocol / treasury proposal card — shared OsProposalCard bordered chrome with
+ * status-tinted top lip, identity, votes; vote/finalize via drawer.
  */
 export function ProtocolProposalCard({
   application,
@@ -73,10 +74,10 @@ export function ProtocolProposalCard({
   onOpenActions: () => void;
   onCopyLink?: () => void;
 }) {
-  const [votersOpen, setVotersOpen] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [onChainOpen, setOnChainOpen] = useState(false);
+  const [votersOpen, setVotersOpen] = useState(false);
   const view = useMemo(
     () =>
       deriveProtocolProposalView({
@@ -153,7 +154,7 @@ export function ProtocolProposalCard({
   return (
     <>
       <OsProposalCard
-        surface="row"
+        surface="bordered"
         id={
           view.proposalId != null
             ? `protocol-proposal-${view.proposalId}`
@@ -162,9 +163,7 @@ export function ProtocolProposalCard({
         className={`protocol-card is-${view.statusTone}${focused ? ' is-focused' : ''}`}
         aria-labelledby={`protocol-card-${application.app_id}`}
       >
-        <OsProposalCardStrip
-          className={`protocol-card-strip is-${view.statusTone}`}
-        >
+        <OsProposalCardStrip className="protocol-card-strip">
           <OsProposalCardStripStart>
             <OsProposalCardStripMain className="protocol-card-strip-main">
               {view.proposalId != null ? (
@@ -411,46 +410,15 @@ export function ProtocolProposalCard({
             <button
               type="button"
               className="protocol-card-voters-toggle"
+              aria-haspopup="dialog"
               aria-expanded={votersOpen}
-              onClick={() => setVotersOpen((open) => !open)}
+              onClick={() => setVotersOpen(true)}
             >
               Votes · {view.voteEntries.length}
               {view.eligibleVoters.length > 0
                 ? `/${view.eligibleVoters.length}`
                 : ''}
             </button>
-            {votersOpen ? (
-              <ul className="protocol-card-voter-list">
-                {view.voteEntries.map(([account, vote]) => (
-                  <li key={`${account}-${vote}`}>
-                    <ProtocolAccountChip
-                      accountId={account}
-                      profileName={profiles[account]?.displayName}
-                      avatarUrl={profiles[account]?.avatarUrl}
-                      dense
-                      href={portfolioPath(account)}
-                    />
-                    <span
-                      className={`protocol-pill is-vote is-${vote.toLowerCase()}`}
-                    >
-                      {vote}
-                    </span>
-                  </li>
-                ))}
-                {abstainers.map((account) => (
-                  <li key={`abstain-${account}`} className="is-abstain">
-                    <ProtocolAccountChip
-                      accountId={account}
-                      profileName={profiles[account]?.displayName}
-                      avatarUrl={profiles[account]?.avatarUrl}
-                      dense
-                      href={portfolioPath(account)}
-                    />
-                    <span className="protocol-pill">Pending</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </div>
         ) : null}
       </OsProposalCardBody>
@@ -510,6 +478,15 @@ export function ProtocolProposalCard({
       open={onChainOpen}
       onClose={() => setOnChainOpen(false)}
       application={application}
+    />
+    <ProtocolVotersSheet
+      open={votersOpen}
+      onClose={() => setVotersOpen(false)}
+      proposalId={view.proposalId}
+      headline={view.headline}
+      voteEntries={view.voteEntries}
+      abstainers={abstainers}
+      profiles={profiles}
     />
     </>
   );

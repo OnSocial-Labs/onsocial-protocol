@@ -311,7 +311,7 @@ export function buildMissingGovernanceApplicationFromProposalId(
 ): Application {
   const appId = `protocol-proposal-${proposalId}`;
   const description =
-    'This proposal id was allocated on chain but is no longer stored by the DAO contract.';
+    'This proposal ID was used on-chain, but the DAO no longer keeps its details.';
 
   return buildGovernanceApplicationFromDaoProposal(
     appId,

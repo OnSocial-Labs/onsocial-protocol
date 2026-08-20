@@ -850,7 +850,7 @@ function mapMissingProposalToFeedItem(
   proposalId: number
 ): PublicGovernanceApplication {
   const description =
-    'This proposal id was allocated on chain but is no longer stored by the DAO contract.';
+    'This proposal ID was used on-chain, but the DAO no longer keeps its details.';
 
   return {
     app_id: `protocol-proposal-${proposalId}`,
