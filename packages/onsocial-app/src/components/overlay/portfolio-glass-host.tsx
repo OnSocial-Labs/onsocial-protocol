@@ -30,7 +30,7 @@ function PortfolioGlassSheet({
   accountId: string;
   overlayPresent: boolean;
   panelKey: string | null;
-  presentation: 'enter' | 'swap';
+  presentation: 'appear' | 'swap';
   children: ReactNode;
 }) {
   const chrome = useOverlayChrome();
@@ -159,7 +159,7 @@ export function PortfolioGlassHost({
     overlaySlotMode,
   });
   const [hostMounted, setHostMounted] = useState(false);
-  const [presentation, setPresentation] = useState<'enter' | 'swap'>('enter');
+  const [presentation, setPresentation] = useState<'appear' | 'swap'>('appear');
   const [trackedPanelKey, setTrackedPanelKey] = useState<string | null>(null);
 
   if (overlayPresent && !hostMounted) {
@@ -169,11 +169,11 @@ export function PortfolioGlassHost({
   if (!overlayPresent && hostMounted) {
     setHostMounted(false);
     setTrackedPanelKey(null);
-    setPresentation('enter');
+    setPresentation('appear');
   }
 
   if (overlayPresent && panelKey && panelKey !== trackedPanelKey) {
-    setPresentation(trackedPanelKey != null ? 'swap' : 'enter');
+    setPresentation(trackedPanelKey != null ? 'swap' : 'appear');
     setTrackedPanelKey(panelKey);
   }
 

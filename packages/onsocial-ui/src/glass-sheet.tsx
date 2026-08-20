@@ -22,7 +22,7 @@ export const sheetIconActionClassName = osIconActionClassName;
 
 export type GlassSheetTone = 'os' | 'mood-thread';
 export type GlassSheetDetent = 'peek' | 'full';
-export type GlassSheetPresentation = 'enter' | 'swap';
+export type GlassSheetPresentation = 'enter' | 'swap' | 'appear';
 /** `hug` = content-sized up to 90dvh; `full` = default near-viewport height. */
 export type GlassSheetSizing = 'hug' | 'full';
 
@@ -181,7 +181,10 @@ export interface GlassSheetProps {
   peekRatio?: number;
   /** Mobile resting detent when the sheet opens. Desktop always opens full height. */
   initialDetent?: GlassSheetDetent;
-  /** `enter` slides the sheet up; `swap` keeps the shell mounted for in-place panel changes. */
+  /**
+   * `enter` slides the sheet up; `appear` fades in place (page-like);
+   * `swap` keeps the shell mounted for in-place panel changes.
+   */
   presentation?: GlassSheetPresentation;
   zIndex?: number;
   ariaLabelledBy: string;
@@ -554,7 +557,9 @@ function useSheetPresence(
 
   const handlePanelTransitionEnd = useCallback(
     (event: React.TransitionEvent<HTMLDivElement>) => {
-      if (event.propertyName !== 'transform' || visible) {
+      const closeProp =
+        presentationRef.current === 'appear' ? 'opacity' : 'transform';
+      if (event.propertyName !== closeProp || visible) {
         return;
       }
       finishClose();
@@ -685,11 +690,16 @@ export function GlassSheet({
   }, [open]);
 
   const showEnterAnimation =
-    presentation === 'enter' && visible && !enterAnimationDone;
+    (presentation === 'enter' || presentation === 'appear') &&
+    visible &&
+    !enterAnimationDone;
 
   const handlePanelAnimationEnd = useCallback(
     (event: React.AnimationEvent<HTMLDivElement>) => {
-      if (event.animationName !== 'glass-sheet-enter') {
+      if (
+        event.animationName !== 'glass-sheet-enter' &&
+        event.animationName !== 'glass-sheet-appear'
+      ) {
         return;
       }
       setEnterAnimationDone(true);
@@ -713,6 +723,7 @@ export function GlassSheet({
       )}
       data-tone={tone}
       data-mood={tone === 'mood-thread' ? moodId : undefined}
+      data-presentation={presentation}
       style={{ zIndex }}
       role="presentation"
     >
@@ -743,6 +754,7 @@ export function GlassSheet({
         )}
         data-tone={tone}
         data-mood={tone === 'mood-thread' ? moodId : undefined}
+        data-presentation={presentation}
         data-sizing={sizing}
         style={
           {
