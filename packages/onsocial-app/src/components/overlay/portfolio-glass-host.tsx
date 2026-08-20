@@ -131,6 +131,7 @@ function PortfolioGlassSheetFrame({
       ariaLabelledBy="overlay-title"
       backdropLabel="Close panel"
       bodyRef={scrollBodyRef}
+      panelClassName="portfolio-glass-sheet-panel"
       header={<OverlayGlassHeader panelKey={panelKey} />}
     >
       <div key={panelKey ?? 'overlay'} className="overlay-panel-outlet">

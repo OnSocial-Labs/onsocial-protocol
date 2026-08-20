@@ -76,20 +76,18 @@ test.describe('portfolio glass navigation', () => {
       await expect(page.locator('.standing-panel')).toBeVisible();
     });
 
-    test('standing to discover swaps in the same glass sheet', async ({
-      page,
-    }) => {
+    test('standing to discover opens full page', async ({ page }) => {
       await openStandingFromProfile(page);
       await expectGlassSheetVisible(page);
 
       await openDiscoverFromStandingDrawer(page);
 
+      await expectGlassSheetHidden(page);
       await expect(page.locator('.discover-panel')).toBeVisible();
+      await expect(page.locator('.os-app-screen')).toBeVisible();
       await expect(
         page.getByRole('button', { name: 'Open standing menu' })
       ).toHaveCount(0);
-      await expectGlassSheetVisible(page);
-      await expect(page.locator('.portfolio-identity')).toBeVisible();
     });
 
     test('one close after standing tab switch returns to portfolio', async ({

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import type { MouseEvent, ReactNode } from 'react';
 import { OsIconAction, UserPlusFillIcon } from '@onsocial/ui';
 import { useStandingPanel } from '@/components/panels/standing-panel-context';
@@ -13,6 +12,7 @@ function discoverLabel(isDaoSubject: boolean): string {
   return isDaoSubject ? DISCOVER_DAOS_LABEL : DISCOVER_PROFILES_LABEL;
 }
 
+/** Hard full-page nav — never soft-swaps into portfolio glass Discover. */
 function assignFullPageNav(
   event: MouseEvent<HTMLAnchorElement>,
   href: string
@@ -33,69 +33,45 @@ function assignFullPageNav(
 
 function DiscoverNavLink({
   href,
-  fullPageNav,
-  closeOverlay,
   className,
   ariaLabel,
   children,
 }: {
   href: string;
-  fullPageNav: boolean;
-  closeOverlay: boolean;
   className: string;
   ariaLabel: string;
   children: ReactNode;
 }) {
-  if (fullPageNav) {
-    return (
-      <a
-        href={href}
-        className={className}
-        aria-label={ariaLabel}
-        onClick={(event) => assignFullPageNav(event, href)}
-      >
-        {children}
-      </a>
-    );
-  }
-
   return (
-    <Link
+    <a
       href={href}
-      replace={closeOverlay}
-      scroll={false}
       className={className}
       aria-label={ariaLabel}
+      onClick={(event) => assignFullPageNav(event, href)}
     >
       {children}
-    </Link>
+    </a>
   );
 }
 
 export function StandingDiscoverLink({
   variant = 'accent',
-  closeOverlay = false,
+  closeOverlay: _closeOverlay = false,
 }: {
   variant?: 'accent' | 'chrome';
+  /** @deprecated Discover from standing is always hard full-page nav. */
   closeOverlay?: boolean;
 }) {
-  const { accountId, shellVariant, isDaoSubject } = useStandingPanel();
+  const { accountId, isDaoSubject } = useStandingPanel();
   const href = discoverPath(accountId, {
     tab: isDaoSubject ? 'daos' : 'profiles',
   });
-  const fullPageNav = shellVariant === 'page';
   const ariaLabel = discoverLabel(isDaoSubject);
 
   if (variant === 'chrome') {
     return (
       <OsIconAction asChild ariaLabel={ariaLabel}>
-        <DiscoverNavLink
-          href={href}
-          fullPageNav={fullPageNav}
-          closeOverlay={closeOverlay}
-          className=""
-          ariaLabel={ariaLabel}
-        >
+        <DiscoverNavLink href={href} className="" ariaLabel={ariaLabel}>
           <UserPlusFillIcon
             className="glass-sheet-icon-action-glyph glass-sheet-icon-action-glyph--discover"
             aria-hidden
@@ -108,8 +84,6 @@ export function StandingDiscoverLink({
   return (
     <DiscoverNavLink
       href={href}
-      fullPageNav={fullPageNav}
-      closeOverlay={closeOverlay}
       className="standing-discover-link standing-discover-link--accent"
       ariaLabel={ariaLabel}
     >

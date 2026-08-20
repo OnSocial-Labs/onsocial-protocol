@@ -269,8 +269,8 @@ export function ownerPortfolioOsApps(accountId: string): OsAppLink[] {
     {
       id: 'discover',
       label: 'Discover',
-      kind: 'overlay',
-      overlay: 'discover',
+      kind: 'app',
+      href: APP_DISCOVER_PATH,
     },
     {
       id: 'market',
@@ -321,8 +321,8 @@ export function visitorPortfolioOsApps(_accountId: string): OsAppLink[] {
     {
       id: 'discover',
       label: 'Discover',
-      kind: 'overlay',
-      overlay: 'discover',
+      kind: 'app',
+      href: APP_DISCOVER_PATH,
     },
     {
       id: 'market',

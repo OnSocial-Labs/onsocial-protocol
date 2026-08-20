@@ -231,6 +231,20 @@
   --glass-header-scrim-height: min(6.5rem, 24%);
 }
 
+/* Portfolio signal peeks (standing / endorsements / …) — full-viewport glass. */
+.glass-sheet-panel.portfolio-glass-sheet-panel {
+  height: 100dvh;
+  max-height: none;
+  --glass-header-scrim-height: min(5.5rem, 24%);
+}
+
+@media (min-width: 768px) {
+  .glass-sheet-panel.portfolio-glass-sheet-panel {
+    height: 100dvh;
+    max-height: none;
+  }
+}
+
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
 .glass-sheet-panel.page-drawer-panel > .glass-sheet-body.page-drawer-body {
   padding: 0.1rem 1.15rem 0;
