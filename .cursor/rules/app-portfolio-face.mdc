@@ -44,16 +44,20 @@ Owner-customizable scroll surface — **extension of the face**, not a second po
 
 ## Mood
 
-Page mood is **identity chrome** for the portfolio face and any surface that should feel like “this person’s page / this viewer’s wallet.” Reuse the same stack — do not invent a second mood system.
+Page mood is **identity chrome**. Reuse the same stack (`@/lib/moods/resolve` + CSS vars) — do not invent a second mood system.
 
-### Visitor vs owner
+### Whose mood (keep this narrow)
+
+**Host (page-owner) mood is portfolio-only.** Painting guild / hub / collection / drop shells with host mood causes tint jumps on every navigation. Do not extend host wash beyond the portfolio face.
 
 | Surface | Whose mood |
 |---------|------------|
-| Face / portfolio wash / Launch (page) drawer | **Page** (`effectiveMood` on `portfolio-os-layer`) |
-| Summon dock / grip / pill (`portfolio-summon-dock`) | **Viewer** everywhere (`useViewerDockMood` via `AppShellLauncher` / visit path); **owner** uses live `effectiveMood` so mood preview paints the dock |
-| OS app screens / slide-overs (`OsAppScreen`, `OsSlideOverScreen`) | **Viewer** by default (`useViewerDockMood`); `moodId={null}` keeps blue-corner trial; pass explicit mood only for rare overrides |
-| Create-post / wallet sheets | **Viewer** (`useViewerWalletMoodVars` / dock hook) |
+| Portfolio face / wash / Launch drawer | **Page host** (`effectiveMood` on `portfolio-os-layer`) |
+| Portfolio gesture sheets on that face (Support, boost, etc.) | **Page host** (ambient with the face) |
+| Summon dock / grip / pill (`portfolio-summon-dock`) | **Viewer** everywhere (`useViewerDockMood`); **owner on own portfolio** uses live `effectiveMood` so mood preview paints the dock |
+| OS app screens / slide-overs (`OsAppScreen`, `OsSlideOverScreen`) — home, market, discover, create, guilds, hubs, collections, drops, protocol | **Viewer** when logged in (`useViewerDockMood`); logged out → no personal mood |
+| Create-post / wallet / account sheets | **Viewer** |
+| System / manage `OsHugSheet`s (quiet glass) | Prefer quiet `tone="os"` — no host tint chase |
 
 **Host (page) mood stays on the portfolio face only** — Launch drawer + face gesture sheets. Guild / hub / collection / drop shells use **viewer** mood when logged in (or none logged out). Do not retint those shells with the page owner’s mood.
 
@@ -61,13 +65,15 @@ Page mood is **identity chrome** for the portfolio face and any surface that sho
 
 Do **not** paint the whole `portfolio-os-layer` with viewer mood when visiting — only the dock. Finish-specific summon CSS targets `.portfolio-summon-dock[data-mood=…]`, not the os-layer.
 
+Do **not** fetch or apply creator/owner mood for guild, hub, collection, or drop page chrome.
+
 ### Source of truth
 
 - Resolve via `@/lib/moods/resolve` (`resolvePortfolioMood`, `resolvePortfolioMoodForPreview`, `portfolioMoodShellStyle`)
 - Live face: `PortfolioShellRoot` + `PortfolioMoodPreviewProvider` (`effectiveMood`)
 - Viewer wallet mood elsewhere: `useViewerWalletMoodVars` (seed with protocol fallback so sheets don’t flash blue-corner trial)
 - Viewer dock chrome (all OS screens + visiting): `useViewerDockMood` on `.portfolio-summon-dock`
-- Page-owner mood on *their* sheets: portfolio `mood` / page mood hooks — not a hard-coded accent
+- Page-owner mood on *their portfolio* sheets: portfolio `mood` / page mood hooks — not a hard-coded accent
 - Owner portfolio dock: `effectiveMood` (preview-aware) on `.portfolio-summon-dock`
 
 ### Intensity (must match)
@@ -109,6 +115,8 @@ Reference: create-post (`guild-composer-sheet`) may still pass viewer mood expli
 - Per-button or one-off mood color hacks outside resolve + CSS vars
 - Clear preview on save before props catch up (use commit)
 - Assume hard refresh is required for mood to stick
+- Host-mood guild / hub / collection / drop shells (portfolio face only — avoids tint jumps)
+- A second “ambient host” drawer system outside portfolio mood-thread sheets
 
 ## Gesture row
 
