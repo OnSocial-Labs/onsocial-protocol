@@ -78,7 +78,7 @@ describe('protocol dao boards', () => {
       '/protocol?status=approved&proposal=3'
     );
     expect(protocolPath({ board: 'treasury', status: 'open' })).toBe(
-      '/protocol?dao=treasury'
+      '/protocol?dao=treasury&status=open'
     );
   });
 });

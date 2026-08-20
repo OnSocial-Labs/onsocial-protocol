@@ -85,7 +85,7 @@ describe('notification display', () => {
           status: 'InProgress',
         },
       })
-    ).toBe('/@gov.sputnik-dao.testnet?proposal=12');
+    ).toBe('/@gov.sputnik-dao.testnet?status=open&proposal=12');
 
     expect(
       notificationHref({
