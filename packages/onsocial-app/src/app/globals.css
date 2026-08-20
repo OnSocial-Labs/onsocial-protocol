@@ -14508,17 +14508,10 @@ a.os-surface-row {
     color: rgb(var(--fg-rgb) / 0.95);
   }
 
-  /*
-   * TEMP trial — quiet tech air: black/white base (mirrored),
-   * one soft blue corner. No mesh / no dots.
-   */
+  /* Quiet tech air: flat black/white base. No mesh / no dots / no corner wash. */
   .os-app-screen {
     background-color: #000;
-    background-image: radial-gradient(
-      ellipse 48% 40% at 96% 94%,
-      rgb(96 165 250 / 0.05),
-      transparent 60%
-    );
+    background-image: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -14529,11 +14522,7 @@ a.os-surface-row {
 
   html[data-theme='light'] .os-app-screen {
     background-color: #fff;
-    background-image: radial-gradient(
-      ellipse 48% 40% at 96% 94%,
-      rgb(96 165 250 / 0.05),
-      transparent 60%
-    );
+    background-image: none;
   }
 
   .os-app-screen .os-app-screen-column {
@@ -22953,9 +22942,8 @@ a.os-surface-row {
   }
 
   /*
-   * Slide-overs never use the shared blue-corner trial on .os-app-screen —
-   * that rule is for page shells. Kill it here (both themes) so mood wash
-   * or a quiet base can show. Clear .app-surface hairline — host owns chrome.
+   * Slide-overs use a quiet flat base on .os-app-screen (or mood wash when
+   * present). Clear .app-surface hairline — host owns chrome.
    */
   .os-app-screen.os-slide-over,
   html[data-theme='light'] .os-app-screen.os-slide-over {

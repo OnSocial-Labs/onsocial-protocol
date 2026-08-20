@@ -66,7 +66,7 @@ export interface OsSlideOverScreenProps {
   closeDisabled?: boolean;
   /**
    * Mood wash under glass (`data-mood` + CSS vars).
-   * `undefined` (default) → connected viewer mood; `null` → blue-corner trial.
+   * `undefined` (default) → connected viewer mood; `null` → flat screen base.
    */
   moodId?: string | null;
   /** CSS vars; defaults with viewer mood when `moodId` is omitted. */

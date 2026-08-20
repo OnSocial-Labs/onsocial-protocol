@@ -51,7 +51,7 @@ export interface OsAppScreenProps {
   /**
    * Mood wash in the app column (`data-mood` + CSS vars).
    * `undefined` (default) → connected viewer mood via `useViewerDockMood`.
-   * `null` → keep blue-corner trial (no mood).
+   * `null` → flat screen base (no mood).
    * string → explicit mood id (rare override).
    */
   moodId?: string | null;

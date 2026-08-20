@@ -282,8 +282,8 @@ export function ComposerSheet({
       undefined,
       open && Boolean(accountId)
     );
-  // Seed protocol mood immediately so the slide never flashes the blue-corner
-  // trial while the wallet mood fetch catches up.
+  // Seed protocol mood immediately so the slide never flashes a flat empty
+  // base while the wallet mood fetch catches up.
   const fallbackMood = useMemo(() => resolvePortfolioMood({}), []);
   const viewerMoodId = fetchedMoodId ?? (accountId ? fallbackMood.id : null);
   const viewerMoodStyle = useMemo(() => {
