@@ -23029,7 +23029,7 @@ a.os-surface-row {
   }
 
   /* Home / in-shell: the .app-surface card IS the phone view.
-   * Beat `html[data-theme=light] .os-app-screen` (#fff + blue-corner radial)
+   * Beat `html[data-theme=light] .os-app-screen` (#fff flat base)
    * so home mood wash matches portfolio / slide-over strength. */
   .os-app-screen.os-app-screen--mood:not(.os-slide-over),
   html[data-theme='light'] .os-app-screen.os-app-screen--mood:not(.os-slide-over),
