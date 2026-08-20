@@ -19,6 +19,7 @@ import {
   GlassSheet,
   SheetCloseButton,
   TokenIcon,
+  osGestureSheetBodyClassName,
   useScrollLock,
 } from '@onsocial/ui';
 import {
@@ -806,7 +807,7 @@ export function PortfolioBoostSheet({
       zIndex={56}
       ariaLabelledBy={titleId}
       backdropLabel="Close boost"
-      bodyClassName="profile-support-sheet-body"
+      bodyClassName={`profile-support-sheet-body ${osGestureSheetBodyClassName}`}
       header={
         <>
           <div className="standing-sheet-header portfolio-support-collect-info-header">

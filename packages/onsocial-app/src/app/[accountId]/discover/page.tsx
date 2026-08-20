@@ -1,7 +1,7 @@
 import { normalizeProfileSearchQuery } from '@/lib/profile-account-search';
 import { DiscoverPagePanel } from '@/features/discover/discover-page-panel';
 import { loadDiscoverProfilesPage } from '@/lib/discover-profiles-server';
-import { portfolioPath } from '@/lib/overlay-routes';
+import { standingPath } from '@/lib/overlay-routes';
 import { resolveAccountId } from '@/lib/resolve-account';
 
 type DiscoverAccountPageProps = {
@@ -30,7 +30,7 @@ export default async function DiscoverAccountPage({
 
   return (
     <DiscoverPagePanel
-      backFallbackHref={portfolioPath(accountId)}
+      backFallbackHref={standingPath(accountId, 'outgoing')}
       initialPage={initialPage}
     />
   );

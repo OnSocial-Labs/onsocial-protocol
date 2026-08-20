@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -17,6 +19,27 @@ import { cn } from './cn.js';
 import { MultiplyIcon } from './mage-stroke-icons.js';
 import { OsIconAction, osIconActionClassName } from './os-icon-action.js';
 
+/**
+ * Optional clip host for GlassSheet (e.g. OS phone card). When set, sheets
+ * portal into that node instead of `document.body` so backdrop-filter blur
+ * cannot paint past the desktop column edges.
+ */
+const GlassSheetPortalContext = createContext<HTMLElement | null>(null);
+
+export function GlassSheetPortalProvider({
+  container,
+  children,
+}: {
+  container: HTMLElement | null;
+  children: ReactNode;
+}) {
+  return (
+    <GlassSheetPortalContext.Provider value={container}>
+      {children}
+    </GlassSheetPortalContext.Provider>
+  );
+}
+
 /** @deprecated Use {@link osIconActionClassName} from `./os-icon-action.js`. */
 export const sheetIconActionClassName = osIconActionClassName;
 
@@ -25,6 +48,11 @@ export type GlassSheetDetent = 'peek' | 'full';
 export type GlassSheetPresentation = 'enter' | 'swap' | 'appear';
 /** `hug` = content-sized up to 90dvh; `full` = default near-viewport height. */
 export type GlassSheetSizing = 'hug' | 'full';
+/**
+ * `glass` — frosted panel + dim/blur scrim.
+ * `page` — opaque OS/slide-page fill (`--mood-bg` / `--bg`), no frost.
+ */
+export type GlassSheetSurface = 'glass' | 'page';
 
 export const GLASS_SHEET_PEEK_RATIO = 0.62;
 const DISMISS_GAP_PX = 96;
@@ -90,6 +118,10 @@ export function resolveSheetOffsetPx(
   return resolveSheetPeekOffsetPx(panelHeightPx, peekRatio, viewportHeightPx);
 }
 
+/** 0 = fully presented, 1 = sheet fully translated down (portfolio revealed).
+ * Backdrop dims + blurs the page under the sheet. Safe inside a hosted OS card
+ * (`glass-sheet-root--hosted`) — blur stays clipped to the phone frame.
+ */
 export function resolveBackdropPresentation(
   coverProgress: number,
   options?: { reduceTransparency?: boolean }
@@ -106,9 +138,13 @@ export function resolveBackdropPresentation(
     return { opacity: strength, filter: 'blur(0px)' };
   }
 
+  const blurPx = GLASS_SHEET_BACKDROP_BLUR_PX * strength;
+  const saturate =
+    1 + (GLASS_SHEET_BACKDROP_SATURATE - 1) * strength;
+
   return {
     opacity: strength,
-    filter: `blur(${GLASS_SHEET_BACKDROP_BLUR_PX * strength}px) saturate(${1 + (GLASS_SHEET_BACKDROP_SATURATE - 1) * strength})`,
+    filter: `blur(${blurPx}px) saturate(${saturate})`,
   };
 }
 
@@ -208,6 +244,26 @@ export interface GlassSheetProps {
    * `full` (default) uses the near-viewport sheet height.
    */
   sizing?: GlassSheetSizing;
+  /**
+   * When false, hide the grip and disable drag-to-dismiss (page-like overlays).
+   * Close still works via header control, backdrop, and Escape. Default true.
+   */
+  dragDismiss?: boolean;
+  /**
+   * Portal mount node. Defaults to {@link GlassSheetPortalProvider} host, then
+   * `document.body`. Prefer the OS column host so frost blur stays inside the page frame.
+   */
+  portalContainer?: HTMLElement | null;
+  /**
+   * Panel material. `page` is opaque OS/slide fill (`--mood-bg` / `--bg`) with
+   * no frost and no scrim. Default `glass`.
+   */
+  surface?: GlassSheetSurface;
+  /**
+   * When true, portfolio summon dock stays visible above this sheet
+   * (`data-keep-dock` — opt out of overlay dock tuck).
+   */
+  keepDock?: boolean;
 }
 
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
@@ -499,14 +555,21 @@ export function usePrefersReducedTransparency(): boolean {
   return prefersReduced;
 }
 
-function useDocumentBodyPortalTarget(): HTMLElement | null {
-  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+function useGlassSheetPortalTarget(
+  portalContainer?: HTMLElement | null
+): HTMLElement | null {
+  const contextHost = useContext(GlassSheetPortalContext);
+  const [body, setBody] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    setPortalTarget(document.body);
+    setBody(document.body);
   }, []);
 
-  return portalTarget;
+  if (portalContainer !== undefined) {
+    return portalContainer ?? body;
+  }
+
+  return contextHost ?? body;
 }
 
 function useSheetPresence(
@@ -574,7 +637,7 @@ function useSheetPresence(
   };
 }
 
-/** Frosted bottom sheet — peek / drag / dismiss. Pair with glass-sheet.css. */
+/** Frosted sheet — peek/drag dismiss, or page-like with dragDismiss={false}. */
 export function GlassSheet({
   open,
   onClose,
@@ -597,9 +660,18 @@ export function GlassSheet({
   panelClassName,
   rootClassName,
   sizing = 'full',
+  dragDismiss = true,
+  portalContainer,
+  surface = 'glass',
+  keepDock = false,
 }: GlassSheetProps) {
+  const opaquePage = surface === 'page';
   const panelRef = useRef<HTMLDivElement>(null);
-  const portalTarget = useDocumentBodyPortalTarget();
+  const portalTarget = useGlassSheetPortalTarget(portalContainer);
+  const hostedInClipHost =
+    portalTarget != null &&
+    typeof document !== 'undefined' &&
+    portalTarget !== document.body;
   const reduceTransparency = usePrefersReducedTransparency();
   const sheetReady = open && !!portalTarget;
   const [enterAnimationDone, setEnterAnimationDone] = useState(false);
@@ -676,12 +748,18 @@ export function GlassSheet({
     ? 'none'
     : `opacity ${SHEET_TRANSITION_MS}ms ${SHEET_PRESENTATION_EASE}, backdrop-filter ${SHEET_TRANSITION_MS}ms ${SHEET_PRESENTATION_EASE}`;
 
-  const backdropPresentation = resolveBackdropPresentation(coverProgress, {
-    reduceTransparency,
-  });
-  const panelFilter = resolvePanelPresentation(coverProgress, tone, moodId, {
-    reduceTransparency,
-  });
+  const backdropPresentation = opaquePage
+    ? { opacity: 0, filter: 'blur(0px)' }
+    : resolveBackdropPresentation(coverProgress, {
+        reduceTransparency,
+      });
+  const panelFilter = opaquePage
+    ? 'blur(0px)'
+    : resolvePanelPresentation(coverProgress, tone, moodId, {
+        reduceTransparency,
+      });
+  const moodAttr =
+    moodId && (tone === 'mood-thread' || opaquePage) ? moodId : undefined;
 
   useEffect(() => {
     if (!open) {
@@ -719,26 +797,33 @@ export function GlassSheet({
         'glass-sheet-root',
         visible && 'is-visible',
         showEnterAnimation && 'glass-sheet-root--enter',
+        hostedInClipHost && 'glass-sheet-root--hosted',
         rootClassName
       )}
       data-tone={tone}
-      data-mood={tone === 'mood-thread' ? moodId : undefined}
+      data-mood={moodAttr}
+      data-surface={surface}
       data-presentation={presentation}
+      data-keep-dock={keepDock ? 'true' : undefined}
       style={{ zIndex }}
       role="presentation"
     >
-      <button
-        type="button"
-        className="glass-sheet-backdrop"
-        onClick={onClose}
-        aria-label={backdropLabel}
-        style={glassSheetBackdropFilterStyle(backdropPresentation.filter, {
-          opacity: showEnterAnimation
-            ? undefined
-            : backdropPresentation.opacity,
-          transition: showEnterAnimation ? undefined : presentationTransition,
-        })}
-      />
+      {opaquePage ? null : (
+        <button
+          type="button"
+          className="glass-sheet-backdrop"
+          onClick={onClose}
+          aria-label={backdropLabel}
+          style={glassSheetBackdropFilterStyle(backdropPresentation.filter, {
+            opacity: showEnterAnimation
+              ? undefined
+              : backdropPresentation.opacity,
+            transition: showEnterAnimation
+              ? undefined
+              : presentationTransition,
+          })}
+        />
+      )}
 
       <div
         ref={panelRef}
@@ -753,7 +838,8 @@ export function GlassSheet({
           panelClassName
         )}
         data-tone={tone}
-        data-mood={tone === 'mood-thread' ? moodId : undefined}
+        data-mood={moodAttr}
+        data-surface={surface}
         data-presentation={presentation}
         data-sizing={sizing}
         style={
@@ -766,23 +852,27 @@ export function GlassSheet({
         onTransitionEnd={handlePanelTransitionEnd}
         onAnimationEnd={handlePanelAnimationEnd}
       >
-        <div
-          className="glass-sheet-frost"
-          aria-hidden
-          style={glassSheetBackdropFilterStyle(panelFilter, {
-            transition: presentationTransition,
-          })}
-        />
+        {opaquePage ? null : (
+          <div
+            className="glass-sheet-frost"
+            aria-hidden
+            style={glassSheetBackdropFilterStyle(panelFilter, {
+              transition: presentationTransition,
+            })}
+          />
+        )}
 
-        <div
-          className="glass-sheet-drag"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
-        >
-          <span className="glass-sheet-grip" aria-hidden />
-        </div>
+        {dragDismiss ? (
+          <div
+            className="glass-sheet-drag"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            onPointerCancel={handlePointerEnd}
+          >
+            <span className="glass-sheet-grip" aria-hidden />
+          </div>
+        ) : null}
 
         {header}
 

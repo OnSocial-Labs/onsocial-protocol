@@ -18,6 +18,7 @@ export {
   GLASS_SHEET_OS_PANEL_BLUR_PX,
   GLASS_SHEET_PANEL_SATURATE,
   GlassSheet,
+  GlassSheetPortalProvider,
   SheetCloseButton,
   SheetHeader,
   glassSheetBackdropFilterStyle,
@@ -31,10 +32,17 @@ export {
   type GlassSheetPresentation,
   type GlassSheetProps,
   type GlassSheetSizing,
+  type GlassSheetSurface,
   type GlassSheetTone,
   type SheetCloseButtonProps,
   type SheetHeaderProps,
 } from './glass-sheet.js';
+export {
+  OsPageSheet,
+  osPageSheetPanelClassName,
+  type OsPageSheetProps,
+  type OsPageSheetSurface,
+} from './os-page-sheet.js';
 export {
   CopyFillIcon,
   TrashFillIcon,
@@ -346,6 +354,7 @@ export {
   osLauncherToolbarClassName,
   osLauncherCrownAvatarClassName,
   osLauncherRootClassName,
+  osLauncherRootHostedClassName,
   osLauncherSheetClassName,
   osLauncherFrostClassName,
   osLauncherThemeToggleClassName,

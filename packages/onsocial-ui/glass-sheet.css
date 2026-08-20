@@ -24,12 +24,48 @@
     max(0px, env(safe-area-inset-left, 0px));
 }
 
+/*
+ * Nested in an OS column host. Expand 1px so frost/scrim covers the full OS
+ * page including the soft hairline lip. Own the outer phone radius on the
+ * blur layers so top-corner crescents aren’t left unblurred.
+ */
+.glass-sheet-root--hosted {
+  position: absolute;
+  inset: -1px;
+  overflow: hidden;
+  border-radius: 0;
+  padding: 0;
+}
+
+.glass-sheet-root--hosted .glass-sheet-panel {
+  max-width: none;
+  width: 100%;
+}
+
+/* Full sheets fill the OS card flush (standing / page glass). */
+.glass-sheet-root--hosted .glass-sheet-panel:not([data-sizing='hug']) {
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
+}
+
+@media (min-width: 640px) {
+  .glass-sheet-root--hosted {
+    border-radius: 1.25rem;
+  }
+
+  .glass-sheet-root--hosted .glass-sheet-backdrop,
+  .glass-sheet-root--hosted .glass-sheet-frost {
+    border-radius: inherit;
+  }
+}
+
 .glass-sheet-backdrop {
   position: absolute;
   inset: 0;
   border: 0;
   background: var(--glass-scrim, rgb(var(--bg-rgb) / 0.28));
-  /* opacity + backdrop-filter driven inline from sheet cover progress */
+  /* Dim + blur — clipped by hosted root so desktop gutters stay sharp. */
   cursor: pointer;
 }
 
@@ -121,34 +157,13 @@
   padding: 0.15rem 1.15rem 1.35rem;
 }
 
-/*
- * Panel locals above override :root tokens. Light needs denser white glass or
- * the dark page/scrim reads through as a muddy gray sheet.
- */
-:root[data-theme='light'] .glass-sheet-panel {
-  --glass-sheet-body-opacity: 0.94;
-  --glass-sheet-header-top-opacity: 0.98;
-  --glass-sheet-header-mid-opacity: 0.94;
-  --glass-header-scrim-top: 0.97;
-  --glass-header-scrim-mid: 0.9;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) .glass-sheet-panel {
-    --glass-sheet-body-opacity: 0.94;
-    --glass-sheet-header-top-opacity: 0.98;
-    --glass-sheet-header-mid-opacity: 0.94;
-    --glass-header-scrim-top: 0.97;
-    --glass-header-scrim-mid: 0.9;
-  }
-}
-
-/* Frost behind content — backdrop-filter on this node keeps copy sharp. */
+/* Frost behind content — blur clipped to the sheet frame (not the viewport). */
 .glass-sheet-frost {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
   border-radius: inherit;
   background: var(
     --glass-sheet-body-surface,
@@ -186,6 +201,30 @@
 .glass-sheet-panel > :not(.glass-sheet-frost) {
   position: relative;
   z-index: 1;
+}
+
+/*
+ * Opaque OS / slide-page fill — same quiet base as `.os-app-screen.os-slide-over`
+ * (`--mood-bg` when mood attrs/vars are set, else `--bg`). No frost / no scrim.
+ */
+.glass-sheet-panel[data-surface='page'] {
+  background: var(--mood-bg, var(--bg, rgb(var(--bg-rgb))));
+  border: none;
+  box-shadow: none;
+}
+
+/* Full-bleed phone-page panel (OsPageSheet). */
+.glass-sheet-panel.os-page-sheet-panel {
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  --glass-header-scrim-height: min(5.5rem, 24%);
+}
+
+.glass-sheet-root--hosted .glass-sheet-panel.os-page-sheet-panel {
+  height: 100%;
+  max-height: none;
+  border-radius: 0;
 }
 
 /* Header chrome (overflow menus) stacks above the scroll body. */

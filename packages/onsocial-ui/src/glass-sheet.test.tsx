@@ -76,10 +76,11 @@ describe('resolveSheetOffsetPx', () => {
 });
 
 describe('resolveBackdropPresentation', () => {
-  it('is strongest when fully presented', () => {
+  it('is strongest when fully presented (dim + blur under the sheet)', () => {
     const presented = resolveBackdropPresentation(0);
     expect(presented.opacity).toBe(1);
     expect(presented.filter).toContain('blur(16px)');
+    expect(presented.filter).toContain('saturate(');
   });
 
   it('clears when fully covered down', () => {
@@ -88,13 +89,13 @@ describe('resolveBackdropPresentation', () => {
     expect(dismissed.filter).toBe('blur(0px)');
   });
 
-  it('interpolates mid drag', () => {
+  it('interpolates mid drag opacity and blur', () => {
     const mid = resolveBackdropPresentation(0.5);
     expect(mid.opacity).toBe(0.5);
     expect(mid.filter).toContain('blur(8px)');
   });
 
-  it('skips blur when reduced transparency is preferred', () => {
+  it('stays dim-only when reduced transparency is preferred', () => {
     const presented = resolveBackdropPresentation(0, {
       reduceTransparency: true,
     });

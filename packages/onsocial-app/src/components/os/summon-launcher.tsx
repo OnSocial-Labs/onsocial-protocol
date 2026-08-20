@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useState,
   useCallback,
   useMemo,
@@ -9,6 +10,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   PenFillIcon,
@@ -27,6 +29,7 @@ import {
   osLauncherItemSoonClassName,
   osLauncherMarkIconClassName,
   osLauncherRootClassName,
+  osLauncherRootHostedClassName,
   osLauncherSheetClassName,
   osLauncherFrostClassName,
   resolveBackdropPresentation,
@@ -39,6 +42,7 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useComposeLauncher } from '@/contexts/compose-launcher-context';
 import { useDmUnreadCount } from '@/components/providers/dm-unread-host';
 import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
+import { useOsPortalHost } from '@/contexts/os-portal-host-context';
 import { accountIdsEqual } from '@/lib/account-match';
 import { useDockAutoHide } from '@/hooks/use-dock-auto-hide';
 import { useOsAppNavigate } from '@/hooks/use-os-app-navigate';
@@ -194,6 +198,35 @@ export function SummonLauncher({
 
   const compose = useComposeLauncher();
   const dockHidden = useDockAutoHide() && !open;
+  const portalHost = useOsPortalHost();
+  const [bodyPortal, setBodyPortal] = useState<HTMLElement | null>(null);
+  const [domHost, setDomHost] = useState<HTMLElement | null>(null);
+  const [hostProbeDone, setHostProbeDone] = useState(false);
+  useEffect(() => {
+    setBodyPortal(document.body);
+  }, []);
+  useLayoutEffect(() => {
+    if (portalHost) {
+      setDomHost(null);
+      setHostProbeDone(true);
+      return;
+    }
+    // Context can lag a commit behind the card ref — don't fall back to body
+    // (full-viewport blur) while an OS / portfolio card is on screen.
+    const node = document.querySelector<HTMLElement>(
+      '.portfolio-frame.app-surface, .os-app-screen.app-surface:not(.os-slide-over)'
+    );
+    setDomHost(node);
+    setHostProbeDone(true);
+  }, [portalHost, open]);
+  // Prefer the registered OS / portfolio card — body fallback is full-viewport
+  // fixed blur on desktop. Wait for the DOM probe before using body.
+  const portalTarget =
+    portalHost ?? domHost ?? (hostProbeDone ? bodyPortal : null);
+  const launcherHosted =
+    portalTarget != null &&
+    typeof document !== 'undefined' &&
+    portalTarget !== document.body;
   const sheetRef = useRef<HTMLElement>(null);
   const dragStateRef = useRef<{
     startY: number;
@@ -420,7 +453,9 @@ export function SummonLauncher({
                       ? ' is-drop'
                       : compose.kind === 'mint'
                         ? ' is-mint'
-                        : ''
+                        : compose.kind === 'propose'
+                          ? ' is-propose'
+                          : ''
                   }`}
                   onClick={compose.action}
                   aria-label={
@@ -428,7 +463,9 @@ export function SummonLauncher({
                       ? 'Start a drop'
                       : compose.kind === 'mint'
                         ? 'Mint'
-                        : 'Compose a post'
+                        : compose.kind === 'propose'
+                          ? 'Create a proposal'
+                          : 'Compose a post'
                   }
                 >
                   {compose.kind === 'drop' || compose.kind === 'mint' ? (
@@ -449,117 +486,122 @@ export function SummonLauncher({
         </div>
       ) : null}
 
-      {open ? (
-        <div
-          className={`${osLauncherRootClassName}${showEnterAnimation ? ' is-enter' : ''}`}
-          role="presentation"
-        >
-          <button
-            type="button"
-            className={osLauncherBackdropClassName}
-            aria-label="Close launcher"
-            style={backdropStyle}
-            onClick={closeLauncher}
-          />
-          <section
-            ref={sheetRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="OnSocial launcher"
-            className={`${osLauncherSheetClassName}${
-              showEnterAnimation ? ' is-enter' : ''
-            }${dragging ? ' is-dragging' : ''}`}
-            style={sheetStyle}
-            onAnimationEnd={handleSheetAnimationEnd}
-          >
+      {open && portalTarget
+        ? createPortal(
             <div
-              className={osLauncherFrostClassName}
-              aria-hidden
-              style={frostStyle}
-            />
-            <button
-              type="button"
-              className={osLauncherDragClassName}
-              aria-label="Drag down to close"
-              onPointerDown={handleDragPointerDown}
-              onPointerMove={handleDragPointerMove}
-              onPointerUp={handleDragPointerEnd}
-              onPointerCancel={handleDragPointerEnd}
+              className={`${osLauncherRootClassName}${
+                launcherHosted ? ` ${osLauncherRootHostedClassName}` : ''
+              }${showEnterAnimation ? ' is-enter' : ''}`}
+              role="presentation"
             >
-              <span className="glass-sheet-grip" aria-hidden />
-            </button>
+              <button
+                type="button"
+                className={osLauncherBackdropClassName}
+                aria-label="Close launcher"
+                style={backdropStyle}
+                onClick={closeLauncher}
+              />
+              <section
+                ref={sheetRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="OnSocial launcher"
+                className={`${osLauncherSheetClassName}${
+                  showEnterAnimation ? ' is-enter' : ''
+                }${dragging ? ' is-dragging' : ''}`}
+                style={sheetStyle}
+                onAnimationEnd={handleSheetAnimationEnd}
+              >
+                <div
+                  className={osLauncherFrostClassName}
+                  aria-hidden
+                  style={frostStyle}
+                />
+                <button
+                  type="button"
+                  className={osLauncherDragClassName}
+                  aria-label="Drag down to close"
+                  onPointerDown={handleDragPointerDown}
+                  onPointerMove={handleDragPointerMove}
+                  onPointerUp={handleDragPointerEnd}
+                  onPointerCancel={handleDragPointerEnd}
+                >
+                  <span className="glass-sheet-grip" aria-hidden />
+                </button>
 
-            <header
-              className={`standing-sheet-header ${osLauncherHeaderClassName}`}
-            >
-              <div className="standing-sheet-subject-row">
-                <div className="standing-sheet-subject">
-                  <OnSocialMark
-                    className={osLauncherMarkIconClassName}
-                    aria-hidden
-                  />
-                  <span className="standing-sheet-subject-copy">
-                    <span className="standing-sheet-subject-name">
-                      OnSocial
-                    </span>
-                  </span>
+                <header
+                  className={`standing-sheet-header ${osLauncherHeaderClassName}`}
+                >
+                  <div className="standing-sheet-subject-row">
+                    <div className="standing-sheet-subject">
+                      <OnSocialMark
+                        className={osLauncherMarkIconClassName}
+                        aria-hidden
+                      />
+                      <span className="standing-sheet-subject-copy">
+                        <span className="standing-sheet-subject-name">
+                          OnSocial
+                        </span>
+                      </span>
+                    </div>
+                    <div className="standing-sheet-actions">
+                      <SheetCloseButton
+                        onClick={closeLauncher}
+                        ariaLabel="Close launcher"
+                      />
+                    </div>
+                  </div>
+                </header>
+
+                <ul className={osLauncherGridClassName}>
+                  {apps.map((app) => (
+                    <li key={app.id}>
+                      <LauncherAppTile
+                        app={app}
+                        openingPage={openingPage}
+                        active={isOsAppActive(app.id, activeAppId)}
+                        unread={launcherUnreadForApp(
+                          app.id,
+                          activityUnread,
+                          dmUnread
+                        )}
+                        onActivate={() => {
+                          if (app.kind === 'external') {
+                            closeLauncher();
+                            return;
+                          }
+                          handleNavigate(app);
+                        }}
+                      />
+                    </li>
+                  ))}
+                  {showMyPage && accountId ? (
+                    <li>
+                      <LauncherAppTile
+                        app={{
+                          id: 'my-page',
+                          label: 'Page',
+                          kind: 'app',
+                        }}
+                        openingPage={false}
+                        active={isOsAppActive('my-page', activeAppId)}
+                        onActivate={() => {
+                          closeLauncher();
+                          router.push(portfolioPath(accountId));
+                        }}
+                      />
+                    </li>
+                  ) : null}
+                </ul>
+
+                <div className={osLauncherFooterClassName}>
+                  <ThemeToggle />
                 </div>
-                <div className="standing-sheet-actions">
-                  <SheetCloseButton
-                    onClick={closeLauncher}
-                    ariaLabel="Close launcher"
-                  />
-                </div>
-              </div>
-            </header>
-
-            <ul className={osLauncherGridClassName}>
-              {apps.map((app) => (
-                <li key={app.id}>
-                  <LauncherAppTile
-                    app={app}
-                    openingPage={openingPage}
-                    active={isOsAppActive(app.id, activeAppId)}
-                    unread={launcherUnreadForApp(
-                      app.id,
-                      activityUnread,
-                      dmUnread
-                    )}
-                    onActivate={() => {
-                      if (app.kind === 'external') {
-                        closeLauncher();
-                        return;
-                      }
-                      handleNavigate(app);
-                    }}
-                  />
-                </li>
-              ))}
-              {showMyPage && accountId ? (
-                <li>
-                  <LauncherAppTile
-                    app={{
-                      id: 'my-page',
-                      label: 'Page',
-                      kind: 'app',
-                    }}
-                    openingPage={false}
-                    active={isOsAppActive('my-page', activeAppId)}
-                    onActivate={() => {
-                      closeLauncher();
-                      router.push(portfolioPath(accountId));
-                    }}
-                  />
-                </li>
-              ) : null}
-            </ul>
-
-            <div className={osLauncherFooterClassName}>
-              <ThemeToggle />
-            </div>
-          </section>
-        </div>
-      ) : null}
+              </section>
+            </div>,
+            portalTarget
+          )
+        : null}
     </>
   );
 }

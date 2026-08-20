@@ -16,14 +16,21 @@ let findScrollContainer: ScrollLockContainerFinder = () => {
   const bodies = document.querySelectorAll<HTMLElement>('.os-app-screen-body');
   for (let i = 0; i < bodies.length; i += 1) {
     const body = bodies[i];
-    // Overlay pages own their scroller — lock the screen behind them, never the slide.
-    if (body.closest('.os-slide-over, [data-os-slide-over="true"]')) {
+    // Overlay pages own their scroller — lock the screen behind them, never the slide / glass.
+    if (
+      body.closest(
+        '.os-slide-over, [data-os-slide-over="true"], .glass-sheet-root, .os-launcher-root'
+      )
+    ) {
       continue;
     }
     return body;
   }
 
   return (
+    document.querySelector<HTMLElement>(
+      '.portfolio-frame > .portfolio-page'
+    ) ??
     document.querySelector<HTMLElement>('.portfolio-frame') ??
     document.querySelector<HTMLElement>('.frame')
   );
@@ -36,18 +43,22 @@ export function configureScrollLockContainerFinder(
   findScrollContainer = finder;
 }
 
-function eventIsInsideSlideOver(event: Event): boolean {
+function eventIsInsideOverlayScroller(event: Event): boolean {
   for (const node of event.composedPath()) {
     if (!(node instanceof Element)) continue;
-    return Boolean(node.closest('.os-slide-over, [data-os-slide-over="true"]'));
+    return Boolean(
+      node.closest(
+        '.os-slide-over, [data-os-slide-over="true"], .glass-sheet-root, .os-launcher-root'
+      )
+    );
   }
   return false;
 }
 
 function blockScroll(event: Event) {
-  // Overlay is often a child of the locked card (portfolio host). Don't
+  // Overlay is often a child of the locked card (portfolio / OS host). Don't
   // cancel its own scroller — only the page behind it.
-  if (eventIsInsideSlideOver(event)) {
+  if (eventIsInsideOverlayScroller(event)) {
     return;
   }
   event.preventDefault();

@@ -1,31 +1,8 @@
 'use client';
 
-import { useMemo, type ComponentProps, type CSSProperties } from 'react';
+import type { ComponentProps } from 'react';
 import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
-import { usePortfolioMoodPreviewOptional } from '@/contexts/portfolio-mood-preview-context';
-import { usePageOwnerMood } from '@/hooks/use-page-owner-mood';
-import {
-  pageContentDrawerPanelStyle,
-  portfolioMoodShellStyle,
-} from '@/lib/moods/resolve';
-import type { ResolvedMood } from '@/lib/moods/types';
-
-function slideOverMoodProps(
-  mood: ResolvedMood | null,
-  isPreviewingMood: boolean
-): { moodId: string | null; moodStyle: CSSProperties | undefined } {
-  if (!mood) {
-    return { moodId: null, moodStyle: undefined };
-  }
-
-  return {
-    moodId: mood.id,
-    moodStyle: {
-      ...portfolioMoodShellStyle(mood.cssVars, { preview: isPreviewingMood }),
-      ...pageContentDrawerPanelStyle(mood.cssVars),
-    } as CSSProperties,
-  };
-}
+import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
 
 /**
  * DAO org slide-overs on a portfolio face — inherit that page's mood wash,
@@ -38,14 +15,7 @@ export function DaoPageSlideOverScreen({
 }: ComponentProps<typeof OsSlideOverScreen> & {
   pageAccountId: string;
 }) {
-  const preview = usePortfolioMoodPreviewOptional();
-  const fetchedMood = usePageOwnerMood(pageAccountId, open);
-  const effectiveMood = preview?.effectiveMood ?? fetchedMood;
-  const isPreviewingMood = preview?.isPreviewingMood ?? false;
-  const { moodId, moodStyle } = useMemo(
-    () => slideOverMoodProps(effectiveMood, isPreviewingMood),
-    [effectiveMood, isPreviewingMood]
-  );
+  const { moodId, moodStyle } = useDaoPageMood(pageAccountId, open);
 
   return (
     <OsSlideOverScreen

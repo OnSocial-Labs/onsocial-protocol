@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, type RefObject } from 'react';
+import { ContextualBack } from '@/components/app/contextual-back';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { DiscoverPanelContent } from '@/features/discover/discover-panel-content';
 import {
@@ -14,13 +15,19 @@ import type { DiscoverTrendingSeed } from '@/lib/discover-trending-server';
 
 function DiscoverPageScreen({
   scrollRootRef,
+  backFallbackHref,
 }: {
   scrollRootRef: RefObject<HTMLElement | null>;
+  backFallbackHref?: string;
 }) {
   return (
     <OsAppScreen
       title="Discover"
-      leading={null}
+      leading={
+        backFallbackHref ? (
+          <ContextualBack fallbackHref={backFallbackHref} />
+        ) : null
+      }
       glassChrome
       scrollRootRef={scrollRootRef}
       heading={
@@ -34,12 +41,15 @@ function DiscoverPageScreen({
 }
 
 export function DiscoverPagePanel({
-  backFallbackHref: _backFallbackHref,
+  backFallbackHref,
   initialPage = null,
   initialTrending = null,
   initialGuilds = null,
 }: {
-  /** Ignored — Discover root uses section mark + launcher. */
+  /**
+   * When set (portfolio `/@account/discover`), show back before search —
+   * e.g. Standing → Discover. App `/discover` omits this (launcher root).
+   */
   backFallbackHref?: string;
   initialPage?: DiscoverProfilesResponse | null;
   initialTrending?: DiscoverTrendingSeed | null;
@@ -55,7 +65,10 @@ export function DiscoverPagePanel({
       initialTrending={initialTrending}
       initialGuilds={initialGuilds}
     >
-      <DiscoverPageScreen scrollRootRef={scrollRootRef} />
+      <DiscoverPageScreen
+        scrollRootRef={scrollRootRef}
+        backFallbackHref={backFallbackHref}
+      />
     </DiscoverPanelRoot>
   );
 }

@@ -59,7 +59,7 @@ function useDaoWorkspaceChrome(): DaoWorkspaceChromeContextValue {
   return value;
 }
 
-/** Search in the slide-over nav row — same recipe as Discover / Market. */
+/** Search beside back — same recipe as Discover / Market. */
 export function DaoWorkspaceHeaderSearch() {
   const {
     loadState,

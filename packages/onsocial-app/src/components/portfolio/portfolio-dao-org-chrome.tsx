@@ -19,6 +19,7 @@ import { DaoMembersSheet } from '@/features/protocol/dao-members-sheet';
 import { DaoProposalsSheet } from '@/features/protocol/dao-proposals-sheet';
 import { DaoTreasurySheet } from '@/features/protocol/dao-treasury-sheet';
 import type { DaoWorkspaceTool } from '@/features/protocol/dao-workspace-panel';
+import { DaoWorkspaceToolsHost } from '@/features/protocol/dao-workspace-tools-host';
 import {
   getProtocolGovernanceEligibility,
   viewerCanProposeOnDao,
@@ -56,6 +57,7 @@ type PortfolioOverlay =
   | 'members'
   | 'treasury'
   | 'proposals'
+  | 'tools'
   | 'edit'
   | 'boost'
   | null;
@@ -171,7 +173,7 @@ function PortfolioDaoOrgChromeInner({
   }, [daoAccountId]);
 
   const openStakeFromFace = useCallback(() => {
-    setOverlay('proposals');
+    setOverlay('tools');
     setToolRequest('stake');
   }, []);
 
@@ -250,6 +252,15 @@ function PortfolioDaoOrgChromeInner({
     trackTransaction,
   ]);
 
+  const handleToolsHostClose = useCallback(() => {
+    setToolRequest(null);
+    setOverlay((current) => (current === 'tools' ? null : current));
+  }, []);
+
+  const handleProposeToolHandled = useCallback(() => {
+    setToolRequest(null);
+  }, []);
+
   const handleManageAction = useCallback(
     (action: DaoManageAction) => {
       if (action === 'edit') {
@@ -270,8 +281,12 @@ function PortfolioDaoOrgChromeInner({
         setOverlay('boost');
         return;
       }
-      // Propose / Stake / Settings / Info live on the proposals workspace.
-      setOverlay('proposals');
+      if (action === 'propose') {
+        setOverlay('proposals');
+        setToolRequest('propose');
+        return;
+      }
+      setOverlay('tools');
       setToolRequest(action as DaoWorkspaceTool);
     },
     [requestOpenMoodSheet]
@@ -337,11 +352,29 @@ function PortfolioDaoOrgChromeInner({
         open={overlay === 'proposals'}
         daoAccountId={daoAccountId}
         daoName={title}
-        toolRequest={toolRequest}
-        onToolRequestHandled={() => setToolRequest(null)}
+        canPropose={Boolean(
+          liveEligibility && viewerCanProposeOnDao(liveEligibility)
+        )}
+        toolRequest={
+          overlay === 'proposals' && toolRequest === 'propose'
+            ? 'propose'
+            : null
+        }
+        onToolRequestHandled={handleProposeToolHandled}
         onClose={() =>
           setOverlay((current) => (current === 'proposals' ? null : current))
         }
+      />
+
+      <DaoWorkspaceToolsHost
+        open={overlay === 'tools'}
+        daoAccountId={daoAccountId}
+        toolRequest={
+          overlay === 'tools' && toolRequest && toolRequest !== 'propose'
+            ? toolRequest
+            : null
+        }
+        onClose={handleToolsHostClose}
       />
 
       <DaoMembersSheet

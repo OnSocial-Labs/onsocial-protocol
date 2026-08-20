@@ -201,7 +201,9 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
                     ? ' is-drop'
                     : compose.kind === 'mint'
                       ? ' is-mint'
-                      : ''
+                      : compose.kind === 'propose'
+                        ? ' is-propose'
+                        : ''
                 }`}
                 onClick={compose.action}
                 aria-label={
@@ -209,7 +211,9 @@ export function PortfolioPageDock({ pageAccountId }: PortfolioPageDockProps) {
                     ? 'Start a drop'
                     : compose.kind === 'mint'
                       ? 'Mint'
-                      : 'Compose a post'
+                      : compose.kind === 'propose'
+                        ? 'Create a proposal'
+                        : 'Compose a post'
                 }
               >
                 {compose.kind === 'drop' || compose.kind === 'mint' ? (

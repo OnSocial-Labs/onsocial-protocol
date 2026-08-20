@@ -77,6 +77,31 @@
     max(0px, env(safe-area-inset-left, 0px));
 }
 
+/*
+ * Same clip model as GlassSheet hosted — full OS page cover, no desktop gutter blur.
+ * Double class beats `.os-launcher-root { position: fixed }` (same specificity order).
+ */
+.os-launcher-root.os-launcher-root--hosted {
+  position: absolute;
+  inset: -1px;
+  width: auto;
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+@media (min-width: 640px) {
+  .os-launcher-root.os-launcher-root--hosted {
+    border-radius: 1.25rem;
+  }
+
+  .os-launcher-root.os-launcher-root--hosted .os-launcher-backdrop,
+  .os-launcher-root.os-launcher-root--hosted .os-launcher-frost {
+    border-radius: inherit;
+  }
+}
+
 /* Scrim tint — backdrop-filter is set inline (Tailwind strips CSS blur). */
 .os-launcher-backdrop {
   position: absolute;

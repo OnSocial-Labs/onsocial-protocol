@@ -231,20 +231,6 @@
   --glass-header-scrim-height: min(6.5rem, 24%);
 }
 
-/* Portfolio signal peeks (standing / endorsements / …) — full-viewport glass. */
-.glass-sheet-panel.portfolio-glass-sheet-panel {
-  height: 100dvh;
-  max-height: none;
-  --glass-header-scrim-height: min(5.5rem, 24%);
-}
-
-@media (min-width: 768px) {
-  .glass-sheet-panel.portfolio-glass-sheet-panel {
-    height: 100dvh;
-    max-height: none;
-  }
-}
-
 /* Single scroller = sheet body. Content scrolls under the floating pill. */
 .glass-sheet-panel.page-drawer-panel > .glass-sheet-body.page-drawer-body {
   padding: 0.1rem 1.15rem 0;
@@ -1845,11 +1831,11 @@ a.os-surface-row {
       --muted-foreground: 222 10% 40%;
       --border: 220 14% 90%;
       color-scheme: light;
-      --glass-scrim: rgb(var(--bg-rgb) / 0.58);
-      --glass-scrim-solid: rgb(var(--bg-rgb) / 0.88);
-      --glass-sheet-body-opacity: 0.8;
-      --glass-sheet-header-top-opacity: 0.9;
-      --glass-sheet-header-mid-opacity: 0.8;
+      --glass-scrim: rgb(var(--bg-rgb) / 0.56);
+      --glass-scrim-solid: rgb(var(--bg-rgb) / 0.82);
+      --glass-sheet-body-opacity: 0.72;
+      --glass-sheet-header-top-opacity: 0.88;
+      --glass-sheet-header-mid-opacity: 0.76;
       --glass-sheet-body-surface: rgb(
         var(--bg-rgb) / var(--glass-sheet-body-opacity)
       );
@@ -1884,11 +1870,11 @@ a.os-surface-row {
     --muted-foreground: 222 10% 40%;
     --border: 220 14% 90%;
     color-scheme: light;
-    --glass-scrim: rgb(var(--bg-rgb) / 0.58);
-    --glass-scrim-solid: rgb(var(--bg-rgb) / 0.88);
-    --glass-sheet-body-opacity: 0.8;
-    --glass-sheet-header-top-opacity: 0.9;
-    --glass-sheet-header-mid-opacity: 0.8;
+    --glass-scrim: rgb(var(--bg-rgb) / 0.56);
+    --glass-scrim-solid: rgb(var(--bg-rgb) / 0.82);
+    --glass-sheet-body-opacity: 0.72;
+    --glass-sheet-header-top-opacity: 0.88;
+    --glass-sheet-header-mid-opacity: 0.76;
     --glass-sheet-body-surface: rgb(
       var(--bg-rgb) / var(--glass-sheet-body-opacity)
     );
@@ -2249,7 +2235,7 @@ a.os-surface-row {
     overflow-x: clip;
   }
 
-  html:has(.glass-sheet-root.is-visible) {
+  html:has(.glass-sheet-root) {
     scrollbar-gutter: auto;
   }
 
@@ -2716,8 +2702,13 @@ a.os-surface-row {
     color: var(--mood-text, rgb(var(--fg-rgb) / 0.96));
   }
 
+  /* Profile phone card clips; `.portfolio-page` scrolls (hubs pattern). */
+  .frame.portfolio-frame {
+    overflow: hidden;
+  }
+
   @media (min-width: 640px) {
-    .frame.app-surface {
+    .frame.app-surface:not(.portfolio-frame) {
       overflow: hidden auto;
     }
   }
@@ -2984,8 +2975,8 @@ a.os-surface-row {
     min-height: 100dvh;
     flex-direction: column;
     isolation: isolate;
-    overflow-x: hidden;
-    overflow-y: auto;
+    /* Hub model: frame clips to the phone radius; `.portfolio-page` scrolls. */
+    overflow: hidden;
     --portfolio-avatar-size: 5rem;
     /* Name sits just below the hero band; Card avatar straddles the dissolve seam. */
     --portfolio-face-name-gap: 0.65rem;
@@ -3089,7 +3080,8 @@ a.os-surface-row {
           rgb(var(--fg-rgb) / 0.06)
         );
       border-radius: 1.25rem;
-      overflow: hidden auto;
+      /* Clip only — inner `.portfolio-page` owns the scrollbar (hubs pattern). */
+      overflow: hidden;
       box-shadow: none;
       transition: border-color var(--mood-transition-duration, 450ms)
         var(--mood-transition-ease, cubic-bezier(0.4, 0, 0.2, 1));
@@ -3142,17 +3134,24 @@ a.os-surface-row {
     }
 
     .portfolio-frame[data-has-banner='true'] .portfolio-banner-region {
-      border-top-left-radius: inherit;
-      border-top-right-radius: inherit;
+      /*
+       * Inner curve (outer radius − hairline). `inherit` matches the outer
+       * 1.25rem and hero media paints over the soft border at the top corners.
+       */
+      border-top-left-radius: max(0px, calc(1.25rem - 1px));
+      border-top-right-radius: max(0px, calc(1.25rem - 1px));
     }
 
     .portfolio-frame[data-has-banner='true'] .portfolio-profile-banner {
-      border-radius: inherit;
+      border-radius: max(0px, calc(1.25rem - 1px))
+        max(0px, calc(1.25rem - 1px)) 0 0;
     }
 
-    .portfolio-frame[data-avatar-cover='true'] .portfolio-avatar-cover {
-      border-top-left-radius: inherit;
-      border-top-right-radius: inherit;
+    .portfolio-frame[data-avatar-cover='true'] .portfolio-avatar-cover,
+    .portfolio-frame[data-avatar-cover='true']
+      .portfolio-hero-video.portfolio-avatar-cover {
+      border-top-left-radius: max(0px, calc(1.25rem - 1px));
+      border-top-right-radius: max(0px, calc(1.25rem - 1px));
     }
   }
 
@@ -4856,8 +4855,13 @@ a.os-surface-row {
     position: relative;
     z-index: 1;
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding-top: env(safe-area-inset-top, 0px);
   }
 
@@ -9090,18 +9094,38 @@ a.os-surface-row {
   }
 
   /*
-   * Compose / manage slide-overs portal into the card; the portfolio dock is a
-   * sibling outside that host so it would stay on top — tuck it like scroll-hide.
+   * Overlays portal into the card; the portfolio dock is a sibling outside that
+   * host so it would stay on top — tuck it like scroll-hide.
+   * Opt out: `.glass-sheet-root[data-keep-dock='true']` (DAO proposals mood page).
    */
-  body:has([data-os-slide-over='true']) .portfolio-summon-dock {
+  body:has([data-os-slide-over='true']) .portfolio-summon-dock,
+  body:has(.glass-sheet-root:not([data-keep-dock='true'])) .portfolio-summon-dock,
+  body:has(.os-launcher-root) .portfolio-summon-dock {
     transform: translateX(-50%)
       translateY(calc(100% + env(safe-area-inset-bottom)));
     opacity: 0;
     pointer-events: none;
   }
 
-  body:has([data-os-slide-over='true']) .portfolio-summon-dock .portfolio-summon {
+  body:has([data-os-slide-over='true']) .portfolio-summon-dock .portfolio-summon,
+  body:has(.glass-sheet-root:not([data-keep-dock='true']))
+    .portfolio-summon-dock
+    .portfolio-summon,
+  body:has(.os-launcher-root) .portfolio-summon-dock .portfolio-summon {
     pointer-events: none;
+  }
+
+  /* Room for the portfolio dock under a keep-dock mood page. */
+  .glass-sheet-root[data-keep-dock='true'] .glass-sheet-body {
+    padding-bottom: calc(
+      4.75rem + env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  .glass-sheet-root[data-keep-dock='true'] .dao-proposals-page-body {
+    padding-bottom: calc(
+      1.25rem + 4.75rem + env(safe-area-inset-bottom, 0px)
+    );
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -9362,6 +9386,11 @@ a.os-surface-row {
   .portfolio-summon-compose.is-mint:focus-visible {
     background: color-mix(in srgb, var(--protocol-green) 12%, transparent);
     color: var(--protocol-green);
+  }
+
+  /* DAO propose — same pen as post; aria says Propose. */
+  .portfolio-summon-compose.is-propose {
+    color: rgb(var(--fg-rgb) / 0.88);
   }
 
   .portfolio-summon-compose-icon {
@@ -22930,19 +22959,55 @@ a.os-surface-row {
 
   .app-surface > .os-slide-over {
     position: absolute;
-    inset: 0;
+    /* Cover full OS page including the 1px soft hairline lip. */
+    inset: -1px;
     width: auto;
     height: auto;
     min-height: 0;
     max-height: none;
-    border-radius: inherit;
+    border-radius: 0;
   }
 
-  /* Host card is covered — it must not keep a second (page) rail. */
+  @media (min-width: 640px) {
+    .app-surface > .os-slide-over {
+      border-radius: 1.25rem;
+    }
+  }
+
+  /* Host card is covered — allow the -1px overlay to paint into the hairline. */
   .app-surface:has(> .os-slide-over),
   .portfolio-frame:has(> .os-slide-over),
-  .frame:has(> .os-slide-over) {
+  .frame:has(> .os-slide-over),
+  .app-surface:has(> .os-launcher-root),
+  .portfolio-frame:has(> .os-launcher-root),
+  .frame:has(> .os-launcher-root) {
     overflow: hidden;
+    overflow-clip-margin: 1px;
+  }
+
+  /* GlassSheet / hug drawers — clip for the whole mount (incl. exit), not only
+   * `.is-visible`. Dropping overflow when `is-visible` clears mid-close flashes
+   * the OS page scrollbar for the exit duration. */
+  .app-surface:has(> .glass-sheet-root),
+  .portfolio-frame:has(> .glass-sheet-root),
+  .frame:has(> .glass-sheet-root) {
+    overflow: hidden;
+    overflow-clip-margin: 1px;
+    scrollbar-width: none;
+  }
+
+  .app-surface:has(> .glass-sheet-root)::-webkit-scrollbar,
+  .portfolio-frame:has(> .glass-sheet-root)::-webkit-scrollbar,
+  .frame:has(> .glass-sheet-root)::-webkit-scrollbar,
+  .portfolio-frame:has(> .glass-sheet-root) > .portfolio-page::-webkit-scrollbar,
+  .portfolio-frame:has(> .os-launcher-root) > .portfolio-page::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  .portfolio-frame:has(> .glass-sheet-root) > .portfolio-page,
+  .portfolio-frame:has(> .os-launcher-root) > .portfolio-page {
+    scrollbar-width: none;
   }
 
   .os-slide-over.is-open {
@@ -23137,10 +23202,53 @@ a.os-surface-row {
    * CSS minify (bare `.dao-*-sheet { padding }` was dropped from the bundle).
    */
   .dao-members-slide .os-slide-over-content.dao-members-sheet,
-  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet,
-  .dao-proposals-slide .os-slide-over-content.dao-proposals-sheet {
+  .dao-treasury-slide .os-slide-over-content.dao-treasury-sheet {
     gap: 0.65rem;
     padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
+  }
+
+  .dao-proposals-page.os-page-sheet-panel {
+    --os-screen-body-pad-x: 1rem;
+  }
+
+  .dao-proposals-page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.55rem var(--os-screen-body-pad-x, 1rem) 0.35rem;
+    box-sizing: border-box;
+  }
+
+  .dao-proposals-page-header .os-app-screen-nav-row {
+    --os-app-screen-nav-row-height: 2.75rem;
+  }
+
+  .dao-proposals-page-header .os-app-screen-heading {
+    overflow: visible;
+  }
+
+  .dao-proposals-page-header .dao-proposals-header-search,
+  .dao-proposals-page-header .dao-proposals-header-search-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dao-proposals-page-header .dao-proposals-header-search {
+    min-height: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .dao-proposals-page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.35rem var(--os-screen-body-pad-x, 1rem) 1.25rem;
+    box-sizing: border-box;
+  }
+
+  .dao-proposals-page-body .dao-workspace {
+    gap: 0.65rem;
+    min-width: 0;
   }
 
   /*
@@ -28393,30 +28501,8 @@ a.os-surface-row {
   }
 
   /*
-   * Composer — OsSlideOverScreen shell (same as Manage set); keep the
-   * pre-existing form / footer padding (not the image-first zero inset).
-   */
-  .guild-composer-slide .os-slide-over-content.guild-composer-sheet-body {
-    padding: 0.35rem 1.15rem 0.85rem;
-  }
-
-  .guild-composer-slide .os-slide-over-footer-inner {
-    max-width: none;
-    width: 100%;
-    padding: 0;
-  }
-
-  .guild-composer-slide .os-app-screen-toolbar {
-    padding-inline: 0;
-  }
-
-  .guild-composer-slide .guild-composer-mode {
-    width: 100%;
-  }
-
-  /*
-   * Composer uses the GlassSheet flex stack:
-   * pinned header · scrolling body · pinned footer (keyboard-aware via panelStyle).
+   * Composer — OsPageSheet surface=page (flat slide fill); form / footer padding
+   * stays on the glass body + footer (not the image-first zero inset).
    */
   .guild-composer-sheet-panel.glass-sheet-panel {
     overflow: hidden;
@@ -28430,6 +28516,11 @@ a.os-surface-row {
 
   .guild-composer-sheet-body {
     padding: 0.35rem 1.15rem 0.85rem;
+  }
+
+  .guild-composer-sheet-header .guild-composer-mode {
+    width: 100%;
+    margin-top: 0.35rem;
   }
 
   .guild-composer-sheet-form {
@@ -28483,10 +28574,6 @@ a.os-surface-row {
     height: 100%;
     max-height: none;
     object-fit: cover;
-  }
-
-  .guild-composer-sheet-header .guild-composer-mode {
-    width: auto;
   }
 
   .guild-composer-destination-whisper {
@@ -30784,6 +30871,40 @@ a.os-surface-row {
 }
 
 /*
+ * Launcher nested in the phone card — unlayered so it beats imported
+ * `.os-launcher-root { position: fixed }` (same trap as slide-overs living in
+ * `@layer`: layered absolute never wins against unlayered fixed).
+ */
+.app-surface > .os-launcher-root,
+.portfolio-frame > .os-launcher-root,
+.frame > .os-launcher-root {
+  position: absolute;
+  inset: -1px;
+  width: auto;
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0;
+}
+
+@media (min-width: 640px) {
+  .app-surface > .os-launcher-root,
+  .portfolio-frame > .os-launcher-root,
+  .frame > .os-launcher-root {
+    border-radius: 1.25rem;
+  }
+
+  .app-surface > .os-launcher-root .os-launcher-backdrop,
+  .app-surface > .os-launcher-root .os-launcher-frost,
+  .portfolio-frame > .os-launcher-root .os-launcher-backdrop,
+  .portfolio-frame > .os-launcher-root .os-launcher-frost,
+  .frame > .os-launcher-root .os-launcher-backdrop,
+  .frame > .os-launcher-root .os-launcher-frost {
+    border-radius: inherit;
+  }
+}
+
+/*
  * Phone cards (OS + mood portfolio) — unlayered so they beat `@layer`
  * `.app-surface` hairline. Shared mood *bg* tint edge.
  */
@@ -32561,6 +32682,10 @@ a.protocol-account-chip:focus-visible .protocol-account-chip-name {
   flex-direction: column;
   gap: 0;
   min-width: 0;
+}
+
+.dao-proposals-page .dao-workspace {
+  gap: 0.65rem;
 }
 
 .dao-proposals-header-search-wrap,

@@ -3,6 +3,9 @@ export const osDockPillClassName = 'os-dock-pill';
 
 export const osLauncherRootClassName = 'os-launcher-root';
 
+/** Nested in the OS / portfolio card — blur stays inside the phone frame. */
+export const osLauncherRootHostedClassName = 'os-launcher-root--hosted';
+
 export const osLauncherBackdropClassName = 'os-launcher-backdrop';
 
 export const osLauncherSheetClassName = 'os-launcher-sheet';

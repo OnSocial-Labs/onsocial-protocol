@@ -12,18 +12,21 @@ import {
 } from 'react';
 import type { PostRow } from '@onsocial/sdk';
 import {
+  ArrowLeftIcon,
   ChartVerticalFillIcon,
   ChartVerticalIcon,
+  Divider,
   ImageFillIcon,
   ImageIcon,
   OsFieldRemove,
   OsHugSheet,
+  OsIconAction,
+  OsPageSheet,
   ProfileAvatar,
   StarsCFillIcon,
   StarsCIcon,
   osFieldBorderedClassName,
 } from '@onsocial/ui';
-import { OsSlideOverScreen } from '@/components/app/os-slide-over-screen';
 import {
   ChoiceDrawerMenu,
   type ChoiceOption,
@@ -253,9 +256,9 @@ function normalizePollOptions(options: string[]): string[] {
 }
 
 /**
- * WYSIWYG composer in an OsSlideOverScreen (same glass page shell as Manage
- * set). Polls attach as an inline card on new posts only; replies/quotes stay
- * text. Form + toolbar layout is unchanged from the sheet era.
+ * WYSIWYG composer in an OsPageSheet (`surface="page"` — same flat fill as the
+ * old slide-over). Polls attach as an inline card on new posts only; replies/
+ * quotes stay text.
  */
 export function ComposerSheet({
   open,
@@ -274,6 +277,7 @@ export function ComposerSheet({
   onSubmit,
 }: ComposerSheetProps) {
   const formId = useId();
+  const titleId = useId();
   const { accountId } = useAppWallet();
   const viewerShell = useViewerProfileShellContext();
   const { moodId: fetchedMoodId, style: fetchedMoodStyle } =
@@ -446,6 +450,11 @@ export function ComposerSheet({
       marginBottom: `calc(${viewport.lift}px - env(safe-area-inset-bottom, 0px))`,
     };
   }, [viewport.isMobile, viewport.lift]);
+
+  const requestClose = () => {
+    if (pending) return;
+    onClose();
+  };
 
   const updatePollOption = (index: number, value: string) => {
     setPollOptions((current) =>
@@ -1130,18 +1139,49 @@ export function ComposerSheet({
 
   return (
     <>
-    <OsSlideOverScreen
+    <OsPageSheet
       open={open}
-      onClose={onClose}
-      title={TITLE[mode]}
-      closeAriaLabel="Back"
-      closeDisabled={pending}
+      onClose={requestClose}
+      surface="page"
+      presentation="appear"
       zIndex={COMPOSER_SHEET_Z}
-      className="guild-composer-slide"
-      contentClassName="guild-composer-sheet-body"
-      moodId={viewerMoodId}
+      ariaLabelledBy={titleId}
+      backdropLabel="Close composer"
+      moodId={viewerMoodId ?? undefined}
       moodStyle={viewerMoodStyle}
-      toolbar={modeToolbar}
+      panelStyle={panelStyle}
+      panelClassName="guild-composer-sheet-panel"
+      bodyClassName="guild-composer-sheet-body"
+      header={
+        <>
+          <header className="guild-composer-sheet-header standing-sheet-header">
+            <div className="standing-sheet-subject-row">
+              <OsIconAction
+                ariaLabel="Back"
+                disabled={pending}
+                onClick={requestClose}
+              >
+                <ArrowLeftIcon
+                  className="glass-sheet-close-icon"
+                  aria-hidden
+                />
+              </OsIconAction>
+              <div className="standing-sheet-subject">
+                <span className="standing-sheet-subject-copy">
+                  <span
+                    id={titleId}
+                    className="standing-sheet-subject-name"
+                  >
+                    {TITLE[mode]}
+                  </span>
+                </span>
+              </div>
+            </div>
+            {modeToolbar}
+          </header>
+          <Divider variant="section" className="glass-sheet-header-divider" />
+        </>
+      }
       footer={composerFooter}
     >
       <form
@@ -1175,7 +1215,7 @@ export function ComposerSheet({
         {mediaError ? <p className="guild-form-error">{mediaError}</p> : null}
         {error ? <p className="guild-form-error">{error}</p> : null}
       </form>
-    </OsSlideOverScreen>
+    </OsPageSheet>
     <ComposerDropPicker
       open={dropPickerOpen && open}
       enabled={open && mode === 'post'}

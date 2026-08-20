@@ -1,20 +1,27 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { OsProposalCardList } from '@onsocial/ui';
+import {
+  ArrowLeftIcon,
+  Divider,
+  OsIconAction,
+  OsPageSheet,
+  OsProposalCardList,
+} from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
+import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import {
   rememberCommunityDao,
   resolveKnownBoardForDaoAccount,
 } from '@/features/protocol/dao-accounts';
-import { DaoPageSlideOverScreen } from '@/features/protocol/dao-page-slide-over-screen';
 import {
   DaoWorkspaceChromeProvider,
   DaoWorkspaceHeaderSearch,
   DaoWorkspaceHeaderToolbar,
 } from '@/features/protocol/dao-workspace-chrome';
+import { useDaoPageMood } from '@/features/protocol/use-dao-page-mood';
 import { actOnProtocolProposal } from '@/features/protocol/protocol-act';
 import {
   actionLabel,
@@ -104,7 +111,8 @@ import {
 } from '@/lib/dao-workspace-prefetch';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
-const PROPOSALS_SHEET_Z = 74;
+/** Below page drawer (48) + launcher (60) so dock actions aren’t buried. */
+const PROPOSALS_PAGE_Z = 45;
 
 /** Tool the Manage sheet can ask `DaoWorkspacePanel` to open. */
 export type DaoWorkspaceTool = 'propose' | 'stake' | 'settings' | 'info' | null;
@@ -116,17 +124,29 @@ export type DaoWorkspaceTool = 'propose' | 'stake' | 'settings' | 'info' | null;
 export function DaoWorkspacePanel({
   daoAccountId,
   hideTools = false,
+  toolsHostOnly = false,
+  canPropose = false,
   toolRequest = null,
   onToolRequestHandled,
+  onToolsHostClose,
   sheet = null,
 }: {
   daoAccountId: string;
   /** When true, hide Propose/Stake/Settings/Info tool chips (Manage sheet owns them). */
   hideTools?: boolean;
+  /**
+   * Mount tool sheets only (no proposals feed / mood page). Used when Manage
+   * opens Stake / Settings / Info from the portfolio face.
+   */
+  toolsHostOnly?: boolean;
+  /** Viewer may create proposals — dock Propose on the mood page. */
+  canPropose?: boolean;
   /** Parent Manage sheet requests opening a tool. */
   toolRequest?: DaoWorkspaceTool;
   onToolRequestHandled?: () => void;
-  /** Portfolio proposals slide-over — search + filter rails live in the header. */
+  /** Fired when a tools-host session ends (all tool sheets closed). */
+  onToolsHostClose?: () => void;
+  /** Portfolio proposals mood page — search + filter rails live in the header. */
   sheet?: {
     open: boolean;
     onRequestClose: () => void;
@@ -139,6 +159,8 @@ export function DaoWorkspacePanel({
     contentClassName?: string;
   } | null;
 }) {
+  const titleId = useId();
+  const pageMood = useDaoPageMood(daoAccountId, Boolean(sheet?.open));
   const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<ProtocolFeedStatusFilter>(
     () => parseProtocolFeedStatus(searchParams.get(PROTOCOL_STATUS_PARAM))
@@ -186,6 +208,7 @@ export function DaoWorkspacePanel({
       () => readLastProtocolPolicyAction() ?? 'update_vote_policy'
     );
   const [infoOpen, setInfoOpen] = useState(false);
+  const [toolsHostSession, setToolsHostSession] = useState(false);
   const [createPending, setCreatePending] = useState(false);
   const [stakePending, setStakePending] = useState(false);
   const [settingsPending, setSettingsPending] = useState(false);
@@ -195,7 +218,7 @@ export function DaoWorkspacePanel({
   const [visibleCount, setVisibleCount] = useState(PROTOCOL_FEED_PAGE_SIZE);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const scrollRootRef = useRef<HTMLElement | null>(null);
-  const useHeaderChrome = sheet != null;
+  const useHeaderChrome = sheet != null && !toolsHostOnly;
 
   const closeAllSheets = useCallback(() => {
     setProposeKindOpen(false);
@@ -205,6 +228,24 @@ export function DaoWorkspacePanel({
     setSettingsOpen(false);
     setInfoOpen(false);
   }, []);
+
+  const manageToolsOpen =
+    proposeKindOpen ||
+    createOpen ||
+    stakeOpen ||
+    settingsActionOpen ||
+    settingsOpen ||
+    infoOpen;
+
+  const openProposeFromDock = useCallback(() => {
+    closeAllSheets();
+    setProposeKindOpen(true);
+  }, [closeAllSheets]);
+
+  useRegisterComposeAction(
+    sheet?.open && !toolsHostOnly && canPropose ? openProposeFromDock : null,
+    'propose'
+  );
 
   useEffect(() => {
     setSearchDraft(searchQuery);
@@ -1012,8 +1053,17 @@ export function DaoWorkspacePanel({
     else if (toolRequest === 'stake') setStakeOpen(true);
     else if (toolRequest === 'settings') setSettingsActionOpen(true);
     else if (toolRequest === 'info') setInfoOpen(true);
+    if (toolsHostOnly) {
+      setToolsHostSession(true);
+      return;
+    }
     onToolRequestHandled?.();
-  }, [toolRequest, onToolRequestHandled, closeAllSheets]);
+  }, [toolRequest, onToolRequestHandled, closeAllSheets, toolsHostOnly]);
+
+  useEffect(() => {
+    if (!toolsHostOnly || !toolsHostSession || manageToolsOpen) return;
+    onToolsHostClose?.();
+  }, [toolsHostOnly, toolsHostSession, manageToolsOpen, onToolsHostClose]);
 
   const chromeValue = useMemo(
     () => ({
@@ -1042,6 +1092,139 @@ export function DaoWorkspacePanel({
       navigateFamily,
       familyCounts,
     ]
+  );
+
+  const toolSheets = (
+    <>
+      <ProtocolActionSheet
+        open={actionAppId != null}
+        onClose={() => setActionAppId(null)}
+        application={actionApplication}
+        daoPolicy={daoPolicy}
+        accountId={accountId}
+        pendingAction={pendingAction}
+        nowMs={nowMs}
+        onAct={(action) => {
+          void handleAct(action);
+        }}
+      />
+
+      <ProtocolProposeKindSheet
+        open={proposeKindOpen}
+        onClose={() => setProposeKindOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        lastKind={createKind}
+        onSelectKind={(kind) => {
+          rememberProtocolCreateKind(kind);
+          setCreateKind(kind);
+          closeAllSheets();
+          setCreateOpen(true);
+        }}
+        onOpenStake={() => {
+          closeAllSheets();
+          setStakeOpen(true);
+        }}
+      />
+
+      <ProtocolCreateSheet
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        pending={createPending}
+        initialKind={createKind}
+        onSubmit={(payload) => {
+          void handleCreate(payload);
+        }}
+        onOpenStake={() => {
+          closeAllSheets();
+          setStakeOpen(true);
+        }}
+        onChangeKind={() => {
+          closeAllSheets();
+          setProposeKindOpen(true);
+        }}
+      />
+
+      <ProtocolStakeSheet
+        open={stakeOpen}
+        onClose={() => setStakeOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        pending={stakePending}
+        onDelegate={(amountYocto) => {
+          void handleDelegate(amountYocto);
+        }}
+        onUndelegate={(amounts) => {
+          void handleUndelegate(amounts);
+        }}
+        onWithdraw={(amountYocto) => {
+          void handleWithdraw(amountYocto);
+        }}
+      />
+
+      <ProtocolSettingsActionSheet
+        open={settingsActionOpen}
+        onClose={() => setSettingsActionOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        lastAction={settingsAction}
+        onSelectAction={(actionId) => {
+          rememberProtocolPolicyAction(actionId);
+          setSettingsAction(actionId);
+          closeAllSheets();
+          setSettingsOpen(true);
+        }}
+        onOpenStake={() => {
+          closeAllSheets();
+          setStakeOpen(true);
+        }}
+      />
+
+      <ProtocolSettingsSheet
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+          setSettingsActionOpen(false);
+        }}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        pending={settingsPending}
+        initialAction={settingsAction}
+        onSubmit={(payload) => {
+          void handleSettings(payload);
+        }}
+        onOpenStake={() => {
+          closeAllSheets();
+          setStakeOpen(true);
+        }}
+        onChangeAction={() => {
+          closeAllSheets();
+          setSettingsActionOpen(true);
+        }}
+      />
+
+      <ProtocolDaoInfoSheet
+        open={infoOpen}
+        onClose={() => setInfoOpen(false)}
+        daoAccountId={daoAccountId}
+        accountId={accountId}
+        daoPolicy={daoPolicy}
+        onOpenStake={() => {
+          closeAllSheets();
+          setStakeOpen(true);
+        }}
+        onOpenSettings={() => {
+          closeAllSheets();
+          setSettingsActionOpen(true);
+        }}
+      />
+    </>
   );
 
   const workspace = (
@@ -1300,157 +1483,74 @@ export function DaoWorkspacePanel({
         </>
       ) : null}
 
-      <ProtocolActionSheet
-        open={actionAppId != null}
-        onClose={() => setActionAppId(null)}
-        application={actionApplication}
-        daoPolicy={daoPolicy}
-        accountId={accountId}
-        pendingAction={pendingAction}
-        nowMs={nowMs}
-        onAct={(action) => {
-          void handleAct(action);
-        }}
-      />
-
-      <ProtocolProposeKindSheet
-        open={proposeKindOpen}
-        onClose={() => setProposeKindOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        lastKind={createKind}
-        onSelectKind={(kind) => {
-          rememberProtocolCreateKind(kind);
-          setCreateKind(kind);
-          closeAllSheets();
-          setCreateOpen(true);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-      />
-
-      <ProtocolCreateSheet
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        pending={createPending}
-        initialKind={createKind}
-        onSubmit={(payload) => {
-          void handleCreate(payload);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-        onChangeKind={() => {
-          closeAllSheets();
-          setProposeKindOpen(true);
-        }}
-      />
-
-      <ProtocolStakeSheet
-        open={stakeOpen}
-        onClose={() => setStakeOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        pending={stakePending}
-        onDelegate={(amountYocto) => {
-          void handleDelegate(amountYocto);
-        }}
-        onUndelegate={(amounts) => {
-          void handleUndelegate(amounts);
-        }}
-        onWithdraw={(amountYocto) => {
-          void handleWithdraw(amountYocto);
-        }}
-      />
-
-      <ProtocolSettingsActionSheet
-        open={settingsActionOpen}
-        onClose={() => setSettingsActionOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        lastAction={settingsAction}
-        onSelectAction={(actionId) => {
-          rememberProtocolPolicyAction(actionId);
-          setSettingsAction(actionId);
-          closeAllSheets();
-          setSettingsOpen(true);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-      />
-
-      <ProtocolSettingsSheet
-        open={settingsOpen}
-        onClose={() => {
-          setSettingsOpen(false);
-          setSettingsActionOpen(false);
-        }}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        pending={settingsPending}
-        initialAction={settingsAction}
-        onSubmit={(payload) => {
-          void handleSettings(payload);
-        }}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-        onChangeAction={() => {
-          closeAllSheets();
-          setSettingsActionOpen(true);
-        }}
-      />
-
-      <ProtocolDaoInfoSheet
-        open={infoOpen}
-        onClose={() => setInfoOpen(false)}
-        daoAccountId={daoAccountId}
-        accountId={accountId}
-        daoPolicy={daoPolicy}
-        onOpenStake={() => {
-          closeAllSheets();
-          setStakeOpen(true);
-        }}
-        onOpenSettings={() => {
-          closeAllSheets();
-          setSettingsActionOpen(true);
-        }}
-      />
+      {toolSheets}
     </div>
+  );
+
+  const setPageBodyRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      scrollRootRef.current = node;
+    },
+    []
   );
 
   return (
     <DaoWorkspaceChromeProvider value={chromeValue}>
-      {sheet ? (
-        <DaoPageSlideOverScreen
-          pageAccountId={daoAccountId}
+      {toolsHostOnly ? (
+        toolSheets
+      ) : sheet ? (
+        <OsPageSheet
           open={sheet.open}
           onClose={sheet.onRequestClose}
           onClosed={sheet.onClosed}
-          title={sheet.title ?? 'Proposals'}
-          subtitle={sheet.subtitle}
-          closeAriaLabel={sheet.closeAriaLabel ?? 'Back from proposals'}
-          zIndex={sheet.zIndex ?? PROPOSALS_SHEET_Z}
-          className={sheet.className ?? 'dao-proposals-slide'}
-          contentClassName={sheet.contentClassName ?? 'dao-proposals-sheet'}
-          heading={<DaoWorkspaceHeaderSearch />}
-          toolbar={<DaoWorkspaceHeaderToolbar />}
-          scrollRootRef={scrollRootRef}
+          surface="page"
+          presentation="appear"
+          keepDock
+          dragDismiss={false}
+          zIndex={sheet.zIndex ?? PROPOSALS_PAGE_Z}
+          ariaLabelledBy={titleId}
+          backdropLabel={sheet.closeAriaLabel ?? 'Back from proposals'}
+          moodId={pageMood.moodId ?? undefined}
+          moodStyle={pageMood.moodStyle}
+          panelClassName={sheet.className ?? 'dao-proposals-page'}
+          bodyClassName={
+            sheet.contentClassName ?? 'dao-proposals-page-body'
+          }
+          bodyRef={setPageBodyRef}
+          header={
+            <>
+              <header className="dao-proposals-page-header">
+                <div className="os-app-screen-nav-row">
+                  <OsIconAction
+                    ariaLabel={sheet.closeAriaLabel ?? 'Back from proposals'}
+                    onClick={sheet.onRequestClose}
+                  >
+                    <ArrowLeftIcon
+                      className="glass-sheet-close-icon"
+                      aria-hidden
+                    />
+                  </OsIconAction>
+                  <div className="os-app-screen-heading">
+                    <h1 id={titleId} className="sr-only">
+                      {sheet.title ?? 'Proposals'}
+                    </h1>
+                    {sheet.subtitle ? (
+                      <p className="sr-only">{sheet.subtitle}</p>
+                    ) : null}
+                    <DaoWorkspaceHeaderSearch />
+                  </div>
+                </div>
+                <DaoWorkspaceHeaderToolbar />
+              </header>
+              <Divider
+                variant="section"
+                className="glass-sheet-header-divider"
+              />
+            </>
+          }
         >
           {workspace}
-        </DaoPageSlideOverScreen>
+        </OsPageSheet>
       ) : (
         workspace
       )}

@@ -19,8 +19,7 @@ import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
 import {
-  GlassSheet,
-  useScrollLock,
+  OsPageSheet,
   type GlassSheetPresentation,
 } from '@onsocial/ui';
 
@@ -121,27 +120,23 @@ function PortfolioGlassSheetFrame({
     }
   }, [overlayPresent, requestDismiss, sheetOpen]);
 
-  useScrollLock(sheetOpen);
-
   return (
-    <GlassSheet
+    <OsPageSheet
       open={sheetOpen}
       onClose={requestDismiss}
       onClosed={onClosed}
+      surface="glass"
       presentation={presentation}
-      initialDetent="full"
-      tone="os"
       zIndex={50}
       ariaLabelledBy="overlay-title"
       backdropLabel="Close panel"
       bodyRef={scrollBodyRef}
-      panelClassName="portfolio-glass-sheet-panel"
       header={<OverlayGlassHeader panelKey={panelKey} />}
     >
       <div key={panelKey ?? 'overlay'} className="overlay-panel-outlet">
         {children}
       </div>
-    </GlassSheet>
+    </OsPageSheet>
   );
 }
 
