@@ -2,11 +2,11 @@
 
 import {
   useEffect,
-  useLayoutEffect,
   useState,
   useCallback,
   useMemo,
   useRef,
+  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -66,6 +66,17 @@ const LAUNCHER_DISMISS_PX = 96;
 const LAUNCHER_PRESENTATION_MS = 320;
 const LAUNCHER_PRESENTATION_EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
 const LAUNCHER_DRAG_ACTIVATION_PX = 6;
+
+const clientMountedSubscribe = () => () => {};
+const getClientMountedSnapshot = () => true;
+const getServerMountedSnapshot = () => false;
+
+function probeOsCardHost(): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  return document.querySelector<HTMLElement>(
+    '.portfolio-frame.app-surface, .os-app-screen.app-surface:not(.os-slide-over)'
+  );
+}
 
 function launcherAppLabel(app: OsAppLink, openingPage: boolean) {
   if (app.kind === 'open-page' && openingPage) {
@@ -199,30 +210,16 @@ export function SummonLauncher({
   const compose = useComposeLauncher();
   const dockHidden = useDockAutoHide() && !open;
   const portalHost = useOsPortalHost();
-  const [bodyPortal, setBodyPortal] = useState<HTMLElement | null>(null);
-  const [domHost, setDomHost] = useState<HTMLElement | null>(null);
-  const [hostProbeDone, setHostProbeDone] = useState(false);
-  useEffect(() => {
-    setBodyPortal(document.body);
-  }, []);
-  useLayoutEffect(() => {
-    if (portalHost) {
-      setDomHost(null);
-      setHostProbeDone(true);
-      return;
-    }
-    // Context can lag a commit behind the card ref — don't fall back to body
-    // (full-viewport blur) while an OS / portfolio card is on screen.
-    const node = document.querySelector<HTMLElement>(
-      '.portfolio-frame.app-surface, .os-app-screen.app-surface:not(.os-slide-over)'
-    );
-    setDomHost(node);
-    setHostProbeDone(true);
-  }, [portalHost, open]);
-  // Prefer the registered OS / portfolio card — body fallback is full-viewport
-  // fixed blur on desktop. Wait for the DOM probe before using body.
-  const portalTarget =
-    portalHost ?? domHost ?? (hostProbeDone ? bodyPortal : null);
+  const clientMounted = useSyncExternalStore(
+    clientMountedSubscribe,
+    getClientMountedSnapshot,
+    getServerMountedSnapshot
+  );
+  // Prefer registered OS / portfolio card. Context can lag a commit behind the
+  // card ref — probe the DOM before falling back to body (full-viewport blur).
+  const portalTarget = clientMounted
+    ? (portalHost ?? probeOsCardHost() ?? document.body)
+    : null;
   const launcherHosted =
     portalTarget != null &&
     typeof document !== 'undefined' &&
