@@ -98,9 +98,10 @@ fn test_decode_scarce_purchase() {
 
 #[test]
 fn test_decode_scarce_auction_created() {
-    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"SCARCE_UPDATE","data":[{"operation":"auction_created","author":"alice.near","owner_id":"alice.near","token_id":"t1","reserve_price":"1000","buy_now_price":"5000","expires_at":1700000000000000000,"min_bid_increment":"100","anti_snipe_extension_ns":300000000000}]}"#;
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"SCARCE_UPDATE","data":[{"operation":"auction_created","author":"alice.near","owner_id":"alice.near","creator_id":"artist.near","token_id":"t1","reserve_price":"1000","buy_now_price":"5000","expires_at":1700000000000000000,"min_bid_increment":"100","anti_snipe_extension_ns":300000000000}]}"#;
     let event = decode_scarces_event(json, "r", 1, 1, 0).unwrap();
     assert_eq!(event.operation, "auction_created");
+    assert_eq!(event.creator_id, "artist.near");
     assert_eq!(event.reserve_price, "1000");
     assert_eq!(event.buy_now_price, "5000");
     assert_eq!(event.min_bid_increment, "100");

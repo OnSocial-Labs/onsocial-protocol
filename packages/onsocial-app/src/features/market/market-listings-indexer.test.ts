@@ -152,6 +152,81 @@ describe('indexer-first market listings', () => {
     });
   });
 
+  it('fills artistId from collection creator when listing omits mint creator', async () => {
+    activeListings.mockResolvedValue([
+      {
+        listingKey: 'native:drop-1:2',
+        kind: 'native',
+        listingId: null,
+        tokenId: 'drop-1:2',
+        sellerId: 'greenghost.onsocial.testnet',
+        creatorId: null,
+        appId: null,
+        price: ONE_NEAR_YOCTO,
+        priceNumeric: '1',
+        reservePrice: null,
+        buyNowPrice: null,
+        highestBid: null,
+        bidCount: null,
+        copies: null,
+        remaining: null,
+        mintedCount: null,
+        expiresAt: null,
+        title: 'Onsocial music album #1',
+        media: null,
+        sourcePostPath: null,
+        cardBg: null,
+        extraJson: JSON.stringify({ kind: 'audio', audioFormat: 'album' }),
+        listedBlockHeight: 1,
+        listedBlockTimestamp: Date.now(),
+        updatedBlockHeight: 1,
+        updatedBlockTimestamp: Date.now(),
+      },
+    ]);
+    collectionsCurrentByIds.mockResolvedValue([
+      {
+        collectionId: 'drop-1',
+        creatorId: 'berrysamba.onsocial.testnet',
+        appId: null,
+        price: ONE_NEAR_YOCTO,
+        allowlistPrice: null,
+        totalSupply: 10,
+        mintedCount: 2,
+        remaining: 8,
+        startTime: null,
+        endTime: null,
+        createdAt: null,
+        mintMode: null,
+        maxPerWallet: null,
+        paused: false,
+        cancelled: false,
+        banned: false,
+        transferable: true,
+        renewable: false,
+        maxRedeems: null,
+        randomAssignment: false,
+        appCommissionBps: null,
+        title: 'Onsocial music album',
+        media: null,
+        description: null,
+        kind: 'audio',
+        metadataTemplate: null,
+        metadata: null,
+        extraJson: null,
+        royaltyJson: null,
+      },
+    ]);
+
+    const page = await fetchMarketListings({ limit: 10 });
+    expect(collectionsCurrentByIds).toHaveBeenCalledWith(['drop-1']);
+    expect(page.items[0]).toMatchObject({
+      kind: 'native',
+      creatorId: 'greenghost.onsocial.testnet',
+      artistId: 'berrysamba.onsocial.testnet',
+      title: 'Onsocial music album #1',
+    });
+  });
+
   it('fetchOwnedScarcesPage uses ownedBy + collectionsCurrentByIds without nft_tokens_for_owner', async () => {
     ownedBy.mockResolvedValue({
       items: [

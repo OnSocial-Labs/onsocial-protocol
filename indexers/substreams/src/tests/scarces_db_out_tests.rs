@@ -519,6 +519,88 @@ fn active_listing_auction_bid_updates_high() {
         find_field_for_pk(&changes, "scarces_active_listings", "native:s:7", "price"),
         Some("150")
     );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:s:7",
+            "creator_id"
+        ),
+        None
+    );
+}
+
+#[test]
+fn active_listing_list_native_sets_mint_creator() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-list_native".into(),
+        block_height: 10,
+        block_timestamp: 100,
+        receipt_id: "r".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "list_native".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        creator_id: "berrysamba.near".into(),
+        token_id: "drop-1:2".into(),
+        price: "1".into(),
+        extra_data: r#"{"token_id":"drop-1:2","owner_id":"seller.near","creator_id":"berrysamba.near","price":"1"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:drop-1:2",
+            "seller_id"
+        ),
+        Some("seller.near")
+    );
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:drop-1:2",
+            "creator_id"
+        ),
+        Some("berrysamba.near")
+    );
+}
+
+#[test]
+fn active_listing_auction_sets_mint_creator() {
+    let mut tables = Tables::new();
+    let event = ScarcesEvent {
+        id: "r-0-SCARCE_UPDATE-auction_created".into(),
+        block_height: 1,
+        block_timestamp: 1,
+        receipt_id: "r0".into(),
+        event_type: "SCARCE_UPDATE".into(),
+        operation: "auction_created".into(),
+        author: "seller.near".into(),
+        owner_id: "seller.near".into(),
+        creator_id: "artist.near".into(),
+        token_id: "album:1".into(),
+        reserve_price: "100".into(),
+        extra_data: r#"{"token_id":"album:1","owner_id":"seller.near","creator_id":"artist.near","reserve_price":"100"}"#.into(),
+        ..Default::default()
+    };
+    apply_active_listing(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(
+        find_field_for_pk(
+            &changes,
+            "scarces_active_listings",
+            "native:album:1",
+            "creator_id"
+        ),
+        Some("artist.near")
+    );
 }
 
 #[test]

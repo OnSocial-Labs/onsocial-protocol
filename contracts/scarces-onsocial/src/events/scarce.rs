@@ -156,11 +156,13 @@ pub fn emit_native_scarce_listed(
     expires_at: Option<u64>,
     browse: super::ListingBrowseMeta<'_>,
     app_id: Option<&str>,
+    creator_id: &AccountId,
 ) {
     EventBuilder::new(SCARCE, "list_native", owner_id)
         .field("owner_id", owner_id)
         .field("token_id", token_id)
         .field("price", price)
+        .field("creator_id", creator_id)
         .field_opt("title", browse.title)
         .field_opt("media", browse.media)
         .field_opt("extra", browse.extra)
@@ -285,11 +287,13 @@ pub fn emit_auction_created(
     expires_at: Option<u64>,
     browse: super::ListingBrowseMeta<'_>,
     app_id: Option<&str>,
+    creator_id: &AccountId,
 ) {
     EventBuilder::new(SCARCE, "auction_created", owner_id)
         .field("owner_id", owner_id)
         .field("token_id", token_id)
         .field("reserve_price", auction.reserve_price)
+        .field("creator_id", creator_id)
         .field_opt("buy_now_price", auction.buy_now_price)
         .field_opt("expires_at", expires_at)
         .field_opt("auction_duration_ns", auction.auction_duration_ns)

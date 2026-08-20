@@ -386,10 +386,7 @@ fn set_redeemers_dedupes() {
     contract
         .set_redeemers(&creator(), "col", vec![buyer(), buyer()])
         .unwrap();
-    assert_eq!(
-        contract.collections.get("col").unwrap().redeemers.len(),
-        1
-    );
+    assert_eq!(contract.collections.get("col").unwrap().redeemers.len(), 1);
 }
 
 #[test]

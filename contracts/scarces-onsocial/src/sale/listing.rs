@@ -208,6 +208,7 @@ impl Contract {
         self.check_transferable(token, token_id, "list for sale")?;
 
         let token_app_id = token.app_id.clone();
+        let creator_id = token.creator_id.clone();
         let title = token.metadata.title.clone();
         let media = token.metadata.media.clone();
         let extra = token.metadata.extra.clone();
@@ -261,6 +262,7 @@ impl Contract {
                 extra: extra.as_deref(),
             },
             app_id.as_deref(),
+            &creator_id,
         );
         Ok(())
     }

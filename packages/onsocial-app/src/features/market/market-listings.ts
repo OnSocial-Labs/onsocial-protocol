@@ -821,12 +821,68 @@ async function withMarketCreatorFaces(
   }
 }
 
+/**
+ * Native/auction rows often omit mint creator (indexer writes seller only).
+ * Fill `artistId` from the drop collection so Market “by …” is Berry Samba,
+ * not the resale seller.
+ */
+async function withMintArtistFromCollections(
+  items: MarketListingItem[],
+  client: OnSocial
+): Promise<MarketListingItem[]> {
+  if (items.length === 0) return items;
+  const collectionIds = [
+    ...new Set(
+      items
+        .filter(
+          (item) =>
+            !item.artistId?.trim() &&
+            (item.kind === 'native' || item.kind === 'auction')
+        )
+        .map((item) => collectionIdFromTokenId(item.tokenId ?? ''))
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  if (collectionIds.length === 0) return items;
+
+  let catalogRows: Awaited<
+    ReturnType<typeof client.query.scarces.collectionsCurrentByIds>
+  > = [];
+  try {
+    catalogRows =
+      await client.query.scarces.collectionsCurrentByIds(collectionIds);
+  } catch {
+    return items;
+  }
+
+  const creatorByCollection = new Map<string, string>();
+  for (const row of catalogRows) {
+    const id = row.collectionId?.trim();
+    const creator = row.creatorId?.trim();
+    if (id && creator) creatorByCollection.set(id, creator);
+  }
+  if (creatorByCollection.size === 0) return items;
+
+  return items.map((item) => {
+    if (item.artistId?.trim()) return item;
+    if (item.kind !== 'native' && item.kind !== 'auction') return item;
+    const collectionId = collectionIdFromTokenId(item.tokenId ?? '');
+    if (!collectionId) return item;
+    const artistId = artistIdDistinctFromSeller(
+      item.creatorId,
+      creatorByCollection.get(collectionId)
+    );
+    return artistId ? { ...item, artistId } : item;
+  });
+}
+
 async function decorateMarketListings(
   items: MarketListingItem[],
   client: OnSocial
 ): Promise<MarketListingItem[]> {
   const withHrefs = await withResolvedPostHrefs(items);
-  return withMarketCreatorFaces(withHrefs, client);
+  const withArtists = await withMintArtistFromCollections(withHrefs, client);
+  return withMarketCreatorFaces(withArtists, client);
 }
 
 /** Drop id for album / collection lookups — edition tokens or lazy listing id. */

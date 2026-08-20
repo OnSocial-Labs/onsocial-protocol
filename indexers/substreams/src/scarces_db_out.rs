@@ -422,6 +422,8 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
             if seller.is_empty() {
                 return;
             }
+            // Mint creator (not seller) — Market “by …” provenance.
+            let mint_creator = non_empty(&e.creator_id);
             let key = native_key(token_id);
             {
                 let row = tables.upsert_row("scarces_active_listings", &key);
@@ -429,6 +431,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 row.set("kind", "native");
                 row.set("token_id", token_id);
                 row.set("seller_id", seller);
+                if let Some(creator) = mint_creator {
+                    row.set("creator_id", creator);
+                }
                 if let Some(app_id) = non_empty(&e.app_id) {
                     row.set("app_id", app_id);
                 }
@@ -456,6 +461,7 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
             if seller.is_empty() {
                 return;
             }
+            let mint_creator = non_empty(&e.creator_id);
             let key = native_key(token_id);
             let reserve = non_empty(&e.reserve_price).unwrap_or("");
             {
@@ -464,6 +470,9 @@ pub(crate) fn apply_active_listing(tables: &mut Tables, e: &ScarcesEvent) {
                 row.set("kind", "auction");
                 row.set("token_id", token_id);
                 row.set("seller_id", seller);
+                if let Some(creator) = mint_creator {
+                    row.set("creator_id", creator);
+                }
                 if let Some(app_id) = non_empty(&e.app_id) {
                     row.set("app_id", app_id);
                 }
