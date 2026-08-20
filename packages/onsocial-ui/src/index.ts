@@ -28,6 +28,7 @@ export {
   usePrefersReducedTransparency,
   sheetIconActionClassName,
   type GlassSheetDetent,
+  type GlassSheetPresentation,
   type GlassSheetProps,
   type GlassSheetSizing,
   type GlassSheetTone,

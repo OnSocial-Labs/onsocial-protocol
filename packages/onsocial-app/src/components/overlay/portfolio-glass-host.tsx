@@ -18,7 +18,11 @@ import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
 import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
-import { GlassSheet, useScrollLock } from '@onsocial/ui';
+import {
+  GlassSheet,
+  useScrollLock,
+  type GlassSheetPresentation,
+} from '@onsocial/ui';
 
 function PortfolioGlassSheet({
   accountId,
@@ -30,7 +34,7 @@ function PortfolioGlassSheet({
   accountId: string;
   overlayPresent: boolean;
   panelKey: string | null;
-  presentation: 'appear' | 'swap';
+  presentation: Extract<GlassSheetPresentation, 'appear' | 'swap'>;
   children: ReactNode;
 }) {
   const chrome = useOverlayChrome();
@@ -106,7 +110,7 @@ function PortfolioGlassSheetFrame({
   overlayPresent: boolean;
   requestDismiss: () => void;
   onClosed: () => void;
-  presentation: 'enter' | 'swap';
+  presentation: Extract<GlassSheetPresentation, 'appear' | 'swap'>;
   scrollBodyRef?: React.RefObject<HTMLDivElement | null>;
   panelKey: string | null;
   children: ReactNode;
