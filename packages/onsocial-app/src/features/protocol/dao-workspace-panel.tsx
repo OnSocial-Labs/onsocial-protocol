@@ -98,6 +98,7 @@ import {
 } from '@/lib/transaction-toast-copy';
 import { replaceBrowserUrl } from '@/lib/sync-browser-url-query';
 import {
+  bumpDaoWorkspacePrefetch,
   readDaoFeedCache,
   writeDaoFeedCache,
 } from '@/lib/dao-workspace-prefetch';
@@ -683,6 +684,7 @@ export function DaoWorkspacePanel({
           failureMessage: txToastGovError.actionFailed(label),
         });
 
+        bumpDaoWorkspacePrefetch(daoAccountId);
         setActionAppId(null);
 
         try {
@@ -746,6 +748,7 @@ export function DaoWorkspacePanel({
           failureMessage: txToastGovError.actionFailed('proposal'),
         });
         setCreateOpen(false);
+        bumpDaoWorkspacePrefetch(daoAccountId);
         await loadFeed();
       } catch (error) {
         if (!isWalletUserCancellation(error)) {
@@ -799,6 +802,7 @@ export function DaoWorkspacePanel({
         });
         setSettingsOpen(false);
         setSettingsActionOpen(false);
+        bumpDaoWorkspacePrefetch(daoAccountId);
         await loadFeed();
       } catch (error) {
         if (!isWalletUserCancellation(error)) {

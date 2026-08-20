@@ -182,3 +182,13 @@ export function scheduleDaoWorkspacePrefetch(daoAccountId: string): () => void {
     if (timeoutId != null) clearTimeout(timeoutId);
   };
 }
+
+/**
+ * After a successful DAO mutation (propose / vote / claim / boost / config):
+ * drop stale snapshots so the next sheet open cannot flash pre-tx data, then
+ * soft-refill in the background for the next open.
+ */
+export function bumpDaoWorkspacePrefetch(daoAccountId: string): () => void {
+  invalidateDaoWorkspaceCache(daoAccountId);
+  return scheduleDaoWorkspacePrefetch(daoAccountId);
+}
