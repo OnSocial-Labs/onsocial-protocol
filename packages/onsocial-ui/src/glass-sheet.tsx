@@ -139,8 +139,7 @@ export function resolveBackdropPresentation(
   }
 
   const blurPx = GLASS_SHEET_BACKDROP_BLUR_PX * strength;
-  const saturate =
-    1 + (GLASS_SHEET_BACKDROP_SATURATE - 1) * strength;
+  const saturate = 1 + (GLASS_SHEET_BACKDROP_SATURATE - 1) * strength;
 
   return {
     opacity: strength,
@@ -818,9 +817,7 @@ export function GlassSheet({
             opacity: showEnterAnimation
               ? undefined
               : backdropPresentation.opacity,
-            transition: showEnterAnimation
-              ? undefined
-              : presentationTransition,
+            transition: showEnterAnimation ? undefined : presentationTransition,
           })}
         />
       )}

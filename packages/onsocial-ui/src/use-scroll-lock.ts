@@ -28,9 +28,7 @@ let findScrollContainer: ScrollLockContainerFinder = () => {
   }
 
   return (
-    document.querySelector<HTMLElement>(
-      '.portfolio-frame > .portfolio-page'
-    ) ??
+    document.querySelector<HTMLElement>('.portfolio-frame > .portfolio-page') ??
     document.querySelector<HTMLElement>('.portfolio-frame') ??
     document.querySelector<HTMLElement>('.frame')
   );
