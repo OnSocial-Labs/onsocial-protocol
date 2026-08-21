@@ -20,7 +20,10 @@ import {
   parseAudioFormat,
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
-import { parseTicketEventFromExtra } from '@/features/scarces/ticket-event-meta';
+import {
+  parseTicketEventFromCollectionMetadata,
+  parseTicketEventFromExtra,
+} from '@/features/scarces/ticket-event-meta';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
 
 export type { ScarceReadableMedia, WritingReleaseFormat };
@@ -543,6 +546,7 @@ export function toCollectionView(
   );
   const packagingUrl = resolveScarceMediaUrl(coverMeta.url);
   const series = parseSeries(record.metadata);
+  const eventOverride = parseTicketEventFromCollectionMetadata(record.metadata);
   const maxRedeems =
     record.max_redeems != null && record.max_redeems > 0
       ? Math.floor(record.max_redeems)
@@ -607,9 +611,11 @@ export function toCollectionView(
     randomAssignment: Boolean(record.random_assignment),
     seriesId: series?.id ?? null,
     seriesTitle: series?.title ?? null,
-    eventStartsAtMs: template.eventStartsAtMs ?? null,
-    eventEndsAtMs: template.eventEndsAtMs ?? null,
-    place: template.place ?? null,
+    eventStartsAtMs:
+      eventOverride.eventStartsAtMs ?? template.eventStartsAtMs ?? null,
+    eventEndsAtMs:
+      eventOverride.eventEndsAtMs ?? template.eventEndsAtMs ?? null,
+    place: eventOverride.place ?? template.place ?? null,
     royalty: parseRoyalty(record.royalty),
     ...(template.sourcePostPath
       ? { sourcePostPath: template.sourcePostPath }

@@ -18,14 +18,17 @@ import { DropWithdrawRefundsConfirmPanel } from '@/components/wallet/drop-withdr
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import type { CollectionStatus } from '@/features/scarces/collections-data';
+import { DropExtendEntryPanel } from '@/features/scarces/drop-extend-entry-panel';
 import {
   canCancelDrop,
   canDeleteDrop,
+  canExtendTicketEntry,
   canPauseDrop,
   canResumeDrop,
   canWithdrawUnclaimedRefunds,
   cancelDropCollection,
   deleteDropCollection,
+  extendTicketEntryAccess,
   pauseDropCollection,
   resumeDropCollection,
   withdrawUnclaimedDropRefunds,
@@ -46,11 +49,11 @@ const SCARCES_CONTRACT =
     ? 'scarces.onsocial.near'
     : 'scarces.onsocial.testnet';
 
-type ManagePanel = 'menu' | 'cancel' | 'delete' | 'withdraw';
+type ManagePanel = 'menu' | 'cancel' | 'delete' | 'withdraw' | 'extend';
 
 /**
  * Owner Drop page control — compact Sell-style pill beside bookmark / share,
- * Pause / Resume / Cancel / Delete / Withdraw in a drawer.
+ * Pause / Resume / Cancel / Delete / Withdraw / Postpone entry in a drawer.
  */
 export function CollectionOwnerManageMenu({
   collectionId,
@@ -58,6 +61,9 @@ export function CollectionOwnerManageMenu({
   status,
   minted,
   priceNear = null,
+  kind = null,
+  renewable = false,
+  eventEndsAtMs = null,
   onManaged,
 }: {
   collectionId: string;
@@ -65,8 +71,17 @@ export function CollectionOwnerManageMenu({
   status: CollectionStatus;
   minted: number;
   priceNear?: string | null;
+  kind?: string | null;
+  renewable?: boolean;
+  eventEndsAtMs?: number | null;
   onManaged: (
-    change: 'paused' | 'resumed' | 'deleted' | 'cancelled' | 'refunds_withdrawn'
+    change:
+      | 'paused'
+      | 'resumed'
+      | 'deleted'
+      | 'cancelled'
+      | 'refunds_withdrawn'
+      | 'entry_extended'
   ) => void;
 }) {
   const { isConnected, getSigningWallet } = useAppWallet();
@@ -82,6 +97,7 @@ export function CollectionOwnerManageMenu({
   const showResume = canResumeDrop(status);
   const showDelete = canDeleteDrop(minted, status);
   const showCancel = canCancelDrop(status);
+  const showExtend = canExtendTicketEntry({ kind, renewable, status });
   const showWithdraw = canWithdrawUnclaimedRefunds({
     cancelled: status === 'cancelled',
     refundDeadlineMs,
@@ -295,8 +311,65 @@ export function CollectionOwnerManageMenu({
     trackTransaction,
   ]);
 
+  const runExtend = useCallback(
+    async (newExpiresAtMs: number) => {
+      if (!isConnected || ownerPending) return;
+      setOwnerPending(true);
+      try {
+        const { accountId: signerId, wallet } = await getSigningWallet();
+        const { responses } = await extendTicketEntryAccess(signerId, wallet, {
+          collectionId,
+          newExpiresAtMs,
+        });
+        const confirmed = await trackTransaction({
+          txHashes: responses.flatMap((r) => collectRelayTxHashes(r)),
+          submittedMessage: txToastConfirming.extendingTicketEntry,
+          successMessage: txToastSuccess.ticketEntryExtended,
+          failureMessage: txToastError.extendTicketEntryFailed,
+        });
+        if (confirmed) {
+          close();
+          onManaged('entry_extended');
+        }
+      } catch (error) {
+        if (isWalletUserCancellation(error)) return;
+        setTxResult({
+          type: 'error',
+          msg:
+            error instanceof Error
+              ? error.message
+              : txToastError.extendTicketEntryFailed,
+        });
+      } finally {
+        setOwnerPending(false);
+      }
+    },
+    [
+      close,
+      collectionId,
+      getSigningWallet,
+      isConnected,
+      onManaged,
+      ownerPending,
+      setTxResult,
+      trackTransaction,
+    ]
+  );
+
   const items = useMemo<ActionDrawerItem[]>(() => {
     const list: ActionDrawerItem[] = [];
+    if (showExtend) {
+      list.push({
+        id: 'extend',
+        section: 'Event',
+        label: 'Postpone entry',
+        description: 'Extend when tickets can still be admitted',
+        disabled: ownerPending,
+        onSelect: () => {
+          setPanel('extend');
+        },
+      });
+    }
     if (showPause) {
       list.push({
         id: 'pause',
@@ -377,6 +450,7 @@ export function CollectionOwnerManageMenu({
     runLifecycle,
     showCancel,
     showDelete,
+    showExtend,
     showPause,
     showResume,
     showWithdraw,
@@ -389,6 +463,7 @@ export function CollectionOwnerManageMenu({
     !showDelete &&
     !showCancel &&
     !showWithdraw &&
+    !showExtend &&
     status !== 'cancelled'
   ) {
     return null;
@@ -403,7 +478,9 @@ export function CollectionOwnerManageMenu({
         ? `Cancel ${dropTitle}?`
         : panel === 'withdraw'
           ? `Withdraw unclaimed from ${dropTitle}?`
-          : dropTitle;
+          : panel === 'extend'
+            ? `Postpone entry · ${dropTitle}`
+            : dropTitle;
 
   return (
     <div className="collection-product-manage">
@@ -472,6 +549,15 @@ export function CollectionOwnerManageMenu({
               void runWithdraw();
             }}
             onCancel={() => setPanel('menu')}
+          />
+        ) : null}
+        {panel === 'extend' ? (
+          <DropExtendEntryPanel
+            currentEndsAtMs={eventEndsAtMs}
+            pending={ownerPending}
+            onConfirm={(newExpiresAtMs) => {
+              void runExtend(newExpiresAtMs);
+            }}
           />
         ) : null}
       </ActionDrawer>

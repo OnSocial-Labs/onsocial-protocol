@@ -18,6 +18,7 @@ import {
   SheetFactSection,
 } from '@onsocial/ui';
 import type { CollectionView } from '@/features/scarces/collections-data';
+import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
@@ -107,6 +108,9 @@ export function CollectionAboutSheet({
       : null;
   const createdRel =
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : null;
+  const [nowMs] = useState(() => Date.now());
+  const event = ticketEventScheduleFacts(view, nowMs);
+  const showEvent = !event.empty;
 
   return (
     <OsHugSheet
@@ -126,9 +130,27 @@ export function CollectionAboutSheet({
           <p className="collection-about-body">{description}</p>
         ) : null}
 
-        {view.seriesId || createdAbs ? (
+        {showEvent ? (
           <>
             {description ? <Divider variant="detail" /> : null}
+            <SheetFactSection title="Event">
+              {event.place ? (
+                <SheetFactRow label="Place" value={event.place} />
+              ) : null}
+              {event.starts ? (
+                <SheetFactRow label="Starts" value={event.starts} />
+              ) : null}
+              {event.ends ? (
+                <SheetFactRow label="Ends" value={event.ends} />
+              ) : null}
+              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+          </>
+        ) : null}
+
+        {view.seriesId || createdAbs ? (
+          <>
+            {description || showEvent ? <Divider variant="detail" /> : null}
             <SheetFactSection title="Details">
               {view.seriesId ? (
                 <SheetFactRow

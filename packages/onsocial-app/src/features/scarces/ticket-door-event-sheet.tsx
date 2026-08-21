@@ -16,7 +16,7 @@ import {
 import { type CollectionRedeemAttendance } from '@/features/scarces/ticket-attendance';
 import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
-import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
+import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import {
   formatFutureRelativeTime,
   formatMarketRelativeTime,
@@ -63,38 +63,6 @@ function saleScheduleLines(
   };
 }
 
-function eventScheduleLines(
-  view: CollectionView,
-  nowMs: number
-): {
-  starts: string | null;
-  ends: string | null;
-  next: string | null;
-} {
-  const starts =
-    view.eventStartsAtMs != null
-      ? formatPageDrawerJoinedFullLabel(view.eventStartsAtMs)
-      : null;
-  const ends =
-    view.eventEndsAtMs != null
-      ? formatPageDrawerJoinedFullLabel(view.eventEndsAtMs)
-      : null;
-
-  let next: string | null = null;
-  if (view.eventStartsAtMs != null && view.eventStartsAtMs > nowMs) {
-    const rel = formatFutureRelativeTime(view.eventStartsAtMs, nowMs);
-    next = rel ? `Starts ${rel}` : null;
-  } else if (view.eventEndsAtMs != null && view.eventEndsAtMs > nowMs) {
-    const rel = formatFutureRelativeTime(view.eventEndsAtMs, nowMs);
-    next = rel ? `Ends ${rel}` : null;
-  } else if (view.eventEndsAtMs != null && view.eventEndsAtMs <= nowMs) {
-    const rel = formatMarketRelativeTime(view.eventEndsAtMs, nowMs);
-    next = rel ? `Ended ${rel}` : null;
-  }
-
-  return { starts, ends, next };
-}
-
 /**
  * Compact Event drawer for Door Admit / Redeem — live attendance + schedule.
  */
@@ -131,11 +99,9 @@ export function TicketDoorEventSheet({
 
   const [nowMs] = useState(() => Date.now());
   const sale = saleScheduleLines(view, nowMs);
-  const event = eventScheduleLines(view, nowMs);
+  const event = ticketEventScheduleFacts(view, nowMs);
   const status = deriveCollectionStatus(view, nowMs);
-  const placeLabel = ticketEventPlaceLabel(view.place);
-  const hasEvent =
-    Boolean(event.starts) || Boolean(event.ends) || Boolean(placeLabel);
+  const hasEvent = !event.empty;
   const maxRedeems = attendance?.maxRedeems ?? view.maxRedeems;
   const redeemVoice = voice === 'redeem';
   const perPass =
@@ -219,8 +185,8 @@ export function TicketDoorEventSheet({
 
           {hasEvent ? (
             <SheetFactSection title="Event">
-              {placeLabel ? (
-                <SheetFactRow label="Place" value={placeLabel} />
+              {event.place ? (
+                <SheetFactRow label="Place" value={event.place} />
               ) : null}
               {event.starts ? (
                 <SheetFactRow label="Starts" value={event.starts} />

@@ -209,6 +209,12 @@ export function ScarceBuyForm({
     null
   );
   const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
+  const [hydratedEvent, setHydratedEvent] = useState<{
+    eventStartsAtMs: number | null;
+    eventEndsAtMs: number | null;
+    place: string | null;
+    description: string | null;
+  } | null>(null);
 
   const status = listing?.status ?? embed?.status ?? 'none';
   const listingId = listing?.listingId ?? embed?.listingId;
@@ -259,13 +265,10 @@ export function ScarceBuyForm({
     !accountIdsEqual(sellerId!, artistId!);
 
   useEffect(() => {
-    if (artistFromListing || artistFromPost) {
-      setHydratedArtistId(null);
-      return;
-    }
     const id = collectionId?.trim();
     if (!id) {
       setHydratedArtistId(null);
+      setHydratedEvent(null);
       return;
     }
     let cancelled = false;
@@ -273,15 +276,38 @@ export function ScarceBuyForm({
       try {
         const view = await fetchCollectionPreferIndexer(id);
         if (cancelled) return;
-        setHydratedArtistId(view?.creatorId?.trim() || null);
+        if (!artistFromListing && !artistFromPost) {
+          setHydratedArtistId(view?.creatorId?.trim() || null);
+        }
+        setHydratedEvent(
+          view
+            ? {
+                eventStartsAtMs: view.eventStartsAtMs,
+                eventEndsAtMs: view.eventEndsAtMs,
+                place: view.place,
+                description: view.description?.trim() || null,
+              }
+            : null
+        );
       } catch {
-        if (!cancelled) setHydratedArtistId(null);
+        if (!cancelled) {
+          if (!artistFromListing && !artistFromPost) {
+            setHydratedArtistId(null);
+          }
+          setHydratedEvent(null);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [artistFromListing, artistFromPost, collectionId]);
+
+  useEffect(() => {
+    if (artistFromListing || artistFromPost) {
+      setHydratedArtistId(null);
+    }
+  }, [artistFromListing, artistFromPost]);
 
   useEffect(() => {
     const accountId = artistId?.trim();
@@ -674,6 +700,11 @@ export function ScarceBuyForm({
       tokenId: tokenId ?? null,
       listingId: listingId ?? null,
       royalty,
+      eventStartsAtMs: hydratedEvent?.eventStartsAtMs ?? null,
+      eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
+      place: hydratedEvent?.place ?? null,
+      description:
+        resolvedDescription ?? hydratedEvent?.description ?? null,
     };
   }, [
     title,
@@ -693,6 +724,8 @@ export function ScarceBuyForm({
     tokenId,
     listingId,
     royalty,
+    hydratedEvent,
+    resolvedDescription,
   ]);
 
   async function handleSubmit() {

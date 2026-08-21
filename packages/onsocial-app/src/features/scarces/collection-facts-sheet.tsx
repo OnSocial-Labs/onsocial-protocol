@@ -22,6 +22,10 @@ import {
   dropFacetsLabel,
 } from '@/features/scarces/drop-facets';
 import {
+  collectionHasTicketEvent,
+  ticketEventScheduleFacts,
+} from '@/features/scarces/ticket-event-facts';
+import {
   formatFutureRelativeTime,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
@@ -122,6 +126,8 @@ export function CollectionFactsSheet({
 
   const status = deriveCollectionStatus(view, nowMs);
   const schedule = scheduleFacts(view, nowMs);
+  const event = ticketEventScheduleFacts(view, nowMs);
+  const showEvent = collectionHasTicketEvent(view) && !event.empty;
   const facetsLabel = dropFacetsLabel(view.facets);
   const createdLabel =
     view.createdAtMs > 0
@@ -144,7 +150,11 @@ export function CollectionFactsSheet({
     : 'Shared artwork';
   const rightsParts = [
     view.transferable ? 'Transferable' : 'Soulbound',
-    view.renewable ? 'Renewable' : null,
+    view.renewable
+      ? view.kind === 'ticket'
+        ? 'Date changes'
+        : 'Renewable'
+      : null,
     view.maxRedeems != null && view.maxRedeems > 0
       ? view.maxRedeems === 1
         ? '1 redeem'
@@ -167,6 +177,24 @@ export function CollectionFactsSheet({
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">
+        {showEvent ? (
+          <>
+            <SheetFactSection title="Event">
+              {event.place ? (
+                <SheetFactRow label="Place" value={event.place} />
+              ) : null}
+              {event.starts ? (
+                <SheetFactRow label="Starts" value={event.starts} />
+              ) : null}
+              {event.ends ? (
+                <SheetFactRow label="Ends" value={event.ends} />
+              ) : null}
+              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+            <Divider variant="detail" />
+          </>
+        ) : null}
+
         <SheetFactSection title="Mint">
           <SheetFactRow label="Status" value={collectionStatusLabel(status)} />
           {schedule.empty ? (

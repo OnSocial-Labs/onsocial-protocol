@@ -67,3 +67,48 @@ export function ticketEventPlaceLabel(
 ): string | null {
   return placeLabel(place);
 }
+
+/**
+ * Rain-day override on collection freeform `metadata` (not the mint template).
+ * Prefer this over `extra.eventEndsAt` when present so Facts/Door stay in sync
+ * after organiser postpone without rewriting metadata_template.
+ */
+export function parseTicketEventFromCollectionMetadata(
+  metadataJson: string | null | undefined
+): Partial<TicketEventMeta> {
+  if (!metadataJson?.trim()) return {};
+  try {
+    const meta = JSON.parse(metadataJson) as Record<string, unknown>;
+    if (!meta || typeof meta !== 'object') return {};
+    const eventStartsAtMs = asPositiveMs(meta.eventStartsAt);
+    const eventEndsAtMs = asPositiveMs(meta.eventEndsAt);
+    const place = normalizePlaceSlug(meta.place);
+    return {
+      ...(eventStartsAtMs != null ? { eventStartsAtMs } : {}),
+      ...(eventEndsAtMs != null ? { eventEndsAtMs } : {}),
+      ...(place ? { place } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** Merge event end into collection freeform metadata (preserves series/cover). */
+export function mergeEventEndsIntoCollectionMetadata(
+  existingJson: string | null | undefined,
+  eventEndsAtMs: number
+): string {
+  let meta: Record<string, unknown> = {};
+  if (existingJson?.trim()) {
+    try {
+      const parsed = JSON.parse(existingJson) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        meta = { ...(parsed as Record<string, unknown>) };
+      }
+    } catch {
+      meta = {};
+    }
+  }
+  meta.eventEndsAt = Math.floor(eventEndsAtMs);
+  return JSON.stringify(meta);
+}

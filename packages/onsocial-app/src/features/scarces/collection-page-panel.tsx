@@ -64,6 +64,7 @@ import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
   canCancelDrop,
   canDeleteDrop,
+  canExtendTicketEntry,
   canPauseDrop,
   canResumeDrop,
 } from '@/features/scarces/drop-owner-actions';
@@ -567,10 +568,24 @@ export function CollectionPagePanel({
       canResumeDrop(status) ||
       canCancelDrop(status) ||
       (view != null && canDeleteDrop(view.minted, status)) ||
+      (view != null &&
+        canExtendTicketEntry({
+          kind: view.kind,
+          renewable: view.renewable,
+          status,
+        })) ||
       status === 'cancelled');
 
   const handleOwnerManaged = useCallback(
-    (change: 'paused' | 'resumed' | 'deleted' | 'cancelled' | 'refunds_withdrawn') => {
+    (
+      change:
+        | 'paused'
+        | 'resumed'
+        | 'deleted'
+        | 'cancelled'
+        | 'refunds_withdrawn'
+        | 'entry_extended'
+    ) => {
       if (change === 'deleted') {
         router.replace(APP_DROPS_PATH);
         return;
@@ -1017,6 +1032,9 @@ export function CollectionPagePanel({
                     status={status}
                     minted={view.minted}
                     priceNear={view.priceNear}
+                    kind={view.kind}
+                    renewable={view.renewable}
+                    eventEndsAtMs={view.eventEndsAtMs}
                     onManaged={handleOwnerManaged}
                   />
                 ) : null}
