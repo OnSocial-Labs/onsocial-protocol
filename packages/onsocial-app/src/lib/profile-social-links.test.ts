@@ -14,6 +14,7 @@ describe('resolvePortfolioSocialLinks', () => {
         github: 'alice',
         twitter: 'alice',
         website: 'https://example.com',
+        onsocial: 'alice.testnet',
       })
     ).toEqual([
       {
@@ -21,6 +22,12 @@ describe('resolvePortfolioSocialLinks', () => {
         kind: 'website',
         label: 'Website',
         href: 'https://example.com/',
+      },
+      {
+        key: 'onsocial',
+        kind: 'onsocial',
+        label: 'OnSocial',
+        href: 'https://testnet.onsocial.id/@alice.testnet',
       },
       {
         key: 'x',
@@ -66,6 +73,9 @@ describe('inferPortfolioLinkKind', () => {
       'telegram'
     );
     expect(
+      inferPortfolioLinkKind('OnSocial', 'https://testnet.onsocial.id/@alice.testnet')
+    ).toBe('onsocial');
+    expect(
       inferPortfolioLinkKind('Newsletter', 'https://substack.com/@alice')
     ).toBe('custom');
   });
@@ -97,6 +107,25 @@ describe('portfolioLinkDestination', () => {
         href: 'https://x.com/alice',
       })
     ).toBe('@alice');
+  });
+
+  it('shows bare OnSocial account ids (not @path fragments)', () => {
+    expect(
+      portfolioLinkDestination({
+        key: 'onsocial',
+        kind: 'onsocial',
+        label: 'OnSocial',
+        href: 'https://testnet.onsocial.id/@alice.testnet',
+      })
+    ).toBe('alice.testnet');
+    expect(
+      portfolioLinkDestination({
+        key: 'onsocial',
+        kind: 'onsocial',
+        label: 'OnSocial',
+        href: 'https://portal.onsocial.id/u/alice.testnet',
+      })
+    ).toBe('alice.testnet');
   });
 
   it('uses LinkedIn and GitHub slugs instead of fake @folder handles', () => {

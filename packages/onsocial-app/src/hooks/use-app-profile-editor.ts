@@ -20,6 +20,7 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { probeNearAccountExists } from '@/hooks/use-near-account-status';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
 export interface ProfileEditorSnapshot {
@@ -190,6 +191,16 @@ export function useAppProfileEditor(
           input.links,
           input.currentLinks ?? undefined
         );
+        if (normalizedLinks.onsocial) {
+          const exists = await probeNearAccountExists(
+            normalizedLinks.onsocial
+          );
+          if (!exists) {
+            throw new Error(
+              'OnSocial link account was not found on this network'
+            );
+          }
+        }
         const shouldSaveLinks =
           input.hasCurrentLinks ||
           input.hasLinkInput ||

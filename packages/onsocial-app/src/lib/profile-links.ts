@@ -1,3 +1,13 @@
+import {
+  getNearAccountInputError,
+  isNearNamedAccountComplete,
+  normalizeNearAccountId,
+  nearAccountPlaceholder,
+  nearAccountSuffixHint,
+  sanitizeNearAccountInput,
+} from '@/lib/app-near-account';
+import { appPageHref, portalHref, PUBLIC_APP_ORIGIN } from '@/lib/app-links';
+
 const HANDLE_PATTERNS = {
   github: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/,
   telegram: /^[A-Za-z0-9_]{5,32}$/,
@@ -22,14 +32,22 @@ const LINK_HOSTS = {
   discord: ['discord.gg', 'discord.com'],
 } as const;
 
+const ONSOCIAL_LINK_HOSTS = [
+  'onsocial.id',
+  'testnet.onsocial.id',
+  'www.onsocial.id',
+  'portal.onsocial.id',
+] as const;
+
 const MAX_WEBSITE_URL_LEN = 255;
 
 export type ProfileSocialLinkKind = keyof typeof HANDLE_PATTERNS;
 
-export type ProfileLinkKind = ProfileSocialLinkKind | 'website';
+export type ProfileLinkKind = ProfileSocialLinkKind | 'website' | 'onsocial';
 
 export interface ProfileLinksInput {
   website: string;
+  onsocial: string;
   x: string;
   telegram: string;
   github: string;
@@ -42,6 +60,7 @@ export interface ProfileLinksInput {
 
 export const PROFILE_LINK_KEYS = [
   'website',
+  'onsocial',
   'x',
   'twitter',
   'telegram',
@@ -66,6 +85,12 @@ export const PROFILE_LINK_EDITOR_FIELDS: Array<{
     label: 'Website',
     placeholder: 'example.com',
     fullWidth: true,
+  },
+  {
+    key: 'onsocial',
+    kind: 'onsocial',
+    label: 'OnSocial',
+    placeholder: nearAccountPlaceholder(),
   },
   {
     key: 'x',
@@ -119,6 +144,7 @@ export const PROFILE_LINK_EDITOR_FIELDS: Array<{
 
 export const PROFILE_LINK_PRIMARY_FIELD_KEYS = [
   'website',
+  'onsocial',
   'x',
 ] as const satisfies ReadonlyArray<keyof ProfileLinksInput>;
 
@@ -149,6 +175,12 @@ export const PROFILE_LINK_DISPLAY_FIELDS: Array<{
     label: 'Website',
     kind: 'website',
     resolveValue: (links) => links.website,
+  },
+  {
+    key: 'onsocial',
+    label: 'OnSocial',
+    kind: 'onsocial',
+    resolveValue: (links) => links.onsocial,
   },
   {
     key: 'x',
@@ -247,6 +279,108 @@ export function normalizeWebsiteForDisplay(value: string) {
     .replace(/\/$/, '');
 }
 
+function isOnSocialHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^www\./, '');
+  if ((ONSOCIAL_LINK_HOSTS as readonly string[]).includes(host)) {
+    return true;
+  }
+  try {
+    const publicHost = new URL(PUBLIC_APP_ORIGIN).hostname
+      .toLowerCase()
+      .replace(/^www\./, '');
+    if (host === publicHost) return true;
+  } catch {
+    // ignore
+  }
+  try {
+    const portalHost = new URL(portalHref('/')).hostname
+      .toLowerCase()
+      .replace(/^www\./, '');
+    return host === portalHost;
+  } catch {
+    return false;
+  }
+}
+
+/** True when the field still looks like a pasted profile URL (not a bare id). */
+export function looksLikeOnSocialProfilePaste(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    /^https?:\/\//i.test(trimmed) ||
+    /onsocial\.id/i.test(trimmed) ||
+    trimmed.includes('/')
+  );
+}
+
+/**
+ * Live editor sanitizer for the OnSocial link field.
+ * Preserves pasted profile URLs so {@link normalizeOnSocialAccountInput} can
+ * extract the account; bare ids still get NEAR account character filtering.
+ */
+export function sanitizeOnSocialLinkInput(value: string): string {
+  if (looksLikeOnSocialProfilePaste(value)) {
+    return value.replace(/[\u0000-\u001f\u007f]/g, '');
+  }
+  return sanitizeNearAccountInput(value);
+}
+
+function extractOnSocialAccountFromUrl(url: URL): string | null {
+  if (!isOnSocialHost(url.hostname)) return null;
+  const parts = url.pathname.split('/').filter(Boolean);
+  if (!parts[0]) return null;
+  if (parts[0].startsWith('@')) {
+    return parts[0].slice(1);
+  }
+  if (
+    (parts[0] === 'u' || parts[0] === '@') &&
+    parts[1]
+  ) {
+    return parts[1].replace(/^@/, '');
+  }
+  return parts[0].replace(/^@/, '');
+}
+
+/**
+ * Accept a NEAR account id or an OnSocial profile URL; store the account id.
+ * Format is validated for the active network (`.near`/`.tg` or `.testnet`).
+ */
+export function normalizeOnSocialAccountInput(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  let candidate = trimmed.replace(/^@/, '');
+
+  if (
+    /^https?:\/\//i.test(trimmed) ||
+    /onsocial\.id/i.test(trimmed) ||
+    trimmed.includes('/')
+  ) {
+    try {
+      const withProtocol = /^https?:\/\//i.test(trimmed)
+        ? trimmed
+        : `https://${trimmed}`;
+      const fromUrl = extractOnSocialAccountFromUrl(new URL(withProtocol));
+      if (fromUrl) {
+        candidate = fromUrl;
+      }
+    } catch {
+      // fall through to NEAR id parse
+    }
+  }
+
+  candidate = normalizeNearAccountId(candidate);
+  const formatError = getNearAccountInputError(candidate);
+  if (formatError) {
+    throw new Error(formatError);
+  }
+  if (!isNearNamedAccountComplete(candidate)) {
+    throw new Error(
+      `Use a complete NEAR account (${nearAccountSuffixHint()}).`
+    );
+  }
+  return candidate;
+}
+
 function extractHandleFromProfileUrl(
   url: URL,
   kind: ProfileSocialLinkKind
@@ -342,6 +476,7 @@ export function normalizeProfileLinksInput(
   }
 
   const website = normalizeWebsiteInput(input.website);
+  const onsocial = normalizeOnSocialAccountInput(input.onsocial);
   const x = normalizeProfileHandleInput(input.x, 'x');
   const telegram = normalizeProfileHandleInput(input.telegram, 'telegram');
   const github = normalizeProfileHandleInput(input.github, 'github');
@@ -352,6 +487,7 @@ export function normalizeProfileLinksInput(
   const discord = normalizeProfileHandleInput(input.discord, 'discord');
 
   if (website) links.website = website;
+  if (onsocial) links.onsocial = onsocial;
   if (x) links.x = x;
   if (telegram) links.telegram = telegram;
   if (github) links.github = github;
@@ -366,6 +502,11 @@ export function normalizeProfileLinksInput(
 
 export function buildProfileLinkUrl(value: string, kind: ProfileLinkKind) {
   if (kind === 'website') return normalizeWebsiteInput(value);
+  if (kind === 'onsocial') {
+    const accountId = normalizeOnSocialAccountInput(value);
+    if (!accountId) return '';
+    return appPageHref(accountId);
+  }
 
   const handle = normalizeProfileHandleInput(value, kind);
   if (!handle) return '';
@@ -378,6 +519,8 @@ function buildProfileLinkUrlFromStored(
   kind: Exclude<ProfileLinkKind, 'website'>
 ): string {
   switch (kind) {
+    case 'onsocial':
+      return appPageHref(stored);
     case 'telegram':
       return `https://t.me/${stored}`;
     case 'github':
@@ -410,7 +553,8 @@ function buildProfileLinkUrlFromStored(
   }
 }
 
-export function linkLabel(kind: ProfileSocialLinkKind) {
+export function linkLabel(kind: ProfileSocialLinkKind | 'onsocial') {
+  if (kind === 'onsocial') return 'OnSocial';
   if (kind === 'x') return 'X';
   if (kind === 'tiktok') return 'TikTok';
   if (kind === 'youtube') return 'YouTube';
@@ -463,6 +607,14 @@ export function formatProfileLinkForEditor(
       };
     }
 
+    if (kind === 'onsocial') {
+      return {
+        value: normalizeOnSocialAccountInput(trimmed),
+        error: null,
+        valid: true,
+      };
+    }
+
     return {
       value: normalizeProfileHandleInput(trimmed, kind),
       error: null,
@@ -470,15 +622,29 @@ export function formatProfileLinkForEditor(
     };
   } catch (err) {
     return {
-      value: trimmed.replace(/^@/, ''),
+      value:
+        kind === 'onsocial'
+          ? normalizeNearAccountId(trimmed.replace(/^@/, ''))
+          : trimmed.replace(/^@/, ''),
       error: err instanceof Error ? err.message : 'Invalid link',
       valid: false,
     };
   }
 }
 
-export function profileLinkEditorInlineError(kind: ProfileLinkKind): string {
-  return kind === 'website' ? 'Invalid URL' : 'Invalid handle';
+export function profileLinkEditorInlineError(
+  kind: ProfileLinkKind,
+  detail?: string | null
+): string {
+  if (kind === 'website') return 'Invalid URL';
+  if (kind === 'onsocial') {
+    const lower = (detail ?? '').toLowerCase();
+    if (lower.includes('not found')) return 'Not found';
+    if (lower.includes('verify')) return "Can't verify";
+    if (detail && detail.length <= 40) return detail;
+    return 'Invalid account';
+  }
+  return 'Invalid handle';
 }
 
 export function profileLinkEditorFieldErrors(
@@ -507,11 +673,21 @@ export function isProfileLinkEditorPreviewable(
   return formatProfileLinkForEditor(value, kind).valid;
 }
 
+function safeNormalizeOnSocialAccount(value?: string): string {
+  if (!value) return '';
+  try {
+    return normalizeOnSocialAccountInput(value);
+  } catch {
+    return normalizeNearAccountId(value.trim().replace(/^@/, ''));
+  }
+}
+
 export function profileLinksInputFromRecord(
   links?: Record<string, string> | null
 ): ProfileLinksInput {
   return {
     website: safeNormalizeWebsiteForDisplay(links?.website),
+    onsocial: safeNormalizeOnSocialAccount(links?.onsocial),
     x: safeNormalizeProfileHandle(links?.x ?? links?.twitter, 'x'),
     telegram: safeNormalizeProfileHandle(links?.telegram, 'telegram'),
     github: safeNormalizeProfileHandle(links?.github, 'github'),

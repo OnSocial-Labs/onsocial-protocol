@@ -371,6 +371,11 @@ export {
 } from './onsocial-mark.js';
 export { ONSOCIAL_BRAND_TAGLINE } from './brand-copy.js';
 export {
+  ONSOCIAL_BRAND,
+  onsocialBrandMarkUrl,
+  type OnSocialBrandMarkVariant,
+} from './brand.js';
+export {
   FloatingPanelMenu,
   type FloatingPanelMenuProps,
 } from './floating-panel-menu.js';

@@ -1,7 +1,10 @@
 import { normalizeLink } from './profile-display';
+import { appPageHref, PUBLIC_APP_ORIGIN } from '@/lib/app-links';
+import { normalizeNearAccountId } from '@/lib/app-near-account';
 
 export type PortfolioLinkKind =
   | 'website'
+  | 'onsocial'
   | 'x'
   | 'telegram'
   | 'github'
@@ -24,6 +27,7 @@ export interface PortfolioSocialLink {
 const LINK_HOSTS: Record<Exclude<PortfolioLinkKind, 'custom'>, readonly string[]> =
   {
     website: [],
+    onsocial: ['onsocial.id', 'testnet.onsocial.id'],
     github: ['github.com'],
     telegram: ['t.me', 'telegram.me'],
     x: ['x.com', 'twitter.com'],
@@ -37,6 +41,8 @@ const LINK_HOSTS: Record<Exclude<PortfolioLinkKind, 'custom'>, readonly string[]
 const LABEL_KIND_ALIASES: Record<string, PortfolioLinkKind> = {
   website: 'website',
   site: 'website',
+  onsocial: 'onsocial',
+  near: 'onsocial',
   x: 'x',
   twitter: 'x',
   telegram: 'telegram',
@@ -55,6 +61,12 @@ const KEYED_DISPLAY_FIELDS: Array<{
   label: string;
 }> = [
   { key: 'website', kind: 'website', label: 'Website', resolve: (l) => l.website },
+  {
+    key: 'onsocial',
+    kind: 'onsocial',
+    label: 'OnSocial',
+    resolve: (l) => l.onsocial,
+  },
   {
     key: 'x',
     kind: 'x',
@@ -108,6 +120,15 @@ const KEYED_DISPLAY_FIELDS: Array<{
 function kindFromHostname(hostname: string): PortfolioLinkKind | null {
   const host = hostname.toLowerCase().replace(/^www\./, '');
 
+  try {
+    const publicHost = new URL(PUBLIC_APP_ORIGIN).hostname
+      .toLowerCase()
+      .replace(/^www\./, '');
+    if (host === publicHost) return 'onsocial';
+  } catch {
+    // ignore
+  }
+
   for (const [kind, hosts] of Object.entries(LINK_HOSTS) as Array<
     [Exclude<PortfolioLinkKind, 'custom' | 'website'>, readonly string[]]
   >) {
@@ -154,6 +175,10 @@ function buildHrefFromStored(
   }
 
   switch (kind) {
+    case 'onsocial': {
+      const accountId = normalizeNearAccountId(value);
+      return accountId ? appPageHref(accountId) : null;
+    }
     case 'telegram':
       return `https://t.me/${value}`;
     case 'github':
@@ -194,6 +219,10 @@ function hrefForKeyedLink(
 
   if (kind === 'website') {
     return normalizeLink(trimmed);
+  }
+
+  if (kind === 'onsocial') {
+    return buildHrefFromStored(trimmed, 'onsocial');
   }
 
   const direct = normalizeLink(trimmed);
@@ -354,6 +383,14 @@ export function portfolioLinkDestination(link: PortfolioSocialLink): string {
     case 'telegram':
     case 'tiktok':
       return withAtPrefix(segments[0]!);
+    case 'onsocial': {
+      // App: `/@account` · Portal: `/u/account`
+      if (segments[0]?.toLowerCase() === 'u' && segments[1]) {
+        return bareHandle(segments[1]);
+      }
+      const last = segments[segments.length - 1] ?? segments[0];
+      return last ? bareHandle(last) : '';
+    }
     default:
       return withAtPrefix(segments[0]!);
   }

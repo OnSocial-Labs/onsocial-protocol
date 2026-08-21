@@ -377,6 +377,18 @@ export function AppProfileEditorSheet({
       handleLeave();
     } catch (err) {
       if (isWalletUserCancellation(err)) return;
+      const message = err instanceof Error ? err.message : '';
+      if (/onsocial link account/i.test(message)) {
+        setLinkFieldErrors((current) => ({
+          ...current,
+          onsocial: 'Account not found on this network',
+        }));
+        setTxResult({
+          type: 'error',
+          msg: txToastError.profileOnSocialMissing,
+        });
+        return;
+      }
       setTxResult({ type: 'error', msg: txToastError.profileSaveFailed });
       const nextValidationErrors = profileLinkEditorFieldErrors(links);
       if (Object.keys(nextValidationErrors).length > 0) {
