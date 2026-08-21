@@ -161,6 +161,25 @@ export function useLivePortfolioPageAccount(
   );
 }
 
+/** Live mood tint from the open portfolio face — any visitor (for overlays). */
+export function useLivePortfolioMoodVars(
+  enabled: boolean
+): PortfolioMoodVarsSnapshot {
+  const getSnapshot = useCallback(() => {
+    if (!enabled) {
+      return DISABLED_SNAPSHOT;
+    }
+
+    return readPortfolioMoodSnapshot();
+  }, [enabled]);
+
+  return useSyncExternalStore(
+    subscribePortfolioMood,
+    getSnapshot,
+    () => DISABLED_SNAPSHOT
+  );
+}
+
 /** Mood tint from the live portfolio shell — for editor parity when editing on-page. */
 export function usePortfolioMoodVars(
   pageAccountId: string | undefined,

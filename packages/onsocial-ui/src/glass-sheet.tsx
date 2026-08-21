@@ -757,8 +757,7 @@ export function GlassSheet({
     : resolvePanelPresentation(coverProgress, tone, moodId, {
         reduceTransparency,
       });
-  const moodAttr =
-    moodId && (tone === 'mood-thread' || opaquePage) ? moodId : undefined;
+  const moodAttr = moodId ? moodId : undefined;
 
   useEffect(() => {
     if (!open) {

@@ -1924,7 +1924,9 @@ a.os-surface-row {
 
   /* Mood-scoped signal hues — protocol base blended with mood accent (SDK presets). */
   .portfolio-frame[data-mood],
-  .os-app-screen.os-app-screen--mood {
+  .os-app-screen.os-app-screen--mood,
+  .glass-sheet-panel[data-mood],
+  .os-page-sheet-panel[data-mood] {
     --mood-accent-chrome: var(--mood-accent);
     --signal-standing: var(--mood-signal-standing);
     --signal-solidarity: var(--mood-signal-solidarity);
@@ -1943,7 +1945,9 @@ a.os-surface-row {
 
   :root[data-theme='light'] .portfolio-frame[data-mood],
   :root[data-theme='light'] .portfolio-os-layer[data-mood],
-  :root[data-theme='light'] .os-app-screen.os-app-screen--mood {
+  :root[data-theme='light'] .os-app-screen.os-app-screen--mood,
+  :root[data-theme='light'] .glass-sheet-panel[data-mood],
+  :root[data-theme='light'] .os-page-sheet-panel[data-mood] {
     --mood-accent-chrome: color-mix(
       in srgb,
       var(--mood-accent) var(--mood-light-tone),
@@ -2006,7 +2010,9 @@ a.os-surface-row {
 
     :root:not([data-theme='dark']) .portfolio-frame[data-mood],
     :root:not([data-theme='dark']) .portfolio-os-layer[data-mood],
-    :root:not([data-theme='dark']) .os-app-screen.os-app-screen--mood {
+    :root:not([data-theme='dark']) .os-app-screen.os-app-screen--mood,
+    :root:not([data-theme='dark']) .glass-sheet-panel[data-mood],
+    :root:not([data-theme='dark']) .os-page-sheet-panel[data-mood] {
       --mood-accent-chrome: color-mix(
         in srgb,
         var(--mood-accent) var(--mood-light-tone),
