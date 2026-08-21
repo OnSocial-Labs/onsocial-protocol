@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ProtocolMotionArrow } from '@onsocial/ui';
 import { StandingToggle } from '@/components/ui/standing-toggle';
 import { PortfolioOwnerPayoutMarks } from '@/components/portfolio/portfolio-owner-payout-marks';
@@ -13,13 +12,11 @@ import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useViewerMute } from '@/hooks/use-viewer-mute';
 import { useViewerRelationship } from '@/hooks/use-viewer-relationship';
 import { useViewerStanding } from '@/hooks/use-viewer-standing';
-import { useNotificationsUnreadCount } from '@/components/providers/notifications-host';
 import { accountIdsEqual } from '@/lib/account-match';
 import { displayName } from '@/lib/profile-display';
 import type { ResolvedMood } from '@/lib/moods/types';
 import { isBlockEitherWay, isViewerMuting } from '@/lib/viewer-mute-block-filter';
 import { isWalletUserCancellation, formatStandingActionError } from '@/lib/wallet-errors';
-import { notificationsPath } from '@/lib/app-routes';
 import { rememberDaoStandingTarget } from '@/lib/dao-standing-account';
 import { PortfolioDaoGestureStandingCount } from '@/components/portfolio/portfolio-dao-gesture-standing-count';
 
@@ -39,8 +36,9 @@ interface PortfolioIdentityGesturesProps {
  * Face gesture slot under bio.
  * Connected visitor: Stand · Endorse · Support · Message.
  * DAO visitor: Stand · Support.
- * Owner: payout marks + Activity. DAO self: hidden (org tools row owns Manage).
- * Mute/block live on post overflow and wallet lists — not here.
+ * Owner: payout marks (Activity lives on the dock bell). DAO self: hidden
+ * (org tools row owns Manage). Mute/block live on post overflow and wallet
+ * lists — not here.
  */
 export function PortfolioIdentityGestures({
   pageAccountId,
@@ -57,11 +55,9 @@ export function PortfolioIdentityGestures({
   const { updateStanding, isStandingPendingForTarget } =
     useViewerStanding(pageAccountId);
   const { isMuting } = useViewerMute();
-  const activityUnread = useNotificationsUnreadCount();
   const [supportOpen, setSupportOpen] = useState(false);
   const [endorseOpen, setEndorseOpen] = useState(false);
   const [messageOpen, setMessageOpen] = useState(false);
-  const router = useRouter();
 
   const isSelf =
     Boolean(viewerAccountId) &&
@@ -93,21 +89,6 @@ export function PortfolioIdentityGestures({
     return (
       <div className="portfolio-identity-gestures">
         <PortfolioOwnerPayoutMarks accountId={pageAccountId} />
-        <button
-          type="button"
-          className="portfolio-identity-gesture portfolio-identity-gesture--message"
-          onClick={() => router.push(notificationsPath())}
-        >
-          Activity
-          {activityUnread > 0 ? (
-            <span
-              className="messages-nav-badge"
-              aria-label={`${activityUnread} unread`}
-            >
-              {activityUnread > 9 ? '9+' : activityUnread}
-            </span>
-          ) : null}
-        </button>
       </div>
     );
   }

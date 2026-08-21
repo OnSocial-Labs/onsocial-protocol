@@ -13,6 +13,8 @@ import {
   InformationCircleFillIcon,
   QuestionMarkCircleFillIcon,
   DotsCircleFillIcon,
+  NotificationBellFillIcon,
+  NotificationBellPendingFillIcon,
   ChartFillIcon,
   FireBFillIcon,
   FireFillIcon,
@@ -46,6 +48,8 @@ describe('mage fill icons', () => {
     expect(typeof InformationCircleFillIcon).toBe('function');
     expect(typeof QuestionMarkCircleFillIcon).toBe('function');
     expect(typeof DotsCircleFillIcon).toBe('function');
+    expect(typeof NotificationBellFillIcon).toBe('function');
+    expect(typeof NotificationBellPendingFillIcon).toBe('function');
     expect(typeof ChartFillIcon).toBe('function');
     expect(typeof FireBFillIcon).toBe('function');
     expect(typeof FireFillIcon).toBe('function');

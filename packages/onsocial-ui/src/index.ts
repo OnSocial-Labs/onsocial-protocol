@@ -57,6 +57,8 @@ export {
   InformationCircleFillIcon,
   QuestionMarkCircleFillIcon,
   DotsCircleFillIcon,
+  NotificationBellFillIcon,
+  NotificationBellPendingFillIcon,
   ChartFillIcon,
   ChartVerticalFillIcon,
   ImageFillIcon,
