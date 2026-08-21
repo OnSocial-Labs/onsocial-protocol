@@ -461,15 +461,9 @@ export function LivePersonalPostPanel({
               target: post,
               trackTransaction,
             });
-            if (result.confirmed && result.optimisticPost) {
-              const targetsRoot =
-                conversation.root &&
-                postKey(post) === postKey(conversation.root);
-              if (targetsRoot) {
-                insertConfirmedRootChild('quote', result.optimisticPost);
-              } else {
-                scheduleReconcile();
-              }
+            if (result.confirmed) {
+              // Reposts are not quote-tab rows; wait for indexer reconcile.
+              scheduleReconcile();
             }
           } catch {
             // toast via trackTransaction

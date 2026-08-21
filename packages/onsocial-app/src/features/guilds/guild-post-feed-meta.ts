@@ -31,8 +31,8 @@ export function parseGuildPostAudiences(raw: unknown): string[] {
 }
 
 /**
- * Feed metadata copied onto guild replies/quotes so room-filtered feeds
- * include the full thread, not just the root post.
+ * Feed metadata copied onto guild replies/quotes/reposts so room-filtered
+ * feeds include the full thread, not just the root post.
  */
 export function inheritedGuildReplyFeedMeta(
   target: GuildPostFeedMetaTarget,

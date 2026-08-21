@@ -933,7 +933,9 @@ function PostEngagementRow({
       items.push({
         id: 'repost',
         label: 'Repost',
-        description: 'Share to your feed',
+        description: post.groupId
+          ? 'Share in this guild'
+          : 'Share to your feed',
         leading: <RepeatIcon className="os-action-drawer-icon" aria-hidden />,
         onSelect: () => onRepost(post),
       });

@@ -148,6 +148,8 @@ export function PersonalFeedList({
 
 /** Whether an optimistic row should appear in a coalesced feed list. */
 export function shouldPrependOptimisticFeedPost(post: PostRow): boolean {
+  // Guild writes belong on guild feeds, not the personal home/profile list.
+  if (post.groupId || post.isGroupContent) return false;
   // Quotes and roots belong in the feed.
   if (!post.parentPath) return true;
   // Self-replies chain under the parent when it's on-page; others hide.

@@ -323,15 +323,30 @@ export async function submitPersonalRepost(params: {
 }): Promise<PersonalPostSubmitResult> {
   const { client, accountId, target, trackTransaction } = params;
   const newPostId = Date.now().toString();
-  const postData = {
-    text: '',
-    timestamp: Date.now(),
-  };
+  const timestamp = Date.now();
 
   let response;
+  let postData: {
+    text: string;
+    timestamp: number;
+    access?: 'group';
+    groupId?: string;
+    channel?: string;
+    kind?: string;
+    audiences?: string;
+  };
+
   if (target.groupId) {
     await assertCanReplyToGuildPost(client, accountId, target);
     const groupId = target.groupId;
+    const feedMeta = inheritedGuildReplyFeedMeta(target);
+    postData = {
+      text: '',
+      access: 'group',
+      groupId,
+      timestamp,
+      ...feedMeta,
+    };
     response = await client.groups.repostPost(
       groupId,
       {
@@ -343,6 +358,12 @@ export async function submitPersonalRepost(params: {
       newPostId
     );
   } else {
+    postData = {
+      text: '',
+      timestamp,
+      ...(target.channel ? { channel: target.channel } : {}),
+      ...(target.kind ? { kind: target.kind } : {}),
+    };
     response = await client.posts.repost(
       {
         author: target.accountId,
@@ -380,11 +401,10 @@ export async function submitPersonalRepost(params: {
     refAuthor: target.accountId,
     refType: 'repost',
     isGroupContent: Boolean(target.groupId),
-    ...(target.groupId
-      ? { groupId: target.groupId }
-      : {}),
-    ...(target.channel ? { channel: target.channel } : {}),
-    ...(target.kind ? { kind: target.kind } : {}),
+    ...(target.groupId ? { groupId: target.groupId } : {}),
+    ...(postData.channel ? { channel: postData.channel } : {}),
+    ...(postData.kind ? { kind: postData.kind } : {}),
+    ...(postData.audiences ? { audiences: postData.audiences } : {}),
   };
 
   return { confirmed: true, optimisticPost };
