@@ -8,6 +8,7 @@ import {
   FaYoutube,
 } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
+import { OnSocialMark } from '@onsocial/ui';
 import type {
   ProfileLinkDisplayItem,
   ProfileLinkKind,
@@ -25,6 +26,7 @@ export const profileLinkIconGlyphClass = 'h-4 w-4 shrink-0';
 
 export const profileLinkHoverClass: Record<ProfileLinkKind, string> = {
   website: 'hover:text-[var(--portal-blue)]',
+  onsocial: 'hover:text-foreground',
   x: 'hover:text-foreground',
   telegram: 'hover:text-[#26A5E4]',
   github: 'hover:text-[var(--portal-purple)]',
@@ -43,6 +45,9 @@ export function ProfileLinkIcon({
   className?: string;
 }) {
   if (kind === 'website') return <Globe className={className} />;
+  if (kind === 'onsocial') {
+    return <OnSocialMark className={className} aria-hidden />;
+  }
   if (kind === 'x') return <FaXTwitter className={className} />;
   if (kind === 'telegram') return <RiTelegram2Line className={className} />;
   if (kind === 'instagram') return <FaInstagram className={className} />;
