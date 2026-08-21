@@ -247,8 +247,7 @@ export const config = {
   // Generate with: npx web-push generate-vapid-keys
   vapidPublicKey: env('VAPID_PUBLIC_KEY'),
   vapidPrivateKey: env('VAPID_PRIVATE_KEY'),
-  vapidSubject:
-    process.env.VAPID_SUBJECT || 'mailto:hello@onsocial.id',
+  vapidSubject: process.env.VAPID_SUBJECT || 'mailto:hello@onsocial.id',
 
   // Admin wallets — comma-separated list of NEAR account IDs that receive
   // the `service` tier automatically (no subscription needed).

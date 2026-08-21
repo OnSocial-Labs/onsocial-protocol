@@ -122,9 +122,7 @@ class MemoryPushStore implements PushSubscriptionStore {
     return record;
   }
 
-  async listEnabled(
-    ownerAccountId: string
-  ): Promise<PushSubscriptionRecord[]> {
+  async listEnabled(ownerAccountId: string): Promise<PushSubscriptionRecord[]> {
     return Array.from(this.bucket(ownerAccountId).values()).filter(
       (row) => row.enabled
     );
@@ -202,9 +200,7 @@ class PostgresPushStore implements PushSubscriptionStore {
     return mapRow(result.rows[0]!);
   }
 
-  async listEnabled(
-    ownerAccountId: string
-  ): Promise<PushSubscriptionRecord[]> {
+  async listEnabled(ownerAccountId: string): Promise<PushSubscriptionRecord[]> {
     const result = await this.pool.query<{
       id: string;
       owner_account_id: string;
@@ -356,7 +352,7 @@ function numberField(
 /** Compact verb for OS notification body (mirrors app Activity copy). */
 export function pushNotificationVerb(
   type: string,
-  context?: Record<string, unknown> | null
+  _context?: Record<string, unknown> | null
 ): string {
   switch (type) {
     case 'reply':

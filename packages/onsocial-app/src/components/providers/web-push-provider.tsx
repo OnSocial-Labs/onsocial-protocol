@@ -106,10 +106,18 @@ export function WebPushProvider({ children }: { children: ReactNode }) {
     if (!pushSupported()) return;
 
     try {
-      if (!getCachedAppGatewayAuth()?.token) {
-        await ensureAppGatewayAuth();
+      const { client, session, wallet, accountId: id } = await getClient();
+      if (!session) return;
+      let token = getCachedAppGatewayAuth(id);
+      if (!token) {
+        token = await ensureAppGatewayAuth({
+          accountId: id,
+          wallet,
+          session,
+          allowWalletFallback: true,
+        });
       }
-      const client = getClient();
+      client.auth.setToken(token);
       const status = await client.notifications.getPushStatus();
       if (accountRef.current !== accountId) return;
       setConfigured(status.configured);
@@ -131,10 +139,19 @@ export function WebPushProvider({ children }: { children: ReactNode }) {
     if (!pushSupported() || !accountId || busy) return false;
     setBusy(true);
     try {
-      if (!getCachedAppGatewayAuth()?.token) {
-        await ensureAppGatewayAuth();
+      const { client, session, wallet, accountId: id } = await getClient();
+      if (!session) return false;
+      let token = getCachedAppGatewayAuth(id);
+      if (!token) {
+        token = await ensureAppGatewayAuth({
+          accountId: id,
+          wallet,
+          session,
+          allowWalletFallback: true,
+        });
       }
-      const client = getClient();
+      client.auth.setToken(token);
+
       const publicKey = await client.notifications.getVapidPublicKey();
       if (!publicKey) {
         setConfigured(false);
@@ -159,18 +176,15 @@ export function WebPushProvider({ children }: { children: ReactNode }) {
 
       const json = subscription.toJSON();
       const endpoint = json.endpoint;
-      const p256dh = json.keys?.p256dh;
-      const auth = json.keys?.auth;
-      if (!endpoint || !p256dh || !auth) return false;
+      if (!endpoint) return false;
 
-      // Prefer raw keys when toJSON is incomplete on some engines.
       const p256dhKey =
-        p256dh ||
+        json.keys?.p256dh ||
         (subscription.getKey('p256dh')
           ? bufferToBase64Url(subscription.getKey('p256dh')!)
           : null);
       const authKey =
-        auth ||
+        json.keys?.auth ||
         (subscription.getKey('auth')
           ? bufferToBase64Url(subscription.getKey('auth')!)
           : null);
@@ -195,10 +209,18 @@ export function WebPushProvider({ children }: { children: ReactNode }) {
     if (!accountId || busy) return;
     setBusy(true);
     try {
-      if (!getCachedAppGatewayAuth()?.token) {
-        await ensureAppGatewayAuth();
+      const { client, session, wallet, accountId: id } = await getClient();
+      if (!session) return;
+      let token = getCachedAppGatewayAuth(id);
+      if (!token) {
+        token = await ensureAppGatewayAuth({
+          accountId: id,
+          wallet,
+          session,
+          allowWalletFallback: true,
+        });
       }
-      const client = getClient();
+      client.auth.setToken(token);
       await client.notifications.setPushEnabled(false);
 
       if (pushSupported()) {
