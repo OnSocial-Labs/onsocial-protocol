@@ -1240,6 +1240,7 @@ export const ADMIN_ONLY_TABLES = [
   'notification_delivery_attempts',
   'notification_counts',
   'notification_cursors',
+  'push_subscriptions',
   'user_mutes',
 ];
 

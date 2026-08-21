@@ -18,7 +18,8 @@ function makeHttp(responses: {
   });
   const del = vi.fn(async (path: string, ..._rest: unknown[]) => {
     void _rest;
-    return responses.del?.[path] ?? {};
+    const key = path.split('?')[0]!;
+    return responses.del?.[key] ?? responses.del?.[path] ?? {};
   });
   return {
     spies: { get, post, del },
@@ -278,5 +279,50 @@ describe('NotificationsModule.types', () => {
     });
     const m = new NotificationsModule(http);
     expect(await m.types()).toEqual(['mention', 'standing']);
+  });
+});
+
+describe('NotificationsModule push', () => {
+  it('subscribePush posts endpoint and keys', async () => {
+    const { http, spies } = makeHttp({
+      post: {
+        '/developer/notifications/push/subscribe': {
+          subscription: {
+            id: 's1',
+            endpoint: 'https://push.example/x',
+            enabled: true,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      },
+    });
+    const m = new NotificationsModule(http);
+    const sub = await m.subscribePush({
+      endpoint: 'https://push.example/x',
+      p256dh: 'pk',
+      auth: 'ak',
+    });
+    expect(sub.id).toBe('s1');
+    expect(spies.post.mock.calls[0]![1]).toEqual({
+      endpoint: 'https://push.example/x',
+      keys: { p256dh: 'pk', auth: 'ak' },
+      userAgent: undefined,
+    });
+  });
+
+  it('unsubscribePush encodes endpoint in the query', async () => {
+    const { http, spies } = makeHttp({
+      del: {
+        '/developer/notifications/push/subscribe': { status: 'ok' },
+      },
+    });
+    const m = new NotificationsModule(http);
+    await m.unsubscribePush('https://push.example/x');
+    expect(spies.del.mock.calls[0]![0]).toContain(
+      '/developer/notifications/push/subscribe?'
+    );
+    expect(spies.del.mock.calls[0]![0]).toContain(
+      encodeURIComponent('https://push.example/x')
+    );
   });
 });

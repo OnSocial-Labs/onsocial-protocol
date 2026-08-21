@@ -19,6 +19,14 @@ import {
 } from '../services/notifications/index.js';
 import { ingestAppNotificationEvents } from '../services/notifications/app-events.js';
 import { ensureDeveloperApp } from '../services/developer-apps/index.js';
+import {
+  getPushStatus,
+  getVapidPublicKey,
+  isWebPushConfigured,
+  removePushSubscription,
+  setPushEnabled,
+  upsertPushSubscription,
+} from '../services/notifications/web-push.js';
 
 export const notificationRouter = Router();
 
@@ -414,6 +422,134 @@ notificationRouter.delete(
     } catch (error) {
       req.log.error({ error }, 'Failed to delete notification webhook');
       res.status(500).json({ error: 'Failed to delete notification webhook' });
+    }
+  }
+);
+
+/** Public VAPID key for PushManager.subscribe (no secrets). */
+notificationRouter.get(
+  '/notifications/push/vapid-public-key',
+  (_req: Request, res: Response) => {
+    const publicKey = getVapidPublicKey();
+    if (!publicKey) {
+      res.status(503).json({
+        error: 'Web Push is not configured',
+        configured: false,
+      });
+      return;
+    }
+    res.json({ publicKey, configured: true });
+  }
+);
+
+notificationRouter.get(
+  '/notifications/push/status',
+  async (req: Request, res: Response) => {
+    try {
+      const status = await getPushStatus(req.auth!.accountId);
+      res.json(status);
+    } catch (error) {
+      req.log.error({ error }, 'Failed to fetch push status');
+      res.status(500).json({ error: 'Failed to fetch push status' });
+    }
+  }
+);
+
+notificationRouter.post(
+  '/notifications/push/subscribe',
+  async (req: Request, res: Response) => {
+    const endpoint = String(req.body?.endpoint ?? '').trim();
+    const p256dh = String(
+      req.body?.keys?.p256dh ?? req.body?.p256dh ?? ''
+    ).trim();
+    const auth = String(req.body?.keys?.auth ?? req.body?.auth ?? '').trim();
+    const userAgent =
+      typeof req.body?.userAgent === 'string'
+        ? req.body.userAgent
+        : typeof req.headers['user-agent'] === 'string'
+          ? req.headers['user-agent']
+          : null;
+
+    try {
+      const result = await upsertPushSubscription(req.auth!.accountId, {
+        endpoint,
+        p256dh,
+        auth,
+        userAgent,
+      });
+      if ('code' in result) {
+        const status =
+          result.code === 'NOT_CONFIGURED'
+            ? 503
+            : result.code === 'INVALID_SUBSCRIPTION'
+              ? 400
+              : 404;
+        res.status(status).json({ error: result.message, code: result.code });
+        return;
+      }
+      res.status(201).json({
+        subscription: {
+          id: result.id,
+          endpoint: result.endpoint,
+          enabled: result.enabled,
+          createdAt: result.createdAt,
+        },
+      });
+    } catch (error) {
+      req.log.error({ error }, 'Failed to save push subscription');
+      res.status(500).json({ error: 'Failed to save push subscription' });
+    }
+  }
+);
+
+notificationRouter.delete(
+  '/notifications/push/subscribe',
+  async (req: Request, res: Response) => {
+    const endpoint = String(
+      req.body?.endpoint ?? req.query.endpoint ?? ''
+    ).trim();
+    if (!endpoint) {
+      res.status(400).json({ error: 'endpoint is required' });
+      return;
+    }
+    try {
+      const result = await removePushSubscription(
+        req.auth!.accountId,
+        endpoint
+      );
+      if (result !== true) {
+        res.status(404).json({ error: result.message, code: result.code });
+        return;
+      }
+      res.json({ status: 'ok' });
+    } catch (error) {
+      req.log.error({ error }, 'Failed to remove push subscription');
+      res.status(500).json({ error: 'Failed to remove push subscription' });
+    }
+  }
+);
+
+notificationRouter.post(
+  '/notifications/push/enabled',
+  async (req: Request, res: Response) => {
+    const enabled = req.body?.enabled;
+    if (typeof enabled !== 'boolean') {
+      res.status(400).json({ error: 'enabled boolean is required' });
+      return;
+    }
+    if (!isWebPushConfigured()) {
+      res.status(503).json({
+        error: 'Web Push is not configured',
+        code: 'NOT_CONFIGURED',
+      });
+      return;
+    }
+    try {
+      const updated = await setPushEnabled(req.auth!.accountId, enabled);
+      res.json({ enabled, updated });
+    } catch (error) {
+      req.log.error({ error }, 'Failed to update push preference');
+      res.status(500).json({ error: 'Failed to update push preference' });
     }
   }
 );

@@ -22,6 +22,7 @@ import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-ho
 import { DmUnreadHost } from '@/components/providers/dm-unread-host';
 import { NotificationsHost } from '@/components/providers/notifications-host';
 import { PwaProvider } from '@/components/providers/pwa-provider';
+import { WebPushProvider } from '@/components/providers/web-push-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
 
 /** Clip GlassSheet frost to the live OS / portfolio card (same host as slide-overs). */
@@ -51,10 +52,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                             <CollectiblesNowPlayingProvider>
                               <DmUnreadHost>
                                 <NotificationsHost>
-                                  {children}
-                                  <ViewerMuteBlockHost />
-                                  <DropComposeHost />
-                                  <AppAccountSheetHost />
+                                  <WebPushProvider>
+                                    {children}
+                                    <ViewerMuteBlockHost />
+                                    <DropComposeHost />
+                                    <AppAccountSheetHost />
+                                  </WebPushProvider>
                                 </NotificationsHost>
                               </DmUnreadHost>
                             </CollectiblesNowPlayingProvider>
