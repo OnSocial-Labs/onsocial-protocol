@@ -2010,7 +2010,9 @@ a.os-surface-row {
 
     :root:not([data-theme='dark']) .portfolio-frame[data-mood],
     :root:not([data-theme='dark']) .portfolio-os-layer[data-mood],
-    :root:not([data-theme='dark']) .os-app-screen.os-app-screen--mood {
+    :root:not([data-theme='dark']) .os-app-screen.os-app-screen--mood,
+    :root:not([data-theme='dark']) .glass-sheet-panel[data-mood],
+    :root:not([data-theme='dark']) .os-page-sheet-panel[data-mood] {
       --mood-accent-chrome: color-mix(
         in srgb,
         var(--mood-accent) var(--mood-light-tone),
