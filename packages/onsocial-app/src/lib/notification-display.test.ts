@@ -25,6 +25,12 @@ describe('notification display', () => {
       notificationVerb('dao_proposal_resolved', { status: 'Approved' })
     ).toBe('DAO proposal approved');
     expect(
+      notificationVerb('dao_proposal_vote', { vote: 'Approve' })
+    ).toBe('approved your DAO proposal');
+    expect(
+      notificationVerb('dao_proposal_vote', { vote: 'Reject' })
+    ).toBe('rejected your DAO proposal');
+    expect(
       notificationVerb('reaction', {
         reactionValue: JSON.stringify({ type: 'like' }),
       })
@@ -98,6 +104,19 @@ describe('notification display', () => {
         },
       })
     ).toBe('/@gov.sputnik-dao.testnet?status=approved&proposal=12');
+
+    expect(
+      notificationHref({
+        type: 'dao_proposal_vote',
+        actor: 'carol.testnet',
+        context: {
+          daoAccountId: 'gov.sputnik-dao.testnet',
+          proposalId: 12,
+          status: 'InProgress',
+          vote: 'Approve',
+        },
+      })
+    ).toBe('/@gov.sputnik-dao.testnet?status=open&proposal=12');
   });
 
   it('builds relative description lines', () => {
@@ -133,5 +152,16 @@ describe('notification display', () => {
         createdAt,
       })
     ).toBe('DAO proposal approved · Fund builders · 5m ago');
+
+    expect(
+      notificationDescription({
+        type: 'dao_proposal_vote',
+        context: {
+          vote: 'Approve',
+          description: 'Fund builders',
+        },
+        createdAt,
+      })
+    ).toBe('approved your DAO proposal · Fund builders · 5m ago');
   });
 });

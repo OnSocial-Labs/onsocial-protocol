@@ -80,6 +80,19 @@ function daoResolvedVerb(status: string | null | undefined): string {
   }
 }
 
+function daoVoteVerb(vote: string | null | undefined): string {
+  switch ((vote ?? '').trim()) {
+    case 'Approve':
+      return 'approved your DAO proposal';
+    case 'Reject':
+      return 'rejected your DAO proposal';
+    case 'Remove':
+      return 'voted to remove your DAO proposal';
+    default:
+      return 'voted on your DAO proposal';
+  }
+}
+
 /** Parse `author/post/{id}` content paths used in notification context. */
 export function parseNotificationPostPath(
   path: string | null | undefined
@@ -132,6 +145,8 @@ export function notificationVerb(
       return 'opened a DAO proposal';
     case 'dao_proposal_resolved':
       return daoResolvedVerb(textField(context, 'status'));
+    case 'dao_proposal_vote':
+      return daoVoteVerb(textField(context, 'vote'));
     case 'scarces_sold':
       return 'bought your scarce';
     case 'scarces_offer':
@@ -236,7 +251,11 @@ export function notificationHref(
     return APP_GROUPS_PATH;
   }
 
-  if (type === 'dao_proposal' || type === 'dao_proposal_resolved') {
+  if (
+    type === 'dao_proposal' ||
+    type === 'dao_proposal_resolved' ||
+    type === 'dao_proposal_vote'
+  ) {
     const daoAccountId = textField(context, 'daoAccountId');
     if (daoAccountId) {
       const proposalId = numberField(context, 'proposalId');
@@ -280,7 +299,8 @@ export function notificationDescription(
   const when = formatNotificationTime(notification.createdAt).label;
   const snippet =
     notification.type === 'dao_proposal' ||
-    notification.type === 'dao_proposal_resolved'
+    notification.type === 'dao_proposal_resolved' ||
+    notification.type === 'dao_proposal_vote'
       ? textField(notification.context, 'description')
       : null;
   const parts = [verb, snippet, when || null].filter(

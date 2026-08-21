@@ -58,6 +58,106 @@ describe('planDaoProposalNotifications', () => {
     });
   });
 
+  it('notifies the proposer when someone casts or changes a vote', () => {
+    const plans = planDaoProposalNotifications({
+      daoAccountId: 'gov.sputnik-dao.testnet',
+      previous: {
+        status: 'InProgress',
+        votes: { 'alice.testnet': 'Approve' },
+      },
+      next: {
+        id: 12,
+        proposer: 'bob.testnet',
+        description: 'Fund builders',
+        kind: { Transfer: {} },
+        status: 'InProgress',
+        votes: {
+          'alice.testnet': 'Approve',
+          'carol.testnet': 'Reject',
+        },
+      },
+      memberAccountIds: members,
+    });
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({
+      type: 'dao_proposal_vote',
+      actor: 'carol.testnet',
+      recipients: ['bob.testnet'],
+      dedupeKey:
+        'dao:gov.sputnik-dao.testnet:proposal:12:vote:carol.testnet:Reject',
+      context: {
+        vote: 'Reject',
+        proposalId: 12,
+        description: 'Fund builders',
+      },
+    });
+  });
+
+  it('skips self-votes and unchanged vote maps', () => {
+    expect(
+      planDaoProposalNotifications({
+        daoAccountId: 'gov.sputnik-dao.testnet',
+        previous: { status: 'InProgress', votes: {} },
+        next: {
+          id: 12,
+          proposer: 'bob.testnet',
+          description: 'Fund builders',
+          kind: { Transfer: {} },
+          status: 'InProgress',
+          votes: { 'bob.testnet': 'Approve' },
+        },
+        memberAccountIds: members,
+      })
+    ).toEqual([]);
+
+    expect(
+      planDaoProposalNotifications({
+        daoAccountId: 'gov.sputnik-dao.testnet',
+        previous: {
+          status: 'InProgress',
+          votes: { 'alice.testnet': 'Approve' },
+        },
+        next: {
+          id: 12,
+          proposer: 'bob.testnet',
+          description: 'Fund builders',
+          kind: { Transfer: {} },
+          status: 'InProgress',
+          votes: { 'alice.testnet': 'Approve' },
+        },
+        memberAccountIds: members,
+      })
+    ).toEqual([]);
+  });
+
+  it('emits vote and resolve together when a deciding vote lands', () => {
+    const plans = planDaoProposalNotifications({
+      daoAccountId: 'gov.sputnik-dao.testnet',
+      previous: {
+        status: 'InProgress',
+        votes: { 'alice.testnet': 'Approve' },
+      },
+      next: {
+        id: 12,
+        proposer: 'bob.testnet',
+        description: 'Fund builders',
+        kind: { Transfer: {} },
+        status: 'Approved',
+        votes: {
+          'alice.testnet': 'Approve',
+          'carol.testnet': 'Approve',
+        },
+      },
+      memberAccountIds: members,
+    });
+
+    expect(plans.map((plan) => plan.type)).toEqual([
+      'dao_proposal_vote',
+      'dao_proposal_resolved',
+    ]);
+  });
+
   it('skips no-op status refreshes and non-terminal transitions', () => {
     expect(
       planDaoProposalNotifications({
