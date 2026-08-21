@@ -13,6 +13,8 @@ import {
   type ProfileLinksInput,
 } from '@/lib/profile-links';
 import { PAGE_LINK_NOTE_MAX } from '@/lib/page-launch-config';
+import { probeNearAccountExists } from '@/hooks/use-near-account-status';
+import { sanitizeNearAccountInput } from '@/lib/app-near-account';
 
 interface ProfileLinkInputRowProps {
   field: (typeof PROFILE_LINK_EDITOR_FIELDS)[number];
@@ -40,7 +42,11 @@ function ProfileLinkInputRow({
   const inlineError = error ? profileLinkEditorInlineError(field.kind) : null;
   const scrollFieldIntoView = useMobileFieldFocusScroll();
   const titlePlaceholder =
-    field.kind === 'website' ? 'My website' : 'Optional title';
+    field.kind === 'website'
+      ? 'My website'
+      : field.kind === 'onsocial'
+        ? 'My OnSocial'
+        : 'Optional title';
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -83,10 +89,23 @@ function ProfileLinkInputRow({
           aria-invalid={error ? true : undefined}
           aria-errormessage={error ? `${field.key}-error` : undefined}
           maxLength={field.kind === 'website' ? 255 : 80}
-          inputMode={field.kind === 'website' ? 'url' : undefined}
+          inputMode={
+            field.kind === 'website'
+              ? 'url'
+              : field.kind === 'onsocial'
+                ? 'text'
+                : undefined
+          }
           autoComplete={field.kind === 'website' ? 'url' : 'off'}
+          spellCheck={field.kind === 'onsocial' ? false : undefined}
           onFocus={scrollFieldIntoView}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) =>
+            onChange(
+              field.kind === 'onsocial'
+                ? sanitizeNearAccountInput(event.target.value)
+                : event.target.value
+            )
+          }
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
         />
@@ -248,7 +267,10 @@ export function ProfileLinksEditor({
     setEditingKey(null);
   };
 
-  const handleCommit = (key: keyof ProfileLinksInput, kind: ProfileLinkKind) => {
+  const handleCommit = (
+    key: keyof ProfileLinksInput,
+    kind: ProfileLinkKind
+  ) => {
     const result = formatProfileLinkForEditor(links[key], kind);
 
     if (result.error) {
@@ -256,18 +278,38 @@ export function ProfileLinksEditor({
       return;
     }
 
-    onClearFieldError(key);
-    if (result.value !== links[key]) {
-      onUpdateLink(key, result.value);
-    }
-    if (!result.value.trim()) {
-      onUpdateNote?.(key, '');
+    const finish = () => {
+      onClearFieldError(key);
+      if (result.value !== links[key]) {
+        onUpdateLink(key, result.value);
+      }
+      if (!result.value.trim()) {
+        onUpdateNote?.(key, '');
+      }
+
+      clearBaseline(key);
+      if (editingKey === key) {
+        setEditingKey(null);
+      }
+    };
+
+    if (kind === 'onsocial' && result.value.trim()) {
+      onSetFieldError(key, null);
+      void probeNearAccountExists(result.value)
+        .then((exists) => {
+          if (!exists) {
+            onSetFieldError(key, 'Account not found on this network');
+            return;
+          }
+          finish();
+        })
+        .catch(() => {
+          onSetFieldError(key, 'Could not verify account');
+        });
+      return;
     }
 
-    clearBaseline(key);
-    if (editingKey === key) {
-      setEditingKey(null);
-    }
+    finish();
   };
 
   return (

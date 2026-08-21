@@ -5,6 +5,7 @@ import {
   InstagramFillIcon,
   LinkIcon,
   LinkedinFillIcon,
+  OnSocialMark,
   TelegramFillIcon,
   TiktokFillIcon,
   XFillIcon,
@@ -20,6 +21,9 @@ interface PortfolioLinkIconProps {
 /** Mage glyphs for portfolio social / link marks. */
 export function PortfolioLinkIcon({ kind, className }: PortfolioLinkIconProps) {
   if (kind === 'website') return <GlobeIcon className={className} aria-hidden />;
+  if (kind === 'onsocial') {
+    return <OnSocialMark className={className} aria-hidden />;
+  }
   if (kind === 'x') return <XFillIcon className={className} aria-hidden />;
   if (kind === 'telegram') {
     return <TelegramFillIcon className={className} aria-hidden />;

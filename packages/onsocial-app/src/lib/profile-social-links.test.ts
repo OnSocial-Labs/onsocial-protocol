@@ -14,6 +14,7 @@ describe('resolvePortfolioSocialLinks', () => {
         github: 'alice',
         twitter: 'alice',
         website: 'https://example.com',
+        onsocial: 'alice.testnet',
       })
     ).toEqual([
       {
@@ -21,6 +22,12 @@ describe('resolvePortfolioSocialLinks', () => {
         kind: 'website',
         label: 'Website',
         href: 'https://example.com/',
+      },
+      {
+        key: 'onsocial',
+        kind: 'onsocial',
+        label: 'OnSocial',
+        href: 'https://testnet.onsocial.id/@alice.testnet',
       },
       {
         key: 'x',
@@ -65,6 +72,9 @@ describe('inferPortfolioLinkKind', () => {
     expect(inferPortfolioLinkKind('Telegram', 'https://t.me/alice')).toBe(
       'telegram'
     );
+    expect(
+      inferPortfolioLinkKind('OnSocial', 'https://testnet.onsocial.id/@alice.testnet')
+    ).toBe('onsocial');
     expect(
       inferPortfolioLinkKind('Newsletter', 'https://substack.com/@alice')
     ).toBe('custom');

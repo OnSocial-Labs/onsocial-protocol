@@ -29,6 +29,27 @@ describe('formatProfileLinkForEditor', () => {
     expect(result.error).toMatch(/domain/i);
   });
 
+  it('normalizes OnSocial NEAR accounts and profile URLs', () => {
+    expect(formatProfileLinkForEditor('Alice.Testnet', 'onsocial')).toEqual({
+      value: 'alice.testnet',
+      error: null,
+      valid: true,
+    });
+    expect(
+      formatProfileLinkForEditor('https://testnet.onsocial.id/@bob.testnet', 'onsocial')
+    ).toEqual({
+      value: 'bob.testnet',
+      error: null,
+      valid: true,
+    });
+  });
+
+  it('rejects OnSocial accounts with the wrong network suffix', () => {
+    const result = formatProfileLinkForEditor('alice.near', 'onsocial');
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/testnet|\.near/i);
+  });
+
   it('normalizes social handles', () => {
     expect(formatProfileLinkForEditor('@alice', 'x')).toEqual({
       value: 'alice',
@@ -47,6 +68,7 @@ describe('formatProfileLinkForEditor', () => {
 describe('profileLinkEditorInlineError', () => {
   it('returns short copy for inline display', () => {
     expect(profileLinkEditorInlineError('website')).toBe('Invalid URL');
+    expect(profileLinkEditorInlineError('onsocial')).toBe('Invalid account');
     expect(profileLinkEditorInlineError('x')).toBe('Invalid handle');
   });
 });
@@ -55,6 +77,7 @@ describe('profileLinkEditorFieldErrors', () => {
   it('returns only invalid non-empty fields', () => {
     const errors = profileLinkEditorFieldErrors({
       website: 'example.com',
+      onsocial: '',
       x: 'valid',
       telegram: '',
       github: '!!!',
