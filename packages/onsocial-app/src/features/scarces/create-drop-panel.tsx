@@ -471,7 +471,10 @@ export function CreateDropPanel() {
         setMaxRedeemsInput(next.presets.maxRedeems);
         if (!next.presets.renewable) setAccessEnds('');
       }
-      if (next.id !== 'ticket') {
+      if (next.id === 'ticket') {
+        // Event ends stamps expires_at — no separate Access ends field.
+        setAccessEnds('');
+      } else {
         setEventStarts('');
         setEventEnds('');
         setPlaceDraft('');
@@ -1094,7 +1097,10 @@ export function CreateDropPanel() {
         label: 'Transferable',
         value: transferable ? 'Yes' : 'Soulbound',
       },
-      { label: 'Renewable', value: renewable ? 'Yes' : 'No' },
+      {
+        label: isTicket ? 'Allow date changes' : 'Renewable',
+        value: renewable ? 'Yes' : 'No',
+      },
       { label: 'Royalty', value: royaltyValue },
       {
         label: 'Sale',
@@ -1130,7 +1136,8 @@ export function CreateDropPanel() {
     if (trimmedSeries) {
       rows.push({ label: 'Series', value: trimmedSeries });
     }
-    if (renewable && accessEnds.trim()) {
+    // Tickets stamp expires_at from Event ends — skip duplicate Access ends row.
+    if (!isTicket && renewable && accessEnds.trim()) {
       rows.push({
         label: 'Access ends',
         value: formatScheduleLabel(accessEnds),
@@ -1304,8 +1311,12 @@ export function CreateDropPanel() {
       ? localDateTimeToMs(eventStarts)
       : undefined;
     const eventEndsMs = eventEnds ? localDateTimeToMs(eventEnds) : undefined;
-    const expiresAtMs =
-      renewable && accessEnds ? localDateTimeToMs(accessEnds) : undefined;
+    // Tickets: Event ends is the single end date (also stamps expires_at).
+    const expiresAtMs = isTicket
+      ? eventEndsMs
+      : renewable && accessEnds
+        ? localDateTimeToMs(accessEnds)
+        : undefined;
     const nowNs = BigInt(Date.now()) * 1_000_000n;
     const nowMs = Date.now();
     if (startNs && BigInt(startNs) <= nowNs) {
@@ -1337,7 +1348,11 @@ export function CreateDropPanel() {
       return;
     }
     if (expiresAtMs != null && expiresAtMs <= nowMs) {
-      setError('Access end must be in the future.');
+      setError(
+        isTicket
+          ? 'Event end must be in the future.'
+          : 'Access end must be in the future.'
+      );
       return;
     }
     if (resolvedRoyaltyBps == null) {
@@ -1400,6 +1415,7 @@ export function CreateDropPanel() {
     endTime,
     eventEnds,
     eventStarts,
+    isTicket,
     renewable,
     accessEnds,
     startTime,
@@ -1621,8 +1637,11 @@ export function CreateDropPanel() {
         ? localDateTimeToMs(eventStarts)
         : undefined;
       const eventEndsMs = eventEnds ? localDateTimeToMs(eventEnds) : undefined;
-      const expiresAtMs =
-        renewable && accessEnds ? localDateTimeToMs(accessEnds) : undefined;
+      const expiresAtMs = isTicket
+        ? eventEndsMs
+        : renewable && accessEnds
+          ? localDateTimeToMs(accessEnds)
+          : undefined;
       const perWallet = Number.parseInt(maxPerWallet, 10);
 
       const trimmedSeries = seriesName.trim();
@@ -3050,14 +3069,14 @@ export function CreateDropPanel() {
 
             <div className="guild-field">
               <DropFieldLabel
-                label="Renewable"
+                label={isTicket ? 'Allow date changes' : 'Renewable'}
                 infoKey="renewable"
                 onOpenInfo={openFieldInfo}
               />
               <div
                 className="app-access-options"
                 role="radiogroup"
-                aria-label="Renewable"
+                aria-label={isTicket ? 'Allow date changes' : 'Renewable'}
               >
                 <button
                   type="button"
@@ -3081,7 +3100,7 @@ export function CreateDropPanel() {
                   disabled={pending}
                   onClick={() => {
                     setRenewable(false);
-                    setAccessEnds('');
+                    if (!isTicket) setAccessEnds('');
                   }}
                 >
                   No
@@ -3089,7 +3108,7 @@ export function CreateDropPanel() {
               </div>
             </div>
 
-            {renewable ? (
+            {!isTicket && renewable ? (
               <div className="guild-field">
                 <DropFieldLabel
                   label="Access ends (optional)"
