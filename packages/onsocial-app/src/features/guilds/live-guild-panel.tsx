@@ -23,6 +23,7 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import { placesMetaFromComposer } from '@/lib/post-place';
 import {
   GuildComposerSheet,
   type GuildComposerMode,
@@ -1342,7 +1343,10 @@ export function LiveGuildPanel({
         !pollEmbed && !drop && files.length
           ? mediaKindFromFile(files[0]!)
           : undefined;
-      const tagPayload = postMetaFromText(bodyText);
+      const tagPayload = {
+        ...postMetaFromText(bodyText),
+        ...placesMetaFromComposer(payload.places),
+      };
 
       let response: unknown;
       if (mode === 'post') {

@@ -522,4 +522,102 @@ export class FeedQuery {
 
     return { items, nextOffset };
   }
+
+  /**
+   * Posts tagged with a place (paginated, newest first).
+   * Hydrates full `postsFeed` / `postsCurrent` rows so list UIs get text/media.
+   *
+   * ```ts
+   * const page = await os.query.feed.byPlace('lisbon', { limit: 20 });
+   * ```
+   */
+  async byPlace(
+    place: string,
+    opts: { limit?: number; offset?: number } = {}
+  ): Promise<Paginated<PostRow>> {
+    const limit = opts.limit ?? 20;
+    const offset = opts.offset ?? 0;
+    const res = await this._q.graphql<{
+      postPlaces: Array<{
+        accountId: string;
+        postId: string;
+        place: string;
+        blockHeight: number;
+        blockTimestamp: number;
+        groupId: string | null;
+      }>;
+    }>({
+      query: `query PostsByPlace($place: String!, $limit: Int!, $offset: Int!) {
+        postPlaces(
+          where: {place: {_eq: $place}},
+          orderBy: [{blockHeight: DESC}],
+          limit: $limit,
+          offset: $offset
+        ) {
+          accountId postId place blockHeight blockTimestamp groupId
+        }
+      }`,
+      variables: {
+        place: place.toLowerCase().replace(/^#+/, ''),
+        limit,
+        offset,
+      },
+    });
+    const stubs = res.data?.postPlaces ?? [];
+    const nextOffset = stubs.length >= limit ? offset + limit : undefined;
+
+    if (stubs.length === 0) {
+      return { items: [], nextOffset };
+    }
+
+    const accountIds = Array.from(new Set(stubs.map((row) => row.accountId)));
+    const postIds = Array.from(new Set(stubs.map((row) => row.postId)));
+    const hydrateVariables = {
+      accounts: accountIds,
+      postIds,
+      limit: Math.max(stubs.length * 2, limit),
+    };
+
+    const hydratedRows = await this.queryFeedRows({
+      variables: hydrateVariables,
+      postsFeedQuery: `query PostsByPlaceHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsFeed(
+          where: {
+            _and: [
+              { accountId: { _in: $accounts } },
+              { postId: { _in: $postIds } }
+            ]
+          },
+          limit: $limit
+        ) {
+          ${FEED_POST_ROW_FIELDS}
+        }
+      }`,
+      postsCurrentQuery: `query PostsByPlaceHydrate($accounts: [String!]!, $postIds: [String!]!, $limit: Int!) {
+        postsCurrent(
+          where: {
+            _and: [
+              { accountId: { _in: $accounts } },
+              { postId: { _in: $postIds } }
+            ]
+          },
+          limit: $limit
+        ) {
+          ${POST_ROW_FIELDS}
+        }
+      }`,
+    });
+
+    const byKey = new Map(
+      hydratedRows.map(
+        (row) => [`${row.accountId}\0${row.postId}`, row] as const
+      )
+    );
+
+    const items = stubs
+      .map((stub) => byKey.get(`${stub.accountId}\0${stub.postId}`))
+      .filter((row): row is PostRow => row != null);
+
+    return { items, nextOffset };
+  }
 }

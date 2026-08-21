@@ -159,6 +159,7 @@ export type {
   Paginated,
   HashtagCount,
   TickerCount,
+  PlaceCount,
   GroupConversation,
   GroupCurrentRow,
   GroupMembershipCurrentRow,

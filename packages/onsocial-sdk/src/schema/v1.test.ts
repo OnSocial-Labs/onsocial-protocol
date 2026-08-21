@@ -97,7 +97,7 @@ describe('PostV1', () => {
     expect(validatePostV1(p)).toBeNull();
   });
 
-  it('accepts mentions / hashtags / tickers / media / embeds / refs', () => {
+  it('accepts mentions / hashtags / tickers / places / media / embeds / refs', () => {
     const p = postV1({
       text: 'hi @bob #web3 $SOCIAL',
       contentType: 'md',
@@ -106,6 +106,7 @@ describe('PostV1', () => {
       mentions: ['bob.near'],
       hashtags: ['web3', 'near'],
       tickers: ['social', 'near'],
+      places: ['lisbon', 'ethdenver'],
       embeds: [{ kind: 'link', url: 'https://x.test', title: 'X' }],
       parent: 'alice.near/post/main',
       parentType: 'post',
@@ -125,6 +126,9 @@ describe('PostV1', () => {
     );
     expect(() => postV1({ text: 'x', tickers: ['SOCIAL'] })).toThrow(/tickers/);
     expect(() => postV1({ text: 'x', tickers: ['1bad'] })).toThrow(/tickers/);
+    expect(() => postV1({ text: 'x', places: ['Lisbon'] as never })).toThrow(
+      /places/
+    );
     expect(() => postV1({ text: 'x', parentType: 'reply' as never })).toThrow(
       /parentType/
     );

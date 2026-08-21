@@ -12,6 +12,7 @@ import type {
 } from '@/features/guilds/guild-composer-sheet';
 import { assertCanReplyToGuildPost } from '@/features/home/assert-can-reply-to-guild-post';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import { placesMetaFromComposer } from '@/lib/post-place';
 import {
   commerceEmbedFromDraft,
   dropPostKind,
@@ -82,6 +83,7 @@ function buildOptimisticPost(args: {
   } | null;
   drop: ComposerDropDraft | null;
   files?: File[];
+  places?: string[];
   contentLabels?: PostContentLabels;
 }): PostRow {
   const {
@@ -93,6 +95,7 @@ function buildOptimisticPost(args: {
     pollEmbed,
     drop,
     files,
+    places,
     contentLabels,
   } = args;
   const media = files?.length ? buildOptimisticMediaEntries(files) : undefined;
@@ -109,6 +112,7 @@ function buildOptimisticPost(args: {
       v: 1,
       text,
       ...postMetaFromText(text),
+      ...placesMetaFromComposer(places),
       ...(pollEmbed
         ? { embeds: [pollEmbed] }
         : commerceEmbed
@@ -216,7 +220,10 @@ export async function submitPersonalPost(args: {
 
   const newPostId = Date.now().toString();
   const filePayload = files.length ? { files } : {};
-  const tags = postMetaFromText(bodyText);
+  const tags = {
+    ...postMetaFromText(bodyText),
+    ...placesMetaFromComposer(payload.places),
+  };
   let response: unknown;
 
   if (mode === 'post') {
@@ -309,6 +316,7 @@ export async function submitPersonalPost(args: {
       pollEmbed,
       drop,
       files: files.length ? files : undefined,
+      places: payload.places,
       contentLabels,
     }),
   };

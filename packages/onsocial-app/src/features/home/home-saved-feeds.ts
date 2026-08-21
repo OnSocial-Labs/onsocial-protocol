@@ -1,12 +1,13 @@
 import {
   formatTickerDisplay,
   homeFeedFocusKey,
+  placeLabel,
   type HomeFeedFocus,
 } from '@/features/home/home-feed-focus';
 
 export type HomeSavedFeed = {
   id: string;
-  kind: 'hashtag' | 'ticker';
+  kind: 'hashtag' | 'ticker' | 'place';
   value: string;
   createdAt: number;
 };
@@ -21,13 +22,15 @@ export function homeSavedFeedFocus(feed: HomeSavedFeed): HomeFeedFocus {
 }
 
 export function homeSavedFeedLabel(feed: HomeSavedFeed): string {
-  return feed.kind === 'ticker'
-    ? formatTickerDisplay(feed.value)
-    : `#${feed.value}`;
+  if (feed.kind === 'ticker') return formatTickerDisplay(feed.value);
+  if (feed.kind === 'place') return placeLabel(feed.value) ?? feed.value;
+  return `#${feed.value}`;
 }
 
 export function homeSavedFeedDescription(feed: HomeSavedFeed): string {
-  return feed.kind === 'ticker' ? 'Ticker feed' : 'Topic feed';
+  if (feed.kind === 'ticker') return 'Ticker feed';
+  if (feed.kind === 'place') return 'Place feed';
+  return 'Topic feed';
 }
 
 export function upsertHomeSavedFeedList(
@@ -111,7 +114,9 @@ function normalizeSavedFeed(value: unknown): HomeSavedFeed | null {
   if (!value || typeof value !== 'object') return null;
   const row = value as Partial<HomeSavedFeed>;
   if (typeof row.id !== 'string' || !row.id) return null;
-  if (row.kind !== 'hashtag' && row.kind !== 'ticker') return null;
+  if (row.kind !== 'hashtag' && row.kind !== 'ticker' && row.kind !== 'place') {
+    return null;
+  }
   if (typeof row.value !== 'string' || !row.value) return null;
   return {
     id: row.id,

@@ -52,6 +52,9 @@ describe('home-feed-focus', () => {
       kind: 'hashtag',
       value: 'near',
     });
+    expect(
+      parseHomeFeedFocus({ tag: 'near', ticker: null, place: 'lisbon' })
+    ).toEqual({ kind: 'place', value: 'lisbon' });
   });
 
   it('commits $ as ticker and # / bare as hashtag', () => {

@@ -9,6 +9,7 @@ import {
   type GuildSpace,
 } from '@/features/guilds/guild-structure';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import { placesMetaFromComposer } from '@/lib/post-place';
 import {
   commerceEmbedFromDraft,
   dropPostKind,
@@ -80,7 +81,10 @@ export async function submitGuildRootPost(args: {
   const bodyText = resolvedDropPostText(text, drop);
   const contentLabels = normalizeComposerContentLabels(payload);
   const newPostId = Date.now().toString();
-  const tags = postMetaFromText(bodyText);
+  const tags = {
+    ...postMetaFromText(bodyText),
+    ...placesMetaFromComposer(payload.places),
+  };
   const channel = guildSpaceFeedChannel(space);
   const mediaKind =
     !pollEmbed && !drop && files.length

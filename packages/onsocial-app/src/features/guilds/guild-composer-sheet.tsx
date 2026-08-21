@@ -66,6 +66,10 @@ import {
   normalizeComposerContentLabels,
   parsePostContentLabels,
 } from '@/lib/post-content-labels';
+import {
+  normalizePlaceSlug,
+  placeLabel,
+} from '@/lib/post-place';
 import { displayName, fallbackLabel } from '@/lib/profile-display';
 import { PostSensitiveGate } from '@/features/home/post-sensitive-gate';
 import { useViewerSafeMode } from '@/hooks/use-viewer-safe-mode';
@@ -105,6 +109,8 @@ export interface ComposerSubmit {
   drop?: ComposerDropDraft;
   /** Attached image/video files (uploaded by SDK on write). */
   files?: File[];
+  /** Optional place slug(s) — PostV1 `places` (city / venue / event). */
+  places?: string[];
   /** Optional spoiler / content warning (PostV1 `contentWarning`). */
   contentWarning?: string;
   /** Hard NSFW flag (PostV1 `nsfw`). */
@@ -316,6 +322,7 @@ export function ComposerSheet({
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [contentWarning, setContentWarning] = useState('');
   const [nsfw, setNsfw] = useState(false);
+  const [placeDraft, setPlaceDraft] = useState('');
   const [labelsOpen, setLabelsOpen] = useState(false);
   const [dropPickerOpen, setDropPickerOpen] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
@@ -362,6 +369,7 @@ export function ComposerSheet({
       setMediaError(null);
       setContentWarning('');
       setNsfw(false);
+      setPlaceDraft('');
       setLabelsOpen(false);
       setDropPickerOpen(false);
     }
@@ -425,6 +433,7 @@ export function ComposerSheet({
       contentWarning,
       nsfw,
     });
+    const placeSlug = normalizePlaceSlug(placeDraft);
     onSubmit({
       text:
         trimmed ||
@@ -439,6 +448,7 @@ export function ComposerSheet({
         : {}),
       ...(dropDraft ? { drop: dropDraft } : {}),
       ...(mediaFiles.length > 0 ? { files: mediaFiles } : {}),
+      ...(placeSlug ? { places: [placeSlug] } : {}),
       ...labels,
     });
   };
@@ -939,6 +949,27 @@ export function ComposerSheet({
               </button>
             ) : null}
           </div>
+        ) : null}
+        {mode === 'post' ? (
+          <label className="guild-composer-place-field">
+            <span className="sr-only">Place</span>
+            <input
+              type="text"
+              value={placeDraft}
+              disabled={pending}
+              maxLength={64}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Place (optional) — Lisbon, ETH Denver…"
+              aria-label="Place"
+              onChange={(event) => setPlaceDraft(event.target.value)}
+            />
+            {normalizePlaceSlug(placeDraft) ? (
+              <span className="guild-composer-place-hint" aria-hidden>
+                {placeLabel(normalizePlaceSlug(placeDraft)!)}
+              </span>
+            ) : null}
+          </label>
         ) : null}
       </div>
     </div>

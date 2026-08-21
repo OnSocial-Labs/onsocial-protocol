@@ -29359,6 +29359,45 @@ a.os-surface-row {
     margin-top: 0.45rem;
   }
 
+  .guild-composer-place-field {
+    position: relative;
+    display: block;
+    margin-top: 0.55rem;
+  }
+
+  .guild-composer-place-field input {
+    width: 100%;
+    margin: 0;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgb(var(--fg-rgb) / 0.12);
+    border-radius: 0.65rem;
+    background: rgb(var(--fg-rgb) / 0.04);
+    color: inherit;
+    font: inherit;
+    font-size: 0.86rem;
+    line-height: 1.35;
+  }
+
+  .guild-composer-place-field input:focus {
+    outline: none;
+    border-color: rgb(var(--fg-rgb) / 0.28);
+  }
+
+  .guild-composer-place-field input:disabled {
+    opacity: 0.6;
+  }
+
+  .guild-composer-place-hint {
+    display: inline-block;
+    margin-top: 0.28rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.45rem;
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.62);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
   .guild-composer-label-chip {
     display: inline-flex;
     max-width: 100%;
