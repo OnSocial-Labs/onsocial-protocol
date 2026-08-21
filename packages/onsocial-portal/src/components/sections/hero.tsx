@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { section } from '@/lib/section-styles';
 import type { ProtocolPulseSnapshot } from '@/lib/protocol-pulse-metrics';
 import { HeroProtocolPulse } from './hero-protocol-pulse';
@@ -56,10 +57,7 @@ export function Hero({
             className="mx-auto max-w-2xl"
           >
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              <span className="block">
-                Identity, relationships, and social state — portable across
-                dApps.
-              </span>
+              <span className="block">{ONSOCIAL_BRAND_TAGLINE}</span>
               <span className="mt-1 block">Let the graph move with you.</span>
             </p>
           </motion.div>

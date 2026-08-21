@@ -8,6 +8,7 @@ import {
   Newsreader,
   Space_Grotesk,
 } from 'next/font/google';
+import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { AppProviders } from '@/components/providers/app-providers';
 import { ThemeInitScript } from '@/components/theme-init-script';
 import './globals.css';
@@ -72,7 +73,7 @@ const ericaType = localFont({
 
 export const metadata: Metadata = {
   title: 'OnSocial',
-  description: 'A page for every account.',
+  description: ONSOCIAL_BRAND_TAGLINE,
   applicationName: 'OnSocial',
   manifest: '/manifest.webmanifest',
   icons: {
@@ -93,7 +94,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'OnSocial',
-    description: 'A page for every account.',
+    description: ONSOCIAL_BRAND_TAGLINE,
     siteName: 'OnSocial',
     type: 'website',
   },

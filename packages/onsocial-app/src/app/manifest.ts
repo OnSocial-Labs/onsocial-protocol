@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/app-config';
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -8,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: isMainnet ? 'OnSocial' : 'OnSocial Testnet',
     // Keep short for home-screen labels (≈12 chars).
     short_name: 'OnSocial',
-    description: 'A page for every account.',
+    description: ONSOCIAL_BRAND_TAGLINE,
     start_url: '/',
     scope: '/',
     display: 'standalone',

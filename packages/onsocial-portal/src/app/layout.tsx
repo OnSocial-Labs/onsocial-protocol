@@ -17,13 +17,13 @@ import { PortalRewardsProvider } from '@/contexts/portal-rewards-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 
 const isMainnet = ACTIVE_NEAR_NETWORK === 'mainnet';
 const applicationName = isMainnet
   ? 'OnSocial Portal'
   : 'OnSocial Portal Testnet';
-const description =
-  'Build the future of social with OnSocial Protocol. A powerful, scalable decentralized social protocol on NEAR blockchain.';
+const description = ONSOCIAL_BRAND_TAGLINE;
 
 export const metadata: Metadata = {
   title: 'OnSocial Protocol - Decentralized Social Infrastructure',
