@@ -6,6 +6,7 @@ import {
   profileLinkDisplayItems,
   profileLinkEditorInlineError,
   profileLinksInputFromRecord,
+  sanitizeOnSocialLinkInput,
 } from '@/lib/profile-links';
 import { nearAccountPlaceholder } from '@/lib/portal-near-account';
 import { getPublicAppPageUrl } from '@/lib/portal-config';
@@ -115,5 +116,18 @@ describe('profile onsocial links', () => {
     expect(
       profileLinkEditorInlineError('onsocial', 'Could not verify account')
     ).toBe("Can't verify");
+  });
+
+  it('preserves URL paste through live sanitize then normalize', () => {
+    const pasted = sanitizeOnSocialLinkInput(
+      'https://testnet.onsocial.id/@alice.testnet'
+    );
+    expect(pasted).toBe('https://testnet.onsocial.id/@alice.testnet');
+    expect(normalizeOnSocialAccountInput(pasted)).toBe('alice.testnet');
+    expect(
+      normalizeOnSocialAccountInput(
+        sanitizeOnSocialLinkInput('https://portal.onsocial.id/u/bob.testnet')
+      )
+    ).toBe('bob.testnet');
   });
 });

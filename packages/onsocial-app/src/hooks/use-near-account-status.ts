@@ -30,7 +30,13 @@ export async function probeNearAccountExists(
   if (!response.ok) {
     throw new Error(`account-exists probe failed (${response.status})`);
   }
-  const data = (await response.json()) as { exists?: unknown };
+  const data = (await response.json()) as {
+    exists?: unknown;
+    uncertain?: unknown;
+  };
+  if (data.uncertain === true) {
+    throw new Error('Could not verify account');
+  }
   return data.exists === true;
 }
 

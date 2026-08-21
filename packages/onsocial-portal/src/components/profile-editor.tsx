@@ -35,10 +35,10 @@ import {
   profileLinkEditorFieldErrors,
   profileLinkEditorInlineError,
   profileLinksInputFromRecord,
+  sanitizeOnSocialLinkInput,
   type ProfileLinkKind,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import { sanitizeNearAccountInput } from '@/lib/portal-near-account';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import {
   reportWalletActionFailure,
@@ -56,7 +56,13 @@ async function probeNearAccountExists(accountId: string): Promise<boolean> {
   if (!response.ok) {
     throw new Error(`account-exists probe failed (${response.status})`);
   }
-  const data = (await response.json()) as { exists?: unknown };
+  const data = (await response.json()) as {
+    exists?: unknown;
+    uncertain?: unknown;
+  };
+  if (data.uncertain === true) {
+    throw new Error('Could not verify account');
+  }
   return data.exists === true;
 }
 
@@ -207,7 +213,7 @@ export function ProfileEditor({
 
   const updateLink = (key: keyof ProfileLinksInput, value: string) => {
     const nextValue =
-      key === 'onsocial' ? sanitizeNearAccountInput(value) : value;
+      key === 'onsocial' ? sanitizeOnSocialLinkInput(value) : value;
     setLinks((current) => ({ ...current, [key]: nextValue }));
     if (linkFieldErrors[key]) {
       setLinkFieldErrors((current) => {
@@ -623,14 +629,16 @@ export function ProfileEditor({
                                 probingLinkKey === field.key || undefined
                               }
                               maxLength={
-                                field.kind === 'website'
+                                field.kind === 'website' ||
+                                field.kind === 'onsocial'
                                   ? 255
-                                  : field.kind === 'onsocial'
-                                    ? 64
-                                    : 80
+                                  : 80
                               }
                               inputMode={
-                                field.kind === 'website' ? 'url' : undefined
+                                field.kind === 'website' ||
+                                field.kind === 'onsocial'
+                                  ? 'url'
+                                  : undefined
                               }
                               autoComplete={
                                 field.kind === 'website' ? 'url' : 'off'

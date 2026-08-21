@@ -9,12 +9,12 @@ import {
   isProfileLinkEditorPreviewable,
   profileLinkEditorInlineError,
   PROFILE_LINK_EDITOR_FIELDS,
+  sanitizeOnSocialLinkInput,
   type ProfileLinkKind,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
 import { PAGE_LINK_NOTE_MAX } from '@/lib/page-launch-config';
 import { probeNearAccountExists } from '@/hooks/use-near-account-status';
-import { sanitizeNearAccountInput } from '@/lib/app-near-account';
 
 interface ProfileLinkInputRowProps {
   field: (typeof PROFILE_LINK_EDITOR_FIELDS)[number];
@@ -53,6 +53,13 @@ function ProfileLinkInputRow({
         : 'Optional title';
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      event.nativeEvent.stopPropagation();
+      onCancel();
+      return;
+    }
     if (probing) {
       event.preventDefault();
       return;
@@ -60,14 +67,6 @@ function ProfileLinkInputRow({
     if (event.key === 'Enter') {
       event.preventDefault();
       onCommit();
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      event.nativeEvent.stopPropagation();
-      onCancel();
     }
   };
 
@@ -99,12 +98,14 @@ function ProfileLinkInputRow({
           aria-errormessage={error ? `${field.key}-error` : undefined}
           aria-busy={probing || undefined}
           disabled={probing}
-          maxLength={field.kind === 'website' ? 255 : 64}
+          maxLength={
+            field.kind === 'website' || field.kind === 'onsocial' ? 255 : 64
+          }
           inputMode={
             field.kind === 'website'
               ? 'url'
               : field.kind === 'onsocial'
-                ? 'text'
+                ? 'url'
                 : undefined
           }
           autoComplete={field.kind === 'website' ? 'url' : 'off'}
@@ -113,7 +114,7 @@ function ProfileLinkInputRow({
           onChange={(event) =>
             onChange(
               field.kind === 'onsocial'
-                ? sanitizeNearAccountInput(event.target.value)
+                ? sanitizeOnSocialLinkInput(event.target.value)
                 : event.target.value
             )
           }
@@ -142,7 +143,6 @@ function ProfileLinkInputRow({
           type="button"
           className="account-editor-link-cancel"
           aria-label={`Cancel ${field.label}`}
-          disabled={probing}
           onMouseDown={(event) => event.preventDefault()}
           onClick={onCancel}
         >

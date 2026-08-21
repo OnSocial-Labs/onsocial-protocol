@@ -4,7 +4,45 @@ import {
   isProfileLinkEditorPreviewable,
   profileLinkEditorFieldErrors,
   profileLinkEditorInlineError,
+  sanitizeOnSocialLinkInput,
 } from '@/lib/profile-links';
+
+describe('sanitizeOnSocialLinkInput', () => {
+  it('preserves pasted OnSocial profile URLs for later normalize', () => {
+    expect(
+      sanitizeOnSocialLinkInput(
+        'https://testnet.onsocial.id/@alice.testnet'
+      )
+    ).toBe('https://testnet.onsocial.id/@alice.testnet');
+    expect(
+      sanitizeOnSocialLinkInput('portal.onsocial.id/u/bob.testnet')
+    ).toBe('portal.onsocial.id/u/bob.testnet');
+  });
+
+  it('still filters bare NEAR account typing', () => {
+    expect(sanitizeOnSocialLinkInput('@Alice.Testnet')).toBe('alice.testnet');
+    expect(sanitizeOnSocialLinkInput('Alice!!!Testnet')).toBe('alicetestnet');
+  });
+
+  it('lets formatProfileLinkForEditor extract accounts after sanitize', () => {
+    const pasted = sanitizeOnSocialLinkInput(
+      'https://testnet.onsocial.id/@carol.testnet'
+    );
+    expect(formatProfileLinkForEditor(pasted, 'onsocial')).toEqual({
+      value: 'carol.testnet',
+      error: null,
+      valid: true,
+    });
+    const portalPaste = sanitizeOnSocialLinkInput(
+      'https://portal.onsocial.id/u/dave.testnet'
+    );
+    expect(formatProfileLinkForEditor(portalPaste, 'onsocial')).toEqual({
+      value: 'dave.testnet',
+      error: null,
+      valid: true,
+    });
+  });
+});
 
 describe('formatProfileLinkForEditor', () => {
   it('clears empty values', () => {
@@ -75,6 +113,9 @@ describe('profileLinkEditorInlineError', () => {
         'Account not found on this network'
       )
     ).toBe('Not found');
+    expect(
+      profileLinkEditorInlineError('onsocial', 'Could not verify account')
+    ).toBe("Can't verify");
     expect(profileLinkEditorInlineError('x')).toBe('Invalid handle');
   });
 });

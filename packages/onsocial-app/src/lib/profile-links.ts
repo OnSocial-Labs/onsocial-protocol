@@ -4,8 +4,9 @@ import {
   normalizeNearAccountId,
   nearAccountPlaceholder,
   nearAccountSuffixHint,
+  sanitizeNearAccountInput,
 } from '@/lib/app-near-account';
-import { appPageHref, PUBLIC_APP_ORIGIN } from '@/lib/app-links';
+import { appPageHref, portalHref, PUBLIC_APP_ORIGIN } from '@/lib/app-links';
 
 const HANDLE_PATTERNS = {
   github: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/,
@@ -35,6 +36,7 @@ const ONSOCIAL_LINK_HOSTS = [
   'onsocial.id',
   'testnet.onsocial.id',
   'www.onsocial.id',
+  'portal.onsocial.id',
 ] as const;
 
 const MAX_WEBSITE_URL_LEN = 255;
@@ -286,10 +288,40 @@ function isOnSocialHost(hostname: string): boolean {
     const publicHost = new URL(PUBLIC_APP_ORIGIN).hostname
       .toLowerCase()
       .replace(/^www\./, '');
-    return host === publicHost;
+    if (host === publicHost) return true;
+  } catch {
+    // ignore
+  }
+  try {
+    const portalHost = new URL(portalHref('/')).hostname
+      .toLowerCase()
+      .replace(/^www\./, '');
+    return host === portalHost;
   } catch {
     return false;
   }
+}
+
+/** True when the field still looks like a pasted profile URL (not a bare id). */
+export function looksLikeOnSocialProfilePaste(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    /^https?:\/\//i.test(trimmed) ||
+    /onsocial\.id/i.test(trimmed) ||
+    trimmed.includes('/')
+  );
+}
+
+/**
+ * Live editor sanitizer for the OnSocial link field.
+ * Preserves pasted profile URLs so {@link normalizeOnSocialAccountInput} can
+ * extract the account; bare ids still get NEAR account character filtering.
+ */
+export function sanitizeOnSocialLinkInput(value: string): string {
+  if (looksLikeOnSocialProfilePaste(value)) {
+    return value.replace(/[\u0000-\u001f\u007f]/g, '');
+  }
+  return sanitizeNearAccountInput(value);
 }
 
 function extractOnSocialAccountFromUrl(url: URL): string | null {
