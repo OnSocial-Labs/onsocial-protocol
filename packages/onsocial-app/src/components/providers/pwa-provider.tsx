@@ -51,7 +51,10 @@ export function PwaProvider({ children }: { children: ReactNode }) {
   const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
-    setIsIos(detectIos());
+    queueMicrotask(() => {
+      setIsIos(detectIos());
+      setIsInstalled(isStandaloneMode());
+    });
     const mediaQuery = window.matchMedia('(display-mode: standalone)');
     const syncStandaloneState = () => setIsInstalled(isStandaloneMode());
     mediaQuery.addEventListener('change', syncStandaloneState);
