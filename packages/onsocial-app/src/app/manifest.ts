@@ -6,13 +6,13 @@ export default function manifest(): MetadataRoute.Manifest {
 
   return {
     name: isMainnet ? 'OnSocial' : 'OnSocial Testnet',
-    short_name: isMainnet ? 'OnSocial' : 'OnSocial Testnet',
+    // Keep short for home-screen labels (≈12 chars).
+    short_name: 'OnSocial',
     description: 'A page for every account.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     display_override: ['standalone', 'minimal-ui'],
-    orientation: 'portrait-primary',
     background_color: '#000000',
     theme_color: '#000000',
     categories: ['social', 'entertainment'],
@@ -21,14 +21,16 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/onsocial_icon_192.png',
         sizes: '192x192',
         type: 'image/png',
+        purpose: 'any',
       },
       {
         src: '/onsocial_icon_512.png',
         sizes: '512x512',
         type: 'image/png',
+        purpose: 'any',
       },
       {
-        src: '/onsocial_icon_512.png',
+        src: '/onsocial_icon_maskable_512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',

@@ -1,10 +1,11 @@
 /* OnSocial app shell — installable PWA + Collectibles offline chrome. */
-const CACHE_NAME = 'onsocial-app-shell-v1';
+const CACHE_NAME = 'onsocial-app-shell-v2';
 const PRECACHE = [
   '/',
   '/manifest.webmanifest',
   '/onsocial_icon_192.png',
   '/onsocial_icon_512.png',
+  '/onsocial_icon_maskable_512.png',
   '/apple-touch-icon.png',
   '/collectibles',
   '/collectibles/play',
@@ -54,7 +55,8 @@ async function cacheFirst(request) {
   return response;
 }
 
-async function networkFirst(request, fallbackUrl) {
+/** Collectibles chrome only — may cache for offline listen. */
+async function networkFirstCollectibles(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {
@@ -65,10 +67,22 @@ async function networkFirst(request, fallbackUrl) {
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
-    if (fallbackUrl) {
-      const fallback = await caches.match(fallbackUrl);
-      if (fallback) return fallback;
-    }
+    const fallback = await caches.match('/collectibles');
+    if (fallback) return fallback;
+    throw new Error('offline');
+  }
+}
+
+/**
+ * App navigations stay network-only so deploys are not sticky.
+ * Offline fallback is the precached gate (`/`), never a stale HTML document.
+ */
+async function networkOnlyNavigate(request) {
+  try {
+    return await fetch(request);
+  } catch {
+    const fallback = await caches.match('/');
+    if (fallback) return fallback;
     throw new Error('offline');
   }
 }
@@ -95,12 +109,15 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/collectibles/');
 
   if (request.mode === 'navigate') {
-    const fallback = collectiblesPath ? '/collectibles' : '/';
-    event.respondWith(networkFirst(request, fallback));
+    if (collectiblesPath) {
+      event.respondWith(networkFirstCollectibles(request));
+      return;
+    }
+    event.respondWith(networkOnlyNavigate(request));
     return;
   }
 
   if (collectiblesPath) {
-    event.respondWith(networkFirst(request, '/collectibles'));
+    event.respondWith(networkFirstCollectibles(request));
   }
 });
