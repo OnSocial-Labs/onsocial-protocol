@@ -271,6 +271,8 @@ export type {
   SendEventsParams,
   NotificationRule,
   CreateRuleParams,
+  PushStatus,
+  SubscribePushParams,
 } from './modules/notifications.js';
 export { GroupsModule } from './modules/groups.js';
 export { PostsModule } from './modules/posts.js';

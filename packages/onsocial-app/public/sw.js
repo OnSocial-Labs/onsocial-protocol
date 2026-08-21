@@ -1,5 +1,5 @@
-/* OnSocial app shell — installable PWA + Collectibles offline chrome. */
-const CACHE_NAME = 'onsocial-app-shell-v2';
+/* OnSocial app shell — installable PWA + Collectibles offline chrome + Web Push. */
+const CACHE_NAME = 'onsocial-app-shell-v3';
 const PRECACHE = [
   '/',
   '/manifest.webmanifest',
@@ -120,4 +120,87 @@ self.addEventListener('fetch', (event) => {
   if (collectiblesPath) {
     event.respondWith(networkFirstCollectibles(request));
   }
+});
+
+/** Activity Web Push — payload from gateway `deliverWebPushForNotificationId`. */
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'OnSocial',
+    body: 'New activity',
+    url: '/notifications',
+    tag: 'onsocial-activity',
+  };
+  try {
+    if (event.data) {
+      const parsed = event.data.json();
+      if (parsed && typeof parsed === 'object') {
+        data = { ...data, ...parsed };
+      }
+    }
+  } catch {
+    try {
+      const text = event.data?.text?.();
+      if (text) data.body = text;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const title =
+    typeof data.title === 'string' && data.title.trim()
+      ? data.title.trim()
+      : 'OnSocial';
+  const body =
+    typeof data.body === 'string' && data.body.trim()
+      ? data.body.trim()
+      : 'New activity';
+  const url =
+    typeof data.url === 'string' && data.url.trim()
+      ? data.url.trim()
+      : '/notifications';
+  const tag =
+    typeof data.tag === 'string' && data.tag.trim()
+      ? data.tag.trim()
+      : 'onsocial-activity';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag,
+      renotify: true,
+      icon: '/onsocial_icon_192.png',
+      badge: '/onsocial_icon_192.png',
+      data: { url },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const rawUrl =
+    event.notification?.data &&
+    typeof event.notification.data.url === 'string'
+      ? event.notification.data.url
+      : '/notifications';
+  const targetUrl = new URL(rawUrl, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if ('focus' in client) {
+            const navigate =
+              'navigate' in client && typeof client.navigate === 'function'
+                ? client.navigate(targetUrl)
+                : Promise.resolve();
+            return navigate.then(() => client.focus());
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
+        }
+        return undefined;
+      })
+  );
 });

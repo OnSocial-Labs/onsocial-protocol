@@ -199,4 +199,73 @@ export class NotificationsModule {
     );
     return res.types;
   }
+
+  /** Public VAPID key for PushManager.subscribe. */
+  async getVapidPublicKey(): Promise<string | null> {
+    try {
+      const res = await this.http.get<{
+        publicKey?: string;
+        configured?: boolean;
+      }>('/developer/notifications/push/vapid-public-key');
+      return res.publicKey ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Whether this account has an enabled Web Push subscription. */
+  async getPushStatus(): Promise<PushStatus> {
+    return this.http.get<PushStatus>('/developer/notifications/push/status');
+  }
+
+  /** Upsert a browser PushSubscription for Activity alerts. */
+  async subscribePush(params: SubscribePushParams): Promise<{
+    id: string;
+    endpoint: string;
+    enabled: boolean;
+    createdAt: string;
+  }> {
+    const res = await this.http.post<{
+      subscription: {
+        id: string;
+        endpoint: string;
+        enabled: boolean;
+        createdAt: string;
+      };
+    }>('/developer/notifications/push/subscribe', {
+      endpoint: params.endpoint,
+      keys: { p256dh: params.p256dh, auth: params.auth },
+      userAgent: params.userAgent,
+    });
+    return res.subscription;
+  }
+
+  /** Remove a PushSubscription by endpoint. */
+  async unsubscribePush(endpoint: string): Promise<void> {
+    const qs = new URLSearchParams({ endpoint });
+    await this.http.delete<{ status: string }>(
+      `/developer/notifications/push/subscribe?${qs.toString()}`
+    );
+  }
+
+  /** Soft-disable or re-enable all subscriptions for this account. */
+  async setPushEnabled(enabled: boolean): Promise<void> {
+    await this.http.post<{ enabled: boolean; updated: number }>(
+      '/developer/notifications/push/enabled',
+      { enabled }
+    );
+  }
+}
+
+export interface PushStatus {
+  configured: boolean;
+  enabled: boolean;
+  subscriptionCount: number;
+}
+
+export interface SubscribePushParams {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  userAgent?: string | null;
 }

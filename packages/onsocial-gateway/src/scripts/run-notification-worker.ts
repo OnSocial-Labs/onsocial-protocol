@@ -6,8 +6,10 @@ import {
   NotificationWorker,
   logProcessingSummary,
 } from '../services/notifications/worker.js';
+import { deliverWebPushForNotificationId } from '../services/notifications/web-push.js';
 
 const LISTEN_CHANNEL = 'idx_events';
+const PUSH_LISTEN_CHANNEL = 'notification_push';
 
 /**
  * Source tables whose INSERTs should wake the worker immediately.
@@ -154,6 +156,37 @@ async function createListener(databaseUrl: string): Promise<{
   };
 }
 
+/**
+ * Separate listener for Web Push fan-out. Payload is the notification UUID.
+ * Delivery is fire-and-forget so a slow push endpoint cannot stall indexing.
+ */
+async function createPushListener(databaseUrl: string): Promise<{
+  close: () => Promise<void>;
+}> {
+  const listener = new Client({ connectionString: databaseUrl });
+  await listener.connect();
+  await listener.query(`LISTEN ${PUSH_LISTEN_CHANNEL}`);
+
+  listener.on('notification', (msg) => {
+    const notificationId = msg.payload?.trim();
+    if (!notificationId) return;
+    void deliverWebPushForNotificationId(notificationId).catch((error) => {
+      logger.warn(
+        { error, notificationId },
+        'Web Push delivery threw unexpectedly'
+      );
+    });
+  });
+
+  logger.info({ channel: PUSH_LISTEN_CHANNEL }, 'Web Push LISTEN started');
+
+  return {
+    async close() {
+      await listener.end();
+    },
+  };
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -180,6 +213,7 @@ async function main(): Promise<void> {
   // Create a dedicated listener client (separate from the transaction client)
   const { waitForEvent, close: closeListener } =
     await createListener(databaseUrl);
+  const { close: closePushListener } = await createPushListener(databaseUrl);
 
   const requestStop = (signal: string) => {
     stopRequested = true;
@@ -195,6 +229,7 @@ async function main(): Promise<void> {
       pollIntervalMs,
       once,
       listenChannel: LISTEN_CHANNEL,
+      pushListenChannel: PUSH_LISTEN_CHANNEL,
       databaseHost: new URL(databaseUrl).host,
     },
     'Notification worker started (LISTEN/NOTIFY mode)'
@@ -213,6 +248,7 @@ async function main(): Promise<void> {
       await waitForEvent(pollIntervalMs);
     } while (!stopRequested);
   } finally {
+    await closePushListener().catch(() => {});
     await closeListener().catch(() => {});
     await worker.releaseLock().catch((error: unknown) => {
       logger.warn(

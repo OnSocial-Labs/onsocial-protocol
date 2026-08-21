@@ -34,6 +34,7 @@ import {
 import { AccountStorageStrip } from '@/components/wallet/account-storage-strip';
 import { AppSocialHelpCard } from '@/components/wallet/app-social-help-card';
 import { usePwa } from '@/components/providers/pwa-provider';
+import { useWebPush } from '@/components/providers/web-push-provider';
 import { useAppRewardsOptional } from '@/contexts/app-rewards-context';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import type { PlatformStorageSummary } from '@/lib/platform-storage-display';
@@ -451,6 +452,18 @@ export function AccountActionList({
 }: AccountActionListProps) {
   const showCustomize = isOwnerOnPage && Boolean(onCustomize);
   const { canInstall, isInstalled, install } = usePwa();
+  const {
+    supported: pushSupported,
+    configured: pushConfigured,
+    enabled: pushEnabled,
+    busy: pushBusy,
+    permission: pushPermission,
+    enable: enablePush,
+    disable: disablePush,
+  } = useWebPush();
+
+  const showPushToggle =
+    pushSupported && pushConfigured && pushPermission !== 'denied';
 
   const rows: AccountActionRowProps[] = [
     {
@@ -508,6 +521,37 @@ export function AccountActionList({
       {rows.map((row) => (
         <AccountActionRow key={row.label} {...row} />
       ))}
+      {showPushToggle ? (
+        <button
+          type="button"
+          className="os-surface-row account-safe-mode-row"
+          role="switch"
+          aria-checked={pushEnabled}
+          disabled={pushBusy}
+          onClick={() => {
+            if (pushEnabled) {
+              void disablePush();
+            } else {
+              void enablePush();
+            }
+          }}
+        >
+          <span className="os-surface-row-copy">
+            <span className="os-surface-row-label">Push alerts</span>
+            <span className="os-surface-row-description">
+              {pushBusy
+                ? 'Updating…'
+                : pushEnabled
+                  ? 'Activity alerts on this device'
+                  : 'Get Activity alerts on this device'}
+            </span>
+          </span>
+          <span
+            className={`account-safe-mode-switch${pushEnabled ? ' is-on' : ''}`}
+            aria-hidden
+          />
+        </button>
+      ) : null}
       {onToggleSafeMode != null && safeMode != null ? (
         <button
           type="button"
