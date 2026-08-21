@@ -3,11 +3,13 @@
  * Unlayered after Tailwind so it cannot lose to `button { font: inherit }`
  * or body 400. Markup carries no weight utilities for these tokens.
  *
- * Idle: 300 + protocol green (feed / posts / thread fold — same metrics)
- * Portfolio bio: inherit mood type; color from `--signal-reputation`
+ * Idle (no mood): 300 + protocol green (feed / posts / thread fold)
+ * Viewer mood screens (home / Discover / …): reputation signal (viewer tint)
+ * Host mood surfaces (portfolio bio, face overlays): reputation signal (page tint)
  * Selected #/$ (.is-active): 500
  * Desktop (fine pointer): underline on hover / focus-visible — color unchanged
  * Touch: no hover chrome (avoids sticky :hover after tap)
+ * Commerce / buy-sell stay hard protocol green elsewhere — not these tokens.
  *
  * Composer textarea + backdrop stay 300 in globals so the caret aligns.
  * Thread fold uses the same 300 / AA as Show more; compact 0.72rem size.
@@ -32,6 +34,32 @@ button.post-card-show-more,
    */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Viewer-scoped lists (OsAppScreen mood) + host-scoped face overlays
+ * (portfolio glass / page sheet with face mood vars): social tokens follow
+ * --signal-reputation. Falls back to protocol green when unset.
+ */
+.os-app-screen.os-app-screen--mood .os-hashtag,
+.os-app-screen.os-app-screen--mood .os-mention,
+.os-app-screen.os-app-screen--mood .os-ticker,
+.os-app-screen.os-app-screen--mood .os-link,
+.os-app-screen.os-app-screen--mood button.post-card-show-more,
+.os-app-screen.os-app-screen--mood .post-card .post-card-show-more,
+.os-app-screen.os-app-screen--mood .post-thread-more,
+.os-page-sheet-panel[data-mood] .os-hashtag,
+.os-page-sheet-panel[data-mood] .os-mention,
+.os-page-sheet-panel[data-mood] .os-ticker,
+.os-page-sheet-panel[data-mood] .os-link,
+.glass-sheet-panel[data-mood] .os-hashtag,
+.glass-sheet-panel[data-mood] .os-mention,
+.glass-sheet-panel[data-mood] .os-ticker,
+.glass-sheet-panel[data-mood] .os-link {
+  color: var(
+    --signal-reputation,
+    var(--mood-signal-reputation, var(--protocol-green))
+  );
 }
 
 /* Fold — same 300 / green / AA as tokens; compact size for chrome. */
@@ -97,6 +125,17 @@ button.post-card-show-more,
   );
 }
 
+/* Composer on a viewer-mood screen — tokens match the list around it. */
+.os-app-screen.os-app-screen--mood .guild-composer-input-backdrop .os-hashtag,
+.os-app-screen.os-app-screen--mood .guild-composer-input-backdrop .os-mention,
+.os-app-screen.os-app-screen--mood .guild-composer-input-backdrop .os-ticker,
+.os-app-screen.os-app-screen--mood .guild-composer-input-backdrop .os-link {
+  color: var(
+    --signal-reputation,
+    var(--mood-signal-reputation, var(--protocol-green))
+  );
+}
+
 @media (hover: hover) and (pointer: fine) {
   .os-hashtag:hover,
   .os-mention:hover,
@@ -117,6 +156,44 @@ button.post-card-show-more,
     text-underline-offset: 0.12em;
     text-decoration-thickness: from-font;
     outline: none;
+  }
+
+  .os-app-screen.os-app-screen--mood .os-hashtag:hover,
+  .os-app-screen.os-app-screen--mood .os-mention:hover,
+  .os-app-screen.os-app-screen--mood .os-ticker:hover,
+  .os-app-screen.os-app-screen--mood .os-link:hover,
+  .os-app-screen.os-app-screen--mood .os-hashtag:focus-visible,
+  .os-app-screen.os-app-screen--mood .os-mention:focus-visible,
+  .os-app-screen.os-app-screen--mood .os-ticker:focus-visible,
+  .os-app-screen.os-app-screen--mood .os-link:focus-visible,
+  .os-app-screen.os-app-screen--mood .post-thread-more:hover,
+  .os-app-screen.os-app-screen--mood .post-thread-more:focus-visible,
+  .os-app-screen.os-app-screen--mood button.post-card-show-more:hover,
+  .os-app-screen.os-app-screen--mood button.post-card-show-more:focus-visible,
+  .os-app-screen.os-app-screen--mood .post-card .post-card-show-more:hover,
+  .os-app-screen.os-app-screen--mood
+    .post-card
+    .post-card-show-more:focus-visible,
+  .os-page-sheet-panel[data-mood] .os-hashtag:hover,
+  .os-page-sheet-panel[data-mood] .os-mention:hover,
+  .os-page-sheet-panel[data-mood] .os-ticker:hover,
+  .os-page-sheet-panel[data-mood] .os-link:hover,
+  .os-page-sheet-panel[data-mood] .os-hashtag:focus-visible,
+  .os-page-sheet-panel[data-mood] .os-mention:focus-visible,
+  .os-page-sheet-panel[data-mood] .os-ticker:focus-visible,
+  .os-page-sheet-panel[data-mood] .os-link:focus-visible,
+  .glass-sheet-panel[data-mood] .os-hashtag:hover,
+  .glass-sheet-panel[data-mood] .os-mention:hover,
+  .glass-sheet-panel[data-mood] .os-ticker:hover,
+  .glass-sheet-panel[data-mood] .os-link:hover,
+  .glass-sheet-panel[data-mood] .os-hashtag:focus-visible,
+  .glass-sheet-panel[data-mood] .os-mention:focus-visible,
+  .glass-sheet-panel[data-mood] .os-ticker:focus-visible,
+  .glass-sheet-panel[data-mood] .os-link:focus-visible {
+    color: var(
+      --signal-reputation,
+      var(--mood-signal-reputation, var(--protocol-green))
+    );
   }
 
   .portfolio-bio .os-hashtag:hover,

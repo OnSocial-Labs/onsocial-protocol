@@ -18,6 +18,7 @@ import { OverlayDismissProvider } from '@/contexts/overlay-dismiss-context';
 import { parseOverlayPanelKey } from '@/lib/overlay-routes';
 import type { OverlaySlotMode } from '@/lib/overlay-slot';
 import { shouldMountPortfolioGlassHost } from '@/lib/portfolio-glass-host';
+import { useLivePortfolioMoodVars } from '@/hooks/use-portfolio-mood-vars';
 import {
   OsPageSheet,
   type GlassSheetPresentation,
@@ -114,6 +115,8 @@ function PortfolioGlassSheetFrame({
   panelKey: string | null;
   children: ReactNode;
 }) {
+  const faceMood = useLivePortfolioMoodVars(overlayPresent);
+
   useEffect(() => {
     if (!overlayPresent && sheetOpen) {
       requestDismiss();
@@ -132,6 +135,8 @@ function PortfolioGlassSheetFrame({
       backdropLabel="Close panel"
       bodyRef={scrollBodyRef}
       header={<OverlayGlassHeader panelKey={panelKey} />}
+      {...(faceMood.moodId ? { moodId: faceMood.moodId } : {})}
+      {...(faceMood.style ? { moodStyle: faceMood.style } : {})}
     >
       <div key={panelKey ?? 'overlay'} className="overlay-panel-outlet">
         {children}
