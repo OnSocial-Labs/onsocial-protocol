@@ -1244,9 +1244,7 @@ describe('QueryModule', () => {
             },
             { refPath: 'bob.near/post/p2', quoteCount: 2 },
           ],
-          repostCounts: [
-            { refPath: 'bob.near/post/p2', repostCount: 4 },
-          ],
+          repostCounts: [{ refPath: 'bob.near/post/p2', repostCount: 4 }],
         },
       });
 
