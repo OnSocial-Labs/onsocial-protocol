@@ -1,12 +1,20 @@
-/* Collectibles offline shell — cache the app chrome so downloaded music can play. */
-const VERSION = 'onsocial-collectibles-shell-v1';
-const SHELL_PATHS = ['/collectibles', '/collectibles/play'];
+/* OnSocial app shell — installable PWA + Collectibles offline chrome. */
+const CACHE_NAME = 'onsocial-app-shell-v1';
+const PRECACHE = [
+  '/',
+  '/manifest.webmanifest',
+  '/onsocial_icon_192.png',
+  '/onsocial_icon_512.png',
+  '/apple-touch-icon.png',
+  '/collectibles',
+  '/collectibles/play',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
-      .open(VERSION)
-      .then((cache) => cache.addAll(SHELL_PATHS))
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE))
       .then(() => self.skipWaiting())
       .catch(() => self.skipWaiting())
   );
@@ -19,7 +27,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== VERSION)
+            .filter((key) => key !== CACHE_NAME)
             .map((key) => caches.delete(key))
         )
       )
@@ -40,7 +48,7 @@ async function cacheFirst(request) {
   if (cached) return cached;
   const response = await fetch(request);
   if (response.ok) {
-    const cache = await caches.open(VERSION);
+    const cache = await caches.open(CACHE_NAME);
     await cache.put(request, response.clone());
   }
   return response;
@@ -50,7 +58,7 @@ async function networkFirst(request, fallbackUrl) {
   try {
     const response = await fetch(request);
     if (response.ok) {
-      const cache = await caches.open(VERSION);
+      const cache = await caches.open(CACHE_NAME);
       await cache.put(request, response.clone());
     }
     return response;
@@ -74,9 +82,9 @@ self.addEventListener('fetch', (event) => {
   if (isApiPath(url.pathname)) return;
 
   if (
-    url.pathname.startsWith('/_next/static/') ||
+    url.pathname === '/manifest.webmanifest' ||
     url.pathname.startsWith('/fonts/') ||
-    /\.(?:woff2?|svg|png|jpg|jpeg|webp|css|js)$/.test(url.pathname)
+    /\.(?:woff2?|png|svg|ico|webp)$/i.test(url.pathname)
   ) {
     event.respondWith(cacheFirst(request));
     return;
@@ -86,7 +94,13 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/collectibles' ||
     url.pathname.startsWith('/collectibles/');
 
-  if (request.mode === 'navigate' || collectiblesPath) {
+  if (request.mode === 'navigate') {
+    const fallback = collectiblesPath ? '/collectibles' : '/';
+    event.respondWith(networkFirst(request, fallback));
+    return;
+  }
+
+  if (collectiblesPath) {
     event.respondWith(networkFirst(request, '/collectibles'));
   }
 });
