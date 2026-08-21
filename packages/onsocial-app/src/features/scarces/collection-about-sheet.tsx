@@ -18,6 +18,10 @@ import {
   SheetFactSection,
 } from '@onsocial/ui';
 import type { CollectionView } from '@/features/scarces/collections-data';
+import {
+  accessEndsScheduleFacts,
+  collectionShouldShowAccessEnds,
+} from '@/features/scarces/access-ends-facts';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { seriesPagePath } from '@/lib/app-routes';
@@ -117,6 +121,9 @@ export function CollectionAboutSheet({
   const [nowMs] = useState(() => Date.now());
   const event = ticketEventScheduleFacts(view, nowMs);
   const showEvent = !event.empty;
+  const access = accessEndsScheduleFacts(view.accessEndsAtMs, nowMs);
+  const showAccess = collectionShouldShowAccessEnds(view, nowMs) && !access.empty;
+  const showStory = showEvent || showAccess;
 
   return (
     <OsHugSheet
@@ -154,9 +161,21 @@ export function CollectionAboutSheet({
           </>
         ) : null}
 
-        {view.seriesId || createdAbs ? (
+        {showAccess ? (
           <>
             {description || showEvent ? <Divider variant="detail" /> : null}
+            <SheetFactSection title="Access">
+              {access.ends ? (
+                <SheetFactRow label="Ends" value={access.ends} />
+              ) : null}
+              {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+          </>
+        ) : null}
+
+        {view.seriesId || createdAbs ? (
+          <>
+            {description || showStory ? <Divider variant="detail" /> : null}
             <SheetFactSection title="Details">
               {view.seriesId ? (
                 <SheetFactRow

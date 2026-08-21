@@ -21,6 +21,10 @@ import {
   totalRoyaltyBps,
 } from '@/features/scarces/scarce-royalty';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
+import {
+  accessEndsScheduleFacts,
+  collectionShouldShowAccessEnds,
+} from '@/features/scarces/access-ends-facts';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import {
   ACTIVE_NEAR_EXPLORER_URL,
@@ -64,6 +68,8 @@ export interface ScarceListingFacts {
   eventStartsAtMs?: number | null;
   eventEndsAtMs?: number | null;
   place?: string | null;
+  /** NEP-177 expires_at — coupons / memberships. */
+  accessEndsAtMs?: number | null;
   description?: string | null;
 }
 
@@ -202,8 +208,21 @@ export function ScarceListingFactsSheet({
     },
     nowMs
   );
+  const access = accessEndsScheduleFacts(facts.accessEndsAtMs, nowMs);
+  const showAccess =
+    collectionShouldShowAccessEnds(
+      {
+        accessEndsAtMs: facts.accessEndsAtMs ?? null,
+        eventStartsAtMs: facts.eventStartsAtMs ?? null,
+        eventEndsAtMs: facts.eventEndsAtMs ?? null,
+        place: facts.place ?? null,
+        kind: facts.mediumKind ?? null,
+      },
+      nowMs
+    ) && !access.empty;
   const description = facts.description?.trim() || '';
-  const showEvent = !event.empty || Boolean(description);
+  const showEvent = !event.empty;
+  const showStoryHeader = showEvent || showAccess || Boolean(description);
 
   return (
     <OsHugSheet
@@ -219,23 +238,47 @@ export function ScarceListingFactsSheet({
       bodyClassName="guild-facts-sheet-body"
     >
       <div className="guild-facts">
-        {showEvent ? (
+        {showStoryHeader ? (
           <>
-            <SheetFactSection title="Event">
-              {description ? (
+            {description ? (
+              <SheetFactSection title="About">
                 <SheetFactCopy>{description}</SheetFactCopy>
-              ) : null}
-              {event.place ? (
-                <SheetFactRow label="Place" value={event.place} />
-              ) : null}
-              {event.starts ? (
-                <SheetFactRow label="Starts" value={event.starts} />
-              ) : null}
-              {event.ends ? (
-                <SheetFactRow label="Ends" value={event.ends} />
-              ) : null}
-              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
-            </SheetFactSection>
+              </SheetFactSection>
+            ) : null}
+            {showEvent ? (
+              <>
+                {description ? <Divider variant="detail" /> : null}
+                <SheetFactSection title="Event">
+                  {event.place ? (
+                    <SheetFactRow label="Place" value={event.place} />
+                  ) : null}
+                  {event.starts ? (
+                    <SheetFactRow label="Starts" value={event.starts} />
+                  ) : null}
+                  {event.ends ? (
+                    <SheetFactRow label="Ends" value={event.ends} />
+                  ) : null}
+                  {event.next ? (
+                    <SheetFactCopy>{event.next}</SheetFactCopy>
+                  ) : null}
+                </SheetFactSection>
+              </>
+            ) : null}
+            {showAccess ? (
+              <>
+                {description || showEvent ? (
+                  <Divider variant="detail" />
+                ) : null}
+                <SheetFactSection title="Access">
+                  {access.ends ? (
+                    <SheetFactRow label="Ends" value={access.ends} />
+                  ) : null}
+                  {access.next ? (
+                    <SheetFactCopy>{access.next}</SheetFactCopy>
+                  ) : null}
+                </SheetFactSection>
+              </>
+            ) : null}
             <Divider variant="detail" />
           </>
         ) : null}

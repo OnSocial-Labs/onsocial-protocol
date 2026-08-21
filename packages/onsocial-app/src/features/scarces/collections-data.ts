@@ -138,6 +138,11 @@ export interface CollectionView {
   /** Intentional place slug from metadata.extra — tickets. */
   place: string | null;
   /**
+   * Shared access end (ms) from NEP-177 `expires_at` on the mint template.
+   * Coupons require it; memberships optional; tickets stamp it from Event ends.
+   */
+  accessEndsAtMs: number | null;
+  /**
    * Resale royalty map (account → bps). Empty / missing means none.
    * Stored on the collection and stamped onto minted tokens.
    */
@@ -172,6 +177,18 @@ function priceDisplay(yocto: string): string | null {
 function nsToMs(raw: number | null | undefined): number | null {
   if (raw == null || !Number.isFinite(raw) || raw <= 0) return null;
   return raw > 1e15 ? Math.floor(raw / 1e6) : raw > 1e12 ? raw : raw * 1000;
+}
+
+/** NEP-177 `expires_at` is milliseconds since epoch. */
+function asPositiveExpiresAtMs(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
+    const n = Number(raw.trim());
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  }
+  return null;
 }
 
 /** Normalize on-chain royalty map; drop empty / invalid entries. */
@@ -284,6 +301,8 @@ interface TemplateMeta {
   eventStartsAtMs?: number | null;
   eventEndsAtMs?: number | null;
   place?: string | null;
+  /** NEP-177 template `expires_at` (ms). */
+  accessEndsAtMs?: number | null;
 }
 
 const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
@@ -460,6 +479,7 @@ function parseTemplate(
     let eventStartsAtMs: number | null | undefined;
     let eventEndsAtMs: number | null | undefined;
     let place: string | null | undefined;
+    const accessEndsAtMs = asPositiveExpiresAtMs(meta.expires_at);
     if (typeof meta.extra === 'string' && meta.extra.trim()) {
       try {
         const extra = asRecord(JSON.parse(meta.extra));
@@ -512,6 +532,7 @@ function parseTemplate(
       ...(eventStartsAtMs != null ? { eventStartsAtMs } : {}),
       ...(eventEndsAtMs != null ? { eventEndsAtMs } : {}),
       ...(place ? { place } : {}),
+      ...(accessEndsAtMs != null ? { accessEndsAtMs } : {}),
     };
   } catch {
     return fallback;
@@ -616,6 +637,7 @@ export function toCollectionView(
     eventEndsAtMs:
       eventOverride.eventEndsAtMs ?? template.eventEndsAtMs ?? null,
     place: eventOverride.place ?? template.place ?? null,
+    accessEndsAtMs: template.accessEndsAtMs ?? null,
     royalty: parseRoyalty(record.royalty),
     ...(template.sourcePostPath
       ? { sourcePostPath: template.sourcePostPath }

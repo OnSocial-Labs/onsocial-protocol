@@ -9,6 +9,10 @@ import {
   SheetFactRow,
   SheetFactSection,
 } from '@onsocial/ui';
+import {
+  accessEndsScheduleFacts,
+  collectionShouldShowAccessEnds,
+} from '@/features/scarces/access-ends-facts';
 import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 
@@ -16,11 +20,14 @@ export type ScarceAboutEvent = {
   eventStartsAtMs?: number | null;
   eventEndsAtMs?: number | null;
   place?: string | null;
+  /** NEP-177 expires_at — coupons / memberships. */
+  accessEndsAtMs?: number | null;
+  kind?: string | null;
 };
 
 /**
  * Full scarce description — same job as CollectionAboutSheet for Drop play.
- * Tickets also show Event (place / window) so resale matches the drop About.
+ * Tickets show Event; coupons / memberships show Access when set.
  */
 export function ScarceAboutSheet({
   open,
@@ -53,6 +60,19 @@ export function ScarceAboutSheet({
     nowMs
   );
   const showEvent = !schedule.empty;
+  const access = accessEndsScheduleFacts(event?.accessEndsAtMs, nowMs);
+  const showAccess =
+    collectionShouldShowAccessEnds(
+      {
+        accessEndsAtMs: event?.accessEndsAtMs ?? null,
+        eventStartsAtMs: event?.eventStartsAtMs ?? null,
+        eventEndsAtMs: event?.eventEndsAtMs ?? null,
+        place: event?.place ?? null,
+        kind: event?.kind ?? null,
+      },
+      nowMs
+    ) && !access.empty;
+  const showStory = showEvent || showAccess;
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -64,7 +84,7 @@ export function ScarceAboutSheet({
     onClose();
   }, [onClose]);
 
-  if (!trimmed && !showEvent && !open) return null;
+  if (!trimmed && !showStory && !open) return null;
 
   return (
     <OsHugSheet
@@ -102,9 +122,20 @@ export function ScarceAboutSheet({
             </SheetFactSection>
           </>
         ) : null}
-        {originalHref ? (
+        {showAccess ? (
           <>
             {trimmed || showEvent ? <Divider variant="detail" /> : null}
+            <SheetFactSection title="Access">
+              {access.ends ? (
+                <SheetFactRow label="Ends" value={access.ends} />
+              ) : null}
+              {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+          </>
+        ) : null}
+        {originalHref ? (
+          <>
+            {trimmed || showStory ? <Divider variant="detail" /> : null}
             <p className="scarce-provenance-original">
               <Link
                 href={originalHref}

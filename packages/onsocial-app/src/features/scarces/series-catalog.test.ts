@@ -48,6 +48,7 @@ function drop(
     eventStartsAtMs: null,
     eventEndsAtMs: null,
     place: null,
+    accessEndsAtMs: null,
     royalty: null,
     ...rest,
   };

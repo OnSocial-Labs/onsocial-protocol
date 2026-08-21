@@ -213,6 +213,8 @@ export function ScarceBuyForm({
     eventStartsAtMs: number | null;
     eventEndsAtMs: number | null;
     place: string | null;
+    accessEndsAtMs: number | null;
+    kind: string | null;
     description: string | null;
   } | null>(null);
 
@@ -285,6 +287,8 @@ export function ScarceBuyForm({
                 eventStartsAtMs: view.eventStartsAtMs,
                 eventEndsAtMs: view.eventEndsAtMs,
                 place: view.place,
+                accessEndsAtMs: view.accessEndsAtMs,
+                kind: view.kind,
                 description: view.description?.trim() || null,
               }
             : null
@@ -703,6 +707,7 @@ export function ScarceBuyForm({
       eventStartsAtMs: hydratedEvent?.eventStartsAtMs ?? null,
       eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
       place: hydratedEvent?.place ?? null,
+      accessEndsAtMs: hydratedEvent?.accessEndsAtMs ?? null,
       description:
         resolvedDescription ?? hydratedEvent?.description ?? null,
     };
@@ -1024,6 +1029,8 @@ export function ScarceBuyForm({
                 eventStartsAtMs: hydratedEvent.eventStartsAtMs,
                 eventEndsAtMs: hydratedEvent.eventEndsAtMs,
                 place: hydratedEvent.place,
+                accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                kind: hydratedEvent.kind,
               }
             : null
         }

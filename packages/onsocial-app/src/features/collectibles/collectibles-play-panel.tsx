@@ -108,6 +108,7 @@ function collectionViewFromOfflineAlbum(
     eventStartsAtMs: null,
     eventEndsAtMs: null,
     place: null,
+    accessEndsAtMs: null,
     royalty: null,
   };
 }
@@ -306,12 +307,19 @@ export function CollectiblesPlayPanel({
   const aboutHasMore = Boolean(
     view &&
       ((aboutEvent && !aboutEvent.empty) ||
+        (view.accessEndsAtMs != null && view.accessEndsAtMs > 0) ||
         view.seriesId ||
         view.createdAtMs > 0)
   );
   const aboutTeaserText =
     description ||
     aboutEvent?.place ||
+    (view &&
+    view.accessEndsAtMs != null &&
+    view.accessEndsAtMs > 0 &&
+    aboutEvent?.empty
+      ? 'Access details'
+      : '') ||
     (aboutHasMore ? 'About' : '');
   const kindLabel = marketMediumLabel(view?.kind);
   const releasedRel =

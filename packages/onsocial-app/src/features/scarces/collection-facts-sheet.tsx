@@ -26,6 +26,10 @@ import {
   ticketEventScheduleFacts,
 } from '@/features/scarces/ticket-event-facts';
 import {
+  accessEndsScheduleFacts,
+  collectionShouldShowAccessEnds,
+} from '@/features/scarces/access-ends-facts';
+import {
   formatFutureRelativeTime,
   formatMarketRelativeTime,
 } from '@/features/market/market-listings';
@@ -128,6 +132,9 @@ export function CollectionFactsSheet({
   const schedule = scheduleFacts(view, nowMs);
   const event = ticketEventScheduleFacts(view, nowMs);
   const showEvent = collectionHasTicketEvent(view) && !event.empty;
+  const access = accessEndsScheduleFacts(view.accessEndsAtMs, nowMs);
+  const showAccess =
+    collectionShouldShowAccessEnds(view, nowMs) && !access.empty;
   const facetsLabel = dropFacetsLabel(view.facets);
   const createdLabel =
     view.createdAtMs > 0
@@ -190,6 +197,18 @@ export function CollectionFactsSheet({
                 <SheetFactRow label="Ends" value={event.ends} />
               ) : null}
               {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+            <Divider variant="detail" />
+          </>
+        ) : null}
+
+        {showAccess ? (
+          <>
+            <SheetFactSection title="Access">
+              {access.ends ? (
+                <SheetFactRow label="Ends" value={access.ends} />
+              ) : null}
+              {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
             </SheetFactSection>
             <Divider variant="detail" />
           </>

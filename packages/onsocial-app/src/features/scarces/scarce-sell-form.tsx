@@ -109,6 +109,8 @@ export function ScarceSellForm({
     eventStartsAtMs: number | null;
     eventEndsAtMs: number | null;
     place: string | null;
+    accessEndsAtMs: number | null;
+    kind: string | null;
   } | null>(null);
   const [authorProfileName, setAuthorProfileName] = useState<string | null>(
     null
@@ -148,6 +150,8 @@ export function ScarceSellForm({
                 eventStartsAtMs: view.eventStartsAtMs,
                 eventEndsAtMs: view.eventEndsAtMs,
                 place: view.place,
+                accessEndsAtMs: view.accessEndsAtMs,
+                kind: view.kind,
               }
             : null
         );
@@ -493,6 +497,8 @@ export function ScarceSellForm({
                 eventStartsAtMs: hydratedEvent.eventStartsAtMs,
                 eventEndsAtMs: hydratedEvent.eventEndsAtMs,
                 place: hydratedEvent.place,
+                accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                kind: hydratedEvent.kind,
               }
             : null
         }

@@ -760,9 +760,17 @@ export function CollectionPagePanel({
   const description = view.description?.trim() ?? '';
   const aboutEvent = ticketEventScheduleFacts(view, nowMs);
   const aboutHasMore =
-    !aboutEvent.empty || Boolean(view.seriesId) || view.createdAtMs > 0;
+    !aboutEvent.empty ||
+    (view.accessEndsAtMs != null && view.accessEndsAtMs > 0) ||
+    Boolean(view.seriesId) ||
+    view.createdAtMs > 0;
   const aboutTeaserText =
-    description || aboutEvent.place || (aboutHasMore ? 'About' : '');
+    description ||
+    aboutEvent.place ||
+    (view.accessEndsAtMs != null && view.accessEndsAtMs > 0 && aboutEvent.empty
+      ? 'Access details'
+      : '') ||
+    (aboutHasMore ? 'About' : '');
   const chipParts: string[] = [];
   if (view.isVariations) {
     chipParts.push(

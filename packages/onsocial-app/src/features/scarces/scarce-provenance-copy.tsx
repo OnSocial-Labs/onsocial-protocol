@@ -137,11 +137,19 @@ export function ScarceProvenanceCopy({
       (event?.eventEndsAtMs != null && event.eventEndsAtMs > 0) ||
       event?.place?.trim()
   );
+  const hasAccess = Boolean(
+    event?.accessEndsAtMs != null &&
+      event.accessEndsAtMs > 0 &&
+      !hasEvent
+  );
+  const hasMoreStory = hasEvent || hasAccess;
   const teaserText =
     body ||
     (hasEvent
       ? ticketEventPlaceLabel(event?.place) || 'Event details'
-      : null);
+      : hasAccess
+        ? 'Access details'
+        : null);
   // Title lives in the commerce summary; only force it here when asked
   // (e.g. list/compose preview).
   const showTitleRow = Boolean(resolvedTitle) && showTitle;
@@ -157,7 +165,7 @@ export function ScarceProvenanceCopy({
         {teaserText ? (
           <CollectionAboutTeaser
             text={teaserText}
-            hasMore={hasEvent}
+            hasMore={hasMoreStory}
             onReadMore={() => setAboutOpen(true)}
           />
         ) : null}
