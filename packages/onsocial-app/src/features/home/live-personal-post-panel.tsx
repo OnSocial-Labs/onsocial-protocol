@@ -639,7 +639,7 @@ export function LivePersonalPostPanel({
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
-                    onRepost={repostHandler}
+                  onRepost={repostHandler}
                   pollTally={pollTallyFor(conversation.root)}
                   pollVotePending={isPollVotePending(conversation.root)}
                   onPollVote={(post, optionIndex) => {
@@ -785,7 +785,7 @@ export function LivePersonalPostPanel({
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
-                    onRepost={repostHandler}
+                            onRepost={repostHandler}
                             pollTally={pollTallyFor(row.post)}
                             pollVotePending={isPollVotePending(row.post)}
                             onPollVote={(post, optionIndex) => {
@@ -831,7 +831,7 @@ export function LivePersonalPostPanel({
                       onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}
-                    onRepost={repostHandler}
+                      onRepost={repostHandler}
                       pollTally={pollTallyFor(quote)}
                       pollVotePending={isPollVotePending(quote)}
                       onPollVote={(post, optionIndex) => {
