@@ -64,11 +64,13 @@ describe('profile onsocial links', () => {
 
   it('extracts account id from OnSocial profile URLs', () => {
     expect(
-      normalizeOnSocialAccountInput(`https://testnet.onsocial.id/@${sampleAccount}`)
+      normalizeOnSocialAccountInput(
+        `https://testnet.onsocial.id/@${sampleAccount}`
+      )
     ).toBe(sampleAccount);
-    expect(
-      normalizeOnSocialAccountInput(`onsocial.id/@${sampleAccount}`)
-    ).toBe(sampleAccount);
+    expect(normalizeOnSocialAccountInput(`onsocial.id/@${sampleAccount}`)).toBe(
+      sampleAccount
+    );
   });
 
   it('rejects incomplete or wrong-network account ids', () => {
@@ -96,8 +98,8 @@ describe('profile onsocial links', () => {
   });
 
   it('loads onsocial from stored link records', () => {
-    expect(profileLinksInputFromRecord({ onsocial: sampleAccount }).onsocial).toBe(
-      sampleAccount
-    );
+    expect(
+      profileLinksInputFromRecord({ onsocial: sampleAccount }).onsocial
+    ).toBe(sampleAccount);
   });
 });

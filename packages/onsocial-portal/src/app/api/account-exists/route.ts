@@ -27,8 +27,7 @@ export async function GET(request: NextRequest) {
     const account = await viewAccount(accountId);
     return NextResponse.json({ exists: account != null });
   } catch (cause) {
-    const message =
-      cause instanceof Error ? cause.message.toLowerCase() : '';
+    const message = cause instanceof Error ? cause.message.toLowerCase() : '';
     // Missing accounts throw from RPC — treat as not found.
     if (
       message.includes('does not exist') ||
