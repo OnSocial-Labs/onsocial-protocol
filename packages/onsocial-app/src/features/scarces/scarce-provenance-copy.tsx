@@ -4,7 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { PostRow } from '@onsocial/sdk';
 import { CollectionAboutTeaser } from '@/features/scarces/collection-about-sheet';
-import { ScarceAboutSheet } from '@/features/scarces/scarce-about-sheet';
+import {
+  ScarceAboutSheet,
+  type ScarceAboutEvent,
+} from '@/features/scarces/scarce-about-sheet';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { parsePostText } from '@/lib/post-display';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -31,6 +34,8 @@ export interface ScarceProvenanceCopyProps {
    * (mint drawer — creator should see what becomes NEP-177 title).
    */
   showTitle?: boolean;
+  /** Ticket event — shown in the About hug when the teaser opens. */
+  event?: ScarceAboutEvent | null;
   /** About sheet stack above commerce. */
   aboutZIndex?: number;
 }
@@ -117,6 +122,7 @@ export function ScarceProvenanceCopy({
   sourcePostPath = null,
   hideOriginalLink = false,
   showTitle = false,
+  event = null,
   aboutZIndex = SCARCE_Z.nestedOverCommerce,
 }: ScarceProvenanceCopyProps) {
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -162,6 +168,7 @@ export function ScarceProvenanceCopy({
           title={resolvedTitle}
           body={body}
           originalHref={originalHref}
+          event={event}
           zIndex={aboutZIndex}
         />
       ) : null}

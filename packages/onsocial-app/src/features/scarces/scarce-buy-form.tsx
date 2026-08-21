@@ -1018,6 +1018,15 @@ export function ScarceBuyForm({
           resolvedSourcePostPath ?? listing?.sourcePostPath,
           listing?.postHref
         )}
+        event={
+          hydratedEvent
+            ? {
+                eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                place: hydratedEvent.place,
+              }
+            : null
+        }
       />
 
       {status !== 'lazy_listing' ? <ScarceTraits tokenId={tokenId} /> : null}
