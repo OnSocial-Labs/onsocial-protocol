@@ -68,6 +68,7 @@ async function insertNotificationRows(
 
 /**
  * After a proposal snapshot write: fan out Activity notifications when enabled.
+ * Create → members (ex proposer); votes → proposer; terminal status → members.
  * Idempotent via dedupe keys. Never throws into the sync path.
  *
  * If membership rows are empty (policy not indexed yet), force one membership

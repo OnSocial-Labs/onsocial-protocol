@@ -22,6 +22,7 @@ export const NOTIFICATION_TYPES = [
   'group_invite',
   'dao_proposal',
   'dao_proposal_resolved',
+  'dao_proposal_vote',
   'app_event',
   'dm',
 ] as const;

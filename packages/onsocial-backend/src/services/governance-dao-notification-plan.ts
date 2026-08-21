@@ -10,7 +10,7 @@ const TERMINAL_DAO_PROPOSAL_STATUSES = new Set([
 ]);
 
 export type DaoNotificationPlan = {
-  type: 'dao_proposal' | 'dao_proposal_resolved';
+  type: 'dao_proposal' | 'dao_proposal_resolved' | 'dao_proposal_vote';
   actor: string;
   recipients: string[];
   dedupeKey: string;
@@ -23,6 +23,7 @@ type ProposalSnapshotSlice = {
   description: string;
   kind: Record<string, unknown>;
   status: string;
+  votes?: Record<string, string>;
 };
 
 function normalizeAccountId(value: string | null | undefined): string {
@@ -60,14 +61,29 @@ function uniqueRecipients(ids: string[], exclude?: string): string[] {
   return [...out];
 }
 
+/** Lowercase account → vote string (Approve / Reject / Remove / …). */
+function normalizeVotes(
+  votes: Record<string, string> | null | undefined
+): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!votes) return out;
+  for (const [account, vote] of Object.entries(votes)) {
+    const id = normalizeAccountId(account);
+    const value = String(vote ?? '').trim();
+    if (id && value) out.set(id, value);
+  }
+  return out;
+}
+
 /**
  * Pure diff — used by sync + unit tests.
  * Create: notify members (excluding proposer).
+ * New/changed votes: notify proposer only (excluding the voter).
  * Terminal status change: notify members (including proposer).
  */
 export function planDaoProposalNotifications(params: {
   daoAccountId: string;
-  previous: Pick<ProposalSnapshotSlice, 'status'> | null;
+  previous: Pick<ProposalSnapshotSlice, 'status' | 'votes'> | null;
   next: ProposalSnapshotSlice;
   memberAccountIds: string[];
 }): DaoNotificationPlan[] {
@@ -101,6 +117,26 @@ export function planDaoProposalNotifications(params: {
       });
     }
     return plans;
+  }
+
+  const previousVotes = normalizeVotes(params.previous.votes);
+  const nextVotes = normalizeVotes(params.next.votes);
+  if (proposer) {
+    for (const [voter, vote] of nextVotes) {
+      if (voter === proposer) continue;
+      const previousVote = previousVotes.get(voter) ?? '';
+      if (previousVote === vote) continue;
+      plans.push({
+        type: 'dao_proposal_vote',
+        actor: voter,
+        recipients: [proposer],
+        dedupeKey: `dao:${daoAccountId}:proposal:${proposalId}:vote:${voter}:${vote}`,
+        context: {
+          ...baseContext,
+          vote,
+        },
+      });
+    }
   }
 
   const previousStatus = params.previous.status?.trim() || '';
