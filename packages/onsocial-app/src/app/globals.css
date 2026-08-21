@@ -9185,6 +9185,13 @@ a.os-surface-row {
     opacity: 1;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-summon-activity,
+    .portfolio-summon-activity-count {
+      transition: none;
+    }
+  }
+
   .portfolio-summon-account {
     flex-shrink: 0;
     display: inline-flex;
