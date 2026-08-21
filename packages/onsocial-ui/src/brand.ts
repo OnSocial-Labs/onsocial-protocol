@@ -17,9 +17,7 @@ export const ONSOCIAL_BRAND = {
 } as const;
 
 /** Absolute mark URL for embeds / social-link chips outside React. */
-export function onsocialBrandMarkUrl(
-  origin = 'https://onsocial.id'
-): string {
+export function onsocialBrandMarkUrl(origin = 'https://onsocial.id'): string {
   const base = origin.replace(/\/$/, '');
   return `${base}${ONSOCIAL_BRAND.markSvgPath}`;
 }
