@@ -38,8 +38,8 @@ export interface DropTemplate {
   } | null;
   /** Open Advanced on selection because it holds essential fields. */
   openAdvanced: boolean;
-  /** Sale close required (event drops). */
-  requiresEndTime?: boolean;
+  /** Event end required (tickets) — separate from sale close. */
+  requiresEventEnd?: boolean;
   /** Access end required (expiring drops). */
   requiresAccessEnd?: boolean;
 }
@@ -82,13 +82,13 @@ export const DROP_TEMPLATES: DropTemplate[] = [
     id: 'ticket',
     label: 'Tickets',
     tagline: 'Event entry — one redeem per ticket.',
-    hint: 'Set sale close to the event. Cap per wallet to limit scalping. Tradable until redeemed.',
+    hint: 'Event ends sets access. Date changes on for rain days. Sale window is buy-only.',
     kind: 'ticket',
     unit: 'tickets',
     unitSingular: 'ticket',
-    presets: { transferable: true, renewable: false, maxRedeems: '1' },
+    presets: { transferable: true, renewable: true, maxRedeems: '1' },
     openAdvanced: true,
-    requiresEndTime: true,
+    requiresEventEnd: true,
   },
   {
     id: 'coupon',

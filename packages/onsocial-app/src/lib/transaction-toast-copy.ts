@@ -62,6 +62,7 @@ export const txToastConfirming = {
   resumingCollection: 'Resuming drop…',
   deletingCollection: 'Deleting drop…',
   cancelingCollection: 'Canceling drop…',
+  extendingTicketEntry: 'Extending entry…',
   withdrawingUnclaimedRefunds: 'Withdrawing refunds…',
   claimingTicketRefund: 'Claiming refund…',
   updatingAllowlist: 'Updating allowlist…',
@@ -209,6 +210,7 @@ export const txToastSuccess = {
   collectionResumed: 'Drop is live again.',
   collectionDeleted: 'Drop deleted.',
   collectionCancelled: 'Drop cancelled. Refunds are open.',
+  ticketEntryExtended: 'Entry extended.',
   unclaimedRefundsWithdrawn: 'Unclaimed refunds withdrawn.',
   ticketRefundClaimed: 'Refund claimed.',
   allowlistUpdated: 'Allowlist updated.',
@@ -291,6 +293,7 @@ export const txToastError = {
   resumeCollectionFailed: 'Could not resume the drop.',
   deleteCollectionFailed: 'Could not delete the drop.',
   cancelCollectionFailed: 'Could not cancel the drop.',
+  extendTicketEntryFailed: 'Could not extend entry.',
   withdrawUnclaimedRefundsFailed: 'Could not withdraw unclaimed refunds.',
   claimTicketRefundFailed: 'Could not claim refund.',
   variationSetSize: (min: number, max: string, count: string) =>

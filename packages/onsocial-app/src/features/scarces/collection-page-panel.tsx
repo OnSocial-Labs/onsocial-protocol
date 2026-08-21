@@ -46,6 +46,7 @@ import {
   CollectionActivitySkeleton,
 } from '@/features/scarces/collection-page-skeleton';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
@@ -64,6 +65,7 @@ import { requestDropCompose } from '@/features/scarces/drop-compose-draft';
 import {
   canCancelDrop,
   canDeleteDrop,
+  canExtendTicketEntry,
   canPauseDrop,
   canResumeDrop,
 } from '@/features/scarces/drop-owner-actions';
@@ -567,10 +569,24 @@ export function CollectionPagePanel({
       canResumeDrop(status) ||
       canCancelDrop(status) ||
       (view != null && canDeleteDrop(view.minted, status)) ||
+      (view != null &&
+        canExtendTicketEntry({
+          kind: view.kind,
+          renewable: view.renewable,
+          status,
+        })) ||
       status === 'cancelled');
 
   const handleOwnerManaged = useCallback(
-    (change: 'paused' | 'resumed' | 'deleted' | 'cancelled' | 'refunds_withdrawn') => {
+    (
+      change:
+        | 'paused'
+        | 'resumed'
+        | 'deleted'
+        | 'cancelled'
+        | 'refunds_withdrawn'
+        | 'entry_extended'
+    ) => {
       if (change === 'deleted') {
         router.replace(APP_DROPS_PATH);
         return;
@@ -742,6 +758,19 @@ export function CollectionPagePanel({
     setShowPassOpen(true);
   };
   const description = view.description?.trim() ?? '';
+  const aboutEvent = ticketEventScheduleFacts(view, nowMs);
+  const aboutHasMore =
+    !aboutEvent.empty ||
+    (view.accessEndsAtMs != null && view.accessEndsAtMs > 0) ||
+    Boolean(view.seriesId) ||
+    view.createdAtMs > 0;
+  const aboutTeaserText =
+    description ||
+    aboutEvent.place ||
+    (view.accessEndsAtMs != null && view.accessEndsAtMs > 0 && aboutEvent.empty
+      ? 'Access details'
+      : '') ||
+    (aboutHasMore ? 'About' : '');
   const chipParts: string[] = [];
   if (view.isVariations) {
     chipParts.push(
@@ -1017,6 +1046,9 @@ export function CollectionPagePanel({
                     status={status}
                     minted={view.minted}
                     priceNear={view.priceNear}
+                    kind={view.kind}
+                    renewable={view.renewable}
+                    eventEndsAtMs={view.eventEndsAtMs}
                     onManaged={handleOwnerManaged}
                   />
                 ) : null}
@@ -1138,9 +1170,10 @@ export function CollectionPagePanel({
             {mintDisabledReason && !isOwner ? (
               <p className="collection-mint-hint">{mintDisabledReason}</p>
             ) : null}
-            {description ? (
+            {aboutTeaserText ? (
               <CollectionAboutTeaser
-                text={description}
+                text={aboutTeaserText}
+                hasMore={aboutHasMore}
                 onReadMore={() => setAboutOpen(true)}
               />
             ) : null}

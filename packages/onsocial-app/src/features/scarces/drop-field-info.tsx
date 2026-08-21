@@ -14,6 +14,8 @@ export type DropFieldInfoKey =
   | 'series'
   | 'supplyPinned'
   | 'saleWindow'
+  | 'eventWindow'
+  | 'eventPlace'
   | 'transferable'
   | 'renewable'
   | 'accessEnds'
@@ -80,6 +82,18 @@ const DROP_FIELD_INFO: Record<
     summary: 'When collectors can mint — opens now by default, no end until sold out.',
     detail: 'Tap Opens or Closes to set a time. Clear with ✕. Allowlists need Opens set to mint early.',
   },
+  eventWindow: {
+    title: 'Event window',
+    summary: 'When the event runs — separate from when tickets are for sale.',
+    detail:
+      'Event ends is required and also ends ticket access at the door. Starts is optional. Sale window is only when fans can buy.',
+  },
+  eventPlace: {
+    title: 'Place',
+    summary: 'Optional venue or event label — city, festival, or room name.',
+    detail:
+      'Public intentional tag (not GPS). Same style as post places — e.g. Lisbon or ETH Denver.',
+  },
   transferable: {
     title: 'Transferable',
     summary: 'Whether collectors can move or resell their edition.',
@@ -87,14 +101,16 @@ const DROP_FIELD_INFO: Record<
       'Yes allows transfer and resale. Soulbound keeps the edition with the buyer.',
   },
   renewable: {
-    title: 'Renewable',
-    summary: 'Whether you can extend each edition’s access end date later.',
-    detail: 'Choose No if access must stay fixed after mint. Optional Access ends sets a shared expiry.',
+    title: 'Allow date changes',
+    summary: 'Whether you can push the end date later (rain day / postpone).',
+    detail:
+      'On by default for tickets. Choose No if the end must stay fixed after mint. For coupons and memberships, optional Access ends sets a shared expiry.',
   },
   accessEnds: {
     title: 'Access ends',
     summary: 'Optional shared end date on every edition.',
-    detail: 'Leave blank for no expiry. Only shown when Renewable is Yes.',
+    detail:
+      'Leave blank for no expiry. Tickets use Event ends instead — no second date to enter.',
   },
   maxRedeems: {
     title: 'Max redeems',

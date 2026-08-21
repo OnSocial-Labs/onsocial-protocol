@@ -6,8 +6,10 @@ import { OnSocialError, type HttpClient } from '../../internal/http.js';
 import type { StorageProvider } from '../../storage/provider.js';
 import type { MintOptions, MintResponse, RelayResponse } from '../../types.js';
 import {
+  broadcastViaWalletBatch,
   composeAndSign,
   composeFormAndSign,
+  prepareCompose,
   signAndRelay,
   type SessionGetter,
   type BroadcastGetter,
@@ -275,6 +277,68 @@ export class ScarcesTokensApi {
       'scarces.renewToken',
       this._relayOpts({ confirmation: true })
     );
+  }
+
+  /**
+   * Renew many tokens in one or more wallet confirmations.
+   * `newExpiresAt` is nanoseconds since epoch (same as `renew`).
+   * Chunks stay under the NEAR prepaid gas cap (~300 TGas).
+   */
+  async renewMany(
+    collectionId: string,
+    tokenIds: string[],
+    newExpiresAt: number,
+    opts?: { chunkSize?: number; gasPerAction?: string }
+  ): Promise<RelayResponse[]> {
+    const ids = tokenIds.map((id) => id.trim()).filter(Boolean);
+    if (ids.length === 0) return [];
+
+    const broadcast = this._getBroadcast?.();
+    if (typeof broadcast !== 'object' || broadcast?.kind !== 'wallet') {
+      throw new Error(
+        'renewMany requires wallet broadcast (batched FunctionCalls)'
+      );
+    }
+
+    const chunkSize = Math.max(1, Math.min(opts?.chunkSize ?? 6, 20));
+    // Keep sum under ~300 TGas prepaid (default per-action gas is 300 TGas).
+    const gasPerAction = opts?.gasPerAction ?? '45000000000000';
+    const results: RelayResponse[] = [];
+
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const calls = [];
+      for (const tokenId of chunk) {
+        const prepared = await prepareCompose(
+          this._http,
+          SCARCES_VERBS.RENEW_TOKEN,
+          {
+            tokenId,
+            collectionId,
+            newExpiresAt,
+          }
+        );
+        const target = prepared.target_account || this._scarcesContract;
+        calls.push({
+          action: prepared.action as Record<string, unknown>,
+          targetContract: target,
+        });
+      }
+      const receiverId = calls[0]!.targetContract;
+      for (const call of calls) {
+        if (call.targetContract !== receiverId) {
+          throw new Error('Renew batch must target the same contract');
+        }
+      }
+      results.push(
+        await broadcastViaWalletBatch(calls, {
+          ...broadcast,
+          gas: gasPerAction,
+        })
+      );
+    }
+
+    return results;
   }
 
   /** Redeem a token (e.g. for goods/services off-chain). */

@@ -105,6 +105,13 @@ export function ScarceSellForm({
     postHrefFromSourcePath(item.sourcePostPath) ||
     null;
   const [hydratedArtistId, setHydratedArtistId] = useState<string | null>(null);
+  const [hydratedEvent, setHydratedEvent] = useState<{
+    eventStartsAtMs: number | null;
+    eventEndsAtMs: number | null;
+    place: string | null;
+    accessEndsAtMs: number | null;
+    kind: string | null;
+  } | null>(null);
   const [authorProfileName, setAuthorProfileName] = useState<string | null>(
     null
   );
@@ -123,13 +130,10 @@ export function ScarceSellForm({
     item.collectionId?.trim() || collectionIdFromTokenId(item.tokenId);
 
   useEffect(() => {
-    if (authorFromPost) {
-      setHydratedArtistId(null);
-      return;
-    }
     const id = collectionId?.trim();
     if (!id) {
       setHydratedArtistId(null);
+      setHydratedEvent(null);
       return;
     }
     let cancelled = false;
@@ -137,15 +141,35 @@ export function ScarceSellForm({
       try {
         const view = await fetchCollectionPreferIndexer(id);
         if (cancelled) return;
-        setHydratedArtistId(view?.creatorId?.trim() || null);
+        if (!authorFromPost) {
+          setHydratedArtistId(view?.creatorId?.trim() || null);
+        }
+        setHydratedEvent(
+          view
+            ? {
+                eventStartsAtMs: view.eventStartsAtMs,
+                eventEndsAtMs: view.eventEndsAtMs,
+                place: view.place,
+                accessEndsAtMs: view.accessEndsAtMs,
+                kind: view.kind,
+              }
+            : null
+        );
       } catch {
-        if (!cancelled) setHydratedArtistId(null);
+        if (!cancelled) {
+          if (!authorFromPost) setHydratedArtistId(null);
+          setHydratedEvent(null);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [authorFromPost, collectionId]);
+
+  useEffect(() => {
+    if (authorFromPost) setHydratedArtistId(null);
+  }, [authorFromPost]);
 
   // Fall back to seller so party lines never blank while creator hydrates.
   const authorId = authorFromPost || hydratedArtistId || sellerId;
@@ -467,6 +491,17 @@ export function ScarceSellForm({
         description={item.description}
         postHref={sourcePostHref}
         sourcePostPath={item.sourcePostPath}
+        event={
+          hydratedEvent
+            ? {
+                eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                place: hydratedEvent.place,
+                accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                kind: hydratedEvent.kind,
+              }
+            : null
+        }
       />
 
       <div

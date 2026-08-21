@@ -17,6 +17,7 @@ import {
   CollectionAboutTeaser,
 } from '@/features/scarces/collection-about-sheet';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import {
   deriveCollectionStatus,
   fetchCollectionPreferIndexer,
@@ -104,6 +105,10 @@ function collectionViewFromOfflineAlbum(
     randomAssignment: false,
     seriesId: null,
     seriesTitle: null,
+    eventStartsAtMs: null,
+    eventEndsAtMs: null,
+    place: null,
+    accessEndsAtMs: null,
     royalty: null,
   };
 }
@@ -298,6 +303,24 @@ export function CollectiblesPlayPanel({
   const playables = view?.playables ?? [];
   const hasPlayables = playables.length > 0;
   const description = view?.description?.trim() ?? '';
+  const aboutEvent = view ? ticketEventScheduleFacts(view, nowMs) : null;
+  const aboutHasMore = Boolean(
+    view &&
+      ((aboutEvent && !aboutEvent.empty) ||
+        (view.accessEndsAtMs != null && view.accessEndsAtMs > 0) ||
+        view.seriesId ||
+        view.createdAtMs > 0)
+  );
+  const aboutTeaserText =
+    description ||
+    aboutEvent?.place ||
+    (view &&
+    view.accessEndsAtMs != null &&
+    view.accessEndsAtMs > 0 &&
+    aboutEvent?.empty
+      ? 'Access details'
+      : '') ||
+    (aboutHasMore ? 'About' : '');
   const kindLabel = marketMediumLabel(view?.kind);
   const releasedRel =
     view && view.createdAtMs > 0
@@ -602,9 +625,10 @@ export function CollectiblesPlayPanel({
               </div>
             ) : null}
 
-            {description ? (
+            {aboutTeaserText ? (
               <CollectionAboutTeaser
-                text={description}
+                text={aboutTeaserText}
+                hasMore={aboutHasMore}
                 onReadMore={() => setAboutOpen(true)}
               />
             ) : null}

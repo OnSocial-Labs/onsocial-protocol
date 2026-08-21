@@ -20,6 +20,10 @@ import {
   parseAudioFormat,
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
+import {
+  parseTicketEventFromCollectionMetadata,
+  parseTicketEventFromExtra,
+} from '@/features/scarces/ticket-event-meta';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
 
 export type { ScarceReadableMedia, WritingReleaseFormat };
@@ -127,6 +131,17 @@ export interface CollectionView {
   /** Series grouping (from collection metadata `series`), when set. */
   seriesId: string | null;
   seriesTitle: string | null;
+  /** Event validity start (ms) from metadata.extra — tickets. */
+  eventStartsAtMs: number | null;
+  /** Event validity end (ms) from metadata.extra — tickets. */
+  eventEndsAtMs: number | null;
+  /** Intentional place slug from metadata.extra — tickets. */
+  place: string | null;
+  /**
+   * Shared access end (ms) from NEP-177 `expires_at` on the mint template.
+   * Coupons require it; memberships optional; tickets stamp it from Event ends.
+   */
+  accessEndsAtMs: number | null;
   /**
    * Resale royalty map (account → bps). Empty / missing means none.
    * Stored on the collection and stamped onto minted tokens.
@@ -162,6 +177,18 @@ function priceDisplay(yocto: string): string | null {
 function nsToMs(raw: number | null | undefined): number | null {
   if (raw == null || !Number.isFinite(raw) || raw <= 0) return null;
   return raw > 1e15 ? Math.floor(raw / 1e6) : raw > 1e12 ? raw : raw * 1000;
+}
+
+/** NEP-177 `expires_at` is milliseconds since epoch. */
+function asPositiveExpiresAtMs(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return Math.floor(raw);
+  }
+  if (typeof raw === 'string' && /^\d+$/.test(raw.trim())) {
+    const n = Number(raw.trim());
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  }
+  return null;
 }
 
 /** Normalize on-chain royalty map; drop empty / invalid entries. */
@@ -271,6 +298,11 @@ interface TemplateMeta {
   readables?: ScarceReadableMedia[];
   writingFormat?: WritingReleaseFormat;
   writingManifestCid?: string;
+  eventStartsAtMs?: number | null;
+  eventEndsAtMs?: number | null;
+  place?: string | null;
+  /** NEP-177 template `expires_at` (ms). */
+  accessEndsAtMs?: number | null;
 }
 
 const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
@@ -444,6 +476,10 @@ function parseTemplate(
     let readables: ScarceReadableMedia[] | undefined;
     let writingFormat: WritingReleaseFormat | undefined;
     let writingManifestCid: string | undefined;
+    let eventStartsAtMs: number | null | undefined;
+    let eventEndsAtMs: number | null | undefined;
+    let place: string | null | undefined;
+    const accessEndsAtMs = asPositiveExpiresAtMs(meta.expires_at);
     if (typeof meta.extra === 'string' && meta.extra.trim()) {
       try {
         const extra = asRecord(JSON.parse(meta.extra));
@@ -471,6 +507,10 @@ function parseTemplate(
         if (parsedReadables.length > 0) readables = parsedReadables;
         const parsedFormat = parseWritingFormat(extra?.writingFormat);
         if (parsedFormat) writingFormat = parsedFormat;
+        const eventMeta = parseTicketEventFromExtra(extra);
+        eventStartsAtMs = eventMeta.eventStartsAtMs;
+        eventEndsAtMs = eventMeta.eventEndsAtMs;
+        place = eventMeta.place;
       } catch {
         // ignore malformed extra
       }
@@ -489,6 +529,10 @@ function parseTemplate(
       ...(readables ? { readables } : {}),
       ...(writingFormat ? { writingFormat } : {}),
       ...(writingManifestCid ? { writingManifestCid } : {}),
+      ...(eventStartsAtMs != null ? { eventStartsAtMs } : {}),
+      ...(eventEndsAtMs != null ? { eventEndsAtMs } : {}),
+      ...(place ? { place } : {}),
+      ...(accessEndsAtMs != null ? { accessEndsAtMs } : {}),
     };
   } catch {
     return fallback;
@@ -523,6 +567,7 @@ export function toCollectionView(
   );
   const packagingUrl = resolveScarceMediaUrl(coverMeta.url);
   const series = parseSeries(record.metadata);
+  const eventOverride = parseTicketEventFromCollectionMetadata(record.metadata);
   const maxRedeems =
     record.max_redeems != null && record.max_redeems > 0
       ? Math.floor(record.max_redeems)
@@ -587,6 +632,12 @@ export function toCollectionView(
     randomAssignment: Boolean(record.random_assignment),
     seriesId: series?.id ?? null,
     seriesTitle: series?.title ?? null,
+    eventStartsAtMs:
+      eventOverride.eventStartsAtMs ?? template.eventStartsAtMs ?? null,
+    eventEndsAtMs:
+      eventOverride.eventEndsAtMs ?? template.eventEndsAtMs ?? null,
+    place: eventOverride.place ?? template.place ?? null,
+    accessEndsAtMs: template.accessEndsAtMs ?? null,
     royalty: parseRoyalty(record.royalty),
     ...(template.sourcePostPath
       ? { sourcePostPath: template.sourcePostPath }

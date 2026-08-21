@@ -18,20 +18,28 @@ import {
   SheetFactSection,
 } from '@onsocial/ui';
 import type { CollectionView } from '@/features/scarces/collections-data';
+import {
+  accessEndsScheduleFacts,
+  collectionShouldShowAccessEnds,
+} from '@/features/scarces/access-ends-facts';
+import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { formatMarketRelativeTime } from '@/features/market/market-listings';
 import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
 /**
- * One-line drop blurb. Shows an inline “…” only when the line truncates —
- * same measure path as Buy.
+ * One-line drop blurb. Shows inline “…” when the line truncates, or when
+ * `hasMore` — About has Event / other metadata beyond this one-liner.
  */
 export function CollectionAboutTeaser({
   text,
   onReadMore,
+  hasMore = false,
 }: {
   text: string;
   onReadMore: () => void;
+  /** Show … even when the line fits — About holds more than this teaser. */
+  hasMore?: boolean;
 }) {
   const lineRef = useRef<HTMLParagraphElement>(null);
   const [truncated, setTruncated] = useState(false);
@@ -51,21 +59,24 @@ export function CollectionAboutTeaser({
     return () => observer.disconnect();
   }, [trimmed]);
 
-  if (!trimmed) return null;
+  if (!trimmed && !hasMore) return null;
+
+  const showExpand = truncated || hasMore;
+  const line = trimmed || 'About';
 
   return (
     <div
-      className={`collection-about-teaser${truncated ? ' is-truncated' : ''}`}
+      className={`collection-about-teaser${showExpand ? ' is-truncated' : ''}`}
     >
       <p ref={lineRef} className="collection-about-teaser-line">
-        {trimmed}
+        {line}
       </p>
-      {truncated ? (
+      {showExpand ? (
         <button
           type="button"
           className="collection-about-read-more"
           onClick={onReadMore}
-          aria-label="Read more"
+          aria-label={hasMore && !truncated ? 'More details' : 'Read more'}
         >
           …
         </button>
@@ -107,6 +118,12 @@ export function CollectionAboutSheet({
       : null;
   const createdRel =
     view.createdAtMs > 0 ? formatMarketRelativeTime(view.createdAtMs) : null;
+  const [nowMs] = useState(() => Date.now());
+  const event = ticketEventScheduleFacts(view, nowMs);
+  const showEvent = !event.empty;
+  const access = accessEndsScheduleFacts(view.accessEndsAtMs, nowMs);
+  const showAccess = collectionShouldShowAccessEnds(view, nowMs) && !access.empty;
+  const showStory = showEvent || showAccess;
 
   return (
     <OsHugSheet
@@ -126,9 +143,39 @@ export function CollectionAboutSheet({
           <p className="collection-about-body">{description}</p>
         ) : null}
 
-        {view.seriesId || createdAbs ? (
+        {showEvent ? (
           <>
             {description ? <Divider variant="detail" /> : null}
+            <SheetFactSection title="Event">
+              {event.place ? (
+                <SheetFactRow label="Place" value={event.place} />
+              ) : null}
+              {event.starts ? (
+                <SheetFactRow label="Starts" value={event.starts} />
+              ) : null}
+              {event.ends ? (
+                <SheetFactRow label="Ends" value={event.ends} />
+              ) : null}
+              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+          </>
+        ) : null}
+
+        {showAccess ? (
+          <>
+            {description || showEvent ? <Divider variant="detail" /> : null}
+            <SheetFactSection title="Access">
+              {access.ends ? (
+                <SheetFactRow label="Ends" value={access.ends} />
+              ) : null}
+              {access.next ? <SheetFactCopy>{access.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+          </>
+        ) : null}
+
+        {view.seriesId || createdAbs ? (
+          <>
+            {description || showStory ? <Divider variant="detail" /> : null}
             <SheetFactSection title="Details">
               {view.seriesId ? (
                 <SheetFactRow

@@ -202,6 +202,24 @@ describe('toCollectionView cover seat', () => {
     expect(view?.facets).toEqual(['jazz', 'soul']);
   });
 
+  it('reads NEP-177 expires_at as accessEndsAtMs for coupons', () => {
+    const view = toCollectionView({
+      collection_id: 'perk-1',
+      creator_id: 'alice.near',
+      total_supply: 100,
+      minted_count: 0,
+      renewable: true,
+      metadata_template: JSON.stringify({
+        title: 'Coffee',
+        media: 'https://cdn.example/ipfs/bafycover',
+        expires_at: 1_800_000_000_000,
+        extra: JSON.stringify({ kind: 'coupon' }),
+      }),
+    });
+    expect(view?.kind).toBe('coupon');
+    expect(view?.accessEndsAtMs).toBe(1_800_000_000_000);
+  });
+
   it('marks early access from Opens time, not allowlist_price', () => {
     const timed = toCollectionView(
       variationRecord({

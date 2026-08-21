@@ -42,6 +42,7 @@ import { ScarcePostPreview } from '@/features/scarces/scarce-post-preview';
 import { ScarceProvenanceCopy, isScarceOriginalSelf } from '@/features/scarces/scarce-provenance-copy';
 import { fetchScarceRoyaltyMap } from '@/features/scarces/scarce-royalty-fetch';
 import { createAppScarcesWalletClient } from '@/features/scarces/scarces-wallet-client';
+import { fetchCollectionPreferIndexer } from '@/features/scarces/collections-data';
 import { useMobileFieldFocusScroll } from '@/hooks/use-mobile-field-focus-scroll';
 import { finalizeAmountInput, normalizeAmountInput } from '@/lib/amount-input';
 import { accountIdsEqual } from '@/lib/account-match';
@@ -55,6 +56,9 @@ import {
   txToastSuccess,
 } from '@/lib/transaction-toast-copy';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
+import {
+  collectionIdFromTokenId,
+} from '@/features/market/market-listings';
 const NEAR_INPUT_DECIMALS = 4;
 
 export interface ScarceBidSuccessDetail {
@@ -171,9 +175,20 @@ export function ScarceBidForm({
   const [mintPriceNear, setMintPriceNear] = useState<string | null>(null);
   const [royalty, setRoyalty] = useState<Record<string, number> | null>(null);
   const [factsOpen, setFactsOpen] = useState(false);
+  const [hydratedEvent, setHydratedEvent] = useState<{
+    eventStartsAtMs: number | null;
+    eventEndsAtMs: number | null;
+    place: string | null;
+    accessEndsAtMs: number | null;
+    kind: string | null;
+    description: string | null;
+  } | null>(null);
 
   const tokenId = listing?.tokenId ?? embed?.tokenId ?? '';
-  const collectionId = embed?.collectionId?.trim() || undefined;
+  const collectionId =
+    embed?.collectionId?.trim() ||
+    (tokenId ? collectionIdFromTokenId(tokenId) : null) ||
+    undefined;
   const sellerId = listing?.sellerId ?? auction?.sellerId ?? post?.accountId;
   const title = listing?.title?.trim() || titleFromPost(post) || 'Scarce';
   const resolvedDescription =
@@ -215,6 +230,38 @@ export function ScarceBidForm({
     setAuction(view);
     return view;
   }
+
+  useEffect(() => {
+    const id = collectionId?.trim();
+    if (!id) {
+      setHydratedEvent(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await fetchCollectionPreferIndexer(id);
+        if (cancelled) return;
+        setHydratedEvent(
+          view
+            ? {
+                eventStartsAtMs: view.eventStartsAtMs,
+                eventEndsAtMs: view.eventEndsAtMs,
+                place: view.place,
+                accessEndsAtMs: view.accessEndsAtMs,
+                kind: view.kind,
+                description: view.description?.trim() || null,
+              }
+            : null
+        );
+      } catch {
+        if (!cancelled) setHydratedEvent(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -656,7 +703,14 @@ export function ScarceBidForm({
       sourcePostPath: resolvedSourcePostPath,
       postHref: listing?.postHref ?? null,
       tokenId: tokenId || null,
+      collectionId: collectionId ?? null,
       royalty,
+      eventStartsAtMs: hydratedEvent?.eventStartsAtMs ?? null,
+      eventEndsAtMs: hydratedEvent?.eventEndsAtMs ?? null,
+      place: hydratedEvent?.place ?? null,
+      accessEndsAtMs: hydratedEvent?.accessEndsAtMs ?? null,
+      description:
+        resolvedDescription ?? hydratedEvent?.description ?? null,
     };
   }, [
     title,
@@ -672,7 +726,10 @@ export function ScarceBidForm({
     resolvedSourcePostPath,
     sellerId,
     tokenId,
+    collectionId,
     royalty,
+    hydratedEvent,
+    resolvedDescription,
   ]);
 
   return (
@@ -789,6 +846,17 @@ export function ScarceBidForm({
           resolvedSourcePostPath ?? listing?.sourcePostPath,
           listing?.postHref
         )}
+        event={
+          hydratedEvent
+            ? {
+                eventStartsAtMs: hydratedEvent.eventStartsAtMs,
+                eventEndsAtMs: hydratedEvent.eventEndsAtMs,
+                place: hydratedEvent.place,
+                accessEndsAtMs: hydratedEvent.accessEndsAtMs,
+                kind: hydratedEvent.kind,
+              }
+            : null
+        }
       />
 
       {bidHistory.length > 0 ? (
