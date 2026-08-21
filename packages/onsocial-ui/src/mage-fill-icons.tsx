@@ -81,6 +81,34 @@ export function DotsCircleFillIcon(props: MageFillIconProps) {
   );
 }
 
+/** Mage `notification-bell-fill` — Activity / notifications (idle). */
+export function NotificationBellFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M21.161 16.656a2.26 2.26 0 0 1-.41 1.088a2.27 2.27 0 0 1-1.89 1h-2.94a4.4 4.4 0 0 1-.23.788a4 4 0 0 1-2.18 2.178c-.495.2-1.026.298-1.56.29h-.08a3.9 3.9 0 0 1-1.44-.29a3.75 3.75 0 0 1-1.32-.87a3.85 3.85 0 0 1-.87-1.308a4.4 4.4 0 0 1-.23-.789h-2.82a2.24 2.24 0 0 1-1.94-.849a2.78 2.78 0 0 1-.26-2.367a6.7 6.7 0 0 1 .88-1.618a3.83 3.83 0 0 0 .82-1.768c0-2.886 0-3.865 1.58-5.743a5.7 5.7 0 0 1 1.9-1.478l.78-.38a.4.4 0 0 0 .1-.09a.3.3 0 0 0 .06-.13a3 3 0 0 1 1.905-2.142a3 3 0 0 1 2.835.434a2.72 2.72 0 0 1 1 1.758v.1a.35.35 0 0 0 .11.1l.72.35c.73.35 1.378.85 1.9 1.468c1.58 1.888 1.58 2.867 1.58 5.753c.134.69.44 1.336.89 1.878c.36.481.652 1.009.87 1.568c.164.332.247.698.24 1.069"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
+/** Mage `notification-bell-pending-fill` — Activity with unread. */
+export function NotificationBellPendingFillIcon(props: MageFillIconProps) {
+  return (
+    <MageFillSvg {...props}>
+      <path
+        d="M21.37 16.547c-.039.398-.18.779-.41 1.105a2.37 2.37 0 0 1-1.954 1.023H16.01q-.076.405-.225.788a4.2 4.2 0 0 1-.89 1.35a4.1 4.1 0 0 1-1.35.9A4 4 0 0 1 12.03 22h-.112a3.9 3.9 0 0 1-1.545-.317a4.1 4.1 0 0 1-2.22-2.22a3.6 3.6 0 0 1-.225-.788H5.032a2.3 2.3 0 0 1-1.985-.87a2.8 2.8 0 0 1-.256-2.434c.221-.592.524-1.15.9-1.658a3.9 3.9 0 0 0 .83-1.81c0-2.967 0-3.96 1.616-5.883A5.85 5.85 0 0 1 8.08 4.506l.809-.388a.2.2 0 0 0 .081-.082a.25.25 0 0 0 .072-.133a2.87 2.87 0 0 1 1.023-1.73a.77.77 0 0 1 .92 0a.79.79 0 0 1 .297.88s-1.186 3.704 1.023 5.944c2.21 2.24 5.903.133 5.944.113a.75.75 0 0 1 .757 0a.76.76 0 0 1 .379.655v2.179c.138.71.451 1.374.91 1.933c.366.49.665 1.027.89 1.596c.15.337.213.707.184 1.074"
+        fill="currentColor"
+      />
+      <path
+        d="M15.303 8.107a2.782 2.782 0 1 0 0-5.564a2.782 2.782 0 0 0 0 5.564"
+        fill="currentColor"
+      />
+    </MageFillSvg>
+  );
+}
+
 /** Mage bulk `chart-fill` — boost leaderboard / rankings affordance. */
 export function ChartFillIcon(props: MageFillIconProps) {
   return (

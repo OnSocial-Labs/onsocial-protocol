@@ -9113,6 +9113,85 @@ a.os-surface-row {
     opacity: 0.9;
   }
 
+  .portfolio-summon-activity {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    min-width: 2.55rem;
+    max-width: 2.55rem;
+    height: 100%;
+    padding: 0 0.55rem;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: rgb(var(--fg-rgb) / 0.72);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+    transition:
+      background 180ms ease,
+      color 180ms ease,
+      max-width 220ms ease,
+      gap 220ms ease,
+      padding 220ms ease;
+  }
+
+  .portfolio-summon-activity:hover {
+    background: rgb(var(--fg-rgb) / 0.06);
+    color: rgb(var(--fg-rgb) / 0.92);
+  }
+
+  .portfolio-summon-activity:active {
+    background: rgb(var(--fg-rgb) / 0.1);
+  }
+
+  .portfolio-summon-activity.is-current {
+    color: rgb(var(--fg-rgb) / 0.96);
+  }
+
+  .portfolio-summon-activity.has-unread {
+    max-width: 4.6rem;
+    gap: 0.28rem;
+    padding: 0 0.62rem 0 0.55rem;
+    color: rgb(var(--fg-rgb) / 0.9);
+  }
+
+  .portfolio-summon-activity-icon {
+    flex-shrink: 0;
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .portfolio-summon-activity-count {
+    display: inline-block;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: var(--signal-endorse, rgb(37 99 235));
+    transition:
+      max-width 220ms ease,
+      opacity 180ms ease;
+  }
+
+  .portfolio-summon-activity.has-unread .portfolio-summon-activity-count {
+    max-width: 1.4rem;
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .portfolio-summon-activity,
+    .portfolio-summon-activity-count {
+      transition: none;
+    }
+  }
+
   .portfolio-summon-account {
     flex-shrink: 0;
     display: inline-flex;

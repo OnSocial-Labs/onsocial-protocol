@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { Divider, osDockPillClassName } from '@onsocial/ui';
 import { OsDockAccountZone } from '@/components/wallet/os-dock-account-zone';
+import { OsDockActivityZone } from '@/components/wallet/os-dock-activity-zone';
 
 interface OsDockPillProps {
   pageAccountId?: string;
@@ -17,7 +18,10 @@ interface OsDockPillProps {
   action?: ReactNode;
 }
 
-/** Unified OS dock — account, summon grip, optional now-playing, optional compose. */
+/**
+ * Unified OS dock — Activity (when connected), account, summon grip,
+ * optional now-playing, optional compose.
+ */
 export function OsDockPill({
   pageAccountId,
   grip,
@@ -26,6 +30,7 @@ export function OsDockPill({
 }: OsDockPillProps) {
   return (
     <div className={`${osDockPillClassName} portfolio-summon`}>
+      <OsDockActivityZone />
       <OsDockAccountZone pageAccountId={pageAccountId} />
       <Divider
         orientation="vertical"
