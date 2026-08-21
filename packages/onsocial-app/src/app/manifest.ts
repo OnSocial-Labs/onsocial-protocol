@@ -14,7 +14,8 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     display_override: ['standalone', 'minimal-ui'],
     background_color: '#000000',
-    theme_color: '#000000',
+    // Status bar / browser chrome — soft surface ink, not portal blue.
+    theme_color: '#0c0d10',
     categories: ['social', 'entertainment'],
     icons: [
       {
