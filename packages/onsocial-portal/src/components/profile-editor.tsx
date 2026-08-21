@@ -193,8 +193,7 @@ export function ProfileEditor({
       return true;
     }
     if (
-      normalizeProfileLocationInput(location) !==
-      getInitialLocation(profile)
+      normalizeProfileLocationInput(location) !== getInitialLocation(profile)
     ) {
       return true;
     }
@@ -570,9 +569,8 @@ export function ProfileEditor({
                               markDirty();
                             }}
                             onBlur={() => {
-                              const trimmed = normalizeProfileLocationInput(
-                                location
-                              );
+                              const trimmed =
+                                normalizeProfileLocationInput(location);
                               if (trimmed !== location) setLocation(trimmed);
                             }}
                             maxLength={PROFILE_LOCATION_MAX}

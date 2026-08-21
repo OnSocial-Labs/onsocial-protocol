@@ -17,10 +17,15 @@ export function sanitizeProfileLocationDraft(raw: string): string {
     .slice(0, PROFILE_LOCATION_MAX);
 }
 
-export function profileLocationFromMaterialised(profile: {
-  location?: string | null;
-  extra?: Record<string, string> | null;
-} | null | undefined): string {
+export function profileLocationFromMaterialised(
+  profile:
+    | {
+        location?: string | null;
+        extra?: Record<string, string> | null;
+      }
+    | null
+    | undefined
+): string {
   const direct = profile?.location?.trim();
   if (direct) return normalizeProfileLocationInput(direct);
   const legacy = profile?.extra?.location?.trim();
