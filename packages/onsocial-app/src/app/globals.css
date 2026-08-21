@@ -7163,6 +7163,13 @@ a.os-surface-row {
     flex-shrink: 0;
   }
 
+  /* OnSocial glyph has more viewBox padding than Mage fills — match optical weight. */
+  .portfolio-link-icon--onsocial {
+    width: 1.4rem;
+    height: 1.4rem;
+    margin: -0.075rem;
+  }
+
   .portfolio-frame[data-mood] .portfolio-link {
     color: color-mix(in srgb, var(--mood-accent) 52%, var(--mood-muted));
   }
@@ -14259,6 +14266,20 @@ a.os-surface-row {
     letter-spacing: 0.01em;
     color: var(--protocol-red);
     white-space: nowrap;
+  }
+
+  .account-editor-link-inline-status {
+    flex-shrink: 0;
+    padding-right: 0.15rem;
+    font-size: 0.62rem;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: hsl(var(--muted-foreground));
+    white-space: nowrap;
+  }
+
+  .account-editor-link-input.is-probing {
+    opacity: 0.88;
   }
 
   .account-editor-link-cancel {

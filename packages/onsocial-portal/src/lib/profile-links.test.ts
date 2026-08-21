@@ -4,6 +4,7 @@ import {
   normalizeOnSocialAccountInput,
   normalizeProfileHandleInput,
   profileLinkDisplayItems,
+  profileLinkEditorInlineError,
   profileLinksInputFromRecord,
 } from '@/lib/profile-links';
 import { nearAccountPlaceholder } from '@/lib/portal-near-account';
@@ -101,5 +102,18 @@ describe('profile onsocial links', () => {
     expect(
       profileLinksInputFromRecord({ onsocial: sampleAccount }).onsocial
     ).toBe(sampleAccount);
+  });
+
+  it('maps probe failures to short inline copy', () => {
+    expect(profileLinkEditorInlineError('onsocial')).toBe('Invalid account');
+    expect(
+      profileLinkEditorInlineError(
+        'onsocial',
+        'Account not found on this network'
+      )
+    ).toBe('Not found');
+    expect(
+      profileLinkEditorInlineError('onsocial', 'Could not verify account')
+    ).toBe("Can't verify");
   });
 });

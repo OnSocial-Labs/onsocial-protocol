@@ -383,6 +383,14 @@ export function portfolioLinkDestination(link: PortfolioSocialLink): string {
     case 'telegram':
     case 'tiktok':
       return withAtPrefix(segments[0]!);
+    case 'onsocial': {
+      // App: `/@account` · Portal: `/u/account`
+      if (segments[0]?.toLowerCase() === 'u' && segments[1]) {
+        return bareHandle(segments[1]);
+      }
+      const last = segments[segments.length - 1] ?? segments[0];
+      return last ? bareHandle(last) : '';
+    }
     default:
       return withAtPrefix(segments[0]!);
   }

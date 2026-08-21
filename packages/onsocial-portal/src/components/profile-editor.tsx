@@ -33,10 +33,12 @@ import {
   normalizeProfileLinksInput,
   PROFILE_LINK_EDITOR_FIELDS,
   profileLinkEditorFieldErrors,
+  profileLinkEditorInlineError,
   profileLinksInputFromRecord,
   type ProfileLinkKind,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { sanitizeNearAccountInput } from '@/lib/portal-near-account';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import {
   reportWalletActionFailure,
@@ -126,6 +128,10 @@ export function ProfileEditor({
   const [linkFieldErrors, setLinkFieldErrors] = useState<
     Partial<Record<keyof ProfileLinksInput, string>>
   >({});
+  const [probingLinkKey, setProbingLinkKey] = useState<
+    keyof ProfileLinksInput | null
+  >(null);
+  const linkProbeGenRef = useRef(0);
   const [saved, setSaved] = useState(false);
   const previewUrl = useObjectUrl(avatar);
   const bannerPreviewUrl = useObjectUrl(banner);
@@ -200,7 +206,9 @@ export function ProfileEditor({
   };
 
   const updateLink = (key: keyof ProfileLinksInput, value: string) => {
-    setLinks((current) => ({ ...current, [key]: value }));
+    const nextValue =
+      key === 'onsocial' ? sanitizeNearAccountInput(value) : value;
+    setLinks((current) => ({ ...current, [key]: nextValue }));
     if (linkFieldErrors[key]) {
       setLinkFieldErrors((current) => {
         const next = { ...current };
@@ -215,6 +223,8 @@ export function ProfileEditor({
     key: keyof ProfileLinksInput,
     kind: ProfileLinkKind
   ) => {
+    if (probingLinkKey === key) return;
+
     const result = formatProfileLinkForEditor(links[key], kind);
 
     if (result.error) {
@@ -227,8 +237,11 @@ export function ProfileEditor({
     }
 
     if (kind === 'onsocial' && result.value.trim()) {
+      const gen = ++linkProbeGenRef.current;
+      setProbingLinkKey(key);
       try {
         const exists = await probeNearAccountExists(result.value);
+        if (gen !== linkProbeGenRef.current) return;
         if (!exists) {
           setLinkFieldErrors((current) => ({
             ...current,
@@ -237,11 +250,16 @@ export function ProfileEditor({
           return;
         }
       } catch {
+        if (gen !== linkProbeGenRef.current) return;
         setLinkFieldErrors((current) => ({
           ...current,
           [key]: 'Could not verify account',
         }));
         return;
+      } finally {
+        if (gen === linkProbeGenRef.current) {
+          setProbingLinkKey(null);
+        }
       }
     }
 
@@ -600,6 +618,10 @@ export function ProfileEditor({
                               onBlur={() => {
                                 void commitLinkField(field.key, field.kind);
                               }}
+                              disabled={probingLinkKey === field.key}
+                              aria-busy={
+                                probingLinkKey === field.key || undefined
+                              }
                               maxLength={
                                 field.kind === 'website'
                                   ? 255
@@ -622,15 +644,22 @@ export function ProfileEditor({
                               spellCheck={
                                 field.kind === 'onsocial' ? false : undefined
                               }
-                              className="w-full bg-transparent px-3 py-2.5 text-sm outline-none"
+                              className="w-full bg-transparent px-3 py-2.5 text-sm outline-none disabled:opacity-70"
                               placeholder={field.placeholder}
                               aria-label={field.label}
                               aria-invalid={Boolean(linkFieldErrors[field.key])}
                             />
                           </div>
-                          {linkFieldErrors[field.key] ? (
+                          {probingLinkKey === field.key ? (
+                            <p className="px-1 text-[11px] leading-snug text-muted-foreground">
+                              Checking…
+                            </p>
+                          ) : linkFieldErrors[field.key] ? (
                             <p className="px-1 text-[11px] leading-snug text-[var(--portal-red)]">
-                              {linkFieldErrors[field.key]}
+                              {profileLinkEditorInlineError(
+                                field.kind,
+                                linkFieldErrors[field.key]
+                              )}
                             </p>
                           ) : null}
                         </div>

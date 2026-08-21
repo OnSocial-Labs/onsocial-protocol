@@ -600,9 +600,18 @@ export function formatProfileLinkForEditor(
   }
 }
 
-export function profileLinkEditorInlineError(kind: ProfileLinkKind): string {
+export function profileLinkEditorInlineError(
+  kind: ProfileLinkKind,
+  detail?: string | null
+): string {
   if (kind === 'website') return 'Invalid URL';
-  if (kind === 'onsocial') return 'Invalid account';
+  if (kind === 'onsocial') {
+    const lower = (detail ?? '').toLowerCase();
+    if (lower.includes('not found')) return 'Not found';
+    if (lower.includes('verify')) return "Can't verify";
+    if (detail && detail.length <= 40) return detail;
+    return 'Invalid account';
+  }
   return 'Invalid handle';
 }
 

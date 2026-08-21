@@ -69,6 +69,12 @@ describe('profileLinkEditorInlineError', () => {
   it('returns short copy for inline display', () => {
     expect(profileLinkEditorInlineError('website')).toBe('Invalid URL');
     expect(profileLinkEditorInlineError('onsocial')).toBe('Invalid account');
+    expect(
+      profileLinkEditorInlineError(
+        'onsocial',
+        'Account not found on this network'
+      )
+    ).toBe('Not found');
     expect(profileLinkEditorInlineError('x')).toBe('Invalid handle');
   });
 });

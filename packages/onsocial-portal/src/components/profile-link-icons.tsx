@@ -46,7 +46,12 @@ export function ProfileLinkIcon({
 }) {
   if (kind === 'website') return <Globe className={className} />;
   if (kind === 'onsocial') {
-    return <OnSocialMark className={className} aria-hidden />;
+    return (
+      <OnSocialMark
+        className={cn(className, 'scale-110')}
+        aria-hidden
+      />
+    );
   }
   if (kind === 'x') return <FaXTwitter className={className} />;
   if (kind === 'telegram') return <RiTelegram2Line className={className} />;

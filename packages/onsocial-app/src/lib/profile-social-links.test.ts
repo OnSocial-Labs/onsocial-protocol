@@ -109,6 +109,25 @@ describe('portfolioLinkDestination', () => {
     ).toBe('@alice');
   });
 
+  it('shows bare OnSocial account ids (not @path fragments)', () => {
+    expect(
+      portfolioLinkDestination({
+        key: 'onsocial',
+        kind: 'onsocial',
+        label: 'OnSocial',
+        href: 'https://testnet.onsocial.id/@alice.testnet',
+      })
+    ).toBe('alice.testnet');
+    expect(
+      portfolioLinkDestination({
+        key: 'onsocial',
+        kind: 'onsocial',
+        label: 'OnSocial',
+        href: 'https://portal.onsocial.id/u/alice.testnet',
+      })
+    ).toBe('alice.testnet');
+  });
+
   it('uses LinkedIn and GitHub slugs instead of fake @folder handles', () => {
     expect(
       portfolioLinkDestination({

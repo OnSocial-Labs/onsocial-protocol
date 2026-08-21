@@ -22,7 +22,12 @@ interface PortfolioLinkIconProps {
 export function PortfolioLinkIcon({ kind, className }: PortfolioLinkIconProps) {
   if (kind === 'website') return <GlobeIcon className={className} aria-hidden />;
   if (kind === 'onsocial') {
-    return <OnSocialMark className={className} aria-hidden />;
+    return (
+      <OnSocialMark
+        className={`${className ?? ''} portfolio-link-icon--onsocial`.trim()}
+        aria-hidden
+      />
+    );
   }
   if (kind === 'x') return <XFillIcon className={className} aria-hidden />;
   if (kind === 'telegram') {

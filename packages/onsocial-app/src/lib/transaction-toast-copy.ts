@@ -235,6 +235,7 @@ export const txToastError = {
   collectSocialFailed: 'Could not collect SOCIAL.',
   swapFailed: 'Could not get SOCIAL.',
   profileSaveFailed: 'Could not save profile.',
+  profileOnSocialMissing: 'OnSocial account not found on this network.',
   moodSaveFailed: 'Could not save mood.',
   pageLookSaveFailed: 'Could not save page look.',
   storageDepositFailed: 'Could not add storage.',
