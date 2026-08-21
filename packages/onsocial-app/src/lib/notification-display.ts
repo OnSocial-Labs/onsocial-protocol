@@ -129,6 +129,8 @@ export function notificationVerb(
       return 'replied to your post';
     case 'quote':
       return 'quoted your post';
+    case 'repost':
+      return 'reposted your post';
     case 'reaction':
       return reactionVerb(context);
     case 'mention':
@@ -228,6 +230,7 @@ export function notificationHref(
   if (
     type === 'reply' ||
     type === 'quote' ||
+    type === 'repost' ||
     type === 'mention' ||
     type === 'reaction'
   ) {

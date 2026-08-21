@@ -95,6 +95,18 @@ export class PostsModule {
       : this._social.quotePost(ref, quote, quoteId);
   }
 
+  /** Repost another post (share without required commentary). */
+  repost(
+    ref: PostRef,
+    repost: PostData = { text: '' },
+    repostId?: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return opts
+      ? this._social.repostPost(ref, repost, repostId, opts)
+      : this._social.repostPost(ref, repost, repostId);
+  }
+
   /** Post into a group. */
   groupPost(
     groupId: string,
@@ -122,5 +134,15 @@ export class PostsModule {
     quoteId?: string
   ): Promise<RelayResponse> {
     return this._groups.quotePost(groupId, ref, quote, quoteId);
+  }
+
+  /** Repost inside a group. */
+  groupRepost(
+    groupId: string,
+    ref: GroupPostRef,
+    repost: PostData = { text: '' },
+    repostId?: string
+  ): Promise<RelayResponse> {
+    return this._groups.repostPost(groupId, ref, repost, repostId);
   }
 }

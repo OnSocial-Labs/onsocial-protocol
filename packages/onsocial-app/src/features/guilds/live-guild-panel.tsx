@@ -18,6 +18,7 @@ import { OsAppScreen } from '@/components/app/os-app-screen';
 import { AppStorageSheet } from '@/components/wallet/app-storage-sheet';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { submitPersonalRepost } from '@/features/home/submit-personal-post';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { GuildFeedFilterList } from '@/features/guilds/guild-feed-filter-list';
@@ -1531,6 +1532,30 @@ export function LiveGuildPanel({
           openComposerModal('quote')(post);
         }
       : undefined;
+  const repostHandler =
+    viewer?.isMember && config
+      ? (post: PostRow) => {
+          const channel =
+            post.channel ??
+            (composerSpace ? guildSpaceFeedChannel(composerSpace) : null);
+          if (!canPostInChannel(channel)) return;
+          void (async () => {
+            if (!accountId) return;
+            try {
+              const { client } = await getClient();
+              await submitPersonalRepost({
+                client,
+                accountId,
+                target: post,
+                trackTransaction,
+              });
+            } catch {
+              // toast via trackTransaction
+            }
+          })();
+        }
+      : undefined;
+
 
   const renderFeedFilters = () => (
     <GuildFeedFilterList
@@ -1859,6 +1884,7 @@ export function LiveGuildPanel({
                         }}
                         onReply={replyHandler}
                         onQuote={quoteHandler}
+                    onRepost={repostHandler}
                       />
                     </div>
                   ))}

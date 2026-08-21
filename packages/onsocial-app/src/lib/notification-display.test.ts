@@ -24,6 +24,7 @@ describe('notification display', () => {
     expect(
       notificationVerb('dao_proposal_resolved', { status: 'Approved' })
     ).toBe('DAO proposal approved');
+    expect(notificationVerb('repost')).toBe('reposted your post');
     expect(
       notificationVerb('dao_proposal_vote', { vote: 'Approve' })
     ).toBe('approved your DAO proposal');

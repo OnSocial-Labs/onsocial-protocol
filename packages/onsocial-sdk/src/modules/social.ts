@@ -49,6 +49,7 @@ import {
   buildPostSetData,
   buildReplySetData,
   buildQuoteSetData,
+  buildRepostSetData,
   buildStandingSetData,
   buildStandingRemoveData,
   buildBlockSetData,
@@ -86,10 +87,12 @@ export {
   buildPostSetData,
   buildReplySetData,
   buildQuoteSetData,
+  buildRepostSetData,
   buildGroupPostSetData,
   buildGroupPostPath,
   buildGroupReplySetData,
   buildGroupQuoteSetData,
+  buildGroupRepostSetData,
   buildStandingSetData,
   buildStandingRemoveData,
   buildBlockSetData,
@@ -321,6 +324,46 @@ export class SocialModule {
     opts?: { wait?: boolean }
   ): Promise<RelayResponse> {
     return this.quote(post.author, `post/${post.postId}`, quote, quoteId, opts);
+  }
+
+  /** @internal Use `os.posts.repost()`. */
+  async repost(
+    refAuthor: string,
+    refPath: string,
+    post: PostData = { text: '' },
+    repostId?: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    const id = repostId ?? Date.now().toString();
+    const resolved = await resolvePostMedia(post, this._storage);
+    const [path, value] = getSingleEntry(
+      buildRepostSetData(refAuthor, refPath, resolved, id)
+    );
+    return this._composeSet(
+      {
+        path,
+        value: encodeComposeValue(value),
+        targetAccount: this._coreContract,
+      },
+      'social.repost',
+      opts
+    );
+  }
+
+  /** @internal Use `os.posts.repost()`. */
+  async repostPost(
+    post: PostRef,
+    repost: PostData = { text: '' },
+    repostId?: string,
+    opts?: { wait?: boolean }
+  ): Promise<RelayResponse> {
+    return this.repost(
+      post.author,
+      `post/${post.postId}`,
+      repost,
+      repostId,
+      opts
+    );
   }
 
   // ── Standings ───────────────────────────────────────────────────────────

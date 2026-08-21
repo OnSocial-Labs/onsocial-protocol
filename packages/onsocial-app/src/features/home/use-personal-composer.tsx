@@ -24,7 +24,7 @@ import {
 } from '@/features/guilds/use-composer-feed-targets';
 import { DaoProposeConfirmSheet } from '@/features/protocol/dao-propose-confirm-sheet';
 import { submitDaoPostProposal } from '@/features/home/submit-dao-post-proposal';
-import { submitPersonalPost } from '@/features/home/submit-personal-post';
+import { submitPersonalPost, submitPersonalRepost } from '@/features/home/submit-personal-post';
 import {
   dispatchGuildPostConfirmed,
   submitGuildRootPost,
@@ -181,6 +181,45 @@ export function usePersonalComposer({
     setSelectedDaoId(null);
     setComposer({ mode: 'quote', target });
   }, []);
+
+  const openRepost = useCallback(
+    async (target: PostRow) => {
+      if (!accountId) {
+        if (!isConnected) await connect();
+        return;
+      }
+      setError(null);
+      setPending(true);
+      try {
+        const { client } = await withClient();
+        const result = await submitPersonalRepost({
+          client,
+          accountId,
+          target,
+          trackTransaction,
+        });
+        if (result.confirmed && result.optimisticPost) {
+          onConfirmed?.(result.optimisticPost);
+        }
+      } catch (err) {
+        if (!isWalletUserCancellation(err)) {
+          setError(
+            err instanceof Error ? err.message : 'Could not repost.'
+          );
+        }
+      } finally {
+        setPending(false);
+      }
+    },
+    [
+      accountId,
+      connect,
+      isConnected,
+      onConfirmed,
+      trackTransaction,
+      withClient,
+    ]
+  );
 
   useRegisterComposeAction(registerPen ? openPost : null);
 
@@ -446,6 +485,7 @@ export function usePersonalComposer({
     openPost,
     openReply,
     openQuote,
+    openRepost,
     sheet,
     isOpen: Boolean(composer),
   };

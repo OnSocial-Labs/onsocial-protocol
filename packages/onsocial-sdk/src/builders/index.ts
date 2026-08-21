@@ -28,6 +28,7 @@ export {
   buildPostSetData,
   buildReplySetData,
   buildQuoteSetData,
+  buildRepostSetData,
   resolvePostMedia,
   isFileLike,
 } from './post.js';
@@ -37,6 +38,7 @@ export {
   buildGroupPostPath,
   buildGroupReplySetData,
   buildGroupQuoteSetData,
+  buildGroupRepostSetData,
 } from './group-post.js';
 
 export { buildStandingSetData, buildStandingRemoveData } from './standing.js';

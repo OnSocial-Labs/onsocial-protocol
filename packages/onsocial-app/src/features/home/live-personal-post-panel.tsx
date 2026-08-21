@@ -18,7 +18,7 @@ import {
   type ComposerSubmit,
 } from '@/features/guilds/guild-composer-sheet';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
-import { submitPersonalPost } from '@/features/home/submit-personal-post';
+import { submitPersonalPost, submitPersonalRepost } from '@/features/home/submit-personal-post';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
@@ -449,6 +449,34 @@ export function LivePersonalPostPanel({
   const quoteHandler = canPostInThread
     ? (post: PostRow) => openComposerModal('quote')(post)
     : undefined;
+  const repostHandler = canPostInThread
+    ? (post: PostRow) => {
+        void (async () => {
+          if (!accountId) return;
+          try {
+            const { client } = await getClient();
+            const result = await submitPersonalRepost({
+              client,
+              accountId,
+              target: post,
+              trackTransaction,
+            });
+            if (result.confirmed && result.optimisticPost) {
+              const targetsRoot =
+                conversation.root &&
+                postKey(post) === postKey(conversation.root);
+              if (targetsRoot) {
+                insertConfirmedRootChild('quote', result.optimisticPost);
+              } else {
+                scheduleReconcile();
+              }
+            }
+          } catch {
+            // toast via trackTransaction
+          }
+        })();
+      }
+    : undefined;
 
   const quotedHrefFor = (quoted: PostRow | undefined) =>
     quoted ? postThreadPath(quoted) : undefined;
@@ -559,6 +587,7 @@ export function LivePersonalPostPanel({
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
+                    onRepost={repostHandler}
                     pollTally={pollTallyFor(ancestor)}
                     pollVotePending={isPollVotePending(ancestor)}
                     onPollVote={(post, optionIndex) => {
@@ -610,6 +639,7 @@ export function LivePersonalPostPanel({
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
+                    onRepost={repostHandler}
                   pollTally={pollTallyFor(conversation.root)}
                   pollVotePending={isPollVotePending(conversation.root)}
                   onPollVote={(post, optionIndex) => {
@@ -755,6 +785,7 @@ export function LivePersonalPostPanel({
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
+                    onRepost={repostHandler}
                             pollTally={pollTallyFor(row.post)}
                             pollVotePending={isPollVotePending(row.post)}
                             onPollVote={(post, optionIndex) => {
@@ -800,6 +831,7 @@ export function LivePersonalPostPanel({
                       onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}
+                    onRepost={repostHandler}
                       pollTally={pollTallyFor(quote)}
                       pollVotePending={isPollVotePending(quote)}
                       onPollVote={(post, optionIndex) => {

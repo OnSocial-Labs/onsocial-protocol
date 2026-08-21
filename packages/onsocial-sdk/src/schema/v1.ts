@@ -65,7 +65,7 @@ export interface ProfileLink {
 // ── Post ────────────────────────────────────────────────────────────────────
 
 export type ParentType = 'post' | 'comment';
-export type RefType = 'quote' | 'cite' | 'embed';
+export type RefType = 'quote' | 'repost' | 'cite' | 'embed';
 export type AccessLevel = 'public' | 'private' | 'group';
 export type ContentType = 'text' | 'md';
 export type PostAudience = 'members' | 'admins' | 'moderators' | 'custom';
@@ -506,9 +506,9 @@ export function validatePostV1(post: unknown): string | null {
   }
   if (
     post.refType !== undefined &&
-    !['quote', 'cite', 'embed'].includes(post.refType as string)
+    !['quote', 'repost', 'cite', 'embed'].includes(post.refType as string)
   ) {
-    return 'post.refType must be "quote" | "cite" | "embed"';
+    return 'post.refType must be "quote" | "repost" | "cite" | "embed"';
   }
   if (
     post.access !== undefined &&

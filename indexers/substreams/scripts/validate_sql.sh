@@ -88,7 +88,7 @@ echo ">>> Validating Substreams SQL with ${POSTGRES_IMAGE}"
         exit 1
       fi
 
-      for view_name in posts_feed standing_counts thread_reply_counts quote_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids; do
+      for view_name in posts_feed standing_counts thread_reply_counts quote_counts repost_counts leaderboard_rewards reputation_scores leaderboard_agent_features app_reputation scarces_token_owners scarces_app_stats scarces_app_stats_hot scarces_collections_trade_stats group_member_counts groups_by_member_count scarce_album_love_fans scarce_album_love_fan_ids scarce_collection_love_fans scarce_collection_love_fan_ids; do
         exists="$(psql -h /tmp -d "$db" -v ON_ERROR_STOP=1 -Atc "
           SELECT to_regclass('"'"'public.${view_name}'"'"') IS NOT NULL;
         ")"

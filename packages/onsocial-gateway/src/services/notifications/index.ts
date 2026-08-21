@@ -5,6 +5,7 @@ import type { Tier } from '../../types/index.js';
 export const NOTIFICATION_TYPES = [
   'reply',
   'quote',
+  'repost',
   'reaction',
   'mention',
   'standing_new',

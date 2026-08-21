@@ -51,9 +51,9 @@ export function buildReplySetData(
 }
 
 /**
- * Build a quote post (the OnSocial equivalent of a repost / quote-tweet).
+ * Build a quote post (comment + reference).
  * The `ref` and `refType` fields are picked up by the substreams indexer
- * and exposed via the `quotes` view.
+ * and exposed via the `quotes` / `quote_counts` views.
  */
 export function buildQuoteSetData(
   refAuthor: string,
@@ -68,6 +68,28 @@ export function buildQuoteSetData(
       ...applyFeedMeta(post),
       ref: `${refAuthor}/${refPath}`,
       refType: 'quote',
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}
+
+/**
+ * Build a repost (share without required commentary).
+ * Indexed via `reposts` / `repost_counts` (`refType: 'repost'`).
+ */
+export function buildRepostSetData(
+  refAuthor: string,
+  refPath: string,
+  post: PostData,
+  repostId: string,
+  now = Date.now()
+): SocialSetData {
+  return {
+    [`post/${repostId}`]: {
+      v: SCHEMA_VERSION,
+      ...applyFeedMeta({ ...post, text: post.text ?? '' }),
+      ref: `${refAuthor}/${refPath}`,
+      refType: 'repost',
       timestamp: post.timestamp ?? now,
     },
   };

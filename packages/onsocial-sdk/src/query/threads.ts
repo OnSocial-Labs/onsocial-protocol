@@ -171,6 +171,7 @@ export function postContentPath(row: PostRow): string {
 export interface ThreadCounts {
   replyCount: number;
   quoteCount: number;
+  repostCount: number;
 }
 
 function flattenThreadNodes(nodes: ThreadNode[]): ThreadNode[] {
@@ -334,6 +335,7 @@ export class ThreadsQuery {
     const res = await this._q.graphql<{
       threadReplyCounts: Array<{ parentPath: string; replyCount: number }>;
       quoteCounts: Array<{ refPath: string; quoteCount: number }>;
+      repostCounts: Array<{ refPath: string; repostCount: number }>;
     }>({
       query: `query ThreadCountsByPaths($paths: [String!]) {
         threadReplyCounts(where: {parentPath: {_in: $paths}}) {
@@ -342,13 +344,16 @@ export class ThreadsQuery {
         quoteCounts(where: {refPath: {_in: $paths}}) {
           refPath quoteCount
         }
+        repostCounts(where: {refPath: {_in: $paths}}) {
+          refPath repostCount
+        }
       }`,
       variables: { paths: uniquePaths },
     });
 
     const out: Record<string, ThreadCounts> = {};
     for (const path of uniquePaths) {
-      out[path] = { replyCount: 0, quoteCount: 0 };
+      out[path] = { replyCount: 0, quoteCount: 0, repostCount: 0 };
     }
     for (const row of res.data?.threadReplyCounts ?? []) {
       const entry = out[row.parentPath];
@@ -357,6 +362,10 @@ export class ThreadsQuery {
     for (const row of res.data?.quoteCounts ?? []) {
       const entry = out[row.refPath];
       if (entry) entry.quoteCount = row.quoteCount;
+    }
+    for (const row of res.data?.repostCounts ?? []) {
+      const entry = out[row.refPath];
+      if (entry) entry.repostCount = row.repostCount;
     }
     return out;
   }

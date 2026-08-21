@@ -71,3 +71,23 @@ export function buildGroupQuoteSetData(
     },
   };
 }
+
+export function buildGroupRepostSetData(
+  groupId: string,
+  refPath: string,
+  post: PostData,
+  repostId: string,
+  now = Date.now()
+): SocialSetData {
+  const [refAuthor] = refPath.split('/', 1);
+  return {
+    [`groups/${groupId}/content/post/${repostId}`]: {
+      v: SCHEMA_VERSION,
+      ...applyFeedMeta({ ...post, text: post.text ?? '' }),
+      ref: refPath,
+      ...(refAuthor ? { refAuthor } : {}),
+      refType: 'repost',
+      timestamp: post.timestamp ?? now,
+    },
+  };
+}

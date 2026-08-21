@@ -1244,6 +1244,9 @@ describe('QueryModule', () => {
             },
             { refPath: 'bob.near/post/p2', quoteCount: 2 },
           ],
+          repostCounts: [
+            { refPath: 'bob.near/post/p2', repostCount: 4 },
+          ],
         },
       });
 
@@ -1255,16 +1258,19 @@ describe('QueryModule', () => {
       expect(counts['alice.near/groups/dao/content/post/p1']).toEqual({
         replyCount: 3,
         quoteCount: 1,
+        repostCount: 0,
       });
       expect(counts['bob.near/post/p2']).toEqual({
         replyCount: 0,
         quoteCount: 2,
+        repostCount: 4,
       });
       expect(fetch).toHaveBeenCalledTimes(1);
 
       const body = JSON.parse(fetch.mock.calls[0][1].body);
       expect(body.query).toContain('threadReplyCounts');
       expect(body.query).toContain('quoteCounts');
+      expect(body.query).toContain('repostCounts');
       expect(body.variables.paths).toEqual([
         'alice.near/groups/dao/content/post/p1',
         'bob.near/post/p2',
