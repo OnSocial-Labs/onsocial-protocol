@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -8,8 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name,
     short_name: isMainnet ? 'OnSocial' : 'OnSocial Testnet',
-    description:
-      'Build the future of social with OnSocial Protocol. A powerful, scalable decentralized social protocol on NEAR blockchain.',
+    description: ONSOCIAL_BRAND_TAGLINE,
     start_url: '/',
     scope: '/',
     display: 'standalone',

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { GatePwaInstall } from '@/components/gate/gate-pwa-install';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { portfolioPath } from '@/lib/overlay-routes';
 
@@ -32,6 +33,7 @@ export function GateConnect() {
       <button className="gate-connect-button" type="button" onClick={connect}>
         Let’s connect
       </button>
+      <GatePwaInstall />
     </div>
   );
 }

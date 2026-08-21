@@ -8,7 +8,7 @@ import {
   Newsreader,
   Space_Grotesk,
 } from 'next/font/google';
-import { ServiceWorkerRegister } from '@/components/app/service-worker-register';
+import { ONSOCIAL_BRAND_TAGLINE } from '@onsocial/ui';
 import { AppProviders } from '@/components/providers/app-providers';
 import { ThemeInitScript } from '@/components/theme-init-script';
 import './globals.css';
@@ -73,10 +73,28 @@ const ericaType = localFont({
 
 export const metadata: Metadata = {
   title: 'OnSocial',
-  description: 'A page for every account.',
+  description: ONSOCIAL_BRAND_TAGLINE,
+  applicationName: 'OnSocial',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/onsocial_icon.svg', type: 'image/svg+xml' },
+      { url: '/onsocial_icon_192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/onsocial_icon_512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'OnSocial',
+  },
+  formatDetection: {
+    telephone: false,
+  },
   openGraph: {
     title: 'OnSocial',
-    description: 'A page for every account.',
+    description: ONSOCIAL_BRAND_TAGLINE,
     siteName: 'OnSocial',
     type: 'website',
   },
@@ -85,7 +103,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#000000',
+  viewportFit: 'cover',
+  themeColor: '#0c0d10',
   colorScheme: 'dark light',
 };
 
@@ -104,7 +123,6 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <ThemeInitScript />
         <AppProviders>{children}</AppProviders>
-        <ServiceWorkerRegister />
       </body>
     </html>
   );

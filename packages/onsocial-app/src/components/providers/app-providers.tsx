@@ -21,14 +21,11 @@ import { DropComposeHost } from '@/features/scarces/drop-compose-host';
 import { ViewerMuteBlockHost } from '@/components/providers/viewer-mute-block-host';
 import { DmUnreadHost } from '@/components/providers/dm-unread-host';
 import { NotificationsHost } from '@/components/providers/notifications-host';
+import { PwaProvider } from '@/components/providers/pwa-provider';
 import { GlassSheetPortalProvider } from '@onsocial/ui';
 
 /** Clip GlassSheet frost to the live OS / portfolio card (same host as slide-overs). */
-function OsGlassSheetPortalBridge({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function OsGlassSheetPortalBridge({ children }: { children: React.ReactNode }) {
   const host = useOsPortalHost();
   return (
     <GlassSheetPortalProvider container={host}>
@@ -39,37 +36,39 @@ function OsGlassSheetPortalBridge({
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <AppWalletProvider>
-      <AppTransactionFeedbackProvider>
-        <AppSocialBalanceProvider>
-          <ViewerProfileShellProvider>
-            <ViewerWalletMoodProvider>
-              <AppAccountSheetProvider>
-                <AppRewardsProvider>
-                  <PortfolioCustomizeProvider>
-                    <ComposeLauncherProvider>
-                      <OsPortalHostProvider>
-                        <OsGlassSheetPortalBridge>
-                          <CollectiblesNowPlayingProvider>
-                            <DmUnreadHost>
-                              <NotificationsHost>
-                                {children}
-                                <ViewerMuteBlockHost />
-                                <DropComposeHost />
-                                <AppAccountSheetHost />
-                              </NotificationsHost>
-                            </DmUnreadHost>
-                          </CollectiblesNowPlayingProvider>
-                        </OsGlassSheetPortalBridge>
-                      </OsPortalHostProvider>
-                    </ComposeLauncherProvider>
-                  </PortfolioCustomizeProvider>
-                </AppRewardsProvider>
-              </AppAccountSheetProvider>
-            </ViewerWalletMoodProvider>
-          </ViewerProfileShellProvider>
-        </AppSocialBalanceProvider>
-      </AppTransactionFeedbackProvider>
-    </AppWalletProvider>
+    <PwaProvider>
+      <AppWalletProvider>
+        <AppTransactionFeedbackProvider>
+          <AppSocialBalanceProvider>
+            <ViewerProfileShellProvider>
+              <ViewerWalletMoodProvider>
+                <AppAccountSheetProvider>
+                  <AppRewardsProvider>
+                    <PortfolioCustomizeProvider>
+                      <ComposeLauncherProvider>
+                        <OsPortalHostProvider>
+                          <OsGlassSheetPortalBridge>
+                            <CollectiblesNowPlayingProvider>
+                              <DmUnreadHost>
+                                <NotificationsHost>
+                                  {children}
+                                  <ViewerMuteBlockHost />
+                                  <DropComposeHost />
+                                  <AppAccountSheetHost />
+                                </NotificationsHost>
+                              </DmUnreadHost>
+                            </CollectiblesNowPlayingProvider>
+                          </OsGlassSheetPortalBridge>
+                        </OsPortalHostProvider>
+                      </ComposeLauncherProvider>
+                    </PortfolioCustomizeProvider>
+                  </AppRewardsProvider>
+                </AppAccountSheetProvider>
+              </ViewerWalletMoodProvider>
+            </ViewerProfileShellProvider>
+          </AppSocialBalanceProvider>
+        </AppTransactionFeedbackProvider>
+      </AppWalletProvider>
+    </PwaProvider>
   );
 }

@@ -33,6 +33,7 @@ import {
 } from '@/lib/rewards-claim-progress';
 import { AccountStorageStrip } from '@/components/wallet/account-storage-strip';
 import { AppSocialHelpCard } from '@/components/wallet/app-social-help-card';
+import { usePwa } from '@/components/providers/pwa-provider';
 import { useAppRewardsOptional } from '@/contexts/app-rewards-context';
 import { useAppSocialBalance } from '@/contexts/app-social-balance-context';
 import type { PlatformStorageSummary } from '@/lib/platform-storage-display';
@@ -449,6 +450,7 @@ export function AccountActionList({
   onToggleSafeMode,
 }: AccountActionListProps) {
   const showCustomize = isOwnerOnPage && Boolean(onCustomize);
+  const { canInstall, isInstalled, install } = usePwa();
 
   const rows: AccountActionRowProps[] = [
     {
@@ -480,6 +482,19 @@ export function AccountActionList({
             label: 'Go to my page',
             href: portfolioPath(accountId),
             onClick: onClose,
+          },
+        ]
+      : []),
+    ...(!isInstalled && canInstall
+      ? [
+          {
+            label: 'Install app',
+            hint: 'Add OnSocial to your home screen',
+            onClick: () => {
+              void install().then((accepted) => {
+                if (accepted) onClose();
+              });
+            },
           },
         ]
       : []),

@@ -369,6 +369,7 @@ export {
   ONSOCIAL_MARK_PATH,
   type OnSocialMarkProps,
 } from './onsocial-mark.js';
+export { ONSOCIAL_BRAND_TAGLINE } from './brand-copy.js';
 export {
   FloatingPanelMenu,
   type FloatingPanelMenuProps,
