@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import {
+  PROFILE_LOCATION_MAX,
+  normalizeProfileLocationInput,
+  profileLocationFromMaterialised,
+  sanitizeProfileLocationDraft,
+  type MaterialisedProfile,
+} from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -103,6 +109,10 @@ function getInitialBio(profile: MaterialisedProfile | null): string {
   return profile?.bio ?? '';
 }
 
+function getInitialLocation(profile: MaterialisedProfile | null): string {
+  return profileLocationFromMaterialised(profile);
+}
+
 export function ProfileEditor({
   open,
   accountId,
@@ -120,6 +130,7 @@ export function ProfileEditor({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bannerInputRef = useRef<HTMLInputElement | null>(null);
   const [name, setName] = useState(getInitialName(profile));
+  const [location, setLocation] = useState(getInitialLocation(profile));
   const [bio, setBio] = useState(getInitialBio(profile));
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(profile?.links)
@@ -181,6 +192,11 @@ export function ProfileEditor({
     if (name.trim() !== getInitialName(profile).trim()) {
       return true;
     }
+    if (
+      normalizeProfileLocationInput(location) !== getInitialLocation(profile)
+    ) {
+      return true;
+    }
     if (bio.trim() !== getInitialBio(profile).trim()) {
       return true;
     }
@@ -200,6 +216,7 @@ export function ProfileEditor({
     bio,
     initialLinks,
     links,
+    location,
     name,
     profile,
   ]);
@@ -311,6 +328,7 @@ export function ProfileEditor({
 
       await onSave({
         name,
+        location: normalizeProfileLocationInput(location) || null,
         bio,
         avatar: avatarRemoved ? null : (avatar ?? undefined),
         banner: bannerRemoved ? null : (banner ?? undefined),
@@ -538,6 +556,28 @@ export function ProfileEditor({
                           <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
                             {accountId ? `@${accountId}` : 'Wallet'}
                           </p>
+                          <label htmlFor="profile-location" className="sr-only">
+                            Location
+                          </label>
+                          <input
+                            id="profile-location"
+                            value={location}
+                            onChange={(event) => {
+                              setLocation(
+                                sanitizeProfileLocationDraft(event.target.value)
+                              );
+                              markDirty();
+                            }}
+                            onBlur={() => {
+                              const trimmed =
+                                normalizeProfileLocationInput(location);
+                              if (trimmed !== location) setLocation(trimmed);
+                            }}
+                            maxLength={PROFILE_LOCATION_MAX}
+                            autoComplete="address-level2"
+                            placeholder="Based in"
+                            className="w-full bg-transparent portal-type-body-sm text-muted-foreground/70 outline-none placeholder:text-muted-foreground/35"
+                          />
                           <p className="portal-type-caption tabular-nums text-muted-foreground/45">
                             {name.length}/50
                           </p>

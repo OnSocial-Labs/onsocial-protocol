@@ -12,6 +12,7 @@ import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import { placesMetaFromComposer } from '@/lib/post-place';
 import { seedScarceEmbedsFromSsr } from '@/features/scarces/scarce-embed-ledger';
 import {
   GuildComposerSheet,
@@ -567,7 +568,8 @@ export function LiveGuildPostPanel({
     mode: GuildComposerMode,
     text: string,
     files: File[] = [],
-    contentLabels: PostContentLabels = {}
+    contentLabels: PostContentLabels = {},
+    places?: string[]
   ): Promise<{ confirmed: boolean; newPostId: string }> => {
     const newPostId = Date.now().toString();
     const { client } = await getClient();
@@ -586,7 +588,10 @@ export function LiveGuildPostPanel({
       }),
       files
     );
-    const tagPayload = postMetaFromText(text);
+    const tagPayload = {
+      ...postMetaFromText(text),
+      ...placesMetaFromComposer(places),
+    };
     const postData = {
       text,
       access: 'group' as const,
@@ -624,14 +629,18 @@ export function LiveGuildPostPanel({
     text: string,
     newPostId: string,
     files: File[] = [],
-    contentLabels: PostContentLabels = {}
+    contentLabels: PostContentLabels = {},
+    places?: string[]
   ) => {
     if (!accountId) return;
     const feedMeta = applyMediaKindOverride(
       conversation.root ? inheritedGuildReplyFeedMeta(conversation.root) : {},
       files
     );
-    const tagPayload = postMetaFromText(text);
+    const tagPayload = {
+      ...postMetaFromText(text),
+      ...placesMetaFromComposer(places),
+    };
     const media = files.length ? buildOptimisticMediaEntries(files) : undefined;
     // Chain-confirmed; show immediately while the indexer catches up.
     const confirmedRow: PostRow = {
@@ -698,7 +707,8 @@ export function LiveGuildPostPanel({
         modalMode,
         text,
         files,
-        contentLabels
+        contentLabels,
+        payload.places
       );
       if (confirmed) {
         const targetsRoot =
@@ -709,7 +719,8 @@ export function LiveGuildPostPanel({
             text,
             newPostId,
             files,
-            contentLabels
+            contentLabels,
+            payload.places
           );
         } else {
           scheduleReconcile();

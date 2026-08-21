@@ -8,6 +8,7 @@ import type { ComposerSubmit } from '@/features/guilds/guild-composer-sheet';
 import { buildDaoPostProposalPayload } from '@/features/protocol/dao-post-proposal';
 import { submitProtocolProposal } from '@/features/protocol/protocol-create';
 import { postMetaFromText } from '@/features/home/post-mentions';
+import { placesMetaFromComposer } from '@/lib/post-place';
 import {
   commerceEmbedFromDraft,
   dropPostKind,
@@ -68,7 +69,10 @@ export async function submitDaoPostProposal(args: {
   const dropKind = dropPostKind(drop);
   const bodyText = resolvedDropPostText(text, drop);
   const contentLabels = normalizeComposerContentLabels(payload);
-  const tags = postMetaFromText(bodyText);
+  const tags = {
+    ...postMetaFromText(bodyText),
+    ...placesMetaFromComposer(payload.places),
+  };
   const now = Date.now();
   const postId = now.toString();
 

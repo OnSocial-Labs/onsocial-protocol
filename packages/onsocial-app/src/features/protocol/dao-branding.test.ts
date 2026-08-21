@@ -88,6 +88,7 @@ describe('dao branding', () => {
       profile: {
         accountId: 'demo.sputnik-dao.near',
         name: 'Profile Name',
+        location: null,
         bio: 'Profile bio',
         avatarUrl: 'https://cdn.example/a.png',
         bannerUrl: 'https://cdn.example/b.png',
@@ -141,6 +142,7 @@ describe('dao branding', () => {
       profile: {
         accountId: 'demo.sputnik-dao.near',
         name: null,
+        location: null,
         bio: '   ',
         avatarUrl: 'https://cdn.example/a.png',
         bannerUrl: null,

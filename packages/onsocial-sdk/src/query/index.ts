@@ -57,6 +57,7 @@ import { EndorsementsQuery } from './endorsements.js';
 import { AttestationsQuery } from './attestations.js';
 import { HashtagsQuery } from './hashtags.js';
 import { TickersQuery } from './tickers.js';
+import { PlacesQuery } from './places.js';
 import { StatsQuery } from './stats.js';
 import { StorageQuery } from './storage.js';
 import { PermissionsQuery } from './permissions.js';
@@ -76,6 +77,7 @@ export type {
   Paginated,
   HashtagCount,
   TickerCount,
+  PlaceCount,
   GroupConversation,
   FeedFilter,
   GroupFeedFilter,
@@ -189,6 +191,7 @@ export class QueryModule {
   readonly attestations: AttestationsQuery;
   readonly hashtags: HashtagsQuery;
   readonly tickers: TickersQuery;
+  readonly places: PlacesQuery;
   readonly stats: StatsQuery;
   readonly storage: StorageQuery;
   readonly permissions: PermissionsQuery;
@@ -216,6 +219,7 @@ export class QueryModule {
     this.attestations = new AttestationsQuery(this);
     this.hashtags = new HashtagsQuery(this);
     this.tickers = new TickersQuery(this);
+    this.places = new PlacesQuery(this);
     this.stats = new StatsQuery(this, http);
     this.storage = new StorageQuery(this);
     this.permissions = new PermissionsQuery(this);

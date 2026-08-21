@@ -81,6 +81,10 @@ import {
 export {
   buildProfileSetData,
   profileMetaFromBio,
+  PROFILE_LOCATION_MAX,
+  normalizeProfileLocationInput,
+  profileLocationFromMaterialised,
+  sanitizeProfileLocationDraft,
   splitRichText,
   normalizeAutolinkUrl,
   autolinkDisplayHost,

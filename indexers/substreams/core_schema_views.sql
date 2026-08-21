@@ -1200,6 +1200,52 @@ FROM post_tickers
 GROUP BY ticker;
 
 -- ────────────────────────────────────────────────────────────────────────────
+-- 13c2. post_places — place-to-post junction (intentional place tags)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW post_places AS
+SELECT
+  p.account_id,
+  p.post_id,
+  lower(trim(pl.place)) AS place,
+  p.block_height,
+  p.block_timestamp,
+  p.group_id
+FROM posts_current p
+CROSS JOIN LATERAL jsonb_array_elements_text(
+  (
+    CASE
+      WHEN p.value ~ '^[\[\{]' THEN p.value::jsonb
+      ELSE NULL
+    END
+  ) -> 'places'
+) AS pl(place)
+WHERE p.value IS NOT NULL
+  AND p.value != ''
+  AND p.value ~ '^[\[\{]'
+  AND jsonb_typeof(
+    (
+      CASE
+        WHEN p.value ~ '^[\[\{]' THEN p.value::jsonb
+        ELSE NULL
+      END
+    ) -> 'places'
+  ) = 'array'
+  AND length(trim(pl.place)) > 0;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 13c3. place_counts — aggregate post count per place (Discover trending)
+-- ────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE VIEW place_counts AS
+SELECT
+  place,
+  count(*)          AS post_count,
+  max(block_height) AS last_block
+FROM post_places
+GROUP BY place;
+
+-- ────────────────────────────────────────────────────────────────────────────
 -- 13d. profile_hashtags — hashtag-to-profile junction (bio-derived arrays)
 -- ────────────────────────────────────────────────────────────────────────────
 

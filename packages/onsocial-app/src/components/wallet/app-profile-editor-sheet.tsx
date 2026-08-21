@@ -16,6 +16,10 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  PROFILE_LOCATION_MAX,
+  sanitizeProfileLocationDraft,
+} from '@onsocial/sdk';
+import {
   DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
@@ -144,6 +148,7 @@ export function AppProfileEditorSheet({
     useViewerDockMood(pageAccountId);
 
   const [name, setName] = useState('');
+  const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
   const [links, setLinks] = useState<ProfileLinksInput>(() =>
     profileLinksInputFromRecord(null)
@@ -167,6 +172,7 @@ export function AppProfileEditorSheet({
   if (readyKey && readyKey !== seedKey && snapshot) {
     setSeedKey(readyKey);
     setName(snapshot.name);
+    setLocation(snapshot.location);
     setBio(snapshot.bio);
     setLinks(linksFromSnapshot);
     setLinkNotes(sanitizeLinkNotes(snapshot.pageConfig?.linkNotes));
@@ -219,6 +225,7 @@ export function AppProfileEditorSheet({
       snapshot,
       linksFromSnapshot,
       name,
+      location,
       bio,
       links,
       linkNotes,
@@ -236,6 +243,7 @@ export function AppProfileEditorSheet({
     links,
     linkNotes,
     linksFromSnapshot,
+    location,
     name,
     readyKey,
     seedKey,
@@ -357,6 +365,7 @@ export function AppProfileEditorSheet({
     try {
       const result = await saveProfile({
         name,
+        location,
         bio,
         avatar: avatarFile,
         banner: bannerFile,
@@ -628,6 +637,31 @@ export function AppProfileEditorSheet({
                         <p className="profile-handle account-editor-handle">
                           @{handleLabel}
                         </p>
+                        <label
+                          htmlFor="profile-editor-location"
+                          className="sr-only"
+                        >
+                          Location
+                        </label>
+                        <input
+                          id="profile-editor-location"
+                          className="account-editor-location"
+                          value={location}
+                          maxLength={PROFILE_LOCATION_MAX}
+                          autoComplete="address-level2"
+                          placeholder="Based in"
+                          disabled={saving}
+                          onFocus={scrollFieldIntoView}
+                          onChange={(event) =>
+                            setLocation(
+                              sanitizeProfileLocationDraft(event.target.value)
+                            )
+                          }
+                          onBlur={() => {
+                            const trimmed = location.trim().replace(/\s+/g, ' ');
+                            if (trimmed !== location) setLocation(trimmed);
+                          }}
+                        />
                         <label htmlFor="profile-editor-bio" className="sr-only">
                           Bio
                         </label>

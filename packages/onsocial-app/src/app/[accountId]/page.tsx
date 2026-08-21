@@ -159,6 +159,7 @@ export default async function AccountPage({
         <PortfolioIdentity
           accountId={accountId}
           profileName={shell?.name ?? daoPage?.branding.name}
+          location={shell?.location}
           bio={portfolioBio}
           tagline={tagline}
           avatarUrl={shell?.avatarUrl ?? daoPage?.branding.avatarUrl}

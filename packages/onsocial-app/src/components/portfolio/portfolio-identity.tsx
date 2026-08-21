@@ -17,6 +17,7 @@ import type { ResolvedMood } from '@/lib/moods/types';
 interface PortfolioIdentityProps {
   accountId: string;
   profileName?: string | null;
+  location?: string | null;
   bio?: string | null;
   tagline?: string;
   avatarUrl?: string | null;
@@ -30,6 +31,7 @@ interface PortfolioIdentityProps {
 export function PortfolioIdentity({
   accountId,
   profileName,
+  location,
   bio,
   tagline,
   avatarUrl,
@@ -43,6 +45,7 @@ export function PortfolioIdentity({
 
   const titleLabel = displayName(accountId, profileName ?? undefined);
   const summary = tagline?.trim() || bio?.trim();
+  const locationLabel = location?.trim() || null;
   const handleLabel = portfolioHandleForMood(accountId, mood.id);
 
   useEffect(() => {
@@ -75,6 +78,9 @@ export function PortfolioIdentity({
         >
           {handleLabel}
         </p>
+        {locationLabel ? (
+          <p className="portfolio-location">{locationLabel}</p>
+        ) : null}
         {summary ? (
           <p className="portfolio-bio">
             <PostRichText text={summary} emptyFallback="" showLinkIcon />

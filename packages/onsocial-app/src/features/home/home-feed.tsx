@@ -39,6 +39,7 @@ import {
   homeFeedFocusKey,
   homeFeedFocusPath,
   HOME_HASHTAG_QUERY_KEY,
+  HOME_PLACE_QUERY_KEY,
   HOME_TICKER_QUERY_KEY,
   parseHomeFeedFocus,
   type HomeFeedFocus,
@@ -190,10 +191,15 @@ async function loadFocusedFeedPage(
           limit,
           offset,
         })
-      : await client.query.feed.byHashtag(focus.value, {
-          limit,
-          offset,
-        });
+      : focus.kind === 'place'
+        ? await client.query.feed.byPlace(focus.value, {
+            limit,
+            offset,
+          })
+        : await client.query.feed.byHashtag(focus.value, {
+            limit,
+            offset,
+          });
   // Topic/ticker indexes are chronological; hot reorders each hydrated page.
   if (sort !== 'hot') return page;
   const items = [...page.items].sort((a, b) => {
@@ -285,9 +291,15 @@ export function HomePagePanel({
   const [savedFeedSheetOpen, setSavedFeedSheetOpen] = useState(false);
   const tagParam = searchParams.get(HOME_HASHTAG_QUERY_KEY);
   const tickerParam = searchParams.get(HOME_TICKER_QUERY_KEY);
+  const placeParam = searchParams.get(HOME_PLACE_QUERY_KEY);
   const activeFocus = useMemo(
-    () => parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam }),
-    [tagParam, tickerParam]
+    () =>
+      parseHomeFeedFocus({
+        tag: tagParam,
+        ticker: tickerParam,
+        place: placeParam,
+      }),
+    [tagParam, tickerParam, placeParam]
   );
   const activeFocusKey = homeFeedFocusKey(activeFocus);
   const savedFocusKeys = useMemo(
@@ -410,7 +422,7 @@ export function HomePagePanel({
   );
 
   useEffect(() => {
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
 
     // Paint SSR hot feed immediately; standing / non-hot sorts soft-upgrade.
     const canUseSsrBootstrap =
@@ -558,6 +570,7 @@ export function HomePagePanel({
     sort,
     tagParam,
     tickerParam,
+    placeParam,
     walletLoading,
   ]);
 
@@ -570,7 +583,7 @@ export function HomePagePanel({
     appendInFlightRef.current = true;
     setIsLoadingMore(true);
 
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
 
     void (async () => {
       try {
@@ -610,7 +623,7 @@ export function HomePagePanel({
         }
       }
     })();
-  }, [accountId, activeLens, sort, tagParam, tickerParam]);
+  }, [accountId, activeLens, sort, tagParam, tickerParam, placeParam]);
 
   const hasMore = nextOffset !== undefined;
   const showLoadMoreSentinel = hasMore && visiblePosts.length > 0;
@@ -699,7 +712,7 @@ export function HomePagePanel({
     }
 
     newPostsProbeInFlightRef.current = true;
-    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam });
+    const focus = parseHomeFeedFocus({ tag: tagParam, ticker: tickerParam, place: placeParam });
 
     try {
       // Always probe chronological head so “new” means newer content, not Hot churn.
@@ -736,7 +749,7 @@ export function HomePagePanel({
     } finally {
       newPostsProbeInFlightRef.current = false;
     }
-  }, [accountId, activeLens, lensReady, tagParam, tickerParam, walletLoading]);
+  }, [accountId, activeLens, lensReady, tagParam, tickerParam, placeParam, walletLoading]);
 
   useEffect(() => {
     if (!lensReady || walletLoading) return;

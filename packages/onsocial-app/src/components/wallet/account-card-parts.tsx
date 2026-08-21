@@ -468,7 +468,7 @@ export function AccountActionList({
   const rows: AccountActionRowProps[] = [
     {
       label: 'Edit profile',
-      hint: 'Name, photo, bio, links',
+      hint: 'Name, photo, location, bio, links',
       onClick: onEditProfile,
     },
     ...(showCustomize

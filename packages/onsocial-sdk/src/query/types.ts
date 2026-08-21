@@ -35,6 +35,13 @@ export interface TickerCount {
   lastBlock: number;
 }
 
+/** Row from `place_counts` view. */
+export interface PlaceCount {
+  place: string;
+  postCount: number;
+  lastBlock: number;
+}
+
 export interface GroupConversation {
   root: PostRow | null;
   replies: PostRow[];

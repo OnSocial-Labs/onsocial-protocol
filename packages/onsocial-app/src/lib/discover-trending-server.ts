@@ -1,4 +1,4 @@
-import type { HashtagCount, TickerCount } from '@onsocial/sdk';
+import type { HashtagCount, PlaceCount, TickerCount } from '@onsocial/sdk';
 import {
   rankGuildPeeks,
   rankHubPeeks,
@@ -37,6 +37,7 @@ export type DiscoverTrendingHub = {
 export type DiscoverTrendingSeed = {
   tickers: TickerCount[];
   topics: HashtagCount[];
+  places: PlaceCount[];
   profiles: ProfileListAccount[];
   guilds: DiscoverTrendingGuild[];
   daos: DiscoverTrendingDao[];
@@ -107,7 +108,7 @@ async function loadTrendingHubs(
 export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed | null> {
   try {
     const os = createServerOnSocialClient();
-    const [tickers, topics, profilesPage, daos, guilds, hubs] =
+    const [tickers, topics, places, profilesPage, daos, guilds, hubs] =
       await Promise.all([
         os.query.tickers
           .trending({ limit: SECTION_LIMIT })
@@ -115,6 +116,9 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
         os.query.hashtags
           .trending({ limit: SECTION_LIMIT })
           .catch(() => [] as HashtagCount[]),
+        os.query.places
+          .trending({ limit: SECTION_LIMIT })
+          .catch(() => [] as PlaceCount[]),
         os.query.profiles
           .discoverPage({ limit: SECTION_LIMIT })
           .then((page) =>
@@ -133,6 +137,7 @@ export async function loadDiscoverTrendingSeed(): Promise<DiscoverTrendingSeed |
     return {
       tickers,
       topics,
+      places,
       profiles,
       guilds,
       daos,

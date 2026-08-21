@@ -11,6 +11,7 @@ function baseSnapshot(
     accountId: 'alice.testnet',
     hasProfile: true,
     name: 'Alice',
+    location: 'Lisbon',
     bio: 'Builder',
     avatarUrl: 'https://cdn.example/avatar.png',
     bannerUrl: 'https://cdn.example/banner.png',
@@ -30,6 +31,7 @@ function dirtyInput(
     snapshot,
     linksFromSnapshot,
     name: snapshot.name,
+    location: snapshot.location,
     bio: snapshot.bio,
     links: linksFromSnapshot,
     linkNotes: sanitizeLinkNotes(snapshot.pageConfig.linkNotes),
@@ -84,6 +86,13 @@ describe('isProfileEditorDirty', () => {
     const snapshot = baseSnapshot();
     expect(
       isProfileEditorDirty(dirtyInput(snapshot, { bio: 'Building #near' }))
+    ).toBe(true);
+  });
+
+  it('is dirty when location changes', () => {
+    const snapshot = baseSnapshot();
+    expect(
+      isProfileEditorDirty(dirtyInput(snapshot, { location: 'Tokyo' }))
     ).toBe(true);
   });
 

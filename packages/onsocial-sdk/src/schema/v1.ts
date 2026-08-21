@@ -91,6 +91,12 @@ export interface PostV1 extends GroupFeedMetaV1 {
   hashtags?: string[];
   /** Lowercase ticker symbols, no leading `$` (e.g. `social`, `near`). */
   tickers?: string[];
+  /**
+   * Optional place slugs (lowercase, no leading `#`).
+   * Public, intentional tags on the post — prefer over profile “home” location.
+   * e.g. `lisbon`, `ethdenver`, `tokyo`.
+   */
+  places?: string[];
   embeds?: Embed[];
 
   // Indexer-recognised reference fields (substreams expects these names).
@@ -194,6 +200,8 @@ export interface GroupConfigV1 {
 
 const HANDLE_RE = /^[a-z0-9_]{1,32}$/;
 const HASHTAG_RE = /^[a-z0-9_]{1,64}$/;
+/** Place slug — same charset as hashtags (city / venue / event label). */
+const PLACE_RE = HASHTAG_RE;
 /** Cashtag body after `$` — letter-led so `$100` is not a ticker. */
 const TICKER_RE = /^[a-z][a-z0-9_]{0,15}$/;
 const BCP47_RE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
@@ -466,6 +474,14 @@ export function validatePostV1(post: unknown): string | null {
       !post.tickers.every((t) => isStr(t) && TICKER_RE.test(t))
     ) {
       return 'post.tickers must be lowercase letter-led symbols without $';
+    }
+  }
+  if (post.places !== undefined) {
+    if (
+      !Array.isArray(post.places) ||
+      !post.places.every((t) => isStr(t) && PLACE_RE.test(t))
+    ) {
+      return 'post.places must be lowercase strings (a-z0-9_)';
     }
   }
   if (post.embeds !== undefined) {

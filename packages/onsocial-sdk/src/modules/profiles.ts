@@ -41,6 +41,8 @@ export interface MaterialisedProfile {
   v?: number;
   name?: string;
   bio?: string;
+  /** Coarse public “based in” label (city / region). Not GPS. */
+  location?: string;
   /** Raw `ipfs://<cid>` or URL string as stored on chain. */
   avatar?: string;
   /** Raw `ipfs://<cid>` or URL string as stored on chain. */
@@ -61,7 +63,7 @@ export interface MaterialisedProfile {
   extra: Record<string, string>;
 }
 
-const RESERVED = new Set(['v', 'name', 'bio', 'avatar', 'banner']);
+const RESERVED = new Set(['v', 'name', 'bio', 'location', 'avatar', 'banner']);
 const JSON_FIELDS = new Set([
   'links',
   'tags',
@@ -114,6 +116,7 @@ function rowsToProfile(
       if (!Number.isNaN(n)) out.v = n;
     } else if (f === 'name') out.name = row.value;
     else if (f === 'bio') out.bio = row.value;
+    else if (f === 'location') out.location = row.value;
     else if (f === 'avatar') out.avatar = row.value;
     else if (f === 'banner') out.banner = row.value;
     else if (JSON_FIELDS.has(f)) {

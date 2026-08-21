@@ -91,6 +91,7 @@ function hasProfileFields(profile: MaterialisedProfile | null): boolean {
   return Boolean(
     profile.name?.trim() ||
       profile.bio?.trim() ||
+      profile.location?.trim() ||
       profile.avatar ||
       profile.banner ||
       Object.keys(profile.extra).length > 0
@@ -145,6 +146,10 @@ function buildOptimisticProfile(
         break;
       case 'bio':
         next.bio = value;
+        break;
+      case 'location':
+        next.location = value;
+        delete extra.location;
         break;
       case 'avatar':
         next.avatar = value;
@@ -201,6 +206,8 @@ function getMaterialisedProfileField(
       return profile.name;
     case 'bio':
       return profile.bio ?? '';
+    case 'location':
+      return profile.location ?? profile.extra.location;
     case 'avatar':
       return profile.avatar;
     case 'banner':
@@ -648,6 +655,10 @@ export function useProfileState() {
         }
         if (payload.banner === null) {
           optimisticProfile.banner = undefined;
+        }
+        if (payload.location === null) {
+          optimisticProfile.location = undefined;
+          delete optimisticProfile.extra.location;
         }
         setProfile(optimisticProfile);
         setIndexedProfile((current) =>

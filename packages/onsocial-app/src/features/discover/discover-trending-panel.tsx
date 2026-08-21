@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { HashtagCount, TickerCount } from '@onsocial/sdk';
+import type { HashtagCount, PlaceCount, TickerCount } from '@onsocial/sdk';
 import { ProfileSocialList } from '@/components/panels/profile-social-list';
 import {
   DiscoverTrendingChipSectionSkeleton,
@@ -11,6 +11,7 @@ import {
 } from '@/features/discover/discover-loading-skeleton';
 import type { DiscoverTab } from '@/features/discover/discover-tabs';
 import { homeHashtagPath } from '@/features/home/home-hashtag-search';
+import { homePlacePath, placeLabel } from '@/lib/post-place';
 import {
   formatTickerDisplay,
   homeTickerPath,
@@ -75,6 +76,9 @@ export function DiscoverTrendingPanel({
   const [topics, setTopics] = useState<HashtagCount[] | null>(
     () => initial?.topics ?? null
   );
+  const [places, setPlaces] = useState<PlaceCount[] | null>(
+    () => initial?.places ?? null
+  );
   const [profiles, setProfiles] = useState<ProfileListAccount[] | null>(
     () => initial?.profiles ?? null
   );
@@ -98,6 +102,7 @@ export function DiscoverTrendingPanel({
     initial != null &&
       (initial.tickers.length > 0 ||
         initial.topics.length > 0 ||
+        (initial.places?.length ?? 0) > 0 ||
         initial.profiles.length > 0 ||
         initial.guilds.length > 0 ||
         initial.daos.length > 0 ||
@@ -113,6 +118,7 @@ export function DiscoverTrendingPanel({
     if (!soft) {
       setTickers(null);
       setTopics(null);
+      setPlaces(null);
       setProfiles(null);
       setGuilds(null);
       setDaos(null);
@@ -139,6 +145,17 @@ export function DiscoverTrendingPanel({
       })
       .catch(() => {
         if (!cancelled && !soft) setTopics([]);
+      });
+
+    void client.query.places
+      .trending({ limit: SECTION_LIMIT })
+      .then((rows) => {
+        if (cancelled) return;
+        setPlaces(rows);
+        hasPaintedRef.current = true;
+      })
+      .catch(() => {
+        if (!cancelled && !soft) setPlaces([]);
       });
 
     void fetchDiscoverProfiles('', viewerKey, 0)
@@ -280,6 +297,7 @@ export function DiscoverTrendingPanel({
   const allSettled =
     tickers !== null &&
     topics !== null &&
+    places !== null &&
     profiles !== null &&
     guilds !== null &&
     daos !== null &&
@@ -288,6 +306,7 @@ export function DiscoverTrendingPanel({
     allSettled &&
     tickers.length === 0 &&
     topics.length === 0 &&
+    places.length === 0 &&
     profiles.length === 0 &&
     guilds.length === 0 &&
     daos.length === 0 &&
@@ -295,6 +314,7 @@ export function DiscoverTrendingPanel({
   const anyLoading =
     tickers === null ||
     topics === null ||
+    places === null ||
     profiles === null ||
     guilds === null ||
     daos === null ||
@@ -375,6 +395,30 @@ export function DiscoverTrendingPanel({
                 className="discover-trending-chip"
               >
                 #{item.hashtag}
+                <span className="discover-trending-chip-count">
+                  {item.postCount}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {places === null ? (
+        <DiscoverTrendingChipSectionSkeleton />
+      ) : places.length > 0 ? (
+        <section className="discover-trending-section">
+          <div className="discover-trending-section-head">
+            <h2 className="discover-trending-heading">Trending places</h2>
+          </div>
+          <div className="discover-trending-chips">
+            {places.slice(0, 6).map((item) => (
+              <Link
+                key={`p-${item.place}`}
+                href={homePlacePath(item.place)}
+                className="discover-trending-chip"
+              >
+                {placeLabel(item.place) ?? item.place}
                 <span className="discover-trending-chip-count">
                   {item.postCount}
                 </span>
