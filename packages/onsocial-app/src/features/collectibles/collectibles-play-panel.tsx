@@ -17,6 +17,7 @@ import {
   CollectionAboutTeaser,
 } from '@/features/scarces/collection-about-sheet';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import {
   deriveCollectionStatus,
   fetchCollectionPreferIndexer,
@@ -301,6 +302,17 @@ export function CollectiblesPlayPanel({
   const playables = view?.playables ?? [];
   const hasPlayables = playables.length > 0;
   const description = view?.description?.trim() ?? '';
+  const aboutEvent = view ? ticketEventScheduleFacts(view, nowMs) : null;
+  const aboutHasMore = Boolean(
+    view &&
+      ((aboutEvent && !aboutEvent.empty) ||
+        view.seriesId ||
+        view.createdAtMs > 0)
+  );
+  const aboutTeaserText =
+    description ||
+    aboutEvent?.place ||
+    (aboutHasMore ? 'About' : '');
   const kindLabel = marketMediumLabel(view?.kind);
   const releasedRel =
     view && view.createdAtMs > 0
@@ -605,9 +617,10 @@ export function CollectiblesPlayPanel({
               </div>
             ) : null}
 
-            {description ? (
+            {aboutTeaserText ? (
               <CollectionAboutTeaser
-                text={description}
+                text={aboutTeaserText}
+                hasMore={aboutHasMore}
                 onReadMore={() => setAboutOpen(true)}
               />
             ) : null}

@@ -8,6 +8,7 @@ import {
   ScarceAboutSheet,
   type ScarceAboutEvent,
 } from '@/features/scarces/scarce-about-sheet';
+import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
 import { SCARCE_Z } from '@/features/scarces/scarce-overlay-z';
 import { parsePostText } from '@/lib/post-display';
 import { postHrefFromSourcePath } from '@/lib/scarce-creator-earnings';
@@ -112,7 +113,7 @@ export function isScarceOriginalSelf(
 
 /**
  * Scarce sheet copy under the cover: title + one-line teaser (About sheet
- * when truncated) + link back to the source post — Drop play parity.
+ * when truncated or when Event / more metadata exists) + source post link.
  */
 export function ScarceProvenanceCopy({
   title = null,
@@ -131,11 +132,21 @@ export function ScarceProvenanceCopy({
   const originalHref = hideOriginalLink
     ? null
     : resolveScarceOriginalHref({ postHref, sourcePostPath });
+  const hasEvent = Boolean(
+    (event?.eventStartsAtMs != null && event.eventStartsAtMs > 0) ||
+      (event?.eventEndsAtMs != null && event.eventEndsAtMs > 0) ||
+      event?.place?.trim()
+  );
+  const teaserText =
+    body ||
+    (hasEvent
+      ? ticketEventPlaceLabel(event?.place) || 'Event details'
+      : null);
   // Title lives in the commerce summary; only force it here when asked
   // (e.g. list/compose preview).
   const showTitleRow = Boolean(resolvedTitle) && showTitle;
 
-  if (!showTitleRow && !body && !originalHref) return null;
+  if (!showTitleRow && !teaserText && !originalHref) return null;
 
   return (
     <>
@@ -143,9 +154,10 @@ export function ScarceProvenanceCopy({
         {showTitleRow ? (
           <p className="scarce-provenance-title">{resolvedTitle}</p>
         ) : null}
-        {body ? (
+        {teaserText ? (
           <CollectionAboutTeaser
-            text={body}
+            text={teaserText}
+            hasMore={hasEvent}
             onReadMore={() => setAboutOpen(true)}
           />
         ) : null}
@@ -161,12 +173,12 @@ export function ScarceProvenanceCopy({
           </p>
         ) : null}
       </div>
-      {body ? (
+      {teaserText ? (
         <ScarceAboutSheet
           open={aboutOpen}
           onClose={() => setAboutOpen(false)}
           title={resolvedTitle}
-          body={body}
+          body={body || ''}
           originalHref={originalHref}
           event={event}
           zIndex={aboutZIndex}

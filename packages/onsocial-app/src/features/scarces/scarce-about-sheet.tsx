@@ -64,7 +64,7 @@ export function ScarceAboutSheet({
     onClose();
   }, [onClose]);
 
-  if (!trimmed && !open) return null;
+  if (!trimmed && !showEvent && !open) return null;
 
   return (
     <OsHugSheet

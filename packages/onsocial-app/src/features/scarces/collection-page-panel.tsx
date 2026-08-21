@@ -46,6 +46,7 @@ import {
   CollectionActivitySkeleton,
 } from '@/features/scarces/collection-page-skeleton';
 import { CollectionFactsSheet } from '@/features/scarces/collection-facts-sheet';
+import { ticketEventScheduleFacts } from '@/features/scarces/ticket-event-facts';
 import { GuildFacepile } from '@/features/guilds/guild-facepile';
 import { ScarceFansSheet } from '@/features/scarces/scarce-fans-sheet';
 import {
@@ -757,6 +758,11 @@ export function CollectionPagePanel({
     setShowPassOpen(true);
   };
   const description = view.description?.trim() ?? '';
+  const aboutEvent = ticketEventScheduleFacts(view, nowMs);
+  const aboutHasMore =
+    !aboutEvent.empty || Boolean(view.seriesId) || view.createdAtMs > 0;
+  const aboutTeaserText =
+    description || aboutEvent.place || (aboutHasMore ? 'About' : '');
   const chipParts: string[] = [];
   if (view.isVariations) {
     chipParts.push(
@@ -1156,9 +1162,10 @@ export function CollectionPagePanel({
             {mintDisabledReason && !isOwner ? (
               <p className="collection-mint-hint">{mintDisabledReason}</p>
             ) : null}
-            {description ? (
+            {aboutTeaserText ? (
               <CollectionAboutTeaser
-                text={description}
+                text={aboutTeaserText}
+                hasMore={aboutHasMore}
                 onReadMore={() => setAboutOpen(true)}
               />
             ) : null}

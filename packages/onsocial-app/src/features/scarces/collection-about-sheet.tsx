@@ -24,15 +24,18 @@ import { seriesPagePath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
 /**
- * One-line drop blurb. Shows an inline “…” only when the line truncates —
- * same measure path as Buy.
+ * One-line drop blurb. Shows inline “…” when the line truncates, or when
+ * `hasMore` — About has Event / other metadata beyond this one-liner.
  */
 export function CollectionAboutTeaser({
   text,
   onReadMore,
+  hasMore = false,
 }: {
   text: string;
   onReadMore: () => void;
+  /** Show … even when the line fits — About holds more than this teaser. */
+  hasMore?: boolean;
 }) {
   const lineRef = useRef<HTMLParagraphElement>(null);
   const [truncated, setTruncated] = useState(false);
@@ -52,21 +55,24 @@ export function CollectionAboutTeaser({
     return () => observer.disconnect();
   }, [trimmed]);
 
-  if (!trimmed) return null;
+  if (!trimmed && !hasMore) return null;
+
+  const showExpand = truncated || hasMore;
+  const line = trimmed || 'About';
 
   return (
     <div
-      className={`collection-about-teaser${truncated ? ' is-truncated' : ''}`}
+      className={`collection-about-teaser${showExpand ? ' is-truncated' : ''}`}
     >
       <p ref={lineRef} className="collection-about-teaser-line">
-        {trimmed}
+        {line}
       </p>
-      {truncated ? (
+      {showExpand ? (
         <button
           type="button"
           className="collection-about-read-more"
           onClick={onReadMore}
-          aria-label="Read more"
+          aria-label={hasMore && !truncated ? 'More details' : 'Read more'}
         >
           …
         </button>
