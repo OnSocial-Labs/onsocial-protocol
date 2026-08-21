@@ -34,6 +34,7 @@ function makeDataUpdate(
     parent_author: null,
     ref_path: null,
     ref_author: null,
+    ref_type: null,
     extra_data: null,
     ...overrides,
   };
@@ -93,7 +94,7 @@ function makeBoostEvent(
 }
 
 describe('mapDataUpdateNotifications', () => {
-  it('maps replies and quotes from post writes', () => {
+  it('maps replies, quotes, and reposts from post writes', () => {
     const notifications = mapDataUpdateNotifications({
       id: 'du-1',
       block_height: 101,
@@ -112,6 +113,7 @@ describe('mapDataUpdateNotifications', () => {
       parent_author: 'bob.testnet',
       ref_path: 'carol/post/root',
       ref_author: 'carol.testnet',
+      ref_type: null,
       extra_data: null,
     });
 
@@ -122,6 +124,31 @@ describe('mapDataUpdateNotifications', () => {
     expect(notifications.map((notification) => notification.recipient)).toEqual(
       ['bob.testnet', 'carol.testnet']
     );
+
+    const repostNotifications = mapDataUpdateNotifications({
+      id: 'du-1b',
+      block_height: 101,
+      block_timestamp: '1730000000000000000',
+      receipt_id: 'rcpt-1b',
+      operation: 'set',
+      author: 'alice.testnet',
+      path: 'alice/post/share',
+      value: '{"refType":"repost","text":""}',
+      account_id: 'alice.testnet',
+      data_type: 'post',
+      data_id: 'share',
+      group_id: null,
+      target_account: null,
+      parent_path: null,
+      parent_author: null,
+      ref_path: 'carol/post/root',
+      ref_author: 'carol.testnet',
+      ref_type: 'repost',
+      extra_data: null,
+    });
+    expect(repostNotifications.map((n) => n.notificationType)).toEqual([
+      'repost',
+    ]);
   });
 
   it('maps reactions and standings to the target account', () => {

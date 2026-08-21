@@ -775,7 +775,7 @@ export function HomePagePanel({
 
   useEffect(() => subscribePersonalPostConfirmed(onConfirmed), [onConfirmed]);
 
-  const { openReply, openQuote, sheet } = usePersonalComposer({
+  const { openReply, openQuote, openRepost, sheet } = usePersonalComposer({
     registerPen: Boolean(isConnected && accountId),
     destinationLabel,
     onConfirmed,
@@ -783,6 +783,7 @@ export function HomePagePanel({
 
   const replyHandler = isConnected ? openReply : undefined;
   const quoteHandler = isConnected ? openQuote : undefined;
+  const repostHandler = isConnected ? openRepost : undefined;
 
   const emptyCopy = activeFocus
     ? homeFeedFocusEmptyCopy(activeFocus)
@@ -873,6 +874,7 @@ export function HomePagePanel({
                 initialScarceEmbeds={initialScarceEmbeds}
                 onReply={replyHandler}
                 onQuote={quoteHandler}
+                onRepost={repostHandler}
                 onAmplified={handleAmplified}
                 onEngagementError={(message) => setEngagementError(message)}
               />

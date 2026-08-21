@@ -57,6 +57,7 @@ interface DataUpdateRow {
   parent_author: string | null;
   ref_path: string | null;
   ref_author: string | null;
+  ref_type: string | null;
   extra_data: string | null;
 }
 
@@ -329,24 +330,27 @@ export function mapDataUpdateNotifications(
       },
     });
 
-    const quote = buildNotification(row, {
+    const refType = (normalizeText(row.ref_type) || 'quote').toLowerCase();
+    const shareType = refType === 'repost' ? 'repost' : 'quote';
+    const share = buildNotification(row, {
       recipient: row.ref_author ?? '',
       actor,
-      notificationType: 'quote',
+      notificationType: shareType,
       sourceContract: 'core',
       context: {
         postId: normalizeText(row.data_id),
         path: normalizeText(row.path),
         refPath: normalizeText(row.ref_path),
         groupId: normalizeText(row.group_id),
+        refType: shareType,
       },
     });
 
     if (reply) {
       notifications.push(reply);
     }
-    if (quote) {
-      notifications.push(quote);
+    if (share) {
+      notifications.push(share);
     }
   }
 
@@ -647,7 +651,7 @@ function getSelectSql(sourceTable: SourceTable): string {
       return `
         SELECT id, block_height, block_timestamp, receipt_id, operation, author, path, value,
                account_id, data_type, data_id, group_id, target_account, parent_path,
-               parent_author, ref_path, ref_author, extra_data
+               parent_author, ref_path, ref_author, ref_type, extra_data
         FROM data_updates
         WHERE (block_height > $1 OR (block_height = $1 AND id > $2))
         ORDER BY block_height ASC, id ASC

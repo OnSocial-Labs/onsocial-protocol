@@ -404,6 +404,7 @@ export async function loadPostEngagementMap(
     next[target.key] = {
       replyCount: counts?.replyCount ?? 0,
       quoteCount: counts?.quoteCount ?? 0,
+      repostCount: counts?.repostCount ?? 0,
       reactionCount: reactions?.counts.total ?? 0,
       viewerReacted: false,
       amplifyCount: amplify?.amplifyCount ?? 0,

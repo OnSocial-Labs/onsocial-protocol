@@ -170,6 +170,8 @@ interface PostCardProps {
   onReply?: (post: PostRow) => void;
   /** Open a quote composer targeting this post. */
   onQuote?: (post: PostRow) => void;
+  /** One-tap repost targeting this post. */
+  onRepost?: (post: PostRow) => void;
   pollTally?: PollTally;
   pollVotePending?: boolean;
   onPollVote?: (post: PostRow, optionIndex: number) => void;
@@ -902,6 +904,7 @@ function PostEngagementRow({
   savePending,
   onReply,
   onQuote,
+  onRepost,
   onToggleReaction,
   onToggleSave,
   onAmplify,
@@ -914,11 +917,43 @@ function PostEngagementRow({
   savePending?: boolean;
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
+  onRepost?: (post: PostRow) => void;
   onToggleReaction?: (post: PostRow) => void;
   onToggleSave?: (post: PostRow) => void;
   onAmplify: () => void;
   post: PostRow;
 }) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const canShare = Boolean(onQuote || onRepost);
+  const shareCount =
+    (engagement.repostCount ?? 0) + (engagement.quoteCount ?? 0);
+  const shareItems = useMemo<ActionDrawerItem[]>(() => {
+    const items: ActionDrawerItem[] = [];
+    if (onRepost) {
+      items.push({
+        id: 'repost',
+        label: 'Repost',
+        description: post.groupId
+          ? 'Share in this guild'
+          : 'Share to your feed',
+        leading: <RepeatIcon className="os-action-drawer-icon" aria-hidden />,
+        onSelect: () => onRepost(post),
+      });
+    }
+    if (onQuote) {
+      items.push({
+        id: 'quote',
+        label: 'Quote',
+        description: 'Add a comment',
+        leading: (
+          <MessageRoundIcon className="os-action-drawer-icon" aria-hidden />
+        ),
+        onSelect: () => onQuote(post),
+      });
+    }
+    return items;
+  }, [onQuote, onRepost, post]);
+
   return (
     <div className="post-card-engagement">
       <div className="post-card-engagement-actions">
@@ -932,11 +967,11 @@ function PostEngagementRow({
         />
         <EngagementStat
           icon={<RepeatIcon aria-hidden />}
-          count={engagement.quoteCount}
-          label="quotes"
+          count={shareCount}
+          label="reposts"
           tone="quote"
-          actionLabel={onQuote ? 'Quote this post' : undefined}
-          onActivate={onQuote ? () => onQuote(post) : undefined}
+          actionLabel={canShare ? 'Quote or repost' : undefined}
+          onActivate={canShare ? () => setShareOpen(true) : undefined}
         />
         {onToggleReaction ? (
           <EngagementStat
@@ -1000,6 +1035,14 @@ function PostEngagementRow({
         ) : null}
         <PostShareControl href={shareHref} title={shareTitle} />
       </div>
+      {canShare ? (
+        <ActionDrawer
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          label="Quote or repost"
+          items={shareItems}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1133,6 +1176,7 @@ export function PostCard({
   onAmplifyConfirmed,
   onReply,
   onQuote,
+  onRepost,
   pollTally,
   pollVotePending,
   onPollVote,
@@ -1648,6 +1692,7 @@ export function PostCard({
             savePending={savePending}
             onReply={onReply}
             onQuote={onQuote}
+            onRepost={onRepost}
             onToggleReaction={onToggleReaction}
             onToggleSave={onToggleSave}
             onAmplify={() => setAmplifyOpen(true)}
@@ -1771,6 +1816,14 @@ export function PostCard({
                   ? (target) => {
                       setFeedMediumOpen(false);
                       onQuote(target);
+                    }
+                  : undefined
+              }
+              onRepost={
+                onRepost
+                  ? (target) => {
+                      setFeedMediumOpen(false);
+                      onRepost(target);
                     }
                   : undefined
               }

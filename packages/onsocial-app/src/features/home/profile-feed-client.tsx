@@ -62,7 +62,7 @@ export function ProfileFeedClient({
     [accountId]
   );
 
-  const { openReply, openQuote, sheet } = usePersonalComposer({
+  const { openReply, openQuote, openRepost, sheet } = usePersonalComposer({
     registerPen: false,
     destinationLabel,
     onConfirmed,
@@ -70,6 +70,7 @@ export function ProfileFeedClient({
 
   const replyHandler = isConnected ? openReply : undefined;
   const quoteHandler = isConnected ? openQuote : undefined;
+  const repostHandler = isConnected ? openRepost : undefined;
 
   if (posts.length === 0) {
     return (
@@ -104,6 +105,7 @@ export function ProfileFeedClient({
         posts={posts}
         onReply={replyHandler}
         onQuote={quoteHandler}
+        onRepost={repostHandler}
         className="home-feed-list profile-feed-list"
       />
       {sheet}

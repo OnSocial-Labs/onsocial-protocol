@@ -28,6 +28,7 @@ interface PersonalFeedListProps {
   posts: PostRow[];
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
+  onRepost?: (post: PostRow) => void;
   /** After amplify tx confirms — parent may optimistic Hot re-rank. */
   onAmplified?: (post: PostRow, detail: AmplifySuccessDetail) => void;
   onEngagementError?: (message: string) => void;
@@ -47,6 +48,7 @@ export function PersonalFeedList({
   posts,
   onReply,
   onQuote,
+  onRepost,
   onAmplified,
   onEngagementError,
   className,
@@ -134,6 +136,7 @@ export function PersonalFeedList({
             }}
             onReply={onReply}
             onQuote={onQuote}
+            onRepost={onRepost}
             showGuildAttribution={showGuildAttribution}
             guildNameById={guildNameById}
           />
@@ -145,6 +148,8 @@ export function PersonalFeedList({
 
 /** Whether an optimistic row should appear in a coalesced feed list. */
 export function shouldPrependOptimisticFeedPost(post: PostRow): boolean {
+  // Guild writes belong on guild feeds, not the personal home/profile list.
+  if (post.groupId || post.isGroupContent) return false;
   // Quotes and roots belong in the feed.
   if (!post.parentPath) return true;
   // Self-replies chain under the parent when it's on-page; others hide.

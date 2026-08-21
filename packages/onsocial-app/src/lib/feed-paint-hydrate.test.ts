@@ -56,7 +56,7 @@ describe('feed-paint-hydrate', () => {
 
   it('loadPostEngagementMap batches thread/reaction/amplify counts', async () => {
     countsByPaths.mockResolvedValue({
-      'alice.near/post/p1': { replyCount: 2, quoteCount: 1 },
+      'alice.near/post/p1': { replyCount: 2, quoteCount: 1, repostCount: 0 },
     });
     statesForPosts.mockResolvedValue({
       'alice.near:p1': {
@@ -75,6 +75,7 @@ describe('feed-paint-hydrate', () => {
     expect(map['alice.near:p1']).toEqual({
       replyCount: 2,
       quoteCount: 1,
+      repostCount: 0,
       reactionCount: 5,
       viewerReacted: false,
       amplifyCount: 3,

@@ -46,6 +46,7 @@ interface FeedThreadBlockProps {
   onPollVote?: (post: PostRow, optionIndex: number) => void;
   onReply?: (post: PostRow) => void;
   onQuote?: (post: PostRow) => void;
+  onRepost?: (post: PostRow) => void;
 }
 
 interface BlockRow {
@@ -92,6 +93,7 @@ export function FeedThreadBlock({
   onPollVote,
   onReply,
   onQuote,
+  onRepost,
 }: FeedThreadBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const collapsed = !expanded && block.length > BLOCK_MAX_UNCOLLAPSED;
@@ -172,6 +174,7 @@ export function FeedThreadBlock({
           onPollVote={onPollVote}
           onReply={onReply}
           onQuote={onQuote}
+          onRepost={onRepost}
         />
       </div>
     );

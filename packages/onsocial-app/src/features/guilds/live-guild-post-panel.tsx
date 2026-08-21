@@ -7,6 +7,7 @@ import { Divider } from '@onsocial/ui';
 import { OsAppScreen } from '@/components/app/os-app-screen';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
+import { submitPersonalRepost } from '@/features/home/submit-personal-post';
 import { useRegisterComposeAction } from '@/contexts/compose-launcher-context';
 import { PostCard, PostRowSkeleton, postKey } from '@/features/home/post-card';
 import { ThreadFoldButton } from '@/features/home/thread-fold-button';
@@ -743,6 +744,27 @@ export function LiveGuildPostPanel({
         openComposerModal('quote')(post);
       }
     : undefined;
+  const repostHandler = canPostInThread
+    ? (post: PostRow) => {
+        const channel = post.channel ?? threadChannel;
+        if (!canPostInChannel(channel)) return;
+        void (async () => {
+          if (!accountId) return;
+          try {
+            const { client } = await getClient();
+            await submitPersonalRepost({
+              client,
+              accountId,
+              target: post,
+              trackTransaction,
+            });
+          } catch {
+            // toast via trackTransaction
+          }
+        })();
+      }
+    : undefined;
+
 
   /** Click-through target for a quoted post's own thread page. */
   const quotedHrefFor = (quoted: PostRow | undefined) =>
@@ -1047,6 +1069,7 @@ export function LiveGuildPostPanel({
                     onAmplifyConfirmed={confirmAmplify}
                     onReply={replyHandler}
                     onQuote={quoteHandler}
+                    onRepost={repostHandler}
                     pollTally={pollTallyFor(ancestor)}
                     pollVotePending={isPollVotePending(ancestor)}
                     onPollVote={(post, optionIndex) => {
@@ -1107,6 +1130,7 @@ export function LiveGuildPostPanel({
                   onAmplifyConfirmed={confirmAmplify}
                   onReply={replyHandler}
                   onQuote={quoteHandler}
+                    onRepost={repostHandler}
                   pollTally={pollTallyFor(conversation.root)}
                   pollVotePending={isPollVotePending(conversation.root)}
                   onPollVote={(post, optionIndex) => {
@@ -1256,6 +1280,7 @@ export function LiveGuildPostPanel({
                             onAmplifyConfirmed={confirmAmplify}
                             onReply={replyHandler}
                             onQuote={quoteHandler}
+                    onRepost={repostHandler}
                             pollTally={pollTallyFor(row.post)}
                             pollVotePending={isPollVotePending(row.post)}
                             onPollVote={(post, optionIndex) => {
@@ -1303,6 +1328,7 @@ export function LiveGuildPostPanel({
                       onAmplifyConfirmed={confirmAmplify}
                       onReply={replyHandler}
                       onQuote={quoteHandler}
+                    onRepost={repostHandler}
                       pollTally={pollTallyFor(quote)}
                       pollVotePending={isPollVotePending(quote)}
                       onPollVote={(post, optionIndex) => {

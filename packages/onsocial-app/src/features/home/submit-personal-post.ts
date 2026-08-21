@@ -313,3 +313,99 @@ export async function submitPersonalPost(args: {
     }),
   };
 }
+
+/** One-tap repost — empty-text `refType: 'repost'` write. */
+export async function submitPersonalRepost(params: {
+  client: OnSocial;
+  accountId: string;
+  target: PostRow;
+  trackTransaction: TrackTransaction;
+}): Promise<PersonalPostSubmitResult> {
+  const { client, accountId, target, trackTransaction } = params;
+  const newPostId = Date.now().toString();
+  const timestamp = Date.now();
+
+  let response;
+  let postData: {
+    text: string;
+    timestamp: number;
+    access?: 'group';
+    groupId?: string;
+    channel?: string;
+    kind?: string;
+    audiences?: string;
+  };
+
+  if (target.groupId) {
+    await assertCanReplyToGuildPost(client, accountId, target);
+    const groupId = target.groupId;
+    const feedMeta = inheritedGuildReplyFeedMeta(target);
+    postData = {
+      text: '',
+      access: 'group',
+      groupId,
+      timestamp,
+      ...feedMeta,
+    };
+    response = await client.groups.repostPost(
+      groupId,
+      {
+        author: target.accountId,
+        groupId,
+        postId: target.postId,
+      },
+      postData,
+      newPostId
+    );
+  } else {
+    postData = {
+      text: '',
+      timestamp,
+      ...(target.channel ? { channel: target.channel } : {}),
+      ...(target.kind ? { kind: target.kind } : {}),
+    };
+    response = await client.posts.repost(
+      {
+        author: target.accountId,
+        postId: target.postId,
+      },
+      postData,
+      newPostId
+    );
+  }
+
+  const confirmed = await trackTransaction({
+    txHashes: collectRelayTxHashes(response),
+    submittedMessage: txToastConfirming.reposting,
+    successMessage: txToastSuccess.repostPublished,
+    failureMessage: txToastError.repostFailed,
+  });
+
+  if (!confirmed) {
+    return { confirmed: false, optimisticPost: null };
+  }
+
+  const optimisticPost: PostRow = {
+    accountId,
+    postId: newPostId,
+    value: JSON.stringify({
+      v: 1,
+      text: '',
+      ref: postContentPath(target),
+      refType: 'repost',
+      timestamp: postData.timestamp,
+    }),
+    blockHeight: 0,
+    blockTimestamp: postData.timestamp,
+    refPath: postContentPath(target),
+    refAuthor: target.accountId,
+    refType: 'repost',
+    isGroupContent: Boolean(target.groupId),
+    ...(target.groupId ? { groupId: target.groupId } : {}),
+    ...(postData.channel ? { channel: postData.channel } : {}),
+    ...(postData.kind ? { kind: postData.kind } : {}),
+    ...(postData.audiences ? { audiences: postData.audiences } : {}),
+  };
+
+  return { confirmed: true, optimisticPost };
+}

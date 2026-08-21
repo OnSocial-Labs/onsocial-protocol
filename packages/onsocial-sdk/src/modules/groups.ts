@@ -31,6 +31,7 @@ import {
   buildGroupPostSetData,
   buildGroupPostPath,
   buildGroupQuoteSetData,
+  buildGroupRepostSetData,
   buildGroupReplySetData,
 } from './social.js';
 
@@ -324,6 +325,39 @@ export class GroupsModule {
     quoteId?: string
   ): Promise<RelayResponse> {
     return this.quote(groupId, buildGroupPostPath(ref), post, quoteId);
+  }
+
+  async repost(
+    groupId: string,
+    refPath: string,
+    post: PostData = { text: '' },
+    repostId?: string
+  ): Promise<RelayResponse> {
+    const id = repostId ?? Date.now().toString();
+    const resolved = await this._resolveMedia(post);
+    const data = buildGroupRepostSetData(groupId, refPath, resolved, id);
+    const [path, value] = Object.entries(data)[0];
+    return composeAndSign(
+      this._http,
+      this._getSession(),
+      'set',
+      {
+        path,
+        value: JSON.stringify(value),
+        targetAccount: this._coreContract,
+      },
+      'groups.repost',
+      this._broadcastOpts()
+    );
+  }
+
+  async repostPost(
+    groupId: string,
+    ref: GroupPostRef,
+    post: PostData = { text: '' },
+    repostId?: string
+  ): Promise<RelayResponse> {
+    return this.repost(groupId, buildGroupPostPath(ref), post, repostId);
   }
 
   // ── Governance ────────────────────────────────────────────────────────

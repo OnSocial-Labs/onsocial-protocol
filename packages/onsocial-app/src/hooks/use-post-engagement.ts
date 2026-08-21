@@ -13,6 +13,7 @@ const DEFAULT_REACTION_KIND = 'like';
 export interface PostEngagement {
   replyCount: number;
   quoteCount: number;
+  repostCount: number;
   reactionCount: number;
   viewerReacted: boolean;
   amplifyCount: number;
@@ -28,6 +29,7 @@ export interface EngagementMap {
 export const EMPTY_POST_ENGAGEMENT: PostEngagement = {
   replyCount: 0,
   quoteCount: 0,
+  repostCount: 0,
   reactionCount: 0,
   viewerReacted: false,
   amplifyCount: 0,
@@ -190,6 +192,7 @@ export function usePostEngagement(
         next[target.key] = {
           replyCount: counts?.replyCount ?? 0,
           quoteCount: counts?.quoteCount ?? 0,
+          repostCount: counts?.repostCount ?? 0,
           reactionCount: reactions?.counts.total ?? 0,
           viewerReacted: (reactions?.viewerReacted.length ?? 0) > 0,
           amplifyCount: amplify?.amplifyCount ?? 0,

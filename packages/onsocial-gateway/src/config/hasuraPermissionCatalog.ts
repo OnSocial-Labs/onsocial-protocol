@@ -510,6 +510,20 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
     ],
   },
   {
+    name: 'reposts',
+    columns: [
+      'repost_author',
+      'repost_id',
+      'ref_author',
+      'ref_path',
+      'ref_type',
+      'value',
+      'block_height',
+      'block_timestamp',
+      'group_id',
+    ],
+  },
+  {
     name: 'thread_reply_counts',
     columns: [
       'parent_author',
@@ -521,6 +535,10 @@ export const PUBLIC_TABLES: HasuraTableDefinition[] = [
   {
     name: 'quote_counts',
     columns: ['ref_author', 'ref_path', 'quote_count', 'last_quote_block'],
+  },
+  {
+    name: 'repost_counts',
+    columns: ['ref_author', 'ref_path', 'repost_count', 'last_repost_block'],
   },
   {
     name: 'edges_current',

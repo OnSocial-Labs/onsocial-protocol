@@ -3,7 +3,10 @@ import {
   parsePostCollectionEmbed,
   parsePostPollEmbed,
 } from '@/lib/post-display';
-import { submitPersonalPost } from '@/features/home/submit-personal-post';
+import {
+  submitPersonalPost,
+  submitPersonalRepost,
+} from '@/features/home/submit-personal-post';
 import type { OnSocial, PostRow } from '@onsocial/sdk';
 
 vi.mock('@/features/home/assert-can-reply-to-guild-post', () => ({
@@ -14,20 +17,25 @@ function mockClient(overrides: {
   create?: ReturnType<typeof vi.fn>;
   reply?: ReturnType<typeof vi.fn>;
   quote?: ReturnType<typeof vi.fn>;
+  repost?: ReturnType<typeof vi.fn>;
   replyToPost?: ReturnType<typeof vi.fn>;
   quotePost?: ReturnType<typeof vi.fn>;
+  repostPost?: ReturnType<typeof vi.fn>;
 }): OnSocial {
   return {
     posts: {
       create: overrides.create ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
       reply: overrides.reply ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
       quote: overrides.quote ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
+      repost: overrides.repost ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
     },
     groups: {
       quotePost:
         overrides.quotePost ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
       replyToPost:
         overrides.replyToPost ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
+      repostPost:
+        overrides.repostPost ?? vi.fn().mockResolvedValue({ txHash: 'tx1' }),
     },
   } as unknown as OnSocial;
 }
@@ -411,5 +419,86 @@ describe('submitPersonalPost', () => {
     });
     expect(result.optimisticPost?.value).toContain('"contentWarning":"Spoilers"');
     expect(result.optimisticPost?.value).toContain('"nsfw":true');
+  });
+});
+
+
+describe('submitPersonalRepost', () => {
+  it('writes personal empty-text repost with target feed meta', async () => {
+    const repost = vi.fn().mockResolvedValue({ txHash: 'repost-tx' });
+    const client = mockClient({ repost });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+    const target: PostRow = {
+      accountId: 'bob.testnet',
+      postId: '9',
+      value: '{"v":1,"text":"hi"}',
+      blockHeight: 1,
+      blockTimestamp: 1,
+      channel: 'general',
+      kind: 'text',
+    };
+
+    const result = await submitPersonalRepost({
+      client,
+      accountId: 'alice.testnet',
+      target,
+      trackTransaction,
+    });
+
+    expect(repost).toHaveBeenCalledOnce();
+    const [ref, postData] = repost.mock.calls[0]!;
+    expect(ref).toEqual({ author: 'bob.testnet', postId: '9' });
+    expect(postData).toMatchObject({
+      text: '',
+      channel: 'general',
+      kind: 'text',
+    });
+    expect(result.optimisticPost?.refType).toBe('repost');
+    expect(result.optimisticPost?.groupId).toBeUndefined();
+  });
+
+  it('writes guild repost with access, groupId, and inherited feed meta', async () => {
+    const repostPost = vi.fn().mockResolvedValue({ txHash: 'guild-repost-tx' });
+    const client = mockClient({ repostPost });
+    const trackTransaction = vi.fn().mockResolvedValue(true);
+    const target: PostRow = {
+      accountId: 'bob.testnet',
+      postId: '11',
+      value: '{"v":1,"text":"guild"}',
+      blockHeight: 1,
+      blockTimestamp: 1,
+      groupId: 'builders',
+      isGroupContent: true,
+      channel: 'announcements',
+      kind: 'text',
+      audiences: 'members',
+    };
+
+    const result = await submitPersonalRepost({
+      client,
+      accountId: 'alice.testnet',
+      target,
+      trackTransaction,
+    });
+
+    expect(repostPost).toHaveBeenCalledOnce();
+    const [groupId, ref, postData] = repostPost.mock.calls[0]!;
+    expect(groupId).toBe('builders');
+    expect(ref).toEqual({
+      author: 'bob.testnet',
+      groupId: 'builders',
+      postId: '11',
+    });
+    expect(postData).toMatchObject({
+      text: '',
+      access: 'group',
+      groupId: 'builders',
+      channel: 'announcements',
+      kind: 'text',
+      audiences: 'members',
+    });
+    expect(result.optimisticPost?.refType).toBe('repost');
+    expect(result.optimisticPost?.groupId).toBe('builders');
+    expect(result.optimisticPost?.isGroupContent).toBe(true);
   });
 });
