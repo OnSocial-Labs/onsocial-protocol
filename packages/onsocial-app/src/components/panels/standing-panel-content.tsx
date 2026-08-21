@@ -14,7 +14,6 @@ import {
 export function StandingPanelContent() {
   const {
     kind,
-    shellVariant,
     query,
     viewerAccountId,
     isConnected,
@@ -86,9 +85,7 @@ export function StandingPanelContent() {
                     </button>
                   ) : null}
                   {emptyState.showDiscover ? (
-                    <StandingDiscoverLink
-                      closeOverlay={shellVariant === 'overlay'}
-                    />
+                    <StandingDiscoverLink closeOverlay />
                   ) : null}
                 </div>
               ) : null}

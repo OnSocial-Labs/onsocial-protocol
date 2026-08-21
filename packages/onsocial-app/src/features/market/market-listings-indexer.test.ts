@@ -152,7 +152,7 @@ describe('indexer-first market listings', () => {
     });
   });
 
-  it('fills artistId from collection creator when listing omits mint creator', async () => {
+  it('does not fetch collections to invent artistId when listing omits mint creator', async () => {
     activeListings.mockResolvedValue([
       {
         listingKey: 'native:drop-1:2',
@@ -183,48 +183,15 @@ describe('indexer-first market listings', () => {
         updatedBlockTimestamp: Date.now(),
       },
     ]);
-    collectionsCurrentByIds.mockResolvedValue([
-      {
-        collectionId: 'drop-1',
-        creatorId: 'berrysamba.onsocial.testnet',
-        appId: null,
-        price: ONE_NEAR_YOCTO,
-        allowlistPrice: null,
-        totalSupply: 10,
-        mintedCount: 2,
-        remaining: 8,
-        startTime: null,
-        endTime: null,
-        createdAt: null,
-        mintMode: null,
-        maxPerWallet: null,
-        paused: false,
-        cancelled: false,
-        banned: false,
-        transferable: true,
-        renewable: false,
-        maxRedeems: null,
-        randomAssignment: false,
-        appCommissionBps: null,
-        title: 'Onsocial music album',
-        media: null,
-        description: null,
-        kind: 'audio',
-        metadataTemplate: null,
-        metadata: null,
-        extraJson: null,
-        royaltyJson: null,
-      },
-    ]);
 
     const page = await fetchMarketListings({ limit: 10 });
-    expect(collectionsCurrentByIds).toHaveBeenCalledWith(['drop-1']);
+    expect(collectionsCurrentByIds).not.toHaveBeenCalled();
     expect(page.items[0]).toMatchObject({
       kind: 'native',
       creatorId: 'greenghost.onsocial.testnet',
-      artistId: 'berrysamba.onsocial.testnet',
       title: 'Onsocial music album #1',
     });
+    expect(page.items[0]?.artistId).toBeUndefined();
   });
 
   it('fetchOwnedScarcesPage uses ownedBy + collectionsCurrentByIds without nft_tokens_for_owner', async () => {

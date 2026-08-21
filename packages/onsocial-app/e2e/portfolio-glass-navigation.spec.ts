@@ -4,7 +4,6 @@ import {
   expectGlassSheetHidden,
   expectGlassSheetVisible,
   expectPortfolioIdentityOrSkip,
-  expectStandingPageOrSkip,
   gotoApp,
   openDiscoverFromStandingDrawer,
   openStandingFromProfile,
@@ -19,16 +18,18 @@ test.describe('portfolio glass navigation', () => {
   // Soft-nav suite shares live profile state — run one at a time.
   test.describe.configure({ mode: 'serial' });
 
-  test('hard refresh on standing URL shows full page without visible glass', async ({
-    page,
-  }) => {
+  test('hard standing URL redirects to portfolio face', async ({ page }) => {
     await gotoApp(page, standingIncomingPath);
-    await expectStandingPageOrSkip(page, accountId);
+    await expectPortfolioIdentityOrSkip(page, accountId);
 
+    await expect(page).toHaveURL(
+      new RegExp(`${portfolioPath.replace('.', '\\.')}$`)
+    );
     await expect(
       page.locator('[data-testid="overlay-intercept-slot"]')
     ).toHaveCount(0);
     await expectGlassSheetHidden(page);
+    await expect(page.locator('.standing-page-screen')).toHaveCount(0);
   });
 
   test.describe('soft intercept from profile', () => {

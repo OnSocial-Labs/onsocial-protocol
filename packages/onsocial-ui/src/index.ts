@@ -231,6 +231,7 @@ export {
   OsGestureSheet,
   osGestureSheetBodyClassName,
   osGestureSheetPanelClassName,
+  osGestureSheetPanelCommerceClassName,
   osGestureSheetPanelTallClassName,
   type OsGestureSheetProps,
   type OsGestureSheetSize,

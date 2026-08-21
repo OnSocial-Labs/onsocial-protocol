@@ -52,7 +52,7 @@ import {
 } from '@/lib/viewer-standing-ledger';
 import { getGlobalViewerStandingLedger } from '@/lib/viewer-standing-global';
 
-export type StandingShellVariant = 'overlay' | 'page';
+export type StandingShellVariant = 'overlay';
 
 export interface StandingPanelProviderProps {
   accountId: string;
@@ -66,7 +66,7 @@ export interface StandingPanelProviderProps {
   };
   initialQuery?: string;
   initialList?: StandingInitialList | null;
-  /** Server bootstrap from intercept/full-page route (shell + list on first paint). */
+  /** Server bootstrap from intercept route (shell + list on first paint). */
   profileMetaFromServer?: boolean;
   syncUrl?: boolean;
   shellVariant?: StandingShellVariant;
@@ -212,14 +212,12 @@ export function StandingPanelProvider({
   const [metaLoaded, setMetaLoaded] = useState(
     () =>
       Boolean(portfolioSeed) ||
-      shellVariant === 'page' ||
       profileMetaFromServer ||
       hasSsrProfileMeta(accountId, displayName, avatarUrl, initialCounts)
   );
   const [countsHydrated, setCountsHydrated] = useState(
     () =>
       Boolean(portfolioSeed) ||
-      shellVariant === 'page' ||
       profileMetaFromServer ||
       hasStandingCounts(initialCounts)
   );

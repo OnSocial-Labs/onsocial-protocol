@@ -47,23 +47,6 @@ export async function expectPortfolioIdentityOrSkip(
   await expect(identity).toBeVisible({ timeout: 5_000 });
 }
 
-/** Standing hard-refresh shell, or skip when the account is missing. */
-export async function expectStandingPageOrSkip(
-  page: Page,
-  accountId: string
-): Promise<void> {
-  const missing = page.getByRole('heading', { name: 'Account not found' });
-  const standing = page.locator('.standing-page-screen');
-  await Promise.race([
-    standing.waitFor({ state: 'visible', timeout: E2E_CHROME_TIMEOUT_MS }),
-    missing.waitFor({ state: 'visible', timeout: E2E_CHROME_TIMEOUT_MS }),
-  ]).catch(() => null);
-  if (await missing.isVisible()) {
-    test.skip(true, `Portfolio account ${accountId} not found on this network`);
-  }
-  await expect(standing).toBeVisible({ timeout: 5_000 });
-}
-
 /** Visible glass sheet (soft intercept), via UI `GlassSheet` class contract. */
 export function glassSheetVisible(page: Page): Locator {
   return page.locator('.glass-sheet-root.is-visible');

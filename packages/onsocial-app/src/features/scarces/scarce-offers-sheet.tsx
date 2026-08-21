@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useId, useState } from 'react';
-import { OsGestureSheet } from '@onsocial/ui';
 import {
+  OsGestureSheet,
   OsSheetAction,
   OsSheetActions,
+  osGestureSheetPanelCommerceClassName,
 } from '@onsocial/ui';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { useAppWallet } from '@/contexts/app-wallet-context';
@@ -131,6 +132,7 @@ export function ScarceOffersSheet({
       whisper="Accept the best offer to sell this scarce."
       closeAriaLabel="Close offers"
       backdropLabel="Close offers"
+      panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={56}

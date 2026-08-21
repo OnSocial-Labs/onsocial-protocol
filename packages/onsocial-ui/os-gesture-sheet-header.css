@@ -24,6 +24,16 @@
   --signal-message: var(--mood-signal-message, #7eb8d4);
 }
 
+/*
+ * Scarce commerce (Buy / Sell / Bid / Offer / List) — money chrome stays
+ * protocol green. Mood may still wash the sheet; verb / player / love do not.
+ */
+.glass-sheet-panel.os-gesture-sheet-panel--commerce {
+  --signal-reputation: var(--protocol-green);
+  --mood-signal-reputation: var(--protocol-green);
+  --signal-reputation-rgb: 0 236 151;
+}
+
 .glass-sheet-panel.os-gesture-sheet-panel--tall,
 .glass-sheet-panel.profile-support-sheet-panel {
   max-height: min(94dvh, 46rem);

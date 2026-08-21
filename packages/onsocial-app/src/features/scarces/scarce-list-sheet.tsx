@@ -2,7 +2,7 @@
 
 import { useCallback, useId, useState } from 'react';
 import type { PostRow } from '@onsocial/sdk';
-import { OsGestureSheet } from '@onsocial/ui';
+import { OsGestureSheet, osGestureSheetPanelCommerceClassName } from '@onsocial/ui';
 import {
   CommerceSheetFooter,
   commerceFooterStatesEqual,
@@ -83,6 +83,7 @@ export function ScarceListSheet({
       backdropLabel="Close list scarce"
       keyboardOpen={keyboardOpen}
       panelStyle={panelStyle}
+      panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={zIndex}

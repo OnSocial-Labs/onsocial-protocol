@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useId, useState } from 'react';
-import { OsGestureSheet } from '@onsocial/ui';
+import { OsGestureSheet, osGestureSheetPanelCommerceClassName } from '@onsocial/ui';
 import type { OwnedScarceItem } from '@/features/market/market-listings';
 import {
   CommerceSheetFooter,
@@ -91,6 +91,7 @@ export function ScarceSellSheet({
       backdropLabel="Close sell scarce"
       keyboardOpen={keyboardOpen}
       panelStyle={panelStyle}
+      panelClassName={osGestureSheetPanelCommerceClassName}
       bodyClassName="profile-support-sheet-body"
       titleId={titleId}
       zIndex={56}

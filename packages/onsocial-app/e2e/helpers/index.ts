@@ -8,7 +8,6 @@ export {
   expectGlassSheetHidden,
   expectGlassSheetVisible,
   expectPortfolioIdentityOrSkip,
-  expectStandingPageOrSkip,
   glassSheetVisible,
   gotoApp,
   openDiscoverFromStandingDrawer,

@@ -129,7 +129,6 @@ export function ScarceClipListenSheet({
     getClientMountedSnapshot,
     getServerMountedSnapshot
   );
-
   const showLove = Boolean(onToggleLove);
   const showShare = Boolean(shareTitle?.trim());
   const showSave = Boolean(onToggleSave);

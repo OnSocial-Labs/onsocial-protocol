@@ -189,9 +189,24 @@ export function supportSheetPanelStyle(
   if (standing) style['--signal-standing'] = standing;
   if (solidarity) style['--signal-solidarity'] = solidarity;
   if (endorse) style['--signal-endorse'] = endorse;
-  if (reputation) style['--signal-reputation'] = reputation;
+  if (reputation) {
+    style['--signal-reputation'] = reputation;
+    const rgb = cssColorToSpaceSeparatedRgb(reputation);
+    if (rgb) style['--signal-reputation-rgb'] = rgb;
+  }
 
   return style;
+}
+
+/** `rgb(0 236 151)` / `rgb(0, 236, 151)` → `0 236 151` for `rgb(var(--x) / a)`. */
+function cssColorToSpaceSeparatedRgb(value: string): string | null {
+  const match = value
+    .trim()
+    .match(
+      /^rgba?\(\s*([\d.]+)\s*[,/\s]\s*([\d.]+)\s*[,/\s]\s*([\d.]+)(?:\s*[,/]\s*[\d.]+%?)?\s*\)$/i
+    );
+  if (!match) return null;
+  return `${Math.round(Number(match[1]))} ${Math.round(Number(match[2]))} ${Math.round(Number(match[3]))}`;
 }
 
 /** Ambient sheet thread without accent vars that leak into picker rows. */
