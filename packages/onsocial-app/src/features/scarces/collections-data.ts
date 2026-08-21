@@ -20,6 +20,7 @@ import {
   parseAudioFormat,
   parseDropFacets,
 } from '@/features/scarces/drop-facets';
+import { parseTicketEventFromExtra } from '@/features/scarces/ticket-event-meta';
 import { createAppOnSocialClient } from '@/lib/create-app-onsocial-client';
 
 export type { ScarceReadableMedia, WritingReleaseFormat };
@@ -127,6 +128,12 @@ export interface CollectionView {
   /** Series grouping (from collection metadata `series`), when set. */
   seriesId: string | null;
   seriesTitle: string | null;
+  /** Event validity start (ms) from metadata.extra — tickets. */
+  eventStartsAtMs: number | null;
+  /** Event validity end (ms) from metadata.extra — tickets. */
+  eventEndsAtMs: number | null;
+  /** Intentional place slug from metadata.extra — tickets. */
+  place: string | null;
   /**
    * Resale royalty map (account → bps). Empty / missing means none.
    * Stored on the collection and stamped onto minted tokens.
@@ -271,6 +278,9 @@ interface TemplateMeta {
   readables?: ScarceReadableMedia[];
   writingFormat?: WritingReleaseFormat;
   writingManifestCid?: string;
+  eventStartsAtMs?: number | null;
+  eventEndsAtMs?: number | null;
+  place?: string | null;
 }
 
 const VARIATION_PLACEHOLDER = /\{(seat_number|index|token_id)\}/;
@@ -444,6 +454,9 @@ function parseTemplate(
     let readables: ScarceReadableMedia[] | undefined;
     let writingFormat: WritingReleaseFormat | undefined;
     let writingManifestCid: string | undefined;
+    let eventStartsAtMs: number | null | undefined;
+    let eventEndsAtMs: number | null | undefined;
+    let place: string | null | undefined;
     if (typeof meta.extra === 'string' && meta.extra.trim()) {
       try {
         const extra = asRecord(JSON.parse(meta.extra));
@@ -471,6 +484,10 @@ function parseTemplate(
         if (parsedReadables.length > 0) readables = parsedReadables;
         const parsedFormat = parseWritingFormat(extra?.writingFormat);
         if (parsedFormat) writingFormat = parsedFormat;
+        const eventMeta = parseTicketEventFromExtra(extra);
+        eventStartsAtMs = eventMeta.eventStartsAtMs;
+        eventEndsAtMs = eventMeta.eventEndsAtMs;
+        place = eventMeta.place;
       } catch {
         // ignore malformed extra
       }
@@ -489,6 +506,9 @@ function parseTemplate(
       ...(readables ? { readables } : {}),
       ...(writingFormat ? { writingFormat } : {}),
       ...(writingManifestCid ? { writingManifestCid } : {}),
+      ...(eventStartsAtMs != null ? { eventStartsAtMs } : {}),
+      ...(eventEndsAtMs != null ? { eventEndsAtMs } : {}),
+      ...(place ? { place } : {}),
     };
   } catch {
     return fallback;
@@ -587,6 +607,9 @@ export function toCollectionView(
     randomAssignment: Boolean(record.random_assignment),
     seriesId: series?.id ?? null,
     seriesTitle: series?.title ?? null,
+    eventStartsAtMs: template.eventStartsAtMs ?? null,
+    eventEndsAtMs: template.eventEndsAtMs ?? null,
+    place: template.place ?? null,
     royalty: parseRoyalty(record.royalty),
     ...(template.sourcePostPath
       ? { sourcePostPath: template.sourcePostPath }

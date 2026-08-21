@@ -45,10 +45,17 @@ describe('DROP_TEMPLATES', () => {
 
   it('templates with required Advanced fields open Advanced', () => {
     for (const template of DROP_TEMPLATES) {
-      if (template.requiresAccessEnd || template.requiresEndTime) {
+      if (template.requiresAccessEnd || template.requiresEventEnd) {
         expect(template.openAdvanced).toBe(true);
       }
     }
+  });
+
+  it('tickets require an event end, not sale close', () => {
+    const ticket = DROP_TEMPLATES.find((t) => t.id === 'ticket');
+    expect(ticket?.requiresEventEnd).toBe(true);
+    expect(ticket?.requiresAccessEnd).toBeUndefined();
+    expect(ticket?.hint.toLowerCase()).not.toContain('sale close to the event');
   });
 
   it('presets max redeems as empty or a positive whole number', () => {

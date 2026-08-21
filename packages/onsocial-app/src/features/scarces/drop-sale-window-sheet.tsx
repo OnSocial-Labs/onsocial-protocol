@@ -24,7 +24,12 @@ import {
   OsSheetActions,
 } from '@onsocial/ui';
 
-export type SaleWindowField = 'opens' | 'closes' | 'access';
+export type SaleWindowField =
+  | 'opens'
+  | 'closes'
+  | 'access'
+  | 'eventStarts'
+  | 'eventEnds';
 
 const YEAR_WINDOW = 6;
 /** Visible drum rows — keep in sync with `.drop-time-drum` CSS. */
@@ -666,8 +671,17 @@ function DropSaleWindowDraftBody({
   const weeks = buildMonthWeeks(viewYear, viewMonth, weekStart);
 
   const title =
-    field === 'closes' ? 'Closes' : field === 'access' ? 'Access ends' : 'Opens';
-  const clearLabel = field === 'opens' ? 'Now' : 'No end';
+    field === 'closes'
+      ? 'Closes'
+      : field === 'access'
+        ? 'Access ends'
+        : field === 'eventStarts'
+          ? 'Event starts'
+          : field === 'eventEnds'
+            ? 'Event ends'
+            : 'Opens';
+  const clearLabel =
+    field === 'opens' || field === 'eventStarts' ? 'Clear' : 'No end';
   const presets =
     field === 'access'
       ? ([
@@ -675,7 +689,7 @@ function DropSaleWindowDraftBody({
           { label: '90 days', value: () => fromNow({ days: 90 }) },
           { label: '1 year', value: () => fromNow({ years: 1 }) },
         ] as const)
-      : field === 'closes'
+      : field === 'closes' || field === 'eventEnds'
         ? ([
             { label: '24h', value: () => fromNow({ hours: 24 }) },
             { label: '7 days', value: () => fromNow({ days: 7 }) },
@@ -718,11 +732,19 @@ function DropSaleWindowDraftBody({
       ? 'Access end must be in the future.'
       : field === 'closes'
         ? 'Close time must be in the future.'
-        : 'Open time must be in the future. Use Now to start immediately.';
+        : field === 'eventEnds'
+          ? 'Event end must be in the future.'
+          : field === 'eventStarts'
+            ? 'Event start must be in the future.'
+            : 'Open time must be in the future. Use Now to start immediately.';
   const draftError = belowMin
-    ? 'Must be after the open time.'
+    ? field === 'eventEnds'
+      ? 'Must be after the event start.'
+      : 'Must be after the open time.'
     : aboveMax
-      ? 'Must be before the close time.'
+      ? field === 'eventStarts'
+        ? 'Must be before the event end.'
+        : 'Must be before the close time.'
       : pastInvalid
         ? pastError
         : null;

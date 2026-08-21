@@ -45,6 +45,9 @@ function drop(
     randomAssignment: false,
     seriesId: 'ink',
     seriesTitle: 'Ink',
+    eventStartsAtMs: null,
+    eventEndsAtMs: null,
+    place: null,
     royalty: null,
     ...rest,
   };

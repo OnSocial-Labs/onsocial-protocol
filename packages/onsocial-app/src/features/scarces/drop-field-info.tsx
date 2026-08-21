@@ -14,6 +14,8 @@ export type DropFieldInfoKey =
   | 'series'
   | 'supplyPinned'
   | 'saleWindow'
+  | 'eventWindow'
+  | 'eventPlace'
   | 'transferable'
   | 'renewable'
   | 'accessEnds'
@@ -79,6 +81,18 @@ const DROP_FIELD_INFO: Record<
     title: 'Sale window',
     summary: 'When collectors can mint — opens now by default, no end until sold out.',
     detail: 'Tap Opens or Closes to set a time. Clear with ✕. Allowlists need Opens set to mint early.',
+  },
+  eventWindow: {
+    title: 'Event window',
+    summary: 'When the event runs — separate from when tickets are for sale.',
+    detail:
+      'Event ends is required for tickets. Starts is optional. Sale window (below) is only when fans can buy.',
+  },
+  eventPlace: {
+    title: 'Place',
+    summary: 'Optional venue or event label — city, festival, or room name.',
+    detail:
+      'Public intentional tag (not GPS). Same style as post places — e.g. Lisbon or ETH Denver.',
   },
   transferable: {
     title: 'Transferable',

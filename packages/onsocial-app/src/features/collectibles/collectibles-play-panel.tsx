@@ -104,6 +104,9 @@ function collectionViewFromOfflineAlbum(
     randomAssignment: false,
     seriesId: null,
     seriesTitle: null,
+    eventStartsAtMs: null,
+    eventEndsAtMs: null,
+    place: null,
     royalty: null,
   };
 }

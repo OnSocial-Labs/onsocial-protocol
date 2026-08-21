@@ -16,6 +16,7 @@ import {
 import { type CollectionRedeemAttendance } from '@/features/scarces/ticket-attendance';
 import { CollectionDoorLogSheet } from '@/features/scarces/collection-door-log-sheet';
 import type { PassStaffVoice } from '@/features/scarces/ticket-pass-payload';
+import { ticketEventPlaceLabel } from '@/features/scarces/ticket-event-meta';
 import {
   formatFutureRelativeTime,
   formatMarketRelativeTime,
@@ -23,7 +24,7 @@ import {
 import { collectionPath } from '@/lib/app-routes';
 import { formatPageDrawerJoinedFullLabel } from '@/lib/page-drawer-meta';
 
-function scheduleLines(
+function saleScheduleLines(
   view: CollectionView,
   nowMs: number
 ): {
@@ -45,13 +46,13 @@ function scheduleLines(
   let next: string | null = null;
   if (status === 'upcoming' && view.startTimeMs) {
     const rel = formatFutureRelativeTime(view.startTimeMs, nowMs);
-    next = rel ? `Opens ${rel}` : null;
+    next = rel ? `Sale opens ${rel}` : null;
   } else if (status === 'live' && view.endTimeMs) {
     const rel = formatFutureRelativeTime(view.endTimeMs, nowMs);
-    next = rel ? `Closes ${rel}` : null;
+    next = rel ? `Sale closes ${rel}` : null;
   } else if (status === 'ended' && view.endTimeMs) {
     const rel = formatMarketRelativeTime(view.endTimeMs, nowMs);
-    next = rel ? `Closed ${rel}` : null;
+    next = rel ? `Sale closed ${rel}` : null;
   }
 
   return {
@@ -60,6 +61,38 @@ function scheduleLines(
     closesLabel: status === 'ended' ? 'Closed' : 'Closes',
     next,
   };
+}
+
+function eventScheduleLines(
+  view: CollectionView,
+  nowMs: number
+): {
+  starts: string | null;
+  ends: string | null;
+  next: string | null;
+} {
+  const starts =
+    view.eventStartsAtMs != null
+      ? formatPageDrawerJoinedFullLabel(view.eventStartsAtMs)
+      : null;
+  const ends =
+    view.eventEndsAtMs != null
+      ? formatPageDrawerJoinedFullLabel(view.eventEndsAtMs)
+      : null;
+
+  let next: string | null = null;
+  if (view.eventStartsAtMs != null && view.eventStartsAtMs > nowMs) {
+    const rel = formatFutureRelativeTime(view.eventStartsAtMs, nowMs);
+    next = rel ? `Starts ${rel}` : null;
+  } else if (view.eventEndsAtMs != null && view.eventEndsAtMs > nowMs) {
+    const rel = formatFutureRelativeTime(view.eventEndsAtMs, nowMs);
+    next = rel ? `Ends ${rel}` : null;
+  } else if (view.eventEndsAtMs != null && view.eventEndsAtMs <= nowMs) {
+    const rel = formatMarketRelativeTime(view.eventEndsAtMs, nowMs);
+    next = rel ? `Ended ${rel}` : null;
+  }
+
+  return { starts, ends, next };
 }
 
 /**
@@ -97,8 +130,12 @@ export function TicketDoorEventSheet({
   }, [onClose]);
 
   const [nowMs] = useState(() => Date.now());
-  const schedule = scheduleLines(view, nowMs);
+  const sale = saleScheduleLines(view, nowMs);
+  const event = eventScheduleLines(view, nowMs);
   const status = deriveCollectionStatus(view, nowMs);
+  const placeLabel = ticketEventPlaceLabel(view.place);
+  const hasEvent =
+    Boolean(event.starts) || Boolean(event.ends) || Boolean(placeLabel);
   const maxRedeems = attendance?.maxRedeems ?? view.maxRedeems;
   const redeemVoice = voice === 'redeem';
   const perPass =
@@ -114,12 +151,6 @@ export function TicketDoorEventSheet({
   const minted = attendance?.minted ?? view.minted;
   const supply = attendance?.totalSupply || view.totalSupply;
   const dropHref = collectionPath(view.collectionId);
-  const attendanceSuffix =
-    attendance && attendance.collectionId === view.collectionId
-      ? redeemVoice
-        ? `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} redeemed`
-        : `${Math.min(attendance.minted, attendance.fullyRedeemedCount)} of ${attendance.minted} in`
-      : null;
 
   return (
     <>
@@ -180,26 +211,36 @@ export function TicketDoorEventSheet({
             />
           </SheetFactSection>
 
-          <SheetFactSection title="Drop">
+          {hasEvent ? (
+            <SheetFactSection title="Event">
+              {placeLabel ? (
+                <SheetFactRow label="Place" value={placeLabel} />
+              ) : null}
+              {event.starts ? (
+                <SheetFactRow label="Starts" value={event.starts} />
+              ) : null}
+              {event.ends ? (
+                <SheetFactRow label="Ends" value={event.ends} />
+              ) : null}
+              {event.next ? <SheetFactCopy>{event.next}</SheetFactCopy> : null}
+            </SheetFactSection>
+          ) : null}
+
+          <SheetFactSection title="Sale">
             <SheetFactRow
               label="Status"
               value={collectionStatusLabel(status)}
             />
-            {schedule.opens ? (
-              <SheetFactRow label="Opens" value={schedule.opens} />
+            {sale.opens ? (
+              <SheetFactRow label="Opens" value={sale.opens} />
             ) : null}
-            {schedule.closes ? (
-              <SheetFactRow
-                label={schedule.closesLabel}
-                value={schedule.closes}
-              />
+            {sale.closes ? (
+              <SheetFactRow label={sale.closesLabel} value={sale.closes} />
             ) : null}
-            {!schedule.opens && !schedule.closes ? (
-              <SheetFactRow label="Schedule" value="No timed window" />
+            {!sale.opens && !sale.closes ? (
+              <SheetFactRow label="Window" value="Open until sold out" />
             ) : null}
-            {schedule.next ? (
-              <SheetFactCopy>{schedule.next}</SheetFactCopy>
-            ) : null}
+            {sale.next ? <SheetFactCopy>{sale.next}</SheetFactCopy> : null}
             <SheetFactRow
               label="Drop"
               value={
@@ -220,9 +261,7 @@ export function TicketDoorEventSheet({
         open={doorLogOpen}
         onClose={() => setDoorLogOpen(false)}
         collectionId={view.collectionId}
-        dropTitle={view.title}
         voice={voice}
-        attendanceLine={attendanceSuffix}
         revision={logRevision}
       />
     </>

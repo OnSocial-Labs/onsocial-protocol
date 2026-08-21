@@ -123,6 +123,11 @@ import {
   localDateTimeToNs,
   type SaleWindowField,
 } from '@/features/scarces/drop-sale-window-sheet';
+import { ticketEventExtraFields } from '@/features/scarces/ticket-event-meta';
+import {
+  normalizePlaceSlug,
+  placeLabel,
+} from '@/lib/post-place';
 import {
   buildRoyaltyMap,
   DEFAULT_ROYALTY_BPS,
@@ -218,6 +223,9 @@ export function CreateDropPanel() {
   const [priceInput, setPriceInput] = useState('1');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [eventStarts, setEventStarts] = useState('');
+  const [eventEnds, setEventEnds] = useState('');
+  const [placeDraft, setPlaceDraft] = useState('');
   const [accessEnds, setAccessEnds] = useState('');
   const [scheduleField, setScheduleField] = useState<SaleWindowField | null>(
     null
@@ -463,6 +471,11 @@ export function CreateDropPanel() {
         setMaxRedeemsInput(next.presets.maxRedeems);
         if (!next.presets.renewable) setAccessEnds('');
       }
+      if (next.id !== 'ticket') {
+        setEventStarts('');
+        setEventEnds('');
+        setPlaceDraft('');
+      }
       if (next.openAdvanced) setShowAdvanced(true);
       if (next.id === 'audio') {
         setArtMode('single');
@@ -482,6 +495,7 @@ export function CreateDropPanel() {
 
   const isAudio = templateId === 'audio';
   const isWriting = templateId === 'writing';
+  const isTicket = templateId === 'ticket';
   const createFacetMedium = isAudio
     ? ('audio' as const)
     : isWriting
@@ -1093,6 +1107,22 @@ export function CreateDropPanel() {
       },
     ];
 
+    if (isTicket && (eventStarts || eventEnds)) {
+      rows.push({
+        label: 'Event',
+        value: `${eventStarts ? formatScheduleLabel(eventStarts) : '—'} → ${
+          eventEnds ? formatScheduleLabel(eventEnds) : '—'
+        }`,
+      });
+    }
+    const placeSlug = normalizePlaceSlug(placeDraft);
+    if (isTicket && placeSlug) {
+      rows.push({
+        label: 'Place',
+        value: placeLabel(placeSlug) ?? placeSlug,
+      });
+    }
+
     if (appId) {
       rows.push({ label: 'Hub', value: appId });
     }
@@ -1161,6 +1191,10 @@ export function CreateDropPanel() {
     resolvedRoyaltyShares.length,
     startTime,
     endTime,
+    eventStarts,
+    eventEnds,
+    placeDraft,
+    isTicket,
     seriesName,
     accessEnds,
     maxRedeemsInput,
@@ -1255,10 +1289,8 @@ export function CreateDropPanel() {
       setError('Add a title, cover art, and supply to start the drop.');
       return;
     }
-    if (template.requiresEndTime && !endTime) {
-      setError(
-        'Set when sales close in Sale window — tickets need an event date.'
-      );
+    if (template.requiresEventEnd && !eventEnds) {
+      setError('Set when the event ends — tickets need an event window.');
       return;
     }
     if (template.requiresAccessEnd && !(renewable && accessEnds)) {
@@ -1268,9 +1300,14 @@ export function CreateDropPanel() {
 
     const startNs = localDateTimeToNs(startTime);
     const endNs = localDateTimeToNs(endTime);
+    const eventStartsMs = eventStarts
+      ? localDateTimeToMs(eventStarts)
+      : undefined;
+    const eventEndsMs = eventEnds ? localDateTimeToMs(eventEnds) : undefined;
     const expiresAtMs =
       renewable && accessEnds ? localDateTimeToMs(accessEnds) : undefined;
     const nowNs = BigInt(Date.now()) * 1_000_000n;
+    const nowMs = Date.now();
     if (startNs && BigInt(startNs) <= nowNs) {
       setError('The open time must be in the future. Clear it for Now.');
       return;
@@ -1283,7 +1320,23 @@ export function CreateDropPanel() {
       setError('The close time must be after the open time.');
       return;
     }
-    if (expiresAtMs != null && expiresAtMs <= Date.now()) {
+    if (eventStartsMs != null && eventStartsMs <= nowMs) {
+      setError('Event start must be in the future.');
+      return;
+    }
+    if (eventEndsMs != null && eventEndsMs <= nowMs) {
+      setError('Event end must be in the future.');
+      return;
+    }
+    if (
+      eventStartsMs != null &&
+      eventEndsMs != null &&
+      eventEndsMs <= eventStartsMs
+    ) {
+      setError('Event end must be after event start.');
+      return;
+    }
+    if (expiresAtMs != null && expiresAtMs <= nowMs) {
       setError('Access end must be in the future.');
       return;
     }
@@ -1345,6 +1398,8 @@ export function CreateDropPanel() {
     collageImages.length,
     template,
     endTime,
+    eventEnds,
+    eventStarts,
     renewable,
     accessEnds,
     startTime,
@@ -1562,6 +1617,10 @@ export function CreateDropPanel() {
 
       const startNs = localDateTimeToNs(startTime);
       const endNs = localDateTimeToNs(endTime);
+      const eventStartsMs = eventStarts
+        ? localDateTimeToMs(eventStarts)
+        : undefined;
+      const eventEndsMs = eventEnds ? localDateTimeToMs(eventEnds) : undefined;
       const expiresAtMs =
         renewable && accessEnds ? localDateTimeToMs(accessEnds) : undefined;
       const perWallet = Number.parseInt(maxPerWallet, 10);
@@ -1686,6 +1745,13 @@ export function CreateDropPanel() {
                     chapterCount: writingPin.chapterCount,
                   }
                 : {}),
+              ...(isTicket
+                ? ticketEventExtraFields({
+                    eventStartsAtMs: eventStartsMs,
+                    eventEndsAtMs: eventEndsMs,
+                    place: placeDraft,
+                  })
+                : {}),
               ...dropFacetsExtraFields(facets, createFacetMedium),
             },
             ...(collectionMetadata ? { metadata: collectionMetadata } : {}),
@@ -1775,6 +1841,10 @@ export function CreateDropPanel() {
     templateId,
     startTime,
     endTime,
+    eventStarts,
+    eventEnds,
+    placeDraft,
+    isTicket,
     renewable,
     accessEnds,
     maxPerWallet,
@@ -2764,6 +2834,103 @@ export function CreateDropPanel() {
 
         {showAdvanced ? (
           <>
+            {isTicket ? (
+              <>
+                <div className="guild-field">
+                  <DropFieldLabel
+                    label="Event window"
+                    infoKey="eventWindow"
+                    onOpenInfo={openFieldInfo}
+                  />
+                  <div className="drop-schedule-pair">
+                    <div
+                      className={`drop-schedule-cell${
+                        eventStarts ? ' has-value' : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className="drop-schedule-cell-main"
+                        disabled={pending}
+                        onClick={() => setScheduleField('eventStarts')}
+                      >
+                        <span className="drop-schedule-cell-label">Starts</span>
+                        <span className="drop-schedule-cell-value">
+                          {eventStarts
+                            ? formatScheduleLabel(eventStarts)
+                            : 'Optional'}
+                        </span>
+                      </button>
+                      {eventStarts ? (
+                        <button
+                          type="button"
+                          className="drop-schedule-cell-clear"
+                          disabled={pending}
+                          aria-label="Clear event start"
+                          onClick={() => setEventStarts('')}
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
+                    <div
+                      className={`drop-schedule-cell${
+                        eventEnds ? ' has-value' : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className="drop-schedule-cell-main"
+                        disabled={pending}
+                        onClick={() => setScheduleField('eventEnds')}
+                      >
+                        <span className="drop-schedule-cell-label">Ends</span>
+                        <span className="drop-schedule-cell-value">
+                          {eventEnds
+                            ? formatScheduleLabel(eventEnds)
+                            : 'Required'}
+                        </span>
+                      </button>
+                      {eventEnds ? (
+                        <button
+                          type="button"
+                          className="drop-schedule-cell-clear"
+                          disabled={pending}
+                          aria-label="Clear event end"
+                          onClick={() => setEventEnds('')}
+                        >
+                          ✕
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <label className="guild-field" htmlFor={fieldId('place')}>
+                  <DropFieldLabel
+                    label="Place"
+                    infoKey="eventPlace"
+                    onOpenInfo={openFieldInfo}
+                  />
+                  <input
+                    id={fieldId('place')}
+                    className={osFieldBorderedClassName}
+                    value={placeDraft}
+                    disabled={pending}
+                    maxLength={64}
+                    placeholder="Lisbon, ETH Denver…"
+                    autoComplete="off"
+                    onChange={(event) => setPlaceDraft(event.target.value)}
+                  />
+                  {normalizePlaceSlug(placeDraft) ? (
+                    <span className="guild-composer-place-hint" aria-hidden>
+                      {placeLabel(normalizePlaceSlug(placeDraft)!)}
+                    </span>
+                  ) : null}
+                </label>
+              </>
+            ) : null}
+
             <div className="guild-field">
               <DropFieldLabel
                 label="Sale window"
@@ -3055,16 +3222,32 @@ export function CreateDropPanel() {
             ? endTime
             : scheduleField === 'access'
               ? accessEnds
-              : startTime
+              : scheduleField === 'eventStarts'
+                ? eventStarts
+                : scheduleField === 'eventEnds'
+                  ? eventEnds
+                  : startTime
         }
         minValue={
-          scheduleField === 'closes' && startTime ? startTime : undefined
+          scheduleField === 'closes' && startTime
+            ? startTime
+            : scheduleField === 'eventEnds' && eventStarts
+              ? eventStarts
+              : undefined
         }
-        maxValue={scheduleField === 'opens' && endTime ? endTime : undefined}
+        maxValue={
+          scheduleField === 'opens' && endTime
+            ? endTime
+            : scheduleField === 'eventStarts' && eventEnds
+              ? eventEnds
+              : undefined
+        }
         onClose={() => setScheduleField(null)}
         onChange={(next) => {
           if (scheduleField === 'closes') setEndTime(next);
           else if (scheduleField === 'access') setAccessEnds(next);
+          else if (scheduleField === 'eventStarts') setEventStarts(next);
+          else if (scheduleField === 'eventEnds') setEventEnds(next);
           else setStartTime(next);
         }}
       />
