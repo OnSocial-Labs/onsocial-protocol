@@ -1,7 +1,10 @@
 import { cache } from 'react';
-import type { MaterialisedProfile, ResolvedProfileMedia } from '@onsocial/sdk';
+import {
+  profileLocationFromMaterialised,
+  type MaterialisedProfile,
+  type ResolvedProfileMedia,
+} from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
-import { profileLocationFromMaterialised } from '@/lib/profile-location';
 
 /** Indexed profile shell for SSR — mirrors Portal's `loadPortalProfileShell`. */
 export interface AppProfileShell {

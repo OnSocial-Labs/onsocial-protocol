@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import {
+  PROFILE_LOCATION_MAX,
+  normalizeProfileLocationInput,
+  profileLocationFromMaterialised,
+  sanitizeProfileLocationDraft,
+  type MaterialisedProfile,
+} from '@onsocial/sdk';
 import {
   OsSheetAction,
   OsSheetActions,
@@ -39,12 +45,6 @@ import {
   type ProfileLinkKind,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import {
-  PROFILE_LOCATION_MAX,
-  normalizeProfileLocationInput,
-  profileLocationFromMaterialised,
-  sanitizeProfileLocationDraft,
-} from '@/lib/profile-location';
 import { fadeMotion, scaleFadeMotion } from '@/lib/motion';
 import {
   reportWalletActionFailure,

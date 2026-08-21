@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { MaterialisedProfile, PageConfig } from '@onsocial/sdk';
+import {
+  normalizeProfileLocationInput,
+  type MaterialisedProfile,
+  type PageConfig,
+} from '@onsocial/sdk';
 import { useAppWallet } from '@/contexts/app-wallet-context';
 import { useAppOnSocialClient } from '@/hooks/use-app-onsocial-client';
 import { creditAppPlatformReward } from '@/lib/app-platform-rewards';
@@ -20,7 +24,6 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import { normalizeProfileLocationInput } from '@/lib/profile-location';
 import { probeNearAccountExists } from '@/hooks/use-near-account-status';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 

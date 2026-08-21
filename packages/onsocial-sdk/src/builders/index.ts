@@ -17,6 +17,12 @@ export { applyFeedMeta } from './_shared.js';
 export { buildProfileSetData } from './profile.js';
 export { profileMetaFromBio, type ProfileBioMeta } from './profile-meta.js';
 export {
+  PROFILE_LOCATION_MAX,
+  normalizeProfileLocationInput,
+  profileLocationFromMaterialised,
+  sanitizeProfileLocationDraft,
+} from './profile-location.js';
+export {
   autolinkDisplayHost,
   isAutolinkableHostname,
   normalizeAutolinkUrl,

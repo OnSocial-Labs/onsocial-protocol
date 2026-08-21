@@ -15,10 +15,12 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { HeartHandshake, PenLine, User } from 'lucide-react';
 import { ProfileSocialLinkIcons } from '@/components/profile-link-icons';
 import { ProfileBioRichText } from '@/components/profile-bio-rich-text';
-import type { MaterialisedProfile } from '@onsocial/sdk';
+import {
+  profileLocationFromMaterialised,
+  type MaterialisedProfile,
+} from '@onsocial/sdk';
 import type { PortalProfileShell } from '@/lib/portal-profile-server';
 import { useProfile } from '@/contexts/profile-context';
-import { profileLocationFromMaterialised } from '@/lib/profile-location';
 import type {
   EndorsementSubmitInput,
   EndorsementWriteResult,

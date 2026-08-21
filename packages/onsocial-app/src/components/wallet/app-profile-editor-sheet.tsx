@@ -16,6 +16,10 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  PROFILE_LOCATION_MAX,
+  sanitizeProfileLocationDraft,
+} from '@onsocial/sdk';
+import {
   DiscardConfirmSheet,
   OsSheetAction,
   OsSheetActions,
@@ -47,10 +51,6 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
-import {
-  PROFILE_LOCATION_MAX,
-  sanitizeProfileLocationDraft,
-} from '@/lib/profile-location';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 import { useAppTransactionFeedback } from '@/contexts/app-transaction-feedback-context';
 import { nearExplorerTxHref } from '@/lib/app-config';
