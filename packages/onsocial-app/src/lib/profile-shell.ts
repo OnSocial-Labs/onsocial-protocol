@@ -1,11 +1,14 @@
 import { cache } from 'react';
 import type { MaterialisedProfile, ResolvedProfileMedia } from '@onsocial/sdk';
 import { createServerOnSocialClient } from '@/lib/create-server-onsocial-client';
+import { profileLocationFromMaterialised } from '@/lib/profile-location';
 
 /** Indexed profile shell for SSR — mirrors Portal's `loadPortalProfileShell`. */
 export interface AppProfileShell {
   accountId: string;
   name: string | null;
+  /** Coarse “based in” label (city / region). Not GPS. */
+  location: string | null;
   bio: string | null;
   avatarUrl: string | null;
   bannerUrl: string | null;
@@ -28,9 +31,11 @@ export const loadProfileShell = cache(
         return null;
       }
 
+      const location = profileLocationFromMaterialised(profile);
       return {
         accountId,
         name: profile.name ?? null,
+        location: location || null,
         bio: profile.bio ?? null,
         avatarUrl: os.profiles.avatarUrl(profile),
         bannerUrl: os.profiles.bannerUrl(profile),

@@ -9,6 +9,7 @@ export function isProfileEditorContentDirty(input: {
   snapshot: ProfileEditorSnapshot;
   linksFromSnapshot: ProfileLinksInput;
   name: string;
+  location: string;
   bio: string;
   links: ProfileLinksInput;
   avatarFile: File | null;
@@ -32,6 +33,10 @@ export function isProfileEditorContentDirty(input: {
     return true;
   }
 
+  if (input.location.trim() !== input.snapshot.location.trim()) {
+    return true;
+  }
+
   if (input.bio.trim() !== input.snapshot.bio.trim()) {
     return true;
   }
@@ -51,6 +56,7 @@ export function isProfileEditorDirty(input: {
   snapshot: ProfileEditorSnapshot;
   linksFromSnapshot: ProfileLinksInput;
   name: string;
+  location: string;
   bio: string;
   links: ProfileLinksInput;
   linkNotes: Record<string, string>;

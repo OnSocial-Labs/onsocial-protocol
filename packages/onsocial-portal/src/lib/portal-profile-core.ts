@@ -29,6 +29,7 @@ export interface PortalProfileCorePayload {
 const PROFILE_FIELDS_TO_DISPLAY = new Set([
   'name',
   'bio',
+  'location',
   'avatar',
   'banner',
   'links',
@@ -37,6 +38,7 @@ const PROFILE_FIELDS_TO_DISPLAY = new Set([
 const JOINED_PROFILE_FIELDS = new Set([
   'name',
   'bio',
+  'location',
   'avatar',
   'banner',
   'links',
@@ -46,6 +48,7 @@ function profileFieldLabel(field: string): string {
   const labels: Record<string, string> = {
     name: 'Name',
     bio: 'Bio',
+    location: 'Location',
     avatar: 'Avatar',
     banner: 'Banner',
     links: 'Links',

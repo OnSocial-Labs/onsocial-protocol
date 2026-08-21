@@ -18,6 +18,7 @@ import { ProfileBioRichText } from '@/components/profile-bio-rich-text';
 import type { MaterialisedProfile } from '@onsocial/sdk';
 import type { PortalProfileShell } from '@/lib/portal-profile-server';
 import { useProfile } from '@/contexts/profile-context';
+import { profileLocationFromMaterialised } from '@/lib/profile-location';
 import type {
   EndorsementSubmitInput,
   EndorsementWriteResult,
@@ -803,6 +804,13 @@ function AccountFactsModal({
                     />
                     <ModalFactRow
                       dense
+                      label="Location"
+                      value={fieldStatus(
+                        profileLocationFromMaterialised(profile) || undefined
+                      )}
+                    />
+                    <ModalFactRow
+                      dense
                       label="Avatar"
                       value={fieldStatus(profile?.avatar)}
                     />
@@ -1007,6 +1015,7 @@ export function ProfileModal({
   useBodyScrollLock(!isPage && active, scrollRef);
   const title = displayName(profile, accountId);
   const bio = profile?.bio?.trim();
+  const location = profileLocationFromMaterialised(profile) || null;
   const profileLinks = profileLinkDisplayItems(profile?.links);
   const profileLinksFooter =
     profileLinks.length > 0 ? (
@@ -1614,6 +1623,11 @@ export function ProfileModal({
                   <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/55">
                     @{accountId}
                   </p>
+                  {location ? (
+                    <p className="min-w-0 truncate portal-type-body-sm text-muted-foreground/45">
+                      {location}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 

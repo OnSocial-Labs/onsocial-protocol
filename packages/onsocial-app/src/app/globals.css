@@ -6303,6 +6303,17 @@ a.os-surface-row {
     color: var(--portfolio-meta-color);
   }
 
+  .portfolio-location {
+    margin: 0.2rem 0 0;
+    max-width: min(100%, 20rem);
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    color: var(--portfolio-meta-color);
+    opacity: 0.82;
+    overflow-wrap: anywhere;
+  }
+
   .portfolio-bio {
     margin: 0.35rem 0 0;
     width: 100%;
@@ -6320,7 +6331,9 @@ a.os-surface-row {
   .portfolio-frame[data-mood] .portfolio-bio,
   .profile-edit-slide[data-mood] .account-editor-bio,
   .portfolio-frame[data-mood] .portfolio-handle,
-  .profile-edit-slide[data-mood] .account-editor-handle {
+  .profile-edit-slide[data-mood] .account-editor-handle,
+  .portfolio-frame[data-mood] .portfolio-location,
+  .profile-edit-slide[data-mood] .account-editor-location {
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
   }
 
@@ -13847,6 +13860,27 @@ a.os-surface-row {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  }
+
+  .account-editor-location {
+    display: block;
+    width: 100%;
+    max-width: min(100%, 20rem);
+    margin: 0.15rem auto 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: center;
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    color: rgb(var(--fg-rgb) / 0.48);
+    outline: none;
+  }
+
+  .account-editor-location::placeholder {
+    color: rgb(var(--fg-rgb) / 0.32);
   }
 
   .account-editor-handle-hint {

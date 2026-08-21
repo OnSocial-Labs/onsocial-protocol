@@ -244,6 +244,11 @@ export interface ProfileData {
   name?: string;
   bio?: string;
   /**
+   * Coarse public “based in” label (city / region). Not GPS.
+   * Prefer post `places[]` for event/venue tags.
+   */
+  location?: string | null;
+  /**
    * Profile avatar. Accepts a CID/URL string, OR a `File`/`Blob` which the
    * SDK uploads to IPFS via the gateway and replaces with `ipfs://<cid>`
    * before writing to the contract. Pass `null` to clear.

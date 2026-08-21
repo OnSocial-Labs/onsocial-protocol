@@ -20,6 +20,7 @@ import {
   profileLinksInputFromRecord,
   type ProfileLinksInput,
 } from '@/lib/profile-links';
+import { normalizeProfileLocationInput } from '@/lib/profile-location';
 import { probeNearAccountExists } from '@/hooks/use-near-account-status';
 import { isWalletUserCancellation } from '@/lib/wallet-errors';
 
@@ -27,6 +28,7 @@ export interface ProfileEditorSnapshot {
   accountId: string;
   hasProfile: boolean;
   name: string;
+  location: string;
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
@@ -37,6 +39,7 @@ export interface ProfileEditorSnapshot {
 
 export interface ProfileEditorSaveInput {
   name: string;
+  location: string;
   bio: string;
   avatar: File | null;
   banner: File | null;
@@ -51,6 +54,7 @@ export interface ProfileEditorSaveInput {
 
 export interface ProfileEditorSaveResult {
   name: string;
+  location: string;
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
@@ -146,6 +150,7 @@ export function useAppProfileEditor(
         throw new Error('Profile name is required.');
       }
 
+      const location = normalizeProfileLocationInput(input.location);
       const snapshotNow = snapshot;
       if (!snapshotNow || snapshotNow.accountId !== accountId) {
         throw new Error('Could not load profile.');
@@ -160,6 +165,7 @@ export function useAppProfileEditor(
         snapshot: snapshotNow,
         linksFromSnapshot: profileLinksInputFromRecord(snapshotNow.links),
         name,
+        location,
         bio: input.bio,
         links: input.links,
         avatarFile: input.avatar,
@@ -171,6 +177,7 @@ export function useAppProfileEditor(
       if (!contentDirty && !notesDirty) {
         return {
           name,
+          location,
           bio: input.bio.trim(),
           avatarUrl: snapshotNow.avatarUrl,
           bannerUrl: snapshotNow.bannerUrl,
@@ -212,6 +219,7 @@ export function useAppProfileEditor(
           const payload: Parameters<typeof client.profiles.update>[0] = {
             name,
             bio: input.bio.trim(),
+            location: location || null,
           };
 
           if (input.avatar) {
@@ -274,6 +282,7 @@ export function useAppProfileEditor(
 
         return {
           name,
+          location,
           bio: input.bio.trim(),
           avatarUrl,
           bannerUrl,

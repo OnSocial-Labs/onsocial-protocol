@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
       accountId,
       hasProfile: Boolean(shell?.name?.trim()),
       name: shell?.name ?? '',
+      location: shell?.location ?? '',
       bio: shell?.bio ?? '',
       avatarUrl: shell?.avatarUrl ?? null,
       bannerUrl: shell?.bannerUrl ?? null,
